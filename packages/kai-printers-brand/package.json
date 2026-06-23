@@ -1,0 +1,14 @@
+{
+  "name": "@kaistore/kai-printers-brand",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "generate": "node scripts/generate-android-icons.mjs",
+    "generate:android": "node scripts/generate-android-icons.mjs --target android",
+    "generate:all": "node scripts/generate-android-icons.mjs --target all"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.5"
+  }
+}

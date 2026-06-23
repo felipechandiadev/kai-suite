@@ -1,5 +1,10 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useId } from "react";
 import { Eye, EyeOff } from 'lucide-react';
+import { useCoarsePointer } from "@/shared/hooks/useCoarsePointer";
+import {
+  resolveTouchInputMode,
+  shouldUseTextInputForNumericType,
+} from "./resolve-touch-input-mode";
 
 import "./textfield.css";
 
@@ -123,6 +128,7 @@ export const TextField: React.FC<TextFieldProps> = ({
   ...restInputProps
 }) => {
   const isCompact = density === "compact";
+  const isCoarsePointer = useCoarsePointer();
   const stableFieldId = useId();
   const inputDomId = name?.trim() ? name : `fs-tf-${stableFieldId.replace(/:/g, "")}`;
   const [focused, setFocused] = useState(false);
@@ -500,6 +506,21 @@ export const TextField: React.FC<TextFieldProps> = ({
   const useTextInputForSelectOnFocusNumber =
     selectOnFocusEnabled && type === "number";
 
+  const useTextInputForNumericKeyboard = shouldUseTextInputForNumericType(
+    type,
+    isCoarsePointer,
+    useTextInputForSelectOnFocusNumber,
+  );
+
+  const resolvedInputMode = resolveTouchInputMode({
+    type,
+    inputMode,
+    isCoarsePointer,
+    allowDecimalComma,
+    allowLetters,
+    step,
+  });
+
   const handleFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFocused(true);
     if (selectOnFocusEnabled) {
@@ -624,9 +645,9 @@ export const TextField: React.FC<TextFieldProps> = ({
             ref={inputRef}
             type={
               type === "password" ? (showPassword ? "text" : "password") :
-              type === "datePicker" ? "number" :
               type === "dni" || type === "currency" ? "text" :
-              useTextInputForSelectOnFocusNumber ? "text" :
+              useTextInputForNumericKeyboard ? "text" :
+              type === "datePicker" ? "number" :
               type
             }
             name={name}
@@ -646,22 +667,22 @@ export const TextField: React.FC<TextFieldProps> = ({
             disabled={disabled}
             title={title}
             autoComplete={autoComplete || "off"}
-            inputMode={useTextInputForSelectOnFocusNumber ? (inputMode ?? "numeric") : inputMode}
+            inputMode={resolvedInputMode}
             min={
               type === "datePicker"
                 ? "1800"
-                : useTextInputForSelectOnFocusNumber
+                : useTextInputForNumericKeyboard
                   ? undefined
                   : min
             }
             max={
               type === "datePicker"
                 ? new Date().getFullYear().toString()
-                : useTextInputForSelectOnFocusNumber
+                : useTextInputForNumericKeyboard
                   ? undefined
                   : max
             }
-            step={useTextInputForSelectOnFocusNumber ? undefined : step}
+            step={useTextInputForNumericKeyboard ? undefined : step}
             maxLength={type === "dni" ? 12 : type === "datePicker" ? 4 : undefined}
             data-test-id={dataTestId}
             style={{

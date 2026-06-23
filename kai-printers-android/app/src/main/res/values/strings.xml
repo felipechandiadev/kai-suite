@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kai Printers</string>
+    <string name="notification_channel_name">Servicio de impresión</string>
+    <string name="notification_title">Kai Printers activo</string>
+    <string name="notification_text">Puerto %1$d — toque para configurar</string>
+    <string name="permissions_title">Permisos necesarios</string>
+    <string name="permissions_subtitle">Kai Printers no se conecta a internet para ventas. Solo necesita permisos locales para Bluetooth y mantener el servicio activo.</string>
+    <string name="perm_notifications">Notificaciones</string>
+    <string name="perm_notifications_desc">Muestra que el agente de impresión está activo.</string>
+    <string name="perm_bluetooth">Bluetooth</string>
+    <string name="perm_bluetooth_desc">Conectar con impresoras térmicas emparejadas.</string>
+    <string name="perm_bluetooth_desc_legacy">Conectar con impresoras BT. En Android 7–11 también se pide ubicación para detectar dispositivos emparejados.</string>
+    <string name="perm_battery">Optimización de batería</string>
+    <string name="perm_battery_desc">Evita que el sistema detenga el servicio en segundo plano.</string>
+    <string name="perm_service">Iniciar servicio</string>
+    <string name="perm_service_desc">Activa el servidor local para el POS.</string>
+    <string name="grant">Permitir</string>
+    <string name="open_settings">Abrir ajustes</string>
+    <string name="continue_label">Continuar</string>
+    <string name="printers_title">Impresoras Bluetooth</string>
+    <string name="printers_subtitle">Empareje la impresora en Ajustes del sistema y asígnela a Tickets.</string>
+    <string name="pair_in_system">Emparejar en Bluetooth del sistema</string>
+    <string name="assign_tickets">Usar para tickets</string>
+    <string name="test_print">Imprimir prueba</string>
+    <string name="no_bonded_devices">No hay dispositivos emparejados.</string>
+    <string name="service_title">Servicio local</string>
+    <string name="service_running">Servicio activo</string>
+    <string name="service_stopped">Servicio detenido</string>
+    <string name="trust_certificate">Confiar certificado WSS</string>
+    <string name="trust_certificate_desc">Abra esta página en Chrome y acepte el certificado para imprimir desde el POS HTTPS.</string>
+    <string name="ws_port">Puerto WS: %1$d</string>
+    <string name="wss_port">Puerto WSS: %1$d</string>
+    <string name="status_granted">Concedido</string>
+    <string name="status_pending">Pendiente</string>
+    <string name="assigned">Asignada a tickets</string>
+</resources>

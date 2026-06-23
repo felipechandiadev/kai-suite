@@ -10,3 +10,5 @@ export * from "./react";
 export * from "./settings-form";
 export * from "./print-service-dropdown";
 export * from "./top-bar-notification-badge";
+export * from "./kai-printers-downloads";
+export * from "./kai-printers-download-section";

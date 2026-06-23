@@ -1,0 +1,41 @@
+{
+  "version": "2.1",
+  "request_id": "req-print-1",
+  "action": "print",
+  "type": "pos-sale-ticket",
+  "purpose": "tickets",
+  "filename": "ticket.bin",
+  "ticket": {
+    "version": 1,
+    "folio": "VTA-100",
+    "issuedAtIso": "2026-06-02T12:00:00Z",
+    "documentKind": "sale",
+    "company": {
+      "razonSocial": "Joyarte SpA",
+      "nombreFantasia": "Joyarte",
+      "rut": "76.000.000-0",
+      "businessActivity": "Joyería"
+    },
+    "customer": { "name": "María Pérez" },
+    "lines": [
+      {
+        "productName": "Anillo oro 18k",
+        "attributes": [],
+        "quantity": 1,
+        "unitSymbol": "u",
+        "unitPriceWithTax": 150000,
+        "lineGross": 150000
+      }
+    ],
+    "promotions": [],
+    "totals": {
+      "subtotalNet": 126050,
+      "taxes": 23950,
+      "lineDiscounts": 0,
+      "orderDiscount": 0,
+      "total": 150000,
+      "change": 0
+    },
+    "payments": [{ "label": "Efectivo", "amount": 150000, "detail": null }]
+  }
+}

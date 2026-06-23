@@ -8,7 +8,7 @@ backend/*.tsbuildinfo
 # Local folders not to push
 proyecto-reportes/
 print-service/
-scripts/
+/scripts/
 data-to-seed/
 
 # Dependencies and build artifacts
@@ -30,6 +30,15 @@ build/
 .env.test
 backend/.env
 backend/.env.local
+envs/*.env
+envs/*.env.local
+!envs/README.md
+
+# Kai Printers Android — firma release (nunca en git)
+kai-printers-android/keystore.properties
+kai-printers-android/release/
+kai-printers-android/**/*.jks
+kai-printers-android/**/*.keystore
 
 # Rust/Tauri build artifacts
 print-service/src-tauri/target/

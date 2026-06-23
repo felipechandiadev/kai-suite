@@ -13,6 +13,7 @@ import {
   writeAdminDocumentPrintModesToStorage,
   writeAdminPurposePrinterAliasToStorage,
   writePrintServiceConfigToStorage,
+  KaiPrintersDownloadSection,
 } from "@flowstore/print-service-client";
 import { DocumentPrintModeToggle } from "@/shared/components/PrintDocuments/DocumentPrintModeToggle";
 import { Button } from "@/shared/components/Button";
@@ -150,9 +151,11 @@ export function AdminLocalPrintingSettingsForm({ className = "" }: Props) {
 
   return (
     <>
+      <KaiPrintersDownloadSection />
+
       <form
         id={formId}
-        className={`space-y-6 ${className}`}
+        className={`mt-6 space-y-6 ${className}`}
         onSubmit={(e) => {
           e.preventDefault();
           saveLocal();

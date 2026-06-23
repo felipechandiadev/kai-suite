@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useRef } from 'react';
 import { Minus, Plus } from 'lucide-react';
+import { useCoarsePointer } from '@/shared/hooks/useCoarsePointer';
 import './number-stepper.css';
 
 interface NumberStepperProps {
@@ -39,6 +40,7 @@ export const NumberStepper: React.FC<NumberStepperProps> = ({
   ...props
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const isCoarsePointer = useCoarsePointer();
   const displayValue = Number.isFinite(value) ? value : 0;
 
   // Función para validar y formatear el valor
@@ -264,7 +266,8 @@ export const NumberStepper: React.FC<NumberStepperProps> = ({
           {/* Input numérico */}
           <input
             ref={inputRef}
-            type="number"
+            type={isCoarsePointer ? "text" : "number"}
+            inputMode={allowFloat ? "decimal" : "numeric"}
             value={displayValue}
             onChange={handleInputChange}
             min={min}

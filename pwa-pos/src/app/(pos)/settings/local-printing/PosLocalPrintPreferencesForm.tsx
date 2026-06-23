@@ -13,6 +13,7 @@ import {
   writePosDocumentPrintModesToStorage,
   writePosPurposePrinterAliasesToStorage,
   writePrintServiceConfigToStorage,
+  KaiPrintersDownloadSection,
 } from "@flowstore/print-service-client";
 import { Button, Select, Switch, TextField } from "@/shared/admin-shared";
 import { printPosDocumentTest } from "@/features/pos-print/lib/print-pos-document-test";
@@ -175,9 +176,11 @@ export function PosLocalPrintPreferencesForm({ className = "" }: Props) {
 
   return (
     <>
+      <KaiPrintersDownloadSection />
+
       <form
         id={formId}
-        className={`space-y-6 ${className}`}
+        className={`mt-6 space-y-6 ${className}`}
         onSubmit={(e) => {
           e.preventDefault();
           saveAll();
@@ -199,6 +202,7 @@ export function PosLocalPrintPreferencesForm({ className = "" }: Props) {
               name="print-port"
               value={port}
               onChange={(e) => setPort(e.target.value)}
+              inputMode="numeric"
               alwaysShowLabel
               data-test-id="pos-print-prefs-port"
             />
@@ -207,6 +211,7 @@ export function PosLocalPrintPreferencesForm({ className = "" }: Props) {
               name="print-wss-port"
               value={wssPort}
               onChange={(e) => setWssPort(e.target.value)}
+              inputMode="numeric"
               alwaysShowLabel
               data-test-id="pos-print-prefs-wss-port"
             />

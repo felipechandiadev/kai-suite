@@ -110,6 +110,16 @@ Ver [ROADMAP.md](./ROADMAP.md): bind LAN, admin remoto de config, etiquetas ZPL,
 | USB | UsbManager + permiso OTG | Cajones / impresoras cableadas |
 | Build | Gradle (módulo `kai-printers-android/` en monorepo) | CI unificado |
 
+### 5.1 Compatibilidad Android (paridad mobilePOS)
+
+| Parámetro | Valor |
+|-----------|-------|
+| **minSdk** | 24 (Android 7.0 Nougat) |
+| **targetSdk** | 33 (Android 13) |
+| **compileSdk** | 35 |
+
+Una sola APK cubre API 24–33. Desugaring habilitado para `java.time`. Permisos Bluetooth y foreground service ramificados por era; iconos y splash calificados por versión (legacy launcher, adaptive, monochrome API 33+).
+
 **Alternativa descartada por ahora:** React Native — duplicaría lógica de bajo nivel (BT/USB) en bridges nativos sin ventaja clara.
 
 **Alternativa descartada:** reutilizar Tauri mobile — soporte Android inmaduro para servidor WS + drivers impresora.
@@ -171,7 +181,7 @@ Mantener **versión `2.1`** y acciones ya consumidas por `print-service-client`:
 | Acción (cliente → agente) | Uso |
 |---------------------------|-----|
 | `hello` | Sesión, metadatos empresa/POS |
-| `print_job` | PDF Base64 + `purpose` + `jobId` |
+| `print_job` / `print` | PDF Base64 + `purpose` + `jobId` / ticket JSON |
 | `get_config` / `set_config` | Puerto, token, orígenes |
 | `set_printer_mapping` | Líneas por `purpose` |
 | `get_printer_health` | Estado impresoras |
@@ -192,7 +202,7 @@ Mantener **versión `2.1`** y acciones ya consumidas por `print-service-client`:
 |----------|----------------|
 | Instalación | APK firmado; deep link opcional `kaiprinters://pair?token=…` |
 | Arranque | Opción “Iniciar con el dispositivo”; guía para desactivar optimización batería |
-| Notificación | “Kai Printers activo — Puerto 9222” + acceso rápido a config |
+| Notificación | “Kai Printers activo — Puerto 14567” + acceso rápido a config |
 | Errores | Mensajes alineados con `print-service-client` (`KaiPrinters sin conexión`, etc.) |
 | Branding | Nombre visible **Kai Printers** (consistente con mensajes PWA) |
 
@@ -224,8 +234,8 @@ Mantener **versión `2.1`** y acciones ya consumidas por `print-service-client`:
 
 | # | Pregunta | Opciones | Due |
 |---|----------|----------|-----|
-| D1 | ¿Monorepo `kai-printers-android/` o repo separado? | Monorepo (recomendado) | Equipo |
-| D2 | Puerto default Android = mismo que desktop | Sí / no | IF-01.T4 |
+| D1 | ¿Monorepo `kai-printers-android/` o repo separado? | **Monorepo** (cerrado) | Equipo |
+| D2 | Puerto default Android = mismo que desktop | **Sí — 14567/14568** (cerrado) | IF-01.T4 |
 | D3 | ¿Publicar en Play Store privado (Managed Google Play)? | F2 | Producto |
 | D4 | Librería ESC/POS | escpos-coffee vs custom | F1 |
 

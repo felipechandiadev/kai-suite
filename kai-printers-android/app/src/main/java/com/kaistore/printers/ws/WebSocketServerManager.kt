@@ -1,0 +1,130 @@
+package com.kaistore.printers.ws
+
+import android.content.Context
+import com.kaistore.printers.bluetooth.BondedDevicesRepository
+import com.kaistore.printers.data.AgentRepository
+import com.kaistore.printers.protocol.EventBroadcaster
+import com.kaistore.printers.protocol.ProtocolDispatcher
+import com.kaistore.printers.queue.PrintQueueWorker
+import com.kaistore.printers.tls.SelfSignedCertProvider
+import io.ktor.server.application.install
+import io.ktor.server.engine.ApplicationEngine
+import io.ktor.server.engine.applicationEngineEnvironment
+import io.ktor.server.engine.connector
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.engine.sslConnector
+import io.ktor.server.netty.Netty
+import io.ktor.server.routing.routing
+import io.ktor.server.websocket.WebSockets
+import io.ktor.server.websocket.webSocket
+import io.ktor.websocket.Frame
+import io.ktor.websocket.readText
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import java.security.KeyStore
+import java.util.concurrent.atomic.AtomicReference
+
+private data class ConnState(var helloOk: Boolean = false)
+
+class WebSocketServerManager(
+    private val repository: AgentRepository,
+    private val broadcaster: EventBroadcaster,
+    private val queueWorker: PrintQueueWorker,
+) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var serverRef = AtomicReference<ApplicationEngine?>(null)
+    private lateinit var dispatcher: ProtocolDispatcher
+    private lateinit var bonded: BondedDevicesRepository
+
+    suspend fun start(context: Context) = withContext(Dispatchers.IO) {
+        if (serverRef.get() != null) return@withContext
+        repository.ensureDefaults()
+        bonded = BondedDevicesRepository(context.applicationContext)
+        dispatcher = ProtocolDispatcher(repository, bonded, broadcaster, queueWorker)
+
+        val host = repository.listenHost()
+        val wsPort = repository.listenPort()
+        val wssPort = repository.wssListenPort()
+        val wssEnabled = repository.wssEnabled()
+
+        val password = SelfSignedCertProvider.PASSWORD.toCharArray()
+        val keyStore: KeyStore? = if (wssEnabled) {
+            SelfSignedCertProvider.getOrCreateKeyStore(context)
+        } else {
+            null
+        }
+
+        val server = embeddedServer(
+            Netty,
+            environment = applicationEngineEnvironment {
+                connector {
+                    this.host = host
+                    this.port = wsPort
+                }
+                if (wssEnabled && keyStore != null) {
+                    sslConnector(
+                        keyStore = keyStore,
+                        keyAlias = SelfSignedCertProvider.ALIAS,
+                        keyStorePassword = { password },
+                        privateKeyPassword = { password },
+                    ) {
+                        this.host = host
+                        this.port = wssPort
+                    }
+                }
+                module {
+                    install(WebSockets)
+                    routing {
+                        webSocket("/") {
+                            val connId = dispatcher.nextConnId()
+                            val state = ConnState()
+                            val broadcastCollect = scope.launch {
+                                broadcaster.events.collectLatest { msg ->
+                                    try {
+                                        send(Frame.Text(msg))
+                                    } catch (_: Exception) {
+                                    }
+                                }
+                            }
+                            try {
+                                for (frame in incoming) {
+                                    if (frame !is Frame.Text) continue
+                                    val text = frame.readText()
+                                    val action = try {
+                                        Json.parseToJsonElement(text).jsonObject["action"]?.jsonPrimitive?.content
+                                    } catch (_: Exception) {
+                                        null
+                                    }
+                                    val response = dispatcher.dispatch(connId, state.helloOk, text)
+                                    if (action == "hello") {
+                                        state.helloOk = true
+                                    }
+                                    send(Frame.Text(response))
+                                }
+                            } finally {
+                                broadcastCollect.cancel()
+                                dispatcher.unregister(connId)
+                            }
+                        }
+                    }
+                }
+            },
+        )
+
+        server.start(wait = false)
+        serverRef.set(server)
+    }
+
+    fun stop() {
+        serverRef.getAndSet(null)?.stop(1000, 2000)
+    }
+
+    fun isRunning(): Boolean = serverRef.get() != null
+}
