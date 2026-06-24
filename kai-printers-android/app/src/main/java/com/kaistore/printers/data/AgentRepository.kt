@@ -247,7 +247,12 @@ class AgentRepository(private val db: AgentDatabase) {
     }
 
     suspend fun markJobPrinting(id: String) = withContext(Dispatchers.IO) {
-        jobs.updateStatus(id, "printing", null, null)
+        jobs.markPrinting(id, Instant.now().toString())
+    }
+
+    suspend fun recoverStalePrintingJobs() = withContext(Dispatchers.IO) {
+        val cutoff = Instant.now().minusSeconds(90).toString()
+        jobs.failStalePrinting(cutoff, "stale_print_job_recovered")
     }
 
     suspend fun markJobDone(id: String) = withContext(Dispatchers.IO) {

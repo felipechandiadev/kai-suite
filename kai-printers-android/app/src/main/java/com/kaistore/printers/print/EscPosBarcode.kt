@@ -5,8 +5,12 @@ package com.kaistore.printers.print
  * El folio se imprime como texto legible bajo el código (HRI).
  */
 object EscPosBarcode {
+    private const val MAX_CODE128_LEN = 48
+
     fun code128Commands(data: String, heightDots: Int = 80, moduleWidth: Int = 2): ByteArray {
         val payload = data.trim()
+            .filter { it.code in 32..126 }
+            .take(MAX_CODE128_LEN)
         if (payload.isEmpty()) return byteArrayOf()
         val raw = payload.toByteArray(Charsets.US_ASCII)
         if (raw.isEmpty()) return byteArrayOf()

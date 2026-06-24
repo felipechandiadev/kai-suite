@@ -32,6 +32,9 @@ class UsbEscPosTransport(
                 )
                 if (sent < 0) throw IllegalStateException("usb_write_failed")
                 offset += sent
+                if (offset < payload.size) {
+                    Thread.sleep(5)
+                }
             }
         }
     }

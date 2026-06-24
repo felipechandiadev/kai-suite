@@ -85,6 +85,20 @@ interface PrintJobDao {
     @Query("UPDATE print_jobs SET status = :status, error = :error, printed_at = :printedAt WHERE id = :id")
     suspend fun updateStatus(id: String, status: String, error: String?, printedAt: String?)
 
+    @Query("UPDATE print_jobs SET status = 'printing', started_at = :startedAt WHERE id = :id")
+    suspend fun markPrinting(id: String, startedAt: String)
+
+    @Query(
+        """
+        UPDATE print_jobs SET status = 'failed', error = :error
+        WHERE status = 'printing' AND (
+            (started_at IS NOT NULL AND started_at < :cutoff) OR
+            (started_at IS NULL AND created_at < :cutoff)
+        )
+        """,
+    )
+    suspend fun failStalePrinting(cutoff: String, error: String)
+
     @Query("SELECT * FROM print_jobs ORDER BY priority DESC, created_at ASC LIMIT :limit")
     suspend fun listQueue(limit: Int): List<PrintJobEntity>
 

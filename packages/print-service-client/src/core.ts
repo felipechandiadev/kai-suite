@@ -181,6 +181,15 @@ type PendingEntry = {
   reject: (e: Error) => void;
 };
 
+export type PrintJobDeliveryResult =
+  | { status: "done" }
+  | { status: "failed"; error: string };
+
+type JobWaiter = {
+  resolve: (result: PrintJobDeliveryResult) => void;
+  timer: ReturnType<typeof globalThis.setTimeout>;
+};
+
 export type PrintServiceWsCloseInfo = {
   code: number;
   reason: string;
@@ -225,6 +234,7 @@ export type PrintServiceDisconnectOptions = {
 export class PrintServiceConnection {
   private ws: WebSocket | null = null;
   private readonly pending = new Map<string, PendingEntry>();
+  private readonly jobWaiters = new Map<string, JobWaiter>();
   /** Si `disconnect()` ocurre en CONNECTING, aplazamos un `close()` duro para no dejar el socket colgado. */
   private connectTeardownTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
   private helloPayload: HelloResponseData | null = null;
@@ -248,6 +258,29 @@ export class PrintServiceConnection {
    * Espera la respuesta `hello` del agente (capabilities, printerHealth).
    * Sin esto, `onHello` puede llegar después del primer `print` y el POS cree que no hay vector/ESC/POS.
    */
+  /**
+   * Espera `print_job_done` o `print_job_failed` del agente para un job encolado.
+   * Mantener la conexión abierta hasta resolver o timeout.
+   */
+  waitForPrintJob(jobId: string, timeoutMs = 45_000): Promise<PrintJobDeliveryResult> {
+    const id = jobId.trim();
+    if (!id) {
+      return Promise.resolve({ status: "failed", error: "missing_job_id" });
+    }
+    const existing = this.jobWaiters.get(id);
+    if (existing) {
+      globalThis.clearTimeout(existing.timer);
+      this.jobWaiters.delete(id);
+    }
+    return new Promise((resolve) => {
+      const timer = globalThis.setTimeout(() => {
+        this.jobWaiters.delete(id);
+        resolve({ status: "failed", error: "print_job_timeout" });
+      }, timeoutMs);
+      this.jobWaiters.set(id, { resolve, timer });
+    });
+  }
+
   waitForHello(timeoutMs = 6_000): Promise<HelloResponseData> {
     if (this.helloPayload) {
       return Promise.resolve(this.helloPayload);
@@ -279,6 +312,8 @@ export class PrintServiceConnection {
     return new Promise((resolve, reject) => {
       let settled = false;
       let tickHandle: ReturnType<typeof globalThis.setTimeout> | null = null;
+      /** El socket existió al menos una vez (CONNECTING/OPEN) en este intento. */
+      let sawWs = false;
       const finish = (kind: "open" | "closed" | "not_started" | "timeout") => {
         if (settled) return;
         settled = true;
@@ -295,16 +330,19 @@ export class PrintServiceConnection {
       const step = () => {
         if (settled) return;
         const ws = this.ws;
-        if (!ws) {
-          finish("not_started");
-          return;
-        }
-        const s = ws.readyState;
-        if (s === WebSocket.OPEN) {
-          finish("open");
-          return;
-        }
-        if (s === WebSocket.CLOSING || s === WebSocket.CLOSED) {
+        if (ws) {
+          sawWs = true;
+          const s = ws.readyState;
+          if (s === WebSocket.OPEN) {
+            finish("open");
+            return;
+          }
+          if (s === WebSocket.CLOSING || s === WebSocket.CLOSED) {
+            finish("closed");
+            return;
+          }
+        } else if (sawWs) {
+          // onclose ya limpió this.ws tras fallo de red / agente detenido
           finish("closed");
           return;
         }
@@ -325,6 +363,13 @@ export class PrintServiceConnection {
     }
     this.helloPayload = null;
     this.helloWaiters = [];
+    const existing = this.ws;
+    if (
+      existing &&
+      (existing.readyState === WebSocket.OPEN || existing.readyState === WebSocket.CONNECTING)
+    ) {
+      return;
+    }
     try {
       const ws = new WebSocket(this.opts.url);
       this.ws = ws;
@@ -356,8 +401,25 @@ export class PrintServiceConnection {
     }
   }
 
+  private settleJobWaiter(jobId: string, result: PrintJobDeliveryResult): void {
+    const waiter = this.jobWaiters.get(jobId);
+    if (!waiter) return;
+    globalThis.clearTimeout(waiter.timer);
+    this.jobWaiters.delete(jobId);
+    waiter.resolve(result);
+  }
+
+  private clearJobWaiters(): void {
+    for (const [, waiter] of this.jobWaiters) {
+      globalThis.clearTimeout(waiter.timer);
+      waiter.resolve({ status: "failed", error: "not_connected" });
+    }
+    this.jobWaiters.clear();
+  }
+
   disconnect(opts?: PrintServiceDisconnectOptions): void {
     const ifConnecting = opts?.ifConnecting ?? "default";
+    this.clearJobWaiters();
     const ws = this.ws;
     if (!ws) {
       if (this.connectTeardownTimer != null) {
@@ -671,12 +733,19 @@ export class PrintServiceConnection {
     }
     if (event === "print_job_done") {
       const p = (msg.payload ?? {}) as { jobId?: string };
-      if (p.jobId) this.opts.onPrintJobDone?.(p.jobId);
+      if (p.jobId) {
+        this.settleJobWaiter(p.jobId, { status: "done" });
+        this.opts.onPrintJobDone?.(p.jobId);
+      }
       return;
     }
     if (event === "print_job_failed") {
       const p = (msg.payload ?? {}) as { jobId?: string; error?: string };
-      if (p.jobId) this.opts.onPrintJobFailed?.(p.jobId, p.error ?? "");
+      if (p.jobId) {
+        const error = p.error ?? "print_failed";
+        this.settleJobWaiter(p.jobId, { status: "failed", error });
+        this.opts.onPrintJobFailed?.(p.jobId, error);
+      }
       return;
     }
 

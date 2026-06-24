@@ -3,6 +3,7 @@ import { getPosSaleReceiptPrintAction } from "@/features/pos-print/actions/pos-s
 import { mapPosSaleReceiptPrintToReceiptData } from "@/features/pos-print/lib/map-pos-sale-receipt-print";
 import { printPosSaleDocumentAgentOrBrowser } from "@/features/pos-print/lib/pos-sale-document-print";
 import { printPosSaleTicketAgentOrBrowser } from "@/features/pos-print/lib/pos-sale-ticket-agent";
+import { formatPrintJobFailedMessage } from "@flowstore/print-service-client";
 
 const REPRINTABLE_TYPES = new Set(["SALE", "BACKORDER"]);
 
@@ -37,12 +38,20 @@ export async function reprintSaleTicket(transactionId: string): Promise<{
     return { success: false, message: loaded.message };
   }
   const folio = loaded.data.folio.trim() || "ticket";
-  const channel = await printPosSaleTicketAgentOrBrowser(loaded.data, {
-    filename: `${folio}.escpos`,
-    documentType: loaded.data.documentKind === "backorder" ? "BACKORDER" : "SALE",
-    internalFolio: folio,
-  });
-  return { success: true, channel };
+  try {
+    const channel = await printPosSaleTicketAgentOrBrowser(loaded.data, {
+      filename: `${folio}.escpos`,
+      documentType: loaded.data.documentKind === "backorder" ? "BACKORDER" : "SALE",
+      internalFolio: folio,
+    });
+    return { success: true, channel };
+  } catch (e) {
+    const raw = e instanceof Error ? e.message : String(e);
+    return {
+      success: false,
+      message: formatPrintJobFailedMessage(raw),
+    };
+  }
 }
 
 /** Reimprime documento hoja (propósito `documents` en KaiPrinters o navegador). */

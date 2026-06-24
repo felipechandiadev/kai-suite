@@ -83,8 +83,16 @@ const PRINT_AGENT_ERROR_MESSAGES_ES: Record<string, string> = {
   ticket_required: "Faltan datos del ticket para imprimir.",
   payload_required: "Faltan datos del documento para imprimir.",
   not_connected: "KaiPrinters no está conectado.",
+  not_started: "No se pudo iniciar la conexión WebSocket con Kai Printers.",
+  closed_before_open:
+    "Kai Printers cerró la conexión antes de abrir (¿agente detenido o host/puerto incorrectos?).",
+  open_timeout: "Tiempo de espera agotado al conectar con Kai Printers.",
   enqueue_rejected: "El agente rechazó el trabajo de impresión.",
   print_failed: "La impresora no pudo completar el trabajo.",
+  invalid_ticket_json: "El ticket recibido no tiene un formato válido.",
+  print_job_timeout: "Tiempo de espera agotado esperando que Kai Printers termine de imprimir.",
+  usb_write_failed: "Error al enviar datos a la impresora USB.",
+  stale_print_job_recovered: "Un trabajo de impresión anterior quedó bloqueado y fue cancelado.",
   test_print_failed: "No se pudo imprimir la página de prueba.",
   timeout: "Tiempo de espera agotado al contactar Kai Printers.",
 };
@@ -126,6 +134,10 @@ export function isAgentPrintConfigError(error: string): boolean {
     e.includes("payload_required") ||
     e.includes("enqueue_rejected") ||
     e.includes("not_connected") ||
-    e.includes("agent_no_pos_sale_ticket")
+    e.includes("not_started") ||
+    e.includes("closed_before_open") ||
+    e.includes("open_timeout") ||
+    e.includes("agent_no_pos_sale_ticket") ||
+    e.includes("print_job_timeout")
   );
 }

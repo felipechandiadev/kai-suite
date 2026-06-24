@@ -12,6 +12,7 @@ import {
 } from "@flowstore/print-service-client";
 import { htmlToPdfBase64 } from "@/features/pos-print/lib/html-to-pdf-base64";
 import {
+  extractPrintEnqueueJobId,
   registerPosPrintJobBrowserFallbackFromEnqueue,
   type PosPrintJobBrowserFallback,
 } from "@/features/pos-print/lib/pos-print-job-browser-fallback";
@@ -34,7 +35,7 @@ export async function enqueueVectorTicketWithMappingFallback(
   withAlias: () => Promise<unknown>,
   withoutAlias: () => Promise<unknown>,
   browserFallback?: PosPrintJobBrowserFallback,
-): Promise<boolean> {
+): Promise<string | null> {
   let lastUnknownLabel: unknown = null;
   for (const attempt of [withoutAlias, withAlias]) {
     try {
@@ -42,7 +43,7 @@ export async function enqueueVectorTicketWithMappingFallback(
       if (browserFallback) {
         registerPosPrintJobBrowserFallbackFromEnqueue(res, browserFallback);
       }
-      return true;
+      return extractPrintEnqueueJobId(res);
     } catch (e) {
       if (isUnknownPrinterLabelError(e)) {
         lastUnknownLabel = e;
@@ -55,7 +56,7 @@ export async function enqueueVectorTicketWithMappingFallback(
   if (lastUnknownLabel) {
     console.warn("[KaiStore print] enqueue vector: unknown label", lastUnknownLabel);
   }
-  return false;
+  return null;
 }
 
 /** Convierte metadatos de encolado ticket (.escpos) a documento (.pdf). */

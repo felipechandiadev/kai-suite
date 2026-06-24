@@ -38,8 +38,10 @@ class PrintAgentForegroundService : Service() {
             try {
                 val app = application as KaiPrintersApp
                 app.container.repository.ensureDefaults()
+                app.container.repository.recoverStalePrintingJobs()
                 val port = app.container.repository.listenPort()
                 app.container.webSocketServer.start(applicationContext)
+                app.container.queueWorker.notifyNewJob()
                 val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 nm.notify(NOTIFICATION_ID, buildNotification(port))
             } catch (e: Exception) {

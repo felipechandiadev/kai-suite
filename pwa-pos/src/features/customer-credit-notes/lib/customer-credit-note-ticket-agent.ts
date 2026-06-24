@@ -97,7 +97,7 @@ export async function printCustomerCreditNoteReceiptAgentOrBrowser(
       if (!agentSupportsPosCustomerCreditNoteTicket(hello)) {
         throw new Error("agent_no_pos_customer_credit_note_ticket");
       }
-      enqueued = await enqueueVectorTicketWithMappingFallback(
+      enqueued = Boolean(await enqueueVectorTicketWithMappingFallback(
         async () => {
           const res = (await conn.enqueuePosCustomerCreditNoteTicket(ticket, {
             ...meta,
@@ -124,7 +124,7 @@ export async function printCustomerCreditNoteReceiptAgentOrBrowser(
           iframeTitle: documentFallbackMeta.iframeTitle,
           kind: "document",
         },
-      );
+      ));
     });
   } catch (e) {
     console.warn("[KaiStore print] NC agente:", e);

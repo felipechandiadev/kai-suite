@@ -94,7 +94,8 @@ async function printCashClosingTicketVector(
       if (!agentSupportsPosCashClosingTicket(hello)) {
         throw new Error("agent_no_pos_cash_closing_ticket");
       }
-      enqueued = await enqueueVectorTicketWithMappingFallback(
+      enqueued = Boolean(
+        await enqueueVectorTicketWithMappingFallback(
         async () => {
           const res = (await conn.enqueuePosCashClosingTicket(ticket, {
             ...meta,
@@ -121,7 +122,7 @@ async function printCashClosingTicketVector(
           iframeTitle: documentFallbackMeta.iframeTitle,
           kind: "document",
         },
-      );
+      ));
     });
   } catch (e) {
     console.warn("[KaiStore print] arqueo agente:", e);

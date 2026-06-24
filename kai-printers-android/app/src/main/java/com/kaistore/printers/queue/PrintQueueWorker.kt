@@ -16,6 +16,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeout
 import java.util.concurrent.atomic.AtomicBoolean
 
 class PrintQueueWorker(
@@ -34,6 +35,7 @@ class PrintQueueWorker(
     }
 
     suspend fun drain() = mutex.withLock {
+        repository.recoverStalePrintingJobs()
         while (true) {
             val queued = repository.listJobs(50).firstOrNull { it.status == "queued" } ?: break
             repository.markJobPrinting(queued.id)
@@ -52,7 +54,9 @@ class PrintQueueWorker(
                         } else {
                             throw IllegalStateException("unsupported_document_type")
                         }
-                        transportFactory.write(ref, bytes)
+                        withTimeout(60_000) {
+                            transportFactory.write(ref, bytes)
+                        }
                     }
                     PrintFormats.isDocumentFormat(format) -> {
                         if (queued.documentType != "pdf-base64") {

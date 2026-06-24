@@ -540,8 +540,20 @@ async function autoPrintSaleByFormat(data: PosSaleReceiptData, format: PrintForm
   });
 }
 
+function shouldRetryAutoPrint(err: unknown): boolean {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return (
+    msg.includes("timeout") ||
+    msg.includes("not_connected") ||
+    msg.includes("usb_") ||
+    msg.includes("connection")
+  );
+}
+
 export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
   const autoPrintForFolioRef = useRef<string | null>(null);
+  const receiptDataRef = useRef(data);
+  receiptDataRef.current = data;
   const [printFormat, setPrintFormat] = useState<PrintFormat>("ticket_80mm");
   const [autoPrintStatus, setAutoPrintStatus] = useState<string | null>(null);
 
@@ -568,21 +580,31 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
 
   useEffect(() => {
     if (!open || !data) {
-      autoPrintForFolioRef.current = null;
+      if (!open) autoPrintForFolioRef.current = null;
       return;
     }
     const folio = data.folio.trim();
     if (!folio || autoPrintForFolioRef.current === folio) return;
     autoPrintForFolioRef.current = folio;
-    const snapshot = data;
-    const format = resolveSalePrintFormat(snapshot);
+    const format = resolveSalePrintFormat(data);
     const t = window.setTimeout(() => {
       void (async () => {
-        const run = async () => autoPrintSaleByFormat(snapshot, format);
+        const run = async () => {
+          const snapshot = receiptDataRef.current;
+          if (!snapshot) throw new Error("print_failed");
+          await autoPrintSaleByFormat(snapshot, format);
+        };
         try {
           await run();
           setAutoPrintStatus(null);
         } catch (firstErr) {
+          if (!shouldRetryAutoPrint(firstErr)) {
+            const raw = firstErr instanceof Error ? firstErr.message : "print_failed";
+            setAutoPrintStatus(
+              `No se pudo enviar el ticket al agente. ${formatPrintJobFailedMessage(raw)} Usá «Imprimir de nuevo».`,
+            );
+            return;
+          }
           await new Promise((resolve) => window.setTimeout(resolve, 900));
           try {
             await run();
@@ -602,7 +624,7 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
       })();
     }, 1200);
     return () => clearTimeout(t);
-  }, [open, data]);
+  }, [open, data?.folio]);
 
   if (!data) return null;
 

@@ -9,6 +9,9 @@ import com.kaistore.printers.print.transport.TransportFactory
 import com.kaistore.printers.print.PaperProfile
 import com.kaistore.printers.print.PrintFormat
 import com.kaistore.printers.print.PrintFormats
+import com.kaistore.printers.print.jsonObj
+import com.kaistore.printers.print.jsonStr
+import com.kaistore.printers.print.present
 import com.kaistore.printers.queue.PrintQueueWorker
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -248,7 +251,8 @@ class ProtocolDispatcher(
                     return encodeErr(requestId, "unsupported_print_type")
                 }
                 val ticket = env["ticket"] ?: return encodeErr(requestId, "ticket_required")
-                val folio = ticket.jsonObject["folio"]?.jsonPrimitive?.content ?: ""
+                val ticketObj = ticket.jsonObj() ?: return encodeErr(requestId, "ticket_required")
+                val folio = ticketObj.jsonStr("folio").present() ?: ""
                 val jobId = repository.enqueueJob(
                     purpose = purpose,
                     filename = filename,

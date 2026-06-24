@@ -78,7 +78,7 @@ export async function printCashSessionOpeningTicketVector(
       if (!agentSupportsPosCashSessionOpeningTicket(hello)) {
         throw new Error("agent_no_pos_cash_session_opening_ticket");
       }
-      enqueued = await enqueueVectorTicketWithMappingFallback(
+      enqueued = Boolean(await enqueueVectorTicketWithMappingFallback(
         async () => {
           const res = (await conn.enqueuePosCashSessionOpeningTicket(ticket, {
             ...meta,
@@ -105,7 +105,7 @@ export async function printCashSessionOpeningTicketVector(
           iframeTitle: documentFallbackMeta.iframeTitle,
           kind: "document",
         },
-      );
+      ));
     });
   } catch (e) {
     console.warn("[KaiStore print] apertura de caja agente:", e);

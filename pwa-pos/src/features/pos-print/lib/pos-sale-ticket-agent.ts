@@ -173,7 +173,7 @@ export async function printPosSaleTicketAgentOrBrowser(
     ? null
     : await fetchReceiptLogoBase64(data.company.logoUrl, window.location.origin);
   const ticketVector = posSaleReceiptToTicketPayload(data, { logoBase64: logoBase64 ?? null });
-  let enqueued = false;
+  let jobId: string | null = null;
 
   try {
     await withPrintAgentConnection("tickets", async (conn, hello: HelloResponseData | null) => {
@@ -181,7 +181,7 @@ export async function printPosSaleTicketAgentOrBrowser(
       if (hello != null && !agentSupportsPosSaleTicket(hello)) {
         throw new Error("agent_no_pos_sale_ticket");
       }
-      enqueued = await enqueueVectorTicketWithMappingFallback(
+      jobId = await enqueueVectorTicketWithMappingFallback(
         () => enqueueSaleTicketOnAgent(conn, ticketVector, enqueueExtras, false),
         () => enqueueSaleTicketOnAgent(conn, ticketVector, enqueueExtras, true),
         {
@@ -190,6 +190,12 @@ export async function printPosSaleTicketAgentOrBrowser(
           kind: "document",
         },
       );
+      if (jobId) {
+        const delivery = await conn.waitForPrintJob(jobId, 60_000);
+        if (delivery.status === "failed") {
+          throw new Error(delivery.error);
+        }
+      }
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -202,8 +208,8 @@ export async function printPosSaleTicketAgentOrBrowser(
     throw e instanceof Error ? e : new Error(msg);
   }
 
-  if (enqueued) {
-    console.warn(`${LOG} ticket → agente ESC/POS`);
+  if (jobId) {
+    console.warn(`${LOG} ticket → agente ESC/POS (job ${jobId})`);
     return "agent";
   }
 

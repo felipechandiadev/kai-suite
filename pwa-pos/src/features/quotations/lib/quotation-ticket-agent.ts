@@ -100,7 +100,7 @@ export async function printPosQuotationReceiptAgentOrBrowser(
       if (!agentSupportsPosQuotationTicket(hello)) {
         throw new Error("agent_no_pos_quotation_ticket");
       }
-      enqueued = await enqueueVectorTicketWithMappingFallback(
+      enqueued = Boolean(await enqueueVectorTicketWithMappingFallback(
         async () => {
           const res = (await conn.enqueuePosQuotationTicket(ticket, {
             ...meta,
@@ -127,7 +127,7 @@ export async function printPosQuotationReceiptAgentOrBrowser(
           iframeTitle: documentFallbackMeta.iframeTitle,
           kind: "document",
         },
-      );
+      ));
     });
   } catch (e) {
     console.warn("[KaiStore print] cotización agente:", e);

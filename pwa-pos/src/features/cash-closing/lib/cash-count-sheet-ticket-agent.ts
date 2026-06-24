@@ -78,7 +78,7 @@ export async function printCashCountSheetTicketVector(
       if (!agentSupportsPosCashCountSheetTicket(hello)) {
         throw new Error("agent_no_pos_cash_count_sheet_ticket");
       }
-      enqueued = await enqueueVectorTicketWithMappingFallback(
+      enqueued = Boolean(await enqueueVectorTicketWithMappingFallback(
         async () => {
           const res = (await conn.enqueuePosCashCountSheetTicket(ticket, {
             ...meta,
@@ -105,7 +105,7 @@ export async function printCashCountSheetTicketVector(
           iframeTitle: documentFallbackMeta.iframeTitle,
           kind: "document",
         },
-      );
+      ));
     });
   } catch (e) {
     console.warn("[KaiStore print] planilla de conteo agente:", e);
