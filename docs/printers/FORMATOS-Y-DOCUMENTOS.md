@@ -18,12 +18,12 @@ Presets: `print-format-presets.ts`. El agente valida **coherencia** formato ↔ 
 | `type` | Documento POS | Ticket ESC/POS Android | PDF documento |
 |--------|---------------|------------------------|---------------|
 | `pos-sale-ticket` | Venta / encargo | ✅ `PosSaleTicketEscPos` | ✅ HTML→PDF en POS |
-| `pos-quotation-ticket` | Cotización | ❌ [spec](./renderers/pos-quotation-ticket.md) | ✅ |
-| `pos-payment-in-ticket` | Cobro PAYMENT_IN | ❌ [spec](./renderers/pos-payment-in-ticket.md) | ✅ |
-| `pos-customer-credit-note-ticket` | NC cliente | ❌ [spec](./renderers/pos-customer-credit-note-ticket.md) | ✅ |
-| `pos-cash-closing-ticket` | Arqueo caja | ❌ [spec](./renderers/pos-cash-closing-ticket.md) | ✅ |
-| `pos-cash-count-sheet-ticket` | Conteo | ❌ [spec](./renderers/pos-cash-count-sheet-ticket.md) | ✅ |
-| `pos-cash-session-opening-ticket` | Apertura caja | ❌ [spec](./renderers/pos-cash-session-opening-ticket.md) | ✅ |
+| `pos-quotation-ticket` | Cotización | ✅ `PosQuotationTicketEscPos` | ✅ |
+| `pos-payment-in-ticket` | Cobro PAYMENT_IN | ✅ `PosPaymentInTicketEscPos` | ✅ |
+| `pos-customer-credit-note-ticket` | NC cliente | ✅ `PosCustomerCreditNoteTicketEscPos` | ✅ |
+| `pos-cash-closing-ticket` | Arqueo caja | ✅ `PosCashClosingTicketEscPos` | ✅ |
+| `pos-cash-count-sheet-ticket` | Conteo | ✅ `PosCashCountSheetTicketEscPos` | ✅ |
+| `pos-cash-session-opening-ticket` | Apertura caja | ✅ `PosCashSessionOpeningTicketEscPos` | ✅ |
 | `pdf-base64` | Cualquier HTML documento | ❌ | ✅ `AndroidPdfPrinter` |
 | `test_print` | Prueba config | ✅ demo / bytes fijos | — |
 

@@ -162,7 +162,13 @@ export default function ReceptionDetailDialog({ receptionId, open, onClose }: Pr
           ) : null}
           <div>
             <h3 className="mb-2 text-sm font-semibold text-foreground">Productos recibidos</h3>
-            <PurchasingProductLinesTable rows={lineRows} />
+            {detail.storageName ? (
+              <p className="mb-2 text-xs text-muted-foreground">
+                Stock en <span className="font-medium text-foreground">{detail.storageName}</span>
+                {" "}(unidad de inventario).
+              </p>
+            ) : null}
+            <PurchasingProductLinesTable rows={lineRows} showStockImpact />
           </div>
         </div>
       ) : null}

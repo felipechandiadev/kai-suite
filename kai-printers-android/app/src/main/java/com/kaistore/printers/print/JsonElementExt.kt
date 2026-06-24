@@ -38,4 +38,11 @@ fun JsonObject.jsonArr(key: String): JsonArray? = this[key].jsonArr()
 
 fun JsonObject.jsonNum(key: String): Double? = this[key].jsonNum()
 
+fun JsonObject.jsonBool(key: String): Boolean {
+    val el = this[key] ?: return false
+    if (el is JsonNull) return false
+    val p = el as? JsonPrimitive ?: return false
+    return p.content.equals("true", ignoreCase = true)
+}
+
 fun String?.present(): String? = this?.takeIf { it.isNotBlank() }

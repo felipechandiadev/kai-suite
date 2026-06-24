@@ -1,5 +1,6 @@
 import {
   agentSupportsPosPaymentInTicket,
+  mergeAdminPrinterDisplayLabelForPurposeIntoPrintExtras,
   type HelloResponseData,
   type PosPaymentInTicketPayload,
   type PosPaymentInTicketPrintExtras,
@@ -7,17 +8,13 @@ import {
 import type { PrintServiceConnection } from "@flowstore/print-service-client";
 import { fetchReceiptLogoBase64 } from "@/features/print/lib/fetch-receipt-logo-base64";
 import {
-  enqueueAdminPrint,
+  enqueueAdminVectorTicketAndAwaitDelivery,
   isAdminPrintAgentConfigured,
   withAdminPrintAgentConnection,
 } from "@/features/print/lib/admin-agent-print";
 import { printHtmlInHiddenIframe } from "@/features/print/lib/print-html-in-hidden-iframe";
 import type { PaymentInPrintData } from "./payment-in-print.types";
 import { buildPaymentInTicketHtml } from "./payment-in-ticket-print-html";
-
-function isUnknownPrinterLabelError(e: unknown): boolean {
-  return String(e).includes("unknown_printer_display_label");
-}
 
 function paymentInToTicketPayload(
   data: PaymentInPrintData,
@@ -62,7 +59,7 @@ async function enqueuePaymentInTicket(
   ticket: PosPaymentInTicketPayload,
   meta: PosPaymentInTicketPrintExtras,
   omitDisplayLabel: boolean,
-): Promise<void> {
+): Promise<unknown> {
   const body: Record<string, unknown> = {
     type: "pos-payment-in-ticket",
     ticket,
@@ -80,9 +77,19 @@ async function enqueuePaymentInTicket(
     if (res && res.queued === false && !res.jobId) {
       throw new Error("enqueue_rejected");
     }
-    return;
+    return res;
   }
-  await enqueueAdminPrint(conn, "tickets", body);
+  const res = (await conn.enqueuePrint(
+    mergeAdminPrinterDisplayLabelForPurposeIntoPrintExtras("tickets", {
+      ...body,
+      purpose: "tickets",
+      sourceApp: "pwa-admin",
+    }),
+  )) as { jobId?: string; queued?: boolean };
+  if (res && res.queued === false && !res.jobId) {
+    throw new Error("enqueue_rejected");
+  }
+  return res;
 }
 
 export async function printAdminPaymentInTicket(
@@ -116,14 +123,12 @@ export async function printAdminPaymentInTicket(
       if (!agentSupportsPosPaymentInTicket(hello)) {
         throw new Error("agent_no_pos_payment_in_ticket");
       }
-      try {
-        await enqueuePaymentInTicket(conn, ticket, meta, false);
-        enqueued = true;
-      } catch (e) {
-        if (!isUnknownPrinterLabelError(e)) throw e;
-        await enqueuePaymentInTicket(conn, ticket, meta, true);
-        enqueued = true;
-      }
+      const jobId = await enqueueAdminVectorTicketAndAwaitDelivery(
+        conn,
+        () => enqueuePaymentInTicket(conn, ticket, meta, false),
+        () => enqueuePaymentInTicket(conn, ticket, meta, true),
+      );
+      enqueued = Boolean(jobId);
     });
   } catch (e) {
     console.warn("[KaiStore admin print] payment-in ticket agente:", e);

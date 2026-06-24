@@ -94,6 +94,12 @@ export type ReceptionLineForReturn = {
   quantity: number;
   receivedQuantity?: number | null;
   unitPrice: number;
+  /** Stock físico en el almacén de la recepción antes del ingreso. */
+  storagePhysicalBefore?: number | null;
+  /** Stock físico en el almacén de la recepción después del ingreso. */
+  storagePhysicalAfter?: number | null;
+  /** Etiqueta de unidad de inventario (ej. ud, g). */
+  stockUnitLabel?: string | null;
 };
 
 export type ReceptionDetailForReturn = {

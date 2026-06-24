@@ -61,9 +61,11 @@ import { formatReceiptLineDisplayName } from "@/features/pos-print/lib/format-re
 import { createBackorderFromPosAction } from "@/features/session/actions/create-backorder.action";
 import { createSaleFromPosAction } from "@/features/session/actions/create-sale.action";
 import { collectPendingSalesFromPosAction } from "@/features/session/actions/collect-pending-sales.action";
+import { collectPendingQuotasFromPosAction } from "@/features/session/actions/collect-pending-quotas.action";
 import { payoutCustomerCreditNotesFromPosAction } from "@/features/session/actions/payout-customer-credit-notes.action";
 import { buildCreateBackorderClientPayload } from "@/features/session/lib/build-create-backorder-payload";
 import { buildCollectPendingSalesClientPayload } from "@/features/session/lib/build-collect-pending-sales-payload";
+import { buildCollectPendingQuotasClientPayload } from "@/features/session/lib/build-collect-pending-quotas-payload";
 import { buildPayoutCustomerCreditNotesClientPayload } from "@/features/session/lib/build-payout-customer-credit-notes-payload";
 import { buildCreateSaleClientPayload } from "@/features/session/lib/build-create-sale-payload";
 import {
@@ -71,6 +73,11 @@ import {
   readPosArCollectDraft,
   type PosArCollectSaleRow,
 } from "@/features/session/lib/pos-ar-collect-storage";
+import {
+  clearPosQuotaCollectDraft,
+  readPosQuotaCollectDraft,
+  type PosQuotaCollectRow,
+} from "@/features/session/lib/pos-quota-collect-storage";
 import {
   clearPosNcPayoutDraft,
   readPosNcPayoutDraft,
@@ -410,6 +417,8 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isCollectMode = (searchParams.get("mode") ?? "").trim() === "collect";
+  const isQuotaMode = (searchParams.get("mode") ?? "").trim() === "quota";
+  const isDebtCollectMode = isCollectMode || isQuotaMode;
   const isNcPayoutMode = (searchParams.get("mode") ?? "").trim() === "nc-payout";
   const cart = usePosCart();
   const compactLayout = usePosCompactLayout();
@@ -469,6 +478,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [deferLoading, setDeferLoading] = useState(false);
   const [collectSales, setCollectSales] = useState<PosArCollectSaleRow[]>([]);
+  const [collectQuotas, setCollectQuotas] = useState<PosQuotaCollectRow[]>([]);
   const [collectInitError, setCollectInitError] = useState("");
   const [ncPayoutCreditNotes, setNcPayoutCreditNotes] = useState<PosNcPayoutRow[]>([]);
   const [ncPayoutInitError, setNcPayoutInitError] = useState("");
@@ -700,7 +710,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
       icId &&
       hasSaleCustomer &&
       customerAvailableCredit >= 1 &&
-      !isCollectMode &&
+      !isDebtCollectMode &&
       !isNcPayoutMode &&
       !isReturnMode &&
       !isEncargoMode &&
@@ -724,7 +734,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
     internalCreditCtx,
     hasSaleCustomer,
     customerAvailableCredit,
-    isCollectMode,
+    isDebtCollectMode,
     isReturnMode,
     isEncargoMode,
     isFulfillBackorderMode,
@@ -746,11 +756,11 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
 
   useEffect(() => {
     if (!cart.ready) return;
-    if (isCollectMode || isNcPayoutMode) return;
+    if (isDebtCollectMode || isNcPayoutMode) return;
     if (cart.lines.length === 0) {
       router.replace("/pos");
     }
-  }, [cart.ready, cart.lines.length, router, isCollectMode, isNcPayoutMode]);
+  }, [cart.ready, cart.lines.length, router, isDebtCollectMode, isNcPayoutMode]);
 
   const pickSearchCustomer = useCallback(
     (row: PosCustomerSearchRow) => {
@@ -807,6 +817,10 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
     () => collectSales.reduce((acc, s) => acc + (Number(s.balanceDue) || 0), 0),
     [collectSales],
   );
+  const collectQuotaTotal = useMemo(
+    () => collectQuotas.reduce((acc, q) => acc + (Number(q.amount) || 0), 0),
+    [collectQuotas],
+  );
   const ncPayoutBalanceTotal = useMemo(
     () =>
       ncPayoutCreditNotes.reduce((acc, n) => acc + (Number(n.availableAmount) || 0), 0),
@@ -814,11 +828,13 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
   );
   const amountToPay = isNcPayoutMode
     ? ncPayoutBalanceTotal
-    : isCollectMode
-    ? collectBalanceTotal
-    : isEncargoMode && backorderDeposit
-      ? Math.max(0, Math.round(backorderDeposit.amount))
-      : saleTotal;
+    : isQuotaMode
+      ? collectQuotaTotal
+      : isCollectMode
+        ? collectBalanceTotal
+        : isEncargoMode && backorderDeposit
+          ? Math.max(0, Math.round(backorderDeposit.amount))
+          : saleTotal;
   const encargoDepositAmountRounded =
     isEncargoMode && backorderDeposit != null
       ? Math.max(0, Math.round(backorderDeposit.amount))
@@ -850,33 +866,37 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
 
   const flowTitle = isNcPayoutMode
     ? "Devolución saldo NC"
-    : isCollectMode
-    ? "Cobro pendiente"
-    : isReturnMode
-      ? "Devolución en curso"
-      : isFulfillBackorderMode
-        ? "Liquidar encargo"
-        : isEncargoMode
-          ? "Encargo en curso"
-          : "Venta en curso";
+    : isQuotaMode
+      ? "Cobro de cuotas"
+      : isCollectMode
+        ? "Cobro pendiente"
+        : isReturnMode
+          ? "Devolución en curso"
+          : isFulfillBackorderMode
+            ? "Liquidar encargo"
+            : isEncargoMode
+              ? "Encargo en curso"
+              : "Venta en curso";
   const summarySectionLabel = isNcPayoutMode
     ? "Notas de crédito a liquidar"
-    : isCollectMode
-    ? "Ventas a cobrar"
-    : isReturnMode
-      ? "Resumen de devolución"
-      : isFulfillBackorderMode
-        ? "Resumen de liquidación"
-        : isEncargoMode
-          ? "Resumen de encargo"
-          : "Resumen de venta";
+    : isQuotaMode
+      ? "Cuotas a cobrar"
+      : isCollectMode
+        ? "Ventas a cobrar"
+        : isReturnMode
+          ? "Resumen de devolución"
+          : isFulfillBackorderMode
+            ? "Resumen de liquidación"
+            : isEncargoMode
+              ? "Resumen de encargo"
+              : "Resumen de venta";
   const amountDueLabel = isReturnMode
     ? "Total a devolver"
     : isNcPayoutMode
       ? "Total a devolver"
-      : isCollectMode
-      ? "Total a cobrar"
-      : "Total a pagar";
+      : isDebtCollectMode
+        ? "Total a cobrar"
+        : "Total a pagar";
   const showReturnRefundUi = !isReturnMode || immediateReturnRefund;
   /** Devolución sin reembolso en caja: CTA con icono de documento en lugar de cobro. */
   const isReturnDocumentMode = isReturnMode && !immediateReturnRefund;
@@ -932,6 +952,27 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
     });
     setPayments([]);
   }, [isCollectMode, disableEncargoMode, setCustomer, setPayments]);
+
+  useEffect(() => {
+    if (!isQuotaMode) return;
+    disableEncargoMode();
+    const draft = readPosQuotaCollectDraft();
+    if (!draft) {
+      setCollectInitError("No hay cuotas seleccionadas para cobrar. Vuelve a la ficha del cliente.");
+      setCollectQuotas([]);
+      return;
+    }
+    setCollectInitError("");
+    setCollectQuotas(draft.quotas);
+    setCustomer({
+      customerId: draft.customerId,
+      name: draft.customerDisplayName ?? draft.customerId,
+      document: "",
+      phone: "",
+      email: null,
+    });
+    setPayments([]);
+  }, [isQuotaMode, disableEncargoMode, setCustomer, setPayments]);
 
   useEffect(() => {
     if (!isNcPayoutMode) return;
@@ -1439,6 +1480,15 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
     payments.length > 0 &&
     (remaining <= 0.01 || overpay > 0);
 
+  const canConfirmQuota =
+    isQuotaMode &&
+    collectQuotas.length > 0 &&
+    !collectInitError &&
+    hasSaleCustomer &&
+    amountToPay > 0 &&
+    payments.length > 0 &&
+    (remaining <= 0.01 || overpay > 0);
+
   const canConfirmNcPayout =
     isNcPayoutMode &&
     ncPayoutCreditNotes.length > 0 &&
@@ -1462,7 +1512,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
 
   const canConfirmSale =
     !isReturnMode &&
-    !isCollectMode &&
+    !isDebtCollectMode &&
     !isNcPayoutMode &&
     cart.lines.length > 0 &&
     !stockBlocksSalePayment &&
@@ -1477,12 +1527,13 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
     canConfirmReturnWithRefund ||
     canConfirmSale ||
     canConfirmCollect ||
+    canConfirmQuota ||
     canConfirmNcPayout;
 
   const confirmPaymentDisabled = !canConfirm || confirmLoading || deferLoading;
 
   const showDeferPaymentButton =
-    !isCollectMode &&
+    !isDebtCollectMode &&
     !isNcPayoutMode &&
     !isReturnMode &&
     !isFulfillBackorderMode &&
@@ -1514,6 +1565,16 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
       if (remaining > 0.01) return "Cubre el total a devolver antes de confirmar";
       if (overpay > 0.01) return "El monto no puede superar el total a devolver";
       return "Confirmar devolución";
+    }
+    if (isQuotaMode) {
+      if (collectInitError) return collectInitError;
+      if (collectQuotas.length === 0) return "No hay cuotas seleccionadas";
+      if (!hasSaleCustomer) return "Cliente requerido para el cobro";
+      if (payments.length === 0) return "Agrega al menos un método de pago";
+      if (remaining > 0.01 && overpay <= 0) {
+        return "Cubre el saldo restante antes de confirmar";
+      }
+      return overpay > 0 ? "Confirmar cobro (con vuelto)" : "Confirmar cobro";
     }
     if (isCollectMode) {
       if (collectInitError) return collectInitError;
@@ -1554,6 +1615,17 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
       const badMethod = payments.find((p) => !isNcPayoutAllowedPaymentMethod(p.type));
       if (badMethod) {
         return "Quita los medios de pago no permitidos (solo efectivo, transferencia o cheque).";
+      }
+      return "";
+    }
+    if (isQuotaMode) {
+      if (collectInitError) return collectInitError;
+      if (collectQuotas.length === 0) return "No hay cuotas seleccionadas para cobrar.";
+      if (!hasSaleCustomer) return "Cliente requerido para el cobro.";
+      if (amountToPay <= 0) return "El total a cobrar debe ser mayor que cero.";
+      if (payments.length === 0) return "Agrega al menos un método de pago.";
+      if (remaining > 0.01 && overpay <= 0) {
+        return "Cubre el saldo restante antes de confirmar.";
       }
       return "";
     }
@@ -1836,6 +1908,78 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
       } catch (e) {
         setConfirmLoading(false);
         setPageAlert(e instanceof Error ? e.message : "No se pudo registrar la devolución.");
+        return;
+      }
+    }
+
+    if (isQuotaMode) {
+      const customerId = customer?.customerId?.trim();
+      if (!customerId) {
+        setConfirmLoading(false);
+        setPageAlert("Cliente requerido para el cobro.");
+        return;
+      }
+      try {
+        const quotaRes = await collectPendingQuotasFromPosAction(
+          buildCollectPendingQuotasClientPayload({
+            pointOfSaleId,
+            cashSessionId,
+            customerId,
+            installmentIds: collectQuotas.map((q) => q.id),
+            payments,
+          }),
+        );
+        if (!quotaRes.success) {
+          setConfirmLoading(false);
+          setPageAlert(quotaRes.message);
+          return;
+        }
+        clearPosQuotaCollectDraft();
+        let details = companyDetails;
+        if (!details) {
+          try {
+            details = (await getCompanyDetailsAction()) ?? null;
+            if (details) setCompanyDetails(details);
+          } catch {
+            details = null;
+          }
+        }
+        const snapshot = buildPosSaleReceiptSnapshot({
+          lines: [],
+          payments,
+          customer,
+          company: details,
+          posContext: posCtx,
+          appliedPromotions: [],
+          orderDiscount: 0,
+          lineDiscountsTotal: 0,
+          totals: {
+            net: 0,
+            gross: 0,
+            taxes: 0,
+            discounts: 0,
+            saleTotal: collectQuotaTotal,
+            appliedTotal,
+            overpay,
+          },
+          methodsById,
+          loadedQuotation: null,
+          saleFolio: quotaRes.documentNumber,
+          documentKind: "sale",
+          quotaCollection: quotaRes.allocations.map((a) => ({
+            folio: a.documentNumber,
+            dueDate: collectQuotas.find((q) => q.id === a.installmentId)?.dueDate ?? null,
+            amount: a.amount,
+          })),
+        });
+        setReceiptData(snapshot);
+        setConfirmLoading(false);
+        emitKaiScreenSaleCompleted();
+        setSuccessOpen(true);
+        return;
+      } catch (e) {
+        setConfirmLoading(false);
+        setPageAlert(e instanceof Error ? e.message : "No se pudo registrar el cobro de cuotas.");
         return;
       }
     }
@@ -2141,7 +2285,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
     );
   }
 
-  if (!isCollectMode && !isNcPayoutMode && cart.lines.length === 0) {
+  if (!isDebtCollectMode && !isNcPayoutMode && cart.lines.length === 0) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
         <DotProgress />
@@ -2329,6 +2473,10 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
               <span className="text-xs text-muted-foreground">
                 {ncPayoutCreditNotes.length} nota(s) de crédito · 100 % del disponible
               </span>
+            ) : isQuotaMode ? (
+              <span className="text-xs text-muted-foreground">
+                {collectQuotas.length} cuota(s) seleccionada(s)
+              </span>
             ) : isCollectMode ? (
               <span className="text-xs text-muted-foreground">
                 {collectSales.length} venta(s) seleccionada(s)
@@ -2430,6 +2578,26 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
                     </span>
                   </li>
                 ))
+              : isQuotaMode
+              ? collectQuotas.map((quota) => (
+                  <li
+                    key={quota.id}
+                    className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm"
+                    data-test-id={`pos-collect-quota-${quota.id}`}
+                  >
+                    <span className="min-w-0 truncate font-mono font-medium text-foreground">
+                      {quota.documentNumber ?? quota.transactionId ?? quota.id}
+                      {quota.dueDate ? (
+                        <span className="ml-2 font-sans text-xs text-muted-foreground">
+                          vence {new Date(quota.dueDate).toLocaleDateString("es-CL")}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="shrink-0 tabular-nums font-semibold">
+                      {formatMoney(quota.amount)}
+                    </span>
+                  </li>
+                ))
               : isCollectMode
               ? collectSales.map((sale) => (
                   <li
@@ -2450,7 +2618,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
                 ))}
           </ul>
           <footer className="shrink-0 space-y-2 border-t border-border pt-3 text-sm">
-            {isCollectMode || isNcPayoutMode || isEncargoMode ? (
+            {isDebtCollectMode || isNcPayoutMode || isEncargoMode ? (
               <div className="flex justify-between gap-4 pt-1 text-base font-semibold">
                 <span className="text-foreground">{amountDueLabel}</span>
                 <span className="tabular-nums text-foreground">{formatMoney(amountToPay)}</span>
@@ -2504,7 +2672,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
                 onApplyCreditNote={
                   showReturnRefundUi &&
                     !isReturnMode &&
-                    !isCollectMode &&
+                    !isDebtCollectMode &&
                     !isNcPayoutMode &&
                     !isEncargoMode
                     ? applyCreditNoteFromPanel

@@ -65,6 +65,18 @@ function normalizeReceptionDetail(raw: unknown): ReceptionDetailForReturn {
         quantity: Number(lr.quantity) || 0,
         receivedQuantity: lr.receivedQuantity != null ? Number(lr.receivedQuantity) : null,
         unitPrice: Math.max(0, Number(lr.unitPrice) || 0),
+        storagePhysicalBefore:
+          lr.storagePhysicalBefore != null && Number.isFinite(Number(lr.storagePhysicalBefore))
+            ? Number(lr.storagePhysicalBefore)
+            : null,
+        storagePhysicalAfter:
+          lr.storagePhysicalAfter != null && Number.isFinite(Number(lr.storagePhysicalAfter))
+            ? Number(lr.storagePhysicalAfter)
+            : null,
+        stockUnitLabel:
+          typeof lr.stockUnitLabel === "string" && lr.stockUnitLabel.trim()
+            ? lr.stockUnitLabel.trim()
+            : null,
       });
     }
   }

@@ -8,15 +8,36 @@ import type { EShopHeroSlide } from "@/features/e-shop-storefront/types/storefro
 import { storeContentContainerClassName } from "@/shared/layout/store-content-layout";
 import {
   getHeroSlideTextPresentation,
-  heroSlideCarouselIndicatorStyle,
   heroSlideLinkCtaStyle,
   heroSlideSubtitleStyle,
   heroSlideTitleStyle,
-  heroSlideUsesCustomTextColor,
 } from "@/shared/utils/hero-slide-text-color";
+import { resolveHeroAutoplayMs } from "@/shared/components/eshop-hero-autoplay";
 
 const DEFAULT_AUTOPLAY_SECONDS = 6;
-const MIN_AUTOPLAY_SECONDS = 3;
+/** Duración del fundido entre slides (no resta al tiempo configurado en admin). */
+const HERO_CROSSFADE_MS = 800;
+
+const heroSlideLayerClassName = (active: boolean, animate: boolean) =>
+  [
+    "absolute inset-0 flex flex-col transition-opacity",
+    animate ? "duration-700 ease-in-out" : "duration-0",
+    active ? "z-10 opacity-100" : "pointer-events-none z-0 opacity-0",
+  ].join(" ");
+
+function usePrefersReducedMotion(): boolean {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setPrefersReducedMotion(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+
+  return prefersReducedMotion;
+}
 
 const TEXT_ALIGN_CLASS: Record<EShopHeroSlide["textAlign"], string> = {
   left: "items-start text-left",
@@ -172,11 +193,7 @@ function EShopHero({ slide }: { slide: EShopHeroSlide }) {
 
 /** Dos o más slides: carrusel con flechas, puntos y autoplay. */
 function resolveAutoplayMs(autoplaySeconds: number): number {
-  const seconds = Math.max(
-    MIN_AUTOPLAY_SECONDS,
-    Math.round(autoplaySeconds) || DEFAULT_AUTOPLAY_SECONDS,
-  );
-  return seconds * 1000;
+  return resolveHeroAutoplayMs(autoplaySeconds);
 }
 
 function EShopHeroCarousel({
@@ -188,6 +205,8 @@ function EShopHeroCarousel({
 }) {
   const [index, setIndex] = useState(0);
   const count = slides.length;
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const animateSlides = !prefersReducedMotion;
 
   const goTo = useCallback(
     (next: number) => {
@@ -197,49 +216,46 @@ function EShopHeroCarousel({
   );
 
   const autoplayMs = resolveAutoplayMs(autoplaySeconds);
-  const prefersReducedMotion =
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   useEffect(() => {
     if (prefersReducedMotion || count < 2) {
       return;
     }
 
-    let timer: number | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     const schedule = () => {
-      timer = window.setInterval(() => {
-        if (document.visibilityState === "hidden") {
-          return;
-        }
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+      timeoutId = setTimeout(() => {
         setIndex((i) => (i + 1) % count);
       }, autoplayMs);
     };
 
     const onVisibilityChange = () => {
-      if (document.visibilityState === "hidden" && timer !== undefined) {
-        window.clearInterval(timer);
-        timer = undefined;
+      if (document.visibilityState === "hidden") {
+        if (timeoutId !== undefined) {
+          clearTimeout(timeoutId);
+          timeoutId = undefined;
+        }
         return;
       }
-      if (document.visibilityState === "visible" && timer === undefined) {
-        schedule();
-      }
+      schedule();
     };
 
-    schedule();
+    if (document.visibilityState !== "hidden") {
+      schedule();
+    }
     document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
-      if (timer !== undefined) {
-        window.clearInterval(timer);
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
       }
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [count, autoplayMs, prefersReducedMotion]);
-
-  const slide = slides[index];
+  }, [index, count, autoplayMs, prefersReducedMotion]);
 
   return (
     <section
@@ -248,22 +264,28 @@ function EShopHeroCarousel({
       aria-roledescription="carousel"
       aria-label="Destacados de la tienda"
     >
-      <HeroSlideBackground slide={slide} />
-
       <div className="relative flex min-h-0 flex-1 flex-col">
-        <div
-          key={slide.id}
-          className="absolute inset-0 flex flex-col"
-          role="group"
-          aria-roledescription="slide"
-          aria-label={slide.title ?? `Slide ${index + 1}`}
-        >
-          <div className={heroCarouselCopyShellClassName}>
-            <div className={heroCarouselContentClassName}>
-              <HeroSlideCopy slide={slide} />
+        {slides.map((slide, i) => {
+          const active = i === index;
+          return (
+            <div
+              key={slide.id}
+              className={heroSlideLayerClassName(active, animateSlides)}
+              role="group"
+              aria-roledescription="slide"
+              aria-label={slide.title ?? `Slide ${i + 1}`}
+              aria-hidden={!active}
+              style={animateSlides ? { transitionDuration: `${HERO_CROSSFADE_MS}ms` } : undefined}
+            >
+              <HeroSlideBackground slide={slide} />
+              <div className={heroCarouselCopyShellClassName}>
+                <div className={heroCarouselContentClassName}>
+                  <HeroSlideCopy slide={slide} />
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          );
+        })}
 
         <button
           type="button"
@@ -293,7 +315,7 @@ function EShopHeroCarousel({
             <button
               key={slide.id}
               type="button"
-              className={`h-2.5 rounded-full transition-all ${
+              className={`h-2.5 rounded-full transition-all duration-500 ease-in-out ${
                 useThemeIndicators ? "eshop-hero-carousel-indicator-shadow" : ""
               } ${useThemeIndicators ? (active ? "w-8 bg-foreground" : "w-2.5 bg-foreground/40 hover:bg-foreground/60") : active ? "w-8" : "w-2.5 hover:opacity-80"}`}
               style={useThemeIndicators ? undefined : presentation.indicatorStyle(active)}

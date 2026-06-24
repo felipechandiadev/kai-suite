@@ -8,7 +8,7 @@ import {
 import type { CompanyDetails } from "@/features/company/infrastructure/company.request";
 import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import {
-  enqueueVectorTicketWithMappingFallback,
+  enqueueVectorTicketAndAwaitDelivery,
   posTicketMetaToDocumentMeta,
   printPosTicketFailureDocumentFallback,
   withPrintAgentConnection,
@@ -100,7 +100,8 @@ export async function printPosQuotationReceiptAgentOrBrowser(
       if (!agentSupportsPosQuotationTicket(hello)) {
         throw new Error("agent_no_pos_quotation_ticket");
       }
-      enqueued = Boolean(await enqueueVectorTicketWithMappingFallback(
+      const jobId = await enqueueVectorTicketAndAwaitDelivery(
+        conn,
         async () => {
           const res = (await conn.enqueuePosQuotationTicket(ticket, {
             ...meta,
@@ -123,11 +124,14 @@ export async function printPosQuotationReceiptAgentOrBrowser(
           return res;
         },
         {
-          html: documentHtml,
-          iframeTitle: documentFallbackMeta.iframeTitle,
-          kind: "document",
+          browserFallback: {
+            html: documentHtml,
+            iframeTitle: documentFallbackMeta.iframeTitle,
+            kind: "document",
+          },
         },
-      ));
+      );
+      enqueued = Boolean(jobId);
     });
   } catch (e) {
     console.warn("[KaiStore print] cotización agente:", e);

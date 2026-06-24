@@ -6,9 +6,9 @@ App agente de impresión para tablet (misma máquina que el POS o en red).
 
 | Campo | Valor |
 |-------|-------|
-| `VERSION_NAME` | 1.1.5 |
-| `VERSION_CODE` | 9 |
-| APK publicado | `pwa-pos/public/downloads/kai-printers-android-1.1.5.apk` |
+| `VERSION_NAME` | 1.1.6 |
+| `VERSION_CODE` | 11 |
+| APK publicado | `pwa-pos/public/downloads/kai-printers-android-1.1.6.apk` |
 | Manifest | `pwa-pos/public/downloads/kai-printers-android.manifest.json` |
 
 Publicar nueva versión:
@@ -27,7 +27,7 @@ kai-printers-android/
     protocol/ProtocolDispatcher.kt
     queue/PrintQueueWorker.kt
     data/AgentRepository.kt, AgentDatabase.kt
-    print/PosSaleTicketEscPos.kt, JsonElementExt.kt
+    print/EscPosWriter.kt, TicketEscPosDispatcher.kt, Pos*TicketEscPos.kt, EscPosLogo.kt, JsonElementExt.kt
     usb/UsbEscPosTransport.kt
 ```
 
@@ -36,8 +36,15 @@ kai-printers-android/
 1. `ProtocolDispatcher.handlePrint` valida `format`, `purpose`, mapeo impresora.
 2. `repository.enqueueJob` persiste JSON del ticket en SQLite.
 3. `queueWorker.notifyNewJob()` → `PrintQueueWorker.drain()`.
-4. `PosSaleTicketEscPos.fromTicketJson(payload)` → `byte[]`.
+4. `TicketEscPosDispatcher.fromJob(documentType, payload)` → renderer `Pos*TicketEscPos` → `byte[]`.
 5. `TransportFactory.write(ref, bytes)` según USB/BT/red.
+
+## Cambios v1.1.6
+
+- `TicketEscPosDispatcher` + renderers ESC/POS para todos los `pos-*-ticket`
+- `EscPosWriter` (primitivas compartidas) y logo raster (`EscPosLogo`)
+- Capabilities hello completas (`pos-quotation-ticket`, arqueo, NC, etc.)
+- Venta: promociones, encargo, atributos de línea
 
 ## Cambios críticos v1.1.5
 

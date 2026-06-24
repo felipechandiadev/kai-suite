@@ -36,8 +36,10 @@ export function EShopTopBar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [navHydrated, setNavHydrated] = useState(false);
+  const [cartBadgeReady, setCartBadgeReady] = useState(false);
   useEffect(() => {
     setNavHydrated(true);
+    setCartBadgeReady(true);
   }, []);
   const currentCategoryId = navHydrated ? (searchParams.get("categoryId")?.trim() ?? "") : "";
   const { itemCount, cartHydrated, openDrawer } = useEShopCart();
@@ -109,7 +111,7 @@ export function EShopTopBar({
               ariaLabel="Abrir carrito"
               onClick={openDrawer}
             />
-            {cartHydrated && itemCount > 0 ? (
+            {cartBadgeReady && cartHydrated && itemCount > 0 ? (
               <span className="absolute -right-1 -top-1 flex h-5 min-w-5 translate-x-[7px] items-center justify-center rounded-full border-2 border-chrome bg-secondary px-1 text-[10px] font-bold text-primary">
                 {itemCount > 99 ? "99+" : itemCount}
               </span>

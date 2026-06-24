@@ -9,7 +9,7 @@ import type { CashCountSheetPrintInput } from "@/features/cash-closing/lib/cash-
 import { buildCashCountSheetDocumentHtml } from "@/features/cash-closing/lib/cash-count-sheet-print";
 import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import {
-  enqueueVectorTicketWithMappingFallback,
+  enqueueVectorTicketAndAwaitDelivery,
   posTicketMetaToDocumentMeta,
   printPosTicketFailureDocumentFallback,
   withPrintAgentConnection,
@@ -78,7 +78,8 @@ export async function printCashCountSheetTicketVector(
       if (!agentSupportsPosCashCountSheetTicket(hello)) {
         throw new Error("agent_no_pos_cash_count_sheet_ticket");
       }
-      enqueued = Boolean(await enqueueVectorTicketWithMappingFallback(
+      const jobId = await enqueueVectorTicketAndAwaitDelivery(
+        conn,
         async () => {
           const res = (await conn.enqueuePosCashCountSheetTicket(ticket, {
             ...meta,
@@ -101,11 +102,14 @@ export async function printCashCountSheetTicketVector(
           return res;
         },
         {
-          html: documentHtml,
-          iframeTitle: documentFallbackMeta.iframeTitle,
-          kind: "document",
+          browserFallback: {
+            html: documentHtml,
+            iframeTitle: documentFallbackMeta.iframeTitle,
+            kind: "document",
+          },
         },
-      ));
+      );
+      enqueued = Boolean(jobId);
     });
   } catch (e) {
     console.warn("[KaiStore print] planilla de conteo agente:", e);

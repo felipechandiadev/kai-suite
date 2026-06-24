@@ -27,12 +27,24 @@ import { Unit } from '@modules/units/domain/unit.entity';
 import { VariantQuantityConversionService } from '@modules/product-variants/application/variant-quantity-conversion.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { CollectPendingSalesDto } from './dto/collect-pending-sales.dto';
+import { CollectPendingQuotasDto } from './dto/collect-pending-quotas.dto';
 import { PayoutCustomerCreditNotesDto } from './dto/payout-customer-credit-notes.dto';
 import { CreateBackorderDto } from './dto/create-backorder.dto';
 import {
   isSaleCollectible,
   saleBalanceDue,
 } from './collect-pending-sales.util';
+import {
+  isInstallmentCollectible,
+  installmentPendingAmount,
+  resolveInstallmentSaleId,
+} from './collect-pending-quotas.util';
+import {
+  Installment,
+  InstallmentSourceType,
+  InstallmentStatus,
+} from '@modules/installments/domain/installment.entity';
+import { InstallmentRepository } from '@modules/installments/infrastructure/installment.repository';
 import {
   resolveSalePaymentStatusFromReceived,
   saleAmountPaidField,
@@ -129,6 +141,7 @@ export class SalesFromSessionService {
     private readonly stockCommitment: StockCommitmentService,
     private readonly backorderRegistration: BackorderRegistrationService,
     private readonly eshopBackorderSync: EshopBackorderSyncService,
+    private readonly installmentRepository: InstallmentRepository,
   ) {}
 
   /**
@@ -447,6 +460,275 @@ export class SalesFromSessionService {
         allocations,
       };
     });
+  }
+
+  async collectPendingQuotas(dto: CollectPendingQuotasDto) {
+    const customerId = dto.customerId.trim();
+    const installmentIds = [
+      ...new Set(
+        (dto.installmentIds ?? []).map((id) => id.trim()).filter(Boolean),
+      ),
+    ];
+    if (!customerId) {
+      throw new BadRequestException('customerId es obligatorio');
+    }
+    if (installmentIds.length === 0) {
+      throw new BadRequestException('Debes indicar al menos una cuota a cobrar');
+    }
+
+    const paymentsForCollect = (dto.payments ?? []).filter(
+      (p) => (Number(p.amount) || 0) > 0,
+    );
+    if (paymentsForCollect.length === 0) {
+      throw new BadRequestException(
+        'Debes enviar al menos un pago con monto > 0 en payments.',
+      );
+    }
+
+    const pointOfSale = await this.pointOfSaleRepository.findOne({
+      where: { id: dto.pointOfSaleId, deletedAt: IsNull() },
+    });
+    if (!pointOfSale?.branchId) {
+      throw new BadRequestException('Punto de venta sin sucursal');
+    }
+    const user = await this.userRepository.findOne({
+      where: { userName: dto.userName, deletedAt: IsNull() },
+    });
+    if (!user) {
+      throw new NotFoundException(`Usuario ${dto.userName} no encontrado`);
+    }
+
+    const cashSession = await this.cashSessionRepository.findOne({
+      where: { id: dto.cashSessionId },
+    });
+    if (!cashSession) {
+      throw new NotFoundException(
+        `Sesión de caja ${dto.cashSessionId} no encontrada`,
+      );
+    }
+    if (cashSession.status !== CashSessionStatus.OPEN) {
+      throw new ConflictException(
+        `La sesión de caja está en estado ${cashSession.status}, no se pueden registrar operaciones`,
+      );
+    }
+
+    const installments = await this.installmentRepository.find({
+      where: { id: In(installmentIds) },
+      relations: ['saleTransaction'],
+    });
+    if (installments.length !== installmentIds.length) {
+      throw new NotFoundException('Una o más cuotas no existen');
+    }
+
+    const allocations: Array<{
+      installmentId: string;
+      saleTransactionId: string;
+      documentNumber: string;
+      amount: number;
+    }> = [];
+    let balanceTotal = 0;
+
+    for (const installment of installments) {
+      const saleCustomerId = installment.saleTransaction?.customerId?.trim();
+      if (!saleCustomerId || saleCustomerId !== customerId) {
+        throw new BadRequestException(
+          'Todas las cuotas deben pertenecer al mismo cliente.',
+        );
+      }
+      if (!isInstallmentCollectible(installment)) {
+        throw new BadRequestException(
+          `La cuota ${installment.installmentNumber} no tiene saldo pendiente de cobro.`,
+        );
+      }
+      const due = installmentPendingAmount(installment);
+      balanceTotal += due;
+      allocations.push({
+        installmentId: installment.id,
+        saleTransactionId: resolveInstallmentSaleId(installment) ?? '',
+        documentNumber: installment.saleTransaction?.documentNumber ?? '',
+        amount: due,
+      });
+    }
+
+    const paidTotal = paymentsForCollect.reduce(
+      (acc, p) => acc + (Number(p.amount) || 0),
+      0,
+    );
+    if (paidTotal + 1 < balanceTotal) {
+      throw new BadRequestException(
+        `El total recibido (${Math.round(paidTotal)}) es menor al saldo a cobrar (${Math.round(balanceTotal)}).`,
+      );
+    }
+
+    const salePaymentInputs: SalePaymentInput[] = paymentsForCollect.map((p) => ({
+      paymentMethod: p.paymentMethod,
+      amount: Number(p.amount) || 0,
+      companyPaymentMethodId: p.companyPaymentMethodId,
+      bankAccountId: p.bankAccountId,
+      reference: p.reference,
+      checkData: p.checkData as Record<string, unknown> | undefined,
+      creditNoteTransactionId: p.creditNoteTransactionId,
+      backorderTransactionId: p.backorderTransactionId,
+    }));
+
+    for (const p of paymentsForCollect) {
+      const method = (p.paymentMethod ?? '').trim().toUpperCase();
+      if (method === PaymentMethod.INTERNAL_CREDIT) {
+        throw new BadRequestException(
+          'El cobro de cuotas no admite crédito interno.',
+        );
+      }
+      if (p.backorderTransactionId?.trim()) {
+        throw new BadRequestException(
+          'El cobro de cuotas no admite abono de encargo como medio.',
+        );
+      }
+    }
+
+    await this.customerPaymentSourcesService.validatePaymentsForCustomer(
+      customerId,
+      paymentsForCollect,
+    );
+
+    let catalog: Awaited<ReturnType<CompaniesService['getPaymentMethods']>> = [];
+    try {
+      if (pointOfSale.companyId) {
+        catalog = await this.companiesService.getPaymentMethods(
+          pointOfSale.companyId,
+        );
+      }
+    } catch {
+      catalog = [];
+    }
+
+    const paymentSnapshots = buildPaymentSnapshotsFromSalePayments(
+      salePaymentInputs,
+      catalog,
+    );
+    const finalPaymentMethod = getRepresentativePaymentMethod(
+      paymentSnapshots,
+      PaymentMethod.CASH,
+    );
+
+    const changeAmount = Math.max(0, paidTotal - balanceTotal);
+
+    return this.dataSource.transaction(async (manager) => {
+      const paymentInDto = new CreateTransactionDto();
+      Object.assign(paymentInDto, {
+        transactionType: TransactionType.PAYMENT_IN,
+        branchId: pointOfSale.branchId,
+        userId: user.id,
+        pointOfSaleId: pointOfSale.id,
+        cashSessionId: cashSession.id,
+        customerId,
+        relatedTransactionId: allocations[0]?.saleTransactionId || undefined,
+        subtotal: paidTotal,
+        taxAmount: 0,
+        discountAmount: 0,
+        total: paidTotal,
+        paymentMethod: finalPaymentMethod,
+        paymentStatus: PaymentStatus.PAID,
+        amountPaid: paidTotal,
+        changeAmount,
+        metadata: {
+          source: 'pos_quota_collection',
+          allocations,
+          ...buildPaymentsMetadataFields(paymentSnapshots),
+        },
+      });
+      paymentInDto.lines = [];
+      const paymentIn =
+        await this.transactionsService.createTransaction(paymentInDto);
+
+      const installmentRepo = manager.getRepository(Installment);
+      const affectedSaleIds = new Set<string>();
+
+      for (const alloc of allocations) {
+        const installment = installments.find((i) => i.id === alloc.installmentId);
+        if (!installment) continue;
+
+        const newAmountPaid =
+          Math.round(Number(installment.amountPaid) || 0) + alloc.amount;
+        const installmentTotal = Math.round(Number(installment.amount) || 0);
+        let status = installment.status;
+        if (newAmountPaid >= installmentTotal) {
+          status = InstallmentStatus.PAID;
+        } else if (newAmountPaid > 0) {
+          status = InstallmentStatus.PARTIAL;
+        }
+
+        await installmentRepo.update(alloc.installmentId, {
+          amountPaid: newAmountPaid,
+          paymentTransactionId: paymentIn.id,
+          status,
+        });
+
+        const saleId = alloc.saleTransactionId?.trim();
+        if (saleId) affectedSaleIds.add(saleId);
+      }
+
+      for (const saleId of affectedSaleIds) {
+        await this.syncSalePaymentStatusFromInstallments(manager, saleId);
+      }
+
+      await this.customerPaymentSourcesService.applyPaymentsToSources(
+        customerId,
+        paymentsForCollect,
+        paymentIn.id,
+      );
+
+      return {
+        success: true,
+        paymentIn: {
+          id: paymentIn.id,
+          documentNumber: paymentIn.documentNumber,
+          total: paidTotal,
+        },
+        allocations,
+      };
+    });
+  }
+
+  private async syncSalePaymentStatusFromInstallments(
+    manager: EntityManager,
+    saleId: string,
+  ): Promise<void> {
+    const sale = await manager.getRepository(Transaction).findOne({
+      where: { id: saleId },
+    });
+    if (!sale || sale.transactionType !== TransactionType.SALE) return;
+
+    const installments = await manager.getRepository(Installment).find({
+      where: [
+        { saleTransactionId: saleId, sourceType: InstallmentSourceType.SALE },
+        { sourceTransactionId: saleId, sourceType: InstallmentSourceType.SALE },
+      ],
+    });
+    if (installments.length === 0) return;
+
+    const totalPaid = installments.reduce(
+      (acc, inst) => acc + Math.round(Number(inst.amountPaid) || 0),
+      0,
+    );
+    const saleTotal = Math.round(Number(sale.total) || 0);
+    const allPaid = installments.every(
+      (inst) => inst.status === InstallmentStatus.PAID,
+    );
+
+    if (allPaid || totalPaid >= saleTotal - 1) {
+      await manager.getRepository(Transaction).update(saleId, {
+        amountPaid: saleTotal,
+        paymentStatus: PaymentStatus.PAID,
+      });
+      return;
+    }
+
+    if (totalPaid > 0) {
+      await manager.getRepository(Transaction).update(saleId, {
+        amountPaid: totalPaid,
+        paymentStatus: PaymentStatus.PARTIAL,
+      });
+    }
   }
 
   /**

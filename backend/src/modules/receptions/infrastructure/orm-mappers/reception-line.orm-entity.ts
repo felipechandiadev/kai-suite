@@ -53,6 +53,12 @@ export class ReceptionLineOrmEntity {
   @Column({ type: 'int', default: 1 })
   lineNumber!: number;
 
+  @Column({ type: 'decimal', precision: 18, scale: 6, nullable: true })
+  storagePhysicalBefore?: number | null;
+
+  @Column({ type: 'decimal', precision: 18, scale: 6, nullable: true })
+  storagePhysicalAfter?: number | null;
+
   @ManyToOne(() => Reception, (reception) => reception.lines)
   @JoinColumn({ name: 'receptionId' })
   reception!: Reception;

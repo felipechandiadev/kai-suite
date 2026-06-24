@@ -186,6 +186,13 @@ export class ReceptionsService {
             l.sku = l.sku || v.sku || l.sku;
             l.productName = l.productName || v.product?.name || l.productName;
             l.variantName = l.variantName || v.variantName || l.variantName;
+            const stockUnit =
+              (v as { stockBaseUnit?: { symbol?: string; name?: string } }).stockBaseUnit;
+            l.stockUnitLabel =
+              (typeof stockUnit?.symbol === 'string' && stockUnit.symbol.trim()) ||
+              (typeof stockUnit?.name === 'string' && stockUnit.name.trim()) ||
+              l.stockUnitLabel ||
+              null;
           }
         }
       } catch (err) {

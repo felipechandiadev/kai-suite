@@ -1,107 +1,142 @@
 package com.kaistore.printers.print
 
 import kotlinx.serialization.json.Json
-import java.text.NumberFormat
 import java.util.Locale
 
 object PosSaleTicketEscPos {
-    private val moneyFormat = NumberFormat.getIntegerInstance(Locale("es", "CL"))
-    private val nonLatin1 = Regex("[^\u0000-\u00FF]")
-
-    private fun escPosText(s: String): ByteArray =
-        s.replace(nonLatin1, "?").toByteArray(Charsets.ISO_8859_1)
-
     fun fromTicketJson(ticketJson: String, widthChars: Int = 48): ByteArray {
-        val layout = EscPosLayout.forWidthChars(widthChars)
         val ticket = Json.parseToJsonElement(ticketJson).jsonObj()
             ?: throw IllegalStateException("invalid_ticket_json")
-        val buf = ArrayList<Byte>()
-        fun b(vararg bytes: Int) { bytes.forEach { buf.add(it.toByte()) } }
-        fun text(s: String) {
-            escPosText(s).forEach { buf.add(it) }
-        }
-        fun line(s: String = "") {
-            text(s.take(layout.widthChars))
-            b(0x0A)
-        }
-        fun divider() = line("-".repeat(layout.widthChars))
-        fun money(n: Double): String = "$" + moneyFormat.format(n.toLong())
-        fun labelValue(label: String, value: String): String {
-            val pad = layout.widthChars - label.length - value.length
-            return label + " ".repeat(pad.coerceAtLeast(1)) + value
-        }
-
-        b(0x1B, 0x40) // init
-        b(0x1B, 0x52, 0x00)
-        b(0x1B, 0x74, 0x02) // PC850
-        b(0x1B, 0x61, 0x01) // center
+        val w = EscPosWriter(widthChars)
+        w.beginTicket()
 
         val company = ticket.jsonObj("company")
+        EscPosLogo.appendIfPresent(w, company?.jsonStr("logoBase64"))
+
+        w.alignCenter(true)
         val fantasy = company?.jsonStr("nombreFantasia").present()
             ?: company?.jsonStr("razonSocial").present()
             ?: "KaiStore"
-        line(fantasy.uppercase())
-        company?.jsonStr("rut")?.present()?.let { line(it) }
-        company?.jsonStr("businessActivity")?.present()?.let { line(it) }
-        b(0x1B, 0x61, 0x00)
+        w.line(fantasy.uppercase())
+        company?.jsonStr("rut")?.present()?.let { w.line(it) }
+        company?.jsonStr("businessActivity")?.present()?.let { w.line(it) }
+        w.alignCenter(false)
 
-        divider()
-        val folio = ticket.jsonStr("folio").present() ?: ""
-        val issued = ticket.jsonStr("issuedAtIso").present() ?: ""
-        line("Folio: $folio")
-        line("Fecha: ${issued.take(19).replace('T', ' ')}")
-        ticket.jsonObj("customer")?.jsonStr("name")?.present()?.let {
-            line("Cliente: $it")
-        }
-        divider()
-
-        ticket.jsonArr("lines")?.forEach { row ->
-            val obj = row.jsonObj() ?: return@forEach
-            val name = obj.jsonStr("productName").present() ?: ""
-            val qty = obj.jsonNum("quantity") ?: 1.0
-            val gross = obj.jsonNum("lineGross") ?: 0.0
-            line(name.take(layout.productNameChars))
-            val detail = "${qty.toInt()} x ${money(obj.jsonNum("unitPriceWithTax") ?: 0.0)}"
-            val pad = layout.widthChars - detail.length - money(gross).length
-            line(detail + " ".repeat(pad.coerceAtLeast(1)) + money(gross))
-        }
-
-        divider()
-        val totals = ticket.jsonObj("totals")
-        totals?.jsonNum("subtotalNet")?.let {
-            line(labelValue("Neto:", money(it)))
-        }
-        totals?.jsonNum("taxes")?.let {
-            line(labelValue("IVA:", money(it)))
-        }
-        totals?.jsonNum("total")?.let {
-            b(0x1B, 0x45, 0x01)
-            line(labelValue("TOTAL:", money(it)))
-            b(0x1B, 0x45, 0x00)
-        }
-        totals?.jsonNum("change")?.takeIf { it > 0 }?.let {
-            line(labelValue("Vuelto:", money(it)))
-        }
-
-        ticket.jsonArr("payments")?.takeIf { it.isNotEmpty() }?.let { payments ->
-            divider()
-            line("PAGOS")
-            payments.forEach { p ->
-                val po = p.jsonObj() ?: return@forEach
-                val label = po.jsonStr("label").present() ?: ""
-                val amount = po.jsonNum("amount") ?: 0.0
-                line(labelValue(label, money(amount)))
+        val isBackorder = ticket.jsonStr("documentKind") == "backorder"
+        ticket.jsonObj("backorder")?.let { bo ->
+            if (isBackorder) {
+                val deposit = bo.jsonNum("depositAmount") ?: 0.0
+                val percent = bo.jsonNum("percent") ?: 0.0
+                var abono = "Abono: ${w.money(deposit)}"
+                if (percent > 0.01) abono += " · ${percent.toInt()}%"
+                w.line(abono)
             }
         }
 
-        line()
-        line("Gracias por su compra")
-        if (folio.isNotBlank()) {
-            line()
-            EscPosBarcode.code128Commands(folio).forEach { buf.add(it) }
+        ticket.jsonObj("customer")?.let { c ->
+            val name = c.jsonStr("name").present()
+            val doc = c.jsonStr("document").present()
+            if (name != null || doc != null) {
+                w.divider()
+                w.line("Cliente")
+                name?.let { w.line(w.padLeft("Nombre:", it)) }
+                doc?.let { w.line(w.padLeft("Documento:", it)) }
+            }
         }
-        line()
-        EscPosTail.append(buf)
-        return buf.toByteArray()
+
+        w.divider()
+        w.bold(true)
+        w.alignCenter(true)
+        w.line(if (isBackorder) "ENCARGO" else "DETALLE")
+        w.bold(false)
+        w.alignCenter(false)
+        w.sectionGap()
+
+        ticket.jsonArr("lines")?.forEachIndexed { idx, row ->
+            val obj = row.jsonObj() ?: return@forEachIndexed
+            var name = obj.jsonStr("productName").present() ?: ""
+            val attrs = obj.jsonArr("attributes")
+                ?.mapNotNull { it.jsonStr()?.trim()?.takeIf { s -> s.isNotEmpty() } }
+                .orEmpty()
+            if (attrs.isNotEmpty()) {
+                name += " · " + attrs.joinToString(" · ")
+            }
+            val qty = obj.jsonNum("quantity") ?: 1.0
+            val qtyStr = if (kotlin.math.abs(qty % 1) < 0.001) {
+                qty.toLong().toString()
+            } else {
+                String.format(Locale.US, "%.2f", qty)
+            }
+            val unitSuffix = obj.jsonStr("unitSymbol").present()?.let { "/$it" }.orEmpty()
+            val qtyUnit = "${qtyStr}x ${w.money(obj.jsonNum("unitPriceWithTax") ?: 0.0)}$unitSuffix"
+            val gross = obj.jsonNum("lineGross") ?: 0.0
+            w.appendProductLineBlock(name, qtyUnit, w.money(gross))
+            val disc = obj.jsonNum("discountAmount") ?: 0.0
+            if (disc > 0.01) {
+                val lbl = obj.jsonStr("discountLabel").present() ?: "Promo"
+                w.line(w.padLeft("-$lbl", "-${w.money(disc)}"))
+            }
+            if (idx + 1 < (ticket.jsonArr("lines")?.size ?: 0)) w.sectionGap()
+        }
+
+        ticket.jsonArr("promotions")?.forEach { p ->
+            val po = p.jsonObj() ?: return@forEach
+            val code = po.jsonStr("code").present().orEmpty()
+            val promoName = po.jsonStr("name").present().orEmpty()
+            val amount = po.jsonNum("amount") ?: 0.0
+            w.line(w.padLeft("$code $promoName".trim(), "-${w.money(amount)}"))
+        }
+
+        w.divider()
+        val totals = ticket.jsonObj("totals")
+        totals?.jsonNum("subtotalNet")?.let { w.line(w.labelValue("Neto:", w.money(it))) }
+        totals?.jsonNum("taxes")?.let { w.line(w.labelValue("IVA:", w.money(it))) }
+        totals?.jsonNum("total")?.let {
+            w.bold(true)
+            w.line(w.labelValue("TOTAL:", w.money(it)))
+            w.bold(false)
+        }
+        val change = totals?.jsonNum("change") ?: 0.0
+
+        val payments = ticket.jsonArr("payments").orEmpty()
+        val showPayments = payments.isNotEmpty() || change > 0.01
+        if (showPayments) {
+            w.bold(true)
+            w.line("PAGOS")
+            w.bold(false)
+        }
+        payments.forEach { p ->
+            val po = p.jsonObj() ?: return@forEach
+            val label = po.jsonStr("label").present() ?: ""
+            val detail = po.jsonStr("detail").present()?.let { " ($it)" }.orEmpty()
+            val amount = po.jsonNum("amount") ?: 0.0
+            w.line(w.labelValue("$label$detail", w.money(amount)))
+        }
+        if (change > 0.01) {
+            w.line(w.labelValue("Vuelto:", w.money(change)))
+        }
+
+        val folio = ticket.jsonStr("folio").present() ?: ""
+        val issued = ticket.jsonStr("issuedAtIso").present() ?: ""
+        if (folio.isNotBlank()) {
+            w.appendBarcodeCentered(folio)
+        }
+        val dt = w.formatDateTime(issued)
+        val footer = when {
+            folio.isEmpty() -> dt
+            dt.isEmpty() -> folio
+            else -> "$folio - $dt"
+        }
+        if (footer.isNotBlank()) {
+            w.alignCenter(true)
+            w.line(footer)
+            w.alignCenter(false)
+        }
+        w.alignCenter(true)
+        w.line(if (isBackorder) "Comprobante de abono de encargo" else "Gracias por su compra")
+        w.alignCenter(false)
+        w.line()
+
+        return w.toByteArray(openDrawer = true)
     }
 }

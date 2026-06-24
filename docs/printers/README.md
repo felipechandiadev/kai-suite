@@ -4,7 +4,7 @@ Documentación viva del sistema de impresión POS y agentes. Complementa [IF-09]
 
 ## Estado (junio 2026)
 
-- **Venta real en tablet iMin + USB 80 mm:** funcionando con Kai Printers **v1.1.5+**
+- **Venta real en tablet iMin + USB 80 mm:** funcionando con Kai Printers **v1.1.5+** (todos los tickets POS en **v1.1.6+**)
 - **Demo / prueba de impresión:** ya funcionaba antes del fix
 - **Reimpresión desde movimientos de caja:** mismo pipeline que venta
 - **Renderers ESC/POS restantes (cotización, arqueo, NC, …):** especificados en [renderers/](./renderers/README.md) — **pendiente implementación Android**

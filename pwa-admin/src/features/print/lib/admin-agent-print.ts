@@ -76,3 +76,43 @@ export async function enqueueAdminPrint(
 export function isAdminPrintAgentConfigured(purpose: AdminAgentPrintPurpose): boolean {
   return isAdminAgentPrintConfiguredForPurpose(purpose);
 }
+
+function isUnknownPrinterLabelError(e: unknown): boolean {
+  return String(e).includes("unknown_printer_display_label");
+}
+
+/** Encola ticket vectorial en admin y espera entrega al operador. */
+export async function enqueueAdminVectorTicketAndAwaitDelivery(
+  conn: PrintServiceConnection,
+  withAlias: () => Promise<unknown>,
+  withoutAlias: () => Promise<unknown>,
+  timeoutMs = 60_000,
+): Promise<string | null> {
+  let lastUnknownLabel: unknown = null;
+  for (const attempt of [withoutAlias, withAlias]) {
+    try {
+      const res = await attempt();
+      const jobId =
+        res && typeof res === "object" && "jobId" in res
+          ? String((res as { jobId?: string }).jobId ?? "").trim() || null
+          : null;
+      if (jobId) {
+        const delivery = await conn.waitForPrintJob(jobId, timeoutMs);
+        if (delivery.status === "failed") {
+          throw new Error(delivery.error);
+        }
+      }
+      return jobId;
+    } catch (e) {
+      if (isUnknownPrinterLabelError(e)) {
+        lastUnknownLabel = e;
+        continue;
+      }
+      throw e;
+    }
+  }
+  if (lastUnknownLabel) {
+    console.warn("[admin-agent-print] enqueue vector: unknown label", lastUnknownLabel);
+  }
+  return null;
+}

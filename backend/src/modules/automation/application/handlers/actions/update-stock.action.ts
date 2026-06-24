@@ -21,6 +21,11 @@ import { StockNotificationEvaluator } from '@modules/notifications/application/s
 import { NotificationPublisherService } from '@modules/notifications/application/notification-publisher.service';
 import type { PublishNotificationCommand } from '@modules/notifications/application/dto/publish-notification.command';
 import { Storage } from '@modules/storages/domain/storage.entity';
+import { ReceptionLine } from '@modules/receptions/domain/reception-line.entity';
+import {
+  getReceptionIdFromTransactionMetadata,
+  mapTransactionLineIdToReceptionLineId,
+} from '../../helpers/reception-stock-snapshot.util';
 
 @Injectable()
 export class UpdateStockActionHandler {
@@ -84,6 +89,19 @@ export class UpdateStockActionHandler {
       }
 
       const txMeta = (txFull && (txFull as any).metadata) || (tx as any).metadata || {};
+      const receptionId = getReceptionIdFromTransactionMetadata(txMeta);
+      let txLineToReceptionLineId = new Map<string, string>();
+      if (receptionId && type === TransactionType.PURCHASE) {
+        const receptionLines = await manager.getRepository(ReceptionLine).find({
+          where: { receptionId },
+          order: { lineNumber: 'ASC' },
+        });
+        txLineToReceptionLineId = mapTransactionLineIdToReceptionLineId(
+          receptionLines,
+          lines as Array<{ id?: string; lineNumber?: number }>,
+        );
+      }
+
       const setAbsolutePhysical =
         (txMeta.inventoryAdjustMode === 'set_absolute' ||
           txMeta.inventoryAdjustMode === 'set') &&
@@ -156,6 +174,9 @@ export class UpdateStockActionHandler {
         let stockEntry = (await stockRepo.findOne({
           where: { productVariantId: variantId, storageId } as any,
         })) as StockLevel | null;
+        const storagePhysicalBefore = stockEntry
+          ? Number(stockEntry.physicalStock ?? 0)
+          : 0;
         const targetPhysical = setAbsolutePhysical
           ? Math.max(0, Number(txMeta.targetPhysicalStock) || 0)
           : null;
@@ -195,7 +216,25 @@ export class UpdateStockActionHandler {
           stockEntry.lastTransactionId = tx.id;
         }
 
+        const storagePhysicalAfter = Number(stockEntry.physicalStock ?? 0);
+
         await stockRepo.save(stockEntry as StockLevel);
+
+        if (receptionId && type === TransactionType.PURCHASE) {
+          const txLineId = typeof line.id === 'string' ? line.id.trim() : '';
+          const receptionLineId = txLineId
+            ? txLineToReceptionLineId.get(txLineId)
+            : undefined;
+          if (receptionLineId) {
+            await manager.getRepository(ReceptionLine).update(
+              { id: receptionLineId },
+              {
+                storagePhysicalBefore: Number(storagePhysicalBefore.toFixed(6)),
+                storagePhysicalAfter: Number(storagePhysicalAfter.toFixed(6)),
+              },
+            );
+          }
+        }
 
         let totalPhysicalStock: number | undefined;
         if (!hasStorageSpecificMinimum(stockEntry as StockLevel)) {

@@ -67,6 +67,14 @@ export class ReceptionLine {
   @Column({ type: 'int', default: 1 })
   lineNumber!: number;
 
+  /** Stock físico en el almacén de la recepción antes del ingreso (unidad de inventario). */
+  @Column({ type: 'decimal', precision: 18, scale: 6, nullable: true })
+  storagePhysicalBefore?: number | null;
+
+  /** Stock físico en el almacén de la recepción después del ingreso (unidad de inventario). */
+  @Column({ type: 'decimal', precision: 18, scale: 6, nullable: true })
+  storagePhysicalAfter?: number | null;
+
   // Relaciones
   @ManyToOne(() => Reception, (reception) => reception.lines)
   @JoinColumn({ name: 'receptionId' })

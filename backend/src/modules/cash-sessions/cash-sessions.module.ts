@@ -26,6 +26,7 @@ import { PromotionsModule } from '@modules/promotions/promotions.module';
 import { ProductVariantsModule } from '@modules/product-variants/product-variants.module';
 import { CustomersModule } from '@modules/customers/customers.module';
 import { StockLevelsModule } from '@modules/stock-levels/stock-levels.module';
+import { InstallmentsModule } from '@modules/installments/installments.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { StockLevelsModule } from '@modules/stock-levels/stock-levels.module';
     ProductVariantsModule,
     CustomersModule,
     StockLevelsModule,
+    InstallmentsModule,
     CqrsModule,
   ],
   controllers: [CashSessionsController],

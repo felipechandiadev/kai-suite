@@ -59,6 +59,30 @@ export async function enqueueVectorTicketWithMappingFallback(
   return null;
 }
 
+/** Encola ticket vectorial y espera entrega (`print_job_done` / `print_job_failed`). */
+export async function enqueueVectorTicketAndAwaitDelivery(
+  conn: PrintServiceConnection,
+  withAlias: () => Promise<unknown>,
+  withoutAlias: () => Promise<unknown>,
+  options?: {
+    browserFallback?: PosPrintJobBrowserFallback;
+    timeoutMs?: number;
+  },
+): Promise<string | null> {
+  const jobId = await enqueueVectorTicketWithMappingFallback(
+    withAlias,
+    withoutAlias,
+    options?.browserFallback,
+  );
+  if (jobId) {
+    const delivery = await conn.waitForPrintJob(jobId, options?.timeoutMs ?? 60_000);
+    if (delivery.status === "failed") {
+      throw new Error(delivery.error);
+    }
+  }
+  return jobId;
+}
+
 /** Convierte metadatos de encolado ticket (.escpos) a documento (.pdf). */
 export function posTicketMetaToDocumentMeta(meta: PosAgentPrintMeta): PosAgentPrintMeta {
   const stem = meta.filename.replace(/\.(escpos|html)$/i, "") || "documento";

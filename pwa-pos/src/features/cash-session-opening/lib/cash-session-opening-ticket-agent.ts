@@ -11,7 +11,7 @@ import {
 } from "@/features/cash-session-opening/lib/cash-session-opening-print";
 import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import {
-  enqueueVectorTicketWithMappingFallback,
+  enqueueVectorTicketAndAwaitDelivery,
   posTicketMetaToDocumentMeta,
   printPosTicketFailureDocumentFallback,
   withPrintAgentConnection,
@@ -78,7 +78,8 @@ export async function printCashSessionOpeningTicketVector(
       if (!agentSupportsPosCashSessionOpeningTicket(hello)) {
         throw new Error("agent_no_pos_cash_session_opening_ticket");
       }
-      enqueued = Boolean(await enqueueVectorTicketWithMappingFallback(
+      const jobId = await enqueueVectorTicketAndAwaitDelivery(
+        conn,
         async () => {
           const res = (await conn.enqueuePosCashSessionOpeningTicket(ticket, {
             ...meta,
@@ -101,11 +102,14 @@ export async function printCashSessionOpeningTicketVector(
           return res;
         },
         {
-          html: documentHtml,
-          iframeTitle: documentFallbackMeta.iframeTitle,
-          kind: "document",
+          browserFallback: {
+            html: documentHtml,
+            iframeTitle: documentFallbackMeta.iframeTitle,
+            kind: "document",
+          },
         },
-      ));
+      );
+      enqueued = Boolean(jobId);
     });
   } catch (e) {
     console.warn("[KaiStore print] apertura de caja agente:", e);

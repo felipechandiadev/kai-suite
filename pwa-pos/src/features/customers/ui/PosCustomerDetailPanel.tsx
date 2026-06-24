@@ -6,6 +6,8 @@ import { Alert, Button, Dialog, IconButton } from "@/shared/admin-shared";
 import { Badge } from "@/shared/components/Badge";
 import { writePosArCollectDraft } from "@/features/session/lib/pos-ar-collect-storage";
 import { writePosNcPayoutDraft } from "@/features/session/lib/pos-nc-payout-storage";
+import { writePosQuotaCollectDraft } from "@/features/session/lib/pos-quota-collect-storage";
+import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
 import { getBackorderDetailPosAction, getCustomerPosDetailBundleAction } from "@/features/customers/actions/customers-pos.action";
 import type {
   PosCustomerDetail,
@@ -200,7 +202,11 @@ export default function PosCustomerDetailPanel({
 
       {internalCreditEnabled ? (
         <SectionCard title="Cuotas pendientes" testId="pos-customer-detail-quotas">
-          <QuotasSection rows={quotas} />
+          <QuotasSection
+            rows={quotas}
+            customerId={customer.customerId}
+            customerDisplayName={customer.displayName}
+          />
         </SectionCard>
       ) : null}
 
@@ -853,19 +859,140 @@ function CreditNotesSection({
   );
 }
 
-function QuotasSection({ rows }: { rows: PosCustomerQuotaRow[] }) {
+function QuotasSection({
+  rows,
+  customerId,
+  customerDisplayName,
+}: {
+  rows: PosCustomerQuotaRow[];
+  customerId: string;
+  customerDisplayName: string;
+}) {
+  const router = useRouter();
+  const hasOpenCashSession = Boolean(readPosContextClient()?.cashSessionId?.trim());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [customerId, rows]);
+
+  const toggleRow = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleAll = useCallback(() => {
+    if (selectedIds.size >= rows.length) {
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds(new Set(rows.map((r) => r.id)));
+  }, [rows, selectedIds.size]);
+
+  const selectedTotal = useMemo(
+    () =>
+      rows.filter((r) => selectedIds.has(r.id)).reduce((acc, r) => acc + r.amount, 0),
+    [rows, selectedIds],
+  );
+
+  const handleCollect = useCallback(() => {
+    if (!hasOpenCashSession) return;
+    const quotas = rows
+      .filter((r) => selectedIds.has(r.id))
+      .map((r) => ({
+        id: r.id,
+        transactionId: r.transactionId,
+        documentNumber: r.documentNumber,
+        amount: r.amount,
+        dueDate: r.dueDate,
+      }));
+    if (quotas.length === 0) return;
+    writePosQuotaCollectDraft({
+      customerId,
+      customerDisplayName,
+      quotas,
+    });
+    router.push("/pos/payment?mode=quota");
+  }, [rows, selectedIds, customerId, customerDisplayName, router, hasOpenCashSession]);
+
   if (rows.length === 0) {
     return <EmptyTableMsg>Sin cuotas pendientes registradas.</EmptyTableMsg>;
   }
+
   return (
-    <DataTable
-      headers={["Documento", "Vencimiento", "Monto"]}
-      rows={rows.map((q) => [
-        q.documentNumber ?? q.transactionId ?? "—",
-        formatCustomerDateTime(q.dueDate),
-        fmtClp(q.amount),
-      ])}
-    />
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/80 bg-muted/20 px-3 py-2">
+        <label className="flex cursor-pointer items-center gap-2 text-xs text-foreground">
+          <input
+            type="checkbox"
+            className="size-4 rounded border-border"
+            checked={selectedIds.size > 0 && selectedIds.size === rows.length}
+            onChange={toggleAll}
+            data-test-id="pos-customer-quotas-select-all"
+          />
+          Seleccionar todas ({rows.length})
+        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            {!hasOpenCashSession
+              ? "Abre una sesión de caja para cobrar cuotas"
+              : selectedIds.size > 0
+                ? `${selectedIds.size} cuota(s) · ${fmtClp(selectedTotal)}`
+                : "Selecciona cuotas pendientes de cobro"}
+          </span>
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            disabled={selectedIds.size === 0 || !hasOpenCashSession}
+            onClick={handleCollect}
+            data-test-id="pos-customer-collect-quotas"
+          >
+            Cobrar cuotas
+          </Button>
+        </div>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full min-w-[560px] border-collapse text-xs">
+          <thead>
+            <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold uppercase text-muted-foreground">
+              <th className="w-8 px-2 py-2" />
+              <th className="px-3 py-2">Documento</th>
+              <th className="px-3 py-2">Vencimiento</th>
+              <th className="px-3 py-2 text-right">Monto</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((q) => (
+              <tr key={q.id} className="border-b border-border/80">
+                <td className="px-2 py-2">
+                  <input
+                    type="checkbox"
+                    className="size-4 rounded border-border"
+                    checked={selectedIds.has(q.id)}
+                    onChange={() => toggleRow(q.id)}
+                    data-test-id={`pos-customer-quota-select-${q.id}`}
+                  />
+                </td>
+                <td className="px-3 py-2 font-mono">
+                  {q.documentNumber ?? q.transactionId ?? "—"}
+                </td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  {formatCustomerDateTime(q.dueDate)}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums font-medium">
+                  {fmtClp(q.amount)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 

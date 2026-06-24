@@ -11,11 +11,11 @@ import type { CashClosingPrintInput } from "@/features/cash-closing/lib/cash-clo
 import { buildCashClosingDocumentHtml } from "@/features/cash-closing/lib/cash-closing-document-print";
 import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import {
-  printPosHtmlViaAgentOrBrowser,
-  printPosHtmlViaAgentOrBrowserFireAndForget,
-  enqueueVectorTicketWithMappingFallback,
+  enqueueVectorTicketAndAwaitDelivery,
   posTicketMetaToDocumentMeta,
   printPosTicketFailureDocumentFallback,
+  printPosHtmlViaAgentOrBrowser,
+  printPosHtmlViaAgentOrBrowserFireAndForget,
   withPrintAgentConnection,
 } from "@/features/pos-print/lib/pos-agent-print";
 
@@ -94,8 +94,8 @@ async function printCashClosingTicketVector(
       if (!agentSupportsPosCashClosingTicket(hello)) {
         throw new Error("agent_no_pos_cash_closing_ticket");
       }
-      enqueued = Boolean(
-        await enqueueVectorTicketWithMappingFallback(
+      const jobId = await enqueueVectorTicketAndAwaitDelivery(
+        conn,
         async () => {
           const res = (await conn.enqueuePosCashClosingTicket(ticket, {
             ...meta,
@@ -118,11 +118,14 @@ async function printCashClosingTicketVector(
           return res;
         },
         {
-          html: documentHtml,
-          iframeTitle: documentFallbackMeta.iframeTitle,
-          kind: "document",
+          browserFallback: {
+            html: documentHtml,
+            iframeTitle: documentFallbackMeta.iframeTitle,
+            kind: "document",
+          },
         },
-      ));
+      );
+      enqueued = Boolean(jobId);
     });
   } catch (e) {
     console.warn("[KaiStore print] arqueo agente:", e);

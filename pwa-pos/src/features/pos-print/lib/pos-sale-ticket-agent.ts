@@ -13,7 +13,7 @@ import {
 } from "@flowstore/print-service-client";
 import { buildPosSaleDocumentHtml } from "@/features/pos-print/lib/pos-sale-document-print";
 import {
-  enqueueVectorTicketWithMappingFallback,
+  enqueueVectorTicketAndAwaitDelivery,
   posTicketMetaToDocumentMeta,
   printPosTicketFailureDocumentFallback,
   withPrintAgentConnection,
@@ -169,9 +169,7 @@ export async function printPosSaleTicketAgentOrBrowser(
     return printPosTicketFailureDocumentFallback(documentHtml, ticketMeta);
   }
 
-  const logoBase64 = isPosAndroidTablet()
-    ? null
-    : await fetchReceiptLogoBase64(data.company.logoUrl, window.location.origin);
+  const logoBase64 = await fetchReceiptLogoBase64(data.company.logoUrl, window.location.origin);
   const ticketVector = posSaleReceiptToTicketPayload(data, { logoBase64: logoBase64 ?? null });
   let jobId: string | null = null;
 
@@ -181,21 +179,18 @@ export async function printPosSaleTicketAgentOrBrowser(
       if (hello != null && !agentSupportsPosSaleTicket(hello)) {
         throw new Error("agent_no_pos_sale_ticket");
       }
-      jobId = await enqueueVectorTicketWithMappingFallback(
+      jobId = await enqueueVectorTicketAndAwaitDelivery(
+        conn,
         () => enqueueSaleTicketOnAgent(conn, ticketVector, enqueueExtras, false),
         () => enqueueSaleTicketOnAgent(conn, ticketVector, enqueueExtras, true),
         {
-          html: documentHtml,
-          iframeTitle: documentFallbackMeta.iframeTitle,
-          kind: "document",
+          browserFallback: {
+            html: documentHtml,
+            iframeTitle: documentFallbackMeta.iframeTitle,
+            kind: "document",
+          },
         },
       );
-      if (jobId) {
-        const delivery = await conn.waitForPrintJob(jobId, 60_000);
-        if (delivery.status === "failed") {
-          throw new Error(delivery.error);
-        }
-      }
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

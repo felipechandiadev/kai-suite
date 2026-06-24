@@ -19,6 +19,32 @@ import {
   type PlannedPaymentScheduleConfig,
 } from "./planned-payment-definition.schedule";
 
+function plannedPaymentLinesEqual(
+  a: InvoicePlannedPaymentLineState[],
+  b: InvoicePlannedPaymentLineState[],
+): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    const x = a[i]!;
+    const y = b[i]!;
+    if (
+      x.id !== y.id ||
+      x.dueDate !== y.dueDate ||
+      x.amountStr !== y.amountStr ||
+      x.paymentMethod !== y.paymentMethod ||
+      x.companyBankAccountKey !== y.companyBankAccountKey ||
+      x.supplierBankAccountKey !== y.supplierBankAccountKey ||
+      x.chequeNumber !== y.chequeNumber ||
+      (x.cashHubId ?? null) !== (y.cashHubId ?? null) ||
+      (x.cashSessionId ?? null) !== (y.cashSessionId ?? null)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export type PlannedPaymentScheduledLinesBehavior = "term-chain" | "equal-split";
 
 export type PlannedPaymentDefinitionControlledState = {
@@ -82,27 +108,36 @@ export function usePlannedPaymentDefinition(args: UsePlannedPaymentDefinitionArg
   const paidLines = controlled?.paidLines ?? internalPaid;
   const scheduledLines = controlled?.scheduledLines ?? internalSched;
 
-  const setPaymentMode = useCallback(
-    (mode: PlannedPaymentMode) => {
-      if (controlled?.onPaymentModeChange) {
-        controlled.onPaymentModeChange(mode);
-      } else {
-        setInternalMode(mode);
-      }
-    },
-    [controlled],
-  );
+  const manualPaidLockRef = useRef(false);
+  const manualSchedLockRef = useRef(false);
+  const controlledRef = useRef(controlled);
+  controlledRef.current = controlled;
+  const companyBankAccountsRef = useRef(companyBankAccounts);
+  companyBankAccountsRef.current = companyBankAccounts;
+  const payeeBankAccountsRef = useRef(payeeBankAccounts);
+  payeeBankAccountsRef.current = payeeBankAccounts;
+  const cashHubOptionsRef = useRef(cashHubOptions);
+  cashHubOptionsRef.current = cashHubOptions;
 
-  const setPartialAmountStr = useCallback(
-    (value: string) => {
-      if (controlled?.onPartialAmountStrChange) {
-        controlled.onPartialAmountStrChange(value);
-      } else {
-        setInternalPartialStr(value);
-      }
-    },
-    [controlled],
-  );
+  const setPaymentMode = useCallback((mode: PlannedPaymentMode) => {
+    const c = controlledRef.current;
+    if (c?.onPaymentModeChange) {
+      if (c.paymentMode === mode) return;
+      c.onPaymentModeChange(mode);
+    } else {
+      setInternalMode(mode);
+    }
+  }, []);
+
+  const setPartialAmountStr = useCallback((value: string) => {
+    const c = controlledRef.current;
+    if (c?.onPartialAmountStrChange) {
+      if (c.partialAmountStr === value) return;
+      c.onPartialAmountStrChange(value);
+    } else {
+      setInternalPartialStr(value);
+    }
+  }, []);
 
   const setPaidLines = useCallback(
     (
@@ -110,14 +145,16 @@ export function usePlannedPaymentDefinition(args: UsePlannedPaymentDefinitionArg
         | InvoicePlannedPaymentLineState[]
         | ((prev: InvoicePlannedPaymentLineState[]) => InvoicePlannedPaymentLineState[]),
     ) => {
-      if (controlled?.onPaidLinesChange) {
-        const next = typeof value === "function" ? value(controlled.paidLines) : value;
-        controlled.onPaidLinesChange(next);
+      const c = controlledRef.current;
+      if (c?.onPaidLinesChange) {
+        const next = typeof value === "function" ? value(c.paidLines) : value;
+        if (plannedPaymentLinesEqual(next, c.paidLines)) return;
+        c.onPaidLinesChange(next);
       } else {
         setInternalPaid(value);
       }
     },
-    [controlled],
+    [],
   );
 
   const setScheduledLines = useCallback(
@@ -126,18 +163,17 @@ export function usePlannedPaymentDefinition(args: UsePlannedPaymentDefinitionArg
         | InvoicePlannedPaymentLineState[]
         | ((prev: InvoicePlannedPaymentLineState[]) => InvoicePlannedPaymentLineState[]),
     ) => {
-      if (controlled?.onScheduledLinesChange) {
-        const next = typeof value === "function" ? value(controlled.scheduledLines) : value;
-        controlled.onScheduledLinesChange(next);
+      const c = controlledRef.current;
+      if (c?.onScheduledLinesChange) {
+        const next = typeof value === "function" ? value(c.scheduledLines) : value;
+        if (plannedPaymentLinesEqual(next, c.scheduledLines)) return;
+        c.onScheduledLinesChange(next);
       } else {
         setInternalSched(value);
       }
     },
-    [controlled],
+    [],
   );
-
-  const manualPaidLockRef = useRef(false);
-  const manualSchedLockRef = useRef(false);
 
   const total = Math.max(0, Math.round(rawTotal || 0));
   const partialAmount = paymentMode === "PARTIAL" ? parseClpAmountInput(partialAmountStr) : 0;
@@ -170,20 +206,36 @@ export function usePlannedPaymentDefinition(args: UsePlannedPaymentDefinitionArg
     if (syncPaused || !payeeSelected || total <= 0) {
       return;
     }
+    const banks = companyBankAccountsRef.current;
+    const payeeBanks = payeeBankAccountsRef.current;
+    const hubs = cashHubOptionsRef.current;
+
     if (paymentMode === "COMPLETED") {
       setScheduledLines((prev) => (prev.length === 0 ? prev : []));
       if (!manualPaidLockRef.current) {
-        setPaidLines([
-          newImmediatePaymentLine({
-            dueDate: paymentDate,
-            amountStr: String(total),
-            companyHasBanks,
-            payeeHasBanks,
-            companyBankAccounts,
-            payeeBankAccounts,
-            cashHubOptions,
-          }),
-        ]);
+        setPaidLines((prev) => {
+          if (manualPaidLockRef.current) return prev;
+          const amountStr = String(total);
+          if (prev.length === 1 && prev[0]?.amountStr === amountStr) {
+            return prev;
+          }
+          if (prev.length > 0) {
+            return prev.map((line, index) =>
+              index === 0 ? { ...line, amountStr } : line,
+            );
+          }
+          return [
+            newImmediatePaymentLine({
+              dueDate: paymentDate,
+              amountStr,
+              companyHasBanks,
+              payeeHasBanks,
+              companyBankAccounts: banks,
+              payeeBankAccounts: payeeBanks,
+              cashHubOptions: hubs,
+            }),
+          ];
+        });
       }
       return;
     }
@@ -196,8 +248,10 @@ export function usePlannedPaymentDefinition(args: UsePlannedPaymentDefinitionArg
       setPaidLines((prev) => (prev.length === 0 ? prev : []));
       if (!manualSchedLockRef.current) {
         setScheduledLines((prev) => {
+          if (manualSchedLockRef.current) return prev;
           if (prev.length > 0) {
-            return applyEqualPaymentAmounts(prev, total);
+            const next = applyEqualPaymentAmounts(prev, total);
+            return plannedPaymentLinesEqual(prev, next) ? prev : next;
           }
           return [
             newScheduledPaymentLine({
@@ -215,12 +269,23 @@ export function usePlannedPaymentDefinition(args: UsePlannedPaymentDefinitionArg
         if (!partialAmountDefined) {
           setScheduledLines((prev) => (prev.length === 0 ? prev : []));
         } else {
-          setScheduledLines([
-            newScheduledPaymentLine({
-              dueDate: firstDueScheduled,
-              amountStr: String(total - partialAmount),
-            }),
-          ]);
+          const scheduleAmountStr = String(total - partialAmount);
+          setScheduledLines((prev) => {
+            if (manualSchedLockRef.current) return prev;
+            if (
+              prev.length === 1 &&
+              prev[0]?.amountStr === scheduleAmountStr &&
+              prev[0]?.dueDate === firstDueScheduled
+            ) {
+              return prev;
+            }
+            return [
+              newScheduledPaymentLine({
+                dueDate: firstDueScheduled,
+                amountStr: scheduleAmountStr,
+              }),
+            ];
+          });
         }
       }
     }
@@ -235,9 +300,9 @@ export function usePlannedPaymentDefinition(args: UsePlannedPaymentDefinitionArg
     firstDueScheduled,
     companyHasBanks,
     payeeHasBanks,
-    companyBankAccounts,
-    payeeBankAccounts,
-    cashHubOptions,
+    companyBankAccounts.length,
+    payeeBankAccounts.length,
+    cashHubOptions.length,
     setPaidLines,
     setScheduledLines,
   ]);

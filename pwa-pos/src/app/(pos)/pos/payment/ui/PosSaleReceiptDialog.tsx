@@ -150,6 +150,8 @@ export type PosSaleReceiptData = {
   collectionPending?: boolean;
   /** Cobro consolidado de varias ventas pendientes. */
   arCollection?: Array<{ folio: string; amount: number }> | null;
+  /** Cobro consolidado de cuotas pendientes. */
+  quotaCollection?: Array<{ folio: string; dueDate?: string | null; amount: number }> | null;
   /** Liquidación de saldo NC al cliente (egreso en caja). */
   ncPayout?: Array<{ folio: string; amount: number }> | null;
 };
@@ -180,6 +182,7 @@ export type PosSaleReceiptSnapshotInput = {
   backorder?: PosSaleReceiptBackorder | null;
   collectionPending?: boolean;
   arCollection?: Array<{ folio: string; amount: number }> | null;
+  quotaCollection?: Array<{ folio: string; dueDate?: string | null; amount: number }> | null;
   ncPayout?: Array<{ folio: string; amount: number }> | null;
 };
 
@@ -319,6 +322,7 @@ export function buildPosSaleReceiptSnapshot(input: PosSaleReceiptSnapshotInput):
     payments,
     collectionPending: input.collectionPending === true,
     arCollection: input.arCollection?.length ? input.arCollection : null,
+    quotaCollection: input.quotaCollection?.length ? input.quotaCollection : null,
     ncPayout: input.ncPayout?.length ? input.ncPayout : null,
   };
 }
@@ -330,13 +334,16 @@ export function buildPosSaleReceiptHtml(
 ): string {
   const isBackorder = data.documentKind === "backorder";
   const isArCollection = Boolean(data.arCollection?.length);
+  const isQuotaCollection = Boolean(data.quotaCollection?.length);
   const isNcPayout = Boolean(data.ncPayout?.length);
   const logo = resolveReceiptLogoUrl(data.company.logoUrl, origin);
   const displayName = data.company.nombreFantasia || data.company.razonSocial;
   const receiptHeading = isNcPayout
     ? "DEVOLUCIÓN SALDO NC"
-    : isArCollection
-    ? "COBRO PENDIENTE"
+    : isQuotaCollection
+      ? "COBRO DE CUOTAS"
+      : isArCollection
+        ? "COBRO PENDIENTE"
     : isBackorder
       ? "ENCARGO"
       : "Detalle de Venta";
@@ -400,6 +407,20 @@ export function buildPosSaleReceiptHtml(
     ? `<div class="sep"></div>
        <div class="section-title">Ventas cobradas</div>
        ${arCollectionRows}`
+    : "";
+
+  const quotaCollectionRows =
+    data.quotaCollection?.map((row) => {
+      const due =
+        row.dueDate?.trim()
+          ? ` · vence ${escapeHtml(new Date(row.dueDate).toLocaleDateString("es-CL"))}`
+          : "";
+      return `<div class="row"><span>${escapeHtml(row.folio)}${due}</span><span>${formatMoney(row.amount)}</span></div>`;
+    }).join("") ?? "";
+  const quotaCollectionBlock = quotaCollectionRows
+    ? `<div class="sep"></div>
+       <div class="section-title">Cuotas cobradas</div>
+       ${quotaCollectionRows}`
     : "";
 
   const ncPayoutRows =
@@ -475,6 +496,7 @@ export function buildPosSaleReceiptHtml(
   }
   ${paymentsSection}
   ${arCollectionBlock}
+  ${quotaCollectionBlock}
   ${ncPayoutBlock}
   <div class="sep"></div>
   <p class="center muted" style="margin-top:10px;">${
@@ -630,8 +652,10 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
 
   const dialogTitle = data.ncPayout?.length
     ? "Devolución registrada"
-    : data.arCollection?.length
-      ? "Cobro registrado"
+    : data.quotaCollection?.length
+      ? "Cobro de cuotas registrado"
+      : data.arCollection?.length
+        ? "Cobro registrado"
       : data.documentKind === "backorder"
         ? "Encargo registrado"
         : "Venta registrada";

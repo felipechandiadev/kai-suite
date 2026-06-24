@@ -9,7 +9,7 @@ import {
 import type { CustomerCreditNotePrintData } from "@/features/customer-credit-notes/types/customer-credit-note-print.types";
 import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import {
-  enqueueVectorTicketWithMappingFallback,
+  enqueueVectorTicketAndAwaitDelivery,
   posTicketMetaToDocumentMeta,
   printPosTicketFailureDocumentFallback,
   withPrintAgentConnection,
@@ -97,7 +97,8 @@ export async function printCustomerCreditNoteReceiptAgentOrBrowser(
       if (!agentSupportsPosCustomerCreditNoteTicket(hello)) {
         throw new Error("agent_no_pos_customer_credit_note_ticket");
       }
-      enqueued = Boolean(await enqueueVectorTicketWithMappingFallback(
+      const jobId = await enqueueVectorTicketAndAwaitDelivery(
+        conn,
         async () => {
           const res = (await conn.enqueuePosCustomerCreditNoteTicket(ticket, {
             ...meta,
@@ -120,11 +121,14 @@ export async function printCustomerCreditNoteReceiptAgentOrBrowser(
           return res;
         },
         {
-          html: documentHtml,
-          iframeTitle: documentFallbackMeta.iframeTitle,
-          kind: "document",
+          browserFallback: {
+            html: documentHtml,
+            iframeTitle: documentFallbackMeta.iframeTitle,
+            kind: "document",
+          },
         },
-      ));
+      );
+      enqueued = Boolean(jobId);
     });
   } catch (e) {
     console.warn("[KaiStore print] NC agente:", e);

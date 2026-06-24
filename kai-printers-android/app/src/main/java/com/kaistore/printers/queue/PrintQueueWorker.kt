@@ -6,7 +6,7 @@ import com.kaistore.printers.data.AgentRepository
 import com.kaistore.printers.print.transport.PrinterRef
 import com.kaistore.printers.print.transport.TransportFactory
 import com.kaistore.printers.print.AndroidPdfPrinter
-import com.kaistore.printers.print.PosSaleTicketEscPos
+import com.kaistore.printers.print.TicketEscPosDispatcher
 import com.kaistore.printers.print.PrintFormat
 import com.kaistore.printers.print.PrintFormats
 import com.kaistore.printers.protocol.EventBroadcaster
@@ -50,7 +50,11 @@ class PrintQueueWorker(
                             ?: throw IllegalStateException("no_target_printer")
                         val widthChars = PrintFormats.charsPerLine(format)
                         val bytes = if (PrintFormats.isTicketJobType(queued.documentType ?: "")) {
-                            PosSaleTicketEscPos.fromTicketJson(payload, widthChars)
+                            TicketEscPosDispatcher.fromJob(
+                                queued.documentType ?: "",
+                                payload,
+                                widthChars,
+                            )
                         } else {
                             throw IllegalStateException("unsupported_document_type")
                         }
