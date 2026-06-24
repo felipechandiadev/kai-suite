@@ -2,7 +2,12 @@ import {
   buildCompanyInlineParts,
   formatCompanyAddressForPrint,
 } from "@flowstore/document-print";
+import type { PrintFormat } from "@flowstore/print-service-client";
 import type { CashClosingPrintInput } from "@/features/cash-closing/lib/cash-closing-print.types";
+import {
+  documentContentMaxWidth,
+  documentPageAtRule,
+} from "@/features/pos-print/lib/document-print-format";
 import {
   COUNTED_BUCKET_ROWS,
   escapeHtml,
@@ -11,7 +16,10 @@ import {
 } from "@/features/cash-closing/lib/cash-closing-print-format";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";
 
-export function buildCashClosingDocumentHtml(input: CashClosingPrintInput): string {
+export function buildCashClosingDocumentHtml(
+  input: CashClosingPrintInput,
+  format: PrintFormat = "document_a4",
+): string {
   const c = input.company;
   const razonSocial = (c?.razonSocial ?? "").trim();
   const displayName = (c?.nombreFantasia ?? "").trim();
@@ -53,8 +61,8 @@ export function buildCashClosingDocumentHtml(input: CashClosingPrintInput): stri
 
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>Arqueo de caja</title>
 <style>
-  @page { size: A4; margin: 14mm; }
-  body { font-family: system-ui, sans-serif; font-size: 11pt; color: #111; margin: 0; }
+  ${documentPageAtRule(format)}
+  body { font-family: system-ui, sans-serif; font-size: 11pt; color: #111; margin: 0; max-width: ${documentContentMaxWidth(format)}; }
   h1 { font-size: 16pt; margin: 0 0 4px; }
   .muted { color: #555; font-size: 10pt; }
   .header { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 16px; }

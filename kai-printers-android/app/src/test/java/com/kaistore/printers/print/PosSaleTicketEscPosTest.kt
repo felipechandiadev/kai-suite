@@ -31,4 +31,27 @@ class PosSaleTicketEscPosTest {
         assertTrue(text.contains("JOYARTE", ignoreCase = true))
         assertTrue(text.contains("VTA-1"))
     }
+
+    @Test
+    fun usesNarrowLayoutFor58mm() {
+        val json = """
+            {
+              "folio": "VTA-1",
+              "issuedAtIso": "2026-06-02T12:00:00Z",
+              "company": { "nombreFantasia": "Joyarte" },
+              "lines": [{
+                "productName": "Nombre de producto muy largo para probar corte",
+                "quantity": 1,
+                "unitPriceWithTax": 1000,
+                "lineGross": 1000
+              }],
+              "totals": { "total": 1000 }
+            }
+        """.trimIndent()
+        val bytes = PosSaleTicketEscPos.fromTicketJson(json, widthChars = 32)
+        val text = String(bytes, Charsets.ISO_8859_1)
+        val lines = text.lines().filter { it.isNotBlank() }
+        val productLine = lines.first { it.contains("Nombre de producto") }
+        assertTrue(productLine.length <= 32)
+    }
 }

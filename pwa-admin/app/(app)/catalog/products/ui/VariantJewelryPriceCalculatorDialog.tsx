@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  isWebSerialSupported,
+  readScaleConfigFromStorage,
+  readWeightFromScale,
+} from "@flowstore/scale-service-client";
 import Dialog from "@/shared/components/Dialog/Dialog";
 import Alert from "@/shared/components/Alert/Alert";
 import { Button } from "@/shared/components/Button";
@@ -64,6 +70,8 @@ export function VariantJewelryPriceCalculatorDialog({
   const [costoPiedras, setCostoPiedras] = useState("0");
   const [manufacture, setManufacture] = useState("0");
   const [otrosCostos, setOtrosCostos] = useState("0");
+  const [scaleReading, setScaleReading] = useState(false);
+  const [scaleError, setScaleError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -76,6 +84,7 @@ export function VariantJewelryPriceCalculatorDialog({
     setManufacture("0");
     setOtrosCostos("0");
     setSelectedMetal("Oro 18K");
+    setScaleError(null);
   }, [open, weightGrams]);
 
   useEffect(() => {
@@ -125,6 +134,50 @@ export function VariantJewelryPriceCalculatorDialog({
       onWeightGramsChange?.(grams);
     }
   };
+
+  const handleReadScale = async () => {
+    setScaleReading(true);
+    setScaleError(null);
+    try {
+      const cfg = readScaleConfigFromStorage();
+      if (!cfg.enabled) {
+        setScaleError(
+          "La balanza no está habilitada. Configure y active la balanza en Configuración → Balanza.",
+        );
+        return;
+      }
+      if (!isWebSerialSupported()) {
+        setScaleError(
+          "Web Serial no está disponible en este navegador. Use Chrome o Edge en el mismo equipo con la balanza.",
+        );
+        return;
+      }
+      const reading = await readWeightFromScale(cfg);
+      const gramsText = String(reading.weightGrams);
+      setWeightInput(gramsText);
+      onWeightGramsChange?.(reading.weightGrams);
+    } catch (err) {
+      setScaleError(err instanceof Error ? err.message : "No se pudo leer la balanza.");
+    } finally {
+      setScaleReading(false);
+    }
+  };
+
+  const scaleConfigHint = useMemo(() => {
+    const cfg = readScaleConfigFromStorage();
+    if (!cfg.enabled) {
+      return (
+        <Alert variant="info">
+          Para leer peso automáticamente, configure la balanza en{" "}
+          <Link href="/settings/scale" className="font-medium text-primary underline">
+            Configuración → Balanza
+          </Link>
+          .
+        </Alert>
+      );
+    }
+    return null;
+  }, [open]);
 
   const handleApply = () => {
     if (priceRowKey == null || priceRowKey === "") {
@@ -207,6 +260,27 @@ export function VariantJewelryPriceCalculatorDialog({
           required
           data-test-id="variant-jewelry-calc-weight"
         />
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            variant="outlined"
+            size="md"
+            onClick={() => void handleReadScale()}
+            disabled={scaleReading}
+            data-test-id="variant-jewelry-calc-read-scale"
+          >
+            {scaleReading ? "Leyendo balanza…" : "Leer balanza"}
+          </Button>
+          <Link
+            href="/settings/scale"
+            className="text-xs text-primary underline"
+            data-test-id="variant-jewelry-calc-scale-settings"
+          >
+            Configurar balanza
+          </Link>
+        </div>
+        {scaleError ? <Alert variant="error">{scaleError}</Alert> : null}
+        {scaleConfigHint}
         <TextField
           label="Merma (%)"
           name="jewelry-calc-merma"

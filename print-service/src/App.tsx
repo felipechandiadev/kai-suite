@@ -16,6 +16,7 @@ import {
   lineToSavePayload,
 } from "./features/printer-mapping/mapping-line-utils";
 import { isPlausibleNetworkHost } from "./features/printer-mapping/ticket-printer-type";
+import { normalizePaperProfile } from "./features/printer-mapping/paper-profile-options";
 import type {
   LinePrinterStatus,
   MappingLineHealthRow,
@@ -166,6 +167,10 @@ function mapDashboardLines(rows: DashboardPayload["mappingLines"]): MappingLineR
       ticketLogoPath: row?.ticketLogoPath ? String(row.ticketLogoPath) : undefined,
       ticketLogoDisplayName: row?.ticketLogoPath ? logoBasename(String(row.ticketLogoPath)) : undefined,
       ticketLogoEnabled: row?.ticketLogoEnabled === true,
+      paperProfile: normalizePaperProfile(
+        purpose,
+        row?.paperProfile != null ? String(row.paperProfile) : undefined,
+      ),
     };
   });
 }

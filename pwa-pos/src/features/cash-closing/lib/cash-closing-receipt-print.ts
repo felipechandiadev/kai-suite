@@ -6,9 +6,14 @@ import {
   formatMoneyClp,
   resolveReceiptLogoUrl,
 } from "@/features/cash-closing/lib/cash-closing-print-format";
-import { thermalReceiptTicketCss } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
+import type { PrintFormat } from "@flowstore/print-service-client";
+import { thermalReceiptCssForFormat } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
 
-export function buildCashClosingReceiptHtml(input: CashClosingPrintInput, origin: string): string {
+export function buildCashClosingReceiptHtml(
+  input: CashClosingPrintInput,
+  origin: string,
+  format: PrintFormat = "ticket_80mm",
+): string {
   const c = input.company;
   const logo = resolveReceiptLogoUrl(c?.logoUrl, origin);
   const displayName = c?.nombreFantasia?.trim() || c?.razonSocial?.trim() || "Empresa";
@@ -40,7 +45,7 @@ export function buildCashClosingReceiptHtml(input: CashClosingPrintInput, origin
     : "";
 
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>Arqueo caja</title>
-<style>${thermalReceiptTicketCss()}
+<style>${thermalReceiptCssForFormat(format)}
 .diff-warn span { color: #b45309; font-weight: ${600}; }
 </style></head><body>
 <div class="receipt">

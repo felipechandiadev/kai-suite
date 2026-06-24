@@ -38,7 +38,7 @@ Cada despliegue de una PWA corresponde a **una empresa / una tienda** (multi-ten
            │              │               │               │              │
     ┌──────▼──────┐ ┌─────▼─────┐  ┌──────▼──────┐ ┌─────▼─────┐ ┌──────▼──────┐
     │ pwa-admin   │ │ pwa-pos   │  │ pwa-stock   │ │ pwa-eshop │ │print-service│
-    │   :3031     │ │   :3032   │  │   :3033     │ │   :3034   │ │   (Tauri)   │
+    │   :4031     │ │   :4032   │  │   :4033     │ │   :4034   │ │   (Tauri)   │
     │ ERP web     │ │ Caja POS  │  │ Inventario  │ │ Tienda    │ │ Impresión   │
     │ backoffice  │ │ mostrador │  │ móvil/tablet│ │ pública   │ │ local ESC/PDF│
     └─────────────┘ └───────────┘  └─────────────┘ └───────────┘ └─────────────┘
@@ -53,11 +53,18 @@ Cada despliegue de una PWA corresponde a **una empresa / una tienda** (multi-ten
 | App | Puerto dev | Rol | Autenticación |
 |-----|------------|-----|---------------|
 | `backend` | **3030** | API REST, negocio, contabilidad, transacciones | JWT Bearer |
-| `pwa-admin` | **3031** | Panel ERP: ventas, compras, inventario, tesorería, contabilidad, RRHH, config eShop | NextAuth → JWT |
-| `pwa-pos` | **3032** | Punto de venta mostrador, sesiones de caja, venta atómica al cobrar | NextAuth → JWT |
-| `pwa-stock` | **3033** | Operaciones de inventario / existencias en piso | NextAuth → JWT |
-| `pwa-eshop` | **3034** | Catálogo público, carrito, checkout (sin pasarela online en MVP) | Público + API e-shop |
+| `pwa-admin` | **4031** | Panel ERP: ventas, compras, inventario, tesorería, contabilidad, RRHH, config eShop | NextAuth → JWT |
+| `pwa-pos` | **4032** | Punto de venta mostrador, sesiones de caja, venta atómica al cobrar | NextAuth → JWT |
+| `pwa-stock` | **4033** | Operaciones de inventario / existencias en piso | NextAuth → JWT |
+| `pwa-eshop` | **4034** | Catálogo público, carrito, checkout (sin pasarela online en MVP) | Público + API e-shop |
 | `print-service` | local | Agente de impresión térmica/PDF (Tauri), tickets POS | WebSocket / HTTP local |
+
+### Agentes locales — puertos WebSocket
+
+| Agente | WS | WSS | Cliente npm |
+|--------|-----|-----|-------------|
+| Kai Printers (`print-service`) | 14567 | 14568 | `print-service-client` |
+| Kai Screen (`kai-screen-android`) | 14570 | 14571 | `customer-display-client` |
 
 ### Paquetes compartidos (`packages/`)
 
@@ -65,6 +72,8 @@ Cada despliegue de una PWA corresponde a **una empresa / una tienda** (multi-ten
 |---------|-----|
 | `document-print` | Contratos y utilidades de impresión de documentos |
 | `print-service-client` | Cliente para hablar con el agente `print-service` desde PWAs |
+| `customer-display-client` | Cliente WS pantalla cliente (Kai Screen) |
+| `scale-service-client` | Cliente Web Serial para balanza USB en pwa-admin (joyería) |
 
 ### Otros directorios relevantes
 
@@ -202,7 +211,9 @@ pwa-admin/
 - Un deploy = una tienda (`NEXT_PUBLIC_ESHOP_*` / config empresa).
 - Catálogo vía endpoints públicos `e-shop/*`.
 - Comparte componentes/preview con admin (`admin-shared`, eshop-preview en admin).
-- Checkout crea venta en backend; pasarela de pago online en backlog (fase posterior).
+- Checkout crea pedido (`CUSTOMER_ORDER` o `BACKORDER`) en backend; pasarela de pago online en backlog (fase posterior).
+- **Portal cliente (planificado/en curso):** registro, login y área `/cuenta/*` (pedidos, encargos, pagos, deudas, perfil). Ver [IF-08](../implementaciones-futuras/IF-08-eshop-portal-y-encargos-unificados.md).
+- **Encargos web:** deben usar el mismo pipeline que encargos POS (reserva, abono, liquidación). Ver IF-08 §E.
 - **Tema visual:** plantillas de color por empresa (`eShopTemplateId` + tokens) vía API storefront; configuración en admin `/e-shop/appearance`. Topbar y footer editables en `/e-shop/topbar` y `/e-shop/footer`. Ver [IF-06](../implementaciones-futuras/IF-06-eshop-plantillas-y-tema.md) e [IF-07](../implementaciones-futuras/IF-07-eshop-topbar-footer.md).
 
 Guía técnica: `docs/legacy/KAISTORE_E-SHOP_DEVELOPMENT_GUIDE.md`.
@@ -284,12 +295,12 @@ Pantallas admin: plan de cuentas, reglas, libros, cuentas por cobrar/pagar, impu
 cd backend && npm install && npm run start:dev    # :3030
 
 # Admin
-cd pwa-admin && npm install && npm run dev        # :3031
+cd pwa-admin && npm install && npm run dev        # :4031
 
 # POS / Stock / eShop (opcional)
-cd pwa-pos && npm run dev                         # :3032
-cd pwa-stock && npm run dev                       # :3033
-cd pwa-eshop && npm run dev                       # :3034
+cd pwa-pos && npm run dev                         # :4032
+cd pwa-stock && npm run dev                       # :4033
+cd pwa-eshop && npm run dev                       # :4034
 
 # Seed
 cd backend && npm run seed
@@ -322,6 +333,14 @@ Detalle frontend: `docs/legacy/WEBADMIN_FRONTEND_GUIDE.md`.
 
 Guías: `docs/legacy/print_service_app_developer_guide_v2.md`.  
 **Android nativo (planificado):** [IF-01](../implementaciones-futuras/IF-01-kai-printers-android-nativo.md).
+
+### 10.1 Balanza serial (joyería)
+
+Lectura de peso desde balanza USB en **pwa-admin** para la calculadora de precio por metal:
+
+- Configuración: `/settings/scale` (localStorage `flowstore.admin.scale.v1`).
+- Transporte: **Web Serial API** (Chrome/Edge en el mismo PC con la balanza USB).
+- Ver [IF-11](../implementaciones-futuras/IF-11-kai-scale-balanza-serial.md).
 
 ---
 

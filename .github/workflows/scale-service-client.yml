@@ -1,0 +1,23 @@
+name: scale-service-client
+
+on:
+  push:
+    paths:
+      - "packages/scale-service-client/**"
+      - ".github/workflows/scale-service-client.yml"
+  pull_request:
+    paths:
+      - "packages/scale-service-client/**"
+      - ".github/workflows/scale-service-client.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: scale-service-client tests
+        working-directory: packages/scale-service-client
+        run: npm ci && npm test

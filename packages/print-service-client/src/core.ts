@@ -23,6 +23,56 @@ import type {
   PosCashSessionOpeningTicketPayload,
   PosCashSessionOpeningTicketPrintExtras,
 } from "./pos-cash-session-opening-ticket";
+import {
+  type PrintFormat,
+  type PosDocumentPrintMode,
+  type AdminDocumentPrintMode,
+  describePrintFormat,
+  migrateLegacyPrintMode,
+  parsePrintFormat,
+  printFormatToLegacyMode,
+  printFormatToPurpose,
+  resolvePrintFormat,
+} from "./print-format";
+
+export type { PrintFormat, PrinterPaperProfile } from "./print-format";
+export {
+  describePrintFormat,
+  migrateLegacyPrintMode,
+  parsePrintFormat,
+  printFormatToPurpose,
+  isTicketPrintFormat,
+  isDocumentPrintFormat,
+  formatsMatchProfile,
+} from "./print-format";
+
+function applyFormatToPrintBody(
+  body: Record<string, unknown>,
+  format?: PrintFormat | null,
+): Record<string, unknown> {
+  const resolved = resolvePrintFormat(format ?? parsePrintFormat(String(body.format ?? "")));
+  const purpose = printFormatToPurpose(resolved);
+  return { ...body, format: resolved, purpose: body.purpose ?? purpose };
+}
+
+function buildPosTicketEnqueueBody(
+  type: string,
+  ticket: unknown,
+  extras: { filename: string; sourceApp?: string; documentType?: string; internalFolio?: string; format?: PrintFormat },
+): Record<string, unknown> {
+  return applyFormatToPrintBody(
+    {
+      type,
+      ticket,
+      filename: extras.filename,
+      copies: 1,
+      sourceApp: extras.sourceApp ?? "pwa-pos",
+      documentType: extras.documentType,
+      internalFolio: extras.internalFolio,
+    },
+    resolvePrintFormat(extras.format),
+  );
+}
 
 /** Protocol version sent to the local print agent (see docs/print_service_app_developer_guide_v2.md). */
 export const PRINT_PROTOCOL_VERSION = "2.1";
@@ -425,12 +475,17 @@ export class PrintServiceConnection {
 
   /** Encola un job de impresión. Los tickets no admiten `pdf-base64` (solo vectorial → ESC/POS). */
   enqueuePrint(extra: Record<string, unknown>): Promise<unknown> {
-    const purpose = typeof extra.purpose === "string" ? extra.purpose : "documents";
-    const type = typeof extra.type === "string" ? extra.type : "pdf-base64";
+    const withFormat = applyFormatToPrintBody(extra, parsePrintFormat(String(extra.format ?? "")));
+    const purpose = typeof withFormat.purpose === "string" ? withFormat.purpose : "documents";
+    const type = typeof withFormat.type === "string" ? withFormat.type : "pdf-base64";
+    const format = withFormat.format as PrintFormat;
+    if (printFormatToPurpose(format) !== purpose) {
+      return Promise.reject(new Error("format_purpose_mismatch"));
+    }
     if (purpose === "tickets" && type === "pdf-base64") {
       return Promise.reject(new Error("tickets_no_pdf_use_vector_or_browser"));
     }
-    return this.request("print", extra);
+    return this.request("print", withFormat);
   }
 
   /**
@@ -445,69 +500,33 @@ export class PrintServiceConnection {
   /** Ticket de venta POS: el agente genera ESC/POS desde JSON (`type: "pos-sale-ticket"`). */
   enqueuePosSaleTicket(
     ticket: PosSaleTicketPayload,
-    extras: PosSaleTicketPrintExtras & { purpose?: string },
+    extras: PosSaleTicketPrintExtras & { purpose?: string; format?: PrintFormat },
     omitPrinterDisplayLabel = false,
   ): Promise<unknown> {
-    const purpose = extras.purpose ?? "tickets";
-    const body: Record<string, unknown> = {
-      purpose,
-      type: "pos-sale-ticket",
-      ticket,
-      filename: extras.filename,
-      copies: 1,
-      sourceApp: extras.sourceApp ?? "pwa-pos",
-      documentType: extras.documentType,
-      internalFolio: extras.internalFolio,
-    };
-    if (omitPrinterDisplayLabel) {
-      return this.enqueuePrint(body);
-    }
+    const body = buildPosTicketEnqueueBody("pos-sale-ticket", ticket, extras);
+    if (omitPrinterDisplayLabel) return this.enqueuePrint(body);
     return this.enqueuePosPrint(body);
   }
 
   /** Cotización POS: ESC/POS desde JSON (`type: "pos-quotation-ticket"`). */
   enqueuePosQuotationTicket(
     ticket: PosQuotationTicketPayload,
-    extras: PosQuotationTicketPrintExtras & { purpose?: string },
+    extras: PosQuotationTicketPrintExtras & { purpose?: string; format?: PrintFormat },
     omitPrinterDisplayLabel = false,
   ): Promise<unknown> {
-    const purpose = extras.purpose ?? "tickets";
-    const body: Record<string, unknown> = {
-      purpose,
-      type: "pos-quotation-ticket",
-      ticket,
-      filename: extras.filename,
-      copies: 1,
-      sourceApp: extras.sourceApp ?? "pwa-pos",
-      documentType: extras.documentType,
-      internalFolio: extras.internalFolio,
-    };
-    if (omitPrinterDisplayLabel) {
-      return this.enqueuePrint(body);
-    }
+    const body = buildPosTicketEnqueueBody("pos-quotation-ticket", ticket, extras);
+    if (omitPrinterDisplayLabel) return this.enqueuePrint(body);
     return this.enqueuePosPrint(body);
   }
 
   /** Cobro PAYMENT_IN: ESC/POS desde JSON (`type: "pos-payment-in-ticket"`). */
   enqueuePosPaymentInTicket(
     ticket: PosPaymentInTicketPayload,
-    extras: PosPaymentInTicketPrintExtras & { purpose?: string },
+    extras: PosPaymentInTicketPrintExtras & { purpose?: string; format?: PrintFormat },
     omitPrinterDisplayLabel = false,
   ): Promise<unknown> {
-    const purpose = extras.purpose ?? "tickets";
-    const body: Record<string, unknown> = {
-      purpose,
-      type: "pos-payment-in-ticket",
-      ticket,
-      filename: extras.filename,
-      copies: 1,
-      sourceApp: extras.sourceApp ?? "pwa-pos",
-      documentType: extras.documentType,
-      internalFolio: extras.internalFolio,
-    };
-    if (omitPrinterDisplayLabel) {
-      return this.enqueuePrint(body);
-    }
+    const body = buildPosTicketEnqueueBody("pos-payment-in-ticket", ticket, extras);
+    if (omitPrinterDisplayLabel) return this.enqueuePrint(body);
     return this.enqueuePosPrint(body);
   }
 
@@ -516,23 +535,11 @@ export class PrintServiceConnection {
    */
   enqueuePosCustomerCreditNoteTicket(
     ticket: PosCustomerCreditNoteTicketPayload,
-    extras: PosCustomerCreditNoteTicketPrintExtras & { purpose?: string },
+    extras: PosCustomerCreditNoteTicketPrintExtras & { purpose?: string; format?: PrintFormat },
     omitPrinterDisplayLabel = false,
   ): Promise<unknown> {
-    const purpose = extras.purpose ?? "tickets";
-    const body: Record<string, unknown> = {
-      purpose,
-      type: "pos-customer-credit-note-ticket",
-      ticket,
-      filename: extras.filename,
-      copies: 1,
-      sourceApp: extras.sourceApp ?? "pwa-pos",
-      documentType: extras.documentType,
-      internalFolio: extras.internalFolio,
-    };
-    if (omitPrinterDisplayLabel) {
-      return this.enqueuePrint(body);
-    }
+    const body = buildPosTicketEnqueueBody("pos-customer-credit-note-ticket", ticket, extras);
+    if (omitPrinterDisplayLabel) return this.enqueuePrint(body);
     return this.enqueuePosPrint(body);
   }
 
@@ -541,23 +548,11 @@ export class PrintServiceConnection {
    */
   enqueuePosCashClosingTicket(
     ticket: PosCashClosingTicketPayload,
-    extras: PosCashClosingTicketPrintExtras & { purpose?: string },
+    extras: PosCashClosingTicketPrintExtras & { purpose?: string; format?: PrintFormat },
     omitPrinterDisplayLabel = false,
   ): Promise<unknown> {
-    const purpose = extras.purpose ?? "tickets";
-    const body: Record<string, unknown> = {
-      purpose,
-      type: "pos-cash-closing-ticket",
-      ticket,
-      filename: extras.filename,
-      copies: 1,
-      sourceApp: extras.sourceApp ?? "pwa-pos",
-      documentType: extras.documentType,
-      internalFolio: extras.internalFolio,
-    };
-    if (omitPrinterDisplayLabel) {
-      return this.enqueuePrint(body);
-    }
+    const body = buildPosTicketEnqueueBody("pos-cash-closing-ticket", ticket, extras);
+    if (omitPrinterDisplayLabel) return this.enqueuePrint(body);
     return this.enqueuePosPrint(body);
   }
 
@@ -566,23 +561,11 @@ export class PrintServiceConnection {
    */
   enqueuePosCashCountSheetTicket(
     ticket: PosCashCountSheetTicketPayload,
-    extras: PosCashCountSheetTicketPrintExtras & { purpose?: string },
+    extras: PosCashCountSheetTicketPrintExtras & { purpose?: string; format?: PrintFormat },
     omitPrinterDisplayLabel = false,
   ): Promise<unknown> {
-    const purpose = extras.purpose ?? "tickets";
-    const body: Record<string, unknown> = {
-      purpose,
-      type: "pos-cash-count-sheet-ticket",
-      ticket,
-      filename: extras.filename,
-      copies: 1,
-      sourceApp: extras.sourceApp ?? "pwa-pos",
-      documentType: extras.documentType,
-      internalFolio: extras.internalFolio,
-    };
-    if (omitPrinterDisplayLabel) {
-      return this.enqueuePrint(body);
-    }
+    const body = buildPosTicketEnqueueBody("pos-cash-count-sheet-ticket", ticket, extras);
+    if (omitPrinterDisplayLabel) return this.enqueuePrint(body);
     return this.enqueuePosPrint(body);
   }
 
@@ -591,23 +574,11 @@ export class PrintServiceConnection {
    */
   enqueuePosCashSessionOpeningTicket(
     ticket: PosCashSessionOpeningTicketPayload,
-    extras: PosCashSessionOpeningTicketPrintExtras & { purpose?: string },
+    extras: PosCashSessionOpeningTicketPrintExtras & { purpose?: string; format?: PrintFormat },
     omitPrinterDisplayLabel = false,
   ): Promise<unknown> {
-    const purpose = extras.purpose ?? "tickets";
-    const body: Record<string, unknown> = {
-      purpose,
-      type: "pos-cash-session-opening-ticket",
-      ticket,
-      filename: extras.filename,
-      copies: 1,
-      sourceApp: extras.sourceApp ?? "pwa-pos",
-      documentType: extras.documentType,
-      internalFolio: extras.internalFolio,
-    };
-    if (omitPrinterDisplayLabel) {
-      return this.enqueuePrint(body);
-    }
+    const body = buildPosTicketEnqueueBody("pos-cash-session-opening-ticket", ticket, extras);
+    if (omitPrinterDisplayLabel) return this.enqueuePrint(body);
     return this.enqueuePosPrint(body);
   }
 
@@ -1014,8 +985,8 @@ export function mergeAdminPrinterDisplayLabelIntoPrintExtras(
   return mergeAdminPrinterDisplayLabelForPurposeIntoPrintExtras("documents", extra);
 }
 
-/** Formato de impresión en administración (ticket 80 mm vs hoja). */
-export type AdminDocumentPrintMode = "ticket" | "document";
+/** Formato de impresión en administración. */
+export type { AdminDocumentPrintMode } from "./print-format";
 
 export type AdminDocumentPrintKind = "sale" | "backorder";
 
@@ -1025,40 +996,54 @@ export const ADMIN_DOCUMENT_PRINT_MODES_CHANGED_EVENT =
 const LS_ADMIN_DOC_PRINT_SALE = "printAdminDocPrintSale";
 const LS_ADMIN_DOC_PRINT_BACKORDER = "printAdminDocPrintBackorder";
 
-const DEFAULT_ADMIN_DOCUMENT_PRINT_MODES: Record<AdminDocumentPrintKind, AdminDocumentPrintMode> =
-  {
-    sale: "document",
-    backorder: "ticket",
-  };
+const DEFAULT_ADMIN_DOCUMENT_PRINT_FORMATS: Record<AdminDocumentPrintKind, PrintFormat> = {
+  sale: "document_a4",
+  backorder: "ticket_80mm",
+};
 
-function parseAdminDocumentPrintMode(raw: string | null): AdminDocumentPrintMode | null {
-  if (raw === "ticket" || raw === "document") return raw;
-  return null;
+function readAdminDocumentPrintFormatRaw(kind: AdminDocumentPrintKind): PrintFormat {
+  if (typeof window === "undefined") return DEFAULT_ADMIN_DOCUMENT_PRINT_FORMATS[kind];
+  const keyByKind: Record<AdminDocumentPrintKind, string> = {
+    sale: LS_ADMIN_DOC_PRINT_SALE,
+    backorder: LS_ADMIN_DOC_PRINT_BACKORDER,
+  };
+  return (
+    parsePrintFormat(localStorage.getItem(keyByKind[kind])) ??
+    DEFAULT_ADMIN_DOCUMENT_PRINT_FORMATS[kind]
+  );
+}
+
+export function readAdminDocumentPrintFormatsFromStorage(): Record<
+  AdminDocumentPrintKind,
+  PrintFormat
+> {
+  return {
+    sale: readAdminDocumentPrintFormatRaw("sale"),
+    backorder: readAdminDocumentPrintFormatRaw("backorder"),
+  };
+}
+
+export function getAdminDocumentPrintFormat(kind: AdminDocumentPrintKind): PrintFormat {
+  return readAdminDocumentPrintFormatsFromStorage()[kind];
 }
 
 export function readAdminDocumentPrintModesFromStorage(): Record<
   AdminDocumentPrintKind,
   AdminDocumentPrintMode
 > {
-  if (typeof window === "undefined") {
-    return { ...DEFAULT_ADMIN_DOCUMENT_PRINT_MODES };
-  }
+  const formats = readAdminDocumentPrintFormatsFromStorage();
   return {
-    sale:
-      parseAdminDocumentPrintMode(localStorage.getItem(LS_ADMIN_DOC_PRINT_SALE)) ??
-      DEFAULT_ADMIN_DOCUMENT_PRINT_MODES.sale,
-    backorder:
-      parseAdminDocumentPrintMode(localStorage.getItem(LS_ADMIN_DOC_PRINT_BACKORDER)) ??
-      DEFAULT_ADMIN_DOCUMENT_PRINT_MODES.backorder,
+    sale: printFormatToLegacyMode(formats.sale),
+    backorder: printFormatToLegacyMode(formats.backorder),
   };
 }
 
 export function getAdminDocumentPrintMode(kind: AdminDocumentPrintKind): AdminDocumentPrintMode {
-  return readAdminDocumentPrintModesFromStorage()[kind];
+  return printFormatToLegacyMode(getAdminDocumentPrintFormat(kind));
 }
 
-export function writeAdminDocumentPrintModesToStorage(
-  modes: Partial<Record<AdminDocumentPrintKind, AdminDocumentPrintMode>>,
+export function writeAdminDocumentPrintFormatsToStorage(
+  formats: Partial<Record<AdminDocumentPrintKind, PrintFormat>>,
 ): void {
   if (typeof window === "undefined") return;
   const keyByKind: Record<AdminDocumentPrintKind, string> = {
@@ -1067,9 +1052,9 @@ export function writeAdminDocumentPrintModesToStorage(
   };
   let changed = false;
   for (const kind of Object.keys(keyByKind) as AdminDocumentPrintKind[]) {
-    const mode = modes[kind];
-    if (mode === undefined) continue;
-    localStorage.setItem(keyByKind[kind], mode);
+    const format = formats[kind];
+    if (format === undefined) continue;
+    localStorage.setItem(keyByKind[kind], format);
     changed = true;
   }
   if (changed && typeof globalThis.window !== "undefined") {
@@ -1079,8 +1064,18 @@ export function writeAdminDocumentPrintModesToStorage(
   }
 }
 
-/** Formato de impresión por tipo de documento del POS (ticket 80 mm vs hoja). */
-export type PosDocumentPrintMode = "ticket" | "document";
+export function writeAdminDocumentPrintModesToStorage(
+  modes: Partial<Record<AdminDocumentPrintKind, AdminDocumentPrintMode>>,
+): void {
+  const formats: Partial<Record<AdminDocumentPrintKind, PrintFormat>> = {};
+  for (const [kind, mode] of Object.entries(modes) as [AdminDocumentPrintKind, AdminDocumentPrintMode][]) {
+    if (mode !== undefined) formats[kind] = migrateLegacyPrintMode(mode);
+  }
+  writeAdminDocumentPrintFormatsToStorage(formats);
+}
+
+/** Formato de impresión por tipo de documento del POS. */
+export type { PosDocumentPrintMode } from "./print-format";
 
 /** Tipos de documento configurables en Impresión local del POS. */
 export type PosDocumentPrintKind =
@@ -1104,62 +1099,77 @@ const LS_POS_DOC_PRINT_CASH_CLOSING = "printPosDocPrintCashClosing";
 const LS_POS_DOC_PRINT_CASH_COUNT_SHEET = "printPosDocPrintCashCountSheet";
 const LS_POS_DOC_PRINT_CASH_SESSION_OPENING = "printPosDocPrintCashSessionOpening";
 
-const DEFAULT_POS_DOCUMENT_PRINT_MODES: Record<PosDocumentPrintKind, PosDocumentPrintMode> = {
-  sale: "ticket",
-  quotation: "ticket",
-  backorder: "ticket",
-  customerCreditNote: "ticket",
-  cashClosing: "ticket",
-  cashCountSheet: "document",
-  cashSessionOpening: "ticket",
+const DEFAULT_POS_DOCUMENT_PRINT_FORMATS: Record<PosDocumentPrintKind, PrintFormat> = {
+  sale: "ticket_80mm",
+  quotation: "ticket_80mm",
+  backorder: "ticket_80mm",
+  customerCreditNote: "ticket_80mm",
+  cashClosing: "ticket_80mm",
+  cashCountSheet: "document_a4",
+  cashSessionOpening: "ticket_80mm",
 };
 
-function parsePosDocumentPrintMode(raw: string | null): PosDocumentPrintMode | null {
-  const v = (raw || "").trim().toLowerCase();
-  if (v === "ticket" || v === "document") return v;
-  return null;
+function readPosDocumentPrintFormatRaw(kind: PosDocumentPrintKind): PrintFormat {
+  if (typeof window === "undefined") return DEFAULT_POS_DOCUMENT_PRINT_FORMATS[kind];
+  const keyByKind: Record<PosDocumentPrintKind, string> = {
+    sale: LS_POS_DOC_PRINT_SALE,
+    quotation: LS_POS_DOC_PRINT_QUOTATION,
+    backorder: LS_POS_DOC_PRINT_BACKORDER,
+    customerCreditNote: LS_POS_DOC_PRINT_CUSTOMER_CREDIT_NOTE,
+    cashClosing: LS_POS_DOC_PRINT_CASH_CLOSING,
+    cashCountSheet: LS_POS_DOC_PRINT_CASH_COUNT_SHEET,
+    cashSessionOpening: LS_POS_DOC_PRINT_CASH_SESSION_OPENING,
+  };
+  return (
+    parsePrintFormat(localStorage.getItem(keyByKind[kind])) ??
+    DEFAULT_POS_DOCUMENT_PRINT_FORMATS[kind]
+  );
+}
+
+export function readPosDocumentPrintFormatsFromStorage(): Record<PosDocumentPrintKind, PrintFormat> {
+  return {
+    sale: readPosDocumentPrintFormatRaw("sale"),
+    quotation: readPosDocumentPrintFormatRaw("quotation"),
+    backorder: readPosDocumentPrintFormatRaw("backorder"),
+    customerCreditNote: readPosDocumentPrintFormatRaw("customerCreditNote"),
+    cashClosing: readPosDocumentPrintFormatRaw("cashClosing"),
+    cashCountSheet: readPosDocumentPrintFormatRaw("cashCountSheet"),
+    cashSessionOpening: readPosDocumentPrintFormatRaw("cashSessionOpening"),
+  };
+}
+
+export function getPosDocumentPrintFormat(kind: PosDocumentPrintKind): PrintFormat {
+  return readPosDocumentPrintFormatsFromStorage()[kind];
 }
 
 export function readPosDocumentPrintModesFromStorage(): Record<PosDocumentPrintKind, PosDocumentPrintMode> {
-  if (typeof window === "undefined") {
-    return { ...DEFAULT_POS_DOCUMENT_PRINT_MODES };
-  }
+  const formats = readPosDocumentPrintFormatsFromStorage();
   return {
-    sale:
-      parsePosDocumentPrintMode(localStorage.getItem(LS_POS_DOC_PRINT_SALE)) ??
-      DEFAULT_POS_DOCUMENT_PRINT_MODES.sale,
-    quotation:
-      parsePosDocumentPrintMode(localStorage.getItem(LS_POS_DOC_PRINT_QUOTATION)) ??
-      DEFAULT_POS_DOCUMENT_PRINT_MODES.quotation,
-    backorder:
-      parsePosDocumentPrintMode(localStorage.getItem(LS_POS_DOC_PRINT_BACKORDER)) ??
-      DEFAULT_POS_DOCUMENT_PRINT_MODES.backorder,
-    customerCreditNote:
-      parsePosDocumentPrintMode(localStorage.getItem(LS_POS_DOC_PRINT_CUSTOMER_CREDIT_NOTE)) ??
-      DEFAULT_POS_DOCUMENT_PRINT_MODES.customerCreditNote,
-    cashClosing:
-      parsePosDocumentPrintMode(localStorage.getItem(LS_POS_DOC_PRINT_CASH_CLOSING)) ??
-      DEFAULT_POS_DOCUMENT_PRINT_MODES.cashClosing,
-    cashCountSheet:
-      parsePosDocumentPrintMode(localStorage.getItem(LS_POS_DOC_PRINT_CASH_COUNT_SHEET)) ??
-      DEFAULT_POS_DOCUMENT_PRINT_MODES.cashCountSheet,
-    cashSessionOpening:
-      parsePosDocumentPrintMode(localStorage.getItem(LS_POS_DOC_PRINT_CASH_SESSION_OPENING)) ??
-      DEFAULT_POS_DOCUMENT_PRINT_MODES.cashSessionOpening,
+    sale: printFormatToLegacyMode(formats.sale),
+    quotation: printFormatToLegacyMode(formats.quotation),
+    backorder: printFormatToLegacyMode(formats.backorder),
+    customerCreditNote: printFormatToLegacyMode(formats.customerCreditNote),
+    cashClosing: printFormatToLegacyMode(formats.cashClosing),
+    cashCountSheet: printFormatToLegacyMode(formats.cashCountSheet),
+    cashSessionOpening: printFormatToLegacyMode(formats.cashSessionOpening),
   };
 }
 
 export function getPosDocumentPrintMode(kind: PosDocumentPrintKind): PosDocumentPrintMode {
-  return readPosDocumentPrintModesFromStorage()[kind];
+  return printFormatToLegacyMode(getPosDocumentPrintFormat(kind));
 }
 
-/** Etiqueta legible del modo ticket / documento (alertas del POS). */
+/** Etiqueta legible del formato de impresión (alertas del POS). */
 export function describePosDocumentPrintMode(mode: PosDocumentPrintMode): string {
-  return mode === "document" ? "documento (hoja)" : "ticket (80 mm)";
+  return describePrintFormat(migrateLegacyPrintMode(mode));
 }
 
-export function writePosDocumentPrintModesToStorage(
-  modes: Partial<Record<PosDocumentPrintKind, PosDocumentPrintMode>>,
+export function describePosDocumentPrintFormat(format: PrintFormat): string {
+  return describePrintFormat(format);
+}
+
+export function writePosDocumentPrintFormatsToStorage(
+  formats: Partial<Record<PosDocumentPrintKind, PrintFormat>>,
 ): void {
   if (typeof window === "undefined") return;
   const keyByKind: Record<PosDocumentPrintKind, string> = {
@@ -1173,14 +1183,24 @@ export function writePosDocumentPrintModesToStorage(
   };
   let changed = false;
   for (const kind of Object.keys(keyByKind) as PosDocumentPrintKind[]) {
-    const mode = modes[kind];
-    if (mode === undefined) continue;
-    localStorage.setItem(keyByKind[kind], mode);
+    const format = formats[kind];
+    if (format === undefined) continue;
+    localStorage.setItem(keyByKind[kind], format);
     changed = true;
   }
   if (changed && typeof globalThis.window !== "undefined") {
     globalThis.window.dispatchEvent(new CustomEvent(POS_DOCUMENT_PRINT_MODES_CHANGED_EVENT));
   }
+}
+
+export function writePosDocumentPrintModesToStorage(
+  modes: Partial<Record<PosDocumentPrintKind, PosDocumentPrintMode>>,
+): void {
+  const formats: Partial<Record<PosDocumentPrintKind, PrintFormat>> = {};
+  for (const [kind, mode] of Object.entries(modes) as [PosDocumentPrintKind, PosDocumentPrintMode][]) {
+    if (mode !== undefined) formats[kind] = migrateLegacyPrintMode(mode);
+  }
+  writePosDocumentPrintFormatsToStorage(formats);
 }
 
 /**

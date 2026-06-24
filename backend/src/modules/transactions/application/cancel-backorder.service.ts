@@ -16,6 +16,7 @@ import { StockCommitmentService } from '@modules/stock-levels/application/stock-
 import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { CancelBackorderDto } from './dto/cancel-backorder.dto';
+import { EshopBackorderSyncService } from './eshop-backorder-sync.service';
 
 export type CancelBackorderResult = {
   backorder: {
@@ -39,6 +40,7 @@ export class CancelBackorderService {
     private readonly dataSource: DataSource,
     private readonly stockCommitment: StockCommitmentService,
     private readonly transactionsService: TransactionsService,
+    private readonly eshopBackorderSync: EshopBackorderSyncService,
   ) {}
 
   async cancel(
@@ -169,6 +171,11 @@ export class CancelBackorderService {
       locked.metadata = lockedMeta;
       await manager.getRepository(Transaction).save(locked);
     });
+
+    await this.eshopBackorderSync.syncOnBackorderCancelled(
+      id,
+      dto.reason?.trim() || null,
+    );
 
     const refreshed = await this.txRepo.findOne({ where: { id } });
     const refreshedBo = (refreshed?.metadata?.backorder ??

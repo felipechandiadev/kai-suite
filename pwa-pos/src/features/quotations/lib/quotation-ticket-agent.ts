@@ -1,7 +1,9 @@
 import {
   agentSupportsPosQuotationTicket,
+  getPosDocumentPrintFormat,
   isPosAgentPrintConfiguredForPurpose,
   type PosQuotationTicketPayload,
+  type PrintFormat,
 } from "@flowstore/print-service-client";
 import type { CompanyDetails } from "@/features/company/infrastructure/company.request";
 import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
@@ -61,16 +63,19 @@ function quotationToTicketPayload(
 /** Cotización ticket 80 mm: agente ESC/POS o diálogo del navegador. */
 export async function printPosQuotationReceiptAgentOrBrowser(
   input: QuotationReceiptPrintInput,
+  format?: PrintFormat,
 ): Promise<"agent" | "browser"> {
   if (typeof window === "undefined") return "browser";
 
+  const resolved = format ?? getPosDocumentPrintFormat("quotation");
   const folio = input.quotation.documentNumber?.trim() || "cotizacion";
   const meta = {
     filename: `${folio}.escpos`,
     documentType: "QUOTATION",
     internalFolio: folio,
+    format: resolved,
   };
-  const documentHtml = buildQuotationDocumentHtml(input);
+  const documentHtml = buildQuotationDocumentHtml(input, resolved);
   const ticketMeta = {
     filename: meta.filename,
     iframeTitle: "Impresión cotización",
@@ -135,6 +140,7 @@ export async function printPosQuotationReceiptAgentOrBrowser(
 
 export function printPosQuotationReceiptAgentOrBrowserFireAndForget(
   input: QuotationReceiptPrintInput,
+  format?: PrintFormat,
 ): void {
-  void printPosQuotationReceiptAgentOrBrowser(input);
+  void printPosQuotationReceiptAgentOrBrowser(input, format);
 }

@@ -138,6 +138,8 @@ export class EShopService {
       publicContact: store.publicContact,
       eShopEnabled: store.eShop.eShopEnabled,
       eShopFreeShippingThreshold: store.eShop.eShopFreeShippingThreshold,
+      eShopCustomerPortalEnabled: store.eShop.eShopCustomerPortalEnabled === true,
+      eShopRegistrationRequireRut: store.eShop.eShopRegistrationRequireRut === true,
       eShopFeaturedProductVariantIds: store.eShop.eShopFeaturedProductVariantIds,
       theme: resolveEShopTheme(store.companySettings),
       topBar: resolveEShopTopBar(store.companySettings),

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 4031 -H 0.0.0.0",
+    "dev": "next dev --webpack -p 4031 -H 0.0.0.0",
     "build": "next build",
     "start": "next start -p 4031 -H 0.0.0.0",
     "lint": "eslint",
@@ -13,6 +13,7 @@
   "dependencies": {
     "@flowstore/document-print": "file:../packages/document-print",
     "@flowstore/print-service-client": "file:../packages/print-service-client",
+    "@flowstore/scale-service-client": "file:../packages/scale-service-client",
     "@tanstack/react-query": "^5.99.2",
     "@types/leaflet": "^1.9.21",
     "html2canvas": "^1.4.1",

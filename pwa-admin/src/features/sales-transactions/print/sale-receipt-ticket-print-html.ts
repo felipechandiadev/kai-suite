@@ -1,5 +1,6 @@
-import { thermalReceiptTicketCss } from "@/features/print/lib/thermal-receipt-ticket-styles";
+import { thermalReceiptCssForFormat } from "@/features/print/lib/thermal-receipt-ticket-styles";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";
+import type { PrintFormat } from "@flowstore/print-service-client";
 import type { SaleReceiptPrintData } from "./backorder-document-print.types";
 import { formatReceiptLineDisplayName } from "./format-receipt-line-name";
 
@@ -37,8 +38,12 @@ function resolveReceiptLogoUrl(logoUrl: string | null | undefined, origin: strin
   return raw;
 }
 
-/** Ticket térmico 80 mm (fallback navegador en admin). */
-export function buildSaleReceiptTicketHtml(data: SaleReceiptPrintData, origin: string): string {
+/** Ticket térmico (fallback navegador en admin). */
+export function buildSaleReceiptTicketHtml(
+  data: SaleReceiptPrintData,
+  origin: string,
+  format: PrintFormat = "ticket_80mm",
+): string {
   const isBackorder = data.documentKind === "backorder";
   const logo = resolveReceiptLogoUrl(data.company.logoUrl, origin);
   const displayName = data.company.nombreFantasia?.trim() || data.company.razonSocial.trim();
@@ -99,7 +104,7 @@ export function buildSaleReceiptTicketHtml(data: SaleReceiptPrintData, origin: s
 
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/>
 <title>Venta ${escapeHtml(data.folio)}</title>
-<style>${thermalReceiptTicketCss()}</style></head><body>
+<style>${thermalReceiptCssForFormat(format)}</style></head><body>
 <div class="receipt">
   <img class="logo" src="${escapeHtml(logo)}" alt="" />
   <p class="store">${escapeHtml(displayName)}</p>

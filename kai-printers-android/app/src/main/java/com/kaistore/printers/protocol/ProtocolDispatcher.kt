@@ -2,6 +2,9 @@ package com.kaistore.printers.protocol
 
 import com.kaistore.printers.bluetooth.BondedDevicesRepository
 import com.kaistore.printers.data.AgentRepository
+import com.kaistore.printers.print.PaperProfile
+import com.kaistore.printers.print.PrintFormat
+import com.kaistore.printers.print.PrintFormats
 import com.kaistore.printers.queue.PrintQueueWorker
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -123,11 +126,13 @@ class ProtocolDispatcher(
             "get_config" -> {
                 val lines = repository.mappingLinesJson()
                 val aliases = repository.aliasesByPurposeJson()
+                val paperProfileByAlias = repository.paperProfileByAliasJson()
                 encodeOk(
                     requestId,
                     buildJsonObject {
                         put("mappingLines", lines)
                         put("aliasesByPurpose", aliases)
+                        put("paperProfileByAlias", paperProfileByAlias)
                         put("mappings", JsonArray(emptyList()))
                     },
                 )
@@ -143,7 +148,8 @@ class ProtocolDispatcher(
                 if (purpose.isEmpty() || printer.isEmpty()) {
                     encodeErr(requestId, "purpose_and_printerName_required")
                 } else {
-                    repository.setMapping(purpose, printer)
+                    val paperProfile = env["paperProfile"]?.jsonPrimitive?.content ?: "80mm"
+                    repository.setMapping(purpose, printer, paperProfile)
                     broadcaster.emitConfigChanged()
                     encodeOk(requestId, buildJsonObject { put("ok", true) })
                 }
@@ -166,6 +172,7 @@ class ProtocolDispatcher(
                         job.purpose?.let { put("purpose", it) }
                         job.filename?.let { put("filename", it) }
                         job.error?.let { put("error", it) }
+                        job.format?.let { put("format", it) }
                     }
                 }
                 encodeOk(requestId, buildJsonObject { put("jobs", JsonArray(jobs)) })
@@ -199,30 +206,75 @@ class ProtocolDispatcher(
     }
 
     private suspend fun handlePrint(env: JsonObject, requestId: String?): String {
-        val printType = env["type"]?.jsonPrimitive?.content ?: "pdf-base64"
-        if (printType != "pos-sale-ticket") {
-            return encodeErr(requestId, "unsupported_print_type")
+        val printType = env["type"]?.jsonPrimitive?.content
+            ?: return encodeErr(requestId, "missing_type")
+        val purpose = env["purpose"]?.jsonPrimitive?.content
+            ?: PrintFormats.printFormatToPurpose(PrintFormats.resolve(null, "tickets"))
+        val format = PrintFormats.resolve(env["format"]?.jsonPrimitive?.content, purpose)
+
+        if (PrintFormats.printFormatToPurpose(format) != purpose) {
+            return encodeErr(requestId, "format_purpose_mismatch")
         }
-        val purpose = env["purpose"]?.jsonPrimitive?.content ?: "tickets"
-        val ticket = env["ticket"] ?: return encodeErr(requestId, "ticket_required")
-        val filename = env["filename"]?.jsonPrimitive?.content ?: "ticket.bin"
+
         val displayLabel = env["printerDisplayLabel"]?.jsonPrimitive?.content
             ?: env["printerAlias"]?.jsonPrimitive?.content
-        val folio = ticket.jsonObject["folio"]?.jsonPrimitive?.content ?: ""
-        val clientId = env["clientId"]?.jsonPrimitive?.content
-        val target = repository.resolvePrinterForPurpose(purpose, displayLabel?.trim()?.takeIf { it.isNotEmpty() })
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+        val target = repository.resolvePrinterForPurpose(purpose, displayLabel)
             ?: return encodeErr(requestId, "no_printer_mapped")
-        val jobId = repository.enqueueJob(
-            purpose = purpose,
-            filename = filename,
-            documentType = printType,
-            internalFolio = folio,
-            clientId = clientId,
-            targetPrinter = target,
-            payloadJson = ticket.toString(),
+        val mappingLine = repository.findMappingLine(purpose, displayLabel, target)
+        val paperProfile = PaperProfile.fromStorage(
+            mappingLine?.paperProfile ?: PaperProfile.defaultForPurpose(purpose).storageValue,
         )
-        queueWorker.notifyNewJob()
-        return encodeOk(requestId, buildJsonObject { put("jobId", jobId) })
+        if (!PrintFormats.formatsMatchProfile(format, paperProfile)) {
+            return encodeErr(requestId, "format_printer_mismatch")
+        }
+
+        val filename = env["filename"]?.jsonPrimitive?.content ?: "print.bin"
+        val clientId = env["clientId"]?.jsonPrimitive?.content
+
+        return when {
+            PrintFormats.isTicketFormat(format) -> {
+                if (!PrintFormats.isTicketJobType(printType)) {
+                    return encodeErr(requestId, "unsupported_print_type")
+                }
+                val ticket = env["ticket"] ?: return encodeErr(requestId, "ticket_required")
+                val folio = ticket.jsonObject["folio"]?.jsonPrimitive?.content ?: ""
+                val jobId = repository.enqueueJob(
+                    purpose = purpose,
+                    filename = filename,
+                    documentType = printType,
+                    internalFolio = folio,
+                    clientId = clientId,
+                    targetPrinter = target,
+                    payloadJson = ticket.toString(),
+                    format = format.wireValue,
+                )
+                queueWorker.notifyNewJob()
+                encodeOk(requestId, buildJsonObject { put("jobId", jobId) })
+            }
+            PrintFormats.isDocumentFormat(format) -> {
+                if (printType != "pdf-base64") {
+                    return encodeErr(requestId, "unsupported_print_type")
+                }
+                val payload = env["payload"]?.jsonPrimitive?.content
+                    ?: return encodeErr(requestId, "payload_required")
+                val folio = env["internalFolio"]?.jsonPrimitive?.content ?: ""
+                val jobId = repository.enqueueJob(
+                    purpose = purpose,
+                    filename = filename,
+                    documentType = printType,
+                    internalFolio = folio,
+                    clientId = clientId,
+                    targetPrinter = target,
+                    payloadJson = payload,
+                    format = format.wireValue,
+                )
+                queueWorker.notifyNewJob()
+                encodeOk(requestId, buildJsonObject { put("jobId", jobId) })
+            }
+            else -> encodeErr(requestId, "unsupported_format")
+        }
     }
 
     fun serviceStatusPayload(): JsonObject = buildJsonObject {

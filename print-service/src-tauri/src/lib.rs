@@ -29,6 +29,8 @@ mod ticket_barcode;
 mod platform;
 mod port_release;
 mod protocol;
+mod print_formats;
+mod escpos_width;
 mod security;
 mod state;
 mod tls;
@@ -622,9 +624,10 @@ fn queue_test_cut_print(
             Some("test_cut"),
             None,
             None,
-            None,
             target_sp.as_deref(),
             net.as_deref(),
+            None,
+            None,
         )
         .map_err(|e| e.to_string())?;
     Ok(id)
@@ -680,9 +683,10 @@ fn queue_test_drawer_print(
             Some("test_drawer"),
             None,
             None,
-            None,
             target_sp.as_deref(),
             net.as_deref(),
+            None,
+            None,
         )
         .map_err(|e| e.to_string())?;
     Ok(id)
@@ -780,9 +784,10 @@ fn queue_escpos_qa_print(
             Some(document_type),
             None,
             None,
-            None,
             target_sp.as_deref(),
             net.as_deref(),
+            None,
+            None,
         )
         .map_err(|e| e.to_string())?;
     Ok(id)
@@ -839,8 +844,9 @@ fn queue_test_print(
             Some("test_print"),
             None,
             None,
-            None,
             target_sp,
+            None,
+            None,
             None,
         )
         .map_err(|e| e.to_string())?;

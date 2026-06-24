@@ -74,6 +74,8 @@ import { EventStoreModule } from './infrastructure/event-store/event-store.modul
 import { ProductVariantsModule } from '@modules/product-variants/product-variants.module';
 import { StockLevelsModule } from '@modules/stock-levels/stock-levels.module';
 import { CancelBackorderService } from './application/cancel-backorder.service';
+import { BackorderRegistrationService } from './application/backorder-registration.service';
+import { EshopBackorderSyncService } from './application/eshop-backorder-sync.service';
 
 @Module({
   imports: [
@@ -120,6 +122,8 @@ import { CancelBackorderService } from './application/cancel-backorder.service';
     PosBackorderLookupService,
     PosSaleReceiptPrintService,
     CancelBackorderService,
+    BackorderRegistrationService,
+    EshopBackorderSyncService,
     SupplierFiscalDocumentPaymentAggregateService,
     ParentPaymentAggregateService,
     AccountsPayableService,
@@ -170,6 +174,9 @@ import { CancelBackorderService } from './application/cancel-backorder.service';
     SupplierFiscalDocumentCreateService,
     OperatingExpensePaymentPlanService,
     DocumentNumberService,
+    BackorderRegistrationService,
+    EshopBackorderSyncService,
+    CancelBackorderService,
   ],
 })
 export class TransactionsModule {}

@@ -12,6 +12,8 @@ import {
   TextField,
 } from "@/shared/admin-shared";
 import { usePosCart } from "@/features/pos-cart/PosCartProvider";
+import { notifyCustomerDisplaySaleCompleted } from "@/features/customer-display/lib/customer-display-publisher";
+import { computeCustomerDisplaySaleTotal } from "@/features/customer-display/lib/build-customer-display-snapshot";
 import { makePaymentLineId } from "@/features/pos-cart/pos-payment.utils";
 import type {
   PosPaymentLine,
@@ -419,6 +421,16 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
     exitReturnMode,
     exitFulfillBackorderMode,
   } = cart;
+
+  const emitKaiScreenSaleCompleted = useCallback(() => {
+    const posId = readPosContextClient()?.pointOfSaleId?.trim();
+    if (!posId) return;
+    notifyCustomerDisplaySaleCompleted(
+      computeCustomerDisplaySaleTotal(cart.lines, cart.orderDiscount ?? 0),
+      posId,
+    );
+  }, [cart.lines, cart.orderDiscount]);
+
   const saleTitleId = useId();
   const [addOpen, setAddOpen] = useState(false);
   const [saveQuotationOpen, setSaveQuotationOpen] = useState(false);
@@ -1691,6 +1703,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
       });
       setReceiptData(snapshot);
       setDeferLoading(false);
+      emitKaiScreenSaleCompleted();
       setSuccessOpen(true);
     } catch (e) {
       setDeferLoading(false);
@@ -1785,6 +1798,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
         });
         setReceiptData(snapshot);
         setConfirmLoading(false);
+        emitKaiScreenSaleCompleted();
         setSuccessOpen(true);
         return;
       } catch (e) {
@@ -1855,6 +1869,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
         });
         setReceiptData(snapshot);
         setConfirmLoading(false);
+        emitKaiScreenSaleCompleted();
         setSuccessOpen(true);
         return;
       } catch (e) {
@@ -2076,6 +2091,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
     });
     setReceiptData(snapshot);
     setConfirmLoading(false);
+    emitKaiScreenSaleCompleted();
     setSuccessOpen(true);
   };
 

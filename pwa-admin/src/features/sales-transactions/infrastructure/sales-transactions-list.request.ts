@@ -321,6 +321,12 @@ function normalizeRow(raw: unknown): SalesTransactionListRow | null {
         : txType === "BACKORDER"
           ? "OPEN"
           : null,
+    orderOrigin:
+      meta && typeof meta.source === "string" && meta.source.trim()
+        ? meta.source.trim()
+        : txType === "BACKORDER"
+          ? "pos"
+          : null,
     paymentMethod: (o.paymentMethod as SalesPaymentMethod) ?? "CASH",
     paymentLinesCount: countPaymentSnapshotsFromMetadata(meta),
     linkedCreditNote:

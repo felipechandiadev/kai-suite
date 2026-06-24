@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { SkipTenant } from '@common/tenant';
 import { EShopService } from '../application/e-shop.service';
 import { EShopStoreGuard } from './eshop-store.guard';
@@ -6,6 +6,7 @@ import { EShopStore } from './eshop-store.decorator';
 import type { EShopStoreContext } from '../application/eshop-store.context';
 import { EShopFulfillmentMethodsService } from '../application/eshop-fulfillment-methods.service';
 import { EShopCheckoutOrderService } from '../application/eshop-checkout-order.service';
+import { EshopCustomerAuthService } from '../application/eshop-customer-auth.service';
 
 @Controller('e-shop')
 @SkipTenant()
@@ -15,6 +16,7 @@ export class EShopPublicController {
     private readonly eShopService: EShopService,
     private readonly fulfillmentMethods: EShopFulfillmentMethodsService,
     private readonly checkoutOrder: EShopCheckoutOrderService,
+    private readonly customerAuth: EshopCustomerAuthService,
   ) {}
 
   @Get('storefront')
@@ -103,7 +105,7 @@ export class EShopPublicController {
   }
 
   @Post('checkout')
-  checkout(
+  async checkout(
     @EShopStore() store: EShopStoreContext,
     @Body()
     body: {
@@ -121,7 +123,15 @@ export class EShopPublicController {
       lines: Array<{ productVariantId: string; quantity: number }>;
       notes?: string;
     },
+    @Headers('authorization') authorization?: string,
   ) {
+    const bearer = authorization?.startsWith('Bearer ')
+      ? authorization.slice('Bearer '.length).trim()
+      : null;
+    const session = bearer
+      ? await this.customerAuth.resolveSession(store.companyId, bearer)
+      : null;
+
     const useV2 =
       process.env.ESHOP_CHECKOUT_V2 === 'true' ||
       process.env.ESHOP_CHECKOUT_V2 === '1';
@@ -129,6 +139,7 @@ export class EShopPublicController {
       return this.checkoutOrder.createCheckoutOrder(store, {
         ...body,
         fulfillmentMethodId: body.fulfillmentMethodId.trim(),
+        authenticatedCustomerId: session?.customerId,
       });
     }
     return this.eShopService.createCheckoutSale(store, body);

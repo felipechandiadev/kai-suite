@@ -115,15 +115,21 @@ fn ticket_thermal_options_for_job(
     system_printer: Option<&str>,
     network_host: Option<&str>,
     document_type: Option<&str>,
+    job_format: Option<&str>,
 ) -> platform::ThermalPrintOptions {
-    let thermal_80 = purpose == "tickets";
-    if !thermal_80 {
+    let print_format = crate::print_formats::PrintFormat::resolve(job_format, purpose);
+    if !print_format.is_ticket() {
         return platform::ThermalPrintOptions {
             thermal_80mm: false,
+            roll_width_mm: 80,
             auto_cut: false,
             open_drawer: false,
         };
     }
+    let roll_width_mm = match print_format {
+        crate::print_formats::PrintFormat::Ticket58mm => 58,
+        _ => 80,
+    };
     let doc = document_type.unwrap_or("");
     let cut_line = || cut_enabled_for_ticket_line(db, purpose, system_printer, network_host);
     let drawer_line = || drawer_enabled_for_ticket_line(db, purpose, system_printer, network_host);
@@ -136,6 +142,7 @@ fn ticket_thermal_options_for_job(
     };
     platform::ThermalPrintOptions {
         thermal_80mm: true,
+        roll_width_mm,
         auto_cut,
         open_drawer,
     }
@@ -213,6 +220,9 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
         .purpose
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("missing purpose"))?;
+    let print_format =
+        crate::print_formats::PrintFormat::resolve(job.format.as_deref(), purpose);
+    crate::escpos_width::set_escpos_width_chars(print_format.chars_per_line());
     let (printers, network_host) = resolve_job_print_targets(db, job, purpose)?;
     if printers.is_empty() && network_host.is_none() {
         anyhow::bail!(
@@ -246,6 +256,7 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
             None,
             Some(&host),
             job.document_type.as_deref(),
+            job.format.as_deref(),
         );
         let is_escpos = path
             .extension()
@@ -294,6 +305,7 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
             Some(printer.as_str()),
             None,
             job.document_type.as_deref(),
+            job.format.as_deref(),
         );
         let copies = job.copies.max(1) as u32;
         let is_escpos = path

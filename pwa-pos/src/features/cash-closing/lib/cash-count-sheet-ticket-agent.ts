@@ -3,6 +3,7 @@ import {
   isPosAgentPrintConfiguredForPurpose,
   POS_CASH_COUNT_SHEET_TICKET_PAYLOAD_VERSION,
   type PosCashCountSheetTicketPayload,
+  type PrintFormat,
 } from "@flowstore/print-service-client";
 import type { CashCountSheetPrintInput } from "@/features/cash-closing/lib/cash-count-sheet-print.types";
 import { buildCashCountSheetDocumentHtml } from "@/features/cash-closing/lib/cash-count-sheet-print";
@@ -53,11 +54,12 @@ function cashCountSheetToTicketPayload(
 
 export async function printCashCountSheetTicketVector(
   input: CashCountSheetPrintInput,
+  format: PrintFormat = "ticket_80mm",
 ): Promise<"agent" | "browser"> {
   if (typeof window === "undefined") return "browser";
 
-  const meta = countSheetPrintMeta(input);
-  const documentHtml = buildCashCountSheetDocumentHtml(input);
+  const meta = { ...countSheetPrintMeta(input), format };
+  const documentHtml = buildCashCountSheetDocumentHtml(input, format);
   const documentFallbackMeta = posTicketMetaToDocumentMeta(meta);
 
   if (!isPosAgentPrintConfiguredForPurpose("tickets")) {

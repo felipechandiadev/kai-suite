@@ -21,6 +21,30 @@ flow-store-2/
 ```
 
 ## 🚀 Inicio Rápido
+
+### Todo el stack (recomendado)
+
+```bash
+npm install          # raíz — concurrently
+npm run env:dev      # primera vez: crea/sobrescribe .env de desarrollo
+npm run dev          # liviano: infra + backend + admin (recomendado)
+npm run dev:all      # stack completo (+ pos, stock, eshop, mail)
+```
+
+`npm run dev` usa el perfil **liviano** (backend + admin) para no saturar RAM. Para todo el ecosistema: `npm run dev:all`.
+
+| Servicio | URL |
+|----------|-----|
+| Backend API | http://localhost:3030/api |
+| Admin | http://localhost:4031 |
+| POS | http://localhost:4032 |
+| Stock | http://localhost:4033 |
+| eShop | http://localhost:4034 |
+
+Login admin (seed): `admin` / `098098`
+
+### Por app (manual)
+
 1. **Backend**:
    ```bash
    cd backend
@@ -35,14 +59,14 @@ flow-store-2/
    cd web-admin
    npm install next-pwa @tanstack/react-query next-auth zod zustand
    # Configurar .env.local según docs/legacy/WEBADMIN_FRONTEND_GUIDE.md
-   npm run dev  # Puerto 3031
+   npm run dev  # Puerto 4031
    ```
 
 3. **KaiStore eShop** (tienda pública):
    ```bash
    cd pwa-eshop
    npm install
-   npm run dev  # Puerto 3034
+   npm run dev  # Puerto 4034
    ```
 
 4. **Seed base de datos** (desde `backend/`):

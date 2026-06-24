@@ -3,6 +3,7 @@ import {
   isPosAgentPrintConfiguredForPurpose,
   POS_CASH_SESSION_OPENING_TICKET_PAYLOAD_VERSION,
   type PosCashSessionOpeningTicketPayload,
+  type PrintFormat,
 } from "@flowstore/print-service-client";
 import type { CashSessionOpeningPrintInput } from "@/features/cash-session-opening/lib/cash-session-opening-print.types";
 import {
@@ -53,11 +54,12 @@ function openingToTicketPayload(
 
 export async function printCashSessionOpeningTicketVector(
   input: CashSessionOpeningPrintInput,
+  format: PrintFormat = "ticket_80mm",
 ): Promise<"agent" | "browser"> {
   if (typeof window === "undefined") return "browser";
 
-  const meta = openingPrintMeta(input);
-  const documentHtml = buildCashSessionOpeningDocumentHtml(input);
+  const meta = { ...openingPrintMeta(input), format };
+  const documentHtml = buildCashSessionOpeningDocumentHtml(input, format);
   const documentFallbackMeta = posTicketMetaToDocumentMeta(meta);
 
   if (!isPosAgentPrintConfiguredForPurpose("tickets")) {

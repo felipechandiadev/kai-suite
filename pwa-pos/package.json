@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 4032 -H 0.0.0.0",
+    "dev": "next dev --webpack -p 4032 -H 0.0.0.0",
     "build": "next build",
     "start": "next start -p 4032 -H 0.0.0.0",
     "lint": "eslint",
@@ -11,6 +11,7 @@
     "generate-pwa-icons": "node scripts/generate-pwa-icons.mjs"
   },
   "dependencies": {
+    "@flowstore/customer-display-client": "file:../packages/customer-display-client",
     "@flowstore/document-print": "file:../packages/document-print",
     "@flowstore/print-service-client": "file:../packages/print-service-client",
     "@tanstack/react-query": "^5.100.9",

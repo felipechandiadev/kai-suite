@@ -17,6 +17,7 @@ pub struct PendingJob {
     /** Impresora térmica en red (IP/host, puerto RAW 9100). */
     pub target_network_host: Option<String>,
     pub document_type: Option<String>,
+    pub format: Option<String>,
 }
 
 /// Destino de impresión resuelto desde una línea de mapeo.
@@ -546,6 +547,31 @@ fn logo_action_from_row(enabled: i32, path: Option<String>) -> crate::ticket_log
     crate::ticket_logos::MappingLogoAction::LeaveTicketAsIs
 }
 
+
+fn migrate_v11(conn: &Connection) -> Result<()> {
+    let mapping_cols: Vec<String> = conn
+        .prepare("PRAGMA table_info(printer_mapping_lines)")?
+        .query_map([], |r| r.get::<_, String>(1))?
+        .collect::<Result<Vec<_>, _>>()?;
+    if !mapping_cols.iter().any(|c| c == "paper_profile") {
+        conn.execute(
+            "ALTER TABLE printer_mapping_lines ADD COLUMN paper_profile TEXT NOT NULL DEFAULT '80mm'",
+            [],
+        )?;
+    }
+    let job_cols: Vec<String> = conn
+        .prepare("PRAGMA table_info(print_jobs)")?
+        .query_map([], |r| r.get::<_, String>(1))?
+        .collect::<Result<Vec<_>, _>>()?;
+    if !job_cols.iter().any(|c| c == "format") {
+        conn.execute(
+            "ALTER TABLE print_jobs ADD COLUMN format TEXT",
+            [],
+        )?;
+    }
+    Ok(())
+}
+
 fn migrate_v2(conn: &Connection) -> Result<()> {
     let sql = r#"
 CREATE UNIQUE INDEX IF NOT EXISTS idx_mapping_lines_display_label_unique
@@ -595,6 +621,7 @@ impl Db {
         migrate_v8(&conn).context("migrate_v8")?;
         migrate_v9(&conn).context("migrate_v9")?;
         migrate_v10(&conn).context("migrate_v10")?;
+        migrate_v11(&conn).context("migrate_v11")?;
         Ok(Self {
             inner: Arc::new(Mutex::new(conn)),
         })
@@ -967,7 +994,7 @@ impl Db {
     pub fn list_mapping_lines(&self) -> Result<Vec<serde_json::Value>> {
         let c = self.inner.lock();
         let mut stmt = c.prepare(
-            "SELECT id, purpose, system_printer_name, sort_order, display_label, auto_cut_enabled, ticket_escpos_enabled, ticket_logo_path, ticket_logo_enabled, ticket_printer_type, ticket_network_host, drawer_open_enabled
+            "SELECT id, purpose, system_printer_name, sort_order, display_label, auto_cut_enabled, ticket_escpos_enabled, ticket_logo_path, ticket_logo_enabled, ticket_printer_type, ticket_network_host, drawer_open_enabled, paper_profile
              FROM printer_mapping_lines ORDER BY purpose, sort_order ASC, id ASC",
         )?;
         let rows = stmt.query_map([], |r| {
@@ -978,6 +1005,7 @@ impl Db {
             let ticket_printer_type: String = r.get(9)?;
             let ticket_network_host: Option<String> = r.get(10)?;
             let drawer_open: i32 = r.get(11)?;
+            let paper_profile: String = r.get(12)?;
             let system_printer_name: Option<String> = r.get(2)?;
             Ok(serde_json::json!({
                 "id": r.get::<_, String>(0)?,
@@ -992,6 +1020,7 @@ impl Db {
                 "ticketPrinterType": ticket_printer_type,
                 "ticketNetworkHost": ticket_network_host.filter(|s| !s.trim().is_empty()),
                 "drawerOpenEnabled": drawer_open != 0,
+                "paperProfile": paper_profile,
             }))
         })?;
         let mut out = Vec::new();
@@ -1068,6 +1097,52 @@ impl Db {
     }
 
     /// Lista de alias por propósito (solo `display_label` no vacío, sin repetir, orden de failover).
+
+    pub fn paper_profile_by_alias_json(&self) -> Result<serde_json::Value> {
+        let lines = self.list_mapping_lines()?;
+        let mut root = serde_json::Map::new();
+        for line in &lines {
+            if let (Some(alias), Some(profile)) = (
+                line.get("displayLabel").and_then(|v| v.as_str()).map(str::trim).filter(|s| !s.is_empty()),
+                line.get("paperProfile").and_then(|v| v.as_str()).map(str::trim).filter(|s| !s.is_empty()),
+            ) {
+                root.insert(alias.to_string(), serde_json::Value::String(profile.to_string()));
+            }
+        }
+        Ok(serde_json::Value::Object(root))
+    }
+
+    pub fn paper_profile_for_mapping_line(
+        &self,
+        purpose: &str,
+        display_label: Option<&str>,
+    ) -> Result<String> {
+        if let Some(lbl) = display_label.map(str::trim).filter(|s| !s.is_empty()) {
+            if let Some(t) = self.print_target_for_purpose_display_label(purpose, lbl)? {
+                let c = self.inner.lock();
+                let mut stmt = c.prepare(
+                    "SELECT paper_profile FROM printer_mapping_lines
+                     WHERE purpose = ?1 AND lower(trim(display_label)) = lower(trim(?2))
+                     ORDER BY sort_order ASC LIMIT 1",
+                )?;
+                let mut rows = stmt.query(params![purpose, lbl])?;
+                if let Some(r) = rows.next()? {
+                    return Ok(r.get::<_, String>(0)?);
+                }
+            }
+        }
+        let c = self.inner.lock();
+        let mut stmt = c.prepare(
+            "SELECT paper_profile FROM printer_mapping_lines
+             WHERE purpose = ?1 ORDER BY sort_order ASC LIMIT 1",
+        )?;
+        let mut rows = stmt.query(params![purpose])?;
+        if let Some(r) = rows.next()? {
+            return Ok(r.get::<_, String>(0)?);
+        }
+        Ok(crate::print_formats::PaperProfile::default_for_purpose(purpose).storage_value().to_string())
+    }
+
     pub fn aliases_by_purpose_json(&self) -> Result<serde_json::Value> {
         const PURPOSES: &[&str] = &["documents", "tickets", "labels"];
         let lines = self.list_mapping_lines()?;
@@ -1169,6 +1244,14 @@ impl Db {
         } else {
             None
         };
+        let paper_profile = row
+            .get("paperProfile")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| {
+                if purpose == "documents" { "a4" } else { "80mm" }
+            });
         let sort_order = row
             .get("sortOrder")
             .and_then(|v| v.as_i64())
@@ -1199,8 +1282,8 @@ impl Db {
         };
         let c = self.inner.lock();
         c.execute(
-            "INSERT INTO printer_mapping_lines(id, purpose, system_printer_name, sort_order, display_label, auto_cut_enabled, ticket_escpos_enabled, ticket_logo_path, ticket_logo_enabled, ticket_printer_type, ticket_network_host, drawer_open_enabled)
-             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+            "INSERT INTO printer_mapping_lines(id, purpose, system_printer_name, sort_order, display_label, auto_cut_enabled, ticket_escpos_enabled, ticket_logo_path, ticket_logo_enabled, ticket_printer_type, ticket_network_host, drawer_open_enabled, paper_profile)
+             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
              ON CONFLICT(id) DO UPDATE SET
                purpose = excluded.purpose,
                system_printer_name = excluded.system_printer_name,
@@ -1212,7 +1295,8 @@ impl Db {
                ticket_logo_enabled = excluded.ticket_logo_enabled,
                ticket_printer_type = excluded.ticket_printer_type,
                ticket_network_host = excluded.ticket_network_host,
-               drawer_open_enabled = excluded.drawer_open_enabled",
+               drawer_open_enabled = excluded.drawer_open_enabled,
+               paper_profile = excluded.paper_profile",
             params![
                 id,
                 purpose,
@@ -1226,6 +1310,7 @@ impl Db {
                 ticket_printer_type,
                 ticket_network_host,
                 drawer_open,
+                paper_profile,
             ],
         )?;
         Ok(())
@@ -1293,7 +1378,15 @@ impl Db {
             } else {
                 None
             };
-            let sort_order = row
+            let paper_profile = row
+            .get("paperProfile")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| {
+                if purpose == "documents" { "a4" } else { "80mm" }
+            });
+        let sort_order = row
                 .get("sortOrder")
                 .and_then(|v| v.as_i64())
                 .unwrap_or(idx as i64) as i32;
@@ -1321,8 +1414,8 @@ impl Db {
                 0
             };
             tx.execute(
-                "INSERT INTO printer_mapping_lines(id, purpose, system_printer_name, sort_order, display_label, auto_cut_enabled, ticket_escpos_enabled, ticket_logo_path, ticket_logo_enabled, ticket_printer_type, ticket_network_host, drawer_open_enabled)
-                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                "INSERT INTO printer_mapping_lines(id, purpose, system_printer_name, sort_order, display_label, auto_cut_enabled, ticket_escpos_enabled, ticket_logo_path, ticket_logo_enabled, ticket_printer_type, ticket_network_host, drawer_open_enabled, paper_profile)
+                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
                 params![
                     id,
                     purpose,
@@ -1336,6 +1429,7 @@ impl Db {
                     ticket_printer_type,
                     ticket_network_host,
                     drawer_open,
+                    paper_profile,
                 ],
             )?;
         }
@@ -1358,13 +1452,14 @@ impl Db {
         requested_by: Option<&str>,
         target_system_printer: Option<&str>,
         target_network_host: Option<&str>,
+        format: Option<&str>,
     ) -> Result<()> {
         let c = self.inner.lock();
         let now = Utc::now().to_rfc3339();
         c.execute(
             "INSERT INTO print_jobs(id, status, purpose, filename, payload_ref, copies, created_at, client_id, priority,
-             document_type, internal_folio, source_app, requested_by, target_system_printer, target_network_host)
-             VALUES(?1, 'pending', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+             document_type, internal_folio, source_app, requested_by, target_system_printer, target_network_host, format)
+             VALUES(?1, 'pending', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
             params![
                 id,
                 purpose,
@@ -1380,6 +1475,7 @@ impl Db {
                 requested_by,
                 target_system_printer,
                 target_network_host,
+                format,
             ],
         )?;
         Ok(())
@@ -1460,7 +1556,7 @@ impl Db {
     pub fn next_pending_job(&self) -> Result<Option<PendingJob>> {
         let c = self.inner.lock();
         let mut stmt = c.prepare(
-            "SELECT id, payload_ref, purpose, copies, target_system_printer, document_type, target_network_host FROM print_jobs WHERE status = 'pending'
+            "SELECT id, payload_ref, purpose, copies, target_system_printer, document_type, target_network_host, format FROM print_jobs WHERE status = 'pending'
              ORDER BY priority DESC, created_at ASC LIMIT 1",
         )?;
         let mut rows = stmt.query([])?;
@@ -1473,6 +1569,7 @@ impl Db {
                 target_system_printer: r.get(4)?,
                 document_type: r.get(5)?,
                 target_network_host: r.get(6)?,
+                format: r.get(7)?,
             }));
         }
         Ok(None)

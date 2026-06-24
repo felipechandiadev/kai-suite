@@ -42,6 +42,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
           companyLogoUrl={storefront.companyLogoUrl}
           topBar={storefront.topBar ?? DEFAULT_ESHOP_TOP_BAR}
           chromeIsLight={chromeIsLight}
+          customerPortalEnabled={storefront.eShopCustomerPortalEnabled === true}
         />
         <main className="w-full flex-1">{children}</main>
         <EShopFooter storefront={storefront} />

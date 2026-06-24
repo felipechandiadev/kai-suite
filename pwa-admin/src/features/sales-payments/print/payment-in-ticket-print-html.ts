@@ -73,7 +73,7 @@ export function buildPaymentInTicketHtml(data: PaymentInPrintData, origin: strin
 
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/>
 <title>Cobro ${escapeHtml(data.folio)}</title>
-<style>${thermalReceiptTicketCss}</style></head><body>
+<style>${thermalReceiptTicketCss()}</style></head><body>
 <div class="ticket">
   <div class="center"><img src="${escapeHtml(logo)}" alt="" class="logo" /></div>
   <div class="center store">${escapeHtml(displayName)}</div>

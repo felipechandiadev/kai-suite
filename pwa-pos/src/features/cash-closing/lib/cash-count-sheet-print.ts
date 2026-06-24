@@ -1,4 +1,8 @@
-import { getPosDocumentPrintMode } from "@flowstore/print-service-client";
+import {
+  getPosDocumentPrintFormat,
+  isDocumentPrintFormat,
+  type PrintFormat,
+} from "@flowstore/print-service-client";
 import type { CashCountSheetPrintInput } from "@/features/cash-closing/lib/cash-count-sheet-print.types";
 import {
   COUNTED_BUCKET_ROWS,
@@ -8,7 +12,8 @@ import {
 } from "@/features/cash-closing/lib/cash-closing-print-format";
 import { printCashCountSheetTicketVector } from "@/features/cash-closing/lib/cash-count-sheet-ticket-agent";
 import { printPosHtmlViaAgentOrBrowser } from "@/features/pos-print/lib/pos-agent-print";
-import { thermalReceiptTicketCss } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
+import { documentPageAtRule } from "@/features/pos-print/lib/document-print-format";
+import { thermalReceiptCssForFormat } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
 
 const COUNT_SHEET_CSS = `
   .count-sheet-intro { font-size: 9px; color: #555; margin: 0 0 8px; line-height: 1.35; }
@@ -18,8 +23,7 @@ const COUNT_SHEET_CSS = `
   .count-fill { flex: 1; border-bottom: 1px solid #222; min-height: 1.35em; }
 `;
 
-const COUNT_SHEET_DOC_CSS = `
-  @page { size: A4; margin: 16mm; }
+const COUNT_SHEET_DOC_CSS_BASE = `
   body { font-family: system-ui, sans-serif; font-size: 12pt; color: #111; margin: 0; }
   h1 { font-size: 18pt; margin: 0 0 6px; }
   .muted { color: #555; font-size: 10pt; }
@@ -31,6 +35,10 @@ const COUNT_SHEET_DOC_CSS = `
   .count-label { flex-shrink: 0; min-width: 52mm; }
   .count-fill { flex: 1; border-bottom: 1.5px solid #111; min-height: 1.5em; }
 `;
+
+function countSheetDocCss(format: PrintFormat): string {
+  return `${documentPageAtRule(format)}${COUNT_SHEET_DOC_CSS_BASE}`;
+}
 
 function buildCountLinesHtml(lines: CashCountSheetPrintInput["paymentLines"]): string {
   const rows = lines.length > 0 ? lines : COUNTED_BUCKET_ROWS.map(({ label }) => ({ label }));
@@ -70,6 +78,7 @@ function buildHeaderMeta(input: CashCountSheetPrintInput): string {
 export function buildCashCountSheetTicketHtml(
   input: CashCountSheetPrintInput,
   origin: string,
+  format: PrintFormat = "ticket_80mm",
 ): string {
   const logo = resolveReceiptLogoUrl(input.company?.logoUrl, origin);
   const displayName =
@@ -77,7 +86,7 @@ export function buildCashCountSheetTicketHtml(
 
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>Planilla de conteo</title>
 <style>
-${thermalReceiptTicketCss()}
+${thermalReceiptCssForFormat(format)}
 ${COUNT_SHEET_CSS}
 .bold { font-weight: 600; }
 </style></head><body>
@@ -99,13 +108,16 @@ ${COUNT_SHEET_CSS}
 }
 
 /** Hoja A4: más espacio para escritura. */
-export function buildCashCountSheetDocumentHtml(input: CashCountSheetPrintInput): string {
+export function buildCashCountSheetDocumentHtml(
+  input: CashCountSheetPrintInput,
+  format: PrintFormat = "document_a4",
+): string {
   const c = input.company;
   const displayName = c?.nombreFantasia?.trim() || c?.razonSocial?.trim() || "";
   const razonSocial = c?.razonSocial?.trim() || "";
 
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>Planilla de conteo</title>
-<style>${COUNT_SHEET_DOC_CSS}</style></head><body>
+<style>${countSheetDocCss(format)}</style></head><body>
   <h1>Planilla de conteo</h1>
   <p class="muted">Cierre de caja — registro manual de montos contados</p>
   ${displayName ? `<p><strong>${escapeHtml(displayName)}</strong></p>` : ""}
@@ -124,31 +136,33 @@ export function buildCashCountSheetDocumentHtml(input: CashCountSheetPrintInput)
 </body></html>`;
 }
 
-function printMeta(input: CashCountSheetPrintInput) {
+function printMeta(input: CashCountSheetPrintInput, format: PrintFormat) {
   const ref = input.cashSessionId.trim().slice(0, 8).toUpperCase() || "conteo";
   return {
     filename: `planilla-conteo-${ref}.pdf`,
     iframeTitle: "Planilla de conteo",
     documentType: "CASH_COUNT_SHEET",
     internalFolio: ref,
+    format,
   };
 }
 
 export async function printCashCountSheetAwait(
   input: CashCountSheetPrintInput,
+  format?: PrintFormat,
 ): Promise<"agent" | "browser"> {
   if (typeof window === "undefined") return "browser";
-  const mode = getPosDocumentPrintMode("cashCountSheet");
+  const resolved = format ?? getPosDocumentPrintFormat("cashCountSheet");
   const origin = window.location.origin;
-  const meta = printMeta(input);
-  const html =
-    mode === "document"
-      ? buildCashCountSheetDocumentHtml(input)
-      : buildCashCountSheetTicketHtml(input, origin);
-  if (mode === "ticket") {
-    return printCashCountSheetTicketVector(input);
+  const meta = printMeta(input, resolved);
+  if (!isDocumentPrintFormat(resolved)) {
+    return printCashCountSheetTicketVector(input, resolved);
   }
-  return printPosHtmlViaAgentOrBrowser(html, "documents", meta);
+  return printPosHtmlViaAgentOrBrowser(
+    buildCashCountSheetDocumentHtml(input, resolved),
+    "documents",
+    meta,
+  );
 }
 
 export function printCashCountSheet(input: CashCountSheetPrintInput): void {
@@ -157,10 +171,11 @@ export function printCashCountSheet(input: CashCountSheetPrintInput): void {
 
 export function buildCashCountSheetPreviewHtml(
   input: CashCountSheetPrintInput,
+  format?: PrintFormat,
 ): string | null {
   if (typeof window === "undefined") return null;
-  const mode = getPosDocumentPrintMode("cashCountSheet");
-  return mode === "document"
-    ? buildCashCountSheetDocumentHtml(input)
-    : buildCashCountSheetTicketHtml(input, window.location.origin);
+  const resolved = format ?? getPosDocumentPrintFormat("cashCountSheet");
+  return isDocumentPrintFormat(resolved)
+    ? buildCashCountSheetDocumentHtml(input, resolved)
+    : buildCashCountSheetTicketHtml(input, window.location.origin, resolved);
 }

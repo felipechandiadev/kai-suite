@@ -1,10 +1,14 @@
 package com.kaistore.printers.queue
 
 import android.content.Context
+import android.util.Base64
 import com.kaistore.printers.bluetooth.BondedDevicesRepository
 import com.kaistore.printers.bluetooth.BtSppTransport
 import com.kaistore.printers.data.AgentRepository
+import com.kaistore.printers.print.AndroidPdfPrinter
 import com.kaistore.printers.print.PosSaleTicketEscPos
+import com.kaistore.printers.print.PrintFormat
+import com.kaistore.printers.print.PrintFormats
 import com.kaistore.printers.protocol.EventBroadcaster
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -15,7 +19,7 @@ import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicBoolean
 
 class PrintQueueWorker(
-    context: Context,
+    private val context: Context,
     private val repository: AgentRepository,
     private val broadcaster: EventBroadcaster,
 ) {
@@ -34,16 +38,34 @@ class PrintQueueWorker(
             val queued = repository.listJobs(50).firstOrNull { it.status == "queued" } ?: break
             repository.markJobPrinting(queued.id)
             try {
-                val mac = queued.targetSystemPrinter
-                    ?: throw IllegalStateException("no_target_printer")
-                val device = bonded.deviceForAddress(mac)
-                    ?: throw IllegalStateException("printer_not_found")
                 val payload = queued.payloadRef ?: throw IllegalStateException("empty_payload")
-                val bytes = when (queued.documentType) {
-                    "pos-sale-ticket" -> PosSaleTicketEscPos.fromTicketJson(payload)
-                    else -> throw IllegalStateException("unsupported_document_type")
+                val format = PrintFormat.parse(queued.format)
+                    ?: PrintFormats.resolve(null, queued.purpose ?: "tickets")
+
+                when {
+                    PrintFormats.isTicketFormat(format) -> {
+                        val mac = queued.targetSystemPrinter
+                            ?: throw IllegalStateException("no_target_printer")
+                        val device = bonded.deviceForAddress(mac)
+                            ?: throw IllegalStateException("printer_not_found")
+                        val widthChars = PrintFormats.charsPerLine(format)
+                        val bytes = if (PrintFormats.isTicketJobType(queued.documentType ?: "")) {
+                            PosSaleTicketEscPos.fromTicketJson(payload, widthChars)
+                        } else {
+                            throw IllegalStateException("unsupported_document_type")
+                        }
+                        BtSppTransport.write(device, bytes)
+                    }
+                    PrintFormats.isDocumentFormat(format) -> {
+                        if (queued.documentType != "pdf-base64") {
+                            throw IllegalStateException("unsupported_document_type")
+                        }
+                        val pdfBytes = Base64.decode(payload, Base64.DEFAULT)
+                        val jobName = queued.filename ?: "document.pdf"
+                        AndroidPdfPrinter.printPdf(context.applicationContext, pdfBytes, jobName, format)
+                    }
+                    else -> throw IllegalStateException("unsupported_format")
                 }
-                BtSppTransport.write(device, bytes)
                 repository.markJobDone(queued.id)
                 broadcaster.emitPrintJobDone(queued.id)
             } catch (e: Exception) {

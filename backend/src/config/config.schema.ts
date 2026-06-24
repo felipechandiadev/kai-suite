@@ -64,7 +64,7 @@ export const configSchema = Joi.object({
 
   // Email (future use)
   SMTP_HOST: Joi.string().allow('').optional(),
-  SMTP_PORT: Joi.number().optional(),
+  SMTP_PORT: Joi.number().empty('').optional(),
   SMTP_USER: Joi.string().allow('').optional(),
   SMTP_PASS: Joi.string().allow('').optional(),
 

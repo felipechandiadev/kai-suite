@@ -26,6 +26,10 @@ Hoja de ruta para iniciativas documentadas en `docs/implementaciones-futuras/`. 
 | IF-05 | [Crédito clientes POS](./IF-05-pos-credito-clientes.md) | P1 | F0 — Diseño | Diseño |
 | IF-06 | [eShop plantillas y tema](./IF-06-eshop-plantillas-y-tema.md) | P1 | F1 — Tokens | Hecho (F1) |
 | IF-07 | [eShop topbar y footer](./IF-07-eshop-topbar-footer.md) | P1 | F1 — Shell | Hecho (F1) |
+| IF-08 | [eShop portal cliente y encargos](./IF-08-eshop-portal-y-encargos-unificados.md) | P1 | E1 — Encargos | En curso |
+| IF-09 | [Formatos impresión 58/80/carta/A4](./IF-09-formatos-impresion-58-80-carta-a4.md) | P1 | F0–F3 | Hecho |
+| IF-10 | [Kai Screen pantalla cliente](./IF-10-kai-screen-pantalla-cliente.md) | P1 | MVP | Hecho |
+| IF-11 | [Kai Scale balanza serial](./IF-11-kai-scale-balanza-serial.md) | P2 | MVP | Hecho |
 
 ### Orden de implementación sugerido
 
@@ -35,7 +39,36 @@ Hoja de ruta para iniciativas documentadas en `docs/implementaciones-futuras/`. 
 | 2 | IF-04 | Backend listo; nuevo módulo POS |
 | 3 | IF-02 | Transversal; mayor esfuerzo |
 | 4 | IF-03 F1 | Outbox cuando multi-POS / eShop presionen la DB |
+| 5 | IF-08 E1–E2 | Encargos eShop = POS antes del portal cliente |
 | — | IF-03 F3 Kafka | Pospuesto — no primordial |
+
+---
+
+## IF-08 · eShop — portal cliente y encargos unificados
+
+**Objetivo:** panel Mi cuenta en `pwa-eshop` + pipeline único de encargos web/POS.
+
+Ver [IF-08-eshop-portal-y-encargos-unificados.md](./IF-08-eshop-portal-y-encargos-unificados.md).
+
+### E — Encargos unificados
+
+| ID | Tarea | Prioridad | Estado | Notas |
+|----|-------|-----------|--------|-------|
+| IF-08.T1 | `BackorderRegistrationService` + refactor POS/eShop | P1 | 🔄 | Reserva inventario eShop |
+| IF-08.T2 | `EShopBackorderSyncService` | P1 | ⬜ | Liquidación / anulación |
+| IF-08.T3 | Admin encargo web (liquidar POS, anular, abono) | P1 | ⬜ | `EShopOrderDetailDialog` |
+| IF-08.T4 | `ConvertEshopCustomerOrderToSale` + historial `CUSTOMER_ORDER` | P1 | ⬜ | |
+
+### P — Portal cliente
+
+| ID | Tarea | Prioridad | Estado | Notas |
+|----|-------|-----------|--------|-------|
+| IF-08.T10 | Migración `eshop_customer_accounts` + auth API | P1 | ⬜ | |
+| IF-08.T11 | NextAuth `pwa-eshop` | P1 | ⬜ | |
+| IF-08.T12 | APIs `/e-shop/me/*` | P1 | ⬜ | |
+| IF-08.T13 | UI `/cuenta/*` | P1 | ⬜ | |
+| IF-08.T14 | Checkout autenticado + CTA Mi cuenta | P2 | ⬜ | |
+| IF-08.T15 | Settings admin portal | P2 | ⬜ | |
 
 ---
 

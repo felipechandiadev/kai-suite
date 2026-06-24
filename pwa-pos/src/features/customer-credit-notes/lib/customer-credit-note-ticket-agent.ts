@@ -1,8 +1,10 @@
 import {
   agentSupportsPosCustomerCreditNoteTicket,
+  getPosDocumentPrintFormat,
   isPosAgentPrintConfiguredForPurpose,
   POS_CUSTOMER_CREDIT_NOTE_TICKET_PAYLOAD_VERSION,
   type PosCustomerCreditNoteTicketPayload,
+  type PrintFormat,
 } from "@flowstore/print-service-client";
 import type { CustomerCreditNotePrintData } from "@/features/customer-credit-notes/types/customer-credit-note-print.types";
 import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
@@ -57,17 +59,20 @@ function creditNoteToTicketPayload(
 
 export async function printCustomerCreditNoteReceiptAgentOrBrowser(
   data: CustomerCreditNotePrintData,
+  format?: PrintFormat,
 ): Promise<"agent" | "browser"> {
   if (typeof window === "undefined") return "browser";
 
+  const resolved = format ?? getPosDocumentPrintFormat("customerCreditNote");
   const folio = data.creditNoteFolio?.trim() || "nota-credito";
   const meta = {
     filename: `${folio}.escpos`,
     documentType: "CUSTOMER_CREDIT_NOTE",
     internalFolio: folio,
     iframeTitle: "Impresión nota de crédito",
+    format: resolved,
   };
-  const documentHtml = buildCustomerCreditNoteDocumentHtml(data);
+  const documentHtml = buildCustomerCreditNoteDocumentHtml(data, resolved);
   const ticketMeta = {
     filename: meta.filename,
     iframeTitle: meta.iframeTitle,
@@ -132,6 +137,7 @@ export async function printCustomerCreditNoteReceiptAgentOrBrowser(
 
 export function printCustomerCreditNoteReceiptAgentOrBrowserFireAndForget(
   data: CustomerCreditNotePrintData,
+  format?: PrintFormat,
 ): void {
-  void printCustomerCreditNoteReceiptAgentOrBrowser(data);
+  void printCustomerCreditNoteReceiptAgentOrBrowser(data, format);
 }

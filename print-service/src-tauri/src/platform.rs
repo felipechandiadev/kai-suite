@@ -407,7 +407,10 @@ pub fn pdf_page_height_mm(pdf_path: &Path) -> Result<f32> {
 
 #[derive(Debug, Clone, Copy)]
 pub struct ThermalPrintOptions {
+    /// Ticket térmico (58 mm o 80 mm); en documentos PDF va en `false`.
     pub thermal_80mm: bool,
+    /// Ancho del rollo cuando `thermal_80mm` (58 o 80).
+    pub roll_width_mm: u8,
     pub auto_cut: bool,
     pub open_drawer: bool,
 }
@@ -773,11 +776,12 @@ pub fn print_pdf_to_printer(
             .arg("-n")
             .arg(copies.max(1).to_string());
         if thermal.thermal_80mm {
-            // Altura del rollo = altura real del PDF (evita banda blanca por media=72x297mm fija).
+            // Altura del rollo = altura real del PDF (evita banda blanca por media fija).
             let page_h_mm = pdf_page_height_mm(pdf_path)
                 .unwrap_or(120.0)
                 .clamp(40.0, 1200.0);
-            let media = format!("Custom.72x{page_h_mm:.0}mm");
+            let roll_w = if thermal.roll_width_mm == 58 { 48 } else { 72 };
+            let media = format!("Custom.{roll_w}x{page_h_mm:.0}mm");
             tracing::debug!(%media, "CUPS thermal media");
             cmd.arg("-o").arg(media);
             cmd.arg("-o")
@@ -1058,6 +1062,7 @@ mod tests {
         assert_eq!(
             sumatra_print_settings(3, ThermalPrintOptions {
                 thermal_80mm: false,
+                roll_width_mm: 80,
                 auto_cut: false,
                 open_drawer: false,
             }),
@@ -1066,6 +1071,7 @@ mod tests {
         assert_eq!(
             sumatra_print_settings(1, ThermalPrintOptions {
                 thermal_80mm: true,
+                roll_width_mm: 80,
                 auto_cut: false,
                 open_drawer: false,
             }),
@@ -1074,6 +1080,7 @@ mod tests {
         assert_eq!(
             sumatra_print_settings(2, ThermalPrintOptions {
                 thermal_80mm: true,
+                roll_width_mm: 80,
                 auto_cut: false,
                 open_drawer: false,
             }),

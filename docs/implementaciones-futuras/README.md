@@ -44,6 +44,8 @@ Registro de **capacidades planificadas** que aún no forman parte del producto e
 | IF-05 | Crédito de clientes en POS | Diseño | [IF-05-pos-credito-clientes.md](./IF-05-pos-credito-clientes.md) |
 | IF-06 | eShop — plantillas y tema dinámico | Hecho (F1) | [IF-06-eshop-plantillas-y-tema.md](./IF-06-eshop-plantillas-y-tema.md) |
 | IF-07 | eShop — Topbar y Footer administrables | Hecho (F1) | [IF-07-eshop-topbar-footer.md](./IF-07-eshop-topbar-footer.md) |
+| IF-08 | eShop — portal cliente y encargos unificados | En curso | [IF-08-eshop-portal-y-encargos-unificados.md](./IF-08-eshop-portal-y-encargos-unificados.md) |
+| IF-11 | Kai Scale — balanza serial joyería | Hecho (MVP) | [IF-11-kai-scale-balanza-serial.md](./IF-11-kai-scale-balanza-serial.md) |
 
 ---
 

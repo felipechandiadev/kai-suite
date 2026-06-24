@@ -6,6 +6,7 @@ import { Button, TextField } from "@/shared/admin-shared";
 import { useEShopCart } from "@/features/e-shop-cart/EShopCartProvider";
 import {
   fetchFulfillmentMethodsAction,
+  getCheckoutProfilePrefillAction,
   submitCheckoutAction,
 } from "@/features/e-shop-checkout/actions/checkout.action";
 import type { EShopFulfillmentMethodPublic } from "@/features/e-shop-checkout/types/checkout.types";
@@ -44,6 +45,16 @@ export function CheckoutForm() {
   const estimatedTotal = subtotal + shippingCost;
 
   useEffect(() => {
+    void getCheckoutProfilePrefillAction().then((prefill) => {
+      if (!prefill) return;
+      if (!name) setName(prefill.name);
+      if (!email) setEmail(prefill.email);
+      if (!phone) setPhone(prefill.phone);
+      if (!address) setAddress(prefill.address);
+    });
+  }, []);
+
+  useEffect(() => {
     if (step !== "delivery" && step !== "review") return;
     void fetchFulfillmentMethodsAction(subtotal)
       .then((rows) => {
@@ -76,6 +87,7 @@ export function CheckoutForm() {
         doc: result.documentNumber,
         method: selectedMethod?.name ?? "",
       });
+      if (result.transactionId) qs.set("orderId", result.transactionId);
       if (result.hasStockShortage) qs.set("encargo", "1");
       router.push(`/checkout/confirmacion?${qs.toString()}`);
     } catch (err) {

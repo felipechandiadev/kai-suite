@@ -10,6 +10,8 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import android.content.Context
 
 @Entity(tableName = "settings")
@@ -25,6 +27,7 @@ data class MappingLineEntity(
     @ColumnInfo(name = "system_printer_name") val systemPrinterName: String,
     @ColumnInfo(name = "sort_order") val sortOrder: Int,
     @ColumnInfo(name = "display_label") val displayLabel: String?,
+    @ColumnInfo(name = "paper_profile") val paperProfile: String = "80mm",
 )
 
 @Entity(tableName = "print_jobs")
@@ -47,6 +50,7 @@ data class PrintJobEntity(
     @ColumnInfo(name = "source_app") val sourceApp: String?,
     @ColumnInfo(name = "requested_by") val requestedBy: String?,
     @ColumnInfo(name = "target_system_printer") val targetSystemPrinter: String?,
+    val format: String? = null,
 )
 
 @Dao
@@ -90,7 +94,7 @@ interface PrintJobDao {
 
 @Database(
     entities = [SettingEntity::class, MappingLineEntity::class, PrintJobEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class AgentDatabase : RoomDatabase() {
@@ -99,7 +103,17 @@ abstract class AgentDatabase : RoomDatabase() {
     abstract fun printJobDao(): PrintJobDao
 }
 
+private val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "ALTER TABLE printer_mapping_lines ADD COLUMN paper_profile TEXT NOT NULL DEFAULT '80mm'",
+        )
+        db.execSQL("ALTER TABLE print_jobs ADD COLUMN format TEXT")
+    }
+}
+
 fun createAgentDatabase(context: Context): AgentDatabase =
     Room.databaseBuilder(context, AgentDatabase::class.java, "kai_printers_agent.db")
+        .addMigrations(MIGRATION_1_2)
         .fallbackToDestructiveMigration()
         .build()

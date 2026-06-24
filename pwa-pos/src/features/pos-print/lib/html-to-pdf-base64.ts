@@ -1,13 +1,12 @@
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
-import type { PosPrintAgentPurpose } from "@flowstore/print-service-client";
 import {
-  THERMAL_TICKET_AGENT_CONTENT_WIDTH_MM,
-  THERMAL_TICKET_AGENT_LEFT_INSET_MM,
-  THERMAL_TICKET_PAGE_WIDTH_MM,
-  THERMAL_TICKET_PDF_EXTRA_FEED_MM,
-  THERMAL_TICKET_RECEIPT_WIDTH_MM,
-} from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
+  getPrintFormatPreset,
+  isDocumentPrintFormat,
+  isTicketPrintFormat,
+  type PrintFormat,
+} from "@flowstore/print-service-client";
+import { THERMAL_TICKET_PDF_EXTRA_FEED_MM } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
 
 const DOCUMENT_WIDTH_PX = 794;
 const TICKET_CANVAS_SCALE = 3;
@@ -15,9 +14,6 @@ const TICKET_CANVAS_SCALE = 3;
 function mmToPx(mm: number): number {
   return Math.round((mm / 25.4) * 96);
 }
-
-/** Iframe = ancho exacto del ticket (evita pixels extra que desplazan el contenido). */
-const TICKET_IFRAME_WIDTH_PX = mmToPx(THERMAL_TICKET_RECEIPT_WIDTH_MM);
 
 async function waitForIframeLoad(iframe: HTMLIFrameElement, html: string): Promise<Document> {
   await new Promise<void>((resolve, reject) => {
@@ -57,19 +53,20 @@ function ticketCaptureTarget(doc: Document): HTMLElement {
 
 /**
  * HTML → PDF base64 para KaiPrinters.
- * Tickets: 72 mm de contenido, margen izquierdo mínimo, feed extra al final del PDF.
+ * Tickets: ancho según preset (58 / 80 mm). Documentos: carta o A4.
  */
-export async function htmlToPdfBase64(
-  html: string,
-  format: PosPrintAgentPurpose,
-): Promise<string> {
+export async function htmlToPdfBase64(html: string, format: PrintFormat): Promise<string> {
   if (typeof document === "undefined") {
     throw new Error("browser_only");
   }
 
+  const preset = getPrintFormatPreset(format);
+  const isTicket = isTicketPrintFormat(format);
+  const ticketIframeWidthPx = mmToPx(preset.contentWidthMm);
+
   const iframe = document.createElement("iframe");
   iframe.setAttribute("title", "pdf-render");
-  const widthPx = format === "tickets" ? TICKET_IFRAME_WIDTH_PX : DOCUMENT_WIDTH_PX;
+  const widthPx = isTicket ? ticketIframeWidthPx : DOCUMENT_WIDTH_PX;
   Object.assign(iframe.style, {
     position: "fixed",
     left: "-12000px",
@@ -84,16 +81,16 @@ export async function htmlToPdfBase64(
     const doc = await waitForIframeLoad(iframe, html);
     if (!doc.body) throw new Error("iframe_body_missing");
 
-    if (format === "tickets") {
+    if (isTicket) {
       await waitForTicketRender(doc);
     } else {
       await new Promise((r) => globalThis.setTimeout(r, 180));
     }
 
-    const target = format === "tickets" ? ticketCaptureTarget(doc) : doc.body;
+    const target = isTicket ? ticketCaptureTarget(doc) : doc.body;
 
     const canvas = await html2canvas(target, {
-      scale: format === "tickets" ? TICKET_CANVAS_SCALE : 2,
+      scale: isTicket ? TICKET_CANVAS_SCALE : 2,
       useCORS: true,
       allowTaint: true,
       logging: false,
@@ -107,22 +104,19 @@ export async function htmlToPdfBase64(
       scrollY: 0,
     });
 
-    const imageType = format === "tickets" ? "image/png" : "image/jpeg";
-    const imageQuality = format === "tickets" ? undefined : 0.92;
+    const imageType = isTicket ? "image/png" : "image/jpeg";
+    const imageQuality = isTicket ? undefined : 0.92;
     const imgData = canvas.toDataURL(imageType, imageQuality);
-    const pdfImageFormat = format === "tickets" ? "PNG" : "JPEG";
+    const pdfImageFormat = isTicket ? "PNG" : "JPEG";
 
     let pdf: jsPDF;
-    if (format === "tickets") {
-      const pageWidthMm = THERMAL_TICKET_PAGE_WIDTH_MM;
-      const contentWidthMm = THERMAL_TICKET_AGENT_CONTENT_WIDTH_MM;
-      const leftInsetMm = THERMAL_TICKET_AGENT_LEFT_INSET_MM;
+    if (isTicket) {
+      const pageWidthMm = preset.pageWidthMm;
+      const contentWidthMm = preset.contentWidthMm;
+      const leftInsetMm = Math.max(0, (pageWidthMm - contentWidthMm) / 2);
       const extraFeedMm = THERMAL_TICKET_PDF_EXTRA_FEED_MM;
 
-      const contentHeightMm = Math.max(
-        36,
-        (canvas.height / canvas.width) * contentWidthMm,
-      );
+      const contentHeightMm = Math.max(36, (canvas.height / canvas.width) * contentWidthMm);
       const pageHeightMm = contentHeightMm + extraFeedMm;
 
       pdf = new jsPDF({
@@ -141,18 +135,19 @@ export async function htmlToPdfBase64(
         undefined,
         "FAST",
       );
-    } else {
-      pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
+    } else if (isDocumentPrintFormat(format)) {
+      const pageW = preset.pageWidthMm;
+      const pageH = preset.pageWidthMm === 216 ? 279 : 297;
+      pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [pageW, pageH] });
       const imgH = (canvas.height / canvas.width) * pageW;
-      if (imgH <= pageH) {
+      const maxH = pdf.internal.pageSize.getHeight();
+      if (imgH <= maxH) {
         pdf.addImage(imgData, pdfImageFormat, 0, 0, pageW, imgH);
       } else {
-        const customH = Math.min(imgH, 400);
-        pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: [pageW, customH] });
-        pdf.addImage(imgData, pdfImageFormat, 0, 0, pageW, customH);
+        pdf.addImage(imgData, pdfImageFormat, 0, 0, pageW, maxH);
       }
+    } else {
+      throw new Error("unsupported_format");
     }
 
     const dataUri = pdf.output("datauristring");

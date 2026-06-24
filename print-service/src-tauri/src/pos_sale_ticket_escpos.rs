@@ -11,8 +11,10 @@ use crate::ticket_barcode::{
 use anyhow::Result;
 use std::path::PathBuf;
 
-/// Font A en bobina 80 mm (48 columnas estándar).
-pub(crate) const WIDTH: usize = 48;
+/// Ancho de línea según formato (32 = 58 mm, 48 = 80 mm).
+pub(crate) fn layout_width() -> usize {
+    crate::escpos_width::escpos_width_chars()
+}
 /// Font B (más pequeña) en la misma bobina (~64 columnas).
 pub(crate) const WIDTH_FONT_B: usize = 64;
 /// Columna derecha reservada a montos en CLP (`$12.345.678`).
@@ -256,7 +258,7 @@ fn pad_left_cols(s: &str, cols: usize) -> String {
 }
 
 fn full_divider() -> String {
-    "-".repeat(WIDTH)
+    "-".repeat(layout_width())
 }
 
 /// Etiqueta + valor en toda la línea (sin columna de montos; p. ej. nombre de cliente).
@@ -267,7 +269,7 @@ pub(crate) fn append_label_value_wrapped(buf: &mut Vec<u8>, label: &str, value: 
         return;
     }
     let label_cols = char_count(&label);
-    let first_max = WIDTH.saturating_sub(label_cols);
+    let first_max = layout_width().saturating_sub(label_cols);
     let lines = wrap_lines(&value, first_max);
     for (i, line) in lines.iter().enumerate() {
         if i == 0 {
@@ -276,7 +278,7 @@ pub(crate) fn append_label_value_wrapped(buf: &mut Vec<u8>, label: &str, value: 
                 &format!("{label}{}", pad_left_cols(line, first_max)),
             );
         } else {
-            append_line(buf, &pad_left_cols(line, WIDTH));
+            append_line(buf, &pad_left_cols(line, layout_width()));
         }
     }
 }
@@ -285,7 +287,7 @@ pub(crate) fn pad_label_value(label: &str, value: &str) -> String {
     let label = normalize_ticket_text(label);
     let value = normalize_ticket_text(value);
     let label_cols = char_count(&label);
-    let value_cols = WIDTH.saturating_sub(label_cols);
+    let value_cols = layout_width().saturating_sub(label_cols);
     format!(
         "{}{}",
         pad_left_cols(&label, label_cols),
@@ -297,7 +299,7 @@ pub(crate) fn pad_label_value(label: &str, value: &str) -> String {
 pub(crate) fn pad_left(label: &str, amount: &str) -> String {
     let label = normalize_ticket_text(label);
     let amount = pad_right_cols(amount, MONEY_COL);
-    let label_max = WIDTH.saturating_sub(MONEY_COL);
+    let label_max = layout_width().saturating_sub(MONEY_COL);
     if char_count(&label) <= label_max {
         format!("{}{}", pad_left_cols(&label, label_max), amount)
     } else {
@@ -323,7 +325,7 @@ pub(crate) fn append_product_line_block(
     escpos_font_a(buf);
     escpos_char_size_normal(buf);
     escpos_line_spacing(buf, LINE_SPACING_DENSE);
-    for line in wrap_lines(name, WIDTH) {
+    for line in wrap_lines(name, layout_width()) {
         append_line(buf, &line);
     }
     append_line(buf, &pad_left(qty_unit_label, line_total));
@@ -501,7 +503,7 @@ pub fn build_pos_sale_ticket_escpos(ticket: &PosSaleTicket) -> Result<Vec<u8>> {
     escpos_align(&mut buf, 1);
     escpos_bold(&mut buf, true);
     escpos_double_height_on(&mut buf);
-    for line in wrap_lines(store, WIDTH / 2) {
+    for line in wrap_lines(store, layout_width() / 2) {
         append_line(&mut buf, &line);
     }
     escpos_double_height_off(&mut buf);
@@ -511,7 +513,7 @@ pub fn build_pos_sale_ticket_escpos(ticket: &PosSaleTicket) -> Result<Vec<u8>> {
         let rs = ticket.company.razon_social.trim();
         if !rs.is_empty() && fantasy.trim() != rs {
             escpos_align(&mut buf, 1);
-            for line in wrap_lines(rs, WIDTH) {
+            for line in wrap_lines(rs, layout_width()) {
                 append_line(&mut buf, &line);
             }
         }
@@ -527,7 +529,7 @@ pub fn build_pos_sale_ticket_escpos(ticket: &PosSaleTicket) -> Result<Vec<u8>> {
         .filter(|s| !s.trim().is_empty())
     {
         escpos_align(&mut buf, 1);
-        for line in wrap_lines(act.trim(), WIDTH) {
+        for line in wrap_lines(act.trim(), layout_width()) {
             append_line(&mut buf, &line);
         }
     }
@@ -721,7 +723,7 @@ mod tests {
 
     #[test]
     fn divider_is_full_width() {
-        assert_eq!(full_divider().chars().count(), WIDTH);
+        assert_eq!(full_divider().chars().count(), layout_width());
     }
 
     #[test]

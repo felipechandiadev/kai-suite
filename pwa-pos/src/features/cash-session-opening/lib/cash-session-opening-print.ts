@@ -1,4 +1,8 @@
-import { getPosDocumentPrintMode } from "@flowstore/print-service-client";
+import {
+  getPosDocumentPrintFormat,
+  isDocumentPrintFormat,
+  type PrintFormat,
+} from "@flowstore/print-service-client";
 import type { CashSessionOpeningPrintInput } from "@/features/cash-session-opening/lib/cash-session-opening-print.types";
 import {
   escapeHtml,
@@ -8,7 +12,8 @@ import {
 } from "@/features/cash-closing/lib/cash-closing-print-format";
 import { printCashSessionOpeningTicketVector } from "@/features/cash-session-opening/lib/cash-session-opening-ticket-agent";
 import { printPosHtmlViaAgentOrBrowser } from "@/features/pos-print/lib/pos-agent-print";
-import { thermalReceiptTicketCss } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
+import { documentPageAtRule } from "@/features/pos-print/lib/document-print-format";
+import { thermalReceiptCssForFormat } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
 
 function buildHeaderMeta(input: CashSessionOpeningPrintInput): string {
   const originLabel = [input.branchName?.trim(), input.pointOfSaleName?.trim()]
@@ -31,10 +36,10 @@ function buildOpeningAmountBlock(input: CashSessionOpeningPrintInput): string {
   return `<div class="row total"><span>Monto de apertura</span><span>${escapeHtml(formatMoneyClp(input.openingAmount))}</span></div>`;
 }
 
-/** Ticket 80 mm. */
 export function buildCashSessionOpeningTicketHtml(
   input: CashSessionOpeningPrintInput,
   origin: string,
+  format: PrintFormat = "ticket_80mm",
 ): string {
   const logo = resolveReceiptLogoUrl(input.company?.logoUrl, origin);
   const displayName =
@@ -42,7 +47,7 @@ export function buildCashSessionOpeningTicketHtml(
 
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>Apertura de caja</title>
 <style>
-${thermalReceiptTicketCss()}
+${thermalReceiptCssForFormat(format)}
 .bold { font-weight: 600; }
 </style></head><body>
 <div class="receipt">
@@ -61,21 +66,27 @@ ${thermalReceiptTicketCss()}
 </body></html>`;
 }
 
-/** Hoja A4. */
-export function buildCashSessionOpeningDocumentHtml(input: CashSessionOpeningPrintInput): string {
-  const c = input.company;
-  const displayName = c?.nombreFantasia?.trim() || c?.razonSocial?.trim() || "";
-  const razonSocial = c?.razonSocial?.trim() || "";
-
-  return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>Apertura de caja</title>
-<style>
-  @page { size: A4; margin: 16mm; }
+const OPENING_DOC_CSS_BASE = `
   body { font-family: system-ui, sans-serif; font-size: 12pt; color: #111; margin: 0; }
   h1 { font-size: 18pt; margin: 0 0 6px; }
   .muted { color: #555; font-size: 10pt; }
   .meta { margin: 14px 0 20px; }
   .meta p { margin: 4px 0; }
   .amount { font-size: 16pt; font-weight: 700; margin: 24px 0; }
+`;
+
+export function buildCashSessionOpeningDocumentHtml(
+  input: CashSessionOpeningPrintInput,
+  format: PrintFormat = "document_a4",
+): string {
+  const c = input.company;
+  const displayName = c?.nombreFantasia?.trim() || c?.razonSocial?.trim() || "";
+  const razonSocial = c?.razonSocial?.trim() || "";
+
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>Apertura de caja</title>
+<style>
+  ${documentPageAtRule(format)}
+  ${OPENING_DOC_CSS_BASE}
 </style></head><body>
   <h1>Apertura de caja</h1>
   <p class="muted">Comprobante de inicio de sesión</p>
@@ -93,26 +104,32 @@ export function buildCashSessionOpeningDocumentHtml(input: CashSessionOpeningPri
 </body></html>`;
 }
 
-function printMeta(input: CashSessionOpeningPrintInput) {
+function printMeta(input: CashSessionOpeningPrintInput, format: PrintFormat) {
   const ref = input.cashSessionId.trim().slice(0, 8).toUpperCase() || "apertura";
   return {
     filename: `apertura-caja-${ref}.pdf`,
     iframeTitle: "Apertura de caja",
     documentType: "CASH_SESSION_OPEN",
     internalFolio: ref,
+    format,
   };
 }
 
 export async function printCashSessionOpeningAwait(
   input: CashSessionOpeningPrintInput,
+  format?: PrintFormat,
 ): Promise<"agent" | "browser"> {
   if (typeof window === "undefined") return "browser";
-  const mode = getPosDocumentPrintMode("cashSessionOpening");
-  const meta = printMeta(input);
-  if (mode === "ticket") {
-    return printCashSessionOpeningTicketVector(input);
+  const resolved = format ?? getPosDocumentPrintFormat("cashSessionOpening");
+  const meta = printMeta(input, resolved);
+  if (!isDocumentPrintFormat(resolved)) {
+    return printCashSessionOpeningTicketVector(input, resolved);
   }
-  return printPosHtmlViaAgentOrBrowser(buildCashSessionOpeningDocumentHtml(input), "documents", meta);
+  return printPosHtmlViaAgentOrBrowser(
+    buildCashSessionOpeningDocumentHtml(input, resolved),
+    "documents",
+    meta,
+  );
 }
 
 export function printCashSessionOpening(input: CashSessionOpeningPrintInput): void {

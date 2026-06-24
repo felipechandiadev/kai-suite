@@ -3,7 +3,12 @@ import {
   DOCUMENT_HEADER_PRINT_CSS,
   formatCompanyAddressForPrint,
 } from "@flowstore/document-print";
+import type { PrintFormat } from "@flowstore/print-service-client";
 import type { PosSaleReceiptData } from "@/app/(pos)/pos/payment/ui/PosSaleReceiptDialog";
+import {
+  documentContentMaxWidth,
+  documentPageAtRule,
+} from "@/features/pos-print/lib/document-print-format";
 import {
   printPosHtmlViaAgentOrBrowser,
   printPosHtmlViaAgentOrBrowserFireAndForget,
@@ -41,9 +46,12 @@ function formatDateSlash(iso: string): string {
 }
 
 /**
- * Documento tipo hoja (A4) para venta o comprobante de abono de encargo.
+ * Documento tipo hoja (carta / A4) para venta o comprobante de abono de encargo.
  */
-export function buildPosSaleDocumentHtml(data: PosSaleReceiptData): string {
+export function buildPosSaleDocumentHtml(
+  data: PosSaleReceiptData,
+  format: PrintFormat = "document_a4",
+): string {
   const isBackorder = data.documentKind === "backorder";
   const documentTitle = isBackorder ? "ENCARGO" : "VENTA";
   const folio = data.folio.trim() || "—";
@@ -161,10 +169,10 @@ export function buildPosSaleDocumentHtml(data: PosSaleReceiptData): string {
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/>
 <title>${escapeHtml(documentTitle)} ${escapeHtml(folio)}</title>
 <style>
-  @page { size: A4; margin: 12mm; }
+  ${documentPageAtRule(format)}
   * { box-sizing: border-box; }
   body { margin: 0; padding: 0; color: #111827; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size: 11px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .page { width: 100%; max-width: 190mm; margin: 0 auto; padding: 4mm 0; }
+  .page { width: 100%; max-width: ${documentContentMaxWidth(format)}; margin: 0 auto; padding: 4mm 0; }
   ${DOCUMENT_HEADER_PRINT_CSS}
   .summaryGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem 1.25rem; margin-bottom: 0.9rem; }
   .field { font-size: 11px; color: #111827; }
@@ -230,29 +238,31 @@ export function buildPosSaleDocumentHtml(data: PosSaleReceiptData): string {
 </body></html>`;
 }
 
-function posSaleDocumentPrintMeta(data: PosSaleReceiptData) {
+function posSaleDocumentPrintMeta(data: PosSaleReceiptData, format: PrintFormat = "document_a4") {
   const label = data.documentKind === "backorder" ? "Impresión encargo documento" : "Impresión venta documento";
   const folio = data.folio.trim() || "documento";
   return {
-    html: buildPosSaleDocumentHtml(data),
+    html: buildPosSaleDocumentHtml(data, format),
     label,
     meta: {
       filename: `${folio}.pdf`,
       iframeTitle: label,
       documentType: (data.documentKind === "backorder" ? "BACKORDER" : "SALE") as "BACKORDER" | "SALE",
       internalFolio: folio,
+      format,
     },
   };
 }
 
-export function printPosSaleDocument(data: PosSaleReceiptData): void {
-  const { html, meta } = posSaleDocumentPrintMeta(data);
+export function printPosSaleDocument(data: PosSaleReceiptData, format?: PrintFormat): void {
+  const { html, meta } = posSaleDocumentPrintMeta(data, format);
   printPosHtmlViaAgentOrBrowserFireAndForget(html, "documents", meta);
 }
 
 export async function printPosSaleDocumentAgentOrBrowser(
   data: PosSaleReceiptData,
+  format?: PrintFormat,
 ): Promise<"agent" | "browser"> {
-  const { html, meta } = posSaleDocumentPrintMeta(data);
+  const { html, meta } = posSaleDocumentPrintMeta(data, format);
   return printPosHtmlViaAgentOrBrowser(html, "documents", meta);
 }

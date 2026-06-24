@@ -63,6 +63,9 @@ export async function getFulfillmentSettingsAction() {
 export async function updateFulfillmentSettingsAction(body: {
   eShopStockPolicy?: EShopStockPolicy;
   eShopFreeShippingThreshold?: number | null;
+  eShopCustomerPortalEnabled?: boolean;
+  eShopRegistrationRequireRut?: boolean;
+  eShopShowDebtsInPortal?: boolean;
 }) {
   try {
     const settings = await EShopFulfillmentRequest.updateSettings(body);
@@ -112,6 +115,28 @@ export async function updateEshopOrderStatusAction(
     const order = await EShopFulfillmentRequest.updateOrderStatus(id, status, note);
     revalidatePath("/e-shop/fulfillment");
     return { success: true as const, order };
+  } catch (e) {
+    return { success: false as const, error: e instanceof Error ? e.message : "Error" };
+  }
+}
+
+export async function cancelEshopOrderBackorderAction(id: string, reason?: string) {
+  try {
+    await EShopFulfillmentRequest.cancelOrderBackorder(id, reason);
+    revalidatePath("/e-shop/fulfillment");
+    revalidatePath("/sales/transactions/backorders");
+    return { success: true as const };
+  } catch (e) {
+    return { success: false as const, error: e instanceof Error ? e.message : "Error" };
+  }
+}
+
+export async function convertEshopOrderToSaleAction(id: string) {
+  try {
+    const result = await EShopFulfillmentRequest.convertOrderToSale(id);
+    revalidatePath("/e-shop/fulfillment");
+    revalidatePath("/sales/transactions");
+    return { success: true as const, result };
   } catch (e) {
     return { success: false as const, error: e instanceof Error ? e.message : "Error" };
   }

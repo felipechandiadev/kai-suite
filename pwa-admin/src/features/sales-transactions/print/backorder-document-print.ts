@@ -1,11 +1,17 @@
 import { printAdminHtmlViaAgentOrBrowser } from "@/features/print/lib/admin-agent-document-print";
+import {
+  documentContentMaxWidth,
+  documentPageAtRule,
+} from "@/features/print/lib/document-print-format";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";
 import {
   buildCompanyInlineParts,
   DOCUMENT_HEADER_PRINT_CSS,
   formatCompanyAddressForPrint,
 } from "@flowstore/document-print";
+import type { PrintFormat } from "@flowstore/print-service-client";
 import type { SaleReceiptPrintData } from "./backorder-document-print.types";
+import { getAdminPrintFormatForData } from "./admin-print-format";
 import { formatReceiptLineDisplayName } from "./format-receipt-line-name";
 
 function escapeHtml(s: string) {
@@ -80,8 +86,11 @@ function printHtmlInHiddenIframe(html: string, title: string): void {
   }, 120);
 }
 
-/** HTML A4 venta o encargo (misma plantilla que POS `buildPosSaleDocumentHtml`). */
-export function buildSaleReceiptDocumentHtml(data: SaleReceiptPrintData): string {
+/** HTML venta o encargo en hoja (carta / A4). */
+export function buildSaleReceiptDocumentHtml(
+  data: SaleReceiptPrintData,
+  format: PrintFormat = "document_a4",
+): string {
   const isBackorder = data.documentKind === "backorder";
   const documentTitle = isBackorder ? "ENCARGO" : "VENTA";
   const folio = data.folio.trim() || "—";
@@ -199,10 +208,10 @@ export function buildSaleReceiptDocumentHtml(data: SaleReceiptPrintData): string
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/>
 <title>${escapeHtml(documentTitle)} ${escapeHtml(folio)}</title>
 <style>
-  @page { size: A4; margin: 12mm; }
+  ${documentPageAtRule(format)}
   * { box-sizing: border-box; }
   body { margin: 0; padding: 0; color: #111827; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size: 11px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .page { width: 100%; max-width: 190mm; margin: 0 auto; padding: 4mm 0; }
+  .page { width: 100%; max-width: ${documentContentMaxWidth(format)}; margin: 0 auto; padding: 4mm 0; }
   ${DOCUMENT_HEADER_PRINT_CSS}
   .summaryGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem 1.25rem; margin-bottom: 0.9rem; }
   .field { font-size: 11px; color: #111827; }
@@ -269,12 +278,14 @@ export function buildSaleReceiptDocumentHtml(data: SaleReceiptPrintData): string
 
 export async function printSaleReceiptDocument(
   data: SaleReceiptPrintData,
+  format?: PrintFormat,
 ): Promise<"agent" | "browser"> {
+  const resolved = format ?? getAdminPrintFormatForData(data);
   const title =
     data.documentKind === "backorder"
       ? "Impresión encargo documento"
       : "Impresión venta documento";
-  const html = buildSaleReceiptDocumentHtml(data);
+  const html = buildSaleReceiptDocumentHtml(data, resolved);
   const folio = data.folio.trim() || "documento";
   return printAdminHtmlViaAgentOrBrowser(html, {
     filename: `${folio}.pdf`,

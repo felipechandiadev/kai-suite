@@ -1,7 +1,8 @@
 import type { CompanyDetails } from "@/features/company/infrastructure/company.request";
 import type { QuotationDetail } from "@/features/quotations/types/quotation.types";
+import type { PrintFormat } from "@flowstore/print-service-client";
 import { printPosQuotationReceiptAgentOrBrowserFireAndForget } from "@/features/quotations/lib/quotation-ticket-agent";
-import { thermalReceiptTicketCss } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
+import { thermalReceiptCssForFormat } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";
 
 function escapeHtml(s: string) {
@@ -49,6 +50,7 @@ export type QuotationReceiptPrintInput = {
 export function buildQuotationReceiptHtml(
   input: QuotationReceiptPrintInput,
   origin: string,
+  format: PrintFormat = "ticket_80mm",
 ): string {
   const q = input.quotation;
   const c = input.company;
@@ -101,7 +103,7 @@ export function buildQuotationReceiptHtml(
 
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/>
 <title>Cotización ${escapeHtml(folio)}</title>
-<style>${thermalReceiptTicketCss()}</style></head><body>
+<style>${thermalReceiptCssForFormat(format)}</style></head><body>
 <div class="receipt">
   <img class="logo" src="${escapeHtml(logo)}" alt="" />
   <p class="store">${escapeHtml(displayName)}</p>
@@ -129,6 +131,9 @@ export function buildQuotationReceiptHtml(
 </body></html>`;
 }
 
-export function printPosQuotationReceipt(input: QuotationReceiptPrintInput): void {
-  printPosQuotationReceiptAgentOrBrowserFireAndForget(input);
+export function printPosQuotationReceipt(
+  input: QuotationReceiptPrintInput,
+  format?: PrintFormat,
+): void {
+  printPosQuotationReceiptAgentOrBrowserFireAndForget(input, format);
 }

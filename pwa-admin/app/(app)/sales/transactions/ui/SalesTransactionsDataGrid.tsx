@@ -366,6 +366,16 @@ export default function SalesTransactionsDataGrid({
               },
             },
             {
+              field: "orderOrigin",
+              headerName: "Origen",
+              sortable: false,
+              width: 88,
+              valueGetter: ({ row }: { row: unknown }) => {
+                const r = row as SalesTransactionListRow;
+                return r.orderOrigin === "e-shop" ? "eShop" : "POS";
+              },
+            },
+            {
               field: "backorderDepositAmount",
               headerName: "Abono",
               sortable: false,

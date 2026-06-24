@@ -1,8 +1,10 @@
 import {
   agentSupportsPosSaleTicket,
+  isDocumentPrintFormat,
   type HelloResponseData,
   type PosSaleTicketPayload,
   type PosSaleTicketPrintExtras,
+  type PrintFormat,
 } from "@flowstore/print-service-client";
 import type { PrintServiceConnection } from "@flowstore/print-service-client";
 import {
@@ -12,6 +14,8 @@ import {
 } from "@/features/print/lib/admin-agent-print";
 import { printHtmlInHiddenIframe } from "@/features/print/lib/print-html-in-hidden-iframe";
 import type { SaleReceiptPrintData } from "./backorder-document-print.types";
+import { buildSaleReceiptDocumentHtml } from "./backorder-document-print";
+import { getAdminPrintFormatForData } from "./admin-print-format";
 import { buildSaleReceiptTicketHtml } from "./sale-receipt-ticket-print-html";
 import { mapSaleReceiptToPosSaleTicketPayload } from "./map-backorder-to-sale-ticket";
 
@@ -47,15 +51,19 @@ async function enqueueBackorderTicketOnAgent(
   await enqueueAdminPrint(conn, "tickets", body);
 }
 
-/** Ticket 80 mm: agente ESC/POS o diálogo del navegador. */
+/** Ticket térmico: agente ESC/POS o diálogo del navegador. */
 export async function printAdminSaleTicket(
   data: SaleReceiptPrintData,
+  options?: { format?: PrintFormat },
 ): Promise<"agent" | "browser"> {
   if (typeof window === "undefined") return "browser";
 
+  const format = options?.format ?? getAdminPrintFormatForData(data);
   const origin = window.location.origin;
-  const html = buildSaleReceiptTicketHtml(data, origin);
-  const iframeTitle = "Impresión ticket";
+  const html = isDocumentPrintFormat(format)
+    ? buildSaleReceiptDocumentHtml(data, format)
+    : buildSaleReceiptTicketHtml(data, origin, format);
+  const iframeTitle = isDocumentPrintFormat(format) ? "Impresión documento" : "Impresión ticket";
 
   if (!isAdminPrintAgentConfigured("tickets")) {
     printHtmlInHiddenIframe(html, iframeTitle);

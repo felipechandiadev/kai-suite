@@ -1,5 +1,6 @@
 import type { CompanyDetails } from "@/features/settings-branches/infrastructure/company.request";
 import type { SaleTransactionDetail } from "../types/sale-transaction-detail.types";
+import { getAdminPrintFormatForTransactionType } from "./admin-print-format";
 import { mapSaleTransactionDetailToPrintData } from "./map-sale-transaction-detail-to-print-data";
 import {
   printAdminSaleDocumentExplicit,
@@ -20,7 +21,8 @@ export async function reprintAdminSaleTicket(
     return { success: false, message: "Este tipo de transacción no admite ticket" };
   }
   const data = mapSaleTransactionDetailToPrintData(detail, company);
-  const channel = await printAdminSaleTicketExplicit(data);
+  const format = getAdminPrintFormatForTransactionType(detail.transactionType);
+  const channel = await printAdminSaleTicketExplicit(data, { format });
   if (channel === "browser") {
     return {
       success: true,
@@ -39,7 +41,8 @@ export async function reprintAdminSaleDocument(
     return { success: false, message: "Este tipo de transacción no admite documento" };
   }
   const data = mapSaleTransactionDetailToPrintData(detail, company);
-  const channel = await printAdminSaleDocumentExplicit(data);
+  const format = getAdminPrintFormatForTransactionType(detail.transactionType);
+  const channel = await printAdminSaleDocumentExplicit(data, { format });
   if (channel === "browser") {
     return {
       success: true,

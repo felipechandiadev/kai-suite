@@ -34,6 +34,8 @@ export interface SalesTransactionListRow {
   backorderPercent: number | null;
   /** `metadata.backorder.reservationStatus` (solo encargos). */
   backorderReservationStatus: string | null;
+  /** `pos` | `e-shop` desde metadata.source */
+  orderOrigin: string | null;
   paymentMethod: SalesPaymentMethod;
   /** Cantidad de líneas en metadata.payments (0 = desconocido / legacy). */
   paymentLinesCount: number;

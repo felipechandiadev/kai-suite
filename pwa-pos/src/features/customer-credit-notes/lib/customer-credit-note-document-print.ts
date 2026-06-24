@@ -2,8 +2,13 @@ import {
   buildCompanyInlineParts,
   formatCompanyAddressForPrint,
 } from "@flowstore/document-print";
+import type { PrintFormat } from "@flowstore/print-service-client";
 import type { CustomerCreditNotePrintData } from "../types/customer-credit-note-print.types";
 import { printPosHtmlViaAgentOrBrowserFireAndForget } from "@/features/pos-print/lib/pos-agent-print";
+import {
+  documentContentMaxWidth,
+  documentPageAtRule,
+} from "@/features/pos-print/lib/document-print-format";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";
 
 function escapeHtml(s: string) {
@@ -31,7 +36,10 @@ function formatDateSlash(iso: string): string {
   }
 }
 
-export function buildCustomerCreditNoteDocumentHtml(data: CustomerCreditNotePrintData): string {
+export function buildCustomerCreditNoteDocumentHtml(
+  data: CustomerCreditNotePrintData,
+  format: PrintFormat = "document_a4",
+): string {
   const c = data.company;
   const displayName = c.nombreFantasia?.trim() || c.razonSocial;
   const addressLines = formatCompanyAddressForPrint(c.address);
@@ -85,10 +93,10 @@ export function buildCustomerCreditNoteDocumentHtml(data: CustomerCreditNotePrin
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/>
 <title>Nota de crédito ${escapeHtml(folio)}</title>
 <style>
-  @page { size: A4; margin: 12mm; }
+  ${documentPageAtRule(format)}
   * { box-sizing: border-box; }
   body { margin: 0; font-family: system-ui, sans-serif; font-size: 11px; color: #111827; }
-  .page { max-width: 190mm; margin: 0 auto; }
+  .page { max-width: ${documentContentMaxWidth(format)}; margin: 0 auto; }
   .companyHeader { display: flex; justify-content: space-between; gap: 1rem; }
   .companyName { margin: 0; font-size: 20px; font-weight: 800; }
   .documentTitle { margin: 0; font-size: 22px; font-weight: 900; color: #1e3a8a; text-align: right; }
@@ -148,13 +156,18 @@ export function buildCustomerCreditNoteDocumentHtml(data: CustomerCreditNotePrin
 </body></html>`;
 }
 
-export function printCustomerCreditNoteDocument(data: CustomerCreditNotePrintData): void {
-  const html = buildCustomerCreditNoteDocumentHtml(data);
+export function printCustomerCreditNoteDocument(
+  data: CustomerCreditNotePrintData,
+  format?: PrintFormat,
+): void {
+  const resolved = format ?? "document_a4";
+  const html = buildCustomerCreditNoteDocumentHtml(data, resolved);
   const folio = data.creditNoteFolio?.trim() || "nota-credito";
   printPosHtmlViaAgentOrBrowserFireAndForget(html, "documents", {
     filename: `${folio}.pdf`,
     iframeTitle: "Impresión nota de crédito documento",
     documentType: "CUSTOMER_CREDIT_NOTE",
     internalFolio: folio,
+    format: resolved,
   });
 }

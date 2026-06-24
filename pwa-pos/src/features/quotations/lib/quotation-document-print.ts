@@ -5,7 +5,12 @@ import {
 } from "@flowstore/document-print";
 import type { CompanyDetails } from "@/features/company/infrastructure/company.request";
 import type { QuotationLineRow } from "@/features/quotations/types/quotation.types";
+import type { PrintFormat } from "@flowstore/print-service-client";
 import { printPosHtmlViaAgentOrBrowserFireAndForget } from "@/features/pos-print/lib/pos-agent-print";
+import {
+  documentContentMaxWidth,
+  documentPageAtRule,
+} from "@/features/pos-print/lib/document-print-format";
 import type { QuotationReceiptPrintInput } from "@/features/quotations/lib/quotation-receipt-print";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";
 
@@ -54,7 +59,10 @@ function appliedTaxNamesFromLines(lines: QuotationLineRow[]): string[] {
  * Documento tipo hoja (A4), mismo criterio visual que los documentos imprimibles del admin
  * (`PrintableDocumentLayout` + `PurchaseOrderPrintDocument` / bloques de totales).
  */
-export function buildQuotationDocumentHtml(input: QuotationReceiptPrintInput): string {
+export function buildQuotationDocumentHtml(
+  input: QuotationReceiptPrintInput,
+  format: PrintFormat = "document_a4",
+): string {
   const q = input.quotation;
   const c = input.company;
   const razonSocial = (c?.razonSocial ?? "").trim();
@@ -134,7 +142,7 @@ export function buildQuotationDocumentHtml(input: QuotationReceiptPrintInput): s
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/>
 <title>Cotización ${escapeHtml(folio)}</title>
 <style>
-  @page { size: A4; margin: 12mm; }
+  ${documentPageAtRule(format)}
   * { box-sizing: border-box; }
   body {
     margin: 0;
@@ -145,7 +153,7 @@ export function buildQuotationDocumentHtml(input: QuotationReceiptPrintInput): s
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  .page { width: 100%; max-width: 190mm; margin: 0 auto; padding: 4mm 0; }
+  .page { width: 100%; max-width: ${documentContentMaxWidth(format)}; margin: 0 auto; padding: 4mm 0; }
   ${DOCUMENT_HEADER_PRINT_CSS}
   .summaryGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem 1.25rem; margin-bottom: 0.9rem; }
   .field { font-size: 11px; color: #111827; }
@@ -216,14 +224,19 @@ export function buildQuotationDocumentHtml(input: QuotationReceiptPrintInput): s
 </body></html>`;
 }
 
-export function printPosQuotationDocument(input: QuotationReceiptPrintInput): void {
+export function printPosQuotationDocument(
+  input: QuotationReceiptPrintInput,
+  format?: PrintFormat,
+): void {
   if (typeof window === "undefined") return;
-  const html = buildQuotationDocumentHtml(input);
+  const resolved = format ?? "document_a4";
+  const html = buildQuotationDocumentHtml(input, resolved);
   const folio = input.quotation.documentNumber?.trim() || "cotizacion";
   printPosHtmlViaAgentOrBrowserFireAndForget(html, "documents", {
     filename: `${folio}.pdf`,
     iframeTitle: "Impresión cotización documento",
     documentType: "QUOTATION",
     internalFolio: folio,
+    format: resolved,
   });
 }

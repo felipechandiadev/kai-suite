@@ -32,6 +32,12 @@ export interface CompanyEShopFlatSettings {
   eShopHeroSliderAutoplaySeconds: number;
   /** Comportamiento ante falta de stock en checkout eShop. */
   eShopStockPolicy: EShopStockPolicy;
+  /** Portal Mi cuenta habilitado. */
+  eShopCustomerPortalEnabled: boolean;
+  /** RUT obligatorio al registrarse en eShop. */
+  eShopRegistrationRequireRut: boolean;
+  /** Mostrar deudas/cuotas en portal (requiere crédito interno). */
+  eShopShowDebtsInPortal: boolean;
 }
 
 export function buildDefaultCompanyEShopFlatSettings(): CompanyEShopFlatSettings {
@@ -47,6 +53,9 @@ export function buildDefaultCompanyEShopFlatSettings(): CompanyEShopFlatSettings
     eShopDefaultStorageId: null,
     eShopHeroSliderAutoplaySeconds: ESHOP_HERO_SLIDER_AUTOPLAY_DEFAULT_SECONDS,
     eShopStockPolicy: 'ALLOW_BACKORDER',
+    eShopCustomerPortalEnabled: false,
+    eShopRegistrationRequireRut: false,
+    eShopShowDebtsInPortal: true,
   };
 }
 
@@ -127,6 +136,9 @@ export function sanitizeCompanyEShopFlatSettings(
     eShopDefaultStorageId: storageId,
     eShopHeroSliderAutoplaySeconds: autoplaySeconds,
     eShopStockPolicy: stockPolicy,
+    eShopCustomerPortalEnabled: truthy(settings.eShopCustomerPortalEnabled),
+    eShopRegistrationRequireRut: truthy(settings.eShopRegistrationRequireRut),
+    eShopShowDebtsInPortal: settings.eShopShowDebtsInPortal === false ? false : true,
   };
 }
 

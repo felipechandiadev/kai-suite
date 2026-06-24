@@ -9,10 +9,10 @@ import java.text.NumberFormat
 import java.util.Locale
 
 object PosSaleTicketEscPos {
-    private const val WIDTH = 48
     private val moneyFormat = NumberFormat.getIntegerInstance(Locale("es", "CL"))
 
-    fun fromTicketJson(ticketJson: String): ByteArray {
+    fun fromTicketJson(ticketJson: String, widthChars: Int = 48): ByteArray {
+        val layout = EscPosLayout.forWidthChars(widthChars)
         val ticket = Json.parseToJsonElement(ticketJson).jsonObject
         val buf = ArrayList<Byte>()
         fun b(vararg bytes: Int) { bytes.forEach { buf.add(it.toByte()) } }
@@ -20,11 +20,15 @@ object PosSaleTicketEscPos {
             s.toByteArray(Charsets.ISO_8859_1).forEach { buf.add(it) }
         }
         fun line(s: String = "") {
-            text(s.take(WIDTH))
+            text(s.take(layout.widthChars))
             b(0x0A)
         }
-        fun divider() = line("-".repeat(WIDTH))
+        fun divider() = line("-".repeat(layout.widthChars))
         fun money(n: Double): String = "$" + moneyFormat.format(n.toLong())
+        fun labelValue(label: String, value: String): String {
+            val pad = layout.widthChars - label.length - value.length
+            return label + " ".repeat(pad.coerceAtLeast(1)) + value
+        }
 
         b(0x1B, 0x40) // init
         b(0x1B, 0x52, 0x00)
@@ -55,9 +59,9 @@ object PosSaleTicketEscPos {
             val name = obj["productName"]?.jsonPrimitive?.content ?: ""
             val qty = obj["quantity"]?.jsonPrimitive?.content?.toDoubleOrNull() ?: 1.0
             val gross = obj["lineGross"]?.jsonPrimitive?.content?.toDoubleOrNull() ?: 0.0
-            line(name.take(32))
+            line(name.take(layout.productNameChars))
             val detail = "${qty.toInt()} x ${money(obj["unitPriceWithTax"]?.jsonPrimitive?.content?.toDoubleOrNull() ?: 0.0)}"
-            val pad = WIDTH - detail.length - money(gross).length
+            val pad = layout.widthChars - detail.length - money(gross).length
             line(detail + " ".repeat(pad.coerceAtLeast(1)) + money(gross))
         }
 
@@ -94,10 +98,5 @@ object PosSaleTicketEscPos {
         line()
         b(0x1D, 0x56, 0x00) // cut
         return buf.toByteArray()
-    }
-
-    private fun labelValue(label: String, value: String): String {
-        val pad = WIDTH - label.length - value.length
-        return label + " ".repeat(pad.coerceAtLeast(1)) + value
     }
 }

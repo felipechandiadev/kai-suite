@@ -118,4 +118,42 @@ export class EShopFulfillmentRequest {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json() as Promise<EShopOrderDetail>;
   }
+
+  static async cancelOrderBackorder(id: string, reason?: string) {
+    const res = await fetch(apiUrl(`/e-shop/admin/orders/${id}/cancel-backorder`), {
+      method: "POST",
+      headers: await authHeaders(),
+      body: JSON.stringify({ reason: reason?.trim() || undefined }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const msg =
+        typeof data?.message === "string"
+          ? data.message
+          : Array.isArray(data?.message)
+            ? data.message.join(", ")
+            : `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+    return res.json();
+  }
+
+  static async convertOrderToSale(id: string) {
+    const res = await fetch(apiUrl(`/e-shop/admin/orders/${id}/convert-to-sale`), {
+      method: "POST",
+      headers: await authHeaders(),
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const msg =
+        typeof data?.message === "string"
+          ? data.message
+          : Array.isArray(data?.message)
+            ? data.message.join(", ")
+            : `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+    return res.json();
+  }
 }

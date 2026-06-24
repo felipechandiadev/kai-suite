@@ -2,9 +2,12 @@ import {
   PrintServiceConnection,
   buildWebSocketUrl,
   isPosAgentPrintConfiguredForPurpose,
+  printFormatToPurpose,
   printServicePageRequiresTls,
   readPrintServiceConfigFromStorage,
+  resolvePrintFormat,
   type HelloResponseData,
+  type PrintFormat,
   type PosPrintAgentPurpose,
 } from "@flowstore/print-service-client";
 import { htmlToPdfBase64 } from "@/features/pos-print/lib/html-to-pdf-base64";
@@ -19,6 +22,7 @@ export type PosAgentPrintMeta = {
   iframeTitle: string;
   documentType?: string;
   internalFolio?: string;
+  format?: PrintFormat;
 };
 
 export function isUnknownPrinterLabelError(e: unknown): boolean {
@@ -130,11 +134,13 @@ async function tryEnqueueDocumentPdfOnAgent(
   if (purpose === "tickets") {
     throw new Error("tickets_no_pdf");
   }
-  const base64 = await htmlToPdfBase64(html, purpose);
+  const format = resolvePrintFormat(meta.format);
+  const base64 = await htmlToPdfBase64(html, format);
 
   await withPrintAgentConnection(purpose, async (conn) => {
     const baseBody = {
-      purpose,
+      purpose: printFormatToPurpose(format),
+      format,
       type: "pdf-base64",
       payload: base64,
       filename: meta.filename,

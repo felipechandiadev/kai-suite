@@ -202,6 +202,7 @@ export const mainMenuItems: SideBarMenuItem[] = [
       { id: 'settings-branches', label: 'Sucursales', url: '/settings/branches' },
       { id: 'settings-users', label: 'Usuarios', url: '/settings/users' },
       { id: 'settings-local-printing', label: 'Impresión local', url: '/settings/local-printing' },
+      { id: 'settings-scale', label: 'Balanza', url: '/settings/scale' },
       { id: 'settings-metal-prices', label: 'Precios de metales', url: '/settings/metal-prices' },
       // { id: 'settings-parameters', label: 'Parámetros del sistema', url: '/settings/parameters' },
     ],

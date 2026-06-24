@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/shared/components/Button";
 import { TextField } from "@/shared/components/TextField/TextField";
+import Switch from "@/shared/components/Switch";
 import { updateFulfillmentSettingsAction } from "@/features/e-shop-fulfillment/actions/eshop-fulfillment.action";
 import type { EShopFulfillmentSettings, EShopStockPolicy } from "@/features/e-shop-fulfillment/types/eshop-fulfillment.types";
 import { STOCK_POLICY_LABELS } from "@/features/e-shop-fulfillment/lib/eshop-fulfillment-labels";
@@ -19,6 +20,15 @@ export function FulfillmentSettingsPanel({
     initialSettings.eShopFreeShippingThreshold != null
       ? String(initialSettings.eShopFreeShippingThreshold)
       : "",
+  );
+  const [portalEnabled, setPortalEnabled] = useState(
+    initialSettings.eShopCustomerPortalEnabled === true,
+  );
+  const [requireRut, setRequireRut] = useState(
+    initialSettings.eShopRegistrationRequireRut === true,
+  );
+  const [showDebts, setShowDebts] = useState(
+    initialSettings.eShopShowDebtsInPortal !== false,
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +65,25 @@ export function FulfillmentSettingsPanel({
         />
       </section>
 
+      <section className="space-y-4 rounded-lg border border-border p-4">
+        <h2 className="text-sm font-semibold">Portal Mi cuenta (cliente)</h2>
+        <p className="text-sm text-muted-foreground">
+          Permite que los compradores se registren y vean pedidos, pagos y deudas en la tienda web.
+        </p>
+        <label className="flex items-center justify-between gap-4 text-sm">
+          <span>Habilitar portal de cliente</span>
+          <Switch checked={portalEnabled} onChange={setPortalEnabled} />
+        </label>
+        <label className="flex items-center justify-between gap-4 text-sm">
+          <span>RUT obligatorio al registrarse</span>
+          <Switch checked={requireRut} onChange={setRequireRut} disabled={!portalEnabled} />
+        </label>
+        <label className="flex items-center justify-between gap-4 text-sm">
+          <span>Mostrar deudas y cuotas en el portal</span>
+          <Switch checked={showDebts} onChange={setShowDebts} disabled={!portalEnabled} />
+        </label>
+      </section>
+
       <section className="rounded-lg border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
         <p>
           Almacén eShop:{" "}
@@ -82,6 +111,9 @@ export function FulfillmentSettingsPanel({
           updateFulfillmentSettingsAction({
             eShopStockPolicy: policy,
             eShopFreeShippingThreshold: threshold ? Number(threshold) : null,
+            eShopCustomerPortalEnabled: portalEnabled,
+            eShopRegistrationRequireRut: requireRut,
+            eShopShowDebtsInPortal: showDebts,
           })
             .then((r) => {
               if (!r.success) setError(r.error);

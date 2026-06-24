@@ -1,12 +1,14 @@
 import type { PosSaleReceiptData } from "@/app/(pos)/pos/payment/ui/PosSaleReceiptDialog";
 import {
   agentSupportsPosSaleTicket,
+  getPosDocumentPrintFormat,
   isPosAgentPrintConfiguredForPurpose,
   POS_SALE_TICKET_PAYLOAD_VERSION,
   PrintServiceConnection,
   type HelloResponseData,
   type PosSaleTicketPayload,
   type PosSaleTicketPrintExtras,
+  type PrintFormat,
 } from "@flowstore/print-service-client";
 import { buildPosSaleDocumentHtml } from "@/features/pos-print/lib/pos-sale-document-print";
 import {
@@ -136,18 +138,22 @@ export type PosSaleTicketPrintChannel = "agent" | "browser";
 
 export async function printPosSaleTicketAgentOrBrowser(
   data: PosSaleReceiptData,
-  meta: PosSaleTicketPrintExtras,
+  meta: PosSaleTicketPrintExtras & { format?: PrintFormat },
 ): Promise<PosSaleTicketPrintChannel> {
   if (typeof window === "undefined") return "browser";
 
-  const documentHtml = buildPosSaleDocumentHtml(data);
+  const kind = data.documentKind === "backorder" ? "backorder" : "sale";
+  const format = meta.format ?? getPosDocumentPrintFormat(kind);
+  const documentHtml = buildPosSaleDocumentHtml(data, format);
   const ticketMeta = {
     filename: meta.filename,
     iframeTitle: "Impresión ticket",
     documentType: meta.documentType,
     internalFolio: meta.internalFolio,
+    format,
   };
   const documentFallbackMeta = posTicketMetaToDocumentMeta(ticketMeta);
+  const enqueueExtras = { ...meta, format, sourceApp: meta.sourceApp ?? "pwa-pos" };
 
   if (!isPosAgentPrintConfiguredForPurpose("tickets")) {
     console.warn(`${LOG} sin alias Tickets → documento (hoja)`);
@@ -167,8 +173,8 @@ export async function printPosSaleTicketAgentOrBrowser(
         throw new Error("agent_no_pos_sale_ticket");
       }
       enqueued = await enqueueVectorTicketWithMappingFallback(
-        () => enqueueSaleTicketOnAgent(conn, ticketVector, meta, false),
-        () => enqueueSaleTicketOnAgent(conn, ticketVector, meta, true),
+        () => enqueueSaleTicketOnAgent(conn, ticketVector, enqueueExtras, false),
+        () => enqueueSaleTicketOnAgent(conn, ticketVector, enqueueExtras, true),
         {
           html: documentHtml,
           iframeTitle: documentFallbackMeta.iframeTitle,

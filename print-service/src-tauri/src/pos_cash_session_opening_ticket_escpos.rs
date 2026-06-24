@@ -6,7 +6,7 @@ use crate::pos_cash_session_opening_ticket::{
 use crate::pos_sale_ticket_escpos::{
     append_divider, append_label_value_wrapped, append_line, append_ticket_logo, escpos_align,
     escpos_apply_ticket_typography, escpos_bold, escpos_double_height_off, escpos_double_height_on,
-    escpos_init, format_datetime, money, pad_left, wrap_lines, WIDTH,
+    escpos_init, format_datetime, money, pad_left, wrap_lines, layout_width,
 };
 use anyhow::Result;
 use std::path::PathBuf;
@@ -29,7 +29,7 @@ pub fn build_pos_cash_session_opening_ticket_escpos(
     escpos_align(&mut buf, 1);
     escpos_bold(&mut buf, true);
     escpos_double_height_on(&mut buf);
-    for line in wrap_lines(store, WIDTH / 2) {
+    for line in wrap_lines(store, layout_width() / 2) {
         append_line(&mut buf, &line);
     }
     escpos_double_height_off(&mut buf);

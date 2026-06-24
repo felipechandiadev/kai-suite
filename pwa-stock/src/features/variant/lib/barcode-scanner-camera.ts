@@ -31,7 +31,7 @@ function isOverconstrainedError(error: unknown): boolean {
 
 export function mapCameraStartError(error: unknown): string {
   if (!isCameraSecureContext()) {
-    return "La cámara solo funciona con HTTPS o en localhost. Abre la app con https:// o http://localhost:3033 (no uses la IP de la red en Safari).";
+    return "La cámara solo funciona con HTTPS o en localhost. Abre la app con https:// o http://localhost:4033 (no uses la IP de la red en Safari).";
   }
   const msg = error instanceof Error ? error.message : String(error ?? "");
   const lower = msg.toLowerCase();

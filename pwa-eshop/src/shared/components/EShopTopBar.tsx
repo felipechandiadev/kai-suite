@@ -19,6 +19,7 @@ type Props = {
   companyLogoUrl: string | null;
   topBar: CompanyEShopTopBarSettings;
   chromeIsLight?: boolean;
+  customerPortalEnabled?: boolean;
 };
 
 export function EShopTopBar({
@@ -26,6 +27,7 @@ export function EShopTopBar({
   companyLogoUrl,
   topBar,
   chromeIsLight = false,
+  customerPortalEnabled = false,
 }: Props) {
   const pathname = usePathname();
   const { itemCount, openDrawer } = useEShopCart();
@@ -72,6 +74,15 @@ export function EShopTopBar({
             </Link>
           ))}
         </nav>
+        <div className="flex items-center gap-2">
+          {customerPortalEnabled ? (
+            <Link
+              href="/cuenta"
+              className="hidden text-sm text-chrome-foreground/80 hover:text-chrome-foreground md:inline"
+            >
+              Mi cuenta
+            </Link>
+          ) : null}
         {topBar.showCart ? (
           <div className="relative">
             <IconButton
@@ -89,6 +100,7 @@ export function EShopTopBar({
         ) : (
           <div className="w-10 md:hidden" aria-hidden />
         )}
+        </div>
       </div>
     </header>
   );

@@ -166,11 +166,15 @@ pub fn printer_health(
     };
 
     let lines = mapping_lines_health(&rows, system, cache);
+    let paper_profile_by_alias = db
+        .paper_profile_by_alias_json()
+        .unwrap_or_else(|_| json!({}));
 
     json!({
         "overall": overall,
         "purposes": Value::Object(purposes_obj),
         "lines": lines,
+        "paperProfileByAlias": paper_profile_by_alias,
         "message": message,
     })
 }
@@ -213,6 +217,7 @@ pub fn mapping_lines_health(
                 "systemPrinterName": if system_printer_name.is_empty() { Value::Null } else { json!(system_printer_name) },
                 "ticketPrinterType": row.get("ticketPrinterType").cloned().unwrap_or(Value::Null),
                 "ticketNetworkHost": if network_host.is_empty() { Value::Null } else { json!(network_host) },
+                "paperProfile": row.get("paperProfile").cloned().unwrap_or(Value::Null),
                 "status": status,
             });
             if status == LINE_STATUS_OFFLINE {

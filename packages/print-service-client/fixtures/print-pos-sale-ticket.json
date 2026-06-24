@@ -4,6 +4,7 @@
   "action": "print",
   "type": "pos-sale-ticket",
   "purpose": "tickets",
+  "format": "ticket_80mm",
   "filename": "ticket.bin",
   "ticket": {
     "version": 1,

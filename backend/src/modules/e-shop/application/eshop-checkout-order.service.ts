@@ -6,6 +6,7 @@ import { ProductVariant } from '@modules/product-variants/domain/product-variant
 import { StockLevel } from '@modules/stock-levels/domain/stock-level.entity';
 import { Branch } from '@modules/branches/domain/branch.entity';
 import { User } from '@modules/users/domain/user.entity';
+import { Customer } from '@modules/customers/domain/customer.entity';
 import { PriceListItem } from '@modules/price-list-items/domain/price-list-item.entity';
 import {
   TransactionStatus,
@@ -29,6 +30,7 @@ import type {
 } from '@modules/transactions/domain/transaction-eshop-order.metadata';
 import { EShopOrderNotificationService } from './eshop-order-notification.service';
 import { KaiMailClient } from '@shared/mail/kai-mail.client';
+import { BackorderRegistrationService } from '@modules/transactions/application/backorder-registration.service';
 
 export type CheckoutOrderBody = {
   customerName: string;
@@ -39,6 +41,7 @@ export type CheckoutOrderBody = {
   shippingAddress?: EShopOrderShippingAddress;
   lines: Array<{ productVariantId: string; quantity: number }>;
   notes?: string;
+  authenticatedCustomerId?: string;
 };
 
 @Injectable()
@@ -54,12 +57,15 @@ export class EShopCheckoutOrderService {
     private readonly branchRepo: Repository<Branch>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(Customer)
+    private readonly customerRepo: Repository<Customer>,
     @InjectRepository(PriceListItem)
     private readonly priceListItemRepo: Repository<PriceListItem>,
     private readonly companiesService: CompaniesService,
     private readonly transactionsService: TransactionsService,
     private readonly fulfillmentMethods: EShopFulfillmentMethodsService,
     private readonly customerUpsert: EShopCustomerUpsertService,
+    private readonly backorderRegistration: BackorderRegistrationService,
     @Optional() private readonly orderNotifications?: EShopOrderNotificationService,
     @Optional() private readonly kaiMail?: KaiMailClient,
   ) {}
@@ -162,13 +168,7 @@ export class EShopCheckoutOrderService {
     );
     const total = subtotal;
 
-    const customer = await this.customerUpsert.upsertByEmail({
-      companyId: store.companyId,
-      name: body.customerName,
-      email: body.customerEmail,
-      phone: body.customerPhone,
-      address: shippingAddress?.line1 ?? body.address,
-    });
+    const customer = await this.resolveCheckoutCustomer(store.companyId, body);
 
     const branchId = await this.resolveBranchId(store);
     const userId = await this.resolveSystemUserId(store.companyId);
@@ -224,8 +224,7 @@ export class EShopCheckoutOrderService {
     };
 
     if (useBackorder) {
-      dto.metadata.backorder = {
-        reservationStatus: 'OPEN',
+      dto.metadata.backorder = this.backorderRegistration.buildInitialBackorderMetadata({
         depositAmount: 0,
         customerSnapshot: {
           name: body.customerName.trim(),
@@ -234,10 +233,30 @@ export class EShopCheckoutOrderService {
         expectedAvailabilityNote: hasShortage
           ? 'Pedido web con líneas sin stock suficiente'
           : null,
-      };
+      });
     }
 
     const tx = await this.transactionsService.createTransaction(dto);
+
+    if (useBackorder && storageId?.trim()) {
+      await this.backorderRegistration.createStockReservationForBackorder({
+        companyId: store.companyId,
+        branchId,
+        storageId: storageId.trim(),
+        customerId: customer.id,
+        userId,
+        backorderTransaction: tx,
+        lines: dtoLines.map((l) => ({
+          productId: l.productId,
+          productVariantId: l.productVariantId,
+          productName: l.productName,
+          variantName: l.variantName,
+          quantity: l.quantity,
+          quantityInBase: l.quantity,
+          unitOfMeasure: l.productSku ?? undefined,
+        })),
+      });
+    }
 
     try {
       await this.orderNotifications?.publishOrderCreated(store.companyId, tx);
@@ -271,6 +290,37 @@ export class EShopCheckoutOrderService {
       hasStockShortage: hasShortage,
       shortageVariantIds: shortages.map((s) => s.variantId),
     };
+  }
+
+  private async resolveCheckoutCustomer(companyId: string, body: CheckoutOrderBody) {
+    const email = body.customerEmail.trim().toLowerCase();
+    if (body.authenticatedCustomerId?.trim()) {
+      const linked = await this.customerRepo.findOne({
+        where: { id: body.authenticatedCustomerId.trim(), companyId },
+        relations: ['person'],
+      });
+      if (!linked) {
+        throw new BadRequestException('Sesión de cliente no válida');
+      }
+      const linkedEmail = linked.person?.email?.trim().toLowerCase();
+      if (linkedEmail && linkedEmail !== email) {
+        throw new BadRequestException('El correo no coincide con la cuenta autenticada');
+      }
+      return this.customerUpsert.upsertByEmail({
+        companyId,
+        name: body.customerName,
+        email: body.customerEmail,
+        phone: body.customerPhone,
+        address: body.shippingAddress?.line1 ?? body.address,
+      });
+    }
+    return this.customerUpsert.upsertByEmail({
+      companyId,
+      name: body.customerName,
+      email: body.customerEmail,
+      phone: body.customerPhone,
+      address: body.shippingAddress?.line1 ?? body.address,
+    });
   }
 
   private resolveShippingAddress(

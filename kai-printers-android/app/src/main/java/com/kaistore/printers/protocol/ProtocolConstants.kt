@@ -5,4 +5,5 @@ const val WS_CLOSE_REASON_SERVICE_STOPPED = "flowstore:service_stopped"
 
 val AGENT_CAPABILITIES_MVP = listOf(
     "pos-sale-ticket",
+    "pdf-base64",
 )

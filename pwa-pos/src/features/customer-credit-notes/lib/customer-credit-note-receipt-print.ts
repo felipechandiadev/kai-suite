@@ -1,6 +1,7 @@
 import type { CustomerCreditNotePrintData } from "../types/customer-credit-note-print.types";
+import type { PrintFormat } from "@flowstore/print-service-client";
 import { printCustomerCreditNoteReceiptAgentOrBrowserFireAndForget } from "@/features/customer-credit-notes/lib/customer-credit-note-ticket-agent";
-import { thermalReceiptTicketBodyCss } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
+import { thermalReceiptBodyCssForFormat } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";
 
 function escapeHtml(s: string) {
@@ -37,7 +38,11 @@ function resolveReceiptLogoUrl(companyLogoUrl: string | null | undefined, origin
   return raw;
 }
 
-export function buildCustomerCreditNoteReceiptHtml(data: CustomerCreditNotePrintData, origin: string): string {
+export function buildCustomerCreditNoteReceiptHtml(
+  data: CustomerCreditNotePrintData,
+  origin: string,
+  format: PrintFormat = "ticket_80mm",
+): string {
   const logo = resolveReceiptLogoUrl(data.company.logoUrl, origin);
   const displayName = data.company.nombreFantasia?.trim() || data.company.razonSocial;
   const folio = data.creditNoteFolio;
@@ -84,7 +89,7 @@ export function buildCustomerCreditNoteReceiptHtml(data: CustomerCreditNotePrint
       : "";
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>NC ${escapeHtml(folio)}</title>
-<style>${thermalReceiptTicketBodyCss()}</style></head><body>
+<style>${thermalReceiptBodyCssForFormat(format)}</style></head><body>
 <div class="logo"><img src="${escapeHtml(logo)}" alt=""/></div>
 <h1>NOTA DE CRÉDITO</h1>
 <div class="muted" style="text-align:center">${escapeHtml(displayName)}</div>
@@ -109,6 +114,9 @@ ${refundBlock}
 </body></html>`;
 }
 
-export function printCustomerCreditNoteReceipt(data: CustomerCreditNotePrintData): void {
-  printCustomerCreditNoteReceiptAgentOrBrowserFireAndForget(data);
+export function printCustomerCreditNoteReceipt(
+  data: CustomerCreditNotePrintData,
+  format?: PrintFormat,
+): void {
+  printCustomerCreditNoteReceiptAgentOrBrowserFireAndForget(data, format);
 }

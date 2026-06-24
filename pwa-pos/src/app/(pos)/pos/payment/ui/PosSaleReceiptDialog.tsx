@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Dialog } from "@/shared/admin-shared";
 import type { PosCartLine } from "@/app/(pos)/pos/ui/PosCartLineCard";
 import type { PosPaymentLine, PosPaymentMethodId } from "@/features/pos-cart/pos-payment.types";
@@ -10,13 +10,20 @@ import type { PosContextV1 } from "@/features/session/lib/pos-context-storage";
 import type { EffectivePaymentMethod } from "@/features/pos-payment-methods/types/effective-payment-method.types";
 import type { AppliedSnapshot } from "@/features/promotions/lib/discount-engine.types";
 import type { LoadedQuotationMeta } from "@/features/pos-cart/cart-storage";
-import { getPosDocumentPrintMode } from "@flowstore/print-service-client";
+import {
+  describePrintFormat,
+  getPosDocumentPrintFormat,
+  isDocumentPrintFormat,
+  PrintFormatSelector,
+  type PrintFormat,
+} from "@flowstore/print-service-client";
 import {
   buildPosSaleDocumentHtml,
   printPosSaleDocument,
 } from "@/features/pos-print/lib/pos-sale-document-print";
 import { printPosSaleTicketAgentOrBrowserFireAndForget } from "@/features/pos-print/lib/pos-sale-ticket-agent";
-import { thermalReceiptTicketCss } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
+import { thermalReceiptCssForFormat } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
+import { thermalPreviewWidthCss } from "@/features/pos-print/lib/document-print-format";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";
 import { formatReceiptLineDisplayName } from "@/features/pos-print/lib/format-receipt-line-name";
 
@@ -311,7 +318,11 @@ export function buildPosSaleReceiptSnapshot(input: PosSaleReceiptSnapshotInput):
   };
 }
 
-export function buildPosSaleReceiptHtml(data: PosSaleReceiptData, origin: string): string {
+export function buildPosSaleReceiptHtml(
+  data: PosSaleReceiptData,
+  origin: string,
+  format: PrintFormat = "ticket_80mm",
+): string {
   const isBackorder = data.documentKind === "backorder";
   const isArCollection = Boolean(data.arCollection?.length);
   const isNcPayout = Boolean(data.ncPayout?.length);
@@ -427,7 +438,7 @@ export function buildPosSaleReceiptHtml(data: PosSaleReceiptData, origin: string
 
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/>
 <title>Venta ${escapeHtml(data.folio)}</title>
-<style>${thermalReceiptTicketCss()}</style></head><body>
+<style>${thermalReceiptCssForFormat(format)}</style></head><body>
 <div class="receipt">
   <img class="logo" src="${escapeHtml(logo)}" alt="" />
   <p class="store">${escapeHtml(displayName)}</p>
@@ -478,13 +489,16 @@ export function buildPosSaleReceiptHtml(data: PosSaleReceiptData, origin: string
 </body></html>`;
 }
 
-export function printPosSaleReceipt(data: PosSaleReceiptData): void {
+export function printPosSaleReceipt(data: PosSaleReceiptData, format?: PrintFormat): void {
   if (typeof window === "undefined") return;
+  const kind = data.documentKind === "backorder" ? "backorder" : "sale";
+  const resolved = format ?? getPosDocumentPrintFormat(kind);
   const folio = data.folio.trim() || "ticket";
   printPosSaleTicketAgentOrBrowserFireAndForget(data, {
     filename: `${folio}.escpos`,
     documentType: data.documentKind === "backorder" ? "BACKORDER" : "SALE",
     internalFolio: folio,
+    format: resolved,
   });
 }
 
@@ -494,35 +508,37 @@ type DialogProps = {
   onClose: () => void;
 };
 
-/**
- * Tras confirmar la venta: vista previa tipo ticket 80 mm, impresión automática
- * y acción para reimprimir antes de volver al POS.
- */
-function resolveSalePrintMode(data: PosSaleReceiptData) {
+function resolveSalePrintFormat(data: PosSaleReceiptData): PrintFormat {
   const kind = data.documentKind === "backorder" ? "backorder" : "sale";
-  return getPosDocumentPrintMode(kind);
+  return getPosDocumentPrintFormat(kind);
 }
 
-function printSaleByMode(data: PosSaleReceiptData) {
-  if (resolveSalePrintMode(data) === "document") {
-    printPosSaleDocument(data);
+function printSaleByFormat(data: PosSaleReceiptData, format: PrintFormat) {
+  if (isDocumentPrintFormat(format)) {
+    printPosSaleDocument(data, format);
   } else {
-    printPosSaleReceipt(data);
+    printPosSaleReceipt(data, format);
   }
 }
 
 export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
   const autoPrintForFolioRef = useRef<string | null>(null);
+  const [printFormat, setPrintFormat] = useState<PrintFormat>("ticket_80mm");
 
-  const printMode = data ? resolveSalePrintMode(data) : "ticket";
-  const isDocument = printMode === "document";
+  useEffect(() => {
+    if (data) {
+      setPrintFormat(resolveSalePrintFormat(data));
+    }
+  }, [data?.folio, data?.documentKind]);
+
+  const isDocument = isDocumentPrintFormat(printFormat);
 
   const previewSrcDoc = useMemo(() => {
     if (!data || typeof window === "undefined") return null;
     return isDocument
-      ? buildPosSaleDocumentHtml(data)
-      : buildPosSaleReceiptHtml(data, window.location.origin);
-  }, [data, isDocument]);
+      ? buildPosSaleDocumentHtml(data, printFormat)
+      : buildPosSaleReceiptHtml(data, window.location.origin, printFormat);
+  }, [data, isDocument, printFormat]);
 
   useEffect(() => {
     if (!open || !data) {
@@ -532,10 +548,10 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
     if (autoPrintForFolioRef.current === data.folio) return;
     autoPrintForFolioRef.current = data.folio;
     const t = window.setTimeout(() => {
-      printSaleByMode(data);
+      printSaleByFormat(data, printFormat);
     }, 350);
     return () => clearTimeout(t);
-  }, [open, data]);
+  }, [open, data, printFormat]);
 
   if (!data) return null;
 
@@ -556,7 +572,7 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
       data-test-id="pos-payment-success-dialog"
       actions={
         <>
-          <Button type="button" variant="outlined" onClick={() => printSaleByMode(data)}>
+          <Button type="button" variant="outlined" onClick={() => printSaleByFormat(data, printFormat)}>
             Imprimir de nuevo
           </Button>
           <Button type="button" variant="primary" onClick={onClose}>
@@ -566,27 +582,31 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
       }
     >
       <div className="grid gap-2 text-sm">
-        <p className="text-xs text-muted-foreground">
+        <p className="mb-2 text-xs text-muted-foreground">
           Formato:{" "}
-          <span className="font-medium text-foreground">
-            {isDocument ? "Documento (hoja)" : "Ticket (80 mm)"}
-          </span>
+          <span className="font-medium text-foreground">{describePrintFormat(printFormat)}</span>
         </p>
+        <PrintFormatSelector
+          value={printFormat}
+          onChange={setPrintFormat}
+          data-test-id="pos-sale-receipt-print-format"
+        />
         <div
-          className={`mx-auto max-h-[min(55vh,520px)] w-full overflow-auto rounded-lg border border-border bg-transparent p-2 ${
+          className={`mx-auto mt-3 max-h-[min(55vh,520px)] w-full overflow-auto rounded-lg border border-border bg-transparent p-2 ${
             isDocument ? "max-w-[min(100%,720px)]" : "max-w-[min(100%,420px)]"
           }`}
           data-test-id="pos-sale-receipt-preview-wrap"
         >
           {previewSrcDoc ? (
             <iframe
-              title={isDocument ? "Vista previa documento" : "Vista previa ticket 80 mm"}
+              title={isDocument ? "Vista previa documento" : "Vista previa ticket"}
               srcDoc={previewSrcDoc}
               className={`mx-auto block border-0 bg-white ${
                 isDocument
                   ? "min-h-[480px] w-full max-w-[210mm]"
-                  : "min-h-[320px] w-[80mm] max-w-full"
+                  : `min-h-[320px] w-[${thermalPreviewWidthCss(printFormat)}] max-w-full`
               }`}
+              style={isDocument ? undefined : { width: thermalPreviewWidthCss(printFormat) }}
               data-test-id="pos-sale-receipt-preview-iframe"
             />
           ) : (

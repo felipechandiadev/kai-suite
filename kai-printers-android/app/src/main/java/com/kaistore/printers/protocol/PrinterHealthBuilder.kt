@@ -7,11 +7,15 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import kotlinx.serialization.json.put
 
 object PrinterHealthBuilder {
     suspend fun build(repository: AgentRepository, bonded: BondedDevicesRepository): JsonObject {
         val lines = repository.listMappingLines()
+        val paperProfileByAlias = buildJsonObject {
+            for (line in lines) {
+                line.displayLabel?.let { put(it, line.paperProfile) }
+            }
+        }
         val healthLines = buildJsonArray {
             for (line in lines) {
                 val online = bonded.isDeviceReachable(line.systemPrinterName)
@@ -21,6 +25,7 @@ object PrinterHealthBuilder {
                         put("purpose", line.purpose)
                         put("systemPrinterName", line.systemPrinterName)
                         line.displayLabel?.let { put("displayLabel", it) }
+                        put("paperProfile", line.paperProfile)
                         put("online", online)
                         put("status", if (online) "ready" else "offline")
                     },
@@ -32,6 +37,7 @@ object PrinterHealthBuilder {
             put("event", "printer_health")
             put("payload", buildJsonObject {
                 put("lines", healthLines)
+                put("paperProfileByAlias", paperProfileByAlias)
                 put("overall", if (healthLines.isEmpty()) "unknown" else "degraded")
             })
         }

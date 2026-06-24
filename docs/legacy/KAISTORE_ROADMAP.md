@@ -9,7 +9,7 @@ Hoja de ruta interna para priorizar desarrollo en el monorepo **flow-store-2**. 
 
 La modalidad se define **al cargar cada app** vía variables de entorno (ver § Modalidades). Complementa el análisis competitivo y los backlogs por módulo.
 
-**Última revisión:** mayo 2026  
+**Última revisión:** junio 2026  
 **Alcance:** `backend`, `pwa-admin`, `pwa-pos`, `pwa-stock`, `pwa-eshop`
 
 ---
@@ -23,6 +23,7 @@ La modalidad se define **al cargar cada app** vía variables de entorno (ver § 
 | `KAISTORE_E-SHOP_DEVELOPMENT_GUIDE.md` | Guía técnica eShop |
 | `Definición Módulo SII KaiStore.md` | Especificación fiscal (fase final) |
 | `pwa-admin/docs/CONTABILIDAD_SECCIONES.md` | Pantallas contables y placeholders |
+| `implementaciones-futuras/IF-09-formatos-impresion-58-80-carta-a4.md` | Formatos 58/80 mm, carta y A4 (POS, agentes) |
 
 ---
 
@@ -201,6 +202,7 @@ Ver detalle por pantalla en `pwa-admin/docs/CONTABILIDAD_SECCIONES.md`.
 | 5.1 | **Devoluciones + NC** — UX, reportes, uso de saldo NC en pagos (`creditNoteTransactionId`) | Flujo POS existente |
 | 5.2 | **Cotizaciones** — seguimiento y conversión a venta en admin | Módulo `quotations` |
 | 5.3 | **Promociones dinámicas** — por familia / variantes, no solo packs estáticos | `promotions` |
+| 5.4 | **Formatos de impresión** — selector 58 mm / 80 mm / carta / A4 por tipo de documento; paridad admin + agentes | [IF-09](../implementaciones-futuras/IF-09-formatos-impresion-58-80-carta-a4.md) ✅ |
 
 **Explícitamente excluido:** `addLineItem` / `updateLineItem` / `deleteLineItem` en `SalesFromSessionService` (no requerido por diseño).
 
@@ -308,7 +310,7 @@ Vertical restaurante / bar / dark kitchen. Compite con **Fudo** (ver `ANALISIS_C
 | # | Entrega |
 |---|---------|
 | K3.1 | **KDS** — cola cocina, tiempos, estados |
-| K3.2 | **Impresión comandas** — extender `print-service` |
+| K3.2 | **Impresión comandas** — extender `print-service`; formatos térmicos según [IF-09](../implementaciones-futuras/IF-09-formatos-impresion-58-80-carta-a4.md) |
 | K3.3 | Cuenta por comensal, precuenta |
 | K3.4 | Menú QR / pedido web → cocina (eShop o módulo menú) |
 | K3.5 | Integración delivery (1 agregador) |

@@ -175,6 +175,7 @@ export class CustomersRepository implements CustomersRepositoryPort {
         TransactionType.SALE,
         TransactionType.BACKORDER,
         TransactionType.PURCHASE,
+        TransactionType.CUSTOMER_ORDER,
       ]),
     };
     if (status) where.status = status;

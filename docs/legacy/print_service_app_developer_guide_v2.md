@@ -13,6 +13,7 @@ Documento de referencia para el **servicio local de impresión** (app de escrito
 | **Clientes** | **pwa-admin** y **pwa-pos**: canal **WebSocket** bidireccional al host local (comandos + **alertas** de servicio/impresoras hacia la PWA). |
 | **Configuración de impresoras** | Debe poder hacerse **desde pwa-admin**, **desde pwa-pos** y **desde la app del servicio** (UI local / preferencias del tray). Los tres orígenes deben converger en la **misma fuente de verdad** persistida en el servicio (SQLite). |
 | **Propósitos** | Mapeo lógico → impresora física: `documents`, `tickets`, `labels` (extensible). |
+| **Formatos** | Cuatro formatos explícitos en jobs PWA: `ticket_58mm`, `ticket_80mm`, `document_letter`, `document_a4` (véase **§3.4** e [IF-09](../implementaciones-futuras/IF-09-formatos-impresion-58-80-carta-a4.md)). |
 | **Comunicación** | WebSocket en `localhost`, puerto **configurable** (default documentado). |
 | **Contenido** | Preferencia MVP/producción: **PDF en Base64** generado en la PWA (React), enviado al servicio para impresión silenciosa. |
 
@@ -68,11 +69,28 @@ Documento de referencia para el **servicio local de impresión** (app de escrito
 
 | `purpose`   | Uso típico        | Ejemplo |
 |------------|-------------------|---------|
-| `documents`| A4, facturas, OCs | Impresora láser / PDF |
-| `tickets`  | Térmica 80 mm     | Cajón / ticket |
+| `documents`| A4 / carta, facturas, OCs | Impresora láser / PDF (`document_a4`, `document_letter`) |
+| `tickets`  | Térmica 58 / 80 mm        | Cajón / ticket (`ticket_58mm`, `ticket_80mm`) |
 | `labels`   | Etiquetas         | Zebra / similar |
 
 Cada `purpose` puede tener **varias líneas** de impresora del OS en orden de failover (SQLite `printer_mapping_lines`); el worker intenta en `sort_order` hasta éxito o agotar líneas.
+
+### 3.4 Formatos de impresión (`format`)
+
+Además de `purpose`, cada job debe llevar un **`format`** que fija el tamaño físico del PDF o ticket. Definición canónica en `packages/print-service-client/src/print-format.ts`.
+
+| `format` | Rol | `purpose` derivado | Perfil agente (`PrinterPaperProfile`) |
+|----------|-----|--------------------|---------------------------------------|
+| `ticket_58mm` | Ticket térmico estrecho | `tickets` | `58mm` |
+| `ticket_80mm` | Ticket térmico estándar | `tickets` | `80mm` |
+| `document_letter` | Documento carta (216×279 mm) | `documents` | `letter` |
+| `document_a4` | Documento A4 (210×297 mm) | `documents` | `a4` |
+
+**Presets** (ancho contenido, chars/línea, `@page` CSS): `print-format-presets.ts` en el mismo paquete.
+
+**Compatibilidad:** clientes que envíen solo `purpose` sin `format` deben ser interpretados como `ticket_80mm` (tickets) o `document_a4` (documents). Si `format` y `purpose` no coinciden, el agente responde error `format_purpose_mismatch`.
+
+**Estado implementación (junio 2026):** PWAs generan PDF/HTML por formato y envían `format` en el JSON; agentes Tauri y Android interpretan `format`, validan perfil de papel y ajustan CUPS/ESC/POS (32 vs 48 cols, rollo 48 vs 72 mm). Ver [IF-09](../implementaciones-futuras/IF-09-formatos-impresion-58-80-carta-a4.md).
 
 ---
 
@@ -195,6 +213,7 @@ Además de las respuestas a cada `action`, el **servicio debe poder enviar mensa
 {
   "version": "2.1",
   "action": "print",
+  "format": "document_a4",
   "purpose": "documents",
   "type": "pdf-base64",
   "filename": "orden_123.pdf",
@@ -203,6 +222,8 @@ Además de las respuestas a cada `action`, el **servicio debe poder enviar mensa
   "payload": "JVBERi0xLjQKJ..."
 }
 ```
+
+El campo **`format`** es obligatorio en clientes nuevos; el agente deriva `purpose` si solo llega `format`. Tickets térmicos usan `format: "ticket_80mm"` o `"ticket_58mm"` con el mismo `type: "pdf-base64"` (PDF de rollo generado en la PWA).
 
 **Ventajas:** sin depender de red interna para el binario del PDF, sin descarga intermedia obligatoria para el usuario, el servicio solo renderiza/envía al spooler.
 
@@ -247,8 +268,8 @@ Comportamiento deseado: **retry** con backoff para errores transitorios, **timeo
 | Plataforma | Documentos (PDF) | Tickets (ESC/POS) |
 |------------|------------------|-------------------|
 | **Windows** | **SumatraPDF** empaquetado: `-silent -print-to "<cola>"` (sin diálogo). Ver `platform.rs` y `print-service/THIRD_PARTY_NOTICES.md` (GPLv3). Override: `KAI_PRINTERS_SUMATRA`. |
-| **macOS** | **`lp`** (CUPS), con opciones de rollo térmico cuando aplica. |
-| **Tickets (ambos)** | RAW WinSpool / `copy /B` o TCP `:9100` en red; sin PDF. |
+| **macOS** | **`lp`** (CUPS), con opciones de rollo térmico cuando aplica (`Custom.48x…mm` / `Custom.72x…mm` según `format`). |
+| **Tickets (ambos)** | RAW WinSpool / `copy /B` o TCP `:9100` en red; ancho ESC/POS según `format` (32 vs 48 cols). |
 
 Build Windows: `npm run fetch-sumatra` antes de `tauri build`; CI en `print-service-release.yml` descarga Sumatra 3.5.2.
 

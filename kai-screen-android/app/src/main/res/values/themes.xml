@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.KaiScreen" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/kai_primary</item>
+        <item name="android:navigationBarColor">@color/kai_background</item>
+        <item name="android:windowBackground">@color/kai_background</item>
+    </style>
+
+    <style name="Theme.KaiScreen.Splash" parent="Theme.SplashScreen">
+        <item name="android:windowBackground">@drawable/splash_legacy</item>
+        <item name="windowSplashScreenBackground">@color/kai_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/kai_background</item>
+        <item name="postSplashScreenTheme">@style/Theme.KaiScreen</item>
+    </style>
+</resources>

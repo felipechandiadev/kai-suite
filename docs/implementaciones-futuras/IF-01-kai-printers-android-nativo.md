@@ -79,8 +79,8 @@ No existe aún carpeta `print-service/` (Tauri) en el repo; IF-01 puede desarrol
 - **Foreground Service** con servidor WebSocket en `localhost` (puerto configurable, default alineado con v2 desktop).
 - Handshake `hello` / respuesta con versión, capacidades, sesiones conectadas.
 - Cola de impresión persistente (SQLite vía Room).
-- Jobs **PDF Base64** → render → impresora térmica 80 mm (ESC/POS).
-- Mapeo `purpose` → dispositivo: mínimo `tickets`; opcional `documents` en F1 si Android Print Framework es viable.
+- Jobs **PDF Base64** → render → impresora térmica **58 mm u 80 mm** (ESC/POS), según campo `format` del protocolo (véase [IF-09](./IF-09-formatos-impresion-58-80-carta-a4.md)).
+- Mapeo `purpose` → dispositivo: mínimo `tickets`; opcional `documents` (carta / A4) en F1 si Android Print Framework es viable.
 - Pantalla de configuración: puerto, token, impresora por propósito, prueba de impresión.
 - Eventos push: `printer_health`, `print_job_done`, `print_job_failed`, `config_changed`.
 
@@ -105,7 +105,7 @@ Ver [ROADMAP.md](./ROADMAP.md): bind LAN, admin remoto de config, etiquetas ZPL,
 | UI config | Jetpack Compose | Pantallas simples, Material 3 |
 | WebSocket | OkHttp / Ktor server embebido | Evaluar en IF-01.T4 |
 | Persistencia | Room (SQLite) | Alineado con schema conceptual v2 |
-| PDF → bitmap | Android PdfRenderer + escpos-coffee o similar | Ticket 80 mm |
+| PDF → bitmap | Android PdfRenderer + escpos-coffee o similar | Tickets 58/80 mm (`PRINT_FORMAT_PRESETS`) |
 | BT | Android Bluetooth API (SPP) | Impresoras térmicas más comunes |
 | USB | UsbManager + permiso OTG | Cajones / impresoras cableadas |
 | Build | Gradle (módulo `kai-printers-android/` en monorepo) | CI unificado |
@@ -181,7 +181,7 @@ Mantener **versión `2.1`** y acciones ya consumidas por `print-service-client`:
 | Acción (cliente → agente) | Uso |
 |---------------------------|-----|
 | `hello` | Sesión, metadatos empresa/POS |
-| `print_job` / `print` | PDF Base64 + `purpose` + `jobId` / ticket JSON |
+| `print_job` / `print` | PDF Base64 + `format` + `purpose` + `jobId` / ticket JSON |
 | `get_config` / `set_config` | Puerto, token, orígenes |
 | `set_printer_mapping` | Líneas por `purpose` |
 | `get_printer_health` | Estado impresoras |
@@ -210,7 +210,7 @@ Mantener **versión `2.1`** y acciones ya consumidas por `print-service-client`:
 
 ## 9. Criterios de aceptación (MVP)
 
-1. Con `pwa-pos` en Chrome Android en la misma tablet, imprimir un ticket de venta sin diálogo del sistema.
+1. Con `pwa-pos` en Chrome Android en la misma tablet, imprimir un ticket de venta (80 mm por defecto; 58 mm si el usuario lo eligió) sin diálogo del sistema.
 2. Reconexión automática tras matar y reabrir Chrome (agente sigue en foreground).
 3. `printer_health` refleja impresora BT desconectada en &lt; 10 s.
 4. Configuración de impresora `tickets` persiste tras reinicio del dispositivo.
@@ -244,6 +244,8 @@ Mantener **versión `2.1`** y acciones ya consumidas por `print-service-client`:
 ## 12. Referencias
 
 - [ARQUITECTURA §10 — Impresión local](../project/ARQUITECTURA_Y_ECOSISTEMA.md)
+- [IF-09 — Formatos de impresión](./IF-09-formatos-impresion-58-80-carta-a4.md)
+- [IF-10 — Kai Screen pantalla cliente](./IF-10-kai-screen-pantalla-cliente.md)
 - [print_service_app_developer_guide_v2.md](../legacy/print_service_app_developer_guide_v2.md)
 - `packages/print-service-client/src/core.ts` — URL, protocolo, health
 - `pwa-admin/app/(app)/settings/local-printing` — configuración operador

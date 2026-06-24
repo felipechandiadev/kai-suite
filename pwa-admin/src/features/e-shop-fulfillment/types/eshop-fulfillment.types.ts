@@ -42,6 +42,9 @@ export type EShopFulfillmentSettings = {
   eShopDefaultBranchId: string | null;
   eShopDefaultStorageId: string | null;
   eShopDefaultPriceListId: string | null;
+  eShopCustomerPortalEnabled?: boolean;
+  eShopRegistrationRequireRut?: boolean;
+  eShopShowDebtsInPortal?: boolean;
 };
 
 export type EShopOrderListRow = {
@@ -56,6 +59,9 @@ export type EShopOrderListRow = {
   customerEmail: string | null;
   isLegacy: boolean;
   isTerminal: boolean;
+  orderSource?: string;
+  backorderReservationStatus?: string | null;
+  backorderDepositAmount?: number;
 };
 
 export type EShopOrderDetail = EShopOrderListRow & {

@@ -13,6 +13,7 @@ import {
 } from '@modules/transactions/domain/transaction-eshop-order.metadata';
 import { EShopOrderNotificationService } from './eshop-order-notification.service';
 import { KaiMailClient } from '@shared/mail/kai-mail.client';
+import { EshopBackorderSyncService } from '@modules/transactions/application/eshop-backorder-sync.service';
 
 const ESHOP_ORDER_TYPES = [
   TransactionType.CUSTOMER_ORDER,
@@ -27,6 +28,7 @@ export class EShopOrderStatusService {
   constructor(
     @InjectRepository(Transaction)
     private readonly txRepo: Repository<Transaction>,
+    private readonly eshopBackorderSync: EshopBackorderSyncService,
     @Optional() private readonly orderNotifications?: EShopOrderNotificationService,
     @Optional() private readonly kaiMail?: KaiMailClient,
   ) {}
@@ -93,6 +95,46 @@ export class EShopOrderStatusService {
     return this.toDetail(tx);
   }
 
+  async listOrdersForCustomer(
+    companyId: string,
+    customerId: string,
+    opts: { page?: number; limit?: number },
+  ) {
+    const page = Math.max(1, Number(opts.page) || 1);
+    const limit = Math.min(Math.max(1, Number(opts.limit) || 25), 100);
+
+    const qb = this.txRepo
+      .createQueryBuilder('tx')
+      .where('tx.companyId = :companyId', { companyId })
+      .andWhere('tx.customerId = :customerId', { customerId })
+      .andWhere(`tx.metadata->>'source' = 'e-shop'`);
+
+    const total = await qb.getCount();
+    const rows = await qb
+      .orderBy('tx.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
+
+    return {
+      data: rows.map((tx) => this.toListRow(tx)),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  async getOrderForCustomer(companyId: string, customerId: string, id: string) {
+    const tx = await this.txRepo.findOne({
+      where: { id, companyId, customerId },
+      relations: ['lines'],
+    });
+    if (!tx || !this.isEshopOrder(tx)) {
+      throw new NotFoundException('Pedido no encontrado');
+    }
+    return this.toDetail(tx);
+  }
+
   async updateStatus(
     companyId: string,
     id: string,
@@ -130,6 +172,13 @@ export class EShopOrderStatusService {
     meta.eShopOrder = eShopOrder;
     tx.metadata = meta;
     await this.txRepo.save(tx);
+
+    if (status === 'CANCELLED') {
+      await this.eshopBackorderSync.syncBackorderOnEshopFulfillmentCancelled(
+        tx.id,
+        opts?.note,
+      );
+    }
 
     try {
       await this.orderNotifications?.publishStatusChanged(companyId, tx, status);
@@ -180,6 +229,7 @@ export class EShopOrderStatusService {
   private toListRow(tx: Transaction) {
     const meta = (tx.metadata ?? {}) as Record<string, unknown>;
     const eShopOrder = (meta.eShopOrder ?? {}) as TransactionEShopOrderMetadata;
+    const bo = (meta.backorder ?? {}) as Record<string, unknown>;
     const isLegacy =
       tx.transactionType === TransactionType.SALE ||
       eShopOrder.isLegacy === true;
@@ -203,6 +253,10 @@ export class EShopOrderStatusService {
       isTerminal: ESHOP_ORDER_TERMINAL_STATUSES.includes(
         eShopOrder.fulfillmentStatus ?? 'SUBMITTED',
       ),
+      orderSource: String(meta.source ?? 'e-shop'),
+      backorderReservationStatus:
+        typeof bo.reservationStatus === 'string' ? bo.reservationStatus : null,
+      backorderDepositAmount: Number(bo.depositAmount ?? tx.amountPaid) || 0,
     };
   }
 

@@ -2,8 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Dialog } from "@/shared/admin-shared";
-import { DocumentPrintModeToggle } from "@/features/pos-print/ui/DocumentPrintModeToggle";
-import { getPosDocumentPrintMode } from "@flowstore/print-service-client";
+import {
+  describePrintFormat,
+  getPosDocumentPrintFormat,
+  isDocumentPrintFormat,
+  PrintFormatSelector,
+  type PrintFormat,
+} from "@flowstore/print-service-client";
 import type { CustomerCreditNotePrintData } from "@/features/customer-credit-notes/types/customer-credit-note-print.types";
 import {
   buildCustomerCreditNoteReceiptHtml,
@@ -13,8 +18,6 @@ import {
   buildCustomerCreditNoteDocumentHtml,
   printCustomerCreditNoteDocument,
 } from "@/features/customer-credit-notes/lib/customer-credit-note-document-print";
-
-type PrintMode = "ticket" | "document";
 
 type Props = {
   open: boolean;
@@ -31,7 +34,7 @@ function formatMoney(n: number) {
 }
 
 export function PosCustomerCreditNoteDialog({ open, data, onClose }: Props) {
-  const [printMode, setPrintMode] = useState<PrintMode>("ticket");
+  const [printFormat, setPrintFormat] = useState<PrintFormat>("ticket_80mm");
   const printedFolioRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -39,7 +42,7 @@ export function PosCustomerCreditNoteDialog({ open, data, onClose }: Props) {
       printedFolioRef.current = null;
       return;
     }
-    setPrintMode(getPosDocumentPrintMode("customerCreditNote"));
+    setPrintFormat(getPosDocumentPrintFormat("customerCreditNote"));
   }, [open]);
 
   useEffect(() => {
@@ -48,29 +51,29 @@ export function PosCustomerCreditNoteDialog({ open, data, onClose }: Props) {
     if (printedFolioRef.current === folio) return;
     printedFolioRef.current = folio;
     const t = window.setTimeout(() => {
-      if (printMode === "document") {
-        printCustomerCreditNoteDocument(data);
+      if (isDocumentPrintFormat(printFormat)) {
+        printCustomerCreditNoteDocument(data, printFormat);
       } else {
-        printCustomerCreditNoteReceipt(data);
+        printCustomerCreditNoteReceipt(data, printFormat);
       }
     }, 400);
     return () => clearTimeout(t);
-  }, [open, data, printMode]);
+  }, [open, data, printFormat]);
 
   const previewSrcDoc = useMemo(() => {
     if (!data || typeof window === "undefined") return null;
     const origin = window.location.origin;
-    return printMode === "document"
-      ? buildCustomerCreditNoteDocumentHtml(data)
-      : buildCustomerCreditNoteReceiptHtml(data, origin);
-  }, [data, printMode]);
+    return isDocumentPrintFormat(printFormat)
+      ? buildCustomerCreditNoteDocumentHtml(data, printFormat)
+      : buildCustomerCreditNoteReceiptHtml(data, origin, printFormat);
+  }, [data, printFormat]);
 
   const handleReprint = () => {
     if (!data) return;
-    if (printMode === "document") {
-      printCustomerCreditNoteDocument(data);
+    if (isDocumentPrintFormat(printFormat)) {
+      printCustomerCreditNoteDocument(data, printFormat);
     } else {
-      printCustomerCreditNoteReceipt(data);
+      printCustomerCreditNoteReceipt(data, printFormat);
     }
   };
 
@@ -102,9 +105,10 @@ export function PosCustomerCreditNoteDialog({ open, data, onClose }: Props) {
         ) : null}
         <div>
           <p className="mb-2 text-sm font-medium text-foreground">Formato de impresión</p>
-          <DocumentPrintModeToggle
-            value={printMode}
-            onChange={setPrintMode}
+          <p className="mb-2 text-xs text-muted-foreground">{describePrintFormat(printFormat)}</p>
+          <PrintFormatSelector
+            value={printFormat}
+            onChange={setPrintFormat}
             data-test-id="pos-nc-print-mode"
           />
         </div>

@@ -18,6 +18,9 @@ import { EShopOrderStatusService } from '../application/eshop-order-status.servi
 import { CompaniesService } from '@modules/companies/application/companies.service';
 import type { EShopStockPolicy } from '@modules/companies/domain/company-eshop-flat.types';
 import type { EShopFulfillmentStatus } from '@modules/transactions/domain/transaction-eshop-order.metadata';
+import { CancelBackorderService } from '@modules/transactions/application/cancel-backorder.service';
+import { CancelBackorderDto } from '@modules/transactions/application/dto/cancel-backorder.dto';
+import { EshopCustomerOrderConvertService } from '../application/eshop-customer-order-convert.service';
 
 @Controller('e-shop/admin')
 export class EShopAdminController {
@@ -26,6 +29,8 @@ export class EShopAdminController {
     private readonly fulfillmentMethods: EShopFulfillmentMethodsService,
     private readonly orderStatus: EShopOrderStatusService,
     private readonly companiesService: CompaniesService,
+    private readonly cancelBackorderService: CancelBackorderService,
+    private readonly customerOrderConvert: EshopCustomerOrderConvertService,
   ) {}
 
   @Get('testimonials')
@@ -200,6 +205,9 @@ export class EShopAdminController {
       eShopDefaultBranchId: settings.eShopDefaultBranchId,
       eShopDefaultStorageId: settings.eShopDefaultStorageId,
       eShopDefaultPriceListId: settings.eShopDefaultPriceListId,
+      eShopCustomerPortalEnabled: settings.eShopCustomerPortalEnabled,
+      eShopRegistrationRequireRut: settings.eShopRegistrationRequireRut,
+      eShopShowDebtsInPortal: settings.eShopShowDebtsInPortal,
     };
   }
 
@@ -210,12 +218,24 @@ export class EShopAdminController {
     body: {
       eShopStockPolicy?: EShopStockPolicy;
       eShopFreeShippingThreshold?: number | null;
+      eShopCustomerPortalEnabled?: boolean;
+      eShopRegistrationRequireRut?: boolean;
+      eShopShowDebtsInPortal?: boolean;
     },
   ) {
     const settings = await this.companiesService.replaceEShopFlatSettings(companyId, {
       ...(body.eShopStockPolicy ? { eShopStockPolicy: body.eShopStockPolicy } : {}),
       ...(body.eShopFreeShippingThreshold !== undefined
         ? { eShopFreeShippingThreshold: body.eShopFreeShippingThreshold }
+        : {}),
+      ...(body.eShopCustomerPortalEnabled !== undefined
+        ? { eShopCustomerPortalEnabled: body.eShopCustomerPortalEnabled }
+        : {}),
+      ...(body.eShopRegistrationRequireRut !== undefined
+        ? { eShopRegistrationRequireRut: body.eShopRegistrationRequireRut }
+        : {}),
+      ...(body.eShopShowDebtsInPortal !== undefined
+        ? { eShopShowDebtsInPortal: body.eShopShowDebtsInPortal }
         : {}),
     });
     return {
@@ -224,6 +244,9 @@ export class EShopAdminController {
       eShopDefaultBranchId: settings.eShopDefaultBranchId,
       eShopDefaultStorageId: settings.eShopDefaultStorageId,
       eShopDefaultPriceListId: settings.eShopDefaultPriceListId,
+      eShopCustomerPortalEnabled: settings.eShopCustomerPortalEnabled,
+      eShopRegistrationRequireRut: settings.eShopRegistrationRequireRut,
+      eShopShowDebtsInPortal: settings.eShopShowDebtsInPortal,
     };
   }
 
@@ -258,6 +281,30 @@ export class EShopAdminController {
     return this.orderStatus.updateStatus(companyId, id, body.status, {
       byUserId: user?.id,
       note: body.note,
+    });
+  }
+
+  @Post('orders/:id/cancel-backorder')
+  cancelOrderBackorder(
+    @CurrentCompany() companyId: string,
+    @Param('id') id: string,
+    @Body() body: CancelBackorderDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    return this.cancelBackorderService.cancel(companyId, user.id, id, body);
+  }
+
+  @Post('orders/:id/convert-to-sale')
+  convertOrderToSale(
+    @CurrentCompany() companyId: string,
+    @Param('id') id: string,
+    @Body() body: { pointOfSaleId?: string; cashSessionId?: string },
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    return this.customerOrderConvert.convertToSale(companyId, id, {
+      userId: user.id,
+      pointOfSaleId: body.pointOfSaleId,
+      cashSessionId: body.cashSessionId,
     });
   }
 }

@@ -322,10 +322,15 @@ where
                             );
                             hello_ok = true;
                             let ph = events::emit_printer_health_json(&state.db, &required, &state.reachability)?;
+                            let paper_profile_by_alias = state
+                                .db
+                                .paper_profile_by_alias_json()
+                                .unwrap_or_else(|_| json!({}));
                             let ticket_escpos = true;
                             ws.send(json_line(&OutResponse::ok(env.request_id.clone(), json!({
                                 "serviceStatus": events::service_status_payload(state.connected(), state.connected_sessions_json()),
                                 "printerHealth": ph["payload"].clone(),
+                                "paperProfileByAlias": paper_profile_by_alias,
                                 "agentCapabilities": [
                                     "pdf-base64",
                                     "pos-sale-ticket",
@@ -418,12 +423,17 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
             let lines = state.db.list_mapping_lines().unwrap_or_default();
             let legacy = state.db.get_mappings().unwrap_or_default();
             let aliases_by_purpose = state.db.aliases_by_purpose_json().unwrap_or_else(|_| json!({}));
+            let paper_profile_by_alias = state
+                .db
+                .paper_profile_by_alias_json()
+                .unwrap_or_else(|_| json!({}));
             OutResponse::ok(
                 rid,
                 json!({
                     "mappingLines": lines,
                     "mappings": legacy.into_iter().map(|(a,b)| json!({"purpose": a, "printerName": b})).collect::<Vec<_>>(),
                     "aliasesByPurpose": aliases_by_purpose,
+                    "paperProfileByAlias": paper_profile_by_alias,
                 }),
             )
         }
@@ -499,6 +509,27 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
         }
         "print" => {
             let purpose = env.extra.get("purpose").and_then(|v| v.as_str()).unwrap_or("documents");
+            let format_raw = env.extra.get("format").and_then(|v| v.as_str());
+            let print_format = crate::print_formats::PrintFormat::resolve(format_raw, purpose);
+            if print_format.purpose() != purpose {
+                return OutResponse::err(rid, "format_purpose_mismatch".to_string());
+            }
+            let printer_display_label_early = env
+                .extra
+                .get("printerDisplayLabel")
+                .or_else(|| env.extra.get("printerAlias"))
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty());
+            let paper_raw = state
+                .db
+                .paper_profile_for_mapping_line(purpose, printer_display_label_early)
+                .unwrap_or_else(|_| crate::print_formats::PaperProfile::default_for_purpose(purpose).storage_value().to_string());
+            let paper_profile = crate::print_formats::PaperProfile::from_storage(&paper_raw);
+            if !print_format.matches_profile(paper_profile) {
+                return OutResponse::err(rid, "format_printer_mismatch".to_string());
+            }
+            crate::escpos_width::set_escpos_width_chars(print_format.chars_per_line());
             let filename = env
                 .extra
                 .get("filename")
@@ -629,6 +660,7 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
                 requested_by,
                 target_system_printer.as_deref(),
                 target_network_host.as_deref(),
+                Some(print_format.wire_value()),
             ) {
                 return OutResponse::err(rid, format!("{e:#}"));
             }
@@ -695,6 +727,7 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
                 None,
                 target_system_printer.as_deref(),
                 target_network_host.as_deref(),
+                None,
             ) {
                 return OutResponse::err(rid, format!("{e:#}"));
             }

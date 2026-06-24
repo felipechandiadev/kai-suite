@@ -9,9 +9,14 @@ function apiUrl(path: string): string {
 }
 
 export class EShopRequest {
-  static async get<T>(slug: string, path: string): Promise<T> {
+  static async get<T>(slug: string, path: string, sessionToken?: string | null): Promise<T> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...slugHeader(slug),
+    };
+    if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
     const res = await fetch(apiUrl(path), {
-      headers: { "Content-Type": "application/json", ...slugHeader(slug) },
+      headers,
       cache: "no-store",
     });
     if (!res.ok) {
@@ -20,10 +25,20 @@ export class EShopRequest {
     return res.json() as Promise<T>;
   }
 
-  static async post<T>(slug: string, path: string, body: unknown): Promise<T> {
+  static async post<T>(
+    slug: string,
+    path: string,
+    body: unknown,
+    sessionToken?: string | null,
+  ): Promise<T> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...slugHeader(slug),
+    };
+    if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
     const res = await fetch(apiUrl(path), {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...slugHeader(slug) },
+      headers,
       body: JSON.stringify(body),
       cache: "no-store",
     });

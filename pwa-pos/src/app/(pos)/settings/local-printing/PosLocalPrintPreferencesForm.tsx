@@ -6,19 +6,20 @@ import {
   buildWebSocketUrl,
   printServicePageRequiresTls,
   readPrintServiceConfigFromStorage,
-  readPosDocumentPrintModesFromStorage,
+  readPosDocumentPrintFormatsFromStorage,
   readPosPurposePrinterAliasesFromStorage,
   type PosDocumentPrintKind,
-  type PosDocumentPrintMode,
-  writePosDocumentPrintModesToStorage,
+  type PrintFormat,
+  PrintFormatSelector,
+  writePosDocumentPrintFormatsToStorage,
   writePosPurposePrinterAliasesToStorage,
   writePrintServiceConfigToStorage,
   KaiPrintersDownloadSection,
 } from "@flowstore/print-service-client";
 import { Button, Select, Switch, TextField } from "@/shared/admin-shared";
 import { printPosDocumentTest } from "@/features/pos-print/lib/print-pos-document-test";
-import { DocumentPrintModeToggle } from "@/features/pos-print/ui/DocumentPrintModeToggle";
 import { DocumentPrintTestButton } from "@/features/pos-print/ui/DocumentPrintTestButton";
+import { PosCustomerDisplaySettingsSection } from "@/features/customer-display/ui/PosCustomerDisplaySettingsSection";
 
 type Props = {
   className?: string;
@@ -29,14 +30,14 @@ function stringList(v: unknown): string[] {
   return v.filter((x): x is string => typeof x === "string" && x.trim().length > 0).map((s) => s.trim());
 }
 
-const INITIAL_DOC_PRINT_MODES: Record<PosDocumentPrintKind, PosDocumentPrintMode> = {
-  sale: "ticket",
-  quotation: "ticket",
-  backorder: "ticket",
-  customerCreditNote: "ticket",
-  cashClosing: "ticket",
-  cashCountSheet: "document",
-  cashSessionOpening: "ticket",
+const INITIAL_DOC_PRINT_FORMATS: Record<PosDocumentPrintKind, PrintFormat> = {
+  sale: "ticket_80mm",
+  quotation: "ticket_80mm",
+  backorder: "ticket_80mm",
+  customerCreditNote: "ticket_80mm",
+  cashClosing: "ticket_80mm",
+  cashCountSheet: "document_a4",
+  cashSessionOpening: "ticket_80mm",
 };
 
 function aliasSelectOptions(aliases: string[], current: string) {
@@ -65,8 +66,8 @@ export function PosLocalPrintPreferencesForm({ className = "" }: Props) {
   const [ticketAliases, setTicketAliases] = useState<string[]>([]);
   const [documentAliases, setDocumentAliases] = useState<string[]>([]);
   const [aliasesLoading, setAliasesLoading] = useState(false);
-  const [docPrintModes, setDocPrintModes] =
-    useState<Record<PosDocumentPrintKind, PosDocumentPrintMode>>(INITIAL_DOC_PRINT_MODES);
+  const [docPrintFormats, setDocPrintFormats] =
+    useState<Record<PosDocumentPrintKind, PrintFormat>>(INITIAL_DOC_PRINT_FORMATS);
   const [storageHydrated, setStorageHydrated] = useState(false);
   const [testPrintBusyKind, setTestPrintBusyKind] = useState<PosDocumentPrintKind | null>(null);
 
@@ -79,7 +80,7 @@ export function PosLocalPrintPreferencesForm({ className = "" }: Props) {
     const a = readPosPurposePrinterAliasesFromStorage();
     setTicketsAlias(a.ticketsAlias);
     setDocumentsAlias(a.documentsAlias);
-    setDocPrintModes(readPosDocumentPrintModesFromStorage());
+    setDocPrintFormats(readPosDocumentPrintFormatsFromStorage());
     setStorageHydrated(true);
   }, []);
 
@@ -138,11 +139,11 @@ export function PosLocalPrintPreferencesForm({ className = "" }: Props) {
       ticketsAlias,
       documentsAlias,
     });
-    writePosDocumentPrintModesToStorage(docPrintModes);
-  }, [host, port, wssPort, useTls, ticketsAlias, documentsAlias, docPrintModes]);
+    writePosDocumentPrintFormatsToStorage(docPrintFormats);
+  }, [host, port, wssPort, useTls, ticketsAlias, documentsAlias, docPrintFormats]);
 
-  const setDocMode = useCallback((kind: PosDocumentPrintKind, mode: PosDocumentPrintMode) => {
-    setDocPrintModes((prev) => ({ ...prev, [kind]: mode }));
+  const setDocFormat = useCallback((kind: PosDocumentPrintKind, format: PrintFormat) => {
+    setDocPrintFormats((prev) => ({ ...prev, [kind]: format }));
   }, []);
 
   const runTestPrint = useCallback(
@@ -150,7 +151,7 @@ export function PosLocalPrintPreferencesForm({ className = "" }: Props) {
       if (testPrintBusyKind) return;
       setTestPrintBusyKind(kind);
       try {
-        await printPosDocumentTest(kind, docPrintModes[kind]);
+        await printPosDocumentTest(kind, docPrintFormats[kind]);
       } catch (e) {
         console.warn("[pos-print-test]", e);
         window.alert(
@@ -162,7 +163,7 @@ export function PosLocalPrintPreferencesForm({ className = "" }: Props) {
         setTestPrintBusyKind(null);
       }
     },
-    [docPrintModes, testPrintBusyKind],
+    [docPrintFormats, testPrintBusyKind],
   );
 
   const ticketOptions = useMemo(
@@ -306,9 +307,9 @@ export function PosLocalPrintPreferencesForm({ className = "" }: Props) {
                 <div className="min-w-0 flex-1">
                   <p className="mb-2 text-sm font-medium text-foreground">{label}</p>
                   {storageHydrated ? (
-                    <DocumentPrintModeToggle
-                      value={docPrintModes[kind]}
-                      onChange={(mode) => setDocMode(kind, mode)}
+                    <PrintFormatSelector
+                      value={docPrintFormats[kind]}
+                      onChange={(format) => setDocFormat(kind, format)}
                       data-test-id={testId}
                     />
                   ) : (
@@ -324,6 +325,8 @@ export function PosLocalPrintPreferencesForm({ className = "" }: Props) {
           </div>
         </section>
       </form>
+
+      <PosCustomerDisplaySettingsSection className="mt-6" />
 
       <div className="mt-8 flex w-full justify-end pb-16">
         <Button type="submit" form={formId} variant="primary" data-test-id="pos-print-prefs-save">

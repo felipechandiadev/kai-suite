@@ -72,6 +72,8 @@ export type EShopStorefront = {
   };
   eShopEnabled: boolean;
   eShopFreeShippingThreshold: number | null;
+  eShopCustomerPortalEnabled?: boolean;
+  eShopRegistrationRequireRut?: boolean;
   eShopFeaturedProductIds?: string[];
   eShopFeaturedProductVariantIds: string[];
   theme?: EShopResolvedTheme;

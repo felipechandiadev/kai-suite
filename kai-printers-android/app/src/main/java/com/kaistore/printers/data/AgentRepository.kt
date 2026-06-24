@@ -71,21 +71,27 @@ class AgentRepository(private val db: AgentDatabase) {
         if (lines.isNotEmpty()) mappingLines.insertAll(lines)
     }
 
-    suspend fun setMapping(purpose: String, printerName: String) = withContext(Dispatchers.IO) {
-        val all = mappingLines.getAll()
-        val others = all.filter { it.purpose != purpose }
-        val line = MappingLineEntity(
-            id = UUID.randomUUID().toString(),
-            purpose = purpose,
-            systemPrinterName = printerName,
-            sortOrder = 0,
-            displayLabel = printerName,
-        )
-        mappingLines.deleteAll()
-        mappingLines.insertAll(others + line)
-    }
+    suspend fun setMapping(purpose: String, printerName: String, paperProfile: String = "80mm") =
+        withContext(Dispatchers.IO) {
+            val all = mappingLines.getAll()
+            val others = all.filter { it.purpose != purpose }
+            val line = MappingLineEntity(
+                id = UUID.randomUUID().toString(),
+                purpose = purpose,
+                systemPrinterName = printerName,
+                sortOrder = 0,
+                displayLabel = printerName,
+                paperProfile = paperProfile,
+            )
+            mappingLines.deleteAll()
+            mappingLines.insertAll(others + line)
+        }
 
-    suspend fun assignTicketsPrinter(macAddress: String, displayLabel: String) = withContext(Dispatchers.IO) {
+    suspend fun assignTicketsPrinter(
+        macAddress: String,
+        displayLabel: String,
+        paperProfile: String = "80mm",
+    ) = withContext(Dispatchers.IO) {
         val all = mappingLines.getAll().filter { it.purpose != "tickets" }
         val line = MappingLineEntity(
             id = UUID.randomUUID().toString(),
@@ -93,6 +99,7 @@ class AgentRepository(private val db: AgentDatabase) {
             systemPrinterName = macAddress,
             sortOrder = 0,
             displayLabel = displayLabel,
+            paperProfile = paperProfile,
         )
         mappingLines.deleteAll()
         mappingLines.insertAll(all + line)
@@ -100,6 +107,23 @@ class AgentRepository(private val db: AgentDatabase) {
 
     suspend fun ticketsPrinterMac(): String? = withContext(Dispatchers.IO) {
         mappingLines.getAll().firstOrNull { it.purpose == "tickets" }?.systemPrinterName
+    }
+
+    suspend fun ticketsPaperProfile(): String = withContext(Dispatchers.IO) {
+        mappingLines.getAll().firstOrNull { it.purpose == "tickets" }?.paperProfile ?: "80mm"
+    }
+
+    suspend fun findMappingLine(
+        purpose: String,
+        displayLabel: String?,
+        systemPrinterName: String?,
+    ): MappingLineEntity? = withContext(Dispatchers.IO) {
+        val lines = mappingLines.getAll().filter { it.purpose == purpose }
+        when {
+            displayLabel != null -> lines.firstOrNull { it.displayLabel == displayLabel }
+            systemPrinterName != null -> lines.firstOrNull { it.systemPrinterName == systemPrinterName }
+            else -> lines.firstOrNull()
+        }
     }
 
     suspend fun resolvePrinterForPurpose(purpose: String, displayLabel: String?): String? =
@@ -123,6 +147,7 @@ class AgentRepository(private val db: AgentDatabase) {
                         put("systemPrinterName", JsonPrimitive(line.systemPrinterName))
                         put("sortOrder", JsonPrimitive(line.sortOrder))
                         line.displayLabel?.let { put("displayLabel", JsonPrimitive(it)) }
+                        put("paperProfile", JsonPrimitive(line.paperProfile))
                     },
                 )
             }
@@ -142,6 +167,14 @@ class AgentRepository(private val db: AgentDatabase) {
         }
     }
 
+    suspend fun paperProfileByAliasJson(): JsonObject = withContext(Dispatchers.IO) {
+        buildJsonObject {
+            mappingLines.getAll().forEach { line ->
+                line.displayLabel?.let { put(it, JsonPrimitive(line.paperProfile)) }
+            }
+        }
+    }
+
     suspend fun enqueueJob(
         purpose: String,
         filename: String,
@@ -150,6 +183,7 @@ class AgentRepository(private val db: AgentDatabase) {
         clientId: String?,
         targetPrinter: String?,
         payloadJson: String,
+        format: String? = null,
     ): String = withContext(Dispatchers.IO) {
         val id = UUID.randomUUID().toString()
         val now = Instant.now().toString()
@@ -173,6 +207,7 @@ class AgentRepository(private val db: AgentDatabase) {
                 sourceApp = "pwa",
                 requestedBy = null,
                 targetSystemPrinter = targetPrinter,
+                format = format,
             ),
         )
         id
@@ -240,6 +275,7 @@ class AgentRepository(private val db: AgentDatabase) {
                 systemPrinterName = printer,
                 sortOrder = obj["sortOrder"]?.jsonPrimitive?.content?.toIntOrNull() ?: 0,
                 displayLabel = obj["displayLabel"]?.jsonPrimitive?.content,
+                paperProfile = obj["paperProfile"]?.jsonPrimitive?.content ?: "80mm",
             )
         }
         replaceMappingLines(parsed)

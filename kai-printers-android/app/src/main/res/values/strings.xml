@@ -34,4 +34,8 @@
     <string name="status_granted">Concedido</string>
     <string name="status_pending">Pendiente</string>
     <string name="assigned">Asignada a tickets</string>
+    <string name="assigned_with_profile">Asignada a tickets (%1$s)</string>
+    <string name="paper_profile_label">Ancho del rollo</string>
+    <string name="paper_profile_58mm">58 mm</string>
+    <string name="paper_profile_80mm">80 mm</string>
 </resources>

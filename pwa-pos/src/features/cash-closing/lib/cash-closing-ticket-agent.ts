@@ -1,9 +1,11 @@
 import {
   agentSupportsPosCashClosingTicket,
-  getPosDocumentPrintMode,
+  getPosDocumentPrintFormat,
+  isDocumentPrintFormat,
   isPosAgentPrintConfiguredForPurpose,
   POS_CASH_CLOSING_TICKET_PAYLOAD_VERSION,
   type PosCashClosingTicketPayload,
+  type PrintFormat,
 } from "@flowstore/print-service-client";
 import type { CashClosingPrintInput } from "@/features/cash-closing/lib/cash-closing-print.types";
 import { buildCashClosingDocumentHtml } from "@/features/cash-closing/lib/cash-closing-document-print";
@@ -68,11 +70,12 @@ function cashClosingToTicketPayload(
 
 async function printCashClosingTicketVector(
   input: CashClosingPrintInput,
+  format: PrintFormat = "ticket_80mm",
 ): Promise<"agent" | "browser"> {
   if (typeof window === "undefined") return "browser";
 
-  const meta = arqueoPrintMeta(input);
-  const documentHtml = buildCashClosingDocumentHtml(input);
+  const meta = { ...arqueoPrintMeta(input), format };
+  const documentHtml = buildCashClosingDocumentHtml(input, format);
   const documentFallbackMeta = posTicketMetaToDocumentMeta(meta);
 
   if (!isPosAgentPrintConfiguredForPurpose("tickets")) {
@@ -129,25 +132,32 @@ async function printCashClosingTicketVector(
   return printPosTicketFailureDocumentFallback(documentHtml, meta);
 }
 
-export function printCashClosingArqueo(input: CashClosingPrintInput): void {
+export function printCashClosingArqueo(input: CashClosingPrintInput, format?: PrintFormat): void {
   if (typeof window === "undefined") return;
-  const mode = getPosDocumentPrintMode("cashClosing");
+  const resolved = format ?? getPosDocumentPrintFormat("cashClosing");
   const meta = arqueoPrintMeta(input);
-  if (mode === "document") {
-    printPosHtmlViaAgentOrBrowserFireAndForget(buildCashClosingDocumentHtml(input), "documents", meta);
+  if (isDocumentPrintFormat(resolved)) {
+    printPosHtmlViaAgentOrBrowserFireAndForget(buildCashClosingDocumentHtml(input, resolved), "documents", {
+      ...meta,
+      format: resolved,
+    });
     return;
   }
-  void printCashClosingTicketVector(input);
+  void printCashClosingTicketVector(input, resolved);
 }
 
 export async function printCashClosingArqueoAwait(
   input: CashClosingPrintInput,
+  format?: PrintFormat,
 ): Promise<"agent" | "browser"> {
   if (typeof window === "undefined") return "browser";
-  const mode = getPosDocumentPrintMode("cashClosing");
+  const resolved = format ?? getPosDocumentPrintFormat("cashClosing");
   const meta = arqueoPrintMeta(input);
-  if (mode === "document") {
-    return printPosHtmlViaAgentOrBrowser(buildCashClosingDocumentHtml(input), "documents", meta);
+  if (isDocumentPrintFormat(resolved)) {
+    return printPosHtmlViaAgentOrBrowser(buildCashClosingDocumentHtml(input, resolved), "documents", {
+      ...meta,
+      format: resolved,
+    });
   }
-  return printCashClosingTicketVector(input);
+  return printCashClosingTicketVector(input, resolved);
 }

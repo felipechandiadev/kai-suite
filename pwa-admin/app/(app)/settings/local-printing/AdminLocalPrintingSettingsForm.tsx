@@ -5,17 +5,17 @@ import {
   PrintServiceConnection,
   buildWebSocketUrl,
   printServicePageRequiresTls,
-  readAdminDocumentPrintModesFromStorage,
+  readAdminDocumentPrintFormatsFromStorage,
   readAdminPurposePrinterAliasFromStorage,
   readPrintServiceConfigFromStorage,
   type AdminDocumentPrintKind,
-  type AdminDocumentPrintMode,
-  writeAdminDocumentPrintModesToStorage,
+  type PrintFormat,
+  PrintFormatSelector,
+  writeAdminDocumentPrintFormatsToStorage,
   writeAdminPurposePrinterAliasToStorage,
   writePrintServiceConfigToStorage,
   KaiPrintersDownloadSection,
 } from "@flowstore/print-service-client";
-import { DocumentPrintModeToggle } from "@/shared/components/PrintDocuments/DocumentPrintModeToggle";
 import { Button } from "@/shared/components/Button";
 import { Select } from "@/shared/components/Select";
 import TextField from "@/shared/components/TextField";
@@ -47,9 +47,9 @@ function aliasSelectOptions(aliases: string[], current: string) {
   return options;
 }
 
-const INITIAL_DOC_PRINT_MODES: Record<AdminDocumentPrintKind, AdminDocumentPrintMode> = {
-  sale: "document",
-  backorder: "ticket",
+const INITIAL_DOC_PRINT_FORMATS: Record<AdminDocumentPrintKind, PrintFormat> = {
+  sale: "document_a4",
+  backorder: "ticket_80mm",
 };
 
 export function AdminLocalPrintingSettingsForm({ className = "" }: Props) {
@@ -63,8 +63,8 @@ export function AdminLocalPrintingSettingsForm({ className = "" }: Props) {
   const [ticketAliases, setTicketAliases] = useState<string[]>([]);
   const [documentAliases, setDocumentAliases] = useState<string[]>([]);
   const [aliasesLoading, setAliasesLoading] = useState(false);
-  const [docPrintModes, setDocPrintModes] =
-    useState<Record<AdminDocumentPrintKind, AdminDocumentPrintMode>>(INITIAL_DOC_PRINT_MODES);
+  const [docPrintFormats, setDocPrintFormats] =
+    useState<Record<AdminDocumentPrintKind, PrintFormat>>(INITIAL_DOC_PRINT_FORMATS);
   const [storageHydrated, setStorageHydrated] = useState(false);
 
   useEffect(() => {
@@ -76,7 +76,7 @@ export function AdminLocalPrintingSettingsForm({ className = "" }: Props) {
     const a = readAdminPurposePrinterAliasFromStorage();
     setTicketsAlias(a.ticketsAlias);
     setDocumentsAlias(a.documentsAlias);
-    setDocPrintModes(readAdminDocumentPrintModesFromStorage());
+    setDocPrintFormats(readAdminDocumentPrintFormatsFromStorage());
     setStorageHydrated(true);
   }, []);
 
@@ -142,11 +142,11 @@ export function AdminLocalPrintingSettingsForm({ className = "" }: Props) {
       useTls,
     });
     writeAdminPurposePrinterAliasToStorage({ ticketsAlias, documentsAlias });
-    writeAdminDocumentPrintModesToStorage(docPrintModes);
-  }, [host, port, useTls, wssPort, ticketsAlias, documentsAlias, docPrintModes]);
+    writeAdminDocumentPrintFormatsToStorage(docPrintFormats);
+  }, [host, port, useTls, wssPort, ticketsAlias, documentsAlias, docPrintFormats]);
 
-  const setDocMode = useCallback((kind: AdminDocumentPrintKind, mode: AdminDocumentPrintMode) => {
-    setDocPrintModes((prev) => ({ ...prev, [kind]: mode }));
+  const setDocFormat = useCallback((kind: AdminDocumentPrintKind, format: PrintFormat) => {
+    setDocPrintFormats((prev) => ({ ...prev, [kind]: format }));
   }, []);
 
   return (
@@ -277,9 +277,9 @@ export function AdminLocalPrintingSettingsForm({ className = "" }: Props) {
               <div key={kind}>
                 <p className="mb-2 text-sm font-medium text-foreground">{label}</p>
                 {storageHydrated ? (
-                  <DocumentPrintModeToggle
-                    value={docPrintModes[kind]}
-                    onChange={(mode) => setDocMode(kind, mode)}
+                  <PrintFormatSelector
+                    value={docPrintFormats[kind]}
+                    onChange={(format) => setDocFormat(kind, format)}
                     data-test-id={testId}
                   />
                 ) : (

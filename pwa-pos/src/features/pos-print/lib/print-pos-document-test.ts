@@ -1,4 +1,8 @@
-import type { PosDocumentPrintKind, PosDocumentPrintMode } from "@flowstore/print-service-client";
+import {
+  isDocumentPrintFormat,
+  type PosDocumentPrintKind,
+  type PrintFormat,
+} from "@flowstore/print-service-client";
 import { buildCustomerCreditNoteDocumentHtml } from "@/features/customer-credit-notes/lib/customer-credit-note-document-print";
 import { printCustomerCreditNoteReceiptAgentOrBrowser } from "@/features/customer-credit-notes/lib/customer-credit-note-ticket-agent";
 import { printCashCountSheetAwait } from "@/features/cash-closing/lib/cash-count-sheet-print";
@@ -21,82 +25,86 @@ import { printPosQuotationReceiptAgentOrBrowser } from "@/features/quotations/li
 export type PosDocumentTestPrintChannel = "agent" | "browser";
 
 /**
- * Imprime un documento de prueba (datos ficticios) según el modo ticket/documento
- * configurado en preferencias. KaiPrinters si hay alias; si no, diálogo del navegador.
+ * Imprime un documento de prueba (datos ficticios) según el formato configurado.
  */
 export async function printPosDocumentTest(
   kind: PosDocumentPrintKind,
-  mode: PosDocumentPrintMode,
+  format: PrintFormat,
 ): Promise<PosDocumentTestPrintChannel> {
   switch (kind) {
     case "sale": {
       const data = buildPosPrintTestSaleReceipt("sale");
       const folio = data.folio.trim() || "ticket";
-      if (mode === "document") {
-        return printPosSaleDocumentAgentOrBrowser(data);
+      if (isDocumentPrintFormat(format)) {
+        return printPosSaleDocumentAgentOrBrowser(data, format);
       }
       return printPosSaleTicketAgentOrBrowser(data, {
         filename: `${folio}.escpos`,
         documentType: "SALE",
         internalFolio: folio,
+        format,
       });
     }
     case "backorder": {
       const data = buildPosPrintTestSaleReceipt("backorder");
       const folio = data.folio.trim() || "encargo";
-      if (mode === "document") {
-        return printPosSaleDocumentAgentOrBrowser(data);
+      if (isDocumentPrintFormat(format)) {
+        return printPosSaleDocumentAgentOrBrowser(data, format);
       }
       return printPosSaleTicketAgentOrBrowser(data, {
         filename: `${folio}.escpos`,
         documentType: "BACKORDER",
         internalFolio: folio,
+        format,
       });
     }
     case "quotation": {
       const input = buildPosPrintTestQuotationInput();
       const folio = input.quotation.documentNumber?.trim() || "cotizacion";
-      if (mode === "document") {
-        return printPosHtmlViaAgentOrBrowser(buildQuotationDocumentHtml(input), "documents", {
+      if (isDocumentPrintFormat(format)) {
+        return printPosHtmlViaAgentOrBrowser(buildQuotationDocumentHtml(input, format), "documents", {
           filename: `${folio}.pdf`,
           iframeTitle: "Impresión cotización documento (prueba)",
           documentType: "QUOTATION",
           internalFolio: folio,
+          format,
         });
       }
-      return printPosQuotationReceiptAgentOrBrowser(input);
+      return printPosQuotationReceiptAgentOrBrowser(input, format);
     }
     case "customerCreditNote": {
       const data = buildPosPrintTestCreditNoteData();
       const folio = data.creditNoteFolio.trim() || "nota-credito";
-      if (mode === "document") {
-        return printPosHtmlViaAgentOrBrowser(buildCustomerCreditNoteDocumentHtml(data), "documents", {
+      if (isDocumentPrintFormat(format)) {
+        return printPosHtmlViaAgentOrBrowser(buildCustomerCreditNoteDocumentHtml(data, format), "documents", {
           filename: `${folio}.pdf`,
           iframeTitle: "Impresión nota de crédito documento (prueba)",
           documentType: "CUSTOMER_CREDIT_NOTE",
           internalFolio: folio,
+          format,
         });
       }
-      return printCustomerCreditNoteReceiptAgentOrBrowser(data);
+      return printCustomerCreditNoteReceiptAgentOrBrowser(data, format);
     }
     case "cashClosing":
-      return printCashClosingArqueoAwait(buildPosPrintTestCashClosingInput());
+      return printCashClosingArqueoAwait(buildPosPrintTestCashClosingInput(), format);
     case "cashCountSheet": {
       const input = buildPosPrintTestCashCountSheetInput();
-      return printCashCountSheetAwait(input);
+      return printCashCountSheetAwait(input, format);
     }
     case "cashSessionOpening": {
       const input = buildPosPrintTestCashSessionOpeningInput();
       const ref = input.cashSessionId.slice(0, 8).toUpperCase() || "apertura";
-      if (mode === "document") {
-        return printPosHtmlViaAgentOrBrowser(buildCashSessionOpeningDocumentHtml(input), "documents", {
+      if (isDocumentPrintFormat(format)) {
+        return printPosHtmlViaAgentOrBrowser(buildCashSessionOpeningDocumentHtml(input, format), "documents", {
           filename: `apertura-caja-${ref}.pdf`,
           iframeTitle: "Apertura de caja (prueba)",
           documentType: "CASH_SESSION_OPEN",
           internalFolio: ref,
+          format,
         });
       }
-      return printCashSessionOpeningAwait(input);
+      return printCashSessionOpeningAwait(input, format);
     }
     default: {
       const _exhaustive: never = kind;

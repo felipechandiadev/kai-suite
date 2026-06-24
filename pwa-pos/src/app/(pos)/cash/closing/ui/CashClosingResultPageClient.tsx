@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { getPosDocumentPrintMode } from "@flowstore/print-service-client";
+import {
+  describePrintFormat,
+  getPosDocumentPrintFormat,
+  isDocumentPrintFormat,
+} from "@flowstore/print-service-client";
 import { Alert, Button } from "@/shared/admin-shared";
 import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
 import type { CompanyDetails } from "@/features/company/infrastructure/company.request";
@@ -124,11 +128,11 @@ export default function CashClosingResultPageClient() {
       printTimer = window.setTimeout(() => {
         if (cancelled) return;
         printCashClosingArqueo(input);
-        const mode = getPosDocumentPrintMode("cashClosing");
+        const format = getPosDocumentPrintFormat("cashClosing");
         setPrintStatus(
-          mode === "document"
-            ? "Documento de arqueo enviado a impresión (hoja)."
-            : "Ticket de arqueo enviado a impresión (80 mm).",
+          isDocumentPrintFormat(format)
+            ? `Documento de arqueo enviado a impresión (${describePrintFormat(format)}).`
+            : `Ticket de arqueo enviado a impresión (${describePrintFormat(format)}).`,
         );
       }, 400);
     })();

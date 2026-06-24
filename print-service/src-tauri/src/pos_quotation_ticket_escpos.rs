@@ -6,7 +6,7 @@ use crate::pos_sale_ticket_escpos::{
     append_product_line_block, append_section_gap, append_ticket_logo, escpos_align,
     escpos_apply_ticket_typography,
     escpos_bold, escpos_dense_body, escpos_double_height_off, escpos_double_height_on, escpos_init,
-    format_clp, format_datetime, money, pad_label_value, pad_left, wrap_lines, WIDTH,
+    format_clp, format_datetime, money, pad_label_value, pad_left, wrap_lines, layout_width,
 };
 use anyhow::Result;
 use std::path::PathBuf;
@@ -63,7 +63,7 @@ fn append_wrapped_section(buf: &mut Vec<u8>, title: &str, body: &str) {
     escpos_bold(buf, true);
     append_line(buf, title);
     escpos_bold(buf, false);
-    for line in wrap_lines(body, WIDTH) {
+    for line in wrap_lines(body, layout_width()) {
         append_line(buf, &line);
     }
 }
@@ -84,7 +84,7 @@ pub fn build_pos_quotation_ticket_escpos(q: &PosQuotationTicket) -> Result<Vec<u
     escpos_align(&mut buf, 1);
     escpos_bold(&mut buf, true);
     escpos_double_height_on(&mut buf);
-    for line in wrap_lines(store, WIDTH / 2) {
+    for line in wrap_lines(store, layout_width() / 2) {
         append_line(&mut buf, &line);
     }
     escpos_double_height_off(&mut buf);
@@ -93,7 +93,7 @@ pub fn build_pos_quotation_ticket_escpos(q: &PosQuotationTicket) -> Result<Vec<u
     if let Some(fantasy) = q.company.nombre_fantasia.as_deref() {
         let rs = q.company.razon_social.trim();
         if !rs.is_empty() && fantasy.trim() != rs {
-            for line in wrap_lines(rs, WIDTH) {
+            for line in wrap_lines(rs, layout_width()) {
                 append_line(&mut buf, &line);
             }
         }
@@ -107,7 +107,7 @@ pub fn build_pos_quotation_ticket_escpos(q: &PosQuotationTicket) -> Result<Vec<u
         .as_deref()
         .filter(|s| !s.trim().is_empty())
     {
-        for line in wrap_lines(act.trim(), WIDTH) {
+        for line in wrap_lines(act.trim(), layout_width()) {
             append_line(&mut buf, &line);
         }
     }
