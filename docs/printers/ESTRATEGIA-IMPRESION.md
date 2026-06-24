@@ -74,7 +74,10 @@ El selector en el diálogo de venta permite cambiar formato antes de reimprimir.
 
 ## Roadmap inmediato
 
-- [ ] Renderers ESC/POS dedicados en Android para cotización, arqueo, NC (hoy `isTicketJobType` acepta el tipo pero usa `PosSaleTicketEscPos`)
-- [ ] Logo en ticket Android (POS ya envía `logoBase64`; Android aún no lo imprime en venta)
-- [ ] Métricas / log estructurado en cola (job id, duración USB)
-- [ ] Paridad Tauri ↔ Android en recuperación de jobs `printing` obsoletos
+Ver fases detalladas en [RENDERERS-ESC-POS.md](./RENDERERS-ESC-POS.md) y especificaciones en [renderers/](./renderers/README.md).
+
+- [ ] `TicketEscPosDispatcher` + `EscPosCore` compartido
+- [ ] Renderers: cotización, arqueo, NC, apertura, planilla, PAYMENT_IN
+- [ ] Logo en ticket Android (`logoBase64`)
+- [ ] `waitForPrintJob` en todos los `*-ticket-agent.ts`
+- [ ] Capabilities `hello` completas en Android

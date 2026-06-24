@@ -18,16 +18,16 @@ Presets: `print-format-presets.ts`. El agente valida **coherencia** formato ↔ 
 | `type` | Documento POS | Ticket ESC/POS Android | PDF documento |
 |--------|---------------|------------------------|---------------|
 | `pos-sale-ticket` | Venta / encargo | ✅ `PosSaleTicketEscPos` | ✅ HTML→PDF en POS |
-| `pos-quotation-ticket` | Cotización | ⚠️ Misma entrada cola* | ✅ |
-| `pos-payment-in-ticket` | Cobro PAYMENT_IN | ⚠️ | ✅ |
-| `pos-customer-credit-note-ticket` | NC cliente | ⚠️ | ✅ |
-| `pos-cash-closing-ticket` | Arqueo caja | ⚠️ | ✅ |
-| `pos-cash-count-sheet-ticket` | Conteo | ⚠️ | ✅ |
-| `pos-cash-session-opening-ticket` | Apertura caja | ⚠️ | ✅ |
+| `pos-quotation-ticket` | Cotización | ❌ [spec](./renderers/pos-quotation-ticket.md) | ✅ |
+| `pos-payment-in-ticket` | Cobro PAYMENT_IN | ❌ [spec](./renderers/pos-payment-in-ticket.md) | ✅ |
+| `pos-customer-credit-note-ticket` | NC cliente | ❌ [spec](./renderers/pos-customer-credit-note-ticket.md) | ✅ |
+| `pos-cash-closing-ticket` | Arqueo caja | ❌ [spec](./renderers/pos-cash-closing-ticket.md) | ✅ |
+| `pos-cash-count-sheet-ticket` | Conteo | ❌ [spec](./renderers/pos-cash-count-sheet-ticket.md) | ✅ |
+| `pos-cash-session-opening-ticket` | Apertura caja | ❌ [spec](./renderers/pos-cash-session-opening-ticket.md) | ✅ |
 | `pdf-base64` | Cualquier HTML documento | ❌ | ✅ `AndroidPdfPrinter` |
 | `test_print` | Prueba config | ✅ demo / bytes fijos | — |
 
-\* *Aceptado por `PrintFormats.isTicketJobType` pero renderer Android aún es `PosSaleTicketEscPos`; usar solo para venta hasta tener renderer dedicado.*
+Plan completo de renderers Android: [RENDERERS-ESC-POS.md](./RENDERERS-ESC-POS.md).
 
 ## Preferencias POS (`localStorage`)
 
