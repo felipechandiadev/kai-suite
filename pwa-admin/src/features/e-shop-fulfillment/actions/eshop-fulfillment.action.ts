@@ -66,6 +66,9 @@ export async function updateFulfillmentSettingsAction(body: {
   eShopCustomerPortalEnabled?: boolean;
   eShopRegistrationRequireRut?: boolean;
   eShopShowDebtsInPortal?: boolean;
+  eShopDefaultBranchId?: string | null;
+  eShopDefaultStorageId?: string | null;
+  eShopDefaultPriceListId?: string | null;
 }) {
   try {
     const settings = await EShopFulfillmentRequest.updateSettings(body);

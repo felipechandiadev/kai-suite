@@ -339,7 +339,7 @@ export default function PosTopBar({
       }}
       data-test-id="top-bar-root"
     >
-      <div className="flex items-center justify-between gap-4 px-4 py-2 pb-3 min-[1026px]:gap-6 min-[1026px]:px-10">
+      <div className="flex items-center justify-between gap-2 px-3 py-2 min-[1026px]:gap-4 min-[1026px]:px-10 min-[1026px]:pb-3">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           {logoSrc ? (
             <div
@@ -381,9 +381,14 @@ export default function PosTopBar({
             </div>
           )}
 
-          <div className="flex min-w-0 flex-1 items-center gap-6 lg:gap-10">
-            {/* Misma jerarquía tipográfica que antes: título + subtítulo */}
-            <div className={subtitle.trim() ? "flex min-w-0 shrink-0 flex-col gap-0 leading-none" : "flex min-h-10 min-w-0 shrink-0 items-center"}>
+          <div className="flex min-w-0 flex-1 items-center gap-3 min-[1026px]:gap-10">
+            <div
+              className={
+                subtitle.trim()
+                  ? "flex min-w-0 flex-1 flex-col gap-0 leading-none"
+                  : "flex min-h-10 min-w-0 flex-1 items-center"
+              }
+            >
               <span
                 className="block text-lg font-bold leading-tight tracking-tight"
                 style={{ color: "var(--color-foreground)" }}
@@ -408,11 +413,9 @@ export default function PosTopBar({
                 visual entre "ancla" (empresa / persona) y "subtítulo" (PV /
                 rol) se preserva sólo a través del color. */}
             {/* Desktop: empresa/PV + usuario/rol. Mobile (sidebar): solo empresa/PV alineado a la derecha, con ícono a la derecha del texto. */}
-            {showContextColumn || (!sidebarNav && showUserColumn) ? (
+            {showContextColumn && !sidebarNav ? (
               <div
-                className={`flex min-w-0 items-center gap-4 min-[1026px]:gap-6 ${
-                  sidebarNav ? "ml-auto justify-end" : ""
-                }`}
+                className="hidden min-w-0 items-center gap-4 min-[1026px]:flex min-[1026px]:gap-6"
                 data-test-id="pos-topbar-right-columns"
               >
                 {showContextColumn ? (
@@ -510,6 +513,31 @@ export default function PosTopBar({
                 ) : null}
               </div>
             ) : null}
+
+            {sidebarNav && (effectiveCompany || effectivePosName) ? (
+              <div
+                className="ml-auto min-w-0 max-w-[48%] shrink-0 text-right leading-tight"
+                data-test-id="pos-topbar-mobile-context"
+                suppressHydrationWarning
+              >
+                {effectiveCompany ? (
+                  <p
+                    className="truncate text-[10px] font-medium text-foreground sm:text-[11px]"
+                    title={effectiveCompany}
+                  >
+                    {effectiveCompany}
+                  </p>
+                ) : null}
+                {effectivePosName ? (
+                  <p
+                    className="truncate text-[10px] text-muted-foreground sm:text-[11px]"
+                    title={effectivePosName}
+                  >
+                    {effectivePosName}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -544,18 +572,17 @@ export default function PosTopBar({
     </header>
 
     {sidebarNav ? (
-      <aside
-        className="fs-app-sidebar fixed left-0 z-30 flex w-(--app-sidebar-width) flex-col items-center gap-1 overflow-y-auto py-3"
-        style={{
-          top: "var(--app-topbar-height)",
-          bottom: 0,
-        }}
-        data-test-id="pos-sidebar-nav"
+      <nav
+        className="fs-app-sidebar fixed inset-x-0 bottom-0 z-30 flex h-(--app-bottom-nav-height) items-center border-t px-2 pb-[env(safe-area-inset-bottom,0px)]"
+        data-test-id="pos-bottom-nav"
         aria-label="Accesos rápidos"
       >
-        <div className="flex w-full flex-1 flex-col items-center">
-          <PosTopBarNav {...navProps} className="flex-col items-center gap-1" />
-          <div className="mt-auto flex w-full flex-col items-center gap-1 pb-2">
+        <div className="flex w-full min-w-0 items-center justify-between gap-1">
+          <PosTopBarNav
+            {...navProps}
+            className="flex min-w-0 flex-1 flex-row items-center justify-start gap-0.5 overflow-x-auto overscroll-x-contain py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          />
+          <div className="flex shrink-0 items-center gap-0.5 border-l border-border pl-1">
             <IconButton
               icon="CircleUser"
               variant="action"
@@ -590,7 +617,7 @@ export default function PosTopBar({
             />
           </div>
         </div>
-      </aside>
+      </nav>
     ) : null}
 
     <Dialog

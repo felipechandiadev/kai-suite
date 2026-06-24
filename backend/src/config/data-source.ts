@@ -116,6 +116,7 @@ import { CustomerCreditNotePayoutTransactionType1756490000000 } from '../migrati
 import { OperationalExpenseDocumentKindAndPaymentStatus1756500000000 } from '../migrations/1756500000000-OperationalExpenseDocumentKindAndPaymentStatus';
 import { EShopFulfillmentMethods1756510000000 } from '../migrations/1756510000000-EShopFulfillmentMethods';
 import { EShopCustomerAccounts1756520000000 } from '../migrations/1756520000000-EShopCustomerAccounts';
+import { EShopCustomerAccountUsername1756530000000 } from '../migrations/1756530000000-EShopCustomerAccountUsername';
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
 import { EShopFulfillmentMethod } from '@modules/e-shop/domain/e-shop-fulfillment-method.entity';
@@ -258,6 +259,7 @@ export const AppDataSource = new DataSource({
     OperationalExpenseDocumentKindAndPaymentStatus1756500000000,
     EShopFulfillmentMethods1756510000000,
     EShopCustomerAccounts1756520000000,
+    EShopCustomerAccountUsername1756530000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

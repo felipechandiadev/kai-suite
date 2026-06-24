@@ -12,6 +12,10 @@ import {
 @Index('idx_eshop_customer_accounts_company_email', ['companyId', 'email'], {
   unique: true,
 })
+@Index('idx_eshop_customer_accounts_company_username', ['companyId', 'username'], {
+  unique: true,
+  where: '"username" IS NOT NULL',
+})
 export class EshopCustomerAccount {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -24,6 +28,9 @@ export class EshopCustomerAccount {
 
   @Column({ type: 'varchar', length: 255 })
   email!: string;
+
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  username?: string | null;
 
   @Column({ name: 'password_hash', type: 'varchar', length: 255 })
   passwordHash!: string;

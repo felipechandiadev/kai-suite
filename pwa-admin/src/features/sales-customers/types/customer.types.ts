@@ -15,6 +15,10 @@ export type CustomerListRow = {
   availableCredit?: number;
   paymentDayOfMonth?: number | null;
   isActive: boolean;
+  /** Tiene cuenta en el portal Mi cuenta del eShop. */
+  hasEshopAccount?: boolean;
+  eshopUsername?: string | null;
+  eshopLoginEmail?: string | null;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -27,6 +31,17 @@ export type CustomerListResult = {
   customers: CustomerListRow[];
   /** Política empresa: crédito interno para clientes (Ajustes → Empresa). */
   internalCreditEnabled?: boolean;
+};
+
+/** Cuenta portal Mi cuenta (eShop) vinculada al cliente ERP. */
+export type CustomerEshopAccountView = {
+  accountId: string;
+  username: string | null;
+  loginEmail: string;
+  registeredAt: string;
+  emailVerifiedAt: string | null;
+  updatedAt: string;
+  webOrdersCount: number;
 };
 
 /** Detalle GET `/customers/:id` (`customer` en el JSON). */
@@ -49,6 +64,7 @@ export type CustomerDetailView = {
   availableCredit: number;
   paymentDayOfMonth?: number | null;
   isActive: boolean;
+  eshopAccount?: CustomerEshopAccountView | null;
   createdAt?: string;
   updatedAt?: string;
 };

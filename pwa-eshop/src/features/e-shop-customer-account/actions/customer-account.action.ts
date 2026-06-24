@@ -5,6 +5,7 @@ import {
   getCustomerSessionToken,
   setCustomerSessionToken,
 } from "@/lib/eshop-customer-session";
+import { getValidCustomerSessionToken } from "../lib/customer-portal-session";
 import { EShopCustomerAccountRequest } from "../infrastructure/customer-account.request";
 
 async function requireSession() {
@@ -13,7 +14,21 @@ async function requireSession() {
   return token;
 }
 
+export async function checkUsernameAvailabilityAction(username: string) {
+  try {
+    const result = await EShopCustomerAccountRequest.checkUsername(username);
+    return { success: true as const, ...result };
+  } catch (e) {
+    return {
+      success: false as const,
+      available: false,
+      message: e instanceof Error ? e.message : "Error al verificar usuario",
+    };
+  }
+}
+
 export async function registerCustomerAction(body: {
+  username: string;
   email: string;
   password: string;
   firstName: string;
@@ -23,6 +38,7 @@ export async function registerCustomerAction(body: {
 }) {
   try {
     const result = await EShopCustomerAccountRequest.register(body);
+    await clearCustomerSessionToken();
     await setCustomerSessionToken(result.sessionToken);
     return { success: true as const, emailVerificationRequired: result.emailVerificationRequired };
   } catch (e) {
@@ -30,9 +46,10 @@ export async function registerCustomerAction(body: {
   }
 }
 
-export async function loginCustomerAction(body: { email: string; password: string }) {
+export async function loginCustomerAction(body: { login: string; password: string }) {
   try {
     const result = await EShopCustomerAccountRequest.login(body);
+    await clearCustomerSessionToken();
     await setCustomerSessionToken(result.sessionToken);
     return { success: true as const };
   } catch (e) {
@@ -141,6 +158,6 @@ export async function getCustomerDebtsAction() {
 }
 
 export async function isCustomerLoggedInAction() {
-  const token = await getCustomerSessionToken();
+  const token = await getValidCustomerSessionToken();
   return Boolean(token);
 }

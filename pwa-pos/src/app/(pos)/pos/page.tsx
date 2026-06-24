@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 export default function Page() {
   return (
-    <div className="h-full min-h-0">
+    <div className="flex min-h-0 flex-1 flex-col">
       <PosWorkspace />
     </div>
   );

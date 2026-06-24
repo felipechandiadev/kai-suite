@@ -144,6 +144,7 @@ export class BackorderRegistrationService {
 
       await manager.getRepository(TransactionLine).save(
         manager.getRepository(TransactionLine).create({
+          companyId: params.companyId,
           transactionId: reservationTx.id,
           productId: tl.productId,
           productVariantId: tl.productVariantId,

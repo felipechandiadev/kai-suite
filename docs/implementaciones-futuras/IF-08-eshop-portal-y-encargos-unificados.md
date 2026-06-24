@@ -75,6 +75,18 @@ Crea: `BACKORDER` + `metadata.backorder` + `INVENTORY_RESERVATION` + abono opcio
 
 Solo aplica si `metadata.source === 'e-shop'`.
 
+### 3.4 Canal eShop vs POS
+
+El checkout web es un **canal** (`metadata.source: 'e-shop'`), no un punto de venta. Perfil operativo en settings de empresa:
+
+- `eShopDefaultBranchId` — sucursal del pedido/encargo
+- `eShopDefaultStorageId` — stock catálogo y reservas (`INVENTORY_RESERVATION`)
+- `eShopDefaultPriceListId` — precios web
+
+**Admin:** Encargos y envíos → Configuración (sección *Operación de la tienda*). El almacén puede ser compartido con la vitrina física.
+
+`pointOfSaleId` solo al liquidar en mostrador (`convert-to-sale`); no crear POS «eShop».
+
 ---
 
 ## 4. APIs portal (`/e-shop/me/*`)

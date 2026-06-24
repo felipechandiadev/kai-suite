@@ -11,10 +11,11 @@ import type {
   PosPaymentMethodConfig,
 } from '@modules/payment-methods-config/domain/payment-method-config.types';
 import { DocumentType } from '@modules/persons/domain/person.entity';
-import { newEShopNavLink } from '@modules/companies/domain/company-eshop-nav.types';
+import { newEShopNavLink, buildEShopProductCategoryNavHref } from '@modules/companies/domain/company-eshop-nav.types';
 import type { CompanyEShopFooterSettings } from '@modules/companies/domain/company-eshop-footer.types';
 import type { CompanyEShopTopBarSettings } from '@modules/companies/domain/company-eshop-topbar.types';
 import type { EShopTemplateId } from '@modules/companies/domain/eshop-theme-presets';
+import { Category } from '@modules/categories/domain/category.entity';
 
 export const SEED_JOYARTE_COMPANY = {
   razonSocial: 'Joyarte SpA',
@@ -45,14 +46,13 @@ export const SEED_BRANCH_LOCATION = { lat: -33.4172, lng: -70.6067 };
 export const SEED_STORAGE_NAME = 'Vitrina principal';
 export const SEED_STORAGE_CODE = 'SEED-JOYARTE-VITRINA';
 
-export const SEED_POS_NAMES = ['CAJA BOUTIQUE', 'CAJA ESHOP'] as const;
+export const SEED_POS_NAMES = ['CAJA BOUTIQUE'] as const;
 export const SEED_PRICE_LIST_RETAIL_NAME = 'Minorista';
 export const SEED_PRICE_LIST_WHOLESALE_NAME = 'Mayorista';
 export const SEED_PRICE_LIST_ESHOP_NAME = 'eShop';
 
 export const SEED_CASH_HUBS = [
   { code: 'CEV-JOY-01', name: 'Caja boutique' },
-  { code: 'CEV-JOY-02', name: 'Caja eShop' },
 ] as const;
 
 const SEED_PM_NAMESPACE = 'flowstore-seed-pm-joyarte-v1';
@@ -141,16 +141,59 @@ export function buildSeedPosPaymentList(
   });
 }
 
+function seedCategoryNavHref(
+  categoryByName: Map<string, Category>,
+  categoryName: string,
+): string {
+  const category = categoryByName.get(categoryName);
+  if (!category?.id) return '/productos';
+  return buildEShopProductCategoryNavHref(category.id);
+}
+
 export function buildSeedJoyarteTopBar(): CompanyEShopTopBarSettings {
   return {
     showLogo: true,
     showCompanyName: true,
     showCart: true,
     navLinks: [
-      newEShopNavLink({ label: 'Anillos', kind: 'route', href: '/productos', order: 0 }),
-      newEShopNavLink({ label: 'Aros', kind: 'route', href: '/productos', order: 1 }),
-      newEShopNavLink({ label: 'Collares', kind: 'route', href: '/productos', order: 2 }),
-      newEShopNavLink({ label: 'Novios', kind: 'route', href: '/productos', order: 3 }),
+      newEShopNavLink({ label: 'Productos', kind: 'route', href: '/productos', order: 0 }),
+      newEShopNavLink({ label: 'Nosotros', kind: 'route', href: '/nosotros', order: 1 }),
+    ],
+  };
+}
+
+export function buildSeedJoyarteTopBarFromCategories(
+  categoryByName: Map<string, Category>,
+): CompanyEShopTopBarSettings {
+  return {
+    showLogo: true,
+    showCompanyName: true,
+    showCart: true,
+    navLinks: [
+      newEShopNavLink({
+        label: 'Anillos',
+        kind: 'route',
+        href: seedCategoryNavHref(categoryByName, 'Anillos'),
+        order: 0,
+      }),
+      newEShopNavLink({
+        label: 'Aros',
+        kind: 'route',
+        href: seedCategoryNavHref(categoryByName, 'Aros'),
+        order: 1,
+      }),
+      newEShopNavLink({
+        label: 'Collares',
+        kind: 'route',
+        href: seedCategoryNavHref(categoryByName, 'Collares'),
+        order: 2,
+      }),
+      newEShopNavLink({
+        label: 'Compromiso',
+        kind: 'route',
+        href: seedCategoryNavHref(categoryByName, 'Anillos de Compromiso'),
+        order: 3,
+      }),
       newEShopNavLink({ label: 'Nosotros', kind: 'route', href: '/nosotros', order: 4 }),
     ],
   };
@@ -184,6 +227,77 @@ export function buildSeedJoyarteFooter(): CompanyEShopFooterSettings {
         links: [
           newEShopNavLink({ label: 'Compromiso', kind: 'route', href: '/productos', order: 0 }),
           newEShopNavLink({ label: 'Argollas', kind: 'route', href: '/productos', order: 1 }),
+        ],
+      },
+      {
+        id: 'joyarte-ayuda',
+        title: 'Ayuda',
+        enabled: true,
+        order: 2,
+        links: [
+          newEShopNavLink({ label: 'Contacto', kind: 'route', href: '/donde-estamos', order: 0 }),
+          newEShopNavLink({ label: 'Nosotros', kind: 'route', href: '/nosotros', order: 1 }),
+        ],
+      },
+    ],
+  };
+}
+
+export function buildSeedJoyarteFooterFromCategories(
+  categoryByName: Map<string, Category>,
+): CompanyEShopFooterSettings {
+  return {
+    showLogo: true,
+    showTagline: true,
+    showBrandManifest: true,
+    showContactBlock: true,
+    showSocialLinks: true,
+    copyrightSuffix: 'Joyería de autor',
+    linkGroups: [
+      {
+        id: 'joyarte-tienda',
+        title: 'Tienda',
+        enabled: true,
+        order: 0,
+        links: [
+          newEShopNavLink({
+            label: 'Anillos',
+            kind: 'route',
+            href: seedCategoryNavHref(categoryByName, 'Anillos'),
+            order: 0,
+          }),
+          newEShopNavLink({
+            label: 'Aros',
+            kind: 'route',
+            href: seedCategoryNavHref(categoryByName, 'Aros'),
+            order: 1,
+          }),
+          newEShopNavLink({
+            label: 'Collares',
+            kind: 'route',
+            href: seedCategoryNavHref(categoryByName, 'Collares'),
+            order: 2,
+          }),
+        ],
+      },
+      {
+        id: 'joyarte-novios',
+        title: 'Novios',
+        enabled: true,
+        order: 1,
+        links: [
+          newEShopNavLink({
+            label: 'Compromiso',
+            kind: 'route',
+            href: seedCategoryNavHref(categoryByName, 'Anillos de Compromiso'),
+            order: 0,
+          }),
+          newEShopNavLink({
+            label: 'Argollas',
+            kind: 'route',
+            href: seedCategoryNavHref(categoryByName, 'Argollas de Matrimonio'),
+            order: 1,
+          }),
         ],
       },
       {
@@ -234,6 +348,9 @@ export function buildSeedJoyarteCompanySettings(
     eShopFreeShippingThreshold: 150_000,
     eShopShippingMode: 'disabled',
     eShopStockPolicy: 'ALLOW_BACKORDER',
+    eShopCustomerPortalEnabled: true,
+    eShopRegistrationRequireRut: false,
+    eShopShowDebtsInPortal: true,
     eShopDefaultBranchId: null,
     eShopDefaultPriceListId: null,
     eShopDefaultStorageId: null,

@@ -91,6 +91,26 @@ export default function CustomersDataGrid({
         width: 120,
         valueGetter: ({ row }) => (row as CustomerListRow).phone?.trim() || "—",
       },
+      {
+        field: "hasEshopAccount",
+        headerName: "eShop",
+        sortable: false,
+        width: 100,
+        minWidth: 88,
+        valueGetter: ({ row }) => (row as CustomerListRow).hasEshopAccount === true,
+        renderCell: ({ row }) => {
+          const r = row as CustomerListRow;
+          if (!r.hasEshopAccount) {
+            return <span className="text-muted-foreground">—</span>;
+          }
+          const label = r.eshopUsername?.trim() || r.eshopLoginEmail?.trim() || "Sí";
+          return (
+            <span className="text-primary" title={r.eshopLoginEmail ?? undefined}>
+              {label}
+            </span>
+          );
+        },
+      },
     ];
     if (internalCreditEnabled) {
       base.push(

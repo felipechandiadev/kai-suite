@@ -2,14 +2,21 @@
 
 import { TextField } from "@/shared/components/TextField/TextField";
 import { Select } from "@/shared/components/Select";
+import type { CategoryListItem } from "@/features/inventory-categories/types/category.types";
 import type { EShopNavLink, EShopNavLinkKind } from "../types/eshop-topbar.types";
 import {
   INTERNAL_ROUTE_OPTIONS,
   NAV_LINK_KIND_LABELS,
 } from "../types/eshop-topbar.types";
+import {
+  buildEShopProductCategoryNavHref,
+  getEShopNavRouteBasePath,
+  parseEShopProductCategoryIdFromNavHref,
+} from "../lib/eshop-category-nav-href";
 
 type Props = {
   link: EShopNavLink;
+  categories: CategoryListItem[];
   onChange: (link: EShopNavLink) => void;
   onRemove: () => void;
   onMoveUp: () => void;
@@ -18,8 +25,15 @@ type Props = {
   canMoveDown: boolean;
 };
 
+function resolveRouteBaseValue(href: string): string {
+  const base = getEShopNavRouteBasePath(href);
+  const known = INTERNAL_ROUTE_OPTIONS.some((o) => o.value === base);
+  return known ? base : "/productos";
+}
+
 export function EShopTopBarLinkEditor({
   link,
+  categories,
   onChange,
   onRemove,
   onMoveUp,
@@ -27,12 +41,40 @@ export function EShopTopBarLinkEditor({
   canMoveUp,
   canMoveDown,
 }: Props) {
+  const routeBase = resolveRouteBaseValue(link.href);
+  const categoryId = parseEShopProductCategoryIdFromNavHref(link.href) ?? "";
+
   const setKind = (kind: EShopNavLinkKind) => {
     let href = link.href;
     if (kind === "route") href = "/productos";
     if (kind === "anchor") href = "#donde-estamos";
     if (kind === "external") href = "https://";
     onChange({ ...link, kind, href });
+  };
+
+  const setRouteBase = (value: string | number | null) => {
+    const base = String(value ?? "/productos");
+    if (base === "/productos") {
+      onChange({ ...link, href: categoryId ? buildEShopProductCategoryNavHref(categoryId) : "/productos" });
+      return;
+    }
+    onChange({ ...link, href: base });
+  };
+
+  const setCategory = (value: string | number | null) => {
+    const nextId = value == null ? "" : String(value);
+    if (!nextId) {
+      onChange({ ...link, href: "/productos" });
+      return;
+    }
+    const category = categories.find((c) => c.id === nextId);
+    const shouldFillLabel =
+      !link.label.trim() || link.label.trim() === "Nuevo enlace" || link.href.trim() === "/productos";
+    onChange({
+      ...link,
+      href: buildEShopProductCategoryNavHref(nextId),
+      label: shouldFillLabel && category ? category.name : link.label,
+    });
   };
 
   return (
@@ -89,12 +131,25 @@ export function EShopTopBarLinkEditor({
         ).map(([id, label]) => ({ id, label }))}
       />
       {link.kind === "route" ? (
-        <Select
-          label="Ruta"
-          value={link.href}
-          onChange={(v) => onChange({ ...link, href: String(v ?? "") })}
-          options={INTERNAL_ROUTE_OPTIONS.map((o) => ({ id: o.value, label: o.label }))}
-        />
+        <>
+          <Select
+            label="Ruta"
+            value={routeBase}
+            onChange={setRouteBase}
+            options={INTERNAL_ROUTE_OPTIONS.map((o) => ({ id: o.value, label: o.label }))}
+          />
+          {routeBase === "/productos" ? (
+            <Select
+              label="Categoría"
+              value={categoryId}
+              onChange={setCategory}
+              options={[
+                { id: "", label: "Todas las categorías" },
+                ...categories.map((c) => ({ id: c.id, label: c.name })),
+              ]}
+            />
+          ) : null}
+        </>
       ) : (
         <TextField
           label={link.kind === "anchor" ? "Ancla" : "URL"}

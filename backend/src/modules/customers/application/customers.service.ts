@@ -16,6 +16,7 @@ import {
 } from './ports/customers.repository.port';
 import { CompaniesService } from '@modules/companies/application/companies.service';
 import { TenantContext } from '@common/tenant';
+import { EshopCustomerAccount } from '@modules/e-shop/domain/eshop-customer-account.entity';
 
 enum PersonType {
   NATURAL = 'NATURAL',
@@ -31,6 +32,8 @@ export class CustomersService {
     private readonly personRepository: Repository<Person>,
     @InjectRepository(Transaction)
     private readonly transactionRepository: Repository<Transaction>,
+    @InjectRepository(EshopCustomerAccount)
+    private readonly eshopAccountRepository: Repository<EshopCustomerAccount>,
     private readonly companiesService: CompaniesService,
   ) {}
 
@@ -253,6 +256,38 @@ export class CustomersService {
 
     const p = customer.person || null;
 
+    const eshopAccount = await this.eshopAccountRepository.findOne({
+      where: { customerId: customer.id },
+    });
+
+    let eshopAccountView: {
+      accountId: string;
+      username: string | null;
+      loginEmail: string;
+      registeredAt: Date;
+      emailVerifiedAt: Date | null;
+      updatedAt: Date;
+      webOrdersCount: number;
+    } | null = null;
+
+    if (eshopAccount) {
+      const webOrdersCount = await this.transactionRepository
+        .createQueryBuilder('tx')
+        .where('tx.customerId = :customerId', { customerId: customer.id })
+        .andWhere(`tx.metadata->>'source' = 'e-shop'`)
+        .getCount();
+
+      eshopAccountView = {
+        accountId: eshopAccount.id,
+        username: eshopAccount.username?.trim() || null,
+        loginEmail: eshopAccount.email.trim(),
+        registeredAt: eshopAccount.createdAt,
+        emailVerifiedAt: eshopAccount.emailVerifiedAt ?? null,
+        updatedAt: eshopAccount.updatedAt,
+        webOrdersCount,
+      };
+    }
+
     return {
       customerId: customer.id,
       personId: customer.personId,
@@ -272,6 +307,7 @@ export class CustomersService {
       paymentDayOfMonth: customer.paymentDayOfMonth,
       isActive: !!customer.isActive,
       notes: customer.notes || null,
+      eshopAccount: eshopAccountView,
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
     };
@@ -309,12 +345,23 @@ export class CustomersService {
     const { customers: items, total } =
       await this.customersRepository.findAllWithPagination(filter, page, pageSize);
 
-    // search and pagination handled by repository port
+    const customerIds = items.map((c) => c.id);
+    const eshopAccounts =
+      customerIds.length > 0
+        ? await this.eshopAccountRepository.find({
+            where: { customerId: In(customerIds) },
+            select: ['customerId', 'username', 'email'],
+          })
+        : [];
+    const eshopByCustomerId = new Map(
+      eshopAccounts.map((account) => [account.customerId, account]),
+    );
 
     const customers = items.map((c) => {
       const creditLimit = Number(c.creditLimit || 0);
       const currentBalance = Number(c.currentBalance || 0);
       const availableCredit = Math.max(0, creditLimit - currentBalance);
+      const eshopAccount = eshopByCustomerId.get(c.id);
 
       return {
         customerId: c.id,
@@ -329,6 +376,9 @@ export class CustomersService {
         availableCredit,
         paymentDayOfMonth: c.paymentDayOfMonth || null,
         isActive: !!c.isActive,
+        hasEshopAccount: !!eshopAccount,
+        eshopUsername: eshopAccount?.username?.trim() || null,
+        eshopLoginEmail: eshopAccount?.email?.trim() || null,
         createdAt: c.createdAt,
         updatedAt: c.updatedAt,
       };

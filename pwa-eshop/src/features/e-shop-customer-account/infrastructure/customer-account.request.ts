@@ -22,7 +22,18 @@ function headers(sessionToken?: string | null): HeadersInit {
 }
 
 export class EShopCustomerAccountRequest {
+  static async checkUsername(username: string) {
+    const q = new URLSearchParams({ username });
+    const res = await fetch(apiUrl(`/e-shop/auth/check-username?${q}`), {
+      headers: headers(),
+      cache: "no-store",
+    });
+    if (!res.ok) throw await parseEshopErrorResponse(res);
+    return res.json() as Promise<{ available: boolean; message?: string }>;
+  }
+
   static async register(body: {
+    username: string;
     email: string;
     password: string;
     firstName: string;
@@ -40,7 +51,7 @@ export class EShopCustomerAccountRequest {
     return res.json() as Promise<{ sessionToken: string; emailVerificationRequired: boolean }>;
   }
 
-  static async login(body: { email: string; password: string }) {
+  static async login(body: { login: string; password: string }) {
     const res = await fetch(apiUrl("/e-shop/auth/login"), {
       method: "POST",
       headers: headers(),

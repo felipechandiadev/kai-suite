@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, TextField } from "@/shared/admin-shared";
@@ -10,8 +11,22 @@ import {
   submitCheckoutAction,
 } from "@/features/e-shop-checkout/actions/checkout.action";
 import type { EShopFulfillmentMethodPublic } from "@/features/e-shop-checkout/types/checkout.types";
+import {
+  checkUsernameAvailabilityAction,
+  isCustomerLoggedInAction,
+  registerCustomerAction,
+} from "@/features/e-shop-customer-account/actions/customer-account.action";
+import { chilePhoneTextFieldProps } from "@/shared/lib/chile-phone-field";
+import { eshopUsernameTextFieldProps } from "@/shared/lib/eshop-username-field";
 
 type Step = "contact" | "delivery" | "review";
+
+const MIN_PASSWORD_LENGTH = 8;
+
+type CheckoutFormProps = {
+  customerPortalEnabled?: boolean;
+  requireRut?: boolean;
+};
 
 function fmt(n: number) {
   return new Intl.NumberFormat("es-CL", {
@@ -21,13 +36,30 @@ function fmt(n: number) {
   }).format(n);
 }
 
-export function CheckoutForm() {
+function splitFullName(full: string): { firstName: string; lastName?: string } {
+  const parts = full.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: "" };
+  if (parts.length === 1) return { firstName: parts[0] };
+  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+}
+
+export function CheckoutForm({
+  customerPortalEnabled = false,
+  requireRut = false,
+}: CheckoutFormProps) {
   const router = useRouter();
   const { lines, subtotal, clearCart } = useEShopCart();
   const [step, setStep] = useState<Step>("contact");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [wantsAccount, setWantsAccount] = useState(false);
+  const [username, setUsername] = useState("");
+  const [usernameError, setUsernameError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [documentNumber, setDocumentNumber] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [address, setAddress] = useState("");
   const [commune, setCommune] = useState("");
   const [region, setRegion] = useState("");
@@ -37,6 +69,10 @@ export function CheckoutForm() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const showAccountChoice = customerPortalEnabled && !isLoggedIn;
+  const guestCheckout = !isLoggedIn && (!customerPortalEnabled || !wantsAccount);
+  const phoneRequired = guestCheckout;
+
   const selectedMethod = useMemo(
     () => methods.find((m) => m.id === methodId) ?? null,
     [methods, methodId],
@@ -45,6 +81,7 @@ export function CheckoutForm() {
   const estimatedTotal = subtotal + shippingCost;
 
   useEffect(() => {
+    void isCustomerLoggedInAction().then(setIsLoggedIn);
     void getCheckoutProfilePrefillAction().then((prefill) => {
       if (!prefill) return;
       if (!name) setName(prefill.name);
@@ -64,10 +101,74 @@ export function CheckoutForm() {
       .catch(() => setError("No se pudieron cargar los métodos de entrega"));
   }, [step, subtotal, methodId]);
 
+  function validateContactStep(): boolean {
+    if (!name.trim() || !email.trim()) {
+      setError("Nombre y correo son obligatorios");
+      return false;
+    }
+    if (phoneRequired && !phone.trim()) {
+      setError("El teléfono es obligatorio para encargos sin cuenta (te contactaremos por ahí)");
+      return false;
+    }
+    if (showAccountChoice && wantsAccount) {
+      if (!username.trim()) {
+        setError("El nombre de usuario es obligatorio para crear una cuenta");
+        return false;
+      }
+      if (usernameError) {
+        setError(usernameError);
+        return false;
+      }
+      if (requireRut && !documentNumber.trim()) {
+        setError("El RUT es obligatorio para crear una cuenta");
+        return false;
+      }
+      if (password.length < MIN_PASSWORD_LENGTH) {
+        setError(`La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres`);
+        return false;
+      }
+      if (password !== confirmPassword) {
+        setError("Las contraseñas no coinciden");
+        return false;
+      }
+    }
+    return true;
+  }
+
   async function onSubmit() {
     setError(null);
+    if (!validateContactStep()) {
+      setStep("contact");
+      return;
+    }
     setBusy(true);
     try {
+      if (showAccountChoice && wantsAccount) {
+        const usernameCheck = await checkUsernameAvailabilityAction(username);
+        if (!usernameCheck.success || !usernameCheck.available) {
+          setError(usernameCheck.message ?? "Este nombre de usuario ya está en uso");
+          setUsernameError(usernameCheck.message ?? "Este nombre de usuario ya está en uso");
+          setStep("contact");
+          return;
+        }
+        const { firstName, lastName } = splitFullName(name);
+        const reg = await registerCustomerAction({
+          username,
+          email: email.trim(),
+          password,
+          firstName,
+          lastName,
+          phone: phone.trim() || undefined,
+          documentNumber: documentNumber.trim() || undefined,
+        });
+        if (!reg.success) {
+          setError(reg.error);
+          setStep("contact");
+          return;
+        }
+        setIsLoggedIn(true);
+      }
+
       const result = await submitCheckoutAction({
         customerName: name,
         customerEmail: email,
@@ -89,6 +190,7 @@ export function CheckoutForm() {
       });
       if (result.transactionId) qs.set("orderId", result.transactionId);
       if (result.hasStockShortage) qs.set("encargo", "1");
+      if (email.trim()) qs.set("email", email.trim());
       router.push(`/checkout/confirmacion?${qs.toString()}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error al confirmar pedido";
@@ -107,10 +209,7 @@ export function CheckoutForm() {
   function goNext() {
     setError(null);
     if (step === "contact") {
-      if (!name.trim() || !email.trim()) {
-        setError("Nombre y correo son obligatorios");
-        return;
-      }
+      if (!validateContactStep()) return;
       setStep("delivery");
       return;
     }
@@ -133,6 +232,15 @@ export function CheckoutForm() {
 
   return (
     <div className="space-y-6">
+      {showAccountChoice ? (
+        <p className="text-sm text-muted-foreground">
+          ¿Ya tienes cuenta?{" "}
+          <Link href="/cuenta/login?next=/checkout" className="font-medium text-primary hover:underline">
+            Inicia sesión
+          </Link>
+        </p>
+      ) : null}
+
       <ol className="flex gap-2 text-xs text-muted-foreground">
         {(["contact", "delivery", "review"] as const).map((s, i) => (
           <li key={s} className={step === s ? "font-semibold text-foreground" : ""}>
@@ -143,9 +251,121 @@ export function CheckoutForm() {
 
       {step === "contact" ? (
         <div className="space-y-4">
+          {showAccountChoice ? (
+            <fieldset className="space-y-2 rounded-lg border border-border p-4">
+              <legend className="px-1 text-sm font-medium">¿Cómo quieres continuar?</legend>
+              <label className="flex cursor-pointer gap-3 rounded-md p-2 has-[:checked]:bg-muted/50">
+                <input
+                  type="radio"
+                  name="accountChoice"
+                  checked={!wantsAccount}
+                  onChange={() => setWantsAccount(false)}
+                  className="mt-0.5"
+                />
+                <span className="text-sm">
+                  <span className="font-medium">Como invitado</span>
+                  <span className="mt-0.5 block text-muted-foreground">
+                    Sin cuenta. Necesitamos tu teléfono para coordinar el encargo.
+                  </span>
+                </span>
+              </label>
+              <label className="flex cursor-pointer gap-3 rounded-md p-2 has-[:checked]:bg-muted/50">
+                <input
+                  type="radio"
+                  name="accountChoice"
+                  checked={wantsAccount}
+                  onChange={() => setWantsAccount(true)}
+                  className="mt-0.5"
+                />
+                <span className="text-sm">
+                  <span className="font-medium">Crear cuenta</span>
+                  <span className="mt-0.5 block text-muted-foreground">
+                    Elige una contraseña y podrás ver tus pedidos en Mi cuenta.
+                  </span>
+                </span>
+              </label>
+            </fieldset>
+          ) : null}
+
           <TextField label="Nombre" value={name} onChange={(e) => setName(e.target.value)} required />
-          <TextField label="Correo" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <TextField label="Teléfono" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <TextField
+            label="Correo"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
+          <TextField
+            label="Teléfono"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            required={phoneRequired}
+            helperText={
+              phoneRequired
+                ? "Obligatorio para encargos: te contactaremos para coordinar entrega y pago."
+                : undefined
+            }
+            {...chilePhoneTextFieldProps}
+          />
+
+          {showAccountChoice && wantsAccount ? (
+            <>
+              <TextField
+                label="Nombre de usuario"
+                value={username}
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  setUsernameError(null);
+                }}
+                onBlur={() => {
+                  if (!username.trim()) return;
+                  void checkUsernameAvailabilityAction(username).then((r) => {
+                    if (!r.success || !r.available) {
+                      setUsernameError(r.message ?? "Este nombre de usuario ya está en uso");
+                    } else {
+                      setUsernameError(null);
+                    }
+                  });
+                }}
+                required
+                {...eshopUsernameTextFieldProps}
+              />
+              {usernameError ? <p className="text-sm text-destructive">{usernameError}</p> : null}
+              {requireRut ? (
+                <TextField
+                  label="RUT"
+                  value={documentNumber}
+                  onChange={(e) => setDocumentNumber(e.target.value)}
+                  required
+                  helperText="Obligatorio para registrarse en esta tienda."
+                />
+              ) : (
+                <TextField
+                  label="RUT (opcional)"
+                  value={documentNumber}
+                  onChange={(e) => setDocumentNumber(e.target.value)}
+                />
+              )}
+              <TextField
+                label="Contraseña"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                helperText={`Mínimo ${MIN_PASSWORD_LENGTH} caracteres.`}
+                required
+              />
+              <TextField
+                label="Confirmar contraseña"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+                required
+              />
+            </>
+          ) : null}
         </div>
       ) : null}
 
@@ -186,7 +406,22 @@ export function CheckoutForm() {
               <TextField label="Región" value={region} onChange={(e) => setRegion(e.target.value)} />
             </>
           ) : null}
-          <TextField label="Notas del pedido" value={notes} onChange={(e) => setNotes(e.target.value)} />
+          {selectedMethod?.requiresPhone && !phone.trim() ? (
+            <TextField
+              label="Teléfono"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+              helperText="Este método de entrega requiere teléfono de contacto."
+              {...chilePhoneTextFieldProps}
+            />
+          ) : null}
+          <TextField
+            label="Notas del pedido"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+          />
         </div>
       ) : null}
 
@@ -196,6 +431,9 @@ export function CheckoutForm() {
             <strong>Contacto:</strong> {name} · {email}
             {phone ? ` · ${phone}` : ""}
           </p>
+          {showAccountChoice && wantsAccount ? (
+            <p className="text-muted-foreground">Se creará tu cuenta al confirmar el pedido.</p>
+          ) : null}
           <p>
             <strong>Entrega:</strong> {selectedMethod?.name ?? "—"}
           </p>

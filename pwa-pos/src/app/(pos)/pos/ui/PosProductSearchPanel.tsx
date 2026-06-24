@@ -16,7 +16,6 @@ import {
   writePosProductSearchPageSize,
 } from "@/features/pos-products/lib/posProductSearchStorage";
 import {
-  InlineSepDot,
   formatMoney,
   PosProductNameWithAttributes,
   posDisplaySaleUnitSymbol,
@@ -54,6 +53,8 @@ type Props = {
   onPickProduct?: (item: PosProductSearchItem) => void;
   disabled?: boolean;
   disabledHint?: string;
+  /** En móvil el panel ocupa el alto del contenedor padre (sin 88vh fijo). */
+  compactLayout?: boolean;
 };
 
 export default function PosProductSearchPanel({
@@ -66,6 +67,7 @@ export default function PosProductSearchPanel({
   onPickProduct,
   disabled = false,
   disabledHint,
+  compactLayout = false,
 }: Props) {
   const [draftSearch, setDraftSearch] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -272,8 +274,10 @@ export default function PosProductSearchPanel({
 
   return (
     <aside
-      className="relative flex min-h-0 w-full min-w-0 flex-col gap-3 rounded-xl border border-border bg-background p-4"
-      style={{ height: `${POS_PRODUCT_SEARCH_PANEL_HEIGHT_VH}vh` }}
+      className={`relative flex min-h-0 w-full min-w-0 flex-col gap-3 rounded-xl border border-border bg-background p-3 sm:p-4 ${
+        compactLayout ? "h-full min-h-0" : ""
+      }`}
+      style={compactLayout ? undefined : { height: `${POS_PRODUCT_SEARCH_PANEL_HEIGHT_VH}vh` }}
       data-test-id="pos-product-search-panel"
     >
       {disabled ? (
@@ -394,31 +398,24 @@ export default function PosProductSearchPanel({
                 <PosProductNameWithAttributes
                   name={item.productName}
                   attributes={item.attributes}
-                  className="text-sm font-medium text-foreground"
+                  className="break-words text-sm font-medium leading-snug text-foreground"
                 />
-                <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 font-mono text-[11px] text-muted-foreground">
-                  <span>SKU {item.sku ?? "—"}</span>
-                  {item.barcode?.trim() ? (
-                    <>
-                      <InlineSepDot />
-                      <span>{item.barcode.trim()}</span>
-                    </>
-                  ) : null}
+                <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">
+                  SKU {item.sku ?? "—"}
+                  {item.barcode?.trim() ? ` · ${item.barcode.trim()}` : ""}
                 </p>
-                <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs tabular-nums text-foreground">
-                  <span>{formatMoney(item.unitPriceWithTax)}</span>
+                <div className="mt-1.5 flex flex-col gap-0.5 text-xs tabular-nums text-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-1.5">
+                  <span className="font-semibold">{formatMoney(item.unitPriceWithTax)}</span>
                   {saleUnitLabel ? (
-                    <>
-                      <InlineSepDot />
-                      <span className="text-muted-foreground">{saleUnitLabel}</span>
-                    </>
+                    <span className="text-muted-foreground sm:before:content-['·'] sm:before:mr-1.5">
+                      {saleUnitLabel}
+                    </span>
                   ) : null}
-                  <InlineSepDot />
-                  <span className="font-mono text-[11px] text-muted-foreground">
+                  <span className="font-mono text-[11px] text-muted-foreground sm:before:content-['·'] sm:before:mr-1.5">
                     Stock:{" "}
                     <span className="font-semibold text-foreground">{stockLabel}</span>
                   </span>
-                </p>
+                </div>
               </button>
             );
           })

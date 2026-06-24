@@ -5,6 +5,9 @@ import { FulfillmentSettingsPanel } from "./ui/FulfillmentSettingsPanel";
 import { FulfillmentMethodsPanel } from "./ui/FulfillmentMethodsPanel";
 import { EShopOrdersPanel } from "./ui/EShopOrdersPanel";
 import type { EShopFulfillmentMethodRow, EShopFulfillmentSettings, EShopOrderListRow } from "@/features/e-shop-fulfillment/types/eshop-fulfillment.types";
+import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
+import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
+import type { PriceListListItem } from "@/features/sales-price-lists/types/price-list.types";
 
 type Tab = "settings" | "methods" | "orders";
 
@@ -13,11 +16,17 @@ export function FulfillmentPageContent({
   methods,
   orders,
   ordersTotal,
+  branches,
+  storages,
+  priceLists,
 }: {
   settings: EShopFulfillmentSettings;
   methods: EShopFulfillmentMethodRow[];
   orders: EShopOrderListRow[];
   ordersTotal: number;
+  branches: BranchListItem[];
+  storages: StorageListItem[];
+  priceLists: PriceListListItem[];
 }) {
   const [tab, setTab] = useState<Tab>("orders");
 
@@ -44,7 +53,14 @@ export function FulfillmentPageContent({
         ))}
       </div>
 
-      {tab === "settings" ? <FulfillmentSettingsPanel initialSettings={settings} /> : null}
+      {tab === "settings" ? (
+        <FulfillmentSettingsPanel
+          initialSettings={settings}
+          branches={branches}
+          storages={storages}
+          priceLists={priceLists}
+        />
+      ) : null}
       {tab === "methods" ? <FulfillmentMethodsPanel initialMethods={methods} /> : null}
       {tab === "orders" ? <EShopOrdersPanel rows={orders} total={ordersTotal} /> : null}
     </div>

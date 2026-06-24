@@ -55,8 +55,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {`
             if ('serviceWorker' in navigator) {
               var isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-              if (${registerServiceWorkerInProduction} || isLocalhost) {
+              if (${registerServiceWorkerInProduction}) {
                 navigator.serviceWorker.register('/sw.js');
+              } else if (isLocalhost) {
+                navigator.serviceWorker.getRegistrations().then(function(regs) {
+                  regs.forEach(function(r) { r.unregister(); });
+                });
               }
             }
           `}

@@ -17,6 +17,7 @@ type CartContextValue = {
   crossSell: EShopProductCard[];
   subtotal: number;
   itemCount: number;
+  cartHydrated: boolean;
   drawerOpen: boolean;
   freeShippingThreshold: number | null;
   openDrawer: () => void;
@@ -39,6 +40,7 @@ export function EShopCartProvider({
   initialFreeShippingThreshold?: number | null;
 }) {
   const [lines, setLines] = useState<EShopCartLine[]>([]);
+  const [cartHydrated, setCartHydrated] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [freeShippingThreshold, setFreeShippingThreshold] = useState<number | null>(
     initialFreeShippingThreshold,
@@ -47,6 +49,7 @@ export function EShopCartProvider({
 
   useEffect(() => {
     setLines(loadCart().lines);
+    setCartHydrated(true);
   }, []);
 
   const persist = useCallback((next: EShopCartLine[]) => {
@@ -110,6 +113,7 @@ export function EShopCartProvider({
       crossSell,
       subtotal,
       itemCount,
+      cartHydrated,
       drawerOpen,
       freeShippingThreshold,
       openDrawer: () => setDrawerOpen(true),
@@ -126,6 +130,7 @@ export function EShopCartProvider({
       crossSell,
       subtotal,
       itemCount,
+      cartHydrated,
       drawerOpen,
       freeShippingThreshold,
       addItem,

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useState } from "react";
 import { Alert, Button } from "@/shared/components";
 import type { EShopResolvedTheme } from "@/features/e-shop-appearance/types/eshop-theme.types";
+import type { CategoryListItem } from "@/features/inventory-categories/types/category.types";
 import { saveEShopTopBarAction } from "../actions/eshop-topbar.action";
 import type {
   CompanyEShopTopBarSettings,
@@ -11,6 +12,7 @@ import type {
   EShopTopBarAdminState,
 } from "../types/eshop-topbar.types";
 import { EShopTopBarLinkEditor } from "./EShopTopBarLinkEditor";
+import { EShopTopBarCategoryLinksAssistant } from "./EShopTopBarCategoryLinksAssistant";
 import { EShopTopBarPreview } from "./EShopTopBarPreview";
 
 type Props = {
@@ -18,6 +20,7 @@ type Props = {
   companyName: string;
   themeResolved?: EShopResolvedTheme | null;
   initial: EShopTopBarAdminState;
+  categories: CategoryListItem[];
 };
 
 function reorderLinks(links: EShopNavLink[]): EShopNavLink[] {
@@ -29,6 +32,7 @@ export function EShopTopBarAdminForm({
   companyName,
   themeResolved,
   initial,
+  categories,
 }: Props) {
   const [topBar, setTopBar] = useState<CompanyEShopTopBarSettings>(initial.topBar);
   const [saving, setSaving] = useState(false);
@@ -140,6 +144,15 @@ export function EShopTopBarAdminForm({
         </div>
       </section>
 
+      <EShopTopBarCategoryLinksAssistant
+        categories={categories}
+        currentLinks={topBar.navLinks}
+        onApply={(navLinks) => {
+          setTopBar((prev) => ({ ...prev, navLinks }));
+          setSaved(false);
+        }}
+      />
+
       <section className="w-full min-w-0 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-foreground">Enlaces de navegación</h2>
@@ -158,6 +171,7 @@ export function EShopTopBarAdminForm({
             <EShopTopBarLinkEditor
               key={link.id}
               link={link}
+              categories={categories}
               onChange={(l) => updateLink(index, l)}
               onRemove={() => removeLink(index)}
               onMoveUp={() => moveLink(index, -1)}

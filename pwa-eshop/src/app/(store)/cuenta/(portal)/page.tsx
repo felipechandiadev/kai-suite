@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { getCustomerSessionToken } from "@/lib/eshop-customer-session";
-import { EShopCustomerAccountRequest } from "@/features/e-shop-customer-account/infrastructure/customer-account.request";
+import { getCustomerSummaryAction } from "@/features/e-shop-customer-account/actions/customer-account.action";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("es-CL", {
@@ -11,9 +10,9 @@ function fmt(n: number) {
 }
 
 export default async function CuentaResumenPage() {
-  const token = await getCustomerSessionToken();
-  if (!token) return null;
-  const summary = await EShopCustomerAccountRequest.getSummary(token);
+  const result = await getCustomerSummaryAction();
+  if (!result.success) return null;
+  const summary = result.summary;
 
   return (
     <div className="space-y-6">

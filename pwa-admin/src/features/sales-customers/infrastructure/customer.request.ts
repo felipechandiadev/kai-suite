@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth/auth-options";
 import type {
   CreateCustomerFormInput,
   CustomerDetailView,
+  CustomerEshopAccountView,
   CustomerListResult,
   CustomerListRow,
   UpdateCustomerPayload,
@@ -65,8 +66,41 @@ function normalizeRow(raw: unknown): CustomerListRow | null {
           ? Number(o.paymentDayOfMonth)
           : null,
     isActive: o.isActive !== false,
+    hasEshopAccount: o.hasEshopAccount === true,
+    eshopUsername:
+      o.eshopUsername != null && String(o.eshopUsername).trim() !== ""
+        ? String(o.eshopUsername)
+        : null,
+    eshopLoginEmail:
+      o.eshopLoginEmail != null && String(o.eshopLoginEmail).trim() !== ""
+        ? String(o.eshopLoginEmail)
+        : null,
     createdAt: o.createdAt != null ? String(o.createdAt) : undefined,
     updatedAt: o.updatedAt != null ? String(o.updatedAt) : undefined,
+  };
+}
+
+function mapEshopAccountFromJson(raw: unknown): CustomerEshopAccountView | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const accountId = o.accountId != null ? String(o.accountId) : "";
+  const loginEmail = o.loginEmail != null ? String(o.loginEmail).trim() : "";
+  if (!accountId || !loginEmail) return null;
+  return {
+    accountId,
+    username:
+      o.username != null && String(o.username).trim() !== "" ? String(o.username) : null,
+    loginEmail,
+    registeredAt: o.registeredAt != null ? String(o.registeredAt) : "",
+    emailVerifiedAt:
+      o.emailVerifiedAt != null && String(o.emailVerifiedAt).trim() !== ""
+        ? String(o.emailVerifiedAt)
+        : null,
+    updatedAt: o.updatedAt != null ? String(o.updatedAt) : "",
+    webOrdersCount:
+      typeof o.webOrdersCount === "number" && Number.isFinite(o.webOrdersCount)
+        ? o.webOrdersCount
+        : Number(o.webOrdersCount) || 0,
   };
 }
 
@@ -97,6 +131,7 @@ function mapCustomerDetailFromJson(
           ? Number(c.paymentDayOfMonth)
           : null,
     isActive: c.isActive !== false,
+    eshopAccount: mapEshopAccountFromJson(c.eshopAccount),
     createdAt: c.createdAt != null ? String(c.createdAt) : undefined,
     updatedAt: c.updatedAt != null ? String(c.updatedAt) : undefined,
   };

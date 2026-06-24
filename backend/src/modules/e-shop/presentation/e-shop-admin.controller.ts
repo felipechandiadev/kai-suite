@@ -221,6 +221,9 @@ export class EShopAdminController {
       eShopCustomerPortalEnabled?: boolean;
       eShopRegistrationRequireRut?: boolean;
       eShopShowDebtsInPortal?: boolean;
+      eShopDefaultBranchId?: string | null;
+      eShopDefaultStorageId?: string | null;
+      eShopDefaultPriceListId?: string | null;
     },
   ) {
     const settings = await this.companiesService.replaceEShopFlatSettings(companyId, {
@@ -236,6 +239,15 @@ export class EShopAdminController {
         : {}),
       ...(body.eShopShowDebtsInPortal !== undefined
         ? { eShopShowDebtsInPortal: body.eShopShowDebtsInPortal }
+        : {}),
+      ...(body.eShopDefaultBranchId !== undefined
+        ? { eShopDefaultBranchId: body.eShopDefaultBranchId }
+        : {}),
+      ...(body.eShopDefaultStorageId !== undefined
+        ? { eShopDefaultStorageId: body.eShopDefaultStorageId }
+        : {}),
+      ...(body.eShopDefaultPriceListId !== undefined
+        ? { eShopDefaultPriceListId: body.eShopDefaultPriceListId }
         : {}),
     });
     return {

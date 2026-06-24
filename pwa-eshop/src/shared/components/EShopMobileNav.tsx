@@ -6,18 +6,31 @@ import { Menu, X } from "lucide-react";
 import type { EShopNavLink } from "@/features/e-shop-storefront/types/storefront.types";
 import {
   eshopNavLinkKey,
+  isEShopNavLinkActive,
   resolveEShopNavHref,
   sortEnabledNavLinks,
 } from "@/features/e-shop-storefront/lib/resolve-nav-href";
+import { EShopCustomerAuthLinks } from "@/features/e-shop-customer-account/ui/EShopCustomerAuthLinks";
 
 type Props = {
   navLinks: EShopNavLink[];
   pathname: string;
+  currentCategoryId?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  customerPortalEnabled?: boolean;
+  customerLoggedIn?: boolean;
 };
 
-export function EShopMobileNav({ navLinks, pathname, open, onOpenChange }: Props) {
+export function EShopMobileNav({
+  navLinks,
+  pathname,
+  currentCategoryId = "",
+  open,
+  onOpenChange,
+  customerPortalEnabled = false,
+  customerLoggedIn = false,
+}: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const links = sortEnabledNavLinks(navLinks);
 
@@ -59,16 +72,30 @@ export function EShopMobileNav({ navLinks, pathname, open, onOpenChange }: Props
             className="absolute right-0 top-0 flex h-full w-[min(100%,20rem)] flex-col gap-1 border-l border-chrome-foreground/10 bg-chrome p-6 pt-16 text-chrome-foreground shadow-xl"
             aria-label="Menú principal"
           >
-            {links.map((item) => (
+            {links.map((item) => {
+              const active = isEShopNavLinkActive(item, pathname, currentCategoryId);
+              return (
               <Link
                 key={eshopNavLinkKey(item)}
                 href={resolveEShopNavHref(item, pathname)}
-                className="rounded-md px-3 py-3 text-base text-chrome-foreground/90 hover:bg-chrome-foreground/10 hover:text-chrome-foreground"
+                className={`rounded-md px-3 py-3 text-base ${
+                  active
+                    ? "bg-chrome-foreground/10 font-medium text-chrome-foreground"
+                    : "text-chrome-foreground/90 hover:bg-chrome-foreground/10 hover:text-chrome-foreground"
+                }`}
+                aria-current={active ? "page" : undefined}
                 onClick={() => onOpenChange(false)}
               >
                 {item.label}
               </Link>
-            ))}
+              );
+            })}
+            <EShopCustomerAuthLinks
+              customerPortalEnabled={customerPortalEnabled}
+              customerLoggedIn={customerLoggedIn}
+              variant="mobile"
+              onNavigate={() => onOpenChange(false)}
+            />
           </nav>
         </div>
       ) : null}

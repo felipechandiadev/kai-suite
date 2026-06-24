@@ -44,3 +44,11 @@ export function shouldCreateBackorder(
 ): boolean {
   return policy === 'ALLOW_BACKORDER' && hasShortage;
 }
+
+/**
+ * Pedidos web sin pago en línea se registran siempre como BACKORDER (encargo sin abono),
+ * con el mismo pipeline operativo que el POS. IF-08 E4 (CUSTOMER_ORDER con stock) queda para más adelante.
+ */
+export function isEshopCheckoutCommercialBackorder(): boolean {
+  return true;
+}

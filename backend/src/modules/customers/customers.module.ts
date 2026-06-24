@@ -7,6 +7,7 @@ import { CustomersServiceAdapter } from './application/customers.service.adapter
 import { Customer } from '@modules/customers/domain/customer.entity';
 import { Person } from '@modules/persons/domain/person.entity';
 import { Transaction } from '@modules/transactions/domain/transaction.entity';
+import { EshopCustomerAccount } from '@modules/e-shop/domain/eshop-customer-account.entity';
 import { InstallmentsModule } from '@modules/installments/installments.module';
 import { CompaniesModule } from '@modules/companies/companies.module';
 import { CustomerOrmEntity } from './infrastructure/orm-mappers/customer.orm-entity';
@@ -38,7 +39,7 @@ import { CustomerPaymentSourcesService } from './application/customer-payment-so
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Customer, CustomerOrmEntity, Person, Transaction]),
+    TypeOrmModule.forFeature([Customer, CustomerOrmEntity, Person, Transaction, EshopCustomerAccount]),
     InstallmentsModule,
     CompaniesModule,
     CqrsModule,

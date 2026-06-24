@@ -78,6 +78,8 @@ interface TextFieldProps {
   onFocus?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onMouseDown?: (e: React.MouseEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  /** Texto de ayuda bajo el campo. */
+  helperText?: string;
   ["data-test-id"]?: string;
 }
 
@@ -118,6 +120,7 @@ export const TextField: React.FC<TextFieldProps> = ({
   onFocus: onFocusProp,
   onBlur: onBlurProp,
   onMouseDown: onMouseDownProp,
+  helperText,
   inputMode,
   min,
   max,
@@ -816,6 +819,9 @@ export const TextField: React.FC<TextFieldProps> = ({
       ) : (
         controlEl
       )}
+      {helperText ? (
+        <p className="mt-1 text-xs text-muted-foreground">{helperText}</p>
+      ) : null}
     </div>
   );
 };

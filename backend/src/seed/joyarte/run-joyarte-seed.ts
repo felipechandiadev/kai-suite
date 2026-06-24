@@ -91,6 +91,8 @@ import {
   buildSeedCompanyPaymentCatalog,
   buildSeedEmployeeBankAccount,
   buildSeedJoyarteCompanySettings,
+  buildSeedJoyarteFooterFromCategories,
+  buildSeedJoyarteTopBarFromCategories,
   buildSeedPosPaymentList,
 } from './seed-joyarte-config';
 import {
@@ -1822,6 +1824,12 @@ async function bootstrap() {
       'Seed Joyarte',
     );
 
+    const joyarteSettings = company.settings as Record<string, unknown>;
+    joyarteSettings.eShopTopBar = buildSeedJoyarteTopBarFromCategories(categoryByName);
+    joyarteSettings.eShopFooter = buildSeedJoyarteFooterFromCategories(categoryByName);
+    await companyRepo.save(company);
+    console.log('✅ Topbar/footer eShop actualizados con rutas de categoría');
+
     for (const legacyName of LEGACY_SEED_ATTRIBUTE_NAMES) {
       const legacy = await attributeRepo.findOne({ where: { name: legacyName } });
       if (legacy) {
@@ -1990,6 +1998,9 @@ async function bootstrap() {
       console.log(
         `✅ Settings eShop: defaultBranchId=${seedBranch.id} defaultPriceListId=${listaEshop.id} defaultStorageId=${seedSalaVenta.id} featuredProducts=${featuredProductIds.length}`,
       );
+      console.log(
+        `✅ eShop canal: sucursal ${seedBranch.name ?? seedBranch.id}, almacén «${SEED_STORAGE_NAME}» (compartido con POS boutique)`,
+      );
     }
 
     const seedMultimediaParams = {
@@ -2079,8 +2090,7 @@ async function bootstrap() {
 
     const posPoints: PointOfSale[] = [];
     for (const posName of SEED_POS_NAMES) {
-      const defaultListId =
-        posName === SEED_POS_NAMES[0] ? listaMinorista.id : listaMayorista.id;
+      const defaultListId = listaMinorista.id;
       let posRow = await posRepo.findOne({ where: { name: posName } });
       const posPayload = {
         name: posName,

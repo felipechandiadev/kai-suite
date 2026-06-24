@@ -3,11 +3,17 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CqrsModule } from '@nestjs/cqrs';
 import { Company } from './domain/company.entity';
 import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
+import { Branch } from '@modules/branches/domain/branch.entity';
+import { Storage } from '@modules/storages/domain/storage.entity';
+import { PriceList } from '@modules/price-lists/domain/price-list.entity';
 import { CompaniesService } from './application/companies.service';
 import { CompaniesController } from './presentation/companies.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Company, PointOfSale]), CqrsModule],
+  imports: [
+    TypeOrmModule.forFeature([Company, PointOfSale, Branch, Storage, PriceList]),
+    CqrsModule,
+  ],
   controllers: [CompaniesController],
   providers: [CompaniesService],
   exports: [CompaniesService],

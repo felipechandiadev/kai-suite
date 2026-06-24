@@ -59,6 +59,7 @@ export class MailProcessor {
       'order.shipped': `Pedido despachado ${order}`.trim(),
       'order.completed': `Pedido entregado ${order}`.trim(),
       'order.cancelled': `Pedido cancelado ${order}`.trim(),
+      'customer.verify_email': 'Verifica tu correo — Mi cuenta',
     };
     return map[template] ?? `Notificación ${template}`;
   }

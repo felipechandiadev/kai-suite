@@ -21,9 +21,10 @@ import { EShopFulfillmentMethodsService } from './eshop-fulfillment-methods.serv
 import { EShopCustomerUpsertService } from './eshop-customer-upsert.service';
 import {
   evaluateStockPolicy,
-  shouldCreateBackorder,
+  isEshopCheckoutCommercialBackorder,
   type StockCheckLine,
 } from './helpers/eshop-stock-policy.util';
+import { resolveEShopOperationalContext } from './helpers/eshop-operational-context.util';
 import type {
   EShopOrderShippingAddress,
   TransactionEShopOrderMetadata,
@@ -88,6 +89,11 @@ export class EShopCheckoutOrderService {
     if (!method) {
       throw new BadRequestException('Método de entrega no válido');
     }
+    if (!body.authenticatedCustomerId && !body.customerPhone?.trim()) {
+      throw new BadRequestException(
+        'El teléfono es obligatorio para confirmar un encargo sin cuenta',
+      );
+    }
     if (method.requiresPhone && !body.customerPhone?.trim()) {
       throw new BadRequestException('El teléfono es obligatorio para este método de entrega');
     }
@@ -105,12 +111,17 @@ export class EShopCheckoutOrderService {
     });
     const byId = new Map(variants.map((v) => [v.id, v]));
 
-    const storageId = store.eShop.eShopDefaultStorageId;
+    const operational = await resolveEShopOperationalContext(
+      store.companyId,
+      store.eShop,
+      this.branchRepo,
+    );
+    const storageId = operational.storageId;
     const stockMap = await this.loadStockMap(store.companyId, variantIds, storageId);
     const priceMap = await this.loadPriceMap(
       store.companyId,
       variantIds,
-      store.eShop.eShopDefaultPriceListId,
+      operational.priceListId,
     );
 
     const stockLines: StockCheckLine[] = [];
@@ -159,7 +170,7 @@ export class EShopCheckoutOrderService {
     }
 
     const { hasShortage, shortages } = evaluateStockPolicy(stockPolicy, stockLines);
-    const useBackorder = shouldCreateBackorder(stockPolicy, hasShortage);
+    const useBackorder = isEshopCheckoutCommercialBackorder();
 
     const shippingCost = this.fulfillmentMethods.calculateShippingCost(
       method,
@@ -170,7 +181,7 @@ export class EShopCheckoutOrderService {
 
     const customer = await this.resolveCheckoutCustomer(store.companyId, body);
 
-    const branchId = await this.resolveBranchId(store);
+    const branchId = operational.branchId;
     const userId = await this.resolveSystemUserId(store.companyId);
 
     const now = new Date().toISOString();
@@ -381,23 +392,6 @@ export class EShopCheckoutOrderService {
     return new Map(
       items.map((i) => [i.productVariantId!, Number(i.grossPrice) || 0]),
     );
-  }
-
-  private async resolveBranchId(store: EShopStoreContext): Promise<string> {
-    let branchId = store.eShop.eShopDefaultBranchId;
-    if (!branchId) {
-      const fallback = await this.branchRepo.findOne({
-        where: { companyId: store.companyId, isActive: true },
-        order: { createdAt: 'ASC' },
-      });
-      branchId = fallback?.id ?? null;
-    }
-    if (!branchId) {
-      throw new BadRequestException(
-        'Configure una sucursal por defecto para eShop (eShopDefaultBranchId)',
-      );
-    }
-    return branchId;
   }
 
   private async resolveSystemUserId(companyId: string): Promise<string> {

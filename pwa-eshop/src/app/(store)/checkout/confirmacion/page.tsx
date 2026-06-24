@@ -1,15 +1,19 @@
 import Link from "next/link";
 import { ClearCartOnOrderSuccess } from "./ClearCartOnOrderSuccess";
 import { getCustomerSessionToken } from "@/lib/eshop-customer-session";
+import { getCustomerPortalStorefront } from "@/features/e-shop-customer-account/lib/customer-portal-storefront";
+import { CustomerPortalAuthBanner } from "@/features/e-shop-customer-account/ui/CustomerPortalAuthBanner";
 
 export default async function ConfirmacionPage({
   searchParams,
 }: {
-  searchParams: Promise<{ doc?: string; method?: string; encargo?: string; orderId?: string }>;
+  searchParams: Promise<{ doc?: string; method?: string; encargo?: string; orderId?: string; email?: string }>;
 }) {
-  const { doc, method, encargo, orderId } = await searchParams;
+  const { doc, method, encargo, orderId, email } = await searchParams;
   const isEncargo = encargo === "1";
   const sessionToken = await getCustomerSessionToken();
+  const storefront = await getCustomerPortalStorefront();
+  const portalEnabled = storefront.eShopCustomerPortalEnabled === true;
 
   return (
     <div className="mx-auto max-w-lg space-y-4 text-center py-12">
@@ -31,6 +35,13 @@ export default async function ConfirmacionPage({
       <p className="text-sm text-muted-foreground">
         Te contactaremos para coordinar el pago y la entrega.
       </p>
+      <div className="space-y-4 text-left">
+        <CustomerPortalAuthBanner
+          customerPortalEnabled={portalEnabled}
+          suggestedEmail={email}
+          orderId={orderId}
+        />
+      </div>
       <div className="flex flex-col items-center gap-2">
         {sessionToken && orderId ? (
           <Link href={`/cuenta/pedidos/${orderId}`} className="text-sm text-primary hover:underline">

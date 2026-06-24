@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="es">
+  <body style="font-family: sans-serif; color: #222; line-height: 1.5;">
+    <h2>Verifica tu correo</h2>
+    <p>Hola {{customerName}},</p>
+    <p>Gracias por crear tu cuenta en la tienda. Para activar el acceso a pagos y deudas en Mi cuenta, confirma tu correo:</p>
+    <p style="margin: 24px 0;">
+      <a
+        href="{{verificationUrl}}"
+        style="display: inline-block; padding: 12px 20px; background: #002b59; color: #fff; text-decoration: none; border-radius: 6px;"
+      >
+        Verificar correo
+      </a>
+    </p>
+    <p style="font-size: 13px; color: #555;">
+      Si el botón no funciona, copia y pega este enlace en el navegador:<br />
+      <a href="{{verificationUrl}}">{{verificationUrl}}</a>
+    </p>
+  </body>
+</html>

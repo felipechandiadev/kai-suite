@@ -1,6 +1,7 @@
 export type EShopCustomerProfile = {
   customerId: string;
   email: string;
+  username: string | null;
   emailVerified: boolean;
   firstName: string;
   lastName: string | null;

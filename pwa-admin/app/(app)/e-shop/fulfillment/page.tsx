@@ -5,14 +5,20 @@ import {
   listEshopOrdersAction,
   listFulfillmentMethodsAction,
 } from "@/features/e-shop-fulfillment/actions/eshop-fulfillment.action";
+import { listBranchesForSettingsPage } from "@/features/settings-branches/actions/branch.action";
+import { listStoragesForPage } from "@/features/inventory-storages/actions/storage.action";
+import { listPriceListsForPage } from "@/features/sales-price-lists/actions/price-list.action";
 
 export const dynamic = "force-dynamic";
 
 export default async function EShopFulfillmentPage() {
-  const [settingsRes, methodsRes, ordersRes] = await Promise.all([
+  const [settingsRes, methodsRes, ordersRes, branches, storages, priceLists] = await Promise.all([
     getFulfillmentSettingsAction(),
     listFulfillmentMethodsAction(),
     listEshopOrdersAction({ page: 1, limit: 50 }),
+    listBranchesForSettingsPage(),
+    listStoragesForPage(),
+    listPriceListsForPage(),
   ]);
 
   const settings = settingsRes.success
@@ -35,6 +41,9 @@ export default async function EShopFulfillmentPage() {
         methods={methodsRes.success ? methodsRes.rows : []}
         orders={ordersRes.success ? ordersRes.data : []}
         ordersTotal={ordersRes.success ? ordersRes.total : 0}
+        branches={branches}
+        storages={storages}
+        priceLists={priceLists}
       />
     </BasicPageLayout>
   );

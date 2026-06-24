@@ -54,6 +54,7 @@
 
   --app-topbar-height: 3.75rem;
   --app-sidebar-width: 3.5rem;
+  --app-bottom-nav-height: 3.75rem;
   --color-sidebar-bg: rgba(255, 255, 255, 0.2);
   --sidebar-backdrop-blur: 8px;
   --color-sidebar-overlay: rgba(0, 43, 89, 0.25);
@@ -68,6 +69,7 @@
 
   --app-topbar-height: 3.75rem;
   --app-sidebar-width: 3.5rem;
+  --app-bottom-nav-height: 3.75rem;
 
   --color-primary: var(--fs-primary);
   --color-background: var(--fs-background);

@@ -7,12 +7,14 @@ import {
   getCustomerProfileAction,
   updateCustomerProfileAction,
 } from "@/features/e-shop-customer-account/actions/customer-account.action";
+import { chilePhoneTextFieldProps } from "@/shared/lib/chile-phone-field";
 
 export default function CuentaPerfilPage() {
   const router = useRouter();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
+  const [username, setUsername] = useState<string | null>(null);
   const [address, setAddress] = useState("");
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +26,7 @@ export default function CuentaPerfilPage() {
         setFirstName(r.profile.firstName);
         setLastName(r.profile.lastName ?? "");
         setPhone(r.profile.phone ?? "");
+        setUsername(r.profile.username);
         setAddress(r.profile.address ?? "");
         setEmail(r.profile.email);
       } else setError(r.error);
@@ -34,9 +37,17 @@ export default function CuentaPerfilPage() {
     <div className="max-w-md space-y-4">
       <h2 className="text-lg font-semibold">Mi perfil</h2>
       <p className="text-sm text-muted-foreground">Correo: {email}</p>
+      {username ? (
+        <p className="text-sm text-muted-foreground">Usuario: @{username}</p>
+      ) : null}
       <TextField label="Nombre" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
       <TextField label="Apellido" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-      <TextField label="Teléfono" value={phone} onChange={(e) => setPhone(e.target.value)} />
+      <TextField
+        label="Teléfono"
+        value={phone}
+        onChange={(e) => setPhone(e.target.value)}
+        {...chilePhoneTextFieldProps}
+      />
       <TextField label="Dirección" value={address} onChange={(e) => setAddress(e.target.value)} />
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <Button

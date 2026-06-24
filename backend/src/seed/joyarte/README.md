@@ -35,3 +35,11 @@ npm run seed:demo
 ## Nota legal
 
 Datos e imágenes de referencia provienen de la tienda pública Joyas Barón para demo interna. Las imágenes se almacenan localmente en `assets/`; no usar hotlink en producción.
+
+## Canal eShop vs POS
+
+La tienda web es un **canal de venta**, no un punto de venta. El seed crea solo **CAJA BOUTIQUE**; el eShop comparte la **Vitrina principal** para stock visible y reservas de encargos.
+
+- Configurar operación (sucursal, almacén, lista de precios): Admin → **Encargos y envíos → Configuración**.
+- Los pedidos web llevan `metadata.source: 'e-shop'` sin `pointOfSaleId`.
+- `pointOfSaleId` solo se asigna al **convertir a venta** en mostrador (POS boutique u otro activo en sesión).

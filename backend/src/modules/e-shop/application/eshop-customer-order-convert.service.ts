@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Branch } from '@modules/branches/domain/branch.entity';
 import {
   PaymentStatus,
   Transaction,
@@ -15,12 +16,15 @@ import { TransactionsService } from '@modules/transactions/application/transacti
 import { CreateTransactionDto } from '@modules/transactions/application/dto/create-transaction.dto';
 import type { TransactionEShopOrderMetadata } from '@modules/transactions/domain/transaction-eshop-order.metadata';
 import { CompaniesService } from '@modules/companies/application/companies.service';
+import { resolveEShopOperationalContext } from './helpers/eshop-operational-context.util';
 
 @Injectable()
 export class EshopCustomerOrderConvertService {
   constructor(
     @InjectRepository(Transaction)
     private readonly txRepo: Repository<Transaction>,
+    @InjectRepository(Branch)
+    private readonly branchRepo: Repository<Branch>,
     private readonly transactionsService: TransactionsService,
     private readonly companiesService: CompaniesService,
   ) {}
@@ -50,7 +54,12 @@ export class EshopCustomerOrderConvertService {
     }
 
     const settings = await this.companiesService.getEShopFlatSettings(companyId);
-    const storageId = settings.eShopDefaultStorageId;
+    const operational = await resolveEShopOperationalContext(
+      companyId,
+      settings,
+      this.branchRepo,
+    );
+    const storageId = operational.storageId;
     if (!storageId?.trim()) {
       throw new BadRequestException('Configure eShopDefaultStorageId para convertir pedidos');
     }
@@ -60,7 +69,7 @@ export class EshopCustomerOrderConvertService {
     dto.transactionStatus = TransactionStatus.CONFIRMED;
     dto.paymentStatus = PaymentStatus.PENDING;
     dto.customerId = order.customerId ?? undefined;
-    const branchId = order.branchId ?? settings.eShopDefaultBranchId;
+    const branchId = order.branchId ?? operational.branchId;
     if (!branchId) {
       throw new BadRequestException('Configure eShopDefaultBranchId para convertir pedidos');
     }

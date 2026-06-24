@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes, randomUUID } from 'crypto';
 import { EshopCustomerAccount } from '../domain/eshop-customer-account.entity';
@@ -14,12 +14,23 @@ import { CompaniesService } from '@modules/companies/application/companies.servi
 import { KaiMailClient } from '@shared/mail/kai-mail.client';
 import { Person, DocumentType } from '@modules/persons/domain/person.entity';
 import { Customer } from '@modules/customers/domain/customer.entity';
+import { normalizeEshopUsername } from './helpers/eshop-username.util';
+
+const MIN_PASSWORD_LENGTH = 8;
+
+function buildEshopVerificationUrl(token: string): string {
+  const base = (
+    process.env.ESHOP_PUBLIC_SITE_URL?.trim() || 'http://localhost:4034'
+  ).replace(/\/$/, '');
+  return `${base}/cuenta/verificar-email?token=${encodeURIComponent(token)}`;
+}
 
 export type EshopCustomerSession = {
   accountId: string;
   customerId: string;
   companyId: string;
   email: string;
+  username: string | null;
   emailVerified: boolean;
 };
 
@@ -37,9 +48,28 @@ export class EshopCustomerAuthService {
     private readonly kaiMail: KaiMailClient,
   ) {}
 
+  async checkUsernameAvailable(
+    companyId: string,
+    rawUsername: string,
+  ): Promise<{ available: boolean; message?: string }> {
+    await this.assertPortalEnabled(companyId);
+    const normalized = normalizeEshopUsername(rawUsername);
+    if (!normalized.ok) {
+      return { available: false, message: normalized.message };
+    }
+    const existing = await this.accountRepo.findOne({
+      where: { companyId, username: normalized.username },
+    });
+    if (existing) {
+      return { available: false, message: 'Este nombre de usuario ya está en uso' };
+    }
+    return { available: true };
+  }
+
   async register(
     companyId: string,
     body: {
+      username: string;
       email: string;
       password: string;
       firstName: string;
@@ -51,18 +81,37 @@ export class EshopCustomerAuthService {
     await this.assertPortalEnabled(companyId);
     const settings = await this.companiesService.getEShopFlatSettings(companyId);
     const requireRut = settings.eShopRegistrationRequireRut === true;
+
+    const usernameResult = normalizeEshopUsername(body.username);
+    if (!usernameResult.ok) {
+      throw new BadRequestException(usernameResult.message);
+    }
+    const username = usernameResult.username;
+
     const email = body.email.trim().toLowerCase();
     if (!email || !body.password?.trim()) {
       throw new BadRequestException('Email y contraseña son obligatorios');
+    }
+    if (body.password.trim().length < MIN_PASSWORD_LENGTH) {
+      throw new BadRequestException(
+        `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres`,
+      );
     }
     if (requireRut && !body.documentNumber?.trim()) {
       throw new BadRequestException('El RUT es obligatorio para registrarse');
     }
 
-    const existing = await this.accountRepo.findOne({
+    const existingUsername = await this.accountRepo.findOne({
+      where: { companyId, username },
+    });
+    if (existingUsername) {
+      throw new ConflictException('Este nombre de usuario ya está en uso');
+    }
+
+    const existingEmail = await this.accountRepo.findOne({
       where: { companyId, email },
     });
-    if (existing) {
+    if (existingEmail) {
       throw new ConflictException('Ya existe una cuenta con este correo');
     }
 
@@ -91,6 +140,7 @@ export class EshopCustomerAuthService {
       companyId,
       customerId: customer.id,
       email,
+      username,
       passwordHash,
       sessionToken,
       emailVerificationToken,
@@ -106,6 +156,7 @@ export class EshopCustomerAuthService {
         variables: {
           customerName: body.firstName,
           verificationToken: emailVerificationToken,
+          verificationUrl: buildEshopVerificationUrl(emailVerificationToken),
         },
       });
     } catch {
@@ -117,13 +168,29 @@ export class EshopCustomerAuthService {
 
   async login(
     companyId: string,
-    body: { email: string; password: string },
+    body: { login: string; password: string },
   ): Promise<{ sessionToken: string }> {
     await this.assertPortalEnabled(companyId);
-    const email = body.email.trim().toLowerCase();
-    const account = await this.accountRepo.findOne({
-      where: { companyId, email },
-    });
+    const login = body.login?.trim();
+    if (!login || !body.password?.trim()) {
+      throw new UnauthorizedException('Credenciales inválidas');
+    }
+
+    let account: EshopCustomerAccount | null = null;
+    if (login.includes('@')) {
+      account = await this.accountRepo.findOne({
+        where: { companyId, email: login.toLowerCase() },
+      });
+    } else {
+      const usernameResult = normalizeEshopUsername(login);
+      if (!usernameResult.ok) {
+        throw new UnauthorizedException('Credenciales inválidas');
+      }
+      account = await this.accountRepo.findOne({
+        where: { companyId, username: usernameResult.username },
+      });
+    }
+
     if (!account) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
@@ -163,6 +230,7 @@ export class EshopCustomerAuthService {
       customerId: account.customerId,
       companyId: account.companyId,
       email: account.email,
+      username: account.username?.trim() || null,
       emailVerified: Boolean(account.emailVerifiedAt),
     };
   }

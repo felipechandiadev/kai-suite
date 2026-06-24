@@ -50,6 +50,7 @@ import {
 } from '@modules/multimedia/application/utils/resolve-primary-multimedia.util';
 import { PriceListItem } from '@modules/price-list-items/domain/price-list-item.entity';
 import { Storage } from '@modules/storages/domain/storage.entity';
+import { resolveEShopOperationalContext } from './helpers/eshop-operational-context.util';
 import { Category } from '@modules/categories/domain/category.entity';
 import { Brand } from '@modules/brands/domain/brand.entity';
 
@@ -377,16 +378,21 @@ export class EShopService {
     productId: string,
   ): Promise<EShopCatalogProductDetail> {
     const eShop = await this.companiesService.getEShopFlatSettings(companyId);
+    const operational = await resolveEShopOperationalContext(
+      companyId,
+      eShop,
+      this.branchRepo,
+    );
     let previewStorageName: string | null = null;
-    if (eShop.eShopDefaultStorageId) {
+    if (operational.storageId) {
       const storage = await this.storageRepo.findOne({
-        where: { id: eShop.eShopDefaultStorageId, companyId, deletedAt: IsNull() },
+        where: { id: operational.storageId, companyId, deletedAt: IsNull() },
       });
       previewStorageName = storage?.name?.trim() || null;
     }
     const detail = await this.buildCatalogProductDetail(companyId, productId, {
-      storageId: eShop.eShopDefaultStorageId,
-      priceListId: eShop.eShopDefaultPriceListId,
+      storageId: operational.storageId,
+      priceListId: operational.priceListId,
     });
     return { ...detail, previewStorageName };
   }
@@ -784,20 +790,12 @@ export class EShopService {
     dto.total = subtotal;
     dto.amountPaid = 0;
 
-    let branchId = store.eShop.eShopDefaultBranchId;
-    if (!branchId) {
-      const fallback = await this.branchRepo.findOne({
-        where: { companyId: store.companyId, isActive: true },
-        order: { createdAt: 'ASC' },
-      });
-      branchId = fallback?.id ?? null;
-    }
-    if (!branchId) {
-      throw new BadRequestException(
-        'Configure una sucursal por defecto para eShop (eShopDefaultBranchId)',
-      );
-    }
-    dto.branchId = branchId;
+    const operational = await resolveEShopOperationalContext(
+      store.companyId,
+      store.eShop,
+      this.branchRepo,
+    );
+    dto.branchId = operational.branchId;
 
     const systemUser = await this.userRepo.findOne({
       where: { companyId: store.companyId },

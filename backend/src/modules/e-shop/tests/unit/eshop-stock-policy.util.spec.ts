@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import {
   evaluateStockPolicy,
+  isEshopCheckoutCommercialBackorder,
   shouldCreateBackorder,
 } from '../../application/helpers/eshop-stock-policy.util';
 
@@ -31,5 +32,9 @@ describe('eshop-stock-policy.util', () => {
 
   it('shouldCreateBackorder false when no shortage', () => {
     expect(shouldCreateBackorder('ALLOW_BACKORDER', false)).toBe(false);
+  });
+
+  it('isEshopCheckoutCommercialBackorder is always true (encargo sin abono)', () => {
+    expect(isEshopCheckoutCommercialBackorder()).toBe(true);
   });
 });

@@ -18,6 +18,9 @@ import { LoadQuotationDialog } from "./LoadQuotationDialog";
 import { LoadReturnSaleDialog } from "./LoadReturnSaleDialog";
 import { LoadBackorderDialog } from "./LoadBackorderDialog";
 import { runPendingCashSessionOpeningPrintIfAny } from "@/features/cash-session-opening/lib/run-pending-cash-session-opening-print";
+import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
+
+type MobilePanel = "products" | "cart";
 function formatMoney(n: number) {
   return new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(
     Math.round(n),
@@ -26,6 +29,8 @@ function formatMoney(n: number) {
 
 export default function PosWorkspace() {
   const router = useRouter();
+  const compactLayout = usePosCompactLayout();
+  const [mobilePanel, setMobilePanel] = useState<MobilePanel>("products");
   const [ctx, setCtx] = useState<PosContextV1 | null>(null);
   const [priceListId, setPriceListId] = useState("");
   const [priceListOptions, setPriceListOptions] = useState<PosPriceListSnapshot[]>([]);
@@ -82,7 +87,15 @@ export default function PosWorkspace() {
 
   const branchId = ctx?.branchId?.trim() ? ctx.branchId.trim() : null;
 
-  const addProduct = useCallback((item: any) => cart.addItem(item), [cart]);
+  const addProduct = useCallback(
+    (item: any) => {
+      cart.addItem(item);
+      if (compactLayout) {
+        setMobilePanel("cart");
+      }
+    },
+    [cart, compactLayout],
+  );
 
   const totals = useMemo(
     () =>
@@ -122,29 +135,33 @@ export default function PosWorkspace() {
     );
   }
 
-  return (
-    <div className="grid min-h-[calc(100dvh-6rem)] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-stretch">
-      <PosProductSearchPanel
-        priceListId={priceListId}
-        priceListOptions={priceListOptions}
-        branchId={branchId}
-        pointOfSaleId={ctx.pointOfSaleId}
-        onPriceListChange={setPriceListId}
-        onRefreshPriceListOptions={() => refreshPriceListOptions(ctx.pointOfSaleId, priceListId)}
-        onPickProduct={cartLocked ? undefined : addProduct}
-        disabled={cartLocked}
-        disabledHint={
-          isFulfillBackorderMode
-            ? "En liquidación de encargo no puedes agregar productos. Usa «Desvincular» para salir."
-            : "En devolución solo puedes quitar líneas del carrito. Usa «Desvincular» para salir."
-        }
-      />
+  const productPanel = (
+    <PosProductSearchPanel
+      priceListId={priceListId}
+      priceListOptions={priceListOptions}
+      branchId={branchId}
+      pointOfSaleId={ctx.pointOfSaleId}
+      onPriceListChange={setPriceListId}
+      onRefreshPriceListOptions={() => refreshPriceListOptions(ctx.pointOfSaleId, priceListId)}
+      onPickProduct={cartLocked ? undefined : addProduct}
+      disabled={cartLocked}
+      disabledHint={
+        isFulfillBackorderMode
+          ? "En liquidación de encargo no puedes agregar productos. Usa «Desvincular» para salir."
+          : "En devolución solo puedes quitar líneas del carrito. Usa «Desvincular» para salir."
+      }
+      compactLayout={compactLayout}
+    />
+  );
 
-      <aside
-        className="flex min-h-0 w-full min-w-0 flex-col gap-3 rounded-xl border border-border bg-background p-4"
-        style={{ height: `${POS_PRODUCT_SEARCH_PANEL_HEIGHT_VH}vh` }}
-        data-test-id="pos-cart-panel"
-      >
+  const cartPanel = (
+    <aside
+      className={`flex min-h-0 w-full min-w-0 flex-col gap-3 rounded-xl border border-border bg-background p-3 sm:p-4 ${
+        compactLayout ? "h-full" : ""
+      }`}
+      style={compactLayout ? undefined : { height: `${POS_PRODUCT_SEARCH_PANEL_HEIGHT_VH}vh` }}
+      data-test-id="pos-cart-panel"
+    >
         <div className="flex shrink-0 items-start justify-between gap-2">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             <Button
@@ -361,7 +378,67 @@ export default function PosWorkspace() {
             />
           </div>
         </footer>
-      </aside>
+    </aside>
+  );
+
+  return (
+    <div
+      className={
+        compactLayout
+          ? "flex min-h-0 flex-1 flex-col gap-3"
+          : "grid min-h-[calc(100dvh-6rem)] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-stretch"
+      }
+    >
+      {compactLayout ? (
+        <div
+          className="flex shrink-0 rounded-lg border border-border bg-muted/30 p-1"
+          role="tablist"
+          aria-label="Vista del punto de venta"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mobilePanel === "products"}
+            className={`min-h-[44px] flex-1 rounded-md px-3 text-sm font-medium transition-colors ${
+              mobilePanel === "products"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground"
+            }`}
+            onClick={() => setMobilePanel("products")}
+            data-test-id="pos-mobile-tab-products"
+          >
+            Productos
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mobilePanel === "cart"}
+            className={`relative min-h-[44px] flex-1 rounded-md px-3 text-sm font-medium transition-colors ${
+              mobilePanel === "cart"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground"
+            }`}
+            onClick={() => setMobilePanel("cart")}
+            data-test-id="pos-mobile-tab-cart"
+          >
+            Carrito
+            {cart.itemsCount > 0 ? (
+              <span className="ml-1.5 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-secondary px-1.5 text-[10px] font-bold text-primary">
+                {cart.itemsCount > 99 ? "99+" : cart.itemsCount}
+              </span>
+            ) : null}
+          </button>
+        </div>
+      ) : null}
+
+      <div className={compactLayout ? "flex min-h-0 flex-1 flex-col" : "contents"}>
+        {compactLayout ? (mobilePanel === "products" ? productPanel : cartPanel) : (
+          <>
+            {productPanel}
+            {cartPanel}
+          </>
+        )}
+      </div>
 
       <LoadQuotationDialog
         open={loadQuotationOpen}

@@ -8,11 +8,24 @@ import Switch from "@/shared/components/Switch";
 import { updateFulfillmentSettingsAction } from "@/features/e-shop-fulfillment/actions/eshop-fulfillment.action";
 import type { EShopFulfillmentSettings, EShopStockPolicy } from "@/features/e-shop-fulfillment/types/eshop-fulfillment.types";
 import { STOCK_POLICY_LABELS } from "@/features/e-shop-fulfillment/lib/eshop-fulfillment-labels";
+import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
+import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
+import type { PriceListListItem } from "@/features/sales-price-lists/types/price-list.types";
+import {
+  EShopOperationalSettingsPanel,
+  type EShopOperationalFormState,
+} from "./EShopOperationalSettingsPanel";
 
 export function FulfillmentSettingsPanel({
   initialSettings,
+  branches,
+  storages,
+  priceLists,
 }: {
   initialSettings: EShopFulfillmentSettings;
+  branches: BranchListItem[];
+  storages: StorageListItem[];
+  priceLists: PriceListListItem[];
 }) {
   const router = useRouter();
   const [policy, setPolicy] = useState<EShopStockPolicy>(initialSettings.eShopStockPolicy);
@@ -30,11 +43,25 @@ export function FulfillmentSettingsPanel({
   const [showDebts, setShowDebts] = useState(
     initialSettings.eShopShowDebtsInPortal !== false,
   );
+  const [operational, setOperational] = useState<EShopOperationalFormState>({
+    eShopDefaultBranchId: initialSettings.eShopDefaultBranchId,
+    eShopDefaultStorageId: initialSettings.eShopDefaultStorageId,
+    eShopDefaultPriceListId: initialSettings.eShopDefaultPriceListId,
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   return (
     <div className="max-w-xl space-y-6">
+      <EShopOperationalSettingsPanel
+        value={operational}
+        onChange={setOperational}
+        branches={branches}
+        storages={storages}
+        priceLists={priceLists}
+        disabled={busy}
+      />
+
       <section className="space-y-3">
         <h2 className="text-sm font-semibold">Política de stock en checkout</h2>
         <p className="text-sm text-muted-foreground">
@@ -84,22 +111,6 @@ export function FulfillmentSettingsPanel({
         </label>
       </section>
 
-      <section className="rounded-lg border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
-        <p>
-          Almacén eShop:{" "}
-          <strong className="text-foreground">
-            {initialSettings.eShopDefaultStorageId ?? "No configurado"}
-          </strong>
-        </p>
-        <p className="mt-1">
-          Sucursal default:{" "}
-          <strong className="text-foreground">
-            {initialSettings.eShopDefaultBranchId ?? "No configurada"}
-          </strong>
-        </p>
-        <p className="mt-2 text-xs">Configure almacén y sucursal en Ajustes de empresa / eShop.</p>
-      </section>
-
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
       <Button
@@ -114,6 +125,9 @@ export function FulfillmentSettingsPanel({
             eShopCustomerPortalEnabled: portalEnabled,
             eShopRegistrationRequireRut: requireRut,
             eShopShowDebtsInPortal: showDebts,
+            eShopDefaultBranchId: operational.eShopDefaultBranchId,
+            eShopDefaultStorageId: operational.eShopDefaultStorageId,
+            eShopDefaultPriceListId: operational.eShopDefaultPriceListId,
           })
             .then((r) => {
               if (!r.success) setError(r.error);

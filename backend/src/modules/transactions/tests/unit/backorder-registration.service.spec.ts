@@ -1,4 +1,4 @@
-import { BackorderRegistrationService } from './backorder-registration.service';
+import { BackorderRegistrationService } from '../../application/backorder-registration.service';
 
 describe('BackorderRegistrationService', () => {
   const stockCommitment = {
@@ -6,6 +6,8 @@ describe('BackorderRegistrationService', () => {
   };
 
   function build() {
+    const lineSave = jest.fn(async (x) => x);
+    const lineCreate = jest.fn((x) => x);
     const manager = {
       getRepository: jest.fn((entity: { name?: string }) => {
         const name = entity?.name ?? String(entity);
@@ -17,8 +19,8 @@ describe('BackorderRegistrationService', () => {
         }
         if (name.includes('TransactionLine')) {
           return {
-            create: jest.fn((x) => x),
-            save: jest.fn(async (x) => x),
+            create: lineCreate,
+            save: lineSave,
           };
         }
         return { create: jest.fn(), save: jest.fn() };
@@ -31,7 +33,7 @@ describe('BackorderRegistrationService', () => {
       dataSource as any,
       stockCommitment as any,
     );
-    return { service, manager, stockCommitment };
+    return { service, manager, stockCommitment, lineSave };
   }
 
   it('buildInitialBackorderMetadata defaults OPEN and zero deposit', () => {
@@ -44,7 +46,7 @@ describe('BackorderRegistrationService', () => {
   });
 
   it('createStockReservationForBackorder reserves inventariable lines', async () => {
-    const { service, stockCommitment } = build();
+    const { service, stockCommitment, lineSave } = build();
     await service.createStockReservationForBackorder({
       companyId: 'co-1',
       branchId: 'br-1',
@@ -72,6 +74,9 @@ describe('BackorderRegistrationService', () => {
         storageId: 'st-1',
         qty: 2,
       }),
+    );
+    expect(lineSave).toHaveBeenCalledWith(
+      expect.objectContaining({ companyId: 'co-1' }),
     );
   });
 

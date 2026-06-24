@@ -67,6 +67,13 @@ import {
 } from '../domain/company-identity.types';
 import { PaymentMethod } from '@modules/transactions/domain/transaction.entity';
 import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
+import { Branch } from '@modules/branches/domain/branch.entity';
+import { Storage } from '@modules/storages/domain/storage.entity';
+import { PriceList } from '@modules/price-lists/domain/price-list.entity';
+import {
+  alignBranchFromStorage,
+  validateEShopOperationalSettingsWithRepos,
+} from '@modules/e-shop/application/helpers/eshop-operational-context.util';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { CreateCompanyDto } from './dto/create-company.dto';
 
@@ -93,6 +100,12 @@ export class CompaniesService {
     private readonly companyRepository: Repository<Company>,
     @InjectRepository(PointOfSale)
     private readonly posRepository: Repository<PointOfSale>,
+    @InjectRepository(Branch)
+    private readonly branchRepository: Repository<Branch>,
+    @InjectRepository(Storage)
+    private readonly storageRepository: Repository<Storage>,
+    @InjectRepository(PriceList)
+    private readonly priceListRepository: Repository<PriceList>,
   ) {}
 
   /**
@@ -714,6 +727,32 @@ export class CompaniesService {
       eShopFeaturedProductIds:
         raw.eShopFeaturedProductIds ?? current.eShopFeaturedProductIds,
     };
+
+    let operational = merged;
+    if (merged.eShopDefaultStorageId?.trim()) {
+      const storage = await this.storageRepository.findOne({
+        where: {
+          id: merged.eShopDefaultStorageId.trim(),
+          companyId,
+          deletedAt: IsNull(),
+        },
+      });
+      operational = alignBranchFromStorage(merged, storage ?? undefined);
+    }
+
+    const touchesOperational =
+      raw.eShopDefaultBranchId !== undefined ||
+      raw.eShopDefaultStorageId !== undefined ||
+      raw.eShopDefaultPriceListId !== undefined;
+
+    if (operational.eShopEnabled && touchesOperational) {
+      await validateEShopOperationalSettingsWithRepos(companyId, operational, {
+        branchRepo: this.branchRepository,
+        storageRepo: this.storageRepository,
+        priceListRepo: this.priceListRepository,
+      });
+    }
+
     const settings = { ...(company.settings ?? {}) };
     settings.eShopEnabled = merged.eShopEnabled;
     settings.eShopPublicSlug = merged.eShopPublicSlug;
@@ -721,11 +760,14 @@ export class CompaniesService {
     settings.eShopFeaturedProductIds = merged.eShopFeaturedProductIds;
     settings.eShopFreeShippingThreshold = merged.eShopFreeShippingThreshold;
     settings.eShopShippingMode = merged.eShopShippingMode;
-    settings.eShopDefaultBranchId = merged.eShopDefaultBranchId;
-    settings.eShopDefaultPriceListId = merged.eShopDefaultPriceListId;
-    settings.eShopDefaultStorageId = merged.eShopDefaultStorageId;
+    settings.eShopDefaultBranchId = operational.eShopDefaultBranchId;
+    settings.eShopDefaultPriceListId = operational.eShopDefaultPriceListId;
+    settings.eShopDefaultStorageId = operational.eShopDefaultStorageId;
     settings.eShopHeroSliderAutoplaySeconds = merged.eShopHeroSliderAutoplaySeconds;
     settings.eShopStockPolicy = merged.eShopStockPolicy;
+    settings.eShopCustomerPortalEnabled = merged.eShopCustomerPortalEnabled;
+    settings.eShopRegistrationRequireRut = merged.eShopRegistrationRequireRut;
+    settings.eShopShowDebtsInPortal = merged.eShopShowDebtsInPortal;
     company.settings = settings;
     await this.companyRepository.save(company);
     return sanitizeCompanyEShopFlatSettings(

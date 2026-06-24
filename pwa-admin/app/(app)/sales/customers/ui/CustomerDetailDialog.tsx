@@ -17,10 +17,12 @@ import { CustomerDetailQuotasSection } from "./customer-detail/CustomerDetailQuo
 import { CustomerDetailReturnsSection } from "./customer-detail/CustomerDetailReturnsSection";
 import { CustomerDetailCreditNotesSection } from "./customer-detail/CustomerDetailCreditNotesSection";
 import { CustomerDetailBankAccountsSection } from "./customer-detail/CustomerDetailBankAccountsSection";
+import { CustomerDetailEShopSection } from "./customer-detail/CustomerDetailEShopSection";
 
 export type CustomerDetailSectionId =
   | "summary"
   | "credit"
+  | "eshop"
   | "purchases"
   | "backorders"
   | "payments"
@@ -32,6 +34,7 @@ export type CustomerDetailSectionId =
 const NAV_ITEMS: { id: CustomerDetailSectionId; label: string }[] = [
   { id: "summary", label: "Resumen" },
   { id: "credit", label: "Crédito" },
+  { id: "eshop", label: "eShop" },
   { id: "purchases", label: "Compras" },
   { id: "backorders", label: "Encargos" },
   { id: "payments", label: "Pagos" },
@@ -197,6 +200,9 @@ export function CustomerDetailDialog({
                 customerId={customerId?.trim() ?? ""}
                 onDetailUpdated={setDetail}
               />
+            ) : null}
+            {section === "eshop" ? (
+              <CustomerDetailEShopSection detail={detail} loading={loading} />
             ) : null}
             {section === "purchases" && customerId?.trim() ? (
               <CustomerDetailPurchasesSection customerId={customerId.trim()} />

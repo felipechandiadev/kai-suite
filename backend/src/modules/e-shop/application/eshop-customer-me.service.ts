@@ -68,6 +68,7 @@ export class EshopCustomerMeService {
     return {
       customerId: customer.id,
       email: session.email,
+      username: session.username,
       emailVerified: session.emailVerified,
       firstName: person?.firstName ?? '',
       lastName: person?.lastName ?? null,

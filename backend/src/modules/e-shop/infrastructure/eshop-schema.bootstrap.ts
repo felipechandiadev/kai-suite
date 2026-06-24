@@ -91,6 +91,41 @@ export class EShopSchemaBootstrap implements OnModuleInit {
         CREATE INDEX IF NOT EXISTS "idx_e_shop_fulfillment_methods_company_id"
         ON "e_shop_fulfillment_methods" ("company_id");
       `);
+      await this.dataSource.query(`
+        CREATE TABLE IF NOT EXISTS "eshop_customer_accounts" (
+          "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+          "company_id" uuid NOT NULL,
+          "customer_id" uuid NOT NULL,
+          "email" character varying(255) NOT NULL,
+          "password_hash" character varying(255) NOT NULL,
+          "session_token" uuid,
+          "email_verified_at" TIMESTAMP,
+          "email_verification_token" character varying(64),
+          "password_reset_token" character varying(64),
+          "password_reset_expires_at" TIMESTAMP,
+          "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+          "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
+          CONSTRAINT "PK_eshop_customer_accounts" PRIMARY KEY ("id"),
+          CONSTRAINT "UQ_eshop_customer_accounts_company_email" UNIQUE ("company_id", "email")
+        );
+      `);
+      await this.dataSource.query(`
+        CREATE INDEX IF NOT EXISTS "idx_eshop_customer_accounts_customer_id"
+        ON "eshop_customer_accounts" ("customer_id");
+      `);
+      await this.dataSource.query(`
+        CREATE INDEX IF NOT EXISTS "idx_eshop_customer_accounts_session_token"
+        ON "eshop_customer_accounts" ("session_token");
+      `);
+      await this.dataSource.query(`
+        ALTER TABLE "eshop_customer_accounts"
+        ADD COLUMN IF NOT EXISTS "username" character varying(30);
+      `);
+      await this.dataSource.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS "idx_eshop_customer_accounts_company_username"
+        ON "eshop_customer_accounts" ("company_id", "username")
+        WHERE "username" IS NOT NULL;
+      `);
       this.logger.log('eShop schema bootstrap OK');
     } catch (err) {
       this.logger.error(

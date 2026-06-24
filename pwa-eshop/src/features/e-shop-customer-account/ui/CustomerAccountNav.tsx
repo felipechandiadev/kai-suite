@@ -1,36 +1,29 @@
 "use client";
 
-import Link from "next/link";
+import { useMemo } from "react";
 import { usePathname } from "next/navigation";
+import Tabs from "@/shared/components/Tabs";
 
-const LINKS = [
-  { href: "/cuenta", label: "Resumen", exact: true },
-  { href: "/cuenta/pedidos", label: "Pedidos" },
-  { href: "/cuenta/pagos", label: "Pagos" },
-  { href: "/cuenta/deudas", label: "Deudas" },
-  { href: "/cuenta/perfil", label: "Perfil" },
+const items = [
+  { url: "/cuenta", label: "Resumen" },
+  { url: "/cuenta/pedidos", label: "Pedidos" },
+  { url: "/cuenta/pagos", label: "Pagos" },
+  { url: "/cuenta/deudas", label: "Deudas" },
+  { url: "/cuenta/perfil", label: "Perfil" },
 ];
+
+function activeTabUrl(pathname: string): string {
+  const matches = items.filter(
+    (tab) => pathname === tab.url || pathname.startsWith(`${tab.url}/`),
+  );
+  if (matches.length === 0) {
+    return "/cuenta";
+  }
+  return [...matches].sort((a, b) => b.url.length - a.url.length)[0]!.url;
+}
 
 export function CustomerAccountNav() {
   const pathname = usePathname();
-  return (
-    <nav className="flex flex-wrap gap-2 border-b border-border pb-3">
-      {LINKS.map((link) => {
-        const active = link.exact ? pathname === link.href : pathname.startsWith(link.href);
-        return (
-          <Link
-            key={link.href}
-            href={link.href}
-            className={`rounded-md px-3 py-1.5 text-sm ${
-              active
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            }`}
-          >
-            {link.label}
-          </Link>
-        );
-      })}
-    </nav>
-  );
+  const activeTab = useMemo(() => activeTabUrl(pathname), [pathname]);
+  return <Tabs items={items} activeTab={activeTab} />;
 }

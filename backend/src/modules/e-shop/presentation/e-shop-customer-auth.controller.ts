@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { SkipTenant } from '@common/tenant';
 import { EShopStoreGuard } from './eshop-store.guard';
 import { EShopStore } from './eshop-store.decorator';
@@ -11,11 +11,20 @@ import { EshopCustomerAuthService } from '../application/eshop-customer-auth.ser
 export class EShopCustomerAuthController {
   constructor(private readonly auth: EshopCustomerAuthService) {}
 
+  @Get('check-username')
+  checkUsername(
+    @EShopStore() store: EShopStoreContext,
+    @Query('username') username?: string,
+  ) {
+    return this.auth.checkUsernameAvailable(store.companyId, username ?? '');
+  }
+
   @Post('register')
   register(
     @EShopStore() store: EShopStoreContext,
     @Body()
     body: {
+      username: string;
       email: string;
       password: string;
       firstName: string;
@@ -30,9 +39,10 @@ export class EShopCustomerAuthController {
   @Post('login')
   login(
     @EShopStore() store: EShopStoreContext,
-    @Body() body: { email: string; password: string },
+    @Body() body: { login?: string; email?: string; password: string },
   ) {
-    return this.auth.login(store.companyId, body);
+    const login = body.login?.trim() || body.email?.trim() || '';
+    return this.auth.login(store.companyId, { login, password: body.password });
   }
 
   @Post('verify-email')

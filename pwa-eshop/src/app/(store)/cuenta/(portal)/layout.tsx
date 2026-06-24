@@ -1,21 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-
-async function requireCustomerSession() {
-  const token = await getCustomerSessionToken();
-  if (!token) redirect("/cuenta/login?next=/cuenta");
-  return token;
-}
+import { logoutCustomerAction } from "@/features/e-shop-customer-account/actions/customer-account.action";
+import { requireCustomerPortalSession } from "@/features/e-shop-customer-account/lib/customer-portal-session";
+import { CustomerAccountNav } from "@/features/e-shop-customer-account/ui/CustomerAccountNav";
+import { StorePageShell } from "@/shared/components/StorePageShell";
 
 export default async function CuentaLayout({ children }: { children: React.ReactNode }) {
-  const token = await requireCustomerSession();
-  let email = "";
-  try {
-    const profile = await EShopCustomerAccountRequest.getProfile(token);
-    email = profile.email;
-  } catch {
-    redirect("/cuenta/login?next=/cuenta");
-  }
+  const { profile } = await requireCustomerPortalSession("/cuenta");
+  const email = profile.email;
+  const emailVerified = profile.emailVerified;
 
   return (
     <StorePageShell>
@@ -34,6 +27,15 @@ export default async function CuentaLayout({ children }: { children: React.React
           </button>
         </form>
       </div>
+      {!emailVerified ? (
+        <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
+          Tu correo aún no está verificado. Revisa tu bandeja o{" "}
+          <Link href="/cuenta/verificacion-pendiente" className="font-medium underline">
+            instrucciones de verificación
+          </Link>
+          . Pagos y deudas requieren verificación.
+        </div>
+      ) : null}
       <CustomerAccountNav />
       <div className="mt-6">{children}</div>
     </StorePageShell>
