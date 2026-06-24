@@ -9,6 +9,9 @@ export type ScaleStorageV1 = {
   delimiter: string;
   requestCommand: string;
   outputUnit: ScaleOutputUnit;
+  /** Índice en `navigator.serial.getPorts()` tras autorizar en el navegador. */
+  selectedPortIndex?: number;
+  /** Filtro opcional; omitir para mostrar todos los puertos en el diálogo de Chrome. */
   usbVendorId?: number;
   usbProductId?: number;
 };

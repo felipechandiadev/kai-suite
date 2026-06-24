@@ -12,7 +12,7 @@ import Alert from "@/shared/components/Alert/Alert";
 import { Button } from "@/shared/components/Button";
 import { TextField } from "@/shared/components/TextField/TextField";
 import { Select } from "@/shared/components/Select";
-import { listMetalPricesForPage } from "@/features/metal-prices/actions/metal-price.action";
+import { fetchMetalPricesForPage } from "@/features/metal-prices/lib/fetch-metal-prices-for-page";
 import { METAL_SELECT_OPTIONS } from "@/features/metal-prices/lib/metal-options";
 import { latestMetalPriceByMetal } from "@/features/metal-prices/lib/metal-price-latest";
 import type { MetalTypeOption } from "@/features/metal-prices/types/metal-price.types";
@@ -95,7 +95,7 @@ export function VariantJewelryPriceCalculatorDialog({
     setMetalPricesLoading(true);
     void (async () => {
       try {
-        const rows = await listMetalPricesForPage();
+        const rows = await fetchMetalPricesForPage();
         if (cancelled) {
           return;
         }
@@ -287,6 +287,7 @@ export function VariantJewelryPriceCalculatorDialog({
           type="number"
           value={merma}
           onChange={(e) => setMerma(e.target.value)}
+          selectOnFocus
           data-test-id="variant-jewelry-calc-merma"
         />
         <TextField
@@ -295,6 +296,7 @@ export function VariantJewelryPriceCalculatorDialog({
           type="number"
           value={utilidad}
           onChange={(e) => setUtilidad(e.target.value)}
+          selectOnFocus
           data-test-id="variant-jewelry-calc-utilidad"
         />
         <TextField

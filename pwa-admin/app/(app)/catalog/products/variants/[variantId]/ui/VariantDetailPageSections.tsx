@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Alert from "@/shared/components/Alert/Alert";
 import Badge from "@/shared/components/Badge/Badge";
@@ -13,7 +13,6 @@ import {
 } from "@/shared/components/StockThresholdField/StockThresholdField";
 import IconButton from "@/shared/components/IconButton/IconButton";
 import {
-  listVariantSalePriceHistoryAction,
   updateProductVariantIdentityPartialAction,
   updateProductVariantInventoryPartialAction,
   updateProductVariantLogisticsAction,
@@ -29,14 +28,14 @@ import {
   type StorageThresholdDraft,
 } from "@/features/inventory-stock/lib/variant-stock-threshold-config";
 import { VariantDetailStorageThresholdsBlock } from "./VariantDetailStorageThresholdsBlock";
-import { listUnitsForPage } from "@/features/inventory-units/actions/unit.action";
 import type { UnitListItem } from "@/features/inventory-units/types/unit.types";
 import { dimensionLabel } from "@/features/inventory-units/types/unit.types";
-import { listPriceListsForPage } from "@/features/sales-price-lists/actions/price-list.action";
+import { fetchUnitsForPage } from "@/features/inventory-units/lib/fetch-units-for-page";
 import type { PriceListListItem } from "@/features/sales-price-lists/types/price-list.types";
-import { listTaxesForPage } from "@/features/accounting-taxes/actions/tax.action";
+import { fetchPriceListsForPage } from "@/features/sales-price-lists/lib/fetch-price-lists-for-page";
 import type { TaxListItem } from "@/features/accounting-taxes/types/tax.types";
-import { listAttributesForPage } from "@/features/inventory-attributes/actions/attribute.action";
+import { fetchTaxesForPage } from "@/features/accounting-taxes/lib/fetch-taxes-for-page";
+import { fetchAttributesForPage } from "@/features/inventory-attributes/lib/fetch-attributes-for-page";
 import type { AttributeListItem } from "@/features/inventory-attributes/types/attribute.types";
 import type { ProductVariantGridRow } from "@/features/inventory-products/types/product-grid.types";
 import {
@@ -59,6 +58,12 @@ import {
   weightInGrams,
   type VariantWeightUnit,
 } from "@/features/inventory-products/lib/variant-weight";
+import {
+  fetchVariantSalePriceHistoryForPage,
+  invalidateVariantSalePriceHistoryCache,
+  lastUpdatedByListIdFromHistory,
+} from "@/features/inventory-products/lib/variant-sale-price-history";
+import type { VariantSalePriceHistoryEntry } from "@/features/inventory-products/types/variant-sale-price-history.types";
 import { VariantSalePriceHistoryPanel } from "./VariantSalePriceHistoryPanel";
 
 function catalogDefaultIvaTaxIds(taxes: TaxListItem[]): string[] {
@@ -175,7 +180,7 @@ export function VariantDetailIdentitySection({
   useEffect(() => {
     void (async () => {
       try {
-        const [list, attrs] = await Promise.all([listUnitsForPage(), listAttributesForPage()]);
+        const [list, attrs] = await Promise.all([fetchUnitsForPage(), fetchAttributesForPage()]);
         setUnits(list);
         setAttributes(attrs);
         if (list.length === 0) {
@@ -671,7 +676,16 @@ export function VariantDetailPricingSection({ productId, variant }: SectionProps
   const [weightValue, setWeightValue] = useState("");
   const [weightUnit, setWeightUnit] = useState<VariantWeightUnit>("g");
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
-  const [lastUpdatedByListId, setLastUpdatedByListId] = useState<Record<string, string>>({});
+  const [historyItems, setHistoryItems] = useState<VariantSalePriceHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const referenceDataLoadIdRef = useRef(0);
+  const historyLoadIdRef = useRef(0);
+
+  const lastUpdatedByListId = useMemo(
+    () => lastUpdatedByListIdFromHistory(historyItems),
+    [historyItems],
+  );
 
   const ivaTaxes = useMemo(
     () => taxes.filter((t) => t.isActive && t.taxType === "IVA"),
@@ -680,9 +694,13 @@ export function VariantDetailPricingSection({ productId, variant }: SectionProps
   const defaultIvaTaxIds = useMemo(() => catalogDefaultIvaTaxIds(taxes), [taxes]);
 
   useEffect(() => {
+    const loadId = ++referenceDataLoadIdRef.current;
     void (async () => {
       try {
-        const [pls, txs] = await Promise.all([listPriceListsForPage(), listTaxesForPage()]);
+        const [pls, txs] = await Promise.all([fetchPriceListsForPage(), fetchTaxesForPage()]);
+        if (loadId !== referenceDataLoadIdRef.current) {
+          return;
+        }
         setPriceLists(pls);
         setTaxes(txs);
         if (!pls.some((p) => p.isActive)) {
@@ -691,6 +709,9 @@ export function VariantDetailPricingSection({ productId, variant }: SectionProps
           setLoadError(null);
         }
       } catch {
+        if (loadId !== referenceDataLoadIdRef.current) {
+          return;
+        }
         setLoadError("No se pudieron cargar listas de precios o impuestos.");
       }
     })();
@@ -710,27 +731,26 @@ export function VariantDetailPricingSection({ productId, variant }: SectionProps
     }
     const vid = variant.id?.trim() ?? "";
     if (!vid) {
-      setLastUpdatedByListId({});
+      setHistoryItems([]);
+      setHistoryLoading(false);
+      setHistoryError(null);
       return;
     }
+    const loadId = ++historyLoadIdRef.current;
+    setHistoryLoading(true);
+    setHistoryError(null);
     void (async () => {
-      const r = await listVariantSalePriceHistoryAction(vid, { limit: 50 });
-      if (!r.success) {
+      const r = await fetchVariantSalePriceHistoryForPage(vid, { limit: 50 });
+      if (loadId !== historyLoadIdRef.current) {
         return;
       }
-      const map: Record<string, string> = {};
-      for (const e of r.items) {
-        const listId = e.priceListId?.trim();
-        const at = e.at?.trim();
-        if (!listId || !at) {
-          continue;
-        }
-        const prev = map[listId];
-        if (!prev || at > prev) {
-          map[listId] = at;
-        }
+      setHistoryLoading(false);
+      if (r.success) {
+        setHistoryItems(r.items);
+      } else {
+        setHistoryError(r.error);
+        setHistoryItems([]);
       }
-      setLastUpdatedByListId(map);
     })();
   }, [variant.id, editing, historyRefreshKey]);
 
@@ -836,6 +856,7 @@ export function VariantDetailPricingSection({ productId, variant }: SectionProps
           }
         }
         setEditing(false);
+        invalidateVariantSalePriceHistoryCache(vid, { limit: 50 });
         setHistoryRefreshKey((k) => k + 1);
         await router.refresh();
       })();
@@ -1006,9 +1027,10 @@ export function VariantDetailPricingSection({ productId, variant }: SectionProps
         data-test-id="pv-section-sale-price-history"
       >
         <VariantSalePriceHistoryPanel
-          variantId={variant.id}
+          items={historyItems}
+          loading={historyLoading}
+          error={historyError}
           formatMoney={formatMoney}
-          refreshKey={historyRefreshKey}
         />
       </section>
     ) : null}

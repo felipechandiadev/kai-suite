@@ -11,8 +11,7 @@ const DEFAULTS: ScaleStorageV1 = {
   delimiter: "\r\n",
   requestCommand: "",
   outputUnit: "g",
-  usbVendorId: 0x0403,
-  usbProductId: 0x6001,
+  selectedPortIndex: 0,
 };
 
 function parseUsbId(value: unknown): number | undefined {
@@ -48,8 +47,12 @@ export function readScaleConfigFromStorage(): ScaleStorageV1 {
         parsed.outputUnit === "oz" || parsed.outputUnit === "ct" || parsed.outputUnit === "g"
           ? parsed.outputUnit
           : DEFAULTS.outputUnit,
-      usbVendorId: parseUsbId(parsed.usbVendorId) ?? DEFAULTS.usbVendorId,
-      usbProductId: parseUsbId(parsed.usbProductId) ?? DEFAULTS.usbProductId,
+      selectedPortIndex:
+        typeof parsed.selectedPortIndex === "number" && parsed.selectedPortIndex >= 0
+          ? parsed.selectedPortIndex
+          : DEFAULTS.selectedPortIndex,
+      usbVendorId: parseUsbId(parsed.usbVendorId),
+      usbProductId: parseUsbId(parsed.usbProductId),
     };
   } catch {
     return { ...DEFAULTS };

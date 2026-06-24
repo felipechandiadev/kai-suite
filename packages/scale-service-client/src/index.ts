@@ -16,9 +16,12 @@ export { parseScaleFrame, normalizeWeightToGrams, buildScaleReading } from "./pa
 export {
   isWebSerialSupported,
   buildSerialPortFilters,
+  formatSerialPortLabel,
   requestSerialPort,
   getAuthorizedSerialPorts,
+  probeSerialCommunication,
   readWeightViaWebSerial,
+  type ProbeSerialResult,
 } from "./web-serial";
 
 export { readWeightFromScale, type ReadWeightOptions } from "./read-weight";

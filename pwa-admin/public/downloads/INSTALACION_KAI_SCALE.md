@@ -1,34 +1,34 @@
 # Instalación — Balanza serial (Web Serial)
 
-Guía para joyerías que usan **pwa-admin** con balanza USB-serial.
+Guía para joyerías que usan **pwa-admin** con balanza conectada por cable serial.
 
-## Requisitos
+## Requisitos en el equipo
 
-- PC con **Chrome** o **Edge** (Web Serial API).
-- Convertidor USB-serial (típico FTDI) conectado a la balanza.
-- Balanza configurada en **9600 baud, 8N1** (modelo referencia A6701979).
+- **Windows:** cable instalado y puerto **COM** visible en Administrador de dispositivos (p. ej. COM3).
+- **macOS:** el adaptador USB-serial suele reconocerse al conectar.
+- Navegador **Chrome** o **Edge** en el mismo PC donde está la balanza.
+- Balanza en **9600 baud, 8N1** (modelo referencia A6701979).
 
-## Configuración
+## Configuración en pwa-admin
 
-1. Abra **pwa-admin** en Chrome/Edge en el mismo PC donde está el USB.
-2. Vaya a **Configuración → Balanza**.
+1. Abra **Configuración → Balanza** (`/settings/scale`).
+2. Pulse **Seleccionar puerto COM / serial** y elija el dispositivo en el diálogo de Chrome.
 3. Active **Balanza habilitada**.
-4. Pulse **Conectar / autorizar puerto USB** y seleccione el dispositivo en el diálogo del navegador.
-5. Coloque un objeto en la balanza y pulse **Leer peso** para verificar.
-6. Pulse **Guardar configuración**.
+4. **Probar comunicación** (presione PRINT en la balanza si no hay comando automático).
+5. **Probar pesaje** con un objeto en la bandeja.
+6. **Guardar configuración**.
 
 ## Uso en precios de joyería
 
-1. **Catálogo → Productos** → crear o editar variante.
-2. En filas de precio, ícono **gema** (calculadora joyería).
-3. Pulse **Leer balanza** junto al campo peso.
-4. Revise el precio neto calculado y **Aplicar precio neto**.
+1. **Catálogo → Productos** → variante → ícono **gema**.
+2. **Leer balanza** junto al campo peso.
+3. **Aplicar precio neto**.
 
 ## Solución de problemas
 
 | Síntoma | Acción |
 |---------|--------|
-| «Web Serial no disponible» | Use Chrome/Edge en el mismo PC con la balanza USB |
-| Timeout al leer | Presione **PRINT** en la balanza o configure comando de solicitud |
-| Puerto no listado | Revise cable USB y drivers FTDI |
-| Peso en oz | Configure unidad esperada; se convierte a gramos automáticamente |
+| Sin puerto en el diálogo | Revise cable, driver y que Windows muestre el COM |
+| «Web Serial no disponible» | Use Chrome/Edge en el mismo PC |
+| Timeout al leer | Presione **PRINT** en la balanza o revise baud 9600 |
+| Peso en oz | Configure unidad esperada; se convierte a gramos |

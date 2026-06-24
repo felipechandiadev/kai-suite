@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { listAttributesForPage } from "@/features/inventory-attributes/actions/attribute.action";
+import { fetchAttributesForPage } from "@/features/inventory-attributes/lib/fetch-attributes-for-page";
 import type { AttributeListItem } from "@/features/inventory-attributes/types/attribute.types";
 import type { ProductVariantGridRow } from "@/features/inventory-products/types/product-grid.types";
 import { MultimediaField } from "@/shared/components/Multimedia";
@@ -50,7 +50,7 @@ export function VariantDetailMultimediaSection({ variant }: VariantDetailMultime
 
   useEffect(() => {
     void (async () => {
-      const list = await listAttributesForPage();
+      const list = await fetchAttributesForPage();
       setAttributes(list);
     })();
   }, []);
