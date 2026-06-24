@@ -1,7 +1,11 @@
 package com.kaistore.printers.protocol
 
+import com.kaistore.printers.BuildConfig
 import com.kaistore.printers.bluetooth.BondedDevicesRepository
 import com.kaistore.printers.data.AgentRepository
+import com.kaistore.printers.print.EscPosTestBytes
+import com.kaistore.printers.print.transport.PrinterRef
+import com.kaistore.printers.print.transport.TransportFactory
 import com.kaistore.printers.print.PaperProfile
 import com.kaistore.printers.print.PrintFormat
 import com.kaistore.printers.print.PrintFormats
@@ -32,6 +36,7 @@ data class ConnectedSession(
 class ProtocolDispatcher(
     private val repository: AgentRepository,
     private val bonded: BondedDevicesRepository,
+    private val transport: TransportFactory,
     private val broadcaster: EventBroadcaster,
     private val queueWorker: PrintQueueWorker,
 ) {
@@ -100,12 +105,14 @@ class ProtocolDispatcher(
                     pointOfSaleName = posName,
                 ),
             )
-            val health = PrinterHealthBuilder.build(repository, bonded)
+            val health = PrinterHealthBuilder.build(repository, transport)
             val data = buildJsonObject {
                 put("serviceStatus", serviceStatusPayload())
                 put("printerHealth", health["payload"]!!)
                 put("agentCapabilities", JsonArray(AGENT_CAPABILITIES_MVP.map { JsonPrimitive(it) }))
                 put("ticketEscposEnabled", true)
+                put("versionName", BuildConfig.VERSION_NAME)
+                put("versionCode", BuildConfig.VERSION_CODE)
             }
             broadcaster.tryEmit(health.toString())
             return encodeOk(requestId, data)
@@ -201,6 +208,7 @@ class ProtocolDispatcher(
                 )
             }
             "print" -> handlePrint(env, requestId)
+            "test_print" -> handleTestPrint(env, requestId)
             else -> encodeErr(requestId, "unknown_action")
         }
     }
@@ -210,7 +218,7 @@ class ProtocolDispatcher(
             ?: return encodeErr(requestId, "missing_type")
         val purpose = env["purpose"]?.jsonPrimitive?.content
             ?: PrintFormats.printFormatToPurpose(PrintFormats.resolve(null, "tickets"))
-        val format = PrintFormats.resolve(env["format"]?.jsonPrimitive?.content, purpose)
+        var format = PrintFormats.resolve(env["format"]?.jsonPrimitive?.content, purpose)
 
         if (PrintFormats.printFormatToPurpose(format) != purpose) {
             return encodeErr(requestId, "format_purpose_mismatch")
@@ -226,6 +234,7 @@ class ProtocolDispatcher(
         val paperProfile = PaperProfile.fromStorage(
             mappingLine?.paperProfile ?: PaperProfile.defaultForPurpose(purpose).storageValue,
         )
+        format = PrintFormats.resolveFormatForMapping(format, paperProfile, purpose)
         if (!PrintFormats.formatsMatchProfile(format, paperProfile)) {
             return encodeErr(requestId, "format_printer_mismatch")
         }
@@ -274,6 +283,29 @@ class ProtocolDispatcher(
                 encodeOk(requestId, buildJsonObject { put("jobId", jobId) })
             }
             else -> encodeErr(requestId, "unsupported_format")
+        }
+    }
+
+    private suspend fun handleTestPrint(env: JsonObject, requestId: String?): String {
+        val purpose = env["purpose"]?.jsonPrimitive?.content ?: "tickets"
+        if (purpose != "tickets") {
+            return encodeErr(requestId, "test_print_tickets_only")
+        }
+        val displayLabel = env["printerDisplayLabel"]?.jsonPrimitive?.content
+            ?: env["printerAlias"]?.jsonPrimitive?.content?.trim()?.takeIf { it.isNotEmpty() }
+        val target = repository.resolvePrinterForPurpose(purpose, displayLabel)
+            ?: return encodeErr(requestId, "no_printer_mapped")
+        val mappingLine = repository.findMappingLine(purpose, displayLabel, target)
+        val paperProfile = PaperProfile.fromStorage(
+            mappingLine?.paperProfile ?: PaperProfile.MM80.storageValue,
+        )
+        val ref = PrinterRef.parse(target) ?: return encodeErr(requestId, "invalid_printer_ref")
+        return try {
+            val bytes = EscPosTestBytes.testPage(paperProfile)
+            transport.write(ref, bytes)
+            encodeOk(requestId, buildJsonObject { put("ok", true) })
+        } catch (e: Exception) {
+            encodeErr(requestId, e.message ?: "test_print_failed")
         }
     }
 

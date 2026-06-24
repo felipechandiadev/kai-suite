@@ -1,6 +1,7 @@
 import type { PosSaleReceiptData } from "@/app/(pos)/pos/payment/ui/PosSaleReceiptDialog";
 import {
   agentSupportsPosSaleTicket,
+  emitPrintServiceJobFailed,
   getPosDocumentPrintFormat,
   isPosAgentPrintConfiguredForPurpose,
   POS_SALE_TICKET_PAYLOAD_VERSION,
@@ -116,10 +117,18 @@ export function posSaleReceiptToTicketPayload(
 }
 
 async function assertQueued(res: unknown): Promise<void> {
-  const r = res as { jobId?: string; queued?: boolean };
-  if (r && r.queued === false && !r.jobId) {
-    throw new Error("enqueue_rejected");
+  if (!res || typeof res !== "object") return;
+  const r = res as { jobId?: string; queued?: boolean; ok?: boolean; error?: string };
+  if (r.ok === false) {
+    throw new Error(r.error?.trim() || "enqueue_rejected");
   }
+  if (r.queued === false && !r.jobId?.trim()) {
+    throw new Error(r.error?.trim() || "enqueue_rejected");
+  }
+}
+
+function isPosAndroidTablet(): boolean {
+  return typeof navigator !== "undefined" && /android/i.test(navigator.userAgent);
 }
 
 async function enqueueSaleTicketOnAgent(
@@ -160,16 +169,16 @@ export async function printPosSaleTicketAgentOrBrowser(
     return printPosTicketFailureDocumentFallback(documentHtml, ticketMeta);
   }
 
-  const logoBase64 = await fetchReceiptLogoBase64(
-    data.company.logoUrl,
-    window.location.origin,
-  );
-  const ticketVector = posSaleReceiptToTicketPayload(data, { logoBase64 });
+  const logoBase64 = isPosAndroidTablet()
+    ? null
+    : await fetchReceiptLogoBase64(data.company.logoUrl, window.location.origin);
+  const ticketVector = posSaleReceiptToTicketPayload(data, { logoBase64: logoBase64 ?? null });
   let enqueued = false;
 
   try {
     await withPrintAgentConnection("tickets", async (conn, hello: HelloResponseData | null) => {
-      if (!agentSupportsPosSaleTicket(hello)) {
+      // Si hello tarda (tablet ocupada tras el pago), igual encolamos: el servidor ya recibió hello en onopen.
+      if (hello != null && !agentSupportsPosSaleTicket(hello)) {
         throw new Error("agent_no_pos_sale_ticket");
       }
       enqueued = await enqueueVectorTicketWithMappingFallback(
@@ -183,7 +192,14 @@ export async function printPosSaleTicketAgentOrBrowser(
       );
     });
   } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
     console.warn(`${LOG} agente no disponible o encolado falló:`, e);
+    emitPrintServiceJobFailed(msg);
+    if (!isPosAndroidTablet()) {
+      console.warn(`${LOG} ticket falló → documento (hoja)`);
+      return printPosTicketFailureDocumentFallback(documentHtml, ticketMeta);
+    }
+    throw e instanceof Error ? e : new Error(msg);
   }
 
   if (enqueued) {
@@ -191,13 +207,22 @@ export async function printPosSaleTicketAgentOrBrowser(
     return "agent";
   }
 
-  console.warn(`${LOG} ticket falló → documento (hoja)`);
-  return printPosTicketFailureDocumentFallback(documentHtml, ticketMeta);
+  const rejectMsg = "enqueue_rejected";
+  emitPrintServiceJobFailed(rejectMsg);
+  if (!isPosAndroidTablet()) {
+    console.warn(`${LOG} ticket falló → documento (hoja)`);
+    return printPosTicketFailureDocumentFallback(documentHtml, ticketMeta);
+  }
+  throw new Error(rejectMsg);
 }
 
 export function printPosSaleTicketAgentOrBrowserFireAndForget(
   data: PosSaleReceiptData,
-  meta: PosSaleTicketPrintExtras,
+  meta: PosSaleTicketPrintExtras & { format?: PrintFormat },
 ): void {
-  void printPosSaleTicketAgentOrBrowser(data, meta);
+  void printPosSaleTicketAgentOrBrowser(data, meta).catch((e) => {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`${LOG} impresión venta falló:`, e);
+    emitPrintServiceJobFailed(msg);
+  });
 }

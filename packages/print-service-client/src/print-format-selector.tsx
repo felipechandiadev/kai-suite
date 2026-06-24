@@ -6,6 +6,8 @@ import { PRINT_FORMATS, describePrintFormat } from "./print-format";
 type Props = {
   value: PrintFormat;
   onChange: (format: PrintFormat) => void;
+  /** Si se omite, se muestran los cuatro formatos. */
+  allowedFormats?: PrintFormat[];
   disabled?: boolean;
   className?: string;
   "data-test-id"?: string;
@@ -24,10 +26,16 @@ const SHORT_LABELS: Record<PrintFormat, string> = {
 export function PrintFormatSelector({
   value,
   onChange,
+  allowedFormats,
   disabled = false,
   className = "",
   "data-test-id": dataTestId = "print-format-selector",
 }: Props) {
+  const formats =
+    allowedFormats && allowedFormats.length > 0
+      ? PRINT_FORMATS.filter((f) => allowedFormats.includes(f))
+      : PRINT_FORMATS;
+
   return (
     <div
       className={`flex flex-wrap gap-1 rounded-lg border border-border bg-muted/20 p-1 ${className}`}
@@ -35,7 +43,7 @@ export function PrintFormatSelector({
       aria-label="Formato de impresión"
       data-test-id={dataTestId}
     >
-      {PRINT_FORMATS.map((format) => {
+      {formats.map((format) => {
         const active = value === format;
         return (
           <button

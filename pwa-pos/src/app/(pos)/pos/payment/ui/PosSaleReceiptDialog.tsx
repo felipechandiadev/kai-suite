@@ -12,6 +12,7 @@ import type { AppliedSnapshot } from "@/features/promotions/lib/discount-engine.
 import type { LoadedQuotationMeta } from "@/features/pos-cart/cart-storage";
 import {
   describePrintFormat,
+  formatPrintJobFailedMessage,
   getPosDocumentPrintFormat,
   isDocumentPrintFormat,
   PrintFormatSelector,
@@ -20,8 +21,12 @@ import {
 import {
   buildPosSaleDocumentHtml,
   printPosSaleDocument,
+  printPosSaleDocumentAgentOrBrowser,
 } from "@/features/pos-print/lib/pos-sale-document-print";
-import { printPosSaleTicketAgentOrBrowserFireAndForget } from "@/features/pos-print/lib/pos-sale-ticket-agent";
+import {
+  printPosSaleTicketAgentOrBrowser,
+  printPosSaleTicketAgentOrBrowserFireAndForget,
+} from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import { thermalReceiptCssForFormat } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
 import { thermalPreviewWidthCss } from "@/features/pos-print/lib/document-print-format";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";
@@ -521,15 +526,36 @@ function printSaleByFormat(data: PosSaleReceiptData, format: PrintFormat) {
   }
 }
 
+async function autoPrintSaleByFormat(data: PosSaleReceiptData, format: PrintFormat): Promise<void> {
+  const folio = data.folio.trim() || "ticket";
+  if (isDocumentPrintFormat(format)) {
+    await printPosSaleDocumentAgentOrBrowser(data, format);
+    return;
+  }
+  await printPosSaleTicketAgentOrBrowser(data, {
+    filename: `${folio}.escpos`,
+    documentType: data.documentKind === "backorder" ? "BACKORDER" : "SALE",
+    internalFolio: folio,
+    format,
+  });
+}
+
 export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
   const autoPrintForFolioRef = useRef<string | null>(null);
   const [printFormat, setPrintFormat] = useState<PrintFormat>("ticket_80mm");
+  const [autoPrintStatus, setAutoPrintStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (data) {
       setPrintFormat(resolveSalePrintFormat(data));
     }
   }, [data?.folio, data?.documentKind]);
+
+  useEffect(() => {
+    if (!open) {
+      setAutoPrintStatus(null);
+    }
+  }, [open]);
 
   const isDocument = isDocumentPrintFormat(printFormat);
 
@@ -545,13 +571,38 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
       autoPrintForFolioRef.current = null;
       return;
     }
-    if (autoPrintForFolioRef.current === data.folio) return;
-    autoPrintForFolioRef.current = data.folio;
+    const folio = data.folio.trim();
+    if (!folio || autoPrintForFolioRef.current === folio) return;
+    autoPrintForFolioRef.current = folio;
+    const snapshot = data;
+    const format = resolveSalePrintFormat(snapshot);
     const t = window.setTimeout(() => {
-      printSaleByFormat(data, printFormat);
-    }, 350);
+      void (async () => {
+        const run = async () => autoPrintSaleByFormat(snapshot, format);
+        try {
+          await run();
+          setAutoPrintStatus(null);
+        } catch (firstErr) {
+          await new Promise((resolve) => window.setTimeout(resolve, 900));
+          try {
+            await run();
+            setAutoPrintStatus(null);
+          } catch (secondErr) {
+            const raw =
+              secondErr instanceof Error
+                ? secondErr.message
+                : firstErr instanceof Error
+                  ? firstErr.message
+                  : "print_failed";
+            setAutoPrintStatus(
+              `No se pudo enviar el ticket al agente. ${formatPrintJobFailedMessage(raw)} Usá «Imprimir de nuevo».`,
+            );
+          }
+        }
+      })();
+    }, 1200);
     return () => clearTimeout(t);
-  }, [open, data, printFormat]);
+  }, [open, data]);
 
   if (!data) return null;
 
@@ -591,6 +642,11 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
           onChange={setPrintFormat}
           data-test-id="pos-sale-receipt-print-format"
         />
+        {autoPrintStatus ? (
+          <p className="text-sm text-destructive" data-test-id="pos-sale-auto-print-error">
+            {autoPrintStatus}
+          </p>
+        ) : null}
         <div
           className={`mx-auto mt-3 max-h-[min(55vh,520px)] w-full overflow-auto rounded-lg border border-border bg-transparent p-2 ${
             isDocument ? "max-w-[min(100%,720px)]" : "max-w-[min(100%,420px)]"

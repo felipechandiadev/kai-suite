@@ -5,9 +5,12 @@ import {
   PrintServiceConnection,
   buildWebSocketUrl,
   printServicePageRequiresTls,
+  printFormatsForPosDocumentKind,
   readPrintServiceConfigFromStorage,
   readPosDocumentPrintFormatsFromStorage,
   readPosPurposePrinterAliasesFromStorage,
+  sanitizePosDocumentPrintFormat,
+  type KaiPrintersAndroidManifest,
   type PosDocumentPrintKind,
   type PrintFormat,
   PrintFormatSelector,
@@ -18,11 +21,15 @@ import {
 } from "@flowstore/print-service-client";
 import { Button, Select, Switch, TextField } from "@/shared/admin-shared";
 import { printPosDocumentTest } from "@/features/pos-print/lib/print-pos-document-test";
+import { printPosQuickTicketTest } from "@/features/pos-print/lib/print-pos-quick-print-test";
 import { DocumentPrintTestButton } from "@/features/pos-print/ui/DocumentPrintTestButton";
 import { PosCustomerDisplaySettingsSection } from "@/features/customer-display/ui/PosCustomerDisplaySettingsSection";
+import type { KaiScreenAndroidManifest } from "@flowstore/customer-display-client";
 
 type Props = {
   className?: string;
+  kaiPrintersAndroidManifest?: KaiPrintersAndroidManifest;
+  kaiScreenAndroidManifest?: KaiScreenAndroidManifest;
 };
 
 function stringList(v: unknown): string[] {
@@ -55,7 +62,11 @@ function aliasSelectOptions(aliases: string[], current: string) {
   return options;
 }
 
-export function PosLocalPrintPreferencesForm({ className = "" }: Props) {
+export function PosLocalPrintPreferencesForm({
+  className = "",
+  kaiPrintersAndroidManifest,
+  kaiScreenAndroidManifest,
+}: Props) {
   const formId = useId();
   const [host, setHost] = useState("127.0.0.1");
   const [port, setPort] = useState("14567");
@@ -70,6 +81,9 @@ export function PosLocalPrintPreferencesForm({ className = "" }: Props) {
     useState<Record<PosDocumentPrintKind, PrintFormat>>(INITIAL_DOC_PRINT_FORMATS);
   const [storageHydrated, setStorageHydrated] = useState(false);
   const [testPrintBusyKind, setTestPrintBusyKind] = useState<PosDocumentPrintKind | null>(null);
+  const [quickTestBusy, setQuickTestBusy] = useState(false);
+  const [saleDemoTestBusy, setSaleDemoTestBusy] = useState(false);
+  const [quickTestMessage, setQuickTestMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const c = readPrintServiceConfigFromStorage();
@@ -80,7 +94,12 @@ export function PosLocalPrintPreferencesForm({ className = "" }: Props) {
     const a = readPosPurposePrinterAliasesFromStorage();
     setTicketsAlias(a.ticketsAlias);
     setDocumentsAlias(a.documentsAlias);
-    setDocPrintFormats(readPosDocumentPrintFormatsFromStorage());
+    const stored = readPosDocumentPrintFormatsFromStorage();
+    const sanitized = { ...stored };
+    for (const kind of Object.keys(stored) as PosDocumentPrintKind[]) {
+      sanitized[kind] = sanitizePosDocumentPrintFormat(kind, stored[kind]);
+    }
+    setDocPrintFormats(sanitized);
     setStorageHydrated(true);
   }, []);
 
@@ -146,6 +165,83 @@ export function PosLocalPrintPreferencesForm({ className = "" }: Props) {
     setDocPrintFormats((prev) => ({ ...prev, [kind]: format }));
   }, []);
 
+  const runQuickTicketTest = useCallback(async () => {
+    if (quickTestBusy || testPrintBusyKind) return;
+    setQuickTestBusy(true);
+    setQuickTestMessage(null);
+    try {
+      const result = await printPosQuickTicketTest({
+        host: host.trim() || "127.0.0.1",
+        port: Number(port) || 14567,
+        wssPort: Number(wssPort) || 14568,
+        useTls,
+        ticketsAlias,
+        saleFormat: docPrintFormats.sale,
+      });
+      setQuickTestMessage(result.detail);
+    } catch (e) {
+      const msg =
+        e instanceof Error
+          ? e.message
+          : "No se pudo enviar la impresión de prueba. Revisá Kai Printers y el alias de Tickets.";
+      setQuickTestMessage(msg);
+      window.alert(msg);
+    } finally {
+      setQuickTestBusy(false);
+    }
+  }, [
+    quickTestBusy,
+    testPrintBusyKind,
+    host,
+    port,
+    wssPort,
+    useTls,
+    ticketsAlias,
+    docPrintFormats.sale,
+  ]);
+
+  const runSaleDemoTest = useCallback(async () => {
+    if (saleDemoTestBusy || quickTestBusy || testPrintBusyKind) return;
+    setSaleDemoTestBusy(true);
+    setQuickTestMessage(null);
+    try {
+      writePrintServiceConfigToStorage({
+        host: host.trim() || "127.0.0.1",
+        port: Number(port) || 14567,
+        wssPort: Number(wssPort) || 14568,
+        useTls,
+      });
+      writePosPurposePrinterAliasesToStorage({
+        ticketsAlias,
+        documentsAlias,
+      });
+      const channel = await printPosDocumentTest("sale", docPrintFormats.sale);
+      setQuickTestMessage(
+        channel === "agent"
+          ? "Venta demo encolada (mismo flujo que una venta real). Revise la impresora."
+          : "No se encoló en el agente; se abrió el diálogo del navegador.",
+      );
+    } catch (e) {
+      const msg =
+        e instanceof Error ? e.message : "No se pudo enviar la venta demo al agente.";
+      setQuickTestMessage(msg);
+      window.alert(msg);
+    } finally {
+      setSaleDemoTestBusy(false);
+    }
+  }, [
+    saleDemoTestBusy,
+    quickTestBusy,
+    testPrintBusyKind,
+    host,
+    port,
+    wssPort,
+    useTls,
+    ticketsAlias,
+    documentsAlias,
+    docPrintFormats.sale,
+  ]);
+
   const runTestPrint = useCallback(
     async (kind: PosDocumentPrintKind) => {
       if (testPrintBusyKind) return;
@@ -177,7 +273,7 @@ export function PosLocalPrintPreferencesForm({ className = "" }: Props) {
 
   return (
     <>
-      <KaiPrintersDownloadSection />
+      <KaiPrintersDownloadSection initialManifest={kaiPrintersAndroidManifest} />
 
       <form
         id={formId}
@@ -266,6 +362,46 @@ export function PosLocalPrintPreferencesForm({ className = "" }: Props) {
         </section>
 
         <section className="rounded-xl border border-border bg-background p-4 shadow-sm">
+          <h2 className="text-sm font-semibold text-foreground">Probar impresora</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            <strong>Ticket de prueba</strong> usa el agente directo (rápido).{" "}
+            <strong>Venta demo</strong> usa el mismo encolado que una venta real (`pos-sale-ticket`).
+            En Bluetooth espere 1–2 segundos entre pruebas.
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              variant="primary"
+              disabled={
+                !storageHydrated || quickTestBusy || saleDemoTestBusy || testPrintBusyKind !== null
+              }
+              loading={quickTestBusy}
+              onClick={() => void runQuickTicketTest()}
+              data-test-id="pos-print-prefs-quick-test"
+            >
+              Ticket de prueba (agente)
+            </Button>
+            <Button
+              type="button"
+              variant="outlined"
+              disabled={
+                !storageHydrated || quickTestBusy || saleDemoTestBusy || testPrintBusyKind !== null
+              }
+              loading={saleDemoTestBusy}
+              onClick={() => void runSaleDemoTest()}
+              data-test-id="pos-print-prefs-sale-demo-test"
+            >
+              Venta demo (como venta real)
+            </Button>
+          </div>
+          {quickTestMessage ? (
+            <p className="mt-2 text-sm text-muted-foreground" data-test-id="pos-print-prefs-quick-test-message">
+              {quickTestMessage}
+            </p>
+          ) : null}
+        </section>
+
+        <section className="rounded-xl border border-border bg-background p-4 shadow-sm">
           <h2 className="text-sm font-semibold text-foreground">Impresión según documento</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Formato por defecto al imprimir desde el POS (ventas, cotizaciones, cierre de caja, planilla de conteo, etc.).
@@ -310,6 +446,7 @@ export function PosLocalPrintPreferencesForm({ className = "" }: Props) {
                     <PrintFormatSelector
                       value={docPrintFormats[kind]}
                       onChange={(format) => setDocFormat(kind, format)}
+                      allowedFormats={printFormatsForPosDocumentKind(kind)}
                       data-test-id={testId}
                     />
                   ) : (
@@ -326,7 +463,10 @@ export function PosLocalPrintPreferencesForm({ className = "" }: Props) {
         </section>
       </form>
 
-      <PosCustomerDisplaySettingsSection className="mt-6" />
+      <PosCustomerDisplaySettingsSection
+        className="mt-6"
+        kaiScreenAndroidManifest={kaiScreenAndroidManifest}
+      />
 
       <div className="mt-8 flex w-full justify-end pb-16">
         <Button type="submit" form={formId} variant="primary" data-test-id="pos-print-prefs-save">

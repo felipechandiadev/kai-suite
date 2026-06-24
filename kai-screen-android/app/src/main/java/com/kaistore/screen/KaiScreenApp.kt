@@ -1,6 +1,7 @@
 package com.kaistore.screen
 
 import android.app.Application
+import com.kaistore.screen.data.BrandingRepository
 import com.kaistore.screen.data.DisplayAgentRepository
 import com.kaistore.screen.protocol.DisplayProtocolDispatcher
 import com.kaistore.screen.protocol.EventBroadcaster
@@ -17,15 +18,17 @@ class KaiScreenApp : Application() {
         super.onCreate()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
         val repository = DisplayAgentRepository(applicationContext)
+        val brandingRepository = BrandingRepository(applicationContext)
         val broadcaster = EventBroadcaster()
         val dispatcher = DisplayProtocolDispatcher(repository, broadcaster, scope)
         val webSocketServer = DisplayWebSocketServer(repository, broadcaster, dispatcher)
-        container = AppContainer(repository, broadcaster, dispatcher, webSocketServer, scope)
+        container = AppContainer(repository, brandingRepository, broadcaster, dispatcher, webSocketServer, scope)
     }
 }
 
 class AppContainer(
     val repository: DisplayAgentRepository,
+    val brandingRepository: BrandingRepository,
     val broadcaster: EventBroadcaster,
     val dispatcher: DisplayProtocolDispatcher,
     val webSocketServer: DisplayWebSocketServer,

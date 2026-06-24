@@ -55,6 +55,30 @@ object PrintFormats {
     fun formatsMatchProfile(format: PrintFormat, profile: PaperProfile): Boolean =
         formatToPaperProfile(format) == profile
 
+    fun paperProfileToDefaultFormat(profile: PaperProfile): PrintFormat = when (profile) {
+        PaperProfile.MM58 -> PrintFormat.TICKET_58MM
+        PaperProfile.MM80 -> PrintFormat.TICKET_80MM
+        PaperProfile.LETTER -> PrintFormat.DOCUMENT_LETTER
+        PaperProfile.A4 -> PrintFormat.DOCUMENT_A4
+    }
+
+    /**
+     * Si el POS pide ticket_80mm pero la impresora está en 58mm (u otro ticket), usa el perfil físico.
+     * Solo aplica dentro del mismo propósito (ticket o document).
+     */
+    fun resolveFormatForMapping(requested: PrintFormat, paperProfile: PaperProfile, purpose: String): PrintFormat {
+        val purposeFromFormat = printFormatToPurpose(requested)
+        if (purposeFromFormat != purpose) return requested
+        if (formatsMatchProfile(requested, paperProfile)) return requested
+        if (isTicketFormat(requested) && (paperProfile == PaperProfile.MM58 || paperProfile == PaperProfile.MM80)) {
+            return paperProfileToDefaultFormat(paperProfile)
+        }
+        if (isDocumentFormat(requested) && (paperProfile == PaperProfile.LETTER || paperProfile == PaperProfile.A4)) {
+            return paperProfileToDefaultFormat(paperProfile)
+        }
+        return requested
+    }
+
     fun charsPerLine(format: PrintFormat): Int = when (format) {
         PrintFormat.TICKET_58MM -> 32
         PrintFormat.TICKET_80MM -> 48

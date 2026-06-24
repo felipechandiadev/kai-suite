@@ -29,12 +29,13 @@ export function isUnknownPrinterLabelError(e: unknown): boolean {
   return String(e).includes("unknown_printer_display_label");
 }
 
-/** Tickets: primero mapeo por propósito (sin alias), luego con alias del POS. */
+/** Tickets: primero sin alias (impresora por defecto del agente), luego con alias del POS. */
 export async function enqueueVectorTicketWithMappingFallback(
   withAlias: () => Promise<unknown>,
   withoutAlias: () => Promise<unknown>,
   browserFallback?: PosPrintJobBrowserFallback,
 ): Promise<boolean> {
+  let lastUnknownLabel: unknown = null;
   for (const attempt of [withoutAlias, withAlias]) {
     try {
       const res = await attempt();
@@ -43,11 +44,16 @@ export async function enqueueVectorTicketWithMappingFallback(
       }
       return true;
     } catch (e) {
-      if (!isUnknownPrinterLabelError(e)) {
-        console.warn("[KaiStore print] enqueue vector:", e);
-        return false;
+      if (isUnknownPrinterLabelError(e)) {
+        lastUnknownLabel = e;
+        continue;
       }
+      console.warn("[KaiStore print] enqueue vector:", e);
+      throw e;
     }
+  }
+  if (lastUnknownLabel) {
+    console.warn("[KaiStore print] enqueue vector: unknown label", lastUnknownLabel);
   }
   return false;
 }
@@ -113,10 +119,10 @@ export async function withPrintAgentConnection<T>(
 
   try {
     conn.connect();
-    await conn.waitForOpen(12_000);
+    await conn.waitForOpen(15_000);
     reachedOpen = true;
     try {
-      hello = await conn.waitForHello(6_000);
+      hello = await conn.waitForHello(10_000);
     } catch {
       hello = null;
     }

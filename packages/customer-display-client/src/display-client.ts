@@ -7,7 +7,7 @@ import {
   buildCartSnapshotMessage,
   buildDisplayEventMessage,
   buildHelloMessage,
-  DISPLAY_PROTOCOL_VERSION,
+  isSupportedDisplayProtocolVersion,
 } from "./protocol";
 
 export type DisplayConnectionOptions = {
@@ -156,7 +156,7 @@ export class DisplayConnection {
       }
       if (parsed.action === "hello" || parsed.ok === true) {
         const version = parsed.version ?? (parsed.payload as Record<string, unknown> | undefined)?.version;
-        if (version === DISPLAY_PROTOCOL_VERSION || parsed.ok === true) {
+        if (isSupportedDisplayProtocolVersion(typeof version === "string" ? version : null) || parsed.ok === true) {
           this.helloOk = true;
           this.flushPending();
         }

@@ -2,33 +2,26 @@
 
 Archivos estáticos servidos en **`/downloads/`** por la PWA de administración.
 
-## Subir manualmente al VPS
+## Fuente de verdad
 
-Mismo APK que en el POS. Opciones:
-
-1. **Copiar aquí** (misma ruta relativa que en pwa-pos):
+El APK versionado y el manifest se publican desde el POS:
 
 ```text
-{deploy}/pwa-admin/public/downloads/kai-printers-android.apk
+pwa-pos/public/downloads/kai-printers-android-{version}.apk
+pwa-pos/public/downloads/kai-printers-android.manifest.json
 ```
 
-2. **O** apuntar el admin al dominio del POS con env (un solo archivo en el servidor):
+Podés copiar ambos aquí o apuntar el admin al dominio del POS.
+
+## URL personalizada (recomendado)
 
 ```env
-NEXT_PUBLIC_KAI_PRINTERS_ANDROID_URL=https://pos.tu-dominio.cl/downloads/kai-printers-android.apk
+NEXT_PUBLIC_KAI_PRINTERS_ANDROID_URL=https://pos.tu-dominio.cl/downloads/kai-printers-android-1.1.0.apk
 ```
-
-## Archivos esperados
-
-| Archivo | Plataforma |
-|---------|------------|
-| `kai-printers-android.apk` | Android |
-| `kai-printers-windows.exe` | Windows (futuro) |
-| `kai-printers-macos.dmg` | macOS (futuro) |
 
 ## Git
 
-No commitees binarios en el repositorio.
+No commitees binarios. El manifest vive en `pwa-pos/public/downloads/`.
 
 ## Guía operador
 

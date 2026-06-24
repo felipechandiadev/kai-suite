@@ -71,8 +71,61 @@ export function clearPrintServiceNotificationsStorage(clientId: string): void {
 /** Mensaje fijo para desconexión del agente (único tipo «disconnected»). */
 export const PRINT_SERVICE_DISCONNECTED_MESSAGE = "KaiPrinters no está conectado.";
 
+/** Evento para errores síncronos de impresión (encolado rechazado antes de `print_job_failed`). */
+export const PRINT_SERVICE_JOB_FAILED_EVENT = "flowstore:print-service-job-failed";
+
+const PRINT_AGENT_ERROR_MESSAGES_ES: Record<string, string> = {
+  format_printer_mismatch:
+    "El formato del ticket no coincide con el ancho de papel de la impresora en Kai Printers.",
+  format_purpose_mismatch: "El formato elegido no corresponde al tipo de impresora (tickets o documentos).",
+  no_printer_mapped: "No hay impresora asignada para este propósito en Kai Printers.",
+  unsupported_print_type: "Tipo de impresión no soportado por el agente.",
+  ticket_required: "Faltan datos del ticket para imprimir.",
+  payload_required: "Faltan datos del documento para imprimir.",
+  not_connected: "KaiPrinters no está conectado.",
+  enqueue_rejected: "El agente rechazó el trabajo de impresión.",
+  print_failed: "La impresora no pudo completar el trabajo.",
+  test_print_failed: "No se pudo imprimir la página de prueba.",
+  timeout: "Tiempo de espera agotado al contactar Kai Printers.",
+};
+
+export function humanizePrintAgentError(error: string): string {
+  const raw = (error || "").trim();
+  if (!raw) return "error desconocido";
+  for (const [code, message] of Object.entries(PRINT_AGENT_ERROR_MESSAGES_ES)) {
+    if (raw.toLowerCase().includes(code)) return message;
+  }
+  return raw;
+}
+
 export function formatPrintJobFailedMessage(error: string): string {
-  const detail = (error || "error desconocido").trim();
-  const short = detail.length > 120 ? `${detail.slice(0, 117)}…` : detail;
+  const detail = humanizePrintAgentError(error);
+  const short = detail.length > 160 ? `${detail.slice(0, 157)}…` : detail;
   return `Error al imprimir: ${short}`;
+}
+
+export function emitPrintServiceJobFailed(error: string): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent(PRINT_SERVICE_JOB_FAILED_EVENT, {
+      detail: { error: (error || "").trim() },
+    }),
+  );
+}
+
+/** Errores de configuración/protocolo donde el fallback al navegador no ayuda (p. ej. tablet Android). */
+export function isAgentPrintConfigError(error: string): boolean {
+  const e = (error || "").toLowerCase();
+  if (!e) return false;
+  return (
+    e.includes("format_printer_mismatch") ||
+    e.includes("format_purpose_mismatch") ||
+    e.includes("no_printer_mapped") ||
+    e.includes("unsupported_print_type") ||
+    e.includes("ticket_required") ||
+    e.includes("payload_required") ||
+    e.includes("enqueue_rejected") ||
+    e.includes("not_connected") ||
+    e.includes("agent_no_pos_sale_ticket")
+  );
 }

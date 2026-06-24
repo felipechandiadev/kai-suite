@@ -1,42 +1,51 @@
-# Descargas Kai Printers (POS)
+# Descargas agentes locales (POS)
 
 Archivos estáticos servidos en **`/downloads/`** por la PWA del POS.
 
+## Kai Printers — publicar APK Android
+
+Desde la raíz del monorepo:
+
+```bash
+npm run kai-printers:publish
+# o: bash kai-printers-android/scripts/publish-to-pos-downloads.sh [--bump patch|minor|code-only]
+```
+
+| Archivo | En git | Descripción |
+|---------|--------|-------------|
+| `kai-printers-android-{version}.apk` | No | Binario instalable |
+| `kai-printers-android.manifest.json` | Sí | Versión, nombre de archivo y `builtAt` |
+| `INSTALACION_ANDROID.md` | Sí | Guía operador |
+
+## Kai Screen — publicar APK Android
+
+```bash
+npm run kai-screen:publish
+# o: bash kai-screen-android/scripts/publish-to-pos-downloads.sh [--bump patch|minor|code-only]
+```
+
+| Archivo | En git | Descripción |
+|---------|--------|-------------|
+| `kai-screen-android-{version}.apk` | No | Binario instalable |
+| `kai-screen-android.manifest.json` | Sí | Versión, nombre de archivo y `builtAt` |
+| `INSTALACION_KAI_SCREEN_ANDROID.md` | Sí | Guía operador |
+
 ## Subir manualmente al VPS
 
-1. Compilá el APK release firmado.
-2. Copiá el archivo a esta carpeta en el servidor con el nombre esperado:
-
-| Archivo | Plataforma |
-|---------|------------|
-| `kai-printers-android.apk` | Android (tablet / teléfono POS) |
-| `kai-printers-windows.exe` | Windows (futuro) |
-| `kai-printers-macos.dmg` | macOS (futuro) |
-
-**Ruta en el VPS** (deploy con Next):
-
-```text
-{deploy}/pwa-pos/public/downloads/kai-printers-android.apk
-```
-
-URL pública:
-
-```text
-https://TU-DOMINIO-POS/downloads/kai-printers-android.apk
-```
+Copiá el APK versionado y el manifest correspondiente a esta carpeta en el deploy.
 
 ## URL personalizada (opcional)
 
-Si el APK vive en otro host o carpeta nginx, definí en `pwa-pos/.env.local`:
-
 ```env
-NEXT_PUBLIC_KAI_PRINTERS_ANDROID_URL=https://pos.tu-dominio.cl/downloads/kai-printers-android.apk
+NEXT_PUBLIC_KAI_PRINTERS_ANDROID_URL=https://pos.tu-dominio.cl/downloads/kai-printers-android-1.1.4.apk
+NEXT_PUBLIC_KAI_SCREEN_ANDROID_URL=https://pos.tu-dominio.cl/downloads/kai-screen-android-1.0.0.apk
 ```
 
 ## Git
 
-No commitees `.apk`, `.exe` ni `.dmg`. Solo este README; los binarios van en el servidor.
+No commitees `.apk`. Sí commiteá los manifest JSON y las guías `.md`.
 
-## Guía operador
+## Guías operador
 
-Instrucciones para cajeros: [docs/KAI_PRINTERS_INSTALACION_ANDROID.md](../../../docs/KAI_PRINTERS_INSTALACION_ANDROID.md)
+- Kai Printers: [INSTALACION_ANDROID.md](./INSTALACION_ANDROID.md)
+- Kai Screen: [INSTALACION_KAI_SCREEN_ANDROID.md](./INSTALACION_KAI_SCREEN_ANDROID.md)

@@ -16,6 +16,14 @@ val hasReleaseKeystore = keystorePropertiesFile.exists().also { exists ->
     }
 }
 
+val versionPropertiesFile = rootProject.file("version.properties")
+val versionProperties = Properties()
+if (versionPropertiesFile.exists()) {
+    versionProperties.load(versionPropertiesFile.inputStream())
+}
+val appVersionName = versionProperties.getProperty("VERSION_NAME", "1.0.0")
+val appVersionCode = versionProperties.getProperty("VERSION_CODE", "1").toInt()
+
 android {
     namespace = "com.kaistore.printers"
     compileSdk = 35
@@ -24,8 +32,8 @@ android {
         applicationId = "com.kaistore.kaiprinters"
         minSdk = 24
         targetSdk = 33
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -65,6 +73,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {
@@ -86,6 +95,7 @@ dependencies {
     implementation(libs.androidx.core.splashscreen)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)

@@ -1,6 +1,12 @@
 "use client";
 
-import { listKaiPrintersDownloadOffers, type KaiPrintersPlatform } from "./kai-printers-downloads";
+import { useEffect, useState } from "react";
+import {
+  fetchKaiPrintersAndroidManifest,
+  listKaiPrintersDownloadOffers,
+  type KaiPrintersAndroidManifest,
+  type KaiPrintersPlatform,
+} from "./kai-printers-downloads";
 
 function DownloadIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
@@ -63,8 +69,26 @@ function PlatformIcon({
   );
 }
 
-export function KaiPrintersDownloadSection() {
-  const offers = listKaiPrintersDownloadOffers();
+type KaiPrintersDownloadSectionProps = {
+  /** Manifest leído en SSR desde public/downloads (evita enlace a APK viejo antes del fetch). */
+  initialManifest?: KaiPrintersAndroidManifest;
+};
+
+export function KaiPrintersDownloadSection({
+  initialManifest,
+}: KaiPrintersDownloadSectionProps = {}) {
+  const [manifest, setManifest] = useState<KaiPrintersAndroidManifest | null>(
+    initialManifest ?? null,
+  );
+
+  useEffect(() => {
+    void fetchKaiPrintersAndroidManifest().then((fetched) => {
+      setManifest(fetched);
+    });
+  }, []);
+
+  const resolvedManifest = manifest ?? initialManifest;
+  const offers = listKaiPrintersDownloadOffers(resolvedManifest);
   const available = offers.filter((o) => o.href);
   const upcoming = offers.filter((o) => !o.href && o.platform !== "android");
 
@@ -108,15 +132,33 @@ export function KaiPrintersDownloadSection() {
                 <p className="mt-2 text-xs text-muted-foreground">{offer.installHint}</p>
               </div>
             </div>
-            <a
-              href={offer.href!}
-              download={offer.filename}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-              data-test-id={`kai-printers-download-${offer.platform}`}
-            >
-              <DownloadIcon />
-              Descargar
-            </a>
+            <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+              <a
+                href={offer.href!}
+                {...(offer.platform === "android"
+                  ? {}
+                  : { download: offer.filename })}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+                data-test-id={`kai-printers-download-${offer.platform}`}
+              >
+                <DownloadIcon />
+                {offer.version ? `Descargar v${offer.version}` : "Descargar"}
+              </a>
+              {offer.platform === "android" ? (
+                <p className="max-w-xs text-center text-xs text-muted-foreground sm:text-right">
+                  Si Chrome no descarga, abrí{" "}
+                  <a
+                    href={offer.href!}
+                    className="break-all text-primary underline underline-offset-2"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {offer.href}
+                  </a>{" "}
+                  en una pestaña nueva.
+                </p>
+              ) : null}
+            </div>
           </li>
         ))}
 

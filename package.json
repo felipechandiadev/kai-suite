@@ -11,7 +11,9 @@
     "dev:apps": "bash scripts/dev-apps.sh lite",
     "dev:apps:all": "bash scripts/dev-apps.sh all",
     "dev:apps:eshop": "bash scripts/dev-apps.sh eshop",
-    "env:dev": "bash envs/sync-dev-envs.sh --force"
+    "env:dev": "bash envs/sync-dev-envs.sh --force",
+    "kai-printers:publish": "bash kai-printers-android/scripts/publish-to-pos-downloads.sh",
+    "kai-screen:publish": "bash kai-screen-android/scripts/publish-to-pos-downloads.sh"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

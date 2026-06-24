@@ -2,9 +2,9 @@ package com.kaistore.printers.queue
 
 import android.content.Context
 import android.util.Base64
-import com.kaistore.printers.bluetooth.BondedDevicesRepository
-import com.kaistore.printers.bluetooth.BtSppTransport
 import com.kaistore.printers.data.AgentRepository
+import com.kaistore.printers.print.transport.PrinterRef
+import com.kaistore.printers.print.transport.TransportFactory
 import com.kaistore.printers.print.AndroidPdfPrinter
 import com.kaistore.printers.print.PosSaleTicketEscPos
 import com.kaistore.printers.print.PrintFormat
@@ -23,7 +23,7 @@ class PrintQueueWorker(
     private val repository: AgentRepository,
     private val broadcaster: EventBroadcaster,
 ) {
-    private val bonded = BondedDevicesRepository(context.applicationContext)
+    private val transportFactory = TransportFactory(context.applicationContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
     private val wake = AtomicBoolean(false)
@@ -44,17 +44,15 @@ class PrintQueueWorker(
 
                 when {
                     PrintFormats.isTicketFormat(format) -> {
-                        val mac = queued.targetSystemPrinter
+                        val ref = PrinterRef.parse(queued.targetSystemPrinter)
                             ?: throw IllegalStateException("no_target_printer")
-                        val device = bonded.deviceForAddress(mac)
-                            ?: throw IllegalStateException("printer_not_found")
                         val widthChars = PrintFormats.charsPerLine(format)
                         val bytes = if (PrintFormats.isTicketJobType(queued.documentType ?: "")) {
                             PosSaleTicketEscPos.fromTicketJson(payload, widthChars)
                         } else {
                             throw IllegalStateException("unsupported_document_type")
                         }
-                        BtSppTransport.write(device, bytes)
+                        transportFactory.write(ref, bytes)
                     }
                     PrintFormats.isDocumentFormat(format) -> {
                         if (queued.documentType != "pdf-base64") {

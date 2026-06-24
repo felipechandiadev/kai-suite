@@ -91,12 +91,39 @@ class AgentRepository(private val db: AgentDatabase) {
         macAddress: String,
         displayLabel: String,
         paperProfile: String = "80mm",
+    ) = assignTicketsPrinterRef(macAddress, displayLabel, paperProfile)
+
+    suspend fun assignNetworkPrinter(
+        host: String,
+        port: Int,
+        displayLabel: String,
+        paperProfile: String = "80mm",
+    ) = assignTicketsPrinterRef(
+        systemPrinterName = "net:$host:$port",
+        displayLabel = displayLabel,
+        paperProfile = paperProfile,
+    )
+
+    suspend fun assignUsbPrinter(
+        deviceId: Int,
+        displayLabel: String,
+        paperProfile: String = "80mm",
+    ) = assignTicketsPrinterRef(
+        systemPrinterName = "usb:$deviceId",
+        displayLabel = displayLabel,
+        paperProfile = paperProfile,
+    )
+
+    suspend fun assignTicketsPrinterRef(
+        systemPrinterName: String,
+        displayLabel: String,
+        paperProfile: String = "80mm",
     ) = withContext(Dispatchers.IO) {
         val all = mappingLines.getAll().filter { it.purpose != "tickets" }
         val line = MappingLineEntity(
             id = UUID.randomUUID().toString(),
             purpose = "tickets",
-            systemPrinterName = macAddress,
+            systemPrinterName = systemPrinterName,
             sortOrder = 0,
             displayLabel = displayLabel,
             paperProfile = paperProfile,
@@ -105,9 +132,11 @@ class AgentRepository(private val db: AgentDatabase) {
         mappingLines.insertAll(all + line)
     }
 
-    suspend fun ticketsPrinterMac(): String? = withContext(Dispatchers.IO) {
+    suspend fun ticketsPrinterSystemName(): String? = withContext(Dispatchers.IO) {
         mappingLines.getAll().firstOrNull { it.purpose == "tickets" }?.systemPrinterName
     }
+
+    suspend fun ticketsPrinterMac(): String? = ticketsPrinterSystemName()
 
     suspend fun ticketsPaperProfile(): String = withContext(Dispatchers.IO) {
         mappingLines.getAll().firstOrNull { it.purpose == "tickets" }?.paperProfile ?: "80mm"
@@ -148,6 +177,10 @@ class AgentRepository(private val db: AgentDatabase) {
                         put("sortOrder", JsonPrimitive(line.sortOrder))
                         line.displayLabel?.let { put("displayLabel", JsonPrimitive(it)) }
                         put("paperProfile", JsonPrimitive(line.paperProfile))
+                        put(
+                            "ticketEscposEnabled",
+                            JsonPrimitive(line.purpose == "tickets"),
+                        )
                     },
                 )
             }

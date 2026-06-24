@@ -37,8 +37,10 @@ envs/*.env.local
 # Kai Printers Android — firma release (nunca en git)
 kai-printers-android/keystore.properties
 kai-printers-android/release/
+kai-printers-android/dist/
 kai-printers-android/**/*.jks
 kai-printers-android/**/*.keystore
+pwa-pos/public/downloads/kai-printers-android-*.apk
 
 # Rust/Tauri build artifacts
 print-service/src-tauri/target/

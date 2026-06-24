@@ -6,15 +6,20 @@ Guía de 1 página para la **pantalla cliente** en la misma tablet donde corre e
 
 1. Abrí el **POS KaiStore** en Chrome (HTTPS).
 2. Menú **Configuración** → **Impresión local**.
-3. En **Pantalla cliente (Kai Screen)**, tocá **Descargar Kai Screen (Android)**.
-4. Instalá `kai-screen-android.apk`.
+3. En **Pantalla cliente (Kai Screen)**, tocá **Descargar v…** (el número de versión lo muestra el botón).
+4. Instalá el APK (`kai-screen-android-{versión}.apk`).
 
-## 2. Configurar Kai Screen
+Si Chrome no descarga, abrí el enlace del APK en una pestaña nueva.
+
+## 2. Configurar Kai Screen (app Android)
 
 1. Abrí la app **Kai Screen**.
-2. Activá **Iniciar servicio** (notificación «Kai Screen activo»).
-3. Si el POS usa HTTPS: **Confiar certificado WSS** y aceptá en Chrome `https://127.0.0.1:14571`.
-4. Verificá que aparezca **Pantalla cliente conectada** (requiere segunda pantalla física).
+2. En **Conectar con el POS**, completá los pasos en orden:
+   - **Paso 1:** activá el servicio (notificación «Kai Screen activo»).
+   - **Paso 2:** si el POS usa HTTPS, abrí el certificado en Chrome (`https://127.0.0.1:14571`) y tocá **Verificar servidor WSS**.
+   - **Paso 4:** verificá que aparezca **Pantalla cliente conectada** (requiere segunda pantalla física).
+   - Opcional: **Probar pantalla cliente** sin el POS.
+3. Cuando veas **Listo para caja**, la app está operativa.
 
 ## 3. Conectar el POS
 
@@ -27,7 +32,7 @@ En el POS → **Impresión local** → sección **Pantalla cliente**:
 | Usar WSS | Sí (POS HTTPS) |
 | Puerto | `14571` |
 
-Guardá y usá **Probar pantalla** para validar.
+Revisá el **Estado operativo** (checklist) y usá **Probar pantalla** para validar.
 
 ## 4. Uso en caja
 
@@ -40,8 +45,9 @@ Guardá y usá **Probar pantalla** para validar.
 | Síntoma | Qué revisar |
 |---------|-------------|
 | «Sin pantalla secundaria» | Cable HDMI / hardware dual-screen; modelo Sunmi/iMin |
-| POS desconectado | Servicio Kai Screen activo; WSS y certificado confiado |
+| POS desconectado | Servicio Kai Screen activo; WSS y certificado confiado en Chrome |
 | Total no actualiza | Activar Kai Screen en ajustes POS; misma tablet |
+| Descarga 404 | Ejecutar `npm run kai-screen:publish` en el servidor de deploy |
 
 ## Puertos
 

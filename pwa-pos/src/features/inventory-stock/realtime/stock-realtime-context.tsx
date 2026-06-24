@@ -75,19 +75,24 @@ export function PosStockRealtimeProvider({
       setNotificationRows([]);
       return;
     }
-    const [count, inbox] = await Promise.all([
-      fetchUnreadCount(userId, activeCompanyId, "STOCK"),
-      fetchInbox(userId, activeCompanyId, {
-        domain: "STOCK",
-        status: "UNREAD",
-        limit: 50,
-      }),
-    ]);
-    setStockAlertCount(count);
-    const rows = inbox
-      .map((item) => inboxItemToRow(item, "STOCK"))
-      .filter((x): x is NotificationRow => x != null);
-    setNotificationRows(rows);
+    try {
+      const [count, inbox] = await Promise.all([
+        fetchUnreadCount(userId, activeCompanyId, "STOCK"),
+        fetchInbox(userId, activeCompanyId, {
+          domain: "STOCK",
+          status: "UNREAD",
+          limit: 50,
+        }),
+      ]);
+      setStockAlertCount(count);
+      const rows = inbox
+        .map((item) => inboxItemToRow(item, "STOCK"))
+        .filter((x): x is NotificationRow => x != null);
+      setNotificationRows(rows);
+    } catch {
+      setStockAlertCount(0);
+      setNotificationRows([]);
+    }
   }, [userId, activeCompanyId]);
 
   const clearStockAlerts = useCallback(async () => {

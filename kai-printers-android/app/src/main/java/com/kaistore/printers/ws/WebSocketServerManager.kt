@@ -3,6 +3,7 @@ package com.kaistore.printers.ws
 import android.content.Context
 import com.kaistore.printers.bluetooth.BondedDevicesRepository
 import com.kaistore.printers.data.AgentRepository
+import com.kaistore.printers.print.transport.TransportFactory
 import com.kaistore.printers.protocol.EventBroadcaster
 import com.kaistore.printers.protocol.ProtocolDispatcher
 import com.kaistore.printers.queue.PrintQueueWorker
@@ -14,6 +15,10 @@ import io.ktor.server.engine.connector
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.engine.sslConnector
 import io.ktor.server.netty.Netty
+import io.ktor.server.application.call
+import io.ktor.http.ContentType
+import io.ktor.server.response.respondText
+import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.webSocket
@@ -33,6 +38,28 @@ import java.util.concurrent.atomic.AtomicReference
 
 private data class ConnState(var helloOk: Boolean = false)
 
+/** Página mínima para confiar el certificado WSS en Chrome (GET HTTPS, no WebSocket). */
+private const val TRUST_CERT_HTML = """
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kai Printers</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; line-height: 1.5; color: #111; }
+    h1 { font-size: 1.25rem; }
+    p { max-width: 28rem; }
+  </style>
+</head>
+<body>
+  <h1>Kai Printers — servicio local</h1>
+  <p>Si ve esta página, el certificado HTTPS está aceptado y el agente responde en este dispositivo.</p>
+  <p>Cierre esta pestaña y vuelva al <strong>POS</strong> (misma tablet). El icono de impresión debería conectar por WSS.</p>
+</body>
+</html>
+"""
+
 class WebSocketServerManager(
     private val repository: AgentRepository,
     private val broadcaster: EventBroadcaster,
@@ -47,7 +74,8 @@ class WebSocketServerManager(
         if (serverRef.get() != null) return@withContext
         repository.ensureDefaults()
         bonded = BondedDevicesRepository(context.applicationContext)
-        dispatcher = ProtocolDispatcher(repository, bonded, broadcaster, queueWorker)
+        val transport = TransportFactory(context.applicationContext)
+        dispatcher = ProtocolDispatcher(repository, bonded, transport, broadcaster, queueWorker)
 
         val host = repository.listenHost()
         val wsPort = repository.listenPort()
@@ -82,6 +110,9 @@ class WebSocketServerManager(
                 module {
                     install(WebSockets)
                     routing {
+                        get("/") {
+                            call.respondText(TRUST_CERT_HTML, ContentType.Text.Html)
+                        }
                         webSocket("/") {
                             val connId = dispatcher.nextConnId()
                             val state = ConnState()

@@ -12,6 +12,27 @@ data class CustomerDisplayLine(
 )
 
 @Serializable
+data class CustomerDisplayCustomer(
+    val name: String,
+)
+
+@Serializable
+data class CustomerDisplayPaymentLine(
+    val label: String,
+    val amount: Double,
+)
+
+@Serializable
+data class CustomerDisplayPaymentSummary(
+    val amountDueLabel: String,
+    val amountToPay: Double,
+    val appliedTotal: Double,
+    val remaining: Double,
+    val overpay: Double,
+    val statusLabel: String,
+)
+
+@Serializable
 data class CustomerDisplaySnapshot(
     val state: String,
     val pointOfSaleId: String,
@@ -21,6 +42,9 @@ data class CustomerDisplaySnapshot(
     val total: Double = 0.0,
     val itemCount: Int = 0,
     val updatedAt: String = "",
+    val customer: CustomerDisplayCustomer? = null,
+    val payments: List<CustomerDisplayPaymentLine> = emptyList(),
+    val payment: CustomerDisplayPaymentSummary? = null,
 )
 
 @Serializable

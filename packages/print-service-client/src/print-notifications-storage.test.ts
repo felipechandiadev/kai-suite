@@ -19,4 +19,10 @@ describe("print-notifications-storage", () => {
   it("formats job failed message", () => {
     expect(formatPrintJobFailedMessage("sin impresora")).toBe("Error al imprimir: sin impresora");
   });
+
+  it("humanizes known agent error codes", () => {
+    expect(formatPrintJobFailedMessage("format_printer_mismatch")).toBe(
+      "Error al imprimir: El formato del ticket no coincide con el ancho de papel de la impresora en Kai Printers.",
+    );
+  });
 });

@@ -8,6 +8,7 @@ import {
   buildDisplayWebSocketUrl,
   buildHelloMessage,
   DISPLAY_PROTOCOL_VERSION,
+  isSupportedDisplayProtocolVersion,
 } from "./protocol";
 
 describe("display-snapshot", () => {
@@ -39,6 +40,33 @@ describe("display-snapshot", () => {
       updatedAt: "2026-06-02T12:00:00.000Z",
     };
     expect(validateCustomerDisplaySnapshot(raw)?.total).toBe(2000);
+  });
+
+  it("validateCustomerDisplaySnapshot accepts payment payload", () => {
+    const raw = {
+      state: "payment",
+      pointOfSaleId: "pos-1",
+      currency: "CLP",
+      lines: [],
+      total: 5000,
+      itemCount: 2,
+      updatedAt: "2026-06-02T12:00:00.000Z",
+      customer: { name: "María" },
+      payments: [{ label: "Efectivo", amount: 3000 }],
+      payment: {
+        amountDueLabel: "Total a pagar",
+        amountToPay: 5000,
+        appliedTotal: 3000,
+        remaining: 2000,
+        overpay: 0,
+        statusLabel: "Monto insuficiente",
+      },
+    };
+    const parsed = validateCustomerDisplaySnapshot(raw);
+    expect(parsed?.state).toBe("payment");
+    expect(parsed?.customer?.name).toBe("María");
+    expect(parsed?.payments).toHaveLength(1);
+    expect(parsed?.payment?.remaining).toBe(2000);
   });
 
   it("validateCustomerDisplaySnapshot rejects invalid currency", () => {
@@ -77,5 +105,11 @@ describe("protocol", () => {
     const msg = buildCartSnapshotMessage(snap, "r2");
     expect(msg.action).toBe("cart_snapshot");
     expect((msg.payload as { state: string }).state).toBe("idle");
+  });
+
+  it("isSupportedDisplayProtocolVersion accepts 1.0 and 1.1", () => {
+    expect(isSupportedDisplayProtocolVersion("1.0")).toBe(true);
+    expect(isSupportedDisplayProtocolVersion("1.1")).toBe(true);
+    expect(isSupportedDisplayProtocolVersion("2.0")).toBe(false);
   });
 });

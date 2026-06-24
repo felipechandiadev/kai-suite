@@ -95,8 +95,12 @@ object PosSaleTicketEscPos {
 
         line()
         line("Gracias por su compra")
+        if (folio.isNotBlank()) {
+            line()
+            EscPosBarcode.code128Commands(folio).forEach { buf.add(it) }
+        }
         line()
-        b(0x1D, 0x56, 0x00) // cut
+        EscPosTail.append(buf)
         return buf.toByteArray()
     }
 }

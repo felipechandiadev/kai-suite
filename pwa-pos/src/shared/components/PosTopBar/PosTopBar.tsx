@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BadgeCheck, Building2, CircleUser, ImageOff, Image as ImageIcon, Store, Wifi, WifiOff } from "lucide-react";
 import IconButton from "@/shared/components/IconButton/IconButton";
@@ -237,7 +238,12 @@ export default function PosTopBar({
     process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_PRINT_SERVICE_DEBUG === "1";
 
   const onPrintJobFailed = useCallback((jobId: string, error: string) => {
-    return tryPosPrintJobBrowserFallback(jobId, error);
+    const isAndroid =
+      typeof navigator !== "undefined" && /android/i.test(navigator.userAgent);
+    if (!isAndroid) {
+      tryPosPrintJobBrowserFallback(jobId, error);
+    }
+    return false;
   }, []);
 
   const onPrintJobDone = useCallback((jobId: string) => {
@@ -277,19 +283,11 @@ export default function PosTopBar({
   const showContextColumn = Boolean(effectiveCompany || effectivePosName);
   const showUserColumn = Boolean(effectivePerson || effectiveRole);
 
-  /** ≤1025px: iconos en barra lateral; una sola instancia de nav (impresión, alertas). */
-  const [sidebarNav, setSidebarNav] = useState(false);
+  /** Layout móvil: nav inferior. Tablets POS grandes (iMin) usan desktop. */
+  const sidebarNav = usePosCompactLayout();
   const headerRef = useRef<HTMLElement | null>(null);
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 1025px)");
-    const sync = () => setSidebarNav(mq.matches);
-    sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
 
   /** Alinea `--app-topbar-height` con la altura real (subtítulo, etc.) para que la sidebar no tape el border-b. */
   useEffect(() => {
@@ -339,7 +337,11 @@ export default function PosTopBar({
       }}
       data-test-id="top-bar-root"
     >
-      <div className="flex items-center justify-between gap-2 px-3 py-2 min-[1026px]:gap-4 min-[1026px]:px-10 min-[1026px]:pb-3">
+      <div
+        className={`flex items-center justify-between gap-2 py-2 ${
+          sidebarNav ? "px-3" : "gap-4 px-10 pb-3"
+        }`}
+      >
         <div className="flex min-w-0 flex-1 items-center gap-3">
           {logoSrc ? (
             <div
@@ -381,7 +383,7 @@ export default function PosTopBar({
             </div>
           )}
 
-          <div className="flex min-w-0 flex-1 items-center gap-3 min-[1026px]:gap-10">
+          <div className={`flex min-w-0 flex-1 items-center gap-3 ${sidebarNav ? "" : "gap-10"}`}>
             <div
               className={
                 subtitle.trim()
@@ -415,7 +417,7 @@ export default function PosTopBar({
             {/* Desktop: empresa/PV + usuario/rol. Mobile (sidebar): solo empresa/PV alineado a la derecha, con ícono a la derecha del texto. */}
             {showContextColumn && !sidebarNav ? (
               <div
-                className="hidden min-w-0 items-center gap-4 min-[1026px]:flex min-[1026px]:gap-6"
+                className={`min-w-0 items-center gap-4 ${sidebarNav ? "hidden" : "flex gap-6"}`}
                 data-test-id="pos-topbar-right-columns"
               >
                 {showContextColumn ? (

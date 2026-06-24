@@ -1,6 +1,14 @@
 import type { CustomerDisplayEvent, CustomerDisplaySnapshot } from "./display-snapshot";
 
-export const DISPLAY_PROTOCOL_VERSION = "1.0";
+export const DISPLAY_PROTOCOL_VERSION = "1.1";
+
+/** Acepta 1.0 (MVP) y 1.1 (pantalla de pago). */
+export const SUPPORTED_DISPLAY_PROTOCOL_VERSIONS = ["1.0", "1.1"] as const;
+
+export function isSupportedDisplayProtocolVersion(version: string | undefined | null): boolean {
+  if (!version) return true;
+  return (SUPPORTED_DISPLAY_PROTOCOL_VERSIONS as readonly string[]).includes(version);
+}
 
 export const DEFAULT_DISPLAY_WS_PORT = 14570;
 export const DEFAULT_DISPLAY_WSS_PORT = 14571;

@@ -1,28 +1,9 @@
+import os from "node:os";
+
 /**
  * Orígenes permitidos en `next dev` para acceder desde la red local (tablets, otros PCs).
- * Usa comodines RFC-style de Next.js (ver csrf-protection / allowedDevOrigins).
+ * Next.js no aplica comodines de dominio a IPs (p. ej. `192.168.*` no matchea `192.168.0.193`).
  */
-const PRIVATE_LAN_ORIGIN_PATTERNS: string[] = [
-  "192.168.*",
-  "10.*.*.*",
-  "172.16.*",
-  "172.17.*",
-  "172.18.*",
-  "172.19.*",
-  "172.20.*",
-  "172.21.*",
-  "172.22.*",
-  "172.23.*",
-  "172.24.*",
-  "172.25.*",
-  "172.26.*",
-  "172.27.*",
-  "172.28.*",
-  "172.29.*",
-  "172.30.*",
-  "172.31.*",
-];
-
 function hostnameFromEnvUrl(value: string | undefined): string | null {
   const raw = value?.trim();
   if (!raw) return null;
@@ -31,6 +12,21 @@ function hostnameFromEnvUrl(value: string | undefined): string | null {
   } catch {
     return null;
   }
+}
+
+/** IPv4 no loopback de las interfaces de red de esta máquina (host del dev server en LAN). */
+function localLanIpv4Addresses(): string[] {
+  const nets = os.networkInterfaces();
+  const addresses = new Set<string>();
+  for (const iface of Object.values(nets)) {
+    for (const net of iface ?? []) {
+      const family = net.family === "IPv4" || net.family === 4;
+      if (family && !net.internal) {
+        addresses.add(net.address);
+      }
+    }
+  }
+  return [...addresses];
 }
 
 /** Lista para `allowedDevOrigins` en next.config (dev, red local). */
@@ -44,7 +40,7 @@ export function buildLanAllowedDevOrigins(): string[] {
   const fromPublicApp = hostnameFromEnvUrl(process.env.NEXT_PUBLIC_APP_URL);
 
   return [
-    ...PRIVATE_LAN_ORIGIN_PATTERNS,
+    ...localLanIpv4Addresses(),
     ...extra,
     ...(fromNextAuth ? [fromNextAuth] : []),
     ...(fromPublicApp && fromPublicApp !== fromNextAuth ? [fromPublicApp] : []),

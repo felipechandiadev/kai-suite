@@ -11,12 +11,21 @@ cd kai-screen-android
 
 APK debug: `app/build/outputs/apk/debug/app-debug.apk`
 
-Copiar al POS para descarga:
+## Publicar al POS (release versionado)
+
+Desde la raíz del monorepo:
 
 ```bash
-cp app/build/outputs/apk/debug/app-debug.apk ../pwa-pos/public/downloads/kai-screen-android.apk
+npm run kai-screen:publish
+# Opcional: npm run kai-screen:publish -- --bump patch
 ```
+
+Deja el APK en `pwa-pos/public/downloads/kai-screen-android-{version}.apk` y actualiza `kai-screen-android.manifest.json`.
 
 ## Protocolo
 
 Ver `packages/customer-display-client` y `docs/implementaciones-futuras/IF-10-kai-screen-pantalla-cliente.md`.
+
+## Conexión con el POS
+
+Misma tablet, loopback `127.0.0.1`. Puertos por defecto: WS `14570`, WSS `14571`. La app guía al operador en **Conectar con el POS** (checklist de 5 pasos).

@@ -5,18 +5,14 @@ import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,37 +21,38 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.kaistore.printers.KaiPrintersApp
 import com.kaistore.printers.R
 import com.kaistore.printers.bluetooth.BondedDevicesRepository
-import com.kaistore.printers.bluetooth.BtSppTransport
+import com.kaistore.printers.print.EscPosTestBytes
 import com.kaistore.printers.print.PaperProfile
+import com.kaistore.printers.print.transport.PrinterRef
+import com.kaistore.printers.print.transport.TransportFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun BluetoothPrintersScreen(onContinue: () -> Unit) {
+fun BluetoothPrintersScreenContent(onAssignmentChanged: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val bondedRepo = remember { BondedDevicesRepository(context) }
+    val transportFactory = remember { TransportFactory(context) }
     val repository = remember { (context.applicationContext as KaiPrintersApp).container.repository }
 
     var devices by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
-    var assignedMac by remember { mutableStateOf<String?>(null) }
+    var assignedName by remember { mutableStateOf<String?>(null) }
     var assignedPaperProfile by remember { mutableStateOf(PaperProfile.MM80.storageValue) }
     var selectedPaperProfile by remember { mutableStateOf(PaperProfile.MM80.storageValue) }
     var message by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         devices = bondedRepo.listBondedDevices()
-        assignedMac = repository.ticketsPrinterMac()
+        assignedName = repository.ticketsPrinterSystemName()
         assignedPaperProfile = repository.ticketsPaperProfile()
         selectedPaperProfile = assignedPaperProfile
     }
@@ -63,10 +60,9 @@ fun BluetoothPrintersScreen(onContinue: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(20.dp),
+            .padding(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(stringResource(R.string.printers_title), style = MaterialTheme.typography.headlineSmall)
         Text(stringResource(R.string.printers_subtitle), style = MaterialTheme.typography.bodyMedium)
 
         PaperProfileSelector(
@@ -86,11 +82,13 @@ fun BluetoothPrintersScreen(onContinue: () -> Unit) {
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(1f)) {
                 items(devices, key = { it.address }) { device ->
+                    val isAssigned = PrinterRef.parse(assignedName) is PrinterRef.Bluetooth &&
+                        (PrinterRef.parse(assignedName) as PrinterRef.Bluetooth).macAddress == device.address
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(device.name ?: device.address, style = MaterialTheme.typography.titleMedium)
                             Text(device.address, style = MaterialTheme.typography.bodySmall)
-                            if (assignedMac == device.address) {
+                            if (isAssigned) {
                                 Text(
                                     stringResource(R.string.assigned_with_profile, assignedPaperProfile),
                                     color = MaterialTheme.colorScheme.secondary,
@@ -104,9 +102,10 @@ fun BluetoothPrintersScreen(onContinue: () -> Unit) {
                                             device.name ?: device.address,
                                             selectedPaperProfile,
                                         )
-                                        assignedMac = device.address
+                                        assignedName = device.address
                                         assignedPaperProfile = selectedPaperProfile
                                         message = null
+                                        onAssignmentChanged()
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth(),
@@ -123,19 +122,20 @@ fun BluetoothPrintersScreen(onContinue: () -> Unit) {
 
         Button(
             onClick = {
-                val mac = assignedMac
-                if (mac == null) {
-                    message = "Asigne una impresora primero"
+                val ref = PrinterRef.parse(assignedName)
+                if (ref !is PrinterRef.Bluetooth) {
+                    message = context.getString(R.string.assign_printer_first)
                     return@Button
                 }
                 scope.launch {
                     try {
-                        val device = bondedRepo.deviceForAddress(mac)
-                            ?: error("Dispositivo no encontrado")
                         withContext(Dispatchers.IO) {
-                            BtSppTransport.write(device, BtSppTransport.testPage())
+                            transportFactory.write(
+                                ref,
+                                EscPosTestBytes.testPage(PaperProfile.fromStorage(selectedPaperProfile)),
+                            )
                         }
-                        message = "Prueba enviada"
+                        message = context.getString(R.string.test_print_sent)
                     } catch (e: Exception) {
                         message = e.message
                     }
@@ -145,38 +145,21 @@ fun BluetoothPrintersScreen(onContinue: () -> Unit) {
         ) {
             Text(stringResource(R.string.test_print))
         }
-
-        Button(onClick = onContinue, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.continue_label))
-        }
     }
 }
 
 @Composable
-private fun PaperProfileSelector(selected: String, onSelect: (String) -> Unit) {
-    val options = listOf(
-        PaperProfile.MM58.storageValue to stringResource(R.string.paper_profile_58mm),
-        PaperProfile.MM80.storageValue to stringResource(R.string.paper_profile_80mm),
-    )
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(stringResource(R.string.paper_profile_label), style = MaterialTheme.typography.titleSmall)
-        Column(Modifier.selectableGroup()) {
-            options.forEach { (value, label) ->
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .selectable(
-                            selected = selected == value,
-                            onClick = { onSelect(value) },
-                            role = Role.RadioButton,
-                        )
-                        .padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    RadioButton(selected = selected == value, onClick = null)
-                    Text(label, modifier = Modifier.padding(start = 8.dp))
-                }
-            }
+fun BluetoothPrintersScreen(onContinue: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(stringResource(R.string.printers_title), style = MaterialTheme.typography.headlineSmall)
+        BluetoothPrintersScreenContent()
+        Button(onClick = onContinue, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.continue_label))
         }
     }
 }

@@ -7,6 +7,8 @@ on:
       - "packages/kai-printers-brand/**"
       - "packages/print-service-client/fixtures/**"
       - ".github/workflows/kai-printers-android.yml"
+    tags:
+      - "kaiprinters-android-v*"
   pull_request:
     paths:
       - "kai-printers-android/**"
@@ -16,6 +18,7 @@ on:
 
 jobs:
   build:
+    if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/kaiprinters-android-v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,3 +34,33 @@ jobs:
       - name: Assemble debug
         working-directory: kai-printers-android
         run: ./gradlew :app:assembleDebug :app:testDebugUnitTest --stacktrace
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/kaiprinters-android-v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Grant execute permission for gradlew
+        working-directory: kai-printers-android
+        run: chmod +x gradlew
+      - name: Assemble release
+        working-directory: kai-printers-android
+        run: ./gradlew :app:assembleRelease :app:testDebugUnitTest --stacktrace
+      - name: Read version from properties
+        id: version
+        working-directory: kai-printers-android
+        run: |
+          VERSION_NAME=$(grep '^VERSION_NAME=' version.properties | cut -d= -f2)
+          echo "name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+      - name: Upload versioned APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kai-printers-android-${{ steps.version.outputs.name }}
+          path: kai-printers-android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error

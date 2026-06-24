@@ -33,6 +33,8 @@ import {
   printFormatToLegacyMode,
   printFormatToPurpose,
   resolvePrintFormat,
+  DOCUMENT_PRINT_FORMATS,
+  TICKET_PRINT_FORMATS,
 } from "./print-format";
 
 export type { PrintFormat, PrinterPaperProfile } from "./print-format";
@@ -44,6 +46,8 @@ export {
   isTicketPrintFormat,
   isDocumentPrintFormat,
   formatsMatchProfile,
+  DOCUMENT_PRINT_FORMATS,
+  TICKET_PRINT_FORMATS,
 } from "./print-format";
 
 function applyFormatToPrintBody(
@@ -468,9 +472,16 @@ export class PrintServiceConnection {
     return this.request("get_config", {});
   }
 
-  /** Encola el PDF de prueba mínimo del agente (sin payload en el cliente). */
+  /** Ticket de prueba del agente (ESC/POS demo, impresión directa). */
+  requestPosTestPrint(purpose: "tickets" | "documents" = "tickets"): Promise<unknown> {
+    const body = mergePrinterDisplayLabelForPurposeIntoPrintExtras(purpose, { purpose });
+    return this.request("test_print", body);
+  }
+
+  /** @deprecated Usar `requestPosTestPrint` */
   requestTestPrint(purpose?: string): Promise<unknown> {
-    return this.request("test_print", { purpose: purpose ?? "documents" });
+    const p = purpose === "tickets" || purpose === "documents" ? purpose : "documents";
+    return this.requestPosTestPrint(p);
   }
 
   /** Encola un job de impresión. Los tickets no admiten `pdf-base64` (solo vectorial → ESC/POS). */
@@ -876,8 +887,8 @@ export async function agentTicketEscposEnabled(
 
 export function isPosAgentPrintConfiguredForPurpose(purpose: PosPrintAgentPurpose): boolean {
   if (typeof window === "undefined") return false;
-  const { ticketsAlias, documentsAlias } = readPosPurposePrinterAliasesFromStorage();
-  if (purpose === "tickets") return ticketsAlias.length > 0;
+  if (purpose === "tickets") return true;
+  const { documentsAlias } = readPosPurposePrinterAliasesFromStorage();
   return documentsAlias.length > 0;
 }
 
@@ -1108,6 +1119,23 @@ const DEFAULT_POS_DOCUMENT_PRINT_FORMATS: Record<PosDocumentPrintKind, PrintForm
   cashCountSheet: "document_a4",
   cashSessionOpening: "ticket_80mm",
 };
+
+/** Formatos válidos en Impresión local del POS según tipo de documento. */
+export function printFormatsForPosDocumentKind(kind: PosDocumentPrintKind): PrintFormat[] {
+  return kind === "cashCountSheet" ? DOCUMENT_PRINT_FORMATS : TICKET_PRINT_FORMATS;
+}
+
+export function defaultPrintFormatForPosDocumentKind(kind: PosDocumentPrintKind): PrintFormat {
+  return DEFAULT_POS_DOCUMENT_PRINT_FORMATS[kind];
+}
+
+export function sanitizePosDocumentPrintFormat(
+  kind: PosDocumentPrintKind,
+  format: PrintFormat,
+): PrintFormat {
+  const allowed = printFormatsForPosDocumentKind(kind);
+  return allowed.includes(format) ? format : defaultPrintFormatForPosDocumentKind(kind);
+}
 
 function readPosDocumentPrintFormatRaw(kind: PosDocumentPrintKind): PrintFormat {
   if (typeof window === "undefined") return DEFAULT_POS_DOCUMENT_PRINT_FORMATS[kind];

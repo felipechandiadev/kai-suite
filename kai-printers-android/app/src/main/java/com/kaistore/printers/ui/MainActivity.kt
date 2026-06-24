@@ -15,7 +15,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.kaistore.printers.ui.permissions.PermissionsScreen
 import com.kaistore.printers.ui.prefs.OnboardingPrefs
-import com.kaistore.printers.ui.printers.BluetoothPrintersScreen
+import com.kaistore.printers.ui.printers.PrintersSetupScreen
 import com.kaistore.printers.ui.service.ServiceSettingsScreen
 import com.kaistore.printers.ui.theme.KaiPrintersTheme
 
@@ -57,12 +57,15 @@ private fun KaiPrintersNav() {
             )
         }
         composable(Routes.PRINTERS) {
-            BluetoothPrintersScreen(
+            PrintersSetupScreen(
                 onContinue = { navController.navigate(Routes.SERVICE) },
+                onOpenPosConnection = { navController.navigate(Routes.SERVICE) },
             )
         }
         composable(Routes.SERVICE) {
-            ServiceSettingsScreen()
+            ServiceSettingsScreen(
+                onBackToPrinters = { navController.popBackStack() },
+            )
         }
     }
 }

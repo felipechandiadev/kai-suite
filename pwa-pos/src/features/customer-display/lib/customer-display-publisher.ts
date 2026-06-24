@@ -3,6 +3,7 @@ import {
   buildDisplayWebSocketUrl,
   readCustomerDisplayFromStorage,
   type CustomerDisplayEvent,
+  type CustomerDisplaySnapshot,
   type DisplayStatusPayload,
 } from "@flowstore/customer-display-client";
 import { buildCustomerDisplaySnapshot } from "./build-customer-display-snapshot";
@@ -14,21 +15,29 @@ type CartSlice = {
   orderDiscount: number;
 };
 
+type PosCtx = Pick<PosContextV1, "pointOfSaleId" | "pointOfSaleName" | "branchName"> | null;
+
 let connection: DisplayConnection | null = null;
 let lastStatus: DisplayStatusPayload | null = null;
+let paymentDisplayActive = false;
+
+export function setCustomerDisplayPaymentMode(active: boolean): void {
+  paymentDisplayActive = active;
+}
+
+export function isCustomerDisplayPaymentMode(): boolean {
+  return paymentDisplayActive;
+}
 
 export function getCustomerDisplayStatus(): DisplayStatusPayload | null {
   return lastStatus;
 }
 
-export function syncCustomerDisplayPublisher(
-  cart: CartSlice,
-  ctx: Pick<PosContextV1, "pointOfSaleId" | "pointOfSaleName" | "branchName"> | null,
-): void {
+function ensureCustomerDisplayConnection(ctx: PosCtx): DisplayConnection | null {
   const cfg = readCustomerDisplayFromStorage();
   if (!cfg.enabled || !ctx?.pointOfSaleId) {
     disconnectCustomerDisplay();
-    return;
+    return null;
   }
 
   const url = buildDisplayWebSocketUrl(cfg.host, cfg.port, cfg.useTls);
@@ -48,6 +57,14 @@ export function syncCustomerDisplayPublisher(
     });
     connection.connect();
   }
+  return connection;
+}
+
+export function syncCustomerDisplayPublisher(cart: CartSlice, ctx: PosCtx): void {
+  if (paymentDisplayActive) return;
+
+  const conn = ensureCustomerDisplayConnection(ctx);
+  if (!conn) return;
 
   const snapshot = buildCustomerDisplaySnapshot({
     lines: cart.lines,
@@ -55,8 +72,14 @@ export function syncCustomerDisplayPublisher(
     ctx,
   });
   if (snapshot) {
-    connection.publishSnapshot(snapshot);
+    conn.publishSnapshot(snapshot);
   }
+}
+
+export function syncCustomerDisplayPayment(snapshot: CustomerDisplaySnapshot | null, ctx: PosCtx): void {
+  const conn = ensureCustomerDisplayConnection(ctx);
+  if (!conn || !snapshot) return;
+  conn.publishSnapshot(snapshot);
 }
 
 export function notifyCustomerDisplaySaleCompleted(

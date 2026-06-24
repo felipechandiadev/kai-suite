@@ -50,15 +50,17 @@ export function PosCustomerCreditNoteDialog({ open, data, onClose }: Props) {
     const folio = data.creditNoteFolio.trim();
     if (printedFolioRef.current === folio) return;
     printedFolioRef.current = folio;
+    const snapshot = data;
+    const format = getPosDocumentPrintFormat("customerCreditNote");
     const t = window.setTimeout(() => {
-      if (isDocumentPrintFormat(printFormat)) {
-        printCustomerCreditNoteDocument(data, printFormat);
+      if (isDocumentPrintFormat(format)) {
+        printCustomerCreditNoteDocument(snapshot, format);
       } else {
-        printCustomerCreditNoteReceipt(data, printFormat);
+        printCustomerCreditNoteReceipt(snapshot, format);
       }
     }, 400);
     return () => clearTimeout(t);
-  }, [open, data, printFormat]);
+  }, [open, data]);
 
   const previewSrcDoc = useMemo(() => {
     if (!data || typeof window === "undefined") return null;

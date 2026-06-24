@@ -3,6 +3,7 @@ package com.kaistore.printers.bluetooth
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
+import com.kaistore.printers.print.EscPosStreamWriter
 import java.io.OutputStream
 import java.util.UUID
 
@@ -33,9 +34,7 @@ object BtSppTransport {
             socket = device.createRfcommSocketToServiceRecord(sppUuid)
             socket.connect()
             val out: OutputStream = socket.outputStream
-            out.write(data)
-            out.flush()
-            Thread.sleep(300)
+            EscPosStreamWriter.writeChunked(out, data)
         } finally {
             try {
                 socket?.close()
@@ -44,10 +43,5 @@ object BtSppTransport {
         }
     }
 
-    fun testPage(): ByteArray {
-        val init = byteArrayOf(0x1B, 0x40)
-        val text = "Kai Printers\nPrueba OK\n\n".toByteArray(Charsets.ISO_8859_1)
-        val cut = byteArrayOf(0x1D, 0x56, 0x00)
-        return init + text + cut
-    }
+    fun testPage(): ByteArray = com.kaistore.printers.print.EscPosTestBytes.testPage()
 }

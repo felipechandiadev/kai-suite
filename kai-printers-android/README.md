@@ -1,13 +1,13 @@
 # Kai Printers Android
 
-Agente local de impresión para KaiStore POS en tablets Android. Expone WebSocket v2.1 en `127.0.0.1` y envía tickets ESC/POS a impresoras Bluetooth emparejadas.
+Agente local de impresión para KaiStore POS en tablets Android. Expone WebSocket v2.1 en `127.0.0.1` y envía tickets ESC/POS por **Bluetooth**, **red (TCP :9100)** o **USB OTG**.
 
 **No se conecta a la API de KaiStore** (`api.joyarte.kaisuite.pro`). El POS en Chrome usa la API para ventas y `wss://127.0.0.1:14568` para imprimir.
 
 ## Requisitos
 
 - Android 7.0+ (API **24**), targetSdk **33** (paridad con mobilePOS)
-- Impresora térmica Bluetooth emparejada (SPP / ESC/POS 80 mm)
+- Impresora térmica ESC/POS: Bluetooth emparejada, red LAN (`host:9100`) o USB OTG
 - POS PWA en HTTPS en el mismo dispositivo
 
 ## Puertos por defecto
@@ -40,13 +40,16 @@ chmod +x scripts/*.sh
 # Respalda release/ y keystore.properties en lugar seguro.
 ```
 
-Compilar APK listo para `/downloads/kai-printers-android.apk`:
+Compilar y publicar APK versionado hacia el POS:
 
 ```bash
-./scripts/build-release-apk.sh
+./scripts/publish-to-pos-downloads.sh
+# Opcional: ./scripts/publish-to-pos-downloads.sh --bump patch
 ```
 
-Salida: `dist/kai-printers-android.apk`
+Salida: `../pwa-pos/public/downloads/kai-printers-android-{version}.apk` (fuera de git) y `kai-printers-android.manifest.json` (sí en git).
+
+`build-release-apk.sh` delega en el script anterior.
 
 Plantilla de config: `keystore.properties.example` → `keystore.properties`.
 
@@ -64,7 +67,7 @@ cp -R output/android/* ../kai-printers-android/app/src/main/res/
 
 1. Instalar APK y abrir **Kai Printers**.
 2. Pantalla **Permisos**: notificaciones, Bluetooth, batería, iniciar servicio.
-3. **Impresoras**: emparejar en Ajustes → Bluetooth, asignar a Tickets, imprimir prueba.
+3. **Impresoras** (pestañas Bluetooth | Red | USB): configurar impresora de tickets, imprimir prueba.
 4. **Servicio**: tocar «Confiar certificado WSS» y aceptar en Chrome.
 5. En el POS (HTTPS): Impresión local → host `127.0.0.1`, WSS activo, puerto `14568`, alias de impresora.
 
@@ -83,6 +86,15 @@ cp -R output/android/* ../kai-printers-android/app/src/main/res/
 | **31** | 12 | `BLUETOOTH_SCAN` / `BLUETOOTH_CONNECT` |
 | **33** | 13 | `POST_NOTIFICATIONS`, WSS desde Chrome HTTPS, venta POS E2E |
 
+| Escenario | Verificar |
+|-----------|-----------|
+| BT legacy MAC | Ticket venta POS sin diálogo |
+| BT prefijo `bt:` | Mapping + health online |
+| Red IP:9100 | Probe + ticket prueba + venta POS |
+| USB conectado | Permiso + ticket prueba |
+| Sin impresora | `print_job_failed` + health offline |
+| Publish script | Un solo APK versionado, manifest actualizado, POS descarga URL correcta |
+
 Criterio E2E: ticket de venta sin diálogo del sistema en al menos API **24** y **33**.
 
 ## Arquitectura
@@ -90,7 +102,15 @@ Criterio E2E: ticket de venta sin diálogo del sistema en al menos API **24** y 
 - `PrintAgentForegroundService` — servicio en primer plano
 - `WebSocketServerManager` — Ktor WS/WSS
 - `ProtocolDispatcher` — protocolo 2.1 (`hello`, `print`, …)
-- `PrintQueueWorker` — cola → `PosSaleTicketEscPos` → `BtSppTransport`
+- `PrintQueueWorker` — cola → `PosSaleTicketEscPos` → `TransportFactory` (BT / red / USB)
+
+### Referencia de impresora (`systemPrinterName`)
+
+| Transporte | Formato |
+|------------|---------|
+| Bluetooth | `AA:BB:…` (legacy) o `bt:{MAC}` |
+| Red | `net:{host}:{port}` (default puerto 9100) |
+| USB | `usb:{deviceId}` |
 
 Fixtures de contrato: `packages/print-service-client/fixtures/`.
 

@@ -26,10 +26,22 @@ class PosSaleTicketEscPosTest {
         assertTrue(bytes.isNotEmpty())
         assertTrue(bytes[0] == 0x1B.toByte())
         assertTrue(bytes[1] == 0x40.toByte())
-        assertTrue(bytes.takeLast(3).let { it[0] == 0x1D.toByte() && it[1] == 0x56.toByte() })
+        assertTrue(
+            bytes.takeLast(3).let {
+                it[0] == 0x1D.toByte() && it[1] == 0x56.toByte() && it[2] == 0x00.toByte()
+            },
+        )
+        assertTrue(
+            bytes.indices.any { i ->
+                i + 1 < bytes.size &&
+                    bytes[i] == 0x1B.toByte() &&
+                    bytes[i + 1] == 0x70.toByte()
+            },
+        )
         val text = String(bytes, Charsets.ISO_8859_1)
         assertTrue(text.contains("JOYARTE", ignoreCase = true))
         assertTrue(text.contains("VTA-1"))
+        assertTrue(bytes.any { it == 0x1D.toByte() })
     }
 
     @Test

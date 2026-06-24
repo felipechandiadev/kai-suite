@@ -99,3 +99,6 @@ export function resolvePrintFormat(
 export function formatsMatchProfile(format: PrintFormat, profile: PrinterPaperProfile): boolean {
   return printFormatToPaperProfile(format) === profile;
 }
+
+export const TICKET_PRINT_FORMATS: PrintFormat[] = ["ticket_58mm", "ticket_80mm"];
+export const DOCUMENT_PRINT_FORMATS: PrintFormat[] = ["document_letter", "document_a4"];

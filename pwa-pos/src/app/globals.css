@@ -102,6 +102,22 @@
     color: var(--fs-foreground);
   }
 
+  /* Tablet POS táctil grande (iMin): tipografía y espaciado ligeramente menores */
+  html[data-pos-tablet="1"] {
+    font-size: 0.9375rem;
+    --pos-panel-padding: 0.75rem;
+    --pos-payment-panel-vh: 68vh;
+  }
+
+  html[data-pos-tablet="1"] [data-test-id="top-bar-title"] {
+    font-size: 1rem;
+    line-height: 1.25rem;
+  }
+
+  html[data-pos-tablet="1"] .pos-workspace-panel {
+    padding: var(--pos-panel-padding, 0.75rem);
+  }
+
   .container {
     max-width: 1200px;
     margin: 0 auto;

@@ -156,7 +156,7 @@ export default function PosWorkspace() {
 
   const cartPanel = (
     <aside
-      className={`flex min-h-0 w-full min-w-0 flex-col gap-3 rounded-xl border border-border bg-background p-3 sm:p-4 ${
+      className={`pos-workspace-panel flex min-h-0 w-full min-w-0 flex-col gap-3 rounded-xl border border-border bg-background p-3 sm:p-4 ${
         compactLayout ? "h-full" : ""
       }`}
       style={compactLayout ? undefined : { height: `${POS_PRODUCT_SEARCH_PANEL_HEIGHT_VH}vh` }}
@@ -386,7 +386,7 @@ export default function PosWorkspace() {
       className={
         compactLayout
           ? "flex min-h-0 flex-1 flex-col gap-3"
-          : "grid min-h-[calc(100dvh-6rem)] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-stretch"
+          : "grid min-h-[calc(100dvh-6rem)] grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-6"
       }
     >
       {compactLayout ? (

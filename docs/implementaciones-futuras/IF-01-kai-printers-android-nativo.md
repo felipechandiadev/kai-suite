@@ -3,7 +3,7 @@
 | Campo | Valor |
 |-------|-------|
 | **ID** | IF-01 |
-| **Estado** | Diseño |
+| **Estado** | Implementado (MVP + red/USB + publish versionado) |
 | **Prioridad** | P1 |
 | **Última revisión** | junio 2026 |
 | **Tareas** | [ROADMAP.md § IF-01](./ROADMAP.md#if-01--kai-printers--android-nativo) |
@@ -106,8 +106,9 @@ Ver [ROADMAP.md](./ROADMAP.md): bind LAN, admin remoto de config, etiquetas ZPL,
 | WebSocket | OkHttp / Ktor server embebido | Evaluar en IF-01.T4 |
 | Persistencia | Room (SQLite) | Alineado con schema conceptual v2 |
 | PDF → bitmap | Android PdfRenderer + escpos-coffee o similar | Tickets 58/80 mm (`PRINT_FORMAT_PRESETS`) |
-| BT | Android Bluetooth API (SPP) | Impresoras térmicas más comunes |
-| USB | UsbManager + permiso OTG | Cajones / impresoras cableadas |
+| BT | Android Bluetooth API (SPP) | **Implementado** — `BtSppTransport` / `BluetoothEscPosTransport` |
+| Red LAN | TCP raw :9100 | **Implementado** — `NetworkEscPosTransport` |
+| USB | UsbManager + permiso OTG | **Implementado** — `UsbEscPosTransport` |
 | Build | Gradle (módulo `kai-printers-android/` en monorepo) | CI unificado |
 
 ### 5.1 Compatibilidad Android (paridad mobilePOS)
@@ -193,6 +194,26 @@ Mantener **versión `2.1`** y acciones ya consumidas por `print-service-client`:
 | `config_changed` | Refrescar settings |
 
 **Prueba de contrato:** suite compartida (JSON fixtures) entre Tauri y Android antes de release.
+
+### 7.1 Transportes ESC/POS (implementado)
+
+Referencias en `systemPrinterName` del mapping:
+
+| Transporte | Formato | UI |
+|------------|---------|-----|
+| Bluetooth | MAC legacy o `bt:{MAC}` | Pestaña Bluetooth |
+| Red | `net:{host}:{port}` | Pestaña Red (probe + prueba) |
+| USB | `usb:{deviceId}` | Pestaña USB (permiso runtime) |
+
+Capa unificada: `print/transport/` (`PrinterRef`, `EscPosTransport`, `TransportFactory`).
+
+### 7.2 Publicación versionada del APK
+
+- Script: `kai-printers-android/scripts/publish-to-pos-downloads.sh` (o `npm run kai-printers:publish`).
+- APK: `pwa-pos/public/downloads/kai-printers-android-{version}.apk` (**fuera de git**).
+- Manifest: `pwa-pos/public/downloads/kai-printers-android.manifest.json` (**en git**).
+- POS: `print-service-client` resuelve URL desde manifest; botón «Descargar vX.Y.Z».
+- CI: tag `kaiprinters-android-v*` → `assembleRelease` + artifact (sin commitear APK).
 
 ---
 

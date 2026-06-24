@@ -20,6 +20,7 @@ import {
   clearPrintServiceNotificationsStorage,
   formatPrintJobFailedMessage,
   PRINT_SERVICE_DISCONNECTED_MESSAGE,
+  PRINT_SERVICE_JOB_FAILED_EVENT,
   readPrintServiceNotificationsFromStorage,
   writePrintServiceNotificationsToStorage,
 } from "./print-notifications-storage";
@@ -292,6 +293,16 @@ export function usePrintServiceConnection(opts: UsePrintServiceConnectionOptions
     setNotifications(readPrintServiceNotificationsFromStorage(storageClientId));
     disconnectNotifiedRef.current = false;
   }, [storageClientId]);
+
+  useEffect(() => {
+    const onSyncJobFailed = (e: Event) => {
+      const detail = (e as CustomEvent<{ error?: string }>).detail;
+      const err = detail?.error?.trim();
+      if (err) notifyJobFailed("", err);
+    };
+    window.addEventListener(PRINT_SERVICE_JOB_FAILED_EVENT, onSyncJobFailed);
+    return () => window.removeEventListener(PRINT_SERVICE_JOB_FAILED_EVENT, onSyncJobFailed);
+  }, [notifyJobFailed]);
 
   const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
 

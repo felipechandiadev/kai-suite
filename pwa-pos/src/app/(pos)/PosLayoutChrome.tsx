@@ -3,6 +3,8 @@
 import { usePathname } from "next/navigation";
 import PosCartProvider from "@/features/pos-cart/PosCartProvider";
 import { CustomerDisplayPublisher } from "@/features/customer-display/ui/CustomerDisplayPublisher";
+import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
+import { usePosTabletDensity } from "@/shared/hooks/usePosTabletDensity";
 
 type Props = {
   children: React.ReactNode;
@@ -17,6 +19,8 @@ function isCashClosingResultPath(pathname: string | null): boolean {
 export default function PosLayoutChrome({ children, topBar }: Props) {
   const pathname = usePathname();
   const resultOnly = isCashClosingResultPath(pathname);
+  const compact = usePosCompactLayout();
+  usePosTabletDensity();
 
   if (resultOnly) {
     return (
@@ -34,7 +38,13 @@ export default function PosLayoutChrome({ children, topBar }: Props) {
   return (
     <div className="flex h-screen overflow-hidden flex-col bg-background">
       {topBar}
-      <main className="mt-(--app-topbar-height) flex min-h-0 flex-1 flex-col overflow-auto bg-background px-4 pt-4 pb-6 max-[1025px]:pb-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom,0px))] min-[1026px]:px-6 min-[1026px]:md:px-10">
+      <main
+        className={`mt-(--app-topbar-height) flex min-h-0 flex-1 flex-col overflow-auto bg-background pt-4 ${
+          compact
+            ? "px-4 pb-[calc(var(--app-bottom-nav-height)+1rem+env(safe-area-inset-bottom,0px))]"
+            : "px-6 pb-6 md:px-10"
+        }`}
+      >
         <PosCartProvider>
           <CustomerDisplayPublisher />
           {children}

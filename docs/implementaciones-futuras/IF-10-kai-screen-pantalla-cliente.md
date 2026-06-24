@@ -3,7 +3,7 @@
 | Campo | Valor |
 |-------|-------|
 | **ID** | IF-10 |
-| **Estado** | Implementado (MVP junio 2026) |
+| **Estado** | Implementado (v1.2 — junio 2026) |
 | **Prioridad** | P1 |
 | **Última revisión** | junio 2026 |
 
@@ -15,7 +15,7 @@
 
 | Componente | Rol |
 |------------|-----|
-| `packages/customer-display-client` | Protocolo v1.0 + cliente WS para el POS |
+| `packages/customer-display-client` | Protocolo v1.1 + cliente WS para el POS |
 | `kai-screen-android` | Servidor WS + UI cliente en pantalla secundaria |
 | `pwa-pos` | Publica carrito; ajustes en Impresión local |
 
@@ -23,9 +23,9 @@
 
 ---
 
-## 2. Protocolo WebSocket v1.0
+## 2. Protocolo WebSocket v1.1
 
-Puertos por defecto (no colisionan con Kai Printers `14567/14568`):
+Compatible con clientes v1.0. Puertos por defecto (no colisionan con Kai Printers `14567/14568`):
 
 | Modo | Puerto |
 |------|--------|
@@ -45,9 +45,19 @@ Puertos por defecto (no colisionan con Kai Printers `14567/14568`):
 
 Fuente: `packages/customer-display-client/src/display-snapshot.ts`.
 
-Estados UI: `idle`, `active_sale`, `thank_you`.
+Estados UI: `idle`, `active_sale`, `payment`, `thank_you`.
 
-El POS calcula totales en `build-customer-display-snapshot.ts` (misma fórmula que `PosWorkspace`).
+Campos v1.1 en `cart_snapshot` (estado `payment`):
+
+| Campo | Descripción |
+|-------|-------------|
+| `customer` | `{ name }` si hay cliente en pago |
+| `payments` | Medios con monto > 0 (`label`, `amount`) |
+| `payment` | Resumen: `amountDueLabel`, `amountToPay`, `appliedTotal`, `remaining`, `overpay`, `statusLabel` |
+
+Branding en `idle` (nombre, mensaje, logo) se configura **solo en Kai Screen** (DataStore local), no desde el POS.
+
+El POS calcula totales en `build-customer-display-snapshot.ts` y el resumen de pago en `build-customer-display-payment-snapshot.ts`.
 
 ---
 
@@ -70,7 +80,7 @@ Ver [INSTALACION_KAI_SCREEN_ANDROID.md](../../pwa-pos/public/downloads/INSTALACI
 
 - LAN entre tablets
 - Relay cloud (Socket.IO)
-- Logo empresa, imágenes de producto
-- Pantalla durante cobro / datáfono
+- Imágenes de producto en líneas del carrito
+- Integración datáfono en pantalla cliente
 
 [← IF-01](./IF-01-kai-printers-android-nativo.md) · [Roadmap](./ROADMAP.md)

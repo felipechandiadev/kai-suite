@@ -56,7 +56,7 @@ class DisplayProtocolDispatcher(
         }
 
         val version = env["version"]?.jsonPrimitive?.content
-        if (version != PROTOCOL_VERSION) {
+        if (!isSupportedProtocolVersion(version)) {
             return encodeErr(env["request_id"]?.asString(), "unsupported_version:$version")
         }
 

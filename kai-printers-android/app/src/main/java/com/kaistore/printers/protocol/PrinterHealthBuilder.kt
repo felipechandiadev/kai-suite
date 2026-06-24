@@ -1,7 +1,8 @@
 package com.kaistore.printers.protocol
 
-import com.kaistore.printers.bluetooth.BondedDevicesRepository
 import com.kaistore.printers.data.AgentRepository
+import com.kaistore.printers.print.transport.PrinterRef
+import com.kaistore.printers.print.transport.TransportFactory
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
@@ -9,7 +10,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 object PrinterHealthBuilder {
-    suspend fun build(repository: AgentRepository, bonded: BondedDevicesRepository): JsonObject {
+    suspend fun build(repository: AgentRepository, transport: TransportFactory): JsonObject {
         val lines = repository.listMappingLines()
         val paperProfileByAlias = buildJsonObject {
             for (line in lines) {
@@ -18,7 +19,8 @@ object PrinterHealthBuilder {
         }
         val healthLines = buildJsonArray {
             for (line in lines) {
-                val online = bonded.isDeviceReachable(line.systemPrinterName)
+                val ref = PrinterRef.parse(line.systemPrinterName)
+                val online = ref?.let { transport.probe(it) } ?: false
                 add(
                     buildJsonObject {
                         put("id", line.id)

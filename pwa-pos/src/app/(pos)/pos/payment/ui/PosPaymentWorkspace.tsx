@@ -12,8 +12,11 @@ import {
   TextField,
 } from "@/shared/admin-shared";
 import { usePosCart } from "@/features/pos-cart/PosCartProvider";
+import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
+import { usePosTabletDensity } from "@/shared/hooks/usePosTabletDensity";
 import { notifyCustomerDisplaySaleCompleted } from "@/features/customer-display/lib/customer-display-publisher";
 import { computeCustomerDisplaySaleTotal } from "@/features/customer-display/lib/build-customer-display-snapshot";
+import { PaymentDisplayPublisher } from "@/features/customer-display/ui/PaymentDisplayPublisher";
 import { makePaymentLineId } from "@/features/pos-cart/pos-payment.utils";
 import type {
   PosPaymentLine,
@@ -94,7 +97,8 @@ import {
  * Más bajo que el panel de POS porque encima hay un header propio de la
  * pantalla (Venta en curso + Resumen del cobro + CTA) que consume altura.
  */
-const POS_PAYMENT_PANEL_HEIGHT_VH = 76;
+const POS_PAYMENT_PANEL_HEIGHT_VH_DEFAULT = 76;
+const POS_PAYMENT_PANEL_HEIGHT_VH_TABLET = 68;
 const NON_CASH_LIMIT_MSG =
   "La suma de los medios de pago que no son efectivo no puede superar el total a pagar.";
 const QUOTATION_CUSTOMER_REQUIRED_MSG = "Selecciona un cliente antes de guardar la cotización.";
@@ -163,6 +167,8 @@ type PosPaymentMethodCardProps = {
   ) => void;
   /** Abono de encargo precargado en liquidar encargo: monto fijo. */
   amountLocked?: boolean;
+  /** Layout desktop (tablet POS / ancho amplio): cheque en 2 columnas. */
+  desktopLayout?: boolean;
 };
 
 /** Card de medio de pago: nombre arriba; monto y acciones en la fila siguiente. */
@@ -184,6 +190,7 @@ function PosPaymentMethodCard({
   onUpdateReference,
   onUpdateCheckField,
   amountLocked = false,
+  desktopLayout = false,
 }: PosPaymentMethodCardProps) {
   const amountValue = String(Math.max(0, Math.round(p.amount)));
   const appliedNcAmount = Math.max(0, Math.round(p.amount));
@@ -305,7 +312,11 @@ function PosPaymentMethodCard({
         </div>
       ) : null}
       {p.type === "CHECK" ? (
-        <div className="grid grid-cols-1 gap-2 rounded-lg border border-dashed border-zinc-300 p-2 dark:border-zinc-700 sm:grid-cols-2">
+        <div
+          className={`grid gap-2 rounded-lg border border-dashed border-zinc-300 p-2 dark:border-zinc-700 ${
+            desktopLayout ? "grid-cols-2" : "grid-cols-1"
+          }`}
+        >
           <TextField
             label="N° de cheque"
             name={`pos-payment-check-number-${p.id}`}
@@ -401,6 +412,11 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
   const isCollectMode = (searchParams.get("mode") ?? "").trim() === "collect";
   const isNcPayoutMode = (searchParams.get("mode") ?? "").trim() === "nc-payout";
   const cart = usePosCart();
+  const compactLayout = usePosCompactLayout();
+  const isTabletDensity = usePosTabletDensity();
+  const paymentPanelVh = isTabletDensity
+    ? POS_PAYMENT_PANEL_HEIGHT_VH_TABLET
+    : POS_PAYMENT_PANEL_HEIGHT_VH_DEFAULT;
   const {
     payments,
     setPayments,
@@ -1368,6 +1384,22 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
     return "Monto insuficiente";
   }, [isEncargoZeroDeposit, amountToPay, remaining, overpay, payments.length]);
 
+  const customerDisplayPaymentLines = useMemo(
+    () =>
+      payments
+        .filter((p) => (Number(p.amount) || 0) > 0)
+        .map((p) => {
+          const cfg = p.companyPaymentMethodId
+            ? methodsById.get(p.companyPaymentMethodId)
+            : null;
+          return {
+            label: cfg?.label ?? paymentMethodLabelEs(p.type),
+            amount: Math.round(Number(p.amount) || 0),
+          };
+        }),
+    [payments, methodsById],
+  );
+
   const paymentComplete =
     isEncargoZeroDeposit || (payments.length > 0 && (overpay > 0 || remaining <= 0.01));
 
@@ -2119,10 +2151,25 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
   }
 
   return (
-    <div className="flex min-h-0 flex-col gap-4 pb-28 lg:pb-0">
+    <div className={`flex min-h-0 flex-col gap-4 ${compactLayout ? "pb-28" : "pb-0"}`}>
+      <PaymentDisplayPublisher
+        enabled={showReturnRefundUi}
+        lines={cart.lines}
+        orderDiscount={orderDiscount ?? 0}
+        amountDueLabel={amountDueLabel}
+        amountToPay={amountToPay}
+        appliedTotal={appliedTotal}
+        remaining={remaining}
+        overpay={overpay}
+        paymentStatusLabel={paymentStatusLabel}
+        customerName={customer?.name?.trim() || null}
+        paymentLines={customerDisplayPaymentLines}
+      />
       {/* Context bar (debajo del TopBar global) */}
       <header
-        className="flex flex-col gap-4 rounded-xl border border-border bg-background px-4 py-3 shadow-sm lg:flex-row lg:items-center lg:gap-6"
+        className={`flex gap-4 rounded-xl border border-border bg-background px-4 py-3 shadow-sm ${
+          compactLayout ? "flex-col" : "flex-row items-center gap-6"
+        }`}
         aria-labelledby={saleTitleId}
       >
         <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -2202,7 +2249,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
           </div>
         ) : null}
 
-        <div className="hidden shrink-0 items-center gap-2 lg:flex">
+        <div className={`shrink-0 items-center gap-2 ${compactLayout ? "hidden" : "flex"}`}>
           {showDeferPaymentButton ? (
             <IconButton
               icon="BanknoteX"
@@ -2244,7 +2291,9 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
       ) : null}
 
       <div
-        className={`grid gap-6 lg:items-stretch ${showReturnRefundUi ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}
+        className={`grid items-stretch gap-6 ${
+          compactLayout ? "grid-cols-1" : showReturnRefundUi ? "grid-cols-3" : "grid-cols-2"
+        }`}
       >
         {/* Columna 1 — Carrito */}
         <section
@@ -2255,7 +2304,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
                 ? POS_INSUFFICIENT_STOCK_SURFACE_CLASS
                 : "border-border bg-background"
           }`}
-          style={{ height: `${POS_PAYMENT_PANEL_HEIGHT_VH}vh` }}
+          style={{ height: `${paymentPanelVh}vh` }}
           aria-label={summarySectionLabel}
           data-test-id="pos-payment-cart-summary"
           data-stock-insufficient={stockBlocksSalePayment ? "true" : undefined}
@@ -2441,7 +2490,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
           selectedCustomer={customer}
           onPick={pickSearchCustomer}
           onClearSelected={clearSaleCustomer}
-          heightVh={POS_PAYMENT_PANEL_HEIGHT_VH}
+          heightVh={paymentPanelVh}
           disabled={customerLocked}
           showAddCustomer={!customerLocked}
           onAddCustomerClick={() => setCreateCustomerOpen(true)}
@@ -2472,7 +2521,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
         /* Columna 3 — Métodos de pago */
         <section
           className="flex min-h-0 w-full min-w-0 flex-col gap-3 rounded-xl border border-border bg-background p-4 shadow-sm"
-          style={{ height: `${POS_PAYMENT_PANEL_HEIGHT_VH}vh` }}
+          style={{ height: `${paymentPanelVh}vh` }}
           data-test-id="pos-payment-methods"
         >
           <div className="flex shrink-0 items-center gap-2">
@@ -2534,6 +2583,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
                   onUpdateBankAccountKey={updatePaymentLineBankAccountKey}
                   onUpdateReference={updatePaymentLineReference}
                   onUpdateCheckField={updatePaymentLineCheckField}
+                  desktopLayout={!compactLayout}
                 />
               );
             })}
@@ -2543,7 +2593,11 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
       </div>
 
       {/* Móvil: CTA fijo */}
-      <div className="fixed inset-x-0 bottom-0 z-30 flex justify-center gap-2 border-t border-border bg-background/95 p-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur-md lg:hidden pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <div
+        className={`fixed inset-x-0 bottom-0 z-30 justify-center gap-2 border-t border-border bg-background/95 p-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))] ${
+          compactLayout ? "flex" : "hidden"
+        }`}
+      >
         {showDeferPaymentButton ? (
           <IconButton
             icon="BanknoteX"
