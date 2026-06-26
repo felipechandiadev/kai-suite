@@ -3,7 +3,7 @@
 | Campo | Valor |
 |-------|-------|
 | **ID** | IF-05 |
-| **Estado** | Diseño |
+| **Estado** | Parcial (F2/F4 crédito interno en venta implementado; F1 cobro cuotas en revisión) |
 | **Prioridad** | P1 |
 | **Última revisión** | junio 2026 |
 | **Tareas** | [ROADMAP.md § IF-05](./ROADMAP.md#if-05--credito-clientes-pos) |
@@ -20,9 +20,9 @@ KaiStore soporta **crédito interno** (fiado con la tienda): línea de crédito 
 | Venta sin cobro (`deferPayment`) | Listo | Listo |
 | Cobro saldo venta (AR simple) | Listo | Listo (`PurchasesSection` → `mode=collect`) |
 | Listar cuotas pendientes (CxC calendario) | Listo | Solo lectura |
-| **Cobrar cuota(s) desde ficha** | Parcial (sin `cashSessionId`) | **No implementado** |
-| Venta con `INTERNAL_CREDIT` | Listo | Casi listo (validación UI) |
-| **Plan de cobro en venta** (cuotas calendario) | Solo vía automatización/metadata | **No** (sin `PlannedPaymentPlanSection`) |
+| **Cobrar cuota(s) desde ficha** | `collect-pending-quotas` + `mode=quota` | **Implementado** (revisar en QA) |
+| Venta con `INTERNAL_CREDIT` | Listo | **Listo** (`PosInternalCreditPaymentDialog`) |
+| **Plan de cobro en venta** (cuotas calendario) | Automatización + metadata en venta | **Implementado** (crédito interno en POS) |
 
 **Objetivo IF-05:** cobranza POS **online** alineada a caja (F1), pulido de crédito interno en venta (F2), offline (F3). Opcional F4: plan de cobro en venta (espejo CxP).
 
@@ -169,13 +169,27 @@ Un `PAYMENT_IN` (o batch con `metadata.allocations`) por sesión, cuota(s) marca
 |-----------|------------|--------|
 | Ver crédito (límite, utilizado, disponible) | `CreditSection` | OK |
 | Listar cuotas | `QuotasSection` | Solo lectura |
-| **Cobrar cuotas desde ficha** | `QuotasSection` + `mode=quota` | **Falta** |
+| **Cobrar cuotas desde ficha** | `QuotasSection` + `mode=quota` | OK |
 | Cobrar ventas pendientes | `PurchasesSection` → `mode=collect` | OK |
 | Venta sin cobro | `handleDeferPaymentSale` | OK |
-| `INTERNAL_CREDIT` en venta | `PosPaymentWorkspace` | Casi OK (F2 pulido) |
-| Movimiento sesión al cobrar cuota | — | **Falta** (backend + POS) |
-| Plan de cobro en venta | — | **F4** (espejo `PlannedPaymentPlanSection`) |
+| `INTERNAL_CREDIT` en venta | `PosInternalCreditPaymentDialog` + banner cupo | OK |
+| Movimiento sesión al cobrar cuota | `collect-pending-quotas` | OK |
+| Plan de cobro en venta (crédito interno) | `PosInternalCreditPaymentDialog` → metadata venta | OK |
 | Hub `/pos/credit-payment` | placeholder | P3 / descartable |
+
+### 6.2 Diálogo dedicado de crédito interno en cobro (implementado)
+
+Flujo en `PosPaymentWorkspace`:
+
+1. Botón **Crédito interno** en la columna de medios de pago (requiere cliente + cupo).
+2. `PosInternalCreditPaymentDialog` consulta saldo (`getCustomerPosDetailBundleAction`) y permite:
+   - Crédito total (sin cuotas)
+   - Crédito con cuotas programadas
+   - Abono hoy + saldo en cuotas (abono inmediato con otros medios vía «+»)
+3. Al confirmar la venta, `build-create-sale-payload` envía `metadata.numberOfInstallments`, `firstDueDate`, `paymentSchedule`.
+4. Cobro posterior de cuotas: ficha cliente → **Cuotas pendientes** → `mode=quota` (sin `INTERNAL_CREDIT`).
+
+Archivos: `pwa-pos/src/app/(pos)/pos/payment/ui/PosInternalCreditPaymentDialog.tsx`, `pwa-pos/src/features/pos-payment/lib/internal-credit-plan.ts`.
 
 ### 6.1 Patrón a replicar (`PurchasesSection` → cuotas)
 
@@ -297,7 +311,8 @@ Backend: servicio espejo de `SupplierDocumentPaymentPlanService` → `createInst
 
 ## 14. Referencias
 
-- `pwa-pos/src/features/customers/ui/PosCustomerDetailPanel.tsx` — `QuotasSection`, `PurchasesSection`
+- `pwa-pos/src/app/(pos)/pos/payment/ui/PosInternalCreditPaymentDialog.tsx` — plan de crédito en venta
+- `pwa-pos/src/app/(pos)/pos/payment/ui/PosPaymentWorkspace.tsx` — integración cobro
 - `pwa-pos/src/features/session/lib/pos-ar-collect-storage.ts` — patrón draft AR
 - `pwa-pos/src/app/(pos)/pos/payment/ui/PosPaymentWorkspace.tsx`
 - `backend/src/modules/cash-sessions/application/sales-from-session.service.ts` — `collectPendingSales`

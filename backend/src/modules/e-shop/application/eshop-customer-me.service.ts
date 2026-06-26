@@ -134,12 +134,12 @@ export class EshopCustomerMeService {
       page: 1,
       pageSize: 100,
     });
-    const quotas = (ar.rows ?? []).map((inst) => ({
-      id: String(inst.id),
-      amount: Number(inst.amount ?? 0),
-      amountPaid: Number(inst.amountPaid ?? 0),
-      dueDate: inst.dueDate,
-      documentNumber: inst.saleTransaction?.documentNumber ?? null,
+    const quotas = (ar.rows ?? []).map((row) => ({
+      id: String(row.id),
+      amount: Number(row.amount ?? 0),
+      amountPaid: Number(row.amountPaid ?? 0),
+      dueDate: row.dueDate,
+      documentNumber: row.documentNumber ?? null,
     }));
     const totalDue = quotas.reduce(
       (sum, q) => sum + Math.max(0, q.amount - q.amountPaid),

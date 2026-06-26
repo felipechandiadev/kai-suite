@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { signOutToLogin } from "@/lib/auth/sign-out-to-login";
 import {
-  describePrintFormat,
-  getPosDocumentPrintFormat,
-  isDocumentPrintFormat,
+  describePosDocumentPrintMode,
+  getPosDocumentPrintMode,
+  isPosDocumentPrintModeDocument,
+  posDocumentPrintModeToWireFormat,
 } from "@flowstore/print-service-client";
 import { Alert, Button } from "@/shared/admin-shared";
 import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
@@ -17,6 +19,7 @@ import {
   buildCashClosingArqueoPreviewHtml,
   printCashClosingArqueo,
 } from "@/features/cash-closing/lib/print-cash-closing-arqueo";
+import { PosPrintDocumentPreview } from "@/features/pos-print/ui/PosPrintDocumentPreview";
 import {
   clearCashClosingResultSnapshot,
   readCashClosingResultSnapshot,
@@ -62,7 +65,7 @@ export default function CashClosingResultPageClient() {
     signOutStartedRef.current = true;
     setSigningOut(true);
     clearCashClosingResultSnapshot();
-    void signOut({ callbackUrl: "/" });
+    void signOutToLogin();
   }, []);
 
   const buildArqueoPrintInput = useCallback(
@@ -101,6 +104,8 @@ export default function CashClosingResultPageClient() {
     return buildCashClosingArqueoPreviewHtml(arqueoPrintInput);
   }, [arqueoPrintInput]);
 
+  const arqueoPrintMode = useMemo(() => getPosDocumentPrintMode("cashClosing"), []);
+
   useEffect(() => {
     if (!snapshot) return;
 
@@ -128,11 +133,11 @@ export default function CashClosingResultPageClient() {
       printTimer = window.setTimeout(() => {
         if (cancelled) return;
         printCashClosingArqueo(input);
-        const format = getPosDocumentPrintFormat("cashClosing");
+        const mode = getPosDocumentPrintMode("cashClosing");
         setPrintStatus(
-          isDocumentPrintFormat(format)
-            ? `Documento de arqueo enviado a impresión (${describePrintFormat(format)}).`
-            : `Ticket de arqueo enviado a impresión (${describePrintFormat(format)}).`,
+          isPosDocumentPrintModeDocument(mode)
+            ? `Documento de arqueo enviado a impresión (${describePosDocumentPrintMode(mode)}).`
+            : `Ticket de arqueo enviado a impresión (${describePosDocumentPrintMode(mode)}).`,
         );
       }, 400);
     })();
@@ -202,12 +207,12 @@ export default function CashClosingResultPageClient() {
               Reimprimir arqueo
             </Button>
           </div>
-          <div className="mt-3 overflow-hidden rounded-lg border border-border bg-muted/20">
-            <iframe
+          <div className="mt-3">
+            <PosPrintDocumentPreview
+              html={arqueoPreviewHtml}
+              format={posDocumentPrintModeToWireFormat(arqueoPrintMode)}
               title="Vista previa arqueo de caja"
-              srcDoc={arqueoPreviewHtml}
-              className="mx-auto block min-h-[280px] w-full max-w-[420px] bg-white"
-              sandbox=""
+              data-test-id="cash-closing-arqueo-preview"
             />
           </div>
         </section>

@@ -37,6 +37,28 @@ export default function ExpensesDataGrid({ rows, total, categories }: ExpensesDa
   const columns: DataGridColumn[] = useMemo(
     () => [
       {
+        field: "documentNumber",
+        headerName: "Folio",
+        sortable: true,
+        width: 148,
+        valueGetter: ({ row }) => {
+          const r = row as OperationalExpenseGridRow;
+          const folio = r.documentNumber?.trim() || r.referenceNumber?.trim();
+          return folio || "—";
+        },
+        renderCell: ({ value }) => {
+          const folio = String(value ?? "—");
+          return (
+            <span
+              className="block truncate font-mono text-xs text-foreground"
+              title={folio !== "—" ? folio : undefined}
+            >
+              {folio}
+            </span>
+          );
+        },
+      },
+      {
         field: "name",
         headerName: "Nombre",
         sortable: true,

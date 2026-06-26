@@ -1,8 +1,11 @@
 package com.kaistore.printers.protocol
 
 import com.kaistore.printers.BuildConfig
+import com.kaistore.printers.net.LanAddressResolver
 import com.kaistore.printers.bluetooth.BondedDevicesRepository
 import com.kaistore.printers.data.AgentRepository
+import com.kaistore.printers.print.AndroidPdfPrinter
+import com.kaistore.printers.print.DocumentTestPdf
 import com.kaistore.printers.print.EscPosTestBytes
 import com.kaistore.printers.print.transport.PrinterRef
 import com.kaistore.printers.print.transport.TransportFactory
@@ -13,6 +16,7 @@ import com.kaistore.printers.print.jsonObj
 import com.kaistore.printers.print.jsonStr
 import com.kaistore.printers.print.present
 import com.kaistore.printers.queue.PrintQueueWorker
+import android.content.Context
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -37,6 +41,7 @@ data class ConnectedSession(
 )
 
 class ProtocolDispatcher(
+    private val appContext: Context,
     private val repository: AgentRepository,
     private val bonded: BondedDevicesRepository,
     private val transport: TransportFactory,
@@ -136,14 +141,31 @@ class ProtocolDispatcher(
             "get_config" -> {
                 val lines = repository.mappingLinesJson()
                 val aliases = repository.aliasesByPurposeJson()
+                val aliasesByFormat = repository.aliasesByFormatJson()
                 val paperProfileByAlias = repository.paperProfileByAliasJson()
                 encodeOk(
                     requestId,
                     buildJsonObject {
                         put("mappingLines", lines)
                         put("aliasesByPurpose", aliases)
+                        put("aliasesByFormat", aliasesByFormat)
                         put("paperProfileByAlias", paperProfileByAlias)
                         put("mappings", JsonArray(emptyList()))
+                        put("listenHost", repository.listenHost())
+                        put("listenPort", repository.listenPort())
+                        put("wssListenPort", repository.wssListenPort())
+                        put("wssEnabled", repository.wssEnabled())
+                        put("allowAllOrigins", repository.allowAllOrigins())
+                        put(
+                            "allowedOrigins",
+                            repository.allowedOrigins().joinToString(","),
+                        )
+                        put(
+                            "lanIpv4Addresses",
+                            JsonArray(
+                                LanAddressResolver.ipv4NonLoopback().map { JsonPrimitive(it) },
+                            ),
+                        )
                     },
                 )
             }
@@ -292,31 +314,55 @@ class ProtocolDispatcher(
 
     private suspend fun handleTestPrint(env: JsonObject, requestId: String?): String {
         val purpose = env["purpose"]?.jsonPrimitive?.content ?: "tickets"
-        if (purpose != "tickets") {
-            return encodeErr(requestId, "test_print_tickets_only")
-        }
         val displayLabel = env["printerDisplayLabel"]?.jsonPrimitive?.content
             ?: env["printerAlias"]?.jsonPrimitive?.content?.trim()?.takeIf { it.isNotEmpty() }
         val target = repository.resolvePrinterForPurpose(purpose, displayLabel)
             ?: return encodeErr(requestId, "no_printer_mapped")
         val mappingLine = repository.findMappingLine(purpose, displayLabel, target)
         val paperProfile = PaperProfile.fromStorage(
-            mappingLine?.paperProfile ?: PaperProfile.MM80.storageValue,
+            mappingLine?.paperProfile ?: PaperProfile.defaultForPurpose(purpose).storageValue,
         )
-        val ref = PrinterRef.parse(target) ?: return encodeErr(requestId, "invalid_printer_ref")
         return try {
-            val bytes = EscPosTestBytes.testPage(paperProfile)
-            transport.write(ref, bytes)
-            encodeOk(requestId, buildJsonObject { put("ok", true) })
+            when (purpose) {
+                "documents" -> {
+                    val format = DocumentTestPdf.formatForProfile(paperProfile)
+                    AndroidPdfPrinter.printPdf(
+                        appContext,
+                        DocumentTestPdf.bytesForProfile(paperProfile),
+                        "kai-printers-doc-test.pdf",
+                        format,
+                    )
+                    encodeOk(requestId, buildJsonObject { put("ok", true) })
+                }
+                "tickets" -> {
+                    val ref = PrinterRef.parse(target) ?: return encodeErr(requestId, "invalid_printer_ref")
+                    if (ref is PrinterRef.SystemPrint) {
+                        return encodeErr(requestId, "invalid_printer_ref")
+                    }
+                    val bytes = EscPosTestBytes.testPage(paperProfile)
+                    transport.write(ref, bytes)
+                    encodeOk(requestId, buildJsonObject { put("ok", true) })
+                }
+                else -> encodeErr(requestId, "unsupported_purpose")
+            }
         } catch (e: Exception) {
             encodeErr(requestId, e.message ?: "test_print_failed")
         }
     }
 
-    fun serviceStatusPayload(): JsonObject = buildJsonObject {
+    suspend fun serviceStatusPayload(): JsonObject = buildJsonObject {
         put("connectedClients", connectedCount())
         put("sessions", connectedSessionsJson())
         put("agentDisplayName", "KaiPrinters")
+        put("listenHost", repository.listenHost())
+        put("listenPort", repository.listenPort())
+        put("wssListenPort", repository.wssListenPort())
+        put("wssEnabled", repository.wssEnabled())
+        put("allowAllOrigins", repository.allowAllOrigins())
+        put(
+            "lanIpv4Addresses",
+            JsonArray(LanAddressResolver.ipv4NonLoopback().map { JsonPrimitive(it) }),
+        )
     }
 
     private fun encodeOk(requestId: String?, data: JsonObject): String =

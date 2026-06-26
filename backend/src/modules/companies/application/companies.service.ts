@@ -20,6 +20,14 @@ import {
   sanitizeCompanyCheckSettings,
 } from '../domain/company-checks.types';
 import {
+  CompanyMercadoPagoSettings,
+  buildDefaultCompanyMercadoPagoSettings,
+  readMercadoPagoSettingsFromCompanySettings,
+  sanitizeCompanyMercadoPagoSettings,
+  toPublicMercadoPagoSettings,
+  type CompanyMercadoPagoSettingsPublic,
+} from '../domain/company-mercado-pago.types';
+import {
   CompanyQuotationSettings,
   buildDefaultCompanyQuotationSettings,
   sanitizeCompanyQuotationSettings,
@@ -411,6 +419,55 @@ export class CompaniesService {
     }
 
     return validated;
+  }
+
+  async getMercadoPagoSettings(
+    companyId: string,
+    options?: { maskSecrets?: boolean },
+  ): Promise<CompanyMercadoPagoSettings | CompanyMercadoPagoSettingsPublic> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+    const settings = readMercadoPagoSettingsFromCompanySettings(
+      company.settings as Record<string, unknown> | undefined,
+    );
+    if (options?.maskSecrets !== false) {
+      return toPublicMercadoPagoSettings(settings);
+    }
+    return settings;
+  }
+
+  async getMercadoPagoSettingsInternal(
+    companyId: string,
+  ): Promise<CompanyMercadoPagoSettings> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+    return readMercadoPagoSettingsFromCompanySettings(
+      company.settings as Record<string, unknown> | undefined,
+    );
+  }
+
+  async replaceMercadoPagoSettings(
+    companyId: string,
+    raw: unknown,
+  ): Promise<CompanyMercadoPagoSettingsPublic> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+
+    const previous = readMercadoPagoSettingsFromCompanySettings(
+      company.settings as Record<string, unknown> | undefined,
+    );
+    const validated = sanitizeCompanyMercadoPagoSettings(raw, previous);
+    const settings = { ...(company.settings ?? {}) };
+    settings.mercadoPago = validated;
+    company.settings = settings;
+    await this.companyRepository.save(company);
+    return toPublicMercadoPagoSettings(validated);
   }
 
   /**

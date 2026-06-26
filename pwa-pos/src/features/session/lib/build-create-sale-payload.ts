@@ -3,6 +3,7 @@ import type { PosPaymentLine } from "@/features/pos-cart/pos-payment.types";
 import type { PosSaleCustomer } from "@/features/customers/types/pos-customer.types";
 import type { AppliedSnapshot } from "@/features/promotions/lib/discount-engine.types";
 import type { LoadedQuotationMeta } from "@/features/pos-cart/cart-storage";
+import { extractInstallmentMetadataFromPayments } from "@/features/pos-payment/lib/internal-credit-plan";
 
 /** Cuerpo enviado a `POST /api/cash-sessions/sales` (CreateSaleDto). */
 export type CreateSaleApiBody = {
@@ -24,6 +25,7 @@ export type CreateSaleApiBody = {
     amount: number;
     companyPaymentMethodId?: string;
     reference?: string;
+    paymentGatewayIntentId?: string;
     creditNoteTransactionId?: string;
     backorderTransactionId?: string;
     bankAccountId?: string;
@@ -96,6 +98,7 @@ export function buildCreateSalePayments(payments: PosPaymentLine[]): SalePayment
         amount: Math.round(Number(p.amount) || 0),
         companyPaymentMethodId: p.companyPaymentMethodId?.trim() || undefined,
         reference: p.reference?.trim() || undefined,
+        paymentGatewayIntentId: p.paymentGatewayIntentId?.trim() || undefined,
         creditNoteTransactionId: p.creditNoteTransactionId?.trim() || undefined,
         backorderTransactionId: p.backorderTransactionId?.trim() || undefined,
         bankAccountId: p.bankAccountKey?.trim() || undefined,
@@ -150,6 +153,28 @@ export function buildCreateSaleClientPayload(input: {
     : input.payments.filter((p) => (Number(p.amount) || 0) > 0);
   const promotionSnapshot = buildPromotionSnapshot(input.appliedPromotions);
   const quotation = input.loadedQuotation;
+  const installmentMetadata = deferPayment
+    ? null
+    : extractInstallmentMetadataFromPayments(input.payments);
+
+  const metadata: Record<string, unknown> = {};
+  if (quotation?.id?.trim()) {
+    metadata.quotation = {
+      id: quotation.id.trim(),
+      documentNumber: quotation.documentNumber?.trim() || null,
+      expired: quotation.expired === true,
+      validUntil: quotation.validUntil || null,
+    };
+  }
+  if (installmentMetadata) {
+    metadata.numberOfInstallments = installmentMetadata.numberOfInstallments;
+    metadata.firstDueDate = installmentMetadata.firstDueDate;
+    metadata.paymentSchedule = installmentMetadata.paymentSchedule;
+    metadata.customerCreditPlan = installmentMetadata.customerCreditPlan;
+  }
+
+  const hasMetadata = Object.keys(metadata).length > 0;
+
   return {
     pointOfSaleId: input.pointOfSaleId.trim(),
     cashSessionId: input.cashSessionId.trim(),
@@ -161,18 +186,7 @@ export function buildCreateSaleClientPayload(input: {
     customerId: input.customer?.customerId?.trim() || undefined,
     fulfillBackorderId: input.fulfillBackorderId?.trim() || undefined,
     promotionSnapshot,
-    ...(quotation?.id?.trim()
-      ? {
-          metadata: {
-            quotation: {
-              id: quotation.id.trim(),
-              documentNumber: quotation.documentNumber?.trim() || null,
-              expired: quotation.expired === true,
-              validUntil: quotation.validUntil || null,
-            },
-          },
-        }
-      : {}),
+    ...(hasMetadata ? { metadata } : {}),
     ...(deferPayment ? { deferPayment: true } : {}),
   };
 }

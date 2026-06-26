@@ -117,10 +117,12 @@ import { OperationalExpenseDocumentKindAndPaymentStatus1756500000000 } from '../
 import { EShopFulfillmentMethods1756510000000 } from '../migrations/1756510000000-EShopFulfillmentMethods';
 import { EShopCustomerAccounts1756520000000 } from '../migrations/1756520000000-EShopCustomerAccounts';
 import { EShopCustomerAccountUsername1756530000000 } from '../migrations/1756530000000-EShopCustomerAccountUsername';
+import { PaymentGatewayIntents1756540000000 } from '../migrations/1756540000000-PaymentGatewayIntents';
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
 import { EShopFulfillmentMethod } from '@modules/e-shop/domain/e-shop-fulfillment-method.entity';
 import { EshopCustomerAccount } from '@modules/e-shop/domain/eshop-customer-account.entity';
+import { PaymentGatewayIntent } from '@modules/payment-gateways/domain/payment-gateway-intent.entity';
 import { Notification } from '@modules/notifications/domain/notification.entity';
 import { NotificationDelivery } from '@modules/notifications/domain/notification-delivery.entity';
 import { NotificationAudience } from '@modules/notifications/domain/notification-audience.entity';
@@ -214,6 +216,7 @@ export const AppDataSource = new DataSource({
     EShopHeroSlide,
     EShopFulfillmentMethod,
     EshopCustomerAccount,
+    PaymentGatewayIntent,
   ],
   subscribers: [AuditSubscriber, TenantSubscriber],
   migrations: [
@@ -260,6 +263,7 @@ export const AppDataSource = new DataSource({
     EShopFulfillmentMethods1756510000000,
     EShopCustomerAccounts1756520000000,
     EShopCustomerAccountUsername1756530000000,
+    PaymentGatewayIntents1756540000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

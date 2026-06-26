@@ -112,6 +112,12 @@ import { buildJoyarteProductImagesForSeed } from './seed-joyarte-featured-produc
 import { SEED_JOYARTE_ESHOP_HERO_SLIDES } from './seed-joyarte-eshop-hero-slides';
 import { SEED_JOYARTE_ESHOP_TESTIMONIALS } from './seed-joyarte-eshop-testimonials';
 import { SEED_JOYARTE_METAL_PRICES } from './seed-joyarte-metal-prices';
+import {
+  SEED_OPERATIONAL_SUPPLIERS,
+  seedJoyarteOperationalExpenses,
+  syncSeedSuppliers,
+} from './seed-joyarte-operational-expenses';
+import { OperationalExpensesService } from '@modules/operational-expenses/application/operational-expenses.service';
 import { seedMetalPricesFromDefs } from '../shared/seed-metal-prices.util';
 import { runSeedBootstrapGuards } from '../shared/seed-bootstrap.util';
 import {
@@ -302,6 +308,8 @@ const SEED_EXPENSE_CATEGORIES: readonly {
   { name: 'Capacitación operativa', operationalExpenseGroup: ExpenseCategoryOperationalGroup.PERSONAL_NOMINA },
   { name: 'Arriendo', operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES },
   { name: 'Gastos comunes', operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES },
+  { name: 'Electricidad', operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES },
+  { name: 'Agua', operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES },
   { name: 'Mantención', operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES },
   { name: 'Limpieza', operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES },
   { name: 'Seguridad física', operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES },
@@ -317,6 +325,7 @@ const SEED_EXPENSE_CATEGORIES: readonly {
   { name: 'Combustible operativo', operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOGISTICA_DISTRIBUCION },
   { name: 'Peajes', operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOGISTICA_DISTRIBUCION },
   { name: 'Almacenaje externo', operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOGISTICA_DISTRIBUCION },
+  { name: 'Internet y telecomunicaciones', operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS },
   { name: 'Software recurrente', operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS },
   { name: 'Hosting', operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS },
   { name: 'POS (Puntos de Venta)', operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS },
@@ -2267,6 +2276,8 @@ async function bootstrap() {
       );
     }
 
+    await syncSeedSuppliers(personRepo, supplierRepo, SEED_OPERATIONAL_SUPPLIERS);
+
     // Customers (ejemplos): combinaciones de persona/empresa, distintos
     // límites de crédito y días de pago. Cada customer queda vinculado a
     // un `Person` (FK) y a la `Company` seed vía `companyId` (NOT NULL).
@@ -2579,6 +2590,24 @@ async function bootstrap() {
       email: 'operador@flowstore.local',
       documentNumber: '33333333-3',
     });
+
+    const adminUser = await userRepo.findOne({
+      where: { userName, companyId: company.id, deletedAt: null as never },
+    });
+    if (adminUser && seedBranch) {
+      const operationalExpensesService = app.get(OperationalExpensesService);
+      await seedJoyarteOperationalExpenses({
+        dataSource,
+        operationalExpensesService,
+        companyId: company.id,
+        branchId: seedBranch.id,
+        userId: adminUser.id,
+      });
+    } else {
+      console.warn(
+        '⚠️  Seed gastos operativos omitido: no se encontró usuario admin o sucursal.',
+      );
+    }
 
     console.log('✅ Seed Joyarte OK. Tres usuarios listos:');
     console.log(`   • superadmin / ${seedPassword}   (SUPER_ADMIN, protegido)`);

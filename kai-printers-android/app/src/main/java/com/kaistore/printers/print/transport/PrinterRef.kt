@@ -21,7 +21,14 @@ sealed class PrinterRef {
         override fun encode(): String = "usb:$deviceId"
     }
 
+    /** Impresión documento vía Android Print Framework (sin ref física ESC/POS). */
+    data object SystemPrint : PrinterRef() {
+        override fun encode(): String = "system:print"
+    }
+
     companion object {
+        const val SYSTEM_PRINT = "system:print"
+        const val ANDROID_PRINT = "android:print"
         private val MAC_REGEX = Regex("^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
 
         fun parse(raw: String?): PrinterRef? {
@@ -45,6 +52,8 @@ sealed class PrinterRef {
                     val id = s.substring(4).toIntOrNull() ?: return null
                     return Usb(id)
                 }
+                s.equals(SYSTEM_PRINT, ignoreCase = true) ||
+                    s.equals(ANDROID_PRINT, ignoreCase = true) -> return SystemPrint
                 MAC_REGEX.matches(s) -> return Bluetooth(s)
             }
             return null
@@ -54,6 +63,7 @@ sealed class PrinterRef {
             is Bluetooth -> "bluetooth"
             is Network -> "network"
             is Usb -> "usb"
+            is SystemPrint -> "system"
         }
     }
 }

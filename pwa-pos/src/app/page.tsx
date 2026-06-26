@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Building2, Store } from "lucide-react";
 import { Button, IconButton, TextField } from "@/shared/admin-shared";
 import { findMyOpenCashSessionAction } from "@/features/session/actions/cash-session.action";
+import { fetchPointOfSalePriceListsAction } from "@/features/session/actions/point-of-sale-pos.action";
 import {
   readPosContextClient,
   savePosContextClient,
@@ -14,10 +15,12 @@ import {
   readPosCompany,
   type PosCompanyConfig,
 } from "@/features/company/storage/pos-company-storage";
+import { usePosTabletDensity } from "@/shared/hooks/usePosTabletDensity";
 
 const POST_LOGIN_PATH = "/pos";
 
 export default function LoginPage() {
+  usePosTabletDensity();
   const [userName, setUserName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -65,20 +68,43 @@ export default function LoginPage() {
 
       if (cashSession.success) {
         if (cashSession.cashSessionId && cashSession.pointOfSaleId) {
+          const posRes = await fetchPointOfSalePriceListsAction(cashSession.pointOfSaleId);
           const prev = readPosContextClient();
-          if (prev?.pointOfSaleId === cashSession.pointOfSaleId) {
-            savePosContextClient({ ...prev, cashSessionId: cashSession.cashSessionId });
-          } else {
-            savePosContextClient({
-              pointOfSaleId: cashSession.pointOfSaleId,
-              cashSessionId: cashSession.cashSessionId,
-              pointOfSaleName: cashSession.pointOfSaleName ?? null,
-              branchName: cashSession.branchName ?? null,
-              branchId: prev?.branchId ?? null,
-              priceListId: prev?.priceListId ?? null,
-              priceLists: prev?.priceLists ?? [],
-            });
-          }
+          const priceLists =
+            posRes.success && posRes.priceLists.length > 0
+              ? posRes.priceLists
+              : (prev?.priceLists ?? []);
+          const priceListId =
+            (prev?.priceListId &&
+              priceLists.some((p) => p.id === prev.priceListId) &&
+              prev.priceListId) ||
+            (posRes.success &&
+              posRes.defaultPriceListId &&
+              priceLists.some((p) => p.id === posRes.defaultPriceListId) &&
+              posRes.defaultPriceListId) ||
+            priceLists[0]?.id ||
+            prev?.priceListId ||
+            null;
+
+          savePosContextClient({
+            pointOfSaleId: cashSession.pointOfSaleId,
+            cashSessionId: cashSession.cashSessionId,
+            pointOfSaleName:
+              (posRes.success ? posRes.pointOfSaleName : null) ??
+              cashSession.pointOfSaleName ??
+              prev?.pointOfSaleName ??
+              null,
+            branchName:
+              (posRes.success ? posRes.branchName : null) ??
+              cashSession.branchName ??
+              prev?.branchName ??
+              null,
+            branchId:
+              (posRes.success ? posRes.branchId : null) ?? prev?.branchId ?? null,
+            storageId: posRes.success ? posRes.storageId : (prev?.storageId ?? null),
+            priceListId,
+            priceLists,
+          });
         }
         router.push(cashSession.cashSessionId ? POST_LOGIN_PATH : "/session-setup");
         return;
@@ -198,7 +224,22 @@ export default function LoginPage() {
               className="w-full"
             />
           </div>
-          {error ? <p className="mb-4 text-sm text-red-500">{error}</p> : null}
+          {error ? (
+            <div className="mb-4 space-y-2">
+              <p className="text-sm text-red-500">{error}</p>
+              {error.toLowerCase().includes("empresa") ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => router.push("/setup")}
+                  disabled={submitting}
+                >
+                  Cambiar empresa del POS
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
           <Button
             type="submit"
             className="w-full"

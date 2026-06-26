@@ -1,17 +1,14 @@
 package com.kaistore.printers.ui.printers
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,27 +23,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.kaistore.printers.KaiPrintersApp
 import com.kaistore.printers.R
-import kotlinx.coroutines.launch
+import com.kaistore.printers.ui.mapping.AddMappingLineSheet
+import com.kaistore.printers.ui.mapping.MappingLinesList
+import com.kaistore.printers.ui.mapping.MappingLinesState
 
-private enum class PrinterTab { BLUETOOTH, NETWORK, USB }
-
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun PrintersSetupScreen(
-    onContinue: () -> Unit,
-    onOpenPosConnection: () -> Unit = onContinue,
-) {
+fun PrintersSetupScreen() {
     val context = LocalContext.current
-    val repository = remember { (context.applicationContext as KaiPrintersApp).container.repository }
     val scope = rememberCoroutineScope()
-    val tabs = PrinterTab.entries
-    val pagerState = rememberPagerState(pageCount = { tabs.size })
-    var assignedName by remember { mutableStateOf<String?>(null) }
-    var assignedPaperProfile by remember { mutableStateOf("80mm") }
+    val repository = remember { (context.applicationContext as KaiPrintersApp).container.repository }
+    val mappingState = remember { MappingLinesState(context.applicationContext, repository, scope) }
+    var showAddSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        assignedName = repository.ticketsPrinterSystemName()
-        assignedPaperProfile = repository.ticketsPaperProfile()
+        mappingState.refresh()
     }
 
     Column(
@@ -55,50 +45,44 @@ fun PrintersSetupScreen(
             .padding(20.dp),
     ) {
         Text(stringResource(R.string.printers_setup_title), style = MaterialTheme.typography.headlineSmall)
-        AssignedPrinterSummary(assignedName, assignedPaperProfile)
+        Text(
+            stringResource(R.string.printers_setup_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+        )
 
-        TabRow(selectedTabIndex = pagerState.currentPage, modifier = Modifier.fillMaxWidth()) {
-            tabs.forEachIndexed { index, tab ->
-                Tab(
-                    selected = pagerState.currentPage == index,
-                    onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                    text = {
-                        Text(
-                            when (tab) {
-                                PrinterTab.BLUETOOTH -> stringResource(R.string.tab_bluetooth)
-                                PrinterTab.NETWORK -> stringResource(R.string.tab_network)
-                                PrinterTab.USB -> stringResource(R.string.tab_usb)
-                            },
-                        )
-                    },
-                )
+        mappingState.message?.let {
+            Text(it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            MappingLinesList(
+                lines = mappingState.lines,
+                onTestLine = mappingState::testLine,
+                onDeleteLine = { mappingState.deleteLine(it.id) },
+                testingLineId = mappingState.testingLineId,
+                emptyText = stringResource(R.string.mapping_no_lines),
+            )
+
+            Button(
+                onClick = { showAddSheet = true },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.mapping_add_printer))
             }
-        }
-
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.weight(1f),
-        ) { page ->
-            when (tabs[page]) {
-                PrinterTab.BLUETOOTH -> BluetoothPrintersScreenContent(
-                    onAssignmentChanged = {
-                        scope.launch {
-                            assignedName = repository.ticketsPrinterSystemName()
-                            assignedPaperProfile = repository.ticketsPaperProfile()
-                        }
-                    },
-                )
-                PrinterTab.NETWORK -> NetworkPrintersScreen()
-                PrinterTab.USB -> UsbPrintersScreen()
-            }
-        }
-
-        OutlinedButton(onClick = onOpenPosConnection, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.pos_connection_shortcut))
-        }
-
-        Button(onClick = onContinue, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.continue_label))
         }
     }
+
+    AddMappingLineSheet(
+        visible = showAddSheet,
+        onDismiss = { showAddSheet = false },
+        onAddLine = { purpose, paperProfile, ref, alias ->
+            mappingState.addLine(purpose, ref, alias, paperProfile)
+        },
+    )
 }

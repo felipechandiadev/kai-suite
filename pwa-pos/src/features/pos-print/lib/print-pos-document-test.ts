@@ -1,6 +1,8 @@
 import {
-  isDocumentPrintFormat,
+  isPosDocumentPrintModeDocument,
+  posDocumentPrintModeToWireFormat,
   type PosDocumentPrintKind,
+  type PosDocumentPrintMode,
   type PrintFormat,
 } from "@flowstore/print-service-client";
 import { buildCustomerCreditNoteDocumentHtml } from "@/features/customer-credit-notes/lib/customer-credit-note-document-print";
@@ -24,18 +26,25 @@ import { printPosQuotationReceiptAgentOrBrowser } from "@/features/quotations/li
 
 export type PosDocumentTestPrintChannel = "agent" | "browser";
 
+function wireFormat(mode: PosDocumentPrintMode): PrintFormat {
+  return posDocumentPrintModeToWireFormat(mode);
+}
+
 /**
- * Imprime un documento de prueba (datos ficticios) según el formato configurado.
+ * Imprime un documento de prueba (datos ficticios) según el modo ticket/documento configurado.
  */
 export async function printPosDocumentTest(
   kind: PosDocumentPrintKind,
-  format: PrintFormat,
+  mode: PosDocumentPrintMode,
 ): Promise<PosDocumentTestPrintChannel> {
+  const format = wireFormat(mode);
+  const isDocument = isPosDocumentPrintModeDocument(mode);
+
   switch (kind) {
     case "sale": {
       const data = buildPosPrintTestSaleReceipt("sale");
       const folio = data.folio.trim() || "ticket";
-      if (isDocumentPrintFormat(format)) {
+      if (isDocument) {
         return printPosSaleDocumentAgentOrBrowser(data, format);
       }
       return printPosSaleTicketAgentOrBrowser(data, {
@@ -48,7 +57,7 @@ export async function printPosDocumentTest(
     case "backorder": {
       const data = buildPosPrintTestSaleReceipt("backorder");
       const folio = data.folio.trim() || "encargo";
-      if (isDocumentPrintFormat(format)) {
+      if (isDocument) {
         return printPosSaleDocumentAgentOrBrowser(data, format);
       }
       return printPosSaleTicketAgentOrBrowser(data, {
@@ -61,7 +70,7 @@ export async function printPosDocumentTest(
     case "quotation": {
       const input = buildPosPrintTestQuotationInput();
       const folio = input.quotation.documentNumber?.trim() || "cotizacion";
-      if (isDocumentPrintFormat(format)) {
+      if (isDocument) {
         return printPosHtmlViaAgentOrBrowser(buildQuotationDocumentHtml(input, format), "documents", {
           filename: `${folio}.pdf`,
           iframeTitle: "Impresión cotización documento (prueba)",
@@ -75,7 +84,7 @@ export async function printPosDocumentTest(
     case "customerCreditNote": {
       const data = buildPosPrintTestCreditNoteData();
       const folio = data.creditNoteFolio.trim() || "nota-credito";
-      if (isDocumentPrintFormat(format)) {
+      if (isDocument) {
         return printPosHtmlViaAgentOrBrowser(buildCustomerCreditNoteDocumentHtml(data, format), "documents", {
           filename: `${folio}.pdf`,
           iframeTitle: "Impresión nota de crédito documento (prueba)",
@@ -95,7 +104,7 @@ export async function printPosDocumentTest(
     case "cashSessionOpening": {
       const input = buildPosPrintTestCashSessionOpeningInput();
       const ref = input.cashSessionId.slice(0, 8).toUpperCase() || "apertura";
-      if (isDocumentPrintFormat(format)) {
+      if (isDocument) {
         return printPosHtmlViaAgentOrBrowser(buildCashSessionOpeningDocumentHtml(input, format), "documents", {
           filename: `apertura-caja-${ref}.pdf`,
           iframeTitle: "Apertura de caja (prueba)",

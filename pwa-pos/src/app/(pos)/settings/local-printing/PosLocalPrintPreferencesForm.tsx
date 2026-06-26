@@ -4,17 +4,17 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   PrintServiceConnection,
   buildWebSocketUrl,
+  printModesForPosDocumentKind,
   printServicePageRequiresTls,
-  printFormatsForPosDocumentKind,
   readPrintServiceConfigFromStorage,
-  readPosDocumentPrintFormatsFromStorage,
+  readPosDocumentPrintModesFromStorage,
   readPosPurposePrinterAliasesFromStorage,
-  sanitizePosDocumentPrintFormat,
+  sanitizePosDocumentPrintMode,
   type KaiPrintersAndroidManifest,
   type PosDocumentPrintKind,
-  type PrintFormat,
-  PrintFormatSelector,
-  writePosDocumentPrintFormatsToStorage,
+  type PosDocumentPrintMode,
+  PosDocumentPrintModeSelector,
+  writePosDocumentPrintModesToStorage,
   writePosPurposePrinterAliasesToStorage,
   writePrintServiceConfigToStorage,
   KaiPrintersDownloadSection,
@@ -25,6 +25,7 @@ import { printPosQuickTicketTest } from "@/features/pos-print/lib/print-pos-quic
 import { DocumentPrintTestButton } from "@/features/pos-print/ui/DocumentPrintTestButton";
 import { PosCustomerDisplaySettingsSection } from "@/features/customer-display/ui/PosCustomerDisplaySettingsSection";
 import type { KaiScreenAndroidManifest } from "@flowstore/customer-display-client";
+import { getQuotationsEnabledAction } from "@/features/company/actions/company-quotations.action";
 
 type Props = {
   className?: string;
@@ -37,14 +38,14 @@ function stringList(v: unknown): string[] {
   return v.filter((x): x is string => typeof x === "string" && x.trim().length > 0).map((s) => s.trim());
 }
 
-const INITIAL_DOC_PRINT_FORMATS: Record<PosDocumentPrintKind, PrintFormat> = {
-  sale: "ticket_80mm",
-  quotation: "ticket_80mm",
-  backorder: "ticket_80mm",
-  customerCreditNote: "ticket_80mm",
-  cashClosing: "ticket_80mm",
-  cashCountSheet: "document_a4",
-  cashSessionOpening: "ticket_80mm",
+const INITIAL_DOC_PRINT_MODES: Record<PosDocumentPrintKind, PosDocumentPrintMode> = {
+  sale: "ticket",
+  quotation: "ticket",
+  backorder: "ticket",
+  customerCreditNote: "ticket",
+  cashClosing: "ticket",
+  cashCountSheet: "document",
+  cashSessionOpening: "ticket",
 };
 
 function aliasSelectOptions(aliases: string[], current: string) {
@@ -77,13 +78,18 @@ export function PosLocalPrintPreferencesForm({
   const [ticketAliases, setTicketAliases] = useState<string[]>([]);
   const [documentAliases, setDocumentAliases] = useState<string[]>([]);
   const [aliasesLoading, setAliasesLoading] = useState(false);
-  const [docPrintFormats, setDocPrintFormats] =
-    useState<Record<PosDocumentPrintKind, PrintFormat>>(INITIAL_DOC_PRINT_FORMATS);
+  const [docPrintModes, setDocPrintModes] =
+    useState<Record<PosDocumentPrintKind, PosDocumentPrintMode>>(INITIAL_DOC_PRINT_MODES);
   const [storageHydrated, setStorageHydrated] = useState(false);
   const [testPrintBusyKind, setTestPrintBusyKind] = useState<PosDocumentPrintKind | null>(null);
   const [quickTestBusy, setQuickTestBusy] = useState(false);
   const [saleDemoTestBusy, setSaleDemoTestBusy] = useState(false);
   const [quickTestMessage, setQuickTestMessage] = useState<string | null>(null);
+  const [quotationsEnabled, setQuotationsEnabled] = useState(false);
+
+  useEffect(() => {
+    void getQuotationsEnabledAction().then(setQuotationsEnabled);
+  }, []);
 
   useEffect(() => {
     const c = readPrintServiceConfigFromStorage();
@@ -91,15 +97,15 @@ export function PosLocalPrintPreferencesForm({
     setPort(String(c.port));
     setWssPort(String(c.wssPort));
     setUseTls(c.useTls);
-    const a = readPosPurposePrinterAliasesFromStorage();
-    setTicketsAlias(a.ticketsAlias);
-    setDocumentsAlias(a.documentsAlias);
-    const stored = readPosDocumentPrintFormatsFromStorage();
-    const sanitized = { ...stored };
-    for (const kind of Object.keys(stored) as PosDocumentPrintKind[]) {
-      sanitized[kind] = sanitizePosDocumentPrintFormat(kind, stored[kind]);
+    const aliases = readPosPurposePrinterAliasesFromStorage();
+    setTicketsAlias(aliases.ticketsAlias);
+    setDocumentsAlias(aliases.documentsAlias);
+    const stored = readPosDocumentPrintModesFromStorage();
+    const sanitized = { ...INITIAL_DOC_PRINT_MODES, ...stored };
+    for (const kind of Object.keys(sanitized) as PosDocumentPrintKind[]) {
+      sanitized[kind] = sanitizePosDocumentPrintMode(kind, sanitized[kind]);
     }
-    setDocPrintFormats(sanitized);
+    setDocPrintModes(sanitized);
     setStorageHydrated(true);
   }, []);
 
@@ -158,11 +164,11 @@ export function PosLocalPrintPreferencesForm({
       ticketsAlias,
       documentsAlias,
     });
-    writePosDocumentPrintFormatsToStorage(docPrintFormats);
-  }, [host, port, wssPort, useTls, ticketsAlias, documentsAlias, docPrintFormats]);
+    writePosDocumentPrintModesToStorage(docPrintModes);
+  }, [host, port, wssPort, useTls, ticketsAlias, documentsAlias, docPrintModes]);
 
-  const setDocFormat = useCallback((kind: PosDocumentPrintKind, format: PrintFormat) => {
-    setDocPrintFormats((prev) => ({ ...prev, [kind]: format }));
+  const setDocMode = useCallback((kind: PosDocumentPrintKind, mode: PosDocumentPrintMode) => {
+    setDocPrintModes((prev) => ({ ...prev, [kind]: mode }));
   }, []);
 
   const runQuickTicketTest = useCallback(async () => {
@@ -176,7 +182,7 @@ export function PosLocalPrintPreferencesForm({
         wssPort: Number(wssPort) || 14568,
         useTls,
         ticketsAlias,
-        saleFormat: docPrintFormats.sale,
+        saleMode: docPrintModes.sale,
       });
       setQuickTestMessage(result.detail);
     } catch (e) {
@@ -197,7 +203,7 @@ export function PosLocalPrintPreferencesForm({
     wssPort,
     useTls,
     ticketsAlias,
-    docPrintFormats.sale,
+    docPrintModes.sale,
   ]);
 
   const runSaleDemoTest = useCallback(async () => {
@@ -215,7 +221,7 @@ export function PosLocalPrintPreferencesForm({
         ticketsAlias,
         documentsAlias,
       });
-      const channel = await printPosDocumentTest("sale", docPrintFormats.sale);
+      const channel = await printPosDocumentTest("sale", docPrintModes.sale);
       setQuickTestMessage(
         channel === "agent"
           ? "Venta demo encolada (mismo flujo que una venta real). Revise la impresora."
@@ -239,7 +245,7 @@ export function PosLocalPrintPreferencesForm({
     useTls,
     ticketsAlias,
     documentsAlias,
-    docPrintFormats.sale,
+    docPrintModes.sale,
   ]);
 
   const runTestPrint = useCallback(
@@ -247,19 +253,19 @@ export function PosLocalPrintPreferencesForm({
       if (testPrintBusyKind) return;
       setTestPrintBusyKind(kind);
       try {
-        await printPosDocumentTest(kind, docPrintFormats[kind]);
+        await printPosDocumentTest(kind, docPrintModes[kind]);
       } catch (e) {
         console.warn("[pos-print-test]", e);
         window.alert(
           e instanceof Error
             ? e.message
-            : "No se pudo enviar la impresión de prueba. Revisá KaiPrinters o el diálogo del navegador.",
+            : "No se pudo enviar la impresión de prueba. Revisá Kai Printers o el diálogo del navegador.",
         );
       } finally {
         setTestPrintBusyKind(null);
       }
     },
-    [docPrintFormats, testPrintBusyKind],
+    [docPrintModes, testPrintBusyKind],
   );
 
   const ticketOptions = useMemo(
@@ -285,6 +291,14 @@ export function PosLocalPrintPreferencesForm({
       >
         <section className="rounded-xl border border-border bg-background p-4 shadow-sm">
           <h2 className="text-sm font-semibold text-foreground">Conexión al agente</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            El agente puede estar en cualquier equipo de la red local.{" "}
+            <code className="text-foreground">127.0.0.1</code> significa{" "}
+            <strong className="font-medium text-foreground">este mismo dispositivo</strong> donde corre el
+            navegador del POS (aunque lo abras por IP, p. ej. en una tablet Swan). Si Kai Printers está en
+            otro equipo, usá su <strong className="font-medium text-foreground">IP LAN</strong> (la ves en
+            Kai Printers → Conectar con el POS).
+          </p>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <TextField
               label="Host"
@@ -322,11 +336,23 @@ export function PosLocalPrintPreferencesForm({
               />
             </div>
           </div>
+          <p className="mt-3 text-sm text-muted-foreground">
+            URL de conexión: <code className="text-foreground">{url}</code>
+          </p>
+          {useTls && !printServicePageRequiresTls() ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Con WSS activo, abrí una vez{" "}
+              <code className="text-foreground">
+                https://{(host || "127.0.0.1").trim()}:{wssPort || "14568"}/
+              </code>{" "}
+              en este navegador y aceptá el certificado antes de imprimir.
+            </p>
+          ) : null}
         </section>
 
         <section className="rounded-xl border border-border bg-background p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-foreground">Impresoras por tipo</h2>
+            <h2 className="text-sm font-semibold text-foreground">Impresoras</h2>
             <Button
               type="button"
               variant="outlined"
@@ -339,6 +365,10 @@ export function PosLocalPrintPreferencesForm({
               Actualizar desde el agente
             </Button>
           </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Elegí qué impresora usa el POS para tickets y para documentos. El ancho del rollo o el
+            tamaño de hoja se define en cada línea de Kai Printers, no aquí.
+          </p>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Select
               label="Tickets"
@@ -404,16 +434,17 @@ export function PosLocalPrintPreferencesForm({
         <section className="rounded-xl border border-border bg-background p-4 shadow-sm">
           <h2 className="text-sm font-semibold text-foreground">Impresión según documento</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Formato por defecto al imprimir desde el POS (ventas, cotizaciones, cierre de caja, planilla de conteo, etc.).
-            En cotizaciones, el diálogo de emisión precargará esta opción (puedes cambiarla antes de imprimir).
-            Usá el icono de impresión para enviar un documento de prueba con datos ficticios a KaiPrinters; si el
-            agente no está disponible, se abrirá el diálogo de impresión del navegador.
+            Por cada tipo de documento elegí si se imprime como ticket o como documento. La impresora
+            concreta es la definida arriba (Tickets o Documentos). En cotizaciones, el diálogo de
+            emisión precargará esta opción.
           </p>
           <div className="mt-4 grid gap-4">
             {(
               [
                 ["sale", "Ventas", "pos-print-prefs-sale-mode"] as const,
-                ["quotation", "Cotizaciones", "pos-print-prefs-quotation-mode"] as const,
+                ...(quotationsEnabled
+                  ? ([["quotation", "Cotizaciones", "pos-print-prefs-quotation-mode"]] as const)
+                  : []),
                 ["backorder", "Encargos", "pos-print-prefs-backorder-mode"] as const,
                 [
                   "customerCreditNote",
@@ -443,10 +474,10 @@ export function PosLocalPrintPreferencesForm({
                 <div className="min-w-0 flex-1">
                   <p className="mb-2 text-sm font-medium text-foreground">{label}</p>
                   {storageHydrated ? (
-                    <PrintFormatSelector
-                      value={docPrintFormats[kind]}
-                      onChange={(format) => setDocFormat(kind, format)}
-                      allowedFormats={printFormatsForPosDocumentKind(kind)}
+                    <PosDocumentPrintModeSelector
+                      value={docPrintModes[kind]}
+                      onChange={(mode) => setDocMode(kind, mode)}
+                      allowedModes={printModesForPosDocumentKind(kind)}
                       data-test-id={testId}
                     />
                   ) : (

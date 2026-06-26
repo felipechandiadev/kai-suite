@@ -13,7 +13,8 @@
     "dev:apps:eshop": "bash scripts/dev-apps.sh eshop",
     "env:dev": "bash envs/sync-dev-envs.sh --force",
     "kai-printers:publish": "bash kai-printers-android/scripts/publish-to-pos-downloads.sh",
-    "kai-screen:publish": "bash kai-screen-android/scripts/publish-to-pos-downloads.sh"
+    "kai-screen:publish": "bash kai-screen-android/scripts/publish-to-pos-downloads.sh",
+    "brand:icons": "cd packages/kai-brand && npm install && npm run generate"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

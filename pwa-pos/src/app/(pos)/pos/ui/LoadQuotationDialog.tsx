@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, Button, Dialog, TextField } from "@/shared/admin-shared";
 import { usePosCart } from "@/features/pos-cart/PosCartProvider";
 import type { LoadedQuotationMeta } from "@/features/pos-cart/cart-storage";
@@ -91,6 +91,7 @@ function buildQuotationMeta(
 
 export function LoadQuotationDialog({ open, onClose, pointOfSaleId }: Props) {
   const cart = usePosCart();
+  const folioFieldRef = useRef<HTMLDivElement>(null);
   const [folio, setFolio] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,7 +103,14 @@ export function LoadQuotationDialog({ open, onClose, pointOfSaleId }: Props) {
       setError(null);
       setPreview(null);
       setBusy(false);
+      return;
     }
+    const t = window.setTimeout(() => {
+      folioFieldRef.current?.querySelector<HTMLInputElement>("input")?.focus({
+        preventScroll: true,
+      });
+    }, 80);
+    return () => clearTimeout(t);
   }, [open]);
 
   async function handleSearch() {
@@ -214,15 +222,23 @@ export function LoadQuotationDialog({ open, onClose, pointOfSaleId }: Props) {
       data-test-id="pos-load-quotation-dialog"
     >
       <div className="grid gap-3">
-        <TextField
-          label="Folio de cotización"
-          placeholder="COT-26-00001"
-          value={folio}
-          onChange={(e) =>
-            setFolio((e as React.ChangeEvent<HTMLInputElement>).target.value)
-          }
-          data-test-id="pos-load-quotation-folio"
-        />
+        <div ref={folioFieldRef}>
+          <TextField
+            label="Folio de cotización"
+            placeholder="COT-26-00001"
+            value={folio}
+            onChange={(e) =>
+              setFolio((e as React.ChangeEvent<HTMLInputElement>).target.value)
+            }
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !busy && !preview) {
+                e.preventDefault();
+                void handleSearch();
+              }
+            }}
+            data-test-id="pos-load-quotation-folio"
+          />
+        </div>
 
         {preview ? (
           <div className="rounded-lg border border-border p-3 text-sm">

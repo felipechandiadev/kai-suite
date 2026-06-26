@@ -19,6 +19,7 @@ import type {
   PosCustomerQuotaRow,
   PosCustomerReturnRow,
 } from "@/features/customers/types/pos-customer-detail.types";
+import { PosCustomerBankAccountsSection } from "@/features/customers/ui/PosCustomerBankAccountsSection";
 import {
   CREDIT_NOTE_USAGE_LABEL,
   TX_TYPE_LABEL,
@@ -194,21 +195,21 @@ export default function PosCustomerDetailPanel({
         <SummarySection customer={customer} />
       </SectionCard>
 
+      <PosCustomerBankAccountsSection personId={customer.personId ?? ""} />
+
       {internalCreditEnabled ? (
         <SectionCard title="Crédito" testId="pos-customer-detail-credit">
           <CreditSection customer={customer} />
         </SectionCard>
       ) : null}
 
-      {internalCreditEnabled ? (
-        <SectionCard title="Cuotas pendientes" testId="pos-customer-detail-quotas">
-          <QuotasSection
-            rows={quotas}
-            customerId={customer.customerId}
-            customerDisplayName={customer.displayName}
-          />
-        </SectionCard>
-      ) : null}
+      <SectionCard title="Cuotas pendientes" testId="pos-customer-detail-quotas">
+        <QuotasSection
+          rows={quotas}
+          customerId={customer.customerId}
+          customerDisplayName={customer.displayName}
+        />
+      </SectionCard>
 
       <SectionCard title="Compras" testId="pos-customer-detail-purchases">
         <PurchasesSection

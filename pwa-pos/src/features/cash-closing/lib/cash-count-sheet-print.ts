@@ -1,6 +1,7 @@
 import {
-  getPosDocumentPrintFormat,
+  getPosDocumentPrintMode,
   isDocumentPrintFormat,
+  posDocumentPrintModeToWireFormat,
   type PrintFormat,
 } from "@flowstore/print-service-client";
 import type { CashCountSheetPrintInput } from "@/features/cash-closing/lib/cash-count-sheet-print.types";
@@ -152,7 +153,7 @@ export async function printCashCountSheetAwait(
   format?: PrintFormat,
 ): Promise<"agent" | "browser"> {
   if (typeof window === "undefined") return "browser";
-  const resolved = format ?? getPosDocumentPrintFormat("cashCountSheet");
+  const resolved = format ?? posDocumentPrintModeToWireFormat(getPosDocumentPrintMode("cashCountSheet"));
   const origin = window.location.origin;
   const meta = printMeta(input, resolved);
   if (!isDocumentPrintFormat(resolved)) {
@@ -174,7 +175,7 @@ export function buildCashCountSheetPreviewHtml(
   format?: PrintFormat,
 ): string | null {
   if (typeof window === "undefined") return null;
-  const resolved = format ?? getPosDocumentPrintFormat("cashCountSheet");
+  const resolved = format ?? posDocumentPrintModeToWireFormat(getPosDocumentPrintMode("cashCountSheet"));
   return isDocumentPrintFormat(resolved)
     ? buildCashCountSheetDocumentHtml(input, resolved)
     : buildCashCountSheetTicketHtml(input, window.location.origin, resolved);

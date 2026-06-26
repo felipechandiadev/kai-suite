@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Button, Dialog, TextField } from "@/shared/admin-shared";
 import type { BackorderDepositConfig } from "@/features/pos-cart/types/backorder-deposit.types";
 import {
@@ -49,6 +49,7 @@ export function BackorderDepositDialog({
   initial,
   onConfirm,
 }: Props) {
+  const percentFieldRef = useRef<HTMLDivElement>(null);
   const [percentStr, setPercentStr] = useState(String(DEFAULT_PERCENT));
   const [amountStr, setAmountStr] = useState("");
   const [amountTouched, setAmountTouched] = useState(false);
@@ -76,6 +77,16 @@ export function BackorderDepositDialog({
     }, 0);
     return () => clearTimeout(id);
   }, [open, initial, saleTotal]);
+
+  useEffect(() => {
+    if (!open) return;
+    const t = window.setTimeout(() => {
+      percentFieldRef.current?.querySelector<HTMLInputElement>("input")?.focus({
+        preventScroll: true,
+      });
+    }, 80);
+    return () => clearTimeout(t);
+  }, [open]);
 
   function handlePercentChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const next = (e as React.ChangeEvent<HTMLInputElement>).target.value;
@@ -130,15 +141,17 @@ export function BackorderDepositDialog({
             {formatMoney(saleTotal)}
           </span>
         </p>
-        <TextField
-          label="Porcentaje de abono (%)"
-          type="number"
-          min={0}
-          max={100}
-          value={percentStr}
-          onChange={handlePercentChange}
-          data-test-id="pos-backorder-deposit-percent"
-        />
+        <div ref={percentFieldRef}>
+          <TextField
+            label="Porcentaje de abono (%)"
+            type="number"
+            min={0}
+            max={100}
+            value={percentStr}
+            onChange={handlePercentChange}
+            data-test-id="pos-backorder-deposit-percent"
+          />
+        </div>
         <div className="rounded-lg border border-border bg-muted/20 px-3 py-2.5">
           <p className="text-xs text-muted-foreground">Monto según el % (redondeado)</p>
           <p

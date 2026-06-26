@@ -1,0 +1,13 @@
+{
+  "name": "@flowstore/kai-brand",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Generación de iconos KaiStore (PWA, Android, Tauri) desde sources/",
+  "type": "module",
+  "scripts": {
+    "generate": "node scripts/generate-all.mjs"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.5"
+  }
+}

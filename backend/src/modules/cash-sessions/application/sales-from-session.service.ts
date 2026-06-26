@@ -45,6 +45,7 @@ import {
   InstallmentStatus,
 } from '@modules/installments/domain/installment.entity';
 import { InstallmentRepository } from '@modules/installments/infrastructure/installment.repository';
+import { InstallmentService } from '@modules/installments/application/services/installment.service';
 import {
   resolveSalePaymentStatusFromReceived,
   saleAmountPaidField,
@@ -65,9 +66,11 @@ import { PromotionRedemption } from '@modules/promotions/domain/promotion-redemp
 import { Storage } from '@modules/storages/domain/storage.entity';
 import { StockLevel } from '@modules/stock-levels/domain/stock-level.entity';
 import { CustomerPaymentSourcesService } from '@modules/customers/application/customer-payment-sources.service';
+import { CustomersService } from '@modules/customers/application/customers.service';
 import { StockCommitmentService } from '@modules/stock-levels/application/stock-commitment.service';
 import { BackorderRegistrationService } from '@modules/transactions/application/backorder-registration.service';
 import { EshopBackorderSyncService } from '@modules/transactions/application/eshop-backorder-sync.service';
+import { MercadoPagoSalePaymentService } from '@modules/payment-gateways/application/mercado-pago-sale-payment.service';
 import { computeCashSessionExpectedAmount } from './cash-session-expected-amount.util';
 import {
   buildPaymentSnapshotsFromSalePayments,
@@ -138,10 +141,13 @@ export class SalesFromSessionService {
     private readonly promotionsService: PromotionsService,
     private readonly variantQuantityConversion: VariantQuantityConversionService,
     private readonly customerPaymentSourcesService: CustomerPaymentSourcesService,
+    private readonly customersService: CustomersService,
     private readonly stockCommitment: StockCommitmentService,
     private readonly backorderRegistration: BackorderRegistrationService,
     private readonly eshopBackorderSync: EshopBackorderSyncService,
     private readonly installmentRepository: InstallmentRepository,
+    private readonly installmentService: InstallmentService,
+    private readonly mpSalePayment: MercadoPagoSalePaymentService,
   ) {}
 
   /**
@@ -976,6 +982,22 @@ export class SalesFromSessionService {
         'La devolución en modo documento no admite pagos. Use el endpoint de reembolso inmediato.',
       );
     }
+    if (immediateRefund && hasPaidLines) {
+      for (const p of createSaleReturnDto.payments ?? []) {
+        if ((Number(p.amount) || 0) <= 0) continue;
+        const method = String(p.paymentMethod ?? '')
+          .trim()
+          .toUpperCase();
+        if (
+          method === PaymentMethod.CREDIT_CARD ||
+          method === PaymentMethod.DEBIT_CARD
+        ) {
+          throw new BadRequestException(
+            'El reembolso inmediato no admite tarjeta de crédito ni débito. Use efectivo, transferencia o cheque.',
+          );
+        }
+      }
+    }
     await this.assertReturnQuantitiesAllowed(
       originalSaleId,
       createSaleReturnDto.lines.map((l) => ({
@@ -1278,6 +1300,8 @@ export class SalesFromSessionService {
       bankAccountId: p.bankAccountId,
       reference: (p as { reference?: string }).reference,
       checkData: (p as { checkData?: Record<string, unknown> }).checkData,
+      paymentGatewayIntentId: (p as { paymentGatewayIntentId?: string })
+        .paymentGatewayIntentId,
     }));
 
     let finalPaymentMethod: PaymentMethod =
@@ -1300,6 +1324,11 @@ export class SalesFromSessionService {
     const customerIdTrimmed = customerIdTrimmedEarly;
     if (isSale && customerIdTrimmed && paymentsUsed.length > 0) {
       await this.customerPaymentSourcesService.validatePaymentsForCustomer(
+        customerIdTrimmed,
+        paymentsUsed,
+      );
+      await this.assertInternalCreditPaymentsAllowed(
+        pointOfSaleId,
         customerIdTrimmed,
         paymentsUsed,
       );
@@ -1925,6 +1954,26 @@ export class SalesFromSessionService {
         throw err;
       }
 
+      if (isSale && pointOfSale.companyId) {
+        await this.installmentService.createFromTransactionMetadata(
+          finalTransaction,
+          pointOfSale.companyId,
+        );
+      }
+
+      if (isSale && pointOfSale.companyId && paymentsUsed.length > 0) {
+        await this.mpSalePayment.validateAndConsumePointPayments({
+          companyId: pointOfSale.companyId,
+          transactionId: finalTransaction.id,
+          payments: paymentsUsed.map((p) => ({
+            amount: Number(p.amount) || 0,
+            paymentGatewayIntentId: (p as { paymentGatewayIntentId?: string })
+              .paymentGatewayIntentId,
+            reference: (p as { reference?: string }).reference,
+          })),
+        });
+      }
+
       // Si la venta proviene de una cotización cargada en POS, dejarla como CONVERTED
       // para que no se pueda reutilizar (independiente de líneas vendidas).
       if (isSale && quotationId) {
@@ -2266,5 +2315,55 @@ export class SalesFromSessionService {
       id: params.saleTransaction.id,
       documentNumber: params.saleTransaction.documentNumber,
     });
+  }
+
+  /**
+   * Valida política empresa y cupo disponible cuando la venta usa INTERNAL_CREDIT.
+   */
+  private async assertInternalCreditPaymentsAllowed(
+    pointOfSaleId: string,
+    customerId: string,
+    payments: Array<{ paymentMethod?: string; amount?: number }>,
+  ): Promise<void> {
+    const internalAmount = payments
+      .filter(
+        (p) =>
+          String(p.paymentMethod ?? '')
+            .trim()
+            .toUpperCase() === PaymentMethod.INTERNAL_CREDIT,
+      )
+      .reduce((sum, p) => sum + Math.round(Number(p.amount) || 0), 0);
+    if (internalAmount <= 0) {
+      return;
+    }
+
+    const pos = await this.pointOfSaleRepository.findOne({
+      where: { id: pointOfSaleId, deletedAt: IsNull() },
+    });
+    if (!pos?.companyId) {
+      throw new BadRequestException('Punto de venta sin empresa asociada.');
+    }
+
+    const ctx = await this.companiesService.getInternalCustomerCreditContext(
+      pos.companyId,
+    );
+    if (!ctx.internalCustomerCredit?.enabled) {
+      throw new BadRequestException(
+        'El crédito interno no está habilitado para esta empresa.',
+      );
+    }
+    if (!ctx.internalCreditPaymentMethod?.id) {
+      throw new BadRequestException(
+        'No hay medio de crédito interno activo en la empresa.',
+      );
+    }
+
+    const customer = await this.customersService.findOne(customerId);
+    const available = Math.round(Number(customer?.availableCredit) || 0);
+    if (internalAmount > available + 1) {
+      throw new BadRequestException(
+        `El monto al crédito interno (${internalAmount}) supera el disponible del cliente (${available}).`,
+      );
+    }
   }
 }

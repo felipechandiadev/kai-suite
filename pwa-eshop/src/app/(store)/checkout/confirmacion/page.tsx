@@ -7,10 +7,11 @@ import { CustomerPortalAuthBanner } from "@/features/e-shop-customer-account/ui/
 export default async function ConfirmacionPage({
   searchParams,
 }: {
-  searchParams: Promise<{ doc?: string; method?: string; encargo?: string; orderId?: string; email?: string }>;
+  searchParams: Promise<{ doc?: string; method?: string; encargo?: string; orderId?: string; email?: string; paid?: string }>;
 }) {
-  const { doc, method, encargo, orderId, email } = await searchParams;
+  const { doc, method, encargo, orderId, email, paid } = await searchParams;
   const isEncargo = encargo === "1";
+  const isPaid = paid === "1";
   const sessionToken = await getCustomerSessionToken();
   const storefront = await getCustomerPortalStorefront();
   const portalEnabled = storefront.eShopCustomerPortalEnabled === true;
@@ -18,7 +19,9 @@ export default async function ConfirmacionPage({
   return (
     <div className="mx-auto max-w-lg space-y-4 text-center py-12">
       <ClearCartOnOrderSuccess documentNumber={doc} />
-      <h1 className="text-2xl font-semibold text-success">Pedido registrado</h1>
+      <h1 className="text-2xl font-semibold text-success">
+        {isPaid ? "Pago confirmado" : "Pedido registrado"}
+      </h1>
       <p className="text-muted-foreground">
         Número de documento: <strong className="text-foreground">{doc ?? "—"}</strong>
       </p>
@@ -33,7 +36,9 @@ export default async function ConfirmacionPage({
         </p>
       ) : null}
       <p className="text-sm text-muted-foreground">
-        Te contactaremos para coordinar el pago y la entrega.
+        {isPaid
+          ? "Tu pago fue procesado. Te contactaremos para coordinar la entrega."
+          : "Te contactaremos para coordinar el pago y la entrega."}
       </p>
       <div className="space-y-4 text-left">
         <CustomerPortalAuthBanner

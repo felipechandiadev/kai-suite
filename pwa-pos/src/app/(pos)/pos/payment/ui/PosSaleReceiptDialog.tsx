@@ -11,11 +11,13 @@ import type { EffectivePaymentMethod } from "@/features/pos-payment-methods/type
 import type { AppliedSnapshot } from "@/features/promotions/lib/discount-engine.types";
 import type { LoadedQuotationMeta } from "@/features/pos-cart/cart-storage";
 import {
-  describePrintFormat,
+  describePosDocumentPrintMode,
   formatPrintJobFailedMessage,
-  getPosDocumentPrintFormat,
-  isDocumentPrintFormat,
-  PrintFormatSelector,
+  getPosDocumentPrintMode,
+  isPosDocumentPrintModeDocument,
+  posDocumentPrintModeToWireFormat,
+  PosDocumentPrintModeSelector,
+  type PosDocumentPrintMode,
   type PrintFormat,
 } from "@flowstore/print-service-client";
 import {
@@ -28,9 +30,10 @@ import {
   printPosSaleTicketAgentOrBrowserFireAndForget,
 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import { thermalReceiptCssForFormat } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
-import { thermalPreviewWidthCss } from "@/features/pos-print/lib/document-print-format";
+import { PosPrintDocumentPreview } from "@/features/pos-print/ui/PosPrintDocumentPreview";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";
 import { formatReceiptLineDisplayName } from "@/features/pos-print/lib/format-receipt-line-name";
+import { formatInternalCreditPlanSubtitle } from "@/features/pos-payment/lib/internal-credit-plan";
 
 const FALLBACK_METHOD_LABEL: Record<PosPaymentMethodId, string> = {
   CASH: "Efectivo",
@@ -152,6 +155,12 @@ export type PosSaleReceiptData = {
   arCollection?: Array<{ folio: string; amount: number }> | null;
   /** Cobro consolidado de cuotas pendientes. */
   quotaCollection?: Array<{ folio: string; dueDate?: string | null; amount: number }> | null;
+  /** Plan de cobro pactado en venta con crédito interno. */
+  creditInstallmentPlan?: Array<{
+    installmentNumber: number;
+    dueDate: string;
+    amount: number;
+  }> | null;
   /** Liquidación de saldo NC al cliente (egreso en caja). */
   ncPayout?: Array<{ folio: string; amount: number }> | null;
 };
@@ -222,6 +231,9 @@ function paymentDetail(
     ].filter(Boolean);
     if (parts.length) bits.push(parts.join(" · "));
   }
+  if (p.type === "INTERNAL_CREDIT" && p.internalCreditPlan) {
+    bits.push(formatInternalCreditPlanSubtitle(p.internalCreditPlan));
+  }
   if (p.reference?.trim()) bits.push(`Ref: ${p.reference.trim()}`);
   return bits.length ? bits.join(" | ") : null;
 }
@@ -284,6 +296,12 @@ export function buildPosSaleReceiptSnapshot(input: PosSaleReceiptSnapshotInput):
 
   const documentKind = input.documentKind ?? "sale";
 
+  const creditLine = input.payments.find(
+    (p) =>
+      p.type === "INTERNAL_CREDIT" &&
+      (p.internalCreditPlan?.scheduledLines?.length ?? 0) > 0,
+  );
+
   return {
     folio,
     issuedAtIso,
@@ -324,6 +342,9 @@ export function buildPosSaleReceiptSnapshot(input: PosSaleReceiptSnapshotInput):
     arCollection: input.arCollection?.length ? input.arCollection : null,
     quotaCollection: input.quotaCollection?.length ? input.quotaCollection : null,
     ncPayout: input.ncPayout?.length ? input.ncPayout : null,
+    creditInstallmentPlan: creditLine?.internalCreditPlan?.scheduledLines?.length
+      ? creditLine.internalCreditPlan.scheduledLines
+      : null,
   };
 }
 
@@ -423,6 +444,19 @@ export function buildPosSaleReceiptHtml(
        ${quotaCollectionRows}`
     : "";
 
+  const creditPlanRows =
+    data.creditInstallmentPlan?.map((row) => {
+      const due = row.dueDate?.trim()
+        ? new Date(`${row.dueDate}T12:00:00`).toLocaleDateString("es-CL")
+        : "";
+      return `<div class="row"><span>Cuota ${row.installmentNumber}${due ? ` · ${escapeHtml(due)}` : ""}</span><span>${formatMoney(row.amount)}</span></div>`;
+    }).join("") ?? "";
+  const creditPlanBlock = creditPlanRows
+    ? `<div class="sep"></div>
+       <div class="section-title">Plan de cobro (crédito interno)</div>
+       ${creditPlanRows}`
+    : "";
+
   const ncPayoutRows =
     data.ncPayout?.map(
       (row) =>
@@ -497,6 +531,7 @@ export function buildPosSaleReceiptHtml(
   ${paymentsSection}
   ${arCollectionBlock}
   ${quotaCollectionBlock}
+  ${creditPlanBlock}
   ${ncPayoutBlock}
   <div class="sep"></div>
   <p class="center muted" style="margin-top:10px;">${
@@ -516,16 +551,17 @@ export function buildPosSaleReceiptHtml(
 </body></html>`;
 }
 
-export function printPosSaleReceipt(data: PosSaleReceiptData, format?: PrintFormat): void {
+export function printPosSaleReceipt(data: PosSaleReceiptData, mode?: PosDocumentPrintMode): void {
   if (typeof window === "undefined") return;
   const kind = data.documentKind === "backorder" ? "backorder" : "sale";
-  const resolved = format ?? getPosDocumentPrintFormat(kind);
+  const printMode = mode ?? getPosDocumentPrintMode(kind);
+  const format = posDocumentPrintModeToWireFormat(printMode);
   const folio = data.folio.trim() || "ticket";
   printPosSaleTicketAgentOrBrowserFireAndForget(data, {
     filename: `${folio}.escpos`,
     documentType: data.documentKind === "backorder" ? "BACKORDER" : "SALE",
     internalFolio: folio,
-    format: resolved,
+    format,
   });
 }
 
@@ -535,22 +571,24 @@ type DialogProps = {
   onClose: () => void;
 };
 
-function resolveSalePrintFormat(data: PosSaleReceiptData): PrintFormat {
+function resolveSalePrintMode(data: PosSaleReceiptData): PosDocumentPrintMode {
   const kind = data.documentKind === "backorder" ? "backorder" : "sale";
-  return getPosDocumentPrintFormat(kind);
+  return getPosDocumentPrintMode(kind);
 }
 
-function printSaleByFormat(data: PosSaleReceiptData, format: PrintFormat) {
-  if (isDocumentPrintFormat(format)) {
+function printSaleByMode(data: PosSaleReceiptData, mode: PosDocumentPrintMode) {
+  const format = posDocumentPrintModeToWireFormat(mode);
+  if (isPosDocumentPrintModeDocument(mode)) {
     printPosSaleDocument(data, format);
   } else {
-    printPosSaleReceipt(data, format);
+    printPosSaleReceipt(data, mode);
   }
 }
 
-async function autoPrintSaleByFormat(data: PosSaleReceiptData, format: PrintFormat): Promise<void> {
+async function autoPrintSaleByMode(data: PosSaleReceiptData, mode: PosDocumentPrintMode): Promise<void> {
   const folio = data.folio.trim() || "ticket";
-  if (isDocumentPrintFormat(format)) {
+  const format = posDocumentPrintModeToWireFormat(mode);
+  if (isPosDocumentPrintModeDocument(mode)) {
     await printPosSaleDocumentAgentOrBrowser(data, format);
     return;
   }
@@ -576,12 +614,12 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
   const autoPrintForFolioRef = useRef<string | null>(null);
   const receiptDataRef = useRef(data);
   receiptDataRef.current = data;
-  const [printFormat, setPrintFormat] = useState<PrintFormat>("ticket_80mm");
+  const [printMode, setPrintMode] = useState<PosDocumentPrintMode>("ticket");
   const [autoPrintStatus, setAutoPrintStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (data) {
-      setPrintFormat(resolveSalePrintFormat(data));
+      setPrintMode(resolveSalePrintMode(data));
     }
   }, [data?.folio, data?.documentKind]);
 
@@ -591,14 +629,15 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
     }
   }, [open]);
 
-  const isDocument = isDocumentPrintFormat(printFormat);
+  const wireFormat = posDocumentPrintModeToWireFormat(printMode);
+  const isDocument = isPosDocumentPrintModeDocument(printMode);
 
   const previewSrcDoc = useMemo(() => {
     if (!data || typeof window === "undefined") return null;
     return isDocument
-      ? buildPosSaleDocumentHtml(data, printFormat)
-      : buildPosSaleReceiptHtml(data, window.location.origin, printFormat);
-  }, [data, isDocument, printFormat]);
+      ? buildPosSaleDocumentHtml(data, wireFormat)
+      : buildPosSaleReceiptHtml(data, window.location.origin, wireFormat);
+  }, [data, isDocument, wireFormat]);
 
   useEffect(() => {
     if (!open || !data) {
@@ -608,13 +647,13 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
     const folio = data.folio.trim();
     if (!folio || autoPrintForFolioRef.current === folio) return;
     autoPrintForFolioRef.current = folio;
-    const format = resolveSalePrintFormat(data);
+    const mode = resolveSalePrintMode(data);
     const t = window.setTimeout(() => {
       void (async () => {
         const run = async () => {
           const snapshot = receiptDataRef.current;
           if (!snapshot) throw new Error("print_failed");
-          await autoPrintSaleByFormat(snapshot, format);
+          await autoPrintSaleByMode(snapshot, mode);
         };
         try {
           await run();
@@ -666,10 +705,11 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
       onClose={onClose}
       title={dialogTitle}
       size="lg"
+      scroll="paper"
       data-test-id="pos-payment-success-dialog"
       actions={
         <>
-          <Button type="button" variant="outlined" onClick={() => printSaleByFormat(data, printFormat)}>
+          <Button type="button" variant="outlined" onClick={() => printSaleByMode(data, printMode)}>
             Imprimir de nuevo
           </Button>
           <Button type="button" variant="primary" onClick={onClose}>
@@ -680,12 +720,12 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
     >
       <div className="grid gap-2 text-sm">
         <p className="mb-2 text-xs text-muted-foreground">
-          Formato:{" "}
-          <span className="font-medium text-foreground">{describePrintFormat(printFormat)}</span>
+          Modo:{" "}
+          <span className="font-medium text-foreground">{describePosDocumentPrintMode(printMode)}</span>
         </p>
-        <PrintFormatSelector
-          value={printFormat}
-          onChange={setPrintFormat}
+        <PosDocumentPrintModeSelector
+          value={printMode}
+          onChange={setPrintMode}
           data-test-id="pos-sale-receipt-print-format"
         />
         {autoPrintStatus ? (
@@ -693,28 +733,12 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
             {autoPrintStatus}
           </p>
         ) : null}
-        <div
-          className={`mx-auto mt-3 max-h-[min(55vh,520px)] w-full overflow-auto rounded-lg border border-border bg-transparent p-2 ${
-            isDocument ? "max-w-[min(100%,720px)]" : "max-w-[min(100%,420px)]"
-          }`}
-          data-test-id="pos-sale-receipt-preview-wrap"
-        >
-          {previewSrcDoc ? (
-            <iframe
-              title={isDocument ? "Vista previa documento" : "Vista previa ticket"}
-              srcDoc={previewSrcDoc}
-              className={`mx-auto block border-0 bg-white ${
-                isDocument
-                  ? "min-h-[480px] w-full max-w-[210mm]"
-                  : `min-h-[320px] w-[${thermalPreviewWidthCss(printFormat)}] max-w-full`
-              }`}
-              style={isDocument ? undefined : { width: thermalPreviewWidthCss(printFormat) }}
-              data-test-id="pos-sale-receipt-preview-iframe"
-            />
-          ) : (
-            <p className="p-4 text-center text-sm text-muted-foreground">Preparando vista previa…</p>
-          )}
-        </div>
+        <PosPrintDocumentPreview
+          html={previewSrcDoc}
+          format={wireFormat}
+          title={isDocument ? "Vista previa documento" : "Vista previa ticket"}
+          data-test-id="pos-sale-receipt-preview"
+        />
       </div>
     </Dialog>
   );

@@ -14,6 +14,10 @@ import {
 import { SupplierDocumentFolioGuardService } from './supplier-document-folio-guard.service';
 import { Branch } from '@modules/branches/domain/branch.entity';
 import { normalizeDteNumberFromBody } from '../../presentation/helpers/supplier-dte-create.helper';
+import {
+  buildSummaryFiscalLineFromAmounts,
+  shouldSynthesizeOperationalExpenseFiscalLine,
+} from '../helpers/operational-expense-fiscal-line.util';
 
 export type CreateSupplierFiscalDocumentInput = {
   companyId?: string;
@@ -125,7 +129,7 @@ export class SupplierFiscalDocumentCreateService {
       plannedPayments: parentFields.plannedPayments,
       supplierDocumentPayment: payment,
     };
-    dto.lines = (Array.isArray(input.lines) ? input.lines : []) as CreateTransactionDto['lines'];
+    dto.lines = this.resolveFiscalLines(input) as CreateTransactionDto['lines'];
 
     const created = await this.transactionsService.createTransaction(dto);
     const fiscalId = created?.id;
@@ -199,6 +203,25 @@ export class SupplierFiscalDocumentCreateService {
       transactionType: body.transactionType as CreateSupplierFiscalDocumentInput['transactionType'],
     });
     return result.transaction;
+  }
+
+  private resolveFiscalLines(input: CreateSupplierFiscalDocumentInput): unknown[] {
+    const provided = Array.isArray(input.lines) ? input.lines : [];
+    if (!shouldSynthesizeOperationalExpenseFiscalLine(provided, input.metadata)) {
+      return provided;
+    }
+    const expenseName = String(input.metadata?.operationalExpenseName || '').trim();
+    const taxId =
+      typeof input.metadata?.taxId === 'string' ? input.metadata.taxId : null;
+    return [
+      buildSummaryFiscalLineFromAmounts({
+        productName: expenseName,
+        subtotal: input.subtotal,
+        taxAmount: input.taxAmount,
+        total: input.total,
+        taxId,
+      }),
+    ];
   }
 
   private async resolveCompanyId(

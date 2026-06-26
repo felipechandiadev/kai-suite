@@ -1,7 +1,8 @@
 import {
   agentSupportsPosCustomerCreditNoteTicket,
-  getPosDocumentPrintFormat,
+  getPosDocumentPrintMode,
   isPosAgentPrintConfiguredForPurpose,
+  posDocumentPrintModeToWireFormat,
   POS_CUSTOMER_CREDIT_NOTE_TICKET_PAYLOAD_VERSION,
   type PosCustomerCreditNoteTicketPayload,
   type PrintFormat,
@@ -63,7 +64,7 @@ export async function printCustomerCreditNoteReceiptAgentOrBrowser(
 ): Promise<"agent" | "browser"> {
   if (typeof window === "undefined") return "browser";
 
-  const resolved = format ?? getPosDocumentPrintFormat("customerCreditNote");
+  const resolved = format ?? posDocumentPrintModeToWireFormat(getPosDocumentPrintMode("customerCreditNote"));
   const folio = data.creditNoteFolio?.trim() || "nota-credito";
   const meta = {
     filename: `${folio}.escpos`,

@@ -16,6 +16,7 @@ import {
 import { CreateTransactionDto } from '@modules/transactions/application/dto/create-transaction.dto';
 import { TransactionsService } from '@modules/transactions/application/transactions.service';
 import { CompaniesService } from '@modules/companies/application/companies.service';
+import { isMercadoPagoEshopCheckoutOperational } from '@modules/companies/domain/company-mercado-pago.types';
 import type { EShopStoreContext } from './eshop-store.context';
 import { EShopFulfillmentMethodsService } from './eshop-fulfillment-methods.service';
 import { EShopCustomerUpsertService } from './eshop-customer-upsert.service';
@@ -32,6 +33,8 @@ import type {
 import { EShopOrderNotificationService } from './eshop-order-notification.service';
 import { KaiMailClient } from '@shared/mail/kai-mail.client';
 import { BackorderRegistrationService } from '@modules/transactions/application/backorder-registration.service';
+import { PaymentGatewayIntentService } from '@modules/payment-gateways/application/payment-gateway-intent.service';
+import { Transaction } from '@modules/transactions/domain/transaction.entity';
 
 export type CheckoutOrderBody = {
   customerName: string;
@@ -43,6 +46,7 @@ export type CheckoutOrderBody = {
   lines: Array<{ productVariantId: string; quantity: number }>;
   notes?: string;
   authenticatedCustomerId?: string;
+  paymentMode?: 'online' | 'coordinate';
 };
 
 @Injectable()
@@ -67,6 +71,9 @@ export class EShopCheckoutOrderService {
     private readonly fulfillmentMethods: EShopFulfillmentMethodsService,
     private readonly customerUpsert: EShopCustomerUpsertService,
     private readonly backorderRegistration: BackorderRegistrationService,
+    private readonly paymentGatewayIntents: PaymentGatewayIntentService,
+    @InjectRepository(Transaction)
+    private readonly transactionRepo: Repository<Transaction>,
     @Optional() private readonly orderNotifications?: EShopOrderNotificationService,
     @Optional() private readonly kaiMail?: KaiMailClient,
   ) {}
@@ -185,6 +192,14 @@ export class EShopCheckoutOrderService {
     const userId = await this.resolveSystemUserId(store.companyId);
 
     const now = new Date().toISOString();
+    const paymentMode = body.paymentMode ?? 'coordinate';
+    const mpSettings = await this.companiesService.getMercadoPagoSettingsInternal(
+      store.companyId,
+    );
+    const wantsOnline =
+      paymentMode === 'online' &&
+      isMercadoPagoEshopCheckoutOperational(mpSettings);
+
     const eShopOrderMeta: TransactionEShopOrderMetadata = {
       fulfillmentStatus: 'SUBMITTED',
       fulfillmentMethodId: method.id,
@@ -203,7 +218,8 @@ export class EShopCheckoutOrderService {
         availableQty: Math.min(s.availableQty, s.requestedQty),
       })),
       statusHistory: [{ status: 'SUBMITTED', at: now }],
-      paymentExpectation: 'NONE',
+      paymentExpectation: wantsOnline ? 'ONLINE_REQUIRED' : 'COORDINATE_LATER',
+      paymentGatewayIntentId: null,
       customerNotes: body.notes?.trim() || null,
     };
 
@@ -247,7 +263,29 @@ export class EShopCheckoutOrderService {
       });
     }
 
+    const payableTotal = Math.round(subtotal + shippingCost);
+
     const tx = await this.transactionsService.createTransaction(dto);
+
+    let paymentIntent: Awaited<
+      ReturnType<PaymentGatewayIntentService['createIntent']>
+    > | null = null;
+    if (wantsOnline) {
+      paymentIntent = await this.paymentGatewayIntents.createIntent({
+        companyId: store.companyId,
+        channel: 'ESHOP_CHECKOUT',
+        amount: payableTotal,
+        transactionId: tx.id,
+      });
+      const meta = { ...(tx.metadata ?? {}) } as Record<string, unknown>;
+      const eShopOrder = {
+        ...((meta.eShopOrder ?? {}) as TransactionEShopOrderMetadata),
+        paymentGatewayIntentId: paymentIntent.id,
+      };
+      meta.eShopOrder = eShopOrder;
+      tx.metadata = meta;
+      await this.transactionRepo.save(tx);
+    }
 
     if (useBackorder && storageId?.trim()) {
       await this.backorderRegistration.createStockReservationForBackorder({
@@ -270,13 +308,16 @@ export class EShopCheckoutOrderService {
     }
 
     try {
-      await this.orderNotifications?.publishOrderCreated(store.companyId, tx);
+      if (!wantsOnline) {
+        await this.orderNotifications?.publishOrderCreated(store.companyId, tx);
+      }
     } catch (err) {
       this.logger.warn('No se pudo publicar notificación de pedido eShop', err);
     }
 
     try {
-      await this.kaiMail?.sendOrderTemplate({
+      if (!wantsOnline) {
+        await this.kaiMail?.sendOrderTemplate({
         template: 'order.received',
         to: body.customerEmail.trim(),
         idempotencyKey: `order:${tx.id}:received`,
@@ -287,7 +328,8 @@ export class EShopCheckoutOrderService {
           fulfillmentMethod: method.name,
           storeName: store.companyName ?? 'Tienda',
         },
-      });
+        });
+      }
     } catch (err) {
       this.logger.warn('No se pudo encolar email de pedido eShop', err);
     }
@@ -296,11 +338,20 @@ export class EShopCheckoutOrderService {
       transactionId: tx.id,
       documentNumber: tx.documentNumber,
       total: Number(tx.total),
+      payableTotal,
       transactionType: tx.transactionType,
       fulfillmentStatus: eShopOrderMeta.fulfillmentStatus,
       hasStockShortage: hasShortage,
       shortageVariantIds: shortages.map((s) => s.variantId),
+      paymentMode: wantsOnline ? 'online' : 'coordinate',
+      paymentIntentId: paymentIntent?.id ?? null,
+      publicKey: wantsOnline ? mpSettings.publicKey : null,
+      mercadoPagoEnvironment: wantsOnline ? mpSettings.environment : null,
     };
+  }
+
+  async prepareOnlineCheckout(store: EShopStoreContext, body: CheckoutOrderBody) {
+    return this.createCheckoutOrder(store, { ...body, paymentMode: 'online' });
   }
 
   private async resolveCheckoutCustomer(companyId: string, body: CheckoutOrderBody) {

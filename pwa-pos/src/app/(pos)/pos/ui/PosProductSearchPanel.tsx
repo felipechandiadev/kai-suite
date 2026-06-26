@@ -16,6 +16,10 @@ import {
   writePosProductSearchPageSize,
 } from "@/features/pos-products/lib/posProductSearchStorage";
 import {
+  POS_PRODUCT_SEARCH_FOCUS_EVENT,
+  requestPosProductSearchFocus,
+} from "@/features/pos-products/lib/pos-product-search-focus";
+import {
   formatMoney,
   PosProductNameWithAttributes,
   posDisplaySaleUnitSymbol,
@@ -92,8 +96,26 @@ export default function PosProductSearchPanel({
   const [showFavorites, setShowFavorites] = useState(false);
 
   const focusSearchField = useCallback(() => {
-    searchFieldWrapRef.current?.querySelector<HTMLInputElement>("input")?.focus();
+    const input =
+      searchFieldWrapRef.current?.querySelector<HTMLInputElement>("input") ??
+      document.querySelector<HTMLInputElement>('[data-test-id="pos-product-search-field"]');
+    input?.focus({ preventScroll: true });
   }, []);
+
+  useEffect(() => {
+    if (disabled) return;
+    const t = window.setTimeout(() => focusSearchField(), 80);
+    return () => clearTimeout(t);
+  }, [disabled, focusSearchField]);
+
+  useEffect(() => {
+    const onFocusRequest = () => {
+      if (disabled) return;
+      window.setTimeout(() => focusSearchField(), 80);
+    };
+    window.addEventListener(POS_PRODUCT_SEARCH_FOCUS_EVENT, onFocusRequest);
+    return () => window.removeEventListener(POS_PRODUCT_SEARCH_FOCUS_EVENT, onFocusRequest);
+  }, [disabled, focusSearchField]);
 
   const clearSearch = useCallback(() => {
     setDraftSearch("");
@@ -265,6 +287,7 @@ export default function PosProductSearchPanel({
     }
     setPage(1);
     setSettingsOpen(false);
+    requestPosProductSearchFocus();
   }, [draftPageSize, draftPriceListId, onPriceListChange, priceListId]);
 
   const selectedPriceListName = useMemo(() => {
@@ -463,7 +486,10 @@ export default function PosProductSearchPanel({
 
       <Dialog
         open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+        onClose={() => {
+          setSettingsOpen(false);
+          requestPosProductSearchFocus();
+        }}
         title="Configuración del buscador"
         size="sm"
         data-test-id="pos-product-search-settings-dialog"

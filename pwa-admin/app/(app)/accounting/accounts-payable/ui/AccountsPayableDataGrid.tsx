@@ -9,10 +9,12 @@ import IconButton from "@/shared/components/IconButton/IconButton";
 import type { AccountsPayableRow } from "@/features/accounting-accounts-payable/types/accounts-payable.types";
 import { dataGridFillViewportTabPageProps } from "@/shared/components/layouts/layoutPageTokens";
 import {
+  labelAccountsPayableOriginCategory,
   labelAccountsPayablePayeeType,
-  labelAccountsPayablePaymentType,
   labelAccountsPayableStatus,
+  resolveAccountsPayableOriginCategoryFromRow,
 } from "@/features/accounting-accounts-payable/lib/accounts-payable-labels";
+import { getTransactionTypeLabel } from "@/features/transactions/types/transaction-types";
 import CompleteAccountsPayablePaymentDialog from "./CompleteAccountsPayablePaymentDialog";
 import AccountsPayablePaymentDetailsDialog from "./AccountsPayablePaymentDetailsDialog";
 
@@ -53,6 +55,22 @@ function StatusBadge({ status, isOverdue }: { status: string; isOverdue: boolean
   return (
     <Badge variant={variant as "success-outlined"}>
       {labelAccountsPayableStatus(status)}
+    </Badge>
+  );
+}
+
+function OriginCategoryBadge({ category }: { category: string }) {
+  const variant =
+    category === "PAYROLL"
+      ? "secondary-outlined"
+      : category === "OPERATING_EXPENSE"
+        ? "info-outlined"
+        : category === "PURCHASE"
+          ? "warning-outlined"
+          : "secondary-outlined";
+  return (
+    <Badge variant={variant as "info-outlined"}>
+      {labelAccountsPayableOriginCategory(category)}
     </Badge>
   );
 }
@@ -104,18 +122,37 @@ export default function AccountsPayableDataGrid({ rows }: AccountsPayableDataGri
         },
       },
       {
-        field: "paymentType",
-        headerName: "Origen",
+        field: "originCategory",
+        headerName: "Tipo de obligación",
         sortable: true,
-        width: 140,
+        width: 148,
         valueGetter: ({ row }) =>
-          labelAccountsPayablePaymentType((row as AccountsPayableRow).paymentType),
+          labelAccountsPayableOriginCategory(
+            resolveAccountsPayableOriginCategoryFromRow(row as AccountsPayableRow),
+          ),
+        renderCell: ({ row }) => {
+          const category = resolveAccountsPayableOriginCategoryFromRow(
+            row as AccountsPayableRow,
+          );
+          return <OriginCategoryBadge category={String(category)} />;
+        },
+      },
+      {
+        field: "parentType",
+        headerName: "Doc. origen",
+        sortable: true,
+        minWidth: 130,
+        flex: 0.55,
+        valueGetter: ({ row }) => {
+          const r = row as AccountsPayableRow;
+          return getTransactionTypeLabel(r.parentType);
+        },
       },
       {
         field: "payeeType",
-        headerName: "Tipo beneficiario",
+        headerName: "Beneficiario tipo",
         sortable: true,
-        width: 140,
+        width: 132,
         valueGetter: ({ row }) => labelAccountsPayablePayeeType((row as AccountsPayableRow).payeeType),
       },
       {

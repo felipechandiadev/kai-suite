@@ -11,6 +11,8 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import com.kaistore.printers.ws.WebSocketOriginPolicy
+import com.kaistore.printers.print.transport.PrinterRef
 import java.time.Instant
 import java.util.UUID
 
@@ -20,6 +22,7 @@ object AgentSettingsKeys {
     const val WSS_LISTEN_PORT = "wss_listen_port"
     const val WSS_ENABLED = "wss_enabled"
     const val ALLOW_ALL_ORIGINS = "allow_all_origins"
+    const val ALLOWED_ORIGINS = "allowed_origins"
     const val AGENT_DISPLAY_NAME = "agent_display_name"
 }
 
@@ -30,17 +33,22 @@ class AgentRepository(private val db: AgentDatabase) {
 
     suspend fun ensureDefaults() = withContext(Dispatchers.IO) {
         val defaults = mapOf(
-            AgentSettingsKeys.LISTEN_HOST to "127.0.0.1",
+            AgentSettingsKeys.LISTEN_HOST to "0.0.0.0",
             AgentSettingsKeys.LISTEN_PORT to "14567",
             AgentSettingsKeys.WSS_LISTEN_PORT to "14568",
             AgentSettingsKeys.WSS_ENABLED to "true",
             AgentSettingsKeys.ALLOW_ALL_ORIGINS to "true",
+            AgentSettingsKeys.ALLOWED_ORIGINS to "",
             AgentSettingsKeys.AGENT_DISPLAY_NAME to "KaiPrinters",
         )
         for ((key, value) in defaults) {
             if (settings.get(key) == null) {
                 settings.put(SettingEntity(key, value))
             }
+        }
+        // Migración: bind solo loopback → LAN (modo B: POS en otro equipo).
+        if (settings.get(AgentSettingsKeys.LISTEN_HOST) == "127.0.0.1") {
+            settings.put(SettingEntity(AgentSettingsKeys.LISTEN_HOST, "0.0.0.0"))
         }
     }
 
@@ -52,7 +60,7 @@ class AgentRepository(private val db: AgentDatabase) {
         settings.put(SettingEntity(key, value))
     }
 
-    suspend fun listenHost(): String = getSetting(AgentSettingsKeys.LISTEN_HOST) ?: "127.0.0.1"
+    suspend fun listenHost(): String = getSetting(AgentSettingsKeys.LISTEN_HOST) ?: "0.0.0.0"
 
     suspend fun listenPort(): Int = getSetting(AgentSettingsKeys.LISTEN_PORT)?.toIntOrNull() ?: 14567
 
@@ -62,6 +70,12 @@ class AgentRepository(private val db: AgentDatabase) {
 
     suspend fun allowAllOrigins(): Boolean = getSetting(AgentSettingsKeys.ALLOW_ALL_ORIGINS) != "false"
 
+    suspend fun allowedOrigins(): List<String> =
+        WebSocketOriginPolicy.parseAllowedOriginsCsv(getSetting(AgentSettingsKeys.ALLOWED_ORIGINS))
+
+    suspend fun isOriginAllowed(origin: String?): Boolean =
+        WebSocketOriginPolicy.isAllowed(origin, allowAllOrigins(), allowedOrigins())
+
     suspend fun listMappingLines(): List<MappingLineEntity> = withContext(Dispatchers.IO) {
         mappingLines.getAll()
     }
@@ -70,6 +84,52 @@ class AgentRepository(private val db: AgentDatabase) {
         mappingLines.deleteAll()
         if (lines.isNotEmpty()) mappingLines.insertAll(lines)
     }
+
+    suspend fun upsertMappingLine(
+        id: String? = null,
+        purpose: String,
+        systemPrinterName: String,
+        displayLabel: String,
+        paperProfile: String,
+    ): String = withContext(Dispatchers.IO) {
+        val all = mappingLines.getAll()
+        val normalizedPurpose = purpose.trim().lowercase()
+        val normalizedLabel = displayLabel.trim()
+        require(normalizedLabel.isNotEmpty()) { "display_label_required" }
+        val profile = MappingLineUtils.normalizePaperProfile(normalizedPurpose, paperProfile)
+        val lineId = id?.takeIf { existing -> all.any { it.id == existing } }
+            ?: UUID.randomUUID().toString()
+        val sortOrder = all.firstOrNull { it.id == lineId }?.sortOrder
+            ?: (all.maxOfOrNull { it.sortOrder } ?: -1) + 1
+        mappingLines.upsert(
+            MappingLineEntity(
+                id = lineId,
+                purpose = normalizedPurpose,
+                systemPrinterName = systemPrinterName,
+                sortOrder = sortOrder,
+                displayLabel = normalizedLabel,
+                paperProfile = profile,
+            ),
+        )
+        lineId
+    }
+
+    suspend fun deleteMappingLine(id: String) = withContext(Dispatchers.IO) {
+        mappingLines.deleteById(id)
+    }
+
+    suspend fun listMappingLinesForTransport(transportKind: String): List<MappingLineEntity> =
+        withContext(Dispatchers.IO) {
+            mappingLines.getAll().filter { MappingLineUtils.lineMatchesTransport(it.systemPrinterName, transportKind) }
+        }
+
+    suspend fun upsertSystemDocumentsLine(displayLabel: String, paperProfile: String = "a4"): String =
+        upsertMappingLine(
+            purpose = "documents",
+            systemPrinterName = PrinterRef.SystemPrint.encode(),
+            displayLabel = displayLabel,
+            paperProfile = paperProfile,
+        )
 
     suspend fun setMapping(purpose: String, printerName: String, paperProfile: String = "80mm") =
         withContext(Dispatchers.IO) {
@@ -119,17 +179,18 @@ class AgentRepository(private val db: AgentDatabase) {
         displayLabel: String,
         paperProfile: String = "80mm",
     ) = withContext(Dispatchers.IO) {
-        val all = mappingLines.getAll().filter { it.purpose != "tickets" }
-        val line = MappingLineEntity(
-            id = UUID.randomUUID().toString(),
+        val lineId = upsertMappingLine(
             purpose = "tickets",
             systemPrinterName = systemPrinterName,
-            sortOrder = 0,
             displayLabel = displayLabel,
             paperProfile = paperProfile,
         )
-        mappingLines.deleteAll()
-        mappingLines.insertAll(all + line)
+        val all = mappingLines.getAll()
+        val kept = all.filter { it.id == lineId || it.purpose != "tickets" }
+        if (kept.size < all.size) {
+            mappingLines.deleteAll()
+            mappingLines.insertAll(kept)
+        }
     }
 
     suspend fun ticketsPrinterSystemName(): String? = withContext(Dispatchers.IO) {
@@ -178,6 +239,10 @@ class AgentRepository(private val db: AgentDatabase) {
                         line.displayLabel?.let { put("displayLabel", JsonPrimitive(it)) }
                         put("paperProfile", JsonPrimitive(line.paperProfile))
                         put(
+                            "lineFormat",
+                            JsonPrimitive(MappingLineUtils.protocolFormatKey(line.purpose, line.paperProfile)),
+                        )
+                        put(
                             "ticketEscposEnabled",
                             JsonPrimitive(line.purpose == "tickets"),
                         )
@@ -194,6 +259,20 @@ class AgentRepository(private val db: AgentDatabase) {
                     purpose,
                     buildJsonArray {
                         lines.mapNotNull { it.displayLabel }.forEach { add(JsonPrimitive(it)) }
+                    },
+                )
+            }
+        }
+    }
+
+    suspend fun aliasesByFormatJson(): JsonObject = withContext(Dispatchers.IO) {
+        buildJsonObject {
+            val grouped = mappingLines.getAll().groupBy { MappingLineUtils.protocolFormatKey(it.purpose, it.paperProfile) }
+            listOf("ticket_58mm", "ticket_80mm", "document").forEach { key ->
+                put(
+                    key,
+                    buildJsonArray {
+                        grouped[key]?.mapNotNull { it.displayLabel }?.forEach { add(JsonPrimitive(it)) }
                     },
                 )
             }
@@ -297,6 +376,9 @@ class AgentRepository(private val db: AgentDatabase) {
                 else -> false
             }
             setSetting(AgentSettingsKeys.ALLOW_ALL_ORIGINS, if (allow) "true" else "false")
+        }
+        extra["allowedOrigins"]?.jsonPrimitive?.content?.let { csv ->
+            setSetting(AgentSettingsKeys.ALLOWED_ORIGINS, csv.trim())
         }
     }
 

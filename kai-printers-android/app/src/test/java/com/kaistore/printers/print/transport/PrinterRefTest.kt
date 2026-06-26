@@ -47,10 +47,19 @@ class PrinterRefTest {
     }
 
     @Test
+    fun parseSystemPrintRef() {
+        val ref = PrinterRef.parse("system:print")
+        assertTrue(ref is PrinterRef.SystemPrint)
+        assertEquals("system:print", ref!!.encode())
+        assertEquals(PrinterRef.SystemPrint, PrinterRef.parse("android:print"))
+    }
+
+    @Test
     fun transportKind() {
         assertEquals("bluetooth", PrinterRef.transportKind(PrinterRef.Bluetooth("AA:BB:CC:DD:EE:FF")))
         assertEquals("network", PrinterRef.transportKind(PrinterRef.Network("10.0.0.1", 9100)))
         assertEquals("usb", PrinterRef.transportKind(PrinterRef.Usb(1)))
+        assertEquals("system", PrinterRef.transportKind(PrinterRef.SystemPrint))
     }
 
     @Test

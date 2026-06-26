@@ -133,8 +133,11 @@ function MyOpenSessionPanel({
       savePosContext({
         pointOfSaleId: myOpenSession.pointOfSaleId,
         cashSessionId: myOpenSession.cashSessionId,
-        pointOfSaleName: myOpenSession.pointOfSaleName,
-        branchName: myOpenSession.branchName,
+        pointOfSaleName: fetched.success ? fetched.pointOfSaleName : myOpenSession.pointOfSaleName,
+        branchName:
+          (fetched.success ? fetched.branchName : null) ?? myOpenSession.branchName,
+        branchId: fetched.success ? fetched.branchId : null,
+        storageId: fetched.success ? fetched.storageId : null,
         priceListId,
         priceLists,
       });

@@ -6,9 +6,9 @@ App agente de impresión para tablet (misma máquina que el POS o en red).
 
 | Campo | Valor |
 |-------|-------|
-| `VERSION_NAME` | 1.1.6 |
-| `VERSION_CODE` | 11 |
-| APK publicado | `pwa-pos/public/downloads/kai-printers-android-1.1.6.apk` |
+| `VERSION_NAME` | 1.1.8 |
+| `VERSION_CODE` | 13 |
+| APK publicado | `pwa-pos/public/downloads/kai-printers-android-1.1.8.apk` |
 | Manifest | `pwa-pos/public/downloads/kai-printers-android.manifest.json` |
 
 Publicar nueva versión:
@@ -29,7 +29,32 @@ kai-printers-android/
     data/AgentRepository.kt, AgentDatabase.kt
     print/EscPosWriter.kt, TicketEscPosDispatcher.kt, Pos*TicketEscPos.kt, EscPosLogo.kt, JsonElementExt.kt
     usb/UsbEscPosTransport.kt
+    ui/mapping/          — líneas de mapeo (alias, propósito, perfil)
+    ui/printers/         — tabs Bluetooth / red / USB
 ```
+
+## Líneas de mapeo (modelo POS + Kai Printers)
+
+Cada impresora es una **card** en `printer_mapping_lines` con tres ejes independientes:
+
+| Eje | Valores | Dónde se define |
+|-----|---------|-----------------|
+| **Uso** (`purpose`) | `tickets` / `documents` | Kai Printers al agregar la impresora |
+| **Formato** (`paperProfile`) | `58mm`, `80mm`, `a4`, `letter` | Kai Printers (ancho/hoja de esa línea) |
+| **Conexión** | Bluetooth, red (`net:host:port`), USB (`usb:id`) | Kai Printers |
+| **Alias** (`displayLabel`) | Texto libre | Kai Printers; el POS elige por uso |
+
+En la app Android → **Configurar impresoras**:
+
+1. **Agregar impresora** → elegir uso, formato, conexión, dispositivo y alias.
+2. Ejemplo: uso **Tickets**, formato **80 mm**, Bluetooth, alias `Caja`.
+3. Ejemplo: uso **Documentos**, formato **A4**, red, alias `Oficina`.
+4. En cada card: **Probar dispositivo** (prueba ESC/POS o PDF según uso).
+5. En el POS → Impresión local:
+   - **Impresoras**: solo dos selects — **Tickets** y **Documentos** (`aliasesByPurpose`).
+   - **Impresión según documento**: por tipo (venta, cotización, …) elegir **Ticket** o **Documento** (no 58/80 mm; el ancho lo resuelve el agente desde `paperProfile` de la línea).
+
+`get_config` expone `aliasesByPurpose` (principal para el POS) y `aliasesByFormat` (derivado, informativo).
 
 ## Flujo de un job de venta
 
@@ -38,6 +63,22 @@ kai-printers-android/
 3. `queueWorker.notifyNewJob()` → `PrintQueueWorker.drain()`.
 4. `TicketEscPosDispatcher.fromJob(documentType, payload)` → renderer `Pos*TicketEscPos` → `byte[]`.
 5. `TransportFactory.write(ref, bytes)` según USB/BT/red.
+
+Jobs **documento** (`purpose: documents`, `type: pdf-base64`): `AndroidPdfPrinter` con tamaño A4/Letter según `format` y perfil de la línea.
+
+## Cambios recientes (modelo impresión)
+
+- Cards con **uso**, **formato** y **conexión** separados; botón **Probar dispositivo**
+- POS: 2 impresoras (tickets/documentos) + modo ticket/documento por tipo de documento
+- El agente ajusta `ticket_58mm` / `ticket_80mm` / `document_*` desde `paperProfile` de la línea (`resolveFormatForMapping`)
+
+## Cambios v1.1.8
+
+- UI de **líneas de mapeo** con alias, propósito y perfil (58/80 mm o A4/Letter)
+- Múltiples líneas sin borrar las existentes (`upsertMappingLine`)
+- Línea `documents` con `system:print` (Android Print Framework)
+- `test_print` soporta `purpose: documents`
+- `PrinterRef.SystemPrint` para referencia de impresión del sistema
 
 ## Cambios v1.1.6
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { signOut } from "next-auth/react";
+import { signOutToLogin } from "@/lib/auth/sign-out-to-login";
 import { Button } from "@/shared/components/Button/Button";
 
 type ErrorBoundaryProps = {
@@ -60,7 +60,7 @@ export default function PosRootError({ error, reset }: ErrorBoundaryProps) {
               onClick={async () => {
                 setSigningOut(true);
                 try {
-                  await signOut({ callbackUrl: "/" });
+                  await signOutToLogin();
                 } finally {
                   setSigningOut(false);
                 }

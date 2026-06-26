@@ -25,6 +25,7 @@ export type OperationalExpenseGridRow = {
   categoryId: string;
   categoryName: string;
   referenceNumber: string | null;
+  documentNumber?: string | null;
   operationDate: string;
   status: OperationalExpenseStatus;
   paymentStatus?: OperationalExpensePaymentStatus | null;

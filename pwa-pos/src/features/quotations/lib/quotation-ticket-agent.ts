@@ -1,7 +1,8 @@
 import {
   agentSupportsPosQuotationTicket,
-  getPosDocumentPrintFormat,
+  getPosDocumentPrintMode,
   isPosAgentPrintConfiguredForPurpose,
+  posDocumentPrintModeToWireFormat,
   type PosQuotationTicketPayload,
   type PrintFormat,
 } from "@flowstore/print-service-client";
@@ -67,7 +68,7 @@ export async function printPosQuotationReceiptAgentOrBrowser(
 ): Promise<"agent" | "browser"> {
   if (typeof window === "undefined") return "browser";
 
-  const resolved = format ?? getPosDocumentPrintFormat("quotation");
+  const resolved = format ?? posDocumentPrintModeToWireFormat(getPosDocumentPrintMode("quotation"));
   const folio = input.quotation.documentNumber?.trim() || "cotizacion";
   const meta = {
     filename: `${folio}.escpos`,

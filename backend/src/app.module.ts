@@ -69,6 +69,7 @@ import { OrdersModule } from './modules/orders/orders.module';
 import { ChecksModule } from './modules/checks/checks.module';
 import { QuotationsModule } from './modules/quotations/quotations.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
+import { PaymentGatewaysModule } from './modules/payment-gateways/payment-gateways.module';
 
 @Module({
   imports: [
@@ -100,6 +101,7 @@ import { PromotionsModule } from './modules/promotions/promotions.module';
     ChecksModule,
     QuotationsModule,
     PromotionsModule,
+    PaymentGatewaysModule,
     CapitalContributionsModule,
     BankTransfersModule,
     BankWithdrawalsModule,

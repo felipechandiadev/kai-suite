@@ -44,6 +44,10 @@ function normalizeExpense(row: unknown): OperationalExpenseGridRow | null {
     o.referenceNumber != null && String(o.referenceNumber).trim()
       ? String(o.referenceNumber).trim()
       : null;
+  const documentNumber =
+    o.documentNumber != null && String(o.documentNumber).trim()
+      ? String(o.documentNumber).trim()
+      : null;
   const operationDate = o.operationDate != null ? String(o.operationDate) : "";
   if (!id || !companyId || !name || !categoryId || !operationDate) {
     return null;
@@ -132,6 +136,7 @@ function normalizeExpense(row: unknown): OperationalExpenseGridRow | null {
     categoryId,
     categoryName,
     referenceNumber,
+    documentNumber,
     operationDate,
     status,
     paymentStatus,

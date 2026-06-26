@@ -20,7 +20,8 @@ data class WssProbeResult(
 object WssLocalProbe {
     private const val MARKER = "Kai Printers"
 
-    fun probe(port: Int, timeoutMs: Int = 4000): WssProbeResult {
+    fun probe(host: String = "127.0.0.1", port: Int, timeoutMs: Int = 4000): WssProbeResult {
+        val h = host.trim().ifEmpty { "127.0.0.1" }
         if (port !in 1..65535) {
             return WssProbeResult(false, "Puerto inválido")
         }
@@ -33,7 +34,7 @@ object WssLocalProbe {
             val ssl = SSLContext.getInstance("TLS").apply {
                 init(null, arrayOf<TrustManager>(trustAll), null)
             }
-            val conn = (URL("https://127.0.0.1:$port/").openConnection() as HttpsURLConnection).apply {
+            val conn = (URL("https://$h:$port/").openConnection() as HttpsURLConnection).apply {
                 sslSocketFactory = ssl.socketFactory
                 hostnameVerifier = HostnameVerifier { _, _ -> true }
                 connectTimeout = timeoutMs
@@ -50,9 +51,9 @@ object WssLocalProbe {
             }
             when {
                 code == 200 && body.contains(MARKER) ->
-                    WssProbeResult(true, "Servidor WSS activo en el puerto $port")
+                    WssProbeResult(true, "Servidor WSS activo en $h:$port")
                 code == 200 ->
-                    WssProbeResult(true, "Servidor responde en el puerto $port")
+                    WssProbeResult(true, "Servidor responde en $h:$port")
                 else ->
                     WssProbeResult(false, "HTTP $code — revise que el servicio esté iniciado")
             }

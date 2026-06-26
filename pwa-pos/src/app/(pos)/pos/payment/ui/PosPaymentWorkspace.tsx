@@ -25,6 +25,7 @@ import type {
 import {
   isCustomerLinkedPaymentMethod,
   isNcPayoutAllowedPaymentMethod,
+  isImmediateReturnRefundAllowedPaymentMethod,
 } from "@/features/pos-cart/pos-payment.types";
 import type {
   CustomerCreditNoteSource,
@@ -45,11 +46,17 @@ import type { EffectivePaymentMethod } from "@/features/pos-payment-methods/type
 import { getEffectivePosPaymentMethodsAction } from "@/features/pos-payment-methods/actions/payment-methods-pos.action";
 import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
 import {
+  createMpPointIntentAction,
+  getMpPointIntentAction,
+  getPosMercadoPagoSettingsAction,
+} from "@/features/mp-point/actions/mp-point.action";
+import {
   getInternalCustomerCreditContextAction,
   type InternalCustomerCreditContext,
 } from "@/features/company/actions/company-internal-customer-credit.action";
 import type { CompanyDetails } from "@/features/company/infrastructure/company.request";
 import { SaveAsQuotationDialog } from "@/app/(pos)/pos/ui/SaveAsQuotationDialog";
+import { requestPosProductSearchFocus } from "@/features/pos-products/lib/pos-product-search-focus";
 import { BackorderDepositDialog } from "@/app/(pos)/pos/ui/BackorderDepositDialog";
 import { Package } from "lucide-react";
 import {
@@ -92,6 +99,8 @@ import { confirmCustomerReturnRefundAction } from "@/features/session/actions/co
 import { buildCustomerCreditNotePrintSnapshot } from "@/features/customer-credit-notes/lib/build-customer-credit-note-print-snapshot";
 import type { CustomerCreditNotePrintData } from "@/features/customer-credit-notes/types/customer-credit-note-print.types";
 import { PosCustomerCreditNoteDialog } from "@/app/(pos)/pos/payment/ui/PosCustomerCreditNoteDialog";
+import { PosInternalCreditPaymentDialog } from "@/app/(pos)/pos/payment/ui/PosInternalCreditPaymentDialog";
+import { formatInternalCreditPlanSubtitle } from "@/features/pos-payment/lib/internal-credit-plan";
 import Switch from "@/shared/components/Switch/Switch";
 import {
   POS_INSUFFICIENT_STOCK_LINE_CLASS,
@@ -174,6 +183,9 @@ type PosPaymentMethodCardProps = {
   ) => void;
   /** Abono de encargo precargado en liquidar encargo: monto fijo. */
   amountLocked?: boolean;
+  /** Subtítulo del plan de crédito interno (cuotas). */
+  planSubtitle?: string | null;
+  onEditInternalCredit?: () => void;
   /** Layout desktop (tablet POS / ancho amplio): cheque en 2 columnas. */
   desktopLayout?: boolean;
 };
@@ -197,9 +209,13 @@ function PosPaymentMethodCard({
   onUpdateReference,
   onUpdateCheckField,
   amountLocked = false,
+  planSubtitle = null,
+  onEditInternalCredit,
   desktopLayout = false,
 }: PosPaymentMethodCardProps) {
   const amountValue = String(Math.max(0, Math.round(p.amount)));
+  const isInternalCreditLine = p.type === "INTERNAL_CREDIT";
+  const lineAmountLocked = amountLocked || isInternalCreditLine;
   const appliedNcAmount = Math.max(0, Math.round(p.amount));
   const creditNoteRemainingSaldo =
     p.creditNoteTransactionId && creditNoteSourceBalance != null
@@ -213,9 +229,27 @@ function PosPaymentMethodCard({
     >
       <div className="grid grid-cols-1 gap-3">
         <div className="flex items-center justify-between gap-2">
-          <p className="min-w-0 flex-1 text-sm font-medium leading-snug text-foreground" title={label}>
-            {label}
-          </p>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium leading-snug text-foreground" title={label}>
+              {label}
+            </p>
+            {planSubtitle ? (
+              <p className="mt-0.5 text-xs text-muted-foreground">{planSubtitle}</p>
+            ) : null}
+          </div>
+          {onEditInternalCredit ? (
+            <IconButton
+              icon="Pencil"
+              variant="action"
+              size="sm"
+              className="shrink-0"
+              ariaLabel="Editar crédito interno"
+              title="Editar crédito interno"
+              disabled={confirmLoading}
+              onClick={onEditInternalCredit}
+              data-test-id={`pos-payment-edit-internal-credit-${p.id}`}
+            />
+          ) : null}
           <IconButton
             icon="Trash2"
             variant="action"
@@ -234,15 +268,21 @@ function PosPaymentMethodCard({
           name={`pos-payment-line-${index}`}
           value={amountValue}
           onChange={(e) => onUpdateAmount(p.id, e.target.value)}
-          readOnly={amountLocked}
-          title={amountLocked ? "El abono del encargo no se puede modificar al liquidar" : undefined}
+          readOnly={lineAmountLocked}
+          title={
+            amountLocked
+              ? "El abono del encargo no se puede modificar al liquidar"
+              : isInternalCreditLine
+                ? "Edite el plan con el botón lápiz"
+                : undefined
+          }
           currencySymbol="$"
           alwaysShowLabel
           className="w-full min-w-0"
           endAdornment={
             amountLocked ? null : (
             <span className="inline-flex items-center">
-              {p.type !== "CASH" && remaining > 0.01 ? (
+              {remaining > 0.01 && !isInternalCreditLine ? (
                 <IconButton
                   icon="ArrowUpToLine"
                   variant="neutral"
@@ -445,6 +485,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
     loadedBackorder,
     exitReturnMode,
     exitFulfillBackorderMode,
+    quotationsEnabled,
   } = cart;
 
   const emitKaiScreenSaleCompleted = useCallback(() => {
@@ -458,6 +499,10 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
 
   const saleTitleId = useId();
   const [addOpen, setAddOpen] = useState(false);
+  const [internalCreditDialogOpen, setInternalCreditDialogOpen] = useState(false);
+  const [editingInternalCreditLineId, setEditingInternalCreditLineId] = useState<
+    string | null
+  >(null);
   const [saveQuotationOpen, setSaveQuotationOpen] = useState(false);
   const [backorderDepositOpen, setBackorderDepositOpen] = useState(false);
   const [createCustomerOpen, setCreateCustomerOpen] = useState(false);
@@ -475,6 +520,9 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
     null,
   );
   const [companyDetails, setCompanyDetails] = useState<CompanyDetails | null>(null);
+  const [posPointEnabled, setPosPointEnabled] = useState(false);
+  const [mpPointBusy, setMpPointBusy] = useState(false);
+  const [mpPointStatus, setMpPointStatus] = useState("");
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [deferLoading, setDeferLoading] = useState(false);
   const [collectSales, setCollectSales] = useState<PosArCollectSaleRow[]>([]);
@@ -484,6 +532,9 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
   const [ncPayoutInitError, setNcPayoutInitError] = useState("");
   /** Devolución: reembolso inmediato en caja (muestra barra de montos y medios de pago). */
   const [immediateReturnRefund, setImmediateReturnRefund] = useState(false);
+  /** Reembolso en caja (NC o devolución inmediata): solo efectivo, transferencia o cheque. */
+  const cashOutRefundOnly =
+    isNcPayoutMode || (isReturnMode && immediateReturnRefund);
 
   /**
    * Identificador de la opción seleccionada en el dialog "Agregar método".
@@ -566,6 +617,17 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
         if (!cancelled) setBankAccountOptions([]);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getPosMercadoPagoSettingsAction().then((res) => {
+      if (cancelled) return;
+      setPosPointEnabled(res.success && res.posPointEnabled);
+    });
     return () => {
       cancelled = true;
     };
@@ -687,6 +749,24 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
     (isQuotationMode && hasSaleCustomer) ||
     (isReturnMode && hasSaleCustomer && loadedReturnSale?.sourceHasCustomer === true);
 
+  const canOfferInternalCredit =
+    internalCreditCtx.enabled &&
+    Boolean(internalCreditCtx.paymentMethodId) &&
+    hasSaleCustomer &&
+    customerAvailableCredit >= 1 &&
+    !isDebtCollectMode &&
+    !isNcPayoutMode &&
+    !isReturnMode &&
+    !isEncargoMode &&
+    !isFulfillBackorderMode &&
+    !isQuotaMode &&
+    !isCollectMode;
+
+  const existingInternalCreditLine = useMemo(
+    () => payments.find((p) => p.type === "INTERNAL_CREDIT") ?? null,
+    [payments],
+  );
+
   /** Opciones del Select del dialog "Agregar método". */
   const paymentTypeOptions = useMemo(() => {
     const base =
@@ -697,48 +777,16 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
           }))
         : FALLBACK_PAYMENT_OPTIONS.map((o) => ({ id: o.id, label: o.label }));
 
-    const filtered = base.filter((opt) => {
+    return base.filter((opt) => {
       const method = resolveMethodForOption(opt.id);
       if (isCustomerLinkedPaymentMethod(method)) return false;
-      if (isNcPayoutMode && !isNcPayoutAllowedPaymentMethod(method)) return false;
+      if (method === "INTERNAL_CREDIT") return false;
+      if (cashOutRefundOnly && !isImmediateReturnRefundAllowedPaymentMethod(method)) {
+        return false;
+      }
       return true;
     });
-
-    const icId = internalCreditCtx.paymentMethodId;
-    const canOfferInternalCredit =
-      internalCreditCtx.enabled &&
-      icId &&
-      hasSaleCustomer &&
-      customerAvailableCredit >= 1 &&
-      !isDebtCollectMode &&
-      !isNcPayoutMode &&
-      !isReturnMode &&
-      !isEncargoMode &&
-      !isFulfillBackorderMode;
-
-    if (canOfferInternalCredit && !filtered.some((o) => o.id === icId)) {
-      return [
-        ...filtered,
-        {
-          id: icId,
-          label: internalCreditCtx.paymentMethodLabel ?? "Crédito interno",
-        },
-      ];
-    }
-
-    return filtered;
-  }, [
-    effectiveMethods,
-    resolveMethodForOption,
-    isNcPayoutMode,
-    internalCreditCtx,
-    hasSaleCustomer,
-    customerAvailableCredit,
-    isDebtCollectMode,
-    isReturnMode,
-    isEncargoMode,
-    isFulfillBackorderMode,
-  ]);
+  }, [effectiveMethods, resolveMethodForOption, cashOutRefundOnly]);
 
   // Si el medio seleccionado es transferencia y el POS configuró una cuenta destino preferente,
   // precárgala en el diálogo (pero sin pisar una selección manual).
@@ -908,6 +956,13 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
   }, [isReturnMode]);
 
   useEffect(() => {
+    if (!cashOutRefundOnly) return;
+    setPayments((prev) =>
+      prev.filter((p) => isImmediateReturnRefundAllowedPaymentMethod(p.type)),
+    );
+  }, [cashOutRefundOnly, setPayments]);
+
+  useEffect(() => {
     void getInternalCustomerCreditContextAction().then(setInternalCreditCtx);
   }, []);
 
@@ -998,11 +1053,6 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
   }, [isNcPayoutMode, disableEncargoMode, setCustomer, setPayments]);
 
   useEffect(() => {
-    if (!isNcPayoutMode) return;
-    setPayments((prev) => prev.filter((p) => isNcPayoutAllowedPaymentMethod(p.type)));
-  }, [isNcPayoutMode, setPayments]);
-
-  useEffect(() => {
     if (customer?.customerId?.trim()) {
       setSaleSummaryAlert("");
     }
@@ -1026,7 +1076,9 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
       // ordenadas por `preloadOrder` (el backend ya las devuelve ordenadas).
       const preload = effectiveMethods.filter((m) => {
         if (!m.preloadOnPaymentScreen) return false;
-        if (isNcPayoutMode && !isNcPayoutAllowedPaymentMethod(m.method)) return false;
+        if (cashOutRefundOnly && !isImmediateReturnRefundAllowedPaymentMethod(m.method)) {
+          return false;
+        }
         return true;
       });
       const preloadLines: PosPaymentLine[] =
@@ -1078,7 +1130,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
     effectiveMethods,
     isFulfillBackorderMode,
     loadedBackorder,
-    isNcPayoutMode,
+    cashOutRefundOnly,
   ]);
 
   const appliedTotal = useMemo(() => payments.reduce((a, p) => a + p.amount, 0), [payments]);
@@ -1139,6 +1191,88 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
     setAddOpen(true);
   }, [remaining, paymentTypeOptions]);
 
+  const collectWithMpPoint = useCallback(async () => {
+    const ctx = readPosContextClient();
+    if (!ctx?.cashSessionId?.trim() || !ctx?.pointOfSaleId?.trim()) {
+      setPaymentMethodsAlert("Falta sesión de caja activa para cobrar con Point.");
+      return;
+    }
+    const amount = Math.round(remaining);
+    if (amount <= 0) return;
+    setMpPointBusy(true);
+    setMpPointStatus("Esperando pago en la terminal Point…");
+    setPaymentMethodsAlert("");
+    const created = await createMpPointIntentAction({
+      amount,
+      cashSessionId: ctx.cashSessionId.trim(),
+      pointOfSaleId: ctx.pointOfSaleId.trim(),
+    });
+    if (!created.success) {
+      setMpPointBusy(false);
+      setMpPointStatus("");
+      setPaymentMethodsAlert(created.message);
+      return;
+    }
+    let intent = created.intent;
+    const deadline = Date.now() + 90_000;
+    while (
+      Date.now() < deadline &&
+      (intent.status === "PENDING" || intent.status === "CREATED")
+    ) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const poll = await getMpPointIntentAction(intent.id);
+      if (poll.success) intent = poll.intent;
+      if (
+        intent.status === "APPROVED" ||
+        intent.status === "REJECTED" ||
+        intent.status === "CANCELLED"
+      ) {
+        break;
+      }
+    }
+    setMpPointBusy(false);
+    setMpPointStatus("");
+    if (intent.status !== "APPROVED") {
+      setPaymentMethodsAlert("Pago en terminal no aprobado o cancelado.");
+      return;
+    }
+    const auth =
+      intent.metadata?.authorizationCode?.trim() ||
+      `MP-${intent.id.slice(0, 8)}`;
+    const method: PosPaymentMethodId =
+      intent.metadata?.paymentType === "debit_card" ? "DEBIT_CARD" : "CREDIT_CARD";
+    setPayments((prev) => [
+      ...prev,
+      {
+        id: makePaymentLineId(),
+        type: method,
+        amount,
+        reference: auth,
+        paymentGatewayIntentId: intent.id,
+      },
+    ]);
+  }, [remaining, setPayments]);
+
+  const openInternalCreditDialog = useCallback(
+    (lineId?: string | null) => {
+      setEditingInternalCreditLineId(lineId ?? null);
+      setInternalCreditDialogOpen(true);
+    },
+    [],
+  );
+
+  const handleInternalCreditConfirm = useCallback(
+    (line: PosPaymentLine) => {
+      setPaymentMethodsAlert("");
+      setPayments((prev) => {
+        const without = prev.filter((p) => p.type !== "INTERNAL_CREDIT");
+        return [...without, line];
+      });
+      setEditingInternalCreditLineId(null);
+    },
+    [setPayments],
+  );
+
   const applyCreditNoteFromPanel = useCallback(
     (nc: CustomerCreditNoteSource) => {
       setPaymentMethodsAlert("");
@@ -1193,23 +1327,18 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
       setAddAlert("Usa las notas de crédito del panel del cliente para este medio de pago.");
       return;
     }
-    if (isNcPayoutMode && !isNcPayoutAllowedPaymentMethod(enumType)) {
-      setAddAlert("Solo se admite efectivo, transferencia o cheque para devolver saldo de NC.");
+    if (cashOutRefundOnly && !isImmediateReturnRefundAllowedPaymentMethod(enumType)) {
+      setAddAlert(
+        isNcPayoutMode
+          ? "Solo se admite efectivo, transferencia o cheque para devolver saldo de NC."
+          : "Solo se admite efectivo, transferencia o cheque para el reembolso inmediato.",
+      );
       return;
     }
     if (enumType === "INTERNAL_CREDIT") {
-      if (!saleCustomerId) {
-        setAddAlert("Selecciona un cliente para usar crédito interno.");
-        return;
-      }
-      const usedInternal = payments
-        .filter((p) => p.type === "INTERNAL_CREDIT")
-        .reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
-      const avail = Math.max(0, customerAvailableCredit - usedInternal);
-      if (amt > avail + 0.01) {
-        setAddAlert(`El monto supera el crédito disponible del cliente (${avail}).`);
-        return;
-      }
+      setAddOpen(false);
+      openInternalCreditDialog();
+      return;
     }
     if (enumType !== "CASH" && nonCashTotal + amt > amountToPay + 0.01) {
       setAddAlert(NON_CASH_LIMIT_MSG);
@@ -1248,10 +1377,8 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
     bankAccountOptions.length,
     nonCashTotal,
     amountToPay,
-    isNcPayoutMode,
-    saleCustomerId,
-    customerAvailableCredit,
-    payments,
+    cashOutRefundOnly,
+    openInternalCreditDialog,
   ]);
 
   const isFulfillBackorderAdvanceLine = useCallback(
@@ -1325,15 +1452,20 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
     [updatePaymentLineAmount],
   );
 
-  /** Para medios distintos de efectivo: asigna a esta línea el saldo pendiente sin violar el tope no-efectivo. */
+  /** Asigna a esta línea el saldo pendiente (efectivo: total restante; otros: tope no-efectivo). */
   const fillNonCashLineBalance = useCallback(
     (id: string) => {
       setPageAlert("");
       setPaymentMethodsAlert("");
       setPayments((prev) => {
         const row = prev.find((p) => p.id === id);
-        if (!row || row.type === "CASH") return prev;
+        if (!row) return prev;
         if (isFulfillBackorderAdvanceLine(row)) return prev;
+        const othersAll = prev.filter((p) => p.id !== id).reduce((a, p) => a + p.amount, 0);
+        const gap = Math.max(0, Math.round(amountToPay - othersAll));
+        if (row.type === "CASH") {
+          return prev.map((p) => (p.id === id ? { ...p, amount: gap } : p));
+        }
         const othersNonCash = prev
           .filter((p) => p.id !== id && p.type !== "CASH")
           .reduce((a, p) => a + p.amount, 0);
@@ -1350,8 +1482,6 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
             getBackorderAvailable(row.backorderTransactionId.trim(), id),
           );
         }
-        const othersAll = prev.filter((p) => p.id !== id).reduce((a, p) => a + p.amount, 0);
-        const gap = Math.max(0, Math.round(amountToPay - othersAll));
         const next = Math.min(maxAllowed, gap);
         return prev.map((p) => (p.id === id ? { ...p, amount: next } : p));
       });
@@ -1666,6 +1796,12 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
         return NON_CASH_LIMIT_MSG;
       }
       if (remaining > 0.01) return "Cubre el saldo restante antes de confirmar.";
+      const badMethod = payments.find(
+        (p) => !isImmediateReturnRefundAllowedPaymentMethod(p.type),
+      );
+      if (badMethod) {
+        return "Quita los medios de pago no permitidos (solo efectivo, transferencia o cheque).";
+      }
       for (const p of payments) {
         if ((Number(p.amount) || 0) <= 0) continue;
         if (p.type === "CHECK") {
@@ -2324,7 +2460,10 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
               size="md"
               ariaLabel="Volver al POS"
               title="Volver al POS"
-              onClick={() => router.push("/pos")}
+              onClick={() => {
+                requestPosProductSearchFocus();
+                router.push("/pos");
+              }}
               className="shrink-0"
               data-test-id="pos-payment-back"
             />
@@ -2497,7 +2636,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
               ) : null
             ) : (
               <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-                {!isEncargoMode ? (
+                {quotationsEnabled && !isEncargoMode ? (
                   <Button
                     type="button"
                     variant="outlined"
@@ -2692,7 +2831,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
           style={{ height: `${paymentPanelVh}vh` }}
           data-test-id="pos-payment-methods"
         >
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             <IconButton
               icon="Plus"
               variant="action"
@@ -2707,8 +2846,53 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
               }
               data-test-id="pos-payment-add-method"
             />
+            {canOfferInternalCredit && internalCreditCtx.paymentMethodId ? (
+              <Button
+                type="button"
+                variant="outlined"
+                size="sm"
+                disabled={stockBlocksSalePayment}
+                onClick={() => openInternalCreditDialog(existingInternalCreditLine?.id)}
+                data-test-id="pos-payment-add-internal-credit"
+              >
+                {existingInternalCreditLine ? "Editar crédito" : "Crédito interno"}
+              </Button>
+            ) : null}
+            {posPointEnabled && !cashOutRefundOnly && !isDebtCollectMode ? (
+              <Button
+                type="button"
+                variant="outlined"
+                size="sm"
+                disabled={remaining <= 0.01 || stockBlocksSalePayment || mpPointBusy}
+                onClick={() => void collectWithMpPoint()}
+                data-test-id="pos-payment-mp-point"
+              >
+                {mpPointBusy ? "Point…" : "Cobrar con Point"}
+              </Button>
+            ) : null}
             <h2 className="text-sm font-semibold text-foreground">Métodos de pago</h2>
           </div>
+
+          {mpPointStatus ? (
+            <p className="text-xs text-muted-foreground">{mpPointStatus}</p>
+          ) : null}
+
+          {canOfferInternalCredit ? (
+            <p
+              className="text-xs text-muted-foreground"
+              data-test-id="pos-payment-credit-banner"
+            >
+              Crédito disponible:{" "}
+              <span className="font-semibold tabular-nums text-foreground">
+                {formatMoney(customerAvailableCredit)}
+              </span>
+              {" · "}
+              Restante venta:{" "}
+              <span className="font-semibold tabular-nums text-foreground">
+                {formatMoney(remaining)}
+              </span>
+            </p>
+          ) : null}
 
           {paymentMethodsAlert ? (
             <Alert variant="error" className="text-xs">
@@ -2737,6 +2921,16 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
                   payment={p}
                   index={index}
                   label={label}
+                  planSubtitle={
+                    p.internalCreditPlan
+                      ? formatInternalCreditPlanSubtitle(p.internalCreditPlan)
+                      : null
+                  }
+                  onEditInternalCredit={
+                    p.type === "INTERNAL_CREDIT"
+                      ? () => openInternalCreditDialog(p.id)
+                      : undefined
+                  }
                   creditNoteSourceBalance={ncRow?.availableAmount ?? null}
                   amountLocked={isFulfillBackorderAdvanceLine(p)}
                   remaining={remaining}
@@ -2872,6 +3066,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
           setSuccessOpen(false);
           setReceiptData(null);
           cart.clear();
+          requestPosProductSearchFocus();
           router.push("/pos");
         }}
       />
@@ -2884,15 +3079,21 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
           setCreditNotePrintData(null);
           cart.clear();
           exitReturnMode();
+          requestPosProductSearchFocus();
           router.push("/pos");
         }}
       />
 
+      {quotationsEnabled ? (
       <SaveAsQuotationDialog
         open={saveQuotationOpen}
         onClose={() => setSaveQuotationOpen(false)}
-        onSaved={() => router.push("/pos")}
+        onSaved={() => {
+          requestPosProductSearchFocus();
+          router.push("/pos");
+        }}
       />
+      ) : null}
 
       <BackorderDepositDialog
         open={backorderDepositOpen}
@@ -2916,6 +3117,31 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
           });
         }}
       />
+
+      {internalCreditCtx.paymentMethodId && saleCustomerId ? (
+        <PosInternalCreditPaymentDialog
+          open={internalCreditDialogOpen}
+          onClose={() => {
+            setInternalCreditDialogOpen(false);
+            setEditingInternalCreditLineId(null);
+          }}
+          customerId={saleCustomerId}
+          customerDisplayName={customerLabel}
+          saleRemaining={remaining}
+          paymentMethodId={internalCreditCtx.paymentMethodId}
+          paymentMethodLabel={
+            internalCreditCtx.paymentMethodLabel ?? "Crédito interno"
+          }
+          existingPayments={payments}
+          editingLineId={editingInternalCreditLineId}
+          initial={
+            editingInternalCreditLineId
+              ? payments.find((p) => p.id === editingInternalCreditLineId) ?? null
+              : existingInternalCreditLine
+          }
+          onConfirm={handleInternalCreditConfirm}
+        />
+      ) : null}
     </div>
   );
 }

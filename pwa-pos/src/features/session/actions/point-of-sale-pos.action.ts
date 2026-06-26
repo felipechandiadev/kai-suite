@@ -3,6 +3,34 @@
 import { PointOfSaleRequest } from "../infrastructure/point-of-sale.request";
 import type { PosPriceListSnapshot } from "../lib/pos-context-storage";
 
+function readPosIdField(raw: Record<string, unknown>, key: string): string | null {
+  const v = raw[key];
+  if (v == null) return null;
+  const s = String(v).trim();
+  return s || null;
+}
+
+function parsePointOfSaleContextFields(
+  pointOfSale: Record<string, unknown>,
+): {
+  branchId: string | null;
+  branchName: string | null;
+  storageId: string | null;
+  pointOfSaleName: string | null;
+} {
+  const branch =
+    pointOfSale.branch && typeof pointOfSale.branch === "object"
+      ? (pointOfSale.branch as Record<string, unknown>)
+      : null;
+  return {
+    branchId: readPosIdField(pointOfSale, "branchId") ?? readPosIdField(branch ?? {}, "id"),
+    branchName:
+      (branch?.name != null ? String(branch.name).trim() : "") || null,
+    storageId: readPosIdField(pointOfSale, "storageId"),
+    pointOfSaleName: readPosIdField(pointOfSale, "name"),
+  };
+}
+
 function normalizePriceLists(raw: unknown): PosPriceListSnapshot[] {
   if (!Array.isArray(raw)) return [];
   const out: PosPriceListSnapshot[] = [];
@@ -23,24 +51,53 @@ export async function fetchPointOfSalePriceListsAction(pointOfSaleId: string): P
       success: true;
       priceLists: PosPriceListSnapshot[];
       defaultPriceListId: string | null;
+      branchId: string | null;
+      branchName: string | null;
+      storageId: string | null;
+      pointOfSaleName: string | null;
     }
-  | { success: false; message: string; priceLists: [] }
+  | {
+      success: false;
+      message: string;
+      priceLists: [];
+      branchId: null;
+      branchName: null;
+      storageId: null;
+      pointOfSaleName: null;
+    }
 > {
   const id = pointOfSaleId?.trim();
   if (!id) {
-    return { success: false, message: "Sin punto de venta en contexto", priceLists: [] };
+    return {
+      success: false,
+      message: "Sin punto de venta en contexto",
+      priceLists: [],
+      branchId: null,
+      branchName: null,
+      storageId: null,
+      pointOfSaleName: null,
+    };
   }
 
   const res = await PointOfSaleRequest.findById(id);
   if (!res.success) {
-    return { success: false, message: res.error, priceLists: [] };
+    return {
+      success: false,
+      message: res.error,
+      priceLists: [],
+      branchId: null,
+      branchName: null,
+      storageId: null,
+      pointOfSaleName: null,
+    };
   }
 
+  const posFields = parsePointOfSaleContextFields(res.pointOfSale);
   const priceLists = normalizePriceLists(res.pointOfSale.priceLists);
   const defaultPriceListId =
     res.pointOfSale.defaultPriceListId != null
       ? String(res.pointOfSale.defaultPriceListId).trim() || null
       : null;
 
-  return { success: true, priceLists, defaultPriceListId };
+  return { success: true, priceLists, defaultPriceListId, ...posFields };
 }

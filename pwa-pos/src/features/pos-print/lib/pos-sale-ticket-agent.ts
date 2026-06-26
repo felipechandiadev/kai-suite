@@ -2,8 +2,9 @@ import type { PosSaleReceiptData } from "@/app/(pos)/pos/payment/ui/PosSaleRecei
 import {
   agentSupportsPosSaleTicket,
   emitPrintServiceJobFailed,
-  getPosDocumentPrintFormat,
+  getPosDocumentPrintMode,
   isPosAgentPrintConfiguredForPurpose,
+  posDocumentPrintModeToWireFormat,
   POS_SALE_TICKET_PAYLOAD_VERSION,
   PrintServiceConnection,
   type HelloResponseData,
@@ -152,7 +153,8 @@ export async function printPosSaleTicketAgentOrBrowser(
   if (typeof window === "undefined") return "browser";
 
   const kind = data.documentKind === "backorder" ? "backorder" : "sale";
-  const format = meta.format ?? getPosDocumentPrintFormat(kind);
+  const format =
+    meta.format ?? posDocumentPrintModeToWireFormat(getPosDocumentPrintMode(kind));
   const documentHtml = buildPosSaleDocumentHtml(data, format);
   const ticketMeta = {
     filename: meta.filename,

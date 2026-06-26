@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { OperationalExpensesRepository } from '../infrastructure/operational-expenses.repository';
 import { CreateOperationalExpenseDto } from './dto/create-operational-expense.dto';
 import { UpdateOperationalExpenseDto } from './dto/update-operational-expense.dto';
@@ -96,8 +96,24 @@ export class OperationalExpensesService {
       this.repository.count({ where }),
     ]);
 
+    const txIds = data
+      .map(
+        (expense) =>
+          expense.supplierFiscalDocumentTransactionId ??
+          expense.operatingExpenseTransactionId ??
+          expense.metadata?.operatingExpenseTransactionId ??
+          null,
+      )
+      .filter((id): id is string => Boolean(id));
+    const uniqueTxIds = [...new Set(txIds)];
+    const transactions =
+      uniqueTxIds.length > 0
+        ? await this.transactionRepo.find({ where: { id: In(uniqueTxIds) } })
+        : [];
+    const txById = new Map(transactions.map((tx) => [tx.id, tx]));
+
     const enrichedData = await Promise.all(
-      data.map(async (expense) => this.attachMediaAssets(expense)),
+      data.map(async (expense) => this.attachMediaAssets(expense, txById)),
     );
 
     return { data: enrichedData, total };
@@ -189,6 +205,7 @@ export class OperationalExpensesService {
             },
             expenseCategoryId: dto.categoryId,
             operationalExpenseName: dto.name,
+            taxId: fiscalAmounts.taxId ?? null,
           },
         });
         supplierFiscalDocumentTransactionId = fiscal.fiscalDocId;
@@ -293,8 +310,37 @@ export class OperationalExpensesService {
     return branch?.id ?? null;
   }
 
+  private resolveLinkedTransactionId(expense: OperationalExpense): string | null {
+    return (
+      expense.supplierFiscalDocumentTransactionId ??
+      expense.operatingExpenseTransactionId ??
+      expense.metadata?.operatingExpenseTransactionId ??
+      null
+    );
+  }
+
+  private applyTransactionEnrichment(
+    expense: OperationalExpense,
+    tx: Transaction,
+  ): void {
+    type Enriched = OperationalExpense & {
+      netAmount?: number;
+      taxAmount?: number;
+      totalAmount?: number;
+      documentNumber?: string | null;
+    };
+    const enriched = expense as Enriched;
+    enriched.netAmount = Number(tx.subtotal) || 0;
+    enriched.taxAmount = Number(tx.taxAmount) || 0;
+    enriched.totalAmount = Number(tx.total) || 0;
+    const docNum = String(tx.documentNumber ?? '').trim();
+    const docFolio = String(tx.documentFolio ?? '').trim();
+    enriched.documentNumber = docNum || docFolio || null;
+  }
+
   private async attachMediaAssets(
     expense: OperationalExpense,
+    txById?: Map<string, Transaction>,
   ): Promise<OperationalExpense> {
     const assets = await this.multimediaService.listByEntity(
       'operational-expense',
@@ -308,24 +354,14 @@ export class OperationalExpensesService {
       kind: asset.kind,
     }));
 
-    const txId =
-      expense.supplierFiscalDocumentTransactionId ??
-      expense.operatingExpenseTransactionId ??
-      expense.metadata?.operatingExpenseTransactionId ??
-      null;
+    const txId = this.resolveLinkedTransactionId(expense);
 
     if (txId) {
-      const tx = await this.transactionRepo.findOne({ where: { id: txId } });
+      const tx =
+        txById?.get(txId) ??
+        (await this.transactionRepo.findOne({ where: { id: txId } }));
       if (tx) {
-        (expense as OperationalExpense & {
-          netAmount?: number;
-          taxAmount?: number;
-          totalAmount?: number;
-        }).netAmount = Number(tx.subtotal) || 0;
-        (expense as OperationalExpense & { taxAmount?: number }).taxAmount =
-          Number(tx.taxAmount) || 0;
-        (expense as OperationalExpense & { totalAmount?: number }).totalAmount =
-          Number(tx.total) || 0;
+        this.applyTransactionEnrichment(expense, tx);
       }
     } else if (expense.metadata?.linkedTributaryDocument) {
       const linked = expense.metadata.linkedTributaryDocument;

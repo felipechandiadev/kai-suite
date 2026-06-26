@@ -26,8 +26,8 @@ export class OperationalExpensesRepository {
         'category',
         'supplier',
         'employee',
-        'creator',
-        'approver',
+        'createdByUser',
+        'approvedByUser',
       ],
     });
   }

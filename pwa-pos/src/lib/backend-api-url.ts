@@ -18,6 +18,31 @@ export function getServerBackendApiBase(): string {
   return base.replace(/\/$/, "");
 }
 
+function isLoopbackHost(hostname: string): boolean {
+  const h = hostname.trim().toLowerCase();
+  return h === "localhost" || h === "127.0.0.1" || h === "::1";
+}
+
+/**
+ * En tablet/LAN la PWA suele abrirse por IP (192.168.x.x) pero el .env trae localhost.
+ * Reescribe solo en el navegador para que fetch/WS apunten al mismo host que la página.
+ */
+export function resolveClientBackendApiBase(configured: string): string {
+  let base = configured.replace(/\/$/, "");
+  if (typeof window === "undefined") return base;
+  try {
+    const url = new URL(base);
+    const pageHost = window.location.hostname;
+    if (isLoopbackHost(url.hostname) && !isLoopbackHost(pageHost)) {
+      url.hostname = pageHost;
+      base = url.origin;
+    }
+  } catch {
+    // URL inválida: devolver tal cual
+  }
+  return base;
+}
+
 export function getClientBackendApiBase(): string | null {
   const raw =
     process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim() ||
@@ -25,5 +50,5 @@ export function getClientBackendApiBase(): string | null {
   if (!raw) {
     return null;
   }
-  return raw.replace(/\/$/, "");
+  return resolveClientBackendApiBase(raw);
 }

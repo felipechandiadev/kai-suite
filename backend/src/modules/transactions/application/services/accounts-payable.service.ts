@@ -7,6 +7,10 @@ import {
   TransactionType,
   PaymentStatus,
 } from '../../domain/transaction.entity';
+import {
+  AccountsPayableOriginCategory,
+  resolveAccountsPayableOriginCategory,
+} from '../helpers/accounts-payable-origin.util';
 
 export type AccountsPayablePaymentType =
   | 'SUPPLIER_PAYMENT'
@@ -36,12 +40,15 @@ export interface AccountsPayableRowDto {
   paymentTransactionId: string;
   metadata: Record<string, unknown> | null;
   createdAt: string;
-  /** @deprecated use paymentType — kept for grid compatibility */
+  /** Origen de negocio: compra, gasto operativo, nómina. */
+  originCategory: AccountsPayableOriginCategory;
+  /** @deprecated use originCategory — kept for grid compatibility */
   sourceType: string;
 }
 
 export interface AccountsPayableListFilters {
   paymentType?: AccountsPayablePaymentType | AccountsPayablePaymentType[];
+  originCategory?: AccountsPayableOriginCategory | AccountsPayableOriginCategory[];
   payeeType?: string;
   supplierId?: string;
   employeeId?: string;
@@ -57,13 +64,12 @@ const PAYMENT_TYPES: TransactionType[] = [
   TransactionType.EXPENSE_PAYMENT,
 ];
 
-function mapPaymentTypeToLegacySource(
-  t: TransactionType,
-): string {
-  if (t === TransactionType.SUPPLIER_PAYMENT) return 'PURCHASE';
-  if (t === TransactionType.PAYROLL_PAYMENT) return 'PAYROLL';
-  if (t === TransactionType.EXPENSE_PAYMENT) return 'OPERATING_EXPENSE';
-  return 'OTHER';
+function matchesOriginCategoryFilter(
+  rowCategory: AccountsPayableOriginCategory,
+  filter: AccountsPayableOriginCategory | AccountsPayableOriginCategory[],
+): boolean {
+  const categories = Array.isArray(filter) ? filter : [filter];
+  return categories.includes(rowCategory);
 }
 
 @Injectable()
@@ -223,10 +229,15 @@ export class AccountsPayableService {
         }
 
         const paymentType = payment.transactionType as AccountsPayablePaymentType;
+        const originCategory = resolveAccountsPayableOriginCategory(
+          payment.transactionType,
+          parent,
+        );
 
         return {
           id: payment.id,
           paymentType,
+          originCategory,
           documentNumber: payment.documentNumber,
           parentTransactionId: payment.relatedTransactionId ?? null,
           parentDocumentNumber: parent?.documentNumber ?? null,
@@ -252,10 +263,17 @@ export class AccountsPayableService {
             payment.createdAt instanceof Date
               ? payment.createdAt.toISOString()
               : String(payment.createdAt),
-          sourceType: mapPaymentTypeToLegacySource(payment.transactionType),
+          sourceType: originCategory,
         };
       })
       .filter((row) => row !== null) as AccountsPayableRowDto[];
+
+    if (filters?.originCategory) {
+      return rows.filter((row) =>
+        matchesOriginCategoryFilter(row.originCategory, filters.originCategory!),
+      );
+    }
+
     return rows;
   }
 

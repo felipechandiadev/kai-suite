@@ -65,16 +65,13 @@ export class CustomersController {
       pageSize: 200,
     });
 
-    const quotas = (result.rows ?? []).map((inst: any) => ({
-      id: inst.id,
-      transactionId: inst.sourceTransactionId || inst.saleTransactionId || null,
-      documentNumber:
-        inst.saleTransaction?.documentNumber ??
-        inst.sourceTransactionId ??
-        null,
-      amount: Number(inst.amount ?? 0),
-      dueDate: inst.dueDate,
-      createdAt: inst.saleTransaction?.createdAt ?? inst.createdAt,
+    const quotas = (result.rows ?? []).map((row) => ({
+      id: row.id,
+      transactionId: row.saleTransactionId,
+      documentNumber: row.documentNumber,
+      amount: Number(row.pendingAmount ?? row.amount ?? 0),
+      dueDate: row.dueDate,
+      createdAt: row.createdAt,
     }));
 
     return { success: true, quotas };

@@ -1,5 +1,6 @@
 export type PosCustomerDetail = {
   customerId: string;
+  personId: string | null;
   displayName: string;
   documentType: string | null;
   documentNumber: string | null;

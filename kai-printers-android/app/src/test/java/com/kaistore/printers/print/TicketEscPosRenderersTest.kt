@@ -4,6 +4,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TicketEscPosDispatcherTest {
+    private fun hasDrawerKick(bytes: ByteArray): Boolean {
+        for (i in 0 until bytes.size - 1) {
+            if (bytes[i] == 0x1B.toByte() && bytes[i + 1] == 0x70.toByte()) return true
+        }
+        return false
+    }
+
     @Test
     fun dispatchesSaleTicket() {
         val json = """
@@ -19,6 +26,22 @@ class TicketEscPosDispatcherTest {
         assertTrue(bytes.isNotEmpty())
         val text = String(bytes, Charsets.ISO_8859_1)
         assertTrue(text.contains("VTA-1"))
+        assertTrue(hasDrawerKick(bytes))
+    }
+
+    @Test
+    fun saleTicketSkipsDrawerOn58mm() {
+        val json = """
+            {
+              "folio": "VTA-1",
+              "issuedAtIso": "2026-06-02T12:00:00Z",
+              "company": { "nombreFantasia": "Tienda" },
+              "lines": [],
+              "totals": { "total": 0 }
+            }
+        """.trimIndent()
+        val bytes = TicketEscPosDispatcher.fromJob("pos-sale-ticket", json, 32)
+        assertTrue(!hasDrawerKick(bytes))
     }
 
     @Test(expected = IllegalStateException::class)
@@ -142,9 +165,14 @@ class PosCashCountSheetTicketEscPosTest {
 }
 
 class PosPaymentInTicketEscPosTest {
-    @Test
-    fun hasComprobanteHeading() {
-        val json = """
+    private fun hasDrawerKick(bytes: ByteArray): Boolean {
+        for (i in 0 until bytes.size - 1) {
+            if (bytes[i] == 0x1B.toByte() && bytes[i + 1] == 0x70.toByte()) return true
+        }
+        return false
+    }
+
+    private fun sampleJson(): String = """
             {
               "documentNumber": "COB-001",
               "issuedAt": "2026-01-01T12:00:00Z",
@@ -155,7 +183,22 @@ class PosPaymentInTicketEscPosTest {
               "allocations": [{ "documentNumber": "VTA-1", "amount": 5000 }]
             }
         """.trimIndent()
-        val text = String(PosPaymentInTicketEscPos.fromTicketJson(json), Charsets.ISO_8859_1)
+
+    @Test
+    fun hasComprobanteHeading() {
+        val text = String(PosPaymentInTicketEscPos.fromTicketJson(sampleJson()), Charsets.ISO_8859_1)
         assertTrue(text.contains("COMPROBANTE DE COBRO"))
+    }
+
+    @Test
+    fun opensDrawerOn80mm() {
+        val bytes = PosPaymentInTicketEscPos.fromTicketJson(sampleJson(), 48)
+        assertTrue(hasDrawerKick(bytes))
+    }
+
+    @Test
+    fun skipsDrawerOn58mm() {
+        val bytes = PosPaymentInTicketEscPos.fromTicketJson(sampleJson(), 32)
+        assertTrue(!hasDrawerKick(bytes))
     }
 }

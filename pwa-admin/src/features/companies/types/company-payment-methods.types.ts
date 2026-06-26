@@ -44,6 +44,13 @@ export const COMPANY_PAYMENT_METHOD_LABELS: Record<
   ORDER_ADVANCE: "Abono por encargo",
 };
 
+export function companyPaymentMethodLabel(
+  method: string | CompanyPaymentMethodId,
+): string {
+  const key = method as CompanyPaymentMethodId;
+  return COMPANY_PAYMENT_METHOD_LABELS[key] ?? String(method);
+}
+
 /** Referencia obligatoria; no editable en empresa ni POS. */
 export const PAYMENT_METHODS_ALWAYS_REQUIRE_REFERENCE: CompanyPaymentMethodId[] = [
   "CUSTOMER_CREDIT_NOTE",

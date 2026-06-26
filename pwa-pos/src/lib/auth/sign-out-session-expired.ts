@@ -1,29 +1,10 @@
 "use client";
 
-import { signOut } from "next-auth/react";
+import { signOutToLoginOnce } from "./sign-out-to-login";
 
-let inFlight: Promise<void> | null = null;
-
-/**
- * Cierra sesión NextAuth y envía al login (`/`). Idempotente para no disparar
- * varias veces si varias peticiones fallan con 401 a la vez.
- */
+/** @deprecated Usar signOutToLoginOnce — mantenido por imports existentes. */
 export function signOutSessionExpired(): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-  if (inFlight) {
-    return;
-  }
-  inFlight = (async () => {
-    try {
-      await signOut({ callbackUrl: "/", redirect: true });
-    } catch {
-      window.location.assign("/");
-    } finally {
-      inFlight = null;
-    }
-  })();
+  signOutToLoginOnce();
 }
 
 export function isUnauthorizedResponse(res: Response): boolean {

@@ -75,6 +75,12 @@ interface MappingLineDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(lines: List<MappingLineEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(line: MappingLineEntity)
+
+    @Query("DELETE FROM printer_mapping_lines WHERE id = :id")
+    suspend fun deleteById(id: String)
 }
 
 @Dao

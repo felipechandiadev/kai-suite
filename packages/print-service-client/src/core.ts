@@ -101,6 +101,12 @@ export function normalizePrintAgentHost(host: string): string {
   return t;
 }
 
+/** `127.0.0.1` / `localhost`: agente en el mismo dispositivo que el navegador del POS. */
+export function isLoopbackPrintAgentHost(host: string): boolean {
+  const h = normalizePrintAgentHost(host).toLowerCase();
+  return h === "127.0.0.1";
+}
+
 export function buildWebSocketUrl(host: string, port: number, useTls: boolean): string {
   const h = normalizePrintAgentHost(host);
   const scheme = useTls ? "wss" : "ws";
@@ -563,11 +569,12 @@ export class PrintServiceConnection {
 
   /**
    * Igual que `enqueuePrint`, pero añade `printerDisplayLabel` según la elección del POS en localStorage
-   * (`readPosPurposePrinterAliasesFromStorage` / pantalla Impresión local).
+   * (`readPosPurposePrinterAliasesFromStorage` / pantalla Impresión local), por uso tickets/documentos.
    */
   enqueuePosPrint(extra: Record<string, unknown>): Promise<unknown> {
-    const purpose = typeof extra.purpose === "string" ? extra.purpose : "documents";
-    return this.enqueuePrint(mergePrinterDisplayLabelForPurposeIntoPrintExtras(purpose, { ...extra }));
+    const withFormat = applyFormatToPrintBody(extra, parsePrintFormat(String(extra.format ?? "")));
+    const purpose = typeof withFormat.purpose === "string" ? withFormat.purpose : "documents";
+    return this.enqueuePrint(mergePrinterDisplayLabelForPurposeIntoPrintExtras(purpose, withFormat));
   }
 
   /** Ticket de venta POS: el agente genera ESC/POS desde JSON (`type: "pos-sale-ticket"`). */
@@ -845,6 +852,63 @@ export function writePrintServiceConfigToStorage(cfg: {
 /** Elección del POS: impresora por alias (definida en el agente) para tickets / documentos. Solo localStorage. */
 const LS_POS_TICKETS_ALIAS = "printPosPurposeTicketsAlias";
 const LS_POS_DOCUMENTS_ALIAS = "printPosPurposeDocumentsAlias";
+const LS_POS_ALIAS_58MM = "printPosAliasTicket58mm";
+const LS_POS_ALIAS_80MM = "printPosAliasTicket80mm";
+const LS_POS_ALIAS_DOCUMENT = "printPosAliasDocument";
+
+/** @deprecated Usar `readPosPurposePrinterAliasesFromStorage` (2 impresoras: tickets / documentos). */
+export type PosFormatPrinterAliases = {
+  alias58mm: string;
+  alias80mm: string;
+  aliasDocument: string;
+};
+
+/** @deprecated Usar `readPosPurposePrinterAliasesFromStorage`. */
+export function readPosFormatPrinterAliasesFromStorage(): PosFormatPrinterAliases {
+  if (typeof window === "undefined") {
+    return { alias58mm: "", alias80mm: "", aliasDocument: "" };
+  }
+  const legacy = readPosPurposePrinterAliasesFromStorage();
+  const raw58 = (localStorage.getItem(LS_POS_ALIAS_58MM) || "").trim();
+  const raw80 = (localStorage.getItem(LS_POS_ALIAS_80MM) || "").trim();
+  const rawDoc = (localStorage.getItem(LS_POS_ALIAS_DOCUMENT) || "").trim();
+  return {
+    alias58mm: raw58 || legacy.ticketsAlias,
+    alias80mm: raw80 || legacy.ticketsAlias,
+    aliasDocument: rawDoc || legacy.documentsAlias,
+  };
+}
+
+/** @deprecated Usar `writePosPurposePrinterAliasesToStorage`. */
+export function writePosFormatPrinterAliasesToStorage(aliases: Partial<PosFormatPrinterAliases>): void {
+  if (typeof window === "undefined") return;
+  if (aliases.alias58mm !== undefined) {
+    const t = aliases.alias58mm.trim();
+    if (t) localStorage.setItem(LS_POS_ALIAS_58MM, t);
+    else localStorage.removeItem(LS_POS_ALIAS_58MM);
+  }
+  if (aliases.alias80mm !== undefined) {
+    const t = aliases.alias80mm.trim();
+    if (t) localStorage.setItem(LS_POS_ALIAS_80MM, t);
+    else localStorage.removeItem(LS_POS_ALIAS_80MM);
+    writePosPurposePrinterAliasesToStorage({ ticketsAlias: t });
+  }
+  if (aliases.aliasDocument !== undefined) {
+    const t = aliases.aliasDocument.trim();
+    if (t) localStorage.setItem(LS_POS_ALIAS_DOCUMENT, t);
+    else localStorage.removeItem(LS_POS_ALIAS_DOCUMENT);
+    writePosPurposePrinterAliasesToStorage({ documentsAlias: t });
+  }
+}
+
+/** @deprecated Usar alias por propósito (`readPosPurposePrinterAliasesFromStorage`). */
+export function resolvePosPrinterAliasForFormat(format: PrintFormat): string {
+  const { alias58mm, alias80mm, aliasDocument } = readPosFormatPrinterAliasesFromStorage();
+  if (format === "ticket_58mm") return alias58mm;
+  if (format === "ticket_80mm") return alias80mm;
+  if (format === "document_a4" || format === "document_letter") return aliasDocument;
+  return "";
+}
 
 export type PosPrintAgentPurpose = "tickets" | "documents";
 
@@ -1189,9 +1253,24 @@ const DEFAULT_POS_DOCUMENT_PRINT_FORMATS: Record<PosDocumentPrintKind, PrintForm
   cashSessionOpening: "ticket_80mm",
 };
 
+/** Ventas, cotizaciones, etc.: ticket 58/80 mm o documento (carta/A4). */
+export const POS_STANDARD_DOCUMENT_PRINT_FORMATS: PrintFormat[] = [
+  "ticket_58mm",
+  "ticket_80mm",
+  ...DOCUMENT_PRINT_FORMATS,
+];
+
+/** Planilla de conteo: ticket 80 mm o documento (sin 58 mm). */
+export const POS_CASH_COUNT_SHEET_ALLOWED_PRINT_FORMATS: PrintFormat[] = [
+  "ticket_80mm",
+  ...DOCUMENT_PRINT_FORMATS,
+];
+
 /** Formatos válidos en Impresión local del POS según tipo de documento. */
 export function printFormatsForPosDocumentKind(kind: PosDocumentPrintKind): PrintFormat[] {
-  return kind === "cashCountSheet" ? DOCUMENT_PRINT_FORMATS : TICKET_PRINT_FORMATS;
+  return kind === "cashCountSheet"
+    ? POS_CASH_COUNT_SHEET_ALLOWED_PRINT_FORMATS
+    : POS_STANDARD_DOCUMENT_PRINT_FORMATS;
 }
 
 export function defaultPrintFormatForPosDocumentKind(kind: PosDocumentPrintKind): PrintFormat {
@@ -1256,9 +1335,42 @@ export function getPosDocumentPrintMode(kind: PosDocumentPrintKind): PosDocument
   return printFormatToLegacyMode(getPosDocumentPrintFormat(kind));
 }
 
-/** Etiqueta legible del formato de impresión (alertas del POS). */
+/** Propósito del agente (`tickets` | `documents`) según el modo guardado para ese documento. */
+export function getPosDocumentPrintPurpose(kind: PosDocumentPrintKind): PosPrintAgentPurpose {
+  return getPosDocumentPrintMode(kind) === "document" ? "documents" : "tickets";
+}
+
+/** Formato wire placeholder; el agente ajusta ancho/hoja con el `paperProfile` de la línea. */
+export function posDocumentPrintModeToWireFormat(mode: PosDocumentPrintMode): PrintFormat {
+  return migrateLegacyPrintMode(mode);
+}
+
+export function isPosDocumentPrintModeDocument(mode: PosDocumentPrintMode): boolean {
+  return mode === "document";
+}
+
+/** Modos válidos en Impresión local del POS según tipo de documento. */
+export function printModesForPosDocumentKind(
+  _kind: PosDocumentPrintKind,
+): PosDocumentPrintMode[] {
+  return ["ticket", "document"];
+}
+
+export function defaultPrintModeForPosDocumentKind(kind: PosDocumentPrintKind): PosDocumentPrintMode {
+  return printFormatToLegacyMode(defaultPrintFormatForPosDocumentKind(kind));
+}
+
+export function sanitizePosDocumentPrintMode(
+  kind: PosDocumentPrintKind,
+  mode: PosDocumentPrintMode,
+): PosDocumentPrintMode {
+  const allowed = printModesForPosDocumentKind(kind);
+  return allowed.includes(mode) ? mode : defaultPrintModeForPosDocumentKind(kind);
+}
+
+/** Etiqueta legible del modo ticket/documento (alertas del POS). */
 export function describePosDocumentPrintMode(mode: PosDocumentPrintMode): string {
-  return describePrintFormat(migrateLegacyPrintMode(mode));
+  return mode === "document" ? "Documento" : "Ticket";
 }
 
 export function describePosDocumentPrintFormat(format: PrintFormat): string {
@@ -1298,6 +1410,17 @@ export function writePosDocumentPrintModesToStorage(
     if (mode !== undefined) formats[kind] = migrateLegacyPrintMode(mode);
   }
   writePosDocumentPrintFormatsToStorage(formats);
+}
+
+/** @deprecated Usar `mergePrinterDisplayLabelForPurposeIntoPrintExtras`. */
+export function mergePrinterDisplayLabelForFormatIntoPrintExtras(
+  extra: Record<string, unknown>,
+): Record<string, unknown> {
+  const format = parsePrintFormat(String(extra.format ?? ""));
+  const lbl = resolvePosPrinterAliasForFormat(format);
+  if (lbl) return { ...extra, printerDisplayLabel: lbl, printerAlias: lbl };
+  const purpose = typeof extra.purpose === "string" ? extra.purpose : "documents";
+  return mergePrinterDisplayLabelForPurposeIntoPrintExtras(purpose, extra);
 }
 
 /**

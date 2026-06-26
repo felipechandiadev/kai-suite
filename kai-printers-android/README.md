@@ -1,14 +1,26 @@
 # Kai Printers Android
 
-Agente local de impresión para KaiStore POS en tablets Android. Expone WebSocket v2.1 en `127.0.0.1` y envía tickets ESC/POS por **Bluetooth**, **red (TCP :9100)** o **USB OTG**.
+Agente local de impresión para KaiStore POS en tablets Android (p. ej. iMin Swan). Expone WebSocket v2.1 en **`0.0.0.0`** (red local) y envía tickets ESC/POS por **Bluetooth**, **red (TCP :9100)** o **USB OTG**.
 
-**No se conecta a la API de KaiStore** (`api.joyarte.kaisuite.pro`). El POS en Chrome usa la API para ventas y `wss://127.0.0.1:14568` para imprimir.
+**No se conecta a la API de KaiStore** (`api.joyarte.kaisuite.pro`). El POS en Chrome usa la API para ventas y el agente local para imprimir.
+
+## Modos de conexión POS ↔ agente
+
+| Modo | Dónde corre el POS | Host en Impresión local |
+|------|-------------------|-------------------------|
+| **A** — misma tablet | Chrome en la iMin | `127.0.0.1` |
+| **B** — red LAN | Mac, PC u otra tablet en la misma Wi‑Fi | **IP LAN de la iMin** (p. ej. `192.168.0.133`) |
+
+- **WS** (HTTP): `ws://HOST:14567`
+- **WSS** (HTTPS): `wss://HOST:14568` — abrir `https://HOST:14568/` en el navegador del cliente y aceptar el certificado autofirmado una vez.
+
+El agente valida el header `Origin` del handshake: por defecto acepta loopback y orígenes en IP privada (10.x, 172.16–31.x, 192.168.x).
 
 ## Requisitos
 
 - Android 7.0+ (API **24**), targetSdk **33** (paridad con mobilePOS)
 - Impresora térmica ESC/POS: Bluetooth emparejada, red LAN (`host:9100`) o USB OTG
-- POS PWA en HTTPS en el mismo dispositivo
+- POS PWA en HTTPS (misma tablet o equipo en la misma red Wi‑Fi)
 
 ## Puertos por defecto
 
@@ -68,8 +80,8 @@ cp -R output/android/* ../kai-printers-android/app/src/main/res/
 1. Instalar APK y abrir **Kai Printers**.
 2. Pantalla **Permisos**: notificaciones, Bluetooth, batería, iniciar servicio.
 3. **Impresoras** (pestañas Bluetooth | Red | USB): configurar impresora de tickets, imprimir prueba.
-4. **Servicio**: tocar «Confiar certificado WSS» y aceptar en Chrome.
-5. En el POS (HTTPS): Impresión local → host `127.0.0.1`, WSS activo, puerto `14568`, alias de impresora.
+4. **Servicio**: activar agente; anotar **IP LAN** de la tablet. En modo A, confiar certificado WSS en Chrome de la iMin (`127.0.0.1`). En modo B, confiar en el navegador del POS remoto (`https://IP-iMin:14568/`).
+5. En el POS (HTTPS): Impresión local → host según modo (ver tabla arriba), WSS activo, puerto `14568`, alias de impresora.
 
 ## E2E
 

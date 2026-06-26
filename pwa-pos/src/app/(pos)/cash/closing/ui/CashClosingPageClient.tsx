@@ -23,8 +23,8 @@ import { saveCashClosingResultSnapshot } from "@/features/cash-closing/lib/cash-
 import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
 import type { CompanyDetails } from "@/features/company/infrastructure/company.request";
 import {
-  describePrintFormat,
-  getPosDocumentPrintFormat,
+  describePosDocumentPrintMode,
+  getPosDocumentPrintMode,
 } from "@flowstore/print-service-client";
 import type { CashCountSheetPrintInput } from "@/features/cash-closing/lib/cash-count-sheet-print.types";
 import { printCashCountSheetAwait } from "@/features/cash-closing/lib/cash-count-sheet-print";
@@ -273,7 +273,7 @@ export default function CashClosingPageClient() {
           label: m.label?.trim() || String(m.method),
         })),
       };
-      const formatLabel = describePrintFormat(getPosDocumentPrintFormat("cashCountSheet"));
+      const formatLabel = describePosDocumentPrintMode(getPosDocumentPrintMode("cashCountSheet"));
       const channel = await printCashCountSheetAwait(input);
       setCountSheetPrintStatus(
         channel === "agent"

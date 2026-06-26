@@ -50,6 +50,8 @@ export interface EShopOrderStatusHistoryEntry {
   note?: string | null;
 }
 
+export type EShopPaymentExpectation = 'NONE' | 'ONLINE_REQUIRED' | 'COORDINATE_LATER';
+
 export interface TransactionEShopOrderMetadata {
   fulfillmentStatus: EShopFulfillmentStatus;
   fulfillmentMethodId: string;
@@ -60,7 +62,8 @@ export interface TransactionEShopOrderMetadata {
   stockPolicyApplied: EShopStockPolicy;
   stockSnapshot?: EShopOrderStockLineSnapshot[];
   statusHistory: EShopOrderStatusHistoryEntry[];
-  paymentExpectation: 'NONE';
+  paymentExpectation: EShopPaymentExpectation;
+  paymentGatewayIntentId?: string | null;
   customerNotes?: string | null;
   isLegacy?: boolean;
 }

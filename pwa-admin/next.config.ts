@@ -1,11 +1,14 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadEnvConfig } from "@next/env";
 import type { NextConfig } from "next";
 import { buildLanAllowedDevOrigins } from "../shared/next-lan-dev-origins";
 
 const appRoot = path.dirname(fileURLToPath(import.meta.url));
 const monorepoRoot = path.join(appRoot, "..");
 const packagesRoot = path.join(monorepoRoot, "packages");
+
+loadEnvConfig(appRoot);
 
 const flowstoreResolveAlias = {
   "@flowstore/document-print": path.join(packagesRoot, "document-print", "src", "index.ts"),

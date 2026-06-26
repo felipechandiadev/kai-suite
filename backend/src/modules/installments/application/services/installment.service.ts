@@ -20,6 +20,11 @@ import {
   TransactionType,
 } from '@modules/transactions/domain/transaction.entity';
 import { TransactionsService } from '@modules/transactions/application/transactions.service';
+import {
+  AccountsReceivableListFilters,
+  AccountsReceivableRowDto,
+} from '../dto/accounts-receivable-row.dto';
+import { mapInstallmentToAccountsReceivableRow } from '../helpers/map-accounts-receivable-row';
 
 @Injectable()
 export class InstallmentService {
@@ -43,6 +48,7 @@ export class InstallmentService {
       sourceType: InstallmentSourceType;
       payeeType: string;
       payeeId?: string;
+      companyId: string;
     },
   ): Promise<Installment[]> {
     const totalInstallments = schedule.length;
@@ -54,6 +60,7 @@ export class InstallmentService {
         item.dueDate instanceof Date ? item.dueDate : new Date(item.dueDate);
 
       const installment = this.repo.create({
+        companyId: options.companyId,
         sourceType: options.sourceType,
         sourceTransactionId: transactionId,
         saleTransactionId:
@@ -113,12 +120,94 @@ export class InstallmentService {
    *     'SALE' // Tipo de transacción origen
    * );
    */
+  async createFromTransactionMetadata(
+    transaction: Pick<
+      Transaction,
+      | 'id'
+      | 'total'
+      | 'customerId'
+      | 'supplierId'
+      | 'transactionType'
+      | 'metadata'
+    >,
+    companyId: string,
+  ): Promise<Installment[]> {
+    const metadata = (transaction.metadata as Record<string, unknown>) ?? {};
+    const numberOfInstallments = Number(metadata.numberOfInstallments ?? 0);
+    if (!Number.isFinite(numberOfInstallments) || numberOfInstallments < 1) {
+      return [];
+    }
+    if (!metadata.firstDueDate) {
+      return [];
+    }
+
+    const existing = await this.repo.getInstallmentsByTransaction(transaction.id);
+    if (existing.length > 0) {
+      return existing;
+    }
+
+    const sourceType =
+      transaction.transactionType === TransactionType.SALE
+        ? InstallmentSourceType.SALE
+        : transaction.transactionType === TransactionType.PURCHASE
+          ? InstallmentSourceType.PURCHASE
+          : null;
+    if (!sourceType) {
+      return [];
+    }
+
+    const payeeType =
+      sourceType === InstallmentSourceType.SALE ? 'CUSTOMER' : 'SUPPLIER';
+    const payeeId =
+      sourceType === InstallmentSourceType.SALE
+        ? transaction.customerId || String(metadata.customerId ?? '')
+        : transaction.supplierId || String(metadata.supplierId ?? '');
+
+    const paymentSchedule = metadata.paymentSchedule;
+    if (Array.isArray(paymentSchedule) && paymentSchedule.length > 0) {
+      return this.createInstallmentsFromSchedule(
+        transaction.id,
+        paymentSchedule.map((payment) => {
+          const row = payment as Record<string, unknown>;
+          return {
+            amount: Number(row.amount ?? 0),
+            dueDate: String(row.dueDate ?? metadata.firstDueDate),
+          };
+        }),
+        {
+          sourceType,
+          payeeType,
+          payeeId: payeeId || undefined,
+          companyId,
+        },
+      );
+    }
+
+    return this.createInstallmentsForTransaction(
+      transaction.id,
+      parseFloat(String(transaction.total)),
+      numberOfInstallments,
+      new Date(String(metadata.firstDueDate)),
+      sourceType,
+      {
+        companyId,
+        payeeType,
+        payeeId: payeeId || undefined,
+      },
+    );
+  }
+
   async createInstallmentsForTransaction(
     transactionId: string,
     totalAmount: number,
     numberOfInstallments: number,
     firstDueDate: Date,
     sourceType?: InstallmentSourceType,
+    options?: {
+      companyId?: string;
+      payeeType?: string;
+      payeeId?: string;
+    },
   ): Promise<Installment[]> {
     const amountPerInstallment = totalAmount / numberOfInstallments;
     const installments: Installment[] = [];
@@ -131,8 +220,11 @@ export class InstallmentService {
       dueDate.setMonth(dueDate.getMonth() + (i - 1));
 
       const installment = this.repo.create({
+        companyId: options?.companyId,
         sourceType: type,
         sourceTransactionId: transactionId,
+        payeeType: options?.payeeType,
+        payeeId: options?.payeeId,
         installmentNumber: i,
         totalInstallments: numberOfInstallments,
         amount: amountPerInstallment,
@@ -176,10 +268,12 @@ export class InstallmentService {
       sourceType: InstallmentSourceType;
       payeeType: string;
       payeeId?: string;
+      companyId?: string;
       metadata?: Record<string, any>;
     },
   ): Promise<Installment> {
     const installment = this.repo.create({
+      companyId: options.companyId,
       sourceType: options.sourceType,
       sourceTransactionId: transactionId,
       payeeType: options.payeeType,
@@ -405,21 +499,20 @@ export class InstallmentService {
   /**
    * Obtener cuentas por cobrar (SALE)
    */
-  async getAccountsReceivable(filters?: {
-    status?: InstallmentStatus | InstallmentStatus[];
-    includePaid?: boolean;
-    customerId?: string;
-    search?: string;
-    fromDate?: Date;
-    toDate?: Date;
-    page?: number;
-    pageSize?: number;
-  }) {
+  async getAccountsReceivable(filters?: AccountsReceivableListFilters): Promise<{
+    rows: AccountsReceivableRowDto[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
     const page = Math.max(Number(filters?.page ?? 1), 1);
     const pageSize = Math.min(
       Math.max(Number(filters?.pageSize ?? 50), 1),
       200,
     );
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     const queryBuilder = this.repo.createQueryBuilder('installment');
 
@@ -431,6 +524,12 @@ export class InstallmentService {
     queryBuilder.andWhere('installment.sourceType = :saleType', {
       saleType: InstallmentSourceType.SALE,
     });
+
+    if (filters?.companyId) {
+      queryBuilder.andWhere('installment.companyId = :companyId', {
+        companyId: filters.companyId,
+      });
+    }
 
     if (filters?.status) {
       const statuses = Array.isArray(filters.status)
@@ -449,10 +548,27 @@ export class InstallmentService {
       });
     }
 
-    if (filters?.customerId) {
-      queryBuilder.andWhere('transaction.customerId = :customerId', {
-        customerId: filters.customerId,
+    if (filters?.overdueOnly) {
+      queryBuilder.andWhere('installment.dueDate < :today', {
+        today: today.toISOString().split('T')[0],
       });
+      queryBuilder.andWhere('installment.status IN (:...openStatuses)', {
+        openStatuses: [
+          InstallmentStatus.PENDING,
+          InstallmentStatus.PARTIAL,
+          InstallmentStatus.OVERDUE,
+        ],
+      });
+    }
+
+    if (filters?.customerId) {
+      queryBuilder.andWhere(
+        '(transaction.customerId = :customerId OR (installment.payeeType = :customerPayeeType AND installment.payeeId = :customerId))',
+        {
+          customerId: filters.customerId,
+          customerPayeeType: 'CUSTOMER',
+        },
+      );
     }
 
     if (filters?.search) {
@@ -477,7 +593,10 @@ export class InstallmentService {
     queryBuilder.orderBy('installment.dueDate', 'ASC');
     queryBuilder.skip((page - 1) * pageSize).take(pageSize);
 
-    const [rows, total] = await queryBuilder.getManyAndCount();
+    const [rawRows, total] = await queryBuilder.getManyAndCount();
+    const rows = rawRows.map((inst) =>
+      mapInstallmentToAccountsReceivableRow(inst, today),
+    );
     return { rows, total, page, pageSize };
   }
 
@@ -502,6 +621,7 @@ export class InstallmentService {
       relations: {
         supplier: { person: true },
         employee: { person: true },
+        customer: { person: true },
         branch: { company: true },
       },
     });
@@ -512,24 +632,37 @@ export class InstallmentService {
 
     const supplierPerson = sourceTransaction.supplier?.person;
     const employeePerson = sourceTransaction.employee?.person;
+    const customerPerson = sourceTransaction.customer?.person;
 
-    const payeeName =
-      sourceTransaction.supplier?.alias ||
-      supplierPerson?.businessName ||
-      [supplierPerson?.firstName, supplierPerson?.lastName]
+    const customerName =
+      (customerPerson?.businessName ?? '').trim() ||
+      [customerPerson?.firstName, customerPerson?.lastName]
         .filter(Boolean)
         .join(' ')
         .trim() ||
-      [employeePerson?.firstName, employeePerson?.lastName]
-        .filter(Boolean)
-        .join(' ')
-        .trim() ||
-      installment.metadata?.supplierName ||
-      installment.metadata?.employeeName ||
       null;
 
+    const payeeName =
+      installment.sourceType === InstallmentSourceType.SALE
+        ? customerName
+        : sourceTransaction.supplier?.alias ||
+          supplierPerson?.businessName ||
+          [supplierPerson?.firstName, supplierPerson?.lastName]
+            .filter(Boolean)
+            .join(' ')
+            .trim() ||
+          [employeePerson?.firstName, employeePerson?.lastName]
+            .filter(Boolean)
+            .join(' ')
+            .trim() ||
+          installment.metadata?.supplierName ||
+          installment.metadata?.employeeName ||
+          null;
+
     const payeeAccounts =
-      supplierPerson?.bankAccounts || employeePerson?.bankAccounts || [];
+      installment.sourceType === InstallmentSourceType.SALE
+        ? customerPerson?.bankAccounts || []
+        : supplierPerson?.bankAccounts || employeePerson?.bankAccounts || [];
     const companyAccounts =
       sourceTransaction.branch?.company?.bankAccounts ?? [];
 
@@ -537,10 +670,19 @@ export class InstallmentService {
       payment: {
         id: installment.id,
         documentNumber: sourceTransaction.documentNumber ?? '-',
+        customerId:
+          sourceTransaction.customerId ?? installment.payeeId ?? null,
+        customerName: payeeName,
         supplierName: payeeName,
         total: Number(installment.amount),
         pendingAmount: installment.getPendingAmount(),
         paymentMethod: sourceTransaction.paymentMethod ?? null,
+        dueDate:
+          installment.dueDate instanceof Date
+            ? installment.dueDate.toISOString().split('T')[0]
+            : String(installment.dueDate ?? ''),
+        installmentNumber: installment.installmentNumber,
+        totalInstallments: installment.totalInstallments,
       },
       supplierAccounts: payeeAccounts,
       companyAccounts,
@@ -601,6 +743,17 @@ export class InstallmentService {
       );
     }
 
+    const cashHubId = dto.cashHubId?.trim() || undefined;
+    if (
+      dto.paymentMethod === PaymentMethod.CASH &&
+      installment.sourceType === InstallmentSourceType.SALE &&
+      !cashHubId
+    ) {
+      throw new BadRequestException(
+        'Debe seleccionar el centro de acopio de efectivo',
+      );
+    }
+
     const transactionType = this.resolvePaymentTransactionType(
       installment.sourceType,
     );
@@ -616,12 +769,25 @@ export class InstallmentService {
     createDto.paymentMethod = dto.paymentMethod;
     createDto.relatedTransactionId = installment.sourceTransactionId;
     createDto.bankAccountKey = dto.companyAccountKey || undefined;
+    if (cashHubId) {
+      createDto.cashHubId = cashHubId;
+    }
     createDto.notes = dto.note || undefined;
     createDto.metadata = {
       paidQuotaId: installment.id,
       sourceType: installment.sourceType,
       payeeType: installment.payeeType,
     };
+
+    if (transactionType === TransactionType.PAYMENT_IN) {
+      createDto.customerId =
+        sourceTransaction.customerId || installment.payeeId || undefined;
+      if (!createDto.customerId) {
+        throw new BadRequestException(
+          'No se pudo determinar el cliente del cobro',
+        );
+      }
+    }
 
     if (transactionType === TransactionType.SUPPLIER_PAYMENT) {
       createDto.supplierId =

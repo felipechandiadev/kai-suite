@@ -1,6 +1,7 @@
 import {
-  getPosDocumentPrintFormat,
+  getPosDocumentPrintMode,
   isDocumentPrintFormat,
+  posDocumentPrintModeToWireFormat,
 } from "@flowstore/print-service-client";
 import type { CashClosingPrintInput } from "@/features/cash-closing/lib/cash-closing-print.types";
 import { buildCashClosingDocumentHtml } from "@/features/cash-closing/lib/cash-closing-document-print";
@@ -14,7 +15,7 @@ export { printCashClosingArqueo, printCashClosingArqueoAwait };
 
 export function buildCashClosingArqueoPreviewHtml(input: CashClosingPrintInput): string | null {
   if (typeof window === "undefined") return null;
-  const format = getPosDocumentPrintFormat("cashClosing");
+  const format = posDocumentPrintModeToWireFormat(getPosDocumentPrintMode("cashClosing"));
   return isDocumentPrintFormat(format)
     ? buildCashClosingDocumentHtml(input, format)
     : buildCashClosingReceiptHtml(input, window.location.origin, format);

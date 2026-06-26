@@ -262,6 +262,39 @@ export class EShopAdminController {
     };
   }
 
+  @Get('mercado-pago-settings')
+  async getMercadoPagoEshopSettings(@CurrentCompany() companyId: string) {
+    const mercadoPagoSettings = await this.companiesService.getMercadoPagoSettings(
+      companyId,
+    );
+    return { mercadoPagoSettings };
+  }
+
+  @Put('mercado-pago-settings')
+  async updateMercadoPagoEshopSettings(
+    @CurrentCompany() companyId: string,
+    @Body()
+    body: {
+      eshopOnlinePaymentEnabled?: boolean;
+      eshopDefaultPaymentMode?: 'online' | 'coordinate';
+    },
+  ) {
+    const current = await this.companiesService.getMercadoPagoSettingsInternal(companyId);
+    const mercadoPagoSettings = await this.companiesService.replaceMercadoPagoSettings(
+      companyId,
+      {
+        ...current,
+        ...(body.eshopOnlinePaymentEnabled !== undefined
+          ? { eshopOnlinePaymentEnabled: body.eshopOnlinePaymentEnabled }
+          : {}),
+        ...(body.eshopDefaultPaymentMode !== undefined
+          ? { eshopDefaultPaymentMode: body.eshopDefaultPaymentMode }
+          : {}),
+      },
+    );
+    return { mercadoPagoSettings };
+  }
+
   @Get('orders')
   listOrders(
     @CurrentCompany() companyId: string,

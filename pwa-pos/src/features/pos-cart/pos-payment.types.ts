@@ -36,6 +36,11 @@ export function isNcPayoutAllowedPaymentMethod(method: string): boolean {
   );
 }
 
+/** Mismos medios que devolución de saldo NC: sin tarjetas en reembolso inmediato de devolución. */
+export function isImmediateReturnRefundAllowedPaymentMethod(method: string): boolean {
+  return isNcPayoutAllowedPaymentMethod(method);
+}
+
 /**
  * Datos específicos de un cheque entrante (cliente -> empresa). Se
  * adjuntan al `PosPaymentLine` cuando `type === "CHECK"`. El backend
@@ -43,6 +48,10 @@ export function isNcPayoutAllowedPaymentMethod(method: string): boolean {
  * `metadata.paymentSnapshots[].checkData` para materializar un registro
  * `Check` independiente con su propio ciclo de vida.
  */
+import type { PosInternalCreditPlan } from "@/features/pos-payment/lib/internal-credit-plan.types";
+
+export type { PosInternalCreditPlan } from "@/features/pos-payment/lib/internal-credit-plan.types";
+
 export type PosCheckPaymentData = {
   checkNumber: string;
   bankName: string;
@@ -78,4 +87,8 @@ export type PosPaymentLine = {
   creditNoteTransactionId?: string | null;
   /** Encargo cuyo abono se aplica (`ORDER_ADVANCE`). */
   backorderTransactionId?: string | null;
+  /** Plan de crédito interno (cuotas / abono parcial). */
+  internalCreditPlan?: PosInternalCreditPlan;
+  /** Intent Mercado Pago Point aprobado. */
+  paymentGatewayIntentId?: string | null;
 };

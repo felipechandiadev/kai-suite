@@ -6,7 +6,7 @@ import {
   readPosPurposePrinterAliasesFromStorage,
   writePosPurposePrinterAliasesToStorage,
   writePrintServiceConfigToStorage,
-  type PrintFormat,
+  type PosDocumentPrintMode,
 } from "@flowstore/print-service-client";
 import { printPosDocumentTest } from "@/features/pos-print/lib/print-pos-document-test";
 
@@ -21,7 +21,7 @@ export type PosQuickPrintTestConfig = {
   wssPort: number;
   useTls: boolean;
   ticketsAlias: string;
-  saleFormat: PrintFormat;
+  saleMode: PosDocumentPrintMode;
 };
 
 function persistPrintPrefs(config: PosQuickPrintTestConfig): void {
@@ -77,7 +77,7 @@ export async function printPosQuickTicketTest(
     const msg = e instanceof Error ? e.message : String(e);
     console.warn("[pos-print-quick-test] agente:", msg);
     try {
-      const channel = await printPosDocumentTest("sale", config.saleFormat);
+      const channel = await printPosDocumentTest("sale", config.saleMode);
       return {
         channel,
         detail:

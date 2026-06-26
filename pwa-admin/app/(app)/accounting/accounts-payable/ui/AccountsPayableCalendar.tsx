@@ -4,6 +4,10 @@ import { useMemo, useState } from "react";
 import IconButton from "@/shared/components/IconButton/IconButton";
 import { MonthlyCalendar, type MonthlyCalendarItem } from "@/shared/components/Calendar";
 import type { AccountsPayableRow } from "@/features/accounting-accounts-payable/types/accounts-payable.types";
+import {
+  labelAccountsPayableOriginCategory,
+  resolveAccountsPayableOriginCategoryFromRow,
+} from "@/features/accounting-accounts-payable/lib/accounts-payable-labels";
 
 type Props = {
   rows: AccountsPayableRow[];
@@ -44,6 +48,9 @@ export default function AccountsPayableCalendar({ rows, onPay, onDetails }: Prop
         const date = toIsoDateOnly(r.dueDate);
         if (!date) return [];
         const doc = r.parentDocumentNumber || r.documentNumber || "—";
+        const originLabel = labelAccountsPayableOriginCategory(
+          resolveAccountsPayableOriginCategoryFromRow(r),
+        );
         const overdue = Boolean(r.isOverdue) || r.status === "OVERDUE";
         const paid = r.status === "PAID";
         const tone = paid
@@ -63,6 +70,7 @@ export default function AccountsPayableCalendar({ rows, onPay, onDetails }: Prop
                     {r.payeeName || "—"}
                   </div>
                   <div className="truncate text-[11px] text-muted-foreground">{doc}</div>
+                  <div className="truncate text-[10px] text-muted-foreground">{originLabel}</div>
                   <div className="text-[11px] tabular-nums">{fmtClp(r.pendingAmount)}</div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">

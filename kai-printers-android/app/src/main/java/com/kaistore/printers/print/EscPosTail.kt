@@ -7,8 +7,14 @@ package com.kaistore.printers.print
 object EscPosTail {
     const val FEED_LINES_BEFORE_CUT = 4
 
+    /** Columnas por línea en rollo 80 mm (48); 58 mm usa 32 y no lleva cajón. */
+    const val DRAWER_MIN_WIDTH_CHARS = 48
+
+    /** Abre cajón solo en impresoras 80 mm (venta, cobro cliente y pruebas). */
+    fun shouldOpenCashDrawer(widthChars: Int): Boolean = widthChars >= DRAWER_MIN_WIDTH_CHARS
+
     /** Pulso cajón pin 2 (t1=50×2ms on, t2=200×2ms off). */
-    fun append(buf: MutableList<Byte>, openCashDrawer: Boolean = true) {
+    fun append(buf: MutableList<Byte>, openCashDrawer: Boolean = false) {
         fun b(vararg bytes: Int) {
             bytes.forEach { buf.add(it.toByte()) }
         }

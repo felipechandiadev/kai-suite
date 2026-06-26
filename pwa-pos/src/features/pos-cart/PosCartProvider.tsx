@@ -28,6 +28,7 @@ import {
   redeemPromotionCodeAction,
 } from "@/features/promotions/actions/promotions-pos.action";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/pos-api-failure";
+import { getQuotationsEnabledAction } from "@/features/company/actions/company-quotations.action";
 
 type PosCartContextValue = {
   ready: boolean;
@@ -100,6 +101,8 @@ type PosCartContextValue = {
   redeemCode: (code: string) => Promise<{ ok: boolean; message?: string }>;
   /** Refresca la lista de promociones efectivas desde el server. */
   refreshPromotions: () => Promise<void>;
+  /** Módulo de cotizaciones habilitado en la empresa activa. */
+  quotationsEnabled: boolean;
 };
 
 const PosCartContext = createContext<PosCartContextValue | null>(null);
@@ -188,6 +191,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
   const [loadedBackorder, setLoadedBackorder] =
     useState<LoadedBackorderMeta | null>(null);
   const [scope, setScope] = useState<{ pointOfSaleId: string; priceListId: string } | null>(null);
+  const [quotationsEnabled, setQuotationsEnabled] = useState(false);
 
   // ── Promociones ─────────────────────────────────────────────────
   const [effectivePromotions, setEffectivePromotions] = useState<EffectivePromotion[]>(
@@ -235,6 +239,16 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     setLoadedBackorder(loadedBo);
     setReady(true);
   }, []);
+
+  useEffect(() => {
+    void getQuotationsEnabledAction().then(setQuotationsEnabled);
+  }, []);
+
+  useEffect(() => {
+    if (!ready || quotationsEnabled) return;
+    if (!loadedQuotation) return;
+    setLoadedQuotation(null);
+  }, [ready, quotationsEnabled, loadedQuotation]);
 
   // Persist on change (only after initial load).
   useEffect(() => {
@@ -390,6 +404,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       nextLines: PosCartLine[],
       customer?: PosSaleCustomer | null,
     ) => {
+      if (!quotationsEnabled) return;
       setCartMode("sale");
       setLoadedReturnSale(null);
       setLoadedBackorder(null);
@@ -401,7 +416,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
         setSaleCustomer(customer);
       }
     },
-    [],
+    [quotationsEnabled],
   );
 
   const replaceLines = useCallback((next: PosCartLine[]) => {
@@ -733,6 +748,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       togglePromotion,
       redeemCode,
       refreshPromotions,
+      quotationsEnabled,
     }),
     [
       ready,
@@ -768,6 +784,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       togglePromotion,
       redeemCode,
       refreshPromotions,
+      quotationsEnabled,
     ],
   );
 

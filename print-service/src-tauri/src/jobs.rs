@@ -109,6 +109,27 @@ fn drawer_enabled_for_ticket_line(
     false
 }
 
+/// Cajón solo en rollo 80 mm: venta, cobro cliente y pruebas (si está habilitado en mapeo).
+fn open_cash_drawer_for_job(document_type: &str, roll_width_mm: u8, drawer_enabled: bool) -> bool {
+    if roll_width_mm != 80 {
+        return false;
+    }
+    if document_type == "test_drawer" {
+        return true;
+    }
+    if !drawer_enabled {
+        return false;
+    }
+    matches!(
+        document_type,
+        "pos-sale-ticket"
+            | "pos-payment-in-ticket"
+            | "test_print"
+            | "test_escpos_qa"
+            | "test_escpos_qa_nocut"
+    )
+}
+
 fn ticket_thermal_options_for_job(
     db: &Db,
     purpose: &str,
@@ -133,12 +154,13 @@ fn ticket_thermal_options_for_job(
     let doc = document_type.unwrap_or("");
     let cut_line = || cut_enabled_for_ticket_line(db, purpose, system_printer, network_host);
     let drawer_line = || drawer_enabled_for_ticket_line(db, purpose, system_printer, network_host);
+    let drawer_kick = open_cash_drawer_for_job(doc, roll_width_mm, drawer_line());
     let (auto_cut, open_drawer) = match doc {
         "test_cut" => (true, false),
-        "test_drawer" => (cut_line(), true),
-        "test_escpos_qa" => (true, drawer_line()),
-        "test_escpos_qa_nocut" => (false, drawer_line()),
-        _ => (cut_line(), drawer_line()),
+        "test_drawer" => (cut_line(), drawer_kick),
+        "test_escpos_qa" => (true, drawer_kick),
+        "test_escpos_qa_nocut" => (false, drawer_kick),
+        _ => (cut_line(), drawer_kick),
     };
     platform::ThermalPrintOptions {
         thermal_80mm: true,

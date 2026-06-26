@@ -38,11 +38,17 @@ export function buildLanAllowedDevOrigins(): string[] {
 
   const fromNextAuth = hostnameFromEnvUrl(process.env.NEXTAUTH_URL);
   const fromPublicApp = hostnameFromEnvUrl(process.env.NEXT_PUBLIC_APP_URL);
+  const fromBackend = hostnameFromEnvUrl(process.env.BACKEND_API_URL);
+  const fromPublicBackend = hostnameFromEnvUrl(process.env.NEXT_PUBLIC_BACKEND_API_URL);
 
-  return [
+  const hosts = [
     ...localLanIpv4Addresses(),
     ...extra,
     ...(fromNextAuth ? [fromNextAuth] : []),
-    ...(fromPublicApp && fromPublicApp !== fromNextAuth ? [fromPublicApp] : []),
+    ...(fromPublicApp ? [fromPublicApp] : []),
+    ...(fromBackend ? [fromBackend] : []),
+    ...(fromPublicBackend ? [fromPublicBackend] : []),
   ];
+
+  return [...new Set(hosts.map((h) => h.toLowerCase()))];
 }

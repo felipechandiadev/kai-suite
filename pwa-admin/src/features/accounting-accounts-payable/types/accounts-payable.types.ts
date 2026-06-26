@@ -3,7 +3,13 @@ export type AccountsPayablePaymentType =
   | "PAYROLL_PAYMENT"
   | "EXPENSE_PAYMENT";
 
-/** @deprecated use paymentType — legacy filter alias */
+export type AccountsPayableOriginCategory =
+  | "PURCHASE"
+  | "OPERATING_EXPENSE"
+  | "PAYROLL"
+  | "OTHER";
+
+/** @deprecated use originCategory — legacy filter alias */
 export type AccountsPayableSourceType =
   | "PURCHASE"
   | "PAYROLL"
@@ -17,6 +23,8 @@ export type AccountsPayablePayeeType = "SUPPLIER" | "EMPLOYEE" | "OTHER";
 export type AccountsPayableRow = {
   id: string;
   paymentType: AccountsPayablePaymentType | string;
+  /** Origen de negocio: compra, gasto operativo, nómina. */
+  originCategory?: AccountsPayableOriginCategory | string;
   documentNumber: string;
   parentTransactionId: string | null;
   parentDocumentNumber: string | null;

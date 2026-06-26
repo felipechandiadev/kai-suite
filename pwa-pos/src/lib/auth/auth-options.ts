@@ -6,6 +6,8 @@ import { getServerBackendApiBase } from "@/lib/backend-api-url";
 const isProd = process.env.NODE_ENV === "production";
 
 export const authOptions: NextAuthOptions = {
+  /** Permite login/logout desde IP LAN aunque NEXTAUTH_URL sea localhost en .env dev. */
+  trustHost: true,
   cookies: {
     sessionToken: {
       name: isProd ? "__Secure-next-auth.session.flowstore-pos" : "next-auth.session.flowstore-pos",

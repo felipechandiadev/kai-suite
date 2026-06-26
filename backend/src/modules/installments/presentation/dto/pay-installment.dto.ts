@@ -14,6 +14,10 @@ export class PayInstallmentDto {
   note?: string;
 
   @IsOptional()
+  @IsString()
+  cashHubId?: string;
+
+  @IsOptional()
   @IsNumber()
   @Min(0.01)
   amount?: number;

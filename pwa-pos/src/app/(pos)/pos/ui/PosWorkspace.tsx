@@ -18,6 +18,7 @@ import { LoadQuotationDialog } from "./LoadQuotationDialog";
 import { LoadReturnSaleDialog } from "./LoadReturnSaleDialog";
 import { LoadBackorderDialog } from "./LoadBackorderDialog";
 import { runPendingCashSessionOpeningPrintIfAny } from "@/features/cash-session-opening/lib/run-pending-cash-session-opening-print";
+import { requestPosProductSearchFocus } from "@/features/pos-products/lib/pos-product-search-focus";
 import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
 
 type MobilePanel = "products" | "cart";
@@ -41,11 +42,26 @@ export default function PosWorkspace() {
   const isReturnMode = cart.isReturnMode;
   const isFulfillBackorderMode = cart.isFulfillBackorderMode;
   const hasLoadedQuotation = cart.loadedQuotation != null;
+  const quotationsEnabled = cart.quotationsEnabled;
   const cartLocked = isReturnMode || isFulfillBackorderMode;
 
   const refreshPriceListOptions = useCallback(async (posId: string, currentListId?: string) => {
     const res = await fetchPointOfSalePriceListsAction(posId);
-    if (!res.success || res.priceLists.length === 0) {
+    if (!res.success) {
+      return;
+    }
+
+    if (res.branchId) {
+      patchPosContextClient({
+        branchId: res.branchId,
+        branchName: res.branchName ?? null,
+        storageId: res.storageId ?? null,
+        pointOfSaleName: res.pointOfSaleName ?? null,
+      });
+      setCtx(readPosContextClient());
+    }
+
+    if (res.priceLists.length === 0) {
       return;
     }
     setPriceListOptions(res.priceLists);
@@ -73,17 +89,47 @@ export default function PosWorkspace() {
       router.replace("/session-setup");
       return;
     }
-    setCtx(c);
-    runPendingCashSessionOpeningPrintIfAny();
-    const listId = String(c.priceListId);
-    setPriceListId(listId);
-    if (c.priceLists?.length) {
-      setPriceListOptions(c.priceLists);
-    } else {
-      setPriceListOptions([{ id: listId, name: "Lista de precios" }]);
-    }
-    void refreshPriceListOptions(c.pointOfSaleId, listId);
-  }, [router, refreshPriceListOptions]);
+
+    void (async () => {
+      const res = await fetchPointOfSalePriceListsAction(c.pointOfSaleId);
+      if (res.success) {
+        patchPosContextClient({
+          ...(res.branchId ? { branchId: res.branchId, branchName: res.branchName ?? null } : {}),
+          storageId: res.storageId ?? null,
+          pointOfSaleName: res.pointOfSaleName ?? c.pointOfSaleName ?? null,
+          ...(res.priceLists.length > 0 ? { priceLists: res.priceLists } : {}),
+        });
+      }
+
+      const synced = readPosContextClient() ?? c;
+      setCtx(synced);
+      runPendingCashSessionOpeningPrintIfAny();
+      const listId = String(synced.priceListId);
+      setPriceListId(listId);
+      if (synced.priceLists?.length) {
+        setPriceListOptions(synced.priceLists);
+      } else {
+        setPriceListOptions([{ id: listId, name: "Lista de precios" }]);
+      }
+      if (res.success && res.priceLists.length > 0) {
+        const preferred =
+          (listId && res.priceLists.some((p) => p.id === listId) ? listId : null) ??
+          (res.defaultPriceListId && res.priceLists.some((p) => p.id === res.defaultPriceListId)
+            ? res.defaultPriceListId
+            : null) ??
+          res.priceLists[0]?.id ??
+          "";
+        if (preferred && preferred !== listId) {
+          setPriceListId(preferred);
+          patchPosContextClient({ priceListId: preferred });
+        }
+      }
+    })();
+  }, [router]);
+
+  useEffect(() => {
+    requestPosProductSearchFocus();
+  }, []);
 
   const branchId = ctx?.branchId?.trim() ? ctx.branchId.trim() : null;
 
@@ -164,6 +210,7 @@ export default function PosWorkspace() {
     >
         <div className="flex shrink-0 items-start justify-between gap-2">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            {quotationsEnabled ? (
             <Button
               variant="outlined"
               size="sm"
@@ -175,6 +222,7 @@ export default function PosWorkspace() {
               <ArrowUpFromLine size={14} className="shrink-0" aria-hidden />
               <span>Cotización</span>
             </Button>
+            ) : null}
             <Button
               variant="outlined"
               size="sm"
@@ -271,7 +319,7 @@ export default function PosWorkspace() {
           </div>
         ) : null}
 
-        {cart.loadedQuotation && !cartLocked ? (
+        {quotationsEnabled && cart.loadedQuotation && !cartLocked ? (
           <div
             className="flex shrink-0 items-center justify-between gap-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-xs"
             data-test-id="pos-cart-quotation-banner"
@@ -404,7 +452,10 @@ export default function PosWorkspace() {
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground"
             }`}
-            onClick={() => setMobilePanel("products")}
+            onClick={() => {
+              setMobilePanel("products");
+              requestPosProductSearchFocus();
+            }}
             data-test-id="pos-mobile-tab-products"
           >
             Productos
@@ -440,16 +491,30 @@ export default function PosWorkspace() {
         )}
       </div>
 
+      {quotationsEnabled ? (
       <LoadQuotationDialog
         open={loadQuotationOpen}
-        onClose={() => setLoadQuotationOpen(false)}
+        onClose={() => {
+          setLoadQuotationOpen(false);
+          requestPosProductSearchFocus();
+        }}
         pointOfSaleId={ctx?.pointOfSaleId ?? null}
       />
+      ) : null}
 
-      <LoadReturnSaleDialog open={loadReturnOpen} onClose={() => setLoadReturnOpen(false)} />
+      <LoadReturnSaleDialog
+        open={loadReturnOpen}
+        onClose={() => {
+          setLoadReturnOpen(false);
+          requestPosProductSearchFocus();
+        }}
+      />
       <LoadBackorderDialog
         open={loadBackorderOpen}
-        onClose={() => setLoadBackorderOpen(false)}
+        onClose={() => {
+          setLoadBackorderOpen(false);
+          requestPosProductSearchFocus();
+        }}
         pointOfSaleId={ctx?.pointOfSaleId ?? null}
       />
     </div>

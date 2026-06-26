@@ -137,6 +137,6 @@ object PosSaleTicketEscPos {
         w.alignCenter(false)
         w.line()
 
-        return w.toByteArray(openDrawer = true)
+        return w.toByteArray(openDrawer = EscPosTail.shouldOpenCashDrawer(widthChars))
     }
 }

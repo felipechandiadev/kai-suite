@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/shared/admin-shared";
 import { useEShopCart } from "@/features/e-shop-cart/EShopCartProvider";
 import type {
@@ -14,7 +15,10 @@ import {
   resolveInitialVariant,
   selectionAfterOptionPick,
 } from "@/features/e-shop-storefront/utils/variant-selection";
-import { buildProductDetailCanonicalUrl } from "@/lib/eshop-site-url";
+import {
+  buildProductDetailCanonicalUrl,
+  buildProductDetailPath,
+} from "@/lib/eshop-site-url";
 import { EShopProductDetailToolbar } from "@/shared/components/EShopProductDetailToolbar";
 
 function fmt(n: number) {
@@ -50,6 +54,7 @@ export function EShopProductDetailView({
   initialVariantId,
   preview = false,
 }: Props) {
+  const router = useRouter();
   const { addItem } = useEShopCart();
   const attributeDimensions = useMemo(
     () => Object.keys(detail.attributeOptions),
@@ -117,13 +122,24 @@ export function EShopProductDetailView({
     [detail.product.id, selectedVariant?.id],
   );
 
+  useEffect(() => {
+    if (preview || typeof window === "undefined") {
+      return;
+    }
+    const variantId = selectedVariant?.id?.trim();
+    if (!variantId) {
+      return;
+    }
+    const nextPath = buildProductDetailPath(detail.product.id, variantId);
+    const current = `${window.location.pathname}${window.location.search}`;
+    if (current !== nextPath) {
+      router.replace(nextPath, { scroll: false });
+    }
+  }, [detail.product.id, preview, router, selectedVariant?.id]);
+
   return (
     <div className="space-y-0">
-      <EShopProductDetailToolbar
-        productName={detail.product.name}
-        shareUrl={shareUrl}
-        preview={preview}
-      />
+      <EShopProductDetailToolbar shareUrl={shareUrl} preview={preview} />
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
       <div className="space-y-3">

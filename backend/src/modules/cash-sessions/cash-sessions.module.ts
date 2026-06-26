@@ -27,6 +27,8 @@ import { ProductVariantsModule } from '@modules/product-variants/product-variant
 import { CustomersModule } from '@modules/customers/customers.module';
 import { StockLevelsModule } from '@modules/stock-levels/stock-levels.module';
 import { InstallmentsModule } from '@modules/installments/installments.module';
+import { PaymentGatewaysModule } from '@modules/payment-gateways/payment-gateways.module';
+import { MercadoPagoSalePaymentService } from '@modules/payment-gateways/application/mercado-pago-sale-payment.service';
 
 @Module({
   imports: [
@@ -51,6 +53,7 @@ import { InstallmentsModule } from '@modules/installments/installments.module';
     CustomersModule,
     StockLevelsModule,
     InstallmentsModule,
+    PaymentGatewaysModule,
     CqrsModule,
   ],
   controllers: [CashSessionsController],

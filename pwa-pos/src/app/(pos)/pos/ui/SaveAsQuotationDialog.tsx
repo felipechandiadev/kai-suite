@@ -15,12 +15,19 @@ import {
   type QuotationReceiptPrintInput,
 } from "@/features/quotations/lib/quotation-receipt-print";
 import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
+import { getCompanyQuotationSettingsAction } from "@/features/company/actions/company-quotations.action";
 import {
-  describePrintFormat,
-  getPosDocumentPrintFormat,
-  isDocumentPrintFormat,
-  PrintFormatSelector,
-  type PrintFormat,
+  DEFAULT_COMPANY_QUOTATION_SETTINGS,
+  type CompanyQuotationSettings,
+} from "@/features/company/types/company-quotations.types";
+import { PosPrintDocumentPreview } from "@/features/pos-print/ui/PosPrintDocumentPreview";
+import {
+  describePosDocumentPrintMode,
+  getPosDocumentPrintMode,
+  isPosDocumentPrintModeDocument,
+  posDocumentPrintModeToWireFormat,
+  PosDocumentPrintModeSelector,
+  type PosDocumentPrintMode,
 } from "@flowstore/print-service-client";
 
 type Props = {
@@ -31,7 +38,7 @@ type Props = {
 
 type SavedQuotationPrintState = {
   input: QuotationReceiptPrintInput;
-  printFormat: PrintFormat;
+  printMode: PosDocumentPrintMode;
 };
 
 function formatMoney(n: number) {
@@ -44,10 +51,16 @@ function formatMoney(n: number) {
 
 export function SaveAsQuotationDialog({ open, onClose, onSaved }: Props) {
   const cart = usePosCart();
-  const [validityDays, setValidityDays] = useState("15");
+  const [quotationSettings, setQuotationSettings] = useState<CompanyQuotationSettings>(
+    DEFAULT_COMPANY_QUOTATION_SETTINGS,
+  );
+  const [validityDays, setValidityDays] = useState(
+    String(DEFAULT_COMPANY_QUOTATION_SETTINGS.defaultValidityDays),
+  );
   const [notes, setNotes] = useState("");
-  const [printFormat, setPrintFormat] = useState<PrintFormat>("ticket_80mm");
+  const [printMode, setPrintMode] = useState<PosDocumentPrintMode>("ticket");
   const [busy, setBusy] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** Datos listos para imprimir / vista previa (mismo payload que la impresora). */
   const [savedPrint, setSavedPrint] = useState<SavedQuotationPrintState | null>(null);
@@ -60,24 +73,37 @@ export function SaveAsQuotationDialog({ open, onClose, onSaved }: Props) {
         setSavedPrint(null);
         setBusy(false);
         setNotes("");
-        setValidityDays("15");
-        setPrintFormat("ticket_80mm");
+        setValidityDays(String(DEFAULT_COMPANY_QUOTATION_SETTINGS.defaultValidityDays));
+        setQuotationSettings(DEFAULT_COMPANY_QUOTATION_SETTINGS);
+        setPrintMode("ticket");
         printedQuotationIdRef.current = null;
       }, 0);
       return () => clearTimeout(id);
     }
-    setPrintFormat(getPosDocumentPrintFormat("quotation"));
+    setPrintMode(getPosDocumentPrintMode("quotation"));
+    let cancelled = false;
+    setSettingsLoading(true);
+    void getCompanyQuotationSettingsAction().then((settings) => {
+      if (cancelled) return;
+      setQuotationSettings(settings);
+      setValidityDays(String(settings.defaultValidityDays));
+      setSettingsLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
 
   useEffect(() => {
     const input = savedPrint?.input;
-    const format = savedPrint?.printFormat;
+    const mode = savedPrint?.printMode;
     const q = input?.quotation;
-    if (!input || !q?.id || !format) return;
+    if (!input || !q?.id || !mode) return;
     if (printedQuotationIdRef.current === q.id) return;
     printedQuotationIdRef.current = q.id;
+    const format = posDocumentPrintModeToWireFormat(mode);
     const t = window.setTimeout(() => {
-      if (isDocumentPrintFormat(format)) {
+      if (isPosDocumentPrintModeDocument(mode)) {
         printPosQuotationDocument(input, format);
       } else {
         printPosQuotationReceipt(input, format);
@@ -89,9 +115,10 @@ export function SaveAsQuotationDialog({ open, onClose, onSaved }: Props) {
   const previewSrcDoc = useMemo(() => {
     if (!savedPrint || typeof window === "undefined") return null;
     const origin = window.location.origin;
-    return isDocumentPrintFormat(savedPrint.printFormat)
-      ? buildQuotationDocumentHtml(savedPrint.input, savedPrint.printFormat)
-      : buildQuotationReceiptHtml(savedPrint.input, origin, savedPrint.printFormat);
+    const format = posDocumentPrintModeToWireFormat(savedPrint.printMode);
+    return isPosDocumentPrintModeDocument(savedPrint.printMode)
+      ? buildQuotationDocumentHtml(savedPrint.input, format)
+      : buildQuotationReceiptHtml(savedPrint.input, origin, format);
   }, [savedPrint]);
 
   const totals = cart.lines.reduce(
@@ -124,8 +151,19 @@ export function SaveAsQuotationDialog({ open, onClose, onSaved }: Props) {
     }
 
     let validUntil: string | undefined;
-    const days = Math.max(1, parseInt(validityDays, 10) || 0);
-    if (days > 0) {
+    const maxDays = quotationSettings.maxValidityDays;
+    const defaultDays = quotationSettings.defaultValidityDays;
+    const allowCustomValidity = quotationSettings.allowCustomValidity;
+    const days = allowCustomValidity
+      ? Math.max(1, parseInt(validityDays, 10) || defaultDays)
+      : defaultDays;
+    if (allowCustomValidity && days > maxDays) {
+      setError(
+        `La vigencia no puede superar ${maxDays} día(s) (límite configurado en la empresa).`,
+      );
+      return;
+    }
+    if (allowCustomValidity && days > 0) {
       const d = new Date();
       d.setDate(d.getDate() + days);
       d.setHours(23, 59, 59, 999);
@@ -182,7 +220,7 @@ export function SaveAsQuotationDialog({ open, onClose, onSaved }: Props) {
         branchName: ctxAfter?.branchName ?? null,
         pointOfSaleName: ctxAfter?.pointOfSaleName ?? null,
       },
-      printFormat,
+      printMode,
     });
   }
 
@@ -196,10 +234,11 @@ export function SaveAsQuotationDialog({ open, onClose, onSaved }: Props) {
 
   function handleReprint() {
     if (!savedPrint) return;
-    if (isDocumentPrintFormat(savedPrint.printFormat)) {
-      printPosQuotationDocument(savedPrint.input, savedPrint.printFormat);
+    const format = posDocumentPrintModeToWireFormat(savedPrint.printMode);
+    if (isPosDocumentPrintModeDocument(savedPrint.printMode)) {
+      printPosQuotationDocument(savedPrint.input, format);
     } else {
-      printPosQuotationReceipt(savedPrint.input, savedPrint.printFormat);
+      printPosQuotationReceipt(savedPrint.input, format);
     }
   }
 
@@ -209,8 +248,9 @@ export function SaveAsQuotationDialog({ open, onClose, onSaved }: Props) {
     <Dialog
       open={open}
       onClose={closeAndClear}
-      title="Guardar como cotización"
+      title={savedPrint ? "Cotización emitida" : "Guardar como cotización"}
       size={savedPrint ? "lg" : "sm"}
+      scroll={savedPrint ? "paper" : "body"}
       alertArea={error ? <Alert variant="error">{error}</Alert> : undefined}
       actions={
         savedPrint ? (
@@ -249,45 +289,22 @@ export function SaveAsQuotationDialog({ open, onClose, onSaved }: Props) {
     >
       {savedPrint && q ? (
         <div className="grid gap-3 text-sm">
-          <p>La cotización se generó correctamente.</p>
           <p className="text-xs text-muted-foreground">
-            Formato:{" "}
+            Modo:{" "}
             <span className="font-medium text-foreground">
-              {describePrintFormat(savedPrint.printFormat)}
+              {describePosDocumentPrintMode(savedPrint.printMode)}
             </span>
           </p>
-          <div
-            className={`mx-auto max-h-[min(55vh,520px)] w-full overflow-auto rounded-lg border border-border bg-transparent p-2 ${
-              isDocumentPrintFormat(savedPrint.printFormat)
-                ? "max-w-[min(100%,720px)]"
-                : "max-w-[min(100%,420px)]"
-            }`}
-            data-test-id="pos-save-quotation-receipt-preview-wrap"
-          >
-            {previewSrcDoc ? (
-              <iframe
-                title={
-                  isDocumentPrintFormat(savedPrint.printFormat)
-                    ? "Vista previa cotización documento"
-                    : "Vista previa cotización ticket"
-                }
-                srcDoc={previewSrcDoc}
-                className={`mx-auto block border-0 bg-white ${
-                  isDocumentPrintFormat(savedPrint.printFormat)
-                    ? "min-h-[480px] w-full max-w-[210mm]"
-                    : "min-h-[320px] max-w-full"
-                }`}
-                style={
-                  isDocumentPrintFormat(savedPrint.printFormat)
-                    ? undefined
-                    : { width: savedPrint.printFormat === "ticket_58mm" ? "58mm" : "80mm" }
-                }
-                data-test-id="pos-save-quotation-receipt-preview-iframe"
-              />
-            ) : (
-              <p className="p-4 text-center text-muted-foreground">Preparando vista previa…</p>
-            )}
-          </div>
+          <PosPrintDocumentPreview
+            html={previewSrcDoc}
+            format={posDocumentPrintModeToWireFormat(savedPrint.printMode)}
+            title={
+              isPosDocumentPrintModeDocument(savedPrint.printMode)
+                ? "Vista previa cotización documento"
+                : "Vista previa cotización ticket"
+            }
+            data-test-id="pos-save-quotation-receipt-preview"
+          />
           <p className="text-xs text-muted-foreground">
             Los precios cotizados serán respetados al convertir esta cotización
             en venta, durante el período de vigencia, incluso si las listas de
@@ -314,24 +331,37 @@ export function SaveAsQuotationDialog({ open, onClose, onSaved }: Props) {
               </div>
             ) : null}
           </div>
-          <PrintFormatSelector
-            value={printFormat}
-            onChange={setPrintFormat}
+          <PosDocumentPrintModeSelector
+            value={printMode}
+            onChange={setPrintMode}
             data-test-id="pos-save-quotation-print-mode"
           />
-          <TextField
-            label="Vigencia (días)"
-            type="number"
-            min={1}
-            max={365}
-            value={validityDays}
-            onChange={(e) =>
-              setValidityDays(
-                (e as React.ChangeEvent<HTMLInputElement>).target.value,
-              )
-            }
-            data-test-id="pos-save-quotation-days"
-          />
+          {quotationSettings.allowCustomValidity ? (
+            <TextField
+              label={`Vigencia (días, máx. ${quotationSettings.maxValidityDays})`}
+              type="number"
+              min={1}
+              max={quotationSettings.maxValidityDays}
+              value={validityDays}
+              onChange={(e) => {
+                const raw = (e as React.ChangeEvent<HTMLInputElement>).target.value;
+                if (raw.trim() === "") {
+                  setValidityDays(raw);
+                  return;
+                }
+                const parsed = Math.max(1, parseInt(raw, 10) || 1);
+                setValidityDays(
+                  String(Math.min(quotationSettings.maxValidityDays, parsed)),
+                );
+              }}
+              disabled={settingsLoading || busy}
+              data-test-id="pos-save-quotation-days"
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground" data-test-id="pos-save-quotation-days-fixed">
+              Vigencia: {quotationSettings.defaultValidityDays} día(s) (fijada por la empresa).
+            </p>
+          )}
           <TextField
             label="Notas (opcional)"
             type="textarea"

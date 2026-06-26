@@ -15,8 +15,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.kaistore.printers.ui.permissions.PermissionsScreen
 import com.kaistore.printers.ui.prefs.OnboardingPrefs
-import com.kaistore.printers.ui.printers.PrintersSetupScreen
-import com.kaistore.printers.ui.service.ServiceSettingsScreen
 import com.kaistore.printers.ui.theme.KaiPrintersTheme
 
 class MainActivity : ComponentActivity() {
@@ -33,8 +31,7 @@ class MainActivity : ComponentActivity() {
 
 private object Routes {
     const val PERMISSIONS = "permissions"
-    const val PRINTERS = "printers"
-    const val SERVICE = "service"
+    const val MAIN = "main"
 }
 
 @Composable
@@ -45,7 +42,7 @@ private fun KaiPrintersNav() {
     var startDestination by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
-        startDestination = if (prefs.isPermissionsOnboardingDone()) Routes.PRINTERS else Routes.PERMISSIONS
+        startDestination = if (prefs.isPermissionsOnboardingDone()) Routes.MAIN else Routes.PERMISSIONS
     }
 
     val start = startDestination ?: return
@@ -53,19 +50,15 @@ private fun KaiPrintersNav() {
     NavHost(navController = navController, startDestination = start) {
         composable(Routes.PERMISSIONS) {
             PermissionsScreen(
-                onContinue = { navController.navigate(Routes.PRINTERS) { popUpTo(Routes.PERMISSIONS) { inclusive = true } } },
+                onContinue = {
+                    navController.navigate(Routes.MAIN) {
+                        popUpTo(Routes.PERMISSIONS) { inclusive = true }
+                    }
+                },
             )
         }
-        composable(Routes.PRINTERS) {
-            PrintersSetupScreen(
-                onContinue = { navController.navigate(Routes.SERVICE) },
-                onOpenPosConnection = { navController.navigate(Routes.SERVICE) },
-            )
-        }
-        composable(Routes.SERVICE) {
-            ServiceSettingsScreen(
-                onBackToPrinters = { navController.popBackStack() },
-            )
+        composable(Routes.MAIN) {
+            MainShellScreen()
         }
     }
 }

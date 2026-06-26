@@ -30,6 +30,7 @@ import { MultimediaAsset } from '@modules/multimedia/domain/multimedia-asset.ent
 import { MultimediaLink } from '@modules/multimedia/domain/multimedia-link.entity';
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
+import { OperationalExpensesModule } from '@modules/operational-expenses/operational-expenses.module';
 
 /**
  * Misma conexión y entidades que el API: el esquema lo define TypeORM vía
@@ -72,6 +73,7 @@ import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.enti
       EShopHeroSlide,
       EShopTestimonial,
     ]),
+    OperationalExpensesModule,
   ],
 })
 export class MinimalSeedModule {}

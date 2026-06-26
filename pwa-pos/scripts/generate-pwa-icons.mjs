@@ -1,8 +1,11 @@
 /**
- * Genera iconos PWA desde `public/logo.png` y favicons del navegador desde `public/fav.png`.
- * Requisitos: sharp, png-to-ico (devDependencies).
+ * Genera iconos PWA para Android / «Añadir a pantalla de inicio».
  *
- * Uso: node scripts/generate-pwa-icons.mjs
+ * Fuente maestra (prioridad):
+ *   packages/kai-printers-brand/sources/kai-printers.png
+ * Fallback: public/logo.png y public/fav.png
+ *
+ * Uso: npm run generate-pwa-icons
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -12,8 +15,11 @@ import pngToIco from "png-to-ico";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
-const logoSrc = path.join(root, "public", "logo.png");
-const favSrc = path.join(root, "public", "fav.png");
+const brandIcon = path.join(root, "..", "packages", "kai-printers-brand", "sources", "kai-printers.png");
+const logoFallback = path.join(root, "public", "logo.png");
+const favFallback = path.join(root, "public", "fav.png");
+const logoSrc = fs.existsSync(brandIcon) ? brandIcon : logoFallback;
+const favSrc = fs.existsSync(brandIcon) ? brandIcon : favFallback;
 const publicDir = path.join(root, "public");
 const iconsDir = path.join(publicDir, "icons");
 const appDir = path.join(root, "src", "app");
@@ -108,10 +114,13 @@ async function main() {
   fs.writeFileSync(path.join(iconsDir, "shortcut-pos.png"), shortcut192);
 
   console.log(
-    "Favicons (fav.png): src/app/favicon.ico, src/app/icon.png, public/favicon-*.png",
+    `Source: ${path.relative(root, logoSrc)}`,
   );
   console.log(
-    "PWA / apple (logo.png): src/app/apple-icon.png, android-chrome-*, apple-touch-icon, etc.",
+    "Favicons: src/app/favicon.ico, src/app/icon.png, public/favicon-*.png",
+  );
+  console.log(
+    "PWA / Android: android-chrome-*, maskable, apple-touch-icon, logo-app.png",
   );
 }
 

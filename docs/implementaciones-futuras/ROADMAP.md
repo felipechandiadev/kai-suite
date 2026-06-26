@@ -30,6 +30,7 @@ Hoja de ruta para iniciativas documentadas en `docs/implementaciones-futuras/`. 
 | IF-09 | [Formatos impresión 58/80/carta/A4](./IF-09-formatos-impresion-58-80-carta-a4.md) | P1 | F0–F3 | Hecho |
 | IF-10 | [Kai Screen pantalla cliente](./IF-10-kai-screen-pantalla-cliente.md) | P1 | MVP | Hecho |
 | IF-11 | [Kai Scale balanza serial](./IF-11-kai-scale-balanza-serial.md) | P2 | MVP | Hecho |
+| IF-12 | [Mercado Pago POS + eShop](./IF-12-mercado-pago-pos-y-eshop.md) | P1 | F1 — Backend | En curso |
 
 ### Orden de implementación sugerido
 
@@ -344,6 +345,46 @@ Ver [IF-08-eshop-portal-y-encargos-unificados.md](./IF-08-eshop-portal-y-encargo
 
 ---
 
+## IF-12 · Mercado Pago — POS Point + eShop Bricks
+
+**Objetivo:** cobro con terminal Point en caja y pago online con Checkout Bricks en eShop, módulo backend compartido.
+
+Ver [IF-12-mercado-pago-pos-y-eshop.md](./IF-12-mercado-pago-pos-y-eshop.md).
+
+### F1 — Backend + settings
+
+| ID | Tarea | Prioridad | Estado | Notas |
+|----|-------|-----------|--------|-------|
+| IF-12.T1 | IF-12 doc + ROADMAP + integraciones index | P1 | ✅ | |
+| IF-12.T2 | `company-mercado-pago.types` + CompaniesService + API | P1 | ✅ | |
+| IF-12.T3 | `payment_gateway_intents` entity + migration | P1 | ✅ | |
+| IF-12.T4 | `MercadoPagoClient` + webhook | P1 | ✅ | |
+| IF-12.T5 | Admin `/settings/integrations` + `/e-shop/integrations` | P1 | ✅ | |
+
+### F2 — POS Point
+
+| ID | Tarea | Prioridad | Estado | Notas |
+|----|-------|-----------|--------|-------|
+| IF-12.T10 | Endpoints `/pos/mp-point/intents` | P1 | ✅ | |
+| IF-12.T11 | UI `PosPaymentWorkspace` + hook | P1 | ✅ | |
+| IF-12.T12 | Validación intent en `createSale` | P1 | ✅ | |
+
+### F3 — eShop Bricks
+
+| ID | Tarea | Prioridad | Estado | Notas |
+|----|-------|-----------|--------|-------|
+| IF-12.T15 | `checkout/prepare` + `confirm-payment` | P1 | ✅ | |
+| IF-12.T16 | Payment Brick en checkout | P1 | ✅ | |
+| IF-12.T17 | `paymentExpectation` metadata | P1 | ✅ | |
+
+### F4 — Calidad
+
+| ID | Tarea | Prioridad | Estado | Notas |
+|----|-------|-----------|--------|-------|
+| IF-12.T20 | Tests unitarios backend | P2 | ✅ | |
+
+---
+
 ## Backlog de nuevas implementaciones (sin IF asignado)
 
 Ideas para convertir en `IF-XX` cuando haya owner:
@@ -351,7 +392,7 @@ Ideas para convertir en `IF-XX` cuando haya owner:
 | Idea | Notas | Prioridad sugerida |
 |------|-------|-------------------|
 | Kai Printers iOS nativo | Misma necesidad que IF-01 en iPad POS | P3 |
-| Pasarela pago online eShop | Mencionado AR §12 como fase posterior | P2 |
+| Pasarela pago online eShop | Ver IF-12 | P1 (IF-12) |
 | Módulo SII / DTE integrado | Ver [Definición Módulo SII](../legacy/Definición%20Módulo%20SII%20KaiStore.md) | P2 |
 | KaiFood — salones y comandas | [KAISTORE_ROADMAP](../legacy/KAISTORE_ROADMAP.md) fases K* | P1 producto |
 

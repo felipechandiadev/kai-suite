@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import React from 'react';
-import { signOut } from 'next-auth/react';
+import { signOutToLogin } from '@/lib/auth/sign-out-to-login';
 import TextField from '@/shared/components/TextField';
 import { Button } from '@/shared/components/Button';
 import Alert from '@/shared/components/Alert';
@@ -35,7 +35,7 @@ export default function ChangePasswordDialog({ isOpen, onClose }: ChangePassword
       }
 
       onClose();
-      await signOut({ callbackUrl: '/' });
+      await signOutToLogin();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {

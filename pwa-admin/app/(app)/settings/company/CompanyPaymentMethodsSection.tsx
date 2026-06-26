@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import IconButton from "@/shared/components/IconButton/IconButton";
 import Badge from "@/shared/components/Badge/Badge";
 import {
-  COMPANY_PAYMENT_METHOD_LABELS,
   companyPaymentMethodAlwaysRequiresReference,
+  companyPaymentMethodLabel,
   type CompanyPaymentMethodConfig,
 } from "@/features/companies/types/company-payment-methods.types";
 import {
@@ -33,7 +33,7 @@ function MethodCard({
   onDelete: () => void;
   busy: boolean;
 }) {
-  const label = COMPANY_PAYMENT_METHOD_LABELS[item.method];
+  const label = companyPaymentMethodLabel(item.method);
   return (
     <article
       className="flex flex-col gap-2 rounded-xl border border-border bg-background p-4 shadow-sm"
@@ -52,12 +52,7 @@ function MethodCard({
       <dl className="grid gap-1 text-sm text-foreground">
         <div className="flex justify-between gap-2">
           <dt className="text-muted-foreground">Tipo</dt>
-          <dd>
-            {label}
-            <span className="ml-1 text-xs text-muted-foreground">
-              ({item.method})
-            </span>
-          </dd>
+          <dd>{label}</dd>
         </div>
         {item.bankAccountKey ? (
           <div className="flex justify-between gap-2">
@@ -194,7 +189,7 @@ export function CompanyPaymentMethodsSection({ companyId }: Props) {
     if (busy) return;
     const ok = window.confirm(
       `¿Eliminar el medio de pago "${
-        item.alias?.trim() || COMPANY_PAYMENT_METHOD_LABELS[item.method]
+        item.alias?.trim() || companyPaymentMethodLabel(item.method)
       }"?`,
     );
     if (!ok) return;

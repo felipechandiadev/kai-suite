@@ -43,23 +43,17 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
   }
 }
 
-/** WhatsApp, Facebook e Instagram (copiar enlace; IG no expone URL de share web). */
-export function buildProductShareChannels(input: {
-  url: string;
-  title: string;
-}): ProductShareChannel[] {
+/** WhatsApp, Facebook e Instagram. WhatsApp/Facebook usan solo la URL para que el unfurl muestre OG. */
+export function buildProductShareChannels(input: { url: string }): ProductShareChannel[] {
   const pageUrl = input.url.trim();
-  const title = input.title.trim();
   const encodedUrl = encodeURIComponent(pageUrl);
-  const shareText = `${title} ${pageUrl}`.trim();
-  const encodedText = encodeURIComponent(shareText);
 
   return [
     {
       id: "whatsapp",
       label: "WhatsApp",
       action: "open",
-      href: `https://wa.me/?text=${encodedText}`,
+      href: `https://wa.me/?text=${encodedUrl}`,
     },
     {
       id: "facebook",
@@ -71,7 +65,7 @@ export function buildProductShareChannels(input: {
       id: "instagram",
       label: "Instagram",
       action: "copy",
-      copyText: shareText,
+      copyText: pageUrl,
       successMessage: "Enlace copiado — pégalo en Instagram",
     },
   ];

@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { signOutToLogin } from "@/lib/auth/sign-out-to-login";
 import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BadgeCheck, Building2, CircleUser, ImageOff, Image as ImageIcon, Store, Wifi, WifiOff } from "lucide-react";
@@ -375,7 +375,7 @@ export default function PosTopBar({
             </div>
           ) : (
             <div
-              className="flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-300"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-neutral-300"
               data-test-id="top-bar-logo-placeholder"
               aria-hidden
             >
@@ -383,164 +383,150 @@ export default function PosTopBar({
             </div>
           )}
 
-          <div className={`flex min-w-0 flex-1 items-center gap-3 ${sidebarNav ? "" : "gap-10"}`}>
-            <div
-              className={
-                subtitle.trim()
-                  ? "flex min-w-0 flex-1 flex-col gap-0 leading-none"
-                  : "flex min-h-10 min-w-0 flex-1 items-center"
-              }
+          <div
+            className={
+              subtitle.trim()
+                ? "flex shrink-0 flex-col gap-0 leading-none"
+                : "flex min-h-10 shrink-0 items-center"
+            }
+          >
+            <span
+              className="block text-lg font-bold leading-tight tracking-tight"
+              style={{ color: "var(--color-foreground)" }}
+              data-test-id="top-bar-title"
             >
+              {title}
+            </span>
+            {subtitle.trim() ? (
               <span
-                className="block text-lg font-bold leading-tight tracking-tight"
+                className="-mt-px block text-[11px] font-normal leading-tight sm:text-xs"
                 style={{ color: "var(--color-foreground)" }}
-                data-test-id="top-bar-title"
+                data-test-id="top-bar-subtitle"
               >
-                {title}
+                {subtitle}
               </span>
-              {subtitle.trim() ? (
-                <span
-                  className="-mt-px block text-[11px] font-normal leading-tight sm:text-xs"
-                  style={{ color: "var(--color-foreground)" }}
-                  data-test-id="top-bar-subtitle"
-                >
-                  {subtitle}
-                </span>
-              ) : null}
-            </div>
-
-            {/* A la derecha del bloque KaiStore / Punto de venta: empresa/PV + usuario/rol.
-                Los cuatro elementos comparten exactamente la misma tipografía y
-                tamaño de ícono (estilo "detalle" del rol y PV); la jerarquía
-                visual entre "ancla" (empresa / persona) y "subtítulo" (PV /
-                rol) se preserva sólo a través del color. */}
-            {/* Desktop: empresa/PV + usuario/rol. Mobile (sidebar): solo empresa/PV alineado a la derecha, con ícono a la derecha del texto. */}
-            {showContextColumn && !sidebarNav ? (
-              <div
-                className={`min-w-0 items-center gap-4 ${sidebarNav ? "hidden" : "flex gap-6"}`}
-                data-test-id="pos-topbar-right-columns"
-              >
-                {showContextColumn ? (
-                  <div
-                    className={`flex min-w-0 flex-col gap-0 py-0.5 leading-none ${
-                      sidebarNav ? "items-end text-right" : ""
-                    }`}
-                    data-test-id="pos-topbar-context"
-                    suppressHydrationWarning
-                  >
-                    {effectiveCompany ? (
-                      <span
-                        className={`flex min-w-0 items-center gap-1.5 text-[11px] font-normal leading-tight sm:text-xs ${
-                          sidebarNav ? "flex-row-reverse justify-end" : ""
-                        }`}
-                        style={{ color: "var(--color-foreground)" }}
-                        data-test-id="pos-topbar-company-trade-name"
-                        title={effectiveCompany}
-                      >
-                        <Building2
-                          size={14}
-                          className="shrink-0 text-muted"
-                          aria-hidden
-                          data-test-id="pos-topbar-company-icon"
-                        />
-                        <span className="min-w-0 truncate">{effectiveCompany}</span>
-                      </span>
-                    ) : null}
-                    {effectivePosName ? (
-                      <span
-                        className={`flex min-w-0 items-center gap-1.5 text-[11px] font-normal leading-tight sm:text-xs ${
-                          sidebarNav ? "flex-row-reverse justify-end" : ""
-                        }`}
-                        style={{ color: "var(--color-foreground)" }}
-                        data-test-id="pos-topbar-pos-name"
-                        title={effectivePosName}
-                      >
-                        <Store
-                          size={14}
-                          className="shrink-0 text-muted"
-                          aria-hidden
-                          data-test-id="pos-topbar-store-icon"
-                        />
-                        <span className="min-w-0 truncate">{effectivePosName}</span>
-                      </span>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {!sidebarNav && showUserColumn ? (
-                  <div
-                    className="flex min-w-0 flex-col gap-0 py-0.5 leading-none"
-                    data-test-id="pos-topbar-user"
-                  >
-                    {effectivePerson ? (
-                      <span
-                        className="flex min-w-0 items-center gap-1.5 text-[11px] font-normal leading-tight sm:text-xs"
-                        style={{ color: "var(--color-foreground)" }}
-                        data-test-id="pos-topbar-person-name"
-                        title={effectivePerson}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => setUserDialogOpen(true)}
-                          className="shrink-0 text-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-                          aria-label="Ver información de usuario"
-                          data-test-id="pos-topbar-user-icon-btn"
-                        >
-                          <CircleUser
-                            size={14}
-                            aria-hidden
-                            data-test-id="pos-topbar-user-icon"
-                          />
-                        </button>
-                        <span className="min-w-0 truncate">{effectivePerson}</span>
-                      </span>
-                    ) : null}
-                    {effectiveRole ? (
-                      <span
-                        className="flex min-w-0 items-center gap-1.5 text-[11px] font-normal leading-tight sm:text-xs"
-                        style={{ color: "var(--color-foreground)" }}
-                        data-test-id="pos-topbar-user-role"
-                        title={effectiveRole}
-                      >
-                        <BadgeCheck
-                          size={14}
-                          className="shrink-0 text-muted"
-                          aria-hidden
-                          data-test-id="pos-topbar-user-role-icon"
-                        />
-                        <span className="min-w-0 truncate">{effectiveRole}</span>
-                      </span>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            {sidebarNav && (effectiveCompany || effectivePosName) ? (
-              <div
-                className="ml-auto min-w-0 max-w-[48%] shrink-0 text-right leading-tight"
-                data-test-id="pos-topbar-mobile-context"
-                suppressHydrationWarning
-              >
-                {effectiveCompany ? (
-                  <p
-                    className="truncate text-[10px] font-medium text-foreground sm:text-[11px]"
-                    title={effectiveCompany}
-                  >
-                    {effectiveCompany}
-                  </p>
-                ) : null}
-                {effectivePosName ? (
-                  <p
-                    className="truncate text-[10px] text-muted-foreground sm:text-[11px]"
-                    title={effectivePosName}
-                  >
-                    {effectivePosName}
-                  </p>
-                ) : null}
-              </div>
             ) : null}
           </div>
+
+          {!sidebarNav && (showContextColumn || showUserColumn) ? (
+            <div
+              className="flex min-w-0 shrink items-center gap-5 border-l border-border pl-3"
+              data-test-id="pos-topbar-right-columns"
+            >
+              {showContextColumn ? (
+                <div
+                  className="flex min-w-0 flex-col gap-0 py-0.5 leading-none"
+                  data-test-id="pos-topbar-context"
+                  suppressHydrationWarning
+                >
+                  {effectiveCompany ? (
+                    <span
+                      className="flex min-w-0 items-center gap-1.5 text-[11px] font-normal leading-tight sm:text-xs"
+                      style={{ color: "var(--color-foreground)" }}
+                      data-test-id="pos-topbar-company-trade-name"
+                      title={effectiveCompany}
+                    >
+                      <Building2
+                        size={14}
+                        className="shrink-0 text-muted"
+                        aria-hidden
+                        data-test-id="pos-topbar-company-icon"
+                      />
+                      <span className="min-w-0 truncate">{effectiveCompany}</span>
+                    </span>
+                  ) : null}
+                  {effectivePosName ? (
+                    <span
+                      className="flex min-w-0 items-center gap-1.5 text-[11px] font-normal leading-tight sm:text-xs"
+                      style={{ color: "var(--color-foreground)" }}
+                      data-test-id="pos-topbar-pos-name"
+                      title={effectivePosName}
+                    >
+                      <Store
+                        size={14}
+                        className="shrink-0 text-muted"
+                        aria-hidden
+                        data-test-id="pos-topbar-store-icon"
+                      />
+                      <span className="min-w-0 truncate">{effectivePosName}</span>
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {showUserColumn ? (
+                <div
+                  className="flex min-w-0 flex-col gap-0 py-0.5 leading-none"
+                  data-test-id="pos-topbar-user"
+                >
+                  {effectivePerson ? (
+                    <span
+                      className="flex min-w-0 items-center gap-1.5 text-[11px] font-normal leading-tight sm:text-xs"
+                      style={{ color: "var(--color-foreground)" }}
+                      data-test-id="pos-topbar-person-name"
+                      title={effectivePerson}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setUserDialogOpen(true)}
+                        className="shrink-0 rounded-sm text-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        aria-label="Ver información de usuario"
+                        data-test-id="pos-topbar-user-icon-btn"
+                      >
+                        <CircleUser
+                          size={14}
+                          aria-hidden
+                          data-test-id="pos-topbar-user-icon"
+                        />
+                      </button>
+                      <span className="min-w-0 truncate">{effectivePerson}</span>
+                    </span>
+                  ) : null}
+                  {effectiveRole ? (
+                    <span
+                      className="flex min-w-0 items-center gap-1.5 text-[11px] font-normal leading-tight sm:text-xs"
+                      style={{ color: "var(--color-foreground)" }}
+                      data-test-id="pos-topbar-user-role"
+                      title={effectiveRole}
+                    >
+                      <BadgeCheck
+                        size={14}
+                        className="shrink-0 text-muted"
+                        aria-hidden
+                        data-test-id="pos-topbar-user-role-icon"
+                      />
+                      <span className="min-w-0 truncate">{effectiveRole}</span>
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {sidebarNav && (effectiveCompany || effectivePosName) ? (
+            <div
+              className="ml-auto min-w-0 max-w-[48%] shrink-0 text-right leading-tight"
+              data-test-id="pos-topbar-mobile-context"
+              suppressHydrationWarning
+            >
+              {effectiveCompany ? (
+                <p
+                  className="truncate text-[10px] font-medium text-foreground sm:text-[11px]"
+                  title={effectiveCompany}
+                >
+                  {effectiveCompany}
+                </p>
+              ) : null}
+              {effectivePosName ? (
+                <p
+                  className="truncate text-[10px] text-muted-foreground sm:text-[11px]"
+                  title={effectivePosName}
+                >
+                  {effectivePosName}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         {!sidebarNav ? (
@@ -565,7 +551,7 @@ export default function PosTopBar({
               variant="text"
               size="md"
               ariaLabel="Cerrar sesión"
-              onClick={() => signOut({ callbackUrl: "/" })}
+              onClick={() => void signOutToLogin()}
               data-test-id="pos-topbar-logout"
             />
           </div>
@@ -614,7 +600,7 @@ export default function PosTopBar({
               size="md"
               ariaLabel="Cerrar sesión"
               title="Cerrar sesión"
-              onClick={() => signOut({ callbackUrl: "/" })}
+              onClick={() => void signOutToLogin()}
               data-test-id="pos-sidebar-logout"
             />
           </div>

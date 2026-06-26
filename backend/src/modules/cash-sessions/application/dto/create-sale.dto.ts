@@ -119,6 +119,11 @@ export class PaymentDetailDto {
   @IsString()
   reference?: string;
 
+  /** Intent Mercado Pago aprobado (POS Point). */
+  @IsOptional()
+  @IsUUID()
+  paymentGatewayIntentId?: string;
+
   /** Transacción `CUSTOMER_CREDIT_NOTE` aplicada como medio de pago. */
   @IsOptional()
   @IsUUID()

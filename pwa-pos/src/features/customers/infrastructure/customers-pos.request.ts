@@ -312,6 +312,7 @@ export class CustomersPosRequest {
       const raw = rawCustomer as Record<string, unknown>;
       const customer: PosCustomerDetail = {
         customerId: String(raw.customerId ?? id),
+        personId: raw.personId != null ? String(raw.personId) : null,
         displayName: String(raw.displayName ?? ""),
         documentType: raw.documentType != null ? String(raw.documentType) : null,
         documentNumber: raw.documentNumber != null ? String(raw.documentNumber) : null,

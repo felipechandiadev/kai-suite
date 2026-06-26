@@ -1,9 +1,11 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadEnvConfig } from "@next/env";
 import type { NextConfig } from "next";
 import { buildLanAllowedDevOrigins } from "../shared/next-lan-dev-origins";
 
 const appRoot = path.dirname(fileURLToPath(import.meta.url));
+loadEnvConfig(appRoot);
 
 const nextConfig: NextConfig = {
   typescript: {

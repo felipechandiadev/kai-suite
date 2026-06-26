@@ -15,6 +15,7 @@ class TransportFactory(
         is PrinterRef.Bluetooth -> BluetoothEscPosTransport(bonded, ref.macAddress)
         is PrinterRef.Network -> NetworkEscPosTransport(ref.host, ref.port)
         is PrinterRef.Usb -> usb.transportForDeviceId(ref.deviceId)
+        is PrinterRef.SystemPrint -> throw IllegalArgumentException("system_print_not_escpos")
     }
 
     /** Una impresión a la vez (BT SPP no admite bien escrituras concurrentes). */

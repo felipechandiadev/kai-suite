@@ -10,6 +10,7 @@ import Alert from "@/shared/components/Alert/Alert";
 import {
   COMPANY_PAYMENT_METHOD_LABELS,
   companyPaymentMethodAlwaysRequiresReference,
+  companyPaymentMethodLabel,
   POS_IMPLICIT_PAYMENT_METHOD_IDS,
   type CompanyPaymentMethodConfig,
   type CompanyPaymentMethodId,
@@ -34,7 +35,7 @@ const METHOD_OPTIONS: { id: CompanyPaymentMethodId; label: string }[] = (
   Object.keys(COMPANY_PAYMENT_METHOD_LABELS) as CompanyPaymentMethodId[]
 )
   .filter((id) => !(POS_IMPLICIT_PAYMENT_METHOD_IDS as string[]).includes(id))
-  .map((id) => ({ id, label: `${COMPANY_PAYMENT_METHOD_LABELS[id]} (${id})` }));
+  .map((id) => ({ id, label: companyPaymentMethodLabel(id) }));
 
 function newClientId(): string {
   if (
@@ -89,7 +90,7 @@ export function CompanyPaymentMethodDialog({
       if (base.some((o) => o.id === id)) return base;
       return [
         ...base,
-        { id, label: `${COMPANY_PAYMENT_METHOD_LABELS[id]} (${id})` },
+        { id, label: companyPaymentMethodLabel(id) },
       ];
     };
     if (initial?.method === "INTERNAL_CREDIT") {

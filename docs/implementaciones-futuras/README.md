@@ -45,7 +45,10 @@ Registro de **capacidades planificadas** que aún no forman parte del producto e
 | IF-06 | eShop — plantillas y tema dinámico | Hecho (F1) | [IF-06-eshop-plantillas-y-tema.md](./IF-06-eshop-plantillas-y-tema.md) |
 | IF-07 | eShop — Topbar y Footer administrables | Hecho (F1) | [IF-07-eshop-topbar-footer.md](./IF-07-eshop-topbar-footer.md) |
 | IF-08 | eShop — portal cliente y encargos unificados | En curso | [IF-08-eshop-portal-y-encargos-unificados.md](./IF-08-eshop-portal-y-encargos-unificados.md) |
+| IF-09 | Formatos impresión 58/80/carta/A4 | Hecho | [IF-09-formatos-impresion-58-80-carta-a4.md](./IF-09-formatos-impresion-58-80-carta-a4.md) |
+| IF-10 | Kai Screen — pantalla cliente | Hecho (MVP) | [IF-10-kai-screen-pantalla-cliente.md](./IF-10-kai-screen-pantalla-cliente.md) |
 | IF-11 | Kai Scale — balanza serial joyería | Hecho (MVP) | [IF-11-kai-scale-balanza-serial.md](./IF-11-kai-scale-balanza-serial.md) |
+| IF-12 | Mercado Pago — POS Point + eShop Bricks | En curso | [IF-12-mercado-pago-pos-y-eshop.md](./IF-12-mercado-pago-pos-y-eshop.md) |
 
 ---
 

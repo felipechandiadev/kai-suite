@@ -40,6 +40,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.kaistore.printers.KaiPrintersApp
 import com.kaistore.printers.R
+import com.kaistore.printers.net.LanAddressResolver
 import com.kaistore.printers.service.PrintAgentForegroundService
 import com.kaistore.printers.service.WssLocalProbe
 import com.kaistore.printers.ui.prefs.ServiceSetupPrefs
@@ -49,7 +50,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun ServiceSettingsScreen(onBackToPrinters: () -> Unit = {}) {
+fun ServiceSettingsScreen(
+    onServiceStatusChange: (ready: Boolean, running: Boolean, hasLanIp: Boolean) -> Unit = { _, _, _ -> },
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val app = remember { context.applicationContext as KaiPrintersApp }
@@ -58,11 +61,18 @@ fun ServiceSettingsScreen(onBackToPrinters: () -> Unit = {}) {
     var wsPort by remember { mutableStateOf(14567) }
     var wssPort by remember { mutableStateOf(14568) }
     var wssEnabled by remember { mutableStateOf(true) }
+    var listenHost by remember { mutableStateOf("0.0.0.0") }
+    var lanIps by remember { mutableStateOf<List<String>>(emptyList()) }
     var running by remember { mutableStateOf(app.container.webSocketServer.isRunning()) }
     var chromeCertAck by remember { mutableStateOf(false) }
     var probeRunning by remember { mutableStateOf(false) }
     var probeMessage by remember { mutableStateOf<String?>(null) }
     var probeOk by remember { mutableStateOf(false) }
+
+    fun notifyServiceStatus() {
+        val ready = running && (!wssEnabled || (chromeCertAck && probeOk))
+        onServiceStatusChange(ready, running, lanIps.isNotEmpty())
+    }
 
     fun refreshState() {
         scope.launch {
@@ -70,8 +80,11 @@ fun ServiceSettingsScreen(onBackToPrinters: () -> Unit = {}) {
             wsPort = app.container.repository.listenPort()
             wssPort = app.container.repository.wssListenPort()
             wssEnabled = app.container.repository.wssEnabled()
+            listenHost = app.container.repository.listenHost()
+            lanIps = LanAddressResolver.ipv4NonLoopback()
             running = app.container.webSocketServer.isRunning()
             chromeCertAck = setupPrefs.isChromeCertAcknowledged()
+            notifyServiceStatus()
         }
     }
 
@@ -79,12 +92,13 @@ fun ServiceSettingsScreen(onBackToPrinters: () -> Unit = {}) {
         if (!running) {
             probeMessage = context.getString(R.string.trust_probe_service_stopped)
             probeOk = false
+            notifyServiceStatus()
             return
         }
         probeRunning = true
         probeMessage = null
         scope.launch {
-            val result = withContext(Dispatchers.IO) { WssLocalProbe.probe(wssPort) }
+            val result = withContext(Dispatchers.IO) { WssLocalProbe.probe("127.0.0.1", wssPort) }
             probeRunning = false
             probeOk = result.ok
             probeMessage = result.message
@@ -92,6 +106,7 @@ fun ServiceSettingsScreen(onBackToPrinters: () -> Unit = {}) {
                 setupPrefs.setChromeCertAcknowledged(true)
                 chromeCertAck = true
             }
+            notifyServiceStatus()
         }
     }
 
@@ -114,6 +129,7 @@ fun ServiceSettingsScreen(onBackToPrinters: () -> Unit = {}) {
     }
 
     val readyForPos = running && (!wssEnabled || (chromeCertAck && probeOk))
+    val primaryLanIp = lanIps.firstOrNull()
 
     Column(
         modifier = Modifier
@@ -122,8 +138,26 @@ fun ServiceSettingsScreen(onBackToPrinters: () -> Unit = {}) {
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(stringResource(R.string.pos_connection_title), style = MaterialTheme.typography.headlineSmall)
+        Text(stringResource(R.string.tab_service), style = MaterialTheme.typography.headlineSmall)
         Text(stringResource(R.string.pos_connection_subtitle), style = MaterialTheme.typography.bodyMedium)
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(stringResource(R.string.pos_lan_ip_title), style = MaterialTheme.typography.titleSmall)
+                if (lanIps.isEmpty()) {
+                    Text(
+                        stringResource(R.string.pos_lan_ip_none),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                } else {
+                    lanIps.forEach { ip ->
+                        Text(ip, style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+                PosConfigLine(stringResource(R.string.pos_listen_bind), listenHost)
+            }
+        }
 
         if (readyForPos) {
             Card(
@@ -170,6 +204,7 @@ fun ServiceSettingsScreen(onBackToPrinters: () -> Unit = {}) {
                             running = false
                             probeOk = false
                             probeMessage = null
+                            notifyServiceStatus()
                         }
                     },
                 )
@@ -274,6 +309,7 @@ fun ServiceSettingsScreen(onBackToPrinters: () -> Unit = {}) {
                         onCheckedChange = { checked ->
                             chromeCertAck = checked
                             scope.launch { setupPrefs.setChromeCertAcknowledged(checked) }
+                            notifyServiceStatus()
                         },
                     )
                     Text(
@@ -293,6 +329,9 @@ fun ServiceSettingsScreen(onBackToPrinters: () -> Unit = {}) {
         ) {
             Text(stringResource(R.string.pos_step_pos_config_body), style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(8.dp))
+
+            Text(stringResource(R.string.pos_mode_same_device), style = MaterialTheme.typography.labelLarge)
+            Spacer(Modifier.height(4.dp))
             PosConfigLine(stringResource(R.string.pos_config_host), "127.0.0.1")
             if (wssEnabled) {
                 PosConfigLine(stringResource(R.string.pos_config_wss), stringResource(R.string.pos_config_wss_on))
@@ -305,13 +344,35 @@ fun ServiceSettingsScreen(onBackToPrinters: () -> Unit = {}) {
                 stringResource(R.string.pos_config_same_device),
                 stringResource(R.string.pos_config_same_device_value),
             )
+
+            Spacer(Modifier.height(12.dp))
+
+            Text(stringResource(R.string.pos_mode_remote_device), style = MaterialTheme.typography.labelLarge)
+            Spacer(Modifier.height(4.dp))
+            val remoteHost = primaryLanIp ?: "—"
+            PosConfigLine(stringResource(R.string.pos_config_host), remoteHost)
+            if (wssEnabled) {
+                PosConfigLine(stringResource(R.string.pos_config_wss), stringResource(R.string.pos_config_wss_on))
+                PosConfigLine(stringResource(R.string.pos_config_wss_port), wssPort.toString())
+            } else {
+                PosConfigLine(stringResource(R.string.pos_config_wss), stringResource(R.string.pos_config_wss_off))
+                PosConfigLine(stringResource(R.string.pos_config_ws_port), wsPort.toString())
+            }
+            PosConfigLine(
+                stringResource(R.string.pos_config_same_device),
+                stringResource(R.string.pos_config_remote_device_value),
+            )
+            if (wssEnabled && primaryLanIp != null) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    stringResource(R.string.pos_mode_remote_cert_hint, primaryLanIp, wssPort),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
 
         Spacer(Modifier.height(8.dp))
-
-        OutlinedButton(onClick = onBackToPrinters, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.pos_back_to_printers))
-        }
 
         OutlinedButton(
             onClick = {

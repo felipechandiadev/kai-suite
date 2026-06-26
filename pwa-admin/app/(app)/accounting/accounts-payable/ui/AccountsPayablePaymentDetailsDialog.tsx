@@ -5,6 +5,11 @@ import Dialog from "@/shared/components/Dialog/Dialog";
 import Alert from "@/shared/components/Alert/Alert";
 import Badge from "@/shared/components/Badge/Badge";
 import type { AccountsPayableRow } from "@/features/accounting-accounts-payable/types/accounts-payable.types";
+import {
+  labelAccountsPayableOriginCategory,
+  resolveAccountsPayableOriginCategoryFromRow,
+} from "@/features/accounting-accounts-payable/lib/accounts-payable-labels";
+import { getTransactionTypeLabel } from "@/features/transactions/types/transaction-types";
 import { labelPayrollLineTypeId } from "@/features/hr-remunerations/types/remuneration.types";
 
 type Tx = Record<string, unknown>;
@@ -108,8 +113,10 @@ export default function AccountsPayablePaymentDetailsDialog({ open, row, onClose
   const payment = useMemo(() => getObj(paymentTx ?? {}, "data"), [paymentTx]);
   const parent = useMemo(() => getObj(parentTx ?? {}, "data"), [parentTx]);
 
-  const parentType = safeStr(parent?.transactionType);
-  const paymentType = safeStr(payment?.transactionType || row?.paymentType);
+  const parentType = safeStr(parent?.transactionType || row?.parentType);
+  const originCategory = labelAccountsPayableOriginCategory(
+    resolveAccountsPayableOriginCategoryFromRow(row ?? {}),
+  );
 
   const parentLines = getArr(parent ?? {}, "lines");
   const payrollMeta = getObj(parent ?? {}, "metadata");
@@ -134,8 +141,10 @@ export default function AccountsPayablePaymentDetailsDialog({ open, row, onClose
       ) : (
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="info-outlined">{paymentType}</Badge>
-            {parentType !== "—" ? <Badge variant="secondary-outlined">{parentType}</Badge> : null}
+            <Badge variant="info-outlined">{originCategory}</Badge>
+            {parentType !== "—" ? (
+              <Badge variant="secondary-outlined">{getTransactionTypeLabel(parentType)}</Badge>
+            ) : null}
           </div>
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

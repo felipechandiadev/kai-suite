@@ -7,9 +7,12 @@ import { Button, TextField } from "@/shared/admin-shared";
 import { useEShopCart } from "@/features/e-shop-cart/EShopCartProvider";
 import {
   fetchFulfillmentMethodsAction,
+  fetchPaymentSettingsAction,
   getCheckoutProfilePrefillAction,
+  prepareCheckoutAction,
   submitCheckoutAction,
 } from "@/features/e-shop-checkout/actions/checkout.action";
+import { CheckoutPaymentBrick } from "./CheckoutPaymentBrick";
 import type { EShopFulfillmentMethodPublic } from "@/features/e-shop-checkout/types/checkout.types";
 import {
   checkUsernameAvailabilityAction,
@@ -19,7 +22,7 @@ import {
 import { chilePhoneTextFieldProps } from "@/shared/lib/chile-phone-field";
 import { eshopUsernameTextFieldProps } from "@/shared/lib/eshop-username-field";
 
-type Step = "contact" | "delivery" | "review";
+type Step = "contact" | "delivery" | "review" | "payment";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -68,6 +71,12 @@ export function CheckoutForm({
   const [methodId, setMethodId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [onlinePaymentEnabled, setOnlinePaymentEnabled] = useState(false);
+  const [paymentMode, setPaymentMode] = useState<"online" | "coordinate">("coordinate");
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [paymentPublicKey, setPaymentPublicKey] = useState<string | null>(null);
+  const [payableTotal, setPayableTotal] = useState(0);
+  const [pendingDoc, setPendingDoc] = useState("");
 
   const showAccountChoice = customerPortalEnabled && !isLoggedIn;
   const guestCheckout = !isLoggedIn && (!customerPortalEnabled || !wantsAccount);
@@ -89,6 +98,12 @@ export function CheckoutForm({
       if (!phone) setPhone(prefill.phone);
       if (!address) setAddress(prefill.address);
     });
+    void fetchPaymentSettingsAction()
+      .then((s) => {
+        setOnlinePaymentEnabled(s.onlinePaymentEnabled);
+        setPaymentMode(s.defaultPaymentMode === "online" ? "online" : "coordinate");
+      })
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -169,7 +184,7 @@ export function CheckoutForm({
         setIsLoggedIn(true);
       }
 
-      const result = await submitCheckoutAction({
+      const checkoutBody = {
         customerName: name,
         customerEmail: email,
         customerPhone: phone || undefined,
@@ -183,6 +198,25 @@ export function CheckoutForm({
           quantity: l.quantity,
         })),
         notes: notes || undefined,
+      };
+
+      if (onlinePaymentEnabled && paymentMode === "online") {
+        const prepared = await prepareCheckoutAction(checkoutBody);
+        if (!prepared.paymentIntentId || !prepared.publicKey) {
+          setError("Pago en línea no disponible. Elija coordinar pago después.");
+          return;
+        }
+        setPaymentIntentId(prepared.paymentIntentId);
+        setPaymentPublicKey(prepared.publicKey);
+        setPayableTotal(prepared.payableTotal ?? estimatedTotal);
+        setPendingDoc(prepared.documentNumber);
+        setStep("payment");
+        return;
+      }
+
+      const result = await submitCheckoutAction({
+        ...checkoutBody,
+        paymentMode: "coordinate",
       });
       const qs = new URLSearchParams({
         doc: result.documentNumber,
@@ -446,10 +480,54 @@ export function CheckoutForm({
             </p>
           ) : null}
           <p className="text-base font-semibold">Total estimado: {fmt(estimatedTotal)}</p>
-          <p className="text-muted-foreground">
-            Sin pago en línea. Registraremos tu pedido como encargo y te contactaremos para coordinar.
-          </p>
+          {onlinePaymentEnabled ? (
+            <fieldset className="space-y-2 border-0 p-0">
+              <legend className="text-sm font-medium">Forma de pago</legend>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="paymentMode"
+                  checked={paymentMode === "online"}
+                  onChange={() => setPaymentMode("online")}
+                />
+                Pagar ahora (Mercado Pago)
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="paymentMode"
+                  checked={paymentMode === "coordinate"}
+                  onChange={() => setPaymentMode("coordinate")}
+                />
+                Coordinar pago después (encargo)
+              </label>
+            </fieldset>
+          ) : (
+            <p className="text-muted-foreground">
+              Registraremos tu pedido como encargo y te contactaremos para coordinar el pago.
+            </p>
+          )}
         </div>
+      ) : null}
+
+      {step === "payment" && paymentIntentId && paymentPublicKey ? (
+        <CheckoutPaymentBrick
+          publicKey={paymentPublicKey}
+          intentId={paymentIntentId}
+          amount={payableTotal}
+          payerEmail={email}
+          onBack={() => setStep("review")}
+          onSuccess={() => {
+            clearCart();
+            const qs = new URLSearchParams({
+              doc: pendingDoc,
+              method: selectedMethod?.name ?? "",
+              paid: "1",
+            });
+            if (email.trim()) qs.set("email", email.trim());
+            router.push(`/checkout/confirmacion?${qs.toString()}`);
+          }}
+        />
       ) : null}
 
       {error ? (
@@ -471,7 +549,7 @@ export function CheckoutForm({
       ) : null}
 
       <div className="flex gap-2">
-        {step !== "contact" ? (
+        {step !== "contact" && step !== "payment" ? (
           <Button
             type="button"
             variant="secondary"
@@ -480,7 +558,7 @@ export function CheckoutForm({
             Atrás
           </Button>
         ) : null}
-        {step !== "review" ? (
+        {step !== "review" && step !== "payment" ? (
           <Button
             type="button"
             variant="primary"
@@ -490,7 +568,7 @@ export function CheckoutForm({
           >
             Continuar
           </Button>
-        ) : (
+        ) : step === "review" ? (
           <Button
             type="button"
             variant="primary"
@@ -498,9 +576,13 @@ export function CheckoutForm({
             disabled={busy || lines.length === 0}
             onClick={() => void onSubmit()}
           >
-            {busy ? "Procesando…" : "Confirmar encargo"}
+            {busy
+              ? "Procesando…"
+              : onlinePaymentEnabled && paymentMode === "online"
+                ? "Continuar al pago"
+                : "Confirmar encargo"}
           </Button>
-        )}
+        ) : null}
       </div>
     </div>
   );

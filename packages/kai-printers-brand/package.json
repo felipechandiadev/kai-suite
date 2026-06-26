@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "generate": "node scripts/generate-android-icons.mjs",
+    "sync": "node scripts/sync-android-icons.mjs",
     "generate:android": "node scripts/generate-android-icons.mjs --target android",
     "generate:all": "node scripts/generate-android-icons.mjs --target all"
   },

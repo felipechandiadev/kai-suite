@@ -58,7 +58,7 @@ export class RemovePaymentOutTransactionTypes1756030000000
     await queryRunner.query(`
       UPDATE "transactions"
       SET "transactionType" = 'BANK_TO_CASH_TRANSFER'
-      WHERE "transactionType" = 'PAYMENT_OUT'
+      WHERE "transactionType"::text = 'PAYMENT_OUT'
         AND COALESCE("metadata"::jsonb ->> 'bankToCashTransfer', 'false') IN ('true', 'True', '1')
     `);
 
@@ -66,7 +66,7 @@ export class RemovePaymentOutTransactionTypes1756030000000
     await queryRunner.query(`
       UPDATE "transactions"
       SET "transactionType" = 'SUPPLIER_PAYMENT'
-      WHERE "transactionType" = 'PAYMENT_OUT'
+      WHERE "transactionType"::text = 'PAYMENT_OUT'
         AND "supplierId" IS NOT NULL
     `);
 
@@ -74,7 +74,7 @@ export class RemovePaymentOutTransactionTypes1756030000000
     await queryRunner.query(`
       UPDATE "transactions"
       SET "transactionType" = 'PAYROLL_PAYMENT'
-      WHERE "transactionType" = 'PAYMENT_OUT'
+      WHERE "transactionType"::text = 'PAYMENT_OUT'
         AND "employeeId" IS NOT NULL
     `);
 
@@ -82,7 +82,7 @@ export class RemovePaymentOutTransactionTypes1756030000000
     await queryRunner.query(`
       UPDATE "transactions"
       SET "transactionType" = 'BANK_TO_CASH_TRANSFER'
-      WHERE "transactionType" = 'PAYMENT_OUT'
+      WHERE "transactionType"::text = 'PAYMENT_OUT'
     `);
   }
 

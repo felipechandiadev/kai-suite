@@ -101,8 +101,8 @@ export function KaiPrintersDownloadSection({
     >
       <h2 className="text-sm font-semibold text-foreground">Descargar Kai Printers</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Agente local de impresión para tickets y documentos. Instalalo en el mismo equipo donde corre el
-        POS (o en el PC que tenga la impresora, según tu configuración de red).{" "}
+        Agente local de impresión para tickets y documentos. Podés instalarlo en este equipo (host{" "}
+        <code className="text-foreground">127.0.0.1</code>) o en otro de la red (IP LAN de ese equipo).{" "}
         <a
           href="/downloads/INSTALACION_ANDROID.md"
           className="text-primary underline underline-offset-2"

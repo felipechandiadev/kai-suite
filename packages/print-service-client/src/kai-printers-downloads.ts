@@ -28,7 +28,7 @@ const OFFERS: KaiPrintersDownloadOffer[] = [
   {
     platform: "android",
     title: "Kai Printers para Android",
-    description: "Tablet o teléfono con el POS en Chrome. Instalá el agente en el mismo dispositivo.",
+    description: "Tablet o PC en la red local. Mismo dispositivo que el POS → host 127.0.0.1; otro equipo → IP LAN.",
     filename: KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT.filename,
     version: KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT.version,
     installHint:

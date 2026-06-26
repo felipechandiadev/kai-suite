@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWebSocketUrl, normalizePrintAgentHost } from "./core";
+import { buildWebSocketUrl, isLoopbackPrintAgentHost, normalizePrintAgentHost } from "./core";
 
 describe("normalizePrintAgentHost", () => {
   it("maps localhost and IPv6 loopback names to 127.0.0.1", () => {
@@ -16,6 +16,12 @@ describe("normalizePrintAgentHost", () => {
   it("defaults empty to 127.0.0.1", () => {
     expect(normalizePrintAgentHost("")).toBe("127.0.0.1");
     expect(normalizePrintAgentHost("   ")).toBe("127.0.0.1");
+  });
+
+  it("detects loopback agent host", () => {
+    expect(isLoopbackPrintAgentHost("127.0.0.1")).toBe(true);
+    expect(isLoopbackPrintAgentHost("localhost")).toBe(true);
+    expect(isLoopbackPrintAgentHost("192.168.0.193")).toBe(false);
   });
 });
 

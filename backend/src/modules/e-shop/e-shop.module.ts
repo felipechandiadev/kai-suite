@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppConfigModule } from '../../config/config.module';
 import { EShopTestimonial } from './domain/e-shop-testimonial.entity';
@@ -40,6 +40,7 @@ import { EshopCustomerOrderConvertService } from './application/eshop-customer-o
 import { EshopCustomerAuthService } from './application/eshop-customer-auth.service';
 import { EshopCustomerMeService } from './application/eshop-customer-me.service';
 import { EshopCustomerGuard } from './presentation/eshop-customer.guard';
+import { PaymentGatewaysModule } from '@modules/payment-gateways/payment-gateways.module';
 import { KaiMailClient } from '@shared/mail/kai-mail.client';
 
 @Module({
@@ -70,6 +71,7 @@ import { KaiMailClient } from '@shared/mail/kai-mail.client';
     NotificationsModule,
     CustomersModule,
     InstallmentsModule,
+    forwardRef(() => PaymentGatewaysModule),
   ],
   controllers: [
     EShopPublicController,
@@ -92,6 +94,6 @@ import { KaiMailClient } from '@shared/mail/kai-mail.client';
     EshopCustomerMeService,
     EshopCustomerGuard,
   ],
-  exports: [EShopService],
+  exports: [EShopService, EShopStoreGuard],
 })
 export class EShopModule {}

@@ -26,23 +26,19 @@ const SHARE_ICONS: Record<ProductShareNetwork, IconDefinition> = {
 };
 
 type Props = {
-  productName: string;
   shareUrl: string;
   preview?: boolean;
 };
 
-export function EShopProductDetailToolbar({ productName, shareUrl, preview = false }: Props) {
+export function EShopProductDetailToolbar({ shareUrl, preview = false }: Props) {
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const shareChannels = useMemo(
-    () =>
-      shareUrl.trim()
-        ? buildProductShareChannels({ url: shareUrl.trim(), title: productName })
-        : [],
-    [shareUrl, productName],
+    () => (shareUrl.trim() ? buildProductShareChannels({ url: shareUrl.trim() }) : []),
+    [shareUrl],
   );
 
   const closeMenu = useCallback(() => {

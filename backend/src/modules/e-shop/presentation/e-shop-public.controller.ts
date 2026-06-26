@@ -7,6 +7,8 @@ import type { EShopStoreContext } from '../application/eshop-store.context';
 import { EShopFulfillmentMethodsService } from '../application/eshop-fulfillment-methods.service';
 import { EShopCheckoutOrderService } from '../application/eshop-checkout-order.service';
 import { EshopCustomerAuthService } from '../application/eshop-customer-auth.service';
+import { CompaniesService } from '@modules/companies/application/companies.service';
+import { isMercadoPagoEshopCheckoutOperational } from '@modules/companies/domain/company-mercado-pago.types';
 
 @Controller('e-shop')
 @SkipTenant()
@@ -17,6 +19,7 @@ export class EShopPublicController {
     private readonly fulfillmentMethods: EShopFulfillmentMethodsService,
     private readonly checkoutOrder: EShopCheckoutOrderService,
     private readonly customerAuth: EshopCustomerAuthService,
+    private readonly companiesService: CompaniesService,
   ) {}
 
   @Get('storefront')
@@ -91,6 +94,19 @@ export class EShopPublicController {
     return this.eShopService.listTestimonials(store);
   }
 
+  @Get('payment-settings')
+  async getPaymentSettings(@EShopStore() store: EShopStoreContext) {
+    const mp = await this.companiesService.getMercadoPagoSettingsInternal(
+      store.companyId,
+    );
+    return {
+      onlinePaymentEnabled: isMercadoPagoEshopCheckoutOperational(mp),
+      publicKey: mp.publicKey,
+      environment: mp.environment,
+      defaultPaymentMode: mp.eshopDefaultPaymentMode,
+    };
+  }
+
   @Get('fulfillment-methods')
   listFulfillmentMethods(
     @EShopStore() store: EShopStoreContext,
@@ -122,6 +138,7 @@ export class EShopPublicController {
       };
       lines: Array<{ productVariantId: string; quantity: number }>;
       notes?: string;
+      paymentMode?: "online" | "coordinate";
     },
     @Headers('authorization') authorization?: string,
   ) {
@@ -140,8 +157,43 @@ export class EShopPublicController {
         ...body,
         fulfillmentMethodId: body.fulfillmentMethodId.trim(),
         authenticatedCustomerId: session?.customerId,
+        paymentMode: body.paymentMode ?? "coordinate",
       });
     }
     return this.eShopService.createCheckoutSale(store, body);
+  }
+
+  @Post('checkout/prepare')
+  async checkoutPrepare(
+    @EShopStore() store: EShopStoreContext,
+    @Body()
+    body: {
+      customerName: string;
+      customerEmail: string;
+      customerPhone?: string;
+      fulfillmentMethodId: string;
+      address?: string;
+      shippingAddress?: {
+        line1?: string;
+        commune?: string;
+        region?: string;
+        notes?: string;
+      };
+      lines: Array<{ productVariantId: string; quantity: number }>;
+      notes?: string;
+    },
+    @Headers('authorization') authorization?: string,
+  ) {
+    const bearer = authorization?.startsWith('Bearer ')
+      ? authorization.slice('Bearer '.length).trim()
+      : null;
+    const session = bearer
+      ? await this.customerAuth.resolveSession(store.companyId, bearer)
+      : null;
+    return this.checkoutOrder.prepareOnlineCheckout(store, {
+      ...body,
+      fulfillmentMethodId: body.fulfillmentMethodId.trim(),
+      authenticatedCustomerId: session?.customerId,
+    });
   }
 }

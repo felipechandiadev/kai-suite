@@ -1,6 +1,7 @@
 import {
-  getPosDocumentPrintFormat,
+  getPosDocumentPrintMode,
   isDocumentPrintFormat,
+  posDocumentPrintModeToWireFormat,
   type PrintFormat,
 } from "@flowstore/print-service-client";
 import type { CashSessionOpeningPrintInput } from "@/features/cash-session-opening/lib/cash-session-opening-print.types";
@@ -120,7 +121,7 @@ export async function printCashSessionOpeningAwait(
   format?: PrintFormat,
 ): Promise<"agent" | "browser"> {
   if (typeof window === "undefined") return "browser";
-  const resolved = format ?? getPosDocumentPrintFormat("cashSessionOpening");
+  const resolved = format ?? posDocumentPrintModeToWireFormat(getPosDocumentPrintMode("cashSessionOpening"));
   const meta = printMeta(input, resolved);
   if (!isDocumentPrintFormat(resolved)) {
     return printCashSessionOpeningTicketVector(input, resolved);

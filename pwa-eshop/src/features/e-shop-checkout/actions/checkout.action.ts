@@ -12,6 +12,54 @@ export async function fetchFulfillmentMethodsAction(subtotal: number) {
   );
 }
 
+export async function fetchPaymentSettingsAction() {
+  return EShopRequest.get<{
+    onlinePaymentEnabled: boolean;
+    publicKey: string;
+    environment: string;
+    defaultPaymentMode: "online" | "coordinate";
+  }>(getEShopStoreSlug(), "/e-shop/payment-settings");
+}
+
+export async function prepareCheckoutAction(body: {
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  fulfillmentMethodId: string;
+  address?: string;
+  shippingAddress?: {
+    line1?: string;
+    commune?: string;
+    region?: string;
+    notes?: string;
+  };
+  lines: Array<{ productVariantId: string; quantity: number }>;
+  notes?: string;
+}) {
+  const sessionToken = await getCustomerSessionToken();
+  return EShopRequest.post<{
+    transactionId: string;
+    documentNumber: string;
+    payableTotal: number;
+    paymentIntentId: string | null;
+    publicKey: string | null;
+    paymentMode: string;
+  }>(getEShopStoreSlug(), "/e-shop/checkout/prepare", body, sessionToken);
+}
+
+export async function confirmCheckoutPaymentAction(body: {
+  intentId: string;
+  token: string;
+  payerEmail: string;
+}) {
+  const sessionToken = await getCustomerSessionToken();
+  return EShopRequest.post<{
+    id: string;
+    status: string;
+    amount: number;
+  }>(getEShopStoreSlug(), "/e-shop/checkout/confirm-payment", body, sessionToken);
+}
+
 export async function submitCheckoutAction(body: {
   customerName: string;
   customerEmail: string;

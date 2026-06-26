@@ -218,6 +218,32 @@ export class CompaniesController {
     return { success: true, checkSettings };
   }
 
+  @Get('companies/:id/mercado-pago-settings')
+  @AdminOnly()
+  @AllowAdminWithoutCompany()
+  async getCompanyMercadoPagoSettings(@Param('id') id: string) {
+    const mercadoPagoSettings = await this.companiesService.getMercadoPagoSettings(id);
+    return { success: true, mercadoPagoSettings };
+  }
+
+  @Put('companies/:id/mercado-pago-settings')
+  @AdminOnly()
+  @AllowAdminWithoutCompany()
+  async replaceCompanyMercadoPagoSettings(
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    const incoming =
+      body && typeof body === 'object' && 'mercadoPagoSettings' in (body as object)
+        ? (body as { mercadoPagoSettings: unknown }).mercadoPagoSettings
+        : body;
+    const mercadoPagoSettings = await this.companiesService.replaceMercadoPagoSettings(
+      id,
+      incoming,
+    );
+    return { success: true, mercadoPagoSettings };
+  }
+
   /**
    * Configuración de cotizaciones de una empresa (solo ADMIN). Si la
    * empresa aún no la tiene definida, devuelve los defaults.
@@ -264,6 +290,27 @@ export class CompaniesController {
         activeCompanyId,
       );
     return { success: true, ...ctx };
+  }
+
+  /**
+   * Configuración de cotizaciones de la empresa activa (ADMIN/OPERATOR/POS).
+   */
+  @Get('company/quotation-settings')
+  async getActiveCompanyQuotationSettings(
+    @CurrentCompany() activeCompanyId: string,
+  ) {
+    const quotationSettings =
+      await this.companiesService.getQuotationSettings(activeCompanyId);
+    return { success: true, quotationSettings };
+  }
+
+  @Get('company/mercado-pago-settings')
+  async getActiveCompanyMercadoPagoSettings(
+    @CurrentCompany() activeCompanyId: string,
+  ) {
+    const mercadoPagoSettings =
+      await this.companiesService.getMercadoPagoSettings(activeCompanyId);
+    return { success: true, mercadoPagoSettings };
   }
 
   /**
