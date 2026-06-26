@@ -15,6 +15,7 @@ import { printPosHtmlViaAgentOrBrowser } from "@/features/pos-print/lib/pos-agen
 import { printPosSaleDocumentAgentOrBrowser } from "@/features/pos-print/lib/pos-sale-document-print";
 import {
   buildPosPrintTestCashClosingInput,
+  buildPosPrintTestCashCountSheetInput,
   buildPosPrintTestCashSessionOpeningInput,
   buildPosPrintTestCreditNoteData,
   buildPosPrintTestQuotationInput,
@@ -23,6 +24,7 @@ import {
 import { printPosSaleTicketAgentOrBrowser } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import { buildQuotationDocumentHtml } from "@/features/quotations/lib/quotation-document-print";
 import { printPosQuotationReceiptAgentOrBrowser } from "@/features/quotations/lib/quotation-ticket-agent";
+import { printPresaleTicketHtml } from "@/features/presale-tickets/lib/presale-ticket-print";
 
 export type PosDocumentTestPrintChannel = "agent" | "browser";
 
@@ -114,6 +116,31 @@ export async function printPosDocumentTest(
         });
       }
       return printCashSessionOpeningAwait(input, format);
+    }
+    case "presale": {
+      printPresaleTicketHtml(
+        {
+          id: "test-presale",
+          code: "TESTPRESALE12345678",
+          status: "READY",
+          presalePointOfSaleId: "pos-test",
+          branchId: "branch-test",
+          priceListId: "pl-test",
+          customerId: null,
+          customerName: null,
+          customerDocument: null,
+          total: 15990,
+          subtotal: 13437,
+          taxAmount: 2553,
+          discountAmount: 0,
+          branchName: "Sucursal prueba",
+          pointOfSaleName: "Preventa prueba",
+          lines: [],
+          createdAt: new Date().toISOString(),
+        },
+        "Empresa prueba",
+      );
+      return "browser";
     }
     default: {
       const _exhaustive: never = kind;

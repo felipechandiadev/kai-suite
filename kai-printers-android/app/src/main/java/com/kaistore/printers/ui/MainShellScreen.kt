@@ -51,6 +51,11 @@ fun MainShellScreen() {
                         ServiceTabLabel(status = serviceTabStatus)
                     },
                 )
+                Tab(
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
+                    text = { Text(stringResource(R.string.tab_logo)) },
+                )
             }
         },
     ) { padding ->
@@ -61,7 +66,7 @@ fun MainShellScreen() {
         ) {
             when (selectedTab) {
                 0 -> PrintersSetupScreen()
-                else -> ServiceSettingsScreen(
+                1 -> ServiceSettingsScreen(
                     onServiceStatusChange = { ready, _, hasLanIp ->
                         serviceTabStatusOrdinal = when {
                             !hasLanIp -> ServiceTabStatus.Error.ordinal
@@ -70,6 +75,7 @@ fun MainShellScreen() {
                         }
                     },
                 )
+                else -> LogoBrandingScreen()
             }
         }
     }

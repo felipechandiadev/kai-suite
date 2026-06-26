@@ -118,6 +118,7 @@ import { EShopFulfillmentMethods1756510000000 } from '../migrations/175651000000
 import { EShopCustomerAccounts1756520000000 } from '../migrations/1756520000000-EShopCustomerAccounts';
 import { EShopCustomerAccountUsername1756530000000 } from '../migrations/1756530000000-EShopCustomerAccountUsername';
 import { PaymentGatewayIntents1756540000000 } from '../migrations/1756540000000-PaymentGatewayIntents';
+import { PaymentGatewayIntentMpOrderIdIndex1756550000000 } from '../migrations/1756550000000-PaymentGatewayIntentMpOrderIdIndex';
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
 import { EShopFulfillmentMethod } from '@modules/e-shop/domain/e-shop-fulfillment-method.entity';
@@ -264,6 +265,7 @@ export const AppDataSource = new DataSource({
     EShopCustomerAccounts1756520000000,
     EShopCustomerAccountUsername1756530000000,
     PaymentGatewayIntents1756540000000,
+    PaymentGatewayIntentMpOrderIdIndex1756550000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

@@ -1,6 +1,6 @@
 # Variables de entorno — desarrollo local
 
-Puertos PWAs en rango **403x**; backend y kai-mail en **3030** / **3040** (no chocan con otros stacks en 303x).
+Puertos PWAs en rango **503x**; backend y kai-mail en **5030** / **5040**.
 
 ## Uso rápido
 
@@ -23,12 +23,12 @@ npm run env:dev
 
 | App        | Puerto | Archivo destino              |
 |------------|--------|------------------------------|
-| Backend    | 3030   | `backend/.env`               |
-| pwa-admin  | 4031   | `pwa-admin/.env.local`       |
-| pwa-pos    | 4032   | `pwa-pos/.env.local`         |
-| pwa-stock  | 4033   | `pwa-stock/.env.local`       |
-| pwa-eshop  | 4034   | `pwa-eshop/.env.local`       |
-| kai-mail   | 3040   | `services/kai-mail/.env`     |
+| Backend    | 5030   | `backend/.env`               |
+| pwa-admin  | 5031   | `pwa-admin/.env.local`       |
+| pwa-pos    | 5032   | `pwa-pos/.env.local`         |
+| pwa-stock  | 5033   | `pwa-stock/.env.local`       |
+| pwa-eshop  | 5034   | `pwa-eshop/.env.local`       |
+| kai-mail   | 5040   | `services/kai-mail/.env`     |
 
 ## Notas
 

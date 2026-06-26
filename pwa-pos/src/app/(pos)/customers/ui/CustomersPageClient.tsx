@@ -74,8 +74,8 @@ export default function CustomersPageClient({
       const p = new URLSearchParams(sp.toString());
       mutate(p);
       startTransition(() => {
-        router.replace(`${pathname}?${p.toString()}`, { scroll: false });
-        router.refresh();
+        const qs = p.toString();
+        router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
       });
     },
     [pathname, router, sp],

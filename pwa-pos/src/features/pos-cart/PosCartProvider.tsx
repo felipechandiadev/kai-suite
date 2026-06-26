@@ -8,6 +8,7 @@ import { readCartClient, writeCartClient, type LoadedQuotationMeta } from "./car
 import type { BackorderDepositConfig } from "./types/backorder-deposit.types";
 import type {
   LoadedBackorderMeta,
+  LoadedPresaleTicketMeta,
   LoadedReturnSaleMeta,
   PosCartMode,
 } from "./types/pos-cart-mode.types";
@@ -47,10 +48,17 @@ type PosCartContextValue = {
   isFulfillBackorderMode: boolean;
   loadedReturnSale: LoadedReturnSaleMeta | null;
   loadedBackorder: LoadedBackorderMeta | null;
+  loadedPresaleTicket: LoadedPresaleTicketMeta | null;
   /** Carga carrito en modo devolución desde una venta (folio interno). */
   loadReturnFromSale: (sale: PosSaleForReturn, lines: PosCartLine[]) => void;
   /** Carga reserva/encargo abierto para liquidar (venta + abono). */
   loadBackorderForFulfill: (backorder: PosBackorderForFulfill, lines: PosCartLine[]) => void;
+  loadPresaleTicket: (
+    meta: LoadedPresaleTicketMeta,
+    lines: PosCartLine[],
+    customer?: PosSaleCustomer | null,
+  ) => void;
+  exitLoadedPresaleTicket: () => void;
   /** Sale del modo devolución y vuelve a venta normal. */
   exitReturnMode: () => void;
   /** Sale del modo reserva y vuelve a venta normal. */
@@ -140,8 +148,13 @@ function maxQtyForVariant(
   loadedBackorder: LoadedBackorderMeta | null,
   loadedReturnSale: LoadedReturnSaleMeta | null,
   loadedQuotation: LoadedQuotationMeta | null,
+  loadedPresaleTicket: LoadedPresaleTicketMeta | null,
   variantId: string,
 ): number | null {
+  if (loadedPresaleTicket) {
+    const n = loadedPresaleTicket.lineMaxQtyByVariantId[variantId];
+    return typeof n === "number" && n > 0 ? n : null;
+  }
   if (loadedBackorder) {
     const n = loadedBackorder.lineMaxQtyByVariantId[variantId];
     return typeof n === "number" && n > 0 ? n : null;
@@ -190,6 +203,8 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     useState<LoadedReturnSaleMeta | null>(null);
   const [loadedBackorder, setLoadedBackorder] =
     useState<LoadedBackorderMeta | null>(null);
+  const [loadedPresaleTicket, setLoadedPresaleTicket] =
+    useState<LoadedPresaleTicketMeta | null>(null);
   const [scope, setScope] = useState<{ pointOfSaleId: string; priceListId: string } | null>(null);
   const [quotationsEnabled, setQuotationsEnabled] = useState(false);
 
@@ -215,6 +230,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       setCartMode("sale");
       setLoadedReturnSale(null);
       setLoadedBackorder(null);
+      setLoadedPresaleTicket(null);
       setReady(true);
       return;
     }
@@ -227,6 +243,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       cartMode: loadedMode,
       loadedReturnSale: loadedReturn,
       loadedBackorder: loadedBo,
+      loadedPresaleTicket: loadedPresale,
     } = readCartClient(s);
     setLines(loadedLines);
     setSaleCustomer(customer);
@@ -237,6 +254,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     setCartMode(loadedMode);
     setLoadedReturnSale(loadedReturn);
     setLoadedBackorder(loadedBo);
+    setLoadedPresaleTicket(loadedPresale);
     setReady(true);
   }, []);
 
@@ -250,7 +268,6 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     setLoadedQuotation(null);
   }, [ready, quotationsEnabled, loadedQuotation]);
 
-  // Persist on change (only after initial load).
   useEffect(() => {
     if (!ready || !scope) return;
     writeCartClient(
@@ -263,6 +280,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       loadedReturnSale,
       encargoModeEnabled,
       loadedBackorder,
+      loadedPresaleTicket,
     );
   }, [
     lines,
@@ -273,6 +291,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     cartMode,
     loadedReturnSale,
     loadedBackorder,
+    loadedPresaleTicket,
     ready,
     scope,
   ]);
@@ -324,7 +343,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
 
   const addItem = useCallback(
     (item: PosProductSearchItem, quantity = 1) => {
-      if (cartMode === "return" || cartMode === "fulfill_backorder") return;
+      if (cartMode === "return" || cartMode === "fulfill_backorder" || loadedPresaleTicket) return;
       const q = Math.max(1, Math.round(Number(quantity) || 1));
       setLines((prev) => {
         const i = prev.findIndex((l) => l.variantId === item.variantId);
@@ -333,6 +352,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
             loadedBackorder,
             loadedReturnSale,
             loadedQuotation,
+            loadedPresaleTicket,
             item.variantId,
           );
           const nextQty = prev[i].quantity + q;
@@ -344,7 +364,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
         return [...prev, { ...(item as any), quantity: q } as PosCartLine];
       });
     },
-    [cartMode, loadedBackorder, loadedReturnSale, loadedQuotation],
+    [cartMode, loadedBackorder, loadedReturnSale, loadedQuotation, loadedPresaleTicket],
   );
 
   const increment = useCallback(
@@ -356,6 +376,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
             loadedBackorder,
             loadedReturnSale,
             loadedQuotation,
+            loadedPresaleTicket,
             variantId,
           );
           const nextQty = l.quantity + 1;
@@ -388,6 +409,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
         loadedBackorder,
         loadedReturnSale,
         loadedQuotation,
+        loadedPresaleTicket,
         variantId,
       );
       const capped = max != null ? Math.min(q, max) : q;
@@ -408,6 +430,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       setCartMode("sale");
       setLoadedReturnSale(null);
       setLoadedBackorder(null);
+      setLoadedPresaleTicket(null);
       setLoadedQuotation(meta);
       setLines(nextLines);
       setPayments([]);
@@ -504,6 +527,40 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     [],
   );
 
+  const loadPresaleTicket = useCallback(
+    (
+      meta: LoadedPresaleTicketMeta,
+      nextLines: PosCartLine[],
+      customer?: PosSaleCustomer | null,
+    ) => {
+      setCartMode("sale");
+      setLoadedReturnSale(null);
+      setLoadedBackorder(null);
+      setLoadedQuotation(null);
+      setBackorderDeposit(null);
+      setEncargoModeEnabled(false);
+      setPayments([]);
+      setManualSelections([]);
+      setLoadedPresaleTicket(meta);
+      setLines(nextLines);
+      if (customer !== undefined) {
+        setSaleCustomer(customer);
+      }
+    },
+    [],
+  );
+
+  const exitLoadedPresaleTicket = useCallback(() => {
+    setLoadedPresaleTicket(null);
+    setLines([]);
+    setPayments([]);
+    setSaleCustomer(null);
+    setManualSelections([]);
+    setAppliedPromotions([]);
+    setOrderDiscount(0);
+    setPromotionWarnings([]);
+  }, []);
+
   const exitReturnMode = useCallback(() => {
     setCartMode("sale");
     setLoadedReturnSale(null);
@@ -531,6 +588,16 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     if (cartHasLoadedQuotationLine(lines, loadedQuotation)) return;
     setLoadedQuotation(null);
   }, [ready, loadedQuotation, lines]);
+
+  /** Sin líneas del ticket de preventa = desvincular. */
+  useEffect(() => {
+    if (!ready) return;
+    if (!loadedPresaleTicket) return;
+    const hasTicketLine = lines.some(
+      (l) => loadedPresaleTicket.lineMaxQtyByVariantId[l.variantId] != null,
+    );
+    if (!hasTicketLine) setLoadedPresaleTicket(null);
+  }, [ready, loadedPresaleTicket, lines]);
 
   const exitFulfillBackorderMode = useCallback(() => {
     setCartMode("sale");
@@ -563,6 +630,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     setCartMode("sale");
     setLoadedReturnSale(null);
     setLoadedBackorder(null);
+    setLoadedPresaleTicket(null);
     setManualSelections([]);
     setAppliedPromotions([]);
     setOrderDiscount(0);
@@ -722,11 +790,14 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       isFulfillBackorderMode: cartMode === "fulfill_backorder",
       loadedReturnSale,
       loadedBackorder,
+      loadedPresaleTicket,
       loadReturnFromSale,
       loadBackorderForFulfill,
+      loadPresaleTicket,
       loadQuotation,
       exitReturnMode,
       exitFulfillBackorderMode,
+      exitLoadedPresaleTicket,
       clear,
       saleCustomer,
       setSaleCustomer,
@@ -763,11 +834,14 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       cartMode,
       loadedReturnSale,
       loadedBackorder,
+      loadedPresaleTicket,
       loadReturnFromSale,
       loadBackorderForFulfill,
+      loadPresaleTicket,
       loadQuotation,
       exitReturnMode,
       exitFulfillBackorderMode,
+      exitLoadedPresaleTicket,
       clear,
       saleCustomer,
       payments,

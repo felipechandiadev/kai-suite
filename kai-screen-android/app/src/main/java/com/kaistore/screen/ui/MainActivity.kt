@@ -17,7 +17,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             KaiScreenTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    PosConnectionScreen()
+                    MainShellScreen()
                 }
             }
         }

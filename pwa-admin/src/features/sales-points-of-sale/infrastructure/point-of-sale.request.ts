@@ -1,6 +1,18 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/auth-options";
-import type { PointOfSaleListItem } from "../types/point-of-sale.types";
+import type { PointOfSaleListItem, PosKind } from "../types/point-of-sale.types";
+
+type PointOfSaleWriteBody = {
+  name: string;
+  branchId: string;
+  storageId: string;
+  deviceId: string | null;
+  isActive: boolean;
+  priceLists: Array<{ id: string; name: string; isActive: boolean }>;
+  defaultPriceListId: string | null;
+  kind?: PosKind;
+  acceptsPresaleTickets?: boolean;
+};
 
 function apiUrl(path: string): string {
   const base = process.env.BACKEND_API_URL;
@@ -54,15 +66,7 @@ export class PointOfSaleRequest {
 
   static async update(
     id: string,
-    body: {
-      name: string;
-      branchId: string;
-      storageId: string;
-      deviceId: string | null;
-      isActive: boolean;
-      priceLists: Array<{ id: string; name: string; isActive: boolean }>;
-      defaultPriceListId: string | null;
-    },
+    body: PointOfSaleWriteBody,
   ): Promise<
     { success: true; pointOfSale: PointOfSaleListItem } | { success: false; error: string }
   > {
@@ -79,6 +83,8 @@ export class PointOfSaleRequest {
           isActive: body.isActive,
           priceLists: body.priceLists,
           defaultPriceListId: body.defaultPriceListId,
+          kind: body.kind,
+          acceptsPresaleTickets: body.acceptsPresaleTickets,
         }),
         cache: "no-store",
       });
@@ -100,15 +106,9 @@ export class PointOfSaleRequest {
     }
   }
 
-  static async create(body: {
-    name: string;
-    branchId: string;
-    storageId: string;
-    deviceId: string | null;
-    isActive: boolean;
-    priceLists: Array<{ id: string; name: string; isActive: boolean }>;
-    defaultPriceListId: string | null;
-  }): Promise<{ success: true; pointOfSale: PointOfSaleListItem } | { success: false; error: string }> {
+  static async create(
+    body: PointOfSaleWriteBody,
+  ): Promise<{ success: true; pointOfSale: PointOfSaleListItem } | { success: false; error: string }> {
     const headers = await authHeaders();
     try {
       const res = await fetch(apiUrl("points-of-sale"), {
@@ -122,6 +122,8 @@ export class PointOfSaleRequest {
           isActive: body.isActive,
           priceLists: body.priceLists,
           defaultPriceListId: body.defaultPriceListId,
+          kind: body.kind,
+          acceptsPresaleTickets: body.acceptsPresaleTickets,
         }),
         cache: "no-store",
       });

@@ -70,6 +70,7 @@ import { ChecksModule } from './modules/checks/checks.module';
 import { QuotationsModule } from './modules/quotations/quotations.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
 import { PaymentGatewaysModule } from './modules/payment-gateways/payment-gateways.module';
+import { PresaleTicketsModule } from './modules/presale-tickets/presale-tickets.module';
 
 @Module({
   imports: [
@@ -100,6 +101,7 @@ import { PaymentGatewaysModule } from './modules/payment-gateways/payment-gatewa
     BankAccountsModule,
     ChecksModule,
     QuotationsModule,
+    PresaleTicketsModule,
     PromotionsModule,
     PaymentGatewaysModule,
     CapitalContributionsModule,

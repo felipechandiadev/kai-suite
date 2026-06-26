@@ -23,6 +23,8 @@ mod pos_cash_count_sheet_ticket;
 mod pos_cash_count_sheet_ticket_escpos;
 mod pos_cash_session_opening_ticket;
 mod pos_cash_session_opening_ticket_escpos;
+mod pos_bank_account_ticket;
+mod pos_bank_account_ticket_escpos;
 mod pos_payment_in_ticket;
 mod pos_payment_in_ticket_escpos;
 mod ticket_barcode;
@@ -707,6 +709,7 @@ fn queue_escpos_qa_print(
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .unwrap_or("tickets");
+    let _ = (include_logo, ticket_logo_path);
     if purpose != "tickets" {
         return Err(
             "La prueba ESC/POS QA solo aplica a líneas con propósito «Tickets».".to_string(),
@@ -736,34 +739,17 @@ fn queue_escpos_qa_print(
         .map(|h| format!("red:{h}"))
         .or_else(|| target_sp.clone())
         .unwrap_or_default();
-    let include_logo = include_logo.unwrap_or(false);
     let include_cut = include_cut.unwrap_or(true);
-    let logo_b64 = if include_logo {
-        ticket_logo_path
-            .as_deref()
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .and_then(|rel| {
-                ticket_logos::read_logo_as_base64(&state.data_dir, rel)
-                    .ok()
-                    .flatten()
-            })
-    } else {
-        None
-    };
     let agent_label = state.db.agent_display_name();
     let (path, bytes) = jobs::write_escpos_qa_path(
         &state.temp_dir,
         &agent_label,
         &printer_label,
-        logo_b64.as_deref(),
         include_cut,
     )
     .map_err(|e| e.to_string())?;
     state.agent_log.push_info(format!(
-        "QA ESC/POS encolada: {bytes} bytes → {printer_label} (logo={}, corte={})",
-        include_logo && logo_b64.is_some(),
-        include_cut
+        "QA ESC/POS encolada: {bytes} bytes → {printer_label} (logo Kai, corte={include_cut})"
     ));
     let document_type = if include_cut {
         "test_escpos_qa"

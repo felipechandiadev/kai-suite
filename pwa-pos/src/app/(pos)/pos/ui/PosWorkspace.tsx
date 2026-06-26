@@ -10,7 +10,11 @@ import {
   type PosPriceListSnapshot,
 } from "@/features/session/lib/pos-context-storage";
 import { Button, IconButton } from "@/shared/admin-shared";
-import { ArrowUpFromLine, Package, RotateCcw, ShoppingCart } from "lucide-react";
+import { ArrowUpFromLine, Package, RotateCcw, ShoppingCart, Ticket } from "lucide-react";
+import { createPresaleTicketAction } from "@/features/presale-tickets/actions/presale-tickets.action";
+import { printPresaleTicketHtml } from "@/features/presale-tickets/lib/presale-ticket-print";
+import type { PresaleTicketDetail } from "@/features/presale-tickets/types/presale-ticket.types";
+import { Alert, Dialog } from "@/shared/admin-shared";
 import PosProductSearchPanel, { POS_PRODUCT_SEARCH_PANEL_HEIGHT_VH } from "./PosProductSearchPanel";
 import PosCartLineCard from "./PosCartLineCard";
 import { isQuotationCartVariant, usePosCart } from "@/features/pos-cart/PosCartProvider";
@@ -39,11 +43,16 @@ export default function PosWorkspace() {
   const [loadQuotationOpen, setLoadQuotationOpen] = useState(false);
   const [loadReturnOpen, setLoadReturnOpen] = useState(false);
   const [loadBackorderOpen, setLoadBackorderOpen] = useState(false);
+  const [presaleBusy, setPresaleBusy] = useState(false);
+  const [presaleError, setPresaleError] = useState("");
+  const [lastPresaleTicket, setLastPresaleTicket] = useState<PresaleTicketDetail | null>(null);
   const isReturnMode = cart.isReturnMode;
   const isFulfillBackorderMode = cart.isFulfillBackorderMode;
   const hasLoadedQuotation = cart.loadedQuotation != null;
+  const hasLoadedPresale = cart.loadedPresaleTicket != null;
   const quotationsEnabled = cart.quotationsEnabled;
-  const cartLocked = isReturnMode || isFulfillBackorderMode;
+  const isPresaleMode = ctx?.posKind === "PRESALE";
+  const cartLocked = isReturnMode || isFulfillBackorderMode || hasLoadedPresale;
 
   const refreshPriceListOptions = useCallback(async (posId: string, currentListId?: string) => {
     const res = await fetchPointOfSalePriceListsAction(posId);
@@ -97,6 +106,8 @@ export default function PosWorkspace() {
           ...(res.branchId ? { branchId: res.branchId, branchName: res.branchName ?? null } : {}),
           storageId: res.storageId ?? null,
           pointOfSaleName: res.pointOfSaleName ?? c.pointOfSaleName ?? null,
+          posKind: res.posKind,
+          acceptsPresaleTickets: res.acceptsPresaleTickets,
           ...(res.priceLists.length > 0 ? { priceLists: res.priceLists } : {}),
         });
       }
@@ -168,10 +179,85 @@ export default function PosWorkspace() {
   const checkoutDisabled = cart.lines.length === 0;
 
   const checkoutTitle = useMemo(() => {
+    if (isPresaleMode) return "Generar ticket";
     if (isReturnMode) return "Ir a devolución";
     if (isFulfillBackorderMode) return "Liquidar encargo";
     return "Ir a cobro";
-  }, [isReturnMode, isFulfillBackorderMode]);
+  }, [isPresaleMode, isReturnMode, isFulfillBackorderMode]);
+
+  const handleCheckout = useCallback(async () => {
+    if (!ctx?.pointOfSaleId || !priceListId) return;
+    if (isPresaleMode) {
+      setPresaleError("");
+      setPresaleBusy(true);
+      try {
+        const lines = cart.lines.map((l) => {
+          const qty = Number(l.quantity) || 0;
+          const unitNet = Number(l.unitPrice) || 0;
+          const unitGross = Number(l.unitPriceWithTax) || 0;
+          const taxAmount = Math.round(Math.max(0, unitGross - unitNet) * qty);
+          const total = Math.round(unitGross * qty);
+          const discountAmount = l.discount?.discountAmount
+            ? Math.round(l.discount.discountAmount)
+            : 0;
+          return {
+            productId: l.productId || undefined,
+            productVariantId: l.variantId || undefined,
+            productName: l.productName,
+            productSku: l.sku ?? undefined,
+            quantity: qty,
+            unitPrice: unitNet,
+            discountAmount,
+            taxRate: Number(l.unitTaxRate) || 0,
+            taxAmount,
+            subtotal: Math.round(unitNet * qty),
+            total: total - discountAmount,
+            promotionSnapshot: l.discount
+              ? {
+                  promotionId: l.discount.promotionId,
+                  promotionCode: l.discount.promotionCode,
+                  discountAmount: l.discount.discountAmount,
+                }
+              : undefined,
+          };
+        });
+        const res = await createPresaleTicketAction({
+          presalePointOfSaleId: ctx.pointOfSaleId,
+          priceListId,
+          lines,
+          customerId: cart.saleCustomer?.customerId ?? undefined,
+          customerName: cart.saleCustomer?.name,
+          customerDocument: cart.saleCustomer?.document,
+          subtotal: totals.net,
+          taxAmount: taxes,
+          discountAmount: lineDiscountsTotal + (cart.orderDiscount ?? 0),
+          total: saleTotal,
+          promotionsSnapshot: cart.appliedPromotions as unknown as Record<string, unknown>[],
+        });
+        if (!res.success) {
+          setPresaleError(res.message);
+          return;
+        }
+        printPresaleTicketHtml(res.ticket, ctx.pointOfSaleName);
+        setLastPresaleTicket(res.ticket);
+        cart.clear();
+      } finally {
+        setPresaleBusy(false);
+      }
+      return;
+    }
+    router.push("/pos/payment");
+  }, [
+    cart,
+    ctx,
+    isPresaleMode,
+    lineDiscountsTotal,
+    priceListId,
+    router,
+    saleTotal,
+    taxes,
+    totals.net,
+  ]);
 
   if (!ctx?.priceListId) {
     return (
@@ -194,8 +280,13 @@ export default function PosWorkspace() {
       disabledHint={
         isFulfillBackorderMode
           ? "En liquidación de encargo no puedes agregar productos. Usa «Desvincular» para salir."
-          : "En devolución solo puedes quitar líneas del carrito. Usa «Desvincular» para salir."
+          : hasLoadedPresale
+            ? "Ticket de preventa cargado. Desvincula para buscar productos sueltos."
+          : isReturnMode
+            ? "En devolución solo puedes quitar líneas del carrito. Usa «Desvincular» para salir."
+            : undefined
       }
+      acceptsPresaleTickets={ctx.acceptsPresaleTickets === true && !isPresaleMode}
       compactLayout={compactLayout}
     />
   );
@@ -210,7 +301,7 @@ export default function PosWorkspace() {
     >
         <div className="flex shrink-0 items-start justify-between gap-2">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            {quotationsEnabled ? (
+            {quotationsEnabled && !isPresaleMode ? (
             <Button
               variant="outlined"
               size="sm"
@@ -223,6 +314,7 @@ export default function PosWorkspace() {
               <span>Cotización</span>
             </Button>
             ) : null}
+            {!isPresaleMode ? (
             <Button
               variant="outlined"
               size="sm"
@@ -241,6 +333,8 @@ export default function PosWorkspace() {
               <RotateCcw size={14} className="shrink-0" aria-hidden />
               <span>Devolución</span>
             </Button>
+            ) : null}
+            {!isPresaleMode ? (
             <Button
               variant="outlined"
               size="sm"
@@ -257,6 +351,7 @@ export default function PosWorkspace() {
               <Package size={14} className="shrink-0" aria-hidden />
               <span>Encargo</span>
             </Button>
+            ) : null}
           </div>
           <div className="flex items-center gap-2">
             <p className="text-xs text-zinc-500" data-test-id="pos-cart-items-count">
@@ -271,6 +366,20 @@ export default function PosWorkspace() {
             />
           </div>
         </div>
+
+        {cart.loadedPresaleTicket ? (
+          <div
+            className="flex shrink-0 items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs"
+            data-test-id="pos-cart-presale-banner"
+          >
+            <span>
+              Ticket preventa <strong>{cart.loadedPresaleTicket.code}</strong>
+            </span>
+            <Button variant="ghost" size="sm" onClick={() => cart.exitLoadedPresaleTicket()}>
+              Desvincular
+            </Button>
+          </div>
+        ) : null}
 
         {cart.loadedBackorder ? (
           <div
@@ -413,17 +522,31 @@ export default function PosWorkspace() {
                 <span className="text-sm font-semibold text-foreground">{formatMoney(totals.gross)}</span>
               </div>
             </div>
-            <IconButton
-              icon="CircleDollarSign"
-              variant="outlined"
-              size="lg"
-              className="mx-6 shrink-0"
-              ariaLabel={checkoutTitle}
-              disabled={checkoutDisabled}
-              title={checkoutTitle}
-              onClick={() => router.push("/pos/payment")}
-              data-test-id="pos-cart-checkout-icon"
-            />
+            {isPresaleMode ? (
+              <Button
+                variant="primary"
+                size="lg"
+                className="mx-2 shrink-0"
+                disabled={checkoutDisabled || presaleBusy}
+                onClick={() => void handleCheckout()}
+                data-test-id="pos-cart-checkout-icon"
+              >
+                <Ticket size={18} className="mr-2 shrink-0" aria-hidden />
+                Generar ticket
+              </Button>
+            ) : (
+              <IconButton
+                icon="CircleDollarSign"
+                variant="outlined"
+                size="lg"
+                className="mx-6 shrink-0"
+                ariaLabel={checkoutTitle}
+                disabled={checkoutDisabled}
+                title={checkoutTitle}
+                onClick={() => void handleCheckout()}
+                data-test-id="pos-cart-checkout-icon"
+              />
+            )}
           </div>
         </footer>
     </aside>
@@ -517,6 +640,39 @@ export default function PosWorkspace() {
         }}
         pointOfSaleId={ctx?.pointOfSaleId ?? null}
       />
+
+      {presaleError ? (
+        <div className="fixed bottom-4 left-1/2 z-50 w-[min(24rem,calc(100vw-2rem))] -translate-x-1/2">
+          <Alert variant="error">{presaleError}</Alert>
+        </div>
+      ) : null}
+
+      <Dialog
+        open={lastPresaleTicket != null}
+        onClose={() => setLastPresaleTicket(null)}
+        title="Ticket generado"
+        size="sm"
+        actions={
+          <Button variant="primary" onClick={() => setLastPresaleTicket(null)}>
+            Listo
+          </Button>
+        }
+      >
+        {lastPresaleTicket ? (
+          <div className="space-y-2 text-center">
+            <p className="text-sm text-muted-foreground">Código para caja</p>
+            <p className="font-mono text-lg font-bold tracking-wider">{lastPresaleTicket.code}</p>
+            <p className="text-sm">{formatMoney(lastPresaleTicket.total)}</p>
+            <Button
+              variant="outlined"
+              size="sm"
+              onClick={() => printPresaleTicketHtml(lastPresaleTicket, ctx?.pointOfSaleName)}
+            >
+              Reimprimir
+            </Button>
+          </div>
+        ) : null}
+      </Dialog>
     </div>
   );
 }

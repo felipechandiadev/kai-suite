@@ -497,7 +497,7 @@ Secciones en orden (cada una con `id` para anclas del nav):
 
 ```env
 # .env.local ejemplo
-BACKEND_API_URL=http://localhost:3030
+BACKEND_API_URL=http://localhost:5030
 NEXT_PUBLIC_APP_NAME=KaiStore eShop
 NEXT_PUBLIC_APP_VERSION=0.1.0
 NEXT_PUBLIC_DEFAULT_STORE_SLUG=demo

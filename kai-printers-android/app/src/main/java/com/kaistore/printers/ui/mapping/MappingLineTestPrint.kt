@@ -1,6 +1,7 @@
 package com.kaistore.printers.ui.mapping
 
 import android.content.Context
+import com.kaistore.printers.KaiPrintersApp
 import com.kaistore.printers.data.AgentRepository
 import com.kaistore.printers.data.MappingLineEntity
 import com.kaistore.printers.print.AndroidPdfPrinter
@@ -33,8 +34,13 @@ object MappingLineTestPrint {
                         if (ref is PrinterRef.SystemPrint) {
                             throw IllegalStateException("tickets_requires_physical_printer")
                         }
+                        val app = context.applicationContext as KaiPrintersApp
+                        val logoSettings = app.container.printLogoRepository.currentSettings()
                         val transport = TransportFactory(context)
-                        transport.write(ref, EscPosTestBytes.testPage(profile))
+                        transport.write(
+                            ref,
+                            EscPosTestBytes.testPage(profile, context, logoSettings),
+                        )
                     }
                     else -> throw IllegalStateException("unsupported_purpose")
                 }

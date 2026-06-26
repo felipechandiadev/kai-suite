@@ -9,6 +9,7 @@ import {
   type CompanyMercadoPagoSettingsPublic,
 } from "@/features/company-integrations/types/company-mercado-pago.types";
 import { updateEShopMercadoPagoSettingsAction } from "@/features/e-shop-integrations/actions/eshop-mercado-pago.action";
+import { MercadoPagoLogo } from "@/shared/components/MercadoPagoLogo";
 
 type Props = {
   initial: CompanyMercadoPagoSettingsPublic;
@@ -24,7 +25,7 @@ function mercadoPagoCredentialChecks(settings: CompanyMercadoPagoSettingsPublic)
 
 function isCheckoutOperational(settings: CompanyMercadoPagoSettingsPublic): boolean {
   const c = mercadoPagoCredentialChecks(settings);
-  return c.integrationEnabled && c.publicKey && c.accessToken && settings.eshopOnlinePaymentEnabled;
+  return c.publicKey && c.accessToken && settings.eshopOnlinePaymentEnabled;
 }
 
 export function EShopIntegrationsForm({ initial }: Props) {
@@ -36,7 +37,6 @@ export function EShopIntegrationsForm({ initial }: Props) {
   const credentials = useMemo(() => mercadoPagoCredentialChecks(settings), [settings]);
   const checkoutOperational = useMemo(() => isCheckoutOperational(settings), [settings]);
   const missingForCheckout: string[] = [];
-  if (!credentials.integrationEnabled) missingForCheckout.push("activar la integración MP");
   if (!credentials.publicKey) missingForCheckout.push("Public Key");
   if (!credentials.accessToken) missingForCheckout.push("Access Token");
 
@@ -85,7 +85,10 @@ export function EShopIntegrationsForm({ initial }: Props) {
       </section>
 
       <section className="space-y-4 rounded-lg border border-border p-4">
-        <h2 className="text-lg font-semibold">Checkout — pago online</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">Checkout — pago online</h2>
+          <MercadoPagoLogo width={170} />
+        </div>
         <Switch
           label="Permitir pagar en línea en el checkout"
           checked={settings.eshopOnlinePaymentEnabled}
@@ -94,8 +97,11 @@ export function EShopIntegrationsForm({ initial }: Props) {
           }
         />
         <p className="text-xs text-muted-foreground">
-          Guarda la preferencia de la tienda. Sin credenciales TEST en Integraciones, el
-          checkout seguirá mostrando solo encargo.
+          Guarda la preferencia de la tienda. Sin Public Key y Access Token en{" "}
+          <Link href="/settings/integrations" className="text-primary underline-offset-2 hover:underline">
+            Integraciones
+          </Link>
+          , el checkout seguirá mostrando solo encargo.
         </p>
         <label className="block text-sm">
           <span className="mb-1 block font-medium">Modo por defecto</span>

@@ -3,7 +3,7 @@
  * - Servidor Next (Server Actions, login): BACKEND_API_URL
  * - Navegador (WebSocket stock, etc.): NEXT_PUBLIC_BACKEND_API_URL
  *
- * En red local use la IP del host (p. ej. http://192.168.1.10:3030), no localhost,
+ * En red local use la IP del host (p. ej. http://192.168.1.10:5030), no localhost,
  * si el POS se abre desde otro equipo.
  */
 export function getServerBackendApiBase(): string {
@@ -12,7 +12,7 @@ export function getServerBackendApiBase(): string {
     process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim();
   if (!base) {
     throw new Error(
-      "BACKEND_API_URL no está definida. En red local use la IP LAN del servidor, p. ej. http://192.168.1.10:3030",
+      "BACKEND_API_URL no está definida. En red local use la IP LAN del servidor, p. ej. http://192.168.1.10:5030",
     );
   }
   return base.replace(/\/$/, "");

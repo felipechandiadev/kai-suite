@@ -42,21 +42,40 @@ export async function prepareCheckoutAction(body: {
     documentNumber: string;
     payableTotal: number;
     paymentIntentId: string | null;
+    preferenceId: string | null;
     publicKey: string | null;
     paymentMode: string;
   }>(getEShopStoreSlug(), "/e-shop/checkout/prepare", body, sessionToken);
 }
 
+export async function fetchCheckoutPaymentStatusAction(intentId: string) {
+  const sessionToken = await getCustomerSessionToken();
+  return EShopRequest.get<{
+    id: string;
+    status: string;
+    amount: number;
+  }>(
+    getEShopStoreSlug(),
+    `/e-shop/checkout/payment-status/${encodeURIComponent(intentId)}`,
+    sessionToken,
+  );
+}
+
 export async function confirmCheckoutPaymentAction(body: {
   intentId: string;
-  token: string;
+  token?: string;
   payerEmail: string;
+  paymentMethodId?: string;
+  paymentMethodType?: string;
+  selectedPaymentMethod?: string;
+  installments?: number;
 }) {
   const sessionToken = await getCustomerSessionToken();
   return EShopRequest.post<{
     id: string;
     status: string;
     amount: number;
+    awaitingWallet?: boolean;
   }>(getEShopStoreSlug(), "/e-shop/checkout/confirm-payment", body, sessionToken);
 }
 

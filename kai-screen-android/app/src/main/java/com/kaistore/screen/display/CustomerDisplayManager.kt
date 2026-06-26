@@ -101,12 +101,22 @@ class CustomerDisplayManager(
         }
         presentation?.dismiss()
         presentation = CustomerDisplayPresentation(context, secondary, broadcaster).also {
-            it.show()
-            DisplayStateHolder.setDisplayAttached(true)
-            broadcaster.emitDisplayStatus(
-                connected = DisplayStateHolder.posConnected.value,
-                displayAttached = true,
-            )
+            try {
+                it.show()
+                DisplayStateHolder.setDisplayAttached(true)
+                broadcaster.emitDisplayStatus(
+                    connected = DisplayStateHolder.posConnected.value,
+                    displayAttached = true,
+                )
+            } catch (e: Exception) {
+                presentation = null
+                DisplayStateHolder.setDisplayAttached(false)
+                broadcaster.emitDisplayStatus(
+                    connected = DisplayStateHolder.posConnected.value,
+                    displayAttached = false,
+                    message = "display_missing",
+                )
+            }
         }
     }
 }

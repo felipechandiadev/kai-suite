@@ -23,6 +23,10 @@ import type {
   PosCashSessionOpeningTicketPayload,
   PosCashSessionOpeningTicketPrintExtras,
 } from "./pos-cash-session-opening-ticket";
+import type {
+  PosBankAccountTicketPayload,
+  PosBankAccountTicketPrintExtras,
+} from "./pos-bank-account-ticket";
 import {
   type PrintFormat,
   type PosDocumentPrintMode,
@@ -145,6 +149,7 @@ export const AGENT_CAPABILITY_POS_CASH_CLOSING_TICKET = "pos-cash-closing-ticket
 export const AGENT_CAPABILITY_POS_CASH_COUNT_SHEET_TICKET = "pos-cash-count-sheet-ticket";
 export const AGENT_CAPABILITY_POS_CASH_SESSION_OPENING_TICKET =
   "pos-cash-session-opening-ticket";
+export const AGENT_CAPABILITY_POS_BANK_ACCOUNT_TICKET = "pos-bank-account-ticket";
 export const AGENT_CAPABILITY_PDF_BASE64 = "pdf-base64";
 
 export type AgentMappingLineConfig = {
@@ -662,6 +667,17 @@ export class PrintServiceConnection {
     return this.enqueuePosPrint(body);
   }
 
+  /** Cuenta bancaria empresa (transferencia POS): ESC/POS (`type: "pos-bank-account-ticket"`). */
+  enqueuePosBankAccountTicket(
+    ticket: PosBankAccountTicketPayload,
+    extras: PosBankAccountTicketPrintExtras & { purpose?: string; format?: PrintFormat },
+    omitPrinterDisplayLabel = false,
+  ): Promise<unknown> {
+    const body = buildPosTicketEnqueueBody("pos-bank-account-ticket", ticket, extras);
+    if (omitPrinterDisplayLabel) return this.enqueuePrint(body);
+    return this.enqueuePosPrint(body);
+  }
+
   private sendHello(): void {
     const rid = randomId();
     const body: Record<string, unknown> = {
@@ -992,6 +1008,16 @@ export function agentSupportsPosCashSessionOpeningTicket(
   return Boolean(hello?.serviceStatus);
 }
 
+export function agentSupportsPosBankAccountTicket(
+  hello: HelloResponseData | null | undefined,
+): boolean {
+  const caps = hello?.agentCapabilities;
+  if (Array.isArray(caps) && caps.length > 0) {
+    return caps.includes(AGENT_CAPABILITY_POS_BANK_ACCOUNT_TICKET);
+  }
+  return Boolean(hello?.serviceStatus);
+}
+
 /**
  * Si KaiPrinters imprimirá tickets en ESC/POS (misma resolución que el agente al encolar).
  * Usa alias de Tickets del POS si está configurado; si no, la primera línea del propósito.
@@ -1226,6 +1252,7 @@ export type PosDocumentPrintKind =
   | "sale"
   | "quotation"
   | "backorder"
+  | "presale"
   | "customerCreditNote"
   | "cashClosing"
   /** Hoja en blanco para anotar montos contados por medio de pago (cierre de caja). */
@@ -1238,6 +1265,7 @@ export const POS_DOCUMENT_PRINT_MODES_CHANGED_EVENT = "flowstore:pos-document-pr
 const LS_POS_DOC_PRINT_SALE = "printPosDocPrintSale";
 const LS_POS_DOC_PRINT_QUOTATION = "printPosDocPrintQuotation";
 const LS_POS_DOC_PRINT_BACKORDER = "printPosDocPrintBackorder";
+const LS_POS_DOC_PRINT_PRESALE = "printPosDocPrintPresale";
 const LS_POS_DOC_PRINT_CUSTOMER_CREDIT_NOTE = "printPosDocPrintCustomerCreditNote";
 const LS_POS_DOC_PRINT_CASH_CLOSING = "printPosDocPrintCashClosing";
 const LS_POS_DOC_PRINT_CASH_COUNT_SHEET = "printPosDocPrintCashCountSheet";
@@ -1247,6 +1275,7 @@ const DEFAULT_POS_DOCUMENT_PRINT_FORMATS: Record<PosDocumentPrintKind, PrintForm
   sale: "ticket_80mm",
   quotation: "ticket_80mm",
   backorder: "ticket_80mm",
+  presale: "ticket_80mm",
   customerCreditNote: "ticket_80mm",
   cashClosing: "ticket_80mm",
   cashCountSheet: "document_a4",
@@ -1291,6 +1320,7 @@ function readPosDocumentPrintFormatRaw(kind: PosDocumentPrintKind): PrintFormat 
     sale: LS_POS_DOC_PRINT_SALE,
     quotation: LS_POS_DOC_PRINT_QUOTATION,
     backorder: LS_POS_DOC_PRINT_BACKORDER,
+    presale: LS_POS_DOC_PRINT_PRESALE,
     customerCreditNote: LS_POS_DOC_PRINT_CUSTOMER_CREDIT_NOTE,
     cashClosing: LS_POS_DOC_PRINT_CASH_CLOSING,
     cashCountSheet: LS_POS_DOC_PRINT_CASH_COUNT_SHEET,
@@ -1307,6 +1337,7 @@ export function readPosDocumentPrintFormatsFromStorage(): Record<PosDocumentPrin
     sale: readPosDocumentPrintFormatRaw("sale"),
     quotation: readPosDocumentPrintFormatRaw("quotation"),
     backorder: readPosDocumentPrintFormatRaw("backorder"),
+    presale: readPosDocumentPrintFormatRaw("presale"),
     customerCreditNote: readPosDocumentPrintFormatRaw("customerCreditNote"),
     cashClosing: readPosDocumentPrintFormatRaw("cashClosing"),
     cashCountSheet: readPosDocumentPrintFormatRaw("cashCountSheet"),
@@ -1324,6 +1355,7 @@ export function readPosDocumentPrintModesFromStorage(): Record<PosDocumentPrintK
     sale: printFormatToLegacyMode(formats.sale),
     quotation: printFormatToLegacyMode(formats.quotation),
     backorder: printFormatToLegacyMode(formats.backorder),
+    presale: printFormatToLegacyMode(formats.presale),
     customerCreditNote: printFormatToLegacyMode(formats.customerCreditNote),
     cashClosing: printFormatToLegacyMode(formats.cashClosing),
     cashCountSheet: printFormatToLegacyMode(formats.cashCountSheet),
@@ -1385,6 +1417,7 @@ export function writePosDocumentPrintFormatsToStorage(
     sale: LS_POS_DOC_PRINT_SALE,
     quotation: LS_POS_DOC_PRINT_QUOTATION,
     backorder: LS_POS_DOC_PRINT_BACKORDER,
+    presale: LS_POS_DOC_PRINT_PRESALE,
     customerCreditNote: LS_POS_DOC_PRINT_CUSTOMER_CREDIT_NOTE,
     cashClosing: LS_POS_DOC_PRINT_CASH_CLOSING,
     cashCountSheet: LS_POS_DOC_PRINT_CASH_COUNT_SHEET,
@@ -1417,8 +1450,10 @@ export function mergePrinterDisplayLabelForFormatIntoPrintExtras(
   extra: Record<string, unknown>,
 ): Record<string, unknown> {
   const format = parsePrintFormat(String(extra.format ?? ""));
-  const lbl = resolvePosPrinterAliasForFormat(format);
-  if (lbl) return { ...extra, printerDisplayLabel: lbl, printerAlias: lbl };
+  if (format) {
+    const lbl = resolvePosPrinterAliasForFormat(format);
+    if (lbl) return { ...extra, printerDisplayLabel: lbl, printerAlias: lbl };
+  }
   const purpose = typeof extra.purpose === "string" ? extra.purpose : "documents";
   return mergePrinterDisplayLabelForPurposeIntoPrintExtras(purpose, extra);
 }

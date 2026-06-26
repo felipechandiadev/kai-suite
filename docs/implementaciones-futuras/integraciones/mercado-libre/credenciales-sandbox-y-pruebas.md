@@ -85,16 +85,16 @@ Además: al menos un método en **eShop → Encargos y envíos** (`/e-shop/fulfi
 
 | Requisito | Notas |
 |-----------|--------|
-| Backend en `http://localhost:3030` | API NestJS |
-| Admin en `http://localhost:4031` | Configuración |
-| eShop en `http://localhost:4034` | Checkout con Bricks |
+| Backend en `http://localhost:5030` | API NestJS |
+| Admin en `http://localhost:5031` | Configuración |
+| eShop en `http://localhost:5034` | Checkout con Bricks |
 | Migración `payment_gateway_intents` | `cd backend && npm run migration:run` |
 | `ESHOP_CHECKOUT_V2=true` en `backend/.env` | Solo para flujo **encargo**; pago online usa `/checkout/prepare` |
 
 Verificar que el checkout vea MP:
 
 ```http
-GET http://localhost:3030/api/e-shop/{slug}/payment-settings
+GET http://localhost:5030/api/e-shop/{slug}/payment-settings
 ```
 
 Respuesta esperada (ejemplo):

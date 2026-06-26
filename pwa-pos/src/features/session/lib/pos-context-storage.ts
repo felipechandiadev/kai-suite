@@ -4,17 +4,21 @@ export const POS_CONTEXT_KEY = "flowstore.pos.context.v1";
 
 export type PosPriceListSnapshot = { id: string; name: string };
 
+export type PosKind = "PRESALE" | "SALE";
+
 export type PosContextV1 = {
   pointOfSaleId: string;
   /** Almacén sala de venta (STORE) del POS: stock mostrado y descuentos de venta. */
   storageId?: string | null;
-  /** Sesión de caja abierta asociada (requerida para registrar ventas en el backend). */
+  /** Sesión de caja abierta (requerida en caja; omitida en preventa). */
   cashSessionId?: string | null;
   pointOfSaleName?: string | null;
   branchName?: string | null;
   branchId?: string | null;
   priceListId?: string | null;
   priceLists?: PosPriceListSnapshot[];
+  posKind?: PosKind;
+  acceptsPresaleTickets?: boolean;
   updatedAt?: string;
 };
 

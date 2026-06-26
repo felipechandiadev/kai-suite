@@ -3,6 +3,7 @@ import type { PosSaleCustomer } from "@/features/customers/types/pos-customer.ty
 import type { BackorderDepositConfig } from "@/features/pos-cart/types/backorder-deposit.types";
 import type {
   LoadedBackorderMeta,
+  LoadedPresaleTicketMeta,
   LoadedReturnSaleMeta,
   PosCartMode,
 } from "@/features/pos-cart/types/pos-cart-mode.types";
@@ -42,6 +43,7 @@ type StoredCart = {
   cartMode?: PosCartMode;
   loadedReturnSale?: LoadedReturnSaleMeta | null;
   loadedBackorder?: LoadedBackorderMeta | null;
+  loadedPresaleTicket?: LoadedPresaleTicketMeta | null;
 };
 
 function parseDiscount(value: unknown): ResolvedLineDiscount | null {
@@ -133,6 +135,26 @@ function parseLoadedBackorder(value: unknown): LoadedBackorderMeta | null {
   };
 }
 
+function parseLoadedPresaleTicket(value: unknown): LoadedPresaleTicketMeta | null {
+  if (!value || typeof value !== "object") return null;
+  const o = value as LoadedPresaleTicketMeta;
+  if (typeof o.id !== "string" || typeof o.code !== "string") return null;
+  const lineMaxQtyByVariantId: Record<string, number> = {};
+  if (o.lineMaxQtyByVariantId && typeof o.lineMaxQtyByVariantId === "object") {
+    for (const [k, v] of Object.entries(o.lineMaxQtyByVariantId)) {
+      const n = Number(v);
+      if (k && Number.isFinite(n) && n > 0) lineMaxQtyByVariantId[k] = n;
+    }
+  }
+  return {
+    id: o.id,
+    code: o.code,
+    total: Number(o.total) || 0,
+    createdAt: typeof o.createdAt === "string" ? o.createdAt : "",
+    lineMaxQtyByVariantId,
+  };
+}
+
 function parseLoadedReturnSale(value: unknown): LoadedReturnSaleMeta | null {
   if (!value || typeof value !== "object") return null;
   const o = value as LoadedReturnSaleMeta;
@@ -168,6 +190,7 @@ export function readCartClient(input: { pointOfSaleId: string; priceListId: stri
   cartMode: PosCartMode;
   loadedReturnSale: LoadedReturnSaleMeta | null;
   loadedBackorder: LoadedBackorderMeta | null;
+  loadedPresaleTicket: LoadedPresaleTicketMeta | null;
 } {
   const empty = {
     lines: [] as PosCartLine[],
@@ -178,6 +201,7 @@ export function readCartClient(input: { pointOfSaleId: string; priceListId: stri
     cartMode: "sale" as PosCartMode,
     loadedReturnSale: null,
     loadedBackorder: null,
+    loadedPresaleTicket: null,
   };
   if (typeof window === "undefined") return empty;
   try {
@@ -242,6 +266,10 @@ export function readCartClient(input: { pointOfSaleId: string; priceListId: stri
       parsed.v === CART_STORAGE_VERSION
         ? parseLoadedBackorder(parsed.loadedBackorder)
         : null;
+    const loadedPresaleTicket =
+      parsed.v === CART_STORAGE_VERSION
+        ? parseLoadedPresaleTicket(parsed.loadedPresaleTicket)
+        : null;
 
     return {
       lines,
@@ -252,6 +280,7 @@ export function readCartClient(input: { pointOfSaleId: string; priceListId: stri
       cartMode,
       loadedReturnSale,
       loadedBackorder,
+      loadedPresaleTicket,
     };
   } catch {
     return empty;
@@ -268,6 +297,7 @@ export function writeCartClient(
   loadedReturnSale: LoadedReturnSaleMeta | null = null,
   encargoModeEnabled = false,
   loadedBackorder: LoadedBackorderMeta | null = null,
+  loadedPresaleTicket: LoadedPresaleTicketMeta | null = null,
 ): void {
   if (typeof window === "undefined") return;
   try {
@@ -288,6 +318,7 @@ export function writeCartClient(
       cartMode,
       loadedReturnSale: cartMode === "return" ? loadedReturnSale : null,
       loadedBackorder: cartMode === "fulfill_backorder" ? loadedBackorder : null,
+      loadedPresaleTicket: loadedPresaleTicket ?? null,
     };
     window.localStorage.setItem(keyFor(input), JSON.stringify(payload));
   } catch {

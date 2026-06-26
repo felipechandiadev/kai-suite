@@ -4,16 +4,18 @@ import { useCallback, useEffect, useState } from "react";
 import {
   DEFAULT_DISPLAY_WSS_PORT,
   DEFAULT_DISPLAY_WS_PORT,
-  DisplayConnection,
   KaiScreenDownloadSection,
-  buildDisplayWebSocketUrl,
   emptyIdleSnapshot,
   readCustomerDisplayFromStorage,
   writeCustomerDisplayToStorage,
   type DisplayStatusPayload,
   type KaiScreenAndroidManifest,
 } from "@flowstore/customer-display-client";
-import { getCustomerDisplayStatus } from "@/features/customer-display/lib/customer-display-publisher";
+import {
+  disconnectCustomerDisplay,
+  getCustomerDisplayStatus,
+  maintainCustomerDisplayConnection,
+} from "@/features/customer-display/lib/customer-display-publisher";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
 import { Button, Switch, TextField } from "@/shared/admin-shared";
 
@@ -68,6 +70,11 @@ export function PosCustomerDisplaySettingsSection({
   const persist = useCallback(
     (patch: Partial<{ enabled: boolean; host: string; port: number; useTls: boolean }>) => {
       writeCustomerDisplayToStorage(patch);
+      if (patch.enabled === false) {
+        disconnectCustomerDisplay();
+        return;
+      }
+      maintainCustomerDisplayConnection(readPosContextClient());
     },
     [],
   );
@@ -91,19 +98,13 @@ export function PosCustomerDisplaySettingsSection({
     }
 
     try {
-      const url = buildDisplayWebSocketUrl(host, port, useTls);
-      const client = new DisplayConnection({
-        url,
-        pointOfSaleId: posId,
-        storeName: ctx?.pointOfSaleName ?? ctx?.branchName ?? undefined,
-        appLabel: "Punto de venta (prueba)",
-        onDisplayStatus: (status) => {
-          setAgentStatus(status);
-        },
-      });
-      client.connect();
-      await new Promise((r) => setTimeout(r, 500));
-      client.publishSnapshot({
+      const conn = maintainCustomerDisplayConnection(ctx);
+      if (!conn) {
+        setTestMessage("Active Kai Screen en el POS y verifique que el punto de venta esté configurado.");
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 800));
+      conn.publishSnapshot({
         ...emptyIdleSnapshot({
           pointOfSaleId: posId,
           storeName: ctx?.pointOfSaleName ?? undefined,
@@ -121,8 +122,6 @@ export function PosCustomerDisplaySettingsSection({
         total: 1990,
         itemCount: 1,
       });
-      await new Promise((r) => setTimeout(r, 2500));
-      client.disconnect();
       setTestMessage((prev) =>
         prev
           ? `${prev} Si ves «Producto de prueba» en la pantalla del cliente, está OK.`

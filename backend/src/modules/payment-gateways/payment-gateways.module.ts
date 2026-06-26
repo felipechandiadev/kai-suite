@@ -9,6 +9,7 @@ import { PaymentGatewayIntentService } from './application/payment-gateway-inten
 import { MercadoPagoWebhookService } from './application/mercado-pago-webhook.service';
 import { MercadoPagoPointService } from './application/mercado-pago-point.service';
 import { MercadoPagoCheckoutService } from './application/mercado-pago-checkout.service';
+import { MercadoPagoEshopOrderSyncService } from './application/mercado-pago-eshop-order-sync.service';
 import { MercadoPagoSalePaymentService } from './application/mercado-pago-sale-payment.service';
 import { MercadoPagoWebhookController } from './presentation/mercado-pago-webhook.controller';
 import { MercadoPagoPosController } from './presentation/mercado-pago-pos.controller';
@@ -31,6 +32,7 @@ import { MercadoPagoEshopController } from './presentation/mercado-pago-eshop.co
     MercadoPagoWebhookService,
     MercadoPagoPointService,
     MercadoPagoCheckoutService,
+    MercadoPagoEshopOrderSyncService,
     MercadoPagoSalePaymentService,
   ],
   exports: [

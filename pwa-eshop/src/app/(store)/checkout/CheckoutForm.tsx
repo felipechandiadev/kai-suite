@@ -13,6 +13,7 @@ import {
   submitCheckoutAction,
 } from "@/features/e-shop-checkout/actions/checkout.action";
 import { CheckoutPaymentBrick } from "./CheckoutPaymentBrick";
+import { MercadoPagoLogo } from "@/shared/components/MercadoPagoLogo";
 import type { EShopFulfillmentMethodPublic } from "@/features/e-shop-checkout/types/checkout.types";
 import {
   checkUsernameAvailabilityAction,
@@ -74,6 +75,7 @@ export function CheckoutForm({
   const [onlinePaymentEnabled, setOnlinePaymentEnabled] = useState(false);
   const [paymentMode, setPaymentMode] = useState<"online" | "coordinate">("coordinate");
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [paymentPreferenceId, setPaymentPreferenceId] = useState<string | null>(null);
   const [paymentPublicKey, setPaymentPublicKey] = useState<string | null>(null);
   const [payableTotal, setPayableTotal] = useState(0);
   const [pendingDoc, setPendingDoc] = useState("");
@@ -202,11 +204,12 @@ export function CheckoutForm({
 
       if (onlinePaymentEnabled && paymentMode === "online") {
         const prepared = await prepareCheckoutAction(checkoutBody);
-        if (!prepared.paymentIntentId || !prepared.publicKey) {
+        if (!prepared.paymentIntentId || !prepared.publicKey || !prepared.preferenceId) {
           setError("Pago en línea no disponible. Elija coordinar pago después.");
           return;
         }
         setPaymentIntentId(prepared.paymentIntentId);
+        setPaymentPreferenceId(prepared.preferenceId);
         setPaymentPublicKey(prepared.publicKey);
         setPayableTotal(prepared.payableTotal ?? estimatedTotal);
         setPendingDoc(prepared.documentNumber);
@@ -275,10 +278,17 @@ export function CheckoutForm({
         </p>
       ) : null}
 
-      <ol className="flex gap-2 text-xs text-muted-foreground">
-        {(["contact", "delivery", "review"] as const).map((s, i) => (
-          <li key={s} className={step === s ? "font-semibold text-foreground" : ""}>
-            {i + 1}. {s === "contact" ? "Contacto" : s === "delivery" ? "Entrega" : "Resumen"}
+      <ol className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+        {(
+          [
+            { id: "contact", label: "Contacto" },
+            { id: "delivery", label: "Entrega" },
+            { id: "review", label: "Resumen" },
+            { id: "payment", label: "Pago" },
+          ] as const
+        ).map((s, i) => (
+          <li key={s.id} className={step === s.id ? "font-semibold text-foreground" : ""}>
+            {i + 1}. {s.label}
           </li>
         ))}
       </ol>
@@ -490,7 +500,11 @@ export function CheckoutForm({
                   checked={paymentMode === "online"}
                   onChange={() => setPaymentMode("online")}
                 />
-                Pagar ahora (Mercado Pago)
+                <span className="flex flex-wrap items-center gap-2">
+                  Pagar ahora con
+                  <MercadoPagoLogo width={130} />
+                  <span className="text-muted-foreground">(cuenta MP o tarjeta)</span>
+                </span>
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -510,9 +524,13 @@ export function CheckoutForm({
         </div>
       ) : null}
 
-      {step === "payment" && paymentIntentId && paymentPublicKey ? (
+      {step === "payment" &&
+      paymentIntentId &&
+      paymentPublicKey &&
+      paymentPreferenceId ? (
         <CheckoutPaymentBrick
           publicKey={paymentPublicKey}
+          preferenceId={paymentPreferenceId}
           intentId={paymentIntentId}
           amount={payableTotal}
           payerEmail={email}

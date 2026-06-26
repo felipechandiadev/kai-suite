@@ -233,6 +233,15 @@ describe('SalesFromSessionService — PR5 promotions integration', () => {
       companiesService as any,
       promotionsService as any,
       variantQuantityConversion as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
     );
 
     return {

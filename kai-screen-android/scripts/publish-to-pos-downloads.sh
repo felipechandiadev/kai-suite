@@ -131,7 +131,7 @@ EOF
 ls -lh "$DEST"
 echo ""
 echo "Manifest: $MANIFEST_FILE"
-echo "URL local: http://localhost:4032/downloads/${APK_NAME}"
+echo "URL local: http://localhost:5032/downloads/${APK_NAME}"
 echo ""
 echo "Commitear solo el manifest (el APK queda fuera de git):"
 echo "  git add pwa-pos/public/downloads/kai-screen-android.manifest.json kai-screen-android/version.properties"

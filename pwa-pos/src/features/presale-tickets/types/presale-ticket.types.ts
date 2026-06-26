@@ -1,0 +1,43 @@
+export type PresaleTicketLine = {
+  id: string;
+  lineNumber: number;
+  productId: string | null;
+  productVariantId: string | null;
+  productName: string;
+  productSku: string | null;
+  variantName: string | null;
+  quantity: number;
+  unitPrice: number;
+  discountAmount: number;
+  taxRate: number;
+  taxAmount: number;
+  subtotal: number;
+  total: number;
+  unitOfMeasure: string | null;
+  availableStock: number | null;
+  availableStockBase: number | null;
+  saleUnitSymbol: string | null;
+  stockBaseUnitSymbol: string | null;
+  stockBaseQtyPerCountSaleUnit: number | null;
+  unitAllowDecimals: boolean;
+};
+
+export type PresaleTicketDetail = {
+  id: string;
+  code: string;
+  status: string;
+  presalePointOfSaleId: string;
+  branchId: string;
+  priceListId: string;
+  customerId: string | null;
+  customerName: string | null;
+  customerDocument: string | null;
+  subtotal: number;
+  taxAmount: number;
+  discountAmount: number;
+  total: number;
+  branchName: string | null;
+  pointOfSaleName: string | null;
+  createdAt: string;
+  lines: PresaleTicketLine[];
+};

@@ -23,3 +23,12 @@ export type LoadedBackorderMeta = {
   /** Cantidad máxima por variante según la reserva. */
   lineMaxQtyByVariantId: Record<string, number>;
 };
+
+/** Ticket de preventa cargado en caja para cobro. */
+export type LoadedPresaleTicketMeta = {
+  id: string;
+  code: string;
+  total: number;
+  createdAt: string;
+  lineMaxQtyByVariantId: Record<string, number>;
+};

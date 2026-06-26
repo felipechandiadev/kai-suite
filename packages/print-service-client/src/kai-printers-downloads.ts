@@ -7,6 +7,21 @@ export type KaiPrintersAndroidManifest = {
   builtAt: string;
 };
 
+export type KaiPrintersDesktopManifest = {
+  version: string;
+  filename: string;
+  builtAt: string;
+  format?: string;
+  arch?: string;
+  note?: string;
+};
+
+export type KaiPrintersDownloadsManifests = {
+  android?: KaiPrintersAndroidManifest;
+  windows?: KaiPrintersDesktopManifest;
+  macos?: KaiPrintersDesktopManifest;
+};
+
 export type KaiPrintersDownloadOffer = {
   platform: KaiPrintersPlatform;
   title: string;
@@ -16,37 +31,53 @@ export type KaiPrintersDownloadOffer = {
   version?: string;
 };
 
-/** Debe coincidir con pwa-pos/public/downloads/kai-printers-android.manifest.json */
+/** Fallback si falta manifest en public/downloads (SSR / build). */
 export const KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT: KaiPrintersAndroidManifest = {
-  version: "1.1.4",
-  versionCode: 8,
-  filename: "kai-printers-android-1.1.4.apk",
-  builtAt: "2026-06-24T12:48:57Z",
+  version: "1.1.8",
+  versionCode: 14,
+  filename: "kai-printers-android-1.1.8.apk",
+  builtAt: "2026-06-25T15:11:25Z",
 };
 
-const OFFERS: KaiPrintersDownloadOffer[] = [
+export const KAI_PRINTERS_WINDOWS_MANIFEST_DEFAULT: KaiPrintersDesktopManifest = {
+  version: "1.0.2",
+  filename: "kai-printers-windows-1.0.2-x64-portable.zip",
+  builtAt: "2026-06-24T00:00:00Z",
+  format: "zip-portable",
+  note: "ZIP portable (KaiPrinters.exe + SumatraPDF.exe).",
+};
+
+export const KAI_PRINTERS_MACOS_MANIFEST_DEFAULT: KaiPrintersDesktopManifest = {
+  version: "1.0.2",
+  filename: "kai-printers-macos-1.0.2-aarch64.dmg",
+  builtAt: "2026-06-24T00:00:00Z",
+  format: "dmg",
+  arch: "aarch64",
+  note: "Abrir el .dmg y arrastrar Kai Printers a Aplicaciones.",
+};
+
+const OFFER_META: Omit<KaiPrintersDownloadOffer, "filename" | "version">[] = [
   {
     platform: "android",
     title: "Kai Printers para Android",
-    description: "Tablet o PC en la red local. Mismo dispositivo que el POS → host 127.0.0.1; otro equipo → IP LAN.",
-    filename: KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT.filename,
-    version: KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT.version,
+    description:
+      "Tablet o PC en la red local. Mismo dispositivo que el POS → host 127.0.0.1; otro equipo → IP LAN.",
     installHint:
       "Tras descargar, abrí el APK, permití «instalar apps desconocidas» si el sistema lo pide y completá permisos en Kai Printers.",
   },
   {
     platform: "windows",
     title: "Kai Printers para Windows",
-    description: "PC de caja con el POS en el navegador.",
-    filename: "kai-printers-windows.exe",
-    installHint: "Ejecutá el instalador y dejá Kai Printers activo en la bandeja del sistema.",
+    description: "PC de caja con el POS en el navegador (ZIP portable x64).",
+    installHint:
+      "Descargá el ZIP, extraé la carpeta y ejecutá KaiPrinters.exe (debe quedar junto a SumatraPDF.exe).",
   },
   {
     platform: "macos",
     title: "Kai Printers para macOS",
     description: "Mac de caja con el POS en el navegador.",
-    filename: "kai-printers-macos.dmg",
-    installHint: "Abrí el .dmg, arrastrá Kai Printers a Aplicaciones y permití el arranque al iniciar sesión.",
+    installHint:
+      "Abrí el .dmg, arrastrá Kai Printers a Aplicaciones y permití el arranque al iniciar sesión.",
   },
 ];
 
@@ -56,7 +87,11 @@ const ENV_BY_PLATFORM: Record<KaiPrintersPlatform, string> = {
   macos: "NEXT_PUBLIC_KAI_PRINTERS_MACOS_URL",
 };
 
-const MANIFEST_PATH = "/downloads/kai-printers-android.manifest.json";
+const MANIFEST_PATHS = {
+  android: "/downloads/kai-printers-android.manifest.json",
+  windows: "/downloads/kai-printers-windows.manifest.json",
+  macos: "/downloads/kai-printers-macos.manifest.json",
+} as const;
 
 function readEnv(key: string): string | undefined {
   if (typeof process !== "undefined" && process.env?.[key]?.trim()) {
@@ -71,49 +106,99 @@ export function androidManifestFilename(
   return manifest.filename;
 }
 
-/** Carga el manifest publicado por el script de release (cliente / SSR fetch). */
+async function fetchManifest<T>(path: string, fallback: T): Promise<T> {
+  if (typeof fetch === "undefined") return fallback;
+  try {
+    const res = await fetch(path, { cache: "no-store" });
+    if (!res.ok) return fallback;
+    const data = (await res.json()) as T;
+    const row = data as { filename?: string; version?: string };
+    if (!row?.filename || !row?.version) return fallback;
+    return data;
+  } catch {
+    return fallback;
+  }
+}
+
+/** Carga el manifest Android publicado (cliente / SSR fetch). */
 export async function fetchKaiPrintersAndroidManifest(
   baseUrl = "",
 ): Promise<KaiPrintersAndroidManifest> {
-  if (typeof fetch === "undefined") {
-    return KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT;
-  }
-  try {
-    const res = await fetch(`${baseUrl}${MANIFEST_PATH}`, { cache: "no-store" });
-    if (!res.ok) return KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT;
-    const data = (await res.json()) as KaiPrintersAndroidManifest;
-    if (!data?.filename || !data?.version) return KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT;
-    return data;
-  } catch {
-    return KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT;
-  }
+  return fetchManifest(
+    `${baseUrl}${MANIFEST_PATHS.android}`,
+    KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT,
+  );
 }
 
-/** URL absoluta o ruta bajo el origen de la PWA (p. ej. `/downloads/kai-printers-android-1.1.0.apk`). */
+export async function fetchKaiPrintersWindowsManifest(
+  baseUrl = "",
+): Promise<KaiPrintersDesktopManifest> {
+  return fetchManifest(
+    `${baseUrl}${MANIFEST_PATHS.windows}`,
+    KAI_PRINTERS_WINDOWS_MANIFEST_DEFAULT,
+  );
+}
+
+export async function fetchKaiPrintersMacosManifest(
+  baseUrl = "",
+): Promise<KaiPrintersDesktopManifest> {
+  return fetchManifest(
+    `${baseUrl}${MANIFEST_PATHS.macos}`,
+    KAI_PRINTERS_MACOS_MANIFEST_DEFAULT,
+  );
+}
+
+export async function fetchKaiPrintersDownloadsManifests(
+  baseUrl = "",
+): Promise<KaiPrintersDownloadsManifests> {
+  const [android, windows, macos] = await Promise.all([
+    fetchKaiPrintersAndroidManifest(baseUrl),
+    fetchKaiPrintersWindowsManifest(baseUrl),
+    fetchKaiPrintersMacosManifest(baseUrl),
+  ]);
+  return { android, windows, macos };
+}
+
+function manifestForPlatform(
+  platform: KaiPrintersPlatform,
+  manifests: KaiPrintersDownloadsManifests,
+): KaiPrintersAndroidManifest | KaiPrintersDesktopManifest {
+  if (platform === "android") {
+    return manifests.android ?? KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT;
+  }
+  if (platform === "windows") {
+    return manifests.windows ?? KAI_PRINTERS_WINDOWS_MANIFEST_DEFAULT;
+  }
+  return manifests.macos ?? KAI_PRINTERS_MACOS_MANIFEST_DEFAULT;
+}
+
+/** URL absoluta o ruta bajo el origen de la PWA (p. ej. `/downloads/...`). */
 export function resolveKaiPrintersDownloadUrl(
   platform: KaiPrintersPlatform,
-  manifest: KaiPrintersAndroidManifest = KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT,
+  manifests: KaiPrintersDownloadsManifests = {},
 ): string | null {
-  const offer = OFFERS.find((o) => o.platform === platform);
-  if (!offer) return null;
-
   const fromEnv = readEnv(ENV_BY_PLATFORM[platform]);
   if (fromEnv) return fromEnv;
 
-  if (platform === "android") {
-    return `/downloads/${manifest.filename}`;
-  }
-
-  return null;
+  const manifest = manifestForPlatform(platform, manifests);
+  if (!manifest?.filename) return null;
+  return `/downloads/${manifest.filename}`;
 }
 
 export function listKaiPrintersDownloadOffers(
-  manifest: KaiPrintersAndroidManifest = KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT,
+  manifests: KaiPrintersDownloadsManifests = {},
 ): Array<KaiPrintersDownloadOffer & { href: string | null }> {
-  return OFFERS.map((offer) => ({
-    ...offer,
-    filename: offer.platform === "android" ? manifest.filename : offer.filename,
-    version: offer.platform === "android" ? manifest.version : offer.version,
-    href: resolveKaiPrintersDownloadUrl(offer.platform, manifest),
-  }));
+  return OFFER_META.map((meta) => {
+    const manifest = manifestForPlatform(meta.platform, manifests);
+    return {
+      ...meta,
+      filename: manifest.filename,
+      version: manifest.version,
+      installHint:
+        "note" in manifest && typeof manifest.note === "string" && manifest.note.trim()
+          ? manifest.note
+          : meta.installHint,
+      href: resolveKaiPrintersDownloadUrl(meta.platform, manifests),
+    };
+  });
 }

@@ -1,10 +1,18 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT,
+  KAI_PRINTERS_MACOS_MANIFEST_DEFAULT,
+  KAI_PRINTERS_WINDOWS_MANIFEST_DEFAULT,
   androidManifestFilename,
   listKaiPrintersDownloadOffers,
   resolveKaiPrintersDownloadUrl,
 } from "./kai-printers-downloads";
+
+const SAMPLE_MANIFESTS = {
+  android: KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT,
+  windows: KAI_PRINTERS_WINDOWS_MANIFEST_DEFAULT,
+  macos: KAI_PRINTERS_MACOS_MANIFEST_DEFAULT,
+};
 
 describe("resolveKaiPrintersDownloadUrl", () => {
   afterEach(() => {
@@ -14,30 +22,39 @@ describe("resolveKaiPrintersDownloadUrl", () => {
   });
 
   it("defaults Android to versioned APK from manifest", () => {
-    expect(resolveKaiPrintersDownloadUrl("android")).toBe(
-      "/downloads/kai-printers-android-1.1.4.apk",
+    expect(resolveKaiPrintersDownloadUrl("android", SAMPLE_MANIFESTS)).toBe(
+      "/downloads/kai-printers-android-1.1.8.apk",
+    );
+  });
+
+  it("defaults Windows and macOS from manifests", () => {
+    expect(resolveKaiPrintersDownloadUrl("windows", SAMPLE_MANIFESTS)).toBe(
+      "/downloads/kai-printers-windows-1.0.2-x64-portable.zip",
+    );
+    expect(resolveKaiPrintersDownloadUrl("macos", SAMPLE_MANIFESTS)).toBe(
+      "/downloads/kai-printers-macos-1.0.2-aarch64.dmg",
     );
   });
 
   it("uses env override when set", () => {
     process.env.NEXT_PUBLIC_KAI_PRINTERS_ANDROID_URL =
-      "https://pos.example.cl/downloads/kai-printers-android-1.1.4.apk";
-    expect(resolveKaiPrintersDownloadUrl("android")).toBe(
-      "https://pos.example.cl/downloads/kai-printers-android-1.1.4.apk",
+      "https://pos.example.cl/downloads/kai-printers-android-1.1.8.apk";
+    expect(resolveKaiPrintersDownloadUrl("android", SAMPLE_MANIFESTS)).toBe(
+      "https://pos.example.cl/downloads/kai-printers-android-1.1.8.apk",
     );
   });
 
-  it("returns null for desktop without env", () => {
-    expect(resolveKaiPrintersDownloadUrl("windows")).toBeNull();
-    expect(resolveKaiPrintersDownloadUrl("macos")).toBeNull();
-  });
-
   it("listKaiPrintersDownloadOffers includes href and version per platform", () => {
-    const offers = listKaiPrintersDownloadOffers();
-    const android = offers.find((o) => o.platform === "android");
-    expect(android?.href).toBe("/downloads/kai-printers-android-1.1.4.apk");
-    expect(android?.version).toBe("1.1.4");
-    expect(offers.find((o) => o.platform === "windows")?.href).toBeNull();
+    const offers = listKaiPrintersDownloadOffers(SAMPLE_MANIFESTS);
+    expect(offers.find((o) => o.platform === "android")?.href).toBe(
+      "/downloads/kai-printers-android-1.1.8.apk",
+    );
+    expect(offers.find((o) => o.platform === "windows")?.href).toBe(
+      "/downloads/kai-printers-windows-1.0.2-x64-portable.zip",
+    );
+    expect(offers.find((o) => o.platform === "macos")?.href).toBe(
+      "/downloads/kai-printers-macos-1.0.2-aarch64.dmg",
+    );
   });
 
   it("androidManifestFilename reads from manifest", () => {

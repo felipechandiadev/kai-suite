@@ -34,6 +34,11 @@ import { EShopOrderNotificationService } from './eshop-order-notification.servic
 import { KaiMailClient } from '@shared/mail/kai-mail.client';
 import { BackorderRegistrationService } from '@modules/transactions/application/backorder-registration.service';
 import { PaymentGatewayIntentService } from '@modules/payment-gateways/application/payment-gateway-intent.service';
+import { MercadoPagoClient } from '@modules/payment-gateways/application/mercado-pago.client';
+import {
+  buildEshopCheckoutBackUrls,
+  resolveMpWebhookNotificationUrl,
+} from '@modules/payment-gateways/application/mercado-pago-eshop-urls';
 import { Transaction } from '@modules/transactions/domain/transaction.entity';
 
 export type CheckoutOrderBody = {
@@ -72,6 +77,7 @@ export class EShopCheckoutOrderService {
     private readonly customerUpsert: EShopCustomerUpsertService,
     private readonly backorderRegistration: BackorderRegistrationService,
     private readonly paymentGatewayIntents: PaymentGatewayIntentService,
+    private readonly mpClient: MercadoPagoClient,
     @InjectRepository(Transaction)
     private readonly transactionRepo: Repository<Transaction>,
     @Optional() private readonly orderNotifications?: EShopOrderNotificationService,
@@ -270,6 +276,7 @@ export class EShopCheckoutOrderService {
     let paymentIntent: Awaited<
       ReturnType<PaymentGatewayIntentService['createIntent']>
     > | null = null;
+    let preferenceId: string | null = null;
     if (wantsOnline) {
       paymentIntent = await this.paymentGatewayIntents.createIntent({
         companyId: store.companyId,
@@ -277,6 +284,29 @@ export class EShopCheckoutOrderService {
         amount: payableTotal,
         transactionId: tx.id,
       });
+      if (!mpSettings.accessToken?.trim()) {
+        throw new BadRequestException('Falta Access Token de Mercado Pago');
+      }
+      const preference = await this.mpClient.createCheckoutPreference({
+        accessToken: mpSettings.accessToken,
+        environment: mpSettings.environment,
+        title: `Pedido ${tx.documentNumber ?? tx.id.slice(0, 8)}`,
+        unitPrice: payableTotal,
+        externalReference: paymentIntent.externalReference,
+        payerEmail: body.customerEmail.trim(),
+        notificationUrl: resolveMpWebhookNotificationUrl(),
+        backUrls: buildEshopCheckoutBackUrls(),
+      });
+      preferenceId = preference.id?.trim() ?? null;
+      if (!preferenceId) {
+        throw new BadRequestException(
+          'Mercado Pago no devolvió preferenceId para el checkout',
+        );
+      }
+      paymentIntent = await this.paymentGatewayIntents.saveMpPreferenceId(
+        paymentIntent,
+        preferenceId,
+      );
       const meta = { ...(tx.metadata ?? {}) } as Record<string, unknown>;
       const eShopOrder = {
         ...((meta.eShopOrder ?? {}) as TransactionEShopOrderMetadata),
@@ -345,6 +375,7 @@ export class EShopCheckoutOrderService {
       shortageVariantIds: shortages.map((s) => s.variantId),
       paymentMode: wantsOnline ? 'online' : 'coordinate',
       paymentIntentId: paymentIntent?.id ?? null,
+      preferenceId,
       publicKey: wantsOnline ? mpSettings.publicKey : null,
       mercadoPagoEnvironment: wantsOnline ? mpSettings.environment : null,
     };

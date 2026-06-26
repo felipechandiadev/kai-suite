@@ -11,6 +11,7 @@ import {
   Select,
   TextField,
 } from "@/shared/admin-shared";
+import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
 import { usePosCart } from "@/features/pos-cart/PosCartProvider";
 import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
 import { usePosTabletDensity } from "@/shared/hooks/usePosTabletDensity";
@@ -41,19 +42,21 @@ import PosCustomerSearchPanel, {
   type PosCustomerSearchInitial,
 } from "@/features/customers/ui/PosCustomerSearchPanel";
 import { PosCreateCustomerDialog } from "@/features/customers/ui/PosCreateCustomerDialog";
-import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
 import type { EffectivePaymentMethod } from "@/features/pos-payment-methods/types/effective-payment-method.types";
 import { getEffectivePosPaymentMethodsAction } from "@/features/pos-payment-methods/actions/payment-methods-pos.action";
+import {
+  findCompanyBankAccount,
+  printBankAccountTicketAgent,
+} from "@/features/pos-payment-methods/lib/bank-account-ticket-agent";
 import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
 import {
   createMpPointIntentAction,
   getMpPointIntentAction,
   getPosMercadoPagoSettingsAction,
 } from "@/features/mp-point/actions/mp-point.action";
-import {
-  getInternalCustomerCreditContextAction,
-  type InternalCustomerCreditContext,
-} from "@/features/company/actions/company-internal-customer-credit.action";
+import { MercadoPagoLogo } from "@/shared/components/MercadoPagoLogo";
+import { getInternalCustomerCreditContextAction } from "@/features/company/actions/company-internal-customer-credit.action";
+import type { InternalCustomerCreditContext } from "@/features/company/types/company-internal-customer-credit.types";
 import type { CompanyDetails } from "@/features/company/infrastructure/company.request";
 import { SaveAsQuotationDialog } from "@/app/(pos)/pos/ui/SaveAsQuotationDialog";
 import { requestPosProductSearchFocus } from "@/features/pos-products/lib/pos-product-search-focus";
@@ -188,6 +191,8 @@ type PosPaymentMethodCardProps = {
   onEditInternalCredit?: () => void;
   /** Layout desktop (tablet POS / ancho amplio): cheque en 2 columnas. */
   desktopLayout?: boolean;
+  bankAccountPrintLoading?: boolean;
+  onPrintBankAccount?: () => void;
 };
 
 /** Card de medio de pago: nombre arriba; monto y acciones en la fila siguiente. */
@@ -212,6 +217,8 @@ function PosPaymentMethodCard({
   planSubtitle = null,
   onEditInternalCredit,
   desktopLayout = false,
+  bankAccountPrintLoading = false,
+  onPrintBankAccount,
 }: PosPaymentMethodCardProps) {
   const amountValue = String(Math.max(0, Math.round(p.amount)));
   const isInternalCreditLine = p.type === "INTERNAL_CREDIT";
@@ -316,15 +323,33 @@ function PosPaymentMethodCard({
       </div>
       {p.type === "TRANSFER" && bankAccountOptions.length > 0 ? (
         <div className="grid grid-cols-1 gap-2">
-          <Select
-            label="Cuenta bancaria destino"
-            placeholder="Cuenta bancaria destino"
-            value={p.bankAccountKey?.trim() ? p.bankAccountKey.trim() : null}
-            onChange={(id) => onUpdateBankAccountKey(p.id, id ? String(id) : "")}
-            options={bankAccountOptions}
-            alwaysShowLabel
-            data-test-id={`pos-payment-transfer-account-${p.id}`}
-          />
+          <div className="flex items-end gap-2">
+            <div className="min-w-0 flex-1">
+              <Select
+                label="Cuenta bancaria destino"
+                placeholder="Cuenta bancaria destino"
+                value={p.bankAccountKey?.trim() ? p.bankAccountKey.trim() : null}
+                onChange={(id) => onUpdateBankAccountKey(p.id, id ? String(id) : "")}
+                options={bankAccountOptions}
+                alwaysShowLabel
+                data-test-id={`pos-payment-transfer-account-${p.id}`}
+              />
+            </div>
+            {onPrintBankAccount && p.bankAccountKey?.trim() ? (
+              <IconButton
+                icon="Printer"
+                variant="basicSecondary"
+                size="md"
+                className="mb-0.5 shrink-0"
+                ariaLabel="Imprimir datos de la cuenta"
+                title="Imprimir datos de la cuenta (ticket)"
+                disabled={confirmLoading || bankAccountPrintLoading}
+                isLoading={bankAccountPrintLoading}
+                onClick={onPrintBankAccount}
+                data-test-id={`pos-payment-print-bank-account-${p.id}`}
+              />
+            ) : null}
+          </div>
         </div>
       ) : null}
       {p.creditNoteTransactionId || p.backorderTransactionId ? (
@@ -483,6 +508,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
     isFulfillBackorderMode,
     loadedReturnSale,
     loadedBackorder,
+    loadedPresaleTicket,
     exitReturnMode,
     exitFulfillBackorderMode,
     quotationsEnabled,
@@ -564,6 +590,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
   const [bankAccountOptions, setBankAccountOptions] = useState<
     Array<{ id: string; label: string }>
   >([]);
+  const [bankAccountPrintLineId, setBankAccountPrintLineId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -801,6 +828,13 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
       setDraftBankAccountKey("");
     }
   }, [draftOptionId, methodsById]);
+
+  useEffect(() => {
+    const ctx = readPosContextClient();
+    if (ctx?.posKind === "PRESALE") {
+      router.replace("/pos");
+    }
+  }, [router]);
 
   useEffect(() => {
     if (!cart.ready) return;
@@ -1505,6 +1539,47 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
       );
     },
     [setPayments],
+  );
+
+  const handlePrintBankAccount = useCallback(
+    async (lineId: string) => {
+      const line = payments.find((p) => p.id === lineId);
+      const key = line?.bankAccountKey?.trim();
+      if (!line || !key) {
+        setPaymentMethodsAlert("Selecciona una cuenta bancaria para imprimir.");
+        return;
+      }
+      const account = findCompanyBankAccount(companyDetails, key);
+      if (!account) {
+        setPaymentMethodsAlert("No se encontraron los datos de la cuenta bancaria.");
+        return;
+      }
+      const cfg = line.companyPaymentMethodId
+        ? methodsById.get(line.companyPaymentMethodId)
+        : null;
+      const paymentMethodLabel = cfg?.label ?? paymentMethodLabelEs(line.type);
+      setBankAccountPrintLineId(lineId);
+      setPaymentMethodsAlert("");
+      try {
+        const res = await printBankAccountTicketAgent({
+          accountKey: key,
+          bankName: account.bankName,
+          accountType: account.accountType,
+          accountNumber: account.accountNumber,
+          accountHolderName: account.accountHolderName,
+          notes: account.notes,
+          isPrimary: account.isPrimary,
+          paymentMethodLabel,
+          company: companyDetails,
+        });
+        if (!res.ok) {
+          setPaymentMethodsAlert(res.message);
+        }
+      } finally {
+        setBankAccountPrintLineId(null);
+      }
+    },
+    [payments, companyDetails, methodsById],
   );
 
   const updatePaymentLineCheckField = useCallback(
@@ -2347,6 +2422,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
             fulfillBackorderId: isFulfillBackorderMode
               ? loadedBackorder?.id ?? null
               : null,
+            fulfillPresaleTicketId: loadedPresaleTicket?.id ?? null,
             loadedQuotation: cart.loadedQuotation,
           }),
         );
@@ -2867,7 +2943,14 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
                 onClick={() => void collectWithMpPoint()}
                 data-test-id="pos-payment-mp-point"
               >
-                {mpPointBusy ? "Point…" : "Cobrar con Point"}
+                {mpPointBusy ? (
+                  "Point…"
+                ) : (
+                  <span className="inline-flex items-center gap-2">
+                    Cobrar con
+                    <MercadoPagoLogo width={110} />
+                  </span>
+                )}
               </Button>
             ) : null}
             <h2 className="text-sm font-semibold text-foreground">Métodos de pago</h2>
@@ -2946,6 +3029,12 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
                   onUpdateReference={updatePaymentLineReference}
                   onUpdateCheckField={updatePaymentLineCheckField}
                   desktopLayout={!compactLayout}
+                  bankAccountPrintLoading={bankAccountPrintLineId === p.id}
+                  onPrintBankAccount={
+                    p.type === "TRANSFER" && p.bankAccountKey?.trim()
+                      ? () => void handlePrintBankAccount(p.id)
+                      : undefined
+                  }
                 />
               );
             })}

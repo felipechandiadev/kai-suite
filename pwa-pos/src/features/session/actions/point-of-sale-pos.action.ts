@@ -46,6 +46,10 @@ function normalizePriceLists(raw: unknown): PosPriceListSnapshot[] {
   return out;
 }
 
+function parsePosKind(raw: Record<string, unknown>): "PRESALE" | "SALE" {
+  return raw.kind === "PRESALE" ? "PRESALE" : "SALE";
+}
+
 export async function fetchPointOfSalePriceListsAction(pointOfSaleId: string): Promise<
   | {
       success: true;
@@ -55,6 +59,8 @@ export async function fetchPointOfSalePriceListsAction(pointOfSaleId: string): P
       branchName: string | null;
       storageId: string | null;
       pointOfSaleName: string | null;
+      posKind: "PRESALE" | "SALE";
+      acceptsPresaleTickets: boolean;
     }
   | {
       success: false;
@@ -64,6 +70,8 @@ export async function fetchPointOfSalePriceListsAction(pointOfSaleId: string): P
       branchName: null;
       storageId: null;
       pointOfSaleName: null;
+      posKind: "SALE";
+      acceptsPresaleTickets: false;
     }
 > {
   const id = pointOfSaleId?.trim();
@@ -76,6 +84,8 @@ export async function fetchPointOfSalePriceListsAction(pointOfSaleId: string): P
       branchName: null,
       storageId: null,
       pointOfSaleName: null,
+      posKind: "SALE",
+      acceptsPresaleTickets: false,
     };
   }
 
@@ -89,6 +99,8 @@ export async function fetchPointOfSalePriceListsAction(pointOfSaleId: string): P
       branchName: null,
       storageId: null,
       pointOfSaleName: null,
+      posKind: "SALE",
+      acceptsPresaleTickets: false,
     };
   }
 
@@ -99,5 +111,12 @@ export async function fetchPointOfSalePriceListsAction(pointOfSaleId: string): P
       ? String(res.pointOfSale.defaultPriceListId).trim() || null
       : null;
 
-  return { success: true, priceLists, defaultPriceListId, ...posFields };
+  return {
+    success: true,
+    priceLists,
+    defaultPriceListId,
+    posKind: parsePosKind(res.pointOfSale),
+    acceptsPresaleTickets: res.pointOfSale.acceptsPresaleTickets === true,
+    ...posFields,
+  };
 }

@@ -105,7 +105,7 @@ export function EShopCartDrawer() {
           </div>
           <Link href="/checkout" onClick={closeDrawer}>
             <Button variant="primary" className="w-full">
-              Ir a checkout
+              Procesar pago
             </Button>
           </Link>
         </div>

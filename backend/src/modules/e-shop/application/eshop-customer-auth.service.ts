@@ -20,7 +20,7 @@ const MIN_PASSWORD_LENGTH = 8;
 
 function buildEshopVerificationUrl(token: string): string {
   const base = (
-    process.env.ESHOP_PUBLIC_SITE_URL?.trim() || 'http://localhost:4034'
+    process.env.ESHOP_PUBLIC_SITE_URL?.trim() || 'http://localhost:5034'
   ).replace(/\/$/, '');
   return `${base}/cuenta/verificar-email?token=${encodeURIComponent(token)}`;
 }

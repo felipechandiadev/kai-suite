@@ -4,8 +4,6 @@ import { CompaniesQuotationsRequest } from "../infrastructure/companies-quotatio
 import type { CompanyQuotationSettings } from "../types/company-quotations.types";
 import { DEFAULT_COMPANY_QUOTATION_SETTINGS } from "../types/company-quotations.types";
 
-export type { CompanyQuotationSettings };
-
 /** Configuración de cotizaciones de la empresa activa. Fail-closed si falla la carga. */
 export async function getCompanyQuotationSettingsAction(): Promise<CompanyQuotationSettings> {
   const res = await CompaniesQuotationsRequest.getForActiveCompany();

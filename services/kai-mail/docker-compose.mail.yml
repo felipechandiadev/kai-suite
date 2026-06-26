@@ -10,7 +10,7 @@ services:
   kai-mail:
     build: .
     environment:
-      PORT: 3040
+      PORT: 5040
       REDIS_HOST: host.docker.internal
       REDIS_PORT: 6379
       SMTP_HOST: mailpit
@@ -18,6 +18,6 @@ services:
       MAIL_FROM: noreply@kaistore.local
       KAI_MAIL_API_KEY: dev-kai-mail-key
     ports:
-      - '3040:3040'
+      - '5040:5040'
     depends_on:
       - mailpit

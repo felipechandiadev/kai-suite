@@ -71,6 +71,15 @@ import { StockCommitmentService } from '@modules/stock-levels/application/stock-
 import { BackorderRegistrationService } from '@modules/transactions/application/backorder-registration.service';
 import { EshopBackorderSyncService } from '@modules/transactions/application/eshop-backorder-sync.service';
 import { MercadoPagoSalePaymentService } from '@modules/payment-gateways/application/mercado-pago-sale-payment.service';
+import { PresaleTicketsService } from '@modules/presale-tickets/application/presale-tickets.service';
+import {
+  PresaleTicket,
+  PresaleTicketStatus,
+} from '@modules/presale-tickets/domain/presale-ticket.entity';
+import {
+  readAcceptsPresaleTickets,
+  readPosKind,
+} from '@modules/points-of-sale/domain/pos-settings.types';
 import { computeCashSessionExpectedAmount } from './cash-session-expected-amount.util';
 import {
   buildPaymentSnapshotsFromSalePayments,
@@ -94,6 +103,8 @@ type PosCommercialRegisterConfig = {
   backorderDepositPercent?: number;
   /** Venta que liquida un encargo/reserva abierto. */
   fulfillBackorderId?: string;
+  /** Venta que cobra un ticket de preventa. */
+  fulfillPresaleTicketId?: string;
   /** Venta POS sin cobro inmediato (cuenta por cobrar / cobro posterior). */
   deferPayment?: boolean;
 };
@@ -148,6 +159,7 @@ export class SalesFromSessionService {
     private readonly installmentRepository: InstallmentRepository,
     private readonly installmentService: InstallmentService,
     private readonly mpSalePayment: MercadoPagoSalePaymentService,
+    private readonly presaleTicketsService: PresaleTicketsService,
   ) {}
 
   /**
@@ -238,9 +250,21 @@ export class SalesFromSessionService {
    */
   async createSale(createSaleDto: CreateSaleDto) {
     const fulfillBackorderId = createSaleDto.fulfillBackorderId?.trim() || undefined;
+    const fulfillPresaleTicketId =
+      createSaleDto.fulfillPresaleTicketId?.trim() || undefined;
+    if (fulfillBackorderId && fulfillPresaleTicketId) {
+      throw new BadRequestException(
+        'No se puede liquidar encargo y ticket de preventa en la misma venta.',
+      );
+    }
     if (createSaleDto.deferPayment && fulfillBackorderId) {
       throw new BadRequestException(
         'No se puede diferir el cobro al liquidar un encargo.',
+      );
+    }
+    if (createSaleDto.deferPayment && fulfillPresaleTicketId) {
+      throw new BadRequestException(
+        'No se puede diferir el cobro al cobrar un ticket de preventa.',
       );
     }
     return this.registerPosCommercial(createSaleDto, {
@@ -248,6 +272,7 @@ export class SalesFromSessionService {
       skipStockCheck: false,
       skipStockAvailabilityCheck: Boolean(fulfillBackorderId),
       fulfillBackorderId,
+      fulfillPresaleTicketId,
       deferPayment: Boolean(createSaleDto.deferPayment),
     });
   }
@@ -1494,6 +1519,15 @@ export class SalesFromSessionService {
         );
       }
 
+      if (config.fulfillPresaleTicketId) {
+        await this.assertFulfillPresaleTicketMatches(
+          manager,
+          config.fulfillPresaleTicketId,
+          lines,
+          pointOfSale,
+        );
+      }
+
       let total = subtotal - discountAmount + taxAmount;
 
       // ============================================================
@@ -1915,6 +1949,11 @@ export class SalesFromSessionService {
                 },
               }
             : {}),
+          ...(isSale && config.fulfillPresaleTicketId
+            ? {
+                presaleTicket: { id: config.fulfillPresaleTicketId },
+              }
+            : {}),
           ...buildPaymentsMetadataFields(paymentSnapshots),
           storageId: isBackorder ? undefined : effectiveStorageId || undefined,
           promotionSnapshot:
@@ -2029,6 +2068,16 @@ export class SalesFromSessionService {
             documentNumber: finalTransaction.documentNumber ?? '',
           },
           transactionLines,
+        });
+      }
+
+      if (isSale && config.fulfillPresaleTicketId) {
+        await this.presaleTicketsService.redeemAfterSale({
+          companyId: pointOfSale.companyId!,
+          ticketId: config.fulfillPresaleTicketId,
+          saleTransactionId: finalTransaction.id,
+          salePointOfSaleId: pointOfSale.id,
+          manager,
         });
       }
 
@@ -2248,6 +2297,75 @@ export class SalesFromSessionService {
       if (Math.abs(expQty - actQty) > 0.0001) {
         throw new BadRequestException(
           `Cantidad distinta a la reservada para variante ${vid}.`,
+        );
+      }
+    }
+  }
+
+  private async assertFulfillPresaleTicketMatches(
+    manager: EntityManager,
+    fulfillPresaleTicketId: string,
+    saleLines: CreateSaleDto['lines'],
+    pointOfSale: PointOfSale,
+  ): Promise<void> {
+    const companyId = pointOfSale.companyId!;
+    if (readPosKind(pointOfSale.settings) !== 'SALE') {
+      throw new BadRequestException(
+        'Solo un punto de caja puede cobrar tickets de preventa.',
+      );
+    }
+    if (!readAcceptsPresaleTickets(pointOfSale.settings)) {
+      throw new BadRequestException(
+        'Este punto de venta no acepta tickets de preventa.',
+      );
+    }
+
+    const ticket = await manager.getRepository(PresaleTicket).findOne({
+      where: { id: fulfillPresaleTicketId, companyId },
+      relations: ['lines'],
+    });
+    if (!ticket) {
+      throw new NotFoundException('Ticket de preventa no encontrado.');
+    }
+    if (ticket.status !== PresaleTicketStatus.READY) {
+      throw new BadRequestException(
+        'El ticket de preventa ya no está disponible para cobro.',
+      );
+    }
+    if ((pointOfSale.branchId ?? null) !== ticket.branchId) {
+      throw new BadRequestException(
+        'El ticket solo puede cobrarse en la misma sucursal donde se emitió.',
+      );
+    }
+
+    const expected = new Map<string, number>();
+    for (const tl of ticket.lines ?? []) {
+      const vid = tl.productVariantId?.trim();
+      if (!vid) continue;
+      const qty = Number(tl.quantity) || 0;
+      if (qty <= 0) continue;
+      expected.set(vid, (expected.get(vid) ?? 0) + qty);
+    }
+
+    const actual = new Map<string, number>();
+    for (const sl of saleLines) {
+      const vid = sl.productVariantId?.trim();
+      if (!vid) continue;
+      const qty = Number(sl.quantity) || 0;
+      if (qty <= 0) continue;
+      actual.set(vid, (actual.get(vid) ?? 0) + qty);
+    }
+
+    if (expected.size !== actual.size) {
+      throw new BadRequestException(
+        'Las líneas del carrito no coinciden con el ticket de preventa.',
+      );
+    }
+    for (const [vid, expQty] of expected) {
+      const actQty = actual.get(vid) ?? 0;
+      if (Math.abs(expQty - actQty) > 0.0001) {
+        throw new BadRequestException(
+          `Cantidad distinta al ticket de preventa para variante ${vid}.`,
         );
       }
     }

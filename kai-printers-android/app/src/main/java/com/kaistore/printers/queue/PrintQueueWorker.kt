@@ -3,6 +3,7 @@ package com.kaistore.printers.queue
 import android.content.Context
 import android.util.Base64
 import com.kaistore.printers.data.AgentRepository
+import com.kaistore.printers.data.PrintLogoRepository
 import com.kaistore.printers.print.transport.PrinterRef
 import com.kaistore.printers.print.transport.TransportFactory
 import com.kaistore.printers.print.AndroidPdfPrinter
@@ -22,6 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class PrintQueueWorker(
     private val context: Context,
     private val repository: AgentRepository,
+    private val printLogoRepository: PrintLogoRepository,
     private val broadcaster: EventBroadcaster,
 ) {
     private val transportFactory = TransportFactory(context.applicationContext)
@@ -49,11 +51,14 @@ class PrintQueueWorker(
                         val ref = PrinterRef.parse(queued.targetSystemPrinter)
                             ?: throw IllegalStateException("no_target_printer")
                         val widthChars = PrintFormats.charsPerLine(format)
+                        val logoSettings = printLogoRepository.currentSettings()
                         val bytes = if (PrintFormats.isTicketJobType(queued.documentType ?: "")) {
                             TicketEscPosDispatcher.fromJob(
                                 queued.documentType ?: "",
                                 payload,
                                 widthChars,
+                                context.applicationContext,
+                                logoSettings,
                             )
                         } else {
                             throw IllegalStateException("unsupported_document_type")

@@ -18,8 +18,12 @@ export class MercadoPagoEshopController {
     @Body()
     body: {
       intentId: string;
-      token: string;
+      token?: string;
       payerEmail: string;
+      paymentMethodId?: string;
+      paymentMethodType?: string;
+      selectedPaymentMethod?: string;
+      installments?: number;
       description?: string;
     },
   ) {
@@ -28,6 +32,10 @@ export class MercadoPagoEshopController {
       intentId: body.intentId?.trim(),
       token: body.token?.trim(),
       payerEmail: body.payerEmail?.trim(),
+      paymentMethodId: body.paymentMethodId?.trim(),
+      paymentMethodType: body.paymentMethodType,
+      selectedPaymentMethod: body.selectedPaymentMethod?.trim(),
+      installments: body.installments,
       description: body.description,
     });
   }

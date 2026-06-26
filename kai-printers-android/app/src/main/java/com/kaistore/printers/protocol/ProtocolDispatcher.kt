@@ -1,6 +1,7 @@
 package com.kaistore.printers.protocol
 
 import com.kaistore.printers.BuildConfig
+import com.kaistore.printers.KaiPrintersApp
 import com.kaistore.printers.net.LanAddressResolver
 import com.kaistore.printers.bluetooth.BondedDevicesRepository
 import com.kaistore.printers.data.AgentRepository
@@ -339,7 +340,9 @@ class ProtocolDispatcher(
                     if (ref is PrinterRef.SystemPrint) {
                         return encodeErr(requestId, "invalid_printer_ref")
                     }
-                    val bytes = EscPosTestBytes.testPage(paperProfile)
+                    val app = appContext.applicationContext as KaiPrintersApp
+                    val logoSettings = app.container.printLogoRepository.currentSettings()
+                    val bytes = EscPosTestBytes.testPage(paperProfile, appContext, logoSettings)
                     transport.write(ref, bytes)
                     encodeOk(requestId, buildJsonObject { put("ok", true) })
                 }

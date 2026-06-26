@@ -3,8 +3,6 @@ package com.kaistore.screen.ui
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,7 +20,6 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,7 +41,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.kaistore.screen.KaiScreenApp
 import com.kaistore.screen.R
-import com.kaistore.screen.data.DisplayBranding
 import com.kaistore.screen.display.CustomerDisplayLine
 import com.kaistore.screen.display.CustomerDisplaySnapshot
 import com.kaistore.screen.display.DisplayStateHolder
@@ -76,29 +72,6 @@ fun PosConnectionScreen() {
 
     val posConnected by DisplayStateHolder.posConnected.collectAsState()
     val displayAttached by DisplayStateHolder.displayAttached.collectAsState()
-
-    val brandingRepo = remember { app.container.brandingRepository }
-    val branding by brandingRepo.branding.collectAsState(initial = DisplayBranding())
-    var businessName by remember { mutableStateOf("") }
-    var welcomeMessage by remember { mutableStateOf("") }
-
-    val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
-            scope.launch {
-                val ok = brandingRepo.saveLogoFromUri(uri)
-                Toast.makeText(
-                    context,
-                    context.getString(if (ok) R.string.branding_saved else R.string.branding_logo_error),
-                    Toast.LENGTH_SHORT,
-                ).show()
-            }
-        }
-    }
-
-    LaunchedEffect(branding) {
-        businessName = branding.businessName
-        welcomeMessage = branding.welcomeMessage
-    }
 
     fun refreshState() {
         scope.launch {
@@ -200,67 +173,6 @@ fun PosConnectionScreen() {
             }
         }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.branding_section_title), style = MaterialTheme.typography.titleMedium)
-                Text(
-                    stringResource(R.string.branding_section_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                OutlinedTextField(
-                    value = businessName,
-                    onValueChange = { businessName = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.branding_business_name)) },
-                    singleLine = true,
-                )
-                OutlinedTextField(
-                    value = welcomeMessage,
-                    onValueChange = { welcomeMessage = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.branding_welcome_message)) },
-                    minLines = 2,
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    OutlinedButton(
-                        onClick = { logoPicker.launch("image/*") },
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text(stringResource(R.string.branding_pick_logo))
-                    }
-                    if (branding.logoPath != null) {
-                        OutlinedButton(
-                            onClick = {
-                                scope.launch {
-                                    brandingRepo.clearLogo()
-                                    Toast.makeText(context, R.string.branding_saved, Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Text(stringResource(R.string.branding_clear_logo))
-                        }
-                    }
-                }
-                Button(
-                    onClick = {
-                        scope.launch {
-                            brandingRepo.setBusinessName(businessName)
-                            brandingRepo.setWelcomeMessage(welcomeMessage)
-                            Toast.makeText(context, R.string.branding_saved, Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(R.string.branding_saved))
-                }
-            }
-        }
-
         SetupStepCard(
             step = 1,
             title = stringResource(R.string.pos_step_service_title),
@@ -280,16 +192,18 @@ fun PosConnectionScreen() {
                 Switch(
                     checked = running,
                     onCheckedChange = { enabled ->
+                        running = enabled
                         if (enabled) {
                             DisplayAgentForegroundService.start(context)
                             scope.launch {
                                 delay(600)
                                 refreshState()
-                                runWssProbe()
+                                if (running) {
+                                    runWssProbe()
+                                }
                             }
                         } else {
                             DisplayAgentForegroundService.stop(context)
-                            running = false
                             probeOk = false
                             probeMessage = null
                         }

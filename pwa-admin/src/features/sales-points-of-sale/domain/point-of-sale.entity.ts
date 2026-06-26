@@ -6,6 +6,8 @@ const posPriceListEntry = z.object({
   isActive: z.boolean(),
 });
 
+const posKindSchema = z.enum(["PRESALE", "SALE"]).default("SALE");
+
 /** Alineado a `PointOfSale` y `PosService.createPointOfSale` (name, branchId, storageId, deviceId, isActive, priceLists, defaultPriceListId). */
 export const CreatePointOfSaleFormSchema = z
   .object({
@@ -20,6 +22,8 @@ export const CreatePointOfSaleFormSchema = z
     isActive: z.boolean().default(true),
     priceLists: z.array(posPriceListEntry).default([]),
     defaultPriceListId: z.string().uuid().nullable().optional(),
+    kind: posKindSchema,
+    acceptsPresaleTickets: z.boolean().default(false),
   })
   .refine(
     (d) => {
@@ -45,6 +49,8 @@ export const UpdatePointOfSaleFormSchema = z
     isActive: z.boolean().optional().default(true),
     priceLists: z.array(posPriceListEntry).default([]),
     defaultPriceListId: z.string().uuid().nullable().optional(),
+    kind: posKindSchema,
+    acceptsPresaleTickets: z.boolean().default(false),
   })
   .refine(
     (d) => {

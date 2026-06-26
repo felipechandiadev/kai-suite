@@ -11,6 +11,34 @@ export type MpPaymentResponse = {
   card?: { last_four_digits?: string };
 };
 
+export type MpOrderPayment = {
+  id?: string;
+  amount?: string;
+  paid_amount?: string;
+  status?: string;
+  status_detail?: string;
+  reference_id?: string;
+};
+
+export type MpPreferenceResponse = {
+  id?: string;
+  init_point?: string;
+  external_reference?: string;
+};
+
+export type MpOrderResponse = {
+  id?: string;
+  type?: string;
+  status?: string;
+  status_detail?: string;
+  external_reference?: string;
+  processing_mode?: string;
+  capture_mode?: string;
+  transactions?: {
+    payments?: MpOrderPayment[] | MpOrderPayment;
+  };
+};
+
 @Injectable()
 export class MercadoPagoClient {
   private baseUrl(environment: MercadoPagoEnvironment): string {
@@ -61,6 +89,121 @@ export class MercadoPagoClient {
     );
   }
 
+  async getOrder(
+    accessToken: string,
+    environment: MercadoPagoEnvironment,
+    orderId: string,
+  ): Promise<MpOrderResponse> {
+    return this.request<MpOrderResponse>(
+      accessToken,
+      environment,
+      `/v1/orders/${encodeURIComponent(orderId)}`,
+      { method: 'GET' },
+    );
+  }
+
+  async createCheckoutPreference(input: {
+    accessToken: string;
+    environment: MercadoPagoEnvironment;
+    title: string;
+    unitPrice: number;
+    externalReference: string;
+    payerEmail: string;
+    notificationUrl?: string;
+    backUrls?: {
+      success: string;
+      failure: string;
+      pending: string;
+    };
+  }): Promise<MpPreferenceResponse> {
+    const unitPrice = Math.round(input.unitPrice);
+    const backUrls = input.backUrls;
+    const useAutoReturn =
+      backUrls?.success?.trim() &&
+      backUrls?.failure?.trim() &&
+      backUrls?.pending?.trim();
+
+    return this.request<MpPreferenceResponse>(
+      input.accessToken,
+      input.environment,
+      '/checkout/preferences',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          items: [
+            {
+              title: input.title,
+              quantity: 1,
+              unit_price: unitPrice,
+              currency_id: 'CLP',
+            },
+          ],
+          payer: { email: input.payerEmail.trim() },
+          external_reference: input.externalReference,
+          notification_url: input.notificationUrl || undefined,
+          ...(useAutoReturn
+            ? {
+                back_urls: {
+                  success: backUrls!.success,
+                  failure: backUrls!.failure,
+                  pending: backUrls!.pending,
+                },
+                auto_return: 'approved',
+              }
+            : {}),
+        }),
+      },
+    );
+  }
+
+  async createOrder(input: {
+    accessToken: string;
+    environment: MercadoPagoEnvironment;
+    totalAmount: number;
+    externalReference: string;
+    token: string;
+    paymentMethodId: string;
+    paymentMethodType: 'credit_card' | 'debit_card';
+    installments: number;
+    payerEmail: string;
+    idempotencyKey: string;
+    description?: string;
+  }): Promise<MpOrderResponse> {
+    const amount = String(Math.round(input.totalAmount));
+    return this.request<MpOrderResponse>(
+      input.accessToken,
+      input.environment,
+      '/v1/orders',
+      {
+        method: 'POST',
+        headers: { 'X-Idempotency-Key': input.idempotencyKey },
+        body: JSON.stringify({
+          type: 'online',
+          processing_mode: 'automatic',
+          capture_mode: 'automatic',
+          total_amount: amount,
+          external_reference: input.externalReference,
+          description: input.description ?? undefined,
+          payer: { email: input.payerEmail.trim() },
+          transactions: {
+            payments: [
+              {
+                amount,
+                payment_method: {
+                  id: input.paymentMethodId,
+                  type: input.paymentMethodType,
+                  token: input.token,
+                  installments: Math.max(1, input.installments),
+                },
+              },
+            ],
+          },
+        }),
+      },
+    );
+  }
+
+  /** @deprecated Prefer createOrder for Checkout API Orders (eShop). */
   async createCardPayment(input: {
     accessToken: string;
     environment: MercadoPagoEnvironment;
@@ -127,4 +270,17 @@ export class MercadoPagoClient {
     );
     return { ok: true };
   }
+}
+
+export function extractMpOrderPayments(
+  order: MpOrderResponse,
+): MpOrderPayment[] {
+  const raw = order.transactions?.payments;
+  if (!raw) return [];
+  return Array.isArray(raw) ? raw : [raw];
+}
+
+export function primaryMpOrderPayment(order: MpOrderResponse): MpOrderPayment | null {
+  const payments = extractMpOrderPayments(order);
+  return payments[0] ?? null;
 }

@@ -69,6 +69,8 @@ export class PosController {
       isActive?: boolean;
       priceLists?: Array<{ id: string; name: string; isActive: boolean }>;
       defaultPriceListId?: string | null;
+      kind?: 'PRESALE' | 'SALE';
+      acceptsPresaleTickets?: boolean;
     },
   ) {
     return this.posService.createPointOfSale(data);
@@ -86,6 +88,8 @@ export class PosController {
       priceLists: Array<{ id: string; name: string; isActive: boolean }>;
       defaultPriceListId: string | null;
       storageId: string | null;
+      kind?: 'PRESALE' | 'SALE';
+      acceptsPresaleTickets?: boolean;
     }>,
   ) {
     return this.posService.updatePointOfSale(id, data);

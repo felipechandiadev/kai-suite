@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import {
-  fetchKaiPrintersAndroidManifest,
+  fetchKaiPrintersDownloadsManifests,
   listKaiPrintersDownloadOffers,
-  type KaiPrintersAndroidManifest,
+  type KaiPrintersDownloadsManifests,
   type KaiPrintersPlatform,
 } from "./kai-printers-downloads";
 
@@ -70,29 +70,36 @@ function PlatformIcon({
 }
 
 type KaiPrintersDownloadSectionProps = {
-  /** Manifest leído en SSR desde public/downloads (evita enlace a APK viejo antes del fetch). */
-  initialManifest?: KaiPrintersAndroidManifest;
+  /** Manifests leídos en SSR desde public/downloads. */
+  initialManifests?: KaiPrintersDownloadsManifests;
+  /** @deprecated Usar initialManifests.android */
+  initialManifest?: KaiPrintersDownloadsManifests["android"];
 };
 
 export function KaiPrintersDownloadSection({
+  initialManifests,
   initialManifest,
 }: KaiPrintersDownloadSectionProps = {}) {
-  const [manifest, setManifest] = useState<KaiPrintersAndroidManifest | null>(
-    initialManifest ?? null,
+  const seedManifests: KaiPrintersDownloadsManifests = {
+    ...initialManifests,
+    android: initialManifests?.android ?? initialManifest,
+  };
+
+  const [manifests, setManifests] = useState<KaiPrintersDownloadsManifests | null>(
+    Object.keys(seedManifests).length > 0 ? seedManifests : null,
   );
 
   useEffect(() => {
-    void fetchKaiPrintersAndroidManifest().then((fetched) => {
-      setManifest(fetched);
+    void fetchKaiPrintersDownloadsManifests().then((fetched) => {
+      setManifests(fetched);
     });
   }, []);
 
-  const resolvedManifest = manifest ?? initialManifest;
-  const offers = listKaiPrintersDownloadOffers(resolvedManifest);
+  const resolved = manifests ?? seedManifests;
+  const offers = listKaiPrintersDownloadOffers(resolved);
   const available = offers.filter((o) => o.href);
-  const upcoming = offers.filter((o) => !o.href && o.platform !== "android");
 
-  if (available.length === 0 && upcoming.length === 0) return null;
+  if (available.length === 0) return null;
 
   return (
     <section
@@ -135,9 +142,7 @@ export function KaiPrintersDownloadSection({
             <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
               <a
                 href={offer.href!}
-                {...(offer.platform === "android"
-                  ? {}
-                  : { download: offer.filename })}
+                download={offer.platform === "android" ? undefined : offer.filename}
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
                 data-test-id={`kai-printers-download-${offer.platform}`}
               >
@@ -157,25 +162,11 @@ export function KaiPrintersDownloadSection({
                   </a>{" "}
                   en una pestaña nueva.
                 </p>
-              ) : null}
-            </div>
-          </li>
-        ))}
-
-        {upcoming.map((offer) => (
-          <li
-            key={offer.platform}
-            className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-muted/10 p-4 opacity-80"
-          >
-            <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
-              aria-hidden
-            >
-              <PlatformIcon platform={offer.platform} />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">{offer.title}</p>
-              <p className="text-sm text-muted-foreground">Próximamente — consultá con soporte KaiStore.</p>
+              ) : (
+                <p className="max-w-xs text-center text-xs text-muted-foreground sm:text-right">
+                  {offer.filename}
+                </p>
+              )}
             </div>
           </li>
         ))}

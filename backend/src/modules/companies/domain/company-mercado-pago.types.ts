@@ -119,12 +119,11 @@ export function readMercadoPagoSettingsFromCompanySettings(
   return sanitizeCompanyMercadoPagoSettings(raw);
 }
 
-/** Pago online operativo en checkout (credenciales + flags). */
+/** Pago online operativo en checkout (credenciales + flag eShop). `enabled` es switch maestro para POS Point. */
 export function isMercadoPagoEshopCheckoutOperational(
   settings: CompanyMercadoPagoSettings,
 ): boolean {
   return (
-    settings.enabled &&
     settings.eshopOnlinePaymentEnabled &&
     Boolean(settings.publicKey?.trim()) &&
     Boolean(settings.accessToken?.trim())

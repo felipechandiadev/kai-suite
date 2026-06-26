@@ -20,6 +20,13 @@ import {
   syncPosPaymentMethodsWithCatalog,
   validatePosPaymentMethods,
 } from '@modules/payment-methods-config';
+import {
+  readAcceptsPresaleTickets,
+  readPosKind,
+  sanitizePosSettingsPatch,
+  type PosKind,
+  type PosSettings,
+} from '../domain/pos-settings.types';
 
 @Injectable()
 export class PosService {
@@ -70,6 +77,8 @@ export class PosService {
     isActive?: boolean;
     priceLists?: Array<{ id: string; name: string; isActive: boolean }>;
     defaultPriceListId?: string | null;
+    kind?: PosKind;
+    acceptsPresaleTickets?: boolean;
   }) {
     if (!data.name || !data.name.trim()) {
       return { success: false, error: 'El nombre es requerido' };
@@ -101,6 +110,11 @@ export class PosService {
       data.defaultPriceListId ??
       (priceLists.length > 0 ? priceLists[0].id : undefined);
 
+    const settings = sanitizePosSettingsPatch(null, {
+      kind: data.kind,
+      acceptsPresaleTickets: data.acceptsPresaleTickets,
+    });
+
     const pos = this.posRepository.create({
       name: data.name.trim(),
       branchId: data.branchId.trim(),
@@ -109,6 +123,7 @@ export class PosService {
       isActive: data.isActive !== false,
       priceLists,
       defaultPriceListId,
+      settings,
     } as DeepPartial<PointOfSale>);
 
     const saved = await this.posRepository.save(pos);
@@ -127,6 +142,8 @@ export class PosService {
       priceLists: Array<{ id: string; name: string; isActive: boolean }>;
       defaultPriceListId: string | null;
       storageId: string | null;
+      kind?: PosKind;
+      acceptsPresaleTickets?: boolean;
     }>,
   ) {
     const pos = await this.posRepository.findOne({
@@ -200,6 +217,17 @@ export class PosService {
             'La sala de venta actual no pertenece a la nueva sucursal; elija otra.',
         };
       }
+    }
+
+    if (data.kind !== undefined || data.acceptsPresaleTickets !== undefined) {
+      const nextSettings = sanitizePosSettingsPatch(
+        (pos.settings ?? {}) as PosSettings,
+        {
+          kind: data.kind,
+          acceptsPresaleTickets: data.acceptsPresaleTickets,
+        },
+      );
+      updateData.settings = nextSettings;
     }
 
     await this.posRepository.update(id, updateData);
@@ -314,6 +342,8 @@ export class PosService {
       deviceId: pos.deviceId,
       isActive: pos.isActive,
       defaultPriceListId: pos.defaultPriceListId ?? null,
+      kind: readPosKind(pos.settings),
+      acceptsPresaleTickets: readAcceptsPresaleTickets(pos.settings),
       createdAt: pos.createdAt,
       updatedAt: pos.updatedAt,
     };

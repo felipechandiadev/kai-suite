@@ -75,6 +75,8 @@ import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity'
 import { EShopFulfillmentMethod } from '@modules/e-shop/domain/e-shop-fulfillment-method.entity';
 import { EshopCustomerAccount } from '@modules/e-shop/domain/eshop-customer-account.entity';
 import { PaymentGatewayIntent } from '@modules/payment-gateways/domain/payment-gateway-intent.entity';
+import { PresaleTicket } from '@modules/presale-tickets/domain/presale-ticket.entity';
+import { PresaleTicketLine } from '@modules/presale-tickets/domain/presale-ticket-line.entity';
 import { AuditSubscriber } from '../subscribers/AuditSubscriber';
 import { TenantSubscriber } from '../common/tenant/tenant.subscriber';
 
@@ -163,6 +165,8 @@ export const typeOrmConfig = (
       EShopFulfillmentMethod,
       EshopCustomerAccount,
       PaymentGatewayIntent,
+      PresaleTicket,
+      PresaleTicketLine,
     ],
 
     // Register subscribers (TypeORM EventSubscribers)

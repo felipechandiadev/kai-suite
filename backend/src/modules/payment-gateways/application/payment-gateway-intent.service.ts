@@ -8,11 +8,13 @@ import { Repository } from 'typeorm';
 import { PaymentGatewayIntent } from '../domain/payment-gateway-intent.entity';
 import {
   buildExternalReference,
+  mapMpOrderToIntentStatus,
   mapMpPaymentStatus,
   type PaymentGatewayChannel,
   type PaymentGatewayIntentStatus,
 } from '../domain/payment-gateway-intent.types';
-import type { MpPaymentResponse } from './mercado-pago.client';
+import type { MpOrderResponse, MpPaymentResponse } from './mercado-pago.client';
+import { primaryMpOrderPayment } from './mercado-pago.client';
 import { randomUUID } from 'crypto';
 
 @Injectable()
@@ -30,6 +32,10 @@ export class PaymentGatewayIntentService {
 
   async findByMpPaymentId(mpPaymentId: string): Promise<PaymentGatewayIntent | null> {
     return this.repo.findOne({ where: { mpPaymentId } });
+  }
+
+  async findByMpOrderId(mpOrderId: string): Promise<PaymentGatewayIntent | null> {
+    return this.repo.findOne({ where: { mpOrderId } });
   }
 
   async findByExternalReference(
@@ -75,6 +81,17 @@ export class PaymentGatewayIntentService {
     return this.repo.save(row);
   }
 
+  async saveMpPreferenceId(
+    intent: PaymentGatewayIntent,
+    preferenceId: string,
+  ): Promise<PaymentGatewayIntent> {
+    intent.metadata = {
+      ...(intent.metadata ?? {}),
+      mpPreferenceId: preferenceId,
+    };
+    return this.repo.save(intent);
+  }
+
   async applyMpPayment(
     intent: PaymentGatewayIntent,
     payment: MpPaymentResponse,
@@ -89,6 +106,30 @@ export class PaymentGatewayIntentService {
       paymentType: payment.payment_type_id ?? null,
       cardLastFour: payment.card?.last_four_digits ?? null,
       statusDetail: payment.status_detail ?? null,
+    };
+    return this.repo.save(intent);
+  }
+
+  async applyMpOrder(
+    intent: PaymentGatewayIntent,
+    order: MpOrderResponse,
+  ): Promise<PaymentGatewayIntent> {
+    const payment = primaryMpOrderPayment(order);
+    const status = mapMpOrderToIntentStatus({
+      orderStatus: order.status,
+      orderStatusDetail: order.status_detail,
+      paymentStatus: payment?.status,
+      paymentStatusDetail: payment?.status_detail,
+    });
+
+    if (order.id) intent.mpOrderId = String(order.id);
+    if (payment?.id) intent.mpPaymentId = String(payment.id);
+    intent.status = status;
+    intent.metadata = {
+      ...(intent.metadata ?? {}),
+      mpRaw: order as unknown as Record<string, unknown>,
+      paymentType: payment?.status_detail ?? order.status_detail ?? null,
+      statusDetail: payment?.status_detail ?? order.status_detail ?? null,
     };
     return this.repo.save(intent);
   }
@@ -133,6 +174,8 @@ export class PaymentGatewayIntentService {
       amount: intent.amount,
       currency: intent.currency,
       mpPaymentId: intent.mpPaymentId,
+      mpOrderId: intent.mpOrderId,
+      mpPreferenceId: intent.metadata?.mpPreferenceId ?? null,
       externalReference: intent.externalReference,
       cashSessionId: intent.cashSessionId,
       pointOfSaleId: intent.pointOfSaleId,

@@ -15,6 +15,7 @@ import {
   writeAdminPurposePrinterAliasToStorage,
   writePrintServiceConfigToStorage,
   KaiPrintersDownloadSection,
+  type KaiPrintersDownloadsManifests,
 } from "@flowstore/print-service-client";
 import { Button } from "@/shared/components/Button";
 import { Select } from "@/shared/components/Select";
@@ -23,6 +24,7 @@ import Switch from "@/shared/components/Switch";
 
 type Props = {
   className?: string;
+  initialManifests?: KaiPrintersDownloadsManifests;
 };
 
 function stringList(v: unknown): string[] {
@@ -52,7 +54,10 @@ const INITIAL_DOC_PRINT_FORMATS: Record<AdminDocumentPrintKind, PrintFormat> = {
   backorder: "ticket_80mm",
 };
 
-export function AdminLocalPrintingSettingsForm({ className = "" }: Props) {
+export function AdminLocalPrintingSettingsForm({
+  className = "",
+  initialManifests,
+}: Props) {
   const formId = useId();
   const [host, setHost] = useState("127.0.0.1");
   const [port, setPort] = useState("14567");
@@ -151,7 +156,7 @@ export function AdminLocalPrintingSettingsForm({ className = "" }: Props) {
 
   return (
     <>
-      <KaiPrintersDownloadSection />
+      <KaiPrintersDownloadSection initialManifests={initialManifests} />
 
       <form
         id={formId}

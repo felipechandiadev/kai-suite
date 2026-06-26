@@ -50,6 +50,6 @@ Variables en `backend/.env`:
 
 ```
 ESHOP_CHECKOUT_V2=true
-KAI_MAIL_URL=http://localhost:3040
+KAI_MAIL_URL=http://localhost:5040
 KAI_MAIL_API_KEY=dev-kai-mail-key
 ```

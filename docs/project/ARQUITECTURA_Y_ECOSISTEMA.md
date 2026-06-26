@@ -31,14 +31,14 @@ Cada despliegue de una PWA corresponde a **una empresa / una tienda** (multi-ten
                          └─────────────────┬───────────────────┘
                                            │
                          ┌─────────────────▼───────────────────┐
-                         │     backend (NestJS) :3030          │
+                         │     backend (NestJS) :5030          │
                          │  CQRS/DDD · REST /api · multi-tenant│
                          └─────────────────┬───────────────────┘
            ┌──────────────┬───────────────┼───────────────┬──────────────┐
            │              │               │               │              │
     ┌──────▼──────┐ ┌─────▼─────┐  ┌──────▼──────┐ ┌─────▼─────┐ ┌──────▼──────┐
     │ pwa-admin   │ │ pwa-pos   │  │ pwa-stock   │ │ pwa-eshop │ │print-service│
-    │   :4031     │ │   :4032   │  │   :4033     │ │   :4034   │ │   (Tauri)   │
+    │   :5031     │ │   :5032   │  │   :5033     │ │   :5034   │ │   (Tauri)   │
     │ ERP web     │ │ Caja POS  │  │ Inventario  │ │ Tienda    │ │ Impresión   │
     │ backoffice  │ │ mostrador │  │ móvil/tablet│ │ pública   │ │ local ESC/PDF│
     └─────────────┘ └───────────┘  └─────────────┘ └───────────┘ └─────────────┘
@@ -52,11 +52,11 @@ Cada despliegue de una PWA corresponde a **una empresa / una tienda** (multi-ten
 
 | App | Puerto dev | Rol | Autenticación |
 |-----|------------|-----|---------------|
-| `backend` | **3030** | API REST, negocio, contabilidad, transacciones | JWT Bearer |
-| `pwa-admin` | **4031** | Panel ERP: ventas, compras, inventario, tesorería, contabilidad, RRHH, config eShop | NextAuth → JWT |
-| `pwa-pos` | **4032** | Punto de venta mostrador, sesiones de caja, venta atómica al cobrar | NextAuth → JWT |
-| `pwa-stock` | **4033** | Operaciones de inventario / existencias en piso | NextAuth → JWT |
-| `pwa-eshop` | **4034** | Catálogo público, carrito, checkout (sin pasarela online en MVP) | Público + API e-shop |
+| `backend` | **5030** | API REST, negocio, contabilidad, transacciones | JWT Bearer |
+| `pwa-admin` | **5031** | Panel ERP: ventas, compras, inventario, tesorería, contabilidad, RRHH, config eShop | NextAuth → JWT |
+| `pwa-pos` | **5032** | Punto de venta mostrador, sesiones de caja, venta atómica al cobrar | NextAuth → JWT |
+| `pwa-stock` | **5033** | Operaciones de inventario / existencias en piso | NextAuth → JWT |
+| `pwa-eshop` | **5034** | Catálogo público, carrito, checkout (sin pasarela online en MVP) | Público + API e-shop |
 | `print-service` | local | Agente de impresión térmica/PDF (Tauri), tickets POS | WebSocket / HTTP local |
 
 ### Agentes locales — puertos WebSocket
@@ -292,15 +292,15 @@ Pantallas admin: plan de cuentas, reglas, libros, cuentas por cobrar/pagar, impu
 
 ```bash
 # Backend
-cd backend && npm install && npm run start:dev    # :3030
+cd backend && npm install && npm run start:dev    # :5030
 
 # Admin
-cd pwa-admin && npm install && npm run dev        # :4031
+cd pwa-admin && npm install && npm run dev        # :5031
 
 # POS / Stock / eShop (opcional)
-cd pwa-pos && npm run dev                         # :4032
-cd pwa-stock && npm run dev                       # :4033
-cd pwa-eshop && npm run dev                       # :4034
+cd pwa-pos && npm run dev                         # :5032
+cd pwa-stock && npm run dev                       # :5033
+cd pwa-eshop && npm run dev                       # :5034
 
 # Seed
 cd backend && npm run seed

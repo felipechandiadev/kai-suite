@@ -38,6 +38,13 @@ import {
   TextField,
 } from "@/shared/admin-shared";
 import { PosFavoriteQuickPickBar } from "@/features/pos-settings/ui/PosFavoriteQuickPickBar";
+import { findPresaleTicketByCodeAction } from "@/features/presale-tickets/actions/presale-tickets.action";
+import { looksLikePresaleTicketCode } from "@/features/presale-tickets/lib/presale-ticket-code";
+import {
+  buildPresaleTicketMeta,
+  presaleTicketLinesToCart,
+} from "@/features/presale-tickets/lib/presale-ticket-lines-to-cart";
+import { usePosCart } from "@/features/pos-cart/PosCartProvider";
 
 /**
  * Alto del buscador de productos respecto al viewport (`vh`).
@@ -59,6 +66,7 @@ type Props = {
   disabledHint?: string;
   /** En móvil el panel ocupa el alto del contenedor padre (sin 88vh fijo). */
   compactLayout?: boolean;
+  acceptsPresaleTickets?: boolean;
 };
 
 export default function PosProductSearchPanel({
@@ -72,7 +80,9 @@ export default function PosProductSearchPanel({
   disabled = false,
   disabledHint,
   compactLayout = false,
+  acceptsPresaleTickets = false,
 }: Props) {
+  const cart = usePosCart();
   const [draftSearch, setDraftSearch] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const searchCommittedRef = useRef("");
@@ -198,6 +208,44 @@ export default function PosProductSearchPanel({
     setLoading(true);
     setError("");
     try {
+      if (
+        acceptsPresaleTickets &&
+        looksLikePresaleTicketCode(searchQuery) &&
+        pointOfSaleId?.trim()
+      ) {
+        const presaleRes = await findPresaleTicketByCodeAction(
+          searchQuery.trim(),
+          pointOfSaleId.trim(),
+        );
+        if (!presaleRes.success) {
+          if (redirectToLoginIfUnauthorized(presaleRes)) return;
+          setError(presaleRes.message);
+          setItems([]);
+          setTotal(0);
+          return;
+        }
+        if (presaleRes.ticket) {
+          const lines = presaleTicketLinesToCart(presaleRes.ticket);
+          const meta = buildPresaleTicketMeta(presaleRes.ticket, lines);
+          const customer = presaleRes.ticket.customerName
+            ? {
+                customerId: presaleRes.ticket.customerId,
+                name: presaleRes.ticket.customerName,
+                document: presaleRes.ticket.customerDocument ?? "",
+                phone: "",
+                email: null,
+              }
+            : null;
+          cart.loadPresaleTicket(meta, lines, customer);
+          clearSearch();
+          setScanAddedHint(`Ticket ${presaleRes.ticket.code} cargado`);
+          focusSearchField();
+          setItems([]);
+          setTotal(0);
+          return;
+        }
+      }
+
       const res = await searchPosProductsAction({
         query: searchQuery,
         priceListId,
@@ -235,6 +283,10 @@ export default function PosProductSearchPanel({
     page,
     pageSize,
     tryAutoAddSingleResult,
+    acceptsPresaleTickets,
+    cart,
+    clearSearch,
+    focusSearchField,
   ]);
 
   useEffect(() => {

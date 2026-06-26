@@ -98,6 +98,24 @@ export function PosSettingsPageClient() {
             />
           </div>
         </SettingsSection>
+
+        <SettingsSection
+          title="Pantalla cliente"
+          description="Kai Screen en la segunda pantalla de la tablet: carrito, pago y mensaje de bienvenida para el cliente."
+          data-test-id="pos-settings-customer-display-section"
+        >
+          <div className="flex justify-end">
+            <IconButton
+              icon="Monitor"
+              variant="outlined"
+              size="sm"
+              ariaLabel="Configurar pantalla cliente"
+              title="Pantalla cliente"
+              onClick={() => router.push("/settings/customer-display")}
+              data-test-id="pos-settings-customer-display-link"
+            />
+          </div>
+        </SettingsSection>
       </div>
     </div>
   );

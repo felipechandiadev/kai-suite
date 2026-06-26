@@ -348,13 +348,28 @@ pub(crate) fn append_ticket_logo(buf: &mut Vec<u8>, logo_base64: Option<&str>) {
     };
     match logo_base64_to_raster(b64) {
         Ok(Some((bitmap, w_bytes, h_dots))) => {
-            tracing::debug!(w_bytes, h_dots, "escpos: logo raster");
-            escpos_align(buf, 1);
-            append_gs_v0(buf, &bitmap, w_bytes, h_dots);
-            buf.push(b'\n');
+            append_ticket_logo_raster(buf, &bitmap, w_bytes, h_dots);
         }
         Ok(None) => {}
         Err(e) => tracing::warn!(err = %e, "escpos: logo omitido"),
+    }
+}
+
+fn append_ticket_logo_raster(buf: &mut Vec<u8>, bitmap: &[u8], w_bytes: u16, h_dots: u16) {
+    tracing::debug!(w_bytes, h_dots, "escpos: logo raster");
+    escpos_align(buf, 1);
+    append_gs_v0(buf, bitmap, w_bytes, h_dots);
+    buf.push(b'\n');
+}
+
+/// Logo Kai embebido para hojas de prueba (paridad con Android `ic_launcher_foreground`).
+const KAI_DEFAULT_TICKET_LOGO_PNG: &[u8] = include_bytes!("../assets/kai-default-ticket-logo.png");
+
+pub(crate) fn append_default_kai_ticket_logo(buf: &mut Vec<u8>) {
+    match crate::escpos_raster::image_bytes_to_raster(KAI_DEFAULT_TICKET_LOGO_PNG) {
+        Ok(Some((bitmap, w_bytes, h_dots))) => append_ticket_logo_raster(buf, &bitmap, w_bytes, h_dots),
+        Ok(None) => {}
+        Err(e) => tracing::warn!(err = %e, "escpos: logo Kai predeterminado omitido"),
     }
 }
 

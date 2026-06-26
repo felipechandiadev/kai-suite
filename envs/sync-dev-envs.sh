@@ -56,13 +56,13 @@ fi
 
 echo ""
 if [[ "$FORCE" == true ]]; then
-  echo "[sync-dev-envs] Desarrollo 403x aplicado (forzado):"
+  echo "[sync-dev-envs] Desarrollo 503x aplicado (forzado):"
 else
-  echo "[sync-dev-envs] Desarrollo 403x — solo archivos nuevos:"
+  echo "[sync-dev-envs] Desarrollo 503x — solo archivos nuevos:"
 fi
-echo "  backend/.env              PORT=3030"
-echo "  pwa-admin/.env.local      :4031"
-echo "  pwa-pos/.env.local        :4032"
-echo "  pwa-stock/.env.local      :4033"
-echo "  pwa-eshop/.env.local      :4034"
-echo "  services/kai-mail/.env    :3040"
+echo "  backend/.env              PORT=5030"
+echo "  pwa-admin/.env.local      :5031"
+echo "  pwa-pos/.env.local        :5032"
+echo "  pwa-stock/.env.local      :5033"
+echo "  pwa-eshop/.env.local      :5034"
+echo "  services/kai-mail/.env    :5040"

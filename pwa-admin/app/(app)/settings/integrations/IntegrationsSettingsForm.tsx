@@ -12,6 +12,7 @@ import {
   type CompanyMercadoPagoSettingsForm,
 } from "@/features/company-integrations/types/company-mercado-pago.types";
 import { replaceCompanyMercadoPagoSettingsAction } from "@/features/company-integrations/actions/companies-mercado-pago.action";
+import { MercadoPagoLogo } from "@/shared/components/MercadoPagoLogo";
 
 type Props = {
   companyId: string;
@@ -28,15 +29,22 @@ export function IntegrationsSettingsForm({ companyId, initial }: Props) {
   return (
     <div className="space-y-6 max-w-3xl">
       <section className="space-y-4 rounded-lg border border-border p-4">
-        <h2 className="text-lg font-semibold">Cuenta Mercado Pago</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">Cuenta Mercado Pago</h2>
+          <MercadoPagoLogo width={180} />
+        </div>
         <p className="text-sm text-muted-foreground">
           Credenciales compartidas para POS Point y pago online del eShop.
         </p>
         <Switch
-          label="Integración habilitada"
+          label="Integración habilitada (POS Point)"
           checked={settings.enabled}
           onChange={(v) => setSettings((s) => ({ ...s, enabled: v }))}
         />
+        <p className="text-xs text-muted-foreground">
+          El pago online del eShop solo requiere credenciales abajo y activar el checkout en
+          eShop → Integraciones. Este switch habilita además cobro con terminal Point en caja.
+        </p>
         <label className="block text-sm">
           <span className="mb-1 block font-medium">Entorno</span>
           <select

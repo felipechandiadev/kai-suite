@@ -2,6 +2,7 @@ import { apiFailure } from "@/lib/auth/api-response";
 import { apiUrl, authHeaders } from "@/lib/auth/auth-headers";
 import type { VariantPriceListItem } from "@/features/variant-pricing/types/pricing.types";
 import type { VariantDetail, VariantLookupItem } from "../types/variant.types";
+import type { VariantMediaAsset } from "@/features/variant-multimedia/types/multimedia.types";
 
 function parsePriceListItems(raw: unknown): VariantPriceListItem[] {
   if (!Array.isArray(raw)) {
@@ -54,6 +55,27 @@ function parseAttributeValues(raw: unknown): Record<string, string> {
     if (val) out[String(k).trim()] = val;
   }
   return out;
+}
+
+function parseMediaAssets(raw: unknown): VariantMediaAsset[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw
+    .map((item): VariantMediaAsset | null => {
+      if (!item || typeof item !== "object") return null;
+      const o = item as Record<string, unknown>;
+      const id = o.id != null ? String(o.id) : "";
+      const publicUrl = o.publicUrl != null ? String(o.publicUrl) : "";
+      if (!id || !publicUrl) return null;
+      return {
+        id,
+        publicUrl,
+        mimeType: o.mimeType != null ? String(o.mimeType) : "",
+        kind: o.kind != null ? String(o.kind) : "",
+      };
+    })
+    .filter((x): x is VariantMediaAsset => x != null);
 }
 
 function mapLookupItem(data: Record<string, unknown>): VariantLookupItem | null {
@@ -152,6 +174,7 @@ export class VariantRequest {
           })(),
           pmp: pmp != null && Number.isFinite(pmp) ? pmp : null,
           priceListItems: parsePriceListItems(data.priceListItems),
+          mediaAssets: parseMediaAssets(data.mediaAssets),
         },
       };
     } catch (e) {

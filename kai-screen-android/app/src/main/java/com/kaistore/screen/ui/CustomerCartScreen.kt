@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -85,7 +86,7 @@ private fun IdleView(
     snapshot: CustomerDisplaySnapshot,
     branding: DisplayBranding,
 ) {
-    val logoBitmap = remember(branding.logoPath) {
+    val customLogoBitmap = remember(branding.logoPath) {
         branding.logoPath?.let { path ->
             BitmapFactory.decodeFile(path)?.asImageBitmap()
         }
@@ -102,15 +103,26 @@ private fun IdleView(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (logoBitmap != null) {
-            Image(
-                bitmap = logoBitmap,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(120.dp)
-                    .padding(bottom = 16.dp),
-                contentScale = ContentScale.Fit,
-            )
+        if (branding.logoEnabled) {
+            if (customLogoBitmap != null) {
+                Image(
+                    bitmap = customLogoBitmap,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(120.dp)
+                        .padding(bottom = 16.dp),
+                    contentScale = ContentScale.Fit,
+                )
+            } else {
+                Image(
+                    painter = painterResource(R.mipmap.ic_launcher_foreground),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(120.dp)
+                        .padding(bottom = 16.dp),
+                    contentScale = ContentScale.Fit,
+                )
+            }
         }
         Text(
             text = title,

@@ -28,6 +28,7 @@ import { CustomersModule } from '@modules/customers/customers.module';
 import { StockLevelsModule } from '@modules/stock-levels/stock-levels.module';
 import { InstallmentsModule } from '@modules/installments/installments.module';
 import { PaymentGatewaysModule } from '@modules/payment-gateways/payment-gateways.module';
+import { PresaleTicketsModule } from '@modules/presale-tickets/presale-tickets.module';
 import { MercadoPagoSalePaymentService } from '@modules/payment-gateways/application/mercado-pago-sale-payment.service';
 
 @Module({
@@ -54,6 +55,7 @@ import { MercadoPagoSalePaymentService } from '@modules/payment-gateways/applica
     StockLevelsModule,
     InstallmentsModule,
     PaymentGatewaysModule,
+    PresaleTicketsModule,
     CqrsModule,
   ],
   controllers: [CashSessionsController],

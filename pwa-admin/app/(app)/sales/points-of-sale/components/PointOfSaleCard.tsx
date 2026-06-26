@@ -7,7 +7,7 @@ import { Building2, CreditCard, Cpu, Package, Store, Tags } from "lucide-react";
 import { Card } from "@/shared/components/Cards";
 import { DeleteDialog } from "@/shared/components/Dialog/DeleteDialog";
 import Badge from "@/shared/components/Badge/Badge";
-import type { PointOfSaleListItem } from "@/features/sales-points-of-sale/types/point-of-sale.types";
+import type { PointOfSaleListItem, PosKind } from "@/features/sales-points-of-sale/types/point-of-sale.types";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
 import type { PriceListListItem } from "@/features/sales-price-lists/types/price-list.types";
 import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
@@ -72,7 +72,13 @@ export function PointOfSaleCard({
   }, [point.id, point.updatedAt, reloadPaymentMethods]);
 
   const headerEnd = (
-    <span data-test-id="pos-card-active-label" className="shrink-0">
+    <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5" data-test-id="pos-card-active-label">
+      <Badge variant={(point.kind ?? "SALE") === "PRESALE" ? "warning-outlined" : "info-outlined"}>
+        {(point.kind ?? "SALE") === "PRESALE" ? "Preventa" : "Caja"}
+      </Badge>
+      {(point.kind ?? "SALE") === "SALE" && point.acceptsPresaleTickets ? (
+        <Badge variant="secondary-outlined">Tickets preventa</Badge>
+      ) : null}
       <Badge variant={point.isActive ? "success" : "secondary-outlined"}>
         {point.isActive ? "Activo" : "Inactivo"}
       </Badge>

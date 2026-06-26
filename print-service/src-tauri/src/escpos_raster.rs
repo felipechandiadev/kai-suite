@@ -65,6 +65,16 @@ pub fn image_to_raster_bitmap(
     Ok((bitmap, width_bytes as u16, height_dots as u16))
 }
 
+/// PNG/JPEG en bytes → raster ESC/POS.
+pub fn image_bytes_to_raster(bytes: &[u8]) -> Result<Option<(Vec<u8>, u16, u16)>> {
+    if bytes.is_empty() {
+        return Ok(None);
+    }
+    let img = image::load_from_memory(bytes).context("logo image decode (PNG/JPEG)")?;
+    let raster = image_to_raster_bitmap(&img, LOGO_MAX_WIDTH_DOTS, LOGO_MAX_HEIGHT_DOTS)?;
+    Ok(Some(raster))
+}
+
 /// PNG/JPEG en base64 (con o sin prefijo `data:`) → raster ESC/POS.
 pub fn logo_base64_to_raster(b64: &str) -> Result<Option<(Vec<u8>, u16, u16)>> {
     let trimmed = b64.trim();
@@ -81,10 +91,7 @@ pub fn logo_base64_to_raster(b64: &str) -> Result<Option<(Vec<u8>, u16, u16)>> {
     if bytes.is_empty() {
         return Ok(None);
     }
-    let img =
-        image::load_from_memory(&bytes).context("logo image decode (PNG/JPEG)")?;
-    let raster = image_to_raster_bitmap(&img, LOGO_MAX_WIDTH_DOTS, LOGO_MAX_HEIGHT_DOTS)?;
-    Ok(Some(raster))
+    image_bytes_to_raster(&bytes)
 }
 
 #[cfg(test)]

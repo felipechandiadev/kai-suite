@@ -1,6 +1,17 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Post,
+  Query,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { SkipTenant } from '@common/tenant';
-import { MercadoPagoWebhookService } from '../application/mercado-pago-webhook.service';
+import {
+  MercadoPagoWebhookService,
+  type MpWebhookNotification,
+} from '../application/mercado-pago-webhook.service';
 
 @Controller('webhooks')
 export class MercadoPagoWebhookController {
@@ -8,14 +19,25 @@ export class MercadoPagoWebhookController {
 
   @Post('mercado-pago')
   @SkipTenant()
-  async handleMercadoPago(@Body() body: unknown) {
-    await this.webhookService.handleNotification(
-      (body ?? {}) as {
-        type?: string;
-        action?: string;
-        data?: { id?: string };
-      },
-    );
+  async handleMercadoPago(
+    @Body() body: unknown,
+    @Query('data.id') queryDataId?: string,
+    @Query('type') queryType?: string,
+    @Headers('x-signature') xSignature?: string,
+    @Headers('x-request-id') xRequestId?: string,
+  ) {
+    try {
+      await this.webhookService.handleNotification({
+        body: (body ?? {}) as MpWebhookNotification,
+        queryDataId,
+        queryType,
+        xSignature,
+        xRequestId,
+      });
+    } catch (e) {
+      if (e instanceof UnauthorizedException) throw e;
+      throw e;
+    }
     return { received: true };
   }
 

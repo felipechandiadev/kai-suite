@@ -11,6 +11,7 @@ val AGENT_CAPABILITIES_MVP = listOf(
     "pos-cash-closing-ticket",
     "pos-cash-count-sheet-ticket",
     "pos-cash-session-opening-ticket",
+    "pos-bank-account-ticket",
     "pdf-base64",
     "bluetooth-escpos",
     "network-escpos",

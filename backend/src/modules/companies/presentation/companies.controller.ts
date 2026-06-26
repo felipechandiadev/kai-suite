@@ -277,6 +277,31 @@ export class CompaniesController {
     return { success: true, quotationSettings };
   }
 
+  @Get('companies/:id/presale-settings')
+  @AdminOnly()
+  @AllowAdminWithoutCompany()
+  async getCompanyPresaleSettings(@Param('id') id: string) {
+    const presaleSettings =
+      await this.companiesService.getPresaleSettings(id);
+    return { success: true, presaleSettings };
+  }
+
+  @Put('companies/:id/presale-settings')
+  @AdminOnly()
+  @AllowAdminWithoutCompany()
+  async replaceCompanyPresaleSettings(
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    const incoming =
+      body && typeof body === 'object' && 'presaleSettings' in (body as any)
+        ? (body as any).presaleSettings
+        : body;
+    const presaleSettings =
+      await this.companiesService.replacePresaleSettings(id, incoming);
+    return { success: true, presaleSettings };
+  }
+
   /**
    * Política de crédito interno de la empresa activa (ADMIN/OPERATOR/POS).
    * Incluye el medio empresa `INTERNAL_CREDIT` si está habilitado.
@@ -302,6 +327,15 @@ export class CompaniesController {
     const quotationSettings =
       await this.companiesService.getQuotationSettings(activeCompanyId);
     return { success: true, quotationSettings };
+  }
+
+  @Get('company/presale-settings')
+  async getActiveCompanyPresaleSettings(
+    @CurrentCompany() activeCompanyId: string,
+  ) {
+    const presaleSettings =
+      await this.companiesService.getPresaleSettings(activeCompanyId);
+    return { success: true, presaleSettings };
   }
 
   @Get('company/mercado-pago-settings')

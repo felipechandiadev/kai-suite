@@ -33,6 +33,11 @@ import {
   sanitizeCompanyQuotationSettings,
 } from '../domain/company-quotations.types';
 import {
+  buildDefaultCompanyPresaleSettings,
+  sanitizeCompanyPresaleSettings,
+  type CompanyPresaleSettings,
+} from '../domain/company-presales.types';
+import {
   CompanyInternalCustomerCreditSettings,
   buildDefaultInternalCustomerCreditSettings,
   sanitizeInternalCustomerCreditSettings,
@@ -450,6 +455,16 @@ export class CompaniesService {
     );
   }
 
+  /** Empresas con access token MP configurado (webhooks multi-tenant). */
+  async listCompanyIdsWithMercadoPago(): Promise<string[]> {
+    const rows = await this.companyRepository
+      .createQueryBuilder('c')
+      .select('c.id', 'id')
+      .where(`NULLIF(TRIM(c.settings->'mercadoPago'->>'accessToken'), '') IS NOT NULL`)
+      .getRawMany<{ id: string }>();
+    return rows.map((r) => r.id);
+  }
+
   async replaceMercadoPagoSettings(
     companyId: string,
     raw: unknown,
@@ -680,6 +695,35 @@ export class CompaniesService {
     const validated = sanitizeCompanyQuotationSettings(raw);
     const settings = { ...(company.settings ?? {}) };
     settings.quotations = validated;
+    company.settings = settings;
+    await this.companyRepository.save(company);
+    return validated;
+  }
+
+  async getPresaleSettings(companyId: string): Promise<CompanyPresaleSettings> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+    const raw = company.settings?.presales;
+    if (!raw || typeof raw !== 'object') {
+      return buildDefaultCompanyPresaleSettings();
+    }
+    return sanitizeCompanyPresaleSettings(raw);
+  }
+
+  async replacePresaleSettings(
+    companyId: string,
+    raw: unknown,
+  ): Promise<CompanyPresaleSettings> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+
+    const validated = sanitizeCompanyPresaleSettings(raw);
+    const settings = { ...(company.settings ?? {}) };
+    settings.presales = validated;
     company.settings = settings;
     await this.companyRepository.save(company);
     return validated;

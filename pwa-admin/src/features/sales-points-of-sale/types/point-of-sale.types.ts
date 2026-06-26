@@ -1,3 +1,5 @@
+export type PosKind = "PRESALE" | "SALE";
+
 /**
  * DTO alineado con el mapa del backend (PosService.mapPointOfSale).
  */
@@ -13,6 +15,8 @@ export type PointOfSaleListItem = {
   deviceId?: string | null;
   isActive: boolean;
   defaultPriceListId: string | null;
+  kind?: PosKind;
+  acceptsPresaleTickets?: boolean;
   createdAt?: string;
   updatedAt?: string;
 };

@@ -23,6 +23,8 @@
     "seed:demo": "ts-node -r tsconfig-paths/register src/seed/run-dev-seed.ts",
     "seed:joyarte": "ts-node -r tsconfig-paths/register src/seed/joyarte/run-joyarte-seed.ts",
     "seed:import-joyarte": "ts-node -r tsconfig-paths/register src/seed/joyarte/scripts/import-joyarte-from-baron.ts",
+    "seed:import-san-sebastian": "ts-node -r tsconfig-paths/register src/seed/san-sebastian/scripts/import-san-sebastian-from-sami6.ts",
+    "seed:san-sebastian": "ts-node -r tsconfig-paths/register src/seed/san-sebastian/run-san-sebastian-seed.ts",
     "seed:legacy": "ts-node -r tsconfig-paths/register src/seed/legacy/run-parabrisas-seed.ts",
     "eshop:enable-demo": "ts-node -r tsconfig-paths/register src/scripts/enable-eshop-demo.ts"
   },

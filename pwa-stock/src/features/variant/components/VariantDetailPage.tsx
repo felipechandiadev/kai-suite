@@ -6,6 +6,7 @@ import { Barcode } from "lucide-react";
 import Link from "next/link";
 import { Alert, Badge, DotProgress } from "@/shared";
 import { VariantDetailPricingSection } from "@/features/variant-pricing/components/VariantDetailPricingSection";
+import { VariantDetailPhotoSection } from "@/features/variant-multimedia/components/VariantDetailPhotoSection";
 import { VariantDetailStockByStorageSection } from "./VariantDetailStockByStorageSection";
 import { variantAttributeValueBadges } from "../ui/VariantProductPreview";
 import { handleUnauthorizedClient } from "@/lib/auth/handle-unauthorized";
@@ -119,6 +120,11 @@ export default function VariantDetailPage() {
           variantId={variant.variantId}
           sku={variant.sku}
           onStockChanged={() => void loadDetail(variant.variantId)}
+        />
+
+        <VariantDetailPhotoSection
+          variant={variant}
+          onPhotosChanged={() => void loadDetail(variant.variantId)}
         />
       </section>
     </div>

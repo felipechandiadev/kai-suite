@@ -3,8 +3,6 @@
 import { CompaniesInternalCustomerCreditRequest } from "../infrastructure/companies-internal-customer-credit.request";
 import type { InternalCustomerCreditContext } from "../types/company-internal-customer-credit.types";
 
-export type { InternalCustomerCreditContext };
-
 const EMPTY_CONTEXT: InternalCustomerCreditContext = {
   enabled: false,
   paymentMethodId: null,

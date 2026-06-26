@@ -232,6 +232,11 @@ export class CreateSaleDto {
   @IsUUID()
   fulfillBackorderId?: string;
 
+  /** Cobrar ticket de preventa emitido en punto PRESALE. */
+  @IsOptional()
+  @IsUUID()
+  fulfillPresaleTicketId?: string;
+
   /**
    * Venta confirmada sin cobro en caja: `paymentStatus` PENDING, sin `PAYMENT_IN`.
    * Requiere `customerId`. No aplica a encargo ni devolución.

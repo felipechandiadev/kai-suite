@@ -1,17 +1,24 @@
 package com.kaistore.printers.print
 
+import android.content.Context
+import com.kaistore.printers.data.PrintLogoSettings
 import kotlinx.serialization.json.Json
 import java.util.Locale
 
 object PosSaleTicketEscPos {
-    fun fromTicketJson(ticketJson: String, widthChars: Int = 48): ByteArray {
+    fun fromTicketJson(
+        ticketJson: String,
+        widthChars: Int = 48,
+        context: Context? = null,
+        logoSettings: PrintLogoSettings? = null,
+    ): ByteArray {
         val ticket = Json.parseToJsonElement(ticketJson).jsonObj()
             ?: throw IllegalStateException("invalid_ticket_json")
         val w = EscPosWriter(widthChars)
         w.beginTicket()
 
         val company = ticket.jsonObj("company")
-        EscPosLogo.appendIfPresent(w, company?.jsonStr("logoBase64"))
+        EscPosLogo.appendForJob(w, context, logoSettings, company?.jsonStr("logoBase64"))
 
         w.alignCenter(true)
         val fantasy = company?.jsonStr("nombreFantasia").present()

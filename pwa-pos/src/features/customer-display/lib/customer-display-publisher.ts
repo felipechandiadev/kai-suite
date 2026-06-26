@@ -18,6 +18,7 @@ type CartSlice = {
 type PosCtx = Pick<PosContextV1, "pointOfSaleId" | "pointOfSaleName" | "branchName"> | null;
 
 let connection: DisplayConnection | null = null;
+let connectionUrl: string | null = null;
 let lastStatus: DisplayStatusPayload | null = null;
 let paymentDisplayActive = false;
 
@@ -41,7 +42,12 @@ function ensureCustomerDisplayConnection(ctx: PosCtx): DisplayConnection | null 
   }
 
   const url = buildDisplayWebSocketUrl(cfg.host, cfg.port, cfg.useTls);
+  if (connection && connectionUrl !== url) {
+    disconnectCustomerDisplay();
+  }
+
   if (!connection) {
+    connectionUrl = url;
     connection = new DisplayConnection({
       url,
       pointOfSaleId: ctx.pointOfSaleId,
@@ -58,6 +64,11 @@ function ensureCustomerDisplayConnection(ctx: PosCtx): DisplayConnection | null 
     connection.connect();
   }
   return connection;
+}
+
+/** Mantiene el WebSocket abierto mientras Kai Screen esté activado (hello → POS conectado en la app). */
+export function maintainCustomerDisplayConnection(ctx: PosCtx): DisplayConnection | null {
+  return ensureCustomerDisplayConnection(ctx);
 }
 
 export function syncCustomerDisplayPublisher(cart: CartSlice, ctx: PosCtx): void {
@@ -109,6 +120,7 @@ export function notifyCustomerDisplayIdle(pointOfSaleId: string): void {
 export function disconnectCustomerDisplay(): void {
   connection?.disconnect();
   connection = null;
+  connectionUrl = null;
   lastStatus = null;
 }
 

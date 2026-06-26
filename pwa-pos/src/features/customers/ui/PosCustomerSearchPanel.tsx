@@ -110,6 +110,26 @@ export default function PosCustomerSearchPanel({
   const [draftQuery, setDraftQuery] = useState(initial.query ?? "");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const navigateCustomerSearch = useCallback(
+    (params: URLSearchParams) => {
+      const qs = params.toString();
+      startTransition(() => {
+        router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      });
+    },
+    [pathname, router],
+  );
+
+  const urlQuery = (sp.get(POS_CUSTOMER_URL_KEYS.query) ?? "").trim();
+  const urlPage = Math.max(
+    1,
+    parseInt(sp.get(POS_CUSTOMER_URL_KEYS.page) || String(initial.page || 1), 10) || 1,
+  );
+  const urlPageSize = clampPosCustomerSearchPageSize(
+    parseInt(sp.get(POS_CUSTOMER_URL_KEYS.pageSize) || String(initial.pageSize), 10) ||
+      initial.pageSize,
+  );
+
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [draftPageSize, setDraftPageSize] = useState<number>(initial.pageSize);
 
@@ -137,11 +157,9 @@ export default function PosCustomerSearchPanel({
       const params = new URLSearchParams(sp.toString());
       params.set(POS_CUSTOMER_URL_KEYS.pageSize, String(lsValue));
       params.set(POS_CUSTOMER_URL_KEYS.page, "1");
-      startTransition(() => {
-        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-      });
+      navigateCustomerSearch(params);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al montar
   }, []);
 
   // --- Debounced URL update for query. ---
@@ -150,7 +168,7 @@ export default function PosCustomerSearchPanel({
     debounceRef.current = setTimeout(() => {
       debounceRef.current = null;
       const next = draftQuery.trim();
-      const current = (sp.get(POS_CUSTOMER_URL_KEYS.query) ?? "").trim();
+      const current = urlQuery;
       if (next === current) return;
       const params = new URLSearchParams(sp.toString());
       if (next) {
@@ -159,14 +177,12 @@ export default function PosCustomerSearchPanel({
         params.delete(POS_CUSTOMER_URL_KEYS.query);
       }
       params.set(POS_CUSTOMER_URL_KEYS.page, "1");
-      startTransition(() => {
-        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-      });
+      navigateCustomerSearch(params);
     }, POS_CUSTOMER_SEARCH_DEBOUNCE_MS);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [draftQuery, sp, pathname, router]);
+  }, [draftQuery, sp, urlQuery, navigateCustomerSearch]);
 
   const flushDebouncedSearch = useCallback(() => {
     if (debounceRef.current) {
@@ -174,8 +190,7 @@ export default function PosCustomerSearchPanel({
       debounceRef.current = null;
     }
     const next = draftQuery.trim();
-    const current = (sp.get(POS_CUSTOMER_URL_KEYS.query) ?? "").trim();
-    if (next === current) return;
+    if (next === urlQuery) return;
     const params = new URLSearchParams(sp.toString());
     if (next) {
       params.set(POS_CUSTOMER_URL_KEYS.query, next);
@@ -183,20 +198,16 @@ export default function PosCustomerSearchPanel({
       params.delete(POS_CUSTOMER_URL_KEYS.query);
     }
     params.set(POS_CUSTOMER_URL_KEYS.page, "1");
-    startTransition(() => {
-      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-    });
-  }, [draftQuery, sp, pathname, router]);
+    navigateCustomerSearch(params);
+  }, [draftQuery, sp, urlQuery, navigateCustomerSearch]);
 
   const goToPage = useCallback(
     (next: number) => {
       const params = new URLSearchParams(sp.toString());
       params.set(POS_CUSTOMER_URL_KEYS.page, String(Math.max(1, next)));
-      startTransition(() => {
-        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-      });
+      navigateCustomerSearch(params);
     },
-    [sp, pathname, router],
+    [sp, navigateCustomerSearch],
   );
 
   const openSettings = useCallback(() => {
@@ -211,18 +222,20 @@ export default function PosCustomerSearchPanel({
     params.set(POS_CUSTOMER_URL_KEYS.pageSize, String(nextSize));
     params.set(POS_CUSTOMER_URL_KEYS.page, "1");
     setSettingsOpen(false);
-    startTransition(() => {
-      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-    });
-  }, [draftPageSize, sp, pathname, router]);
+    navigateCustomerSearch(params);
+  }, [draftPageSize, sp, navigateCustomerSearch]);
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil((initial.total || 0) / Math.max(1, initial.pageSize)) || 1),
     [initial.total, initial.pageSize],
   );
 
-  const queryPending = draftQuery.trim() !== (initial.query ?? "").trim();
-  const showLoading = isPending || queryPending;
+  const queryPending = draftQuery.trim() !== urlQuery;
+  const resultsPending =
+    urlQuery !== (initial.query ?? "").trim() ||
+    urlPage !== initial.page ||
+    urlPageSize !== initial.pageSize;
+  const showLoading = isPending || queryPending || resultsPending;
 
   const hasResults = initial.items.length > 0;
   const queryLen = draftQuery.trim().length;

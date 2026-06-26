@@ -18,6 +18,8 @@ export class UpdatePointOfSaleUseCase {
       isActive: d.isActive !== false,
       priceLists: d.priceLists,
       defaultPriceListId: d.defaultPriceListId ?? null,
+      kind: d.kind,
+      acceptsPresaleTickets: d.kind === "SALE" ? d.acceptsPresaleTickets : false,
     });
   }
 }

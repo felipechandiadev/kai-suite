@@ -46,8 +46,12 @@ class DisplayAgentForegroundService : Service() {
                     app.container.repository.listenPort()
                 }
                 app.container.webSocketServer.start(applicationContext)
-                displayManager = CustomerDisplayManager(this@DisplayAgentForegroundService, app.container.broadcaster)
-                displayManager?.start()
+                try {
+                    displayManager = CustomerDisplayManager(this@DisplayAgentForegroundService, app.container.broadcaster)
+                    displayManager?.start()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Secondary display unavailable; WebSocket agent still running", e)
+                }
                 val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 nm.notify(NOTIFICATION_ID, buildNotification(port))
             } catch (e: Exception) {

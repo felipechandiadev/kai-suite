@@ -38,6 +38,8 @@ function savePosContext(input: {
   priceListId?: string | null;
   branchId?: string | null;
   priceLists?: PosPriceListSnapshot[];
+  posKind?: "PRESALE" | "SALE";
+  acceptsPresaleTickets?: boolean;
 }) {
   savePosContextClient({
     pointOfSaleId: input.pointOfSaleId,
@@ -86,6 +88,8 @@ function buildPosContextFromPos(pos: PointOfSaleListItem) {
     branchId: pos.branchId ?? pos.branch?.id ?? null,
     priceListId: defaultPriceListId || null,
     priceLists: availablePriceLists.map((p) => ({ id: p.id, name: p.name })),
+    posKind: pos.kind ?? "SALE",
+    acceptsPresaleTickets: pos.acceptsPresaleTickets === true,
   };
 }
 
@@ -140,6 +144,8 @@ function MyOpenSessionPanel({
         storageId: fetched.success ? fetched.storageId : null,
         priceListId,
         priceLists,
+        posKind: fetched.success ? fetched.posKind : "SALE",
+        acceptsPresaleTickets: fetched.success ? fetched.acceptsPresaleTickets : false,
       });
     }
     router.push("/pos");
@@ -356,11 +362,26 @@ function NewSessionForm({
     });
   };
 
+  const isPresalePos = (selectedPos?.kind ?? "SALE") === "PRESALE";
+
+  const handleEnterPresale = () => {
+    if (!selectedPos) return;
+    savePosContext({
+      ...buildPosContextFromPos(selectedPos),
+      cashSessionId: null,
+    });
+    router.push("/pos");
+  };
+
   return (
     <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
-      <h1 className="text-2xl font-semibold tracking-tight">Sesión de caja</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">
+        {isPresalePos ? "Punto de preventa" : "Sesión de caja"}
+      </h1>
       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-        Selecciona la sucursal y el punto de venta para abrir una sesión de caja.
+        {isPresalePos
+          ? "Selecciona la sucursal y el punto de preventa para armar carritos y generar tickets."
+          : "Selecciona la sucursal y el punto de venta para abrir una sesión de caja."}
       </p>
 
       <div className="mt-6 grid gap-4">
@@ -425,7 +446,11 @@ function NewSessionForm({
         {error && !isOpenAmountDialog ? <Alert variant="error">{error}</Alert> : null}
 
         {selectedPos ? (
-          hasOpenSessionForPos ? (
+          isPresalePos ? (
+            <Button type="button" onClick={handleEnterPresale} disabled={!defaultPriceListId}>
+              Entrar a preventa
+            </Button>
+          ) : hasOpenSessionForPos ? (
             <Alert variant="info">
               Ya existe una sesión de caja abierta para este punto de venta
               {openSessionForSelectedPos?.openedByFullName

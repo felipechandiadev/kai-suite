@@ -10,7 +10,7 @@
 
 ## Resumen
 
-Documentación indica base URL `http://localhost:3030/api`. Comportamiento correcto; aclaración menor sobre formato env.
+Documentación indica base URL `http://localhost:5030/api`. Comportamiento correcto; aclaración menor sobre formato env.
 
 ---
 

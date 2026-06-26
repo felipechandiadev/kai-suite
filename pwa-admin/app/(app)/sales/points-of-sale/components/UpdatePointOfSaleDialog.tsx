@@ -8,7 +8,7 @@ import { Button } from "@/shared/components/Button";
 import { TextField } from "@/shared/components/TextField/TextField";
 import Select from "@/shared/components/Select/Select";
 import Switch from "@/shared/components/Switch/Switch";
-import type { PointOfSaleListItem } from "@/features/sales-points-of-sale/types/point-of-sale.types";
+import type { PointOfSaleListItem, PosKind } from "@/features/sales-points-of-sale/types/point-of-sale.types";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
 import type { PriceListListItem } from "@/features/sales-price-lists/types/price-list.types";
 import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
@@ -52,6 +52,8 @@ export function UpdatePointOfSaleDialog({
   const [storageId, setStorageId] = useState("");
   const [deviceId, setDeviceId] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [posKind, setPosKind] = useState<PosKind>("SALE");
+  const [acceptsPresaleTickets, setAcceptsPresaleTickets] = useState(false);
   const [selectedListIds, setSelectedListIds] = useState<string[]>([]);
   const [defaultListId, setDefaultListId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +80,34 @@ export function UpdatePointOfSaleDialog({
       .filter((s) => s.branchId === branchId && s.type === "STORE" && s.isActive)
       .map((s) => ({ id: s.id, label: s.name }));
   }, [storages, branchId]);
+
+  const isSalePos = posKind === "SALE";
+
+  const submitBlockers = useMemo(() => {
+    const reasons: string[] = [];
+    if (!name.trim()) reasons.push("nombre");
+    if (!hasBranches) reasons.push("al menos una sucursal en la empresa");
+    if (hasBranches && !branchId) reasons.push("sucursal");
+    if (hasBranches && storeRoomOptions.length === 0) {
+      reasons.push("almacén tipo «sala de venta» en la sucursal");
+    } else if (!storageId) {
+      reasons.push("sala de venta (stock POS)");
+    }
+    if (selectedListIds.length === 0) reasons.push("al menos una lista de precio");
+    if (isSalePos && loadingPayments) reasons.push("carga de medios de pago");
+    return reasons;
+  }, [
+    name,
+    hasBranches,
+    branchId,
+    storeRoomOptions.length,
+    storageId,
+    selectedListIds.length,
+    isSalePos,
+    loadingPayments,
+  ]);
+
+  const canSubmit = submitBlockers.length === 0 && !isPending;
 
   const defaultListOptions = useMemo(() => {
     return selectedListIds
@@ -108,6 +138,8 @@ export function UpdatePointOfSaleDialog({
       point.deviceId != null && String(point.deviceId).trim() ? String(point.deviceId) : "",
     );
     setIsActive(point.isActive);
+    setPosKind(point.kind ?? "SALE");
+    setAcceptsPresaleTickets(Boolean(point.acceptsPresaleTickets));
     setSelectedListIds(
       (point.priceLists && point.priceLists.length > 0
         ? point.priceLists.map((p) => p.id)
@@ -122,27 +154,33 @@ export function UpdatePointOfSaleDialog({
 
     setPaymentCatalog([]);
     setPosPaymentDraft([]);
-    if (resolvedCompanyId) {
-      setLoadingPayments(true);
-      void (async () => {
+    setBankAccountOptions([]);
+    setLoadingPayments(false);
+  }, [open, point, branches, storages]);
+
+  useEffect(() => {
+    if (!open || !resolvedCompanyId || posKind !== "SALE") {
+      setLoadingPayments(false);
+      return;
+    }
+    let cancelled = false;
+    setLoadingPayments(true);
+    void (async () => {
+      try {
         const [catalogRes, posRes, details] = await Promise.all([
           getCompanyPaymentMethodsAction(resolvedCompanyId),
           getPosPaymentMethodsAction(point.id),
           getCompanyDetailsAction(),
         ]);
+        if (cancelled) return;
         if (catalogRes.success) {
           setPaymentCatalog(catalogRes.paymentMethods);
           if (posRes.success) {
             setPosPaymentDraft(
-              syncPosPaymentDraftWithCatalog(
-                catalogRes.paymentMethods,
-                posRes.paymentMethods,
-              ),
+              syncPosPaymentDraftWithCatalog(catalogRes.paymentMethods, posRes.paymentMethods),
             );
           } else {
-            setPosPaymentDraft(
-              syncPosPaymentDraftWithCatalog(catalogRes.paymentMethods, []),
-            );
+            setPosPaymentDraft(syncPosPaymentDraftWithCatalog(catalogRes.paymentMethods, []));
           }
         } else if (posRes.success) {
           setPosPaymentDraft(posRes.paymentMethods);
@@ -160,13 +198,15 @@ export function UpdatePointOfSaleDialog({
               })
               .filter((x): x is { id: string; label: string } => Boolean(x)),
           );
-        } else {
-          setBankAccountOptions([]);
         }
-        setLoadingPayments(false);
-      })();
-    }
-  }, [open, point, branches, resolvedCompanyId, storages]);
+      } finally {
+        if (!cancelled) setLoadingPayments(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, resolvedCompanyId, posKind, point.id]);
 
   useEffect(() => {
     if (!open) {
@@ -233,13 +273,15 @@ export function UpdatePointOfSaleDialog({
           isActive,
           priceLists,
           defaultPriceListId: defaultListId,
+          kind: posKind,
+          acceptsPresaleTickets: posKind === "SALE" ? acceptsPresaleTickets : false,
         });
         if (!r.success) {
           setError(r.error);
           return;
         }
 
-        if (resolvedCompanyId) {
+        if (resolvedCompanyId && posKind === "SALE") {
           const paymentPayload =
             paymentEditorRef.current?.getPayload() ?? posPaymentDraft;
           const pr = await replacePosPaymentMethodsAction(point.id, paymentPayload);
@@ -286,15 +328,7 @@ export function UpdatePointOfSaleDialog({
             variant="primary"
             size="md"
             onClick={handleSubmit}
-            disabled={
-              !name.trim() ||
-              isPending ||
-              loadingPayments ||
-              !branchId ||
-              !hasBranches ||
-              !storageId ||
-              storeRoomOptions.length === 0
-            }
+            disabled={!canSubmit}
             data-test-id="pos-update-submit"
           >
             Actualizar
@@ -371,6 +405,32 @@ export function UpdatePointOfSaleDialog({
             data-test-id="pos-update-active"
           />
         </div>
+        <Select
+          label="Tipo de punto"
+          name="pos-update-kind"
+          value={posKind}
+          onChange={(id) => {
+            if (id === "PRESALE" || id === "SALE") {
+              setPosKind(id);
+              if (id === "PRESALE") setAcceptsPresaleTickets(false);
+            }
+          }}
+          options={[
+            { id: "SALE", label: "Caja (cobro)" },
+            { id: "PRESALE", label: "Preventa (armado de carrito)" },
+          ]}
+          required
+          data-test-id="pos-update-kind"
+        />
+        {posKind === "SALE" ? (
+          <Switch
+            checked={acceptsPresaleTickets}
+            onChange={setAcceptsPresaleTickets}
+            label="Acepta tickets de preventa"
+            labelPosition="right"
+            data-test-id="pos-update-accepts-presale"
+          />
+        ) : null}
         <div className="space-y-2">
           <p className="text-sm font-medium text-foreground">Listas de precio</p>
           <p className="text-xs text-muted-foreground">Marca las listas asociadas a este punto de venta.</p>
@@ -412,6 +472,7 @@ export function UpdatePointOfSaleDialog({
           />
         )}
 
+        {posKind === "SALE" ? (
         <div className="space-y-2 pt-2">
           <p className="text-sm font-medium text-foreground">Medios de pago del POS</p>
           <p className="text-xs text-muted-foreground">
@@ -432,6 +493,12 @@ export function UpdatePointOfSaleDialog({
             />
           )}
         </div>
+        ) : null}
+        {!canSubmit && submitBlockers.length > 0 ? (
+          <p className="text-sm text-muted-foreground" data-test-id="pos-update-submit-hint">
+            Para guardar completa: {submitBlockers.join(", ")}.
+          </p>
+        ) : null}
       </div>
     </Dialog>
   );

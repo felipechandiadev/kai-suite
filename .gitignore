@@ -41,6 +41,8 @@ kai-printers-android/dist/
 kai-printers-android/**/*.jks
 kai-printers-android/**/*.keystore
 pwa-pos/public/downloads/kai-printers-android-*.apk
+pwa-pos/public/downloads/kai-printers-windows-*.zip
+pwa-pos/public/downloads/kai-printers-macos-*.dmg
 
 # Rust/Tauri build artifacts
 print-service/src-tauri/target/

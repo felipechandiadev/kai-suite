@@ -39,12 +39,17 @@ function toListItem(row: unknown): UserListItem | null {
   let person: UserListItem["person"] = null;
   if (personRaw && typeof personRaw === "object" && !Array.isArray(personRaw)) {
     const p = personRaw as Record<string, unknown>;
+    const doc =
+      p.documentNumber != null
+        ? String(p.documentNumber)
+        : p.dni != null
+          ? String(p.dni)
+          : "";
     person = {
       firstName: p.firstName != null ? String(p.firstName) : null,
       lastName: p.lastName != null ? String(p.lastName) : null,
       phone: p.phone != null && String(p.phone).trim() ? String(p.phone) : null,
-      documentNumber:
-        p.documentNumber != null && String(p.documentNumber).trim() ? String(p.documentNumber) : null,
+      documentNumber: doc.trim() ? doc : null,
     };
   }
   return {
@@ -54,6 +59,14 @@ function toListItem(row: unknown): UserListItem | null {
     rol: o.rol != null ? String(o.rol) : "OPERATOR",
     person,
   };
+}
+
+/** POST/PUT users devuelven `{ success, user }`; GET devuelve el usuario plano. */
+function extractUserPayload(data: Record<string, unknown>): unknown {
+  if (data.user && typeof data.user === "object" && !Array.isArray(data.user)) {
+    return data.user;
+  }
+  return data;
 }
 
 export class UserRequest {
@@ -125,7 +138,7 @@ export class UserRequest {
                 : res.statusText;
         return { success: false, error: msg || "No se pudo crear el usuario" };
       }
-      const item = toListItem(data) ?? toListItem({ ...data, id: data.id, userName: data.userName, mail: data.mail });
+      const item = toListItem(extractUserPayload(data));
       if (item) {
         return { success: true, data: item };
       }
@@ -174,7 +187,7 @@ export class UserRequest {
               : res.statusText;
         return { success: false, error: msg || "No se pudo actualizar el usuario" };
       }
-      const item = toListItem(data);
+      const item = toListItem(extractUserPayload(data));
       if (item) {
         return { success: true, data: item };
       }

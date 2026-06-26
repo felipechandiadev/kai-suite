@@ -42,6 +42,7 @@ export type CreateSaleApiBody = {
   changeAmount?: number;
   customerId?: string;
   fulfillBackorderId?: string;
+  fulfillPresaleTicketId?: string;
   deferPayment?: boolean;
   metadata?: Record<string, unknown>;
   promotionSnapshot?: Array<{
@@ -144,8 +145,10 @@ export function buildCreateSaleClientPayload(input: {
   appliedTotal: number;
   overpay: number;
   fulfillBackorderId?: string | null;
+  fulfillPresaleTicketId?: string | null;
   deferPayment?: boolean;
   loadedQuotation?: LoadedQuotationMeta | null;
+  loadedPresaleTicket?: { id: string; code: string } | null;
 }): CreateSaleClientPayload {
   const deferPayment = input.deferPayment === true;
   const paymentLines = deferPayment
@@ -185,6 +188,7 @@ export function buildCreateSaleClientPayload(input: {
     changeAmount: deferPayment ? 0 : Math.round(Math.max(0, input.overpay)),
     customerId: input.customer?.customerId?.trim() || undefined,
     fulfillBackorderId: input.fulfillBackorderId?.trim() || undefined,
+    fulfillPresaleTicketId: input.fulfillPresaleTicketId?.trim() || undefined,
     promotionSnapshot,
     ...(hasMetadata ? { metadata } : {}),
     ...(deferPayment ? { deferPayment: true } : {}),

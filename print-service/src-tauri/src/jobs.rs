@@ -461,18 +461,17 @@ pub fn write_test_print_pdf(dir: &PathBuf, purpose: &str, agent_label: &str) -> 
     write_test_print_path(dir, purpose, agent_label, false)
 }
 
-/// Hoja QA ESC/POS (RAW). Logo y corte según flags de la línea al encolar.
+/// Hoja QA ESC/POS (RAW). Logo Kai embebido; corte según flag al encolar.
 pub fn write_escpos_qa_path(
     dir: &PathBuf,
     agent_label: &str,
     system_printer: &str,
-    logo_base64: Option<&str>,
     include_cut: bool,
 ) -> Result<(PathBuf, usize)> {
     std::fs::create_dir_all(dir)?;
     let id = uuid::Uuid::new_v4().to_string();
     let p = dir.join(format!("escpos_qa_{id}.escpos"));
-    let bytes = escpos_qa::write_escpos_qa_file(&p, agent_label, system_printer, logo_base64, include_cut)?;
+    let bytes = escpos_qa::write_escpos_qa_file(&p, agent_label, system_printer, include_cut)?;
     Ok((p, bytes))
 }
 
@@ -562,4 +561,11 @@ pub fn write_pos_cash_session_opening_ticket_escpos_from_value(
     crate::pos_cash_session_opening_ticket::write_pos_cash_session_opening_ticket_escpos_from_value(
         dir, value,
     )
+}
+
+pub fn write_pos_bank_account_ticket_escpos_from_value(
+    dir: &PathBuf,
+    value: &serde_json::Value,
+) -> Result<PathBuf> {
+    crate::pos_bank_account_ticket::write_pos_bank_account_ticket_escpos_from_value(dir, value)
 }

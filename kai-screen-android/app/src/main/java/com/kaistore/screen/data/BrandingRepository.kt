@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -23,12 +24,14 @@ data class DisplayBranding(
     val businessName: String = "",
     val welcomeMessage: String = "",
     val logoPath: String? = null,
+    val logoEnabled: Boolean = true,
 )
 
 object BrandingKeys {
     val BUSINESS_NAME = stringPreferencesKey("business_name")
     val WELCOME_MESSAGE = stringPreferencesKey("welcome_message")
     val LOGO_PATH = stringPreferencesKey("logo_path")
+    val LOGO_ENABLED = booleanPreferencesKey("logo_enabled")
 }
 
 class BrandingRepository(private val context: Context) {
@@ -37,6 +40,7 @@ class BrandingRepository(private val context: Context) {
             businessName = prefs[BrandingKeys.BUSINESS_NAME].orEmpty(),
             welcomeMessage = prefs[BrandingKeys.WELCOME_MESSAGE].orEmpty(),
             logoPath = prefs[BrandingKeys.LOGO_PATH]?.trim()?.ifEmpty { null },
+            logoEnabled = prefs[BrandingKeys.LOGO_ENABLED] ?: true,
         )
     }
 
@@ -46,6 +50,10 @@ class BrandingRepository(private val context: Context) {
 
     suspend fun setWelcomeMessage(value: String) {
         context.brandingStore.edit { it[BrandingKeys.WELCOME_MESSAGE] = value.trim() }
+    }
+
+    suspend fun setLogoEnabled(enabled: Boolean) {
+        context.brandingStore.edit { it[BrandingKeys.LOGO_ENABLED] = enabled }
     }
 
     suspend fun saveLogoFromUri(uri: Uri): Boolean = withContext(Dispatchers.IO) {

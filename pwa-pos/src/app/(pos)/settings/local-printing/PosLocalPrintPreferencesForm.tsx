@@ -10,7 +10,7 @@ import {
   readPosDocumentPrintModesFromStorage,
   readPosPurposePrinterAliasesFromStorage,
   sanitizePosDocumentPrintMode,
-  type KaiPrintersAndroidManifest,
+  type KaiPrintersDownloadsManifests,
   type PosDocumentPrintKind,
   type PosDocumentPrintMode,
   PosDocumentPrintModeSelector,
@@ -23,14 +23,12 @@ import { Button, Select, Switch, TextField } from "@/shared/admin-shared";
 import { printPosDocumentTest } from "@/features/pos-print/lib/print-pos-document-test";
 import { printPosQuickTicketTest } from "@/features/pos-print/lib/print-pos-quick-print-test";
 import { DocumentPrintTestButton } from "@/features/pos-print/ui/DocumentPrintTestButton";
-import { PosCustomerDisplaySettingsSection } from "@/features/customer-display/ui/PosCustomerDisplaySettingsSection";
-import type { KaiScreenAndroidManifest } from "@flowstore/customer-display-client";
 import { getQuotationsEnabledAction } from "@/features/company/actions/company-quotations.action";
+import { getPresalesEnabledAction } from "@/features/presale-tickets/actions/presales-enabled.action";
 
 type Props = {
   className?: string;
-  kaiPrintersAndroidManifest?: KaiPrintersAndroidManifest;
-  kaiScreenAndroidManifest?: KaiScreenAndroidManifest;
+  initialManifests?: KaiPrintersDownloadsManifests;
 };
 
 function stringList(v: unknown): string[] {
@@ -42,6 +40,7 @@ const INITIAL_DOC_PRINT_MODES: Record<PosDocumentPrintKind, PosDocumentPrintMode
   sale: "ticket",
   quotation: "ticket",
   backorder: "ticket",
+  presale: "ticket",
   customerCreditNote: "ticket",
   cashClosing: "ticket",
   cashCountSheet: "document",
@@ -65,8 +64,7 @@ function aliasSelectOptions(aliases: string[], current: string) {
 
 export function PosLocalPrintPreferencesForm({
   className = "",
-  kaiPrintersAndroidManifest,
-  kaiScreenAndroidManifest,
+  initialManifests,
 }: Props) {
   const formId = useId();
   const [host, setHost] = useState("127.0.0.1");
@@ -86,9 +84,11 @@ export function PosLocalPrintPreferencesForm({
   const [saleDemoTestBusy, setSaleDemoTestBusy] = useState(false);
   const [quickTestMessage, setQuickTestMessage] = useState<string | null>(null);
   const [quotationsEnabled, setQuotationsEnabled] = useState(false);
+  const [presalesEnabled, setPresalesEnabled] = useState(false);
 
   useEffect(() => {
     void getQuotationsEnabledAction().then(setQuotationsEnabled);
+    void getPresalesEnabledAction().then(setPresalesEnabled);
   }, []);
 
   useEffect(() => {
@@ -279,7 +279,7 @@ export function PosLocalPrintPreferencesForm({
 
   return (
     <>
-      <KaiPrintersDownloadSection initialManifest={kaiPrintersAndroidManifest} />
+      <KaiPrintersDownloadSection initialManifests={initialManifests} />
 
       <form
         id={formId}
@@ -445,6 +445,9 @@ export function PosLocalPrintPreferencesForm({
                 ...(quotationsEnabled
                   ? ([["quotation", "Cotizaciones", "pos-print-prefs-quotation-mode"]] as const)
                   : []),
+                ...(presalesEnabled
+                  ? ([["presale", "Tickets preventa", "pos-print-prefs-presale-mode"]] as const)
+                  : []),
                 ["backorder", "Encargos", "pos-print-prefs-backorder-mode"] as const,
                 [
                   "customerCreditNote",
@@ -493,11 +496,6 @@ export function PosLocalPrintPreferencesForm({
           </div>
         </section>
       </form>
-
-      <PosCustomerDisplaySettingsSection
-        className="mt-6"
-        kaiScreenAndroidManifest={kaiScreenAndroidManifest}
-      />
 
       <div className="mt-8 flex w-full justify-end pb-16">
         <Button type="submit" form={formId} variant="primary" data-test-id="pos-print-prefs-save">

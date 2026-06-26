@@ -4,7 +4,7 @@ import {
   maskAccessToken,
   sanitizeCompanyMercadoPagoSettings,
 } from '@modules/companies/domain/company-mercado-pago.types';
-import { mapMpPaymentStatus } from '@modules/payment-gateways/domain/payment-gateway-intent.types';
+import { mapMpOrderToIntentStatus, mapMpPaymentStatus } from '@modules/payment-gateways/domain/payment-gateway-intent.types';
 
 describe('company-mercado-pago.types', () => {
   it('masks access token for display', () => {
@@ -38,14 +38,18 @@ describe('company-mercado-pago.types', () => {
     expect(next.enabled).toBe(false);
   });
 
-  it('checkout operational only with credentials and flags', () => {
+  it('checkout operational with eshop flag and credentials (master switch optional)', () => {
     const ready = buildDefaultCompanyMercadoPagoSettings();
-    ready.enabled = true;
+    ready.enabled = false;
     ready.eshopOnlinePaymentEnabled = true;
     ready.publicKey = 'TEST-pk';
     ready.accessToken = 'TEST-at';
     expect(isMercadoPagoEshopCheckoutOperational(ready)).toBe(true);
 
+    ready.eshopOnlinePaymentEnabled = false;
+    expect(isMercadoPagoEshopCheckoutOperational(ready)).toBe(false);
+
+    ready.eshopOnlinePaymentEnabled = true;
     ready.accessToken = '';
     expect(isMercadoPagoEshopCheckoutOperational(ready)).toBe(false);
   });
@@ -58,5 +62,19 @@ describe('payment-gateway-intent.types', () => {
 
   it('maps mp rejected status', () => {
     expect(mapMpPaymentStatus('rejected')).toBe('REJECTED');
+  });
+
+  it('maps API Orders processed as approved', () => {
+    expect(mapMpOrderToIntentStatus({
+      orderStatus: 'processed',
+      orderStatusDetail: 'accredited',
+    })).toBe('APPROVED');
+  });
+
+  it('maps API Orders processing as pending', () => {
+    expect(mapMpOrderToIntentStatus({
+      orderStatus: 'processing',
+      paymentStatus: 'processing',
+    })).toBe('PENDING');
   });
 });

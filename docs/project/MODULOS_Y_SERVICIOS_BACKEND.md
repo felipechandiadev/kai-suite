@@ -2,7 +2,7 @@
 
 Referencia detallada del backend NestJS en `backend/src/`. Complementa [ARQUITECTURA_Y_ECOSISTEMA.md](./ARQUITECTURA_Y_ECOSISTEMA.md) y la guía profunda en [legacy/BACKEND_ARQUITECTURA.md](../legacy/BACKEND_ARQUITECTURA.md).
 
-**Base URL API:** `http://localhost:3030/api` (prefijo global `/api` en `main.ts`).
+**Base URL API:** `http://localhost:5030/api` (prefijo global `/api` en `main.ts`).
 
 **Última revisión:** junio 2026.
 

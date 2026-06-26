@@ -12,6 +12,7 @@ import { CompanyPaymentMethodsSection } from "./CompanyPaymentMethodsSection";
 import { CompanyInternalCustomerCreditSection } from "./CompanyInternalCustomerCreditSection";
 import { CompanyChecksSection } from "./CompanyChecksSection";
 import { CompanyQuotationsSection } from "./CompanyQuotationsSection";
+import { CompanyPresalesSection } from "./CompanyPresalesSection";
 import { CompanyPartnersSection } from "./CompanyPartnersSection";
 import { CompanyPublicContactSection } from "./CompanyPublicContactSection";
 import { CompanyIdentitySection } from "./CompanyIdentitySection";
@@ -97,6 +98,7 @@ export function CompanySettingsContent({ company, shareholders }: Props) {
         ) : null}
         {activeTab === "cheques" ? <CompanyChecksSection company={company} /> : null}
         {activeTab === "cotizaciones" ? <CompanyQuotationsSection company={company} /> : null}
+        {activeTab === "preventa" ? <CompanyPresalesSection company={company} /> : null}
         {activeTab === "contacto" ? <CompanyPublicContactSection company={company} /> : null}
         {activeTab === "eshop" && isEShopModuleEnabled() ? (
           <CompanyEShopSection company={company} />

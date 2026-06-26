@@ -20,6 +20,7 @@ import {
   type PosPaymentMethodConfig,
 } from "@/features/sales-points-of-sale/types/pos-payment-methods.types";
 import { getCompanyDetailsAction } from "@/features/settings-company/actions/company.action";
+import type { PosKind } from "@/features/sales-points-of-sale/types/point-of-sale.types";
 import {
   PosPaymentMethodsCardsEditor,
   type PosPaymentMethodsCardsEditorHandle,
@@ -53,6 +54,8 @@ export function CreatePointOfSaleDialog({
   const [storageId, setStorageId] = useState("");
   const [deviceId, setDeviceId] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [posKind, setPosKind] = useState<PosKind>("SALE");
+  const [acceptsPresaleTickets, setAcceptsPresaleTickets] = useState(false);
   const [selectedListIds, setSelectedListIds] = useState<string[]>([]);
   const [defaultListId, setDefaultListId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +83,34 @@ export function CreatePointOfSaleDialog({
 
   const hasBranches = branchOptions.length > 0;
 
+  const isSalePos = posKind === "SALE";
+
+  const submitBlockers = useMemo(() => {
+    const reasons: string[] = [];
+    if (!name.trim()) reasons.push("nombre");
+    if (!hasBranches) reasons.push("al menos una sucursal en la empresa");
+    if (hasBranches && !branchId) reasons.push("sucursal");
+    if (hasBranches && storeRoomOptions.length === 0) {
+      reasons.push("almacén tipo «sala de venta» en la sucursal");
+    } else if (!storageId) {
+      reasons.push("sala de venta (stock POS)");
+    }
+    if (selectedListIds.length === 0) reasons.push("al menos una lista de precio");
+    if (isSalePos && loadingPayments) reasons.push("carga de medios de pago");
+    return reasons;
+  }, [
+    name,
+    hasBranches,
+    branchId,
+    storeRoomOptions.length,
+    storageId,
+    selectedListIds.length,
+    isSalePos,
+    loadingPayments,
+  ]);
+
+  const canSubmit = submitBlockers.length === 0 && !isPending;
+
   /** Solo listas marcadas; sin fila "automático". */
   const defaultListOptions = useMemo(() => {
     return selectedListIds
@@ -95,6 +126,8 @@ export function CreatePointOfSaleDialog({
     setName("");
     setDeviceId("");
     setIsActive(true);
+    setPosKind("SALE");
+    setAcceptsPresaleTickets(false);
     setSelectedListIds([]);
     setDefaultListId(null);
     setError(null);
@@ -104,13 +137,23 @@ export function CreatePointOfSaleDialog({
     setPaymentCatalog([]);
     setPosPaymentDraft([]);
     setBankAccountOptions([]);
-    if (resolvedCompanyId) {
-      setLoadingPayments(true);
-      void (async () => {
+    setLoadingPayments(false);
+  }, [open, branches]);
+
+  useEffect(() => {
+    if (!open || !resolvedCompanyId || posKind !== "SALE") {
+      setLoadingPayments(false);
+      return;
+    }
+    let cancelled = false;
+    setLoadingPayments(true);
+    void (async () => {
+      try {
         const [res, details] = await Promise.all([
           getCompanyPaymentMethodsAction(resolvedCompanyId),
           getCompanyDetailsAction(),
         ]);
+        if (cancelled) return;
         if (res.success) {
           setPaymentCatalog(res.paymentMethods);
           setPosPaymentDraft(syncPosPaymentDraftWithCatalog(res.paymentMethods, []));
@@ -129,10 +172,14 @@ export function CreatePointOfSaleDialog({
               .filter((x): x is { id: string; label: string } => Boolean(x)),
           );
         }
-        setLoadingPayments(false);
-      })();
-    }
-  }, [open, branches, resolvedCompanyId]);
+      } finally {
+        if (!cancelled) setLoadingPayments(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, resolvedCompanyId, posKind]);
 
   /** Sin opción "automática": al cambiar asignación, fija la preferente en una lista concreta (la primera de la selección). */
   useEffect(() => {
@@ -203,13 +250,15 @@ export function CreatePointOfSaleDialog({
           isActive,
           priceLists,
           defaultPriceListId: defaultListId,
+          kind: posKind,
+          acceptsPresaleTickets: posKind === "SALE" ? acceptsPresaleTickets : false,
         });
         if (!r.success) {
           setError(r.error);
           return;
         }
 
-        if (resolvedCompanyId) {
+        if (resolvedCompanyId && posKind === "SALE") {
           const posId = r.pointOfSale.id;
           const paymentPayload =
             paymentEditorRef.current?.getPayload() ?? posPaymentDraft;
@@ -257,15 +306,7 @@ export function CreatePointOfSaleDialog({
             variant="primary"
             size="md"
             onClick={handleSubmit}
-            disabled={
-              !name.trim() ||
-              isPending ||
-              loadingPayments ||
-              !branchId ||
-              !hasBranches ||
-              !storageId ||
-              storeRoomOptions.length === 0
-            }
+            disabled={!canSubmit}
             data-test-id="pos-create-submit"
           >
             Crear
@@ -343,6 +384,36 @@ export function CreatePointOfSaleDialog({
             data-test-id="pos-create-active"
           />
         </div>
+        <Select
+          label="Tipo de punto"
+          name="pos-kind"
+          value={posKind}
+          onChange={(id) => {
+            if (id === "PRESALE" || id === "SALE") {
+              setPosKind(id);
+              if (id === "PRESALE") setAcceptsPresaleTickets(false);
+            }
+          }}
+          options={[
+            { id: "SALE", label: "Caja (cobro)" },
+            { id: "PRESALE", label: "Preventa (armado de carrito)" },
+          ]}
+          required
+          data-test-id="pos-create-kind"
+        />
+        {posKind === "SALE" ? (
+          <Switch
+            checked={acceptsPresaleTickets}
+            onChange={setAcceptsPresaleTickets}
+            label="Acepta tickets de preventa"
+            labelPosition="right"
+            data-test-id="pos-create-accepts-presale"
+          />
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            En preventa no se cobra: se genera un ticket con código para cobrar en caja.
+          </p>
+        )}
         <div className="space-y-2">
           <p className="text-sm font-medium text-foreground">Listas de precio</p>
           <p className="text-xs text-muted-foreground">Marca las listas asociadas a este punto de venta.</p>
@@ -384,6 +455,7 @@ export function CreatePointOfSaleDialog({
           />
         )}
 
+        {posKind === "SALE" ? (
         <div className="space-y-2 pt-2">
           <p className="text-sm font-medium text-foreground">Medios de pago del POS</p>
           <p className="text-xs text-muted-foreground">
@@ -404,6 +476,12 @@ export function CreatePointOfSaleDialog({
             />
           )}
         </div>
+        ) : null}
+        {!canSubmit && submitBlockers.length > 0 ? (
+          <p className="text-sm text-muted-foreground" data-test-id="pos-create-submit-hint">
+            Para crear el punto de venta completa: {submitBlockers.join(", ")}.
+          </p>
+        ) : null}
       </div>
     </Dialog>
   );

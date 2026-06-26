@@ -16,6 +16,6 @@ export function getServerBackendApiBase(): string {
   }
 
   throw new Error(
-    "BACKEND_API_URL no está definida. Copie pwa-eshop/.env.example a .env.local (p. ej. BACKEND_API_URL=http://localhost:3030).",
+    "BACKEND_API_URL no está definida. Copie pwa-eshop/.env.example a .env.local (p. ej. BACKEND_API_URL=http://localhost:5030).",
   );
 }

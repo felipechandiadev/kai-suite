@@ -35,11 +35,11 @@ npm run dev:all      # stack completo (+ pos, stock, eshop, mail)
 
 | Servicio | URL |
 |----------|-----|
-| Backend API | http://localhost:3030/api |
-| Admin | http://localhost:4031 |
-| POS | http://localhost:4032 |
-| Stock | http://localhost:4033 |
-| eShop | http://localhost:4034 |
+| Backend API | http://localhost:5030/api |
+| Admin | http://localhost:5031 |
+| POS | http://localhost:5032 |
+| Stock | http://localhost:5033 |
+| eShop | http://localhost:5034 |
 
 Login admin (seed): `admin` / `098098`
 
@@ -49,7 +49,7 @@ Login admin (seed): `admin` / `098098`
    ```bash
    cd backend
    npm install
-   npm run start:dev  # Puerto 3030
+   npm run start:dev  # Puerto 5030
    ```
 
 2. **Frontend** (en otro terminal):
@@ -59,14 +59,14 @@ Login admin (seed): `admin` / `098098`
    cd web-admin
    npm install next-pwa @tanstack/react-query next-auth zod zustand
    # Configurar .env.local según docs/legacy/WEBADMIN_FRONTEND_GUIDE.md
-   npm run dev  # Puerto 4031
+   npm run dev  # Puerto 5031
    ```
 
 3. **KaiStore eShop** (tienda pública):
    ```bash
    cd pwa-eshop
    npm install
-   npm run dev  # Puerto 4034
+   npm run dev  # Puerto 5034
    ```
 
 4. **Seed base de datos** (desde `backend/`):
