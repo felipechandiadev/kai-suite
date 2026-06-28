@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Genera iconos KaiStore para todas las apps desde packages/kai-brand/sources/.
+ * Genera iconos KaiStore para todas las apps desde kai-logo.svg (vía master-1024.png).
  *
  * Matriz: ver ICON_MATRIX.md
  */
@@ -8,53 +8,33 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import sharp from "sharp";
 import { generateAndroidRes } from "./lib/android-icons.mjs";
 import { generatePwaIconSet, generateShortcutIcon, squarePng } from "./lib/pwa-icons.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const brandRoot = path.join(__dirname, "..");
 const repoRoot = path.join(brandRoot, "..", "..");
-const sources = path.join(brandRoot, "sources");
-
-const SRC = {
-  adminFavicon: path.join(sources, "admin-manager.png"),
-  adminApp: path.join(sources, "admin-manager.png"),
-  posDesktop: path.join(sources, "pos-desktop.png"),
-  stockDesktop: path.join(sources, "stock-desktop.png"),
-  eshopDesktop: path.join(sources, "eshop-desktop.png"),
-  androidShared: path.join(sources, "android-shared.png"),
-  printersTauri: path.join(sources, "printers-tauri.png"),
-  brandLogo: path.join(sources, "brand-logo.png"),
-};
+const MASTER = path.join(brandRoot, "sources", "master-1024.png");
 
 const PWA_APPS = [
   {
     id: "admin",
     publicDir: path.join(repoRoot, "pwa-admin", "public"),
-    appIcon: SRC.adminApp,
-    androidIcon: null,
-    shortcuts: [{ file: "icons/shortcut-dashboard.png", source: SRC.adminApp }],
+    shortcuts: [{ file: "icons/shortcut-dashboard.png" }],
   },
   {
     id: "pos",
     publicDir: path.join(repoRoot, "pwa-pos", "public"),
-    appIcon: SRC.posDesktop,
-    androidIcon: SRC.androidShared,
-    shortcuts: [{ file: "icons/shortcut-pos.png", source: SRC.posDesktop }],
+    shortcuts: [{ file: "icons/shortcut-pos.png" }],
   },
   {
     id: "stock",
     publicDir: path.join(repoRoot, "pwa-stock", "public"),
-    appIcon: SRC.stockDesktop,
-    androidIcon: null,
     shortcuts: [],
   },
   {
     id: "eshop",
     publicDir: path.join(repoRoot, "pwa-eshop", "public"),
-    appIcon: SRC.eshopDesktop,
-    androidIcon: null,
     shortcuts: [],
   },
 ];
@@ -64,12 +44,12 @@ const ANDROID_APPS = [
   path.join(repoRoot, "kai-screen-android", "app", "src", "main", "res"),
 ];
 
-function requireSources() {
-  for (const [key, file] of Object.entries(SRC)) {
-    if (!fs.existsSync(file)) {
-      console.error(`Falta source ${key}: ${file}`);
-      process.exit(1);
-    }
+const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
+
+function requireMaster() {
+  if (!fs.existsSync(MASTER)) {
+    console.error(`Falta ${MASTER}. Ejecutá: node scripts/rasterize-svg.mjs`);
+    process.exit(1);
   }
 }
 
@@ -77,12 +57,12 @@ async function syncPwaIcons() {
   for (const app of PWA_APPS) {
     await generatePwaIconSet({
       outDir: app.publicDir,
-      faviconSource: SRC.adminFavicon,
-      appIconSource: app.appIcon,
-      androidIconSource: app.androidIcon ?? undefined,
+      faviconSource: MASTER,
+      appIconSource: MASTER,
+      androidIconSource: MASTER,
     });
     for (const sc of app.shortcuts) {
-      await generateShortcutIcon(sc.source, path.join(app.publicDir, sc.file));
+      await generateShortcutIcon(MASTER, path.join(app.publicDir, sc.file));
     }
     console.log(`PWA ${app.id} → ${path.relative(repoRoot, app.publicDir)}/`);
   }
@@ -94,33 +74,33 @@ async function syncAndroidIcons() {
       console.warn(`Skip Android (no existe): ${resDir}`);
       continue;
     }
-    await generateAndroidRes(SRC.androidShared, resDir);
+    await generateAndroidRes(MASTER, resDir);
     console.log(`Android → ${path.relative(repoRoot, resDir)}/`);
   }
 
   const play512 = path.join(repoRoot, "packages", "kai-printers-brand", "sources");
   fs.mkdirSync(play512, { recursive: true });
-  const buf = await squarePng(SRC.androidShared, 512);
+  const buf = await squarePng(MASTER, 512, { background: TRANSPARENT });
   fs.writeFileSync(path.join(play512, "kai-printers.png"), buf);
-  fs.copyFileSync(SRC.androidShared, path.join(play512, "kai-screen.png"));
+  fs.copyFileSync(path.join(play512, "kai-printers.png"), path.join(play512, "kai-screen.png"));
 }
 
 async function syncTauriIcons() {
   const printService = path.join(repoRoot, "print-service");
+  if (!fs.existsSync(printService)) {
+    console.warn("Skip Tauri (no existe print-service/)");
+    return;
+  }
+
   const publicDir = path.join(printService, "public");
   fs.mkdirSync(publicDir, { recursive: true });
 
-  const square = await squarePng(SRC.printersTauri, 1024);
+  const square = await squarePng(MASTER, 1024, { background: TRANSPARENT });
   fs.writeFileSync(path.join(publicDir, "kai-printers.png"), square);
 
   const traySrc = path.join(publicDir, "KaiPrinters-mac-bar.png");
-  if (!fs.existsSync(traySrc)) {
-    const tray = await squarePng(SRC.printersTauri, 44, {
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    });
-    fs.writeFileSync(traySrc, tray);
-    console.warn("Tray: generado desde printers-tauri (no había KaiPrinters-mac-bar.png)");
-  }
+  const tray = await squarePng(MASTER, 44, { background: TRANSPARENT });
+  fs.writeFileSync(traySrc, tray);
 
   const gen = spawnSync("npm", ["run", "generate-icons"], {
     cwd: printService,
@@ -143,14 +123,14 @@ async function syncBrandLogos() {
   ];
   for (const target of logoTargets) {
     if (!fs.existsSync(path.dirname(target))) continue;
-    fs.copyFileSync(SRC.brandLogo, target);
+    fs.copyFileSync(MASTER, target);
   }
-  console.log("Logo UI (brand-logo) copiado a public/logo.png de cada PWA");
+  console.log("Logo UI (master) copiado a public/logo.png de cada PWA");
 }
 
 async function main() {
-  requireSources();
-  console.log("==> Kai Brand — generación de iconos\n");
+  requireMaster();
+  console.log("==> Kai Brand — generación de iconos (unificado)\n");
   await syncPwaIcons();
   await syncAndroidIcons();
   await syncTauriIcons();

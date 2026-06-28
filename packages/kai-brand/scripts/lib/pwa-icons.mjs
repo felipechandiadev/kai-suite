@@ -3,6 +3,7 @@ import path from "node:path";
 import sharp from "sharp";
 
 const WHITE = { r: 255, g: 255, b: 255, alpha: 1 };
+const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
 
 export async function squarePng(source, size, { background = WHITE } = {}) {
   return sharp(source)
@@ -15,7 +16,7 @@ export async function squarePng(source, size, { background = WHITE } = {}) {
 export async function maskablePng(source, size) {
   const inner = Math.round(size * 0.8);
   const logo = await sharp(source)
-    .resize(inner, inner, { fit: "contain", position: "center", background: WHITE })
+    .resize(inner, inner, { fit: "contain", position: "center", background: TRANSPARENT })
     .png()
     .toBuffer();
   return sharp({
@@ -28,11 +29,7 @@ export async function maskablePng(source, size) {
 
 /**
  * Genera el set estándar PWA en `outDir`.
- * @param {object} opts
- * @param {string} opts.outDir
- * @param {string} opts.faviconSource — favicon pestaña (compartido admin en todas las apps)
- * @param {string} opts.appIconSource — icono de app (dock / “Añadir a pantalla” en desktop)
- * @param {string} [opts.androidIconSource] — si se define, solo android-chrome-* usan este PNG
+ * Iconos `any` usan fondo transparente; maskable usa blanco (#FFFFFF).
  */
 export async function generatePwaIconSet({
   outDir,
@@ -42,6 +39,7 @@ export async function generatePwaIconSet({
 }) {
   fs.mkdirSync(outDir, { recursive: true });
   const androidSrc = androidIconSource ?? appIconSource;
+  const transparentBg = { background: TRANSPARENT };
 
   const writes = [
     ["favicon-16x16.png", faviconSource, 16, false],
@@ -56,13 +54,15 @@ export async function generatePwaIconSet({
   ];
 
   for (const [name, src, size, maskable] of writes) {
-    const buf = maskable ? await maskablePng(src, size) : await squarePng(src, size);
+    const buf = maskable
+      ? await maskablePng(src, size)
+      : await squarePng(src, size, transparentBg);
     fs.writeFileSync(path.join(outDir, name), buf);
   }
 }
 
 export async function generateShortcutIcon(source, outFile, size = 192) {
   fs.mkdirSync(path.dirname(outFile), { recursive: true });
-  const buf = await squarePng(source, size);
+  const buf = await squarePng(source, size, { background: TRANSPARENT });
   fs.writeFileSync(outFile, buf);
 }

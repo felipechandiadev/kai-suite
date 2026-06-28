@@ -4,6 +4,8 @@
 
 | Documento | Descripción |
 |-----------|-------------|
+| [assets/README.md](../assets/README.md) | Assets estáticos — marca Kai (`assets/brand/`) e integraciones |
+| [project/MIGRACION-NOMBRES-KAISTORE.md](./project/MIGRACION-NOMBRES-KAISTORE.md) | Plan de migración **Flow Store → Kai** (plataforma: KaiStore, KaiFood, KaiServices) |
 | [project/ARQUITECTURA_Y_ECOSISTEMA.md](./project/ARQUITECTURA_Y_ECOSISTEMA.md) | Arquitectura, ecosistema, dominios de negocio y flujos principales |
 | [project/MODULOS_Y_SERVICIOS_BACKEND.md](./project/MODULOS_Y_SERVICIOS_BACKEND.md) | Catálogo detallado de módulos, servicios y rutas REST del backend |
 | [printers/](./printers/README.md) | **Impresión POS** — estrategia, arquitectura, renderers ESC/POS, postmortem venta real |

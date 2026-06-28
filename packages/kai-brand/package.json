@@ -2,10 +2,10 @@
   "name": "@flowstore/kai-brand",
   "private": true,
   "version": "1.0.0",
-  "description": "Generación de iconos KaiStore (PWA, Android, Tauri) desde sources/",
+  "description": "Generación de iconos KaiStore (PWA, Android, Tauri) desde kai-logo.svg",
   "type": "module",
   "scripts": {
-    "generate": "node scripts/generate-all.mjs"
+    "generate": "node scripts/rasterize-svg.mjs && node scripts/generate-all.mjs && node scripts/export-to-assets.mjs"
   },
   "devDependencies": {
     "sharp": "^0.34.5"

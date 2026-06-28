@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.KaiPrinters.Splash" parent="Theme.SplashScreen">
+        <item name="android:windowBackground">@drawable/splash_legacy</item>
+        <item name="windowSplashScreenBackground">@color/kai_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/kai_background</item>
+        <item name="windowSplashScreenAnimationDuration">300</item>
+        <item name="postSplashScreenTheme">@style/Theme.KaiPrinters</item>
+    </style>
+</resources>
