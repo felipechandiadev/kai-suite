@@ -1,14 +1,14 @@
-name: print-service
+name: kai-printers-desktop
 
 on:
   push:
     paths:
-      - "print-service/**"
-      - ".github/workflows/print-service.yml"
+      - "kai-printers-desktop/**"
+      - ".github/workflows/kai-printers-desktop.yml"
   pull_request:
     paths:
-      - "print-service/**"
-      - ".github/workflows/print-service.yml"
+      - "kai-printers-desktop/**"
+      - ".github/workflows/kai-printers-desktop.yml"
 
 jobs:
   rust:
@@ -23,7 +23,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     defaults:
       run:
-        working-directory: print-service/src-tauri
+        working-directory: kai-printers-desktop/src-tauri
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -33,14 +33,14 @@ jobs:
         with:
           node-version: "22"
       - name: Install frontend deps
-        working-directory: print-service
+        working-directory: kai-printers-desktop
         run: npm ci
       - name: Build Vite frontend
-        working-directory: print-service
+        working-directory: kai-printers-desktop
         run: npm run build
       - name: Download SumatraPDF (Windows)
         if: matrix.os == 'windows-latest'
-        working-directory: print-service
+        working-directory: kai-printers-desktop
         run: node scripts/fetch-sumatra-windows.mjs
       - name: Cargo check (cross-target)
         run: cargo check --target ${{ matrix.target }}

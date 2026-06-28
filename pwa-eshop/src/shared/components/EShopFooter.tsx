@@ -135,6 +135,10 @@ export function EShopFooter({ storefront }: Props) {
       </div>
       <p className="border-t border-chrome-foreground/20 py-4 text-center text-xs text-chrome-foreground/75">
         {copyright}
+        {" · "}
+        <Link href="/acerca" className="underline hover:text-chrome-foreground">
+          Acerca de Kai
+        </Link>
       </p>
     </footer>
   );

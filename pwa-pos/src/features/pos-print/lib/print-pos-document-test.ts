@@ -4,7 +4,7 @@ import {
   type PosDocumentPrintKind,
   type PosDocumentPrintMode,
   type PrintFormat,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 import { buildCustomerCreditNoteDocumentHtml } from "@/features/customer-credit-notes/lib/customer-credit-note-document-print";
 import { printCustomerCreditNoteReceiptAgentOrBrowser } from "@/features/customer-credit-notes/lib/customer-credit-note-ticket-agent";
 import { printCashCountSheetAwait } from "@/features/cash-closing/lib/cash-count-sheet-print";

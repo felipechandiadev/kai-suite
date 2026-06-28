@@ -18,7 +18,7 @@ import {
   writePosPurposePrinterAliasesToStorage,
   writePrintServiceConfigToStorage,
   KaiPrintersDownloadSection,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 import { Button, Select, Switch, TextField } from "@/shared/admin-shared";
 import { printPosDocumentTest } from "@/features/pos-print/lib/print-pos-document-test";
 import { printPosQuickTicketTest } from "@/features/pos-print/lib/print-pos-quick-print-test";

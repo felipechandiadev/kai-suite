@@ -1,6 +1,6 @@
 import type { CompanyDetails } from "@/features/company/infrastructure/company.request";
 import type { QuotationDetail } from "@/features/quotations/types/quotation.types";
-import type { PrintFormat } from "@flowstore/print-service-client";
+import type { PrintFormat } from "@kai/print-service-client";
 import { printPosQuotationReceiptAgentOrBrowserFireAndForget } from "@/features/quotations/lib/quotation-ticket-agent";
 import { thermalReceiptCssForFormat } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";

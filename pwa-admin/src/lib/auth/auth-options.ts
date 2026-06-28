@@ -19,7 +19,7 @@ const isProd = process.env.NODE_ENV === 'production';
 export const authOptions: NextAuthOptions = {
   cookies: {
     sessionToken: {
-      name: isProd ? '__Secure-next-auth.session.flowstore-admin' : 'next-auth.session.flowstore-admin',
+      name: isProd ? '__Secure-next-auth.session.kai-admin' : 'next-auth.session.kai-admin',
       options: {
         httpOnly: true,
         sameSite: 'lax',

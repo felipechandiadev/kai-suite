@@ -1,10 +1,21 @@
 import type { PrintServiceNotification, PrintServiceNotificationKind } from "./core";
+import { dispatchDualPlatformEvent } from "./platform-events";
+import {
+  getMigratedLocalStorageItem,
+  removeMigratedLocalStorageKeys,
+  setMigratedLocalStorageItem,
+} from "../../../shared/storage-key-migrate";
 
-const LS_PREFIX = "flowstore:print-service-notifications:";
+const LS_PREFIX = "kai:print-service-notifications:";
+const LS_PREFIX_LEGACY = "flowstore:print-service-notifications:";
 const MAX_STORED = 30;
 
 export function printServiceNotificationsStorageKey(clientId: string): string {
   return `${LS_PREFIX}${clientId || "pwa"}`;
+}
+
+export function printServiceNotificationsStorageKeyLegacy(clientId: string): string {
+  return `${LS_PREFIX_LEGACY}${clientId || "pwa"}`;
 }
 
 function isNotificationKind(value: unknown): value is PrintServiceNotificationKind {
@@ -31,7 +42,10 @@ function parseStoredItem(raw: unknown): PrintServiceNotification | null {
 export function readPrintServiceNotificationsFromStorage(clientId: string): PrintServiceNotification[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(printServiceNotificationsStorageKey(clientId));
+    const raw = getMigratedLocalStorageItem(
+      printServiceNotificationsStorageKey(clientId),
+      printServiceNotificationsStorageKeyLegacy(clientId),
+    );
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -50,8 +64,9 @@ export function writePrintServiceNotificationsToStorage(
 ): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(
+    setMigratedLocalStorageItem(
       printServiceNotificationsStorageKey(clientId),
+      printServiceNotificationsStorageKeyLegacy(clientId),
       JSON.stringify(items.slice(0, MAX_STORED)),
     );
   } catch {
@@ -62,7 +77,10 @@ export function writePrintServiceNotificationsToStorage(
 export function clearPrintServiceNotificationsStorage(clientId: string): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.removeItem(printServiceNotificationsStorageKey(clientId));
+    removeMigratedLocalStorageKeys(
+      printServiceNotificationsStorageKey(clientId),
+      printServiceNotificationsStorageKeyLegacy(clientId),
+    );
   } catch {
     /* ignore */
   }
@@ -72,7 +90,8 @@ export function clearPrintServiceNotificationsStorage(clientId: string): void {
 export const PRINT_SERVICE_DISCONNECTED_MESSAGE = "KaiPrinters no está conectado.";
 
 /** Evento para errores síncronos de impresión (encolado rechazado antes de `print_job_failed`). */
-export const PRINT_SERVICE_JOB_FAILED_EVENT = "flowstore:print-service-job-failed";
+export const PRINT_SERVICE_JOB_FAILED_EVENT = "kai:print-service-job-failed";
+export const PRINT_SERVICE_JOB_FAILED_EVENT_LEGACY = "flowstore:print-service-job-failed";
 
 const PRINT_AGENT_ERROR_MESSAGES_ES: Record<string, string> = {
   format_printer_mismatch:
@@ -114,11 +133,7 @@ export function formatPrintJobFailedMessage(error: string): string {
 
 export function emitPrintServiceJobFailed(error: string): void {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(
-    new CustomEvent(PRINT_SERVICE_JOB_FAILED_EVENT, {
-      detail: { error: (error || "").trim() },
-    }),
-  );
+  dispatchDualPlatformEvent(PRINT_SERVICE_JOB_FAILED_EVENT, { error: (error || "").trim() });
 }
 
 /** Errores de configuración/protocolo donde el fallback al navegador no ayuda (p. ej. tablet Android). */

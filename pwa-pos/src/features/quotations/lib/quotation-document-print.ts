@@ -2,10 +2,10 @@ import {
   buildCompanyInlineParts,
   DOCUMENT_HEADER_PRINT_CSS,
   formatCompanyAddressForPrint,
-} from "@flowstore/document-print";
+} from "@kai/document-print";
 import type { CompanyDetails } from "@/features/company/infrastructure/company.request";
 import type { QuotationLineRow } from "@/features/quotations/types/quotation.types";
-import type { PrintFormat } from "@flowstore/print-service-client";
+import type { PrintFormat } from "@kai/print-service-client";
 import { printPosHtmlViaAgentOrBrowserFireAndForget } from "@/features/pos-print/lib/pos-agent-print";
 import {
   documentContentMaxWidth,

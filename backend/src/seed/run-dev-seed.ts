@@ -1051,7 +1051,7 @@ async function bootstrap() {
 
     const userName = process.env.SEED_ADMIN_USERNAME || 'admin';
     const password = process.env.SEED_ADMIN_PASSWORD || '098098';
-    const email = process.env.SEED_ADMIN_EMAIL || 'admin@flowstore.local';
+    const email = process.env.SEED_ADMIN_EMAIL || 'admin@kai.local';
     const razonSocial =
       process.env.SEED_COMPANY_RAZON_SOCIAL || SEED_DEV_COMPANY.razonSocial;
     const nombreFantasia =
@@ -2588,7 +2588,7 @@ async function bootstrap() {
       nonDeletable: true,
       firstName: 'Administrador',
       lastName: 'de Sistema',
-      email: 'superadmin@flowstore.local',
+      email: 'superadmin@kai.local',
       documentNumber: '11111111-1',
     });
 
@@ -2612,7 +2612,7 @@ async function bootstrap() {
       nonDeletable: false,
       firstName: 'Operador',
       lastName: 'POS',
-      email: 'operador@flowstore.local',
+      email: 'operador@kai.local',
       documentNumber: '33333333-3',
     });
 

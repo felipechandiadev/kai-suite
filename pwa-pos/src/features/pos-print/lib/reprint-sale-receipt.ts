@@ -3,7 +3,7 @@ import { getPosSaleReceiptPrintAction } from "@/features/pos-print/actions/pos-s
 import { mapPosSaleReceiptPrintToReceiptData } from "@/features/pos-print/lib/map-pos-sale-receipt-print";
 import { printPosSaleDocumentAgentOrBrowser } from "@/features/pos-print/lib/pos-sale-document-print";
 import { printPosSaleTicketAgentOrBrowser } from "@/features/pos-print/lib/pos-sale-ticket-agent";
-import { formatPrintJobFailedMessage } from "@flowstore/print-service-client";
+import { formatPrintJobFailedMessage } from "@kai/print-service-client";
 
 const REPRINTABLE_TYPES = new Set(["SALE", "BACKORDER"]);
 

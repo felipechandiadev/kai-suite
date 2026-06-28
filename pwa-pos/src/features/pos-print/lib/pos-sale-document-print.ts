@@ -2,8 +2,8 @@ import {
   buildCompanyInlineParts,
   DOCUMENT_HEADER_PRINT_CSS,
   formatCompanyAddressForPrint,
-} from "@flowstore/document-print";
-import type { PrintFormat } from "@flowstore/print-service-client";
+} from "@kai/document-print";
+import type { PrintFormat } from "@kai/print-service-client";
 import type { PosSaleReceiptData } from "@/app/(pos)/pos/payment/ui/PosSaleReceiptDialog";
 import {
   documentContentMaxWidth,

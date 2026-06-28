@@ -1,7 +1,7 @@
 import {
   POS_SALE_TICKET_PAYLOAD_VERSION,
   type PosSaleTicketPayload,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 import type { SaleReceiptPrintData } from "./backorder-document-print.types";
 
 export function mapSaleReceiptToPosSaleTicketPayload(

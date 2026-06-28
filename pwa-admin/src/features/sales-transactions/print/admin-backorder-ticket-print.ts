@@ -5,8 +5,8 @@ import {
   type PosSaleTicketPayload,
   type PosSaleTicketPrintExtras,
   type PrintFormat,
-} from "@flowstore/print-service-client";
-import type { PrintServiceConnection } from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
+import type { PrintServiceConnection } from "@kai/print-service-client";
 import {
   enqueueAdminPrint,
   isAdminPrintAgentConfigured,

@@ -1,4 +1,4 @@
-import { resolveCompanyPhone } from "@flowstore/document-print";
+import { resolveCompanyPhone } from "@kai/document-print";
 import type { CompanyDetails } from "@/features/settings-branches/infrastructure/company.request";
 import {
   SALES_PAYMENT_METHOD_LABEL,

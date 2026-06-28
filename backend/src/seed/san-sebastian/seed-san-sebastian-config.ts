@@ -12,7 +12,7 @@ export const SEED_SAN_SEBASTIAN_COMPANY = {
   razonSocial: 'Supermercado San Sebastián',
   nombreFantasia: 'San Sebastián',
   rut: '78.543.570-2',
-  mail: 'san.sebastian@flowstore.local',
+  mail: 'san.sebastian@kai.local',
   phone: '+56984488195',
   address: 'Población Ajial S/N',
   businessActivity: 'Supermercado y abastecimiento',

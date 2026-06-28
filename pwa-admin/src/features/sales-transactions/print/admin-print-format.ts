@@ -2,7 +2,7 @@ import {
   getAdminDocumentPrintFormat,
   type AdminDocumentPrintKind,
   type PrintFormat,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 import type { SaleReceiptPrintData } from "./backorder-document-print.types";
 
 export function adminDocumentPrintKindForData(data: SaleReceiptPrintData): AdminDocumentPrintKind {

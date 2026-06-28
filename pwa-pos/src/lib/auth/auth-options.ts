@@ -10,7 +10,7 @@ export const authOptions: NextAuthOptions = {
   trustHost: true,
   cookies: {
     sessionToken: {
-      name: isProd ? "__Secure-next-auth.session.flowstore-pos" : "next-auth.session.flowstore-pos",
+      name: isProd ? "__Secure-next-auth.session.kai-pos" : "next-auth.session.kai-pos",
       options: {
         httpOnly: true,
         sameSite: "lax",

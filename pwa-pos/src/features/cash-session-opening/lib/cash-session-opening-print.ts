@@ -3,7 +3,7 @@ import {
   isDocumentPrintFormat,
   posDocumentPrintModeToWireFormat,
   type PrintFormat,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 import type { CashSessionOpeningPrintInput } from "@/features/cash-session-opening/lib/cash-session-opening-print.types";
 import {
   escapeHtml,

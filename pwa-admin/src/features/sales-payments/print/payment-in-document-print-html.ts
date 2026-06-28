@@ -3,7 +3,7 @@ import {
   DOCUMENT_HEADER_PRINT_CSS,
   formatCompanyAddressForPrint,
   resolveCompanyPhone,
-} from "@flowstore/document-print";
+} from "@kai/document-print";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";
 import type { PaymentInPrintData } from "./payment-in-print.types";
 

@@ -40,6 +40,7 @@ import {
   DOCUMENT_PRINT_FORMATS,
   TICKET_PRINT_FORMATS,
 } from "./print-format";
+import { dispatchDualPlatformEvent } from "./platform-events";
 
 export type { PrintFormat, PrinterPaperProfile } from "./print-format";
 export {
@@ -89,7 +90,8 @@ export const PRINT_PROTOCOL_VERSION = "2.1";
  * Subcadena que el agente incluye en el close frame WebSocket al detener WS/WSS desde su UI (botón Energía).
  * Debe coincidir con `WS_CLOSE_REASON_SERVICE_STOPPED` en `print-service/src-tauri/src/ws.rs`.
  */
-export const PRINT_WS_CLOSE_REASON_SERVICE_STOPPED = "flowstore:service_stopped";
+export const PRINT_WS_CLOSE_REASON_SERVICE_STOPPED = "kai:service_stopped";
+export const PRINT_WS_CLOSE_REASON_SERVICE_STOPPED_LEGACY = "flowstore:service_stopped";
 
 export type PrintAgentVisualStatus = "off" | "connecting" | "ok" | "degraded" | "error";
 
@@ -832,7 +834,8 @@ const LS_PORT = "printServicePort";
 const LS_WSS_PORT = "printServiceWssPort";
 const LS_USE_TLS = "printServiceUseTls";
 /** Disparado en la misma pestaña tras `writePrintServiceConfigToStorage` (el evento `storage` solo cruza pestañas). */
-export const PRINT_SERVICE_CONFIG_CHANGED_EVENT = "flowstore:print-service-config-changed";
+export const PRINT_SERVICE_CONFIG_CHANGED_EVENT = "kai:print-service-config-changed";
+export const PRINT_SERVICE_CONFIG_CHANGED_EVENT_LEGACY = "flowstore:print-service-config-changed";
 
 export function readPrintServiceConfigFromStorage(): {
   host: string;
@@ -861,7 +864,7 @@ export function writePrintServiceConfigToStorage(cfg: {
   localStorage.setItem(LS_WSS_PORT, String(cfg.wssPort));
   localStorage.setItem(LS_USE_TLS, cfg.useTls ? "1" : "0");
   if (typeof globalThis.window !== "undefined") {
-    globalThis.window.dispatchEvent(new CustomEvent(PRINT_SERVICE_CONFIG_CHANGED_EVENT));
+    dispatchDualPlatformEvent(PRINT_SERVICE_CONFIG_CHANGED_EVENT);
   }
 }
 
@@ -1160,7 +1163,8 @@ export type { AdminDocumentPrintMode } from "./print-format";
 
 export type AdminDocumentPrintKind = "sale" | "backorder";
 
-export const ADMIN_DOCUMENT_PRINT_MODES_CHANGED_EVENT =
+export const ADMIN_DOCUMENT_PRINT_MODES_CHANGED_EVENT = "kai:admin-document-print-modes-changed";
+export const ADMIN_DOCUMENT_PRINT_MODES_CHANGED_EVENT_LEGACY =
   "flowstore:admin-document-print-modes-changed";
 
 const LS_ADMIN_DOC_PRINT_SALE = "printAdminDocPrintSale";
@@ -1228,9 +1232,7 @@ export function writeAdminDocumentPrintFormatsToStorage(
     changed = true;
   }
   if (changed && typeof globalThis.window !== "undefined") {
-    globalThis.window.dispatchEvent(
-      new CustomEvent(ADMIN_DOCUMENT_PRINT_MODES_CHANGED_EVENT),
-    );
+    dispatchDualPlatformEvent(ADMIN_DOCUMENT_PRINT_MODES_CHANGED_EVENT);
   }
 }
 
@@ -1260,7 +1262,9 @@ export type PosDocumentPrintKind =
   /** Comprobante al abrir sesión de caja. */
   | "cashSessionOpening";
 
-export const POS_DOCUMENT_PRINT_MODES_CHANGED_EVENT = "flowstore:pos-document-print-modes-changed";
+export const POS_DOCUMENT_PRINT_MODES_CHANGED_EVENT = "kai:pos-document-print-modes-changed";
+export const POS_DOCUMENT_PRINT_MODES_CHANGED_EVENT_LEGACY =
+  "flowstore:pos-document-print-modes-changed";
 
 const LS_POS_DOC_PRINT_SALE = "printPosDocPrintSale";
 const LS_POS_DOC_PRINT_QUOTATION = "printPosDocPrintQuotation";
@@ -1431,7 +1435,7 @@ export function writePosDocumentPrintFormatsToStorage(
     changed = true;
   }
   if (changed && typeof globalThis.window !== "undefined") {
-    globalThis.window.dispatchEvent(new CustomEvent(POS_DOCUMENT_PRINT_MODES_CHANGED_EVENT));
+    dispatchDualPlatformEvent(POS_DOCUMENT_PRINT_MODES_CHANGED_EVENT);
   }
 }
 

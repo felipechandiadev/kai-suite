@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # =============================================================================
-# KaiStore / flow-store-2 — configurar Git + SSH en el VPS (GitHub)
+# Kai Platform — configurar Git + SSH en el VPS (GitHub)
 #
 # Uso en el VPS:
-#   curl -fsSL https://raw.githubusercontent.com/felipechandiadev/flow-store-2/main/deploy/vps-git-setup.sh -o vps-git-setup.sh
+#   curl -fsSL https://raw.githubusercontent.com/felipechandiadev/kai/main/deploy/vps-git-setup.sh -o vps-git-setup.sh
 #   chmod +x vps-git-setup.sh
 #   ./vps-git-setup.sh
 #
@@ -12,17 +12,17 @@
 #   ssh usuario@tu-vps 'bash /tmp/vps-git-setup.sh'
 #
 # Variables opcionales:
-#   GIT_NAME="Felipe" GIT_EMAIL="tu@email.com" DEPLOY_DIR=/var/www/flow-store-2 ./vps-git-setup.sh
+#   GIT_NAME="Felipe" GIT_EMAIL="tu@email.com" DEPLOY_DIR=/var/www/kai ./vps-git-setup.sh
 # =============================================================================
 
 set -euo pipefail
 
-REPO_SSH="git@github.com:felipechandiadev/flow-store-2.git"
-REPO_HTTPS="https://github.com/felipechandiadev/flow-store-2.git"
-SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519_flowstore}"
-DEPLOY_DIR="${DEPLOY_DIR:-$HOME/flow-store-2}"
-GIT_NAME="${GIT_NAME:-KaiStore VPS}"
-GIT_EMAIL="${GIT_EMAIL:-vps@kaistore.local}"
+REPO_SSH="git@github.com:felipechandiadev/kai.git"
+REPO_HTTPS="https://github.com/felipechandiadev/kai.git"
+SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519_kai}"
+DEPLOY_DIR="${DEPLOY_DIR:-$HOME/kai}"
+GIT_NAME="${GIT_NAME:-Kai VPS}"
+GIT_EMAIL="${GIT_EMAIL:-vps@kai.local}"
 BRANCH="${BRANCH:-main}"
 
 info()  { printf '\033[1;36m→\033[0m %s\n' "$*"; }
@@ -73,7 +73,7 @@ setup_ssh_key() {
     warn "Ya existe la clave $SSH_KEY_PATH — se reutiliza."
   else
     info "Generando clave SSH ed25519 en $SSH_KEY_PATH"
-    ssh-keygen -t ed25519 -C "flow-store-2-vps-$(hostname)" -f "$SSH_KEY_PATH" -N ""
+    ssh-keygen -t ed25519 -C "kai-vps-$(hostname)" -f "$SSH_KEY_PATH" -N ""
     ok "Clave generada"
   fi
 
@@ -81,18 +81,18 @@ setup_ssh_key() {
   chmod 644 "${SSH_KEY_PATH}.pub"
 
   local ssh_config="$HOME/.ssh/config"
-  if ! grep -q "Host github.com-flowstore" "$ssh_config" 2>/dev/null; then
+  if ! grep -q "Host github.com-kai" "$ssh_config" 2>/dev/null; then
     cat >>"$ssh_config" <<EOF
 
-# flow-store-2 deploy (añadido por vps-git-setup.sh)
-Host github.com-flowstore
+# Kai platform deploy (añadido por vps-git-setup.sh)
+Host github.com-kai
   HostName github.com
   User git
   IdentityFile $SSH_KEY_PATH
   IdentitiesOnly yes
 EOF
     chmod 600 "$ssh_config"
-    ok "Entrada SSH github.com-flowstore en ~/.ssh/config"
+    ok "Entrada SSH github.com-kai en ~/.ssh/config"
   fi
 
   if ! ssh-keygen -F github.com >/dev/null 2>&1; then
@@ -109,7 +109,7 @@ print_github_instructions() {
   echo "=============================================================================="
   echo ""
   echo "Opción A — Deploy key (recomendada, solo este repo):"
-  echo "  1. Abre: https://github.com/felipechandiadev/flow-store-2/settings/keys"
+  echo "  1. Abre: https://github.com/felipechandiadev/kai/settings/keys"
   echo "  2. Add deploy key → Title: VPS $(hostname)"
   echo "  3. Pega la clave pública de abajo"
   echo "  4. Deja 'Allow write access' DESMARCADO si el VPS solo hace pull"
@@ -126,11 +126,11 @@ print_github_instructions() {
 
 test_github_ssh() {
   info "Probando conexión SSH con GitHub..."
-  if ssh -T git@github.com-flowstore 2>&1 | grep -qi "successfully authenticated"; then
+  if ssh -T git@github.com-kai 2>&1 | grep -qi "successfully authenticated"; then
     ok "GitHub acepta la clave SSH"
     return 0
   fi
-  if ssh -T git@github.com-flowstore 2>&1 | grep -qi "Hi "; then
+  if ssh -T git@github.com-kai 2>&1 | grep -qi "Hi "; then
     ok "Conexión SSH con GitHub OK"
     return 0
   fi
@@ -139,7 +139,7 @@ test_github_ssh() {
 }
 
 clone_or_update_repo() {
-  local repo_url="git@github.com-flowstore:felipechandiadev/flow-store-2.git"
+  local repo_url="git@github.com-kai:felipechandiadev/kai.git"
 
   if [[ -d "$DEPLOY_DIR/.git" ]]; then
     info "Repo existente en $DEPLOY_DIR — git fetch + reset a origin/$BRANCH"
@@ -159,7 +159,7 @@ clone_or_update_repo() {
 }
 
 write_helper_script() {
-  local helper="$HOME/bin/flow-store-git-pull"
+  local helper="$HOME/bin/kai-git-pull"
   mkdir -p "$HOME/bin"
   cat >"$helper" <<SCRIPT
 #!/usr/bin/env bash
@@ -175,7 +175,7 @@ SCRIPT
 }
 
 echo ""
-info "KaiStore VPS — setup Git + GitHub"
+info "Kai Platform VPS — setup Git + GitHub"
 echo ""
 
 require_cmd bash
@@ -193,10 +193,10 @@ fi
 
 echo ""
 ok "Listo. Comandos útiles:"
-echo "  ssh -T git@github.com-flowstore"
-echo "  $HOME/bin/flow-store-git-pull"
+echo "  ssh -T git@github.com-kai"
+echo "  $HOME/bin/kai-git-pull"
 echo "  cd $DEPLOY_DIR && git status"
 echo ""
-echo "Remoto SSH: git@github.com-flowstore:felipechandiadev/flow-store-2.git"
+echo "Remoto SSH: git@github.com-kai:felipechandiadev/kai.git"
 echo "HTTPS:      $REPO_HTTPS"
 echo ""

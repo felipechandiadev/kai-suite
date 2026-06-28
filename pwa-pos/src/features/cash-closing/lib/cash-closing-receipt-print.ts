@@ -6,7 +6,7 @@ import {
   formatMoneyClp,
   resolveReceiptLogoUrl,
 } from "@/features/cash-closing/lib/cash-closing-print-format";
-import type { PrintFormat } from "@flowstore/print-service-client";
+import type { PrintFormat } from "@kai/print-service-client";
 import { thermalReceiptCssForFormat } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
 
 export function buildCashClosingReceiptHtml(

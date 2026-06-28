@@ -86,9 +86,9 @@ async function syncAndroidIcons() {
 }
 
 async function syncTauriIcons() {
-  const printService = path.join(repoRoot, "print-service");
+  const printService = path.join(repoRoot, "kai-printers-desktop");
   if (!fs.existsSync(printService)) {
-    console.warn("Skip Tauri (no existe print-service/)");
+    console.warn("Skip Tauri (no existe kai-printers-desktop/)");
     return;
   }
 
@@ -108,10 +108,10 @@ async function syncTauriIcons() {
     env: process.env,
   });
   if (gen.status !== 0) {
-    console.error("print-service generate-icons falló (¿npm install en print-service?)");
+    console.error("kai-printers-desktop generate-icons falló (¿npm install en kai-printers-desktop?)");
     process.exit(gen.status ?? 1);
   }
-  console.log("Tauri Kai Printers → print-service/src-tauri/icons/");
+  console.log("Tauri Kai Printers → kai-printers-desktop/src-tauri/icons/");
 }
 
 async function syncBrandLogos() {

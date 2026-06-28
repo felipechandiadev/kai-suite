@@ -1,8 +1,8 @@
 import {
   buildCompanyInlineParts,
   formatCompanyAddressForPrint,
-} from "@flowstore/document-print";
-import type { PrintFormat } from "@flowstore/print-service-client";
+} from "@kai/document-print";
+import type { PrintFormat } from "@kai/print-service-client";
 import type { CashClosingPrintInput } from "@/features/cash-closing/lib/cash-closing-print.types";
 import {
   documentContentMaxWidth,

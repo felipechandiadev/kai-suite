@@ -9,7 +9,7 @@ import {
   posDocumentPrintModeToWireFormat,
   PosDocumentPrintModeSelector,
   type PosDocumentPrintMode,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 import type { CustomerCreditNotePrintData } from "@/features/customer-credit-notes/types/customer-credit-note-print.types";
 import {
   buildCustomerCreditNoteReceiptHtml,

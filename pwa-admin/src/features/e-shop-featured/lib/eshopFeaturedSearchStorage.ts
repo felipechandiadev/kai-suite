@@ -1,5 +1,11 @@
 /** Clave en `localStorage` para resultados por página del buscador de productos destacados. */
-export const ESHOP_FEATURED_SEARCH_LS_KEY = "flowstore.eshopFeaturedSearch.pageSize";
+import {
+  getMigratedLocalStorageItem,
+  setMigratedLocalStorageItem,
+} from "../../../../../shared/storage-key-migrate";
+
+export const ESHOP_FEATURED_SEARCH_LS_KEY = "kai.eshopFeaturedSearch.pageSize";
+export const ESHOP_FEATURED_SEARCH_LS_KEY_LEGACY = "flowstore.eshopFeaturedSearch.pageSize";
 
 export const ESHOP_FEATURED_SEARCH_MIN_PAGE_SIZE = 5;
 export const ESHOP_FEATURED_SEARCH_MAX_PAGE_SIZE = 50;
@@ -9,7 +15,10 @@ export function readEshopFeaturedSearchPageSize(defaultSize: number): number {
     return defaultSize;
   }
   try {
-    const raw = window.localStorage.getItem(ESHOP_FEATURED_SEARCH_LS_KEY);
+    const raw = getMigratedLocalStorageItem(
+      ESHOP_FEATURED_SEARCH_LS_KEY,
+      ESHOP_FEATURED_SEARCH_LS_KEY_LEGACY,
+    );
     if (raw == null || raw === "") {
       return defaultSize;
     }
@@ -24,8 +33,9 @@ export function writeEshopFeaturedSearchPageSize(n: number, defaultSize: number)
     return;
   }
   try {
-    window.localStorage.setItem(
+    setMigratedLocalStorageItem(
       ESHOP_FEATURED_SEARCH_LS_KEY,
+      ESHOP_FEATURED_SEARCH_LS_KEY_LEGACY,
       String(clampEshopFeaturedSearchPageSize(n, defaultSize)),
     );
   } catch {

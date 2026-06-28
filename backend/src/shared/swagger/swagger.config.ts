@@ -15,9 +15,9 @@ export function setupSwagger(
   }
 
   const config = new DocumentBuilder()
-    .setTitle('Flow Store API')
+    .setTitle('Kai Platform API')
     .setDescription(
-      'Complete API documentation for Flow Store - Enterprise Point of Sale System',
+      'API documentation for Kai Platform — KaiStore / KaiFood enterprise POS',
     )
     .setVersion('1.0.0')
     .addTag('Health', 'Health check endpoints')
@@ -62,7 +62,7 @@ export function setupSwagger(
       showExtensions: true,
       showCommonExtensions: true,
     },
-    customSiteTitle: 'Flow Store API Documentation',
+    customSiteTitle: 'Kai Platform API Documentation',
     customCss: `
       .swagger-ui .topbar { display: none }
       .swagger-ui .info .title { color: #3b4151 }

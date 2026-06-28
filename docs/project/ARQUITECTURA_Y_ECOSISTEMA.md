@@ -1,6 +1,6 @@
-# KaiStore / Flow Store 2 — Arquitectura, ecosistema y proyecto
+# Kai Platform — Arquitectura, ecosistema y proyecto
 
-Documento maestro del monorepo **flow-store-2**. Describe qué es el producto, cómo se organizan las aplicaciones, cómo se comunican entre sí y qué principios arquitectónicos rigen el backend y los frontends.
+Documento maestro del monorepo **kai**. Describe la plataforma Kai, cómo se organizan las aplicaciones, cómo se comunican entre sí y qué principios arquitectónicos rigen el backend y los frontends.
 
 **Última revisión:** junio 2026  
 **Audiencia:** desarrolladores, agentes de IA, producto técnico.
@@ -9,7 +9,7 @@ Documento maestro del monorepo **flow-store-2**. Describe qué es el producto, c
 
 ## 1. Qué es el proyecto
 
-**Flow Store 2** (marca comercial **KaiStore**) es un ERP/POS multi-empresa orientado a retail chileno: catálogo, inventario, ventas en mostrador, compras con DTE proveedor, tesorería, contabilidad, RRHH (liquidaciones) y tienda pública (eShop).
+**Kai** (vertical retail **KaiStore**) es un ERP/POS multi-empresa orientado a retail chileno: catálogo, inventario, ventas en mostrador, compras con DTE proveedor, tesorería, contabilidad, RRHH (liquidaciones) y tienda pública (eShop).
 
 El mismo código base puede desplegarse en dos **modalidades de producto**:
 

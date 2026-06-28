@@ -1,5 +1,5 @@
 {
-  "name": "@flowstore/scale-service-client",
+  "name": "@kai/scale-service-client",
   "version": "0.0.1",
   "private": true,
   "type": "module",

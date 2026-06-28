@@ -11,7 +11,7 @@ import {
   type PosSaleTicketPayload,
   type PosSaleTicketPrintExtras,
   type PrintFormat,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 import { buildPosSaleDocumentHtml } from "@/features/pos-print/lib/pos-sale-document-print";
 import {
   enqueueVectorTicketAndAwaitDelivery,

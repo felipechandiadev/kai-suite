@@ -3,7 +3,7 @@ import {
   DOCUMENT_HEADER_PRINT_CSS,
   formatCompanyAddressForPrint,
   resolveCompanyPhone,
-} from "@flowstore/document-print";
+} from "@kai/document-print";
 import type { CompanyDetails } from "@/features/settings-branches/infrastructure/company.request";
 import { thermalReceiptTicketCss } from "@/features/print/lib/thermal-receipt-ticket-styles";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";

@@ -28,7 +28,7 @@ import {
   posDocumentPrintModeToWireFormat,
   PosDocumentPrintModeSelector,
   type PosDocumentPrintMode,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 
 type Props = {
   open: boolean;

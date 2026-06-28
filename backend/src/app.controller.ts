@@ -5,7 +5,7 @@ export class AppController {
   @Get()
   getRoot() {
     return {
-      name: 'Flow Store Mobile API',
+      name: 'Kai Platform API',
       version: '1.0.0',
       status: 'running',
       endpoints: {

@@ -211,6 +211,7 @@ export const mainMenuItems: SideBarMenuItem[] = [
       { id: 'settings-integrations', label: 'Integraciones', url: '/settings/integrations' },
       { id: 'settings-scale', label: 'Balanza', url: '/settings/scale' },
       { id: 'settings-metal-prices', label: 'Precios de metales', url: '/settings/metal-prices' },
+      { id: 'settings-about', label: 'Acerca de', url: '/settings/about' },
       // { id: 'settings-parameters', label: 'Parámetros del sistema', url: '/settings/parameters' },
     ],
   },

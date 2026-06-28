@@ -6,7 +6,7 @@ import {
   POS_CUSTOMER_CREDIT_NOTE_TICKET_PAYLOAD_VERSION,
   type PosCustomerCreditNoteTicketPayload,
   type PrintFormat,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 import type { CustomerCreditNotePrintData } from "@/features/customer-credit-notes/types/customer-credit-note-print.types";
 import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import {

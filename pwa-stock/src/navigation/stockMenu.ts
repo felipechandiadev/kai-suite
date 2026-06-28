@@ -7,4 +7,5 @@ export const stockMenuItems: SideBarMenuItem[] = [
   { id: "stock-scan", label: "Escanear", url: SCAN_PATH },
   { id: "stock-search", label: "Buscador", url: SEARCH_PATH },
   { id: "stock-create-product", label: "Crear producto", url: CREATE_PRODUCT_PATH },
+  { id: "stock-about", label: "Acerca de", url: "/about" },
 ];

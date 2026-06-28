@@ -1,6 +1,11 @@
 import type { ScaleStorageV1 } from "./types";
+import {
+  getMigratedLocalStorageItem,
+  setMigratedLocalStorageItem,
+} from "../../../shared/storage-key-migrate";
 
-export const SCALE_STORAGE_KEY = "flowstore.admin.scale.v1";
+export const SCALE_STORAGE_KEY = "kai.admin.scale.v1";
+export const SCALE_STORAGE_KEY_LEGACY = "flowstore.admin.scale.v1";
 
 const DEFAULTS: ScaleStorageV1 = {
   enabled: false,
@@ -26,7 +31,7 @@ export function readScaleConfigFromStorage(): ScaleStorageV1 {
     return { ...DEFAULTS };
   }
   try {
-    const raw = window.localStorage.getItem(SCALE_STORAGE_KEY);
+    const raw = getMigratedLocalStorageItem(SCALE_STORAGE_KEY, SCALE_STORAGE_KEY_LEGACY);
     if (!raw) {
       return { ...DEFAULTS };
     }
@@ -64,5 +69,9 @@ export function writeScaleConfigToStorage(patch: Partial<ScaleStorageV1>): void 
     return;
   }
   const prev = readScaleConfigFromStorage();
-  window.localStorage.setItem(SCALE_STORAGE_KEY, JSON.stringify({ ...prev, ...patch }));
+  setMigratedLocalStorageItem(
+    SCALE_STORAGE_KEY,
+    SCALE_STORAGE_KEY_LEGACY,
+    JSON.stringify({ ...prev, ...patch }),
+  );
 }

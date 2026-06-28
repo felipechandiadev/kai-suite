@@ -1,4 +1,4 @@
-import type { PrintServiceConnection } from "@flowstore/print-service-client";
+import type { PrintServiceConnection } from "@kai/print-service-client";
 import { printHtmlInHiddenIframe } from "@/features/print/lib/print-html-in-hidden-iframe";
 import {
   enqueueAdminPrint,

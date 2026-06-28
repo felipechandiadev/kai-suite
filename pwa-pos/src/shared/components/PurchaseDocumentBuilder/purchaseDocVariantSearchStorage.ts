@@ -1,5 +1,12 @@
 /** Clave en `localStorage` para resultados por página del buscador de variantes (documento de compra). */
-export const PURCHASE_DOC_VARIANT_SEARCH_LS_KEY = "flowstore.purchaseDocVariantSearch.pageSize";
+import {
+  getMigratedLocalStorageItem,
+  setMigratedLocalStorageItem,
+} from "../../../../../shared/storage-key-migrate";
+
+export const PURCHASE_DOC_VARIANT_SEARCH_LS_KEY = "kai.purchaseDocVariantSearch.pageSize";
+export const PURCHASE_DOC_VARIANT_SEARCH_LS_KEY_LEGACY =
+  "flowstore.purchaseDocVariantSearch.pageSize";
 
 export const PURCHASE_DOC_VARIANT_SEARCH_DEFAULT_PAGE_SIZE = 10;
 export const PURCHASE_DOC_VARIANT_SEARCH_MIN = 1;
@@ -19,7 +26,10 @@ export function readPurchaseDocVariantSearchPageSize(): number {
     return PURCHASE_DOC_VARIANT_SEARCH_DEFAULT_PAGE_SIZE;
   }
   try {
-    const raw = window.localStorage.getItem(PURCHASE_DOC_VARIANT_SEARCH_LS_KEY);
+    const raw = getMigratedLocalStorageItem(
+      PURCHASE_DOC_VARIANT_SEARCH_LS_KEY,
+      PURCHASE_DOC_VARIANT_SEARCH_LS_KEY_LEGACY,
+    );
     if (raw == null || raw === "") {
       return PURCHASE_DOC_VARIANT_SEARCH_DEFAULT_PAGE_SIZE;
     }
@@ -34,8 +44,9 @@ export function writePurchaseDocVariantSearchPageSize(n: number): void {
     return;
   }
   try {
-    window.localStorage.setItem(
+    setMigratedLocalStorageItem(
       PURCHASE_DOC_VARIANT_SEARCH_LS_KEY,
+      PURCHASE_DOC_VARIANT_SEARCH_LS_KEY_LEGACY,
       String(clampPurchaseDocVariantSearchPageSize(n)),
     );
   } catch {

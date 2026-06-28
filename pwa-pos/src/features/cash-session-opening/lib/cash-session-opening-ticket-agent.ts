@@ -4,7 +4,7 @@ import {
   POS_CASH_SESSION_OPENING_TICKET_PAYLOAD_VERSION,
   type PosCashSessionOpeningTicketPayload,
   type PrintFormat,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 import type { CashSessionOpeningPrintInput } from "@/features/cash-session-opening/lib/cash-session-opening-print.types";
 import {
   buildCashSessionOpeningDocumentHtml,

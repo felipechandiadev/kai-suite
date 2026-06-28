@@ -19,7 +19,7 @@ import {
   PosDocumentPrintModeSelector,
   type PosDocumentPrintMode,
   type PrintFormat,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 import {
   buildPosSaleDocumentHtml,
   printPosSaleDocument,

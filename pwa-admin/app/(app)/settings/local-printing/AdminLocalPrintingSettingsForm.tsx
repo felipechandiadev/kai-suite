@@ -16,7 +16,7 @@ import {
   writePrintServiceConfigToStorage,
   KaiPrintersDownloadSection,
   type KaiPrintersDownloadsManifests,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 import { Button } from "@/shared/components/Button";
 import { Select } from "@/shared/components/Select";
 import TextField from "@/shared/components/TextField";

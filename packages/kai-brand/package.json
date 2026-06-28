@@ -1,5 +1,5 @@
 {
-  "name": "@flowstore/kai-brand",
+  "name": "@kai/kai-brand",
   "private": true,
   "version": "1.0.0",
   "description": "Generación de iconos KaiStore (PWA, Android, Tauri) desde kai-logo.svg",

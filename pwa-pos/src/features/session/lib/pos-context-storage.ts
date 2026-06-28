@@ -1,6 +1,12 @@
 /** Contexto de operación POS (punto de venta, lista de precios, sucursal). Persistido en `localStorage`. */
 
-export const POS_CONTEXT_KEY = "flowstore.pos.context.v1";
+import {
+  getMigratedLocalStorageItem,
+  setMigratedLocalStorageItem,
+} from "../../../../../shared/storage-key-migrate";
+
+export const POS_CONTEXT_KEY = "kai.pos.context.v1";
+export const POS_CONTEXT_KEY_LEGACY = "flowstore.pos.context.v1";
 
 export type PosPriceListSnapshot = { id: string; name: string };
 
@@ -25,7 +31,7 @@ export type PosContextV1 = {
 export function readPosContextClient(): PosContextV1 | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(POS_CONTEXT_KEY);
+    const raw = getMigratedLocalStorageItem(POS_CONTEXT_KEY, POS_CONTEXT_KEY_LEGACY);
     if (!raw) return null;
     return JSON.parse(raw) as PosContextV1;
   } catch {
@@ -36,8 +42,9 @@ export function readPosContextClient(): PosContextV1 | null {
 export function savePosContextClient(ctx: PosContextV1): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(
+    setMigratedLocalStorageItem(
       POS_CONTEXT_KEY,
+      POS_CONTEXT_KEY_LEGACY,
       JSON.stringify({
         ...ctx,
         updatedAt: new Date().toISOString(),

@@ -1,1 +1,1 @@
-export { TopBarNotificationCountBadge as PosTopBarCountBadge } from "@flowstore/print-service-client";
+export { TopBarNotificationCountBadge as PosTopBarCountBadge } from "@kai/print-service-client";

@@ -3,7 +3,7 @@ import {
   isDocumentPrintFormat,
   posDocumentPrintModeToWireFormat,
   type PrintFormat,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 import type { CashCountSheetPrintInput } from "@/features/cash-closing/lib/cash-count-sheet-print.types";
 import {
   COUNTED_BUCKET_ROWS,

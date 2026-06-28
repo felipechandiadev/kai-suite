@@ -81,16 +81,16 @@ function exportAndroid() {
 
 function exportDesktop() {
   const desktopOut = path.join(exportsRoot, "desktop");
-  const iconsDir = path.join(repoRoot, "print-service", "src-tauri", "icons");
+  const iconsDir = path.join(repoRoot, "kai-printers-desktop", "src-tauri", "icons");
   if (!fs.existsSync(iconsDir)) {
-    console.warn("Skip exports/desktop (no print-service/src-tauri/icons/)");
+    console.warn("Skip exports/desktop (no kai-printers-desktop/src-tauri/icons/)");
     return;
   }
 
   for (const name of ["icon.ico", "icon.icns", "32x32.png", "128x128.png", "128x128@2x.png", "icon.png"]) {
     cpFile(path.join(iconsDir, name), path.join(desktopOut, name));
   }
-  const tray = path.join(repoRoot, "print-service", "public", "KaiPrinters-mac-bar.png");
+  const tray = path.join(repoRoot, "kai-printers-desktop", "public", "KaiPrinters-mac-bar.png");
   cpFile(tray, path.join(desktopOut, "KaiPrinters-mac-bar.png"));
   console.log("exports/desktop/ ← Tauri icons");
 }

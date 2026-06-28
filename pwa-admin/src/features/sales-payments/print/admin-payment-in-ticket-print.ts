@@ -4,8 +4,8 @@ import {
   type HelloResponseData,
   type PosPaymentInTicketPayload,
   type PosPaymentInTicketPrintExtras,
-} from "@flowstore/print-service-client";
-import type { PrintServiceConnection } from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
+import type { PrintServiceConnection } from "@kai/print-service-client";
 import { fetchReceiptLogoBase64 } from "@/features/print/lib/fetch-receipt-logo-base64";
 import {
   enqueueAdminVectorTicketAndAwaitDelivery,

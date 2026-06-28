@@ -3,7 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { PosProductSearchItem } from "@/features/pos-products/types/pos-product.types";
 import type { PosCartLine } from "@/app/(pos)/pos/ui/PosCartLineCard";
-import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
+import { readPosContextClient, POS_CONTEXT_KEY, POS_CONTEXT_KEY_LEGACY } from "@/features/session/lib/pos-context-storage";
 import { readCartClient, writeCartClient, type LoadedQuotationMeta } from "./cart-storage";
 import type { BackorderDepositConfig } from "./types/backorder-deposit.types";
 import type {
@@ -300,7 +300,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onStorage = (e: StorageEvent) => {
-      if (e.key !== "flowstore.pos.context.v1") return;
+      if (e.key !== POS_CONTEXT_KEY && e.key !== POS_CONTEXT_KEY_LEGACY) return;
       const s = cartScope();
       setScope(s);
       if (!s) {

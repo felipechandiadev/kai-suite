@@ -1,6 +1,12 @@
 /** Clave en `localStorage` para `pageSize` del buscador POS (mismo patrón que `purchaseDocVariantSearchStorage`). */
 
-export const POS_PRODUCT_SEARCH_LS_KEY = "flowstore.posProductSearch.pageSize";
+import {
+  getMigratedLocalStorageItem,
+  setMigratedLocalStorageItem,
+} from "../../../../../shared/storage-key-migrate";
+
+export const POS_PRODUCT_SEARCH_LS_KEY = "kai.posProductSearch.pageSize";
+export const POS_PRODUCT_SEARCH_LS_KEY_LEGACY = "flowstore.posProductSearch.pageSize";
 
 /** Mismo criterio que `PURCHASE_DOC_SEARCH_DEBOUNCE_MS` en pwa-admin (PurchaseDocumentVariantSearchPanel). */
 export const POS_PRODUCT_SEARCH_DEBOUNCE_MS = 400;
@@ -23,7 +29,10 @@ export function readPosProductSearchPageSize(): number {
     return POS_PRODUCT_SEARCH_DEFAULT_PAGE_SIZE;
   }
   try {
-    const raw = window.localStorage.getItem(POS_PRODUCT_SEARCH_LS_KEY);
+    const raw = getMigratedLocalStorageItem(
+      POS_PRODUCT_SEARCH_LS_KEY,
+      POS_PRODUCT_SEARCH_LS_KEY_LEGACY,
+    );
     if (raw == null || raw === "") {
       return POS_PRODUCT_SEARCH_DEFAULT_PAGE_SIZE;
     }
@@ -38,7 +47,11 @@ export function writePosProductSearchPageSize(n: number): void {
     return;
   }
   try {
-    window.localStorage.setItem(POS_PRODUCT_SEARCH_LS_KEY, String(clampPosProductSearchPageSize(n)));
+    setMigratedLocalStorageItem(
+      POS_PRODUCT_SEARCH_LS_KEY,
+      POS_PRODUCT_SEARCH_LS_KEY_LEGACY,
+      String(clampPosProductSearchPageSize(n)),
+    );
   } catch {
     // ignore quota / private mode
   }

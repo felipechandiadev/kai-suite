@@ -2,7 +2,7 @@ import {
   getPosDocumentPrintMode,
   isDocumentPrintFormat,
   posDocumentPrintModeToWireFormat,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 import type { CashClosingPrintInput } from "@/features/cash-closing/lib/cash-closing-print.types";
 import { buildCashClosingDocumentHtml } from "@/features/cash-closing/lib/cash-closing-document-print";
 import { buildCashClosingReceiptHtml } from "@/features/cash-closing/lib/cash-closing-receipt-print";

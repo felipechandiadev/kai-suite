@@ -1,5 +1,5 @@
 {
-  "name": "@flowstore/customer-display-client",
+  "name": "@kai/customer-display-client",
   "version": "0.0.1",
   "private": true,
   "type": "module",

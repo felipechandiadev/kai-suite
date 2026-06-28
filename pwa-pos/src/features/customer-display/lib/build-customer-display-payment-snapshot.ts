@@ -1,4 +1,4 @@
-import type { CustomerDisplaySnapshot } from "@flowstore/customer-display-client";
+import type { CustomerDisplaySnapshot } from "@kai/customer-display-client";
 import type { PosCartLine } from "@/app/(pos)/pos/ui/PosCartLineCard";
 import type { PosContextV1 } from "@/features/session/lib/pos-context-storage";
 import { buildCustomerDisplaySnapshot } from "./build-customer-display-snapshot";

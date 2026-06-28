@@ -1,6 +1,6 @@
 import { thermalReceiptCssForFormat } from "@/features/print/lib/thermal-receipt-ticket-styles";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";
-import type { PrintFormat } from "@flowstore/print-service-client";
+import type { PrintFormat } from "@kai/print-service-client";
 import type { SaleReceiptPrintData } from "./backorder-document-print.types";
 import { formatReceiptLineDisplayName } from "./format-receipt-line-name";
 

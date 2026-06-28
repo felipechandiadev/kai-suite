@@ -13,7 +13,7 @@ export class LoginResponseDto {
     properties: {
       id: { type: 'string', example: 'uuid-1234' },
       userName: { type: 'string', example: 'admin' },
-      email: { type: 'string', example: 'admin@flowstore.com' },
+      email: { type: 'string', example: 'admin@kai.local' },
       rol: { type: 'string', example: 'ADMIN' },
       person: {
         type: 'object',

@@ -1,6 +1,13 @@
 /** Snapshot del cierre para la página `/cash/closing/result` (sin TopBar). */
 
-export const CASH_CLOSING_RESULT_STORAGE_KEY = "flowstore.cashClosing.result.v1";
+import {
+  getMigratedSessionStorageItem,
+  removeMigratedSessionStorageKeys,
+  setMigratedSessionStorageItem,
+} from "../../../../../shared/storage-key-migrate";
+
+export const CASH_CLOSING_RESULT_STORAGE_KEY = "kai.cashClosing.result.v1";
+export const CASH_CLOSING_RESULT_STORAGE_KEY_LEGACY = "flowstore.cashClosing.result.v1";
 
 export type CashClosingCloseResultPayload = {
   success: true;
@@ -31,7 +38,11 @@ export type CashClosingResultSnapshot = {
 export function saveCashClosingResultSnapshot(snapshot: CashClosingResultSnapshot): void {
   if (typeof window === "undefined") return;
   try {
-    sessionStorage.setItem(CASH_CLOSING_RESULT_STORAGE_KEY, JSON.stringify(snapshot));
+    setMigratedSessionStorageItem(
+      CASH_CLOSING_RESULT_STORAGE_KEY,
+      CASH_CLOSING_RESULT_STORAGE_KEY_LEGACY,
+      JSON.stringify(snapshot),
+    );
   } catch {
     // ignore quota / private mode
   }
@@ -40,7 +51,10 @@ export function saveCashClosingResultSnapshot(snapshot: CashClosingResultSnapsho
 export function readCashClosingResultSnapshot(): CashClosingResultSnapshot | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = sessionStorage.getItem(CASH_CLOSING_RESULT_STORAGE_KEY);
+    const raw = getMigratedSessionStorageItem(
+      CASH_CLOSING_RESULT_STORAGE_KEY,
+      CASH_CLOSING_RESULT_STORAGE_KEY_LEGACY,
+    );
     if (!raw) return null;
     const parsed = JSON.parse(raw) as CashClosingResultSnapshot;
     if (!parsed?.closeResult || parsed.closeResult.success !== true) return null;
@@ -53,7 +67,10 @@ export function readCashClosingResultSnapshot(): CashClosingResultSnapshot | nul
 export function clearCashClosingResultSnapshot(): void {
   if (typeof window === "undefined") return;
   try {
-    sessionStorage.removeItem(CASH_CLOSING_RESULT_STORAGE_KEY);
+    removeMigratedSessionStorageKeys(
+      CASH_CLOSING_RESULT_STORAGE_KEY,
+      CASH_CLOSING_RESULT_STORAGE_KEY_LEGACY,
+    );
   } catch {
     // ignore
   }

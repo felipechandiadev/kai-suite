@@ -25,7 +25,7 @@ import type { CompanyDetails } from "@/features/company/infrastructure/company.r
 import {
   describePosDocumentPrintMode,
   getPosDocumentPrintMode,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 import type { CashCountSheetPrintInput } from "@/features/cash-closing/lib/cash-count-sheet-print.types";
 import { printCashCountSheetAwait } from "@/features/cash-closing/lib/cash-count-sheet-print";
 

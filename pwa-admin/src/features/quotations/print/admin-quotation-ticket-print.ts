@@ -2,8 +2,8 @@ import {
   agentSupportsPosQuotationTicket,
   type HelloResponseData,
   type PosQuotationTicketPayload,
-} from "@flowstore/print-service-client";
-import type { PrintServiceConnection } from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
+import type { PrintServiceConnection } from "@kai/print-service-client";
 import { fetchReceiptLogoBase64 } from "@/features/print/lib/fetch-receipt-logo-base64";
 import {
   enqueueAdminPrint,

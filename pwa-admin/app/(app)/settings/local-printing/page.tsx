@@ -1,11 +1,11 @@
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
-import type { KaiPrintersDownloadsManifests } from "@flowstore/print-service-client";
+import type { KaiPrintersDownloadsManifests } from "@kai/print-service-client";
 import {
   KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT,
   KAI_PRINTERS_MACOS_MANIFEST_DEFAULT,
   KAI_PRINTERS_WINDOWS_MANIFEST_DEFAULT,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 import { AdminLocalPrintingSettingsForm } from "./AdminLocalPrintingSettingsForm";
 
 function readJsonFile<T>(filePath: string, fallback: T): T {

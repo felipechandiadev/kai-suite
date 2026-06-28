@@ -8,9 +8,14 @@ import type {
   PosCartMode,
 } from "@/features/pos-cart/types/pos-cart-mode.types";
 import type { ResolvedLineDiscount } from "@/features/promotions/lib/discount-engine.types";
+import {
+  getMigratedLocalStorageItem,
+  setMigratedLocalStorageItem,
+} from "../../../../../shared/storage-key-migrate";
 
 const CART_STORAGE_VERSION = 2;
-const CART_KEY_PREFIX = "flowstore.pos.cart.v";
+const CART_KEY_PREFIX = "kai.pos.cart.v";
+const CART_KEY_PREFIX_LEGACY = "flowstore.pos.cart.v";
 
 /** Metadatos de una cotización cargada en el carrito. La venta resultante
  * de pagar el carrito se considerará una *conversión* de esa cotización
@@ -73,6 +78,10 @@ function parseDiscount(value: unknown): ResolvedLineDiscount | null {
 
 function keyFor(input: { pointOfSaleId: string; priceListId: string }) {
   return `${CART_KEY_PREFIX}${CART_STORAGE_VERSION}.${input.pointOfSaleId}.${input.priceListId}`;
+}
+
+function legacyKeyFor(input: { pointOfSaleId: string; priceListId: string }) {
+  return `${CART_KEY_PREFIX_LEGACY}${CART_STORAGE_VERSION}.${input.pointOfSaleId}.${input.priceListId}`;
 }
 
 function parseBackorderDeposit(value: unknown): BackorderDepositConfig | null {
@@ -205,7 +214,7 @@ export function readCartClient(input: { pointOfSaleId: string; priceListId: stri
   };
   if (typeof window === "undefined") return empty;
   try {
-    const raw = window.localStorage.getItem(keyFor(input));
+    const raw = getMigratedLocalStorageItem(keyFor(input), legacyKeyFor(input));
     if (!raw) return empty;
     const parsed = JSON.parse(raw) as StoredCart;
     if (!parsed || !Array.isArray(parsed.lines)) return empty;
@@ -320,7 +329,7 @@ export function writeCartClient(
       loadedBackorder: cartMode === "fulfill_backorder" ? loadedBackorder : null,
       loadedPresaleTicket: loadedPresaleTicket ?? null,
     };
-    window.localStorage.setItem(keyFor(input), JSON.stringify(payload));
+    setMigratedLocalStorageItem(keyFor(input), legacyKeyFor(input), JSON.stringify(payload));
   } catch {
     // ignore
   }

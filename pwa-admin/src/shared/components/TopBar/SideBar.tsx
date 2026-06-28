@@ -87,7 +87,7 @@ function filterVisibleMenuItems(
 }
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'KaiStore';
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '2.1.0';
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0';
 const APP_RELEASE = process.env.NEXT_PUBLIC_APP_RELEASE || '21-Diciembre-2025';
 
 /** Padding vertical reducido; mismo hover en padres, hojas e hijos (como el antiguo segundo nivel). */

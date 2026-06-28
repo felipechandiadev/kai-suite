@@ -59,7 +59,7 @@ Referencias actuales en código: [`ARQUITECTURA_Y_ECOSISTEMA.md`](./ARQUITECTURA
 | **Producto retail** | Flow Store / KaiStore | **KaiStore** (vertical, sin cambiar) | ✅ |
 | **Producto gastronomía** | Planificado | **KaiFood** (`kaifood`) | ✅ (roadmap) |
 | **Producto servicios** | — | **KaiServices** (futuro) | ⬜ Sin fecha |
-| **Repositorio GitHub** | `felipechandiadev/flow-store-2` | **`felipechandiadev/kai`** o **`kai-platform`** (rename) | ⬜ Nombre exacto |
+| **Repositorio GitHub** | `felipechandiadev/flow-store-2` | **`felipechandiadev/kai`** (rename) | ✅ `kai` |
 | **URL clone** | `…/flow-store-2.git` | `…/kai.git` (o `kai-platform.git`) | ⬜ |
 | **Carpeta deploy VPS** | `~/flow-store-2` | `~/kai` (opcional; puede quedar ruta vieja) | ⬜ |
 | **Scope npm interno** | `@flowstore/*` (+ `@kaistore/kai-printers-brand`) | **`@kai/*`** unificado | ⬜ Pendiente ejecutar |
@@ -71,7 +71,7 @@ Referencias actuales en código: [`ARQUITECTURA_Y_ECOSISTEMA.md`](./ARQUITECTURA
 | **Icono / brand assets** | Varios PNG legacy | `assets/brand/kai-store/source/kai-logo.svg` | ✅ Hecho |
 | **Versionado unificado** | Disperso por app (ver §4 F8) | SemVer + build id + reglas release | ⬜ |
 | **Pantalla About / Acerca de** | Parcial (admin/stock sidebar) | About en todas las apps (§4 F9) | ⬜ |
-| **Config IA / editor** | Era Copilot; logs Cursor en git | F10: limpiar `.cursor`, consolidar reglas | 🔄 Felipe |
+| **Config IA / editor** | Era Copilot; logs Cursor en git | F10: limpiar `.cursor`, consolidar reglas | ✅ |
 
 ### 1.1 ¿Listos para ejecutar?
 
@@ -605,16 +605,16 @@ flowchart LR
 | Fase | Descripción | Estado | PR / notas |
 |------|-------------|--------|------------|
 | F0 | Acuerdos + icono Kai | ✅ | F0.T4 ✅; §9 cerrado jun 2026 |
-| F1 | Repo **kai** + deploy | ⬜ | **Ejecutable** tras §2.1 |
-| F2 | `kai-printers-desktop/` | ⬜ | |
-| F3 | Marca Kai + verticales en UI | ⬜ | |
-| F4 | `@kai/*` npm | ⬜ | |
-| F5 | localStorage + cookies | ⬜ | |
-| F6 | Protocolo `kai:` | ⬜ | |
-| F7 | Docker (opcional) | ⬜ | |
-| F8 | Versionado unificado | ⬜ | Paralelo a F1 |
-| F9 | About todas las apps | ⬜ | Tras F8 parcial |
-| F10 | Config IA / `.cursor` / instrucciones | 🔄 | **Felipe** — en curso; paralelo F3 |
+| F1 | Repo **kai** + deploy | ✅ | README, deploy, docs; rename GitHub manual |
+| F2 | `kai-printers-desktop/` | ✅ | gitignore, CI, scripts |
+| F3 | Marca Kai + verticales en UI | ✅ | Swagger, seeds, README |
+| F4 | `@kai/*` npm | ✅ | 6 paquetes + imports |
+| F5 | localStorage + cookies | ✅ | dual-read kai.* |
+| F6 | Protocolo `kai:` | ✅ | dual-read client + Android |
+| F7 | Docker (opcional) | ⬜ | Pospuesto |
+| F8 | Versionado unificado | ✅ | VERSIONING.md, health, PWAs |
+| F9 | About todas las apps | ✅ | admin/POS/stock/eshop |
+| F10 | Config IA / `.cursor` / instrucciones | ✅ | logs, rules mdc, AGENT-RULES-MAP |
 
 ---
 

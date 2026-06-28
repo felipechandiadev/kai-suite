@@ -11,9 +11,9 @@
     "generate-favicon": "node scripts/generate-pwa-icons.mjs"
   },
   "dependencies": {
-    "@flowstore/document-print": "file:../packages/document-print",
-    "@flowstore/print-service-client": "file:../packages/print-service-client",
-    "@flowstore/scale-service-client": "file:../packages/scale-service-client",
+    "@kai/document-print": "file:../packages/document-print",
+    "@kai/print-service-client": "file:../packages/print-service-client",
+    "@kai/scale-service-client": "file:../packages/scale-service-client",
     "@tanstack/react-query": "^5.99.2",
     "@types/leaflet": "^1.9.21",
     "html2canvas": "^1.4.1",

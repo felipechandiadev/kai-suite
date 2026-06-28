@@ -7,7 +7,7 @@ import {
   writePosPurposePrinterAliasesToStorage,
   writePrintServiceConfigToStorage,
   type PosDocumentPrintMode,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 import { printPosDocumentTest } from "@/features/pos-print/lib/print-pos-document-test";
 
 export type PosQuickPrintTestResult = {

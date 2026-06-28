@@ -9,7 +9,7 @@ import {
   type HelloResponseData,
   type PrintFormat,
   type PosPrintAgentPurpose,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 import { htmlToPdfBase64 } from "@/features/pos-print/lib/html-to-pdf-base64";
 import {
   extractPrintEnqueueJobId,

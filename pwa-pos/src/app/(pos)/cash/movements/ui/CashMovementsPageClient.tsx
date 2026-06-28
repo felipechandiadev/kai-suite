@@ -10,7 +10,7 @@ import {
   reprintSaleDocument,
   reprintSaleTicket,
 } from "@/features/pos-print/lib/reprint-sale-receipt";
-import { formatPrintJobFailedMessage } from "@flowstore/print-service-client";
+import { formatPrintJobFailedMessage } from "@kai/print-service-client";
 import { CashMovementSaleDetailDialog } from "@/app/(pos)/cash/movements/ui/CashMovementSaleDetailDialog";
 import { paymentMethodLabelEs } from "@/features/pos-payment-methods/lib/payment-method-label";
 import { posTransactionTypeLabel } from "@/features/transactions/lib/pos-transaction-type-label";

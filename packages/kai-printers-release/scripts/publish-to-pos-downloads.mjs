@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Publica Kai Printers desktop (Windows ZIP + macOS DMG) en pwa-pos/public/downloads/.
- * Requiere print-service/ en el monorepo (gitignored localmente).
+ * Requiere kai-printers-desktop/ en el monorepo (gitignored localmente).
  *
  * Uso (desde raíz del monorepo):
  *   npm run kai-printers-desktop:publish
@@ -24,7 +24,7 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(scriptDir, "..", "..", "..");
-const printServiceRoot = join(repoRoot, "print-service");
+const printServiceRoot = join(repoRoot, "kai-printers-desktop");
 const downloadsDir = join(repoRoot, "pwa-pos", "public", "downloads");
 const tauriConfPath = join(printServiceRoot, "src-tauri", "tauri.conf.json");
 
@@ -35,7 +35,7 @@ const macosOnly = args.has("--macos-only");
 
 function readVersion() {
   if (!existsSync(tauriConfPath)) {
-    console.error(`No se encontró ${tauriConfPath}. ¿Existe print-service/ localmente?`);
+    console.error(`No se encontró ${tauriConfPath}. ¿Existe kai-printers-desktop/ localmente?`);
     process.exit(1);
   }
   return JSON.parse(readFileSync(tauriConfPath, "utf8")).version;
@@ -209,7 +209,7 @@ function publishMacos(version) {
 
 if (!existsSync(printServiceRoot)) {
   console.error(
-    "print-service/ no existe en el monorepo. Cloná o copiá el agente Tauri antes de publicar desktop.",
+    "kai-printers-desktop/ no existe en el monorepo. Cloná o copiá el agente Tauri antes de publicar desktop.",
   );
   process.exit(1);
 }

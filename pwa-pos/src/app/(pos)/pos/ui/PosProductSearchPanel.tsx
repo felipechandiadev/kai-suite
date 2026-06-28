@@ -16,7 +16,7 @@ import {
   writePosProductSearchPageSize,
 } from "@/features/pos-products/lib/posProductSearchStorage";
 import {
-  POS_PRODUCT_SEARCH_FOCUS_EVENT,
+  addPosProductSearchFocusListener,
   requestPosProductSearchFocus,
 } from "@/features/pos-products/lib/pos-product-search-focus";
 import {
@@ -123,8 +123,7 @@ export default function PosProductSearchPanel({
       if (disabled) return;
       window.setTimeout(() => focusSearchField(), 80);
     };
-    window.addEventListener(POS_PRODUCT_SEARCH_FOCUS_EVENT, onFocusRequest);
-    return () => window.removeEventListener(POS_PRODUCT_SEARCH_FOCUS_EVENT, onFocusRequest);
+    return addPosProductSearchFocusListener(onFocusRequest);
   }, [disabled, focusSearchField]);
 
   const clearSearch = useCallback(() => {

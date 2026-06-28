@@ -1,5 +1,5 @@
 import type { CustomerCreditNotePrintData } from "../types/customer-credit-note-print.types";
-import type { PrintFormat } from "@flowstore/print-service-client";
+import type { PrintFormat } from "@kai/print-service-client";
 import { printCustomerCreditNoteReceiptAgentOrBrowserFireAndForget } from "@/features/customer-credit-notes/lib/customer-credit-note-ticket-agent";
 import { thermalReceiptBodyCssForFormat } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";

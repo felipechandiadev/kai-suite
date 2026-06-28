@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { isDocumentPrintFormat, type PrintFormat } from "@flowstore/print-service-client";
+import { isDocumentPrintFormat, type PrintFormat } from "@kai/print-service-client";
 import { thermalPreviewWidthCss } from "@/features/pos-print/lib/document-print-format";
 
 type Props = {

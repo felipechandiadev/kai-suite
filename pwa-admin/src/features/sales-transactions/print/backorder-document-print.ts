@@ -8,8 +8,8 @@ import {
   buildCompanyInlineParts,
   DOCUMENT_HEADER_PRINT_CSS,
   formatCompanyAddressForPrint,
-} from "@flowstore/document-print";
-import type { PrintFormat } from "@flowstore/print-service-client";
+} from "@kai/document-print";
+import type { PrintFormat } from "@kai/print-service-client";
 import type { SaleReceiptPrintData } from "./backorder-document-print.types";
 import { getAdminPrintFormatForData } from "./admin-print-format";
 import { formatReceiptLineDisplayName } from "./format-receipt-line-name";

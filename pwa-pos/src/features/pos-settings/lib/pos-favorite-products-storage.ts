@@ -2,11 +2,20 @@ import type {
   PosFavoriteProductEntry,
   PosFavoriteProductsSnapshotV1,
 } from "../types/pos-favorite-product.types";
+import {
+  getMigratedLocalStorageItem,
+  setMigratedLocalStorageItem,
+} from "../../../../../shared/storage-key-migrate";
 
-const STORAGE_PREFIX = "flowstore.pos.favoriteProducts.v1";
+const STORAGE_PREFIX = "kai.pos.favoriteProducts.v1";
+const STORAGE_PREFIX_LEGACY = "flowstore.pos.favoriteProducts.v1";
 
 function storageKey(pointOfSaleId: string): string {
   return `${STORAGE_PREFIX}.${pointOfSaleId.trim()}`;
+}
+
+function legacyStorageKey(pointOfSaleId: string): string {
+  return `${STORAGE_PREFIX_LEGACY}.${pointOfSaleId.trim()}`;
 }
 
 function emptySnapshot(pointOfSaleId: string): PosFavoriteProductsSnapshotV1 {
@@ -24,7 +33,7 @@ export function readPosFavoriteProducts(
   const posId = pointOfSaleId?.trim();
   if (!posId || typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(storageKey(posId));
+    const raw = getMigratedLocalStorageItem(storageKey(posId), legacyStorageKey(posId));
     if (!raw) return [];
     const parsed = JSON.parse(raw) as PosFavoriteProductsSnapshotV1;
     if (parsed?.version !== 1 || parsed.pointOfSaleId !== posId) return [];
@@ -61,7 +70,11 @@ export function writePosFavoriteProducts(
     updatedAt: new Date().toISOString(),
   };
   try {
-    window.localStorage.setItem(storageKey(posId), JSON.stringify(snapshot));
+    setMigratedLocalStorageItem(
+      storageKey(posId),
+      legacyStorageKey(posId),
+      JSON.stringify(snapshot),
+    );
     notifyFavoriteProductsChanged(posId);
   } catch {
     // quota / modo privado

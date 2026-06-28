@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import type { KaiScreenAndroidManifest } from "@flowstore/customer-display-client";
+import type { KaiScreenAndroidManifest } from "@kai/customer-display-client";
 import { PosCustomerDisplaySettingsSection } from "@/features/customer-display/ui/PosCustomerDisplaySettingsSection";
 
 function readKaiScreenAndroidManifest(): KaiScreenAndroidManifest {

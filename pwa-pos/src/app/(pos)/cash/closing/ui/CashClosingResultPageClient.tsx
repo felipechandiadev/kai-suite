@@ -9,7 +9,7 @@ import {
   getPosDocumentPrintMode,
   isPosDocumentPrintModeDocument,
   posDocumentPrintModeToWireFormat,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 import { Alert, Button } from "@/shared/admin-shared";
 import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
 import type { CompanyDetails } from "@/features/company/infrastructure/company.request";

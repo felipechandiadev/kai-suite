@@ -5,7 +5,7 @@ import {
   type CustomerDisplayEvent,
   type CustomerDisplaySnapshot,
   type DisplayStatusPayload,
-} from "@flowstore/customer-display-client";
+} from "@kai/customer-display-client";
 import { buildCustomerDisplaySnapshot } from "./build-customer-display-snapshot";
 import type { PosCartLine } from "@/app/(pos)/pos/ui/PosCartLineCard";
 import type { PosContextV1 } from "@/features/session/lib/pos-context-storage";

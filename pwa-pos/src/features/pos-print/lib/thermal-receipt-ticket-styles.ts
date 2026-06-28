@@ -2,7 +2,7 @@ import {
   getPrintFormatPreset,
   isTicketPrintFormat,
   type PrintFormat,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 
 /**
  * Estilos tickets térmicos (POS → agente KaiPrinters).

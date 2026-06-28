@@ -1,5 +1,11 @@
 /** Clave en `localStorage` para `pageSize` del buscador StockControl. */
-export const VARIANT_SEARCH_LS_KEY = "flowstore.stockVariantSearch.pageSize";
+import {
+  getMigratedLocalStorageItem,
+  setMigratedLocalStorageItem,
+} from "../../../../../shared/storage-key-migrate";
+
+export const VARIANT_SEARCH_LS_KEY = "kai.stockVariantSearch.pageSize";
+export const VARIANT_SEARCH_LS_KEY_LEGACY = "flowstore.stockVariantSearch.pageSize";
 
 export const VARIANT_SEARCH_DEFAULT_PAGE_SIZE = 20;
 export const VARIANT_SEARCH_MIN = 1;
@@ -19,7 +25,10 @@ export function readVariantSearchPageSize(): number {
     return VARIANT_SEARCH_DEFAULT_PAGE_SIZE;
   }
   try {
-    const raw = window.localStorage.getItem(VARIANT_SEARCH_LS_KEY);
+    const raw = getMigratedLocalStorageItem(
+      VARIANT_SEARCH_LS_KEY,
+      VARIANT_SEARCH_LS_KEY_LEGACY,
+    );
     if (raw == null || raw === "") {
       return VARIANT_SEARCH_DEFAULT_PAGE_SIZE;
     }
@@ -34,7 +43,11 @@ export function writeVariantSearchPageSize(n: number): void {
     return;
   }
   try {
-    window.localStorage.setItem(VARIANT_SEARCH_LS_KEY, String(clampVariantSearchPageSize(n)));
+    setMigratedLocalStorageItem(
+      VARIANT_SEARCH_LS_KEY,
+      VARIANT_SEARCH_LS_KEY_LEGACY,
+      String(clampVariantSearchPageSize(n)),
+    );
   } catch {
     // ignore quota / private mode
   }

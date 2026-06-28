@@ -7,7 +7,7 @@ backend/*.tsbuildinfo
 
 # Local folders not to push
 proyecto-reportes/
-print-service/
+kai-printers-desktop/
 /scripts/
 data-to-seed/
 
@@ -45,7 +45,11 @@ pwa-pos/public/downloads/kai-printers-windows-*.zip
 pwa-pos/public/downloads/kai-printers-macos-*.dmg
 
 # Rust/Tauri build artifacts
-print-service/src-tauri/target/
+kai-printers-desktop/src-tauri/target/
+
+# Cursor IDE
+.cursor/*.log
+.cursor/plans/
 
 # Logs and temporary files
 *.log
@@ -55,7 +59,8 @@ logs/
 # OS / editor
 .DS_Store
 Thumbs.db
-.vscode/
+.vscode/*
+!.vscode/settings.json
 .idea/
 *.swp
 *.swo

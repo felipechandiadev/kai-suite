@@ -1,5 +1,5 @@
 {
-  "name": "@flowstore/document-print",
+  "name": "@kai/document-print",
   "version": "0.0.1",
   "private": true,
   "type": "module",

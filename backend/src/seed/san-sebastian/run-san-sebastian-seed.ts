@@ -121,7 +121,7 @@ async function bootstrap() {
     const userName = process.env.SEED_ADMIN_USERNAME || 'admin-ss';
     const password = process.env.SEED_ADMIN_PASSWORD || '098098';
     const email =
-      process.env.SEED_ADMIN_EMAIL || 'admin.san.sebastian@flowstore.local';
+      process.env.SEED_ADMIN_EMAIL || 'admin.san.sebastian@kai.local';
     const rut = process.env.SEED_COMPANY_RUT || SEED_SAN_SEBASTIAN_COMPANY.rut;
 
     assertValidChileCompanyRut(rut, 'SEED_COMPANY_RUT');
@@ -503,7 +503,7 @@ async function bootstrap() {
           nonDeletable: false,
           firstName: 'Operador',
           lastName: 'San Sebastián',
-          email: 'operador.ss@flowstore.local',
+          email: 'operador.ss@kai.local',
           documentNumber: '33.333.333-3',
         });
 

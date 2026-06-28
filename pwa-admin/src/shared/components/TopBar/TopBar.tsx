@@ -10,7 +10,7 @@ import { NotificationsDropdown } from '@/features/notifications/ui/Notifications
 import {
   PrintServiceTopBarDropdown,
   usePrintServiceConnection,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 
 export type { SideBarMenuItem };
 // TODO: Implement NotificationBell and useNotificationsSocket when notifications feature is created

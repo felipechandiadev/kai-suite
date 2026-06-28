@@ -5,7 +5,7 @@ import {
   posDocumentPrintModeToWireFormat,
   type PosQuotationTicketPayload,
   type PrintFormat,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 import type { CompanyDetails } from "@/features/company/infrastructure/company.request";
 import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import {

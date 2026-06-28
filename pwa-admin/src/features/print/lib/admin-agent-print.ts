@@ -6,7 +6,7 @@ import {
   printServicePageRequiresTls,
   readPrintServiceConfigFromStorage,
   type HelloResponseData,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 
 export type AdminAgentPrintPurpose = "tickets" | "documents" | "labels";
 

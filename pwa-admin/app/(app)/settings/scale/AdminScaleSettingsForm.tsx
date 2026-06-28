@@ -12,7 +12,7 @@ import {
   requestSerialPort,
   writeScaleConfigToStorage,
   type ScaleOutputUnit,
-} from "@flowstore/scale-service-client";
+} from "@kai/scale-service-client";
 import Alert from "@/shared/components/Alert/Alert";
 import { Button } from "@/shared/components/Button";
 import { Select } from "@/shared/components/Select";

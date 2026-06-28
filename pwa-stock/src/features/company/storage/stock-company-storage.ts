@@ -2,7 +2,14 @@
  * Empresa activa del StockControl en localStorage (por dispositivo).
  */
 
-const STORAGE_KEY = "flowstore-stock-company";
+import {
+  getMigratedLocalStorageItem,
+  removeMigratedLocalStorageKeys,
+  setMigratedLocalStorageItem,
+} from "../../../../../shared/storage-key-migrate";
+
+const STORAGE_KEY = "kai-stock-company";
+const STORAGE_KEY_LEGACY = "flowstore-stock-company";
 
 export type StockCompanyConfig = {
   id: string;
@@ -15,7 +22,7 @@ export type StockCompanyConfig = {
 export function readStockCompany(): StockCompanyConfig | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = getMigratedLocalStorageItem(STORAGE_KEY, STORAGE_KEY_LEGACY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<StockCompanyConfig>;
     if (!parsed?.id || !parsed.razonSocial) return null;
@@ -55,7 +62,7 @@ export function writeStockCompany(
   };
   if (typeof window !== "undefined") {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+      setMigratedLocalStorageItem(STORAGE_KEY, STORAGE_KEY_LEGACY, JSON.stringify(value));
     } catch {
       // ignore
     }
@@ -66,7 +73,7 @@ export function writeStockCompany(
 export function clearStockCompany(): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.removeItem(STORAGE_KEY);
+    removeMigratedLocalStorageKeys(STORAGE_KEY, STORAGE_KEY_LEGACY);
   } catch {
     // ignore
   }

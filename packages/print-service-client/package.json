@@ -1,5 +1,5 @@
 {
-  "name": "@flowstore/print-service-client",
+  "name": "@kai/print-service-client",
   "version": "0.0.1",
   "private": true,
   "type": "module",

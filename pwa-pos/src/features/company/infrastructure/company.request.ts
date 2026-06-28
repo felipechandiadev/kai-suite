@@ -1,4 +1,4 @@
-import { resolveCompanyPhone } from "@flowstore/document-print";
+import { resolveCompanyPhone } from "@kai/document-print";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/auth-options";
 

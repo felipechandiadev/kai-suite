@@ -1,4 +1,4 @@
-import { getPrintFormatPreset, type PrintFormat } from "@flowstore/print-service-client";
+import { getPrintFormatPreset, type PrintFormat } from "@kai/print-service-client";
 
 /** Regla `@page` para documentos hoja (carta / A4). */
 export function documentPageAtRule(format: PrintFormat): string {

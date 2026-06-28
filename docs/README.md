@@ -1,4 +1,11 @@
-# Documentación — Flow Store 2 / KaiStore
+# Documentación — Kai Platform
+
+| Documento | Descripción |
+|-----------|-------------|
+| [project/MIGRACION-NOMBRES-KAISTORE.md](./project/MIGRACION-NOMBRES-KAISTORE.md) | Plan migración **Flow Store → Kai** |
+| [project/ARQUITECTURA_Y_ECOSISTEMA.md](./project/ARQUITECTURA_Y_ECOSISTEMA.md) | Arquitectura monorepo Kai |
+| [project/VERSIONING.md](./project/VERSIONING.md) | Política de versiones |
+| [project/AGENT-RULES-MAP.md](./project/AGENT-RULES-MAP.md) | Dónde lee el agente IA |
 
 ## Documentación viva
 

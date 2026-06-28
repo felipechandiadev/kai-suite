@@ -116,6 +116,24 @@ export function PosSettingsPageClient() {
             />
           </div>
         </SettingsSection>
+
+        <SettingsSection
+          title="Acerca de"
+          description="Versión de la aplicación, backend y Kai Printers."
+          data-test-id="pos-settings-about-section"
+        >
+          <div className="flex justify-end">
+            <IconButton
+              icon="Info"
+              variant="outlined"
+              size="sm"
+              ariaLabel="Acerca de KaiStore POS"
+              title="Acerca de"
+              onClick={() => router.push("/settings/about")}
+              data-test-id="pos-settings-about-link"
+            />
+          </div>
+        </SettingsSection>
       </div>
     </div>
   );

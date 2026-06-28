@@ -6,7 +6,7 @@ import {
   isWebSerialSupported,
   readScaleConfigFromStorage,
   readWeightFromScale,
-} from "@flowstore/scale-service-client";
+} from "@kai/scale-service-client";
 import Dialog from "@/shared/components/Dialog/Dialog";
 import Alert from "@/shared/components/Alert/Alert";
 import { Button } from "@/shared/components/Button";

@@ -9,7 +9,7 @@ import {
   maintainCustomerDisplayConnection,
   syncCustomerDisplayPublisher,
 } from "@/features/customer-display/lib/customer-display-publisher";
-import { readCustomerDisplayFromStorage } from "@flowstore/customer-display-client";
+import { readCustomerDisplayFromStorage } from "@kai/customer-display-client";
 
 function isPaymentPath(pathname: string | null): boolean {
   return Boolean(pathname?.startsWith("/pos/payment"));

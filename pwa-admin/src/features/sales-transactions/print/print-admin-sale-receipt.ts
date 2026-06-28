@@ -1,4 +1,4 @@
-import type { PrintFormat } from "@flowstore/print-service-client";
+import type { PrintFormat } from "@kai/print-service-client";
 import type { SaleReceiptPrintData } from "./backorder-document-print.types";
 import { printSaleReceiptDocument } from "./backorder-document-print";
 import { getAdminPrintFormatForData } from "./admin-print-format";

@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { loadEnvConfig } from "@next/env";
 import type { NextConfig } from "next";
 import { buildLanAllowedDevOrigins } from "../shared/next-lan-dev-origins";
+import packageJson from "./package.json";
 
 const appRoot = path.dirname(fileURLToPath(import.meta.url));
 const monorepoRoot = path.join(appRoot, "..");
@@ -10,15 +11,15 @@ const packagesRoot = path.join(monorepoRoot, "packages");
 
 loadEnvConfig(appRoot);
 
-const flowstoreResolveAlias = {
-  "@flowstore/document-print": path.join(packagesRoot, "document-print", "src", "index.ts"),
-  "@flowstore/print-service-client": path.join(
+const kaiResolveAlias = {
+  "@kai/document-print": path.join(packagesRoot, "document-print", "src", "index.ts"),
+  "@kai/print-service-client": path.join(
     packagesRoot,
     "print-service-client",
     "src",
     "index.ts",
   ),
-  "@flowstore/scale-service-client": path.join(
+  "@kai/scale-service-client": path.join(
     packagesRoot,
     "scale-service-client",
     "src",
@@ -33,7 +34,7 @@ const turbopackRoot = isDev ? appRoot : monorepoRoot;
 const nextConfig: NextConfig = {
   turbopack: {
     root: turbopackRoot,
-    ...(isDev ? { resolveAlias: flowstoreResolveAlias } : {}),
+    ...(isDev ? { resolveAlias: kaiResolveAlias } : {}),
   },
   typescript: {
     ignoreBuildErrors: true,
@@ -45,13 +46,14 @@ const nextConfig: NextConfig = {
     },
   },
   transpilePackages: [
-    "@flowstore/document-print",
-    "@flowstore/print-service-client",
-    "@flowstore/scale-service-client",
+    "@kai/document-print",
+    "@kai/print-service-client",
+    "@kai/scale-service-client",
   ],
   env: {
     NEXT_PUBLIC_BACKEND_API_URL:
       process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_BACKEND_API_URL || "",
+    NEXT_PUBLIC_APP_VERSION: packageJson.version,
   },
   // experimental: { appDir: true },
   async redirects() {

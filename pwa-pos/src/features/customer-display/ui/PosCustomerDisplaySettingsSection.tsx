@@ -10,7 +10,7 @@ import {
   writeCustomerDisplayToStorage,
   type DisplayStatusPayload,
   type KaiScreenAndroidManifest,
-} from "@flowstore/customer-display-client";
+} from "@kai/customer-display-client";
 import {
   disconnectCustomerDisplay,
   getCustomerDisplayStatus,

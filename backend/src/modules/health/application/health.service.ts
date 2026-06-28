@@ -1,8 +1,22 @@
 import { Injectable } from '@nestjs/common';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { MetricsService } from '../../../shared/metrics/metrics.service';
+
+function readBackendVersion(): string {
+  try {
+    const pkgPath = join(process.cwd(), 'package.json');
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { version?: string };
+    return pkg.version ?? '0.0.0';
+  } catch {
+    return process.env.APP_VERSION ?? '0.0.0';
+  }
+}
 
 @Injectable()
 export class HealthService {
+  private readonly appVersion = readBackendVersion();
+
   constructor(private readonly metricsService: MetricsService) {}
 
   check() {
@@ -12,8 +26,8 @@ export class HealthService {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
-      service: 'flow-backend-nestjs',
-      version: '1.0.0',
+      service: 'kai-backend',
+      version: this.appVersion,
       uptime: process.uptime(),
       memory: process.memoryUsage(),
       environment: process.env.NODE_ENV || 'development',

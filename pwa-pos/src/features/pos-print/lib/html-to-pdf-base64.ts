@@ -5,7 +5,7 @@ import {
   isDocumentPrintFormat,
   isTicketPrintFormat,
   type PrintFormat,
-} from "@flowstore/print-service-client";
+} from "@kai/print-service-client";
 import { THERMAL_TICKET_PDF_EXTRA_FEED_MM } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
 
 const DOCUMENT_WIDTH_PX = 794;

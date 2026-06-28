@@ -6,7 +6,14 @@
  * fue configurado (o se borró), la LoginPage redirige al usuario a /setup.
  */
 
-const STORAGE_KEY = "flowstore-pos-company";
+import {
+  getMigratedLocalStorageItem,
+  removeMigratedLocalStorageKeys,
+  setMigratedLocalStorageItem,
+} from "../../../../../shared/storage-key-migrate";
+
+const STORAGE_KEY = "kai-pos-company";
+const STORAGE_KEY_LEGACY = "flowstore-pos-company";
 
 export type PosCompanyConfig = {
   id: string;
@@ -26,7 +33,7 @@ export type PosCompanyConfig = {
 export function readPosCompany(): PosCompanyConfig | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = getMigratedLocalStorageItem(STORAGE_KEY, STORAGE_KEY_LEGACY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<PosCompanyConfig>;
     if (!parsed?.id || !parsed.razonSocial) return null;
@@ -69,7 +76,7 @@ export function writePosCompany(
   };
   if (typeof window !== "undefined") {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+      setMigratedLocalStorageItem(STORAGE_KEY, STORAGE_KEY_LEGACY, JSON.stringify(value));
     } catch {
       // localStorage podría estar deshabilitado (Safari modo privado, etc.)
       // No hay un fallback razonable; el usuario tendrá que reconfigurar.
@@ -84,7 +91,7 @@ export function writePosCompany(
 export function clearPosCompany(): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.removeItem(STORAGE_KEY);
+    removeMigratedLocalStorageKeys(STORAGE_KEY, STORAGE_KEY_LEGACY);
   } catch {
     // ignore
   }

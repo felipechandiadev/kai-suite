@@ -4,7 +4,13 @@
  * consistencia: LS = preferencia personal, URL = override / deeplink.
  */
 
-export const POS_CUSTOMER_SEARCH_LS_KEY = "flowstore.posCustomerSearch.pageSize";
+import {
+  getMigratedLocalStorageItem,
+  setMigratedLocalStorageItem,
+} from "../../../../../shared/storage-key-migrate";
+
+export const POS_CUSTOMER_SEARCH_LS_KEY = "kai.posCustomerSearch.pageSize";
+export const POS_CUSTOMER_SEARCH_LS_KEY_LEGACY = "flowstore.posCustomerSearch.pageSize";
 
 export const POS_CUSTOMER_SEARCH_DEBOUNCE_MS = 350;
 
@@ -26,7 +32,10 @@ export function readPosCustomerSearchPageSize(): number {
     return POS_CUSTOMER_SEARCH_DEFAULT_PAGE_SIZE;
   }
   try {
-    const raw = window.localStorage.getItem(POS_CUSTOMER_SEARCH_LS_KEY);
+    const raw = getMigratedLocalStorageItem(
+      POS_CUSTOMER_SEARCH_LS_KEY,
+      POS_CUSTOMER_SEARCH_LS_KEY_LEGACY,
+    );
     if (raw == null || raw === "") {
       return POS_CUSTOMER_SEARCH_DEFAULT_PAGE_SIZE;
     }
@@ -41,8 +50,9 @@ export function writePosCustomerSearchPageSize(n: number): void {
     return;
   }
   try {
-    window.localStorage.setItem(
+    setMigratedLocalStorageItem(
       POS_CUSTOMER_SEARCH_LS_KEY,
+      POS_CUSTOMER_SEARCH_LS_KEY_LEGACY,
       String(clampPosCustomerSearchPageSize(n)),
     );
   } catch {

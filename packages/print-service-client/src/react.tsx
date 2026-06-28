@@ -10,6 +10,7 @@ import {
   readConfiguredPurposePrinterAliasMap,
   PRINT_SERVICE_CONFIG_CHANGED_EVENT,
   PRINT_WS_CLOSE_REASON_SERVICE_STOPPED,
+  PRINT_WS_CLOSE_REASON_SERVICE_STOPPED_LEGACY,
   type HelloResponseData,
   type PrinterHealthPayload,
   type PrintAgentVisualStatus,
@@ -24,6 +25,7 @@ import {
   readPrintServiceNotificationsFromStorage,
   writePrintServiceNotificationsToStorage,
 } from "./print-notifications-storage";
+import { addDualPlatformEventListener } from "./platform-events";
 
 export type UsePrintServiceConnectionOptions = {
   defaultHost?: string;
@@ -300,8 +302,7 @@ export function usePrintServiceConnection(opts: UsePrintServiceConnectionOptions
       const err = detail?.error?.trim();
       if (err) notifyJobFailed("", err);
     };
-    window.addEventListener(PRINT_SERVICE_JOB_FAILED_EVENT, onSyncJobFailed);
-    return () => window.removeEventListener(PRINT_SERVICE_JOB_FAILED_EVENT, onSyncJobFailed);
+    return addDualPlatformEventListener(PRINT_SERVICE_JOB_FAILED_EVENT, onSyncJobFailed);
   }, [notifyJobFailed]);
 
   const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
@@ -422,7 +423,8 @@ export function usePrintServiceConnection(opts: UsePrintServiceConnectionOptions
           ev.code === 1000 &&
           ev.wasClean &&
           typeof ev.reason === "string" &&
-          ev.reason.includes(PRINT_WS_CLOSE_REASON_SERVICE_STOPPED);
+          (ev.reason.includes(PRINT_WS_CLOSE_REASON_SERVICE_STOPPED) ||
+            ev.reason.includes(PRINT_WS_CLOSE_REASON_SERVICE_STOPPED_LEGACY));
         const abnormal = !stoppedFromAgentUi && (ev.code !== 1000 || !ev.wasClean);
         if (!cancelled) {
           const briefErr = opts.briefWsErrorMessages === true;

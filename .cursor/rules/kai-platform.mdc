@@ -1,0 +1,39 @@
+---
+description: Reglas monorepo Kai Platform (backend CQRS + PWAs Next.js)
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+# Kai Platform — reglas para agentes IA
+
+## Propósito
+
+Guía para Cursor al desarrollar la **plataforma Kai** (KaiStore, KaiFood, componentes compartidos).
+
+## Arquitectura
+
+- **Backend**: NestJS, CQRS/DDD estricta.
+- **Frontends**: Next.js, Server Actions Only.
+- **Marca**: genérico = **Kai**; vertical = **KaiStore** / **KaiFood**.
+
+## Backend
+
+- Domain → Application → Infrastructure → Presentation.
+- NO lógica en controllers.
+
+## Frontend
+
+- Server Actions Only; NO fetch en UI/hooks.
+- Validaciones Zod; SIEMPRE Bearer token al backend.
+
+## Docs
+
+- `docs/project/ARQUITECTURA_Y_ECOSISTEMA.md`
+- `docs/project/MIGRACION-NOMBRES-KAISTORE.md`
+- `pwa-admin/AGENTS.md`, `pwa-pos/AGENTS.md`
+
+## Reglas
+
+- Scope npm: `@kai/*`.
+- No mezclar PRs de storage/protocolo con cosmética.

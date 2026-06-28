@@ -1,3 +1,8 @@
+import {
+  getMigratedLocalStorageItem,
+  setMigratedLocalStorageItem,
+} from "../../../shared/storage-key-migrate";
+
 export type CustomerDisplayStorageV1 = {
   enabled: boolean;
   host: string;
@@ -6,7 +11,8 @@ export type CustomerDisplayStorageV1 = {
   token?: string;
 };
 
-export const CUSTOMER_DISPLAY_STORAGE_KEY = "flowstore.pos.customerDisplay.v1";
+export const CUSTOMER_DISPLAY_STORAGE_KEY = "kai.pos.customerDisplay.v1";
+export const CUSTOMER_DISPLAY_STORAGE_KEY_LEGACY = "flowstore.pos.customerDisplay.v1";
 
 const DEFAULTS: CustomerDisplayStorageV1 = {
   enabled: false,
@@ -18,7 +24,10 @@ const DEFAULTS: CustomerDisplayStorageV1 = {
 export function readCustomerDisplayFromStorage(): CustomerDisplayStorageV1 {
   if (typeof window === "undefined") return { ...DEFAULTS };
   try {
-    const raw = window.localStorage.getItem(CUSTOMER_DISPLAY_STORAGE_KEY);
+    const raw = getMigratedLocalStorageItem(
+      CUSTOMER_DISPLAY_STORAGE_KEY,
+      CUSTOMER_DISPLAY_STORAGE_KEY_LEGACY,
+    );
     if (!raw) return { ...DEFAULTS };
     const parsed = JSON.parse(raw) as Partial<CustomerDisplayStorageV1>;
     return {
@@ -39,8 +48,9 @@ export function readCustomerDisplayFromStorage(): CustomerDisplayStorageV1 {
 export function writeCustomerDisplayToStorage(patch: Partial<CustomerDisplayStorageV1>): void {
   if (typeof window === "undefined") return;
   const prev = readCustomerDisplayFromStorage();
-  window.localStorage.setItem(
+  setMigratedLocalStorageItem(
     CUSTOMER_DISPLAY_STORAGE_KEY,
+    CUSTOMER_DISPLAY_STORAGE_KEY_LEGACY,
     JSON.stringify({ ...prev, ...patch }),
   );
 }
