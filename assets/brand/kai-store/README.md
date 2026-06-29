@@ -4,9 +4,12 @@
 
 | Archivo | Descripción |
 |---------|-------------|
-| [`source/kai-logo.svg`](./source/kai-logo.svg) | Logo Kai (ola + KAI), fondo transparente, 1024×1024 |
+| [`source/kai-favicon.svg`](./source/kai-favicon.svg) | Ola azul — favicon pestaña, PWA install, launcher, app instalada |
+| [`source/kai-logo.svg`](./source/kai-logo.svg) | Logo completo (ola + KAI) — top bar, login, sidebar, tickets (`logo.png`) |
+| [`source/kai-tray-white.svg`](./source/kai-tray-white.svg) | Ola blanca — tray macOS, notificaciones Android |
+| [`source/kai-tray-black.svg`](./source/kai-tray-black.svg) | Ola negra — solo composición de fondo |
 
-Editar **solo** el SVG. Los PNG en `exports/` y en cada `pwa-*/public/` se generan automáticamente.
+Editar **solo** los SVG. Los PNG en `exports/` y en cada `pwa-*/public/` se generan automáticamente.
 
 ## Regenerar
 

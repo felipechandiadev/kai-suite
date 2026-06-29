@@ -82,6 +82,21 @@ async function writeMonochromeIcon(buf, size, filePath) {
   await sharp(out, { raw: { width: info.width, height: info.height, channels: 4 } }).png().toFile(filePath);
 }
 
+/** Silueta blanca desde kai-tray-white (alfa → blanco). */
+async function writeWhiteSilhouetteIcon(buf, size, filePath) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const { data, info } = await sharp(buf).resize(size, size).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const out = Buffer.alloc(data.length);
+  for (let i = 0; i < data.length; i += info.channels) {
+    const a = data[i + 3] ?? 255;
+    out[i] = 255;
+    out[i + 1] = 255;
+    out[i + 2] = 255;
+    out[i + 3] = a > 32 ? 255 : 0;
+  }
+  await sharp(out, { raw: { width: info.width, height: info.height, channels: 4 } }).png().toFile(filePath);
+}
+
 function writeAdaptiveXml(resDir) {
   const dir = path.join(resDir, "mipmap-anydpi-v26");
   fs.mkdirSync(dir, { recursive: true });
@@ -127,11 +142,18 @@ function removeLegacyLauncherFiles(resDir) {
   }
 }
 
-/** @param {string} source — kai-logo-ANDROID.png */
-export async function generateAndroidRes(source, targetResDir) {
+/**
+ * @param {string} source — favicon / launcher
+ * @param {string} targetResDir
+ * @param {{ notificationSource?: string }} [opts] — silueta blanca para ic_notification
+ */
+export async function generateAndroidRes(source, targetResDir, { notificationSource } = {}) {
   removeLegacyLauncherFiles(targetResDir);
   const legacyBuf = await squareBuffer(source);
   const foregroundBuf = await paddedForegroundBuffer(source);
+  const notificationBuf = notificationSource
+    ? await sharp(notificationSource).resize(SQUARE, SQUARE, { fit: "contain", position: "center", background: TRANSPARENT }).png().toBuffer()
+    : legacyBuf;
   const whiteBuf = await sharp({
     create: { width: SQUARE, height: SQUARE, channels: 3, background: WHITE },
   })
@@ -150,7 +172,11 @@ export async function generateAndroidRes(source, targetResDir) {
   }
 
   for (const [folder, size] of Object.entries(NOTIFICATION_SIZES)) {
-    await writeMonochromeIcon(legacyBuf, size, path.join(targetResDir, folder, "ic_notification.png"));
+    if (notificationSource) {
+      await writeWhiteSilhouetteIcon(notificationBuf, size, path.join(targetResDir, folder, "ic_notification.png"));
+    } else {
+      await writeMonochromeIcon(legacyBuf, size, path.join(targetResDir, folder, "ic_notification.png"));
+    }
     await writeMonochromeIcon(legacyBuf, size, path.join(targetResDir, folder, "ic_launcher_monochrome.png"));
   }
 

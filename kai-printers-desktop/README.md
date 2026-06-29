@@ -12,8 +12,9 @@ Assets en `public/`:
 
 | Archivo | Uso |
 |---------|-----|
-| `kai-printers.png` | Dock, Control Center, `.icns` / `.ico` |
-| `KaiPrinters-mac-bar.png` | Barra de menú superior (macOS) |
+| `kai-printers.png` | Windows/Linux, `.ico`, PNGs del bundle |
+| `kai-printers-mac-dock.png` | **macOS Dock** / `icon.icns` (logo completo ola + KAI) |
+| `KaiPrinters-mac-bar.png` | Barra de menú superior (macOS tray) |
 | `logo.png` | Footer de la UI (`/logo.png`) |
 
 Tras cambiar los PNG:

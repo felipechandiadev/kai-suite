@@ -1,9 +1,14 @@
 #!/usr/bin/env node
 /**
- * Rasteriza kai-logo.svg → master-1024.png (RGBA transparente).
+ * Rasteriza fuentes SVG de marca → PNG 1024 en packages/kai-brand/sources/.
+ *
+ * Fuentes (assets/brand/kai-store/source/):
+ *   - kai-favicon.svg      → favicon-1024.png, master-1024.png (favicon pestaña, app instalada)
+ *   - kai-logo.svg         → logo-ui-1024.png (top bar, login, sidebar, tickets)
+ *   - kai-tray-white.svg   → tray-white-1024.png (tray macOS, notificaciones Android)
+ *   - kai-tray-black.svg   → tray-black-1024.png (solo composición; no icono solo)
  *
  * Uso: node scripts/rasterize-svg.mjs
- * Env: KAI_LOGO_SVG, KAI_LOGO_INNER_RATIO (default 0.88)
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -13,40 +18,43 @@ import sharp from "sharp";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const brandRoot = path.join(__dirname, "..");
 const repoRoot = path.join(brandRoot, "..", "..");
-
-const SVG_DEFAULT = path.join(repoRoot, "assets", "brand", "kai-store", "source", "kai-logo.svg");
+const SOURCE_DIR = path.join(repoRoot, "assets", "brand", "kai-store", "source");
 const OUT_DIR = path.join(brandRoot, "sources");
-const OUT_MASTER = path.join(OUT_DIR, "master-1024.png");
 const OUT_SIZE = 1024;
-const INNER_RATIO = Number(process.env.KAI_LOGO_INNER_RATIO ?? "0.88");
 
 const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
 
-async function rasterizeSvg(svgPath, outPath) {
-  const inner = Math.round(OUT_SIZE * INNER_RATIO);
-  const logo = await sharp(svgPath)
-    .resize(inner, inner, { fit: "contain", position: "center", background: TRANSPARENT })
-    .png()
-    .toBuffer();
+const RASTER_TARGETS = [
+  { svg: "kai-favicon.svg", out: "favicon-1024.png" },
+  { svg: "kai-logo.svg", out: "logo-ui-1024.png" },
+  { svg: "kai-tray-white.svg", out: "tray-white-1024.png" },
+  { svg: "kai-tray-black.svg", out: "tray-black-1024.png" },
+];
 
-  await sharp({
-    create: { width: OUT_SIZE, height: OUT_SIZE, channels: 4, background: TRANSPARENT },
-  })
-    .composite([{ input: logo, gravity: "center" }])
+async function rasterizeSvgFull(svgPath, outPath) {
+  await sharp(svgPath)
+    .resize(OUT_SIZE, OUT_SIZE, { fit: "fill", background: TRANSPARENT })
     .png({ compressionLevel: 9 })
     .toFile(outPath);
 }
 
 async function main() {
-  const svgPath = process.env.KAI_LOGO_SVG?.trim() || SVG_DEFAULT;
-  if (!fs.existsSync(svgPath)) {
-    console.error(`No se encontró SVG: ${svgPath}`);
-    process.exit(1);
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+
+  for (const { svg, out } of RASTER_TARGETS) {
+    const svgPath = path.join(SOURCE_DIR, svg);
+    if (!fs.existsSync(svgPath)) {
+      console.error(`No se encontró SVG: ${svgPath}`);
+      process.exit(1);
+    }
+    const outPath = path.join(OUT_DIR, out);
+    await rasterizeSvgFull(svgPath, outPath);
+    console.log(`Raster: ${path.relative(repoRoot, svgPath)} → ${path.relative(repoRoot, outPath)}`);
   }
 
-  fs.mkdirSync(OUT_DIR, { recursive: true });
-  await rasterizeSvg(svgPath, OUT_MASTER);
-  console.log(`Raster: ${path.relative(repoRoot, svgPath)} → ${path.relative(repoRoot, OUT_MASTER)} (${OUT_SIZE}px, inner ${INNER_RATIO})`);
+  const master = path.join(OUT_DIR, "master-1024.png");
+  fs.copyFileSync(path.join(OUT_DIR, "favicon-1024.png"), master);
+  console.log(`Alias: master-1024.png ← favicon-1024.png`);
 }
 
 main().catch((e) => {

@@ -6,7 +6,11 @@ import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BadgeCheck, Building2, CircleUser, ImageOff, Image as ImageIcon, Store, Wifi, WifiOff } from "lucide-react";
 import IconButton from "@/shared/components/IconButton/IconButton";
-import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
+import {
+  POS_CONTEXT_CHANGED_EVENT,
+  readPosContextClient,
+  type PosKind,
+} from "@/features/session/lib/pos-context-storage";
 import { StockAlertsDropdown } from "@/features/inventory-stock/ui/StockAlertsDropdown";
 import { PrintServiceTopBarDropdown, usePrintServiceConnection } from "@kai/print-service-client";
 import Dialog from "@/shared/components/Dialog/Dialog";
@@ -65,6 +69,7 @@ type PosTopBarNavProps = {
   pathname: string;
   onNavigate: (path: string) => void;
   printService: PrintServiceNavProps;
+  isPresalePos?: boolean;
   className?: string;
 };
 
@@ -72,6 +77,7 @@ function PosTopBarNav({
   pathname,
   onNavigate,
   printService,
+  isPresalePos = false,
   className = "",
 }: PosTopBarNavProps) {
   return (
@@ -90,66 +96,72 @@ function PosTopBarNav({
         onClick={() => onNavigate("/pos")}
         data-test-id="pos-topbar-pos"
       />
-      <IconButton
-        icon="Users"
-        variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/customers"))}
-        size="md"
-        ariaLabel="Clientes"
-        aria-current={pathnameMatchesRoute(pathname, "/customers") ? "page" : undefined}
-        onClick={() => onNavigate("/customers")}
-        data-test-id="pos-topbar-customers"
-      />
+      {!isPresalePos ? (
+        <IconButton
+          icon="Users"
+          variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/customers"))}
+          size="md"
+          ariaLabel="Clientes"
+          aria-current={pathnameMatchesRoute(pathname, "/customers") ? "page" : undefined}
+          onClick={() => onNavigate("/customers")}
+          data-test-id="pos-topbar-customers"
+        />
+      ) : null}
       <StockAlertsDropdown />
-      <IconButton
-        icon="FileCheck"
-        variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/purchasing/receptions"))}
-        size="md"
-        ariaLabel="Recepción de compra"
-        title="Recepción de compra"
-        aria-current={pathnameMatchesRoute(pathname, "/purchasing/receptions") ? "page" : undefined}
-        onClick={() => onNavigate("/purchasing/receptions/new")}
-        data-test-id="pos-topbar-reception"
-      />
-      <IconButton
-        icon="ArrowLeftRight"
-        variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/cash/movements"))}
-        size="md"
-        ariaLabel="Movimientos de caja"
-        title="Movimientos de caja"
-        aria-current={pathnameMatchesRoute(pathname, "/cash/movements") ? "page" : undefined}
-        onClick={() => onNavigate("/cash/movements")}
-        data-test-id="pos-topbar-cash-movements"
-      />
-      <IconButton
-        icon="BanknoteArrowDown"
-        variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/cash/hub-deposit"))}
-        size="md"
-        ariaLabel="Ingreso de efectivo desde centro de efectivo"
-        title="Ingreso desde centro de efectivo"
-        aria-current={pathnameMatchesRoute(pathname, "/cash/hub-deposit") ? "page" : undefined}
-        onClick={() => onNavigate("/cash/hub-deposit")}
-        data-test-id="pos-topbar-hub-deposit"
-      />
-      <IconButton
-        icon="BanknoteArrowUp"
-        variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/cash/hub-withdrawal"))}
-        size="md"
-        ariaLabel="Egreso de efectivo a centro de efectivo"
-        title="Egreso a centro de efectivo"
-        aria-current={pathnameMatchesRoute(pathname, "/cash/hub-withdrawal") ? "page" : undefined}
-        onClick={() => onNavigate("/cash/hub-withdrawal")}
-        data-test-id="pos-topbar-hub-withdrawal"
-      />
-      <IconButton
-        icon="LockKeyhole"
-        variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/cash/closing"))}
-        size="md"
-        ariaLabel="Cerrar caja"
-        title="Cerrar caja"
-        aria-current={pathnameMatchesRoute(pathname, "/cash/closing") ? "page" : undefined}
-        onClick={() => onNavigate("/cash/closing")}
-        data-test-id="pos-topbar-cash-closing"
-      />
+      {!isPresalePos ? (
+        <>
+          <IconButton
+            icon="FileCheck"
+            variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/purchasing/receptions"))}
+            size="md"
+            ariaLabel="Recepción de compra"
+            title="Recepción de compra"
+            aria-current={pathnameMatchesRoute(pathname, "/purchasing/receptions") ? "page" : undefined}
+            onClick={() => onNavigate("/purchasing/receptions/new")}
+            data-test-id="pos-topbar-reception"
+          />
+          <IconButton
+            icon="ArrowLeftRight"
+            variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/cash/movements"))}
+            size="md"
+            ariaLabel="Movimientos de caja"
+            title="Movimientos de caja"
+            aria-current={pathnameMatchesRoute(pathname, "/cash/movements") ? "page" : undefined}
+            onClick={() => onNavigate("/cash/movements")}
+            data-test-id="pos-topbar-cash-movements"
+          />
+          <IconButton
+            icon="BanknoteArrowDown"
+            variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/cash/hub-deposit"))}
+            size="md"
+            ariaLabel="Ingreso de efectivo desde centro de efectivo"
+            title="Ingreso desde centro de efectivo"
+            aria-current={pathnameMatchesRoute(pathname, "/cash/hub-deposit") ? "page" : undefined}
+            onClick={() => onNavigate("/cash/hub-deposit")}
+            data-test-id="pos-topbar-hub-deposit"
+          />
+          <IconButton
+            icon="BanknoteArrowUp"
+            variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/cash/hub-withdrawal"))}
+            size="md"
+            ariaLabel="Egreso de efectivo a centro de efectivo"
+            title="Egreso a centro de efectivo"
+            aria-current={pathnameMatchesRoute(pathname, "/cash/hub-withdrawal") ? "page" : undefined}
+            onClick={() => onNavigate("/cash/hub-withdrawal")}
+            data-test-id="pos-topbar-hub-withdrawal"
+          />
+          <IconButton
+            icon="LockKeyhole"
+            variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/cash/closing"))}
+            size="md"
+            ariaLabel="Cerrar caja"
+            title="Cerrar caja"
+            aria-current={pathnameMatchesRoute(pathname, "/cash/closing") ? "page" : undefined}
+            onClick={() => onNavigate("/cash/closing")}
+            data-test-id="pos-topbar-cash-closing"
+          />
+        </>
+      ) : null}
       <PrintServiceTopBarDropdown
         panelVariant="pos"
         connected={printService.connected}
@@ -207,6 +219,14 @@ function userRoleLabel(raw: unknown): string {
   return r ? roleLabel(r) : "—";
 }
 
+function posAppSubtitle(posKind?: PosKind | null): string {
+  return posKind === "PRESALE" ? "Preventa" : "POS";
+}
+
+function posAppLabel(posKind?: PosKind | null): string {
+  return posKind === "PRESALE" ? "KaiStore Preventa" : "KaiStore POS";
+}
+
 export default function PosTopBar({
   pointOfSaleName = null,
   companyTradeName = null,
@@ -214,13 +234,22 @@ export default function PosTopBar({
   userRole = null,
 }: PosTopBarProps) {
   const [posNameFromClient, setPosNameFromClient] = useState<string | null>(null);
+  const [posKindFromClient, setPosKindFromClient] = useState<PosKind | null>(null);
   useEffect(() => {
-    const parsed = readPosContextClient();
-    if (!parsed) return;
-    const pn = typeof parsed.pointOfSaleName === "string" ? parsed.pointOfSaleName.trim() : "";
-    const bn = typeof parsed.branchName === "string" ? parsed.branchName.trim() : "";
-    const label = [pn, bn].filter(Boolean).join(" — ").trim();
-    if (label) setPosNameFromClient(label);
+    const syncFromContext = () => {
+      const parsed = readPosContextClient();
+      if (!parsed) return;
+      const pn = typeof parsed.pointOfSaleName === "string" ? parsed.pointOfSaleName.trim() : "";
+      const bn = typeof parsed.branchName === "string" ? parsed.branchName.trim() : "";
+      const label = [pn, bn].filter(Boolean).join(" — ").trim();
+      setPosNameFromClient(label || null);
+      setPosKindFromClient(
+        parsed.posKind === "PRESALE" || parsed.posKind === "SALE" ? parsed.posKind : null,
+      );
+    };
+    syncFromContext();
+    window.addEventListener(POS_CONTEXT_CHANGED_EVENT, syncFromContext);
+    return () => window.removeEventListener(POS_CONTEXT_CHANGED_EVENT, syncFromContext);
   }, []);
 
   const effectivePosName = (pointOfSaleName?.trim() ? pointOfSaleName.trim() : "") || posNameFromClient || "";
@@ -231,7 +260,7 @@ export default function PosTopBar({
   const pathname = usePathname() ?? "";
 
   const title = "KaiStore";
-  const subtitle = "POS";
+  const subtitle = posAppSubtitle(posKindFromClient);
   const logoSrc = "/logo.png";
 
   const printServiceDebug =
@@ -253,7 +282,7 @@ export default function PosTopBar({
   const printService = usePrintServiceConnection({
     clientId: "pwa-pos",
     requiredPurposes: ["tickets", "documents"],
-    appLabel: "KaiStore POS",
+    appLabel: posAppLabel(posKindFromClient),
     userDisplayName: effectivePerson || undefined,
     companyName: effectiveCompany || undefined,
     pointOfSaleName: effectivePosName || undefined,
@@ -317,10 +346,13 @@ export default function PosTopBar({
     clearNotifications: printService.clearNotifications,
   };
 
+  const isPresalePos = posKindFromClient === "PRESALE";
+
   const navProps: PosTopBarNavProps = {
     pathname,
     onNavigate: (path) => router.push(path),
     printService: printServiceNav,
+    isPresalePos,
   };
 
   const userName = effectivePerson || "—";

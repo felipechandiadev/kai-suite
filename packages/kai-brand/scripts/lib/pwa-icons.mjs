@@ -12,6 +12,24 @@ export async function squarePng(source, size, { background = WHITE } = {}) {
     .toBuffer();
 }
 
+/**
+ * Favicon de pestaña: recorta márgenes y escala ~6 % más que `contain` puro.
+ */
+export async function faviconPng(source, size) {
+  const trimmed = await sharp(source).trim({ threshold: 12 }).png().toBuffer();
+  const zoom = Math.round(size * 1.06);
+  return sharp(trimmed)
+    .resize(zoom, zoom, { fit: "cover", position: "centre" })
+    .extract({
+      left: Math.floor((zoom - size) / 2),
+      top: Math.floor((zoom - size) / 2),
+      width: size,
+      height: size,
+    })
+    .png({ compressionLevel: 9 })
+    .toBuffer();
+}
+
 /** PWA maskable: icono al 80 % centrado sobre fondo blanco. */
 export async function maskablePng(source, size) {
   const inner = Math.round(size * 0.8);
@@ -54,9 +72,14 @@ export async function generatePwaIconSet({
   ];
 
   for (const [name, src, size, maskable] of writes) {
-    const buf = maskable
-      ? await maskablePng(src, size)
-      : await squarePng(src, size, transparentBg);
+    let buf;
+    if (maskable) {
+      buf = await maskablePng(src, size);
+    } else if (name.startsWith("favicon-")) {
+      buf = await faviconPng(src, size);
+    } else {
+      buf = await squarePng(src, size, transparentBg);
+    }
     fs.writeFileSync(path.join(outDir, name), buf);
   }
 }

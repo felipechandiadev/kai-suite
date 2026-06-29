@@ -47,6 +47,7 @@ pwa-pos/public/downloads/kai-printers-macos-*.dmg
 
 # Rust/Tauri build artifacts
 kai-printers-desktop/src-tauri/target/
+kai-printers-desktop/assets/.icons-mac-tmp/
 
 # Cursor IDE
 .cursor/*.log

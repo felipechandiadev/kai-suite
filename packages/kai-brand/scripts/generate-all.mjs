@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 /**
- * Genera iconos KaiStore para todas las apps desde kai-logo.svg (vía master-1024.png).
+ * Genera iconos KaiStore para todas las apps.
+ *
+ * Fuentes rasterizadas (rasterize-svg.mjs):
+ *   - favicon-1024.png     → favicon pestaña, PWA install, launcher Android, Tauri
+ *   - logo-ui-1024.png     → logo.png (top bar, login, sidebar, tickets)
+ *   - tray-white-1024.png  → tray macOS, notificaciones Android
  *
  * Matriz: ver ICON_MATRIX.md
  */
@@ -14,7 +19,10 @@ import { generatePwaIconSet, generateShortcutIcon, squarePng } from "./lib/pwa-i
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const brandRoot = path.join(__dirname, "..");
 const repoRoot = path.join(brandRoot, "..", "..");
-const MASTER = path.join(brandRoot, "sources", "master-1024.png");
+const SOURCES = path.join(brandRoot, "sources");
+const FAVICON = path.join(SOURCES, "favicon-1024.png");
+const LOGO_UI = path.join(SOURCES, "logo-ui-1024.png");
+const TRAY_WHITE = path.join(SOURCES, "tray-white-1024.png");
 
 const PWA_APPS = [
   {
@@ -45,11 +53,14 @@ const ANDROID_APPS = [
 ];
 
 const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
+const TRAY_SIZE = 44;
 
-function requireMaster() {
-  if (!fs.existsSync(MASTER)) {
-    console.error(`Falta ${MASTER}. Ejecutá: node scripts/rasterize-svg.mjs`);
-    process.exit(1);
+function requireSources() {
+  for (const file of [FAVICON, LOGO_UI, TRAY_WHITE]) {
+    if (!fs.existsSync(file)) {
+      console.error(`Falta ${file}. Ejecutá: node scripts/rasterize-svg.mjs`);
+      process.exit(1);
+    }
   }
 }
 
@@ -57,12 +68,12 @@ async function syncPwaIcons() {
   for (const app of PWA_APPS) {
     await generatePwaIconSet({
       outDir: app.publicDir,
-      faviconSource: MASTER,
-      appIconSource: MASTER,
-      androidIconSource: MASTER,
+      faviconSource: FAVICON,
+      appIconSource: FAVICON,
+      androidIconSource: FAVICON,
     });
     for (const sc of app.shortcuts) {
-      await generateShortcutIcon(MASTER, path.join(app.publicDir, sc.file));
+      await generateShortcutIcon(FAVICON, path.join(app.publicDir, sc.file));
     }
     console.log(`PWA ${app.id} → ${path.relative(repoRoot, app.publicDir)}/`);
   }
@@ -74,13 +85,13 @@ async function syncAndroidIcons() {
       console.warn(`Skip Android (no existe): ${resDir}`);
       continue;
     }
-    await generateAndroidRes(MASTER, resDir);
+    await generateAndroidRes(FAVICON, resDir, { notificationSource: TRAY_WHITE });
     console.log(`Android → ${path.relative(repoRoot, resDir)}/`);
   }
 
   const play512 = path.join(repoRoot, "packages", "kai-printers-brand", "sources");
   fs.mkdirSync(play512, { recursive: true });
-  const buf = await squarePng(MASTER, 512, { background: TRANSPARENT });
+  const buf = await squarePng(FAVICON, 512, { background: TRANSPARENT });
   fs.writeFileSync(path.join(play512, "kai-printers.png"), buf);
   fs.copyFileSync(path.join(play512, "kai-printers.png"), path.join(play512, "kai-screen.png"));
 }
@@ -95,12 +106,11 @@ async function syncTauriIcons() {
   const publicDir = path.join(printService, "public");
   fs.mkdirSync(publicDir, { recursive: true });
 
-  const square = await squarePng(MASTER, 1024, { background: TRANSPARENT });
-  fs.writeFileSync(path.join(publicDir, "kai-printers.png"), square);
+  fs.copyFileSync(FAVICON, path.join(publicDir, "kai-printers.png"));
+  fs.copyFileSync(LOGO_UI, path.join(publicDir, "kai-printers-mac-dock.png"));
 
-  const traySrc = path.join(publicDir, "KaiPrinters-mac-bar.png");
-  const tray = await squarePng(MASTER, 44, { background: TRANSPARENT });
-  fs.writeFileSync(traySrc, tray);
+  const trayMac = await squarePng(TRAY_WHITE, TRAY_SIZE, { background: TRANSPARENT });
+  fs.writeFileSync(path.join(publicDir, "KaiPrinters-mac-bar.png"), trayMac);
 
   const gen = spawnSync("npm", ["run", "generate-icons"], {
     cwd: printService,
@@ -123,13 +133,13 @@ async function syncBrandLogos() {
   ];
   for (const target of logoTargets) {
     if (!fs.existsSync(path.dirname(target))) continue;
-    fs.copyFileSync(MASTER, target);
+    fs.copyFileSync(LOGO_UI, target);
   }
-  console.log("Logo UI (master) copiado a public/logo.png de cada PWA");
+  console.log("Logo UI (kai-logo) copiado a public/logo.png de cada PWA");
 }
 
 async function main() {
-  requireMaster();
+  requireSources();
   console.log("==> Kai Brand — generación de iconos (unificado)\n");
   await syncPwaIcons();
   await syncAndroidIcons();

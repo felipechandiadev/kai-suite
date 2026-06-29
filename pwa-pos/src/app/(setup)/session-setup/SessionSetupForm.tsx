@@ -50,6 +50,10 @@ function savePosContext(input: {
     priceListId: input.priceListId ?? null,
     branchId: input.branchId ?? null,
     priceLists: input.priceLists ?? [],
+    ...(input.posKind ? { posKind: input.posKind } : {}),
+    ...(input.acceptsPresaleTickets != null
+      ? { acceptsPresaleTickets: input.acceptsPresaleTickets }
+      : {}),
   });
 }
 

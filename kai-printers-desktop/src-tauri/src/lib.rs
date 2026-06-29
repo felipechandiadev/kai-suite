@@ -65,8 +65,12 @@ fn install_rustls_crypto_provider() {
     let _ = rustls::crypto::ring::default_provider().install_default();
 }
 
-/// Icono de barra de menú (macOS), generado desde `public/KaiPrinters-mac-bar.png`.
+/// Icono de bandeja del sistema.
+/// macOS: silueta blanca (`tray-icon-mac.png`); Windows/Linux: favicon (`tray-icon.png`).
 fn load_tray_icon() -> Option<Image<'static>> {
+    #[cfg(target_os = "macos")]
+    const TRAY_PNG: &[u8] = include_bytes!("../icons/tray-icon-mac.png");
+    #[cfg(not(target_os = "macos"))]
     const TRAY_PNG: &[u8] = include_bytes!("../icons/tray-icon.png");
     match Image::from_bytes(TRAY_PNG) {
         Ok(img) => Some(img),

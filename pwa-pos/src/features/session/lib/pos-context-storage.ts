@@ -28,6 +28,13 @@ export type PosContextV1 = {
   updatedAt?: string;
 };
 
+export const POS_CONTEXT_CHANGED_EVENT = "kai.pos-context.changed";
+
+function notifyPosContextChanged(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(POS_CONTEXT_CHANGED_EVENT));
+}
+
 export function readPosContextClient(): PosContextV1 | null {
   if (typeof window === "undefined") return null;
   try {
@@ -53,6 +60,7 @@ export function savePosContextClient(ctx: PosContextV1): void {
   } catch {
     // ignore
   }
+  notifyPosContextChanged();
 }
 
 export function patchPosContextClient(partial: Partial<PosContextV1>): void {
