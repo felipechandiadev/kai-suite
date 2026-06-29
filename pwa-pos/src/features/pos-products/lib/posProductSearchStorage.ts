@@ -3,7 +3,7 @@
 import {
   getMigratedLocalStorageItem,
   setMigratedLocalStorageItem,
-} from "../../../../../shared/storage-key-migrate";
+} from "@kai-shared/storage-key-migrate";
 
 export const POS_PRODUCT_SEARCH_LS_KEY = "kai.posProductSearch.pageSize";
 export const POS_PRODUCT_SEARCH_LS_KEY_LEGACY = "flowstore.posProductSearch.pageSize";

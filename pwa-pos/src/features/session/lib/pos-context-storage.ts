@@ -3,7 +3,7 @@
 import {
   getMigratedLocalStorageItem,
   setMigratedLocalStorageItem,
-} from "../../../../../shared/storage-key-migrate";
+} from "@kai-shared/storage-key-migrate";
 
 export const POS_CONTEXT_KEY = "kai.pos.context.v1";
 export const POS_CONTEXT_KEY_LEGACY = "flowstore.pos.context.v1";

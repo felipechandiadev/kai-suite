@@ -508,7 +508,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
     isFulfillBackorderMode,
     loadedReturnSale,
     loadedBackorder,
-    loadedPresaleTicket,
+    loadedPresaleTickets,
     exitReturnMode,
     exitFulfillBackorderMode,
     quotationsEnabled,
@@ -2422,7 +2422,8 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
             fulfillBackorderId: isFulfillBackorderMode
               ? loadedBackorder?.id ?? null
               : null,
-            fulfillPresaleTicketId: loadedPresaleTicket?.id ?? null,
+            fulfillPresaleTicketIds: loadedPresaleTickets.map((t) => t.id),
+            loadedPresaleTickets,
             loadedQuotation: cart.loadedQuotation,
           }),
         );

@@ -95,6 +95,32 @@ class PosQuotationTicketEscPosTest {
     }
 }
 
+class PosPresaleTicketEscPosTest {
+    @Test
+    fun hasPreventaHeadingAndCode() {
+        val code = "TESTPRESALE12345678"
+        val json = """
+            {
+              "code": "$code",
+              "qrPayload": "$code",
+              "issuedAt": "2026-01-01T12:00:00Z",
+              "company": { "razonSocial": "Tienda" },
+              "lines": [{
+                "productName": "Item",
+                "quantity": 1,
+                "total": 1190
+              }],
+              "total": 1190
+            }
+        """.trimIndent()
+        val text = String(PosPresaleTicketEscPos.fromTicketJson(json), Charsets.ISO_8859_1)
+        assertTrue(text.contains("PREVENTA"))
+        assertTrue(text.contains(code))
+        assertTrue(text.contains("TOTAL:"))
+        assertTrue(!text.contains("DETALLE"))
+    }
+}
+
 class PosCashClosingTicketEscPosTest {
     @Test
     fun hasArqueoHeading() {

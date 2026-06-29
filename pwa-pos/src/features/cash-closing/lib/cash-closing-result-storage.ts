@@ -4,7 +4,7 @@ import {
   getMigratedSessionStorageItem,
   removeMigratedSessionStorageKeys,
   setMigratedSessionStorageItem,
-} from "../../../../../shared/storage-key-migrate";
+} from "@kai-shared/storage-key-migrate";
 
 export const CASH_CLOSING_RESULT_STORAGE_KEY = "kai.cashClosing.result.v1";
 export const CASH_CLOSING_RESULT_STORAGE_KEY_LEGACY = "flowstore.cashClosing.result.v1";

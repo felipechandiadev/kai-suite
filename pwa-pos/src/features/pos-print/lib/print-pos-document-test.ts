@@ -24,7 +24,7 @@ import {
 import { printPosSaleTicketAgentOrBrowser } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import { buildQuotationDocumentHtml } from "@/features/quotations/lib/quotation-document-print";
 import { printPosQuotationReceiptAgentOrBrowser } from "@/features/quotations/lib/quotation-ticket-agent";
-import { printPresaleTicketHtml } from "@/features/presale-tickets/lib/presale-ticket-print";
+import { printPresaleTicketAgentOrBrowser } from "@/features/presale-tickets/lib/presale-ticket-agent";
 
 export type PosDocumentTestPrintChannel = "agent" | "browser";
 
@@ -118,7 +118,7 @@ export async function printPosDocumentTest(
       return printCashSessionOpeningAwait(input, format);
     }
     case "presale": {
-      printPresaleTicketHtml(
+      return printPresaleTicketAgentOrBrowser(
         {
           id: "test-presale",
           code: "TESTPRESALE12345678",
@@ -135,12 +135,35 @@ export async function printPosDocumentTest(
           discountAmount: 0,
           branchName: "Sucursal prueba",
           pointOfSaleName: "Preventa prueba",
-          lines: [],
+          lines: [
+            {
+              id: "line-1",
+              lineNumber: 1,
+              productId: null,
+              productVariantId: null,
+              productName: "Producto prueba",
+              productSku: null,
+              variantName: null,
+              quantity: 1,
+              unitPrice: 13437,
+              discountAmount: 0,
+              taxRate: 19,
+              taxAmount: 2553,
+              subtotal: 13437,
+              total: 15990,
+              unitOfMeasure: null,
+              availableStock: null,
+              availableStockBase: null,
+              saleUnitSymbol: null,
+              stockBaseUnitSymbol: null,
+              stockBaseQtyPerCountSaleUnit: null,
+              unitAllowDecimals: false,
+            },
+          ],
           createdAt: new Date().toISOString(),
         },
-        "Empresa prueba",
+        { companyName: "Empresa prueba", format },
       );
-      return "browser";
     }
     default: {
       const _exhaustive: never = kind;

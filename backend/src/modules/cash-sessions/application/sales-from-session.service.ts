@@ -103,8 +103,8 @@ type PosCommercialRegisterConfig = {
   backorderDepositPercent?: number;
   /** Venta que liquida un encargo/reserva abierto. */
   fulfillBackorderId?: string;
-  /** Venta que cobra un ticket de preventa. */
-  fulfillPresaleTicketId?: string;
+  /** Venta que cobra uno o más tickets de preventa. */
+  fulfillPresaleTicketIds?: string[];
   /** Venta POS sin cobro inmediato (cuenta por cobrar / cobro posterior). */
   deferPayment?: boolean;
 };
@@ -250,9 +250,19 @@ export class SalesFromSessionService {
    */
   async createSale(createSaleDto: CreateSaleDto) {
     const fulfillBackorderId = createSaleDto.fulfillBackorderId?.trim() || undefined;
-    const fulfillPresaleTicketId =
-      createSaleDto.fulfillPresaleTicketId?.trim() || undefined;
-    if (fulfillBackorderId && fulfillPresaleTicketId) {
+    const fulfillPresaleTicketIds = [
+      ...new Set(
+        [
+          ...(createSaleDto.fulfillPresaleTicketIds ?? []),
+          ...(createSaleDto.fulfillPresaleTicketId
+            ? [createSaleDto.fulfillPresaleTicketId]
+            : []),
+        ]
+          .map((id) => id.trim())
+          .filter(Boolean),
+      ),
+    ];
+    if (fulfillBackorderId && fulfillPresaleTicketIds.length > 0) {
       throw new BadRequestException(
         'No se puede liquidar encargo y ticket de preventa en la misma venta.',
       );
@@ -262,7 +272,7 @@ export class SalesFromSessionService {
         'No se puede diferir el cobro al liquidar un encargo.',
       );
     }
-    if (createSaleDto.deferPayment && fulfillPresaleTicketId) {
+    if (createSaleDto.deferPayment && fulfillPresaleTicketIds.length > 0) {
       throw new BadRequestException(
         'No se puede diferir el cobro al cobrar un ticket de preventa.',
       );
@@ -272,7 +282,7 @@ export class SalesFromSessionService {
       skipStockCheck: false,
       skipStockAvailabilityCheck: Boolean(fulfillBackorderId),
       fulfillBackorderId,
-      fulfillPresaleTicketId,
+      fulfillPresaleTicketIds,
       deferPayment: Boolean(createSaleDto.deferPayment),
     });
   }
@@ -1519,10 +1529,10 @@ export class SalesFromSessionService {
         );
       }
 
-      if (config.fulfillPresaleTicketId) {
-        await this.assertFulfillPresaleTicketMatches(
+      if (config.fulfillPresaleTicketIds?.length) {
+        await this.assertFulfillPresaleTicketsSatisfiable(
           manager,
-          config.fulfillPresaleTicketId,
+          config.fulfillPresaleTicketIds,
           lines,
           pointOfSale,
         );
@@ -1949,9 +1959,9 @@ export class SalesFromSessionService {
                 },
               }
             : {}),
-          ...(isSale && config.fulfillPresaleTicketId
+          ...(isSale && config.fulfillPresaleTicketIds?.length
             ? {
-                presaleTicket: { id: config.fulfillPresaleTicketId },
+                presaleTickets: { ids: config.fulfillPresaleTicketIds },
               }
             : {}),
           ...buildPaymentsMetadataFields(paymentSnapshots),
@@ -2071,14 +2081,16 @@ export class SalesFromSessionService {
         });
       }
 
-      if (isSale && config.fulfillPresaleTicketId) {
-        await this.presaleTicketsService.redeemAfterSale({
-          companyId: pointOfSale.companyId!,
-          ticketId: config.fulfillPresaleTicketId,
-          saleTransactionId: finalTransaction.id,
-          salePointOfSaleId: pointOfSale.id,
-          manager,
-        });
+      if (isSale && config.fulfillPresaleTicketIds?.length) {
+        for (const ticketId of config.fulfillPresaleTicketIds) {
+          await this.presaleTicketsService.redeemAfterSale({
+            companyId: pointOfSale.companyId!,
+            ticketId,
+            saleTransactionId: finalTransaction.id,
+            salePointOfSaleId: pointOfSale.id,
+            manager,
+          });
+        }
       }
 
       // Cobro explícito: la grilla «Pagos recibidos» lista PAYMENT_IN, no la venta SALE.
@@ -2302,10 +2314,37 @@ export class SalesFromSessionService {
     }
   }
 
-  private async assertFulfillPresaleTicketMatches(
+  private async assertFulfillPresaleTicketsSatisfiable(
+    manager: EntityManager,
+    fulfillPresaleTicketIds: string[],
+    saleLines: CreateSaleDto['lines'],
+    pointOfSale: PointOfSale,
+  ): Promise<void> {
+    if (fulfillPresaleTicketIds.length === 0) return;
+
+    const remaining = new Map<string, number>();
+    for (const sl of saleLines) {
+      const vid = sl.productVariantId?.trim();
+      if (!vid) continue;
+      const qty = Number(sl.quantity) || 0;
+      if (qty <= 0) continue;
+      remaining.set(vid, (remaining.get(vid) ?? 0) + qty);
+    }
+
+    for (const ticketId of fulfillPresaleTicketIds) {
+      await this.assertFulfillPresaleTicketSatisfiable(
+        manager,
+        ticketId,
+        remaining,
+        pointOfSale,
+      );
+    }
+  }
+
+  private async assertFulfillPresaleTicketSatisfiable(
     manager: EntityManager,
     fulfillPresaleTicketId: string,
-    saleLines: CreateSaleDto['lines'],
+    remaining: Map<string, number>,
     pointOfSale: PointOfSale,
   ): Promise<void> {
     const companyId = pointOfSale.companyId!;
@@ -2347,27 +2386,14 @@ export class SalesFromSessionService {
       expected.set(vid, (expected.get(vid) ?? 0) + qty);
     }
 
-    const actual = new Map<string, number>();
-    for (const sl of saleLines) {
-      const vid = sl.productVariantId?.trim();
-      if (!vid) continue;
-      const qty = Number(sl.quantity) || 0;
-      if (qty <= 0) continue;
-      actual.set(vid, (actual.get(vid) ?? 0) + qty);
-    }
-
-    if (expected.size !== actual.size) {
-      throw new BadRequestException(
-        'Las líneas del carrito no coinciden con el ticket de preventa.',
-      );
-    }
     for (const [vid, expQty] of expected) {
-      const actQty = actual.get(vid) ?? 0;
-      if (Math.abs(expQty - actQty) > 0.0001) {
+      const available = remaining.get(vid) ?? 0;
+      if (available + 0.0001 < expQty) {
         throw new BadRequestException(
-          `Cantidad distinta al ticket de preventa para variante ${vid}.`,
+          `Cantidad insuficiente en el carrito para el ticket de preventa (variante ${vid}).`,
         );
       }
+      remaining.set(vid, available - expQty);
     }
   }
 

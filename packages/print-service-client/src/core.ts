@@ -27,6 +27,10 @@ import type {
   PosBankAccountTicketPayload,
   PosBankAccountTicketPrintExtras,
 } from "./pos-bank-account-ticket";
+import type {
+  PosPresaleTicketPayload,
+  PosPresaleTicketPrintExtras,
+} from "./pos-presale-ticket";
 import {
   type PrintFormat,
   type PosDocumentPrintMode,
@@ -152,6 +156,7 @@ export const AGENT_CAPABILITY_POS_CASH_COUNT_SHEET_TICKET = "pos-cash-count-shee
 export const AGENT_CAPABILITY_POS_CASH_SESSION_OPENING_TICKET =
   "pos-cash-session-opening-ticket";
 export const AGENT_CAPABILITY_POS_BANK_ACCOUNT_TICKET = "pos-bank-account-ticket";
+export const AGENT_CAPABILITY_POS_PRESALE_TICKET = "pos-presale-ticket";
 export const AGENT_CAPABILITY_PDF_BASE64 = "pdf-base64";
 
 export type AgentMappingLineConfig = {
@@ -680,6 +685,17 @@ export class PrintServiceConnection {
     return this.enqueuePosPrint(body);
   }
 
+  /** Ticket de preventa POS: ESC/POS desde JSON (`type: "pos-presale-ticket"`). */
+  enqueuePosPresaleTicket(
+    ticket: PosPresaleTicketPayload,
+    extras: PosPresaleTicketPrintExtras & { purpose?: string; format?: PrintFormat },
+    omitPrinterDisplayLabel = false,
+  ): Promise<unknown> {
+    const body = buildPosTicketEnqueueBody("pos-presale-ticket", ticket, extras);
+    if (omitPrinterDisplayLabel) return this.enqueuePrint(body);
+    return this.enqueuePosPrint(body);
+  }
+
   private sendHello(): void {
     const rid = randomId();
     const body: Record<string, unknown> = {
@@ -1017,6 +1033,16 @@ export function agentSupportsPosBankAccountTicket(
   const caps = hello?.agentCapabilities;
   if (Array.isArray(caps) && caps.length > 0) {
     return caps.includes(AGENT_CAPABILITY_POS_BANK_ACCOUNT_TICKET);
+  }
+  return Boolean(hello?.serviceStatus);
+}
+
+export function agentSupportsPosPresaleTicket(
+  hello: HelloResponseData | null | undefined,
+): boolean {
+  const caps = hello?.agentCapabilities;
+  if (Array.isArray(caps) && caps.length > 0) {
+    return caps.includes(AGENT_CAPABILITY_POS_PRESALE_TICKET);
   }
   return Boolean(hello?.serviceStatus);
 }

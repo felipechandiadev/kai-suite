@@ -237,6 +237,12 @@ export class CreateSaleDto {
   @IsUUID()
   fulfillPresaleTicketId?: string;
 
+  /** Cobrar uno o más tickets de preventa en la misma venta. */
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  fulfillPresaleTicketIds?: string[];
+
   /**
    * Venta confirmada sin cobro en caja: `paymentStatus` PENDING, sin `PAYMENT_IN`.
    * Requiere `customerId`. No aplica a encargo ni devolución.

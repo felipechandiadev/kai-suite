@@ -46,6 +46,7 @@ fn is_vector_pos_ticket_type(print_type: &str) -> bool {
             | "pos-cash-count-sheet-ticket"
             | "pos-cash-session-opening-ticket"
             | "pos-bank-account-ticket"
+            | "pos-presale-ticket"
     )
 }
 
@@ -74,6 +75,11 @@ fn vector_ticket_folio(print_type: &str, ticket: &serde_json::Value) -> String {
                 sid.to_string()
             }
         }
+        "pos-presale-ticket" => ticket
+            .get("code")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
         "pos-bank-account-ticket" => ticket
             .get("accountKey")
             .and_then(|v| v.as_str())
@@ -110,6 +116,7 @@ fn vector_ticket_escpos_writer(print_type: &str) -> WriteVectorTicketFn {
             jobs::write_pos_cash_session_opening_ticket_escpos_from_value
         }
         "pos-bank-account-ticket" => jobs::write_pos_bank_account_ticket_escpos_from_value,
+        "pos-presale-ticket" => jobs::write_pos_presale_ticket_escpos_from_value,
         _ => jobs::write_pos_sale_ticket_escpos_from_value,
     }
 }
@@ -355,6 +362,7 @@ where
                                     "pos-cash-count-sheet-ticket",
                                     "pos-cash-session-opening-ticket",
                                     "pos-bank-account-ticket",
+                                    "pos-presale-ticket",
                                 ],
                                 "ticketEscposEnabled": ticket_escpos,
                             })))).await.ok();

@@ -119,11 +119,14 @@ import { EShopCustomerAccounts1756520000000 } from '../migrations/1756520000000-
 import { EShopCustomerAccountUsername1756530000000 } from '../migrations/1756530000000-EShopCustomerAccountUsername';
 import { PaymentGatewayIntents1756540000000 } from '../migrations/1756540000000-PaymentGatewayIntents';
 import { PaymentGatewayIntentMpOrderIdIndex1756550000000 } from '../migrations/1756550000000-PaymentGatewayIntentMpOrderIdIndex';
+import { PresaleTickets1756560000000 } from '../migrations/1756560000000-PresaleTickets';
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
 import { EShopFulfillmentMethod } from '@modules/e-shop/domain/e-shop-fulfillment-method.entity';
 import { EshopCustomerAccount } from '@modules/e-shop/domain/eshop-customer-account.entity';
 import { PaymentGatewayIntent } from '@modules/payment-gateways/domain/payment-gateway-intent.entity';
+import { PresaleTicket } from '@modules/presale-tickets/domain/presale-ticket.entity';
+import { PresaleTicketLine } from '@modules/presale-tickets/domain/presale-ticket-line.entity';
 import { Notification } from '@modules/notifications/domain/notification.entity';
 import { NotificationDelivery } from '@modules/notifications/domain/notification-delivery.entity';
 import { NotificationAudience } from '@modules/notifications/domain/notification-audience.entity';
@@ -218,6 +221,8 @@ export const AppDataSource = new DataSource({
     EShopFulfillmentMethod,
     EshopCustomerAccount,
     PaymentGatewayIntent,
+    PresaleTicket,
+    PresaleTicketLine,
   ],
   subscribers: [AuditSubscriber, TenantSubscriber],
   migrations: [
@@ -266,6 +271,7 @@ export const AppDataSource = new DataSource({
     EShopCustomerAccountUsername1756530000000,
     PaymentGatewayIntents1756540000000,
     PaymentGatewayIntentMpOrderIdIndex1756550000000,
+    PresaleTickets1756560000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

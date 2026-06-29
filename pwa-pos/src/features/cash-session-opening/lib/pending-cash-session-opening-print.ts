@@ -3,7 +3,7 @@ import {
   getMigratedSessionStorageItem,
   removeMigratedSessionStorageKeys,
   setMigratedSessionStorageItem,
-} from "../../../../../shared/storage-key-migrate";
+} from "@kai-shared/storage-key-migrate";
 
 const STORAGE_KEY = "kai.pendingCashSessionOpeningPrint";
 const STORAGE_KEY_LEGACY = "flowstore.pendingCashSessionOpeningPrint";

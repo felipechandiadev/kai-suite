@@ -228,6 +228,11 @@ export default function App() {
     message: string;
     variant: "success" | "error";
   }>({ open: false, title: "", message: "", variant: "success" });
+  const [deleteLineDialog, setDeleteLineDialog] = useState<{
+    lineId: string;
+    alias: string;
+  } | null>(null);
+  const [deleteLineBusy, setDeleteLineBusy] = useState(false);
 
   /** Solo mostramos acciones en la fila del summary cuando el `<details>` está expandido */
   const [configDetailsOpen, setConfigDetailsOpen] = useState(false);
@@ -571,12 +576,15 @@ export default function App() {
   }
 
   async function handleLineDocumentPrintTest(line: MappingLineRow) {
-    if (!requireLineSaved(line)) return;
     const purpose = line.purpose;
     if (purpose !== "documents" && purpose !== "labels") return;
     const printer = line.systemPrinterName.trim();
     if (!printer) {
       window.alert("Seleccioná una impresora del sistema para la prueba de impresión.");
+      return;
+    }
+    if (!line.displayLabel?.trim()) {
+      window.alert("Completá el alias de la línea antes de imprimir.");
       return;
     }
     setDocumentPrintTestBusyId(line.id);
@@ -586,6 +594,7 @@ export default function App() {
         systemPrinterName: printer,
       });
       await fetchDashboard("live");
+      window.alert(`Prueba de impresión enviada a «${printer}». Revisá la cola si no imprime.`);
     } catch (e: unknown) {
       const msg =
         typeof e === "string"
@@ -610,10 +619,13 @@ export default function App() {
   }
 
   async function handleLineEscposQa(line: MappingLineRow) {
-    if (!requireLineSaved(line)) return;
     const network = isTicketNetworkLine(line);
     const printer = line.systemPrinterName.trim();
     const networkHost = line.ticketNetworkHost?.trim() ?? "";
+    if (!line.displayLabel?.trim()) {
+      window.alert("Completá el alias de la línea antes de imprimir.");
+      return;
+    }
     if (network) {
       if (!isPlausibleNetworkHost(networkHost)) {
         window.alert("Ingresá una dirección IP válida para la prueba ESC/POS.");
@@ -639,6 +651,11 @@ export default function App() {
         ticketLogoPath: includeLogo ? line.ticketLogoPath : null,
       });
       await fetchDashboard("live");
+      window.alert(
+        network
+          ? `Prueba ESC/POS enviada a ${networkHost}. Revisá la cola si no imprime.`
+          : `Prueba ESC/POS enviada a «${printer}». Revisá la cola si no imprime.`,
+      );
     } catch (e: unknown) {
       const msg =
         typeof e === "string"
@@ -696,21 +713,63 @@ export default function App() {
     }
   }
 
-  async function handleRemoveLine(lineId: string) {
-    const wasSaved = savedLines.some((l) => l.id === lineId);
-    if (wasSaved && !window.confirm("¿Eliminar esta línea de impresora?")) return;
-    if (wasSaved) {
-      try {
-        await invoke("delete_mapping_line", { lineId });
-      } catch {
-        window.alert("No se pudo eliminar la línea.");
-        return;
-      }
-    }
+  function applyLineRemovedLocally(lineId: string) {
     setLocalLines((prev) => prev.filter((l) => l.id !== lineId));
     setSavedLines((prev) => prev.filter((l) => l.id !== lineId));
+    setDashboard((d) =>
+      d
+        ? {
+            ...d,
+            mappingLines: (d.mappingLines ?? []).filter((row) => String(row?.id) !== lineId),
+          }
+        : d,
+    );
     if (expandedLineId === lineId) setExpandedLineId(null);
-    if (wasSaved) await fetchDashboard("full");
+  }
+
+  async function removeSavedLineFromDb(lineId: string): Promise<boolean> {
+    try {
+      const removed = await invoke<boolean>("delete_mapping_line", { lineId });
+      if (!removed) {
+        window.alert("No se encontró la línea guardada. Se actualizará la lista.");
+        await fetchDashboard("full");
+        return false;
+      }
+      return true;
+    } catch (e: unknown) {
+      const msg =
+        typeof e === "string"
+          ? e
+          : e && typeof e === "object" && "message" in e && typeof (e as Error).message === "string"
+            ? (e as Error).message
+            : "No se pudo eliminar la línea.";
+      window.alert(msg);
+      return false;
+    }
+  }
+
+  function requestRemoveLine(lineId: string) {
+    const wasSaved = savedLines.some((l) => l.id === lineId);
+    if (!wasSaved) {
+      applyLineRemovedLocally(lineId);
+      return;
+    }
+    const alias = localLines.find((l) => l.id === lineId)?.displayLabel?.trim() || "esta línea";
+    setDeleteLineDialog({ lineId, alias });
+  }
+
+  async function confirmRemoveLine() {
+    if (!deleteLineDialog || deleteLineBusy) return;
+    const { lineId } = deleteLineDialog;
+    setDeleteLineBusy(true);
+    try {
+      const ok = await removeSavedLineFromDb(lineId);
+      if (!ok) return;
+      applyLineRemovedLocally(lineId);
+      setDeleteLineDialog(null);
+    } finally {
+      setDeleteLineBusy(false);
+    }
   }
 
   function addMappingLine() {
@@ -1020,7 +1079,7 @@ export default function App() {
                   onToggleExpand={() => toggleLineExpanded(line.id)}
                   onChange={(patch) => updateLine(line.id, patch)}
                   onSave={() => void handleSaveLine(line.id)}
-                  onDelete={() => void handleRemoveLine(line.id)}
+                  onDelete={() => requestRemoveLine(line.id)}
                   onPrintTest={() => void handleLinePrintTest(line)}
                   onCutTest={() => void handleLineTestCut(line)}
                   onDrawerTest={() => void handleLineTestDrawer(line)}
@@ -1152,6 +1211,41 @@ export default function App() {
         </footer>
       </div>
       </main>
+
+      <AppDialog
+        open={deleteLineDialog != null}
+        onClose={() => {
+          if (!deleteLineBusy) setDeleteLineDialog(null);
+        }}
+        title="Eliminar línea de impresora"
+        actions={
+          <>
+            <Button
+              type="button"
+              variant="outlined"
+              density="compact"
+              disabled={deleteLineBusy}
+              onClick={() => setDeleteLineDialog(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="contained-primary"
+              density="compact"
+              disabled={deleteLineBusy}
+              onClick={() => void confirmRemoveLine()}
+            >
+              {deleteLineBusy ? "Eliminando…" : "Eliminar"}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-foreground">
+          ¿Eliminar <strong>{deleteLineDialog?.alias}</strong>? Los trabajos en cola que usen este
+          alias pueden fallar hasta que configures otra línea.
+        </p>
+      </AppDialog>
 
       <AppDialog
         open={wssCertDialog.open}

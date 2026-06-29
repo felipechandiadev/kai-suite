@@ -81,6 +81,7 @@ import {
   SEED_DEV_COMPANY_SECOND_ESHOP_SLUG,
   SEED_DEV_SHAREHOLDERS,
   SEED_POS_NAMES,
+  SEED_PRESALE_POS_NAME,
   SEED_PRICE_LIST_ESHOP_NAME,
   SEED_PRICE_LIST_RETAIL_NAME,
   SEED_PRICE_LIST_WHOLESALE_NAME,
@@ -1117,7 +1118,7 @@ async function bootstrap() {
     console.log(
       `✅ Settings empresa sincronizados: medios (${seedCompanyPaymentCatalog
         .map((c) => c.method)
-        .join(', ')}), cotizaciones 10/20 días, cheques off, crédito interno off`,
+        .join(', ')}), cotizaciones 10/20 días, cheques off, crédito interno off, preventa ON`,
     );
     const publicContact = syncedSettings.publicContact as {
       email?: string;
@@ -2055,7 +2056,11 @@ async function bootstrap() {
         deviceId: undefined,
         defaultPriceListId: defaultListId,
         priceLists: priceListsJson,
-        settings: { paymentMethods: posPaymentList },
+        settings: {
+          paymentMethods: posPaymentList,
+          kind: 'SALE' as const,
+          acceptsPresaleTickets: true,
+        },
       };
       if (!posRow) {
         posRow = await posRepo.save(posRepo.create(posPayload));
@@ -2065,6 +2070,33 @@ async function bootstrap() {
         console.log(`✅ Punto de venta sincronizado: «${posName}» id=${posRow.id}`);
       }
       posPoints.push(posRow);
+    }
+
+    let presalePos = await posRepo.findOne({ where: { name: SEED_PRESALE_POS_NAME } });
+    const presalePayload = {
+      name: SEED_PRESALE_POS_NAME,
+      branchId: seedBranch.id,
+      storageId: seedSalaVenta.id,
+      isActive: true,
+      deviceId: undefined,
+      defaultPriceListId: listaMinorista.id,
+      priceLists: priceListsJson,
+      settings: {
+        paymentMethods: posPaymentList,
+        kind: 'PRESALE' as const,
+        acceptsPresaleTickets: false,
+      },
+    };
+    if (!presalePos) {
+      presalePos = await posRepo.save(posRepo.create(presalePayload));
+      console.log(
+        `✅ Punto de preventa creado: «${SEED_PRESALE_POS_NAME}» id=${presalePos.id}`,
+      );
+    } else {
+      presalePos = await posRepo.save({ ...presalePos, ...presalePayload });
+      console.log(
+        `✅ Punto de preventa sincronizado: «${SEED_PRESALE_POS_NAME}» id=${presalePos.id}`,
+      );
     }
 
     const stockLevelRepo = dataSource.getRepository(StockLevel);
@@ -2541,6 +2573,9 @@ async function bootstrap() {
     console.log(`   • operador / ${seedPassword}    (OPERATOR de la empresa)`);
     console.log(
       `   • Empresas en BD: «${SEED_DEV_COMPANY.nombreFantasia}» (${SEED_DEV_COMPANY.rut}, eShop demo) + «${SEED_DEV_COMPANY_SECOND.nombreFantasia}» (${SEED_DEV_COMPANY_SECOND.rut}, eShop ${SEED_DEV_COMPANY_SECOND_ESHOP_SLUG})`,
+    );
+    console.log(
+      `   • Preventa: ON | POS preventa «${SEED_PRESALE_POS_NAME}» | Cajas aceptan tickets de preventa`,
     );
       },
     );

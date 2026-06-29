@@ -5,7 +5,7 @@ import type {
 import {
   getMigratedLocalStorageItem,
   setMigratedLocalStorageItem,
-} from "../../../../../shared/storage-key-migrate";
+} from "@kai-shared/storage-key-migrate";
 
 const STORAGE_PREFIX = "kai.pos.favoriteProducts.v1";
 const STORAGE_PREFIX_LEGACY = "flowstore.pos.favoriteProducts.v1";

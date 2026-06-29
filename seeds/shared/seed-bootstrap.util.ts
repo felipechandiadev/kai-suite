@@ -2,6 +2,7 @@ import { DataSource } from 'typeorm';
 
 /** Tablas en `public` que no deben truncarse (extensiones PostGIS u otras). */
 export const TRUNCATE_EXCLUDE_TABLES = new Set([
+  'typeorm_migrations',
   'spatial_ref_sys',
   'geometry_columns',
   'geography_columns',

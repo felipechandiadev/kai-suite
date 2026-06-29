@@ -128,7 +128,75 @@ export function PrinterMappingLineCard({
             onClick={onToggleExpand}
           />
         }
-        endAdornment={<PrinterStatusDot status={status} />}
+        endAdornment={
+          <span className="inline-flex shrink-0 items-center gap-0.5">
+            <PrinterStatusDot status={status} />
+            <IconButton
+              type="button"
+              icon="Trash2"
+              variant="basicSecondary"
+              size="xs"
+              className="relative z-30 min-h-6 min-w-6 p-0"
+              ariaLabel="Eliminar línea"
+              title="Eliminar línea de impresora"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+            />
+            <IconButton
+              type="button"
+              icon="Save"
+              variant="basicSecondary"
+              size="xs"
+              disabled={!dirty || saveBusy || !aliasOk || !printerOk}
+              isLoading={saveBusy}
+              className="min-h-5 min-w-5 p-0"
+              ariaLabel="Guardar esta línea"
+              title={dirty ? "Guardar cambios de esta línea" : "Sin cambios"}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSave();
+              }}
+            />
+            {showPrintTest ? (
+              <IconButton
+                type="button"
+                icon="Printer"
+                variant="basicSecondary"
+                size="xs"
+                disabled={!printerOk || !aliasOk || printBusy}
+                isLoading={printBusy}
+                className="min-h-5 min-w-5 p-0"
+                ariaLabel={
+                  isTickets ? "Prueba ESC/POS (RAW)" : "Prueba de impresión (PDF)"
+                }
+                title={
+                  !aliasOk
+                    ? "Completá el alias antes de imprimir"
+                    : !printerOk
+                      ? "Seleccioná impresora o IP válida"
+                      : isTickets
+                        ? "Prueba ESC/POS RAW (logo y corte de esta línea)"
+                        : isDocuments
+                          ? "Prueba PDF en hoja (macOS: CUPS, Windows: SumatraPDF)"
+                          : "Prueba PDF de etiqueta"
+                }
+                data-test-id={
+                  isTickets ? `line-escpos-qa-${line.id}` : `line-document-test-${line.id}`
+                }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPrintTest();
+                }}
+              />
+            ) : null}
+          </span>
+        }
       />
 
       {expanded ? (
@@ -275,6 +343,7 @@ export function PrinterMappingLineCard({
               placeholder="Seleccionar"
               density="compact"
               labelLayout="inline"
+              allowClear
               required
               value={line.systemPrinterName || null}
               onChange={(pid) =>
@@ -332,51 +401,6 @@ export function PrinterMappingLineCard({
               }
             />
           ) : null}
-          <div className="flex shrink-0 justify-end gap-1">
-            <IconButton
-              type="button"
-              icon="Trash2"
-              variant="basicSecondary"
-              size="xs"
-              ariaLabel="Eliminar línea"
-              onClick={onDelete}
-            />
-            <IconButton
-              type="button"
-              icon="Save"
-              variant="basicSecondary"
-              size="xs"
-              disabled={!dirty || saveBusy || !aliasOk || !printerOk}
-              isLoading={saveBusy}
-              ariaLabel="Guardar esta línea"
-              title={dirty ? "Guardar cambios de esta línea" : "Sin cambios"}
-              onClick={onSave}
-            />
-            {showPrintTest ? (
-              <IconButton
-                type="button"
-                icon="Printer"
-                variant="basicSecondary"
-                size="xs"
-                disabled={!printerOk || !aliasOk || printBusy}
-                isLoading={printBusy}
-                ariaLabel={
-                  isTickets ? "Prueba ESC/POS (RAW)" : "Prueba de impresión (PDF)"
-                }
-                title={
-                  isTickets
-                    ? "Prueba ESC/POS RAW (logo y corte de esta línea)"
-                    : isDocuments
-                      ? "Prueba PDF en hoja (macOS: CUPS, Windows: SumatraPDF)"
-                      : "Prueba PDF de etiqueta"
-                }
-                data-test-id={
-                  isTickets ? `line-escpos-qa-${line.id}` : `line-document-test-${line.id}`
-                }
-                onClick={onPrintTest}
-              />
-            ) : null}
-          </div>
         </div>
       ) : null}
     </div>

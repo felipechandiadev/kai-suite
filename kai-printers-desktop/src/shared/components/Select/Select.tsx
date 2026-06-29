@@ -216,7 +216,14 @@ const Select: React.FC<SelectProps> = ({
             variant="basicSecondary"
             size={isCompact ? "xs" : "sm"}
             className={`absolute top-1/2 z-20 -translate-y-1/2 ${clearBtnRight} ${iconBtnBase}`}
-            onClick={() => onChange?.(null)}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange?.(null);
+            }}
             aria-label="Limpiar selección"
             data-test-id="select-clear-btn"
             tabIndex={-1}
@@ -363,7 +370,14 @@ const Select: React.FC<SelectProps> = ({
                 variant="basicSecondary"
                 size={isCompact ? "xs" : "sm"}
                 className={`absolute top-1/2 z-20 -translate-y-1/2 ${clearBtnRight} ${iconBtnBase}`}
-                onClick={() => onChange?.(null)}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange?.(null);
+                }}
                 aria-label="Limpiar selección"
                 data-test-id="select-clear-btn"
                 tabIndex={-1}

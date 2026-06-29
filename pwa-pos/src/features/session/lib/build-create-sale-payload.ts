@@ -43,6 +43,7 @@ export type CreateSaleApiBody = {
   customerId?: string;
   fulfillBackorderId?: string;
   fulfillPresaleTicketId?: string;
+  fulfillPresaleTicketIds?: string[];
   deferPayment?: boolean;
   metadata?: Record<string, unknown>;
   promotionSnapshot?: Array<{
@@ -146,9 +147,10 @@ export function buildCreateSaleClientPayload(input: {
   overpay: number;
   fulfillBackorderId?: string | null;
   fulfillPresaleTicketId?: string | null;
+  fulfillPresaleTicketIds?: string[];
   deferPayment?: boolean;
   loadedQuotation?: LoadedQuotationMeta | null;
-  loadedPresaleTicket?: { id: string; code: string } | null;
+  loadedPresaleTickets?: { id: string; code: string }[];
 }): CreateSaleClientPayload {
   const deferPayment = input.deferPayment === true;
   const paymentLines = deferPayment
@@ -177,6 +179,13 @@ export function buildCreateSaleClientPayload(input: {
   }
 
   const hasMetadata = Object.keys(metadata).length > 0;
+  const presaleTicketIds = [
+    ...new Set(
+      (input.loadedPresaleTickets ?? [])
+        .map((t) => t.id?.trim())
+        .filter((id): id is string => !!id),
+    ),
+  ];
 
   return {
     pointOfSaleId: input.pointOfSaleId.trim(),
@@ -188,7 +197,12 @@ export function buildCreateSaleClientPayload(input: {
     changeAmount: deferPayment ? 0 : Math.round(Math.max(0, input.overpay)),
     customerId: input.customer?.customerId?.trim() || undefined,
     fulfillBackorderId: input.fulfillBackorderId?.trim() || undefined,
-    fulfillPresaleTicketId: input.fulfillPresaleTicketId?.trim() || undefined,
+    ...(presaleTicketIds.length === 1
+      ? { fulfillPresaleTicketId: presaleTicketIds[0] }
+      : {}),
+    ...(presaleTicketIds.length > 0
+      ? { fulfillPresaleTicketIds: presaleTicketIds }
+      : {}),
     promotionSnapshot,
     ...(hasMetadata ? { metadata } : {}),
     ...(deferPayment ? { deferPayment: true } : {}),

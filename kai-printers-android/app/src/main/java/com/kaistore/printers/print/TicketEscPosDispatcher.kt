@@ -27,6 +27,8 @@ object TicketEscPosDispatcher {
                 PosCashSessionOpeningTicketEscPos.fromTicketJson(ticketJson, widthChars, context, logoSettings)
             "pos-bank-account-ticket" ->
                 PosBankAccountTicketEscPos.fromTicketJson(ticketJson, widthChars, context, logoSettings)
+            "pos-presale-ticket" ->
+                PosPresaleTicketEscPos.fromTicketJson(ticketJson, widthChars, context, logoSettings)
             else -> throw IllegalStateException("unsupported_document_type")
         }
 }

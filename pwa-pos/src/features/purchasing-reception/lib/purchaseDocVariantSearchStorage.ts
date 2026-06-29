@@ -2,7 +2,7 @@
 import {
   getMigratedLocalStorageItem,
   setMigratedLocalStorageItem,
-} from "../../../../../shared/storage-key-migrate";
+} from "@kai-shared/storage-key-migrate";
 
 export const PURCHASE_DOC_VARIANT_SEARCH_LS_KEY = "kai.purchaseDocVariantSearch.pageSize";
 export const PURCHASE_DOC_VARIANT_SEARCH_LS_KEY_LEGACY =

@@ -9,6 +9,7 @@ class ProtocolConstantsTest {
         assertTrue(PROTOCOL_VERSION == "2.1")
         assertTrue(AGENT_CAPABILITIES_MVP.contains("pos-sale-ticket"))
         assertTrue(AGENT_CAPABILITIES_MVP.contains("pos-quotation-ticket"))
+        assertTrue(AGENT_CAPABILITIES_MVP.contains("pos-presale-ticket"))
         assertTrue(AGENT_CAPABILITIES_MVP.contains("pos-cash-closing-ticket"))
         assertTrue(AGENT_CAPABILITIES_MVP.contains("bluetooth-escpos"))
         assertTrue(AGENT_CAPABILITIES_MVP.contains("network-escpos"))

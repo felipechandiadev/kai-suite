@@ -99,6 +99,7 @@ object PrintFormats {
         "pos-cash-count-sheet-ticket",
         "pos-cash-session-opening-ticket",
         "pos-bank-account-ticket",
+        "pos-presale-ticket",
     )
 
     fun isTicketJobType(type: String): Boolean = type in ticketJobTypes

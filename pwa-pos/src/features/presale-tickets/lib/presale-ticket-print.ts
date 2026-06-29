@@ -10,9 +10,12 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Impresión HTML de respaldo (QR como texto grande hasta soporte en agente). */
-export function printPresaleTicketHtml(ticket: PresaleTicketDetail, companyName?: string | null) {
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ticket ${escapeHtml(ticket.code)}</title>
+/** HTML de respaldo (navegador / fallback documento). */
+export function buildPresaleTicketHtml(
+  ticket: PresaleTicketDetail,
+  companyName?: string | null,
+): string {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ticket ${escapeHtml(ticket.code)}</title>
 <style>
 body{font-family:system-ui,sans-serif;max-width:320px;margin:24px auto;text-align:center}
 h1{font-size:1.25rem;margin:0 0 8px}
@@ -28,6 +31,11 @@ h1{font-size:1.25rem;margin:0 0 8px}
 <p style="font-size:.75rem;color:#666">${escapeHtml(ticket.pointOfSaleName || "")} · ${escapeHtml(ticket.branchName || "")}</p>
 <script>window.onload=function(){window.print();}</script>
 </body></html>`;
+}
+
+/** Impresión HTML de respaldo en ventana del navegador. */
+export function printPresaleTicketHtml(ticket: PresaleTicketDetail, companyName?: string | null) {
+  const html = buildPresaleTicketHtml(ticket, companyName);
   const w = window.open("", "_blank", "noopener,noreferrer,width=400,height=600");
   if (!w) return false;
   w.document.write(html);

@@ -27,6 +27,8 @@ mod pos_bank_account_ticket;
 mod pos_bank_account_ticket_escpos;
 mod pos_payment_in_ticket;
 mod pos_payment_in_ticket_escpos;
+mod pos_presale_ticket;
+mod pos_presale_ticket_escpos;
 mod ticket_barcode;
 mod platform;
 mod port_release;
@@ -508,7 +510,7 @@ fn set_service_settings(
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 fn probe_ticket_network_printer(
     state: tauri::State<'_, Arc<AppState>>,
     ticket_network_host: String,
@@ -544,7 +546,7 @@ fn probe_ticket_network_printer(
     Ok("Conexión TCP correcta.".into())
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 fn queue_test_cut_print(
     state: tauri::State<'_, Arc<AppState>>,
     system_printer_name: Option<String>,
@@ -632,10 +634,11 @@ fn queue_test_cut_print(
             None,
         )
         .map_err(|e| e.to_string())?;
+    notify_jobs_changed(&state);
     Ok(id)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 fn queue_test_drawer_print(
     state: tauri::State<'_, Arc<AppState>>,
     system_printer_name: Option<String>,
@@ -691,10 +694,11 @@ fn queue_test_drawer_print(
             None,
         )
         .map_err(|e| e.to_string())?;
+    notify_jobs_changed(&state);
     Ok(id)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 fn queue_escpos_qa_print(
     state: tauri::State<'_, Arc<AppState>>,
     system_printer_name: Option<String>,
@@ -776,10 +780,11 @@ fn queue_escpos_qa_print(
             None,
         )
         .map_err(|e| e.to_string())?;
+    notify_jobs_changed(&state);
     Ok(id)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 fn queue_test_print(
     state: tauri::State<'_, Arc<AppState>>,
     purpose: Option<String>,
@@ -836,6 +841,7 @@ fn queue_test_print(
             None,
         )
         .map_err(|e| e.to_string())?;
+    notify_jobs_changed(&state);
     Ok(id)
 }
 

@@ -262,7 +262,7 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
     )?;
     if let Some(ref id) = line_id {
         if let Some(entry) = reachability::status_for_line(&state.reachability, id) {
-            if !reachability::is_online(&entry) {
+            if !reachability::is_online(&entry) && !is_local_test_job(job) {
                 let reason = entry
                     .reason
                     .unwrap_or_else(|| "impresora no disponible".into());
@@ -568,4 +568,12 @@ pub fn write_pos_bank_account_ticket_escpos_from_value(
     value: &serde_json::Value,
 ) -> Result<PathBuf> {
     crate::pos_bank_account_ticket::write_pos_bank_account_ticket_escpos_from_value(dir, value)
+}
+
+/// Genera bytes ESC/POS de ticket de preventa POS desde JSON (`pos-presale-ticket`).
+pub fn write_pos_presale_ticket_escpos_from_value(
+    dir: &PathBuf,
+    value: &serde_json::Value,
+) -> Result<PathBuf> {
+    crate::pos_presale_ticket::write_pos_presale_ticket_escpos_from_value(dir, value)
 }

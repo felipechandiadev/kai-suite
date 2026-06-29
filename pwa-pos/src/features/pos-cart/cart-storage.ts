@@ -11,9 +11,9 @@ import type { ResolvedLineDiscount } from "@/features/promotions/lib/discount-en
 import {
   getMigratedLocalStorageItem,
   setMigratedLocalStorageItem,
-} from "../../../../../shared/storage-key-migrate";
+} from "@kai-shared/storage-key-migrate";
 
-const CART_STORAGE_VERSION = 2;
+const CART_STORAGE_VERSION = 3;
 const CART_KEY_PREFIX = "kai.pos.cart.v";
 const CART_KEY_PREFIX_LEGACY = "flowstore.pos.cart.v";
 
@@ -49,6 +49,7 @@ type StoredCart = {
   loadedReturnSale?: LoadedReturnSaleMeta | null;
   loadedBackorder?: LoadedBackorderMeta | null;
   loadedPresaleTicket?: LoadedPresaleTicketMeta | null;
+  loadedPresaleTickets?: LoadedPresaleTicketMeta[] | null;
 };
 
 function parseDiscount(value: unknown): ResolvedLineDiscount | null {
@@ -164,6 +165,13 @@ function parseLoadedPresaleTicket(value: unknown): LoadedPresaleTicketMeta | nul
   };
 }
 
+function parseLoadedPresaleTickets(value: unknown): LoadedPresaleTicketMeta[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => parseLoadedPresaleTicket(item))
+    .filter((t): t is LoadedPresaleTicketMeta => t != null);
+}
+
 function parseLoadedReturnSale(value: unknown): LoadedReturnSaleMeta | null {
   if (!value || typeof value !== "object") return null;
   const o = value as LoadedReturnSaleMeta;
@@ -199,7 +207,7 @@ export function readCartClient(input: { pointOfSaleId: string; priceListId: stri
   cartMode: PosCartMode;
   loadedReturnSale: LoadedReturnSaleMeta | null;
   loadedBackorder: LoadedBackorderMeta | null;
-  loadedPresaleTicket: LoadedPresaleTicketMeta | null;
+  loadedPresaleTickets: LoadedPresaleTicketMeta[];
 } {
   const empty = {
     lines: [] as PosCartLine[],
@@ -210,7 +218,7 @@ export function readCartClient(input: { pointOfSaleId: string; priceListId: stri
     cartMode: "sale" as PosCartMode,
     loadedReturnSale: null,
     loadedBackorder: null,
-    loadedPresaleTicket: null,
+    loadedPresaleTickets: [] as LoadedPresaleTicketMeta[],
   };
   if (typeof window === "undefined") return empty;
   try {
@@ -218,7 +226,7 @@ export function readCartClient(input: { pointOfSaleId: string; priceListId: stri
     if (!raw) return empty;
     const parsed = JSON.parse(raw) as StoredCart;
     if (!parsed || !Array.isArray(parsed.lines)) return empty;
-    if (parsed.v !== CART_STORAGE_VERSION && parsed.v !== 1) return empty;
+    if (parsed.v !== CART_STORAGE_VERSION && parsed.v !== 1 && parsed.v !== 2) return empty;
     const lines = parsed.lines
       .map((l) => {
         if (!l?.item || !l.variantId) return null;
@@ -275,10 +283,13 @@ export function readCartClient(input: { pointOfSaleId: string; priceListId: stri
       parsed.v === CART_STORAGE_VERSION
         ? parseLoadedBackorder(parsed.loadedBackorder)
         : null;
-    const loadedPresaleTicket =
-      parsed.v === CART_STORAGE_VERSION
-        ? parseLoadedPresaleTicket(parsed.loadedPresaleTicket)
-        : null;
+    let loadedPresaleTickets: LoadedPresaleTicketMeta[] = [];
+    if (parsed.v === CART_STORAGE_VERSION) {
+      loadedPresaleTickets = parseLoadedPresaleTickets(parsed.loadedPresaleTickets);
+    } else if (parsed.v === 2) {
+      const legacy = parseLoadedPresaleTicket(parsed.loadedPresaleTicket);
+      if (legacy) loadedPresaleTickets = [legacy];
+    }
 
     return {
       lines,
@@ -289,7 +300,7 @@ export function readCartClient(input: { pointOfSaleId: string; priceListId: stri
       cartMode,
       loadedReturnSale,
       loadedBackorder,
-      loadedPresaleTicket,
+      loadedPresaleTickets,
     };
   } catch {
     return empty;
@@ -306,7 +317,7 @@ export function writeCartClient(
   loadedReturnSale: LoadedReturnSaleMeta | null = null,
   encargoModeEnabled = false,
   loadedBackorder: LoadedBackorderMeta | null = null,
-  loadedPresaleTicket: LoadedPresaleTicketMeta | null = null,
+  loadedPresaleTickets: LoadedPresaleTicketMeta[] = [],
 ): void {
   if (typeof window === "undefined") return;
   try {
@@ -327,7 +338,7 @@ export function writeCartClient(
       cartMode,
       loadedReturnSale: cartMode === "return" ? loadedReturnSale : null,
       loadedBackorder: cartMode === "fulfill_backorder" ? loadedBackorder : null,
-      loadedPresaleTicket: loadedPresaleTicket ?? null,
+      loadedPresaleTickets: loadedPresaleTickets.length > 0 ? loadedPresaleTickets : null,
     };
     setMigratedLocalStorageItem(keyFor(input), legacyKeyFor(input), JSON.stringify(payload));
   } catch {

@@ -127,6 +127,9 @@ export const SEED_PRICE_LIST_ESHOP_NAME = 'eShop';
 
 export const SEED_POS_NAMES = ['Caja 1', 'Caja 2'] as const;
 
+/** Punto de preventa (genera tickets para cobrar en caja). */
+export const SEED_PRESALE_POS_NAME = 'Preventa 1';
+
 export const SEED_CASH_HUBS = [
   { code: 'CEV-00001', name: 'Principal' },
   { code: 'CEV-00002', name: 'Secundario' },
@@ -270,6 +273,7 @@ export function buildSeedCompanySettings(
       defaultTerms: null,
     },
     internalCustomerCredit: { enabled: false },
+    presales: { enabled: true },
     eShopEnabled: true,
     eShopPublicSlug: 'demo',
     eShopCustomerPortalEnabled: true,

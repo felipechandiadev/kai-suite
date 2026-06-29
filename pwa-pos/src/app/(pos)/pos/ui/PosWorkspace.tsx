@@ -10,9 +10,9 @@ import {
   type PosPriceListSnapshot,
 } from "@/features/session/lib/pos-context-storage";
 import { Button, IconButton } from "@/shared/admin-shared";
-import { ArrowUpFromLine, Package, RotateCcw, ShoppingCart, Ticket } from "lucide-react";
+import { ArrowUpFromLine, Package, RotateCcw, ShoppingCart } from "lucide-react";
 import { createPresaleTicketAction } from "@/features/presale-tickets/actions/presale-tickets.action";
-import { printPresaleTicketHtml } from "@/features/presale-tickets/lib/presale-ticket-print";
+import { printPresaleTicketAgentOrBrowser } from "@/features/presale-tickets/lib/presale-ticket-agent";
 import type { PresaleTicketDetail } from "@/features/presale-tickets/types/presale-ticket.types";
 import { Alert, Dialog } from "@/shared/admin-shared";
 import PosProductSearchPanel, { POS_PRODUCT_SEARCH_PANEL_HEIGHT_VH } from "./PosProductSearchPanel";
@@ -49,10 +49,9 @@ export default function PosWorkspace() {
   const isReturnMode = cart.isReturnMode;
   const isFulfillBackorderMode = cart.isFulfillBackorderMode;
   const hasLoadedQuotation = cart.loadedQuotation != null;
-  const hasLoadedPresale = cart.loadedPresaleTicket != null;
   const quotationsEnabled = cart.quotationsEnabled;
   const isPresaleMode = ctx?.posKind === "PRESALE";
-  const cartLocked = isReturnMode || isFulfillBackorderMode || hasLoadedPresale;
+  const cartLocked = isReturnMode || isFulfillBackorderMode;
 
   const refreshPriceListOptions = useCallback(async (posId: string, currentListId?: string) => {
     const res = await fetchPointOfSalePriceListsAction(posId);
@@ -238,7 +237,9 @@ export default function PosWorkspace() {
           setPresaleError(res.message);
           return;
         }
-        printPresaleTicketHtml(res.ticket, ctx.pointOfSaleName);
+        void printPresaleTicketAgentOrBrowser(res.ticket, {
+          companyName: ctx.pointOfSaleName,
+        });
         setLastPresaleTicket(res.ticket);
         cart.clear();
       } finally {
@@ -280,8 +281,6 @@ export default function PosWorkspace() {
       disabledHint={
         isFulfillBackorderMode
           ? "En liquidación de encargo no puedes agregar productos. Usa «Desvincular» para salir."
-          : hasLoadedPresale
-            ? "Ticket de preventa cargado. Desvincula para buscar productos sueltos."
           : isReturnMode
             ? "En devolución solo puedes quitar líneas del carrito. Usa «Desvincular» para salir."
             : undefined
@@ -367,19 +366,24 @@ export default function PosWorkspace() {
           </div>
         </div>
 
-        {cart.loadedPresaleTicket ? (
+        {cart.loadedPresaleTickets.map((ticket) => (
           <div
+            key={ticket.id}
             className="flex shrink-0 items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs"
             data-test-id="pos-cart-presale-banner"
           >
             <span>
-              Ticket preventa <strong>{cart.loadedPresaleTicket.code}</strong>
+              Ticket preventa <strong>{ticket.code}</strong>
             </span>
-            <Button variant="ghost" size="sm" onClick={() => cart.exitLoadedPresaleTicket()}>
+            <button
+              type="button"
+              className="shrink-0 text-muted-foreground hover:text-foreground"
+              onClick={() => cart.detachPresaleTicket(ticket.id)}
+            >
               Desvincular
-            </Button>
+            </button>
           </div>
-        ) : null}
+        ))}
 
         {cart.loadedBackorder ? (
           <div
@@ -523,17 +527,18 @@ export default function PosWorkspace() {
               </div>
             </div>
             {isPresaleMode ? (
-              <Button
+              <IconButton
+                icon="Ticket"
                 variant="primary"
                 size="lg"
-                className="mx-2 shrink-0"
+                className="mx-6 shrink-0"
+                ariaLabel="Generar ticket"
+                title="Generar ticket"
                 disabled={checkoutDisabled || presaleBusy}
+                isLoading={presaleBusy}
                 onClick={() => void handleCheckout()}
                 data-test-id="pos-cart-checkout-icon"
-              >
-                <Ticket size={18} className="mr-2 shrink-0" aria-hidden />
-                Generar ticket
-              </Button>
+              />
             ) : (
               <IconButton
                 icon="CircleDollarSign"
@@ -653,9 +658,24 @@ export default function PosWorkspace() {
         title="Ticket generado"
         size="sm"
         actions={
-          <Button variant="primary" onClick={() => setLastPresaleTicket(null)}>
-            Listo
-          </Button>
+          lastPresaleTicket ? (
+            <>
+              <Button
+                type="button"
+                variant="outlined"
+                onClick={() =>
+                  void printPresaleTicketAgentOrBrowser(lastPresaleTicket, {
+                    companyName: ctx?.pointOfSaleName,
+                  })
+                }
+              >
+                Reimprimir
+              </Button>
+              <Button type="button" variant="primary" onClick={() => setLastPresaleTicket(null)}>
+                Volver al POS
+              </Button>
+            </>
+          ) : null
         }
       >
         {lastPresaleTicket ? (
@@ -663,13 +683,6 @@ export default function PosWorkspace() {
             <p className="text-sm text-muted-foreground">Código para caja</p>
             <p className="font-mono text-lg font-bold tracking-wider">{lastPresaleTicket.code}</p>
             <p className="text-sm">{formatMoney(lastPresaleTicket.total)}</p>
-            <Button
-              variant="outlined"
-              size="sm"
-              onClick={() => printPresaleTicketHtml(lastPresaleTicket, ctx?.pointOfSaleName)}
-            >
-              Reimprimir
-            </Button>
           </div>
         ) : null}
       </Dialog>

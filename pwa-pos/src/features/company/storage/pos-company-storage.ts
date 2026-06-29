@@ -10,7 +10,7 @@ import {
   getMigratedLocalStorageItem,
   removeMigratedLocalStorageKeys,
   setMigratedLocalStorageItem,
-} from "../../../../../shared/storage-key-migrate";
+} from "@kai-shared/storage-key-migrate";
 
 const STORAGE_KEY = "kai-pos-company";
 const STORAGE_KEY_LEGACY = "flowstore-pos-company";

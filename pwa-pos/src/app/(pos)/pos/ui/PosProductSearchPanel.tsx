@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Search, Tags } from "lucide-react";
-import { searchPosProductsAction } from "@/features/pos-products/actions/pos-products.action";
+import { searchPosProductsAction, lookupPosVariantsAction } from "@/features/pos-products/actions/pos-products.action";
 import type { PosProductSearchItem } from "@/features/pos-products/types/pos-product.types";
 import {
   looksLikeBarcodeScan,
@@ -40,10 +40,7 @@ import {
 import { PosFavoriteQuickPickBar } from "@/features/pos-settings/ui/PosFavoriteQuickPickBar";
 import { findPresaleTicketByCodeAction } from "@/features/presale-tickets/actions/presale-tickets.action";
 import { looksLikePresaleTicketCode } from "@/features/presale-tickets/lib/presale-ticket-code";
-import {
-  buildPresaleTicketMeta,
-  presaleTicketLinesToCart,
-} from "@/features/presale-tickets/lib/presale-ticket-lines-to-cart";
+import { buildPresaleTicketMeta } from "@/features/presale-tickets/lib/presale-ticket-lines-to-cart";
 import { usePosCart } from "@/features/pos-cart/PosCartProvider";
 
 /**
@@ -224,20 +221,49 @@ export default function PosProductSearchPanel({
           return;
         }
         if (presaleRes.ticket) {
-          const lines = presaleTicketLinesToCart(presaleRes.ticket);
-          const meta = buildPresaleTicketMeta(presaleRes.ticket, lines);
-          const customer = presaleRes.ticket.customerName
+          const ticket = presaleRes.ticket;
+          const variantIds = ticket.lines
+            .map((l) => l.productVariantId ?? l.productId ?? l.id)
+            .filter((id): id is string => !!id?.trim());
+          const lookupRes = await lookupPosVariantsAction({
+            variantIds,
+            pointOfSaleId,
+            branchId,
+            priceListId,
+          });
+          if (!lookupRes.success) {
+            if (redirectToLoginIfUnauthorized(lookupRes)) return;
+            setError(lookupRes.message ?? "No se pudieron obtener precios de lista.");
+            setItems([]);
+            setTotal(0);
+            return;
+          }
+          const meta = buildPresaleTicketMeta(ticket);
+          const missingVariants = Object.keys(meta.lineMaxQtyByVariantId).filter(
+            (vid) => !lookupRes.products.some((p) => p.variantId === vid),
+          );
+          if (missingVariants.length > 0) {
+            setError("Algunos productos del ticket no están disponibles en esta lista de precios.");
+            setItems([]);
+            setTotal(0);
+            return;
+          }
+          const customer = ticket.customerName
             ? {
-                customerId: presaleRes.ticket.customerId,
-                name: presaleRes.ticket.customerName,
-                document: presaleRes.ticket.customerDocument ?? "",
+                customerId: ticket.customerId,
+                name: ticket.customerName,
+                document: ticket.customerDocument ?? "",
                 phone: "",
                 email: null,
               }
             : null;
-          cart.loadPresaleTicket(meta, lines, customer);
+          const loaded = cart.loadPresaleTicket(meta, lookupRes.products, customer);
           clearSearch();
-          setScanAddedHint(`Ticket ${presaleRes.ticket.code} cargado`);
+          setScanAddedHint(
+            loaded
+              ? `Ticket ${ticket.code} cargado`
+              : `Ticket ${ticket.code} ya está en el carrito`,
+          );
           focusSearchField();
           setItems([]);
           setTotal(0);
