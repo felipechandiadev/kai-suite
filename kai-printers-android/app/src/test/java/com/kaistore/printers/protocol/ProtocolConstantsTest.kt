@@ -10,6 +10,7 @@ class ProtocolConstantsTest {
         assertTrue(AGENT_CAPABILITIES_MVP.contains("pos-sale-ticket"))
         assertTrue(AGENT_CAPABILITIES_MVP.contains("pos-quotation-ticket"))
         assertTrue(AGENT_CAPABILITIES_MVP.contains("pos-presale-ticket"))
+        assertTrue(AGENT_CAPABILITIES_MVP.contains("fiscal-boleta-preview"))
         assertTrue(AGENT_CAPABILITIES_MVP.contains("variant-barcode-label"))
         assertTrue(AGENT_CAPABILITIES_MVP.contains("pos-cash-closing-ticket"))
         assertTrue(AGENT_CAPABILITIES_MVP.contains("bluetooth-escpos"))

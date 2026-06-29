@@ -78,6 +78,10 @@ export async function listFiscalCafsAction() {
   return FiscalRequest.listCafs();
 }
 
+export async function getBoletaPrintPreviewAction(caso?: string) {
+  return FiscalRequest.getBoletaPrintPreview(caso);
+}
+
 export async function testFiscalSiiTokenAction() {
   return FiscalRequest.testSiiToken();
 }

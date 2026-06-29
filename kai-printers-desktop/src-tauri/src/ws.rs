@@ -47,6 +47,7 @@ fn is_vector_pos_ticket_type(print_type: &str) -> bool {
             | "pos-cash-session-opening-ticket"
             | "pos-bank-account-ticket"
             | "pos-presale-ticket"
+            | "fiscal-boleta-preview"
             | "variant-barcode-label"
     )
 }
@@ -81,6 +82,18 @@ fn vector_ticket_folio(print_type: &str, ticket: &serde_json::Value) -> String {
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string(),
+        "fiscal-boleta-preview" => ticket
+            .get("folio")
+            .map(|v| {
+                if let Some(n) = v.as_i64() {
+                    n.to_string()
+                } else if let Some(n) = v.as_f64() {
+                    (n as i64).to_string()
+                } else {
+                    v.as_str().unwrap_or("").to_string()
+                }
+            })
+            .unwrap_or_default(),
         "variant-barcode-label" => ticket
             .get("barcode")
             .and_then(|v| v.as_str())
@@ -123,6 +136,7 @@ fn vector_ticket_escpos_writer(print_type: &str) -> WriteVectorTicketFn {
         }
         "pos-bank-account-ticket" => jobs::write_pos_bank_account_ticket_escpos_from_value,
         "pos-presale-ticket" => jobs::write_pos_presale_ticket_escpos_from_value,
+        "fiscal-boleta-preview" => jobs::write_fiscal_boleta_preview_escpos_from_value,
         "variant-barcode-label" => jobs::write_variant_barcode_label_escpos_from_value,
         _ => jobs::write_pos_sale_ticket_escpos_from_value,
     }
@@ -370,6 +384,7 @@ where
                                     "pos-cash-session-opening-ticket",
                                     "pos-bank-account-ticket",
                                     "pos-presale-ticket",
+                                    "fiscal-boleta-preview",
                                     "variant-barcode-label",
                                 ],
                                 "ticketEscposEnabled": ticket_escpos,
@@ -557,8 +572,20 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
                 .paper_profile_for_mapping_line(purpose, printer_display_label_early)
                 .unwrap_or_else(|_| crate::print_formats::PaperProfile::default_for_purpose(purpose).storage_value().to_string());
             let paper_profile = crate::print_formats::PaperProfile::from_storage(&paper_raw);
-            if !print_format.matches_profile(paper_profile) {
-                return OutResponse::err(rid, "format_printer_mismatch".to_string());
+            let requested_format = print_format;
+            let print_format = crate::print_formats::PrintFormat::resolve_for_mapping(
+                print_format,
+                paper_profile,
+                purpose,
+            );
+            if print_format != requested_format {
+                tracing::debug!(
+                    purpose,
+                    label = ?printer_display_label_early,
+                    requested = requested_format.wire_value(),
+                    resolved = print_format.wire_value(),
+                    "print format adjusted to mapping line paper profile"
+                );
             }
             crate::escpos_width::set_escpos_width_chars(print_format.chars_per_line());
             let filename = env

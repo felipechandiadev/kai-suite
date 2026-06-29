@@ -31,6 +31,10 @@ import type {
   PosPresaleTicketPayload,
   PosPresaleTicketPrintExtras,
 } from "./pos-presale-ticket";
+import type {
+  FiscalBoletaPreviewPayload,
+  FiscalBoletaPreviewPrintExtras,
+} from "./fiscal-boleta-preview";
 import {
   type PrintFormat,
   type PosDocumentPrintMode,
@@ -157,6 +161,7 @@ export const AGENT_CAPABILITY_POS_CASH_SESSION_OPENING_TICKET =
   "pos-cash-session-opening-ticket";
 export const AGENT_CAPABILITY_POS_BANK_ACCOUNT_TICKET = "pos-bank-account-ticket";
 export const AGENT_CAPABILITY_POS_PRESALE_TICKET = "pos-presale-ticket";
+export const AGENT_CAPABILITY_FISCAL_BOLETA_PREVIEW = "fiscal-boleta-preview";
 export const AGENT_CAPABILITY_VARIANT_BARCODE_LABEL = "variant-barcode-label";
 export const AGENT_CAPABILITY_PDF_BASE64 = "pdf-base64";
 
@@ -697,6 +702,17 @@ export class PrintServiceConnection {
     return this.enqueuePosPrint(body);
   }
 
+  /** Boleta electrónica simulada (Set BE): ESC/POS (`type: "fiscal-boleta-preview"`). */
+  enqueueFiscalBoletaPreview(
+    ticket: FiscalBoletaPreviewPayload,
+    extras: FiscalBoletaPreviewPrintExtras & { purpose?: string; format?: PrintFormat },
+    omitPrinterDisplayLabel = false,
+  ): Promise<unknown> {
+    const body = buildPosTicketEnqueueBody("fiscal-boleta-preview", ticket, extras);
+    if (omitPrinterDisplayLabel) return this.enqueuePrint(body);
+    return this.enqueuePosPrint(body);
+  }
+
   private sendHello(): void {
     const rid = randomId();
     const body: Record<string, unknown> = {
@@ -1044,6 +1060,16 @@ export function agentSupportsPosPresaleTicket(
   const caps = hello?.agentCapabilities;
   if (Array.isArray(caps) && caps.length > 0) {
     return caps.includes(AGENT_CAPABILITY_POS_PRESALE_TICKET);
+  }
+  return Boolean(hello?.serviceStatus);
+}
+
+export function agentSupportsFiscalBoletaPreview(
+  hello: HelloResponseData | null | undefined,
+): boolean {
+  const caps = hello?.agentCapabilities;
+  if (Array.isArray(caps) && caps.length > 0) {
+    return caps.includes(AGENT_CAPABILITY_FISCAL_BOLETA_PREVIEW);
   }
   return Boolean(hello?.serviceStatus);
 }

@@ -100,6 +100,7 @@ object PrintFormats {
         "pos-cash-session-opening-ticket",
         "pos-bank-account-ticket",
         "pos-presale-ticket",
+        "fiscal-boleta-preview",
         "variant-barcode-label",
     )
 

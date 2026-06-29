@@ -7,6 +7,7 @@ export * from "./pos-document-print-mode-selector";
 export * from "./pos-sale-ticket";
 export * from "./pos-quotation-ticket";
 export * from "./pos-presale-ticket";
+export * from "./fiscal-boleta-preview";
 export * from "./pos-payment-in-ticket";
 export * from "./pos-customer-credit-note-ticket";
 export * from "./pos-cash-closing-ticket";

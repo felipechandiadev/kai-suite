@@ -140,6 +140,47 @@ class PosPresaleTicketEscPosTest {
     }
 }
 
+class FiscalBoletaPreviewEscPosTest {
+    @Test
+    fun hasBoletaHeadingAndSimulatedStamp() {
+        val json = """
+            {
+              "caso": "CASO-1",
+              "folio": 42,
+              "issuedAt": "2026-06-28",
+              "tipoDte": 39,
+              "emisor": { "legalName": "Empresa Test", "rut": "1-9" },
+              "receptor": { "rut": "66666666-6", "name": "Cliente" },
+              "lines": [{ "name": "Item", "quantity": 1, "unitPriceWithIva": 1000, "lineTotal": 1000 }],
+              "totals": { "mntNeto": 840, "mntExe": 0, "iva": 160, "mntTotal": 1000 },
+              "timbrePdf417Payload": "<TED version=\"1.0\"><DD><RE>1-9</RE><TD>39</TD><F>42</F></DD></TED>"
+            }
+        """.trimIndent()
+        val text = String(FiscalBoletaPreviewEscPos.fromTicketJson(json), Charsets.ISO_8859_1)
+        assertTrue(text.contains("BOLETA"))
+        assertTrue(text.contains("SIMULACION"))
+        assertTrue(text.contains("TIMBRE SIMULADO"))
+    }
+
+    @Test
+    fun dispatchesViaTicketEscPosDispatcher() {
+        val json = """
+            {
+              "caso": "CASO-1",
+              "folio": 1,
+              "issuedAt": "2026-06-28",
+              "tipoDte": 39,
+              "emisor": { "legalName": "Test" },
+              "receptor": { "rut": "66666666-6", "name": "Cliente" },
+              "lines": [],
+              "totals": { "mntNeto": 0, "mntExe": 0, "iva": 0, "mntTotal": 0 }
+            }
+        """.trimIndent()
+        val bytes = TicketEscPosDispatcher.fromJob("fiscal-boleta-preview", json, 48)
+        assertTrue(bytes.isNotEmpty())
+    }
+}
+
 class PosCashClosingTicketEscPosTest {
     @Test
     fun hasArqueoHeading() {

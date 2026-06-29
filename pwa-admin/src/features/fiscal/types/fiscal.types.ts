@@ -52,6 +52,66 @@ export type BoletaPreviewRow = {
   razonRef: string;
 };
 
+export type FiscalBoletaPrintPreviewEmisor = {
+  rut: string | null;
+  legalName: string | null;
+  businessActivity: string | null;
+  address: string | null;
+  commune: string | null;
+  city: string | null;
+  resolutionNumber: string | null;
+  resolutionDate: string | null;
+};
+
+export type FiscalBoletaPrintPreviewLine = {
+  name: string;
+  quantity: number;
+  unitPriceWithIva: number;
+  exempt: boolean;
+  unitMeasure: string | null;
+  lineNet: number;
+  lineExe: number;
+  lineIva: number;
+  lineTotal: number;
+};
+
+export type FiscalBoletaPrintPreviewTotals = {
+  mntNeto: number;
+  mntExe: number;
+  iva: number;
+  mntTotal: number;
+};
+
+export type FiscalBoletaPrintPreviewCafAdvisory = {
+  hasActiveCaf: boolean;
+  nextFolio: number | null;
+  sufficientForSet: boolean;
+};
+
+export type FiscalBoletaPrintPreview = {
+  caso: string;
+  folio: number;
+  issuedAt: string;
+  tipoDte: 39;
+  isSimulated: true;
+  timbrePdf417Payload: string;
+  emisor: FiscalBoletaPrintPreviewEmisor;
+  emisorComplete: boolean;
+  receptor: { rut: string; name: string };
+  lines: FiscalBoletaPrintPreviewLine[];
+  totals: FiscalBoletaPrintPreviewTotals;
+  observation: string | null;
+  cafAdvisory: FiscalBoletaPrintPreviewCafAdvisory;
+};
+
+export const SET_BE_CASE_LABELS: { id: string; description: string }[] = [
+  { id: "CASO-1", description: "Cambio de aceite + alineación y balanceo" },
+  { id: "CASO-2", description: "Papel de regalo (17 unidades)" },
+  { id: "CASO-3", description: "Sandwich + bebida" },
+  { id: "CASO-4", description: "Ítem afecto + ítem exento" },
+  { id: "CASO-5", description: "Arroz con unidad Kg" },
+];
+
 export type FiscalSummary = FiscalProfile & {
   milestones: FiscalMilestones;
   activeRun: {

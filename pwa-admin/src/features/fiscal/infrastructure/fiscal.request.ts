@@ -152,6 +152,23 @@ export class FiscalRequest {
     return { success: true as const, cafs: json.cafs as FiscalCafItem[] };
   }
 
+  static async getBoletaPrintPreview(caso?: string) {
+    const qs = caso ? `?caso=${encodeURIComponent(caso)}` : "";
+    const fetched = await backendFetch(`/company/fiscal/boleta/print-preview${qs}`, {
+      headers: await authHeadersJson(),
+      cache: "no-store",
+    });
+    if (!fetched.ok) return { success: false as const, error: fetched.error };
+    const json = await fetched.res.json();
+    if (!fetched.res.ok) {
+      return { success: false as const, error: errorMessage(json, "Error al cargar preview de boleta") };
+    }
+    return {
+      success: true as const,
+      preview: json.preview as import("../types/fiscal.types").FiscalBoletaPrintPreview,
+    };
+  }
+
   static async testSiiToken() {
     const res = await fetch(apiUrl("/company/fiscal/sii/test-token"), {
       method: "POST",

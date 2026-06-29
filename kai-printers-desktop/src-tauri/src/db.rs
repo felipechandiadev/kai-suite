@@ -1142,6 +1142,62 @@ impl Db {
         Ok(crate::print_formats::PaperProfile::default_for_purpose(purpose).storage_value().to_string())
     }
 
+    /// Perfil de papel de la línea de tickets según impresora del SO o host en red.
+    pub fn paper_profile_for_ticket_line(
+        &self,
+        purpose: &str,
+        system_printer: Option<&str>,
+        network_host: Option<&str>,
+    ) -> String {
+        let default = || {
+            crate::print_formats::PaperProfile::default_for_purpose(purpose)
+                .storage_value()
+                .to_string()
+        };
+        if let Some(h) = network_host.map(str::trim).filter(|s| !s.is_empty()) {
+            let c = self.inner.lock();
+            let mut stmt = match c.prepare(
+                "SELECT paper_profile FROM printer_mapping_lines
+                 WHERE purpose = ?1 AND trim(ticket_network_host) = trim(?2)
+                   AND lower(trim(ticket_printer_type)) = 'network'
+                 ORDER BY sort_order ASC, id ASC LIMIT 1",
+            ) {
+                Ok(s) => s,
+                Err(_) => return default(),
+            };
+            let mut rows = match stmt.query(params![purpose, h]) {
+                Ok(r) => r,
+                Err(_) => return default(),
+            };
+            if let Ok(Some(row)) = rows.next() {
+                if let Ok(v) = row.get::<_, String>(0) {
+                    return v;
+                }
+            }
+        }
+        if let Some(p) = system_printer.map(str::trim).filter(|s| !s.is_empty()) {
+            let c = self.inner.lock();
+            let mut stmt = match c.prepare(
+                "SELECT paper_profile FROM printer_mapping_lines
+                 WHERE purpose = ?1 AND trim(system_printer_name) = trim(?2)
+                 ORDER BY sort_order ASC, id ASC LIMIT 1",
+            ) {
+                Ok(s) => s,
+                Err(_) => return default(),
+            };
+            let mut rows = match stmt.query(params![purpose, p]) {
+                Ok(r) => r,
+                Err(_) => return default(),
+            };
+            if let Ok(Some(row)) = rows.next() {
+                if let Ok(v) = row.get::<_, String>(0) {
+                    return v;
+                }
+            }
+        }
+        default()
+    }
+
     pub fn aliases_by_purpose_json(&self) -> Result<serde_json::Value> {
         const PURPOSES: &[&str] = &["documents", "tickets", "labels"];
         let lines = self.list_mapping_lines()?;

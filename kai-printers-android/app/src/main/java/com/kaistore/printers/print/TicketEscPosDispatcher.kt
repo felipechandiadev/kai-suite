@@ -29,6 +29,8 @@ object TicketEscPosDispatcher {
                 PosBankAccountTicketEscPos.fromTicketJson(ticketJson, widthChars, context, logoSettings)
             "pos-presale-ticket" ->
                 PosPresaleTicketEscPos.fromTicketJson(ticketJson, widthChars, context, logoSettings)
+            "fiscal-boleta-preview" ->
+                FiscalBoletaPreviewEscPos.fromTicketJson(ticketJson, widthChars, context, logoSettings)
             "variant-barcode-label" ->
                 VariantBarcodeLabelEscPos.fromTicketJson(ticketJson, widthChars)
             else -> throw IllegalStateException("unsupported_document_type")

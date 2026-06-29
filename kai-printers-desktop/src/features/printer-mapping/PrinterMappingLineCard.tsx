@@ -123,6 +123,14 @@ export function PrinterMappingLineCard({
         }
         endAdornment={
           <span className="inline-flex shrink-0 items-center gap-0.5">
+            {isTickets ? (
+              <span
+                className="text-[10px] font-medium text-muted-foreground"
+                title="Ancho del rollo configurado para esta línea"
+              >
+                {paperProfile === "58mm" ? "58 mm" : "80 mm"}
+              </span>
+            ) : null}
             <PrinterStatusDot status={status} />
             <IconButton
               type="button"

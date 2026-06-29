@@ -10,7 +10,16 @@ use anyhow::Result;
 use chrono::Local;
 use std::path::Path;
 
-const QA_BARCODE: &str = "QA-ESC-POS-80";
+const QA_BARCODE_WIDTH_58: &str = "QA-ESC-POS-58";
+const QA_BARCODE_WIDTH_80: &str = "QA-ESC-POS-80";
+
+fn qa_barcode_label() -> &'static str {
+    if crate::escpos_width::escpos_width_chars() <= 32 {
+        QA_BARCODE_WIDTH_58
+    } else {
+        QA_BARCODE_WIDTH_80
+    }
+}
 
 /// Genera bytes de la hoja de prueba (sin corte; el worker lo añade si corresponde).
 pub fn build_escpos_qa_bytes(
@@ -52,7 +61,7 @@ pub fn build_escpos_qa_bytes(
     escpos_dense_body(&mut buf);
     append_line(&mut buf, &pad_left("Monto:", "$12.345"));
     append_divider(&mut buf);
-    append_barcode_centered(&mut buf, QA_BARCODE);
+    append_barcode_centered(&mut buf, qa_barcode_label());
     if include_cut {
         buf.extend(crate::pos_sale_ticket_escpos::escpos_post_print_trailer(true, false));
     }

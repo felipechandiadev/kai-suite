@@ -7,6 +7,7 @@ import Tabs from "@/shared/components/Tabs";
 const items = [
   { label: "General", url: "/settings/sii" },
   { label: "Certificación", url: "/settings/sii/certificacion" },
+  { label: "Impresión de prueba", url: "/settings/sii/impresion-prueba" },
   { label: "Emisor", url: "/settings/sii/emisor" },
   { label: "Credenciales", url: "/settings/sii/credenciales" },
   { label: "Producción", url: "/settings/sii/produccion" },

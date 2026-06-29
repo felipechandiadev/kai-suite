@@ -182,7 +182,7 @@ private fun LogoPreview(settings: PrintLogoSettings) {
             )
         } else {
             Image(
-                painter = painterResource(R.mipmap.ic_launcher_foreground),
+                painter = painterResource(R.drawable.kai_default_print_logo),
                 contentDescription = stringResource(R.string.print_logo_default_label),
                 modifier = Modifier.size(120.dp),
                 contentScale = ContentScale.Fit,

@@ -654,6 +654,7 @@ export default function App() {
         purpose: line.purpose,
         includeLogo,
         includeCut: line.autoCutEnabled !== false,
+        paperProfile: normalizePaperProfile(line.purpose, line.paperProfile),
       });
       await fetchDashboard("live");
       window.alert(

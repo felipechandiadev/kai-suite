@@ -29,6 +29,9 @@ mod pos_payment_in_ticket;
 mod pos_payment_in_ticket_escpos;
 mod pos_presale_ticket;
 mod pos_presale_ticket_escpos;
+mod fiscal_boleta_preview;
+mod fiscal_boleta_preview_escpos;
+mod pdf417_escpos;
 mod variant_barcode_label;
 mod variant_barcode_label_escpos;
 mod ticket_barcode;
@@ -722,6 +725,7 @@ fn queue_escpos_qa_print(
     purpose: Option<String>,
     include_logo: Option<bool>,
     include_cut: Option<bool>,
+    paper_profile: Option<String>,
 ) -> Result<String, String> {
     let purpose = purpose
         .as_deref()
@@ -765,6 +769,14 @@ fn queue_escpos_qa_print(
         .unwrap_or_default();
     let include_cut = include_cut.unwrap_or(true);
     let agent_label = state.db.agent_display_name();
+    let paper = crate::print_formats::PaperProfile::from_storage(
+        paper_profile
+            .as_deref()
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or("80mm"),
+    );
+    let qa_format = paper.to_default_format();
+    crate::escpos_width::set_escpos_width_chars(qa_format.chars_per_line());
     let (path, bytes) = jobs::write_escpos_qa_path(
         &state.temp_dir,
         &agent_label,
@@ -803,10 +815,10 @@ fn queue_escpos_qa_print(
             Some(document_type),
             None,
             None,
+            None,
             target_sp.as_deref(),
             net.as_deref(),
-            None,
-            None,
+            Some(qa_format.wire_value()),
         )
         .map_err(|e| e.to_string())?;
     notify_jobs_changed(&state);

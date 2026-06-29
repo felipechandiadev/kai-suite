@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -93,6 +94,15 @@ export class FiscalController {
   async listCafs(@CurrentCompany() companyId: string) {
     const cafs = await this.fiscalService.listCafs(companyId);
     return { success: true, cafs };
+  }
+
+  @Get('company/fiscal/boleta/print-preview')
+  async getBoletaPrintPreview(
+    @CurrentCompany() companyId: string,
+    @Query('caso') caso?: string,
+  ) {
+    const preview = await this.fiscalService.getBoletaPrintPreview(companyId, caso);
+    return { success: true, preview };
   }
 
   @Post('company/fiscal/sii/test-token')

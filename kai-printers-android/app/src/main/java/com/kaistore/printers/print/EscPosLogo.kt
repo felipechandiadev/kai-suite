@@ -34,7 +34,7 @@ object EscPosLogo {
                 appendFromBitmap(writer, bitmap)
             }
             else -> {
-                val bitmap = decodeResourceBitmap(context, R.mipmap.ic_launcher_foreground) ?: return
+                val bitmap = decodeResourceBitmap(context, R.drawable.kai_default_print_logo) ?: return
                 appendFromBitmap(writer, bitmap)
             }
         }
@@ -61,7 +61,11 @@ object EscPosLogo {
     }
 
     private fun appendFromBitmap(writer: EscPosWriter, bitmap: Bitmap) {
-        val commands = bitmapToGsV0(bitmap) ?: return
+        appendBitmapCentered(writer, bitmap)
+    }
+
+    fun appendBitmapCentered(writer: EscPosWriter, bitmap: Bitmap, maxWidthDots: Int = MAX_WIDTH_DOTS) {
+        val commands = bitmapToGsV0(bitmap, maxWidthDots) ?: return
         appendCommands(writer, commands)
     }
 
@@ -85,12 +89,12 @@ object EscPosLogo {
         return bitmapToGsV0(bitmap)
     }
 
-    private fun bitmapToGsV0(source: Bitmap): ByteArray? {
+    private fun bitmapToGsV0(source: Bitmap, maxWidthDots: Int = MAX_WIDTH_DOTS): ByteArray? {
         val w = source.width
         val h = source.height
         if (w <= 0 || h <= 0) return null
         val scale = minOf(
-            MAX_WIDTH_DOTS.toFloat() / w,
+            maxWidthDots.toFloat() / w,
             MAX_HEIGHT_DOTS.toFloat() / h,
             1f,
         )

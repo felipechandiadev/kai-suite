@@ -362,7 +362,7 @@ fn append_ticket_logo_raster(buf: &mut Vec<u8>, bitmap: &[u8], w_bytes: u16, h_d
     buf.push(b'\n');
 }
 
-/// Logo Kai embebido para hojas de prueba (paridad con Android `ic_launcher_foreground`).
+/// Logo Kai embebido para hojas de prueba y tickets sin logo global.
 const KAI_DEFAULT_TICKET_LOGO_PNG: &[u8] = include_bytes!("../assets/kai-default-ticket-logo.png");
 
 pub(crate) fn append_default_kai_ticket_logo(buf: &mut Vec<u8>) {

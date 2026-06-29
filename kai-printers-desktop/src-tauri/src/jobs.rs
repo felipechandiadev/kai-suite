@@ -136,9 +136,8 @@ fn ticket_thermal_options_for_job(
     system_printer: Option<&str>,
     network_host: Option<&str>,
     document_type: Option<&str>,
-    job_format: Option<&str>,
+    print_format: crate::print_formats::PrintFormat,
 ) -> platform::ThermalPrintOptions {
-    let print_format = crate::print_formats::PrintFormat::resolve(job_format, purpose);
     if !print_format.is_ticket() {
         return platform::ThermalPrintOptions {
             thermal_80mm: false,
@@ -242,15 +241,24 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
         .purpose
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("missing purpose"))?;
-    let print_format =
-        crate::print_formats::PrintFormat::resolve(job.format.as_deref(), purpose);
-    crate::escpos_width::set_escpos_width_chars(print_format.chars_per_line());
     let (printers, network_host) = resolve_job_print_targets(db, job, purpose)?;
     if printers.is_empty() && network_host.is_none() {
         anyhow::bail!(
             "no printer mapped for {purpose} (configure «Tickets» in KaiPrinters or map «Documentos»)"
         );
     }
+    let paper_raw = db.paper_profile_for_ticket_line(
+        purpose,
+        printers.first().map(|s| s.as_str()),
+        network_host.as_deref(),
+    );
+    let paper_profile = crate::print_formats::PaperProfile::from_storage(&paper_raw);
+    let print_format = crate::print_formats::PrintFormat::resolve_for_mapping(
+        crate::print_formats::PrintFormat::resolve(job.format.as_deref(), purpose),
+        paper_profile,
+        purpose,
+    );
+    crate::escpos_width::set_escpos_width_chars(print_format.chars_per_line());
     let system = platform::list_system_printers().unwrap_or_default();
     let line_id = reachability::refresh_for_print_target(
         db,
@@ -278,7 +286,7 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
             None,
             Some(&host),
             job.document_type.as_deref(),
-            job.format.as_deref(),
+            print_format,
         );
         let is_escpos = path
             .extension()
@@ -327,7 +335,7 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
             Some(printer.as_str()),
             None,
             job.document_type.as_deref(),
-            job.format.as_deref(),
+            print_format,
         );
         let copies = job.copies.max(1) as u32;
         let is_escpos = path
@@ -585,6 +593,14 @@ pub fn write_pos_presale_ticket_escpos_from_value(
     value: &serde_json::Value,
 ) -> Result<PathBuf> {
     crate::pos_presale_ticket::write_pos_presale_ticket_escpos_from_value(dir, value)
+}
+
+/// Genera bytes ESC/POS de boleta electrónica simulada (`fiscal-boleta-preview`).
+pub fn write_fiscal_boleta_preview_escpos_from_value(
+    dir: &PathBuf,
+    value: &serde_json::Value,
+) -> Result<PathBuf> {
+    crate::fiscal_boleta_preview::write_fiscal_boleta_preview_escpos_from_value(dir, value)
 }
 
 /// Genera bytes ESC/POS de comprobante barcode variante desde JSON (`variant-barcode-label`).

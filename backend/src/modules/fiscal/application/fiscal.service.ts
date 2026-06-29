@@ -24,6 +24,11 @@ import {
   buildEnvioBoletaXml,
   buildRcoCertificationXml,
 } from '../infrastructure/boleta-envio.builder';
+import {
+  buildBoletaPrintPreview,
+  type FiscalBoletaPrintPreview,
+  type FiscalBoletaPrintPreviewEmisor,
+} from '../domain/fiscal-boleta-print-preview';
 import { SET_BE_CASES, buildSetBePreview } from '../domain/set-be.constants';
 import { UpdateFiscalProfileDto } from './dto/update-fiscal-profile.dto';
 import { CompleteCertificationDto } from './dto/complete-certification.dto';
@@ -223,6 +228,49 @@ export class FiscalService {
     const signed = this.auth.buildSignedGetTokenXml(seed, material);
     const token = await this.sii.postToken(profile.environment, signed);
     return { success: true, tokenPreview: `${token.slice(0, 4)}…` };
+  }
+
+  async getBoletaPrintPreview(
+    companyId: string,
+    casoId?: string,
+  ): Promise<FiscalBoletaPrintPreview> {
+    const profile = await this.getOrCreateProfile(companyId);
+    const caf = await this.getActiveCaf(companyId, profile.environment);
+    const startFolio = caf?.nextFolio ?? 1;
+    const needed = SET_BE_CASES.length;
+    const sufficientForSet = caf
+      ? caf.nextFolio + needed - 1 <= caf.rangeTo
+      : false;
+
+    const emisor: FiscalBoletaPrintPreviewEmisor = {
+      rut: profile.rut ?? null,
+      legalName: profile.legalName ?? null,
+      businessActivity: profile.businessActivity ?? null,
+      address: profile.address ?? null,
+      commune: profile.commune ?? null,
+      city: profile.city ?? null,
+      resolutionNumber: profile.resolutionNumber ?? null,
+      resolutionDate: profile.resolutionDate
+        ? String(profile.resolutionDate).slice(0, 10)
+        : null,
+    };
+
+    try {
+      return buildBoletaPrintPreview({
+        casoId,
+        startFolio,
+        emisor,
+        cafAdvisory: {
+          hasActiveCaf: !!caf,
+          nextFolio: caf?.nextFolio ?? null,
+          sufficientForSet,
+        },
+      });
+    } catch (e) {
+      throw new BadRequestException(
+        e instanceof Error ? e.message : 'Caso de boleta inválido',
+      );
+    }
   }
 
   async createCertificationRun(companyId: string): Promise<FiscalCertificationRun> {

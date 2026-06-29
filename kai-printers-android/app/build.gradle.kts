@@ -113,6 +113,7 @@ dependencies {
     implementation(libs.ktor.server.host.common)
     implementation(libs.kotlinx.serialization.json)
     implementation("org.bouncycastle:bcpkix-jdk18on:1.79")
+    implementation("com.google.zxing:core:3.5.3")
 
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 

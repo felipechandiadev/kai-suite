@@ -1,0 +1,53 @@
+{
+  "action": "print",
+  "type": "fiscal-boleta-preview",
+  "purpose": "tickets",
+  "format": "ticket_80mm",
+  "ticket": {
+    "version": 1,
+    "caso": "CASO-1",
+    "folio": 42,
+    "issuedAt": "2026-06-28",
+    "tipoDte": 39,
+    "isSimulated": true,
+    "emisor": {
+      "rut": "76192083-9",
+      "legalName": "Empresa Certificación",
+      "businessActivity": "Servicios",
+      "address": "Calle 1",
+      "commune": "Santiago",
+      "city": "Santiago",
+      "resolutionNumber": "80",
+      "resolutionDate": "2020-01-01"
+    },
+    "receptor": {
+      "rut": "66666666-6",
+      "name": "Cliente Certificacion"
+    },
+    "lines": [
+      {
+        "name": "Cambio de aceite",
+        "quantity": 1,
+        "unitPriceWithIva": 19900,
+        "lineTotal": 19900
+      },
+      {
+        "name": "Alineacion y balanceo",
+        "quantity": 1,
+        "unitPriceWithIva": 9900,
+        "lineTotal": 9900
+      }
+    ],
+    "totals": {
+      "mntNeto": 25042,
+      "mntExe": 0,
+      "iva": 4758,
+      "mntTotal": 29800
+    },
+    "timbrePdf417Payload": "<TED version=\"1.0\"><DD><RE>76192083-9</RE><TD>39</TD><F>42</F></DD></TED>"
+  },
+  "filename": "boleta-42.escpos",
+  "copies": 1,
+  "documentType": "FISCAL_BOLETA_PREVIEW",
+  "internalFolio": "42"
+}

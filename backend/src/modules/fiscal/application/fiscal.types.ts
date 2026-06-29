@@ -47,6 +47,14 @@ export type FiscalSummaryResponse = FiscalProfileResponse & {
   hosts: { api: string; envio: string };
 };
 
+export type {
+  FiscalBoletaPrintPreview,
+  FiscalBoletaPrintPreviewCafAdvisory,
+  FiscalBoletaPrintPreviewEmisor,
+  FiscalBoletaPrintPreviewLine,
+  FiscalBoletaPrintPreviewTotals,
+} from '../domain/fiscal-boleta-print-preview';
+
 export type FiscalCafListItem = {
   id: string;
   dteType: number;
