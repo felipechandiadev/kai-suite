@@ -7,9 +7,10 @@ import { Alert, DotProgress, IconButton } from "@/shared";
 import { useImageWithPlaceholder } from "@/shared/hooks/useImageWithPlaceholder";
 import { listAttributesForStockAction } from "../actions/attributes.action";
 import {
-  listVariantMultimediaClient,
-  unlinkVariantMultimediaClient,
-  uploadVariantMultimediaClient,
+  listEntityMultimediaClient,
+  type MultimediaEntityType,
+  unlinkEntityMultimediaClient,
+  uploadEntityMultimediaClient,
 } from "../infrastructure/multimedia.client";
 import { validateVariantImageFile } from "../lib/validate-image-file";
 import type { AttributeListItem, MultimediaAssetListItem } from "../types/multimedia.types";
@@ -93,15 +94,23 @@ function PhotoThumb({
   );
 }
 
-function AttributePhotoBlock({
-  scope,
-  variantId,
+function EntityPhotoBlock({
+  entityType,
+  entityId,
+  attributeId,
+  title,
+  subtitle,
+  testId,
   accessToken,
   activeCompanyId,
   onChanged,
 }: {
-  scope: AttributeScope;
-  variantId: string;
+  entityType: MultimediaEntityType;
+  entityId: string;
+  attributeId?: string;
+  title: string;
+  subtitle: string;
+  testId: string;
   accessToken?: string;
   activeCompanyId?: string;
   onChanged?: () => void;
@@ -117,9 +126,10 @@ function AttributePhotoBlock({
   const loadAssets = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const res = await listVariantMultimediaClient({
-      variantId,
-      attributeId: scope.attributeId,
+    const res = await listEntityMultimediaClient({
+      entityType,
+      entityId,
+      attributeId,
       accessToken,
       activeCompanyId,
     });
@@ -130,7 +140,7 @@ function AttributePhotoBlock({
       return;
     }
     setAssets(res.assets);
-  }, [variantId, scope.attributeId, accessToken, activeCompanyId]);
+  }, [entityType, entityId, attributeId, accessToken, activeCompanyId]);
 
   useEffect(() => {
     void loadAssets();
@@ -147,10 +157,11 @@ function AttributePhotoBlock({
       }
       setUploading(true);
       setError(null);
-      const res = await uploadVariantMultimediaClient({
+      const res = await uploadEntityMultimediaClient({
         file,
-        variantId,
-        attributeId: scope.attributeId,
+        entityType,
+        entityId,
+        attributeId,
         accessToken,
         activeCompanyId,
       });
@@ -162,17 +173,18 @@ function AttributePhotoBlock({
       await loadAssets();
       onChanged?.();
     },
-    [variantId, scope.attributeId, accessToken, activeCompanyId, loadAssets, onChanged],
+    [entityType, entityId, attributeId, accessToken, activeCompanyId, loadAssets, onChanged],
   );
 
   const handleRemove = useCallback(
     async (assetId: string) => {
       setRemovingId(assetId);
       setError(null);
-      const res = await unlinkVariantMultimediaClient({
+      const res = await unlinkEntityMultimediaClient({
         assetId,
-        variantId,
-        attributeId: scope.attributeId,
+        entityType,
+        entityId,
+        attributeId,
         accessToken,
         activeCompanyId,
       });
@@ -184,21 +196,17 @@ function AttributePhotoBlock({
       await loadAssets();
       onChanged?.();
     },
-    [variantId, scope.attributeId, accessToken, activeCompanyId, loadAssets, onChanged],
+    [entityType, entityId, attributeId, accessToken, activeCompanyId, loadAssets, onChanged],
   );
 
   return (
     <div
       className="space-y-3 rounded-lg border border-border bg-background p-4"
-      data-test-id={`variant-photo-attr-${scope.attributeId}`}
+      data-test-id={testId}
     >
       <div>
-        <h3 className="text-sm font-semibold text-foreground">
-          {scope.attributeName}: {scope.attributeValue}
-        </h3>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Fotos asociadas a este atributo de la variante.
-        </p>
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
       </div>
 
       {error ? (
@@ -256,7 +264,7 @@ function AttributePhotoBlock({
           disabled={uploading}
           isLoading={uploading}
           onClick={() => cameraInputRef.current?.click()}
-          data-test-id={`variant-photo-camera-${scope.attributeId}`}
+          data-test-id={`${testId}-camera`}
         />
         <IconButton
           icon="ImagePlus"
@@ -265,7 +273,7 @@ function AttributePhotoBlock({
           ariaLabel="Adjuntar imagen"
           disabled={uploading}
           onClick={() => galleryInputRef.current?.click()}
-          data-test-id={`variant-photo-gallery-${scope.attributeId}`}
+          data-test-id={`${testId}-gallery`}
         />
       </div>
     </div>
@@ -299,6 +307,11 @@ export function VariantDetailPhotoSection({ variant, onPhotosChanged }: Props) {
     [variant, attributes],
   );
 
+  const usesProductFallback = scopes.length === 0 && Boolean(variant.productId?.trim());
+  const photoHint = usesProductFallback
+    ? "Esta variante no tiene atributos; las fotos se guardan en el producto general."
+    : "Tomá una foto o adjuntá una imagen para esta variante.";
+
   return (
     <section
       className="space-y-3"
@@ -307,33 +320,45 @@ export function VariantDetailPhotoSection({ variant, onPhotosChanged }: Props) {
     >
       <div>
         <h2 className="text-sm font-semibold text-foreground">Fotos</h2>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Tomá una foto o adjuntá una imagen para esta variante.
-        </p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{photoHint}</p>
       </div>
 
       {attrsLoading ? (
         <div className="flex justify-center py-6">
           <DotProgress />
         </div>
-      ) : scopes.length === 0 ? (
-        <Alert variant="error" className="text-sm">
-          Esta variante no tiene atributos con valor (ej. color o talla). Configurá atributos en
-          admin para poder subir fotos.
-        </Alert>
-      ) : (
+      ) : scopes.length > 0 ? (
         <div className="space-y-3">
           {scopes.map((scope) => (
-            <AttributePhotoBlock
+            <EntityPhotoBlock
               key={scope.attributeId}
-              scope={scope}
-              variantId={variant.variantId}
+              entityType="product-variant"
+              entityId={variant.variantId}
+              attributeId={scope.attributeId}
+              title={`${scope.attributeName}: ${scope.attributeValue}`}
+              subtitle="Fotos asociadas a este atributo de la variante."
+              testId={`variant-photo-attr-${scope.attributeId}`}
               accessToken={accessToken}
               activeCompanyId={activeCompanyId ?? undefined}
               onChanged={onPhotosChanged}
             />
           ))}
         </div>
+      ) : usesProductFallback ? (
+        <EntityPhotoBlock
+          entityType="product"
+          entityId={variant.productId!.trim()}
+          title={variant.productName}
+          subtitle="Fotos del producto (compartidas entre variantes sin atributos)."
+          testId="variant-photo-product"
+          accessToken={accessToken}
+          activeCompanyId={activeCompanyId ?? undefined}
+          onChanged={onPhotosChanged}
+        />
+      ) : (
+        <Alert variant="error" className="text-sm">
+          No se puede subir fotos: la variante no tiene atributos ni producto asociado.
+        </Alert>
       )}
     </section>
   );

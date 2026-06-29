@@ -113,6 +113,13 @@ export default function VariantDetailPage() {
           </div>
         </div>
 
+        <VariantDetailStockByStorageSection
+          variantId={variant.variantId}
+          sku={variant.sku}
+          reloadKey={stockReloadKey}
+          onStockChanged={() => void loadDetail(variant.variantId)}
+        />
+
         <VariantDetailPricingSection
           variant={variant}
           onPricingChanged={() => void loadDetail(variant.variantId)}
@@ -124,13 +131,6 @@ export default function VariantDetailPage() {
             void loadDetail(variant.variantId);
             setStockReloadKey((k) => k + 1);
           }}
-        />
-
-        <VariantDetailStockByStorageSection
-          variantId={variant.variantId}
-          sku={variant.sku}
-          reloadKey={stockReloadKey}
-          onStockChanged={() => void loadDetail(variant.variantId)}
         />
 
         <VariantDetailPhotoSection

@@ -158,11 +158,8 @@ export function VariantDetailStockConfigSection({ variant, onConfigChanged }: Pr
   };
 
   return (
-    <section
-      className={sectionClass(editing)}
-      data-test-id="variant-stock-config-section"
-    >
-      <div className="mb-3 flex items-center justify-between gap-2">
+    <section className="flex flex-col gap-3" data-test-id="variant-stock-config-section">
+      <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-foreground">Configuración de inventario</h2>
         <div className="flex items-center gap-1">
           {editing ? (
@@ -190,6 +187,7 @@ export function VariantDetailStockConfigSection({ variant, onConfigChanged }: Pr
 
       {error ? <Alert variant="error">{error}</Alert> : null}
 
+      <div className={sectionClass(editing)}>
       {!editing ? (
         <div className="grid gap-3 sm:grid-cols-2">
           <TextField
@@ -234,7 +232,7 @@ export function VariantDetailStockConfigSection({ variant, onConfigChanged }: Pr
           />
         </div>
       ) : (
-        <div className="flex flex-col gap-4 border-t border-border pt-3">
+        <div className="flex flex-col gap-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <Switch
               checked={trackInventory}
@@ -296,6 +294,7 @@ export function VariantDetailStockConfigSection({ variant, onConfigChanged }: Pr
         reloadKey={breakdownReloadKey}
         thresholdsDisabled={thresholdsDisabled}
       />
+      </div>
     </section>
   );
 }

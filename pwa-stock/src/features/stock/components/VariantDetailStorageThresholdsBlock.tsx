@@ -100,7 +100,7 @@ export function VariantDetailStorageThresholdsBlock({
 
   return (
     <div
-      className="flex flex-col gap-3 border-t border-border pt-4"
+      className="mt-4 flex flex-col gap-3"
       data-test-id="variant-stock-config-storages"
     >
       <div>

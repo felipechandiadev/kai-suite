@@ -8,30 +8,52 @@ import {
   normalizeMultimediaAsset,
 } from "../lib/multimedia-api";
 
+export type MultimediaEntityType = "product" | "product-variant";
+
 function attributeIdQueryParam(attributeId?: string | null): string {
   const aid = attributeId?.trim();
   return aid ? `?attributeId=${encodeURIComponent(aid)}` : "";
 }
 
-export async function listVariantMultimediaClient(input: {
-  variantId: string;
-  attributeId: string;
+function validateEntityInput(
+  entityType: MultimediaEntityType,
+  entityId: string,
+  attributeId?: string | null,
+): string | null {
+  const eid = entityId.trim();
+  if (!eid) {
+    return "Entidad no válida";
+  }
+  if (entityType === "product-variant" && !attributeId?.trim()) {
+    return "Variante o atributo no válido";
+  }
+  return null;
+}
+
+export async function listEntityMultimediaClient(input: {
+  entityType: MultimediaEntityType;
+  entityId: string;
+  attributeId?: string | null;
   accessToken?: string | null;
   activeCompanyId?: string | null;
 }): Promise<
   { success: true; assets: MultimediaAssetListItem[] } | { success: false; error: string }
 > {
-  const eid = input.variantId.trim();
-  const aid = input.attributeId.trim();
-  if (!eid || !aid) {
-    return { success: false, error: "Variante o atributo no válido" };
+  const validationError = validateEntityInput(
+    input.entityType,
+    input.entityId,
+    input.attributeId,
+  );
+  if (validationError) {
+    return { success: false, error: validationError };
   }
+  const eid = input.entityId.trim();
   try {
     const headers = multimediaAuthHeaders({
       accessToken: input.accessToken,
       activeCompanyId: input.activeCompanyId,
     });
-    const path = `multimedia/entities/product-variant/${encodeURIComponent(eid)}/assets${attributeIdQueryParam(aid)}`;
+    const path = `multimedia/entities/${encodeURIComponent(input.entityType)}/${encodeURIComponent(eid)}/assets${attributeIdQueryParam(input.attributeId)}`;
     const res = await fetch(multimediaApiUrl(path), {
       method: "GET",
       headers,
@@ -55,31 +77,39 @@ export async function listVariantMultimediaClient(input: {
   }
 }
 
-export async function uploadVariantMultimediaClient(input: {
+export async function uploadEntityMultimediaClient(input: {
   file: File;
-  variantId: string;
-  attributeId: string;
+  entityType: MultimediaEntityType;
+  entityId: string;
+  attributeId?: string | null;
   accessToken?: string | null;
   activeCompanyId?: string | null;
 }): Promise<
   { success: true; asset: MultimediaAssetListItem } | { success: false; error: string }
 > {
-  const eid = input.variantId.trim();
-  const aid = input.attributeId.trim();
-  if (!eid || !aid) {
-    return { success: false, error: "Variante o atributo no válido" };
+  const validationError = validateEntityInput(
+    input.entityType,
+    input.entityId,
+    input.attributeId,
+  );
+  if (validationError) {
+    return { success: false, error: validationError };
   }
   if (!(input.file instanceof File) || input.file.size === 0) {
     return { success: false, error: "Archivo no válido" };
   }
 
+  const eid = input.entityId.trim();
   const form = new FormData();
   form.append("file", input.file);
-  form.append("entityType", "product-variant");
+  form.append("entityType", input.entityType);
   form.append("entityId", eid);
   form.append("usageType", "default");
   form.append("isPrimary", "false");
-  form.append("attributeId", aid);
+  const aid = input.attributeId?.trim();
+  if (aid) {
+    form.append("attributeId", aid);
+  }
 
   try {
     const headers = multimediaAuthHeaders({
@@ -110,24 +140,35 @@ export async function uploadVariantMultimediaClient(input: {
   }
 }
 
-export async function unlinkVariantMultimediaClient(input: {
+export async function unlinkEntityMultimediaClient(input: {
   assetId: string;
-  variantId: string;
-  attributeId: string;
+  entityType: MultimediaEntityType;
+  entityId: string;
+  attributeId?: string | null;
   accessToken?: string | null;
   activeCompanyId?: string | null;
 }): Promise<{ success: true } | { success: false; error: string }> {
+  const validationError = validateEntityInput(
+    input.entityType,
+    input.entityId,
+    input.attributeId,
+  );
+  if (validationError) {
+    return { success: false, error: validationError };
+  }
   const aid = input.assetId.trim();
-  const eid = input.variantId.trim();
-  const attrId = input.attributeId.trim();
-  if (!aid || !eid || !attrId) {
+  const eid = input.entityId.trim();
+  if (!aid) {
     return { success: false, error: "Parámetros no válidos" };
   }
   const q = new URLSearchParams({
-    entityType: "product-variant",
+    entityType: input.entityType,
     entityId: eid,
-    attributeId: attrId,
   });
+  const attrId = input.attributeId?.trim();
+  if (attrId) {
+    q.set("attributeId", attrId);
+  }
   try {
     const headers = multimediaAuthHeaders({
       accessToken: input.accessToken,
