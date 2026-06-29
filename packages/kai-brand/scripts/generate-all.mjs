@@ -108,6 +108,7 @@ async function syncTauriIcons() {
 
   fs.copyFileSync(FAVICON, path.join(publicDir, "kai-printers.png"));
   fs.copyFileSync(LOGO_UI, path.join(publicDir, "kai-printers-mac-dock.png"));
+  fs.copyFileSync(LOGO_UI, path.join(publicDir, "logo.png"));
 
   const trayMac = await squarePng(TRAY_WHITE, TRAY_SIZE, { background: TRANSPARENT });
   fs.writeFileSync(path.join(publicDir, "KaiPrinters-mac-bar.png"), trayMac);

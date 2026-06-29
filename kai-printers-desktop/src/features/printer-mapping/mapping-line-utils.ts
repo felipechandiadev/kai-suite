@@ -34,7 +34,6 @@ export function mappingLinesEqual(a: MappingLineRow, b: MappingLineRow): boolean
     (a.displayLabel ?? "").trim() === (b.displayLabel ?? "").trim() &&
     a.autoCutEnabled !== false === (b.autoCutEnabled !== false) &&
     a.drawerOpenEnabled === true === (b.drawerOpenEnabled === true) &&
-    (a.ticketLogoPath ?? "").trim() === (b.ticketLogoPath ?? "").trim() &&
     a.ticketLogoEnabled === true === (b.ticketLogoEnabled === true) &&
     normalizePaperProfile(a.purpose, a.paperProfile) ===
       normalizePaperProfile(b.purpose, b.paperProfile)
@@ -63,7 +62,6 @@ export function lineToSavePayload(line: MappingLineRow, sortOrder: number): Reco
           ticketNetworkHost: network ? line.ticketNetworkHost?.trim() || null : null,
           ticketLogoEnabled: line.ticketLogoEnabled === true,
           drawerOpenEnabled: line.drawerOpenEnabled === true,
-          ...(line.ticketLogoPath?.trim() ? { ticketLogoPath: line.ticketLogoPath.trim() } : {}),
         }
       : {}),
   };

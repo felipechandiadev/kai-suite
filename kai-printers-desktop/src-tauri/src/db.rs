@@ -411,142 +411,118 @@ fn migrate_v8(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn non_empty_logo_path(raw: Option<String>) -> Option<String> {
-    raw.map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-}
-
-fn query_ticket_logo_path_by_label(
+fn query_ticket_logo_enabled_by_label(
     conn: &Connection,
     purpose: &str,
     display_label: &str,
-) -> Result<Option<String>> {
+) -> Result<Option<i32>> {
     let mut stmt = conn.prepare(
-        "SELECT ticket_logo_path FROM printer_mapping_lines
+        "SELECT ticket_logo_enabled FROM printer_mapping_lines
          WHERE purpose = ?1 AND lower(trim(display_label)) = lower(trim(?2))
-           AND ticket_logo_enabled != 0
          ORDER BY sort_order ASC, id ASC LIMIT 1",
     )?;
     let mut rows = stmt.query(params![purpose, display_label])?;
     if let Some(r) = rows.next()? {
-        return Ok(non_empty_logo_path(r.get(0)?));
+        return Ok(Some(r.get(0)?));
     }
     Ok(None)
 }
 
-fn query_ticket_logo_path_first_line(conn: &Connection, purpose: &str) -> Result<Option<String>> {
-    let mut stmt = conn.prepare(
-        "SELECT ticket_logo_path FROM printer_mapping_lines
-         WHERE purpose = ?1 AND ticket_logo_enabled != 0
-           AND ticket_logo_path IS NOT NULL AND trim(ticket_logo_path) != ''
-         ORDER BY sort_order ASC, id ASC LIMIT 1",
-    )?;
-    let mut rows = stmt.query(params![purpose])?;
-    if let Some(r) = rows.next()? {
-        return Ok(non_empty_logo_path(r.get(0)?));
-    }
-    Ok(None)
-}
-
-fn query_ticket_logo_path_by_printer(
-    conn: &Connection,
-    purpose: &str,
-    system_printer: &str,
-) -> Result<Option<String>> {
-    let mut stmt = conn.prepare(
-        "SELECT ticket_logo_path FROM printer_mapping_lines
-         WHERE purpose = ?1 AND trim(system_printer_name) = trim(?2)
-           AND ticket_logo_enabled != 0
-         ORDER BY sort_order ASC, id ASC LIMIT 1",
-    )?;
-    let mut rows = stmt.query(params![purpose, system_printer])?;
-    if let Some(r) = rows.next()? {
-        return Ok(non_empty_logo_path(r.get(0)?));
-    }
-    Ok(None)
-}
-
-fn query_ticket_logo_path_by_network_host(
+fn query_ticket_logo_enabled_by_network_host(
     conn: &Connection,
     purpose: &str,
     network_host: &str,
-) -> Result<Option<String>> {
+) -> Result<Option<i32>> {
     let mut stmt = conn.prepare(
-        "SELECT ticket_logo_path FROM printer_mapping_lines
-         WHERE purpose = ?1 AND trim(ticket_network_host) = trim(?2)
-           AND lower(trim(ticket_printer_type)) = 'network'
-           AND ticket_logo_enabled != 0
-         ORDER BY sort_order ASC, id ASC LIMIT 1",
-    )?;
-    let mut rows = stmt.query(params![purpose, network_host])?;
-    if let Some(r) = rows.next()? {
-        return Ok(non_empty_logo_path(r.get(0)?));
-    }
-    Ok(None)
-}
-
-fn query_ticket_logo_config_by_network_host(
-    conn: &Connection,
-    purpose: &str,
-    network_host: &str,
-) -> Result<Option<(i32, Option<String>)>> {
-    let mut stmt = conn.prepare(
-        "SELECT ticket_logo_enabled, ticket_logo_path FROM printer_mapping_lines
+        "SELECT ticket_logo_enabled FROM printer_mapping_lines
          WHERE purpose = ?1 AND trim(ticket_network_host) = trim(?2)
            AND lower(trim(ticket_printer_type)) = 'network'
          ORDER BY sort_order ASC, id ASC LIMIT 1",
     )?;
     let mut rows = stmt.query(params![purpose, network_host])?;
     if let Some(r) = rows.next()? {
-        return Ok(Some((r.get(0)?, r.get(1)?)));
+        return Ok(Some(r.get(0)?));
     }
     Ok(None)
 }
 
-fn query_ticket_logo_config_by_system_printer(
+fn query_ticket_logo_enabled_by_system_printer(
     conn: &Connection,
     purpose: &str,
     system_printer: &str,
-) -> Result<Option<(i32, Option<String>)>> {
+) -> Result<Option<i32>> {
     let mut stmt = conn.prepare(
-        "SELECT ticket_logo_enabled, ticket_logo_path FROM printer_mapping_lines
+        "SELECT ticket_logo_enabled FROM printer_mapping_lines
          WHERE purpose = ?1 AND trim(system_printer_name) = trim(?2)
          ORDER BY sort_order ASC, id ASC LIMIT 1",
     )?;
     let mut rows = stmt.query(params![purpose, system_printer])?;
     if let Some(r) = rows.next()? {
-        return Ok(Some((r.get(0)?, r.get(1)?)));
+        return Ok(Some(r.get(0)?));
     }
     Ok(None)
 }
 
-fn query_ticket_logo_config_by_label(
-    conn: &Connection,
-    purpose: &str,
-    display_label: &str,
-) -> Result<Option<(i32, Option<String>)>> {
-    let mut stmt = conn.prepare(
-        "SELECT ticket_logo_enabled, ticket_logo_path FROM printer_mapping_lines
-         WHERE purpose = ?1 AND lower(trim(display_label)) = lower(trim(?2))
-         ORDER BY sort_order ASC, id ASC LIMIT 1",
-    )?;
-    let mut rows = stmt.query(params![purpose, display_label])?;
-    if let Some(r) = rows.next()? {
-        return Ok(Some((r.get(0)?, r.get(1)?)));
-    }
-    Ok(None)
-}
-
-fn logo_action_from_row(enabled: i32, path: Option<String>) -> crate::ticket_logos::MappingLogoAction {
+fn logo_action_from_enabled(
+    enabled: i32,
+    has_global_logo: bool,
+) -> crate::ticket_logos::MappingLogoAction {
     if enabled == 0 {
         return crate::ticket_logos::MappingLogoAction::Suppress;
     }
-    if let Some(rel) = non_empty_logo_path(path) {
-        return crate::ticket_logos::MappingLogoAction::Apply(rel);
+    if has_global_logo {
+        crate::ticket_logos::MappingLogoAction::ApplyGlobal
+    } else {
+        crate::ticket_logos::MappingLogoAction::ApplyKaiDefault
     }
-    crate::ticket_logos::MappingLogoAction::LeaveTicketAsIs
 }
 
+/// Logo global único + quitar `ticket_logo_path` por línea.
+fn migrate_v12(conn: &Connection, data_dir: &std::path::Path) -> Result<()> {
+    let cols: Vec<String> = conn
+        .prepare("PRAGMA table_info(printer_mapping_lines)")?
+        .query_map([], |r| r.get::<_, String>(1))?
+        .collect::<Result<Vec<_>, _>>()?;
+    if !cols.iter().any(|c| c == "ticket_logo_path") {
+        return Ok(());
+    }
+
+    crate::ticket_logos::consolidate_per_line_logos_to_global(data_dir, conn)?;
+
+    conn.execute_batch(
+        r#"
+CREATE TABLE printer_mapping_lines_v12 (
+  id TEXT PRIMARY KEY,
+  purpose TEXT NOT NULL,
+  system_printer_name TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  display_label TEXT,
+  auto_cut_enabled INTEGER NOT NULL DEFAULT 1,
+  ticket_escpos_enabled INTEGER NOT NULL DEFAULT 0,
+  ticket_logo_enabled INTEGER NOT NULL DEFAULT 0,
+  ticket_printer_type TEXT NOT NULL DEFAULT 'system',
+  ticket_network_host TEXT,
+  drawer_open_enabled INTEGER NOT NULL DEFAULT 0,
+  paper_profile TEXT NOT NULL DEFAULT '80mm'
+);
+INSERT INTO printer_mapping_lines_v12(
+  id, purpose, system_printer_name, sort_order, display_label,
+  auto_cut_enabled, ticket_escpos_enabled, ticket_logo_enabled,
+  ticket_printer_type, ticket_network_host, drawer_open_enabled, paper_profile
+)
+SELECT
+  id, purpose, system_printer_name, sort_order, display_label,
+  auto_cut_enabled, ticket_escpos_enabled, ticket_logo_enabled,
+  COALESCE(ticket_printer_type, 'system'), ticket_network_host,
+  COALESCE(drawer_open_enabled, 0), COALESCE(paper_profile, '80mm')
+FROM printer_mapping_lines;
+DROP TABLE printer_mapping_lines;
+ALTER TABLE printer_mapping_lines_v12 RENAME TO printer_mapping_lines;
+CREATE INDEX IF NOT EXISTS idx_mapping_lines_purpose_sort ON printer_mapping_lines(purpose, sort_order);
+"#,
+    )?;
+    Ok(())
+}
 
 fn migrate_v11(conn: &Connection) -> Result<()> {
     let mapping_cols: Vec<String> = conn
@@ -622,9 +598,30 @@ impl Db {
         migrate_v9(&conn).context("migrate_v9")?;
         migrate_v10(&conn).context("migrate_v10")?;
         migrate_v11(&conn).context("migrate_v11")?;
+        migrate_v12(&conn, dir.as_path()).context("migrate_v12")?;
         Ok(Self {
             inner: Arc::new(Mutex::new(conn)),
         })
+    }
+
+    pub fn global_ticket_logo_path(&self) -> Result<Option<String>> {
+        Ok(self
+            .get_setting(crate::ticket_logos::GLOBAL_LOGO_SETTING_KEY)?
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty()))
+    }
+
+    pub fn set_global_ticket_logo_path(&self, rel_path: &str) -> Result<()> {
+        self.set_setting(crate::ticket_logos::GLOBAL_LOGO_SETTING_KEY, rel_path)
+    }
+
+    pub fn clear_global_ticket_logo_path(&self) -> Result<()> {
+        let c = self.inner.lock();
+        c.execute(
+            "DELETE FROM settings WHERE key = ?1",
+            params![crate::ticket_logos::GLOBAL_LOGO_SETTING_KEY],
+        )?;
+        Ok(())
     }
 
     pub fn get_setting(&self, key: &str) -> Result<Option<String>> {
@@ -935,7 +932,7 @@ impl Db {
         Ok(names)
     }
 
-    /// Logo de la línea de mapeo que imprimirá (alias o primera línea / red / SO).
+    /// Logo según switch de la línea que imprimirá y logo global del agente.
     pub fn ticket_logo_action_for_enqueue(
         &self,
         purpose: &str,
@@ -944,10 +941,28 @@ impl Db {
         if purpose != "tickets" {
             return Ok(crate::ticket_logos::MappingLogoAction::LeaveTicketAsIs);
         }
+        let enabled = self.ticket_logo_enabled_for_enqueue(purpose, display_label)?;
+        if !enabled {
+            return Ok(crate::ticket_logos::MappingLogoAction::Suppress);
+        }
+        let has_global = self
+            .global_ticket_logo_path()?
+            .is_some();
+        Ok(logo_action_from_enabled(1, has_global))
+    }
+
+    pub fn ticket_logo_enabled_for_enqueue(
+        &self,
+        purpose: &str,
+        display_label: Option<&str>,
+    ) -> Result<bool> {
+        if purpose != "tickets" {
+            return Ok(false);
+        }
         let c = self.inner.lock();
         if let Some(lbl) = display_label.map(str::trim).filter(|s| !s.is_empty()) {
-            if let Some((en, path)) = query_ticket_logo_config_by_label(&c, purpose, lbl)? {
-                return Ok(logo_action_from_row(en, path));
+            if let Some(en) = query_ticket_logo_enabled_by_label(&c, purpose, lbl)? {
+                return Ok(en != 0);
             }
         }
         drop(c);
@@ -959,8 +974,8 @@ impl Db {
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
             {
-                if let Some((en, path)) = query_ticket_logo_config_by_network_host(&c, purpose, host)? {
-                    return Ok(logo_action_from_row(en, path));
+                if let Some(en) = query_ticket_logo_enabled_by_network_host(&c, purpose, host)? {
+                    return Ok(en != 0);
                 }
             }
             if let Some(pr) = target
@@ -969,43 +984,28 @@ impl Db {
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
             {
-                if let Some((en, path)) = query_ticket_logo_config_by_system_printer(&c, purpose, pr)? {
-                    return Ok(logo_action_from_row(en, path));
+                if let Some(en) = query_ticket_logo_enabled_by_system_printer(&c, purpose, pr)? {
+                    return Ok(en != 0);
                 }
             }
         }
-        Ok(crate::ticket_logos::MappingLogoAction::LeaveTicketAsIs)
-    }
-
-    /// Ruta relativa del logo configurado en la línea que imprimirá el ticket.
-    pub fn ticket_logo_rel_path_for_enqueue(
-        &self,
-        purpose: &str,
-        display_label: Option<&str>,
-        system_printer: Option<&str>,
-    ) -> Result<Option<String>> {
-        let _ = system_printer;
-        match self.ticket_logo_action_for_enqueue(purpose, display_label)? {
-            crate::ticket_logos::MappingLogoAction::Apply(rel) => Ok(Some(rel)),
-            _ => Ok(None),
-        }
+        Ok(false)
     }
 
     pub fn list_mapping_lines(&self) -> Result<Vec<serde_json::Value>> {
         let c = self.inner.lock();
         let mut stmt = c.prepare(
-            "SELECT id, purpose, system_printer_name, sort_order, display_label, auto_cut_enabled, ticket_escpos_enabled, ticket_logo_path, ticket_logo_enabled, ticket_printer_type, ticket_network_host, drawer_open_enabled, paper_profile
+            "SELECT id, purpose, system_printer_name, sort_order, display_label, auto_cut_enabled, ticket_escpos_enabled, ticket_logo_enabled, ticket_printer_type, ticket_network_host, drawer_open_enabled, paper_profile
              FROM printer_mapping_lines ORDER BY purpose, sort_order ASC, id ASC",
         )?;
         let rows = stmt.query_map([], |r| {
             let auto_cut: i32 = r.get(5)?;
             let ticket_escpos: i32 = r.get(6)?;
-            let ticket_logo_path: Option<String> = r.get(7)?;
-            let ticket_logo_enabled: i32 = r.get(8)?;
-            let ticket_printer_type: String = r.get(9)?;
-            let ticket_network_host: Option<String> = r.get(10)?;
-            let drawer_open: i32 = r.get(11)?;
-            let paper_profile: String = r.get(12)?;
+            let ticket_logo_enabled: i32 = r.get(7)?;
+            let ticket_printer_type: String = r.get(8)?;
+            let ticket_network_host: Option<String> = r.get(9)?;
+            let drawer_open: i32 = r.get(10)?;
+            let paper_profile: String = r.get(11)?;
             let system_printer_name: Option<String> = r.get(2)?;
             Ok(serde_json::json!({
                 "id": r.get::<_, String>(0)?,
@@ -1015,7 +1015,6 @@ impl Db {
                 "displayLabel": r.get::<_, Option<String>>(4)?,
                 "autoCutEnabled": auto_cut != 0,
                 "ticketEscposEnabled": ticket_escpos != 0,
-                "ticketLogoPath": ticket_logo_path.filter(|s| !s.trim().is_empty()),
                 "ticketLogoEnabled": ticket_logo_enabled != 0,
                 "ticketPrinterType": ticket_printer_type,
                 "ticketNetworkHost": ticket_network_host.filter(|s| !s.trim().is_empty()),
@@ -1267,14 +1266,6 @@ impl Db {
             0
         };
         let ticket_escpos: i32 = if json_ticket_escpos_enabled(row) { 1 } else { 0 };
-        let ticket_logo_path = if purpose == "tickets" {
-            row.get("ticketLogoPath")
-                .and_then(|v| v.as_str())
-                .map(str::trim)
-                .filter(|s| !s.is_empty())
-        } else {
-            None
-        };
         let ticket_logo_enabled: i32 = if purpose == "tickets" && json_ticket_logo_enabled(row) {
             1
         } else {
@@ -1282,8 +1273,8 @@ impl Db {
         };
         let c = self.inner.lock();
         c.execute(
-            "INSERT INTO printer_mapping_lines(id, purpose, system_printer_name, sort_order, display_label, auto_cut_enabled, ticket_escpos_enabled, ticket_logo_path, ticket_logo_enabled, ticket_printer_type, ticket_network_host, drawer_open_enabled, paper_profile)
-             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+            "INSERT INTO printer_mapping_lines(id, purpose, system_printer_name, sort_order, display_label, auto_cut_enabled, ticket_escpos_enabled, ticket_logo_enabled, ticket_printer_type, ticket_network_host, drawer_open_enabled, paper_profile)
+             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
              ON CONFLICT(id) DO UPDATE SET
                purpose = excluded.purpose,
                system_printer_name = excluded.system_printer_name,
@@ -1291,7 +1282,6 @@ impl Db {
                display_label = excluded.display_label,
                auto_cut_enabled = excluded.auto_cut_enabled,
                ticket_escpos_enabled = excluded.ticket_escpos_enabled,
-               ticket_logo_path = excluded.ticket_logo_path,
                ticket_logo_enabled = excluded.ticket_logo_enabled,
                ticket_printer_type = excluded.ticket_printer_type,
                ticket_network_host = excluded.ticket_network_host,
@@ -1305,7 +1295,6 @@ impl Db {
                 display_label,
                 auto_cut,
                 ticket_escpos,
-                ticket_logo_path,
                 ticket_logo_enabled,
                 ticket_printer_type,
                 ticket_network_host,
@@ -1400,22 +1389,14 @@ impl Db {
                 0
             };
             let ticket_escpos: i32 = if json_ticket_escpos_enabled(row) { 1 } else { 0 };
-            let ticket_logo_path = if purpose == "tickets" {
-                row.get("ticketLogoPath")
-                    .and_then(|v| v.as_str())
-                    .map(str::trim)
-                    .filter(|s| !s.is_empty())
-            } else {
-                None
-            };
             let ticket_logo_enabled: i32 = if purpose == "tickets" && json_ticket_logo_enabled(row) {
                 1
             } else {
                 0
             };
             tx.execute(
-                "INSERT INTO printer_mapping_lines(id, purpose, system_printer_name, sort_order, display_label, auto_cut_enabled, ticket_escpos_enabled, ticket_logo_path, ticket_logo_enabled, ticket_printer_type, ticket_network_host, drawer_open_enabled, paper_profile)
-                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                "INSERT INTO printer_mapping_lines(id, purpose, system_printer_name, sort_order, display_label, auto_cut_enabled, ticket_escpos_enabled, ticket_logo_enabled, ticket_printer_type, ticket_network_host, drawer_open_enabled, paper_profile)
+                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
                 params![
                     id,
                     purpose,
@@ -1424,7 +1405,6 @@ impl Db {
                     display_label,
                     auto_cut,
                     ticket_escpos,
-                    ticket_logo_path,
                     ticket_logo_enabled,
                     ticket_printer_type,
                     ticket_network_host,

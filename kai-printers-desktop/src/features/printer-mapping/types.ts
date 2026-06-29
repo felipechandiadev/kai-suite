@@ -19,8 +19,6 @@ export type MappingLineRow = {
   autoCutEnabled?: boolean;
   /** Solo tickets: pulso ESC p para abrir gaveta tras el ticket (después del corte si aplica). */
   drawerOpenEnabled?: boolean;
-  ticketLogoPath?: string;
-  ticketLogoDisplayName?: string;
   ticketLogoEnabled?: boolean;
   /** Perfil de papel: 58mm | 80mm (tickets) o letter | a4 (documents). */
   paperProfile?: string;

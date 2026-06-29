@@ -5,7 +5,7 @@
  *   - kai-printers.png           → Windows/Linux app (.ico, PNGs bundle)
  *   - kai-printers-mac-dock.png  → macOS Dock / .icns (logo completo ola + KAI)
  *   - KaiPrinters-mac-bar.png    → Barra de menú macOS (tray blanco)
- *   - logo.png                   → UI (footer); no se sobrescribe
+ *   - logo.png                   → UI footer (logo completo ola + KAI; se actualiza desde brand)
  *
  * Salidas tray:
  *   - tray-icon-mac.png  → macOS (silueta blanca)
@@ -92,19 +92,19 @@ async function buildTrayDefaultIcon() {
   console.log(`Tray Windows/Linux: src-tauri/icons/tray-icon.png (${TRAY_SIZE}×${TRAY_SIZE})`);
 }
 
-/** Favicons web (dev); recorte + zoom como en PWA. */
+/** Favicons web (dev); recorte + zona segura como en PWA. */
 async function buildWebFavicons() {
   const trimmed = await sharp(appIconSource).trim({ threshold: 12 }).png().toBuffer();
   const fav32 = async (size) => {
-    const zoom = Math.round(size * 1.06);
-    return sharp(trimmed)
-      .resize(zoom, zoom, { fit: "cover", position: "centre" })
-      .extract({
-        left: Math.floor((zoom - size) / 2),
-        top: Math.floor((zoom - size) / 2),
-        width: size,
-        height: size,
-      })
+    const inner = Math.max(1, Math.round(size * 0.84));
+    const logo = await sharp(trimmed)
+      .resize(inner, inner, { fit: "contain", position: "center", background: TRANSPARENT })
+      .png()
+      .toBuffer();
+    return sharp({
+      create: { width: size, height: size, channels: 4, background: TRANSPARENT },
+    })
+      .composite([{ input: logo, gravity: "center" }])
       .png()
       .toBuffer();
   };
@@ -152,9 +152,9 @@ requireFile(appIconSource, "icono app Windows/Linux (kai-favicon)");
 requireFile(macDockSource, "icono macOS Dock (kai-logo)");
 requireFile(trayMacSource, "icono barra macOS (tray blanco)");
 if (!fs.existsSync(uiLogo)) {
-  console.warn("Aviso: no hay public/logo.png para el footer de la UI.");
+  console.warn("Aviso: no hay public/logo.png para el footer de la UI (corré npm run brand:icons).");
 } else {
-  console.log("UI footer: public/logo.png (sin cambios)");
+  console.log("UI footer: public/logo.png");
 }
 
 await buildSquareFromAppIcon();

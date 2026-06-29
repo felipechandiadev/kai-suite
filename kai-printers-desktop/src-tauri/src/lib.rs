@@ -304,6 +304,16 @@ fn get_dashboard(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json::V
         "wsListening": state.ws_listener_running(),
         "wssListening": state.wss_listener_running(),
         "agentDisplayName": agent_display_name,
+        "globalTicketLogoPath": state.db.global_ticket_logo_path().map_err(|e| e.to_string())?,
+        "globalTicketLogoDisplayName": state
+            .db
+            .global_ticket_logo_path()
+            .ok()
+            .flatten()
+            .map(|p| {
+                let t = p.replace('\\', "/");
+                t.rsplit('/').next().unwrap_or(&t).to_string()
+            }),
         "agentLogs": state.agent_log.list(),
         "hostPlatform": platform::host_platform(),
         "sumatra": platform::sumatra_status(),
@@ -710,14 +720,18 @@ fn queue_escpos_qa_print(
     purpose: Option<String>,
     include_logo: Option<bool>,
     include_cut: Option<bool>,
-    ticket_logo_path: Option<String>,
 ) -> Result<String, String> {
     let purpose = purpose
         .as_deref()
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .unwrap_or("tickets");
-    let _ = (include_logo, ticket_logo_path);
+    let include_logo = include_logo.unwrap_or(false);
+    let logo_base64 = if include_logo {
+        ticket_logos::global_logo_base64_or_none(&state.data_dir, &state.db)
+    } else {
+        None
+    };
     if purpose != "tickets" {
         return Err(
             "La prueba ESC/POS QA solo aplica a líneas con propósito «Tickets».".to_string(),
@@ -754,10 +768,19 @@ fn queue_escpos_qa_print(
         &agent_label,
         &printer_label,
         include_cut,
+        include_logo,
+        logo_base64.as_deref(),
     )
     .map_err(|e| e.to_string())?;
+    let logo_note = if !include_logo {
+        "sin logo"
+    } else if logo_base64.is_some() {
+        "logo global"
+    } else {
+        "logo Kai"
+    };
     state.agent_log.push_info(format!(
-        "QA ESC/POS encolada: {bytes} bytes → {printer_label} (logo Kai, corte={include_cut})"
+        "QA ESC/POS encolada: {bytes} bytes → {printer_label} ({logo_note}, corte={include_cut})"
     ));
     let document_type = if include_cut {
         "test_escpos_qa"
@@ -871,20 +894,15 @@ fn cancel_all_print_jobs(state: tauri::State<'_, Arc<AppState>>) -> Result<(), S
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-struct TicketLogoPickResult {
+struct GlobalTicketLogoPickResult {
     ticket_logo_path: String,
     display_name: String,
 }
 
 #[tauri::command(rename_all = "camelCase")]
-async fn pick_and_store_ticket_logo(
+async fn pick_and_store_global_ticket_logo(
     state: tauri::State<'_, Arc<AppState>>,
-    line_id: String,
-) -> Result<TicketLogoPickResult, String> {
-    let line_id = line_id.trim().to_string();
-    if line_id.is_empty() {
-        return Err("line_id_required".into());
-    }
+) -> Result<GlobalTicketLogoPickResult, String> {
     let picked = tauri::async_runtime::spawn_blocking(|| {
         rfd::FileDialog::new()
             .add_filter("Imagen PNG/JPEG", &["png", "jpg", "jpeg"])
@@ -901,31 +919,31 @@ async fn pick_and_store_ticket_logo(
         .to_string();
 
     let data_dir = state.data_dir.clone();
-    let line_id_copy = line_id.clone();
     let rel = tauri::async_runtime::spawn_blocking(move || {
-        ticket_logos::import_logo(&data_dir, &line_id_copy, &picked)
+        ticket_logos::import_global_logo(&data_dir, &picked)
     })
     .await
     .map_err(|e| e.to_string())?
     .map_err(|e| e.to_string())?;
 
-    Ok(TicketLogoPickResult {
+    state
+        .db
+        .set_global_ticket_logo_path(&rel)
+        .map_err(|e| e.to_string())?;
+
+    Ok(GlobalTicketLogoPickResult {
         ticket_logo_path: rel,
         display_name,
     })
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn clear_ticket_logo(
-    state: tauri::State<'_, Arc<AppState>>,
-    line_id: String,
-    ticket_logo_path: Option<String>,
-) -> Result<(), String> {
-    if let Some(ref p) = ticket_logo_path {
-        ticket_logos::delete_logo_file(&state.data_dir, p);
-    } else {
-        ticket_logos::delete_logos_for_line(&state.data_dir, line_id.trim());
-    }
+fn clear_global_ticket_logo(state: tauri::State<'_, Arc<AppState>>) -> Result<(), String> {
+    ticket_logos::clear_global_logo_files(&state.data_dir);
+    state
+        .db
+        .clear_global_ticket_logo_path()
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -934,14 +952,10 @@ fn set_mapping_lines(
     state: tauri::State<'_, Arc<AppState>>,
     lines: Vec<serde_json::Value>,
 ) -> Result<(), String> {
-    let old_lines = state.db.list_mapping_lines().unwrap_or_default();
     state
         .db
         .replace_all_mapping_lines(&lines)
         .map_err(|e| e.to_string())?;
-    if let Err(e) = ticket_logos::cleanup_orphaned_after_save(&state.data_dir, &old_lines, &lines) {
-        tracing::warn!(err = %e, "ticket logo cleanup");
-    }
     notify_printer_health_and_config(&state);
     Ok(())
 }
@@ -968,23 +982,11 @@ fn delete_mapping_line(
     if id.is_empty() {
         return Err("line_id_required".into());
     }
-    let old_lines = state.db.list_mapping_lines().unwrap_or_default();
     let removed = state
         .db
         .delete_mapping_line(id)
         .map_err(|e| e.to_string())?;
     if removed {
-        let old_lines_copy = old_lines.clone();
-        let new_lines: Vec<serde_json::Value> = old_lines
-            .into_iter()
-            .filter(|l| l.get("id").and_then(|v| v.as_str()) != Some(id))
-            .collect();
-        if let Err(e) =
-            ticket_logos::cleanup_orphaned_after_save(&state.data_dir, &old_lines_copy, &new_lines)
-        {
-            tracing::warn!(err = %e, "ticket logo cleanup");
-        }
-        ticket_logos::delete_logos_for_line(&state.data_dir, id);
         notify_printer_health_and_config(&state);
     }
     Ok(removed)
@@ -1151,8 +1153,8 @@ pub fn run() {
             get_metrics,
             get_dashboard,
             set_printer_mapping,
-            pick_and_store_ticket_logo,
-            clear_ticket_logo,
+            pick_and_store_global_ticket_logo,
+            clear_global_ticket_logo,
             set_mapping_lines,
             upsert_mapping_line,
             delete_mapping_line,

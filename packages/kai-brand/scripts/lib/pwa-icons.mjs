@@ -5,6 +5,9 @@ import sharp from "sharp";
 const WHITE = { r: 255, g: 255, b: 255, alpha: 1 };
 const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
 
+/** Proporción del icono dentro del lienzo (zona segura típica de pestaña 16×16 / 32×32). */
+const FAVICON_INNER_RATIO = 0.84;
+
 export async function squarePng(source, size, { background = WHITE } = {}) {
   return sharp(source)
     .resize(size, size, { fit: "contain", position: "center", background })
@@ -13,19 +16,19 @@ export async function squarePng(source, size, { background = WHITE } = {}) {
 }
 
 /**
- * Favicon de pestaña: recorta márgenes y escala ~6 % más que `contain` puro.
+ * Favicon de pestaña: recorta márgenes y escala con `contain` en zona segura (~84 %).
  */
 export async function faviconPng(source, size) {
   const trimmed = await sharp(source).trim({ threshold: 12 }).png().toBuffer();
-  const zoom = Math.round(size * 1.06);
-  return sharp(trimmed)
-    .resize(zoom, zoom, { fit: "cover", position: "centre" })
-    .extract({
-      left: Math.floor((zoom - size) / 2),
-      top: Math.floor((zoom - size) / 2),
-      width: size,
-      height: size,
-    })
+  const inner = Math.max(1, Math.round(size * FAVICON_INNER_RATIO));
+  const logo = await sharp(trimmed)
+    .resize(inner, inner, { fit: "contain", position: "center", background: TRANSPARENT })
+    .png()
+    .toBuffer();
+  return sharp({
+    create: { width: size, height: size, channels: 4, background: TRANSPARENT },
+  })
+    .composite([{ input: logo, gravity: "center" }])
     .png({ compressionLevel: 9 })
     .toBuffer();
 }

@@ -461,17 +461,26 @@ pub fn write_test_print_pdf(dir: &PathBuf, purpose: &str, agent_label: &str) -> 
     write_test_print_path(dir, purpose, agent_label, false)
 }
 
-/// Hoja QA ESC/POS (RAW). Logo Kai embebido; corte según flag al encolar.
+/// Hoja QA ESC/POS (RAW). Logo según flags; corte según flag al encolar.
 pub fn write_escpos_qa_path(
     dir: &PathBuf,
     agent_label: &str,
     system_printer: &str,
     include_cut: bool,
+    include_logo: bool,
+    logo_base64: Option<&str>,
 ) -> Result<(PathBuf, usize)> {
     std::fs::create_dir_all(dir)?;
     let id = uuid::Uuid::new_v4().to_string();
     let p = dir.join(format!("escpos_qa_{id}.escpos"));
-    let bytes = escpos_qa::write_escpos_qa_file(&p, agent_label, system_printer, include_cut)?;
+    let bytes = escpos_qa::write_escpos_qa_file(
+        &p,
+        agent_label,
+        system_printer,
+        include_cut,
+        include_logo,
+        logo_base64,
+    )?;
     Ok((p, bytes))
 }
 

@@ -1,6 +1,5 @@
 import IconButton from "../../shared/components/IconButton/IconButton";
 import InlineSwitchField from "../../shared/components/InlineSwitchField";
-import Switch from "../../shared/components/Switch";
 import { Select } from "../../shared/components/Select";
 import SharedTextField from "../../shared/components/TextField/TextField";
 import { PrinterStatusDot } from "./PrinterStatusDot";
@@ -44,9 +43,6 @@ type Props = {
   onDrawerTest?: () => void;
   onNetworkProbe?: () => void;
   networkProbeBusy?: boolean;
-  onPickLogo: () => void;
-  onClearLogo: () => void;
-  logoBasename: (path: string | undefined) => string;
 };
 
 export function PrinterMappingLineCard({
@@ -65,9 +61,6 @@ export function PrinterMappingLineCard({
   drawerTestBusy = false,
   onNetworkProbe,
   networkProbeBusy = false,
-  onPickLogo,
-  onClearLogo,
-  logoBasename,
   saveBusy,
   printBusy,
   cutBusy,
@@ -258,55 +251,11 @@ export function PrinterMappingLineCard({
             />
           ) : null}
           {isTickets ? (
-            <SharedTextField
-              label="Logo"
-              name={`logo-${line.id}`}
-              type="text"
-              density="compact"
-              labelLayout="inline"
-              readOnly
-              disabled={line.ticketLogoEnabled !== true}
-              placeholder={line.ticketLogoEnabled === true ? "Sin logo (PNG/JPG)" : "Desactivado"}
-              value={line.ticketLogoDisplayName ?? logoBasename(line.ticketLogoPath) ?? ""}
-              onChange={() => {}}
-              inlineLeadingAdornment={
-                <span className="inline-flex items-center" aria-label="Usar logo en tickets de esta línea">
-                  <Switch
-                    density="compact"
-                    checked={line.ticketLogoEnabled === true}
-                    onChange={(enabled) => onChange({ ticketLogoEnabled: enabled })}
-                    data-test-id={`line-ticket-logo-enabled-${line.id}`}
-                  />
-                </span>
-              }
-              endAdornment={
-                <>
-                  {line.ticketLogoPath ? (
-                    <IconButton
-                      icon="X"
-                      variant="basicSecondary"
-                      size="xs"
-                      className="min-h-5 min-w-5 p-0"
-                      ariaLabel="Quitar logo"
-                      title="Quitar logo"
-                      tabIndex={-1}
-                      disabled={line.ticketLogoEnabled !== true}
-                      onClick={onClearLogo}
-                    />
-                  ) : null}
-                  <IconButton
-                    icon="FolderOpen"
-                    variant="basicSecondary"
-                    size="xs"
-                    className="min-h-5 min-w-5 p-0"
-                    ariaLabel="Seleccionar imagen de logo"
-                    title="Seleccionar PNG o JPG"
-                    tabIndex={-1}
-                    disabled={line.ticketLogoEnabled !== true}
-                    onClick={onPickLogo}
-                  />
-                </>
-              }
+            <InlineSwitchField
+              label="Imprimir logo"
+              checked={line.ticketLogoEnabled === true}
+              onChange={(enabled) => onChange({ ticketLogoEnabled: enabled })}
+              data-test-id={`line-ticket-logo-enabled-${line.id}`}
             />
           ) : null}
           {isTickets && ticketNetwork ? (

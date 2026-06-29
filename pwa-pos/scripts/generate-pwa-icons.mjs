@@ -37,10 +37,18 @@ async function rasterContain(source, size) {
     .toBuffer();
 }
 
-/** Favicon: arte cuadrado (fav.png); cover evita bandas blancas en tamaños chicos. */
+/** Favicon: arte cuadrado; zona segura ~84 % para pestaña del navegador. */
 async function rasterFavicon(source, size) {
-  return sharp(source)
-    .resize(size, size, { fit: "cover", position: "center" })
+  const trimmed = await sharp(source).trim({ threshold: 12 }).png().toBuffer();
+  const inner = Math.max(1, Math.round(size * 0.84));
+  const logo = await sharp(trimmed)
+    .resize(inner, inner, { fit: "contain", position: "center", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toBuffer();
+  return sharp({
+    create: { width: size, height: size, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  })
+    .composite([{ input: logo, gravity: "center" }])
     .png({ compressionLevel: 9 })
     .toBuffer();
 }

@@ -25,7 +25,7 @@ import type {
 
 const APP_NAME = "KaiPrinters";
 const DEFAULT_AGENT_DISPLAY_NAME = APP_NAME;
-const APP_COPYRIGHT = "Felipe Chandía Castillo © 2026";
+const APP_COPYRIGHT = "Kai © 2026";
 
 function normalizeAgentDisplayName(raw: string | undefined): string {
   const t = (raw ?? "").trim();
@@ -101,6 +101,8 @@ type DashboardPayload = {
     sessions?: ConnectedSession[];
   };
   metrics?: { jobsCompletedTotal?: number };
+  globalTicketLogoPath?: string;
+  globalTicketLogoDisplayName?: string;
 };
 
 function escapeHtml(s: string) {
@@ -164,8 +166,6 @@ function mapDashboardLines(rows: DashboardPayload["mappingLines"]): MappingLineR
       ticketNetworkHost,
       autoCutEnabled: row?.autoCutEnabled !== false,
       drawerOpenEnabled: row?.drawerOpenEnabled === true,
-      ticketLogoPath: row?.ticketLogoPath ? String(row.ticketLogoPath) : undefined,
-      ticketLogoDisplayName: row?.ticketLogoPath ? logoBasename(String(row.ticketLogoPath)) : undefined,
       ticketLogoEnabled: row?.ticketLogoEnabled === true,
       paperProfile: normalizePaperProfile(
         purpose,
@@ -237,6 +237,7 @@ export default function App() {
   /** Solo mostramos acciones en la fila del summary cuando el `<details>` está expandido */
   const [configDetailsOpen, setConfigDetailsOpen] = useState(false);
   const [printersDetailsOpen, setPrintersDetailsOpen] = useState(false);
+  const [globalLogoBusy, setGlobalLogoBusy] = useState(false);
 
   const applyDashboardFull = useCallback((d: DashboardPayload) => {
     setDashboard(d);
@@ -322,6 +323,12 @@ export default function App() {
   const printers = dashboard?.printers ?? [];
   const mappingLineHealth = mapHealthLines(dashboard?.printerHealth?.lines);
   const jobs = dashboard?.jobs ?? [];
+  const globalTicketLogoPath = dashboard?.globalTicketLogoPath;
+  const globalTicketLogoDisplayName =
+    dashboard?.globalTicketLogoDisplayName ?? logoBasename(globalTicketLogoPath);
+  const anyTicketLogoEnabled = localLines.some(
+    (l) => l.purpose === "tickets" && l.ticketLogoEnabled === true,
+  );
   const sessions = dashboard?.serviceStatus?.sessions ?? [];
   const isWindows = dashboard?.hostPlatform === "windows";
   const sumatra = dashboard?.sumatra;
@@ -640,15 +647,13 @@ export default function App() {
     }
     setEscposQaBusyId(line.id);
     try {
-      const includeLogo =
-        line.ticketLogoEnabled === true && Boolean(line.ticketLogoPath?.trim());
+      const includeLogo = line.ticketLogoEnabled === true;
       await invoke("queue_escpos_qa_print", {
         systemPrinterName: network ? null : printer,
         ticketNetworkHost: network ? networkHost : null,
         purpose: line.purpose,
         includeLogo,
         includeCut: line.autoCutEnabled !== false,
-        ticketLogoPath: includeLogo ? line.ticketLogoPath : null,
       });
       await fetchDashboard("live");
       window.alert(
@@ -669,47 +674,48 @@ export default function App() {
     }
   }
 
-  async function handlePickTicketLogo(line: MappingLineRow) {
-    if (line.ticketLogoEnabled !== true) return;
+  async function handlePickGlobalTicketLogo() {
+    setGlobalLogoBusy(true);
     try {
-      const result = (await invoke("pick_and_store_ticket_logo", { lineId: line.id })) as {
+      const result = (await invoke("pick_and_store_global_ticket_logo")) as {
         ticketLogoPath: string;
         displayName: string;
       };
-      setLocalLines((rows) =>
-        rows.map((r) =>
-          r.id === line.id
-            ? {
-                ...r,
-                ticketLogoPath: result.ticketLogoPath,
-                ticketLogoDisplayName: result.displayName,
-              }
-            : r,
-        ),
+      setDashboard((d) =>
+        d
+          ? {
+              ...d,
+              globalTicketLogoPath: result.ticketLogoPath,
+              globalTicketLogoDisplayName: result.displayName,
+            }
+          : d,
       );
     } catch (e: unknown) {
       const msg = typeof e === "string" ? e : String(e);
       if (msg === "cancelled") return;
       window.alert(msg || "No se pudo seleccionar el logo.");
+    } finally {
+      setGlobalLogoBusy(false);
     }
   }
 
-  async function handleClearTicketLogo(line: MappingLineRow) {
-    if (line.ticketLogoEnabled !== true) return;
+  async function handleClearGlobalTicketLogo() {
+    setGlobalLogoBusy(true);
     try {
-      await invoke("clear_ticket_logo", {
-        lineId: line.id,
-        ticketLogoPath: line.ticketLogoPath ?? null,
-      });
-      setLocalLines((rows) =>
-        rows.map((r) =>
-          r.id === line.id
-            ? { ...r, ticketLogoPath: undefined, ticketLogoDisplayName: undefined }
-            : r,
-        ),
+      await invoke("clear_global_ticket_logo");
+      setDashboard((d) =>
+        d
+          ? {
+              ...d,
+              globalTicketLogoPath: undefined,
+              globalTicketLogoDisplayName: undefined,
+            }
+          : d,
       );
     } catch (e: unknown) {
       window.alert(typeof e === "string" ? e : "No se pudo quitar el logo.");
+    } finally {
+      setGlobalLogoBusy(false);
     }
   }
 
@@ -1083,13 +1089,67 @@ export default function App() {
                   onPrintTest={() => void handleLinePrintTest(line)}
                   onCutTest={() => void handleLineTestCut(line)}
                   onDrawerTest={() => void handleLineTestDrawer(line)}
-                  onPickLogo={() => void handlePickTicketLogo(line)}
-                  onClearLogo={() => void handleClearTicketLogo(line)}
-                  logoBasename={logoBasename}
                 />
               ))}
             </div>
           ) : null}
+        </div>
+      </details>
+
+      <details className="print-acc min-w-0 max-w-full py-3">
+        <summary className="flex min-w-0 cursor-pointer list-none items-center gap-2 py-2 font-semibold [&::-webkit-details-marker]:hidden">
+          <ChevronDown className="print-acc-chevron h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={2} aria-hidden />
+          <span className="min-w-0 text-sm">Logo de tickets</span>
+        </summary>
+        <div className="min-w-0 space-y-2 py-2">
+          <SharedTextField
+            label="Imagen"
+            name="global-ticket-logo"
+            type="text"
+            density="compact"
+            labelLayout="inline"
+            readOnly
+            placeholder="Sin logo (PNG/JPG)"
+            value={globalTicketLogoDisplayName}
+            onChange={() => {}}
+            endAdornment={
+              <>
+                {globalTicketLogoPath ? (
+                  <IconButton
+                    icon="X"
+                    variant="basicSecondary"
+                    size="xs"
+                    className="min-h-5 min-w-5 p-0"
+                    ariaLabel="Quitar logo global"
+                    title="Quitar logo"
+                    tabIndex={-1}
+                    disabled={globalLogoBusy}
+                    onClick={() => void handleClearGlobalTicketLogo()}
+                  />
+                ) : null}
+                <IconButton
+                  icon="FolderOpen"
+                  variant="basicSecondary"
+                  size="xs"
+                  className="min-h-5 min-w-5 p-0"
+                  ariaLabel="Seleccionar imagen de logo global"
+                  title="Seleccionar PNG o JPG"
+                  tabIndex={-1}
+                  disabled={globalLogoBusy}
+                  onClick={() => void handlePickGlobalTicketLogo()}
+                />
+              </>
+            }
+          />
+          {anyTicketLogoEnabled && !globalTicketLogoPath?.trim() ? (
+            <p className="text-xs text-muted-foreground">
+              Hay líneas con «Imprimir logo» activado sin imagen global: se usará el logo Kai por defecto.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Un solo logo para todas las líneas de tickets. Cada línea activa o desactiva la impresión del logo.
+            </p>
+          )}
         </div>
       </details>
 
@@ -1200,10 +1260,10 @@ export default function App() {
         <footer className="py-4 text-center text-[0.7rem] text-muted-foreground">
           <img
             src="/logo.png"
-            alt=""
-            width={56}
-            height={56}
-            className="mx-auto mb-2 h-14 w-14 object-contain"
+            alt="Kai"
+            width={120}
+            height={48}
+            className="mx-auto mb-2 h-12 w-auto max-w-[7.5rem] object-contain"
             aria-hidden
           />
           <p className="font-medium text-foreground">{APP_NAME}{appVersion ? ` ${appVersion}` : ""}</p>
