@@ -120,6 +120,11 @@ import { EShopCustomerAccountUsername1756530000000 } from '../migrations/1756530
 import { PaymentGatewayIntents1756540000000 } from '../migrations/1756540000000-PaymentGatewayIntents';
 import { PaymentGatewayIntentMpOrderIdIndex1756550000000 } from '../migrations/1756550000000-PaymentGatewayIntentMpOrderIdIndex';
 import { PresaleTickets1756560000000 } from '../migrations/1756560000000-PresaleTickets';
+import { FiscalCore1756570000000 } from '../migrations/1756570000000-FiscalCore';
+import { FiscalProfile } from '@modules/fiscal/domain/fiscal-profile.entity';
+import { FiscalCertificate } from '@modules/fiscal/domain/fiscal-certificate.entity';
+import { FiscalCaf } from '@modules/fiscal/domain/fiscal-caf.entity';
+import { FiscalCertificationRun } from '@modules/fiscal/domain/fiscal-certification-run.entity';
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
 import { EShopFulfillmentMethod } from '@modules/e-shop/domain/e-shop-fulfillment-method.entity';
@@ -223,6 +228,10 @@ export const AppDataSource = new DataSource({
     PaymentGatewayIntent,
     PresaleTicket,
     PresaleTicketLine,
+    FiscalProfile,
+    FiscalCertificate,
+    FiscalCaf,
+    FiscalCertificationRun,
   ],
   subscribers: [AuditSubscriber, TenantSubscriber],
   migrations: [
@@ -272,6 +281,7 @@ export const AppDataSource = new DataSource({
     PaymentGatewayIntents1756540000000,
     PaymentGatewayIntentMpOrderIdIndex1756550000000,
     PresaleTickets1756560000000,
+    FiscalCore1756570000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

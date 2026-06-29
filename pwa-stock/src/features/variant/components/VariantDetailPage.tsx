@@ -8,6 +8,7 @@ import { Alert, Badge, DotProgress } from "@/shared";
 import { VariantDetailPricingSection } from "@/features/variant-pricing/components/VariantDetailPricingSection";
 import { VariantDetailPhotoSection } from "@/features/variant-multimedia/components/VariantDetailPhotoSection";
 import { VariantDetailStockByStorageSection } from "./VariantDetailStockByStorageSection";
+import { VariantDetailStockConfigSection } from "@/features/stock/components/VariantDetailStockConfigSection";
 import { variantAttributeValueBadges } from "../ui/VariantProductPreview";
 import { handleUnauthorizedClient } from "@/lib/auth/handle-unauthorized";
 import { getVariantDetailAction } from "../actions/variant.action";
@@ -20,6 +21,7 @@ export default function VariantDetailPage() {
 
   const [error, setError] = useState("");
   const [variant, setVariant] = useState<VariantDetail | null>(null);
+  const [stockReloadKey, setStockReloadKey] = useState(0);
   const [pending, startTransition] = useTransition();
 
   const attributeBadges = useMemo(
@@ -116,9 +118,18 @@ export default function VariantDetailPage() {
           onPricingChanged={() => void loadDetail(variant.variantId)}
         />
 
+        <VariantDetailStockConfigSection
+          variant={variant}
+          onConfigChanged={() => {
+            void loadDetail(variant.variantId);
+            setStockReloadKey((k) => k + 1);
+          }}
+        />
+
         <VariantDetailStockByStorageSection
           variantId={variant.variantId}
           sku={variant.sku}
+          reloadKey={stockReloadKey}
           onStockChanged={() => void loadDetail(variant.variantId)}
         />
 

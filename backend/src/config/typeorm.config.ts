@@ -77,6 +77,10 @@ import { EshopCustomerAccount } from '@modules/e-shop/domain/eshop-customer-acco
 import { PaymentGatewayIntent } from '@modules/payment-gateways/domain/payment-gateway-intent.entity';
 import { PresaleTicket } from '@modules/presale-tickets/domain/presale-ticket.entity';
 import { PresaleTicketLine } from '@modules/presale-tickets/domain/presale-ticket-line.entity';
+import { FiscalProfile } from '@modules/fiscal/domain/fiscal-profile.entity';
+import { FiscalCertificate } from '@modules/fiscal/domain/fiscal-certificate.entity';
+import { FiscalCaf } from '@modules/fiscal/domain/fiscal-caf.entity';
+import { FiscalCertificationRun } from '@modules/fiscal/domain/fiscal-certification-run.entity';
 import { AuditSubscriber } from '../subscribers/AuditSubscriber';
 import { TenantSubscriber } from '../common/tenant/tenant.subscriber';
 
@@ -167,6 +171,10 @@ export const typeOrmConfig = (
       PaymentGatewayIntent,
       PresaleTicket,
       PresaleTicketLine,
+      FiscalProfile,
+      FiscalCertificate,
+      FiscalCaf,
+      FiscalCertificationRun,
     ],
 
     // Register subscribers (TypeORM EventSubscribers)

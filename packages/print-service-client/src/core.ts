@@ -157,6 +157,7 @@ export const AGENT_CAPABILITY_POS_CASH_SESSION_OPENING_TICKET =
   "pos-cash-session-opening-ticket";
 export const AGENT_CAPABILITY_POS_BANK_ACCOUNT_TICKET = "pos-bank-account-ticket";
 export const AGENT_CAPABILITY_POS_PRESALE_TICKET = "pos-presale-ticket";
+export const AGENT_CAPABILITY_VARIANT_BARCODE_LABEL = "variant-barcode-label";
 export const AGENT_CAPABILITY_PDF_BASE64 = "pdf-base64";
 
 export type AgentMappingLineConfig = {
@@ -1043,6 +1044,16 @@ export function agentSupportsPosPresaleTicket(
   const caps = hello?.agentCapabilities;
   if (Array.isArray(caps) && caps.length > 0) {
     return caps.includes(AGENT_CAPABILITY_POS_PRESALE_TICKET);
+  }
+  return Boolean(hello?.serviceStatus);
+}
+
+export function agentSupportsVariantBarcodeLabel(
+  hello: HelloResponseData | null | undefined,
+): boolean {
+  const caps = hello?.agentCapabilities;
+  if (Array.isArray(caps) && caps.length > 0) {
+    return caps.includes(AGENT_CAPABILITY_VARIANT_BARCODE_LABEL);
   }
   return Boolean(hello?.serviceStatus);
 }

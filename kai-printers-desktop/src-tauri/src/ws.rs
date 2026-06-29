@@ -47,6 +47,7 @@ fn is_vector_pos_ticket_type(print_type: &str) -> bool {
             | "pos-cash-session-opening-ticket"
             | "pos-bank-account-ticket"
             | "pos-presale-ticket"
+            | "variant-barcode-label"
     )
 }
 
@@ -77,6 +78,11 @@ fn vector_ticket_folio(print_type: &str, ticket: &serde_json::Value) -> String {
         }
         "pos-presale-ticket" => ticket
             .get("code")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        "variant-barcode-label" => ticket
+            .get("barcode")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string(),
@@ -117,6 +123,7 @@ fn vector_ticket_escpos_writer(print_type: &str) -> WriteVectorTicketFn {
         }
         "pos-bank-account-ticket" => jobs::write_pos_bank_account_ticket_escpos_from_value,
         "pos-presale-ticket" => jobs::write_pos_presale_ticket_escpos_from_value,
+        "variant-barcode-label" => jobs::write_variant_barcode_label_escpos_from_value,
         _ => jobs::write_pos_sale_ticket_escpos_from_value,
     }
 }
@@ -363,6 +370,7 @@ where
                                     "pos-cash-session-opening-ticket",
                                     "pos-bank-account-ticket",
                                     "pos-presale-ticket",
+                                    "variant-barcode-label",
                                 ],
                                 "ticketEscposEnabled": ticket_escpos,
                             })))).await.ok();

@@ -1,5 +1,6 @@
 "use server";
 
+import { updateVariantInventoryPartialAction } from "@/features/variant/actions/variant.action";
 import { revalidateVariantPaths } from "@/features/variant/lib/revalidate-variant-paths";
 import {
   adjustStockUseCase,
@@ -89,4 +90,92 @@ export async function fetchVariantStockBreakdownAction(input: {
     const err = e instanceof Error ? e.message : "Error al cargar stock por almacén";
     return { ok: false, error: err };
   }
+}
+
+export async function saveVariantStorageThresholdsAction(input: {
+  variantId: string;
+  storageThresholds: Array<{
+    storageId: string;
+    minimumStock: number | null;
+    minimumStockEnabled: boolean | null;
+    maximumStock: number | null;
+    maximumStockEnabled: boolean | null;
+    reorderPoint: number | null;
+    reorderPointEnabled: boolean | null;
+  }>;
+}): Promise<{ success: true } | { success: false; error: string; unauthorized?: boolean }> {
+  const variantId = input.variantId.trim();
+  if (!variantId) {
+    return { success: false, error: "Variante no válida" };
+  }
+
+  for (const st of input.storageThresholds) {
+    const r = await InventoryRequest.updateStockLevelThresholds({
+      productVariantId: variantId,
+      storageId: st.storageId.trim(),
+      minimumStock: st.minimumStock,
+      minimumStockEnabled: st.minimumStockEnabled,
+      maximumStock: st.maximumStock,
+      maximumStockEnabled: st.maximumStockEnabled,
+      reorderPoint: st.reorderPoint,
+      reorderPointEnabled: st.reorderPointEnabled,
+    });
+    if (!r.success) {
+      return r;
+    }
+  }
+
+  revalidateVariantPaths(variantId);
+  return { success: true };
+}
+
+export async function saveVariantStockConfigAction(input: {
+  variantId: string;
+  trackInventory: boolean;
+  allowNegativeStock: boolean;
+  minimumStock: number;
+  minimumStockEnabled: boolean;
+  maximumStock: number;
+  maximumStockEnabled: boolean;
+  reorderPoint: number;
+  reorderPointEnabled: boolean;
+  storageThresholds: Array<{
+    storageId: string;
+    minimumStock: number | null;
+    minimumStockEnabled: boolean | null;
+    maximumStock: number | null;
+    maximumStockEnabled: boolean | null;
+    reorderPoint: number | null;
+    reorderPointEnabled: boolean | null;
+  }>;
+}): Promise<{ success: true } | { success: false; error: string; unauthorized?: boolean }> {
+  const variantId = input.variantId.trim();
+  if (!variantId) {
+    return { success: false, error: "Variante no válida" };
+  }
+
+  const inv = await updateVariantInventoryPartialAction(variantId, {
+    trackInventory: input.trackInventory,
+    allowNegativeStock: input.allowNegativeStock,
+    minimumStock: input.minimumStock,
+    minimumStockEnabled: input.minimumStockEnabled,
+    maximumStock: input.maximumStock,
+    maximumStockEnabled: input.maximumStockEnabled,
+    reorderPoint: input.reorderPoint,
+    reorderPointEnabled: input.reorderPointEnabled,
+  });
+  if (!inv.success) {
+    return inv;
+  }
+
+  const storage = await saveVariantStorageThresholdsAction({
+    variantId,
+    storageThresholds: input.storageThresholds,
+  });
+  if (!storage.success) {
+    return storage;
+  }
+
+  revalidateVariantPaths(variantId);
+  return { success: true };
 }

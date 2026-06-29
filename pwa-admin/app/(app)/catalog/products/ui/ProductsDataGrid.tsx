@@ -28,6 +28,7 @@ import {
   normalizeCatalogProductType,
 } from "./catalog-product-type-options";
 import { isEShopModuleEnabled } from "@/config/eshop-module.config";
+import { printVariantBarcodeLabel } from "@/features/catalog-products/print/variant-barcode-label-print";
 
 type ProductsDataGridProps = {
   rows: ProductGridRow[];
@@ -402,13 +403,17 @@ function ProductVariantExpandCard({
   productId,
   productName,
   onOpenVariant,
+  onPrintBarcode,
   onDelete,
+  printingBarcode,
 }: {
   v: ProductVariantGridRow;
   productId: string;
   productName: string;
   onOpenVariant: (variantId: string, productId: string) => void;
+  onPrintBarcode?: () => void;
   onDelete?: () => void;
+  printingBarcode?: boolean;
 }) {
   const attributeEntries = formatVariantAttributeEntries(v);
   const barcode = v.barcode?.trim() ?? "";
@@ -521,17 +526,31 @@ function ProductVariantExpandCard({
           )}
         </VariantExpandSection>
       </div>
-      {onDelete ? (
-        <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
-          <IconButton
-            icon="Trash2"
-            variant="action"
-            size="sm"
-            ariaLabel="Eliminar variante"
-            title="Eliminar variante"
-            onClick={() => onDelete()}
-            data-test-id={`products-expand-variant-delete-${v.id}`}
-          />
+      {onPrintBarcode || onDelete ? (
+        <div className="flex shrink-0 items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+          {onPrintBarcode ? (
+            <IconButton
+              icon="Barcode"
+              variant="action"
+              size="sm"
+              ariaLabel="Imprimir código de barras"
+              title={barcode ? "Imprimir código de barras" : "Sin código de barras"}
+              disabled={!barcode || printingBarcode}
+              onClick={() => onPrintBarcode()}
+              data-test-id={`products-expand-variant-print-barcode-${v.id}`}
+            />
+          ) : null}
+          {onDelete ? (
+            <IconButton
+              icon="Trash2"
+              variant="action"
+              size="sm"
+              ariaLabel="Eliminar variante"
+              title="Eliminar variante"
+              onClick={() => onDelete()}
+              data-test-id={`products-expand-variant-delete-${v.id}`}
+            />
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -542,12 +561,16 @@ function ProductExpandPanel({
   row,
   onAddVariant,
   onOpenVariant,
+  onPrintVariantBarcode,
   onDeleteVariant,
+  printingVariantId,
 }: {
   row: ProductGridRow;
   onAddVariant: (r: ProductGridRow) => void;
   onOpenVariant: (variantId: string, productId: string) => void;
+  onPrintVariantBarcode?: (product: ProductGridRow, variant: ProductVariantGridRow) => void;
   onDeleteVariant?: (product: ProductGridRow, variant: ProductVariantGridRow) => void;
+  printingVariantId?: string | null;
 }) {
   const hasVariants = Boolean(row.variants?.length);
 
@@ -579,7 +602,11 @@ function ProductExpandPanel({
               productId={row.id}
               productName={row.name}
               onOpenVariant={onOpenVariant}
+              onPrintBarcode={
+                onPrintVariantBarcode ? () => onPrintVariantBarcode(row, v) : undefined
+              }
               onDelete={onDeleteVariant ? () => onDeleteVariant(row, v) : undefined}
+              printingBarcode={printingVariantId === v.id}
             />
           ))}
         </div>
@@ -635,6 +662,7 @@ export default function ProductsDataGrid({ rows, total }: ProductsDataGridProps)
   } | null>(null);
   const [deleteVariantError, setDeleteVariantError] = useState<string | null>(null);
   const [isDeleteVariantPending, startDeleteVariantTransition] = useTransition();
+  const [printingVariantId, setPrintingVariantId] = useState<string | null>(null);
   const [previewRow, setPreviewRow] = useState<ProductGridRow | null>(null);
 
   const openVariantDialog = useCallback((r: ProductGridRow) => {
@@ -818,16 +846,34 @@ export default function ProductsDataGrid({ rows, total }: ProductsDataGridProps)
     setDeleteVariantTarget({ product, variant });
   }, []);
 
+  const onPrintVariantBarcodeClick = useCallback(
+    (product: ProductGridRow, variant: ProductVariantGridRow) => {
+      const barcode = variant.barcode?.trim() ?? "";
+      if (!barcode) return;
+      setPrintingVariantId(variant.id);
+      void printVariantBarcodeLabel({
+        productName: product.name,
+        sku: variant.sku?.trim() ?? "",
+        barcode,
+      }).finally(() => {
+        setPrintingVariantId((current) => (current === variant.id ? null : current));
+      });
+    },
+    [],
+  );
+
   const expandableRowContent = useCallback(
     (row: ProductGridRow) => (
       <ProductExpandPanel
         row={row}
         onAddVariant={openVariantDialog}
         onOpenVariant={onOpenVariantPage}
+        onPrintVariantBarcode={onPrintVariantBarcodeClick}
         onDeleteVariant={onDeleteVariantClick}
+        printingVariantId={printingVariantId}
       />
     ),
-    [onDeleteVariantClick, onOpenVariantPage, openVariantDialog],
+    [onDeleteVariantClick, onOpenVariantPage, onPrintVariantBarcodeClick, openVariantDialog, printingVariantId],
   );
 
   return (

@@ -586,3 +586,11 @@ pub fn write_pos_presale_ticket_escpos_from_value(
 ) -> Result<PathBuf> {
     crate::pos_presale_ticket::write_pos_presale_ticket_escpos_from_value(dir, value)
 }
+
+/// Genera bytes ESC/POS de comprobante barcode variante desde JSON (`variant-barcode-label`).
+pub fn write_variant_barcode_label_escpos_from_value(
+    dir: &PathBuf,
+    value: &serde_json::Value,
+) -> Result<PathBuf> {
+    crate::variant_barcode_label::write_variant_barcode_label_escpos_from_value(dir, value)
+}

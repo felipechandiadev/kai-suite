@@ -29,6 +29,8 @@ mod pos_payment_in_ticket;
 mod pos_payment_in_ticket_escpos;
 mod pos_presale_ticket;
 mod pos_presale_ticket_escpos;
+mod variant_barcode_label;
+mod variant_barcode_label_escpos;
 mod ticket_barcode;
 mod platform;
 mod port_release;

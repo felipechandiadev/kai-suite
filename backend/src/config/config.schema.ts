@@ -42,6 +42,9 @@ export const configSchema = Joi.object({
   JWT_REFRESH_SECRET: Joi.string().required(),
   JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
 
+  // Fiscal / SII (AES-256-GCM key, 32 bytes base64)
+  FISCAL_ENCRYPTION_KEY: Joi.string().optional(),
+
   // CORS
   CORS_ORIGIN: Joi.string().default('*'),
   CORS_CREDENTIALS: Joi.boolean().default(false),

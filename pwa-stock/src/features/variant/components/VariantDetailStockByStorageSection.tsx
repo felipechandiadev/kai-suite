@@ -11,12 +11,14 @@ import type { StorageListItem } from "@/features/stock/types/storage-list.types"
 type Props = {
   variantId: string;
   sku: string;
+  reloadKey?: number;
   onStockChanged?: () => void;
 };
 
 export function VariantDetailStockByStorageSection({
   variantId,
   sku,
+  reloadKey = 0,
   onStockChanged,
 }: Props) {
   const [loading, setLoading] = useState(true);
@@ -76,7 +78,7 @@ export function VariantDetailStockByStorageSection({
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, reloadKey]);
 
   const reloadAfterStockOp = useCallback(async () => {
     await load({ silent: true });

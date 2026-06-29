@@ -149,6 +149,13 @@ export class VariantRequest {
         return apiFailure(res, data);
       }
       const product = data.product as Record<string, unknown> | undefined;
+      const productType =
+        product?.productType != null ? String(product.productType) : null;
+      const isService = String(productType || "").toUpperCase() === "SERVICE";
+      const trackInventory =
+        typeof data.trackInventory === "boolean"
+          ? data.trackInventory
+          : !isService;
       const pmpRaw = data.pmp;
       const pmp =
         typeof pmpRaw === "number" && Number.isFinite(pmpRaw)
@@ -175,12 +182,77 @@ export class VariantRequest {
           pmp: pmp != null && Number.isFinite(pmp) ? pmp : null,
           priceListItems: parsePriceListItems(data.priceListItems),
           mediaAssets: parseMediaAssets(data.mediaAssets),
+          productType,
+          trackInventory,
+          allowNegativeStock: data.allowNegativeStock === true,
+          minimumStock:
+            typeof data.minimumStock === "number" && Number.isFinite(data.minimumStock)
+              ? data.minimumStock
+              : Number(data.minimumStock) || 0,
+          minimumStockEnabled: data.minimumStockEnabled === true,
+          maximumStock:
+            typeof data.maximumStock === "number" && Number.isFinite(data.maximumStock)
+              ? data.maximumStock
+              : Number(data.maximumStock) || 0,
+          maximumStockEnabled: data.maximumStockEnabled === true,
+          reorderPoint:
+            typeof data.reorderPoint === "number" && Number.isFinite(data.reorderPoint)
+              ? data.reorderPoint
+              : Number(data.reorderPoint) || 0,
+          reorderPointEnabled: data.reorderPointEnabled === true,
         },
       };
     } catch (e) {
       return {
         success: false,
         error: e instanceof Error ? e.message : "Error al cargar variante",
+      };
+    }
+  }
+
+  static async updateInventoryPartial(
+    variantId: string,
+    input: {
+      trackInventory: boolean;
+      allowNegativeStock: boolean;
+      minimumStock: number;
+      minimumStockEnabled: boolean;
+      maximumStock: number;
+      maximumStockEnabled: boolean;
+      reorderPoint: number;
+      reorderPointEnabled: boolean;
+    },
+  ): Promise<{ success: true } | { success: false; error: string; unauthorized?: boolean }> {
+    const headers = await authHeaders();
+    const id = variantId.trim();
+    if (!id) {
+      return { success: false, error: "Variante no válida" };
+    }
+    try {
+      const res = await fetch(apiUrl(`product-variants/${encodeURIComponent(id)}`), {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({
+          trackInventory: input.trackInventory,
+          allowNegativeStock: input.allowNegativeStock,
+          minimumStock: Math.max(0, Math.round(Number(input.minimumStock) || 0)),
+          minimumStockEnabled: Boolean(input.minimumStockEnabled),
+          maximumStock: Math.max(0, Math.round(Number(input.maximumStock) || 0)),
+          maximumStockEnabled: Boolean(input.maximumStockEnabled),
+          reorderPoint: Math.max(0, Math.round(Number(input.reorderPoint) || 0)),
+          reorderPointEnabled: Boolean(input.reorderPointEnabled),
+        }),
+        cache: "no-store",
+      });
+      const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!res.ok) {
+        return apiFailure(res, data);
+      }
+      return { success: true };
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : "Error al guardar configuración de inventario",
       };
     }
   }

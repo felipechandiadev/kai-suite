@@ -15,4 +15,13 @@ export type VariantDetail = VariantLookupItem & {
   pmp: number | null;
   priceListItems: VariantPriceListItem[];
   mediaAssets?: VariantMediaAsset[];
+  productType?: string | null;
+  trackInventory?: boolean;
+  allowNegativeStock?: boolean;
+  minimumStock?: number;
+  minimumStockEnabled?: boolean;
+  maximumStock?: number;
+  maximumStockEnabled?: boolean;
+  reorderPoint?: number;
+  reorderPointEnabled?: boolean;
 };

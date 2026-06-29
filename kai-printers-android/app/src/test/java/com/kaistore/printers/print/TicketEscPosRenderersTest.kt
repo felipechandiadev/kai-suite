@@ -48,6 +48,25 @@ class TicketEscPosDispatcherTest {
     fun rejectsUnknownDocumentType() {
         TicketEscPosDispatcher.fromJob("pos-unknown-ticket", "{}", 48)
     }
+
+    @Test
+    fun dispatchesVariantBarcodeLabel() {
+        val json = """
+            {
+              "version": 1,
+              "productName": "Aceite 500ml",
+              "sku": "ACE-500",
+              "barcode": "7801234567890"
+            }
+        """.trimIndent()
+        val bytes = TicketEscPosDispatcher.fromJob("variant-barcode-label", json, 48)
+        assertTrue(bytes.isNotEmpty())
+        val text = String(bytes, Charsets.ISO_8859_1)
+        assertTrue(text.contains("Aceite"))
+        assertTrue(text.contains("ACE-500"))
+        assertTrue(text.contains("7801234567890"))
+        assertTrue(bytes.size > 80)
+    }
 }
 
 class PosQuotationTicketEscPosTest {

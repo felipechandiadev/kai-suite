@@ -182,6 +182,12 @@ apply_backend_derived() {
     cors+="http://${host}:${port},http://127.0.0.1:${port}"
   done
   set_kv "$file" "CORS_ORIGIN" "$cors"
+
+  local fiscal_key
+  fiscal_key="$(shared_get "$shared" FISCAL_ENCRYPTION_KEY)"
+  if [[ -n "$fiscal_key" ]]; then
+    set_kv "$file" "FISCAL_ENCRYPTION_KEY" "$fiscal_key"
+  fi
 }
 
 apply_pwa_projection() {
@@ -276,6 +282,22 @@ write_env "pwa-pos.env.local" "$ROOT/pwa-pos/.env.local" pos
 write_env "pwa-stock.env.local" "$ROOT/pwa-stock/.env.local" stock
 write_env "pwa-eshop.env.local" "$ROOT/pwa-eshop/.env.local" eshop
 write_env "kai-mail.env" "$ROOT/services/kai-mail/.env" mail
+
+# Claves de shared que pueden faltar en .env generados antes de añadirlas a la matriz
+patch_backend_fiscal_key() {
+  local dest="$ROOT/backend/.env"
+  [[ -f "$dest" ]] || return 0
+  if grep -q "^FISCAL_ENCRYPTION_KEY=" "$dest" 2>/dev/null; then
+    return 0
+  fi
+  local fiscal_key
+  fiscal_key="$(shared_get "$SHARED" FISCAL_ENCRYPTION_KEY)"
+  if [[ -n "$fiscal_key" ]]; then
+    set_kv "$dest" "FISCAL_ENCRYPTION_KEY" "$fiscal_key"
+    echo "[sync-dev-envs] añadido FISCAL_ENCRYPTION_KEY → backend/.env"
+  fi
+}
+patch_backend_fiscal_key
 
 if [[ -f "$ROOT/pwa-eshop/.env.development.local" ]]; then
   rm "$ROOT/pwa-eshop/.env.development.local"

@@ -208,6 +208,13 @@ export const mainMenuItems: SideBarMenuItem[] = [
       { id: 'settings-users', label: 'Usuarios', url: '/settings/users' },
       { id: 'settings-local-printing', label: 'Impresión local', url: '/settings/local-printing' },
       { id: 'settings-integrations', label: 'Integraciones', url: '/settings/integrations' },
+      {
+        id: 'settings-sii-super',
+        label: 'SII',
+        url: '/settings/sii',
+        requiresRole: 'SUPER_ADMIN',
+      },
+      { id: 'settings-sii', label: 'SII', url: '/settings/sii', requiresRole: 'ADMIN' },
       { id: 'settings-scale', label: 'Balanza', url: '/settings/scale' },
       {
         id: 'settings-metal-prices',

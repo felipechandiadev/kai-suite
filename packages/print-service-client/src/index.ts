@@ -13,6 +13,7 @@ export * from "./pos-cash-closing-ticket";
 export * from "./pos-cash-count-sheet-ticket";
 export * from "./pos-cash-session-opening-ticket";
 export * from "./pos-bank-account-ticket";
+export * from "./variant-barcode-label";
 export * from "./react";
 export * from "./settings-form";
 export * from "./print-service-dropdown";

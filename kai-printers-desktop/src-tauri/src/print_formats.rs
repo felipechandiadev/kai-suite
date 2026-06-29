@@ -126,5 +126,6 @@ pub fn is_vector_pos_ticket_type(print_type: &str) -> bool {
             | "pos-cash-session-opening-ticket"
             |         "pos-bank-account-ticket"
             | "pos-presale-ticket"
+            | "variant-barcode-label"
     )
 }

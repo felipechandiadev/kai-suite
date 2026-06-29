@@ -28,6 +28,26 @@ export async function getVariantDetailAction(
   return VariantRequest.getById(variantId.trim());
 }
 
+export async function updateVariantInventoryPartialAction(
+  variantId: string,
+  input: {
+    trackInventory: boolean;
+    allowNegativeStock: boolean;
+    minimumStock: number;
+    minimumStockEnabled: boolean;
+    maximumStock: number;
+    maximumStockEnabled: boolean;
+    reorderPoint: number;
+    reorderPointEnabled: boolean;
+  },
+): Promise<{ success: true } | { success: false; error: string; unauthorized?: boolean }> {
+  const r = await VariantRequest.updateInventoryPartial(variantId, input);
+  if (r.success) {
+    revalidateVariantPaths(variantId.trim());
+  }
+  return r;
+}
+
 export async function updateBarcodeAction(input: {
   variantId: string;
   barcode: string;
