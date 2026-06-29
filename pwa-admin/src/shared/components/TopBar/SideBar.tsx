@@ -8,6 +8,9 @@ import { ChevronRight, User, LogOut, ImageOff, Image as ImageIcon } from 'lucide
 import { useImageWithPlaceholder } from '@/shared/hooks/useImageWithPlaceholder';
 import { isCompanyChecksEnabledFromSettings } from '@/features/companies/types/company-checks.types';
 import { isEShopModuleEnabled } from '@/config/eshop-module.config';
+import { isJewelryModuleEnabled } from '@/config/jewelry-module.config';
+import { isMultiCompanyModuleEnabled } from '@/config/multi-company-module.config';
+import { getKaiAdminAppName } from '@/config/product-brand.config';
 import { isEShopEnabledFromSettings } from '@/features/companies/types/company-eshop.types';
 import { useCompany } from '@/providers/CompanyProvider';
 import { Button } from '../Button/Button';
@@ -30,6 +33,10 @@ export interface SideBarMenuItem {
   requiresChecksEnabled?: boolean;
   /** Solo visible si el módulo eShop está activo en env y `settings.eShopEnabled` es true. */
   requiresEShopEnabled?: boolean;
+  /** Solo visible si el despliegue incluye módulo joyería. */
+  requiresJewelryEnabled?: boolean;
+  /** Solo visible en despliegues multi-empresa. */
+  requiresMultiCompanyEnabled?: boolean;
 }
 
 interface SideBarProps {
@@ -60,6 +67,8 @@ function filterVisibleMenuItems(
   role: string | null | undefined,
   checksEnabled: boolean,
   eShopEnabled: boolean,
+  jewelryEnabled: boolean,
+  multiCompanyEnabled: boolean,
 ): SideBarMenuItem[] {
   return items.flatMap((item) => {
     if (item.hidden) return [];
@@ -72,12 +81,20 @@ function filterVisibleMenuItems(
     if (item.requiresEShopEnabled && !eShopEnabled) {
       return [];
     }
+    if (item.requiresJewelryEnabled && !jewelryEnabled) {
+      return [];
+    }
+    if (item.requiresMultiCompanyEnabled && !multiCompanyEnabled) {
+      return [];
+    }
     if (Array.isArray(item.children) && item.children.length > 0) {
       const visibleChildren = filterVisibleMenuItems(
         item.children,
         role,
         checksEnabled,
         eShopEnabled,
+        jewelryEnabled,
+        multiCompanyEnabled,
       );
       if (visibleChildren.length === 0) return [];
       return [{ ...item, children: visibleChildren }];
@@ -86,7 +103,7 @@ function filterVisibleMenuItems(
   });
 }
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'KaiStore';
+const APP_NAME = getKaiAdminAppName();
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '0.0.0';
 const APP_RELEASE = process.env.NEXT_PUBLIC_APP_RELEASE || '21-Diciembre-2025';
 
@@ -112,6 +129,8 @@ const SideBar: React.FC<SideBarProps> = ({
   const eShopEnabled =
     isEShopModuleEnabled() &&
     isEShopEnabledFromSettings(company?.settings as Record<string, unknown> | undefined);
+  const jewelryEnabled = isJewelryModuleEnabled();
+  const multiCompanyEnabled = isMultiCompanyModuleEnabled();
 
   // Track which parent items are open using their id or label
   const [localOpenIds, setLocalOpenIds] = useState<Record<string, boolean>>({});
@@ -300,6 +319,8 @@ const SideBar: React.FC<SideBarProps> = ({
             (session?.user?.role as string | undefined) ?? null,
             checksEnabled,
             eShopEnabled,
+            jewelryEnabled,
+            multiCompanyEnabled,
           ).map((item, idx) => renderMenuItem(item, idx))}
         </ul>
       </nav>

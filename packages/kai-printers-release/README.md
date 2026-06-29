@@ -2,7 +2,7 @@
 
 Scripts para copiar instaladores **Windows (ZIP)** y **macOS (DMG)** a `pwa-pos/public/downloads/`.
 
-Requiere `print-service/` en el monorepo (carpeta local, gitignored).
+Requiere `kai-printers-desktop/` en el monorepo.
 
 ```bash
 # Desde la raíz del monorepo

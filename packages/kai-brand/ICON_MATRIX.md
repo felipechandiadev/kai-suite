@@ -17,7 +17,7 @@ npm run generate
 ## Pipeline
 
 1. `rasterize-svg.mjs` — SVG → `sources/master-1024.png` (RGBA, logo al 88% del canvas)
-2. `generate-all.mjs` — propaga a PWAs, Android `res/`, Tauri (si `print-service/` existe)
+2. `generate-all.mjs` — propaga a PWAs, Android `res/`, Tauri (si `kai-printers-desktop/` existe)
 3. `export-to-assets.mjs` — copia inventario a `assets/brand/kai-store/exports/`
 
 ## Matriz de salidas
@@ -47,7 +47,7 @@ npm run generate
 
 Adaptive background: `#FFFFFF`.
 
-### Kai Printers Tauri (`print-service/`)
+### Kai Printers Tauri (`kai-printers-desktop/`)
 
 - `npm run generate-icons` desde `public/kai-printers.png`
 - Salida: `src-tauri/icons/` (`.ico`, `.icns`, PNG)

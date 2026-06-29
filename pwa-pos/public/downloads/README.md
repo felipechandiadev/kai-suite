@@ -17,7 +17,7 @@ npm run kai-printers:publish
 
 ## Kai Printers — Windows y macOS
 
-Requiere `print-service/` local (gitignored). Compila si falta el artefacto.
+Requiere `kai-printers-desktop/` en el monorepo. Compila si falta el artefacto.
 
 ```bash
 npm run kai-printers-desktop:publish

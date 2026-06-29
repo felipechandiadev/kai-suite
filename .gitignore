@@ -7,10 +7,8 @@ backend/*.tsbuildinfo
 
 # Local folders not to push
 proyecto-reportes/
-kai-printers-desktop/
+docs/
 /scripts/
-data-to-seed/
-
 # Dependencies and build artifacts
 node_modules/
 **/node_modules/
@@ -32,6 +30,9 @@ backend/.env
 backend/.env.local
 envs/*.env
 envs/*.env.local
+!envs/*.env.example
+!envs/*.env.local.example
+!envs/profiles/*.env.example
 !envs/README.md
 
 # Kai Printers Android — firma release (nunca en git)

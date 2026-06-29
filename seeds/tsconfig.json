@@ -1,0 +1,14 @@
+{
+  "extends": "../backend/tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "@modules/*": ["../backend/src/modules/*"],
+      "@shared/*": ["../backend/src/shared/*"],
+      "@common/*": ["../backend/src/common/*"]
+    }
+  },
+  "include": ["./**/*.ts"],
+  "exclude": ["node_modules"]
+}

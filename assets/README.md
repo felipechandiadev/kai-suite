@@ -11,7 +11,7 @@ Carpeta de **fuentes estáticas versionadas** que no son código.
 
 - **Marca Kai** → `assets/brand/` + pipeline [`packages/kai-brand`](../packages/kai-brand/)
 - **Integraciones** → `assets/integrations/<proveedor>/` → copias en `pwa-*/public/integrations/`
-- **No** guardar aquí: fuentes eShop (`pwa-eshop/src/assets/fonts/`), imágenes seed (`backend/src/seed/assets/`), binarios de descarga (`pwa-pos/public/downloads/`)
+- **No** guardar aquí: fuentes eShop (`pwa-eshop/src/assets/fonts/`), imágenes seed (`seeds/demo/assets/`), binarios de descarga (`pwa-pos/public/downloads/`)
 
 ## Regenerar iconos Kai
 

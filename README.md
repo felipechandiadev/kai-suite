@@ -20,6 +20,7 @@ kai/
 ├── kai-screen-android/         # Agente Kai Screen (Android)
 ├── kai-printers-desktop/       # Agente Kai Printers (Tauri, carpeta local)
 ├── packages/                   # Clientes y utilidades compartidas (@kai/*)
+├── seeds/                      # Perfiles de seed (demo, joyarte, san-sebastian)
 ├── assets/brand/               # Marca Kai (SVG, exports)
 └── docs/                       # Documentación
 ```
@@ -30,7 +31,7 @@ kai/
 
 ```bash
 npm install          # raíz — concurrently
-npm run env:dev      # primera vez: crea/sobrescribe .env de desarrollo
+npm run env:dev      # primera vez: matriz envs/shared.env.example → .env de cada app
 npm run dev          # liviano: infra + backend + admin (recomendado)
 npm run dev:all      # stack completo (+ pos, stock, eshop, mail)
 ```
@@ -70,11 +71,15 @@ Login admin (seed): `admin` / `098098`
    npm run dev  # Puerto 5034
    ```
 
-4. **Seed base de datos** (desde `backend/`):
+4. **Seed base de datos** (desde la raíz o `seeds/`):
+
    ```bash
-   cd backend
-   npm run seed   # Mi Empresa — desarrollo
+   npm run seed:demo --prefix seeds   # Mi Empresa — desarrollo
+   # npm run seed:joyarte --prefix seeds
+   # npm run seed:san-sebastian --prefix seeds
    ```
+
+   Requiere PostgreSQL y `backend/.env`. Ver [`seeds/README.md`](seeds/README.md).
 
 ## Documentación
 

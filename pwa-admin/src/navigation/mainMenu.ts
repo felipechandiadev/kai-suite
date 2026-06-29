@@ -184,8 +184,7 @@ export const mainMenuItems: SideBarMenuItem[] = [
         label: 'Empresas',
         url: '/settings/companies',
         requiresRole: 'SUPER_ADMIN',
-        /** Empresas se provisionan por seed; no listar en sidebar. */
-        hidden: true,
+        requiresMultiCompanyEnabled: true,
       },
       {
         id: 'settings-company-super',
@@ -210,7 +209,12 @@ export const mainMenuItems: SideBarMenuItem[] = [
       { id: 'settings-local-printing', label: 'Impresión local', url: '/settings/local-printing' },
       { id: 'settings-integrations', label: 'Integraciones', url: '/settings/integrations' },
       { id: 'settings-scale', label: 'Balanza', url: '/settings/scale' },
-      { id: 'settings-metal-prices', label: 'Precios de metales', url: '/settings/metal-prices' },
+      {
+        id: 'settings-metal-prices',
+        label: 'Precios de metales',
+        url: '/settings/metal-prices',
+        requiresJewelryEnabled: true,
+      },
       { id: 'settings-about', label: 'Acerca de', url: '/settings/about' },
       // { id: 'settings-parameters', label: 'Parámetros del sistema', url: '/settings/parameters' },
     ],

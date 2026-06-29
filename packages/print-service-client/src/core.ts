@@ -88,7 +88,7 @@ export const PRINT_PROTOCOL_VERSION = "2.1";
 
 /**
  * Subcadena que el agente incluye en el close frame WebSocket al detener WS/WSS desde su UI (botón Energía).
- * Debe coincidir con `WS_CLOSE_REASON_SERVICE_STOPPED` en `print-service/src-tauri/src/ws.rs`.
+ * Debe coincidir con `WS_CLOSE_REASON_SERVICE_STOPPED` en `kai-printers-desktop/src-tauri/src/ws.rs`.
  */
 export const PRINT_WS_CLOSE_REASON_SERVICE_STOPPED = "kai:service_stopped";
 export const PRINT_WS_CLOSE_REASON_SERVICE_STOPPED_LEGACY = "flowstore:service_stopped";

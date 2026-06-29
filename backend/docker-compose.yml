@@ -6,9 +6,9 @@ services:
     image: postgres:15-alpine
     container_name: flow-store-postgres
     environment:
-      POSTGRES_DB: flow-store
-      POSTGRES_USER: flowstore
-      POSTGRES_PASSWORD: flowstore123
+      POSTGRES_DB: kai-demo
+      POSTGRES_USER: kai
+      POSTGRES_PASSWORD: kai123
     ports:
       - "5432:5432"
     volumes:
@@ -17,7 +17,7 @@ services:
     networks:
       - flow-store-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U flowstore -d flow-store"]
+      test: ["CMD-SHELL", "pg_isready -U kai -d kai-demo"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -48,9 +48,9 @@ services:
       NODE_ENV: production
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_USERNAME: flowstore
-      DB_PASSWORD: flowstore123
-      DB_DATABASE: flow-store
+      DB_USERNAME: kai
+      DB_PASSWORD: kai123
+      DB_DATABASE: kai-demo
       DB_SYNCHRONIZE: true
       REDIS_HOST: redis
       REDIS_PORT: 6379

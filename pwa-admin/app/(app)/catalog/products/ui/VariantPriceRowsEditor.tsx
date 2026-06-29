@@ -5,6 +5,7 @@ import { TextField } from "@/shared/components/TextField/TextField";
 import { Select, type Option } from "@/shared/components/Select";
 import Switch from "@/shared/components/Switch/Switch";
 import IconButton from "@/shared/components/IconButton/IconButton";
+import { isJewelryModuleEnabled } from "@/config/jewelry-module.config";
 import type { PriceListListItem } from "@/features/sales-price-lists/types/price-list.types";
 import type { TaxListItem } from "@/features/accounting-taxes/types/tax.types";
 import type { ProductPriceListItemRow } from "@/features/inventory-products/types/product-grid.types";
@@ -214,7 +215,7 @@ export function VariantPriceRowsEditor({
                   />
                 </div>
                 <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1">
-                  {onOpenJewelryCalculator ? (
+                  {onOpenJewelryCalculator && isJewelryModuleEnabled() ? (
                     <IconButton
                       type="button"
                       icon="Gem"

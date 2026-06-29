@@ -1,0 +1,18 @@
+{
+  "name": "@kai/seeds",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Database seed profiles for Kai (demo, joyarte, san-sebastian)",
+  "scripts": {
+    "preseed:demo": "test -e node_modules || ln -sf ../backend/node_modules node_modules",
+    "preseed:joyarte": "test -e node_modules || ln -sf ../backend/node_modules node_modules",
+    "preseed:san-sebastian": "test -e node_modules || ln -sf ../backend/node_modules node_modules",
+    "preseed:import-joyarte": "test -e node_modules || ln -sf ../backend/node_modules node_modules",
+    "preseed:import-san-sebastian": "test -e node_modules || ln -sf ../backend/node_modules node_modules",
+    "seed:demo": "node ../backend/node_modules/ts-node/dist/bin.js -r ../backend/node_modules/tsconfig-paths/register -P tsconfig.json demo/run.ts",
+    "seed:joyarte": "node ../backend/node_modules/ts-node/dist/bin.js -r ../backend/node_modules/tsconfig-paths/register -P tsconfig.json joyarte/run.ts",
+    "seed:san-sebastian": "node ../backend/node_modules/ts-node/dist/bin.js -r ../backend/node_modules/tsconfig-paths/register -P tsconfig.json san-sebastian/run.ts",
+    "seed:import-joyarte": "node ../backend/node_modules/ts-node/dist/bin.js -r ../backend/node_modules/tsconfig-paths/register -P tsconfig.json joyarte/scripts/import-joyarte-from-baron.ts",
+    "seed:import-san-sebastian": "node ../backend/node_modules/ts-node/dist/bin.js -r ../backend/node_modules/tsconfig-paths/register -P tsconfig.json san-sebastian/scripts/import-san-sebastian-from-sami6.ts"
+  }
+}

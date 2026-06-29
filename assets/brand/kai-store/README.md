@@ -17,7 +17,7 @@ npm run brand:icons
 Pipeline: [`packages/kai-brand`](../../../packages/kai-brand/)
 
 1. `rasterize-svg.mjs` — SVG → `packages/kai-brand/sources/master-1024.png`
-2. `generate-all.mjs` — PWA, Android nativo, Kai Printers Tauri (si `print-service/` existe)
+2. `generate-all.mjs` — PWA, Android nativo, Kai Printers Tauri (si `kai-printers-desktop/` existe)
 3. `export-to-assets.mjs` — copia de referencia en `exports/`
 
 ## Exports (referencia, no editar a mano)
