@@ -93,7 +93,7 @@ export type FiscalBoletaPrintPreview = {
   folio: number;
   issuedAt: string;
   tipoDte: 39;
-  isSimulated: true;
+  isSimulated: boolean;
   timbrePdf417Payload: string;
   emisor: FiscalBoletaPrintPreviewEmisor;
   emisorComplete: boolean;
@@ -113,6 +113,13 @@ export const SET_BE_CASE_LABELS: { id: string; description: string }[] = [
 ];
 
 export type FiscalSummary = FiscalProfile & {
+  productionCaf: {
+    id: string;
+    rangeFrom: number;
+    rangeTo: number;
+    nextFolio: number;
+    environment: string;
+  } | null;
   milestones: FiscalMilestones;
   activeRun: {
     id: string;
@@ -134,6 +141,40 @@ export type FiscalCafItem = {
   environment: string;
   isActive: boolean;
   uploadedAt: string;
+};
+
+export type FiscalEmissionRow = {
+  id: string;
+  folio: number;
+  issuedAt: string;
+  environment: string;
+  envioStatus: string;
+  trackId: string | null;
+  transactionId: string;
+  documentNumber: string | null;
+  documentFolio: string | null;
+  mntTotal: number;
+  subtotal: number;
+  taxAmount: number;
+  discountAmount: number;
+  paymentMethod: string | null;
+  transactionCreatedAt: string | null;
+  branchName: string | null;
+  receptorRut: string;
+  receptorName: string;
+  errorMessage: string | null;
+  hasTed: boolean;
+  updatedAt: string;
+};
+
+export type FiscalEmissionsListParams = {
+  limit?: number;
+  offset?: number;
+  status?: "SENT" | "FAILED" | "EPR" | "RCH";
+  from?: string;
+  to?: string;
+  environment?: SiiEnvironment;
+  folio?: number;
 };
 
 export type CertificationRun = {
@@ -162,6 +203,36 @@ export type EmisorFormValues = {
   portalPermissionsDone: boolean;
 };
 
+export type CompanySiiEmisorSource = {
+  razonSocial: string;
+  rut: string | null;
+  businessActivity: string | null;
+  address: string | null;
+  commune?: string | null;
+  city?: string | null;
+  siiResolutionNumber?: string | null;
+  siiResolutionDate?: string | null;
+};
+
+export function companyToEmisorForm(
+  company: CompanySiiEmisorSource,
+  profile: Pick<FiscalProfile, "portalPostulationDone" | "portalPermissionsDone">,
+): EmisorFormValues {
+  return {
+    legalName: company.razonSocial?.trim() || "",
+    rut: company.rut?.trim() || "",
+    businessActivity: company.businessActivity?.trim() || "",
+    address: company.address?.trim() || "",
+    commune: company.commune?.trim() || "",
+    city: company.city?.trim() || "",
+    resolutionNumber: company.siiResolutionNumber?.trim() || "",
+    resolutionDate: company.siiResolutionDate?.slice(0, 10) ?? "",
+    portalPostulationDone: profile.portalPostulationDone,
+    portalPermissionsDone: profile.portalPermissionsDone,
+  };
+}
+
+/** @deprecated Usar companyToEmisorForm con datos de Company */
 export function profileToEmisorForm(p: FiscalProfile): EmisorFormValues {
   return {
     legalName: p.legalName ?? "",

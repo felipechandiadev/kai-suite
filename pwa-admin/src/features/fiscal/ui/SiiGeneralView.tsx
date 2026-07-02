@@ -74,8 +74,12 @@ export function SiiGeneralView({ summary }: Props) {
         >
           <h3 className="font-medium">Credenciales</h3>
           <p className="text-sm text-muted-foreground mt-1">
-            Cert: {summary.hasCertificate ? "Cargado" : "Pendiente"} · CAF:{" "}
-            {summary.activeCaf ? `${summary.activeCaf.nextFolio}` : "Pendiente"}
+            Cert: {summary.hasCertificate ? "Cargado" : "Pendiente"} · CAF prod:{" "}
+            {summary.productionCaf
+              ? `${summary.productionCaf.nextFolio} (${summary.productionCaf.rangeFrom}–${summary.productionCaf.rangeTo})`
+              : summary.activeCaf
+                ? `${summary.activeCaf.nextFolio} (cert.)`
+                : "Pendiente"}
           </p>
         </Link>
         <Link

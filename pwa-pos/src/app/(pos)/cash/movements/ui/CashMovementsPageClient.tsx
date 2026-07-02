@@ -10,6 +10,7 @@ import {
   reprintSaleDocument,
   reprintSaleTicket,
 } from "@/features/pos-print/lib/reprint-sale-receipt";
+import { reprintFiscalBoleta } from "@/features/fiscal/print/reprint-fiscal-boleta";
 import { formatPrintJobFailedMessage } from "@kai/print-service-client";
 import { CashMovementSaleDetailDialog } from "@/app/(pos)/cash/movements/ui/CashMovementSaleDetailDialog";
 import { paymentMethodLabelEs } from "@/features/pos-payment-methods/lib/payment-method-label";
@@ -139,6 +140,30 @@ export default function CashMovementsPageClient() {
     setDetailDocNumber(null);
   }, []);
 
+  const handleReprintFiscalBoleta = useCallback(async (row: CashSessionMovementRow) => {
+    setPrintNotice(null);
+    setPrintBusyId(`${row.id}:fiscal`);
+    try {
+      const res = await reprintFiscalBoleta(movementTransactionId(row));
+      if (!res.success) {
+        setPrintNotice(res.message ?? "No se pudo imprimir la boleta SII");
+        return;
+      }
+      if (res.channel === "browser") {
+        setPrintNotice(
+          "Boleta SII enviada al diálogo de impresión del navegador (KaiPrinters no disponible).",
+        );
+        return;
+      }
+      setPrintNotice("Boleta SII enviada a Kai Printers.");
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : String(e);
+      setPrintNotice(formatPrintJobFailedMessage(raw));
+    } finally {
+      setPrintBusyId(null);
+    }
+  }, []);
+
   const handleReprintDocument = useCallback(async (row: CashSessionMovementRow) => {
     setPrintNotice(null);
     setPrintBusyId(`${row.id}:doc`);
@@ -256,6 +281,7 @@ export default function CashMovementsPageClient() {
           }
           const ticketBusy = printBusyId === `${row.id}:ticket`;
           const docBusy = printBusyId === `${row.id}:doc`;
+          const fiscalBusy = printBusyId === `${row.id}:fiscal`;
           const anyBusy = printBusyId != null;
           return (
             <div className="flex items-center justify-center gap-1">
@@ -287,6 +313,19 @@ export default function CashMovementsPageClient() {
               ) : null}
               {isSale ? (
                 <IconButton
+                  icon="FileCheck"
+                  variant="action"
+                  size="sm"
+                  ariaLabel="Imprimir boleta SII"
+                  title="Imprimir boleta electrónica SII"
+                  disabled={anyBusy && !fiscalBusy}
+                  isLoading={fiscalBusy}
+                  onClick={() => void handleReprintFiscalBoleta(row)}
+                  data-test-id={`cash-movements-reprint-fiscal-${row.id}`}
+                />
+              ) : null}
+              {isSale ? (
+                <IconButton
                   icon="MoreHorizontal"
                   variant="action"
                   size="sm"
@@ -302,7 +341,7 @@ export default function CashMovementsPageClient() {
         },
       },
     ],
-    [handleReprintDocument, handleReprintTicket, openSaleDetail, printBusyId],
+    [handleReprintDocument, handleReprintFiscalBoleta, handleReprintTicket, openSaleDetail, printBusyId],
   );
 
   return (

@@ -10,6 +10,7 @@ const items = [
   { label: "Impresión de prueba", url: "/settings/sii/impresion-prueba" },
   { label: "Emisor", url: "/settings/sii/emisor" },
   { label: "Credenciales", url: "/settings/sii/credenciales" },
+  { label: "Folios", url: "/settings/sii/folios" },
   { label: "Producción", url: "/settings/sii/produccion" },
 ];
 

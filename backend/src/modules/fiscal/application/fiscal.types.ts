@@ -29,6 +29,14 @@ export type FiscalProfileResponse = {
 };
 
 export type FiscalSummaryResponse = FiscalProfileResponse & {
+  /** CAF activo en producción (independiente del ambiente del perfil). */
+  productionCaf: {
+    id: string;
+    rangeFrom: number;
+    rangeTo: number;
+    nextFolio: number;
+    environment: string;
+  } | null;
   milestones: {
     enrolment: boolean;
     authorization: boolean;
@@ -64,4 +72,33 @@ export type FiscalCafListItem = {
   environment: string;
   isActive: boolean;
   uploadedAt: string;
+};
+
+export type FiscalEmissionListItem = {
+  id: string;
+  folio: number;
+  issuedAt: string;
+  environment: string;
+  envioStatus: string;
+  trackId: string | null;
+  transactionId: string;
+  documentNumber: string | null;
+  documentFolio: string | null;
+  mntTotal: number;
+  subtotal: number;
+  taxAmount: number;
+  discountAmount: number;
+  paymentMethod: string | null;
+  transactionCreatedAt: string | null;
+  branchName: string | null;
+  receptorRut: string;
+  receptorName: string;
+  errorMessage: string | null;
+  hasTed: boolean;
+  updatedAt: string;
+};
+
+export type FiscalEmissionsListResult = {
+  items: FiscalEmissionListItem[];
+  total: number;
 };

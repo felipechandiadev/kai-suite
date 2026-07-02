@@ -30,6 +30,7 @@ import { InstallmentsModule } from '@modules/installments/installments.module';
 import { PaymentGatewaysModule } from '@modules/payment-gateways/payment-gateways.module';
 import { PresaleTicketsModule } from '@modules/presale-tickets/presale-tickets.module';
 import { MercadoPagoSalePaymentService } from '@modules/payment-gateways/application/mercado-pago-sale-payment.service';
+import { FiscalModule } from '@modules/fiscal/fiscal.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { MercadoPagoSalePaymentService } from '@modules/payment-gateways/applica
     InstallmentsModule,
     PaymentGatewaysModule,
     PresaleTicketsModule,
+    FiscalModule,
     CqrsModule,
   ],
   controllers: [CashSessionsController],

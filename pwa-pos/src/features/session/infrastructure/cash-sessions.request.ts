@@ -4,6 +4,7 @@ import type { ListCashSessionsResponse } from "../types/cash-session.types";
 import type { CashSessionMovementRow } from "../types/cash-session-movement.types";
 import type { CashHubDepositCandidate } from "../types/cash-hub-deposit.types";
 import type { CreateSaleApiBody } from "../lib/build-create-sale-payload";
+import type { FiscalEmissionResponse } from "@/features/fiscal/types/fiscal-emission.types";
 import type { CreateBackorderApiBody } from "../lib/build-create-backorder-payload";
 
 const BACKEND_CONNECTION_MESSAGE =
@@ -111,7 +112,11 @@ export class CashSessionsRequest {
   static async createSale(
     body: CreateSaleApiBody,
   ): Promise<
-    | { success: true; transaction: { id: string; documentNumber: string } }
+    | {
+        success: true;
+        transaction: { id: string; documentNumber: string };
+        fiscalEmission?: FiscalEmissionResponse;
+      }
     | { success: false; message: string; statusCode?: number }
   > {
     const base = process.env.BACKEND_API_URL;
@@ -156,10 +161,12 @@ export class CashSessionsRequest {
     }
 
     const tx = data?.transaction as { id?: string; documentNumber?: string } | undefined;
+    const fiscalEmission = data?.fiscalEmission as FiscalEmissionResponse | undefined;
     if (data?.success === true && tx?.id && tx?.documentNumber) {
       return {
         success: true,
         transaction: { id: String(tx.id), documentNumber: String(tx.documentNumber) },
+        ...(fiscalEmission ? { fiscalEmission } : {}),
       };
     }
 

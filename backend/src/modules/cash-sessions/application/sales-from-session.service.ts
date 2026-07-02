@@ -87,6 +87,8 @@ import {
   getRepresentativePaymentMethod,
   type SalePaymentInput,
 } from '@modules/transactions/application/payment-snapshots.util';
+import { FiscalBoletaEmissionService } from '@modules/fiscal/application/fiscal-boleta-emission.service';
+import type { FiscalEmissionResult } from '@modules/fiscal/application/fiscal-emission.types';
 
 type PosCommercialRegisterConfig = {
   transactionType:
@@ -160,6 +162,7 @@ export class SalesFromSessionService {
     private readonly installmentService: InstallmentService,
     private readonly mpSalePayment: MercadoPagoSalePaymentService,
     private readonly presaleTicketsService: PresaleTicketsService,
+    private readonly fiscalBoletaEmission: FiscalBoletaEmissionService,
   ) {}
 
   /**
@@ -277,7 +280,7 @@ export class SalesFromSessionService {
         'No se puede diferir el cobro al cobrar un ticket de preventa.',
       );
     }
-    return this.registerPosCommercial(createSaleDto, {
+    const result = await this.registerPosCommercial(createSaleDto, {
       transactionType: TransactionType.SALE,
       skipStockCheck: false,
       skipStockAvailabilityCheck: Boolean(fulfillBackorderId),
@@ -285,6 +288,66 @@ export class SalesFromSessionService {
       fulfillPresaleTicketIds,
       deferPayment: Boolean(createSaleDto.deferPayment),
     });
+    const fiscalEmission = await this.maybeEmitSaleBoleta(createSaleDto, result);
+    if (fiscalEmission) {
+      return { ...result, fiscalEmission };
+    }
+    return result;
+  }
+
+  private shouldEmitSaleBoleta(
+    createSaleDto: CreateSaleDto,
+    fulfillBackorderId?: string,
+    fulfillPresaleTicketIds?: string[],
+  ): boolean {
+    if (createSaleDto.deferPayment) return false;
+    if (fulfillBackorderId) return false;
+    if (fulfillPresaleTicketIds?.length) return false;
+    const payments = Array.isArray(createSaleDto.payments) ? createSaleDto.payments : [];
+    return payments.some((p) => (Number(p.amount) || 0) > 0);
+  }
+
+  private async maybeEmitSaleBoleta(
+    createSaleDto: CreateSaleDto,
+    result: {
+      success: boolean;
+      transaction?: { id: string };
+    },
+  ): Promise<FiscalEmissionResult | undefined> {
+    if (!result.success || !result.transaction?.id) return undefined;
+    const fulfillBackorderId = createSaleDto.fulfillBackorderId?.trim() || undefined;
+    const fulfillPresaleTicketIds = [
+      ...new Set(
+        [
+          ...(createSaleDto.fulfillPresaleTicketIds ?? []),
+          ...(createSaleDto.fulfillPresaleTicketId
+            ? [createSaleDto.fulfillPresaleTicketId]
+            : []),
+        ]
+          .map((id) => id.trim())
+          .filter(Boolean),
+      ),
+    ];
+    if (!this.shouldEmitSaleBoleta(createSaleDto, fulfillBackorderId, fulfillPresaleTicketIds)) {
+      return undefined;
+    }
+    const pos = await this.pointOfSaleRepository.findOne({
+      where: { id: createSaleDto.pointOfSaleId, deletedAt: IsNull() },
+    });
+    if (!pos?.companyId) return undefined;
+    try {
+      return await this.fiscalBoletaEmission.emitFromSale(pos.companyId, result.transaction.id);
+    } catch (e) {
+      this.logger.error(
+        `Emisión boleta falló para venta ${result.transaction.id}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+      return {
+        status: 'FAILED',
+        error: e instanceof Error ? e.message : 'Error al emitir boleta',
+      };
+    }
   }
 
   /**

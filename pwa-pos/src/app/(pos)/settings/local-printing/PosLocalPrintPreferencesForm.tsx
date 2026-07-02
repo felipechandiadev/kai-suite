@@ -22,6 +22,8 @@ import {
 import { Button, Select, Switch, TextField } from "@/shared/admin-shared";
 import { printPosDocumentTest } from "@/features/pos-print/lib/print-pos-document-test";
 import { printPosQuickTicketTest } from "@/features/pos-print/lib/print-pos-quick-print-test";
+import { getFiscalBoletaTestPreviewAction } from "@/features/fiscal/actions/fiscal-boleta-test-preview.action";
+import { printFiscalBoletaPreview } from "@/features/fiscal/print/fiscal-boleta-preview-print";
 import { DocumentPrintTestButton } from "@/features/pos-print/ui/DocumentPrintTestButton";
 import { getQuotationsEnabledAction } from "@/features/company/actions/company-quotations.action";
 import { getPresalesEnabledAction } from "@/features/presale-tickets/actions/presales-enabled.action";
@@ -82,6 +84,7 @@ export function PosLocalPrintPreferencesForm({
   const [testPrintBusyKind, setTestPrintBusyKind] = useState<PosDocumentPrintKind | null>(null);
   const [quickTestBusy, setQuickTestBusy] = useState(false);
   const [saleDemoTestBusy, setSaleDemoTestBusy] = useState(false);
+  const [fiscalBoletaTestBusy, setFiscalBoletaTestBusy] = useState(false);
   const [quickTestMessage, setQuickTestMessage] = useState<string | null>(null);
   const [quotationsEnabled, setQuotationsEnabled] = useState(false);
   const [presalesEnabled, setPresalesEnabled] = useState(false);
@@ -248,6 +251,52 @@ export function PosLocalPrintPreferencesForm({
     docPrintModes.sale,
   ]);
 
+  const runFiscalBoletaTest = useCallback(async () => {
+    if (fiscalBoletaTestBusy || quickTestBusy || saleDemoTestBusy || testPrintBusyKind) return;
+    setFiscalBoletaTestBusy(true);
+    setQuickTestMessage(null);
+    try {
+      writePrintServiceConfigToStorage({
+        host: host.trim() || "127.0.0.1",
+        port: Number(port) || 14567,
+        wssPort: Number(wssPort) || 14568,
+        useTls,
+      });
+      writePosPurposePrinterAliasesToStorage({
+        ticketsAlias,
+        documentsAlias,
+      });
+      const previewRes = await getFiscalBoletaTestPreviewAction("CASO-1");
+      if (!previewRes.success) {
+        throw new Error(previewRes.message);
+      }
+      const channel = await printFiscalBoletaPreview(previewRes.preview);
+      setQuickTestMessage(
+        channel === "agent"
+          ? "Boleta SII de prueba encolada (`fiscal-boleta-preview`). Revise la impresora."
+          : "No se encoló en el agente; se abrió el diálogo del navegador.",
+      );
+    } catch (e) {
+      const msg =
+        e instanceof Error ? e.message : "No se pudo enviar la boleta SII de prueba al agente.";
+      setQuickTestMessage(msg);
+      window.alert(msg);
+    } finally {
+      setFiscalBoletaTestBusy(false);
+    }
+  }, [
+    fiscalBoletaTestBusy,
+    quickTestBusy,
+    saleDemoTestBusy,
+    testPrintBusyKind,
+    host,
+    port,
+    wssPort,
+    useTls,
+    ticketsAlias,
+    documentsAlias,
+  ]);
+
   const runTestPrint = useCallback(
     async (kind: PosDocumentPrintKind) => {
       if (testPrintBusyKind) return;
@@ -395,7 +444,8 @@ export function PosLocalPrintPreferencesForm({
           <h2 className="text-sm font-semibold text-foreground">Probar impresora</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             <strong>Ticket de prueba</strong> usa el agente directo (rápido).{" "}
-            <strong>Venta demo</strong> usa el mismo encolado que una venta real (`pos-sale-ticket`).
+            <strong>Venta demo</strong> usa el mismo encolado que una venta real (`pos-sale-ticket`).{" "}
+            <strong>Boleta SII</strong> usa el mismo tipo que tras una venta (`fiscal-boleta-preview`).
             En Bluetooth espere 1–2 segundos entre pruebas.
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -403,7 +453,11 @@ export function PosLocalPrintPreferencesForm({
               type="button"
               variant="primary"
               disabled={
-                !storageHydrated || quickTestBusy || saleDemoTestBusy || testPrintBusyKind !== null
+                !storageHydrated ||
+                quickTestBusy ||
+                saleDemoTestBusy ||
+                fiscalBoletaTestBusy ||
+                testPrintBusyKind !== null
               }
               loading={quickTestBusy}
               onClick={() => void runQuickTicketTest()}
@@ -415,13 +469,33 @@ export function PosLocalPrintPreferencesForm({
               type="button"
               variant="outlined"
               disabled={
-                !storageHydrated || quickTestBusy || saleDemoTestBusy || testPrintBusyKind !== null
+                !storageHydrated ||
+                quickTestBusy ||
+                saleDemoTestBusy ||
+                fiscalBoletaTestBusy ||
+                testPrintBusyKind !== null
               }
               loading={saleDemoTestBusy}
               onClick={() => void runSaleDemoTest()}
               data-test-id="pos-print-prefs-sale-demo-test"
             >
               Venta demo (como venta real)
+            </Button>
+            <Button
+              type="button"
+              variant="outlined"
+              disabled={
+                !storageHydrated ||
+                quickTestBusy ||
+                saleDemoTestBusy ||
+                fiscalBoletaTestBusy ||
+                testPrintBusyKind !== null
+              }
+              loading={fiscalBoletaTestBusy}
+              onClick={() => void runFiscalBoletaTest()}
+              data-test-id="pos-print-prefs-fiscal-boleta-test"
+            >
+              Boleta SII (como venta real)
             </Button>
           </div>
           {quickTestMessage ? (

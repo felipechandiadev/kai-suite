@@ -1,10 +1,17 @@
 import { printHtmlInHiddenIframe } from "@/features/pos-print/lib/print-html-in-hidden-iframe";
+import type { FiscalBoletaPrintPreview } from "@/features/fiscal/types/fiscal-emission.types";
+import { printFiscalBoletaViaReactToPrint } from "@/features/fiscal/print/fiscal-boleta-browser-print-portal";
 
 export type PosPrintJobBrowserFallback = {
   html: string;
   iframeTitle: string;
   /** Solo formato documento (hoja); nunca ticket 80 mm en navegador. */
   kind?: "document";
+  /** Boleta SII: preferir react-to-print (incluye PDF417) sobre iframe HTML. */
+  fiscalBoleta?: {
+    preview: FiscalBoletaPrintPreview;
+    pdf417Svg?: string;
+  };
 };
 
 const MAX_ENTRIES = 32;
@@ -71,8 +78,19 @@ function pruneExpired(): void {
   }
 }
 
-function openBrowserFallback(entry: PosPrintJobBrowserFallback): void {
+async function openBrowserFallback(entry: PosPrintJobBrowserFallback): Promise<void> {
   const title = entry.iframeTitle.trim() || "Impresión";
+  if (entry.fiscalBoleta) {
+    try {
+      await printFiscalBoletaViaReactToPrint(
+        entry.fiscalBoleta.preview,
+        entry.fiscalBoleta.pdf417Svg,
+      );
+      return;
+    } catch (e) {
+      console.warn("[KaiStore print] react-to-print boleta falló, iframe:", e);
+    }
+  }
   printHtmlInHiddenIframe(entry.html, title);
 }
 
@@ -94,6 +112,6 @@ export function tryPosPrintJobBrowserFallback(jobId: string, error: string): boo
     "[KaiStore print] impresora no alcanzable; abriendo diálogo del navegador:",
     error.slice(0, 160),
   );
-  openBrowserFallback(entry);
+  void openBrowserFallback(entry);
   return true;
 }

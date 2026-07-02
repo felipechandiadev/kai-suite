@@ -17,16 +17,27 @@ import {
   CurrentCompany,
 } from '@common/tenant';
 import { FiscalService } from '../application/fiscal.service';
+import { FiscalBoletaEmissionService } from '../application/fiscal-boleta-emission.service';
 import { UpdateFiscalProfileDto } from '../application/dto/update-fiscal-profile.dto';
 import { CompleteCertificationDto } from '../application/dto/complete-certification.dto';
 import { EnableProductionDto } from '../application/dto/enable-production.dto';
-import { SiiEnvironment } from '../domain/fiscal.enums';
+import { FiscalDteEmissionStatus, SiiEnvironment } from '../domain/fiscal.enums';
+
+const VALID_EMISSION_STATUSES = new Set<string>([
+  FiscalDteEmissionStatus.SENT,
+  FiscalDteEmissionStatus.FAILED,
+  FiscalDteEmissionStatus.EPR,
+  FiscalDteEmissionStatus.RCH,
+]);
 
 @Controller()
 @AdminOnly()
 @AllowAdminWithoutCompany()
 export class FiscalController {
-  constructor(private readonly fiscalService: FiscalService) {}
+  constructor(
+    private readonly fiscalService: FiscalService,
+    private readonly fiscalBoletaEmission: FiscalBoletaEmissionService,
+  ) {}
 
   @Get('company/fiscal-profile')
   async getProfile(@CurrentCompany() companyId: string) {
@@ -94,6 +105,39 @@ export class FiscalController {
   async listCafs(@CurrentCompany() companyId: string) {
     const cafs = await this.fiscalService.listCafs(companyId);
     return { success: true, cafs };
+  }
+
+  @Get('company/fiscal/emissions')
+  async listEmissions(
+    @CurrentCompany() companyId: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+    @Query('status') status?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('environment') environment?: string,
+    @Query('folio') folio?: string,
+  ) {
+    const envioStatus =
+      status && VALID_EMISSION_STATUSES.has(status)
+        ? (status as FiscalDteEmissionStatus)
+        : undefined;
+    const env =
+      environment === SiiEnvironment.CERTIFICATION ||
+      environment === SiiEnvironment.PRODUCTION
+        ? environment
+        : undefined;
+    const folioNum = folio?.trim() ? Number(folio) : undefined;
+    const result = await this.fiscalBoletaEmission.listEmissionsForCompany(companyId, {
+      limit: limit ? Number(limit) : undefined,
+      offset: offset ? Number(offset) : undefined,
+      envioStatus,
+      from,
+      to,
+      environment: env,
+      folio: folioNum != null && Number.isFinite(folioNum) ? folioNum : undefined,
+    });
+    return { success: true, ...result };
   }
 
   @Get('company/fiscal/boleta/print-preview')
@@ -164,6 +208,12 @@ export class FiscalController {
     return { success: true, fiscalProfile };
   }
 
+  @Post('company/fiscal-profile/acknowledge-certification')
+  async acknowledgeCertification(@CurrentCompany() companyId: string) {
+    const fiscalProfile = await this.fiscalService.acknowledgePortalCertification(companyId);
+    return { success: true, fiscalProfile };
+  }
+
   @Put('company/fiscal-profile/production')
   async enableProduction(
     @CurrentCompany() companyId: string,
@@ -171,5 +221,29 @@ export class FiscalController {
   ) {
     const fiscalProfile = await this.fiscalService.enableProduction(companyId, body);
     return { success: true, fiscalProfile };
+  }
+
+  @Post('company/fiscal/emissions/:emissionId/refresh-sii-status')
+  async refreshEmissionSiiStatus(
+    @CurrentCompany() companyId: string,
+    @Param('emissionId') emissionId: string,
+  ) {
+    const item = await this.fiscalBoletaEmission.refreshEmissionSiiStatus(
+      companyId,
+      emissionId,
+    );
+    return { success: true, item };
+  }
+
+  @Post('company/fiscal/boletas/transactions/:transactionId/retry')
+  async retryBoletaEmission(
+    @CurrentCompany() companyId: string,
+    @Param('transactionId') transactionId: string,
+  ) {
+    const fiscalEmission = await this.fiscalBoletaEmission.retryFromSale(
+      companyId,
+      transactionId,
+    );
+    return { success: true, fiscalEmission };
   }
 }

@@ -2447,6 +2447,8 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
         details = null;
       }
     }
+    const fiscalEmission =
+      confirmRes.success && "fiscalEmission" in confirmRes ? confirmRes.fiscalEmission : undefined;
     const snapshot = buildPosSaleReceiptSnapshot({
       lines: cart.lines,
       payments,
@@ -2467,7 +2469,19 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
       },
       methodsById,
       loadedQuotation,
-      saleFolio: confirmRes.documentNumber,
+      saleFolio: confirmRes.success ? confirmRes.documentNumber : undefined,
+      transactionId: confirmRes.success ? confirmRes.transactionId : undefined,
+      fiscalFolio:
+        fiscalEmission?.status === "SENT" && fiscalEmission.folio != null
+          ? String(fiscalEmission.folio)
+          : null,
+      fiscalPrintPreview:
+        fiscalEmission?.status === "SENT" ? fiscalEmission.printPreview ?? null : null,
+      fiscalBoletaWarning:
+        fiscalEmission?.status === "FAILED"
+          ? fiscalEmission.error?.trim() ||
+            "Venta registrada; boleta pendiente de envío al SII."
+          : null,
       documentKind: isEncargoMode ? "backorder" : "sale",
       backorder:
         isEncargoMode && backorderDeposit

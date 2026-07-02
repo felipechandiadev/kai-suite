@@ -30,6 +30,7 @@ backend/.env
 backend/.env.local
 envs/*.env
 envs/*.env.local
+envs/certs/
 !envs/*.env.example
 !envs/*.env.local.example
 !envs/profiles/*.env.example

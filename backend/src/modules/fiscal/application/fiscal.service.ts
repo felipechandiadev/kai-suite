@@ -12,23 +12,36 @@ import { FiscalCaf } from '../domain/fiscal-caf.entity';
 import { FiscalCertificationRun } from '../domain/fiscal-certification-run.entity';
 import {
   CertificationRunStatus,
+  FiscalDteEmissionStatus,
   FiscalProfileStatus,
   SiiEnvironment,
 } from '../domain/fiscal.enums';
+import {
+  applyEmisorDtoToCompany,
+  companyToEmisorPreview,
+  emisorFromCompany,
+  isEmisorCompleteFromCompany,
+} from '../domain/fiscal-emisor-from-company';
 import { FiscalCryptoService } from '../infrastructure/fiscal-crypto.service';
 import { SiiBoletaAuthService } from '../infrastructure/sii-boleta-auth.service';
 import { SiiBoletaRestClient } from '../infrastructure/sii-boleta-rest.client';
+import { FiscalXmlSchemaValidator } from '../infrastructure/fiscal-xml-schema.validator';
+import {
+  buildSignedEnvioBoleta,
+  validateAndPostEnvioBoleta,
+  withIso8859Declaration,
+} from './send-signed-envio-boleta.util';
+import {
+  pollEnvioStatus,
+  resolveInitialPollDelayMs,
+  resolveSiiEnvioStatus,
+} from './sii-envio-status.util';
 import { parseCafXml } from '../infrastructure/fiscal-xml.util';
 import {
   buildDteBoletaXml,
-  buildEnvioBoletaXml,
   buildRcoCertificationXml,
 } from '../infrastructure/boleta-envio.builder';
-import {
-  buildBoletaPrintPreview,
-  type FiscalBoletaPrintPreview,
-  type FiscalBoletaPrintPreviewEmisor,
-} from '../domain/fiscal-boleta-print-preview';
+import { buildBoletaPrintPreview, type FiscalBoletaPrintPreview } from '../domain/fiscal-boleta-print-preview';
 import { SET_BE_CASES, buildSetBePreview } from '../domain/set-be.constants';
 import { UpdateFiscalProfileDto } from './dto/update-fiscal-profile.dto';
 import { CompleteCertificationDto } from './dto/complete-certification.dto';
@@ -55,20 +68,16 @@ export class FiscalService {
     private readonly crypto: FiscalCryptoService,
     private readonly auth: SiiBoletaAuthService,
     private readonly sii: SiiBoletaRestClient,
+    private readonly schemaValidator: FiscalXmlSchemaValidator,
   ) {}
 
   async getOrCreateProfile(companyId: string): Promise<FiscalProfile> {
     let profile = await this.profileRepo.findOne({ where: { companyId } });
     if (!profile) {
-      const company = await this.companyRepo.findOne({ where: { id: companyId } });
       profile = this.profileRepo.create({
         companyId,
         environment: SiiEnvironment.CERTIFICATION,
         status: FiscalProfileStatus.DRAFT,
-        legalName: company?.razonSocial ?? null,
-        rut: company?.rut ?? null,
-        businessActivity: company?.businessActivity ?? null,
-        address: company?.address ?? null,
       });
       profile = await this.profileRepo.save(profile);
     }
@@ -77,32 +86,41 @@ export class FiscalService {
 
   async getProfile(companyId: string): Promise<FiscalProfileResponse> {
     const profile = await this.getOrCreateProfile(companyId);
+    const company = await this.requireCompany(companyId);
     const cert = await this.certRepo.findOne({
       where: { companyId },
       order: { uploadedAt: 'DESC' },
     });
     const caf = await this.getActiveCaf(companyId, profile.environment);
-    return this.toProfileResponse(profile, cert, caf);
+    return this.toProfileResponse(profile, company, cert, caf);
   }
 
   async getSummary(companyId: string): Promise<FiscalSummaryResponse> {
     const base = await this.getProfile(companyId);
+    const profile = await this.getOrCreateProfile(companyId);
+    const prodCaf = await this.getActiveCaf(companyId, SiiEnvironment.PRODUCTION);
+    const productionCaf = prodCaf ? this.toCafListItem(prodCaf) : null;
     const run = await this.runRepo.findOne({
       where: { companyId },
       order: { startedAt: 'DESC' },
     });
     const env = base.environment as SiiEnvironment;
+    const hasAuthorization =
+      base.hasCertificate && (!!base.activeCaf || !!productionCaf);
     return {
       ...base,
+      productionCaf,
       milestones: {
         enrolment: base.portalPostulationDone && base.portalPermissionsDone,
-        authorization: base.hasCertificate && !!base.activeCaf,
+        authorization: hasAuthorization,
         setGenerated:
           run?.status === CertificationRunStatus.GENERATED ||
           !!run?.generatedPreview?.length,
         validation:
           run?.boletaEnvioStatus === 'EPR' || run?.status === CertificationRunStatus.ACCEPTED,
-        declaration: base.status === FiscalProfileStatus.CERTIFIED,
+        declaration:
+          profile.status === FiscalProfileStatus.CERTIFIED ||
+          profile.status === FiscalProfileStatus.PRODUCTION,
       },
       activeRun: run
         ? {
@@ -126,11 +144,42 @@ export class FiscalService {
     dto: UpdateFiscalProfileDto,
   ): Promise<FiscalProfileResponse> {
     const profile = await this.getOrCreateProfile(companyId);
-    Object.assign(profile, {
-      ...dto,
-      resolutionDate: dto.resolutionDate ?? profile.resolutionDate,
-    });
-    this.refreshProfileStatus(profile);
+    const company = await this.requireCompany(companyId);
+
+    const hasEmisorFields =
+      dto.legalName !== undefined ||
+      dto.rut !== undefined ||
+      dto.businessActivity !== undefined ||
+      dto.address !== undefined ||
+      dto.commune !== undefined ||
+      dto.city !== undefined ||
+      dto.resolutionNumber !== undefined ||
+      dto.resolutionDate !== undefined;
+
+    if (hasEmisorFields) {
+      if (dto.rut !== undefined && dto.rut.trim() !== company.rut) {
+        const conflict = await this.companyRepo.findOne({
+          where: { rut: dto.rut.trim() },
+        });
+        if (conflict && conflict.id !== company.id) {
+          throw new BadRequestException('El RUT ya está registrado');
+        }
+      }
+      applyEmisorDtoToCompany(company, dto);
+      await this.companyRepo.save(company);
+    }
+
+    if (dto.environment !== undefined) {
+      profile.environment = dto.environment;
+    }
+    if (dto.portalPostulationDone !== undefined) {
+      profile.portalPostulationDone = dto.portalPostulationDone;
+    }
+    if (dto.portalPermissionsDone !== undefined) {
+      profile.portalPermissionsDone = dto.portalPermissionsDone;
+    }
+
+    this.refreshProfileStatus(profile, company);
     await this.profileRepo.save(profile);
     return this.getProfile(companyId);
   }
@@ -157,7 +206,8 @@ export class FiscalService {
       }),
     );
     const profile = await this.getOrCreateProfile(companyId);
-    this.refreshProfileStatus(profile);
+    const company = await this.requireCompany(companyId);
+    this.refreshProfileStatus(profile, company);
     await this.profileRepo.save(profile);
     return this.getProfile(companyId);
   }
@@ -165,7 +215,8 @@ export class FiscalService {
   async deleteCertificate(companyId: string): Promise<FiscalProfileResponse> {
     await this.certRepo.delete({ companyId });
     const profile = await this.getOrCreateProfile(companyId);
-    this.refreshProfileStatus(profile);
+    const company = await this.requireCompany(companyId);
+    this.refreshProfileStatus(profile, company);
     await this.profileRepo.save(profile);
     return this.getProfile(companyId);
   }
@@ -198,7 +249,8 @@ export class FiscalService {
       }),
     );
     const profile2 = await this.getOrCreateProfile(companyId);
-    this.refreshProfileStatus(profile2);
+    const company = await this.requireCompany(companyId);
+    this.refreshProfileStatus(profile2, company);
     await this.profileRepo.save(profile2);
     return this.listCafs(companyId);
   }
@@ -208,16 +260,7 @@ export class FiscalService {
       where: { companyId },
       order: { uploadedAt: 'DESC' },
     });
-    return rows.map((c) => ({
-      id: c.id,
-      dteType: c.dteType,
-      rangeFrom: c.rangeFrom,
-      rangeTo: c.rangeTo,
-      nextFolio: c.nextFolio,
-      environment: c.environment,
-      isActive: c.isActive,
-      uploadedAt: c.uploadedAt.toISOString(),
-    }));
+    return rows.map((c) => this.toCafListItem(c));
   }
 
   async testSiiToken(companyId: string): Promise<{ success: boolean; tokenPreview: string }> {
@@ -235,6 +278,7 @@ export class FiscalService {
     casoId?: string,
   ): Promise<FiscalBoletaPrintPreview> {
     const profile = await this.getOrCreateProfile(companyId);
+    const company = await this.requireCompany(companyId);
     const caf = await this.getActiveCaf(companyId, profile.environment);
     const startFolio = caf?.nextFolio ?? 1;
     const needed = SET_BE_CASES.length;
@@ -242,18 +286,7 @@ export class FiscalService {
       ? caf.nextFolio + needed - 1 <= caf.rangeTo
       : false;
 
-    const emisor: FiscalBoletaPrintPreviewEmisor = {
-      rut: profile.rut ?? null,
-      legalName: profile.legalName ?? null,
-      businessActivity: profile.businessActivity ?? null,
-      address: profile.address ?? null,
-      commune: profile.commune ?? null,
-      city: profile.city ?? null,
-      resolutionNumber: profile.resolutionNumber ?? null,
-      resolutionDate: profile.resolutionDate
-        ? String(profile.resolutionDate).slice(0, 10)
-        : null,
-    };
+    const emisor = companyToEmisorPreview(company);
 
     try {
       return buildBoletaPrintPreview({
@@ -313,33 +346,61 @@ export class FiscalService {
       throw new BadRequestException('Genere el set antes de enviar');
     }
     const profile = await this.getOrCreateProfile(companyId);
-    const emisor = this.emisorFromProfile(profile);
+    const company = await this.requireCompany(companyId);
+    const emisor = emisorFromCompany(company);
     const material = await this.loadPfxMaterial(companyId);
+    const rutEnvia = this.resolveRutEnvia(material, emisor.rut);
+    const cafXml = await this.loadActiveCafXml(companyId, profile.environment);
     const token = await this.obtainToken(profile.environment, material);
     const dtes: string[] = [];
     let folio = run.folioFrom!;
     for (const caso of SET_BE_CASES) {
-      let dte = buildDteBoletaXml(emisor, caso, folio);
-      dte = this.auth.signXmlEnveloped(
-        dte.replace(/^<\?xml[^>]*\?>\s*/i, '<?xml version="1.0" encoding="ISO-8859-1"?>\n'),
-        'DTE',
+      let dte = buildDteBoletaXml(emisor, caso, folio, { cafXml });
+      dte = this.auth.signDteBoleta(
+        withIso8859Declaration(dte),
+        `F${folio}T39`,
         material,
       );
       dtes.push(dte);
       folio += 1;
     }
-    let envio = buildEnvioBoletaXml(emisor, dtes);
-    envio = this.auth.signXmlEnveloped(envio, 'EnvioBOLETA', material);
+    const signedEnvio = buildSignedEnvioBoleta(this.auth, emisor, dtes, rutEnvia, material);
     try {
-      const result = await this.sii.postEnvioBoleta(
-        profile.environment,
+      const result = await validateAndPostEnvioBoleta(this.schemaValidator, this.sii, {
+        environment: profile.environment,
         token,
-        envio,
-        emisor.rut,
-      );
+        signedXml: signedEnvio,
+        companyRut: emisor.rut,
+        rutEnvia,
+      });
       run.boletaTrackId = result.trackId;
       run.boletaEnvioStatus = 'SENT';
       run.status = CertificationRunStatus.SENT_BOLETA;
+      try {
+        const polled = await pollEnvioStatus(
+          () =>
+            this.sii.getEnvioStatus(
+              profile.environment,
+              token,
+              emisor.rut,
+              result.trackId,
+            ),
+          { initialDelayMs: resolveInitialPollDelayMs(result.retryAfter) },
+        );
+        const resolved = resolveSiiEnvioStatus(polled.raw);
+        run.boletaEnvioStatus = resolved.estado;
+        if (resolved.envioStatus === FiscalDteEmissionStatus.EPR) {
+          run.status = CertificationRunStatus.ACCEPTED;
+        } else if (resolved.envioStatus === FiscalDteEmissionStatus.RCH) {
+          run.status = CertificationRunStatus.REJECTED;
+          run.errorDetail = {
+            phase: 'send-boletas',
+            message: resolved.rejectionMessage ?? `SII rechazó: ${resolved.estado}`,
+          };
+        }
+      } catch {
+        // poll opcional; refresh manual en admin
+      }
       const caf = await this.getActiveCaf(companyId, profile.environment);
       if (caf && run.folioTo) {
         caf.nextFolio = run.folioTo + 1;
@@ -358,18 +419,23 @@ export class FiscalService {
       throw new BadRequestException('Set no generado');
     }
     const profile = await this.getOrCreateProfile(companyId);
-    const emisor = this.emisorFromProfile(profile);
+    const company = await this.requireCompany(companyId);
+    const emisor = emisorFromCompany(company);
     const material = await this.loadPfxMaterial(companyId);
+    const rutEnvia = this.resolveRutEnvia(material, emisor.rut);
     const token = await this.obtainToken(profile.environment, material);
-    let rco = buildRcoCertificationXml(emisor, run.folioFrom, run.folioTo);
-    rco = this.auth.signXmlEnveloped(rco, 'ConsumoFolios', material);
+    let rco = buildRcoCertificationXml(emisor, run.folioFrom, run.folioTo, rutEnvia);
+    const rcoDocId = `RCO_${run.folioFrom}_${run.folioTo}`;
+    rco = this.auth.signRcoDocumento(rco, rcoDocId, material);
     try {
-      const result = await this.sii.postEnvioBoleta(
-        profile.environment,
+      const result = await validateAndPostEnvioBoleta(this.schemaValidator, this.sii, {
+        environment: profile.environment,
         token,
-        rco,
-        emisor.rut,
-      );
+        signedXml: rco,
+        companyRut: emisor.rut,
+        rutEnvia,
+        schemaKind: 'rco',
+      });
       run.rcoTrackId = result.trackId;
       run.rcoEnvioStatus = 'SENT';
       run.status = CertificationRunStatus.SENT_RCO;
@@ -391,9 +457,10 @@ export class FiscalService {
   ): Promise<FiscalCertificationRun> {
     const run = await this.getRun(companyId, runId);
     const profile = await this.getOrCreateProfile(companyId);
+    const company = await this.requireCompany(companyId);
     const material = await this.loadPfxMaterial(companyId);
     const token = await this.obtainToken(profile.environment, material);
-    const emisor = this.emisorFromProfile(profile);
+    const emisor = emisorFromCompany(company);
     if (run.boletaTrackId) {
       const st = await this.sii.getEnvioStatus(
         profile.environment,
@@ -401,11 +468,19 @@ export class FiscalService {
         emisor.rut,
         run.boletaTrackId,
       );
-      run.boletaEnvioStatus = st.estado;
-      if (st.estado === 'EPR') {
+      const resolved = resolveSiiEnvioStatus(st.raw);
+      run.boletaEnvioStatus = resolved.estado;
+      if (resolved.envioStatus === FiscalDteEmissionStatus.EPR) {
         run.status = CertificationRunStatus.ACCEPTED;
-      } else if (st.estado === 'RCH') {
+      } else if (resolved.envioStatus === FiscalDteEmissionStatus.RCH) {
         run.status = CertificationRunStatus.REJECTED;
+        if (resolved.rejectionMessage) {
+          run.errorDetail = {
+            ...(run.errorDetail ?? {}),
+            phase: 'query-boletas',
+            message: resolved.rejectionMessage,
+          };
+        }
       } else {
         run.status = CertificationRunStatus.AWAITING_SII;
       }
@@ -419,12 +494,57 @@ export class FiscalService {
     dto: CompleteCertificationDto,
   ): Promise<FiscalProfileResponse> {
     const run = await this.getRun(companyId, runId);
+    if (run.boletaEnvioStatus !== 'EPR' && run.boletaEnvioStatus !== 'RPR') {
+      throw new BadRequestException(
+        'El envío de boletas debe estar en estado EPR antes de completar la certificación',
+      );
+    }
     run.portalValidated = dto.portalValidated;
     run.portalDeclarationDone = dto.portalDeclarationDone;
     run.status = CertificationRunStatus.CERTIFIED;
     run.completedAt = new Date();
     await this.runRepo.save(run);
     const profile = await this.getOrCreateProfile(companyId);
+    profile.status = FiscalProfileStatus.CERTIFIED;
+    await this.profileRepo.save(profile);
+    return this.getProfile(companyId);
+  }
+
+  /** Contribuyente ya certificado en portal SII (sin Set de Prueba en Kai). */
+  async acknowledgePortalCertification(companyId: string): Promise<FiscalProfileResponse> {
+    const profile = await this.getOrCreateProfile(companyId);
+    if (
+      profile.status === FiscalProfileStatus.CERTIFIED ||
+      profile.status === FiscalProfileStatus.PRODUCTION
+    ) {
+      return this.getProfile(companyId);
+    }
+    if (!profile.portalPostulationDone || !profile.portalPermissionsDone) {
+      throw new BadRequestException('Complete postulación y permisos en portal SII');
+    }
+    const company = await this.requireCompany(companyId);
+    if (!company.rut?.trim() || !company.siiResolutionNumber?.trim()) {
+      throw new BadRequestException('Complete datos del emisor y resolución SII');
+    }
+    const cert = await this.certRepo.findOne({ where: { companyId } });
+    if (!cert) {
+      throw new BadRequestException('Cargue certificado digital');
+    }
+    const prodCaf = await this.getActiveCaf(companyId, SiiEnvironment.PRODUCTION);
+    if (!prodCaf) {
+      throw new BadRequestException('Cargue CAF de producción');
+    }
+    const kaiRuns = await this.runRepo.count({ where: { companyId } });
+    if (kaiRuns > 0) {
+      const hasEpr = await this.runRepo.exist({
+        where: { companyId, boletaEnvioStatus: 'EPR' },
+      });
+      if (!hasEpr) {
+        throw new BadRequestException(
+          'Debe obtener estado EPR en el envío de boletas de certificación antes de marcar como certificado',
+        );
+      }
+    }
     profile.status = FiscalProfileStatus.CERTIFIED;
     await this.profileRepo.save(profile);
     return this.getProfile(companyId);
@@ -451,6 +571,12 @@ export class FiscalService {
     return this.getProfile(companyId);
   }
 
+  private async requireCompany(companyId: string): Promise<Company> {
+    const company = await this.companyRepo.findOne({ where: { id: companyId } });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+    return company;
+  }
+
   private async getRun(companyId: string, runId: string): Promise<FiscalCertificationRun> {
     const run = await this.runRepo.findOne({ where: { id: runId, companyId } });
     if (!run) throw new NotFoundException('Corrida de certificación no encontrada');
@@ -465,6 +591,28 @@ export class FiscalService {
       where: { companyId, environment, isActive: true },
       order: { uploadedAt: 'DESC' },
     });
+  }
+
+  private async loadActiveCafXml(
+    companyId: string,
+    environment: SiiEnvironment,
+  ): Promise<string> {
+    const caf = await this.getActiveCaf(companyId, environment);
+    if (!caf) throw new BadRequestException('No hay CAF activo');
+    return this.crypto.decrypt(caf.encryptedCafXml, caf.cafIv).toString('utf8');
+  }
+
+  private resolveRutEnvia(
+    material: ReturnType<SiiBoletaAuthService['loadPfx']>,
+    emisorRut: string,
+  ): string {
+    const signerRut = this.auth.getSignerRut(material);
+    if (!signerRut) {
+      throw new BadRequestException(
+        'No se pudo leer el RUT del firmante desde el certificado digital',
+      );
+    }
+    return signerRut;
   }
 
   private async loadPfxMaterial(companyId: string) {
@@ -485,74 +633,59 @@ export class FiscalService {
     return this.sii.postToken(env, signed);
   }
 
-  private emisorFromProfile(profile: FiscalProfile) {
-    if (
-      !profile.rut ||
-      !profile.legalName ||
-      !profile.businessActivity ||
-      !profile.address ||
-      !profile.commune ||
-      !profile.city ||
-      !profile.resolutionNumber ||
-      !profile.resolutionDate
-    ) {
-      throw new BadRequestException('Complete datos de emisor y resolución');
-    }
-    return {
-      rut: profile.rut,
-      legalName: profile.legalName,
-      businessActivity: profile.businessActivity,
-      address: profile.address,
-      commune: profile.commune,
-      city: profile.city,
-      resolutionNumber: profile.resolutionNumber,
-      resolutionDate: profile.resolutionDate,
-    };
-  }
-
   private async assertCertificationReady(companyId: string) {
     const profile = await this.getOrCreateProfile(companyId);
-    this.emisorFromProfile(profile);
+    const company = await this.requireCompany(companyId);
+    emisorFromCompany(company);
     await this.loadPfxMaterial(companyId);
     const caf = await this.getActiveCaf(companyId, profile.environment);
     if (!caf) throw new BadRequestException('CAF no cargado');
   }
 
-  private refreshProfileStatus(profile: FiscalProfile) {
+  private refreshProfileStatus(profile: FiscalProfile, company: Company) {
     try {
-      const hasEmisor =
-        profile.rut &&
-        profile.legalName &&
-        profile.resolutionNumber &&
-        profile.resolutionDate;
+      const hasEmisor = isEmisorCompleteFromCompany(company);
       if (profile.status === FiscalProfileStatus.CERTIFIED || profile.productionEnabled) {
         return;
       }
-      profile.status = hasEmisor
-        ? FiscalProfileStatus.READY
-        : FiscalProfileStatus.DRAFT;
+      profile.status = hasEmisor ? FiscalProfileStatus.READY : FiscalProfileStatus.DRAFT;
     } catch {
       profile.status = FiscalProfileStatus.DRAFT;
     }
   }
 
+  private toCafListItem(caf: FiscalCaf): FiscalCafListItem {
+    return {
+      id: caf.id,
+      dteType: caf.dteType,
+      rangeFrom: caf.rangeFrom,
+      rangeTo: caf.rangeTo,
+      nextFolio: caf.nextFolio,
+      environment: caf.environment,
+      isActive: caf.isActive,
+      uploadedAt: caf.uploadedAt.toISOString(),
+    };
+  }
+
   private toProfileResponse(
     profile: FiscalProfile,
+    company: Company,
     cert: FiscalCertificate | null,
     caf: FiscalCaf | null,
   ): FiscalProfileResponse {
+    const emisor = companyToEmisorPreview(company);
     return {
       companyId: profile.companyId,
       environment: profile.environment,
       status: profile.status,
-      legalName: profile.legalName ?? null,
-      rut: profile.rut ?? null,
-      businessActivity: profile.businessActivity ?? null,
-      address: profile.address ?? null,
-      commune: profile.commune ?? null,
-      city: profile.city ?? null,
-      resolutionNumber: profile.resolutionNumber ?? null,
-      resolutionDate: profile.resolutionDate ?? null,
+      legalName: emisor.legalName,
+      rut: emisor.rut,
+      businessActivity: emisor.businessActivity,
+      address: emisor.address,
+      commune: emisor.commune,
+      city: emisor.city,
+      resolutionNumber: emisor.resolutionNumber,
+      resolutionDate: emisor.resolutionDate,
       productionEnabled: profile.productionEnabled,
       portalPostulationDone: profile.portalPostulationDone,
       portalPermissionsDone: profile.portalPermissionsDone,

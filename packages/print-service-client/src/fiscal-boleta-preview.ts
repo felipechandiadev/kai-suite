@@ -44,7 +44,7 @@ export type FiscalBoletaPreviewPayload = {
   folio: number;
   issuedAt: string;
   tipoDte: 39;
-  isSimulated: true;
+  isSimulated: boolean;
   emisor: FiscalBoletaPreviewEmisor;
   company: PosSaleTicketCompany;
   receptor: FiscalBoletaPreviewReceptor;

@@ -69,6 +69,10 @@ export type CompanyDetails = {
   businessActivity: string | null;
   rut: string | null;
   address: string | null;
+  commune: string | null;
+  city: string | null;
+  siiResolutionNumber: string | null;
+  siiResolutionDate: string | null;
   mail: string | null;
   phone: string | null;
   defaultCurrency: string;
@@ -103,6 +107,10 @@ type CompanyApiResponse = {
   businessActivity?: string | null;
   rut?: string | null;
   address?: string | null;
+  commune?: string | null;
+  city?: string | null;
+  siiResolutionNumber?: string | null;
+  siiResolutionDate?: string | null;
   mail?: string | null;
   phone?: string | null;
   defaultCurrency?: string;
@@ -176,6 +184,16 @@ function mapCompanyResponse(data: CompanyApiResponse): CompanyDetails | null {
     rut: data.rut != null && String(data.rut).trim() !== "" ? String(data.rut) : null,
     address:
       data.address != null && String(data.address).trim() !== "" ? String(data.address).trim() : null,
+    commune:
+      data.commune != null && String(data.commune).trim() !== "" ? String(data.commune).trim() : null,
+    city: data.city != null && String(data.city).trim() !== "" ? String(data.city).trim() : null,
+    siiResolutionNumber:
+      data.siiResolutionNumber != null && String(data.siiResolutionNumber).trim() !== ""
+        ? String(data.siiResolutionNumber).trim()
+        : null,
+    siiResolutionDate: parseFiscalYearStart(
+      data.siiResolutionDate != null ? String(data.siiResolutionDate) : null,
+    ),
     mail: data.mail != null && String(data.mail).trim() !== "" ? String(data.mail).trim() : null,
     phone: data.phone != null && String(data.phone).trim() !== "" ? String(data.phone).trim() : null,
     defaultCurrency: data.defaultCurrency != null && String(data.defaultCurrency).trim() !== "" ? String(data.defaultCurrency) : "CLP",

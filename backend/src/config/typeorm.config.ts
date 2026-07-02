@@ -81,6 +81,7 @@ import { FiscalProfile } from '@modules/fiscal/domain/fiscal-profile.entity';
 import { FiscalCertificate } from '@modules/fiscal/domain/fiscal-certificate.entity';
 import { FiscalCaf } from '@modules/fiscal/domain/fiscal-caf.entity';
 import { FiscalCertificationRun } from '@modules/fiscal/domain/fiscal-certification-run.entity';
+import { FiscalDteEmission } from '@modules/fiscal/domain/fiscal-dte-emission.entity';
 import { AuditSubscriber } from '../subscribers/AuditSubscriber';
 import { TenantSubscriber } from '../common/tenant/tenant.subscriber';
 
@@ -175,6 +176,7 @@ export const typeOrmConfig = (
       FiscalCertificate,
       FiscalCaf,
       FiscalCertificationRun,
+      FiscalDteEmission,
     ],
 
     // Register subscribers (TypeORM EventSubscribers)

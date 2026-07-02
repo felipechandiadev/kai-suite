@@ -1533,11 +1533,11 @@ export function mergePrinterDisplayLabelForPurposeIntoPrintExtras(
   purpose: string,
   extra: Record<string, unknown>,
 ): Record<string, unknown> {
-  const { ticketsAlias, documentsAlias } = readPosPurposePrinterAliasesFromStorage();
+  const aliases = readConfiguredPurposePrinterAliasMap();
   const p = (purpose || "documents").trim().toLowerCase();
   let lbl = "";
-  if (p === "tickets") lbl = ticketsAlias;
-  else if (p === "documents") lbl = documentsAlias;
+  if (p === "tickets") lbl = aliases.tickets;
+  else if (p === "documents") lbl = aliases.documents;
   if (!lbl) return extra;
   return { ...extra, printerDisplayLabel: lbl, printerAlias: lbl };
 }

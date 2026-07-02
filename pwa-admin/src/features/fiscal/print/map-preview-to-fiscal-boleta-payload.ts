@@ -21,7 +21,7 @@ export function mapPreviewToFiscalBoletaPayload(
     folio: preview.folio,
     issuedAt: preview.issuedAt,
     tipoDte: 39,
-    isSimulated: true,
+    isSimulated: preview.isSimulated,
     emisor: { ...preview.emisor },
     company: mapEmisorToCompany(preview.emisor),
     receptor: { ...preview.receptor },

@@ -11,6 +11,14 @@ export enum FiscalProfileStatus {
   PRODUCTION = 'PRODUCTION',
 }
 
+export enum FiscalDteEmissionStatus {
+  PENDING = 'PENDING',
+  SENT = 'SENT',
+  EPR = 'EPR',
+  RCH = 'RCH',
+  FAILED = 'FAILED',
+}
+
 export enum CertificationRunStatus {
   DRAFT = 'DRAFT',
   READY = 'READY',

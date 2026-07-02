@@ -3,6 +3,8 @@ import { authOptions } from "@/lib/auth/auth-options";
 import type {
   CertificationRun,
   FiscalCafItem,
+  FiscalEmissionRow,
+  FiscalEmissionsListParams,
   FiscalProfile,
   FiscalSummary,
   SiiEnvironment,
@@ -152,6 +154,55 @@ export class FiscalRequest {
     return { success: true as const, cafs: json.cafs as FiscalCafItem[] };
   }
 
+  static async listEmissions(params: FiscalEmissionsListParams = {}) {
+    const qs = new URLSearchParams();
+    if (params.limit != null) qs.set("limit", String(params.limit));
+    if (params.offset != null) qs.set("offset", String(params.offset));
+    if (params.status) qs.set("status", params.status);
+    if (params.from) qs.set("from", params.from);
+    if (params.to) qs.set("to", params.to);
+    if (params.environment) qs.set("environment", params.environment);
+    if (params.folio != null) qs.set("folio", String(params.folio));
+    const query = qs.toString();
+    const res = await fetch(apiUrl(`/company/fiscal/emissions${query ? `?${query}` : ""}`), {
+      headers: await authHeadersJson(),
+      cache: "no-store",
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      return { success: false as const, error: errorMessage(json, "Error al listar emisiones") };
+    }
+    return {
+      success: true as const,
+      items: json.items as FiscalEmissionRow[],
+      total: Number(json.total) || 0,
+    };
+  }
+
+  static async retryBoletaEmission(transactionId: string) {
+    const res = await fetch(
+      apiUrl(`/company/fiscal/boletas/transactions/${encodeURIComponent(transactionId)}/retry`),
+      { method: "POST", headers: await authHeadersJson() },
+    );
+    const json = await res.json();
+    if (!res.ok) {
+      return { success: false as const, error: errorMessage(json, "Error al reintentar envío") };
+    }
+    return { success: true as const, fiscalEmission: json.fiscalEmission as Record<string, unknown> };
+  }
+
+  static async refreshEmissionSiiStatus(emissionId: string) {
+    const res = await fetch(
+      apiUrl(`/company/fiscal/emissions/${encodeURIComponent(emissionId)}/refresh-sii-status`),
+      { method: "POST", headers: await authHeadersJson() },
+    );
+    const json = await res.json();
+    if (!res.ok) {
+      return { success: false as const, error: errorMessage(json, "Error al consultar estado SII") };
+    }
+    return { success: true as const, item: json.item as FiscalEmissionRow };
+  }
+
   static async getBoletaPrintPreview(caso?: string) {
     const qs = caso ? `?caso=${encodeURIComponent(caso)}` : "";
     const fetched = await backendFetch(`/company/fiscal/boleta/print-preview${qs}`, {
@@ -244,6 +295,18 @@ export class FiscalRequest {
     });
     const json = await res.json();
     if (!res.ok) return { success: false as const, error: errorMessage(json, "Error al completar") };
+    return { success: true as const, fiscalProfile: json.fiscalProfile as FiscalProfile };
+  }
+
+  static async acknowledgePortalCertification() {
+    const res = await fetch(apiUrl("/company/fiscal-profile/acknowledge-certification"), {
+      method: "POST",
+      headers: await authHeadersJson(),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      return { success: false as const, error: errorMessage(json, "No se pudo registrar certificación") };
+    }
     return { success: true as const, fiscalProfile: json.fiscalProfile as FiscalProfile };
   }
 

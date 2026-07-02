@@ -10,6 +10,9 @@ import type { PosContextV1 } from "@/features/session/lib/pos-context-storage";
 import type { EffectivePaymentMethod } from "@/features/pos-payment-methods/types/effective-payment-method.types";
 import type { AppliedSnapshot } from "@/features/promotions/lib/discount-engine.types";
 import type { LoadedQuotationMeta } from "@/features/pos-cart/cart-storage";
+import type { FiscalBoletaPrintPreview } from "@/features/fiscal/types/fiscal-emission.types";
+import { getFiscalBoletaPrintPreviewAction } from "@/features/fiscal/actions/reprint-fiscal-boleta.action";
+import { printFiscalBoletaPreview } from "@/features/fiscal/print/fiscal-boleta-preview-print";
 import {
   describePosDocumentPrintMode,
   formatPrintJobFailedMessage,
@@ -115,6 +118,13 @@ export type PosSaleReceiptBackorder = {
 export type PosSaleReceiptData = {
   /** Folio interno de la venta (`documentNumber` de la transacción cuando existe). */
   folio: string;
+  /** ID de transacción en backend (reimpresión boleta SII). */
+  transactionId?: string | null;
+  /** Folio SII de boleta electrónica cuando la emisión fue exitosa. */
+  fiscalFolio?: string | null;
+  fiscalBoletaWarning?: string | null;
+  /** Vista previa para imprimir boleta electrónica al cerrar la venta. */
+  fiscalPrintPreview?: FiscalBoletaPrintPreview | null;
   issuedAtIso: string;
   documentKind: PosSaleReceiptDocumentKind;
   backorder?: PosSaleReceiptBackorder | null;
@@ -187,6 +197,10 @@ export type PosSaleReceiptSnapshotInput = {
   loadedQuotation: LoadedQuotationMeta | null;
   /** Si la venta ya se registró en backend, el folio/documento oficial (p. ej. `transaction.documentNumber`). */
   saleFolio?: string | null;
+  transactionId?: string | null;
+  fiscalFolio?: string | null;
+  fiscalBoletaWarning?: string | null;
+  fiscalPrintPreview?: FiscalBoletaPrintPreview | null;
   documentKind?: PosSaleReceiptDocumentKind;
   backorder?: PosSaleReceiptBackorder | null;
   collectionPending?: boolean;
@@ -304,6 +318,10 @@ export function buildPosSaleReceiptSnapshot(input: PosSaleReceiptSnapshotInput):
 
   return {
     folio,
+    transactionId: input.transactionId?.trim() ? input.transactionId.trim() : null,
+    fiscalFolio: input.fiscalFolio?.trim() ? input.fiscalFolio.trim() : null,
+    fiscalBoletaWarning: input.fiscalBoletaWarning?.trim() ? input.fiscalBoletaWarning.trim() : null,
+    fiscalPrintPreview: input.fiscalPrintPreview ?? null,
     issuedAtIso,
     documentKind,
     backorder: input.backorder ?? null,
@@ -507,6 +525,8 @@ export function buildPosSaleReceiptHtml(
   ${data.company.businessActivity ? `<p class="legal">${escapeHtml(data.company.businessActivity)}</p>` : ""}
   <div class="sep"></div>
   <p class="center muted">Folio: ${escapeHtml(data.folio)}</p>
+  ${data.fiscalFolio ? `<p class="center muted">Boleta SII: ${escapeHtml(data.fiscalFolio)}</p>` : ""}
+  ${data.fiscalBoletaWarning ? `<p class="center" style="color:#b45309">${escapeHtml(data.fiscalBoletaWarning)}</p>` : ""}
   <p class="center muted">${escapeHtml(formatDateTime(data.issuedAtIso))}</p>
   ${collectionPendingBanner}
   ${backorderHeaderLine}
@@ -610,12 +630,49 @@ function shouldRetryAutoPrint(err: unknown): boolean {
   );
 }
 
+/**
+ * Ventas: un solo comprobante automático.
+ * 1) Boleta SII si hay documento fiscal emitido.
+ * 2) Ticket interno solo si no hay boleta (SII no disponible / sin emisión).
+ */
+async function tryAutoPrintFiscalBoleta(
+  snapshot: PosSaleReceiptData,
+): Promise<{ printed: boolean; hasFiscalDocument: boolean; error?: string }> {
+  if (snapshot.documentKind !== "sale") {
+    return { printed: false, hasFiscalDocument: false };
+  }
+  const txId = snapshot.transactionId?.trim();
+  if (!txId) return { printed: false, hasFiscalDocument: false };
+
+  let preview = snapshot.fiscalPrintPreview ?? null;
+  if (!preview) {
+    const res = await getFiscalBoletaPrintPreviewAction(txId);
+    if (res.success) {
+      preview = res.preview;
+    }
+  }
+
+  const hasFiscalDocument = Boolean(preview ?? snapshot.fiscalFolio?.trim());
+  if (!preview) {
+    return { printed: false, hasFiscalDocument: false };
+  }
+
+  try {
+    await printFiscalBoletaPreview(preview);
+    return { printed: true, hasFiscalDocument: true };
+  } catch (e) {
+    const raw = e instanceof Error ? e.message : "print_failed";
+    return { printed: false, hasFiscalDocument: true, error: raw };
+  }
+}
+
 export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
   const autoPrintForFolioRef = useRef<string | null>(null);
   const receiptDataRef = useRef(data);
   receiptDataRef.current = data;
   const [printMode, setPrintMode] = useState<PosDocumentPrintMode>("ticket");
   const [autoPrintStatus, setAutoPrintStatus] = useState<string | null>(null);
+  const [fiscalPrintBusy, setFiscalPrintBusy] = useState(false);
 
   useEffect(() => {
     if (data) {
@@ -641,7 +698,9 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
 
   useEffect(() => {
     if (!open || !data) {
-      if (!open) autoPrintForFolioRef.current = null;
+      if (!open) {
+        autoPrintForFolioRef.current = null;
+      }
       return;
     }
     const folio = data.folio.trim();
@@ -650,42 +709,103 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
     const mode = resolveSalePrintMode(data);
     const t = window.setTimeout(() => {
       void (async () => {
-        const run = async () => {
-          const snapshot = receiptDataRef.current;
-          if (!snapshot) throw new Error("print_failed");
+        const snapshot = receiptDataRef.current;
+        if (!snapshot) return;
+
+        const runTicketPrint = async () => {
           await autoPrintSaleByMode(snapshot, mode);
         };
-        try {
-          await run();
-          setAutoPrintStatus(null);
-        } catch (firstErr) {
-          if (!shouldRetryAutoPrint(firstErr)) {
-            const raw = firstErr instanceof Error ? firstErr.message : "print_failed";
-            setAutoPrintStatus(
-              `No se pudo enviar el ticket al agente. ${formatPrintJobFailedMessage(raw)} Usá «Imprimir de nuevo».`,
-            );
-            return;
+
+        let fiscalPrintError: string | null = null;
+        let ticketPrintError: string | null = null;
+        let shouldPrintTicket = snapshot.documentKind !== "sale";
+
+        if (snapshot.documentKind === "sale") {
+          const fiscal = await tryAutoPrintFiscalBoleta(snapshot);
+          if (fiscal.printed) {
+            shouldPrintTicket = false;
+          } else if (fiscal.hasFiscalDocument) {
+            shouldPrintTicket = false;
+            if (fiscal.error) {
+              const raw = formatPrintJobFailedMessage(fiscal.error);
+              fiscalPrintError = `No se pudo imprimir la boleta SII. ${raw} Reintentá con «Imprimir boleta SII» o desde Caja → Movimientos.`;
+            }
+          } else {
+            shouldPrintTicket = true;
           }
-          await new Promise((resolve) => window.setTimeout(resolve, 900));
+        }
+
+        if (shouldPrintTicket) {
           try {
-            await run();
-            setAutoPrintStatus(null);
-          } catch (secondErr) {
-            const raw =
-              secondErr instanceof Error
-                ? secondErr.message
-                : firstErr instanceof Error
-                  ? firstErr.message
-                  : "print_failed";
-            setAutoPrintStatus(
-              `No se pudo enviar el ticket al agente. ${formatPrintJobFailedMessage(raw)} Usá «Imprimir de nuevo».`,
-            );
+            await runTicketPrint();
+          } catch (firstErr) {
+            if (!shouldRetryAutoPrint(firstErr)) {
+              const raw = firstErr instanceof Error ? firstErr.message : "print_failed";
+              ticketPrintError = `No se pudo enviar el ticket al agente. ${formatPrintJobFailedMessage(raw)} Usá «Imprimir de nuevo».`;
+            } else {
+              await new Promise((resolve) => window.setTimeout(resolve, 900));
+              try {
+                await runTicketPrint();
+              } catch (secondErr) {
+                const raw =
+                  secondErr instanceof Error
+                    ? secondErr.message
+                    : firstErr instanceof Error
+                      ? firstErr.message
+                      : "print_failed";
+                ticketPrintError = `No se pudo enviar el ticket al agente. ${formatPrintJobFailedMessage(raw)} Usá «Imprimir de nuevo».`;
+              }
+            }
           }
+        }
+
+        if (fiscalPrintError) {
+          setAutoPrintStatus(fiscalPrintError);
+        } else if (ticketPrintError) {
+          setAutoPrintStatus(ticketPrintError);
+        } else {
+          setAutoPrintStatus(null);
         }
       })();
     }, 1200);
     return () => clearTimeout(t);
-  }, [open, data?.folio]);
+  }, [open, data?.folio, data?.transactionId, data?.documentKind]);
+
+  const hasFiscalBoletaOnRecord = Boolean(
+    data?.documentKind === "sale" &&
+      (data.fiscalFolio?.trim() || data.fiscalPrintPreview),
+  );
+
+  async function handleReprintComprobante(): Promise<void> {
+    const snapshot = receiptDataRef.current;
+    if (!snapshot) return;
+    if (snapshot.documentKind === "sale") {
+      setFiscalPrintBusy(true);
+      try {
+        const fiscal = await tryAutoPrintFiscalBoleta(snapshot);
+        if (fiscal.printed) {
+          setAutoPrintStatus(null);
+          return;
+        }
+        if (fiscal.hasFiscalDocument) {
+          const raw = fiscal.error ? formatPrintJobFailedMessage(fiscal.error) : "sin_vista_previa_boleta";
+          setAutoPrintStatus(`No se pudo imprimir la boleta SII. ${raw}`);
+          return;
+        }
+      } finally {
+        setFiscalPrintBusy(false);
+      }
+    }
+    try {
+      await autoPrintSaleByMode(snapshot, resolveSalePrintMode(snapshot));
+      setAutoPrintStatus(null);
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : "print_failed";
+      setAutoPrintStatus(
+        `No se pudo enviar el ticket al agente. ${formatPrintJobFailedMessage(raw)}`,
+      );
+    }
+  }
 
   if (!data) return null;
 
@@ -709,8 +829,15 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
       data-test-id="pos-payment-success-dialog"
       actions={
         <>
-          <Button type="button" variant="outlined" onClick={() => printSaleByMode(data, printMode)}>
-            Imprimir de nuevo
+          <Button
+            type="button"
+            variant="outlined"
+            disabled={fiscalPrintBusy}
+            loading={fiscalPrintBusy}
+            onClick={() => void handleReprintComprobante()}
+            data-test-id="pos-sale-receipt-reprint-comprobante"
+          >
+            {hasFiscalBoletaOnRecord ? "Imprimir boleta SII" : "Imprimir ticket"}
           </Button>
           <Button type="button" variant="primary" onClick={onClose}>
             Volver al POS

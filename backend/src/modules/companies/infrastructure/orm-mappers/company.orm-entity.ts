@@ -31,6 +31,18 @@ export class CompanyOrmEntity {
   @Column({ type: 'varchar', length: 500, nullable: true })
   address?: string | null;
 
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  commune?: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  city?: string | null;
+
+  @Column({ name: 'sii_resolution_number', type: 'varchar', length: 64, nullable: true })
+  siiResolutionNumber?: string | null;
+
+  @Column({ name: 'sii_resolution_date', type: 'date', nullable: true })
+  siiResolutionDate?: string | null;
+
   @Column({ type: 'varchar', length: 255, nullable: true })
   mail?: string | null;
 

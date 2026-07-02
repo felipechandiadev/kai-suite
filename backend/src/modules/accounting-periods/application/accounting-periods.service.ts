@@ -1,12 +1,39 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
+import { Repository, QueryFailedError } from 'typeorm';
 import {
   AccountingPeriod,
   AccountingPeriodStatus,
 } from '../domain/accounting-period.entity';
 import { Company } from '@modules/companies/domain/company.entity';
 import { AccountBalanceService } from '@modules/account-balances/application/account-balance.service';
+import {
+  ACCOUNTING_PERIOD_MONTH_NAMES,
+  monthBoundsFromYmd,
+} from './accounting-period-month.util';
+
+function assertPeriodOpen(period: AccountingPeriod): void {
+  if (period.status === AccountingPeriodStatus.CLOSED) {
+    throw new BadRequestException(
+      `Cannot create transaction in closed period: ${period.name} ` +
+        `(${period.startDate} to ${period.endDate}). ` +
+        `Please reopen the period or change the transaction date.`,
+    );
+  }
+  if (period.status === AccountingPeriodStatus.LOCKED) {
+    throw new BadRequestException(
+      `Period is locked: ${period.name}. Cannot create transactions.`,
+    );
+  }
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    error instanceof QueryFailedError &&
+    (error as QueryFailedError & { driverError?: { code?: string } }).driverError?.code ===
+      '23505'
+  );
+}
 
 @Injectable()
 export class AccountingPeriodsService {
@@ -159,65 +186,47 @@ export class AccountingPeriodsService {
       resolvedCompanyId = firstCompany.id;
     }
 
-    // Check if a period exists for this date
-    const existing = await this.accountingPeriodRepository
-      .createQueryBuilder('period')
-      .where('period.companyId = :companyId', { companyId: resolvedCompanyId })
-      .andWhere('period.startDate <= :date', { date })
-      .andWhere('period.endDate >= :date', { date })
-      .getOne();
+    const { startDate, endDate, year, month } = monthBoundsFromYmd(date);
+
+    const existing =
+      (await this.accountingPeriodRepository.findOne({
+        where: { companyId: resolvedCompanyId, startDate, endDate },
+      })) ??
+      (await this.accountingPeriodRepository
+        .createQueryBuilder('period')
+        .where('period.companyId = :companyId', { companyId: resolvedCompanyId })
+        .andWhere('period.startDate <= :date', { date })
+        .andWhere('period.endDate >= :date', { date })
+        .getOne());
 
     if (existing) {
-      // CRITICAL: Validate period is not closed
-      if (existing.status === AccountingPeriodStatus.CLOSED) {
-        throw new BadRequestException(
-          `Cannot create transaction in closed period: ${existing.name} ` +
-            `(${existing.startDate} to ${existing.endDate}). ` +
-            `Please reopen the period or change the transaction date.`,
-        );
-      }
-
-      if (existing.status === AccountingPeriodStatus.LOCKED) {
-        throw new BadRequestException(
-          `Period is locked: ${existing.name}. Cannot create transactions.`,
-        );
-      }
-
+      assertPeriodOpen(existing);
       return existing;
     }
 
-    // Create a monthly period
-    const dateObj = new Date(date);
-    const year = dateObj.getFullYear();
-    const month = dateObj.getMonth();
-
-    const startDate = new Date(year, month, 1);
-    const endDate = new Date(year, month + 1, 0); // Last day of month
-
-    const monthNames = [
-      'Enero',
-      'Febrero',
-      'Marzo',
-      'Abril',
-      'Mayo',
-      'Junio',
-      'Julio',
-      'Agosto',
-      'Septiembre',
-      'Octubre',
-      'Noviembre',
-      'Diciembre',
-    ];
-
     const period = this.accountingPeriodRepository.create({
       companyId: resolvedCompanyId,
-      startDate: startDate.toISOString().split('T')[0],
-      endDate: endDate.toISOString().split('T')[0],
-      name: `${monthNames[month]} ${year}`,
+      startDate,
+      endDate,
+      name: `${ACCOUNTING_PERIOD_MONTH_NAMES[month - 1]} ${year}`,
       status: AccountingPeriodStatus.OPEN,
     });
 
-    return await this.accountingPeriodRepository.save(period);
+    try {
+      return await this.accountingPeriodRepository.save(period);
+    } catch (error) {
+      if (!isUniqueViolation(error)) {
+        throw error;
+      }
+      const concurrent = await this.accountingPeriodRepository.findOne({
+        where: { companyId: resolvedCompanyId, startDate, endDate },
+      });
+      if (!concurrent) {
+        throw error;
+      }
+      assertPeriodOpen(concurrent);
+      return concurrent;
+    }
   }
 
   /**

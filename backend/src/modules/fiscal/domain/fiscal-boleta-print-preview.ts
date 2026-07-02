@@ -77,7 +77,7 @@ export type FiscalBoletaPrintPreview = {
   folio: number;
   issuedAt: string;
   tipoDte: 39;
-  isSimulated: true;
+  isSimulated: boolean;
   timbrePdf417Payload: string;
   emisor: FiscalBoletaPrintPreviewEmisor;
   emisorComplete: boolean;

@@ -4,6 +4,7 @@ import { CurrentUser, CurrentUserPayload } from '@common/tenant';
 import { PosSaleLookupService } from '../application/pos-sale-lookup.service';
 import { PosBackorderLookupService } from '../application/pos-backorder-lookup.service';
 import { PosSaleReceiptPrintService } from '../application/pos-sale-receipt-print.service';
+import { FiscalBoletaEmissionService } from '@modules/fiscal/application/fiscal-boleta-emission.service';
 import {
   ApiTags,
   ApiOperation,
@@ -33,6 +34,7 @@ export class TransactionsController {
     private readonly posSaleLookup: PosSaleLookupService,
     private readonly posBackorderLookup: PosBackorderLookupService,
     private readonly posSaleReceiptPrint: PosSaleReceiptPrintService,
+    private readonly fiscalBoletaEmission: FiscalBoletaEmissionService,
     private readonly cancelBackorderService: CancelBackorderService,
   ) {}
 
@@ -394,6 +396,24 @@ export class TransactionsController {
       id,
     );
     return { success: true, receipt };
+  }
+
+  @Get(':id/fiscal-boleta-print-preview')
+  @ApiOperation({
+    summary: 'Vista previa boleta electrónica SII para reimpresión POS',
+  })
+  async getFiscalBoletaPrintPreview(
+    @Param('id') id: string,
+    @CurrentCompany() companyId: string,
+  ) {
+    const preview = await this.fiscalBoletaEmission.getPrintPreviewForTransaction(
+      companyId,
+      id,
+    );
+    if (!preview) {
+      return { success: false, message: 'No hay boleta fiscal disponible para esta venta' };
+    }
+    return { success: true, preview };
   }
 
   @Get(':id')

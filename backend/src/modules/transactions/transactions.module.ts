@@ -54,6 +54,7 @@ import { PosSaleLookupService } from './application/pos-sale-lookup.service';
 import { PosBackorderLookupService } from './application/pos-backorder-lookup.service';
 import { PosSaleReceiptPrintService } from './application/pos-sale-receipt-print.service';
 import { CompaniesModule } from '@modules/companies/companies.module';
+import { FiscalModule } from '@modules/fiscal/fiscal.module';
 import { SupplierFiscalDocumentPaymentAggregateService } from './application/services/supplier-fiscal-document-payment-aggregate.service';
 import { ParentPaymentAggregateService } from './application/services/parent-payment-aggregate.service';
 import { AccountsPayableService } from './application/services/accounts-payable.service';
@@ -104,6 +105,7 @@ import { EshopBackorderSyncService } from './application/eshop-backorder-sync.se
     ProductVariantsModule,
     StockLevelsModule,
     CompaniesModule,
+    FiscalModule,
     forwardRef(() => ChecksModule),
   ],
   controllers: [

@@ -1,6 +1,13 @@
 import { Injectable } from '@nestjs/common';
+import * as https from 'node:https';
 import { SiiEnvironment } from '../domain/fiscal.enums';
-import { extractTokenFromResponseXml, splitRut } from './fiscal-xml.util';
+import { extractSiiAuthToken, extractEstadoFromEnvioStatusResponse, extractTrackIdFromEnvioResponse, splitRut } from './fiscal-xml.util';
+import {
+  buildEnvioBoletaMultipart,
+  createMultipartBoundary,
+} from './sii-boleta-multipart.util';
+
+const SII_USER_AGENT = 'Mozilla/4.0 (compatible; PROG 1.0; Windows NT)';
 
 @Injectable()
 export class SiiBoletaRestClient {
@@ -42,38 +49,36 @@ export class SiiBoletaRestClient {
     if (!res.ok) {
       throw new Error(`SII token error ${res.status}: ${text.slice(0, 200)}`);
     }
-    return extractTokenFromResponseXml(text);
+    return extractSiiAuthToken(res, text);
   }
 
   async postEnvioBoleta(
     env: SiiEnvironment,
     token: string,
     xmlPayload: string,
-    rut: string,
+    companyRut: string,
+    senderRut?: string,
   ): Promise<{ trackId: string; retryAfter?: string; raw: string }> {
     const url = `${this.envioBase(env)}/boleta.electronica.envio`;
-    const boundary = `----kai${Date.now()}`;
-    const multipart = this.buildMultipart(boundary, xmlPayload, rut);
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': `multipart/form-data; boundary=${boundary}`,
-        Cookie: `TOKEN=${token}`,
-        Accept: 'application/xml',
-        'User-Agent': 'Mozilla/4.0 (compatible; KAI-SII/1.0)',
-      },
-      body: new Uint8Array(multipart),
+    const boundary = createMultipartBoundary(xmlPayload);
+    const multipart = buildEnvioBoletaMultipart(boundary, xmlPayload, companyRut, senderRut);
+    const host = new URL(url).hostname;
+    const { status, headers, body } = await this.postHttps(url, multipart, {
+      'Content-Type': `multipart/form-data; boundary=${boundary}`,
+      Cookie: `TOKEN=${token.trim()}`,
+      Accept: 'application/json, application/xml',
+      'User-Agent': SII_USER_AGENT,
+      Host: host,
     });
-    const text = await res.text();
-    const retryAfter = res.headers.get('x-retry-after') ?? undefined;
-    if (!res.ok) {
-      throw new Error(`SII envío error ${res.status}: ${text.slice(0, 400)}`);
+    const retryAfter = headers['x-retry-after'];
+    if (status < 200 || status >= 300) {
+      throw new Error(`SII envío error ${status}: ${body.slice(0, 400)}`);
     }
-    const trackId = this.extractTrackId(text);
+    const trackId = extractTrackIdFromEnvioResponse(body);
     if (!trackId) {
-      throw new Error(`SII envío sin trackId: ${text.slice(0, 400)}`);
+      throw new Error(`SII envío sin trackId: ${body.slice(0, 400)}`);
     }
-    return { trackId, retryAfter, raw: text };
+    return { trackId, retryAfter, raw: body };
   }
 
   async getEnvioStatus(
@@ -84,46 +89,73 @@ export class SiiBoletaRestClient {
   ): Promise<{ estado: string; raw: string }> {
     const { body, dv } = splitRut(rut);
     const url = `${this.apiBase(env)}/boleta.electronica.envio/${body}-${dv}-${trackId}`;
-    const res = await fetch(url, {
-      headers: {
-        Cookie: `TOKEN=${token}`,
-        Accept: 'application/xml',
-      },
+    const host = new URL(url).hostname;
+    const { status, body: text } = await this.getHttps(url, {
+      Cookie: `TOKEN=${token.trim()}`,
+      Accept: 'application/json, application/xml',
+      Host: host,
     });
-    const text = await res.text();
-    if (!res.ok) {
-      throw new Error(`SII consulta error ${res.status}: ${text.slice(0, 200)}`);
+    if (status < 200 || status >= 300) {
+      throw new Error(`SII consulta error ${status}: ${text.slice(0, 200)}`);
     }
-    const estado = text.match(/<ESTADO>([^<]+)<\/ESTADO>/i)?.[1]?.trim() ?? 'UNKNOWN';
+    const estado = extractEstadoFromEnvioStatusResponse(text);
     return { estado, raw: text };
   }
 
-  private buildMultipart(boundary: string, xml: string, rut: string): Buffer {
-    const { body, dv } = splitRut(rut);
-    const parts: string[] = [];
-    parts.push(`--${boundary}`);
-    parts.push(`Content-Disposition: form-data; name="rutCompany"`);
-    parts.push('');
-    parts.push(body);
-    parts.push(`--${boundary}`);
-    parts.push(`Content-Disposition: form-data; name="dvCompany"`);
-    parts.push('');
-    parts.push(dv);
-    parts.push(`--${boundary}`);
-    parts.push(
-      `Content-Disposition: form-data; name="archivo"; filename="envio.xml"`,
-    );
-    parts.push('Content-Type: application/xml');
-    parts.push('');
-    parts.push(xml);
-    parts.push(`--${boundary}--`);
-    return Buffer.from(parts.join('\r\n'), 'utf8');
+  private postHttps(
+    url: string,
+    body: Buffer,
+    headers: Record<string, string>,
+  ): Promise<{ status: number; headers: Record<string, string>; body: string }> {
+    return this.requestHttps(url, 'POST', headers, body);
   }
 
-  private extractTrackId(xml: string): string | null {
-    const m =
-      xml.match(/<TRACKID>([^<]+)<\/TRACKID>/i) ??
-      xml.match(/<TRACK_ID>([^<]+)<\/TRACK_ID>/i);
-    return m?.[1]?.trim() ?? null;
+  private getHttps(
+    url: string,
+    headers: Record<string, string>,
+  ): Promise<{ status: number; headers: Record<string, string>; body: string }> {
+    return this.requestHttps(url, 'GET', headers);
+  }
+
+  private requestHttps(
+    url: string,
+    method: 'GET' | 'POST',
+    headers: Record<string, string>,
+    body?: Buffer,
+  ): Promise<{ status: number; headers: Record<string, string>; body: string }> {
+    const parsed = new URL(url);
+    return new Promise((resolve, reject) => {
+      const req = https.request(
+        {
+          hostname: parsed.hostname,
+          port: 443,
+          path: `${parsed.pathname}${parsed.search}`,
+          method,
+          headers: {
+            ...headers,
+            ...(body ? { 'Content-Length': body.length } : {}),
+          },
+        },
+        (res) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk: Buffer) => chunks.push(chunk));
+          res.on('end', () => {
+            const normalized: Record<string, string> = {};
+            for (const [key, value] of Object.entries(res.headers)) {
+              if (value == null) continue;
+              normalized[key.toLowerCase()] = Array.isArray(value) ? value.join(', ') : value;
+            }
+            resolve({
+              status: res.statusCode ?? 0,
+              headers: normalized,
+              body: Buffer.concat(chunks).toString('utf8'),
+            });
+          });
+        },
+      );
+      req.on('error', reject);
+      if (body) req.write(body);
+      req.end();
+    });
   }
 }

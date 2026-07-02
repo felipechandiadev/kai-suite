@@ -121,10 +121,13 @@ import { PaymentGatewayIntents1756540000000 } from '../migrations/1756540000000-
 import { PaymentGatewayIntentMpOrderIdIndex1756550000000 } from '../migrations/1756550000000-PaymentGatewayIntentMpOrderIdIndex';
 import { PresaleTickets1756560000000 } from '../migrations/1756560000000-PresaleTickets';
 import { FiscalCore1756570000000 } from '../migrations/1756570000000-FiscalCore';
+import { CompanySiiEmisorFields1756580000000 } from '../migrations/1756580000000-CompanySiiEmisorFields';
+import { FiscalDteEmissions1756590000000 } from '../migrations/1756590000000-FiscalDteEmissions';
 import { FiscalProfile } from '@modules/fiscal/domain/fiscal-profile.entity';
 import { FiscalCertificate } from '@modules/fiscal/domain/fiscal-certificate.entity';
 import { FiscalCaf } from '@modules/fiscal/domain/fiscal-caf.entity';
 import { FiscalCertificationRun } from '@modules/fiscal/domain/fiscal-certification-run.entity';
+import { FiscalDteEmission } from '@modules/fiscal/domain/fiscal-dte-emission.entity';
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
 import { EShopFulfillmentMethod } from '@modules/e-shop/domain/e-shop-fulfillment-method.entity';
@@ -232,6 +235,7 @@ export const AppDataSource = new DataSource({
     FiscalCertificate,
     FiscalCaf,
     FiscalCertificationRun,
+    FiscalDteEmission,
   ],
   subscribers: [AuditSubscriber, TenantSubscriber],
   migrations: [
@@ -282,6 +286,8 @@ export const AppDataSource = new DataSource({
     PaymentGatewayIntentMpOrderIdIndex1756550000000,
     PresaleTickets1756560000000,
     FiscalCore1756570000000,
+    CompanySiiEmisorFields1756580000000,
+    FiscalDteEmissions1756590000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

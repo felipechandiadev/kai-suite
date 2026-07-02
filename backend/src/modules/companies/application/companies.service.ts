@@ -97,6 +97,10 @@ export interface CompanyDetail {
   businessActivity: string | null;
   rut: string | null;
   address: string | null;
+  commune: string | null;
+  city: string | null;
+  siiResolutionNumber: string | null;
+  siiResolutionDate: string | null;
   mail: string | null;
   phone: string | null;
   defaultCurrency: string;
@@ -162,6 +166,10 @@ export class CompaniesService {
         businessActivity: null,
         rut: null,
         address: null,
+        commune: null,
+        city: null,
+        siiResolutionNumber: null,
+        siiResolutionDate: null,
         mail: null,
         phone: null,
         defaultCurrency: 'CLP',
@@ -236,6 +244,22 @@ export class CompaniesService {
     if (data.address !== undefined) {
       const v = data.address.trim();
       company.address = v === '' ? null : v;
+    }
+    if (data.commune !== undefined) {
+      const v = data.commune.trim();
+      company.commune = v === '' ? null : v;
+    }
+    if (data.city !== undefined) {
+      const v = data.city.trim();
+      company.city = v === '' ? null : v;
+    }
+    if (data.siiResolutionNumber !== undefined) {
+      const v = data.siiResolutionNumber.trim();
+      company.siiResolutionNumber = v === '' ? null : v;
+    }
+    if (data.siiResolutionDate !== undefined) {
+      company.siiResolutionDate =
+        data.siiResolutionDate.trim() === '' ? null : data.siiResolutionDate;
     }
     if (data.mail !== undefined || data.phone !== undefined) {
       const settings = { ...(company.settings ?? {}) };
@@ -1048,6 +1072,10 @@ export class CompaniesService {
   }
 
   private toDetail(company: Company): CompanyDetail {
+    const resolutionDate =
+      company.siiResolutionDate != null
+        ? String(company.siiResolutionDate).slice(0, 10)
+        : null;
     return {
       id: company.id,
       razonSocial: company.razonSocial,
@@ -1055,6 +1083,12 @@ export class CompaniesService {
       businessActivity: company.businessActivity ?? null,
       rut: company.rut,
       address: company.address?.trim() ? company.address.trim() : null,
+      commune: company.commune?.trim() ? company.commune.trim() : null,
+      city: company.city?.trim() ? company.city.trim() : null,
+      siiResolutionNumber: company.siiResolutionNumber?.trim()
+        ? company.siiResolutionNumber.trim()
+        : null,
+      siiResolutionDate: resolutionDate,
       mail: resolveCompanyContactEmail(company),
       phone: resolveCompanyContactPhone(company),
       defaultCurrency: company.defaultCurrency,

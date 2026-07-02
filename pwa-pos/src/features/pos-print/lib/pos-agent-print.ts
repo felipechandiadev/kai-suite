@@ -4,6 +4,7 @@ import {
   isPosAgentPrintConfiguredForPurpose,
   printFormatToPurpose,
   printServicePageRequiresTls,
+  readConfiguredPurposePrinterAliasMap,
   readPrintServiceConfigFromStorage,
   resolvePrintFormat,
   type HelloResponseData,
@@ -30,14 +31,24 @@ export function isUnknownPrinterLabelError(e: unknown): boolean {
   return String(e).includes("unknown_printer_display_label");
 }
 
-/** Tickets: primero sin alias (impresora por defecto del agente), luego con alias del POS. */
+/**
+ * Tickets vectoriales: si el POS/Admin tiene alias de impresora, usarlo primero (igual que
+ * `requestPosTestPrint`). Sin alias, probar la impresora por defecto del agente.
+ */
 export async function enqueueVectorTicketWithMappingFallback(
   withAlias: () => Promise<unknown>,
   withoutAlias: () => Promise<unknown>,
   browserFallback?: PosPrintJobBrowserFallback,
+  options?: { purpose?: PosPrintAgentPurpose },
 ): Promise<string | null> {
+  const purpose = options?.purpose ?? "tickets";
+  const aliases = readConfiguredPurposePrinterAliasMap();
+  const hasAlias =
+    purpose === "tickets" ? Boolean(aliases.tickets.trim()) : Boolean(aliases.documents.trim());
+  const attempts = hasAlias ? [withAlias, withoutAlias] : [withoutAlias, withAlias];
+
   let lastUnknownLabel: unknown = null;
-  for (const attempt of [withoutAlias, withAlias]) {
+  for (const attempt of attempts) {
     try {
       const res = await attempt();
       if (browserFallback) {
@@ -67,12 +78,14 @@ export async function enqueueVectorTicketAndAwaitDelivery(
   options?: {
     browserFallback?: PosPrintJobBrowserFallback;
     timeoutMs?: number;
+    purpose?: PosPrintAgentPurpose;
   },
 ): Promise<string | null> {
   const jobId = await enqueueVectorTicketWithMappingFallback(
     withAlias,
     withoutAlias,
     options?.browserFallback,
+    { purpose: options?.purpose ?? "tickets" },
   );
   if (jobId) {
     const delivery = await conn.waitForPrintJob(jobId, options?.timeoutMs ?? 60_000);

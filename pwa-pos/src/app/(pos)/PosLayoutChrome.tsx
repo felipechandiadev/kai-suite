@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import PosCartProvider from "@/features/pos-cart/PosCartProvider";
 import { CustomerDisplayPublisher } from "@/features/customer-display/ui/CustomerDisplayPublisher";
+import { FiscalBoletaBrowserPrintHost } from "@/features/fiscal/print/FiscalBoletaBrowserPrintHost";
 import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
 import { usePosTabletDensity } from "@/shared/hooks/usePosTabletDensity";
 
@@ -25,6 +26,7 @@ export default function PosLayoutChrome({ children, topBar }: Props) {
   if (resultOnly) {
     return (
       <div className="flex h-screen overflow-hidden flex-col bg-background">
+        <FiscalBoletaBrowserPrintHost />
         <main className="flex flex-1 flex-col overflow-auto">
           <PosCartProvider>
             <CustomerDisplayPublisher />
@@ -37,6 +39,7 @@ export default function PosLayoutChrome({ children, topBar }: Props) {
 
   return (
     <div className="flex h-screen overflow-hidden flex-col bg-background">
+      <FiscalBoletaBrowserPrintHost />
       {topBar}
       <main
         className={`mt-(--app-topbar-height) flex min-h-0 flex-1 flex-col overflow-auto bg-background pt-4 ${

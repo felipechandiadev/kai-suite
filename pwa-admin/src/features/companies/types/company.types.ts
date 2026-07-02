@@ -11,6 +11,10 @@ export interface CompanyDetail {
   businessActivity: string | null;
   rut: string;
   address: string | null;
+  commune: string | null;
+  city: string | null;
+  siiResolutionNumber: string | null;
+  siiResolutionDate: string | null;
   mail: string | null;
   phone: string | null;
   defaultCurrency: string;
@@ -38,6 +42,10 @@ export interface UpdateCompanyInput {
   rut?: string;
   isActive?: boolean;
   address?: string | null;
+  commune?: string | null;
+  city?: string | null;
+  siiResolutionNumber?: string | null;
+  siiResolutionDate?: string | null;
   mail?: string | null;
   phone?: string | null;
 }

@@ -1,28 +1,25 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/shared/components/Button";
 import { TextField } from "@/shared/components/TextField/TextField";
-import type { FiscalCafItem, FiscalProfile } from "../types/fiscal.types";
+import type { FiscalProfile } from "../types/fiscal.types";
 import {
   deleteFiscalCertificateAction,
   testFiscalSiiTokenAction,
-  uploadFiscalCafAction,
   uploadFiscalCertificateAction,
 } from "../actions/fiscal.actions";
 
 type Props = {
   profile: FiscalProfile;
-  cafs: FiscalCafItem[];
 };
 
-export function SiiCredentialsForm({ profile, cafs }: Props) {
+export function SiiCredentialsForm({ profile }: Props) {
   const router = useRouter();
   const certInputRef = useRef<HTMLInputElement>(null);
-  const cafInputRef = useRef<HTMLInputElement>(null);
   const [password, setPassword] = useState("");
-  const [cafEnv, setCafEnv] = useState<"certification" | "production">("certification");
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -59,27 +56,6 @@ export function SiiCredentialsForm({ profile, cafs }: Props) {
       return;
     }
     setMessage("Certificado eliminado");
-    router.refresh();
-  }
-
-  async function uploadCaf() {
-    const file = cafInputRef.current?.files?.[0];
-    if (!file) {
-      setError("Seleccione archivo CAF XML");
-      return;
-    }
-    setBusy("caf");
-    setError("");
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("environment", cafEnv);
-    const res = await uploadFiscalCafAction(fd);
-    setBusy("");
-    if (!res.success) {
-      setError(res.error);
-      return;
-    }
-    setMessage("CAF cargado correctamente");
     router.refresh();
   }
 
@@ -128,53 +104,13 @@ export function SiiCredentialsForm({ profile, cafs }: Props) {
         </div>
       </section>
 
-      <section className="space-y-4 rounded-lg border border-border p-4">
-        <h2 className="text-lg font-semibold">CAF boleta 39</h2>
-        <label className="block text-sm">
-          <span className="mb-1 block font-medium">Ambiente del CAF</span>
-          <select
-            className="w-full max-w-xs rounded-md border border-border bg-background px-3 py-2 text-sm"
-            value={cafEnv}
-            onChange={(e) => setCafEnv(e.target.value as "certification" | "production")}
-          >
-            <option value="certification">Certificación</option>
-            <option value="production">Producción</option>
-          </select>
-        </label>
-        <input ref={cafInputRef} type="file" accept=".xml" className="text-sm" />
-        <Button onClick={uploadCaf} disabled={busy !== ""}>
-          {busy === "caf" ? "Subiendo…" : "Subir CAF"}
-        </Button>
-
-        {cafs.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="py-2 pr-4">Ambiente</th>
-                  <th className="py-2 pr-4">Rango</th>
-                  <th className="py-2 pr-4">Siguiente folio</th>
-                  <th className="py-2">Activo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cafs.map((c) => (
-                  <tr key={c.id} className="border-b border-border/60">
-                    <td className="py-2 pr-4">{c.environment}</td>
-                    <td className="py-2 pr-4">
-                      {c.rangeFrom} – {c.rangeTo}
-                    </td>
-                    <td className="py-2 pr-4">{c.nextFolio}</td>
-                    <td className="py-2">{c.isActive ? "Sí" : "No"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">Sin CAF cargados.</p>
-        )}
-      </section>
+      <p className="text-sm text-muted-foreground">
+        Los archivos CAF (folios boleta 39) se gestionan en{" "}
+        <Link href="/settings/sii/folios" className="font-medium text-primary underline-offset-2 hover:underline">
+          SII → Folios
+        </Link>
+        .
+      </p>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {message ? <p className="text-sm text-green-600">{message}</p> : null}

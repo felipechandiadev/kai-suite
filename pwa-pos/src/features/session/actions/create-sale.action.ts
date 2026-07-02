@@ -4,9 +4,15 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/auth-options";
 import { CashSessionsRequest } from "../infrastructure/cash-sessions.request";
 import type { CreateSaleApiBody, CreateSaleClientPayload } from "../lib/build-create-sale-payload";
+import type { FiscalEmissionResponse } from "@/features/fiscal/types/fiscal-emission.types";
 
 export type CreateSaleFromPosResult =
-  | { success: true; documentNumber: string; transactionId: string }
+  | {
+      success: true;
+      documentNumber: string;
+      transactionId: string;
+      fiscalEmission?: FiscalEmissionResponse;
+    }
   | { success: false; message: string };
 
 /**
@@ -33,5 +39,6 @@ export async function createSaleFromPosAction(payload: CreateSaleClientPayload):
     success: true,
     documentNumber: res.transaction.documentNumber,
     transactionId: res.transaction.id,
+    fiscalEmission: res.fiscalEmission,
   };
 }

@@ -14,15 +14,13 @@ export async function fiscalTimbrePdf417Svg(
   if (!text) return "";
 
   try {
-    const mod = (await import("bwip-js/browser")) as unknown as BwipModule;
+    const mod = (await import("bwip-js/browser")) as BwipModule;
     const scale = opts?.scale ?? 2;
     return mod.toSVG({
       bcid: "pdf417",
       text,
       scale,
-      columns: 5,
-      rows: 15,
-      eclevel: 2,
+      eclevel: 5,
       paddingwidth: 1,
       paddingheight: 1,
     });

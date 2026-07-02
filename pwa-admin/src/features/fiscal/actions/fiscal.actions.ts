@@ -2,13 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { FiscalRequest } from "../infrastructure/fiscal.request";
-import type { EmisorFormValues, SiiEnvironment } from "../types/fiscal.types";
+import type { EmisorFormValues, FiscalEmissionsListParams, SiiEnvironment } from "../types/fiscal.types";
 
 const SII_PATHS = [
   "/settings/sii",
   "/settings/sii/certificacion",
   "/settings/sii/emisor",
   "/settings/sii/credenciales",
+  "/settings/sii/folios",
   "/settings/sii/produccion",
 ];
 
@@ -78,6 +79,22 @@ export async function listFiscalCafsAction() {
   return FiscalRequest.listCafs();
 }
 
+export async function listFiscalEmissionsAction(params: FiscalEmissionsListParams = {}) {
+  return FiscalRequest.listEmissions(params);
+}
+
+export async function retryFiscalBoletaEmissionAction(transactionId: string) {
+  const res = await FiscalRequest.retryBoletaEmission(transactionId);
+  if (res.success) revalidatePath("/settings/sii/folios");
+  return res;
+}
+
+export async function refreshFiscalEmissionSiiStatusAction(emissionId: string) {
+  const res = await FiscalRequest.refreshEmissionSiiStatus(emissionId);
+  if (res.success) revalidatePath("/settings/sii/folios");
+  return res;
+}
+
 export async function getBoletaPrintPreviewAction(caso?: string) {
   return FiscalRequest.getBoletaPrintPreview(caso);
 }
@@ -135,6 +152,12 @@ export async function enableFiscalProductionAction(
   environment: SiiEnvironment,
 ) {
   const res = await FiscalRequest.enableProduction(productionEnabled, environment);
+  if (res.success) revalidateSii();
+  return res;
+}
+
+export async function acknowledgePortalCertificationAction() {
+  const res = await FiscalRequest.acknowledgePortalCertification();
   if (res.success) revalidateSii();
   return res;
 }
