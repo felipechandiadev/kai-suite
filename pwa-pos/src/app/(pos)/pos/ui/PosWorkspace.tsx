@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchPointOfSalePriceListsAction } from "@/features/session/actions/point-of-sale-pos.action";
 import {
@@ -15,7 +15,11 @@ import { createPresaleTicketAction } from "@/features/presale-tickets/actions/pr
 import { printPresaleTicketAgentOrBrowser } from "@/features/presale-tickets/lib/presale-ticket-agent";
 import type { PresaleTicketDetail } from "@/features/presale-tickets/types/presale-ticket.types";
 import { Alert, Dialog } from "@/shared/admin-shared";
-import PosProductSearchPanel, { POS_PRODUCT_SEARCH_PANEL_HEIGHT_VH } from "./PosProductSearchPanel";
+import PosProductSearchPanel, {
+  POS_PRODUCT_SEARCH_PANEL_HEIGHT_VH,
+  type PosProductSearchPanelHandle,
+} from "./PosProductSearchPanel";
+import PosBarcodeScanner from "@/features/pos-products/ui/PosBarcodeScanner";
 import PosCartLineCard from "./PosCartLineCard";
 import { isQuotationCartVariant, usePosCart } from "@/features/pos-cart/PosCartProvider";
 import { LoadQuotationDialog } from "./LoadQuotationDialog";
@@ -35,6 +39,7 @@ function formatMoney(n: number) {
 export default function PosWorkspace() {
   const router = useRouter();
   const compactLayout = usePosCompactLayout();
+  const productSearchRef = useRef<PosProductSearchPanelHandle>(null);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("products");
   const [ctx, setCtx] = useState<PosContextV1 | null>(null);
   const [priceListId, setPriceListId] = useState("");
@@ -270,6 +275,7 @@ export default function PosWorkspace() {
 
   const productPanel = (
     <PosProductSearchPanel
+      ref={productSearchRef}
       priceListId={priceListId}
       priceListOptions={priceListOptions}
       branchId={branchId}
@@ -575,7 +581,7 @@ export default function PosWorkspace() {
             type="button"
             role="tab"
             aria-selected={mobilePanel === "products"}
-            className={`min-h-[44px] flex-1 rounded-md px-3 text-sm font-medium transition-colors ${
+            className={`flex min-h-[36px] flex-1 items-center justify-center rounded-md px-2 text-xs font-medium transition-colors ${
               mobilePanel === "products"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground"
@@ -592,7 +598,12 @@ export default function PosWorkspace() {
             type="button"
             role="tab"
             aria-selected={mobilePanel === "cart"}
-            className={`relative min-h-[44px] flex-1 rounded-md px-3 text-sm font-medium transition-colors ${
+            aria-label={
+              cart.itemsCount > 0
+                ? `Carrito, ${cart.itemsCount} ítems`
+                : "Carrito"
+            }
+            className={`relative flex min-h-[36px] flex-1 items-center justify-center rounded-md px-2 text-xs font-medium transition-colors ${
               mobilePanel === "cart"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground"
@@ -602,12 +613,19 @@ export default function PosWorkspace() {
           >
             Carrito
             {cart.itemsCount > 0 ? (
-              <span className="ml-1.5 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-secondary px-1.5 text-[10px] font-bold text-primary">
+              <span className="absolute right-1 top-1 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-secondary px-1 text-[10px] font-bold leading-none text-primary">
                 {cart.itemsCount > 99 ? "99+" : cart.itemsCount}
               </span>
             ) : null}
           </button>
         </div>
+      ) : null}
+
+      {compactLayout && isPresaleMode && mobilePanel === "products" ? (
+        <PosBarcodeScanner
+          onScan={(code) => productSearchRef.current?.submitScanCode(code)}
+          paused={cartLocked}
+        />
       ) : null}
 
       <div className={compactLayout ? "flex min-h-0 flex-1 flex-col" : "contents"}>

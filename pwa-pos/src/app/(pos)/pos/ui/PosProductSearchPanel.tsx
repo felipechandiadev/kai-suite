@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Search, Tags } from "lucide-react";
 import { searchPosProductsAction, lookupPosVariantsAction } from "@/features/pos-products/actions/pos-products.action";
 import type { PosProductSearchItem } from "@/features/pos-products/types/pos-product.types";
@@ -66,7 +66,11 @@ type Props = {
   acceptsPresaleTickets?: boolean;
 };
 
-export default function PosProductSearchPanel({
+export type PosProductSearchPanelHandle = {
+  submitScanCode: (code: string) => void;
+};
+
+const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(function PosProductSearchPanel({
   priceListId,
   priceListOptions,
   branchId,
@@ -78,7 +82,7 @@ export default function PosProductSearchPanel({
   disabledHint,
   compactLayout = false,
   acceptsPresaleTickets = false,
-}: Props) {
+}, ref) {
   const cart = usePosCart();
   const [draftSearch, setDraftSearch] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -324,6 +328,26 @@ export default function PosProductSearchPanel({
     () => Math.max(1, Math.ceil(total / (resultPageSize || pageSize)) || 1),
     [total, resultPageSize, pageSize],
   );
+
+  const submitScanCode = useCallback(
+    (code: string) => {
+      if (disabled) return;
+      const trimmed = code.trim();
+      if (!trimmed) return;
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+      scanAutoAddRef.current = true;
+      setDraftSearch(trimmed);
+      setSearchQuery(trimmed);
+      searchCommittedRef.current = trimmed;
+      setPage(1);
+    },
+    [disabled],
+  );
+
+  useImperativeHandle(ref, () => ({ submitScanCode }), [submitScanCode]);
 
   const flushDebouncedSearch = useCallback((): "committed" | "unchanged" => {
     if (debounceRef.current) {
@@ -614,4 +638,6 @@ export default function PosProductSearchPanel({
       </Dialog>
     </aside>
   );
-}
+});
+
+export default PosProductSearchPanel;
