@@ -45,6 +45,7 @@ export type CreateSaleApiBody = {
   fulfillPresaleTicketId?: string;
   fulfillPresaleTicketIds?: string[];
   deferPayment?: boolean;
+  saleDocumentKind?: "TICKET" | "BOLETA" | "FACTURA";
   metadata?: Record<string, unknown>;
   promotionSnapshot?: Array<{
     promotionId: string;
@@ -149,6 +150,7 @@ export function buildCreateSaleClientPayload(input: {
   fulfillPresaleTicketId?: string | null;
   fulfillPresaleTicketIds?: string[];
   deferPayment?: boolean;
+  saleDocumentKind?: CreateSaleApiBody["saleDocumentKind"];
   loadedQuotation?: LoadedQuotationMeta | null;
   loadedPresaleTickets?: { id: string; code: string }[];
 }): CreateSaleClientPayload {
@@ -206,5 +208,6 @@ export function buildCreateSaleClientPayload(input: {
     promotionSnapshot,
     ...(hasMetadata ? { metadata } : {}),
     ...(deferPayment ? { deferPayment: true } : {}),
+    ...(input.saleDocumentKind ? { saleDocumentKind: input.saleDocumentKind } : {}),
   };
 }

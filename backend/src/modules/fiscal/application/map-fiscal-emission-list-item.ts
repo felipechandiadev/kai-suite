@@ -8,6 +8,9 @@ export type FiscalEmissionListJoinRow = {
   emission: FiscalDteEmission;
   transaction?: Transaction | null;
   branchName?: string | null;
+  packageCode?: string | null;
+  subPackCode?: string | null;
+  pointOfSaleName?: string | null;
 };
 
 function emissionErrorMessage(errorDetail: Record<string, unknown> | null | undefined): string | null {
@@ -26,7 +29,8 @@ function emissionErrorMessage(errorDetail: Record<string, unknown> | null | unde
 }
 
 export function mapFiscalEmissionListItem(row: FiscalEmissionListJoinRow): FiscalEmissionListItem {
-  const { emission: e, transaction: tx, branchName } = row;
+  const { emission: e, transaction: tx, branchName, packageCode, subPackCode, pointOfSaleName } =
+    row;
   const err = emissionErrorMessage(e.errorDetail);
   return {
     id: e.id,
@@ -50,5 +54,11 @@ export function mapFiscalEmissionListItem(row: FiscalEmissionListJoinRow): Fisca
     errorMessage: err,
     hasTed: Boolean(e.tedXml?.trim()),
     updatedAt: e.updatedAt.toISOString(),
+    cafId: e.cafId ?? null,
+    allocationId: e.allocationId ?? null,
+    packageCode: packageCode ?? null,
+    subPackCode: subPackCode ?? null,
+    pointOfSaleId: e.pointOfSaleId ?? null,
+    pointOfSaleName: pointOfSaleName ?? null,
   };
 }

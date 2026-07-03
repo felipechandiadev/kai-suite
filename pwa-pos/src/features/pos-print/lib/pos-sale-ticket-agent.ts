@@ -1,4 +1,5 @@
 import type { PosSaleReceiptData } from "@/app/(pos)/pos/payment/ui/PosSaleReceiptDialog";
+import { buildPosSaleReceiptHtml } from "@/app/(pos)/pos/payment/ui/PosSaleReceiptDialog";
 import {
   agentSupportsPosSaleTicket,
   emitPrintServiceJobFailed,
@@ -12,11 +13,9 @@ import {
   type PosSaleTicketPrintExtras,
   type PrintFormat,
 } from "@kai/print-service-client";
-import { buildPosSaleDocumentHtml } from "@/features/pos-print/lib/pos-sale-document-print";
 import {
   enqueueVectorTicketAndAwaitDelivery,
-  posTicketMetaToDocumentMeta,
-  printPosTicketFailureDocumentFallback,
+  printPosTicketBrowserFallback,
   withPrintAgentConnection,
 } from "@/features/pos-print/lib/pos-agent-print";
 
@@ -155,7 +154,8 @@ export async function printPosSaleTicketAgentOrBrowser(
   const kind = data.documentKind === "backorder" ? "backorder" : "sale";
   const format =
     meta.format ?? posDocumentPrintModeToWireFormat(getPosDocumentPrintMode(kind));
-  const documentHtml = buildPosSaleDocumentHtml(data, format);
+  const origin = window.location.origin;
+  const ticketHtml = buildPosSaleReceiptHtml(data, origin, format);
   const ticketMeta = {
     filename: meta.filename,
     iframeTitle: "Impresión ticket",
@@ -163,12 +163,11 @@ export async function printPosSaleTicketAgentOrBrowser(
     internalFolio: meta.internalFolio,
     format,
   };
-  const documentFallbackMeta = posTicketMetaToDocumentMeta(ticketMeta);
   const enqueueExtras = { ...meta, format, sourceApp: meta.sourceApp ?? "pwa-pos" };
 
   if (!isPosAgentPrintConfiguredForPurpose("tickets")) {
-    console.warn(`${LOG} sin alias Tickets → documento (hoja)`);
-    return printPosTicketFailureDocumentFallback(documentHtml, ticketMeta);
+    console.warn(`${LOG} sin alias Tickets → navegador (ticket térmico)`);
+    return printPosTicketBrowserFallback(ticketHtml, ticketMeta);
   }
 
   const logoBase64 = await fetchReceiptLogoBase64(data.company.logoUrl, window.location.origin);
@@ -187,9 +186,9 @@ export async function printPosSaleTicketAgentOrBrowser(
         () => enqueueSaleTicketOnAgent(conn, ticketVector, enqueueExtras, true),
         {
           browserFallback: {
-            html: documentHtml,
-            iframeTitle: documentFallbackMeta.iframeTitle,
-            kind: "document",
+            html: ticketHtml,
+            iframeTitle: ticketMeta.iframeTitle,
+            kind: "ticket",
           },
         },
       );
@@ -199,8 +198,8 @@ export async function printPosSaleTicketAgentOrBrowser(
     console.warn(`${LOG} agente no disponible o encolado falló:`, e);
     emitPrintServiceJobFailed(msg);
     if (!isPosAndroidTablet()) {
-      console.warn(`${LOG} ticket falló → documento (hoja)`);
-      return printPosTicketFailureDocumentFallback(documentHtml, ticketMeta);
+      console.warn(`${LOG} ticket falló → navegador (ticket térmico)`);
+      return printPosTicketBrowserFallback(ticketHtml, ticketMeta);
     }
     throw e instanceof Error ? e : new Error(msg);
   }
@@ -213,8 +212,8 @@ export async function printPosSaleTicketAgentOrBrowser(
   const rejectMsg = "enqueue_rejected";
   emitPrintServiceJobFailed(rejectMsg);
   if (!isPosAndroidTablet()) {
-    console.warn(`${LOG} ticket falló → documento (hoja)`);
-    return printPosTicketFailureDocumentFallback(documentHtml, ticketMeta);
+    console.warn(`${LOG} ticket falló → navegador (ticket térmico)`);
+    return printPosTicketBrowserFallback(ticketHtml, ticketMeta);
   }
   throw new Error(rejectMsg);
 }

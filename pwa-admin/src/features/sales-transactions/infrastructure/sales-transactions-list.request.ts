@@ -288,10 +288,20 @@ function normalizeRow(raw: unknown): SalesTransactionListRow | null {
     typeof o.paymentStatus === "string" ? o.paymentStatus : null;
   const relatedPaymentFolios =
     txType === "SALE" ? relatedSalePaymentsFromRaw(o) : [];
+  const documentType =
+    typeof o.documentType === "string" && o.documentType.trim()
+      ? o.documentType.trim()
+      : null;
+  const documentFolio =
+    typeof o.documentFolio === "string" && o.documentFolio.trim()
+      ? o.documentFolio.trim()
+      : null;
   return {
     id,
     documentNumber:
       typeof o.documentNumber === "string" ? o.documentNumber : "",
+    documentType,
+    documentFolio,
     transactionType: txType,
     status: (o.status as SalesPaymentStatus) ?? "CONFIRMED",
     collectionStatus: resolveSaleCollectionStatus({

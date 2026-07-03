@@ -141,6 +141,65 @@ export type FiscalCafItem = {
   environment: string;
   isActive: boolean;
   uploadedAt: string;
+  packageCode?: string;
+  label?: string | null;
+  status?: string;
+  source?: string;
+};
+
+export type FiscalCafPackageStatus = "active" | "archived" | "exhausted";
+
+export type FiscalCafPackageStats = {
+  totalFolios: number;
+  assignedCount: number;
+  emittedCount: number;
+  available: number;
+  subPackCount: number;
+};
+
+export type FiscalCafPackage = {
+  id: string;
+  packageCode: string;
+  label: string | null;
+  status: FiscalCafPackageStatus;
+  source: string;
+  dteType: number;
+  rangeFrom: number;
+  rangeTo: number;
+  nextFolio: number;
+  environment: string;
+  isActive: boolean;
+  uploadedAt: string;
+  stats: FiscalCafPackageStats;
+};
+
+export type FiscalSubPack = {
+  id: string;
+  subPackCode: string;
+  label: string | null;
+  pointOfSaleId: string;
+  pointOfSaleName: string | null;
+  rangeFrom: number;
+  rangeTo: number;
+  nextFolio: number;
+  availableFolios: number;
+  isActive: boolean;
+};
+
+export type FiscalCafPackageDetail = FiscalCafPackage & {
+  subPacks: FiscalSubPack[];
+};
+
+export type FiscalPackLedgerSummary = {
+  cafId: string;
+  allocationId: string | null;
+  rangeFrom: number;
+  rangeTo: number;
+  nextFolio: number;
+  total: number;
+  emittedCount: number;
+  available: number;
+  freeRanges: { from: number; to: number }[];
 };
 
 export type FiscalEmissionRow = {
@@ -165,6 +224,20 @@ export type FiscalEmissionRow = {
   errorMessage: string | null;
   hasTed: boolean;
   updatedAt: string;
+  cafId?: string | null;
+  allocationId?: string | null;
+  packageCode?: string | null;
+  subPackCode?: string | null;
+  pointOfSaleId?: string | null;
+  pointOfSaleName?: string | null;
+};
+
+export type FiscalEmissionsFixedFilters = {
+  cafId?: string;
+  allocationId?: string;
+  folioFrom?: number;
+  folioTo?: number;
+  pointOfSaleId?: string;
 };
 
 export type FiscalEmissionsListParams = {
@@ -175,6 +248,11 @@ export type FiscalEmissionsListParams = {
   to?: string;
   environment?: SiiEnvironment;
   folio?: number;
+  cafId?: string;
+  allocationId?: string;
+  folioFrom?: number;
+  folioTo?: number;
+  pointOfSaleId?: string;
 };
 
 export type CertificationRun = {

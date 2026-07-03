@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { FiscalRequest } from "../infrastructure/fiscal.request";
-import type { EmisorFormValues, FiscalEmissionsListParams, SiiEnvironment } from "../types/fiscal.types";
+import type {
+  EmisorFormValues,
+  FiscalCafPackageStatus,
+  FiscalEmissionsListParams,
+  SiiEnvironment,
+} from "../types/fiscal.types";
 
 const SII_PATHS = [
   "/settings/sii",
@@ -158,6 +163,59 @@ export async function enableFiscalProductionAction(
 
 export async function acknowledgePortalCertificationAction() {
   const res = await FiscalRequest.acknowledgePortalCertification();
+  if (res.success) revalidateSii();
+  return res;
+}
+
+export async function listFiscalCafPackagesAction(params?: {
+  dteType?: number;
+  environment?: SiiEnvironment;
+  status?: FiscalCafPackageStatus;
+}) {
+  return FiscalRequest.listCafPackages(params);
+}
+
+export async function getFiscalCafPackageDetailAction(cafId: string) {
+  return FiscalRequest.getCafPackageDetail(cafId);
+}
+
+export async function getFiscalPackLedgerSummaryAction(cafId: string) {
+  return FiscalRequest.getPackLedgerSummary(cafId);
+}
+
+export async function getFiscalSubPackLedgerSummaryAction(allocationId: string) {
+  return FiscalRequest.getSubPackLedgerSummary(allocationId);
+}
+
+export async function createFiscalSubPackAction(
+  cafId: string,
+  body: { pointOfSaleId: string; rangeFrom: number; rangeTo: number; label?: string },
+) {
+  const res = await FiscalRequest.createSubPack(cafId, body);
+  if (res.success) revalidateSii();
+  return res;
+}
+
+export async function updateFiscalSubPackAction(
+  allocationId: string,
+  body: { rangeFrom?: number; rangeTo?: number; label?: string },
+) {
+  const res = await FiscalRequest.updateSubPack(allocationId, body);
+  if (res.success) revalidateSii();
+  return res;
+}
+
+export async function deleteFiscalSubPackAction(allocationId: string) {
+  const res = await FiscalRequest.deleteSubPack(allocationId);
+  if (res.success) revalidateSii();
+  return res;
+}
+
+export async function updateFiscalPackageStatusAction(
+  cafId: string,
+  status: FiscalCafPackageStatus,
+) {
+  const res = await FiscalRequest.updatePackageStatus(cafId, status);
   if (res.success) revalidateSii();
   return res;
 }

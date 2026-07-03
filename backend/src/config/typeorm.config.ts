@@ -82,6 +82,7 @@ import { FiscalCertificate } from '@modules/fiscal/domain/fiscal-certificate.ent
 import { FiscalCaf } from '@modules/fiscal/domain/fiscal-caf.entity';
 import { FiscalCertificationRun } from '@modules/fiscal/domain/fiscal-certification-run.entity';
 import { FiscalDteEmission } from '@modules/fiscal/domain/fiscal-dte-emission.entity';
+import { PointOfSaleFolioAllocation } from '@modules/fiscal/domain/point-of-sale-folio-allocation.entity';
 import { AuditSubscriber } from '../subscribers/AuditSubscriber';
 import { TenantSubscriber } from '../common/tenant/tenant.subscriber';
 
@@ -177,6 +178,7 @@ export const typeOrmConfig = (
       FiscalCaf,
       FiscalCertificationRun,
       FiscalDteEmission,
+      PointOfSaleFolioAllocation,
     ],
 
     // Register subscribers (TypeORM EventSubscribers)

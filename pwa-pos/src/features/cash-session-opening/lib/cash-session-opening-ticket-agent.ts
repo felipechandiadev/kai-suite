@@ -7,13 +7,12 @@ import {
 } from "@kai/print-service-client";
 import type { CashSessionOpeningPrintInput } from "@/features/cash-session-opening/lib/cash-session-opening-print.types";
 import {
-  buildCashSessionOpeningDocumentHtml,
+  buildCashSessionOpeningTicketHtml,
 } from "@/features/cash-session-opening/lib/cash-session-opening-print";
 import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import {
   enqueueVectorTicketAndAwaitDelivery,
-  posTicketMetaToDocumentMeta,
-  printPosTicketFailureDocumentFallback,
+  printPosTicketBrowserFallback,
   withPrintAgentConnection,
 } from "@/features/pos-print/lib/pos-agent-print";
 
@@ -59,17 +58,14 @@ export async function printCashSessionOpeningTicketVector(
   if (typeof window === "undefined") return "browser";
 
   const meta = { ...openingPrintMeta(input), format };
-  const documentHtml = buildCashSessionOpeningDocumentHtml(input, format);
-  const documentFallbackMeta = posTicketMetaToDocumentMeta(meta);
+  const origin = window.location.origin;
+  const ticketHtml = buildCashSessionOpeningTicketHtml(input, origin, format);
 
   if (!isPosAgentPrintConfiguredForPurpose("tickets")) {
-    return printPosTicketFailureDocumentFallback(documentHtml, meta);
+    return printPosTicketBrowserFallback(ticketHtml, meta);
   }
 
-  const logoBase64 = await fetchReceiptLogoBase64(
-    input.company?.logoUrl,
-    window.location.origin,
-  );
+  const logoBase64 = await fetchReceiptLogoBase64(input.company?.logoUrl, origin);
   const ticket = openingToTicketPayload(input, logoBase64);
   let enqueued = false;
 
@@ -103,9 +99,9 @@ export async function printCashSessionOpeningTicketVector(
         },
         {
           browserFallback: {
-            html: documentHtml,
-            iframeTitle: documentFallbackMeta.iframeTitle,
-            kind: "document",
+            html: ticketHtml,
+            iframeTitle: meta.iframeTitle,
+            kind: "ticket",
           },
         },
       );
@@ -117,5 +113,5 @@ export async function printCashSessionOpeningTicketVector(
 
   if (enqueued) return "agent";
 
-  return printPosTicketFailureDocumentFallback(documentHtml, meta);
+  return printPosTicketBrowserFallback(ticketHtml, meta);
 }

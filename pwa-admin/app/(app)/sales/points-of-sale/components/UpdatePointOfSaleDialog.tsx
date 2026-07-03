@@ -25,6 +25,14 @@ import {
   PosPaymentMethodsCardsEditor,
   type PosPaymentMethodsCardsEditorHandle,
 } from "./PosPaymentMethodsCardsEditor";
+import {
+  getPosFiscalPolicyAction,
+  getPosFolioAllocationsAction,
+  replacePosFiscalPolicyAction,
+  getFiscalFolioSummaryAction,
+} from "@/features/sales-points-of-sale/actions/pos-fiscal.action";
+import { PosFiscalSettingsEditor } from "@/features/sales-points-of-sale/ui/PosFiscalSettingsEditor";
+import type { PosFiscalPolicy } from "@/features/sales-points-of-sale/types/pos-fiscal.types";
 
 export type UpdatePointOfSaleDialogProps = {
   open: boolean;
@@ -66,6 +74,16 @@ export function UpdatePointOfSaleDialog({
     [],
   );
   const paymentEditorRef = useRef<PosPaymentMethodsCardsEditorHandle>(null);
+  const [fiscalPolicy, setFiscalPolicy] = useState<PosFiscalPolicy | null>(null);
+  const [fiscalAllocationsLoaded, setFiscalAllocationsLoaded] = useState<
+    import("@/features/sales-points-of-sale/types/pos-fiscal.types").PosFolioAllocation[]
+  >([]);
+  const [companyCaf39, setCompanyCaf39] = useState<{
+    rangeFrom: number;
+    rangeTo: number;
+    packageCode?: string;
+  } | null>(null);
+  const [loadingFiscal, setLoadingFiscal] = useState(false);
   const resolvedCompanyId = (companyId ?? "").trim();
 
   const branchOptions = useMemo(
@@ -95,6 +113,7 @@ export function UpdatePointOfSaleDialog({
     }
     if (selectedListIds.length === 0) reasons.push("al menos una lista de precio");
     if (isSalePos && loadingPayments) reasons.push("carga de medios de pago");
+    if (isSalePos && loadingFiscal) reasons.push("carga de documentos tributarios");
     return reasons;
   }, [
     name,
@@ -105,6 +124,7 @@ export function UpdatePointOfSaleDialog({
     selectedListIds.length,
     isSalePos,
     loadingPayments,
+    loadingFiscal,
   ]);
 
   const canSubmit = submitBlockers.length === 0 && !isPending;
@@ -156,6 +176,10 @@ export function UpdatePointOfSaleDialog({
     setPosPaymentDraft([]);
     setBankAccountOptions([]);
     setLoadingPayments(false);
+    setFiscalPolicy(null);
+    setFiscalAllocationsLoaded([]);
+    setCompanyCaf39(null);
+    setLoadingFiscal(false);
   }, [open, point, branches, storages]);
 
   useEffect(() => {
@@ -207,6 +231,44 @@ export function UpdatePointOfSaleDialog({
       cancelled = true;
     };
   }, [open, resolvedCompanyId, posKind, point.id]);
+
+  useEffect(() => {
+    if (!open || posKind !== "SALE") {
+      setLoadingFiscal(false);
+      return;
+    }
+    let cancelled = false;
+    setLoadingFiscal(true);
+    void (async () => {
+      try {
+        const [policyRes, allocRes, summaryRes] = await Promise.all([
+          getPosFiscalPolicyAction(point.id),
+          getPosFolioAllocationsAction(point.id),
+          getFiscalFolioSummaryAction(),
+        ]);
+        if (cancelled) return;
+        if (policyRes.success) setFiscalPolicy(policyRes.policy);
+        const boleta39 = summaryRes.success
+          ? summaryRes.summaries.find((s) => s.dteType === 39)?.caf ?? null
+          : null;
+        setCompanyCaf39(
+          boleta39
+            ? {
+                rangeFrom: boleta39.rangeFrom,
+                rangeTo: boleta39.rangeTo,
+                packageCode: boleta39.packageCode,
+              }
+            : null,
+        );
+        if (allocRes.success) setFiscalAllocationsLoaded(allocRes.allocations);
+      } finally {
+        if (!cancelled) setLoadingFiscal(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, posKind, point.id]);
 
   useEffect(() => {
     if (!open) {
@@ -288,6 +350,14 @@ export function UpdatePointOfSaleDialog({
           if (!pr.success) {
             setError(pr.error || "No se pudieron guardar los medios de pago del POS.");
             return;
+          }
+
+          if (fiscalPolicy) {
+            const fp = await replacePosFiscalPolicyAction(point.id, fiscalPolicy);
+            if (!fp.success) {
+              setError(fp.error || "No se pudo guardar la política fiscal del POS.");
+              return;
+            }
           }
         }
 
@@ -493,6 +563,29 @@ export function UpdatePointOfSaleDialog({
             />
           )}
         </div>
+        ) : null}
+
+        {posKind === "SALE" ? (
+          <div className="space-y-2 pt-2">
+            <p className="text-sm font-medium text-foreground">Documentos tributarios</p>
+            {loadingFiscal || !fiscalPolicy ? (
+              <LoadingState
+                className="flex items-center justify-center py-4"
+                label="Cargando documentos tributarios"
+              />
+            ) : (
+              <PosFiscalSettingsEditor
+                posId={point.id}
+                initialPolicy={fiscalPolicy}
+                initialAllocations={fiscalAllocationsLoaded}
+                companyCaf39={companyCaf39}
+                disabled={isPending}
+                onChange={({ policy }) => {
+                  setFiscalPolicy(policy);
+                }}
+              />
+            )}
+          </div>
         ) : null}
         {!canSubmit && submitBlockers.length > 0 ? (
           <p className="text-sm text-muted-foreground" data-test-id="pos-update-submit-hint">

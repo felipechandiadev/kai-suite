@@ -56,6 +56,9 @@ import {
   validateAndPostEnvioBoleta,
   withIso8859Declaration,
 } from './send-signed-envio-boleta.util';
+import { PosFolioAllocationService } from './pos-folio-allocation.service';
+import { PointOfSaleFolioAllocation } from '../domain/point-of-sale-folio-allocation.entity';
+import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
 
 @Injectable()
 export class FiscalBoletaEmissionService {
@@ -83,9 +86,14 @@ export class FiscalBoletaEmissionService {
     private readonly auth: SiiBoletaAuthService,
     private readonly sii: SiiBoletaRestClient,
     private readonly schemaValidator: FiscalXmlSchemaValidator,
+    private readonly posFolioAllocation: PosFolioAllocationService,
   ) {}
 
-  async emitFromSale(companyId: string, transactionId: string): Promise<FiscalEmissionResult> {
+  async emitFromSale(
+    companyId: string,
+    transactionId: string,
+    pointOfSaleId: string,
+  ): Promise<FiscalEmissionResult> {
     const profile = await this.profileRepo.findOne({ where: { companyId } });
     if (!profile?.productionEnabled) {
       return { status: 'SKIPPED' };
@@ -143,7 +151,7 @@ export class FiscalBoletaEmissionService {
     const saleDoc = mapTransactionToSaleBoleta(lines, person);
     const issuedAt = (transaction.createdAt ?? new Date()).toISOString().slice(0, 10);
 
-    const peeked = await this.peekProductionFolio(companyId);
+    const peeked = await this.peekPosFolio(pointOfSaleId);
     if (!peeked) {
       return { status: 'FAILED', error: 'No hay folios disponibles' };
     }
@@ -178,15 +186,23 @@ export class FiscalBoletaEmissionService {
     let envioStatus = FiscalDteEmissionStatus.SENT;
     let errorMessage: string | undefined;
     let siiStatusRaw: string | undefined;
+    let reservedCafId = peeked.cafId;
+    let reservedAllocationId: string | null = null;
     try {
-      const reserved = await this.reserveProductionFolio(companyId);
+      const reserved = await this.posFolioAllocation.reserveFolio(pointOfSaleId, 39);
       folio = reserved.folio;
-      if (folio !== peeked.folio) {
+      reservedCafId = reserved.cafId;
+      reservedAllocationId = reserved.allocationId;
+      const reservedCafXml =
+        reserved.cafId !== peeked.cafId
+          ? await this.loadCafXmlById(reserved.cafId)
+          : cafXml;
+      if (folio !== peeked.folio || reserved.cafId !== peeked.cafId) {
         const rebuilt = this.buildAndSignSaleBoleta(
           emisor,
           saleDoc,
           folio,
-          cafXml,
+          reservedCafXml,
           issuedAt,
           material,
           rutEnvia,
@@ -233,6 +249,9 @@ export class FiscalBoletaEmissionService {
       this.emissionRepo.create({
         companyId,
         transactionId,
+        pointOfSaleId,
+        cafId: reservedCafId,
+        allocationId: reservedAllocationId,
         dteType: 39,
         folio,
         environment: SiiEnvironment.PRODUCTION,
@@ -343,7 +362,11 @@ export class FiscalBoletaEmissionService {
     return mapFiscalEmissionListItem({ emission, transaction: tx, branchName });
   }
 
-  async retryFromSale(companyId: string, transactionId: string): Promise<FiscalEmissionResult> {
+  async retryFromSale(
+    companyId: string,
+    transactionId: string,
+    pointOfSaleId?: string,
+  ): Promise<FiscalEmissionResult> {
     const existing = await this.emissionRepo.findOne({ where: { transactionId, companyId } });
     if (existing && isSuccessfulEnvioStatus(existing.envioStatus)) {
       return this.resultFromExisting(companyId, existing);
@@ -355,7 +378,16 @@ export class FiscalBoletaEmissionService {
       }
       await this.emissionRepo.delete({ id: existing.id });
     }
-    return this.emitFromSale(companyId, transactionId);
+
+    let resolvedPosId = pointOfSaleId?.trim() || existing?.pointOfSaleId?.trim() || '';
+    if (!resolvedPosId) {
+      const tx = await this.transactionRepo.findOne({ where: { id: transactionId, companyId } });
+      resolvedPosId = tx?.pointOfSaleId?.trim() ?? '';
+    }
+    if (!resolvedPosId) {
+      throw new BadRequestException('pointOfSaleId es requerido para reintentar emisión');
+    }
+    return this.emitFromSale(companyId, transactionId, resolvedPosId);
   }
 
   async listEmissionsForCompany(
@@ -368,6 +400,11 @@ export class FiscalBoletaEmissionService {
       to?: string;
       environment?: SiiEnvironment;
       folio?: number;
+      cafId?: string;
+      allocationId?: string;
+      folioFrom?: number;
+      folioTo?: number;
+      pointOfSaleId?: string;
     } = {},
   ): Promise<FiscalEmissionsListResult> {
     const limit = Math.min(Math.max(query.limit ?? 50, 1), 100);
@@ -390,6 +427,23 @@ export class FiscalBoletaEmissionService {
     }
     if (query.folio != null && Number.isFinite(query.folio)) {
       qb.andWhere('e.folio = :folio', { folio: query.folio });
+    }
+    if (query.cafId?.trim()) {
+      qb.andWhere('e.caf_id = :cafId', { cafId: query.cafId.trim() });
+    }
+    if (query.allocationId?.trim()) {
+      qb.andWhere('e.allocation_id = :allocationId', { allocationId: query.allocationId.trim() });
+    }
+    if (query.folioFrom != null && Number.isFinite(query.folioFrom)) {
+      qb.andWhere('e.folio >= :folioFrom', { folioFrom: query.folioFrom });
+    }
+    if (query.folioTo != null && Number.isFinite(query.folioTo)) {
+      qb.andWhere('e.folio <= :folioTo', { folioTo: query.folioTo });
+    }
+    if (query.pointOfSaleId?.trim()) {
+      qb.andWhere('e.point_of_sale_id = :pointOfSaleId', {
+        pointOfSaleId: query.pointOfSaleId.trim(),
+      });
     }
 
     const total = await qb.getCount();
@@ -418,10 +472,48 @@ export class FiscalBoletaEmissionService {
         : [];
     const branchById = new Map(branches.map((b) => [b.id, b.name]));
 
+    const cafIds = [...new Set(rows.map((r) => r.cafId).filter((id): id is string => Boolean(id)))];
+    const allocationIds = [
+      ...new Set(rows.map((r) => r.allocationId).filter((id): id is string => Boolean(id))),
+    ];
+    const posIds = [
+      ...new Set(rows.map((r) => r.pointOfSaleId).filter((id): id is string => Boolean(id))),
+    ];
+
+    const cafs =
+      cafIds.length > 0
+        ? await this.cafRepo.find({ where: cafIds.map((id) => ({ id })) })
+        : [];
+    const cafById = new Map(cafs.map((c) => [c.id, c]));
+
+    const allocations =
+      allocationIds.length > 0
+        ? await this.dataSource.getRepository(PointOfSaleFolioAllocation).find({
+            where: allocationIds.map((id) => ({ id })),
+          })
+        : [];
+    const allocById = new Map(allocations.map((a) => [a.id, a]));
+
+    const posRows =
+      posIds.length > 0
+        ? await this.dataSource.getRepository(PointOfSale).find({ where: posIds.map((id) => ({ id })) })
+        : [];
+    const posById = new Map(posRows.map((p) => [p.id, p.name]));
+
     const items: FiscalEmissionListItem[] = rows.map((e) => {
       const tx = txById.get(e.transactionId);
       const branchName = tx?.branchId ? branchById.get(tx.branchId) ?? null : null;
-      return mapFiscalEmissionListItem({ emission: e, transaction: tx, branchName });
+      const caf = e.cafId ? cafById.get(e.cafId) : undefined;
+      const alloc = e.allocationId ? allocById.get(e.allocationId) : undefined;
+      const posName = e.pointOfSaleId ? posById.get(e.pointOfSaleId) ?? null : null;
+      return mapFiscalEmissionListItem({
+        emission: e,
+        transaction: tx,
+        branchName,
+        packageCode: caf?.packageCode ?? null,
+        subPackCode: alloc?.subPackCode ?? null,
+        pointOfSaleName: posName,
+      });
     });
 
     return { items, total };
@@ -533,21 +625,18 @@ export class FiscalBoletaEmissionService {
     };
   }
 
-  private async peekProductionFolio(
-    companyId: string,
-  ): Promise<{ folio: number; cafId: string } | null> {
-    const caf = await this.cafRepo.findOne({
-      where: {
-        companyId,
-        environment: SiiEnvironment.PRODUCTION,
-        isActive: true,
-      },
-      order: { uploadedAt: 'DESC' },
-    });
-    if (!caf || caf.nextFolio > caf.rangeTo) {
+  private async peekPosFolio(
+    pointOfSaleId: string,
+  ): Promise<{ folio: number; cafId: string; allocationId: string } | null> {
+    const allocation = await this.posFolioAllocation.getActiveAllocation(pointOfSaleId, 39);
+    if (!allocation || allocation.nextFolio > allocation.rangeTo) {
       return null;
     }
-    return { folio: caf.nextFolio, cafId: caf.id };
+    return {
+      folio: allocation.nextFolio,
+      cafId: allocation.cafId,
+      allocationId: allocation.id,
+    };
   }
 
   private buildAndSignSaleBoleta(
@@ -582,30 +671,6 @@ export class FiscalBoletaEmissionService {
       );
     }
     return { tedXml: built.tedXml, signedDte, signedEnvio };
-  }
-
-  private async reserveProductionFolio(companyId: string): Promise<{ folio: number; cafId: string }> {
-    return this.dataSource.transaction(async (manager) => {
-      const caf = await manager.getRepository(FiscalCaf).findOne({
-        where: {
-          companyId,
-          environment: SiiEnvironment.PRODUCTION,
-          isActive: true,
-        },
-        order: { uploadedAt: 'DESC' },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!caf) {
-        throw new BadRequestException('No hay CAF de producción activo');
-      }
-      if (caf.nextFolio > caf.rangeTo) {
-        throw new BadRequestException('CAF de producción sin folios disponibles');
-      }
-      const folio = caf.nextFolio;
-      caf.nextFolio = folio + 1;
-      await manager.getRepository(FiscalCaf).save(caf);
-      return { folio, cafId: caf.id };
-    });
   }
 
   private async saveFailedEmission(params: {

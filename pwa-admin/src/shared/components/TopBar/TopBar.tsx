@@ -225,6 +225,7 @@ const TopBar: React.FC<TopBarProps & { className?: string }> = ({
               <PrintServiceTopBarDropdown
                 settingsHref="/settings/local-printing"
                 panelVariant="pos"
+                notificationBadgeVariant="secondary"
                 connected={printService.connected}
                 health={printService.health}
                 visual={printService.visual}

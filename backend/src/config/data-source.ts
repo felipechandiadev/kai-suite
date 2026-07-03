@@ -123,11 +123,14 @@ import { PresaleTickets1756560000000 } from '../migrations/1756560000000-Presale
 import { FiscalCore1756570000000 } from '../migrations/1756570000000-FiscalCore';
 import { CompanySiiEmisorFields1756580000000 } from '../migrations/1756580000000-CompanySiiEmisorFields';
 import { FiscalDteEmissions1756590000000 } from '../migrations/1756590000000-FiscalDteEmissions';
+import { PosFiscalAllocations1756600000000 } from '../migrations/1756600000000-PosFiscalAllocations';
+import { FolioPackagesAndSubAllocations1756610000000 } from '../migrations/1756610000000-FolioPackagesAndSubAllocations';
 import { FiscalProfile } from '@modules/fiscal/domain/fiscal-profile.entity';
 import { FiscalCertificate } from '@modules/fiscal/domain/fiscal-certificate.entity';
 import { FiscalCaf } from '@modules/fiscal/domain/fiscal-caf.entity';
 import { FiscalCertificationRun } from '@modules/fiscal/domain/fiscal-certification-run.entity';
 import { FiscalDteEmission } from '@modules/fiscal/domain/fiscal-dte-emission.entity';
+import { PointOfSaleFolioAllocation } from '@modules/fiscal/domain/point-of-sale-folio-allocation.entity';
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
 import { EShopFulfillmentMethod } from '@modules/e-shop/domain/e-shop-fulfillment-method.entity';
@@ -236,6 +239,7 @@ export const AppDataSource = new DataSource({
     FiscalCaf,
     FiscalCertificationRun,
     FiscalDteEmission,
+    PointOfSaleFolioAllocation,
   ],
   subscribers: [AuditSubscriber, TenantSubscriber],
   migrations: [
@@ -288,6 +292,8 @@ export const AppDataSource = new DataSource({
     FiscalCore1756570000000,
     CompanySiiEmisorFields1756580000000,
     FiscalDteEmissions1756590000000,
+    PosFiscalAllocations1756600000000,
+    FolioPackagesAndSubAllocations1756610000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

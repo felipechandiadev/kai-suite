@@ -51,6 +51,7 @@ import type {
   FiscalProfileResponse,
   FiscalSummaryResponse,
 } from './fiscal.types';
+import { FiscalCafPackageService } from './fiscal-caf-package.service';
 
 @Injectable()
 export class FiscalService {
@@ -69,6 +70,7 @@ export class FiscalService {
     private readonly auth: SiiBoletaAuthService,
     private readonly sii: SiiBoletaRestClient,
     private readonly schemaValidator: FiscalXmlSchemaValidator,
+    private readonly cafPackageService: FiscalCafPackageService,
   ) {}
 
   async getOrCreateProfile(companyId: string): Promise<FiscalProfile> {
@@ -91,14 +93,14 @@ export class FiscalService {
       where: { companyId },
       order: { uploadedAt: 'DESC' },
     });
-    const caf = await this.getActiveCaf(companyId, profile.environment);
+    const caf = await this.getActiveCaf(companyId, profile.environment, 39);
     return this.toProfileResponse(profile, company, cert, caf);
   }
 
   async getSummary(companyId: string): Promise<FiscalSummaryResponse> {
     const base = await this.getProfile(companyId);
     const profile = await this.getOrCreateProfile(companyId);
-    const prodCaf = await this.getActiveCaf(companyId, SiiEnvironment.PRODUCTION);
+    const prodCaf = await this.getActiveCaf(companyId, SiiEnvironment.PRODUCTION, 39);
     const productionCaf = prodCaf ? this.toCafListItem(prodCaf) : null;
     const run = await this.runRepo.findOne({
       where: { companyId },
@@ -226,32 +228,7 @@ export class FiscalService {
     file: Buffer,
     environment?: SiiEnvironment,
   ): Promise<FiscalCafListItem[]> {
-    const xml = file.toString('utf8');
-    const parsed = parseCafXml(xml);
-    const profile = await this.getOrCreateProfile(companyId);
-    const env = environment ?? profile.environment;
-    await this.cafRepo.update(
-      { companyId, environment: env, isActive: true },
-      { isActive: false },
-    );
-    const enc = this.crypto.encrypt(Buffer.from(xml, 'utf8'));
-    await this.cafRepo.save(
-      this.cafRepo.create({
-        companyId,
-        dteType: parsed.dteType,
-        rangeFrom: parsed.rangeFrom,
-        rangeTo: parsed.rangeTo,
-        nextFolio: parsed.rangeFrom,
-        environment: env,
-        isActive: true,
-        encryptedCafXml: enc.data,
-        cafIv: enc.iv,
-      }),
-    );
-    const profile2 = await this.getOrCreateProfile(companyId);
-    const company = await this.requireCompany(companyId);
-    this.refreshProfileStatus(profile2, company);
-    await this.profileRepo.save(profile2);
+    await this.cafPackageService.uploadPackage(companyId, file, environment);
     return this.listCafs(companyId);
   }
 
@@ -279,7 +256,7 @@ export class FiscalService {
   ): Promise<FiscalBoletaPrintPreview> {
     const profile = await this.getOrCreateProfile(companyId);
     const company = await this.requireCompany(companyId);
-    const caf = await this.getActiveCaf(companyId, profile.environment);
+    const caf = await this.getActiveCaf(companyId, profile.environment, 39);
     const startFolio = caf?.nextFolio ?? 1;
     const needed = SET_BE_CASES.length;
     const sufficientForSet = caf
@@ -326,7 +303,7 @@ export class FiscalService {
   ): Promise<FiscalCertificationRun> {
     const run = await this.getRun(companyId, runId);
     const profile = await this.getOrCreateProfile(companyId);
-    const caf = await this.getActiveCaf(companyId, profile.environment);
+    const caf = await this.getActiveCaf(companyId, profile.environment, 39);
     if (!caf) throw new BadRequestException('No hay CAF activo');
     const needed = SET_BE_CASES.length;
     if (caf.nextFolio + needed - 1 > caf.rangeTo) {
@@ -401,7 +378,7 @@ export class FiscalService {
       } catch {
         // poll opcional; refresh manual en admin
       }
-      const caf = await this.getActiveCaf(companyId, profile.environment);
+      const caf = await this.getActiveCaf(companyId, profile.environment, 39);
       if (caf && run.folioTo) {
         caf.nextFolio = run.folioTo + 1;
         await this.cafRepo.save(caf);
@@ -530,7 +507,7 @@ export class FiscalService {
     if (!cert) {
       throw new BadRequestException('Cargue certificado digital');
     }
-    const prodCaf = await this.getActiveCaf(companyId, SiiEnvironment.PRODUCTION);
+    const prodCaf = await this.getActiveCaf(companyId, SiiEnvironment.PRODUCTION, 39);
     if (!prodCaf) {
       throw new BadRequestException('Cargue CAF de producción');
     }
@@ -558,7 +535,7 @@ export class FiscalService {
     if (dto.productionEnabled && profile.status !== FiscalProfileStatus.CERTIFIED) {
       throw new BadRequestException('La empresa debe estar certificada');
     }
-    const prodCaf = await this.getActiveCaf(companyId, SiiEnvironment.PRODUCTION);
+    const prodCaf = await this.getActiveCaf(companyId, SiiEnvironment.PRODUCTION, 39);
     if (dto.productionEnabled && !prodCaf) {
       throw new BadRequestException('Cargue CAF de producción');
     }
@@ -586,9 +563,10 @@ export class FiscalService {
   private async getActiveCaf(
     companyId: string,
     environment: SiiEnvironment,
+    dteType = 39,
   ): Promise<FiscalCaf | null> {
     return this.cafRepo.findOne({
-      where: { companyId, environment, isActive: true },
+      where: { companyId, environment, isActive: true, dteType },
       order: { uploadedAt: 'DESC' },
     });
   }
@@ -596,8 +574,9 @@ export class FiscalService {
   private async loadActiveCafXml(
     companyId: string,
     environment: SiiEnvironment,
+    dteType = 39,
   ): Promise<string> {
-    const caf = await this.getActiveCaf(companyId, environment);
+    const caf = await this.getActiveCaf(companyId, environment, dteType);
     if (!caf) throw new BadRequestException('No hay CAF activo');
     return this.crypto.decrypt(caf.encryptedCafXml, caf.cafIv).toString('utf8');
   }
@@ -638,7 +617,7 @@ export class FiscalService {
     const company = await this.requireCompany(companyId);
     emisorFromCompany(company);
     await this.loadPfxMaterial(companyId);
-    const caf = await this.getActiveCaf(companyId, profile.environment);
+    const caf = await this.getActiveCaf(companyId, profile.environment, 39);
     if (!caf) throw new BadRequestException('CAF no cargado');
   }
 
@@ -664,6 +643,10 @@ export class FiscalService {
       environment: caf.environment,
       isActive: caf.isActive,
       uploadedAt: caf.uploadedAt.toISOString(),
+      packageCode: caf.packageCode,
+      label: caf.label ?? null,
+      status: caf.status,
+      source: caf.source,
     };
   }
 

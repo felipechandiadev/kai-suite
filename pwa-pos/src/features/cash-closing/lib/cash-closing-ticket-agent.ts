@@ -11,11 +11,11 @@ import {
 } from "@kai/print-service-client";
 import type { CashClosingPrintInput } from "@/features/cash-closing/lib/cash-closing-print.types";
 import { buildCashClosingDocumentHtml } from "@/features/cash-closing/lib/cash-closing-document-print";
+import { buildCashClosingReceiptHtml } from "@/features/cash-closing/lib/cash-closing-receipt-print";
 import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import {
   enqueueVectorTicketAndAwaitDelivery,
-  posTicketMetaToDocumentMeta,
-  printPosTicketFailureDocumentFallback,
+  printPosTicketBrowserFallback,
   printPosHtmlViaAgentOrBrowser,
   printPosHtmlViaAgentOrBrowserFireAndForget,
   withPrintAgentConnection,
@@ -77,16 +77,16 @@ async function printCashClosingTicketVector(
   if (typeof window === "undefined") return "browser";
 
   const meta = { ...arqueoPrintMeta(input), format };
-  const documentHtml = buildCashClosingDocumentHtml(input, format);
-  const documentFallbackMeta = posTicketMetaToDocumentMeta(meta);
+  const origin = window.location.origin;
+  const ticketHtml = buildCashClosingReceiptHtml(input, origin, format);
 
   if (!isPosAgentPrintConfiguredForPurpose("tickets")) {
-    return printPosTicketFailureDocumentFallback(documentHtml, meta);
+    return printPosTicketBrowserFallback(ticketHtml, meta);
   }
 
   const logoBase64 = await fetchReceiptLogoBase64(
     input.company?.logoUrl,
-    window.location.origin,
+    origin,
   );
   const ticket = cashClosingToTicketPayload(input, logoBase64);
   let enqueued = false;
@@ -121,9 +121,9 @@ async function printCashClosingTicketVector(
         },
         {
           browserFallback: {
-            html: documentHtml,
-            iframeTitle: documentFallbackMeta.iframeTitle,
-            kind: "document",
+            html: ticketHtml,
+            iframeTitle: meta.iframeTitle,
+            kind: "ticket",
           },
         },
       );
@@ -135,7 +135,7 @@ async function printCashClosingTicketVector(
 
   if (enqueued) return "agent";
 
-  return printPosTicketFailureDocumentFallback(documentHtml, meta);
+  return printPosTicketBrowserFallback(ticketHtml, meta);
 }
 
 export function printCashClosingArqueo(input: CashClosingPrintInput, format?: PrintFormat): void {

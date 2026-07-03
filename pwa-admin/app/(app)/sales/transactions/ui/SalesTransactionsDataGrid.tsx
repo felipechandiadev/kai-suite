@@ -29,6 +29,11 @@ import {
   CREDIT_NOTE_USAGE_LABEL,
   creditNoteUsageVariant,
 } from "@/features/sales-transactions/lib/credit-note-usage-status";
+import {
+  formatSaleDocumentFolio,
+  saleDocumentTypeBadgeVariant,
+  saleDocumentTypeLabel,
+} from "@/features/sales-transactions/lib/sale-document-type";
 import SaleTransactionDetailDialog from "./SaleTransactionDetailDialog";
 
 type SalesTransactionsDataGridProps = {
@@ -171,11 +176,56 @@ export default function SalesTransactionsDataGrid({
         field: "documentNumber",
         headerName: "Folio",
         sortable: false,
-        minWidth: 140,
-        flex: 0.6,
+        minWidth: 120,
+        flex: 0.5,
         valueGetter: ({ row }) =>
           (row as SalesTransactionListRow).documentNumber || "—",
       },
+      ...(variant === "default" && mode === "default"
+        ? [
+            {
+              field: "documentType",
+              headerName: "DTE",
+              sortable: false,
+              width: 110,
+              valueGetter: ({ row }: { row: unknown }) =>
+                saleDocumentTypeLabel(
+                  (row as SalesTransactionListRow).documentType,
+                ),
+              renderCell: ({ row }: { row: unknown }) => {
+                const r = row as SalesTransactionListRow;
+                return (
+                  <Badge variant={saleDocumentTypeBadgeVariant(r.documentType)}>
+                    {saleDocumentTypeLabel(r.documentType)}
+                  </Badge>
+                );
+              },
+            },
+            {
+              field: "documentFolio",
+              headerName: "Folio DTE",
+              sortable: false,
+              minWidth: 96,
+              flex: 0.4,
+              valueGetter: ({ row }: { row: unknown }) =>
+                formatSaleDocumentFolio(
+                  (row as SalesTransactionListRow).documentType,
+                  (row as SalesTransactionListRow).documentFolio,
+                ),
+              renderCell: ({ row }: { row: unknown }) => {
+                const r = row as SalesTransactionListRow;
+                const folio = formatSaleDocumentFolio(
+                  r.documentType,
+                  r.documentFolio,
+                );
+                if (folio === "—") {
+                  return <span className="text-muted-foreground">—</span>;
+                }
+                return <span className="font-mono text-xs">{folio}</span>;
+              },
+            },
+          ]
+        : []),
       {
         field: "createdAt",
         headerName: "Fecha",

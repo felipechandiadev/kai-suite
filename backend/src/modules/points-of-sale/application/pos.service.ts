@@ -27,6 +27,14 @@ import {
   type PosKind,
   type PosSettings,
 } from '../domain/pos-settings.types';
+import {
+  readPosFiscalSettings,
+  sanitizePosFiscalSettingsPatch,
+  type PosFiscalSettings,
+} from '../domain/pos-fiscal-settings.types';
+import { PosFolioAllocationService } from '@modules/fiscal/application/pos-folio-allocation.service';
+import { FiscalEffectiveOptionsService } from '@modules/fiscal/application/fiscal-effective-options.service';
+import type { UpsertPosFolioAllocationInput } from '@modules/fiscal/application/pos-folio-allocation.service';
 
 @Injectable()
 export class PosService {
@@ -36,6 +44,8 @@ export class PosService {
     @InjectRepository(Storage)
     private readonly storageRepository: Repository<Storage>,
     private readonly companiesService: CompaniesService,
+    private readonly posFolioAllocation: PosFolioAllocationService,
+    private readonly fiscalEffectiveOptions: FiscalEffectiveOptionsService,
   ) {}
 
   async findAll(includeInactive: boolean) {
@@ -347,6 +357,44 @@ export class PosService {
       createdAt: pos.createdAt,
       updatedAt: pos.updatedAt,
     };
+  }
+
+  async getFiscalPolicy(posId: string): Promise<PosFiscalSettings> {
+    const pos = await this.posRepository.findOne({
+      where: { id: posId, deletedAt: IsNull() },
+    });
+    if (!pos) throw new NotFoundException('Punto de venta no encontrado');
+    return readPosFiscalSettings(pos.settings);
+  }
+
+  async replaceFiscalPolicy(
+    posId: string,
+    patch: Partial<PosFiscalSettings>,
+  ): Promise<PosFiscalSettings> {
+    const pos = await this.posRepository.findOne({
+      where: { id: posId, deletedAt: IsNull() },
+    });
+    if (!pos) throw new NotFoundException('Punto de venta no encontrado');
+    const fiscal = sanitizePosFiscalSettingsPatch(pos.settings, patch);
+    pos.settings = { ...(pos.settings ?? {}), fiscal };
+    await this.posRepository.save(pos);
+    return fiscal;
+  }
+
+  async getFolioAllocations(posId: string) {
+    return this.posFolioAllocation.listByPos(posId);
+  }
+
+  async replaceFolioAllocations(posId: string, items: UpsertPosFolioAllocationInput[]) {
+    return this.posFolioAllocation.replaceAllocationsForPos(posId, items);
+  }
+
+  async getEffectiveDocumentOptions(posId: string) {
+    const pos = await this.posRepository.findOne({
+      where: { id: posId, deletedAt: IsNull() },
+    });
+    if (!pos?.companyId) throw new NotFoundException('Punto de venta no encontrado');
+    return this.fiscalEffectiveOptions.resolveEffectiveDocumentOptions(pos.companyId, posId);
   }
 
   /** Mensaje de error o `null` si el almacén es una sala de venta válida para la sucursal. */

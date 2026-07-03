@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { PrintServiceNotification, PrintAgentVisualStatus, PrinterHealthPayload } from "./core";
-import { TopBarNotificationCountBadge } from "./top-bar-notification-badge";
+import { TopBarNotificationCountBadge, type TopBarNotificationCountBadgeVariant } from "./top-bar-notification-badge";
 
 /** Misma capa que alertas de stock (`StockAlertsDropdown`) para apilar sobre la top bar. */
 const PANEL_Z = 200;
@@ -41,6 +41,8 @@ export type PrintServiceDropdownProps = {
   renderLocalAgentStatus?: (ctx: { connected: boolean }) => ReactNode;
   /** Clases del botón disparador (p. ej. `fs-icon-button` del POS para alinear con la top bar). */
   triggerClassName?: string;
+  /** Estilo del contador de notificaciones sobre el icono de impresión. */
+  notificationBadgeVariant?: TopBarNotificationCountBadgeVariant;
   /** Atributo `data-test-id` del contenedor raíz del dropdown. */
   "data-test-id"?: string;
 };
@@ -148,6 +150,7 @@ export function PrintServiceTopBarDropdown({
   panelVariant = "default",
   renderLocalAgentStatus,
   triggerClassName,
+  notificationBadgeVariant = "destructive",
   "data-test-id": dataTestId,
 }: PrintServiceDropdownProps) {
   const posMinimal = panelVariant === "pos";
@@ -399,7 +402,7 @@ export function PrintServiceTopBarDropdown({
             ) : null}
           </span>
         </button>
-        <TopBarNotificationCountBadge count={unreadCount} />
+        <TopBarNotificationCountBadge count={unreadCount} variant={notificationBadgeVariant} />
       </div>
       {typeof document !== "undefined" && panel ? createPortal(panel, document.body) : null}
     </div>

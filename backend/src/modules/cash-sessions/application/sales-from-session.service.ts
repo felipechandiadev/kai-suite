@@ -88,6 +88,12 @@ import {
   type SalePaymentInput,
 } from '@modules/transactions/application/payment-snapshots.util';
 import { FiscalBoletaEmissionService } from '@modules/fiscal/application/fiscal-boleta-emission.service';
+import { FiscalEffectiveOptionsService } from '@modules/fiscal/application/fiscal-effective-options.service';
+import {
+  isSaleDocumentKind,
+  normalizeSaleDocumentKind,
+  type SaleDocumentKind,
+} from '@modules/fiscal/domain/sale-document-kind';
 import type { FiscalEmissionResult } from '@modules/fiscal/application/fiscal-emission.types';
 
 type PosCommercialRegisterConfig = {
@@ -163,6 +169,7 @@ export class SalesFromSessionService {
     private readonly mpSalePayment: MercadoPagoSalePaymentService,
     private readonly presaleTicketsService: PresaleTicketsService,
     private readonly fiscalBoletaEmission: FiscalBoletaEmissionService,
+    private readonly fiscalEffectiveOptions: FiscalEffectiveOptionsService,
   ) {}
 
   /**
@@ -280,6 +287,7 @@ export class SalesFromSessionService {
         'No se puede diferir el cobro al cobrar un ticket de preventa.',
       );
     }
+    await this.validateSaleDocumentKindForCreate(createSaleDto);
     const result = await this.registerPosCommercial(createSaleDto, {
       transactionType: TransactionType.SALE,
       skipStockCheck: false,
@@ -315,6 +323,10 @@ export class SalesFromSessionService {
     },
   ): Promise<FiscalEmissionResult | undefined> {
     if (!result.success || !result.transaction?.id) return undefined;
+
+    const saleDocumentKind = this.resolveSaleDocumentKind(createSaleDto);
+    if (saleDocumentKind !== 'BOLETA') return undefined;
+
     const fulfillBackorderId = createSaleDto.fulfillBackorderId?.trim() || undefined;
     const fulfillPresaleTicketIds = [
       ...new Set(
@@ -335,8 +347,19 @@ export class SalesFromSessionService {
       where: { id: createSaleDto.pointOfSaleId, deletedAt: IsNull() },
     });
     if (!pos?.companyId) return undefined;
+
+    await this.fiscalEffectiveOptions.assertSaleDocumentKindAllowed(
+      pos.companyId,
+      createSaleDto.pointOfSaleId,
+      saleDocumentKind,
+    );
+
     try {
-      return await this.fiscalBoletaEmission.emitFromSale(pos.companyId, result.transaction.id);
+      return await this.fiscalBoletaEmission.emitFromSale(
+        pos.companyId,
+        result.transaction.id,
+        createSaleDto.pointOfSaleId,
+      );
     } catch (e) {
       this.logger.error(
         `Emisión boleta falló para venta ${result.transaction.id}: ${
@@ -348,6 +371,32 @@ export class SalesFromSessionService {
         error: e instanceof Error ? e.message : 'Error al emitir boleta',
       };
     }
+  }
+
+  private resolveSaleDocumentKind(createSaleDto: CreateSaleDto): SaleDocumentKind {
+    if (createSaleDto.saleDocumentKind != null && isSaleDocumentKind(createSaleDto.saleDocumentKind)) {
+      return normalizeSaleDocumentKind(createSaleDto.saleDocumentKind);
+    }
+    return 'TICKET';
+  }
+
+  private async validateSaleDocumentKindForCreate(createSaleDto: CreateSaleDto): Promise<void> {
+    const kind = this.resolveSaleDocumentKind(createSaleDto);
+    if (kind === 'TICKET') return;
+    if (kind === 'FACTURA') {
+      throw new ConflictException('Documento FACTURA no disponible: NO_IMPLEMENTADO');
+    }
+    const pos = await this.pointOfSaleRepository.findOne({
+      where: { id: createSaleDto.pointOfSaleId, deletedAt: IsNull() },
+    });
+    if (!pos?.companyId) {
+      throw new NotFoundException('Punto de venta no encontrado');
+    }
+    await this.fiscalEffectiveOptions.assertSaleDocumentKindAllowed(
+      pos.companyId,
+      createSaleDto.pointOfSaleId,
+      kind,
+    );
   }
 
   /**

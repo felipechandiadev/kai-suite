@@ -14,8 +14,7 @@ import { getCompanyDetailsAction } from "@/features/company/actions/company.acti
 import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import {
   enqueueVectorTicketAndAwaitDelivery,
-  posTicketMetaToDocumentMeta,
-  printPosTicketFailureDocumentFallback,
+  printPosTicketBrowserFallback,
   withPrintAgentConnection,
 } from "@/features/pos-print/lib/pos-agent-print";
 import type { PresaleTicketDetail } from "../types/presale-ticket.types";
@@ -73,7 +72,7 @@ export async function printPresaleTicketAgentOrBrowser(
     ticket.pointOfSaleName?.trim() ||
     ticket.branchName?.trim() ||
     null;
-  const documentHtml = buildPresaleTicketHtml(ticket, companyLabel);
+  const ticketHtml = buildPresaleTicketHtml(ticket, companyLabel);
   const ticketMeta = {
     filename: meta.filename,
     iframeTitle: "Impresión ticket preventa",
@@ -81,7 +80,6 @@ export async function printPresaleTicketAgentOrBrowser(
     internalFolio: meta.internalFolio,
     format: resolved,
   };
-  const documentFallbackMeta = posTicketMetaToDocumentMeta(ticketMeta);
 
   if (!isPosAgentPrintConfiguredForPurpose("tickets")) {
     printPresaleTicketHtml(ticket, companyLabel);
@@ -125,9 +123,9 @@ export async function printPresaleTicketAgentOrBrowser(
         },
         {
           browserFallback: {
-            html: documentHtml,
-            iframeTitle: documentFallbackMeta.iframeTitle,
-            kind: "document",
+            html: ticketHtml,
+            iframeTitle: ticketMeta.iframeTitle,
+            kind: "ticket",
           },
         },
       );
@@ -139,8 +137,7 @@ export async function printPresaleTicketAgentOrBrowser(
 
   if (enqueued) return "agent";
 
-  printPresaleTicketHtml(ticket, companyLabel);
-  return "browser";
+  return printPosTicketBrowserFallback(ticketHtml, ticketMeta);
 }
 
 export function printPresaleTicketAgentOrBrowserFireAndForget(

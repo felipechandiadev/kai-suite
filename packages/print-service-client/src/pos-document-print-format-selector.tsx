@@ -42,12 +42,12 @@ export function PosDocumentPrintFormatSelector({
     `rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors sm:px-3 sm:text-sm ${
       active
         ? "bg-primary text-primary-foreground shadow-sm"
-        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        : "text-muted-foreground hover:text-foreground"
     } ${disabled ? "cursor-not-allowed opacity-60" : ""}`;
 
   return (
     <div
-      className={`flex flex-wrap gap-1 rounded-lg border border-border bg-muted/20 p-1 ${className}`}
+      className={`flex flex-wrap gap-1 rounded-lg border border-border p-1 ${className}`}
       role="group"
       aria-label="Formato de impresión"
       data-test-id={dataTestId}

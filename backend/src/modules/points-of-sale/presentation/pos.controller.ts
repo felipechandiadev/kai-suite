@@ -141,6 +141,49 @@ export class PosController {
     return { success: true, paymentMethods };
   }
 
+  @Get(':id/fiscal/effective-options')
+  async getEffectiveDocumentOptions(@Param('id') id: string) {
+    const effectiveOptions = await this.posService.getEffectiveDocumentOptions(id);
+    return { success: true, ...effectiveOptions };
+  }
+
+  @Get(':id/fiscal/policy')
+  @AdminOnly()
+  async getFiscalPolicy(@Param('id') id: string) {
+    const policy = await this.posService.getFiscalPolicy(id);
+    return { success: true, policy };
+  }
+
+  @Put(':id/fiscal/policy')
+  @AdminOnly()
+  async replaceFiscalPolicy(@Param('id') id: string, @Body() body: unknown) {
+    const patch =
+      body && typeof body === 'object' && 'policy' in (body as object)
+        ? ((body as { policy: unknown }).policy as Record<string, unknown>)
+        : (body as Record<string, unknown>);
+    const policy = await this.posService.replaceFiscalPolicy(id, patch ?? {});
+    return { success: true, policy };
+  }
+
+  @Get(':id/fiscal/folio-allocations')
+  @AdminOnly()
+  async getFolioAllocations(@Param('id') id: string) {
+    const allocations = await this.posService.getFolioAllocations(id);
+    return { success: true, allocations };
+  }
+
+  @Put(':id/fiscal/folio-allocations')
+  @AdminOnly()
+  async replaceFolioAllocations(@Param('id') id: string, @Body() body: unknown) {
+    const items = Array.isArray(body)
+      ? body
+      : Array.isArray((body as any)?.allocations)
+        ? (body as any).allocations
+        : [];
+    const allocations = await this.posService.replaceFolioAllocations(id, items);
+    return { success: true, allocations };
+  }
+
   @Delete(':id')
   async deletePointOfSale(@Param('id') id: string) {
     return this.posService.deletePointOfSale(id);

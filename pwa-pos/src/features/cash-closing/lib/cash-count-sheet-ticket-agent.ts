@@ -6,12 +6,13 @@ import {
   type PrintFormat,
 } from "@kai/print-service-client";
 import type { CashCountSheetPrintInput } from "@/features/cash-closing/lib/cash-count-sheet-print.types";
-import { buildCashCountSheetDocumentHtml } from "@/features/cash-closing/lib/cash-count-sheet-print";
+import {
+  buildCashCountSheetTicketHtml,
+} from "@/features/cash-closing/lib/cash-count-sheet-print";
 import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import {
   enqueueVectorTicketAndAwaitDelivery,
-  posTicketMetaToDocumentMeta,
-  printPosTicketFailureDocumentFallback,
+  printPosTicketBrowserFallback,
   withPrintAgentConnection,
 } from "@/features/pos-print/lib/pos-agent-print";
 
@@ -59,17 +60,14 @@ export async function printCashCountSheetTicketVector(
   if (typeof window === "undefined") return "browser";
 
   const meta = { ...countSheetPrintMeta(input), format };
-  const documentHtml = buildCashCountSheetDocumentHtml(input, format);
-  const documentFallbackMeta = posTicketMetaToDocumentMeta(meta);
+  const origin = window.location.origin;
+  const ticketHtml = buildCashCountSheetTicketHtml(input, origin, format);
 
   if (!isPosAgentPrintConfiguredForPurpose("tickets")) {
-    return printPosTicketFailureDocumentFallback(documentHtml, meta);
+    return printPosTicketBrowserFallback(ticketHtml, meta);
   }
 
-  const logoBase64 = await fetchReceiptLogoBase64(
-    input.company?.logoUrl,
-    window.location.origin,
-  );
+  const logoBase64 = await fetchReceiptLogoBase64(input.company?.logoUrl, origin);
   const ticket = cashCountSheetToTicketPayload(input, logoBase64);
   let enqueued = false;
 
@@ -103,9 +101,9 @@ export async function printCashCountSheetTicketVector(
         },
         {
           browserFallback: {
-            html: documentHtml,
-            iframeTitle: documentFallbackMeta.iframeTitle,
-            kind: "document",
+            html: ticketHtml,
+            iframeTitle: meta.iframeTitle,
+            kind: "ticket",
           },
         },
       );
@@ -117,5 +115,5 @@ export async function printCashCountSheetTicketVector(
 
   if (enqueued) return "agent";
 
-  return printPosTicketFailureDocumentFallback(documentHtml, meta);
+  return printPosTicketBrowserFallback(ticketHtml, meta);
 }

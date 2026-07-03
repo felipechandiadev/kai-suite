@@ -19,6 +19,17 @@ export enum FiscalDteEmissionStatus {
   FAILED = 'FAILED',
 }
 
+export enum FiscalCafPackageStatus {
+  ACTIVE = 'active',
+  ARCHIVED = 'archived',
+  EXHAUSTED = 'exhausted',
+}
+
+export enum FiscalCafPackageSource {
+  MANUAL_UPLOAD = 'manual_upload',
+  SII_REQUEST = 'sii_request',
+}
+
 export enum CertificationRunStatus {
   DRAFT = 'DRAFT',
   READY = 'READY',

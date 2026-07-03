@@ -5,8 +5,8 @@ import { printFiscalBoletaViaReactToPrint } from "@/features/fiscal/print/fiscal
 export type PosPrintJobBrowserFallback = {
   html: string;
   iframeTitle: string;
-  /** Solo formato documento (hoja); nunca ticket 80 mm en navegador. */
-  kind?: "document";
+  /** ticket = HTML térmico (~80 mm); document = hoja carta/A4. */
+  kind?: "ticket" | "document";
   /** Boleta SII: preferir react-to-print (incluye PDF417) sobre iframe HTML. */
   fiscalBoleta?: {
     preview: FiscalBoletaPrintPreview;

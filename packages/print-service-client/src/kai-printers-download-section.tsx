@@ -124,7 +124,7 @@ export function KaiPrintersDownloadSection({
         {available.map((offer) => (
           <li
             key={offer.platform}
-            className="flex flex-col gap-3 rounded-lg border border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between"
+            className="flex flex-col gap-3 rounded-lg border border-border p-4 sm:flex-row sm:items-center sm:justify-between"
           >
             <div className="flex min-w-0 flex-1 gap-3">
               <div

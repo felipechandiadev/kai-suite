@@ -4,6 +4,7 @@ export interface PosSettings {
   paymentMethods?: unknown[];
   kind?: PosKind;
   acceptsPresaleTickets?: boolean;
+  fiscal?: import('./pos-fiscal-settings.types').PosFiscalSettings;
 }
 
 const truthy = (v: unknown): boolean =>

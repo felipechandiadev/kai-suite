@@ -22,6 +22,10 @@ export type RelatedSalePaymentFolio = {
 export interface SalesTransactionListRow {
   id: string;
   documentNumber: string;
+  /** Tipo de documento tributario (`transactions.documentType`). */
+  documentType: string | null;
+  /** Folio del documento tributario (`transactions.documentFolio`). */
+  documentFolio: string | null;
   transactionType: string;
   status: SalesPaymentStatus;
   /** `paymentStatus` de la venta o derivado de montos. */

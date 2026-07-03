@@ -26,7 +26,7 @@ export function DocumentPrintModeToggle({
 
   return (
     <div
-      className={`flex flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-lg border border-border bg-muted/20 px-3 py-2.5 ${className}`}
+      className={`flex flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-lg border border-border px-3 py-2.5 ${className}`}
       data-test-id={dataTestId}
     >
       <span

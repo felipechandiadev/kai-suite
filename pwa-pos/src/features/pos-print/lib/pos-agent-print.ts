@@ -109,8 +109,26 @@ export function posTicketMetaToDocumentMeta(meta: PosAgentPrintMeta): PosAgentPr
 }
 
 /**
- * Si el ticket ESC/POS no pudo imprimirse, respaldo solo en formato documento (hoja):
- * agente `documents` o diálogo del navegador — nunca ticket 80 mm en el browser.
+ * Impresión ticket en navegador (mismo HTML que la preview térmica).
+ * Usar cuando no hay agente Kai Printers o el envío ESC/POS falló.
+ */
+export function printPosTicketBrowserFallback(
+  ticketHtml: string,
+  meta: Pick<PosAgentPrintMeta, "iframeTitle">,
+): "browser" {
+  printHtmlInHiddenIframe(ticketHtml, meta.iframeTitle);
+  return "browser";
+}
+
+export function printPosTicketBrowserFallbackFireAndForget(
+  ticketHtml: string,
+  meta: Pick<PosAgentPrintMeta, "iframeTitle">,
+): void {
+  printPosTicketBrowserFallback(ticketHtml, meta);
+}
+
+/**
+ * @deprecated Usar printPosTicketBrowserFallback con HTML de receipt térmico.
  */
 export async function printPosTicketFailureDocumentFallback(
   documentHtml: string,
@@ -213,7 +231,7 @@ async function tryEnqueueDocumentPdfOnAgent(
 
 /**
  * Documentos: PDF al agente si hay alias; si falla, diálogo del navegador (HTML hoja).
- * No usar con `purpose: "tickets"` — los tickets solo van por ESC/POS o fallback documento.
+ * No usar con `purpose: "tickets"` — los tickets van por ESC/POS o printPosTicketBrowserFallback.
  */
 export async function printPosHtmlViaAgentOrBrowser(
   html: string,
@@ -223,7 +241,7 @@ export async function printPosHtmlViaAgentOrBrowser(
   if (typeof window === "undefined") return "browser";
 
   if (purpose === "tickets") {
-    console.warn("[pos-agent-print] tickets: use vector ESC/POS o printPosTicketFailureDocumentFallback");
+    console.warn("[pos-agent-print] tickets: use vector ESC/POS o printPosTicketBrowserFallback");
     return "browser";
   }
 

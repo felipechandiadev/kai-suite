@@ -11,6 +11,8 @@ import { FiscalDteEmissionStatus, SiiEnvironment } from './fiscal.enums';
 @Entity('fiscal_dte_emissions')
 @Index('uq_fiscal_dte_emissions_transaction', ['transactionId'], { unique: true })
 @Index('idx_fiscal_dte_emissions_company', ['companyId'])
+@Index('idx_fiscal_dte_emissions_caf', ['cafId'])
+@Index('idx_fiscal_dte_emissions_allocation', ['allocationId'])
 export class FiscalDteEmission {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -20,6 +22,15 @@ export class FiscalDteEmission {
 
   @Column({ name: 'transaction_id', type: 'uuid' })
   transactionId!: string;
+
+  @Column({ name: 'point_of_sale_id', type: 'uuid', nullable: true })
+  pointOfSaleId?: string | null;
+
+  @Column({ name: 'caf_id', type: 'uuid', nullable: true })
+  cafId?: string | null;
+
+  @Column({ name: 'allocation_id', type: 'uuid', nullable: true })
+  allocationId?: string | null;
 
   @Column({ name: 'dte_type', type: 'smallint', default: 39 })
   dteType!: number;

@@ -86,6 +86,11 @@ export function PosLocalPrintPreferencesForm({
   const [saleDemoTestBusy, setSaleDemoTestBusy] = useState(false);
   const [fiscalBoletaTestBusy, setFiscalBoletaTestBusy] = useState(false);
   const [quickTestMessage, setQuickTestMessage] = useState<string | null>(null);
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
   const [quotationsEnabled, setQuotationsEnabled] = useState(false);
   const [presalesEnabled, setPresalesEnabled] = useState(false);
 
@@ -169,6 +174,41 @@ export function PosLocalPrintPreferencesForm({
     });
     writePosDocumentPrintModesToStorage(docPrintModes);
   }, [host, port, wssPort, useTls, ticketsAlias, documentsAlias, docPrintModes]);
+
+  const handleSave = useCallback(async () => {
+    if (saveBusy) return;
+    setSaveBusy(true);
+    setSaveFeedback(null);
+    const startedAt = Date.now();
+    const minFeedbackMs = 450;
+    try {
+      saveAll();
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < minFeedbackMs) {
+        await new Promise((resolve) => globalThis.setTimeout(resolve, minFeedbackMs - elapsed));
+      }
+      setSaveFeedback({
+        type: "success",
+        text: "Configuración guardada correctamente.",
+      });
+    } catch (e) {
+      setSaveFeedback({
+        type: "error",
+        text:
+          e instanceof Error
+            ? e.message
+            : "No se pudo guardar la configuración. Intentá de nuevo.",
+      });
+    } finally {
+      setSaveBusy(false);
+    }
+  }, [saveAll, saveBusy]);
+
+  useEffect(() => {
+    if (saveFeedback?.type !== "success") return;
+    const timer = globalThis.setTimeout(() => setSaveFeedback(null), 4000);
+    return () => globalThis.clearTimeout(timer);
+  }, [saveFeedback]);
 
   const setDocMode = useCallback((kind: PosDocumentPrintKind, mode: PosDocumentPrintMode) => {
     setDocPrintModes((prev) => ({ ...prev, [kind]: mode }));
@@ -335,7 +375,7 @@ export function PosLocalPrintPreferencesForm({
         className={`mt-6 space-y-6 ${className}`}
         onSubmit={(e) => {
           e.preventDefault();
-          saveAll();
+          void handleSave();
         }}
       >
         <section className="rounded-xl border border-border bg-background p-4 shadow-sm">
@@ -506,11 +546,12 @@ export function PosLocalPrintPreferencesForm({
         </section>
 
         <section className="rounded-xl border border-border bg-background p-4 shadow-sm">
-          <h2 className="text-sm font-semibold text-foreground">Impresión según documento</h2>
+          <h2 className="text-sm font-semibold text-foreground">
+            Formato de impresión por documento
+          </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Por cada tipo de documento elegí si se imprime como ticket o como documento. La impresora
-            concreta es la definida arriba (Tickets o Documentos). En cotizaciones, el diálogo de
-            emisión precargará esta opción.
+            Para cada comprobante elegí si se imprime en formato ticket o documento. La impresora
+            física es la asignada arriba (Tickets o Documentos).
           </p>
           <div className="mt-4 grid gap-4">
             {(
@@ -559,7 +600,7 @@ export function PosLocalPrintPreferencesForm({
                     />
                   ) : (
                     <div
-                      className="h-[52px] rounded-lg border border-border bg-muted/20"
+                      className="h-[52px] rounded-lg border border-border"
                       aria-hidden
                       data-test-id={`${testId}-skeleton`}
                     />
@@ -571,8 +612,29 @@ export function PosLocalPrintPreferencesForm({
         </section>
       </form>
 
-      <div className="mt-8 flex w-full justify-end pb-16">
-        <Button type="submit" form={formId} variant="primary" data-test-id="pos-print-prefs-save">
+      <div className="mt-8 flex w-full flex-col items-end gap-2 pb-16">
+        {saveFeedback ? (
+          <p
+            className={`text-sm ${
+              saveFeedback.type === "success"
+                ? "font-medium text-foreground"
+                : "text-destructive"
+            }`}
+            role="status"
+            aria-live="polite"
+            data-test-id="pos-print-prefs-save-feedback"
+          >
+            {saveFeedback.text}
+          </p>
+        ) : null}
+        <Button
+          type="submit"
+          form={formId}
+          variant="primary"
+          loading={saveBusy}
+          disabled={saveBusy}
+          data-test-id="pos-print-prefs-save"
+        >
           Guardar configuración
         </Button>
       </div>

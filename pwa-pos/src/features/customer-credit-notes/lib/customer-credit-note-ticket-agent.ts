@@ -11,11 +11,10 @@ import type { CustomerCreditNotePrintData } from "@/features/customer-credit-not
 import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import {
   enqueueVectorTicketAndAwaitDelivery,
-  posTicketMetaToDocumentMeta,
-  printPosTicketFailureDocumentFallback,
+  printPosTicketBrowserFallback,
   withPrintAgentConnection,
 } from "@/features/pos-print/lib/pos-agent-print";
-import { buildCustomerCreditNoteDocumentHtml } from "@/features/customer-credit-notes/lib/customer-credit-note-document-print";
+import { buildCustomerCreditNoteReceiptHtml } from "@/features/customer-credit-notes/lib/customer-credit-note-receipt-print";
 
 function creditNoteToTicketPayload(
   data: CustomerCreditNotePrintData,
@@ -73,23 +72,20 @@ export async function printCustomerCreditNoteReceiptAgentOrBrowser(
     iframeTitle: "Impresión nota de crédito",
     format: resolved,
   };
-  const documentHtml = buildCustomerCreditNoteDocumentHtml(data, resolved);
+  const origin = window.location.origin;
+  const ticketHtml = buildCustomerCreditNoteReceiptHtml(data, origin, resolved);
   const ticketMeta = {
     filename: meta.filename,
     iframeTitle: meta.iframeTitle,
     documentType: meta.documentType,
     internalFolio: meta.internalFolio,
   };
-  const documentFallbackMeta = posTicketMetaToDocumentMeta(ticketMeta);
 
   if (!isPosAgentPrintConfiguredForPurpose("tickets")) {
-    return printPosTicketFailureDocumentFallback(documentHtml, ticketMeta);
+    return printPosTicketBrowserFallback(ticketHtml, ticketMeta);
   }
 
-  const logoBase64 = await fetchReceiptLogoBase64(
-    data.company.logoUrl,
-    window.location.origin,
-  );
+  const logoBase64 = await fetchReceiptLogoBase64(data.company.logoUrl, origin);
   const ticket = creditNoteToTicketPayload(data, logoBase64);
   let enqueued = false;
 
@@ -123,9 +119,9 @@ export async function printCustomerCreditNoteReceiptAgentOrBrowser(
         },
         {
           browserFallback: {
-            html: documentHtml,
-            iframeTitle: documentFallbackMeta.iframeTitle,
-            kind: "document",
+            html: ticketHtml,
+            iframeTitle: ticketMeta.iframeTitle,
+            kind: "ticket",
           },
         },
       );
@@ -137,7 +133,7 @@ export async function printCustomerCreditNoteReceiptAgentOrBrowser(
 
   if (enqueued) return "agent";
 
-  return printPosTicketFailureDocumentFallback(documentHtml, ticketMeta);
+  return printPosTicketBrowserFallback(ticketHtml, ticketMeta);
 }
 
 export function printCustomerCreditNoteReceiptAgentOrBrowserFireAndForget(

@@ -10,12 +10,11 @@ import type { CompanyDetails } from "@/features/company/infrastructure/company.r
 import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import {
   enqueueVectorTicketAndAwaitDelivery,
-  posTicketMetaToDocumentMeta,
-  printPosTicketFailureDocumentFallback,
+  printPosTicketBrowserFallback,
   withPrintAgentConnection,
 } from "@/features/pos-print/lib/pos-agent-print";
 import type { QuotationReceiptPrintInput } from "@/features/quotations/lib/quotation-receipt-print";
-import { buildQuotationDocumentHtml } from "@/features/quotations/lib/quotation-document-print";
+import { buildQuotationReceiptHtml } from "@/features/quotations/lib/quotation-receipt-print";
 
 function quotationToTicketPayload(
   input: QuotationReceiptPrintInput,
@@ -76,22 +75,22 @@ export async function printPosQuotationReceiptAgentOrBrowser(
     internalFolio: folio,
     format: resolved,
   };
-  const documentHtml = buildQuotationDocumentHtml(input, resolved);
+  const origin = window.location.origin;
+  const ticketHtml = buildQuotationReceiptHtml(input, origin, resolved);
   const ticketMeta = {
     filename: meta.filename,
     iframeTitle: "Impresión cotización",
     documentType: meta.documentType,
     internalFolio: meta.internalFolio,
   };
-  const documentFallbackMeta = posTicketMetaToDocumentMeta(ticketMeta);
 
   if (!isPosAgentPrintConfiguredForPurpose("tickets")) {
-    return printPosTicketFailureDocumentFallback(documentHtml, ticketMeta);
+    return printPosTicketBrowserFallback(ticketHtml, ticketMeta);
   }
 
   const logoBase64 = await fetchReceiptLogoBase64(
     input.company?.logoUrl,
-    window.location.origin,
+    origin,
   );
   const ticket = quotationToTicketPayload(input, logoBase64);
   let enqueued = false;
@@ -126,9 +125,9 @@ export async function printPosQuotationReceiptAgentOrBrowser(
         },
         {
           browserFallback: {
-            html: documentHtml,
-            iframeTitle: documentFallbackMeta.iframeTitle,
-            kind: "document",
+            html: ticketHtml,
+            iframeTitle: ticketMeta.iframeTitle,
+            kind: "ticket",
           },
         },
       );
@@ -140,7 +139,7 @@ export async function printPosQuotationReceiptAgentOrBrowser(
 
   if (enqueued) return "agent";
 
-  return printPosTicketFailureDocumentFallback(documentHtml, ticketMeta);
+  return printPosTicketBrowserFallback(ticketHtml, ticketMeta);
 }
 
 export function printPosQuotationReceiptAgentOrBrowserFireAndForget(

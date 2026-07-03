@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -18,10 +19,13 @@ import {
 } from '@common/tenant';
 import { FiscalService } from '../application/fiscal.service';
 import { FiscalBoletaEmissionService } from '../application/fiscal-boleta-emission.service';
+import { PosFolioAllocationService } from '../application/pos-folio-allocation.service';
+import { FiscalCafPackageService } from '../application/fiscal-caf-package.service';
+import { FiscalFolioLedgerService } from '../application/fiscal-folio-ledger.service';
 import { UpdateFiscalProfileDto } from '../application/dto/update-fiscal-profile.dto';
 import { CompleteCertificationDto } from '../application/dto/complete-certification.dto';
 import { EnableProductionDto } from '../application/dto/enable-production.dto';
-import { FiscalDteEmissionStatus, SiiEnvironment } from '../domain/fiscal.enums';
+import { FiscalDteEmissionStatus, FiscalCafPackageStatus, SiiEnvironment } from '../domain/fiscal.enums';
 
 const VALID_EMISSION_STATUSES = new Set<string>([
   FiscalDteEmissionStatus.SENT,
@@ -37,6 +41,9 @@ export class FiscalController {
   constructor(
     private readonly fiscalService: FiscalService,
     private readonly fiscalBoletaEmission: FiscalBoletaEmissionService,
+    private readonly posFolioAllocation: PosFolioAllocationService,
+    private readonly cafPackageService: FiscalCafPackageService,
+    private readonly folioLedgerService: FiscalFolioLedgerService,
   ) {}
 
   @Get('company/fiscal-profile')
@@ -101,10 +108,109 @@ export class FiscalController {
     return { success: true, cafs };
   }
 
+  @Get('company/fiscal-caf-packages')
+  async listCafPackages(
+    @CurrentCompany() companyId: string,
+    @Query('dteType') dteType?: string,
+    @Query('environment') environment?: string,
+    @Query('status') status?: string,
+  ) {
+    const env =
+      environment === SiiEnvironment.CERTIFICATION ||
+      environment === SiiEnvironment.PRODUCTION
+        ? environment
+        : undefined;
+    const statusFilter =
+      status === FiscalCafPackageStatus.ACTIVE ||
+      status === FiscalCafPackageStatus.ARCHIVED ||
+      status === FiscalCafPackageStatus.EXHAUSTED
+        ? status
+        : undefined;
+    const packages = await this.cafPackageService.listPackages(companyId, {
+      dteType: dteType?.trim() ? Number(dteType) : undefined,
+      environment: env,
+      status: statusFilter,
+    });
+    return { success: true, packages };
+  }
+
+  @Get('company/fiscal-caf-packages/allocations/:id/ledger-summary')
+  async getSubPackLedgerSummary(
+    @CurrentCompany() companyId: string,
+    @Param('id') id: string,
+  ) {
+    const summary = await this.folioLedgerService.getSubPackLedgerSummary(companyId, id);
+    return { success: true, summary };
+  }
+
+  @Put('company/fiscal-caf-packages/allocations/:id')
+  async updateSubPack(
+    @CurrentCompany() companyId: string,
+    @Param('id') id: string,
+    @Body() body: { rangeFrom?: number; rangeTo?: number; label?: string },
+  ) {
+    const allocation = await this.posFolioAllocation.updateSubPack(companyId, id, body);
+    return { success: true, allocation };
+  }
+
+  @Delete('company/fiscal-caf-packages/allocations/:id')
+  async deleteSubPack(@CurrentCompany() companyId: string, @Param('id') id: string) {
+    await this.posFolioAllocation.deleteSubPack(companyId, id);
+    return { success: true };
+  }
+
+  @Get('company/fiscal-caf-packages/:cafId')
+  async getCafPackageDetail(
+    @CurrentCompany() companyId: string,
+    @Param('cafId') cafId: string,
+  ) {
+    const pkg = await this.cafPackageService.getPackageDetail(companyId, cafId);
+    return { success: true, package: pkg };
+  }
+
+  @Get('company/fiscal-caf-packages/:cafId/ledger-summary')
+  async getPackLedgerSummary(
+    @CurrentCompany() companyId: string,
+    @Param('cafId') cafId: string,
+  ) {
+    const summary = await this.folioLedgerService.getPackLedgerSummary(companyId, cafId);
+    return { success: true, summary };
+  }
+
+  @Post('company/fiscal-caf-packages/:cafId/allocations')
+  async createSubPack(
+    @CurrentCompany() companyId: string,
+    @Param('cafId') cafId: string,
+    @Body()
+    body: { pointOfSaleId: string; rangeFrom: number; rangeTo: number; label?: string },
+  ) {
+    const allocation = await this.posFolioAllocation.createSubPack(companyId, cafId, body);
+    return { success: true, allocation };
+  }
+
+  @Patch('company/fiscal-caf-packages/:cafId/status')
+  async updatePackageStatus(
+    @CurrentCompany() companyId: string,
+    @Param('cafId') cafId: string,
+    @Body() body: { status: FiscalCafPackageStatus },
+  ) {
+    const pkg = await this.cafPackageService.updatePackageStatus(companyId, cafId, body.status);
+    return { success: true, package: pkg };
+  }
+
   @Get('company/fiscal-cafs')
   async listCafs(@CurrentCompany() companyId: string) {
     const cafs = await this.fiscalService.listCafs(companyId);
     return { success: true, cafs };
+  }
+
+  @Get('company/fiscal/folio-summary')
+  async getFolioSummary(@CurrentCompany() companyId: string) {
+    const summaries = await Promise.all([
+      this.posFolioAllocation.getCompanyFolioSummary(companyId, 39),
+      this.posFolioAllocation.getCompanyFolioSummary(companyId, 33),
+    ]);
+    return { success: true, summaries };
   }
 
   @Get('company/fiscal/emissions')
@@ -117,6 +223,11 @@ export class FiscalController {
     @Query('to') to?: string,
     @Query('environment') environment?: string,
     @Query('folio') folio?: string,
+    @Query('cafId') cafId?: string,
+    @Query('allocationId') allocationId?: string,
+    @Query('folioFrom') folioFrom?: string,
+    @Query('folioTo') folioTo?: string,
+    @Query('pointOfSaleId') pointOfSaleId?: string,
   ) {
     const envioStatus =
       status && VALID_EMISSION_STATUSES.has(status)
@@ -128,6 +239,8 @@ export class FiscalController {
         ? environment
         : undefined;
     const folioNum = folio?.trim() ? Number(folio) : undefined;
+    const folioFromNum = folioFrom?.trim() ? Number(folioFrom) : undefined;
+    const folioToNum = folioTo?.trim() ? Number(folioTo) : undefined;
     const result = await this.fiscalBoletaEmission.listEmissionsForCompany(companyId, {
       limit: limit ? Number(limit) : undefined,
       offset: offset ? Number(offset) : undefined,
@@ -136,6 +249,12 @@ export class FiscalController {
       to,
       environment: env,
       folio: folioNum != null && Number.isFinite(folioNum) ? folioNum : undefined,
+      cafId,
+      allocationId,
+      folioFrom:
+        folioFromNum != null && Number.isFinite(folioFromNum) ? folioFromNum : undefined,
+      folioTo: folioToNum != null && Number.isFinite(folioToNum) ? folioToNum : undefined,
+      pointOfSaleId,
     });
     return { success: true, ...result };
   }
@@ -239,10 +358,12 @@ export class FiscalController {
   async retryBoletaEmission(
     @CurrentCompany() companyId: string,
     @Param('transactionId') transactionId: string,
+    @Query('pointOfSaleId') pointOfSaleId?: string,
   ) {
     const fiscalEmission = await this.fiscalBoletaEmission.retryFromSale(
       companyId,
       transactionId,
+      pointOfSaleId ?? '',
     );
     return { success: true, fiscalEmission };
   }

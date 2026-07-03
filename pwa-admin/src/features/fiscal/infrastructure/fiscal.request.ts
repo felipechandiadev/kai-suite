@@ -3,9 +3,14 @@ import { authOptions } from "@/lib/auth/auth-options";
 import type {
   CertificationRun,
   FiscalCafItem,
+  FiscalCafPackage,
+  FiscalCafPackageDetail,
+  FiscalCafPackageStatus,
   FiscalEmissionRow,
   FiscalEmissionsListParams,
+  FiscalPackLedgerSummary,
   FiscalProfile,
+  FiscalSubPack,
   FiscalSummary,
   SiiEnvironment,
 } from "../types/fiscal.types";
@@ -163,6 +168,11 @@ export class FiscalRequest {
     if (params.to) qs.set("to", params.to);
     if (params.environment) qs.set("environment", params.environment);
     if (params.folio != null) qs.set("folio", String(params.folio));
+    if (params.cafId) qs.set("cafId", params.cafId);
+    if (params.allocationId) qs.set("allocationId", params.allocationId);
+    if (params.folioFrom != null) qs.set("folioFrom", String(params.folioFrom));
+    if (params.folioTo != null) qs.set("folioTo", String(params.folioTo));
+    if (params.pointOfSaleId) qs.set("pointOfSaleId", params.pointOfSaleId);
     const query = qs.toString();
     const res = await fetch(apiUrl(`/company/fiscal/emissions${query ? `?${query}` : ""}`), {
       headers: await authHeadersJson(),
@@ -319,5 +329,107 @@ export class FiscalRequest {
     const json = await res.json();
     if (!res.ok) return { success: false as const, error: errorMessage(json, "Error al actualizar producción") };
     return { success: true as const, fiscalProfile: json.fiscalProfile as FiscalProfile };
+  }
+
+  static async listCafPackages(params?: {
+    dteType?: number;
+    environment?: SiiEnvironment;
+    status?: FiscalCafPackageStatus;
+  }) {
+    const qs = new URLSearchParams();
+    if (params?.dteType != null) qs.set("dteType", String(params.dteType));
+    if (params?.environment) qs.set("environment", params.environment);
+    if (params?.status) qs.set("status", params.status);
+    const query = qs.toString();
+    const res = await fetch(apiUrl(`/company/fiscal-caf-packages${query ? `?${query}` : ""}`), {
+      headers: await authHeadersJson(),
+      cache: "no-store",
+    });
+    const json = await res.json();
+    if (!res.ok) return { success: false as const, error: errorMessage(json, "Error al listar paquetes") };
+    return {
+      success: true as const,
+      packages: Array.isArray(json.packages) ? (json.packages as FiscalCafPackage[]) : [],
+    };
+  }
+
+  static async getCafPackageDetail(cafId: string) {
+    const res = await fetch(apiUrl(`/company/fiscal-caf-packages/${encodeURIComponent(cafId)}`), {
+      headers: await authHeadersJson(),
+      cache: "no-store",
+    });
+    const json = await res.json();
+    if (!res.ok) return { success: false as const, error: errorMessage(json, "Error al cargar paquete") };
+    return { success: true as const, package: json.package as FiscalCafPackageDetail };
+  }
+
+  static async getPackLedgerSummary(cafId: string) {
+    const res = await fetch(
+      apiUrl(`/company/fiscal-caf-packages/${encodeURIComponent(cafId)}/ledger-summary`),
+      { headers: await authHeadersJson(), cache: "no-store" },
+    );
+    const json = await res.json();
+    if (!res.ok) return { success: false as const, error: errorMessage(json, "Error al cargar resumen") };
+    return { success: true as const, summary: json.summary as FiscalPackLedgerSummary };
+  }
+
+  static async getSubPackLedgerSummary(allocationId: string) {
+    const res = await fetch(
+      apiUrl(
+        `/company/fiscal-caf-packages/allocations/${encodeURIComponent(allocationId)}/ledger-summary`,
+      ),
+      { headers: await authHeadersJson(), cache: "no-store" },
+    );
+    const json = await res.json();
+    if (!res.ok) return { success: false as const, error: errorMessage(json, "Error al cargar resumen") };
+    return { success: true as const, summary: json.summary as FiscalPackLedgerSummary };
+  }
+
+  static async createSubPack(
+    cafId: string,
+    body: { pointOfSaleId: string; rangeFrom: number; rangeTo: number; label?: string },
+  ) {
+    const res = await fetch(apiUrl(`/company/fiscal-caf-packages/${encodeURIComponent(cafId)}/allocations`), {
+      method: "POST",
+      headers: await authHeadersJson(),
+      body: JSON.stringify(body),
+    });
+    const json = await res.json();
+    if (!res.ok) return { success: false as const, error: errorMessage(json, "Error al asignar sub-paquete") };
+    return { success: true as const, allocation: json.allocation as Record<string, unknown> };
+  }
+
+  static async updateSubPack(
+    allocationId: string,
+    body: { rangeFrom?: number; rangeTo?: number; label?: string },
+  ) {
+    const res = await fetch(
+      apiUrl(`/company/fiscal-caf-packages/allocations/${encodeURIComponent(allocationId)}`),
+      { method: "PUT", headers: await authHeadersJson(), body: JSON.stringify(body) },
+    );
+    const json = await res.json();
+    if (!res.ok) return { success: false as const, error: errorMessage(json, "Error al actualizar sub-paquete") };
+    return { success: true as const, allocation: json.allocation as Record<string, unknown> };
+  }
+
+  static async deleteSubPack(allocationId: string) {
+    const res = await fetch(
+      apiUrl(`/company/fiscal-caf-packages/allocations/${encodeURIComponent(allocationId)}`),
+      { method: "DELETE", headers: await authHeadersJson() },
+    );
+    const json = await res.json();
+    if (!res.ok) return { success: false as const, error: errorMessage(json, "Error al eliminar sub-paquete") };
+    return { success: true as const };
+  }
+
+  static async updatePackageStatus(cafId: string, status: FiscalCafPackageStatus) {
+    const res = await fetch(apiUrl(`/company/fiscal-caf-packages/${encodeURIComponent(cafId)}/status`), {
+      method: "PATCH",
+      headers: await authHeadersJson(),
+      body: JSON.stringify({ status }),
+    });
+    const json = await res.json();
+    if (!res.ok) return { success: false as const, error: errorMessage(json, "Error al actualizar estado") };
+    return { success: true as const, package: json.package as FiscalCafPackage };
   }
 }

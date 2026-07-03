@@ -72,6 +72,63 @@ export type FiscalCafListItem = {
   environment: string;
   isActive: boolean;
   uploadedAt: string;
+  packageCode?: string;
+  label?: string | null;
+  status?: string;
+  source?: string;
+};
+
+export type FiscalCafPackageStats = {
+  totalFolios: number;
+  assignedCount: number;
+  emittedCount: number;
+  available: number;
+  subPackCount: number;
+};
+
+export type FiscalCafPackageListItem = {
+  id: string;
+  packageCode: string;
+  label: string | null;
+  status: string;
+  source: string;
+  dteType: number;
+  rangeFrom: number;
+  rangeTo: number;
+  nextFolio: number;
+  environment: string;
+  isActive: boolean;
+  uploadedAt: string;
+  stats: FiscalCafPackageStats;
+};
+
+export type FiscalCafSubPackItem = {
+  id: string;
+  subPackCode: string;
+  label: string | null;
+  pointOfSaleId: string;
+  pointOfSaleName: string | null;
+  rangeFrom: number;
+  rangeTo: number;
+  nextFolio: number;
+  availableFolios: number;
+  isActive: boolean;
+};
+
+export type FiscalCafPackageDetail = FiscalCafPackageListItem & {
+  subPacks: FiscalCafSubPackItem[];
+};
+
+export type FiscalPackLedgerSummary = {
+  cafId: string;
+  allocationId: string | null;
+  rangeFrom: number;
+  rangeTo: number;
+  nextFolio: number;
+  total: number;
+  emittedCount: number;
+  available: number;
+  freeRanges: { from: number; to: number }[];
 };
 
 export type FiscalEmissionListItem = {
@@ -96,6 +153,12 @@ export type FiscalEmissionListItem = {
   errorMessage: string | null;
   hasTed: boolean;
   updatedAt: string;
+  cafId?: string | null;
+  allocationId?: string | null;
+  packageCode?: string | null;
+  subPackCode?: string | null;
+  pointOfSaleId?: string | null;
+  pointOfSaleName?: string | null;
 };
 
 export type FiscalEmissionsListResult = {

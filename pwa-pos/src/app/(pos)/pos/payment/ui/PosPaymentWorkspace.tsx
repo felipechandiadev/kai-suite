@@ -79,6 +79,14 @@ import { buildCollectPendingQuotasClientPayload } from "@/features/session/lib/b
 import { buildPayoutCustomerCreditNotesClientPayload } from "@/features/session/lib/build-payout-customer-credit-notes-payload";
 import { buildCreateSaleClientPayload } from "@/features/session/lib/build-create-sale-payload";
 import {
+  DEFAULT_SALE_DTE_KIND,
+  buildSaleDteSelectOptions,
+  effectiveDocumentOptionTitle,
+  type EffectiveDocumentOption,
+  type SaleDteKind,
+} from "@/features/fiscal/types/sale-dte.types";
+import { getEffectiveDocumentOptionsAction } from "@/features/fiscal/actions/fiscal-effective-options.action";
+import {
   clearPosArCollectDraft,
   readPosArCollectDraft,
   type PosArCollectSaleRow,
@@ -591,6 +599,42 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
     Array<{ id: string; label: string }>
   >([]);
   const [bankAccountPrintLineId, setBankAccountPrintLineId] = useState<string | null>(null);
+  /** Documento tributario de la venta. */
+  const [saleDteKind, setSaleDteKind] = useState<SaleDteKind>(DEFAULT_SALE_DTE_KIND);
+  const [saleDteOptions, setSaleDteOptions] = useState<EffectiveDocumentOption[]>([]);
+  const [saleDteLoaded, setSaleDteLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const ctx = readPosContextClient();
+      const posId = ctx?.pointOfSaleId?.trim();
+      if (!posId) {
+        if (!cancelled) setSaleDteLoaded(true);
+        return;
+      }
+      const res = await getEffectiveDocumentOptionsAction(posId);
+      if (cancelled) return;
+      if (res.success) {
+        setSaleDteOptions(res.options);
+        setSaleDteKind(res.defaultKind);
+      } else {
+        setSaleDteOptions([{ kind: "TICKET", enabled: true }]);
+        setSaleDteKind(DEFAULT_SALE_DTE_KIND);
+      }
+      setSaleDteLoaded(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const saleDteSelectOptions = useMemo(
+    () => buildSaleDteSelectOptions(saleDteOptions),
+    [saleDteOptions],
+  );
+  const showSaleDteSelectorCompact =
+    saleDteLoaded && saleDteSelectOptions.filter((o) => !o.disabled).length > 1;
 
   useEffect(() => {
     let cancelled = false;
@@ -980,6 +1024,12 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
         ? "Total a cobrar"
         : "Total a pagar";
   const showReturnRefundUi = !isReturnMode || immediateReturnRefund;
+  const showSaleDteSelector =
+    showReturnRefundUi &&
+    !isDebtCollectMode &&
+    !isNcPayoutMode &&
+    !isReturnMode &&
+    !isEncargoMode;
   /** Devolución sin reembolso en caja: CTA con icono de documento en lugar de cobro. */
   const isReturnDocumentMode = isReturnMode && !immediateReturnRefund;
   const confirmCtaIcon = isReturnDocumentMode ? "FileText" : "CircleDollarSign";
@@ -2425,12 +2475,19 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
             fulfillPresaleTicketIds: loadedPresaleTickets.map((t) => t.id),
             loadedPresaleTickets,
             loadedQuotation: cart.loadedQuotation,
+            saleDocumentKind: saleDteKind,
           }),
         );
 
     if (!confirmRes.success) {
       setConfirmLoading(false);
-      setPageAlert(confirmRes.message);
+      const msg = confirmRes.message ?? "No se pudo confirmar la venta";
+      if (/BOLETA no disponible/i.test(msg)) {
+        setSaleDteKind(DEFAULT_SALE_DTE_KIND);
+        setPageAlert(`${msg}. Se usará ticket interno.`);
+        return;
+      }
+      setPageAlert(msg);
       return;
     }
 
@@ -2922,53 +2979,92 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
           style={{ height: `${paymentPanelVh}vh` }}
           data-test-id="pos-payment-methods"
         >
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <IconButton
-              icon="Plus"
-              variant="action"
-              size="md"
-              ariaLabel="Agregar método de pago"
-              onClick={openAddPayment}
-              disabled={remaining <= 0.01 || stockBlocksSalePayment}
-              title={
-                stockBlocksSalePayment
-                  ? stockInsufficientSaleMessage
-                  : "Agregar método de pago"
-              }
-              data-test-id="pos-payment-add-method"
-            />
-            {canOfferInternalCredit && internalCreditCtx.paymentMethodId ? (
-              <Button
-                type="button"
-                variant="outlined"
+          <div className="flex shrink-0 flex-col gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <IconButton
+                icon="Plus"
+                variant="action"
                 size="sm"
-                disabled={stockBlocksSalePayment}
-                onClick={() => openInternalCreditDialog(existingInternalCreditLine?.id)}
-                data-test-id="pos-payment-add-internal-credit"
-              >
-                {existingInternalCreditLine ? "Editar crédito" : "Crédito interno"}
-              </Button>
-            ) : null}
-            {posPointEnabled && !cashOutRefundOnly && !isDebtCollectMode ? (
-              <Button
-                type="button"
-                variant="outlined"
-                size="sm"
-                disabled={remaining <= 0.01 || stockBlocksSalePayment || mpPointBusy}
-                onClick={() => void collectWithMpPoint()}
-                data-test-id="pos-payment-mp-point"
-              >
-                {mpPointBusy ? (
-                  "Point…"
+                ariaLabel="Agregar método de pago"
+                onClick={openAddPayment}
+                disabled={remaining <= 0.01 || stockBlocksSalePayment}
+                title={
+                  stockBlocksSalePayment
+                    ? stockInsufficientSaleMessage
+                    : "Agregar método de pago"
+                }
+                data-test-id="pos-payment-add-method"
+              />
+              <h2 className="shrink-0 text-sm font-semibold text-foreground">
+                Métodos de pago
+              </h2>
+              {showSaleDteSelector && saleDteLoaded ? (
+                showSaleDteSelectorCompact ? (
+                  <div
+                    className="ml-auto w-28 shrink-0"
+                    title={
+                      saleDteOptions.find((o) => o.kind === saleDteKind)
+                        ? effectiveDocumentOptionTitle(
+                            saleDteOptions.find((o) => o.kind === saleDteKind)!,
+                          )
+                        : undefined
+                    }
+                  >
+                    <Select
+                      variant="minimal"
+                      value={saleDteKind}
+                      onChange={(id) => {
+                        if (id == null) return;
+                        setSaleDteKind(String(id) as SaleDteKind);
+                      }}
+                      options={saleDteSelectOptions}
+                      disabled={saleDteSelectOptions.every((o) => o.disabled)}
+                      data-test-id="pos-payment-sale-dte"
+                    />
+                  </div>
                 ) : (
-                  <span className="inline-flex items-center gap-2">
-                    Cobrar con
-                    <MercadoPagoLogo width={110} />
+                  <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                    {saleDteSelectOptions.find((o) => o.id === saleDteKind)?.label ?? "Ticket"}
                   </span>
-                )}
-              </Button>
+                )
+              ) : null}
+            </div>
+            {(canOfferInternalCredit && internalCreditCtx.paymentMethodId) ||
+            (posPointEnabled && !cashOutRefundOnly && !isDebtCollectMode) ? (
+              <div className="flex flex-wrap items-center gap-2">
+                {canOfferInternalCredit && internalCreditCtx.paymentMethodId ? (
+                  <Button
+                    type="button"
+                    variant="outlined"
+                    size="sm"
+                    disabled={stockBlocksSalePayment}
+                    onClick={() => openInternalCreditDialog(existingInternalCreditLine?.id)}
+                    data-test-id="pos-payment-add-internal-credit"
+                  >
+                    {existingInternalCreditLine ? "Editar crédito" : "Crédito interno"}
+                  </Button>
+                ) : null}
+                {posPointEnabled && !cashOutRefundOnly && !isDebtCollectMode ? (
+                  <Button
+                    type="button"
+                    variant="outlined"
+                    size="sm"
+                    disabled={remaining <= 0.01 || stockBlocksSalePayment || mpPointBusy}
+                    onClick={() => void collectWithMpPoint()}
+                    data-test-id="pos-payment-mp-point"
+                  >
+                    {mpPointBusy ? (
+                      "Point…"
+                    ) : (
+                      <span className="inline-flex items-center gap-2">
+                        Cobrar con
+                        <MercadoPagoLogo width={110} />
+                      </span>
+                    )}
+                  </Button>
+                ) : null}
+              </div>
             ) : null}
-            <h2 className="text-sm font-semibold text-foreground">Métodos de pago</h2>
           </div>
 
           {mpPointStatus ? (

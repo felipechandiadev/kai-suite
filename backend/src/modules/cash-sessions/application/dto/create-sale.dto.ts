@@ -284,4 +284,9 @@ export class CreateSaleDto {
   @ValidateNested({ each: true })
   @Type(() => PromotionSnapshotDto)
   promotionSnapshot?: PromotionSnapshotDto[];
+
+  /** Tipo de documento elegido por el cajero: TICKET | BOLETA | FACTURA */
+  @IsOptional()
+  @IsString()
+  saleDocumentKind?: string;
 }
