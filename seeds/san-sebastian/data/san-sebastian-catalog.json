@@ -1,7 +1,7 @@
 {
   "meta": {
     "source": "sami6",
-    "importedAt": "2026-06-26T23:07:05.397Z",
+    "importedAt": "2026-07-03T18:52:46.020Z",
     "productCount": 6460,
     "categoryCount": 31
   },
@@ -14900,7 +14900,7 @@
       "name": "HUEVOS DE CHOCOLATES",
       "barcode": "2977",
       "categoryName": "CONFITERIA",
-      "saleGross": 75,
+      "saleGross": 70,
       "hasIva": true
     },
     {
@@ -33388,7 +33388,7 @@
       "name": "paltas",
       "barcode": "1220",
       "categoryName": "VARIOS",
-      "saleGross": 1,
+      "saleGross": 0,
       "hasIva": true
     },
     {
@@ -33556,7 +33556,7 @@
       "name": "verdura",
       "barcode": "1219",
       "categoryName": "VARIOS",
-      "saleGross": 1,
+      "saleGross": 0,
       "hasIva": true
     },
     {
@@ -33612,7 +33612,7 @@
       "name": "pura fruta frambueza",
       "barcode": "7613037777659",
       "categoryName": "HELADOS",
-      "saleGross": 1109,
+      "saleGross": 1110,
       "hasIva": true
     },
     {
@@ -40372,7 +40372,7 @@
       "name": "iceberrg",
       "barcode": "7802175002574",
       "categoryName": "COCTEL",
-      "saleGross": 85,
+      "saleGross": 80,
       "hasIva": true
     },
     {
@@ -46204,7 +46204,7 @@
       "name": "DATE MORA",
       "barcode": "7802408004221",
       "categoryName": "VARIOS",
-      "saleGross": 1,
+      "saleGross": 0,
       "hasIva": true
     },
     {
@@ -49108,7 +49108,7 @@
       "name": "esencia de vainilla",
       "barcode": "7804672900162",
       "categoryName": "ABARROTE",
-      "saleGross": 999,
+      "saleGross": 1000,
       "hasIva": true
     },
     {

@@ -10,6 +10,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { normalizeClosedRetailPrice } from '../san-sebastian-price.util';
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const CATEGORIES_OUT = path.join(DATA_DIR, 'san-sebastian-categories.json');
@@ -166,7 +167,9 @@ function toCatalogProduct(
       ? FALLBACK_CATEGORY_NAME
       : categoryById.get(categoryIdRaw)!;
 
-  const saleGross = Math.max(0, Number.parseInt(saleRaw, 10) || 0);
+  const saleGross = normalizeClosedRetailPrice(
+    Math.max(0, Number.parseInt(saleRaw, 10) || 0),
+  );
   const hasIva = affectedRaw === '1';
   const barcode =
     codeRaw && codeRaw !== 'NULL' && codeRaw.trim().length > 0

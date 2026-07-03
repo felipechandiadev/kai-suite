@@ -38,6 +38,8 @@ Perfiles listos en `envs/profiles/*.env.example` (copiar líneas a `shared.env`)
 | `profiles/san-sebastian.env.example` | Super, sin eShop ni joyería |
 | `profiles/demo.env.example` | Mi Empresa multi-empresa, sin joyería |
 
+Desarrollo San Sebastián: `npm run setup:san-sebastian` (seed + `shared.env`) y `npm run dev:san-sebastian`.
+
 ## Uso rápido
 
 ```bash

@@ -46,6 +46,7 @@ import {
   SEED_CASH_HUB_CODE,
   SEED_CASH_HUB_NAME,
   SEED_POS_NAME,
+  SEED_PRESALE_POS_NAME,
   SEED_PRICE_LIST_NAME,
   SEED_SAN_SEBASTIAN_COMPANY,
   SEED_SAN_SEBASTIAN_SHAREHOLDER,
@@ -55,12 +56,18 @@ import {
   buildSeedCompanyPaymentCatalog,
   buildSeedPosPaymentList,
   buildSeedSanSebastianCompanySettings,
+  getSeedSanSebastianSiiEmisorFields,
+  SEED_ADMIN_EMAIL,
+  SEED_ADMIN_USERNAME,
+  SEED_OPERATOR_EMAIL,
+  SEED_OPERATOR_USERNAME,
 } from './seed-san-sebastian-config';
 import {
   loadSanSebastianCatalogJson,
   loadSanSebastianCategoriesJson,
   seedSanSebastianCatalogBulk,
 } from './seed-san-sebastian-catalog';
+import { seedSanSebastianFiscal } from './seed-san-sebastian-fiscal';
 
 const SEED_IVA_DESCRIPTION =
   'Impuesto al Valor Agregado sobre ventas, servicios e importaciones.';
@@ -121,16 +128,16 @@ async function bootstrap() {
     const customerRepo = dataSource.getRepository(Customer);
     const userRepo = dataSource.getRepository(User);
 
-    const userName = process.env.SEED_ADMIN_USERNAME || 'admin-ss';
+    const userName = process.env.SEED_ADMIN_USERNAME || SEED_ADMIN_USERNAME;
     const password = process.env.SEED_ADMIN_PASSWORD || '098098';
-    const email =
-      process.env.SEED_ADMIN_EMAIL || 'admin.san.sebastian@kai.local';
+    const email = process.env.SEED_ADMIN_EMAIL || SEED_ADMIN_EMAIL;
     const rut = process.env.SEED_COMPANY_RUT || SEED_SAN_SEBASTIAN_COMPANY.rut;
 
     assertValidChileCompanyRut(rut, 'SEED_COMPANY_RUT');
 
     const categoriesJson = loadSanSebastianCategoriesJson();
     const catalogJson = loadSanSebastianCatalogJson();
+    const siiEmisor = getSeedSanSebastianSiiEmisorFields();
 
     let company = await companyRepo.findOne({
       where: { rut, deletedAt: null as never },
@@ -145,6 +152,10 @@ async function bootstrap() {
         mail: SEED_SAN_SEBASTIAN_COMPANY.mail,
         phone: SEED_SAN_SEBASTIAN_COMPANY.phone,
         defaultCurrency: SEED_SAN_SEBASTIAN_COMPANY.defaultCurrency,
+        commune: siiEmisor.commune,
+        city: siiEmisor.city,
+        siiResolutionNumber: siiEmisor.siiResolutionNumber,
+        siiResolutionDate: siiEmisor.siiResolutionDate,
         isActive: true,
       });
       await companyRepo.save(company);
@@ -156,6 +167,10 @@ async function bootstrap() {
       company.address = SEED_SAN_SEBASTIAN_COMPANY.address;
       company.mail = SEED_SAN_SEBASTIAN_COMPANY.mail;
       company.phone = SEED_SAN_SEBASTIAN_COMPANY.phone;
+      company.commune = siiEmisor.commune;
+      company.city = siiEmisor.city;
+      company.siiResolutionNumber = siiEmisor.siiResolutionNumber;
+      company.siiResolutionDate = siiEmisor.siiResolutionDate;
       await companyRepo.save(company);
       console.log(`✅ Empresa actualizada: id=${company.id} rut='${rut}'`);
     }
@@ -328,7 +343,11 @@ async function bootstrap() {
           isActive: true,
           defaultPriceListId: priceList.id,
           priceLists: priceListsJson,
-          settings: { paymentMethods: posPaymentList },
+          settings: {
+            paymentMethods: posPaymentList,
+            kind: 'SALE' as const,
+            acceptsPresaleTickets: true,
+          },
         };
         if (!posRow) {
           posRow = await posRepo.save(posRepo.create(posPayload));
@@ -336,6 +355,30 @@ async function bootstrap() {
           posRow = await posRepo.save({ ...posRow, ...posPayload });
         }
         console.log(`✅ POS: «${SEED_POS_NAME}» id=${posRow.id}`);
+
+        let presalePos = await posRepo.findOne({
+          where: { companyId: company!.id, name: SEED_PRESALE_POS_NAME },
+        });
+        const presalePayload = {
+          companyId: company!.id,
+          name: SEED_PRESALE_POS_NAME,
+          branchId: seedBranch.id,
+          storageId: seedStorage.id,
+          isActive: true,
+          defaultPriceListId: priceList.id,
+          priceLists: priceListsJson,
+          settings: {
+            paymentMethods: posPaymentList,
+            kind: 'PRESALE' as const,
+            acceptsPresaleTickets: false,
+          },
+        };
+        if (!presalePos) {
+          presalePos = await posRepo.save(posRepo.create(presalePayload));
+        } else {
+          presalePos = await posRepo.save({ ...presalePos, ...presalePayload });
+        }
+        console.log(`✅ Preventa: «${SEED_PRESALE_POS_NAME}» id=${presalePos.id}`);
 
         let cashHub = await cashHubRepo.findOne({
           where: { companyId: company!.id, code: SEED_CASH_HUB_CODE },
@@ -355,6 +398,13 @@ async function bootstrap() {
         await cashHubRepo.save(cashHub);
         posRow.defaultCashHubId = cashHub.id;
         await posRepo.save(posRow);
+
+        await seedSanSebastianFiscal({
+          app,
+          companyId: company!.id,
+          posId: posRow.id,
+          posRepo,
+        });
 
         const sh = SEED_SAN_SEBASTIAN_SHAREHOLDER;
         let shPerson = await personRepo.findOne({
@@ -499,14 +549,14 @@ async function bootstrap() {
           documentNumber: '22.222.222-2',
         });
         await ensureSeedUser({
-          userName: 'operador-ss',
+          userName: SEED_OPERATOR_USERNAME,
           password,
           rol: UserRole.OPERATOR,
           companyId: company!.id,
           nonDeletable: false,
           firstName: 'Operador',
           lastName: 'San Sebastián',
-          email: 'operador.ss@kai.local',
+          email: SEED_OPERATOR_EMAIL,
           documentNumber: '33.333.333-3',
         });
 
@@ -514,9 +564,12 @@ async function bootstrap() {
         console.log(`   • companyId=${company!.id}`);
         console.log(`   • NEXT_PUBLIC_COMPANY_ID=${company!.id}`);
         console.log(`   • ${userName} / ${password} (ADMIN)`);
-        console.log(`   • operador-ss / ${password} (OPERATOR)`);
+        console.log(`   • ${SEED_OPERATOR_USERNAME} / ${password} (OPERATOR)`);
         console.log(`   • Catálogo: ${productCount} productos, ${variantCount} variantes`);
-        console.log('   • Preventa: habilitada | Crédito interno: habilitado');
+        console.log(
+          `   • Preventa: «${SEED_PRESALE_POS_NAME}» | Caja acepta tickets | Crédito interno: habilitado`,
+        );
+        console.log('   • SII: producción habilitada, boleta en POS');
       },
     );
   } catch (error) {

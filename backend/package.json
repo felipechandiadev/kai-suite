@@ -20,7 +20,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "migration:run": "npm run build && typeorm migration:run -d dist/config/data-source.js --transaction each",
     "eshop:enable-demo": "ts-node -r tsconfig-paths/register src/scripts/enable-eshop-demo.ts",
-    "fiscal:try-pfx-password": "ts-node -r tsconfig-paths/register src/scripts/try-pfx-password.ts"
+    "fiscal:try-pfx-password": "ts-node -r tsconfig-paths/register src/scripts/try-pfx-password.ts",
+    "fiscal:export-ss-seed": "ts-node -r tsconfig-paths/register src/scripts/export-san-sebastian-fiscal-seed.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.901.0",

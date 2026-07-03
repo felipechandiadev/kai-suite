@@ -7,6 +7,9 @@ import type {
 } from '@modules/payment-methods-config/domain/payment-method-config.types';
 import { defaultCompanyPaymentMethodId } from '@modules/payment-methods-config/domain/payment-method-config.helpers';
 import { DocumentType } from '@modules/persons/domain/person.entity';
+import type { PosFiscalSettings } from '@modules/points-of-sale/domain/pos-fiscal-settings.types';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export const SEED_SAN_SEBASTIAN_COMPANY = {
   razonSocial: 'Supermercado San Sebastián',
@@ -29,8 +32,56 @@ export const SEED_STORAGE_CODE = 'SEED-SS-SALA';
 
 export const SEED_PRICE_LIST_NAME = 'UNICA';
 export const SEED_POS_NAME = 'CAJA SAN SEBASTIAN';
+export const SEED_PRESALE_POS_NAME = 'PREVENTA SAN SEBASTIAN';
 export const SEED_CASH_HUB_CODE = 'CEV-SS-01';
 export const SEED_CASH_HUB_NAME = 'Caja principal';
+
+export const SEED_ADMIN_USERNAME = 'admin';
+export const SEED_OPERATOR_USERNAME = 'operador';
+export const SEED_ADMIN_EMAIL = 'admin@san.sebastian.kai.local';
+export const SEED_OPERATOR_EMAIL = 'operador@san.sebastian.kai.local';
+
+const FISCAL_EMISOR_PATH = path.join(__dirname, 'data/fiscal/emisor.json');
+
+export type SanSebastianSiiEmisor = {
+  commune: string;
+  city: string;
+  siiResolutionNumber: string;
+  siiResolutionDate: string;
+};
+
+export function loadSanSebastianSiiEmisor(): SanSebastianSiiEmisor {
+  if (!fs.existsSync(FISCAL_EMISOR_PATH)) {
+    throw new Error(
+      `No se encontró ${FISCAL_EMISOR_PATH}. Ejecute: cd backend && npm run fiscal:export-ss-seed`,
+    );
+  }
+  const raw = JSON.parse(fs.readFileSync(FISCAL_EMISOR_PATH, 'utf8')) as SanSebastianSiiEmisor;
+  if (
+    !raw.commune?.trim() ||
+    !raw.city?.trim() ||
+    !raw.siiResolutionNumber?.trim() ||
+    !raw.siiResolutionDate?.trim()
+  ) {
+    throw new Error(`emisor.json incompleto: ${FISCAL_EMISOR_PATH}`);
+  }
+  return {
+    commune: raw.commune.trim(),
+    city: raw.city.trim(),
+    siiResolutionNumber: raw.siiResolutionNumber.trim(),
+    siiResolutionDate: raw.siiResolutionDate.trim().slice(0, 10),
+  };
+}
+
+/** Campos SII emisor — valores desde data/fiscal/emisor.json en runtime. */
+export function getSeedSanSebastianSiiEmisorFields(): SanSebastianSiiEmisor {
+  return loadSanSebastianSiiEmisor();
+}
+
+export const SEED_SAN_SEBASTIAN_POS_FISCAL: PosFiscalSettings = {
+  allowedDocumentKinds: ['TICKET', 'BOLETA'],
+  defaultDocumentKind: 'BOLETA',
+};
 
 export const SEED_SAN_SEBASTIAN_SHAREHOLDER = {
   firstName: 'María Marcela Del Rosario',

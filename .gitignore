@@ -75,6 +75,10 @@ coverage/
 # Temporary files
 *.tmp
 
+# San Sebastián seed — certificado/CAF SII producción (secretos)
+seeds/san-sebastian/data/fiscal/*.pfx
+seeds/san-sebastian/data/fiscal/*.xml
+
 # Root markdown (keep README.md)
 /*.md
 !README.md

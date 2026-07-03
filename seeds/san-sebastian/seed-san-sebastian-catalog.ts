@@ -7,6 +7,7 @@ import { ProductVariant } from '@modules/product-variants/domain/product-variant
 import { PriceListItem } from '@modules/price-list-items/domain/price-list-item.entity';
 import { Category } from '@modules/categories/domain/category.entity';
 import type { SanSebastianCatalogJson } from './scripts/import-san-sebastian-from-sami6';
+import { computeSeedPrices } from './san-sebastian-price.util';
 
 export const SEED_SAN_SEBASTIAN_VARIANT_SKU_PREFIX = 'SS-';
 export const SEED_SAN_SEBASTIAN_BRAND = 'San Sebastián';
@@ -15,7 +16,6 @@ const DATA_DIR = path.join(__dirname, 'data');
 const CATALOG_PATH = path.join(DATA_DIR, 'san-sebastian-catalog.json');
 const CATEGORIES_PATH = path.join(DATA_DIR, 'san-sebastian-categories.json');
 
-const IVA_RATE = 0.19;
 const INSERT_BATCH_SIZE = 250;
 
 export function loadSanSebastianCategoriesJson(): readonly string[] {
@@ -42,17 +42,6 @@ export function loadSanSebastianCatalogJson(): SanSebastianCatalogJson {
     throw new Error(`Catálogo inválido o vacío en ${CATALOG_PATH}`);
   }
   return raw;
-}
-
-function toRetailNet(saleGross: number, hasIva: boolean): number {
-  if (saleGross <= 0) return 0;
-  if (!hasIva) return saleGross;
-  return Math.round(saleGross / (1 + IVA_RATE));
-}
-
-function toGross(net: number, hasIva: boolean): number {
-  if (net <= 0) return 0;
-  return hasIva ? Math.round(net * (1 + IVA_RATE)) : net;
 }
 
 function chunk<T>(items: readonly T[], size: number): T[][] {
@@ -153,8 +142,10 @@ export async function seedSanSebastianCatalogBulk(args: {
     const productId = randomUUID();
     const variantId = randomUUID();
     const sku = `${SEED_SAN_SEBASTIAN_VARIANT_SKU_PREFIX}${item.sami6Id}`;
-    const retailNet = toRetailNet(item.saleGross, item.hasIva);
-    const gross = toGross(retailNet, item.hasIva);
+    const { grossPrice: gross, netPrice: retailNet } = computeSeedPrices(
+      item.saleGross,
+      item.hasIva,
+    );
     const taxIds = item.hasIva ? [ivaTaxId] : [];
 
     productRows.push({

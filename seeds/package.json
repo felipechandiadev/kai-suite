@@ -13,6 +13,7 @@
     "seed:joyarte": "node ../backend/node_modules/ts-node/dist/bin.js -r ../backend/node_modules/tsconfig-paths/register -P tsconfig.json joyarte/run.ts",
     "seed:san-sebastian": "node ../backend/node_modules/ts-node/dist/bin.js -r ../backend/node_modules/tsconfig-paths/register -P tsconfig.json san-sebastian/run.ts",
     "seed:import-joyarte": "node ../backend/node_modules/ts-node/dist/bin.js -r ../backend/node_modules/tsconfig-paths/register -P tsconfig.json joyarte/scripts/import-joyarte-from-baron.ts",
-    "seed:import-san-sebastian": "node ../backend/node_modules/ts-node/dist/bin.js -r ../backend/node_modules/tsconfig-paths/register -P tsconfig.json san-sebastian/scripts/import-san-sebastian-from-sami6.ts"
+    "seed:import-san-sebastian": "node ../backend/node_modules/ts-node/dist/bin.js -r ../backend/node_modules/tsconfig-paths/register -P tsconfig.json san-sebastian/scripts/import-san-sebastian-from-sami6.ts",
+    "seed:audit-ss-prices": "node ../backend/node_modules/ts-node/dist/bin.js -r ../backend/node_modules/tsconfig-paths/register -P tsconfig.json san-sebastian/scripts/audit-san-sebastian-prices.ts"
   }
 }
