@@ -2,10 +2,10 @@
 
 use crate::pos_quotation_ticket::{parse_pos_quotation_ticket_from_value, PosQuotationTicket, QuotationLine};
 use crate::pos_sale_ticket_escpos::{
-    append_barcode_centered, append_divider, append_label_value_wrapped, append_line,
-    append_product_line_block, append_section_gap, append_ticket_logo, escpos_align,
-    escpos_apply_ticket_typography,
-    escpos_bold, escpos_dense_body, escpos_double_height_off, escpos_double_height_on, escpos_init,
+    append_divider, append_label_value_wrapped, append_line,
+    append_product_line_block, append_section_gap, append_ticket_logo, append_folio_barcode_footer,
+    escpos_align, escpos_apply_ticket_typography, escpos_bold, escpos_dense_body,
+    escpos_double_height_off, escpos_double_height_on, escpos_init, footer_folio_datetime_line,
     format_clp, format_datetime, money, pad_label_value, pad_left, wrap_lines, layout_width,
 };
 use anyhow::Result;
@@ -118,7 +118,6 @@ pub fn build_pos_quotation_ticket_escpos(q: &PosQuotationTicket) -> Result<Vec<u
     escpos_bold(&mut buf, false);
 
     let folio = q.document_number.trim();
-    append_line(&mut buf, &format!("Emitida: {}", format_datetime(&q.issued_at)));
     append_line(
         &mut buf,
         &format!("Valida hasta: {}", format_datetime(&q.valid_until)),
@@ -152,7 +151,7 @@ pub fn build_pos_quotation_ticket_escpos(q: &PosQuotationTicket) -> Result<Vec<u
     escpos_dense_body(&mut buf);
     escpos_align(&mut buf, 1);
     escpos_bold(&mut buf, true);
-    append_line(&mut buf, "DETALLE");
+    append_line(&mut buf, "DETALLE DE COTIZACION");
     escpos_bold(&mut buf, false);
     escpos_align(&mut buf, 0);
     append_section_gap(&mut buf);
@@ -177,18 +176,15 @@ pub fn build_pos_quotation_ticket_escpos(q: &PosQuotationTicket) -> Result<Vec<u
     if let Some(notes) = q.notes.as_deref() {
         append_wrapped_section(&mut buf, "Notas", notes);
     }
-    if let Some(terms) = q.terms.as_deref() {
-        append_wrapped_section(&mut buf, "Condiciones", terms);
-    }
 
-    if !folio.is_empty() {
-        append_barcode_centered(&mut buf, folio);
-    }
-
-    let footer = format!("{folio} - {}", format_datetime(&q.issued_at));
-    escpos_align(&mut buf, 1);
-    append_line(&mut buf, &footer);
-    escpos_align(&mut buf, 0);
+    let footer_line = footer_folio_datetime_line(folio, &q.issued_at);
+    append_folio_barcode_footer(
+        &mut buf,
+        folio,
+        &footer_line,
+        None,
+        q.operator_name.as_deref(),
+    );
     append_line(&mut buf, "");
 
     Ok(buf)

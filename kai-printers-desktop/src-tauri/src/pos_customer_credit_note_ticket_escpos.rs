@@ -4,11 +4,11 @@ use crate::pos_customer_credit_note_ticket::{
     parse_pos_customer_credit_note_ticket_from_value, CreditNoteLine, PosCustomerCreditNoteTicket,
 };
 use crate::pos_sale_ticket_escpos::{
-    append_barcode_centered, append_divider, append_label_value_wrapped, append_line,
-    append_product_line_block, append_section_gap, append_ticket_logo, escpos_align,
+    append_divider, append_label_value_wrapped, append_line, append_product_line_block,
+    append_section_gap, append_ticket_logo, append_folio_barcode_footer, escpos_align,
     escpos_apply_ticket_typography, escpos_bold, escpos_dense_body, escpos_double_height_off,
-    escpos_double_height_on, escpos_init, format_datetime, money, pad_label_value, pad_left,
-    wrap_lines, layout_width,
+    escpos_double_height_on, escpos_init, footer_folio_datetime_line, money, pad_label_value,
+    pad_left, wrap_lines, layout_width,
 };
 use anyhow::Result;
 use std::path::PathBuf;
@@ -75,11 +75,6 @@ pub fn build_pos_customer_credit_note_ticket_escpos(
     escpos_bold(&mut buf, false);
 
     let folio = nc.credit_note_folio.trim();
-    append_line(
-        &mut buf,
-        &format!("Fecha: {}", format_datetime(&nc.issued_at_iso)),
-    );
-    append_line(&mut buf, &pad_label_value("Folio NC:", folio));
     if let Some(b) = nc.branch_name.as_deref().filter(|s| !s.trim().is_empty()) {
         append_line(&mut buf, &pad_left("Sucursal:", b.trim()));
     }
@@ -166,14 +161,14 @@ pub fn build_pos_customer_credit_note_ticket_escpos(
         }
     }
 
-    if !folio.is_empty() {
-        append_barcode_centered(&mut buf, folio);
-    }
-
-    let footer = format!("{folio} - {}", format_datetime(&nc.issued_at_iso));
-    escpos_align(&mut buf, 1);
-    append_line(&mut buf, &footer);
-    escpos_align(&mut buf, 0);
+    let footer_line = footer_folio_datetime_line(folio, &nc.issued_at_iso);
+    append_folio_barcode_footer(
+        &mut buf,
+        folio,
+        &footer_line,
+        None,
+        nc.operator_name.as_deref(),
+    );
     append_line(&mut buf, "");
 
     Ok(buf)

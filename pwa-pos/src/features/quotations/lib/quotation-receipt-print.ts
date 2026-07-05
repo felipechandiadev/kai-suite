@@ -3,7 +3,15 @@ import type { QuotationDetail } from "@/features/quotations/types/quotation.type
 import type { PrintFormat } from "@kai/print-service-client";
 import { printPosQuotationReceiptAgentOrBrowserFireAndForget } from "@/features/quotations/lib/quotation-ticket-agent";
 import { thermalReceiptCssForFormat } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
+import {
+  printHtmlShowsLogo,
+  type PosPrintHtmlOptions,
+} from "@/features/pos-print/lib/pos-print-html-options";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";
+import {
+  ticketOperatorHtml,
+  ticketFooterFolioDateHtml,
+} from "@/features/pos-print/lib/ticket-receipt-footer";
 
 function escapeHtml(s: string) {
   return s
@@ -44,6 +52,7 @@ export type QuotationReceiptPrintInput = {
   company: CompanyDetails | null;
   branchName?: string | null;
   pointOfSaleName?: string | null;
+  operatorName?: string | null;
 };
 
 /** Mismo HTML que se envía a la impresora 80 mm (vista previa en diálogo). */
@@ -51,10 +60,12 @@ export function buildQuotationReceiptHtml(
   input: QuotationReceiptPrintInput,
   origin: string,
   format: PrintFormat = "ticket_80mm",
+  options?: PosPrintHtmlOptions,
 ): string {
   const q = input.quotation;
   const c = input.company;
-  const logo = resolveReceiptLogoUrl(c?.logoUrl, origin);
+  const showLogo = printHtmlShowsLogo(options);
+  const logo = showLogo ? resolveReceiptLogoUrl(c?.logoUrl, origin) : "";
   const displayName = c?.nombreFantasia?.trim() || c?.razonSocial?.trim() || "Empresa";
   const folio = q.documentNumber?.trim() || q.id;
 
@@ -105,19 +116,17 @@ export function buildQuotationReceiptHtml(
 <title>Cotización ${escapeHtml(folio)}</title>
 <style>${thermalReceiptCssForFormat(format)}</style></head><body>
 <div class="receipt">
-  <img class="logo" src="${escapeHtml(logo)}" alt="" />
+  ${showLogo ? `<img class="logo" src="${escapeHtml(logo)}" alt="" />` : ""}
   <p class="store">${escapeHtml(displayName)}</p>
   ${c?.razonSocial && c?.nombreFantasia ? `<p class="legal">${escapeHtml(c.razonSocial)}</p>` : ""}
   ${c?.rut ? `<p class="legal">RUT: ${escapeHtml(c.rut)}</p>` : ""}
   <div class="sep"></div>
   <p class="center" style="font-size:12px;font-weight:600;">COTIZACIÓN</p>
-  <p class="center muted">Folio: ${escapeHtml(folio)}</p>
-  <p class="center muted">${escapeHtml(formatDateTime(q.issuedAt))}</p>
   <p class="center muted">Válida hasta: ${escapeHtml(formatDateTime(q.validUntil))}</p>
   ${posBlock}
   ${custBlock}
   <div class="sep"></div>
-  <div class="section-title" style="text-transform:none">Detalle</div>
+  <div class="section-title" style="text-transform:none">DETALLE DE COTIZACIÓN</div>
   <table class="lines" role="presentation">${lineRows}</table>
   <div class="sep"></div>
   <div class="row"><span>Subtotal</span><span>${formatMoney(q.subtotal)}</span></div>
@@ -127,6 +136,8 @@ export function buildQuotationReceiptHtml(
   ${notesBlock}
   <div class="sep"></div>
   <div class="barcode-section"><div class="barcode-wrap">${barcode}</div></div>
+  ${ticketFooterFolioDateHtml(folio, q.issuedAt)}
+  ${ticketOperatorHtml(input.operatorName)}
 </div>
 </body></html>`;
 }

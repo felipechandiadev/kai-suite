@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   Alert,
   Button,
@@ -67,6 +68,7 @@ import {
   buildPosSaleReceiptSnapshot,
   type PosSaleReceiptData,
 } from "@/app/(pos)/pos/payment/ui/PosSaleReceiptDialog";
+import { resolvePosOperatorDisplayName } from "@/features/pos-print/lib/ticket-receipt-footer";
 import { formatReceiptLineDisplayName } from "@/features/pos-print/lib/format-receipt-line-name";
 import { createBackorderFromPosAction } from "@/features/session/actions/create-backorder.action";
 import { createSaleFromPosAction } from "@/features/session/actions/create-sale.action";
@@ -521,6 +523,11 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
     exitFulfillBackorderMode,
     quotationsEnabled,
   } = cart;
+
+  const { data: authSession } = useSession();
+  const posOperatorName = resolvePosOperatorDisplayName(
+    authSession?.user as { name?: string | null; email?: string | null; userName?: string | null } | undefined,
+  );
 
   const emitKaiScreenSaleCompleted = useCallback(() => {
     const posId = readPosContextClient()?.pointOfSaleId?.trim();
@@ -2065,6 +2072,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
         loadedQuotation,
         saleFolio: deferRes.documentNumber,
         collectionPending: true,
+        operatorName: posOperatorName,
       });
       setReceiptData(snapshot);
       setDeferLoading(false);
@@ -2160,6 +2168,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
             folio: a.documentNumber,
             amount: a.amount,
           })),
+          operatorName: posOperatorName,
         });
         setReceiptData(snapshot);
         setConfirmLoading(false);
@@ -2232,6 +2241,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
             dueDate: collectQuotas.find((q) => q.id === a.installmentId)?.dueDate ?? null,
             amount: a.amount,
           })),
+          operatorName: posOperatorName,
         });
         setReceiptData(snapshot);
         setConfirmLoading(false);
@@ -2303,6 +2313,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
             folio: a.documentNumber,
             amount: a.amount,
           })),
+          operatorName: posOperatorName,
         });
         setReceiptData(snapshot);
         setConfirmLoading(false);
@@ -2548,6 +2559,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
               orderTotal: saleTotal,
             }
           : null,
+      operatorName: posOperatorName,
     });
     setReceiptData(snapshot);
     setConfirmLoading(false);

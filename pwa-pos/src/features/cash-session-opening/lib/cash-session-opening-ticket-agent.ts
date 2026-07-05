@@ -9,7 +9,6 @@ import type { CashSessionOpeningPrintInput } from "@/features/cash-session-openi
 import {
   buildCashSessionOpeningTicketHtml,
 } from "@/features/cash-session-opening/lib/cash-session-opening-print";
-import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import {
   enqueueVectorTicketAndAwaitDelivery,
   printPosTicketBrowserFallback,
@@ -65,8 +64,7 @@ export async function printCashSessionOpeningTicketVector(
     return printPosTicketBrowserFallback(ticketHtml, meta);
   }
 
-  const logoBase64 = await fetchReceiptLogoBase64(input.company?.logoUrl, origin);
-  const ticket = openingToTicketPayload(input, logoBase64);
+  const ticket = openingToTicketPayload(input, null);
   let enqueued = false;
 
   try {

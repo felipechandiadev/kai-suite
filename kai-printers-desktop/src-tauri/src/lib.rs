@@ -238,6 +238,7 @@ async fn start_print_network(state: tauri::State<'_, Arc<AppState>>) -> Result<(
 }
 
 fn notify_printer_health_and_config(state: &Arc<AppState>) {
+    platform::invalidate_system_printers_cache();
     if let Ok(ph) = events::emit_printer_health_json(&state.db, &[], &state.reachability) {
         let _ = state.broadcast.send(ph.to_string());
     }
@@ -250,6 +251,7 @@ fn notify_printer_health_and_config(state: &Arc<AppState>) {
 }
 
 fn notify_jobs_changed(state: &Arc<AppState>) {
+    state.signal_job_pending();
     let ping = json!({
         "version": protocol::PROTOCOL_VERSION,
         "event": "jobs_changed",

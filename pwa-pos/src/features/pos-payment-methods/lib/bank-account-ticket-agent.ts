@@ -6,7 +6,6 @@ import {
 } from "@kai/print-service-client";
 import type { CompanyDetails } from "@/features/company/infrastructure/company.request";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
-import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import {
   enqueueVectorTicketAndAwaitDelivery,
   withPrintAgentConnection,
@@ -81,11 +80,7 @@ export async function printBankAccountTicketAgent(
     };
   }
 
-  const logoBase64 = await fetchReceiptLogoBase64(
-    input.company?.logoUrl,
-    window.location.origin,
-  );
-  const ticket = toTicketPayload(input, logoBase64);
+  const ticket = toTicketPayload(input, null);
   const meta = bankAccountPrintMeta(input.accountKey);
   let enqueued = false;
 

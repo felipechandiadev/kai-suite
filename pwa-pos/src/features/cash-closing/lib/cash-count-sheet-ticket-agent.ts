@@ -9,7 +9,6 @@ import type { CashCountSheetPrintInput } from "@/features/cash-closing/lib/cash-
 import {
   buildCashCountSheetTicketHtml,
 } from "@/features/cash-closing/lib/cash-count-sheet-print";
-import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import {
   enqueueVectorTicketAndAwaitDelivery,
   printPosTicketBrowserFallback,
@@ -67,8 +66,7 @@ export async function printCashCountSheetTicketVector(
     return printPosTicketBrowserFallback(ticketHtml, meta);
   }
 
-  const logoBase64 = await fetchReceiptLogoBase64(input.company?.logoUrl, origin);
-  const ticket = cashCountSheetToTicketPayload(input, logoBase64);
+  const ticket = cashCountSheetToTicketPayload(input, null);
   let enqueued = false;
 
   try {

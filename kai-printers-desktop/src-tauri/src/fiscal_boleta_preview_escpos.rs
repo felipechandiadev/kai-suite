@@ -2,9 +2,9 @@
 
 use crate::fiscal_boleta_preview::{parse_fiscal_boleta_preview_from_value, FiscalBoletaPreview};
 use crate::pos_sale_ticket_escpos::{
-    append_divider, append_line, append_ticket_logo, escpos_align, escpos_apply_ticket_typography,
-    escpos_bold, escpos_double_height_off, escpos_double_height_on, escpos_init, format_datetime,
-    money, pad_left, wrap_lines, layout_width,
+    append_divider, append_line, append_ticket_logo, append_operator_footer, escpos_align,
+    escpos_apply_ticket_typography, escpos_bold, escpos_double_height_off, escpos_double_height_on,
+    escpos_init, format_datetime, money, pad_left, wrap_lines, layout_width,
 };
 use anyhow::Result;
 use std::path::PathBuf;
@@ -29,6 +29,18 @@ fn append_bottom_feed(buf: &mut Vec<u8>) {
     for _ in 0..BOTTOM_FEED_LINES {
         append_line(buf, "");
     }
+}
+
+fn is_generic_boleta_receptor_rut(rut: &str) -> bool {
+    rut.replace('.', "")
+        .trim()
+        .eq_ignore_ascii_case("66666666-6")
+}
+
+fn show_receptor_on_ticket(boleta: &FiscalBoletaPreview) -> bool {
+    boleta
+        .show_receptor_on_ticket
+        .unwrap_or_else(|| !is_generic_boleta_receptor_rut(boleta.receptor.rut.trim()))
 }
 
 pub fn build_fiscal_boleta_preview_escpos(boleta: &FiscalBoletaPreview) -> Result<Vec<u8>> {
@@ -94,9 +106,11 @@ pub fn build_fiscal_boleta_preview_escpos(boleta: &FiscalBoletaPreview) -> Resul
         &mut buf,
         &pad_left("Fecha:", &format_date_short(&boleta.issued_at)),
     );
-    append_line(&mut buf, &pad_left("Receptor:", boleta.receptor.rut.trim()));
-    for line in wrap_lines(boleta.receptor.name.trim(), layout_width()) {
-        append_line(&mut buf, &line);
+    if show_receptor_on_ticket(boleta) {
+        append_line(&mut buf, &pad_left("Receptor:", boleta.receptor.rut.trim()));
+        for line in wrap_lines(boleta.receptor.name.trim(), layout_width()) {
+            append_line(&mut buf, &line);
+        }
     }
 
     append_divider(&mut buf);
@@ -200,6 +214,7 @@ pub fn build_fiscal_boleta_preview_escpos(boleta: &FiscalBoletaPreview) -> Resul
         append_line(&mut buf, "No valido tributariamente");
         escpos_align(&mut buf, 0);
     }
+    append_operator_footer(&mut buf, boleta.operator_name.as_deref());
     append_bottom_feed(&mut buf);
 
     Ok(buf)
@@ -243,5 +258,46 @@ mod tests {
         assert!(text.contains("SIMULACION"));
         let has_pdf417_raster = bytes.windows(3).any(|w| w == [0x1D, 0x76, 0x30]);
         assert!(has_pdf417_raster || text.contains("TIMBRE SIMULADO"));
+    }
+
+    #[test]
+    fn fiscal_boleta_escpos_hides_generic_receptor() {
+        let v = serde_json::json!({
+            "caso": "CASO-1",
+            "folio": 1,
+            "issuedAt": "2026-06-28",
+            "tipoDte": 39,
+            "emisor": { "legalName": "Empresa Test", "rut": "1-9" },
+            "receptor": { "rut": "66666666-6", "name": "Cliente" },
+            "showReceptorOnTicket": false,
+            "lines": [{ "name": "Item", "quantity": 1, "unitPriceWithIva": 1000, "lineTotal": 1000 }],
+            "totals": { "mntNeto": 840, "mntExe": 0, "iva": 160, "mntTotal": 1000 },
+            "timbrePdf417Payload": "<TED version=\"1.0\"><DD><RE>1-9</RE><TD>39</TD><F>42</F></DD></TED>"
+        });
+        let boleta = parse_fiscal_boleta_preview_from_value(&v).unwrap();
+        let bytes = build_fiscal_boleta_preview_escpos(&boleta).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(!text.contains("Receptor:"));
+    }
+
+    #[test]
+    fn fiscal_boleta_escpos_shows_identified_receptor() {
+        let v = serde_json::json!({
+            "caso": "CASO-1",
+            "folio": 1,
+            "issuedAt": "2026-06-28",
+            "tipoDte": 39,
+            "emisor": { "legalName": "Empresa Test", "rut": "1-9" },
+            "receptor": { "rut": "12.345.678-9", "name": "Maria" },
+            "showReceptorOnTicket": true,
+            "lines": [{ "name": "Item", "quantity": 1, "unitPriceWithIva": 1000, "lineTotal": 1000 }],
+            "totals": { "mntNeto": 840, "mntExe": 0, "iva": 160, "mntTotal": 1000 },
+            "timbrePdf417Payload": "<TED version=\"1.0\"><DD><RE>1-9</RE><TD>39</TD><F>42</F></DD></TED>"
+        });
+        let boleta = parse_fiscal_boleta_preview_from_value(&v).unwrap();
+        let bytes = build_fiscal_boleta_preview_escpos(&boleta).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains("Receptor:"));
+        assert!(text.contains("Maria"));
     }
 }

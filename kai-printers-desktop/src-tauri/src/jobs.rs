@@ -16,23 +16,30 @@ use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
+const WORKER_IDLE_POLL_MS: u64 = 100;
 
 pub fn spawn_worker(state: Arc<AppState>) {
     let db = state.db.clone();
     let notify = state.broadcast.clone();
+    let job_notify = state.job_notify.clone();
     tauri::async_runtime::spawn(async move {
         loop {
-            tokio::time::sleep(Duration::from_millis(400)).await;
-            let job = match db.next_pending_job() {
-                Ok(Some(j)) => j,
-                Ok(None) => continue,
-                Err(e) => {
-                    tracing::error!("next_pending_job: {e}");
-                    continue;
-                }
-            };
-            if let Err(e) = process_one(&state, &job) {
+            tokio::select! {
+                () = job_notify.notified() => {}
+                () = tokio::time::sleep(Duration::from_millis(WORKER_IDLE_POLL_MS)) => {}
+            }
+            loop {
+                let job = match db.next_pending_job() {
+                    Ok(Some(j)) => j,
+                    Ok(None) => break,
+                    Err(e) => {
+                        tracing::error!("next_pending_job: {e}");
+                        break;
+                    }
+                };
+                if let Err(e) = process_one(&state, &job) {
                 tracing::error!(job_id = %job.id, "print job: {e:#}");
                 let retries = db.retry_count(&job.id).unwrap_or(0);
                 let allow_retry = !is_local_test_job(&job) && retries < 3;
@@ -59,10 +66,11 @@ pub fn spawn_worker(state: Arc<AppState>) {
                     });
                     let _ = notify.send(fail.to_string());
                 }
-            } else {
-                state
-                    .jobs_completed_total
-                    .fetch_add(1, Ordering::Relaxed);
+                } else {
+                    state
+                        .jobs_completed_total
+                        .fetch_add(1, Ordering::Relaxed);
+                }
             }
         }
     });
@@ -230,6 +238,7 @@ fn printers_for_purpose_with_fallback(db: &Db, purpose: &str) -> Result<Vec<Stri
 }
 
 fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
+    let job_started = Instant::now();
     let db = state.db.as_ref();
     let notify = &state.broadcast;
     db.update_job_status(&job.id, "printing", None)?;
@@ -259,7 +268,14 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
         purpose,
     );
     crate::escpos_width::set_escpos_width_chars(print_format.chars_per_line());
-    let system = platform::list_system_printers().unwrap_or_default();
+    let lpstat_started = Instant::now();
+    let system = platform::list_system_printers_cached().unwrap_or_default();
+    print_diag::info_elapsed(
+        "lpstat",
+        lpstat_started,
+        format!("{} impresoras", system.len()),
+    );
+    let reach_started = Instant::now();
     let line_id = reachability::refresh_for_print_target(
         db,
         &system,
@@ -268,6 +284,11 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
         printers.first().map(|s| s.as_str()),
         network_host.as_deref(),
     )?;
+    print_diag::info_elapsed(
+        "reachability",
+        reach_started,
+        line_id.as_deref().unwrap_or("sin línea"),
+    );
     if let Some(ref id) = line_id {
         if let Some(entry) = reachability::status_for_line(&state.reachability, id) {
             if !reachability::is_online(&entry) && !is_local_test_job(job) {
@@ -302,8 +323,11 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
             "Trabajo {}: ESC/POS por red → {host} ({payload_bytes} bytes), corte={}, gaveta={}",
             job.id, thermal.auto_cut, thermal.open_drawer
         ));
+        let spooler_started = Instant::now();
         match platform::print_escpos_bytes_to_network(&host, &data, copies, thermal) {
             Ok(()) => {
+                print_diag::info_elapsed("spooler red", spooler_started, host.as_str());
+                print_diag::info_elapsed("job total", job_started, &job.id);
                 let _ = std::fs::remove_file(&path);
                 db.delete_job(&job.id)?;
                 let ev = serde_json::json!({
@@ -352,6 +376,7 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
                 thermal.open_drawer,
             ));
         }
+        let spooler_started = Instant::now();
         let print_result = if is_escpos {
             platform::print_escpos_to_printer(&path, printer, copies, thermal)
         } else {
@@ -359,6 +384,12 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
         };
         match print_result {
             Ok(()) => {
+                print_diag::info_elapsed(
+                    "spooler",
+                    spooler_started,
+                    format!("«{printer}» {payload_bytes}B"),
+                );
+                print_diag::info_elapsed("job total", job_started, &job.id);
                 if is_escpos {
                     print_diag::info(format!(
                         "Trabajo {}: ESC/POS entregado al spooler de «{printer}» ({payload_bytes} bytes en archivo)",

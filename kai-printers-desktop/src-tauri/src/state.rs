@@ -9,6 +9,7 @@ use std::sync::Arc;
 use tauri::async_runtime::JoinHandle as AsyncSpawnHandle;
 use tokio::sync::broadcast;
 use tokio::sync::watch;
+use tokio::sync::Notify;
 
 /// Handle para detener el listener WS/WSS sin salir del proceso.
 pub struct ListenerControl {
@@ -41,6 +42,8 @@ pub struct AppState {
     pub wss_listener: Mutex<Option<ListenerControl>>,
     pub agent_log: Arc<AgentLog>,
     pub reachability: Arc<ReachabilityCache>,
+    /// Despierta al worker de impresión cuando hay un job pendiente.
+    pub job_notify: Arc<Notify>,
 }
 
 impl AppState {
@@ -60,7 +63,12 @@ impl AppState {
             wss_listener: Mutex::new(None),
             agent_log,
             reachability: Arc::new(ReachabilityCache::new()),
+            job_notify: Arc::new(Notify::new()),
         })
+    }
+
+    pub fn signal_job_pending(&self) {
+        self.job_notify.notify_one();
     }
 
     pub fn signal_disconnect_all_ws_clients(&self) {

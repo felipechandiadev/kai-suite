@@ -73,11 +73,16 @@ pub struct FiscalBoletaPreview {
     #[serde(default)]
     pub company: Option<FiscalBoletaPreviewCompany>,
     pub receptor: FiscalBoletaPreviewReceptor,
+    /// Si false, no imprimir bloque Receptor (venta sin cliente). Ausente → inferir por RUT genérico.
+    #[serde(default)]
+    pub show_receptor_on_ticket: Option<bool>,
     #[serde(default)]
     pub lines: Vec<FiscalBoletaPreviewLine>,
     pub totals: FiscalBoletaPreviewTotals,
     pub observation: Option<String>,
     pub timbre_pdf417_payload: Option<String>,
+    #[serde(default)]
+    pub operator_name: Option<String>,
 }
 
 pub fn parse_fiscal_boleta_preview_from_value(value: &serde_json::Value) -> Result<FiscalBoletaPreview> {

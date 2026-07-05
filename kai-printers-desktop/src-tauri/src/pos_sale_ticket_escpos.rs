@@ -2,7 +2,10 @@
 //! Código de barras: raster CODE128 (mismo módulos que PDF), luego comandos nativos de respaldo.
 
 use crate::escpos_raster::{append_gs_v0, logo_base64_to_raster};
-use crate::pos_sale_ticket_pdf::{parse_pos_sale_ticket_from_value, PosSaleTicket};
+use crate::pos_sale_ticket_pdf::{
+    format_product_line_name, parse_pos_sale_ticket_from_value, sale_ticket_section_heading,
+    sale_ticket_thanks_message, PosSaleTicket,
+};
 use crate::ticket_barcode::{
     code128_escpos_data, code128_escpos_data_charset_a, code128_raster_bitmap,
     code39_escpos_compatible, code39_escpos_data, ean13_payload_from_folio,
@@ -233,6 +236,55 @@ pub(crate) fn format_datetime(iso: &str) -> String {
         return dt.format("%d/%m/%Y %H:%M").to_string();
     }
     normalize_ticket_text(iso)
+}
+
+/// `{folio} · {dd/mm/yyyy HH:mm}` — pie estándar ([FOOTER-Y-BARCODE.md]).
+pub(crate) fn footer_folio_datetime_line(folio: &str, issued_at_iso: &str) -> String {
+    let f = folio.trim();
+    let dt = format_datetime(issued_at_iso);
+    if f.is_empty() {
+        dt
+    } else if dt.is_empty() || dt == "—" {
+        f.to_string()
+    } else {
+        format!("{f} · {dt}")
+    }
+}
+
+/// `Operador: {nombre}` — Font B, centrado.
+pub(crate) fn append_operator_footer(buf: &mut Vec<u8>, operator_name: Option<&str>) {
+    let Some(name) = operator_name.map(str::trim).filter(|s| !s.is_empty()) else {
+        return;
+    };
+    escpos_align(buf, 1);
+    escpos_font_b(buf);
+    append_line(buf, &format!("Operador: {name}"));
+    escpos_font_a(buf);
+}
+
+/// Pie con barcode → folio/fecha → mensaje opcional → operador.
+pub(crate) fn append_folio_barcode_footer(
+    buf: &mut Vec<u8>,
+    barcode_payload: &str,
+    folio_datetime_line: &str,
+    closing_message: Option<&str>,
+    operator_name: Option<&str>,
+) {
+    let payload = barcode_payload.trim();
+    if !payload.is_empty() {
+        append_barcode_centered(buf, payload);
+    }
+    let line = folio_datetime_line.trim();
+    if !line.is_empty() {
+        escpos_align(buf, 1);
+        append_line(buf, line);
+    }
+    if let Some(msg) = closing_message.map(str::trim).filter(|s| !s.is_empty()) {
+        escpos_align(buf, 1);
+        append_line(buf, msg);
+    }
+    append_operator_footer(buf, operator_name);
+    escpos_align(buf, 0);
 }
 
 fn char_count(s: &str) -> usize {
@@ -475,31 +527,149 @@ pub(crate) fn append_barcode_centered(buf: &mut Vec<u8>, payload: &str) {
     escpos_apply_ticket_typography(buf);
 }
 
-fn append_totals_compact(buf: &mut Vec<u8>, ticket: &PosSaleTicket) {
-    append_line(buf, &pad_left("Subtotal neto:", &money(ticket.totals.subtotal_net)));
-    append_line(buf, &pad_left("Impuestos:", &money(ticket.totals.taxes)));
-    if ticket.totals.line_discounts > 0.01 {
+fn append_totals_block(buf: &mut Vec<u8>, ticket: &PosSaleTicket) {
+    let tot = &ticket.totals;
+    append_line(buf, &pad_left("Subtotal neto:", &money(tot.subtotal_net)));
+    append_line(buf, &pad_left("Impuestos:", &money(tot.taxes)));
+    if tot.line_discounts > 0.01 {
         append_line(
             buf,
             &pad_left(
-                "D.lineas:",
-                &format!("-${}", format_clp(ticket.totals.line_discounts)),
+                "Desc. linea:",
+                &format!("-${}", format_clp(tot.line_discounts)),
             ),
         );
     }
-    if ticket.totals.order_discount > 0.01 {
+    if tot.order_discount > 0.01 {
         append_line(
             buf,
             &pad_left(
-                "D.pedido:",
-                &format!("-${}", format_clp(ticket.totals.order_discount)),
+                "Desc. pedido:",
+                &format!("-${}", format_clp(tot.order_discount)),
             ),
         );
     }
-    escpos_bold(buf, true);
-    append_line(buf, &pad_left("TOTAL:", &money(ticket.totals.total)));
-    escpos_bold(buf, false);
+    let is_backorder = ticket.document_kind == "backorder";
+    if is_backorder {
+        if let Some(bo) = &ticket.backorder {
+            append_line(buf, &pad_left("Total pedido:", &money(bo.order_total)));
+            escpos_bold(buf, true);
+            append_line(buf, &pad_left("Abono:", &money(bo.deposit_amount)));
+            escpos_bold(buf, false);
+            let pending = (bo.order_total - bo.deposit_amount).max(0.0);
+            append_line(buf, &pad_left("Saldo pendiente:", &money(pending)));
+        }
+    } else {
+        escpos_bold(buf, true);
+        append_line(buf, &pad_left("TOTAL:", &money(tot.total)));
+        escpos_bold(buf, false);
+    }
     append_divider(buf);
+}
+
+fn append_sale_body_banners(buf: &mut Vec<u8>, ticket: &PosSaleTicket) {
+    if let Some(ff) = ticket.fiscal_folio.as_deref().filter(|s| !s.trim().is_empty()) {
+        append_divider(buf);
+        escpos_align(buf, 1);
+        append_line(buf, &format!("Boleta SII: {}", ff.trim()));
+        escpos_align(buf, 0);
+    }
+    if let Some(w) = ticket
+        .fiscal_boleta_warning
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+    {
+        append_divider(buf);
+        escpos_align(buf, 1);
+        for line in wrap_lines(w.trim(), layout_width()) {
+            append_line(buf, &line);
+        }
+        escpos_align(buf, 0);
+    }
+}
+
+fn append_collection_pending_banner(buf: &mut Vec<u8>, ticket: &PosSaleTicket) {
+    if !ticket.collection_pending {
+        return;
+    }
+    append_divider(buf);
+    escpos_bold(buf, true);
+    escpos_align(buf, 1);
+    append_line(buf, "COBRO PENDIENTE");
+    escpos_bold(buf, false);
+    append_line(
+        buf,
+        &format!("Saldo por cobrar: {}", money(ticket.totals.total)),
+    );
+    escpos_align(buf, 0);
+}
+
+fn append_quotation_block(buf: &mut Vec<u8>, ticket: &PosSaleTicket) {
+    let Some(q) = &ticket.quotation else {
+        return;
+    };
+    let num = q.document_number.as_deref().unwrap_or("").trim();
+    if num.is_empty() {
+        return;
+    }
+    append_divider(buf);
+    append_line(buf, "Cotizacion origen");
+    append_line(buf, &pad_left("Folio:", num));
+    if let Some(vu) = q.valid_until.as_deref().filter(|s| !s.trim().is_empty()) {
+        append_line(buf, &pad_left("Valida hasta:", vu.trim()));
+    }
+}
+
+fn append_special_collection_blocks(buf: &mut Vec<u8>, ticket: &PosSaleTicket) {
+    if !ticket.ar_collection.is_empty() {
+        append_divider(buf);
+        append_line(buf, "Ventas cobradas");
+        for row in &ticket.ar_collection {
+            append_line(buf, &pad_left(row.folio.trim(), &money(row.amount)));
+        }
+    }
+    if !ticket.quota_collection.is_empty() {
+        append_divider(buf);
+        append_line(buf, "Cuotas cobradas");
+        for row in &ticket.quota_collection {
+            let mut label = row.folio.trim().to_string();
+            if let Some(due) = row.due_date.as_deref().filter(|s| !s.trim().is_empty()) {
+                label.push_str(" · vence ");
+                label.push_str(&format_date_short_escpos(due));
+            }
+            append_line(buf, &pad_left(&label, &money(row.amount)));
+        }
+    }
+    if !ticket.credit_installment_plan.is_empty() {
+        append_divider(buf);
+        append_line(buf, "Plan de cobro (credito interno)");
+        for row in &ticket.credit_installment_plan {
+            let mut label = format!("Cuota {}", row.installment_number);
+            if !row.due_date.trim().is_empty() {
+                label.push_str(" · ");
+                label.push_str(&format_date_short_escpos(row.due_date.trim()));
+            }
+            append_line(buf, &pad_left(&label, &money(row.amount)));
+        }
+    }
+    if !ticket.nc_payout.is_empty() {
+        append_divider(buf);
+        append_line(buf, "Notas de credito liquidadas");
+        for row in &ticket.nc_payout {
+            append_line(buf, &pad_left(row.folio.trim(), &money(row.amount)));
+        }
+    }
+}
+
+fn format_date_short_escpos(iso_or_date: &str) -> String {
+    let s = iso_or_date.trim();
+    if let Ok(dt) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+        return dt.format("%d/%m/%Y").to_string();
+    }
+    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
+        return dt.format("%d/%m/%Y").to_string();
+    }
+    normalize_ticket_text(s)
 }
 
 pub fn build_pos_sale_ticket_escpos(ticket: &PosSaleTicket) -> Result<Vec<u8>> {
@@ -552,20 +722,13 @@ pub fn build_pos_sale_ticket_escpos(ticket: &PosSaleTicket) -> Result<Vec<u8>> {
     escpos_align(&mut buf, 0);
     append_line(&mut buf, "");
 
-    let is_backorder = ticket.document_kind == "backorder";
-    if is_backorder {
-        if let Some(bo) = &ticket.backorder {
-            let mut s = format!("Abono: {}", money(bo.deposit_amount));
-            if bo.percent > 0.01 {
-                s.push_str(&format!(" · {:.0}%", bo.percent));
-            }
-            append_line(&mut buf, &normalize_ticket_text(&s));
-        }
-    }
+    append_sale_body_banners(&mut buf, ticket);
 
     if let Some(c) = &ticket.customer {
         let has = c.name.as_deref().map(|s| !s.trim().is_empty()).unwrap_or(false)
-            || c.document.as_deref().map(|s| !s.trim().is_empty()).unwrap_or(false);
+            || c.document.as_deref().map(|s| !s.trim().is_empty()).unwrap_or(false)
+            || c.phone.as_deref().map(|s| !s.trim().is_empty()).unwrap_or(false)
+            || c.email.as_deref().map(|s| !s.trim().is_empty()).unwrap_or(false);
         if has {
             append_divider(&mut buf);
             append_line(&mut buf, "Cliente");
@@ -575,12 +738,20 @@ pub fn build_pos_sale_ticket_escpos(ticket: &PosSaleTicket) -> Result<Vec<u8>> {
             if let Some(doc) = c.document.as_deref().filter(|s| !s.trim().is_empty()) {
                 append_line(&mut buf, &pad_left("Documento:", doc.trim()));
             }
+            if let Some(ph) = c.phone.as_deref().filter(|s| !s.trim().is_empty()) {
+                append_line(&mut buf, &pad_left("Telefono:", ph.trim()));
+            }
+            if let Some(em) = c.email.as_deref().filter(|s| !s.trim().is_empty()) {
+                append_label_value_wrapped(&mut buf, "Email:", em.trim());
+            }
         }
     }
 
+    append_quotation_block(&mut buf, ticket);
+
     append_divider(&mut buf);
     escpos_dense_body(&mut buf);
-    let heading = if is_backorder { "ENCARGO" } else { "DETALLE" };
+    let heading = sale_ticket_section_heading(ticket);
     escpos_align(&mut buf, 1);
     escpos_bold(&mut buf, true);
     append_line(&mut buf, heading);
@@ -589,11 +760,7 @@ pub fn build_pos_sale_ticket_escpos(ticket: &PosSaleTicket) -> Result<Vec<u8>> {
     append_section_gap(&mut buf);
 
     for (idx, line) in ticket.lines.iter().enumerate() {
-        let mut name = line.product_name.trim().to_string();
-        if !line.attributes.is_empty() {
-            name.push_str(" · ");
-            name.push_str(&line.attributes.join(" · "));
-        }
+        let name = format_product_line_name(line);
         let unit_suffix = line
             .unit_symbol
             .as_deref()
@@ -617,7 +784,7 @@ pub fn build_pos_sale_ticket_escpos(ticket: &PosSaleTicket) -> Result<Vec<u8>> {
             append_line(
                 &mut buf,
                 &pad_left(
-                    &format!("-{lbl}"),
+                    &format!("Desc. {lbl}:"),
                     &format!("-${}", format_clp(line.discount_amount.unwrap_or(0.0))),
                 ),
             );
@@ -627,23 +794,28 @@ pub fn build_pos_sale_ticket_escpos(ticket: &PosSaleTicket) -> Result<Vec<u8>> {
         }
     }
 
-    for promo in &ticket.promotions {
-        append_line(
-            &mut buf,
-            &pad_left(
-                &format!("{} {}", promo.code, promo.name),
-                &format!("-${}", format_clp(promo.amount)),
-            ),
-        );
+    if !ticket.promotions.is_empty() {
+        append_divider(&mut buf);
+        append_line(&mut buf, "Promociones");
+        for promo in &ticket.promotions {
+            append_line(
+                &mut buf,
+                &pad_left(
+                    &format!("{} {}", promo.code, promo.name),
+                    &format!("-${}", format_clp(promo.amount)),
+                ),
+            );
+        }
     }
 
     append_divider(&mut buf);
-    append_totals_compact(&mut buf, ticket);
+    append_collection_pending_banner(&mut buf, ticket);
+    append_totals_block(&mut buf, ticket);
 
     let show_payments = !ticket.payments.is_empty() || ticket.totals.change > 0.01;
     if show_payments {
         escpos_bold(&mut buf, true);
-        append_line(&mut buf, "PAGOS");
+        append_line(&mut buf, "Pagos");
         escpos_bold(&mut buf, false);
     }
 
@@ -667,32 +839,19 @@ pub fn build_pos_sale_ticket_escpos(ticket: &PosSaleTicket) -> Result<Vec<u8>> {
         append_line(&mut buf, &pad_left("Vuelto:", &money(ticket.totals.change)));
     }
 
+    append_special_collection_blocks(&mut buf, ticket);
+
     let folio = ticket.folio.trim();
-    if !folio.is_empty() {
-        append_barcode_centered(&mut buf, folio);
-    }
-    let footer = {
-        let dt = format_datetime(&ticket.issued_at_iso);
-        if folio.is_empty() {
-            dt
-        } else if dt.is_empty() || dt == "—" {
-            folio.to_string()
-        } else {
-            format!("{folio} - {dt}")
-        }
-    };
-    if !footer.is_empty() {
-        escpos_align(&mut buf, 1);
-        append_line(&mut buf, &footer);
-    }
-    let thanks = if is_backorder {
-        "Comprobante de abono de encargo"
-    } else {
-        "Gracias por su compra"
-    };
-    escpos_align(&mut buf, 1);
-    append_line(&mut buf, thanks);
-    escpos_align(&mut buf, 0);
+    let footer_line = footer_folio_datetime_line(folio, &ticket.issued_at_iso);
+    let thanks = sale_ticket_thanks_message(ticket);
+    let thanks_opt = if thanks.is_empty() { None } else { Some(thanks) };
+    append_folio_barcode_footer(
+        &mut buf,
+        folio,
+        &footer_line,
+        thanks_opt,
+        ticket.operator_name.as_deref(),
+    );
     append_line(&mut buf, "");
 
     Ok(buf)
@@ -714,6 +873,37 @@ pub fn write_pos_sale_ticket_escpos_from_value(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parse_accepts_null_collections_like_pos_payload() {
+        let v = serde_json::json!({
+            "version": 1,
+            "folio": "VTA-26-00005",
+            "issuedAtIso": "2026-01-01T12:00:00Z",
+            "documentKind": "sale",
+            "company": { "razonSocial": "Tienda", "nombreFantasia": null, "rut": null, "businessActivity": null },
+            "lines": [{
+                "productName": "Item",
+                "attributes": [],
+                "quantity": 1,
+                "unitSymbol": "und",
+                "unitPriceWithTax": 1000,
+                "lineGross": 1000
+            }],
+            "promotions": [],
+            "totals": { "subtotalNet": 840, "taxes": 160, "lineDiscounts": 0, "orderDiscount": 0, "total": 1000, "change": 0 },
+            "payments": [{ "label": "Efectivo", "amount": 1000, "detail": null }],
+            "arCollection": null,
+            "quotaCollection": null,
+            "creditInstallmentPlan": null,
+            "ncPayout": null
+        });
+        let ticket = parse_pos_sale_ticket_from_value(&v).unwrap();
+        assert!(ticket.ar_collection.is_empty());
+        assert!(ticket.quota_collection.is_empty());
+        let bytes = build_pos_sale_ticket_escpos(&ticket).unwrap();
+        assert!(bytes.len() > 10);
+    }
 
     #[test]
     fn escpos_starts_with_init_and_pc850() {
@@ -739,6 +929,41 @@ mod tests {
     #[test]
     fn divider_is_full_width() {
         assert_eq!(full_divider().chars().count(), layout_width());
+    }
+
+    #[test]
+    fn escpos_includes_quotation_and_customer_contact() {
+        let v = serde_json::json!({
+            "folio": "VTA-99",
+            "issuedAtIso": "2026-01-01T12:00:00Z",
+            "documentKind": "sale",
+            "company": { "razonSocial": "Tienda" },
+            "customer": { "name": "Ana", "phone": "+569", "email": "a@test.cl" },
+            "quotation": { "documentNumber": "COT-1", "validUntil": "2026-02-01" },
+            "lines": [],
+            "totals": { "subtotalNet": 0, "taxes": 0, "total": 1000 }
+        });
+        let ticket = parse_pos_sale_ticket_from_value(&v).unwrap();
+        let bytes = build_pos_sale_ticket_escpos(&ticket).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains("COT-1") || bytes.windows(b"COT-1".len()).any(|w| w == b"COT-1"));
+        assert!(bytes.windows(b"Telefono".len()).any(|w| w == b"Telefono"));
+    }
+
+    #[test]
+    fn escpos_backorder_totals_include_pending_balance() {
+        let v = serde_json::json!({
+            "folio": "ENC-1",
+            "issuedAtIso": "2026-01-01T12:00:00Z",
+            "documentKind": "backorder",
+            "backorder": { "percent": 50, "depositAmount": 5000, "orderTotal": 10000 },
+            "company": { "razonSocial": "Tienda" },
+            "lines": [],
+            "totals": { "subtotalNet": 0, "taxes": 0, "total": 5000 }
+        });
+        let ticket = parse_pos_sale_ticket_from_value(&v).unwrap();
+        let bytes = build_pos_sale_ticket_escpos(&ticket).unwrap();
+        assert!(bytes.windows(b"Saldo pendiente".len()).any(|w| w == b"Saldo pendiente"));
     }
 
     #[test]

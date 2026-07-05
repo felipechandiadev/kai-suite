@@ -11,8 +11,7 @@ use std::path::PathBuf;
 use std::io::Write;
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::process::Command;
-use std::time::Duration;
-#[cfg(target_os = "macos")]
+use std::time::{Duration, Instant};
 use std::sync::Mutex;
 use std::sync::OnceLock;
 
@@ -22,6 +21,42 @@ pub struct PrinterInfo {
     #[serde(rename = "default")]
     pub is_default: bool,
     pub online: bool,
+}
+
+const SYSTEM_PRINTERS_CACHE_TTL: Duration = Duration::from_secs(8);
+
+struct SystemPrintersCacheEntry {
+    fetched_at: Instant,
+    printers: Vec<PrinterInfo>,
+}
+
+static SYSTEM_PRINTERS_CACHE: OnceLock<Mutex<Option<SystemPrintersCacheEntry>>> = OnceLock::new();
+
+pub fn list_system_printers_cached() -> Result<Vec<PrinterInfo>> {
+    let cache = SYSTEM_PRINTERS_CACHE.get_or_init(|| Mutex::new(None));
+    if let Ok(guard) = cache.lock() {
+        if let Some(entry) = guard.as_ref() {
+            if entry.fetched_at.elapsed() < SYSTEM_PRINTERS_CACHE_TTL {
+                return Ok(entry.printers.clone());
+            }
+        }
+    }
+    let printers = list_system_printers()?;
+    if let Ok(mut guard) = cache.lock() {
+        *guard = Some(SystemPrintersCacheEntry {
+            fetched_at: Instant::now(),
+            printers: printers.clone(),
+        });
+    }
+    Ok(printers)
+}
+
+pub fn invalidate_system_printers_cache() {
+    if let Some(cache) = SYSTEM_PRINTERS_CACHE.get() {
+        if let Ok(mut guard) = cache.lock() {
+            *guard = None;
+        }
+    }
 }
 
 pub fn list_system_printers() -> Result<Vec<PrinterInfo>> {

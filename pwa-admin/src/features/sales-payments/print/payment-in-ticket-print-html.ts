@@ -1,6 +1,10 @@
 import { thermalReceiptTicketCss } from "@/features/print/lib/thermal-receipt-ticket-styles";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";
 import type { PaymentInPrintData } from "./payment-in-print.types";
+import {
+  ticketOperatorHtml,
+  ticketFooterFolioDateHtml,
+} from "@/features/print/lib/ticket-receipt-footer";
 
 function escapeHtml(s: string) {
   return s
@@ -79,11 +83,8 @@ export function buildPaymentInTicketHtml(data: PaymentInPrintData, origin: strin
   <div class="center store">${escapeHtml(displayName)}</div>
   ${data.company.rut ? `<div class="center muted">RUT: ${escapeHtml(data.company.rut)}</div>` : ""}
   <div class="divider"></div>
-  <div class="center heading">COMPROBANTE DE COBRO</div>
-  <div class="center muted">Folio: ${escapeHtml(data.folio)}</div>
-  <div class="center muted">${escapeHtml(formatDateTime(data.issuedAtIso))}</div>
-  ${originBits ? `<div class="muted center">${escapeHtml(originBits)}</div>` : ""}
-  ${data.operatorName ? `<div class="muted center">Cajero: ${escapeHtml(data.operatorName)}</div>` : ""}
+  <div class="center heading">COMPROBANTE DE PAGO</div>
+  ${originBits ? `<div class="row"><span>Origen</span><span class="tright">${escapeHtml(originBits)}</span></div>` : ""}
   ${customerBlock}
   <div class="section">
     <div class="section-title">Medios de pago</div>
@@ -102,7 +103,10 @@ export function buildPaymentInTicketHtml(data: PaymentInPrintData, origin: strin
   <div class="row"><span>Registrado pagado</span><span>${formatMoney(data.amountPaid)}</span></div>
   ${data.externalReference ? `<div class="muted center">Ref: ${escapeHtml(data.externalReference)}</div>` : ""}
   ${data.notes ? `<div class="section"><div class="section-title">Notas</div><div>${escapeHtml(data.notes)}</div></div>` : ""}
+  <div class="divider"></div>
   ${barcodeSvg ? `<div class="barcode center">${barcodeSvg}</div>` : ""}
+  ${ticketFooterFolioDateHtml(data.folio, data.issuedAtIso)}
+  ${ticketOperatorHtml(data.operatorName)}
 </div>
 </body></html>`;
 }

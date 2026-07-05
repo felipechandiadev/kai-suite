@@ -18,5 +18,5 @@ export function buildCashClosingArqueoPreviewHtml(input: CashClosingPrintInput):
   const format = posDocumentPrintModeToWireFormat(getPosDocumentPrintMode("cashClosing"));
   return isDocumentPrintFormat(format)
     ? buildCashClosingDocumentHtml(input, format)
-    : buildCashClosingReceiptHtml(input, window.location.origin, format);
+    : buildCashClosingReceiptHtml(input, window.location.origin, format, { showLogo: false });
 }

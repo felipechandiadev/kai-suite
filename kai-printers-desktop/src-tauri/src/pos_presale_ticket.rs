@@ -29,6 +29,8 @@ pub struct PosPresaleTicket {
     #[serde(default)]
     pub lines: Vec<PresaleLine>,
     pub total: f64,
+    #[serde(default)]
+    pub operator_name: Option<String>,
 }
 
 pub fn parse_pos_presale_ticket_from_value(value: &serde_json::Value) -> Result<PosPresaleTicket> {

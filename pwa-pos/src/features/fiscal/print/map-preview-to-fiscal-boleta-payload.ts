@@ -1,5 +1,8 @@
 import type { PosSaleTicketCompany } from "@kai/print-service-client";
-import { FISCAL_BOLETA_PREVIEW_PAYLOAD_VERSION } from "@kai/print-service-client";
+import {
+  FISCAL_BOLETA_PREVIEW_PAYLOAD_VERSION,
+  shouldShowReceptorOnFiscalBoletaTicket,
+} from "@kai/print-service-client";
 import type { FiscalBoletaPreviewPayload } from "@kai/print-service-client";
 import type { FiscalBoletaPrintPreview } from "../types/fiscal-emission.types";
 
@@ -25,6 +28,7 @@ export function mapPreviewToFiscalBoletaPayload(
     emisor: { ...preview.emisor },
     company: mapEmisorToCompany(preview.emisor),
     receptor: { ...preview.receptor },
+    showReceptorOnTicket: shouldShowReceptorOnFiscalBoletaTicket(preview.receptor),
     lines: preview.lines.map((line) => ({
       name: line.name,
       quantity: line.quantity,

@@ -8,7 +8,6 @@ import {
   type PrintFormat,
 } from "@kai/print-service-client";
 import type { CustomerCreditNotePrintData } from "@/features/customer-credit-notes/types/customer-credit-note-print.types";
-import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import {
   enqueueVectorTicketAndAwaitDelivery,
   printPosTicketBrowserFallback,
@@ -54,6 +53,7 @@ function creditNoteToTicketPayload(
     },
     refundMode: data.refundMode,
     refundPayments: data.refundPayments,
+    operatorName: data.operatorName?.trim() || null,
   };
 }
 
@@ -85,8 +85,7 @@ export async function printCustomerCreditNoteReceiptAgentOrBrowser(
     return printPosTicketBrowserFallback(ticketHtml, ticketMeta);
   }
 
-  const logoBase64 = await fetchReceiptLogoBase64(data.company.logoUrl, origin);
-  const ticket = creditNoteToTicketPayload(data, logoBase64);
+  const ticket = creditNoteToTicketPayload(data, null);
   let enqueued = false;
 
   try {

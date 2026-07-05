@@ -39,6 +39,8 @@ pub struct PosQuotationTicket {
     pub total: f64,
     pub notes: Option<String>,
     pub terms: Option<String>,
+    #[serde(default)]
+    pub operator_name: Option<String>,
 }
 
 pub fn parse_pos_quotation_ticket_from_value(value: &serde_json::Value) -> Result<PosQuotationTicket> {

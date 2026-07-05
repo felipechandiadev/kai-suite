@@ -32,6 +32,7 @@ export type PosQuotationTicketPayload = {
   total: number;
   notes?: string | null;
   terms?: string | null;
+  operatorName?: string | null;
 };
 
 export type PosQuotationTicketPrintExtras = {

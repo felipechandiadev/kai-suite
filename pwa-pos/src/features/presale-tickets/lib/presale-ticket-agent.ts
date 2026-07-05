@@ -11,7 +11,6 @@ import {
 } from "@kai/print-service-client";
 import type { CompanyDetails } from "@/features/company/infrastructure/company.request";
 import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
-import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import {
   enqueueVectorTicketAndAwaitDelivery,
   printPosTicketBrowserFallback,
@@ -87,11 +86,7 @@ export async function printPresaleTicketAgentOrBrowser(
   }
 
   const company = await getCompanyDetailsAction();
-  const logoBase64 = await fetchReceiptLogoBase64(
-    company?.logoUrl,
-    window.location.origin,
-  );
-  const payload = presaleTicketToPayload(ticket, company, logoBase64);
+  const payload = presaleTicketToPayload(ticket, company, null);
   let enqueued = false;
 
   try {

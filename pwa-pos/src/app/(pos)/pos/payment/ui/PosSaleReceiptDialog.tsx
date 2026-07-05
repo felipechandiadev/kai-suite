@@ -32,8 +32,18 @@ import {
   printPosSaleTicketAgentOrBrowser,
   printPosSaleTicketAgentOrBrowserFireAndForget,
 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
+import {
+  ticketOperatorHtml,
+  ticketClosingMessageHtml,
+  ticketFooterFolioDateHtml,
+} from "@/features/pos-print/lib/ticket-receipt-footer";
 import { thermalReceiptCssForFormat } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
+import {
+  printHtmlShowsLogo,
+  type PosPrintHtmlOptions,
+} from "@/features/pos-print/lib/pos-print-html-options";
 import { PosPrintDocumentPreview } from "@/features/pos-print/ui/PosPrintDocumentPreview";
+import { PosPrintPreviewReprintButton } from "@/features/pos-print/ui/PosPrintPreviewReprintButton";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";
 import { formatReceiptLineDisplayName } from "@/features/pos-print/lib/format-receipt-line-name";
 import { formatInternalCreditPlanSubtitle } from "@/features/pos-payment/lib/internal-credit-plan";
@@ -173,6 +183,8 @@ export type PosSaleReceiptData = {
   }> | null;
   /** Liquidación de saldo NC al cliente (egreso en caja). */
   ncPayout?: Array<{ folio: string; amount: number }> | null;
+  /** Operador POS al emitir/imprimir (pie «Operador:»). */
+  operatorName?: string | null;
 };
 
 export type PosSaleReceiptSnapshotInput = {
@@ -207,6 +219,7 @@ export type PosSaleReceiptSnapshotInput = {
   arCollection?: Array<{ folio: string; amount: number }> | null;
   quotaCollection?: Array<{ folio: string; dueDate?: string | null; amount: number }> | null;
   ncPayout?: Array<{ folio: string; amount: number }> | null;
+  operatorName?: string | null;
 };
 
 function paymentLabel(
@@ -363,6 +376,7 @@ export function buildPosSaleReceiptSnapshot(input: PosSaleReceiptSnapshotInput):
     creditInstallmentPlan: creditLine?.internalCreditPlan?.scheduledLines?.length
       ? creditLine.internalCreditPlan.scheduledLines
       : null,
+    operatorName: input.operatorName?.trim() ? input.operatorName.trim() : null,
   };
 }
 
@@ -370,12 +384,14 @@ export function buildPosSaleReceiptHtml(
   data: PosSaleReceiptData,
   origin: string,
   format: PrintFormat = "ticket_80mm",
+  options?: PosPrintHtmlOptions,
 ): string {
   const isBackorder = data.documentKind === "backorder";
   const isArCollection = Boolean(data.arCollection?.length);
   const isQuotaCollection = Boolean(data.quotaCollection?.length);
   const isNcPayout = Boolean(data.ncPayout?.length);
-  const logo = resolveReceiptLogoUrl(data.company.logoUrl, origin);
+  const showLogo = printHtmlShowsLogo(options);
+  const logo = showLogo ? resolveReceiptLogoUrl(data.company.logoUrl, origin) : "";
   const displayName = data.company.nombreFantasia || data.company.razonSocial;
   const receiptHeading = isNcPayout
     ? "DEVOLUCIÓN SALDO NC"
@@ -384,7 +400,7 @@ export function buildPosSaleReceiptHtml(
       : isArCollection
         ? "COBRO PENDIENTE"
     : isBackorder
-      ? "ENCARGO"
+      ? "Detalle de Encargo"
       : "Detalle de Venta";
 
   const lineRows = data.lines
@@ -427,10 +443,6 @@ export function buildPosSaleReceiptHtml(
     .join("");
 
   const bo = data.backorder;
-  const backorderHeaderLine =
-    isBackorder && bo
-      ? `<p class="center muted">Abono: ${formatMoney(bo.depositAmount)}${bo.percent > 0 ? ` · ${bo.percent}%` : ""}</p>`
-      : "";
 
   const collectionPendingBanner = data.collectionPending
     ? `<p class="center" style="font-weight:700;margin:6px 0;">COBRO PENDIENTE</p>
@@ -494,6 +506,25 @@ export function buildPosSaleReceiptHtml(
          ${data.totals.change > 0.01 ? `<div class="row"><span>Vuelto</span><span>${formatMoney(data.totals.change)}</span></div>` : ""}`
       : "";
 
+  const fiscalBodyBanner = [
+    data.fiscalFolio?.trim()
+      ? `<p class="center muted">Boleta SII: ${escapeHtml(data.fiscalFolio.trim())}</p>`
+      : "",
+    data.fiscalBoletaWarning?.trim()
+      ? `<p class="center" style="color:#b45309">${escapeHtml(data.fiscalBoletaWarning.trim())}</p>`
+      : "",
+  ].join("");
+
+  const closingMessage = isNcPayout
+    ? "Comprobante de devolución de saldo NC"
+    : isArCollection || isQuotaCollection
+      ? "Comprobante de cobro"
+      : isBackorder
+        ? ""
+        : data.collectionPending
+          ? "Venta registrada — cobro pendiente"
+          : "Gracias por su compra";
+
   const cust = data.customer;
   const custBlock =
     cust && (cust.name?.trim() || cust.document?.trim() || cust.phone?.trim())
@@ -518,24 +549,19 @@ export function buildPosSaleReceiptHtml(
 <title>Venta ${escapeHtml(data.folio)}</title>
 <style>${thermalReceiptCssForFormat(format)}</style></head><body>
 <div class="receipt">
-  <img class="logo" src="${escapeHtml(logo)}" alt="" />
+  ${showLogo ? `<img class="logo" src="${escapeHtml(logo)}" alt="" />` : ""}
   <p class="store">${escapeHtml(displayName)}</p>
   ${data.company.razonSocial && data.company.nombreFantasia ? `<p class="legal">${escapeHtml(data.company.razonSocial)}</p>` : ""}
   ${data.company.rut ? `<p class="legal">RUT: ${escapeHtml(data.company.rut)}</p>` : ""}
   ${data.company.businessActivity ? `<p class="legal">${escapeHtml(data.company.businessActivity)}</p>` : ""}
-  <div class="sep"></div>
-  <p class="center muted">Folio: ${escapeHtml(data.folio)}</p>
-  ${data.fiscalFolio ? `<p class="center muted">Boleta SII: ${escapeHtml(data.fiscalFolio)}</p>` : ""}
-  ${data.fiscalBoletaWarning ? `<p class="center" style="color:#b45309">${escapeHtml(data.fiscalBoletaWarning)}</p>` : ""}
-  <p class="center muted">${escapeHtml(formatDateTime(data.issuedAtIso))}</p>
-  ${collectionPendingBanner}
-  ${backorderHeaderLine}
+  ${fiscalBodyBanner}
   ${custBlock}
   ${quotBlock}
   <div class="sep"></div>
   <div class="section-title" style="text-transform:none">${escapeHtml(receiptHeading)}</div>
   <table class="lines" role="presentation">${lineRows}</table>
   ${promoRows ? `<div class="sep"></div><div class="section-title">Promociones</div>${promoRows}` : ""}
+  ${collectionPendingBanner ? `<div class="sep"></div>${collectionPendingBanner}` : ""}
   <div class="sep"></div>
   <div class="row"><span>Subtotal neto</span><span>${formatMoney(data.totals.subtotalNet)}</span></div>
   <div class="row"><span>Impuestos</span><span>${formatMoney(data.totals.taxes)}</span></div>
@@ -554,19 +580,10 @@ export function buildPosSaleReceiptHtml(
   ${creditPlanBlock}
   ${ncPayoutBlock}
   <div class="sep"></div>
-  <p class="center muted" style="margin-top:10px;">${
-    isNcPayout
-      ? "Comprobante de devolución de saldo NC"
-      : isArCollection
-      ? "Comprobante de cobro"
-      : isBackorder
-        ? "Comprobante de abono de encargo"
-        : data.collectionPending
-          ? "Venta registrada — cobro pendiente"
-          : "Gracias por su compra"
-  }</p>
-  <div class="sep"></div>
   <div class="barcode-section"><div class="barcode-wrap">${receiptBarcodeSvgString(data.folio)}</div></div>
+  ${ticketFooterFolioDateHtml(data.folio, data.issuedAtIso)}
+  ${ticketClosingMessageHtml(closingMessage)}
+  ${ticketOperatorHtml(data.operatorName)}
 </div>
 </body></html>`;
 }
@@ -693,7 +710,7 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
     if (!data || typeof window === "undefined") return null;
     return isDocument
       ? buildPosSaleDocumentHtml(data, wireFormat)
-      : buildPosSaleReceiptHtml(data, window.location.origin, wireFormat);
+      : buildPosSaleReceiptHtml(data, window.location.origin, wireFormat, { showLogo: false });
   }, [data, isDocument, wireFormat]);
 
   useEffect(() => {
@@ -829,16 +846,13 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
       data-test-id="pos-payment-success-dialog"
       actions={
         <>
-          <Button
-            type="button"
-            variant="outlined"
-            disabled={fiscalPrintBusy}
-            loading={fiscalPrintBusy}
+          <PosPrintPreviewReprintButton
             onClick={() => void handleReprintComprobante()}
+            disabled={fiscalPrintBusy}
+            isLoading={fiscalPrintBusy}
+            title={hasFiscalBoletaOnRecord ? "Imprimir boleta SII" : "Imprimir ticket"}
             data-test-id="pos-sale-receipt-reprint-comprobante"
-          >
-            {hasFiscalBoletaOnRecord ? "Imprimir boleta SII" : "Imprimir ticket"}
-          </Button>
+          />
           <Button type="button" variant="primary" onClick={onClose}>
             Volver al POS
           </Button>

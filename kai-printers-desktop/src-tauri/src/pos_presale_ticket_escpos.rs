@@ -2,9 +2,10 @@
 
 use crate::pos_presale_ticket::{parse_pos_presale_ticket_from_value, PosPresaleTicket};
 use crate::pos_sale_ticket_escpos::{
-    append_barcode_centered, append_divider, append_line, append_ticket_logo, escpos_align,
-    escpos_apply_ticket_typography, escpos_bold, escpos_double_height_off, escpos_double_height_on,
-    escpos_init, format_datetime, money, pad_left, wrap_lines, layout_width,
+    append_barcode_centered, append_divider, append_line, append_ticket_logo,
+    append_operator_footer, escpos_align, escpos_apply_ticket_typography, escpos_bold,
+    escpos_double_height_off, escpos_double_height_on, escpos_init, format_datetime, money,
+    pad_left, wrap_lines, layout_width,
 };
 use anyhow::Result;
 use std::path::PathBuf;
@@ -79,11 +80,6 @@ pub fn build_pos_presale_ticket_escpos(ticket: &PosPresaleTicket) -> Result<Vec<
     escpos_bold(&mut buf, false);
     escpos_align(&mut buf, 0);
 
-    append_line(
-        &mut buf,
-        &format!("Emitido: {}", format_datetime(&ticket.issued_at)),
-    );
-
     if let Some(b) = ticket.branch_name.as_deref().filter(|s| !s.trim().is_empty()) {
         append_line(&mut buf, &pad_left("Sucursal:", b.trim()));
     }
@@ -117,7 +113,9 @@ pub fn build_pos_presale_ticket_escpos(ticket: &PosPresaleTicket) -> Result<Vec<
     escpos_bold(&mut buf, false);
 
     escpos_align(&mut buf, 1);
-    append_line(&mut buf, "Gracias por su compra");
+    append_line(&mut buf, "Presenta este codigo en caja");
+    append_line(&mut buf, &format_datetime(&ticket.issued_at));
+    append_operator_footer(&mut buf, ticket.operator_name.as_deref());
     escpos_align(&mut buf, 0);
     append_presale_bottom_feed(&mut buf);
 

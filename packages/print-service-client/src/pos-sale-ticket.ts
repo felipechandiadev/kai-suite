@@ -66,12 +66,38 @@ export type PosSaleTicketTotals = {
   change: number;
 };
 
+export type PosSaleTicketCollectionRow = {
+  folio: string;
+  amount: number;
+};
+
+export type PosSaleTicketQuotaCollectionRow = {
+  folio: string;
+  dueDate?: string | null;
+  amount: number;
+};
+
+export type PosSaleTicketCreditInstallmentRow = {
+  installmentNumber: number;
+  dueDate: string;
+  amount: number;
+};
+
 export type PosSaleTicketPayload = {
   version: typeof POS_SALE_TICKET_PAYLOAD_VERSION;
   folio: string;
   issuedAtIso: string;
   documentKind: PosSaleTicketDocumentKind;
   backorder?: PosSaleTicketBackorder | null;
+  /** Folio SII cuando la venta emitió boleta (referencia en ticket interno). */
+  fiscalFolio?: string | null;
+  fiscalBoletaWarning?: string | null;
+  /** Venta registrada sin cobro inmediato. */
+  collectionPending?: boolean;
+  arCollection?: PosSaleTicketCollectionRow[] | null;
+  quotaCollection?: PosSaleTicketQuotaCollectionRow[] | null;
+  creditInstallmentPlan?: PosSaleTicketCreditInstallmentRow[] | null;
+  ncPayout?: PosSaleTicketCollectionRow[] | null;
   company: PosSaleTicketCompany;
   customer?: PosSaleTicketCustomer | null;
   quotation?: PosSaleTicketQuotation | null;
@@ -79,6 +105,8 @@ export type PosSaleTicketPayload = {
   promotions: PosSaleTicketPromotion[];
   totals: PosSaleTicketTotals;
   payments: PosSaleTicketPayment[];
+  /** Operador POS al emitir/imprimir (pie «Operador:»). */
+  operatorName?: string | null;
 };
 
 export type PosSaleTicketPrintExtras = {

@@ -46,7 +46,7 @@ export function PosPrintDocumentPreview({
 
   return (
     <div
-      className={`mx-auto w-full max-h-[min(62vh,580px)] overflow-y-auto overflow-x-auto rounded-lg border border-border p-2 ${
+      className={`mx-auto w-full max-h-[min(62vh,580px)] overflow-y-auto overflow-x-auto ${
         isDocument ? "max-w-[min(100%,720px)]" : "max-w-[min(100%,420px)]"
       }`}
       data-test-id={`${testId}-wrap`}

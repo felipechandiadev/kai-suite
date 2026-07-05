@@ -8,6 +8,7 @@ use crate::ticket_barcode::{
 use anyhow::{Context, Result};
 use printpdf::{BuiltinFont, Color, Line, Mm, PdfDocument, Point, Rgb};
 use serde::Deserialize;
+use serde::de::Deserializer;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
@@ -36,6 +37,16 @@ const WRAP_BODY_CHARS: usize = 42;
 const SECTION_SEP_THICKNESS_MM: f32 = 0.65;
 const SECTION_SEP_RGB: f32 = 0.28;
 
+/// Acepta `null` o array ausente → `Vec` vacío (payload POS envía `null` en colecciones vacías).
+fn deserialize_null_as_default_vec<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    let opt = Option::<Vec<T>>::deserialize(deserializer)?;
+    Ok(opt.unwrap_or_default())
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TicketCompany {
@@ -60,8 +71,8 @@ pub struct TicketCustomer {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct TicketQuotation {
-    document_number: Option<String>,
-    valid_until: Option<String>,
+    pub(crate) document_number: Option<String>,
+    pub(crate) valid_until: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -119,6 +130,29 @@ pub struct TicketTotals {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TicketCollectionRow {
+    pub folio: String,
+    pub amount: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TicketQuotaCollectionRow {
+    pub folio: String,
+    pub due_date: Option<String>,
+    pub amount: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TicketCreditInstallmentRow {
+    pub installment_number: i32,
+    pub due_date: String,
+    pub amount: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PosSaleTicket {
     #[serde(default)]
     #[allow(dead_code)]
@@ -128,6 +162,20 @@ pub struct PosSaleTicket {
     #[serde(default)]
     pub document_kind: String,
     pub backorder: Option<TicketBackorder>,
+    #[serde(default)]
+    pub fiscal_folio: Option<String>,
+    #[serde(default)]
+    pub fiscal_boleta_warning: Option<String>,
+    #[serde(default)]
+    pub collection_pending: bool,
+    #[serde(default, deserialize_with = "deserialize_null_as_default_vec")]
+    pub ar_collection: Vec<TicketCollectionRow>,
+    #[serde(default, deserialize_with = "deserialize_null_as_default_vec")]
+    pub quota_collection: Vec<TicketQuotaCollectionRow>,
+    #[serde(default, deserialize_with = "deserialize_null_as_default_vec")]
+    pub credit_installment_plan: Vec<TicketCreditInstallmentRow>,
+    #[serde(default, deserialize_with = "deserialize_null_as_default_vec")]
+    pub nc_payout: Vec<TicketCollectionRow>,
     pub company: TicketCompany,
     pub customer: Option<TicketCustomer>,
     pub quotation: Option<TicketQuotation>,
@@ -138,6 +186,40 @@ pub struct PosSaleTicket {
     pub totals: TicketTotals,
     #[serde(default)]
     pub payments: Vec<TicketPayment>,
+    #[serde(default)]
+    pub operator_name: Option<String>,
+}
+
+pub fn sale_ticket_section_heading(ticket: &PosSaleTicket) -> &'static str {
+    if !ticket.nc_payout.is_empty() {
+        return "DEVOLUCION SALDO NC";
+    }
+    if !ticket.quota_collection.is_empty() {
+        return "COBRO DE CUOTAS";
+    }
+    if !ticket.ar_collection.is_empty() {
+        return "COBRO PENDIENTE";
+    }
+    if ticket.document_kind == "backorder" {
+        return "Detalle de Encargo";
+    }
+    "Detalle de Venta"
+}
+
+pub fn sale_ticket_thanks_message(ticket: &PosSaleTicket) -> &'static str {
+    if !ticket.nc_payout.is_empty() {
+        return "Comprobante de devolucion de saldo NC";
+    }
+    if !ticket.ar_collection.is_empty() || !ticket.quota_collection.is_empty() {
+        return "Comprobante de cobro";
+    }
+    if ticket.document_kind == "backorder" {
+        return "";
+    }
+    if ticket.collection_pending {
+        return "Venta registrada - cobro pendiente";
+    }
+    "Gracias por su compra"
 }
 
 struct Layout {
@@ -231,6 +313,17 @@ fn format_datetime(iso: &str) -> String {
         return dt.format("%d/%m/%Y %H:%M").to_string();
     }
     ticket_text(iso)
+}
+
+fn format_date_short(iso_or_date: &str) -> String {
+    let s = iso_or_date.trim();
+    if let Ok(dt) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+        return dt.format("%d/%m/%Y").to_string();
+    }
+    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
+        return dt.format("%d/%m/%Y").to_string();
+    }
+    ticket_text(s)
 }
 
 /// Punto tipográfico → milímetros (PDF).
@@ -539,6 +632,68 @@ fn plan_ticket(
 
     layout.advance(0.5);
 
+    if draw.is_some() {
+        if let Some((page_h, layer, _, _)) = draw {
+            dashed_sep(*page_h, layer, layout);
+        }
+    } else {
+        layout.advance(LINE_MM + 2.0);
+    }
+    let folio = ticket.folio.trim();
+    if !folio.is_empty() {
+        if let Some((page_h, layer, font, _)) = draw {
+            write_wrapped(
+                *page_h,
+                layer,
+                font,
+                layout,
+                &format!("Folio: {folio}"),
+                FONT_SMALL,
+                true,
+                WRAP_BODY_CHARS,
+            );
+        } else {
+            layout.advance(LINE_MM);
+        }
+    }
+    if let Some(ff) = ticket.fiscal_folio.as_deref().filter(|s| !s.trim().is_empty()) {
+        let line = format!("Boleta SII: {}", ff.trim());
+        if let Some((page_h, layer, font, _)) = draw {
+            write_wrapped(*page_h, layer, font, layout, &line, FONT_SMALL, true, WRAP_BODY_CHARS);
+        } else {
+            layout.advance(LINE_MM);
+        }
+    }
+    if let Some(w) = ticket
+        .fiscal_boleta_warning
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+    {
+        if let Some((page_h, layer, font, _)) = draw {
+            write_wrapped(*page_h, layer, font, layout, w.trim(), FONT_SMALL, true, WRAP_BODY_CHARS);
+        } else {
+            layout.advance(LINE_MM);
+        }
+    }
+    let dt = format_datetime(&ticket.issued_at_iso);
+    if !dt.is_empty() && dt != "—" {
+        if let Some((page_h, layer, font, _)) = draw {
+            write_wrapped(*page_h, layer, font, layout, &dt, FONT_SMALL, true, WRAP_BODY_CHARS);
+        } else {
+            layout.advance(LINE_MM);
+        }
+    }
+    if ticket.collection_pending {
+        if let Some((page_h, layer, font_bold, _)) = draw {
+            write_line_centered(*page_h, layer, font_bold, FONT_BODY, layout.y, "COBRO PENDIENTE");
+            layout.advance(LINE_MM);
+            let pending = format!("Saldo por cobrar: {}", money(ticket.totals.total));
+            write_wrapped(*page_h, layer, font_bold, layout, &pending, FONT_SMALL, true, WRAP_BODY_CHARS);
+        } else {
+            layout.advance(LINE_MM * 2.0);
+        }
+    }
+
     if is_backorder {
         if let Some(bo) = &ticket.backorder {
             let mut s = format!("Abono: {}", money(bo.deposit_amount));
@@ -628,11 +783,7 @@ fn plan_ticket(
     if draw.is_some() {
         if let Some((page_h, layer, _, font_bold)) = draw {
             dashed_sep(*page_h, layer, layout);
-            let heading = if is_backorder {
-                "ENCARGO"
-            } else {
-                "Detalle de Venta"
-            };
+            let heading = sale_ticket_section_heading(ticket);
             write_line_centered(*page_h, layer, font_bold, FONT_BODY, layout.y, heading);
             layout.advance(LINE_MM + 0.5);
         }
@@ -818,11 +969,105 @@ fn plan_ticket(
         }
     }
 
-    let thanks = if is_backorder {
-        "Comprobante de abono de encargo"
-    } else {
-        "Gracias por su compra"
-    };
+    if !ticket.ar_collection.is_empty() {
+        if draw.is_some() {
+            if let Some((page_h, layer, _, font_bold)) = draw {
+                dashed_sep(*page_h, layer, layout);
+                write_section_title(*page_h, layer, font_bold, layout, "Ventas cobradas");
+            }
+        } else {
+            layout.advance(LINE_MM + 2.0 + LINE_MM);
+        }
+        for row in &ticket.ar_collection {
+            if let Some((page_h, layer, font, _)) = draw {
+                write_row(
+                    *page_h,
+                    layer,
+                    font,
+                    FONT_BODY,
+                    layout,
+                    row.folio.trim(),
+                    &money(row.amount),
+                );
+            } else {
+                layout.advance(LINE_MM);
+            }
+        }
+    }
+
+    if !ticket.quota_collection.is_empty() {
+        if draw.is_some() {
+            if let Some((page_h, layer, _, font_bold)) = draw {
+                dashed_sep(*page_h, layer, layout);
+                write_section_title(*page_h, layer, font_bold, layout, "Cuotas cobradas");
+            }
+        } else {
+            layout.advance(LINE_MM + 2.0 + LINE_MM);
+        }
+        for row in &ticket.quota_collection {
+            let mut label = row.folio.trim().to_string();
+            if let Some(due) = row.due_date.as_deref().filter(|s| !s.trim().is_empty()) {
+                label.push_str(" · vence ");
+                label.push_str(&format_date_short(due));
+            }
+            if let Some((page_h, layer, font, _)) = draw {
+                write_row(*page_h, layer, font, FONT_BODY, layout, &label, &money(row.amount));
+            } else {
+                layout.advance(LINE_MM);
+            }
+        }
+    }
+
+    if !ticket.credit_installment_plan.is_empty() {
+        if draw.is_some() {
+            if let Some((page_h, layer, _, font_bold)) = draw {
+                dashed_sep(*page_h, layer, layout);
+                write_section_title(*page_h, layer, font_bold, layout, "Plan de cobro (credito interno)");
+            }
+        } else {
+            layout.advance(LINE_MM + 2.0 + LINE_MM);
+        }
+        for row in &ticket.credit_installment_plan {
+            let mut label = format!("Cuota {}", row.installment_number);
+            if !row.due_date.trim().is_empty() {
+                label.push_str(" · ");
+                label.push_str(&format_date_short(row.due_date.trim()));
+            }
+            if let Some((page_h, layer, font, _)) = draw {
+                write_row(*page_h, layer, font, FONT_BODY, layout, &label, &money(row.amount));
+            } else {
+                layout.advance(LINE_MM);
+            }
+        }
+    }
+
+    if !ticket.nc_payout.is_empty() {
+        if draw.is_some() {
+            if let Some((page_h, layer, _, font_bold)) = draw {
+                dashed_sep(*page_h, layer, layout);
+                write_section_title(*page_h, layer, font_bold, layout, "Notas de credito liquidadas");
+            }
+        } else {
+            layout.advance(LINE_MM + 2.0 + LINE_MM);
+        }
+        for row in &ticket.nc_payout {
+            if let Some((page_h, layer, font, _)) = draw {
+                write_row(
+                    *page_h,
+                    layer,
+                    font,
+                    FONT_BODY,
+                    layout,
+                    row.folio.trim(),
+                    &money(row.amount),
+                );
+            } else {
+                layout.advance(LINE_MM);
+            }
+        }
+    }
+
+    let thanks = sale_ticket_thanks_message(ticket);
     if draw.is_some() {
         if let Some((page_h, layer, font, _)) = draw {
             let folio = ticket.folio.trim();
@@ -854,7 +1099,7 @@ fn same_label(a: &str, b: &str) -> bool {
     a.trim().eq_ignore_ascii_case(b.trim())
 }
 
-fn format_product_line_name(line: &TicketLine) -> String {
+pub(crate) fn format_product_line_name(line: &TicketLine) -> String {
     let base = line.product_name.trim();
     if base.is_empty() {
         return String::new();

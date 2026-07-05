@@ -9,6 +9,7 @@
     "dev:eshop": "bash scripts/dev-all.sh eshop",
     "dev:san-sebastian": "bash scripts/dev-san-sebastian.sh",
     "setup:san-sebastian": "bash scripts/setup-san-sebastian-dev.sh",
+    "setup:demo": "bash scripts/setup-demo-dev.sh",
     "dev:infra": "bash scripts/dev-infra.sh",
     "dev:apps": "bash scripts/dev-apps.sh lite",
     "dev:apps:all": "bash scripts/dev-apps.sh all",

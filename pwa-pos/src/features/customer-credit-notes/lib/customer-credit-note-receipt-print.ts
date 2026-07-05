@@ -2,7 +2,15 @@ import type { CustomerCreditNotePrintData } from "../types/customer-credit-note-
 import type { PrintFormat } from "@kai/print-service-client";
 import { printCustomerCreditNoteReceiptAgentOrBrowserFireAndForget } from "@/features/customer-credit-notes/lib/customer-credit-note-ticket-agent";
 import { thermalReceiptBodyCssForFormat } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
+import {
+  printHtmlShowsLogo,
+  type PosPrintHtmlOptions,
+} from "@/features/pos-print/lib/pos-print-html-options";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";
+import {
+  ticketOperatorHtml,
+  ticketFooterFolioDateHtml,
+} from "@/features/pos-print/lib/ticket-receipt-footer";
 
 function escapeHtml(s: string) {
   return s
@@ -21,14 +29,6 @@ function formatMoney(n: number) {
   }).format(Math.round(n));
 }
 
-function formatDateTime(iso: string) {
-  try {
-    return new Date(iso).toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" });
-  } catch {
-    return iso;
-  }
-}
-
 function resolveReceiptLogoUrl(companyLogoUrl: string | null | undefined, origin: string): string {
   const appDefault = `${origin}/logo.png`;
   const raw = companyLogoUrl?.trim();
@@ -42,8 +42,10 @@ export function buildCustomerCreditNoteReceiptHtml(
   data: CustomerCreditNotePrintData,
   origin: string,
   format: PrintFormat = "ticket_80mm",
+  options?: PosPrintHtmlOptions,
 ): string {
-  const logo = resolveReceiptLogoUrl(data.company.logoUrl, origin);
+  const showLogo = printHtmlShowsLogo(options);
+  const logo = showLogo ? resolveReceiptLogoUrl(data.company.logoUrl, origin) : "";
   const displayName = data.company.nombreFantasia?.trim() || data.company.razonSocial;
   const folio = data.creditNoteFolio;
 
@@ -88,15 +90,21 @@ export function buildCustomerCreditNoteReceiptHtml(
          ${cust.document?.trim() ? `<div class="row"><span>Documento</span><span>${escapeHtml(cust.document.trim())}</span></div>` : ""}`
       : "";
 
+  const posBlock =
+    data.pos.branchName?.trim() || data.pos.pointOfSaleName?.trim()
+      ? `${data.pos.branchName?.trim() ? `<div class="row"><span>Sucursal</span><span class="tright">${escapeHtml(data.pos.branchName.trim())}</span></div>` : ""}
+         ${data.pos.pointOfSaleName?.trim() ? `<div class="row"><span>Punto venta</span><span class="tright">${escapeHtml(data.pos.pointOfSaleName.trim())}</span></div>` : ""}`
+      : "";
+
   return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>NC ${escapeHtml(folio)}</title>
 <style>${thermalReceiptBodyCssForFormat(format)}</style></head><body>
-<div class="logo"><img src="${escapeHtml(logo)}" alt=""/></div>
-<h1>NOTA DE CRÉDITO</h1>
-<div class="muted" style="text-align:center">${escapeHtml(displayName)}</div>
-${data.company.rut ? `<div class="muted" style="text-align:center">RUT ${escapeHtml(data.company.rut)}</div>` : ""}
-<div class="barcode-section"><div class="barcode">${receiptBarcodeSvgString(folio)}</div></div>
-<div class="row"><span>Folio NC</span><span class="tright">${escapeHtml(folio)}</span></div>
-<div class="row"><span>Fecha</span><span>${escapeHtml(formatDateTime(data.issuedAtIso))}</span></div>
+${showLogo ? `<div class="logo"><img src="${escapeHtml(logo)}" alt=""/></div>` : ""}
+<p class="store center">${escapeHtml(displayName)}</p>
+${data.company.razonSocial && data.company.nombreFantasia ? `<p class="legal center">${escapeHtml(data.company.razonSocial)}</p>` : ""}
+${data.company.rut ? `<p class="legal center">RUT ${escapeHtml(data.company.rut)}</p>` : ""}
+<div class="sep"></div>
+<h1 class="center">NOTA DE CRÉDITO</h1>
+${posBlock ? `<div class="sep"></div>${posBlock}` : ""}
 <div class="sep"></div>
 <div class="section-title">Referencias</div>
 <div class="row"><span>Venta origen</span><span>${escapeHtml(data.originalSaleFolio)}</span></div>
@@ -111,6 +119,10 @@ ${custBlock}
 <div class="row"><span>Descuentos</span><span>${formatMoney(data.totals.discounts)}</span></div>
 ${refundBlock}
 <div class="row total-row"><span>Monto NC</span><span>${formatMoney(data.totals.total)}</span></div>
+<div class="sep"></div>
+<div class="barcode-section"><div class="barcode">${receiptBarcodeSvgString(folio)}</div></div>
+${ticketFooterFolioDateHtml(folio, data.issuedAtIso)}
+${ticketOperatorHtml(data.operatorName)}
 </body></html>`;
 }
 

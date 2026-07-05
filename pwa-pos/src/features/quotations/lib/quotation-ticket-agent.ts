@@ -7,7 +7,6 @@ import {
   type PrintFormat,
 } from "@kai/print-service-client";
 import type { CompanyDetails } from "@/features/company/infrastructure/company.request";
-import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import {
   enqueueVectorTicketAndAwaitDelivery,
   printPosTicketBrowserFallback,
@@ -57,6 +56,7 @@ function quotationToTicketPayload(
     total: q.total,
     notes: q.notes?.trim() || null,
     terms: q.terms?.trim() || null,
+    operatorName: input.operatorName?.trim() || null,
   };
 }
 
@@ -88,11 +88,7 @@ export async function printPosQuotationReceiptAgentOrBrowser(
     return printPosTicketBrowserFallback(ticketHtml, ticketMeta);
   }
 
-  const logoBase64 = await fetchReceiptLogoBase64(
-    input.company?.logoUrl,
-    origin,
-  );
-  const ticket = quotationToTicketPayload(input, logoBase64);
+  const ticket = quotationToTicketPayload(input, null);
   let enqueued = false;
 
   try {

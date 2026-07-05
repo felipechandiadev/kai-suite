@@ -4,10 +4,10 @@ use crate::pos_payment_in_ticket::{
     parse_pos_payment_in_ticket_from_value, PaymentInAllocation, PaymentInLine, PosPaymentInTicket,
 };
 use crate::pos_sale_ticket_escpos::{
-    append_barcode_centered, append_divider, append_label_value_wrapped, append_line,
-    append_ticket_logo, escpos_align, escpos_apply_ticket_typography, escpos_bold,
-    escpos_double_height_off, escpos_double_height_on, escpos_init, format_datetime, money,
-    pad_left, wrap_lines, layout_width,
+    append_divider, append_label_value_wrapped, append_line, append_ticket_logo,
+    append_folio_barcode_footer, escpos_align, escpos_apply_ticket_typography, escpos_bold,
+    escpos_double_height_off, escpos_double_height_on, escpos_init, footer_folio_datetime_line,
+    format_datetime, money, pad_left, wrap_lines, layout_width,
 };
 use anyhow::Result;
 use std::path::PathBuf;
@@ -94,17 +94,10 @@ pub fn build_pos_payment_in_ticket_escpos(t: &PosPaymentInTicket) -> Result<Vec<
 
     append_divider(&mut buf);
     escpos_bold(&mut buf, true);
-    append_line(&mut buf, "COMPROBANTE DE COBRO");
+    append_line(&mut buf, "COMPROBANTE DE PAGO");
     escpos_bold(&mut buf, false);
 
     let folio = t.document_number.trim();
-    if !folio.is_empty() {
-        append_line(&mut buf, &format!("Folio: {folio}"));
-    }
-    append_line(
-        &mut buf,
-        &format!("Fecha: {}", format_datetime(&t.issued_at)),
-    );
 
     let origin = [t.branch_name.as_deref(), t.point_of_sale_name.as_deref()]
         .into_iter()
@@ -113,9 +106,6 @@ pub fn build_pos_payment_in_ticket_escpos(t: &PosPaymentInTicket) -> Result<Vec<
         .join(" · ");
     if !origin.is_empty() {
         append_label_value_wrapped(&mut buf, "Origen:", &origin);
-    }
-    if let Some(op) = t.operator_name.as_deref().filter(|s| !s.trim().is_empty()) {
-        append_line(&mut buf, &pad_left("Cajero:", op.trim()));
     }
 
     let has_customer = t.customer_name.as_deref().map(|s| !s.trim().is_empty()).unwrap_or(false)
@@ -151,14 +141,14 @@ pub fn build_pos_payment_in_ticket_escpos(t: &PosPaymentInTicket) -> Result<Vec<
         append_wrapped_section(&mut buf, "Notas", notes);
     }
 
-    if !folio.is_empty() {
-        append_barcode_centered(&mut buf, folio);
-    }
-
-    let footer = format!("{folio} - {}", format_datetime(&t.issued_at));
-    escpos_align(&mut buf, 1);
-    append_line(&mut buf, &footer);
-    escpos_align(&mut buf, 0);
+    let footer_line = footer_folio_datetime_line(folio, &t.issued_at);
+    append_folio_barcode_footer(
+        &mut buf,
+        folio,
+        &footer_line,
+        None,
+        t.operator_name.as_deref(),
+    );
     append_line(&mut buf, "");
 
     Ok(buf)
@@ -194,6 +184,7 @@ mod tests {
         });
         let t = parse_pos_payment_in_ticket_from_value(&v).unwrap();
         let bytes = build_pos_payment_in_ticket_escpos(&t).unwrap();
-        assert!(bytes.windows(22).any(|w| w == b"COMPROBANTE DE COBRO"));
+        assert!(bytes.windows(11).any(|w| w == b"COMPROBANTE"));
+        assert!(bytes.windows(4).any(|w| w == b"PAGO"));
     }
 }

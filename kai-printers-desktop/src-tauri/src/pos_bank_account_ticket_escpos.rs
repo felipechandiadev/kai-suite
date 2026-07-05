@@ -75,24 +75,6 @@ pub fn build_pos_bank_account_ticket_escpos(t: &PosBankAccountTicket) -> Result<
         append_label_value_wrapped(&mut buf, "Notas:", notes.trim());
     }
 
-    let origin = [t.branch_name.as_deref(), t.point_of_sale_name.as_deref()]
-        .into_iter()
-        .filter_map(|s| s.map(str::trim).filter(|s| !s.is_empty()))
-        .collect::<Vec<_>>()
-        .join(" · ");
-    if !origin.is_empty() {
-        append_divider(&mut buf);
-        append_label_value_wrapped(&mut buf, "Origen:", &origin);
-    }
-
-    let issued = t.issued_at.trim();
-    if !issued.is_empty() {
-        append_line(
-            &mut buf,
-            &pad_left("Emitido:", &format_datetime(issued)),
-        );
-    }
-
     append_divider(&mut buf);
     escpos_align(&mut buf, 1);
     append_line(&mut buf, "Realice la transferencia");

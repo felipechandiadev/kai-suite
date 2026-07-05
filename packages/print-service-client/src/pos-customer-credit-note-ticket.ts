@@ -39,6 +39,7 @@ export type PosCustomerCreditNoteTicketPayload = {
   };
   refundMode?: "document" | "immediate";
   refundPayments?: PosCustomerCreditNoteRefundPayment[];
+  operatorName?: string | null;
 };
 
 export type PosCustomerCreditNoteTicketPrintExtras = {

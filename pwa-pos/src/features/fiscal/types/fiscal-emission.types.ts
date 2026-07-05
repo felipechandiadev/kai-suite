@@ -39,6 +39,7 @@ export type FiscalBoletaPrintPreview = {
   lines: FiscalBoletaPrintPreviewLine[];
   totals: FiscalBoletaPrintPreviewTotals;
   observation: string | null;
+  operatorName?: string | null;
 };
 
 export type FiscalEmissionResponse = {

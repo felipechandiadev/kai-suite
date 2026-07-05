@@ -64,10 +64,20 @@ object FiscalBoletaPreviewEscPos {
         val issued = t.jsonStr("issuedAt").orEmpty()
         w.line(w.padLeft("Fecha:", if (issued.length >= 10) issued.substring(0, 10) else issued))
 
-        val receptor = t.jsonObj("receptor")
-        w.line(w.padLeft("Receptor:", receptor?.jsonStr("rut").orEmpty()))
-        receptor?.jsonStr("name").present()?.let { name ->
-            for (line in w.wrapLines(name, widthChars)) w.line(line)
+        val showReceptor = t.jsonBool("showReceptorOnTicket")
+            ?: run {
+                val rut = t.jsonObj("receptor")?.jsonStr("rut").orEmpty()
+                    .replace(".", "")
+                    .trim()
+                    .uppercase()
+                rut != "66666666-6"
+            }
+        if (showReceptor) {
+            val receptor = t.jsonObj("receptor")
+            w.line(w.padLeft("Receptor:", receptor?.jsonStr("rut").orEmpty()))
+            receptor?.jsonStr("name").present()?.let { name ->
+                for (line in w.wrapLines(name, widthChars)) w.line(line)
+            }
         }
 
         w.divider()

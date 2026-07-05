@@ -388,6 +388,7 @@ where
                                     "variant-barcode-label",
                                 ],
                                 "ticketEscposEnabled": ticket_escpos,
+                                "ticketLogoManagedByAgent": true,
                             })))).await.ok();
                             let _ = state.broadcast.send(ph.to_string());
                             let snap = json!({
@@ -461,10 +462,13 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
                 }),
             )
         }
-        "get_printers" => match crate::platform::list_system_printers() {
-            Ok(p) => OutResponse::ok(rid, json!({ "printers": p })),
-            Err(e) => OutResponse::err(rid, format!("{e:#}")),
-        },
+        "get_printers" => {
+            crate::platform::invalidate_system_printers_cache();
+            match crate::platform::list_system_printers() {
+                Ok(p) => OutResponse::ok(rid, json!({ "printers": p })),
+                Err(e) => OutResponse::err(rid, format!("{e:#}")),
+            }
+        }
         "get_config" => {
             let lines = state.db.list_mapping_lines().unwrap_or_default();
             let legacy = state.db.get_mappings().unwrap_or_default();
@@ -490,7 +494,10 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
                 return OutResponse::err(rid, "purpose_and_printerName_required");
             }
             match state.db.set_mapping(purpose, printer) {
-                Ok(()) => OutResponse::ok(rid, json!({ "ok": true })),
+                Ok(()) => {
+                    crate::platform::invalidate_system_printers_cache();
+                    OutResponse::ok(rid, json!({ "ok": true }))
+                }
                 Err(e) => OutResponse::err(rid, format!("{e:#}")),
             }
         }
@@ -503,7 +510,10 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
                 .unwrap_or_default();
             let arr: Vec<serde_json::Value> = lines.iter().cloned().collect();
             match state.db.replace_all_mapping_lines(&arr) {
-                Ok(()) => OutResponse::ok(rid, json!({ "ok": true })),
+                Ok(()) => {
+                    crate::platform::invalidate_system_printers_cache();
+                    OutResponse::ok(rid, json!({ "ok": true }))
+                }
                 Err(e) => OutResponse::err(rid, format!("{e:#}")),
             }
         }
@@ -608,6 +618,7 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
                 .map(str::trim)
                 .filter(|s| !s.is_empty());
             let mut queue_filename = filename.to_string();
+            let build_started = std::time::Instant::now();
             let path = if is_vector_pos_ticket_type(print_type) {
                 let ticket = match env.extra.get("ticket") {
                     Some(v) => v,
@@ -638,9 +649,17 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
                 }
                 let write = vector_ticket_escpos_writer(print_type);
                 match write(&state.temp_dir, &ticket_value) {
-                    Ok(p) => p,
+                    Ok(p) => {
+                        let bytes = std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0);
+                        crate::print_diag::info_elapsed(
+                            "ESC/POS build",
+                            build_started,
+                            format!("{print_type} {bytes}B"),
+                        );
+                        p
+                    }
                     Err(e) => {
-                        tracing::error!(folio = %folio, %print_type, err = %e, "ticket ESC/POS failed");
+                        tracing::error!(folio = %folio, %print_type, err = ?e, "ticket ESC/POS failed");
                         return OutResponse::err(rid, format!("{e:#}"));
                     }
                 }
@@ -722,6 +741,7 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
             ) {
                 return OutResponse::err(rid, format!("{e:#}"));
             }
+            state.signal_job_pending();
             let escpos_job = queue_filename.ends_with(".escpos");
             state.agent_log.push_info(format!(
                 "POS encoló {print_type} ({}) propósito={purpose} alias={:?} cola={:?} red={:?}",
@@ -789,6 +809,7 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
             ) {
                 return OutResponse::err(rid, format!("{e:#}"));
             }
+            state.signal_job_pending();
             OutResponse::ok(rid, json!({ "jobId": id, "queued": true, "kind": "test_print" }))
         }
         _ => OutResponse::err(rid, format!("unknown_action:{action}")),

@@ -20,6 +20,7 @@ import {
   printCashClosingArqueo,
 } from "@/features/cash-closing/lib/print-cash-closing-arqueo";
 import { PosPrintDocumentPreview } from "@/features/pos-print/ui/PosPrintDocumentPreview";
+import { PosPrintPreviewReprintButton } from "@/features/pos-print/ui/PosPrintPreviewReprintButton";
 import {
   clearCashClosingResultSnapshot,
   readCashClosingResultSnapshot,
@@ -203,9 +204,11 @@ export default function CashClosingResultPageClient() {
         <section className="rounded-xl border border-border bg-background p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-foreground">Vista previa del arqueo</h2>
-            <Button type="button" variant="outlined" size="sm" onClick={onReprintArqueo}>
-              Reimprimir arqueo
-            </Button>
+            <PosPrintPreviewReprintButton
+              onClick={onReprintArqueo}
+              title="Reimprimir arqueo"
+              data-test-id="cash-closing-reprint-arqueo"
+            />
           </div>
           <div className="mt-3">
             <PosPrintDocumentPreview

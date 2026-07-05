@@ -12,7 +12,6 @@ import {
 import type { CashClosingPrintInput } from "@/features/cash-closing/lib/cash-closing-print.types";
 import { buildCashClosingDocumentHtml } from "@/features/cash-closing/lib/cash-closing-document-print";
 import { buildCashClosingReceiptHtml } from "@/features/cash-closing/lib/cash-closing-receipt-print";
-import { fetchReceiptLogoBase64 } from "@/features/pos-print/lib/pos-sale-ticket-agent";
 import {
   enqueueVectorTicketAndAwaitDelivery,
   printPosTicketBrowserFallback,
@@ -84,11 +83,7 @@ async function printCashClosingTicketVector(
     return printPosTicketBrowserFallback(ticketHtml, meta);
   }
 
-  const logoBase64 = await fetchReceiptLogoBase64(
-    input.company?.logoUrl,
-    origin,
-  );
-  const ticket = cashClosingToTicketPayload(input, logoBase64);
+  const ticket = cashClosingToTicketPayload(input, null);
   let enqueued = false;
 
   try {

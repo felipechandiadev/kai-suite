@@ -47,7 +47,7 @@ pub fn image_to_raster_bitmap(
         .min(1.0);
     let nw = ((w as f32 * scale).round() as u32).max(1);
     let nh = ((h as f32 * scale).round() as u32).max(1);
-    let resized = img.resize(nw, nh, FilterType::Lanczos3).to_luma8();
+    let resized = img.resize(nw, nh, FilterType::Triangle).to_luma8();
     let width_dots = nw as usize;
     let height_dots = nh as usize;
     let width_bytes = width_dots.div_ceil(8);

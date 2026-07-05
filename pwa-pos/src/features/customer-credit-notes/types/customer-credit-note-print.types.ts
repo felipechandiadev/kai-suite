@@ -47,6 +47,7 @@ export type CustomerCreditNotePrintData = {
   };
   refundMode: "document" | "immediate";
   refundPayments: CustomerCreditNoteRefundPayment[];
+  operatorName?: string | null;
 };
 
 export type BuildCustomerCreditNotePrintInput = {
@@ -66,4 +67,5 @@ export type BuildCustomerCreditNotePrintInput = {
   lineDiscountsTotal: number;
   refundMode?: "document" | "immediate";
   refundPayments?: CustomerCreditNoteRefundPayment[];
+  operatorName?: string | null;
 };

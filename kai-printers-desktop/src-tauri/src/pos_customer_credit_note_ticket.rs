@@ -55,6 +55,8 @@ pub struct PosCustomerCreditNoteTicket {
     pub refund_mode: Option<String>,
     #[serde(default)]
     pub refund_payments: Vec<RefundPayment>,
+    #[serde(default)]
+    pub operator_name: Option<String>,
 }
 
 pub fn parse_pos_customer_credit_note_ticket_from_value(

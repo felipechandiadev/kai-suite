@@ -113,6 +113,14 @@ export function posSaleReceiptToTicketPayload(
       amount: p.amount,
       detail: p.detail,
     })),
+    fiscalFolio: data.fiscalFolio?.trim() ? data.fiscalFolio.trim() : null,
+    fiscalBoletaWarning: data.fiscalBoletaWarning?.trim() ? data.fiscalBoletaWarning.trim() : null,
+    collectionPending: data.collectionPending === true,
+    arCollection: data.arCollection?.length ? data.arCollection : null,
+    quotaCollection: data.quotaCollection?.length ? data.quotaCollection : null,
+    creditInstallmentPlan: data.creditInstallmentPlan?.length ? data.creditInstallmentPlan : null,
+    ncPayout: data.ncPayout?.length ? data.ncPayout : null,
+    operatorName: data.operatorName?.trim() ? data.operatorName.trim() : null,
   };
 }
 
@@ -170,8 +178,7 @@ export async function printPosSaleTicketAgentOrBrowser(
     return printPosTicketBrowserFallback(ticketHtml, ticketMeta);
   }
 
-  const logoBase64 = await fetchReceiptLogoBase64(data.company.logoUrl, window.location.origin);
-  const ticketVector = posSaleReceiptToTicketPayload(data, { logoBase64: logoBase64 ?? null });
+  const ticketVector = posSaleReceiptToTicketPayload(data);
   let jobId: string | null = null;
 
   try {

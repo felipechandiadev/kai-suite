@@ -8,14 +8,20 @@ import {
 } from "@/features/cash-closing/lib/cash-closing-print-format";
 import type { PrintFormat } from "@kai/print-service-client";
 import { thermalReceiptCssForFormat } from "@/features/pos-print/lib/thermal-receipt-ticket-styles";
+import {
+  printHtmlShowsLogo,
+  type PosPrintHtmlOptions,
+} from "@/features/pos-print/lib/pos-print-html-options";
 
 export function buildCashClosingReceiptHtml(
   input: CashClosingPrintInput,
   origin: string,
   format: PrintFormat = "ticket_80mm",
+  options?: PosPrintHtmlOptions,
 ): string {
   const c = input.company;
-  const logo = resolveReceiptLogoUrl(c?.logoUrl, origin);
+  const showLogo = printHtmlShowsLogo(options);
+  const logo = showLogo ? resolveReceiptLogoUrl(c?.logoUrl, origin) : "";
   const displayName = c?.nombreFantasia?.trim() || c?.razonSocial?.trim() || "Empresa";
   const originLabel = [input.branchName?.trim(), input.pointOfSaleName?.trim()].filter(Boolean).join(" · ");
 
@@ -49,7 +55,7 @@ export function buildCashClosingReceiptHtml(
 .diff-warn span { color: #b45309; font-weight: ${600}; }
 </style></head><body>
 <div class="receipt">
-  <div class="center"><img src="${escapeHtml(logo)}" alt="" class="logo" /></div>
+  ${showLogo ? `<div class="center"><img src="${escapeHtml(logo)}" alt="" class="logo" /></div>` : ""}
   <div class="center bold">${escapeHtml(displayName)}</div>
   <div class="sep"></div>
   <div class="center bold">ARQUEO DE CAJA</div>

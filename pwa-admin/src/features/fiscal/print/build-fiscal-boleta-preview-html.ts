@@ -1,6 +1,8 @@
 import { thermalReceiptCssForFormat } from "@/features/print/lib/thermal-receipt-ticket-styles";
-import type { PrintFormat } from "@kai/print-service-client";
+import { shouldShowReceptorOnFiscalBoletaTicket, type PrintFormat } from "@kai/print-service-client";
 import type { FiscalBoletaPrintPreview } from "../types/fiscal.types";
+import { FISCAL_PDF417_SVG_CSS } from "./fiscal-timbre-pdf417";
+import { ticketOperatorHtml } from "@/features/print/lib/ticket-receipt-footer";
 
 function escapeHtml(s: string) {
   return s
@@ -94,7 +96,7 @@ export function buildFiscalBoletaPreviewHtml(
   <meta charset="utf-8" />
   <title>Boleta de prueba ${escapeHtml(preview.caso)}</title>
   <style>${thermalReceiptCssForFormat(format)}
-  .barcode-wrap.pdf417 svg { width: 100%; max-width: 100%; height: auto; display: block; margin: 0 auto; }
+  ${FISCAL_PDF417_SVG_CSS}
   </style>
 </head>
 <body>
@@ -109,8 +111,12 @@ export function buildFiscalBoletaPreviewHtml(
     <p class="center muted">Tipo DTE ${preview.tipoDte}</p>
     <div class="row"><span>Folio</span><span>${preview.folio}</span></div>
     <div class="row"><span>Fecha</span><span>${formatDate(preview.issuedAt)}</span></div>
-    <div class="row"><span>Receptor</span><span>${escapeHtml(preview.receptor.rut)}</span></div>
-    <p class="muted" style="margin:2px 0;">${escapeHtml(preview.receptor.name)}</p>
+    ${
+      shouldShowReceptorOnFiscalBoletaTicket(preview.receptor)
+        ? `<div class="row"><span>Receptor</span><span>${escapeHtml(preview.receptor.rut)}</span></div>
+    <p class="muted" style="margin:2px 0;">${escapeHtml(preview.receptor.name)}</p>`
+        : ""
+    }
     <div class="sep"></div>
     <table class="lines"><tbody>${lineRows}</tbody></table>
     <div class="sep"></div>
@@ -124,6 +130,7 @@ export function buildFiscalBoletaPreviewHtml(
     <div class="sep"></div>
     ${timbreBlock}
     <p class="center muted" style="margin-top:6px;">Documento de prueba sin validez fiscal</p>
+    ${ticketOperatorHtml(preview.operatorName)}
   </div>
 </body>
 </html>`;

@@ -72,11 +72,23 @@ impl ReachabilityCache {
         if force {
             return false;
         }
-        let Some(e) = self.get(line_id) else {
+        entry_is_fresh(self.get(line_id).as_ref())
+    }
+
+    /// Entrada reciente y online (evita reprobe TCP/lpstat al imprimir).
+    pub fn is_fresh_online(&self, line_id: &str) -> bool {
+        let Some(entry) = self.get(line_id) else {
             return false;
         };
-        now_ms().saturating_sub(e.checked_at_ms) < SOFT_TTL.as_millis() as u64
+        is_online(&entry) && entry_is_fresh(Some(&entry))
     }
+}
+
+fn entry_is_fresh(entry: Option<&LineReachEntry>) -> bool {
+    let Some(e) = entry else {
+        return false;
+    };
+    now_ms().saturating_sub(e.checked_at_ms) < SOFT_TTL.as_millis() as u64
 }
 
 fn now_ms() -> u64 {
@@ -249,13 +261,19 @@ pub fn refresh_for_print_target(
                     == Some(host)
         }) {
             if let Some(id) = row.get("id").and_then(|v| v.as_str()) {
+                if cache.is_fresh_online(id) {
+                    return Ok(Some(id.to_string()));
+                }
                 let entry = evaluate_mapping_line(row, system);
                 cache.set(id, entry);
                 return Ok(Some(id.to_string()));
             }
         }
-        let entry = evaluate_network_host(host);
         let synthetic = format!("net:{host}");
+        if cache.is_fresh_online(&synthetic) {
+            return Ok(Some(synthetic));
+        }
+        let entry = evaluate_network_host(host);
         cache.set(&synthetic, entry);
         return Ok(Some(synthetic));
     }
@@ -269,6 +287,9 @@ pub fn refresh_for_print_target(
                     == Some(pr)
         }) {
             if let Some(id) = row.get("id").and_then(|v| v.as_str()) {
+                if cache.is_fresh_online(id) {
+                    return Ok(Some(id.to_string()));
+                }
                 let entry = evaluate_mapping_line(row, system);
                 cache.set(id, entry);
                 return Ok(Some(id.to_string()));
@@ -295,6 +316,9 @@ pub fn refresh_for_print_target(
                 }
         }) {
             if let Some(id) = row.get("id").and_then(|v| v.as_str()) {
+                if cache.is_fresh_online(id) {
+                    return Ok(Some(id.to_string()));
+                }
                 let entry = evaluate_mapping_line(row, system);
                 cache.set(id, entry);
                 return Ok(Some(id.to_string()));

@@ -13,6 +13,8 @@ pub struct VariantBarcodeLabel {
     pub product_name: String,
     pub sku: String,
     pub barcode: String,
+    #[serde(default)]
+    pub operator_name: Option<String>,
 }
 
 pub fn parse_variant_barcode_label_from_value(value: &serde_json::Value) -> Result<VariantBarcodeLabel> {

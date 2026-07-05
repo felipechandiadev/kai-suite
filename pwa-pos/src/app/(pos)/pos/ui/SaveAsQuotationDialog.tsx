@@ -21,6 +21,7 @@ import {
   type CompanyQuotationSettings,
 } from "@/features/company/types/company-quotations.types";
 import { PosPrintDocumentPreview } from "@/features/pos-print/ui/PosPrintDocumentPreview";
+import { PosPrintPreviewReprintButton } from "@/features/pos-print/ui/PosPrintPreviewReprintButton";
 import {
   describePosDocumentPrintMode,
   getPosDocumentPrintMode,
@@ -118,7 +119,7 @@ export function SaveAsQuotationDialog({ open, onClose, onSaved }: Props) {
     const format = posDocumentPrintModeToWireFormat(savedPrint.printMode);
     return isPosDocumentPrintModeDocument(savedPrint.printMode)
       ? buildQuotationDocumentHtml(savedPrint.input, format)
-      : buildQuotationReceiptHtml(savedPrint.input, origin, format);
+      : buildQuotationReceiptHtml(savedPrint.input, origin, format, { showLogo: false });
   }, [savedPrint]);
 
   const totals = cart.lines.reduce(
@@ -255,9 +256,7 @@ export function SaveAsQuotationDialog({ open, onClose, onSaved }: Props) {
       actions={
         savedPrint ? (
           <>
-            <Button type="button" variant="outlined" onClick={handleReprint}>
-              Imprimir de nuevo
-            </Button>
+            <PosPrintPreviewReprintButton onClick={handleReprint} />
             <Button type="button" variant="primary" onClick={closeAndClear}>
               Volver al POS
             </Button>

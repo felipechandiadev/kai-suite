@@ -20,6 +20,7 @@ import {
   printCustomerCreditNoteDocument,
 } from "@/features/customer-credit-notes/lib/customer-credit-note-document-print";
 import { PosPrintDocumentPreview } from "@/features/pos-print/ui/PosPrintDocumentPreview";
+import { PosPrintPreviewReprintButton } from "@/features/pos-print/ui/PosPrintPreviewReprintButton";
 
 type Props = {
   open: boolean;
@@ -64,7 +65,7 @@ export function PosCustomerCreditNoteDialog({ open, data, onClose }: Props) {
     const origin = window.location.origin;
     return isPosDocumentPrintModeDocument(printMode)
       ? buildCustomerCreditNoteDocumentHtml(data, wireFormat)
-      : buildCustomerCreditNoteReceiptHtml(data, origin, wireFormat);
+      : buildCustomerCreditNoteReceiptHtml(data, origin, wireFormat, { showLogo: false });
   }, [data, printMode, wireFormat]);
 
   const handleReprint = () => {
@@ -88,9 +89,10 @@ export function PosCustomerCreditNoteDialog({ open, data, onClose }: Props) {
       data-test-id="pos-customer-credit-note-dialog"
       actions={
         <>
-          <Button type="button" variant="outlined" onClick={handleReprint} data-test-id="pos-nc-dialog-reprint">
-            Imprimir de nuevo
-          </Button>
+          <PosPrintPreviewReprintButton
+            onClick={handleReprint}
+            data-test-id="pos-nc-dialog-reprint"
+          />
           <Button type="button" variant="primary" onClick={onClose} data-test-id="pos-nc-dialog-close">
             Volver al POS
           </Button>

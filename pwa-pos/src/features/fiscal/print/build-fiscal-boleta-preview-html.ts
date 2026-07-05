@@ -3,9 +3,11 @@ import {
   getPrintFormatPreset,
   isDocumentPrintFormat,
   isTicketPrintFormat,
+  shouldShowReceptorOnFiscalBoletaTicket,
   type PrintFormat,
 } from "@kai/print-service-client";
 import type { FiscalBoletaPrintPreview } from "../types/fiscal-emission.types";
+import { ticketOperatorHtml } from "@/features/pos-print/lib/ticket-receipt-footer";
 
 function fiscalBoletaDocumentCss(format: PrintFormat): string {
   const preset = getPrintFormatPreset(format);
@@ -36,8 +38,8 @@ function fiscalBoletaDocumentCss(format: PrintFormat): string {
   .tright { text-align: right; white-space: nowrap; }
   .tot { font-size: 12px; font-weight: ${w}; }
   .barcode-section { margin-top: 10px; }
-  .barcode-wrap.pdf417 { display: flex; justify-content: center; width: 100%; }
-  .barcode-wrap.pdf417 svg { max-width: 78mm; height: auto; display: block; }
+  .barcode-wrap.pdf417 { display: flex; justify-content: center; width: 100%; margin: 2px 0; }
+  .barcode-wrap.pdf417 svg { width: 100%; max-width: 100%; height: auto; display: block; margin: 0 auto; }
   .wrap { white-space: pre-wrap; word-break: break-word; }
 `.trim();
 }
@@ -47,15 +49,13 @@ export function getFiscalBoletaPrintCss(format: PrintFormat): string {
 }
 
 function fiscalBoletaCssForFormat(format: PrintFormat): string {
-  const pdf417Extra =
-    "\n.barcode-wrap.pdf417 svg { width: 100%; max-width: 100%; height: auto; display: block; margin: 0 auto; }";
   if (isTicketPrintFormat(format)) {
-    return `${thermalReceiptCssForFormat(format)}${pdf417Extra}`;
+    return thermalReceiptCssForFormat(format);
   }
   if (isDocumentPrintFormat(format)) {
-    return `${fiscalBoletaDocumentCss(format)}${pdf417Extra}`;
+    return fiscalBoletaDocumentCss(format);
   }
-  return `${thermalReceiptCssForFormat("ticket_80mm")}${pdf417Extra}`;
+  return thermalReceiptCssForFormat("ticket_80mm");
 }
 
 function escapeHtml(s: string) {
@@ -166,8 +166,12 @@ export function buildFiscalBoletaReceiptInnerHtml(
     <p class="center muted">Tipo DTE ${preview.tipoDte}</p>
     <div class="row"><span>Folio</span><span>${preview.folio}</span></div>
     <div class="row"><span>Fecha</span><span>${formatDate(preview.issuedAt)}</span></div>
-    <div class="row"><span>Receptor</span><span>${escapeHtml(preview.receptor.rut)}</span></div>
-    <p class="muted" style="margin:2px 0;">${escapeHtml(preview.receptor.name)}</p>
+    ${
+      shouldShowReceptorOnFiscalBoletaTicket(preview.receptor)
+        ? `<div class="row"><span>Receptor</span><span>${escapeHtml(preview.receptor.rut)}</span></div>
+    <p class="muted" style="margin:2px 0;">${escapeHtml(preview.receptor.name)}</p>`
+        : ""
+    }
     <div class="sep"></div>
     <table class="lines"><tbody>${lineRows}</tbody></table>
     <div class="sep"></div>
@@ -179,7 +183,8 @@ export function buildFiscalBoletaReceiptInnerHtml(
     ${observation}
     <div class="sep"></div>
     ${timbreBlock}
-    ${footerNote}`;
+    ${footerNote}
+    ${ticketOperatorHtml(preview.operatorName)}`;
 }
 
 export function buildFiscalBoletaPreviewHtml(

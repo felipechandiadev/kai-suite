@@ -1,9 +1,9 @@
 //! Etiqueta térmica mínima: nombre producto, SKU y código de barras (variant-barcode-label).
 
 use crate::pos_sale_ticket_escpos::{
-    append_barcode_centered, append_divider, append_line, escpos_align, escpos_apply_ticket_typography,
-    escpos_bold, escpos_double_height_off, escpos_double_height_on, escpos_init, pad_left, wrap_lines,
-    layout_width,
+    append_barcode_centered, append_divider, append_line, append_operator_footer, escpos_align,
+    escpos_apply_ticket_typography, escpos_bold, escpos_double_height_off, escpos_double_height_on,
+    escpos_init, pad_left, wrap_lines, layout_width,
 };
 use crate::variant_barcode_label::{parse_variant_barcode_label_from_value, VariantBarcodeLabel};
 use anyhow::Result;
@@ -53,6 +53,7 @@ pub fn build_variant_barcode_label_escpos(label: &VariantBarcodeLabel) -> Result
     escpos_align(&mut buf, 0);
     append_divider(&mut buf);
 
+    append_operator_footer(&mut buf, label.operator_name.as_deref());
     append_bottom_feed(&mut buf);
     Ok(buf)
 }
