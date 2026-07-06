@@ -159,6 +159,8 @@ export type FiscalEmissionListItem = {
   subPackCode?: string | null;
   pointOfSaleId?: string | null;
   pointOfSaleName?: string | null;
+  submitAttempts?: number;
+  nextRetryAt?: string | null;
 };
 
 export type FiscalEmissionsListResult = {

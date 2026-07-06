@@ -8,6 +8,15 @@ export class EShopApiError extends Error {
   }
 }
 
+/** `fetch` del servidor cuando el API Nest no está levantado o no es alcanzable. */
+export function isEshopFetchNetworkError(error: unknown): boolean {
+  if (!(error instanceof TypeError) || error.message !== "fetch failed") {
+    return false;
+  }
+  const code = (error as { cause?: { code?: string } }).cause?.code;
+  return code === "ECONNREFUSED" || code === "ENOTFOUND" || code === "ECONNRESET";
+}
+
 export async function parseEshopErrorResponse(
   res: Response,
 ): Promise<EShopApiError> {

@@ -12,7 +12,7 @@ export function getServerBackendApiBase(): string {
   }
 
   if (process.env.NODE_ENV === "development") {
-    return "http://localhost:4030";
+    return "http://localhost:5030";
   }
 
   throw new Error(

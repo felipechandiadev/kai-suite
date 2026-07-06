@@ -64,4 +64,20 @@ describe('mapFiscalEmissionListItem', () => {
     expect(item.errorMessage).toHaveLength(500);
     expect(item.hasTed).toBe(false);
   });
+
+  it('maps PENDING status and worker fields', () => {
+    const item = mapFiscalEmissionListItem({
+      emission: {
+        ...emission,
+        envioStatus: FiscalDteEmissionStatus.PENDING,
+        submitAttempts: 2,
+        nextRetryAt: new Date('2026-06-01T13:00:00.000Z'),
+      } as FiscalDteEmission,
+      transaction: null,
+      branchName: null,
+    });
+    expect(item.envioStatus).toBe(FiscalDteEmissionStatus.PENDING);
+    expect(item.submitAttempts).toBe(2);
+    expect(item.nextRetryAt).toBe('2026-06-01T13:00:00.000Z');
+  });
 });

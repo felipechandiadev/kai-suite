@@ -106,4 +106,12 @@ export const configSchema = Joi.object({
   ENABLE_HEALTH_CHECK: Joi.boolean().default(true),
   ENABLE_METRICS: Joi.boolean().default(true),
   ENABLE_CACHE: Joi.boolean().default(true),
+
+  // Fiscal / SII async emission
+  FISCAL_BOLETA_ASYNC_EMIT: Joi.boolean().default(true),
+  FISCAL_EMISSION_WORKER_INTERVAL_MS: Joi.number().default(5000),
+  FISCAL_EMISSION_WORKER_BATCH_SIZE: Joi.number().default(20),
+  FISCAL_EMISSION_MAX_SUBMIT_ATTEMPTS: Joi.number().default(12),
+  FISCAL_EMISSION_STALE_SENDING_MS: Joi.number().default(120000),
+  FISCAL_EMISSION_SUBMIT_BACKOFF_BASE_MS: Joi.number().default(5000),
 });

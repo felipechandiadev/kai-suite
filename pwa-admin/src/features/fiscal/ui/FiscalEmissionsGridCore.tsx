@@ -18,7 +18,7 @@ import {
 import SaleTransactionDetailDialog from "../../../../app/(app)/sales/transactions/ui/SaleTransactionDetailDialog";
 import { useFiscalEmissionsList } from "../hooks/useFiscalEmissionsList";
 
-type EnvioFilter = "" | "SENT" | "FAILED" | "EPR" | "RCH";
+type EnvioFilter = "" | "PENDING" | "SENDING" | "SENT" | "FAILED" | "EPR" | "RCH";
 
 type Props = {
   initialItems: FiscalEmissionRow[];
@@ -72,6 +72,8 @@ function siiStatusBadge(status: string): { label: string; variant: BadgeVariant 
       return { label: "Fallido envío", variant: "error-outlined" };
     case "PENDING":
       return { label: "Pendiente", variant: "warning-outlined" };
+    case "SENDING":
+      return { label: "Enviando", variant: "warning-outlined" };
     default:
       return { label: status || "—", variant: "secondary-outlined" };
   }
@@ -349,12 +351,12 @@ export function FiscalEmissionsGridCore({
                   onClick={() => void handleRefreshSii(r)}
                 />
               ) : null}
-              {r.envioStatus === "FAILED" ? (
+              {r.envioStatus === "FAILED" || r.envioStatus === "PENDING" ? (
                 <IconButton
                   icon="RotateCw"
                   variant="action"
                   size="sm"
-                  title="Reintentar envío"
+                  title="Reenviar al SII (mismo folio)"
                   disabled={retryBusyId === r.id}
                   onClick={() => void handleRetry(r)}
                 />
@@ -392,6 +394,8 @@ export function FiscalEmissionsGridCore({
               onChange={(e) => setStatusFilter(e.target.value as EnvioFilter)}
             >
               <option value="">Todos</option>
+              <option value="PENDING">Pendiente envío</option>
+              <option value="SENDING">Enviando</option>
               <option value="EPR">Autorizado</option>
               <option value="RCH">Rechazado</option>
               <option value="SENT">Enviado (pendiente)</option>

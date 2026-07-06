@@ -4,8 +4,10 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { AppConfigService } from '../../../config/config.service';
 import { Company } from '@modules/companies/domain/company.entity';
 import { Branch } from '@modules/branches/domain/branch.entity';
 import {
@@ -29,10 +31,7 @@ import { buildSaleBoletaPrintPreview } from '../domain/build-sale-boleta-print-p
 import { FiscalCryptoService } from '../infrastructure/fiscal-crypto.service';
 import { SiiBoletaAuthService } from '../infrastructure/sii-boleta-auth.service';
 import { SiiBoletaRestClient } from '../infrastructure/sii-boleta-rest.client';
-import {
-  buildEnvioBoletaXml,
-  buildSaleDteBoletaXml,
-} from '../infrastructure/boleta-envio.builder';
+import { buildSaleDteBoletaXml } from '../infrastructure/boleta-envio.builder';
 import {
   extractEstadoFromEnvioStatusResponse,
   extractTrackIdFromEnvioResponse,
@@ -44,6 +43,11 @@ import type {
   FiscalEmissionsListResult,
 } from './fiscal.types';
 import { mapFiscalEmissionListItem } from './map-fiscal-emission-list-item';
+import {
+  computeSubmitBackoffMs,
+  hasPrintableBoleta,
+} from './fiscal-emission-status.util';
+import { FISCAL_EMISSION_PENDING_EVENT } from './fiscal-emission.events';
 import {
   isSuccessfulEnvioStatus,
   pollEnvioStatus,
@@ -59,6 +63,27 @@ import {
 import { PosFolioAllocationService } from './pos-folio-allocation.service';
 import { PointOfSaleFolioAllocation } from '../domain/point-of-sale-folio-allocation.entity';
 import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
+
+export type FiscalEmissionStatusSnapshot = {
+  emissionId: string;
+  envioStatus: FiscalDteEmissionStatus;
+  folio: number;
+  trackId: string | null;
+  errorMessage: string | null;
+  canReprint: boolean;
+  siiPending: boolean;
+};
+
+type SaleEmissionContext = {
+  company: Company;
+  transaction: Transaction;
+  lines: TransactionLine[];
+  saleDoc: ReturnType<typeof mapTransactionToSaleBoleta>;
+  issuedAt: string;
+  emisor: ReturnType<typeof emisorFromCompany>;
+  material: ReturnType<SiiBoletaAuthService['loadPfx']>;
+  rutEnvia: string;
+};
 
 @Injectable()
 export class FiscalBoletaEmissionService {
@@ -82,12 +107,193 @@ export class FiscalBoletaEmissionService {
     @InjectRepository(Customer)
     private readonly customerRepo: Repository<Customer>,
     private readonly dataSource: DataSource,
+    private readonly appConfig: AppConfigService,
     private readonly crypto: FiscalCryptoService,
     private readonly auth: SiiBoletaAuthService,
     private readonly sii: SiiBoletaRestClient,
     private readonly schemaValidator: FiscalXmlSchemaValidator,
     private readonly posFolioAllocation: PosFolioAllocationService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
+
+  /**
+   * Fase rápida (async Fase B): reserva folio, firma DTE/TED, persiste PENDING y devuelve preview.
+   * No llama al SII en el request path.
+   */
+  async prepareFromSale(
+    companyId: string,
+    transactionId: string,
+    pointOfSaleId: string,
+  ): Promise<FiscalEmissionResult> {
+    const profile = await this.profileRepo.findOne({ where: { companyId } });
+    if (!profile?.productionEnabled) {
+      return { status: 'SKIPPED' };
+    }
+
+    const existing = await this.emissionRepo.findOne({ where: { transactionId } });
+    if (existing) {
+      return this.handleExistingEmissionForPrepare(companyId, existing);
+    }
+
+    let ctx: SaleEmissionContext;
+    try {
+      ctx = await this.loadSaleEmissionContext(companyId, transactionId);
+    } catch (e) {
+      if (e instanceof NotFoundException) throw e;
+      const message = e instanceof Error ? e.message : 'Error al preparar emisión';
+      return { status: 'FAILED', error: message };
+    }
+
+    if (ctx.transaction.transactionType !== TransactionType.SALE) {
+      return { status: 'SKIPPED' };
+    }
+    if (!ctx.lines.length) {
+      return { status: 'SKIPPED', error: 'Venta sin líneas' };
+    }
+
+    let emission: FiscalDteEmission;
+    try {
+      emission = await this.dataSource.transaction(async (manager) => {
+        const reserved = await this.posFolioAllocation.reserveFolioInManager(
+          manager,
+          pointOfSaleId,
+          39,
+        );
+        const cafXml = await this.loadCafXmlById(reserved.cafId);
+        const built = this.buildAndSignSaleBoleta(
+          ctx.emisor,
+          ctx.saleDoc,
+          reserved.folio,
+          cafXml,
+          ctx.issuedAt,
+          ctx.material,
+          ctx.rutEnvia,
+        );
+        const encrypted = this.encryptSignedEnvio(built.signedEnvio);
+        const row = manager.getRepository(FiscalDteEmission).create({
+          companyId,
+          transactionId,
+          pointOfSaleId,
+          cafId: reserved.cafId,
+          allocationId: reserved.allocationId,
+          dteType: 39,
+          folio: reserved.folio,
+          environment: SiiEnvironment.PRODUCTION,
+          receptorRut: ctx.saleDoc.receptor.rut,
+          receptorName: ctx.saleDoc.receptor.name,
+          envioStatus: FiscalDteEmissionStatus.PENDING,
+          tedXml: built.tedXml,
+          encryptedSignedEnvio: encrypted.encrypted,
+          signedEnvioIv: encrypted.iv,
+          submitAttempts: 0,
+          pollAttempts: 0,
+          issuedAt: ctx.issuedAt,
+        });
+        const saved = await manager.getRepository(FiscalDteEmission).save(row);
+        await manager.getRepository(Transaction).update(transactionId, {
+          documentType: 'BOLETA',
+          documentFolio: String(reserved.folio),
+        });
+        return saved;
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Error al reservar folio o firmar DTE';
+      if (message.includes('folios') || message.includes('Folio')) {
+        return { status: 'FAILED', error: 'No hay folios disponibles' };
+      }
+      return { status: 'FAILED', error: message };
+    }
+
+    this.eventEmitter.emit(FISCAL_EMISSION_PENDING_EVENT, { emissionId: emission.id });
+
+    const printPreview = buildSaleBoletaPrintPreview({
+      company: ctx.company,
+      doc: ctx.saleDoc,
+      folio: emission.folio,
+      issuedAt: ctx.issuedAt,
+      tedXml: emission.tedXml!,
+      transactionDocumentNumber: ctx.transaction.documentNumber,
+    });
+
+    return {
+      status: 'PENDING',
+      emissionId: emission.id,
+      folio: emission.folio,
+      printPreview,
+      siiPending: true,
+    };
+  }
+
+  /** Envía al SII una emisión PENDING/FAILED o hace poll de una SENT. */
+  async submitPendingToSii(emissionId: string): Promise<void> {
+    const emission = await this.tryClaimEmission(emissionId);
+    if (!emission) {
+      return;
+    }
+
+    const cfg = this.appConfig.fiscalEmission;
+    try {
+      if (
+        emission.trackId?.trim() &&
+        (emission.envioStatus === FiscalDteEmissionStatus.SENT ||
+          emission.envioStatus === FiscalDteEmissionStatus.SENDING)
+      ) {
+        await this.pollEmissionSiiStatus(emission);
+        return;
+      }
+
+      const signedEnvio = this.decryptSignedEnvio(
+        emission.encryptedSignedEnvio!,
+        emission.signedEnvioIv!,
+      );
+      const company = await this.companyRepo.findOne({ where: { id: emission.companyId } });
+      if (!company) {
+        throw new NotFoundException('Empresa no encontrada');
+      }
+      const emisor = emisorFromCompany(company);
+      const material = await this.loadPfxMaterial(emission.companyId);
+      const rutEnvia = this.resolveRutEnvia(material, emisor.rut);
+      const token = await this.obtainToken(emission.environment, material);
+      const result = await validateAndPostEnvioBoleta(this.schemaValidator, this.sii, {
+        environment: emission.environment,
+        token,
+        signedXml: signedEnvio,
+        companyRut: emisor.rut,
+        rutEnvia,
+      });
+
+      emission.trackId = result.trackId;
+      emission.submittedAt = new Date();
+      emission.envioStatus = FiscalDteEmissionStatus.SENT;
+      emission.errorDetail = null;
+      emission.processingClaimedAt = null;
+      await this.emissionRepo.save(emission);
+
+      await this.pollEmissionSiiStatus(emission, token, emisor.rut, result.retryAfter);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      emission.submitAttempts = (emission.submitAttempts ?? 0) + 1;
+      emission.envioStatus = FiscalDteEmissionStatus.FAILED;
+      emission.errorDetail = { message };
+      emission.processingClaimedAt = null;
+
+      if (emission.submitAttempts >= cfg.maxSubmitAttempts) {
+        this.logger.error(
+          `Emisión ${emissionId} agotó reintentos SII (${emission.submitAttempts}): ${message}`,
+        );
+      } else {
+        const backoff = computeSubmitBackoffMs(
+          emission.submitAttempts,
+          cfg.submitBackoffBaseMs,
+        );
+        emission.nextRetryAt = new Date(Date.now() + backoff);
+        this.logger.warn(
+          `Envío SII falló emisión ${emissionId} intento ${emission.submitAttempts}, retry en ${backoff}ms: ${message}`,
+        );
+      }
+      await this.emissionRepo.save(emission);
+    }
+  }
 
   async emitFromSale(
     companyId: string,
@@ -110,46 +316,18 @@ export class FiscalBoletaEmissionService {
           return this.resultFromExisting(companyId, reconciled);
         }
         await this.emissionRepo.delete({ id: existing.id });
-      } else {
+      } else if (hasPrintableBoleta(existing)) {
         return this.resultFromExisting(companyId, existing);
       }
     }
 
-    const transaction = await this.transactionRepo.findOne({
-      where: { id: transactionId },
-    });
-    if (!transaction) {
-      throw new NotFoundException('Transacción no encontrada');
-    }
-    if (transaction.transactionType !== TransactionType.SALE) {
+    const ctx = await this.loadSaleEmissionContext(companyId, transactionId);
+    if (ctx.transaction.transactionType !== TransactionType.SALE) {
       return { status: 'SKIPPED' };
     }
-
-    const lines = await this.lineRepo.find({
-      where: { transactionId },
-      order: { createdAt: 'ASC' },
-    });
-    if (!lines.length) {
+    if (!ctx.lines.length) {
       return { status: 'SKIPPED', error: 'Venta sin líneas' };
     }
-
-    const company = await this.companyRepo.findOne({ where: { id: companyId } });
-    if (!company) {
-      throw new NotFoundException('Empresa no encontrada');
-    }
-
-    let person: Person | null = null;
-    if (transaction.customerId) {
-      const customer = await this.customerRepo.findOne({
-        where: { id: transaction.customerId },
-        relations: ['person'],
-      });
-      person = customer?.person ?? null;
-    }
-
-    const emisor = emisorFromCompany(company);
-    const saleDoc = mapTransactionToSaleBoleta(lines, person);
-    const issuedAt = (transaction.createdAt ?? new Date()).toISOString().slice(0, 10);
 
     const peeked = await this.peekPosFolio(pointOfSaleId);
     if (!peeked) {
@@ -157,25 +335,20 @@ export class FiscalBoletaEmissionService {
     }
 
     const cafXml = await this.loadCafXmlById(peeked.cafId);
-    const material = await this.loadPfxMaterial(companyId);
-    const rutEnvia = this.resolveRutEnvia(material, emisor.rut);
-
     let folio = peeked.folio;
     let tedXml: string;
-    let signedDte: string;
     let signedEnvio: string;
     try {
       const built = this.buildAndSignSaleBoleta(
-        emisor,
-        saleDoc,
+        ctx.emisor,
+        ctx.saleDoc,
         folio,
         cafXml,
-        issuedAt,
-        material,
-        rutEnvia,
+        ctx.issuedAt,
+        ctx.material,
+        ctx.rutEnvia,
       );
       tedXml = built.tedXml;
-      signedDte = built.signedDte;
       signedEnvio = built.signedEnvio;
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Error al construir DTE';
@@ -199,32 +372,31 @@ export class FiscalBoletaEmissionService {
           : cafXml;
       if (folio !== peeked.folio || reserved.cafId !== peeked.cafId) {
         const rebuilt = this.buildAndSignSaleBoleta(
-          emisor,
-          saleDoc,
+          ctx.emisor,
+          ctx.saleDoc,
           folio,
           reservedCafXml,
-          issuedAt,
-          material,
-          rutEnvia,
+          ctx.issuedAt,
+          ctx.material,
+          ctx.rutEnvia,
         );
         tedXml = rebuilt.tedXml;
-        signedDte = rebuilt.signedDte;
         signedEnvio = rebuilt.signedEnvio;
       }
 
-      const token = await this.obtainToken(SiiEnvironment.PRODUCTION, material);
+      const token = await this.obtainToken(SiiEnvironment.PRODUCTION, ctx.material);
       const result = await validateAndPostEnvioBoleta(this.schemaValidator, this.sii, {
         environment: SiiEnvironment.PRODUCTION,
         token,
         signedXml: signedEnvio,
-        companyRut: emisor.rut,
-        rutEnvia,
+        companyRut: ctx.emisor.rut,
+        rutEnvia: ctx.rutEnvia,
       });
       trackId = result.trackId;
       try {
         const polled = await pollEnvioStatus(
           () =>
-            this.sii.getEnvioStatus(SiiEnvironment.PRODUCTION, token, emisor.rut, trackId!),
+            this.sii.getEnvioStatus(SiiEnvironment.PRODUCTION, token, ctx.emisor.rut, trackId!),
           { initialDelayMs: resolveInitialPollDelayMs(result.retryAfter) },
         );
         envioStatus = polled.envioStatus;
@@ -245,6 +417,7 @@ export class FiscalBoletaEmissionService {
       this.logger.warn(`SII envío falló para venta ${transactionId}: ${errorMessage}`);
     }
 
+    const encrypted = signedEnvio ? this.encryptSignedEnvio(signedEnvio) : null;
     const emission = await this.emissionRepo.save(
       this.emissionRepo.create({
         companyId,
@@ -255,18 +428,20 @@ export class FiscalBoletaEmissionService {
         dteType: 39,
         folio,
         environment: SiiEnvironment.PRODUCTION,
-        receptorRut: saleDoc.receptor.rut,
-        receptorName: saleDoc.receptor.name,
+        receptorRut: ctx.saleDoc.receptor.rut,
+        receptorName: ctx.saleDoc.receptor.name,
         trackId,
         envioStatus,
         tedXml,
+        encryptedSignedEnvio: encrypted?.encrypted ?? null,
+        signedEnvioIv: encrypted?.iv ?? null,
         errorDetail:
           errorMessage != null
             ? { message: errorMessage, siiStatusRaw: siiStatusRaw ?? null }
             : siiStatusRaw
               ? { siiStatusRaw }
               : null,
-        issuedAt,
+        issuedAt: ctx.issuedAt,
       }),
     );
 
@@ -278,12 +453,12 @@ export class FiscalBoletaEmissionService {
     }
 
     const printPreview = buildSaleBoletaPrintPreview({
-      company,
-      doc: saleDoc,
+      company: ctx.company,
+      doc: ctx.saleDoc,
       folio,
-      issuedAt,
+      issuedAt: ctx.issuedAt,
       tedXml,
-      transactionDocumentNumber: transaction.documentNumber,
+      transactionDocumentNumber: ctx.transaction.documentNumber,
     });
 
     if (envioStatus === FiscalDteEmissionStatus.FAILED || envioStatus === FiscalDteEmissionStatus.RCH) {
@@ -296,8 +471,12 @@ export class FiscalBoletaEmissionService {
       };
     }
 
+    const resultStatus =
+      envioStatus === FiscalDteEmissionStatus.EPR ? 'EPR' : 'SENT';
+
     return {
-      status: 'SENT',
+      status: resultStatus,
+      emissionId: emission.id,
       folio: emission.folio,
       trackId: emission.trackId,
       printPreview,
@@ -318,48 +497,33 @@ export class FiscalBoletaEmissionService {
       throw new BadRequestException('La emisión no tiene track ID del SII');
     }
 
-    const company = await this.companyRepo.findOne({ where: { id: companyId } });
-    if (!company) {
-      throw new NotFoundException('Empresa no encontrada');
-    }
-
-    const emisor = emisorFromCompany(company);
-    const material = await this.loadPfxMaterial(companyId);
-    const token = await this.obtainToken(emission.environment, material);
-    const { estado, raw } = await this.sii.getEnvioStatus(
-      emission.environment,
-      token,
-      emisor.rut,
-      emission.trackId,
-    );
-
-    const resolved = resolveSiiEnvioStatus(raw);
-    emission.envioStatus = resolved.envioStatus;
-    if (resolved.envioStatus === FiscalDteEmissionStatus.RCH) {
-      emission.errorDetail = {
-        message: resolved.rejectionMessage ?? `SII rechazó el envío: ${estado}`,
-        siiStatusRaw: raw,
-      };
-    } else if (resolved.envioStatus === FiscalDteEmissionStatus.EPR) {
-      emission.errorDetail = { siiStatusRaw: raw };
-    } else {
-      emission.errorDetail = { siiStatusRaw: raw };
-    }
-
-    const saved = await this.emissionRepo.save(emission);
-    return this.mapEmissionToListItem(saved);
+    await this.pollEmissionSiiStatus(emission);
+    const saved = await this.emissionRepo.findOne({ where: { id: emissionId } });
+    return this.mapEmissionToListItem(saved!);
   }
 
-  private async mapEmissionToListItem(emission: FiscalDteEmission): Promise<FiscalEmissionListItem> {
-    const tx = await this.transactionRepo.findOne({ where: { id: emission.transactionId } });
-    let branchName: string | null = null;
-    if (tx?.branchId) {
-      const branch = await this.dataSource.getRepository(Branch).findOne({
-        where: { id: tx.branchId },
-      });
-      branchName = branch?.name ?? null;
-    }
-    return mapFiscalEmissionListItem({ emission, transaction: tx, branchName });
+  async getEmissionStatusForTransaction(
+    companyId: string,
+    transactionId: string,
+  ): Promise<FiscalEmissionStatusSnapshot | null> {
+    const emission = await this.emissionRepo.findOne({ where: { companyId, transactionId } });
+    if (!emission) return null;
+    const err =
+      emission.errorDetail && typeof emission.errorDetail.message === 'string'
+        ? emission.errorDetail.message
+        : null;
+    return {
+      emissionId: emission.id,
+      envioStatus: emission.envioStatus,
+      folio: emission.folio,
+      trackId: emission.trackId ?? null,
+      errorMessage: err,
+      canReprint: hasPrintableBoleta(emission),
+      siiPending:
+        emission.envioStatus === FiscalDteEmissionStatus.PENDING ||
+        emission.envioStatus === FiscalDteEmissionStatus.SENDING ||
+        emission.envioStatus === FiscalDteEmissionStatus.SENT,
+    };
   }
 
   async retryFromSale(
@@ -368,26 +532,97 @@ export class FiscalBoletaEmissionService {
     pointOfSaleId?: string,
   ): Promise<FiscalEmissionResult> {
     const existing = await this.emissionRepo.findOne({ where: { transactionId, companyId } });
-    if (existing && isSuccessfulEnvioStatus(existing.envioStatus)) {
+    if (!existing) {
+      let resolvedPosId = pointOfSaleId?.trim() || '';
+      if (!resolvedPosId) {
+        const tx = await this.transactionRepo.findOne({ where: { id: transactionId, companyId } });
+        resolvedPosId = tx?.pointOfSaleId?.trim() ?? '';
+      }
+      if (!resolvedPosId) {
+        throw new BadRequestException('pointOfSaleId es requerido para reintentar emisión');
+      }
+      if (this.appConfig.fiscalEmission.boletaAsyncEmit) {
+        return this.prepareFromSale(companyId, transactionId, resolvedPosId);
+      }
+      return this.emitFromSale(companyId, transactionId, resolvedPosId);
+    }
+
+    if (isSuccessfulEnvioStatus(existing.envioStatus) || existing.envioStatus === FiscalDteEmissionStatus.EPR) {
       return this.resultFromExisting(companyId, existing);
     }
-    if (existing?.envioStatus === FiscalDteEmissionStatus.FAILED) {
+
+    if (existing.envioStatus === FiscalDteEmissionStatus.FAILED) {
       const reconciled = await this.reconcileFailedIfSiiAccepted(companyId, existing);
       if (reconciled) {
         return this.resultFromExisting(companyId, reconciled);
       }
-      await this.emissionRepo.delete({ id: existing.id });
     }
 
-    let resolvedPosId = pointOfSaleId?.trim() || existing?.pointOfSaleId?.trim() || '';
-    if (!resolvedPosId) {
-      const tx = await this.transactionRepo.findOne({ where: { id: transactionId, companyId } });
-      resolvedPosId = tx?.pointOfSaleId?.trim() ?? '';
+    if (!existing.encryptedSignedEnvio || !existing.signedEnvioIv) {
+      throw new BadRequestException(
+        'La emisión no tiene XML firmado almacenado; no se puede reenviar el mismo folio',
+      );
     }
-    if (!resolvedPosId) {
-      throw new BadRequestException('pointOfSaleId es requerido para reintentar emisión');
-    }
-    return this.emitFromSale(companyId, transactionId, resolvedPosId);
+
+    existing.envioStatus = FiscalDteEmissionStatus.PENDING;
+    existing.nextRetryAt = null;
+    existing.processingClaimedAt = null;
+    await this.emissionRepo.save(existing);
+    this.eventEmitter.emit(FISCAL_EMISSION_PENDING_EVENT, { emissionId: existing.id });
+    await this.submitPendingToSii(existing.id);
+
+    const refreshed = await this.emissionRepo.findOne({ where: { id: existing.id } });
+    return this.resultFromExisting(companyId, refreshed!);
+  }
+
+  async listPendingEmissionIdsForWorker(limit: number): Promise<string[]> {
+    const cfg = this.appConfig.fiscalEmission;
+    const staleMs = cfg.staleSendingMs;
+    const rows = (await this.dataSource.query(
+      `
+      SELECT e.id
+      FROM fiscal_dte_emissions e
+      WHERE (
+        (
+          e.envio_status IN ('PENDING', 'FAILED')
+          AND (e.next_retry_at IS NULL OR e.next_retry_at <= NOW())
+          AND e.submit_attempts < $1
+          AND e.encrypted_signed_envio IS NOT NULL
+        )
+        OR (
+          e.envio_status = 'SENT'
+          AND e.track_id IS NOT NULL
+          AND e.envio_status NOT IN ('EPR', 'RCH')
+          AND (e.sii_poll_after IS NULL OR e.sii_poll_after <= NOW())
+        )
+        OR (
+          e.envio_status = 'SENDING'
+          AND e.processing_claimed_at IS NOT NULL
+          AND e.processing_claimed_at < NOW() - ($2::int * INTERVAL '1 millisecond')
+        )
+      )
+      ORDER BY e.created_at ASC
+      LIMIT $3
+      FOR UPDATE OF e SKIP LOCKED
+      `,
+      [cfg.maxSubmitAttempts, staleMs, limit],
+    )) as Array<{ id: string }>;
+    return rows.map((r) => r.id);
+  }
+
+  async recoverStaleSendingEmissions(): Promise<number> {
+    const cfg = this.appConfig.fiscalEmission;
+    const result = await this.dataSource.query(
+      `
+      UPDATE fiscal_dte_emissions
+      SET envio_status = 'PENDING', processing_claimed_at = NULL
+      WHERE envio_status = 'SENDING'
+        AND processing_claimed_at IS NOT NULL
+        AND processing_claimed_at < NOW() - ($1::int * INTERVAL '1 millisecond')
+      `,
+      [cfg.staleSendingMs],
+    );
+    return typeof result?.[1] === 'number' ? result[1] : 0;
   }
 
   async listEmissionsForCompany(
@@ -529,15 +764,172 @@ export class FiscalBoletaEmissionService {
       emission =
         (await this.reconcileFailedIfSiiAccepted(companyId, emission)) ?? emission;
     }
-    if (
-      (emission.envioStatus !== FiscalDteEmissionStatus.SENT &&
-        emission.envioStatus !== FiscalDteEmissionStatus.EPR) ||
-      !emission.tedXml
-    ) {
+    if (!hasPrintableBoleta(emission)) {
       return null;
     }
     const result = await this.resultFromExisting(companyId, emission);
     return result.printPreview ?? null;
+  }
+
+  private async handleExistingEmissionForPrepare(
+    companyId: string,
+    existing: FiscalDteEmission,
+  ): Promise<FiscalEmissionResult> {
+    if (existing.envioStatus === FiscalDteEmissionStatus.FAILED) {
+      const reconciled = await this.reconcileFailedIfSiiAccepted(companyId, existing);
+      if (reconciled) {
+        return this.resultFromExisting(companyId, reconciled);
+      }
+    }
+    if (hasPrintableBoleta(existing)) {
+      return this.resultFromExisting(companyId, existing);
+    }
+    if (isSuccessfulEnvioStatus(existing.envioStatus)) {
+      return this.resultFromExisting(companyId, existing);
+    }
+    return { status: 'FAILED', folio: existing.folio, error: 'Emisión existente sin TED' };
+  }
+
+  private async tryClaimEmission(emissionId: string): Promise<FiscalDteEmission | null> {
+    const cfg = this.appConfig.fiscalEmission;
+    const rows = (await this.dataSource.query(
+      `
+      UPDATE fiscal_dte_emissions
+      SET envio_status = 'SENDING', processing_claimed_at = NOW()
+      WHERE id = $1
+        AND (
+          (
+            envio_status IN ('PENDING', 'FAILED')
+            AND (next_retry_at IS NULL OR next_retry_at <= NOW())
+            AND submit_attempts < $2
+            AND encrypted_signed_envio IS NOT NULL
+          )
+          OR (
+            envio_status = 'SENT'
+            AND track_id IS NOT NULL
+          )
+          OR (
+            envio_status = 'SENDING'
+            AND processing_claimed_at IS NOT NULL
+            AND processing_claimed_at < NOW() - ($3::int * INTERVAL '1 millisecond')
+          )
+        )
+      RETURNING id
+      `,
+      [emissionId, cfg.maxSubmitAttempts, cfg.staleSendingMs],
+    )) as Array<{ id: string }>;
+    if (!rows.length) {
+      return null;
+    }
+    return this.emissionRepo.findOne({ where: { id: emissionId } });
+  }
+
+  private async pollEmissionSiiStatus(
+    emission: FiscalDteEmission,
+    tokenOverride?: string,
+    emisorRutOverride?: string,
+    retryAfter?: string,
+  ): Promise<void> {
+    if (!emission.trackId?.trim()) {
+      return;
+    }
+    const company = await this.companyRepo.findOne({ where: { id: emission.companyId } });
+    if (!company) return;
+    const emisor = emisorFromCompany(company);
+    const material = await this.loadPfxMaterial(emission.companyId);
+    const token = tokenOverride ?? (await this.obtainToken(emission.environment, material));
+    const rut = emisorRutOverride ?? emisor.rut;
+
+    try {
+      const polled = await pollEnvioStatus(
+        async () => {
+          const { raw } = await this.sii.getEnvioStatus(
+            emission.environment,
+            token,
+            rut,
+            emission.trackId!,
+          );
+          return { estado: extractEstadoFromEnvioStatusResponse(raw), raw };
+        },
+        { initialDelayMs: resolveInitialPollDelayMs(retryAfter) },
+      );
+      emission.envioStatus = polled.envioStatus;
+      emission.pollAttempts = (emission.pollAttempts ?? 0) + 1;
+      emission.processingClaimedAt = null;
+      if (polled.rejectionMessage) {
+        emission.errorDetail = {
+          message: polled.rejectionMessage,
+          siiStatusRaw: polled.raw,
+        };
+      } else {
+        emission.errorDetail = { siiStatusRaw: polled.raw };
+      }
+      await this.emissionRepo.save(emission);
+    } catch (pollErr) {
+      emission.processingClaimedAt = null;
+      emission.siiPollAfter = new Date(Date.now() + 60_000);
+      await this.emissionRepo.save(emission);
+      this.logger.warn(
+        `Poll SII falló emisión ${emission.id}: ${
+          pollErr instanceof Error ? pollErr.message : String(pollErr)
+        }`,
+      );
+    }
+  }
+
+  private async loadSaleEmissionContext(
+    companyId: string,
+    transactionId: string,
+  ): Promise<SaleEmissionContext> {
+    const transaction = await this.transactionRepo.findOne({
+      where: { id: transactionId },
+    });
+    if (!transaction) {
+      throw new NotFoundException('Transacción no encontrada');
+    }
+    const lines = await this.lineRepo.find({
+      where: { transactionId },
+      order: { createdAt: 'ASC' },
+    });
+    const company = await this.companyRepo.findOne({ where: { id: companyId } });
+    if (!company) {
+      throw new NotFoundException('Empresa no encontrada');
+    }
+    let person: Person | null = null;
+    if (transaction.customerId) {
+      const customer = await this.customerRepo.findOne({
+        where: { id: transaction.customerId },
+        relations: ['person'],
+      });
+      person = customer?.person ?? null;
+    }
+    const emisor = emisorFromCompany(company);
+    const saleDoc = mapTransactionToSaleBoleta(lines, person);
+    const issuedAt = (transaction.createdAt ?? new Date()).toISOString().slice(0, 10);
+    const material = await this.loadPfxMaterial(companyId);
+    const rutEnvia = this.resolveRutEnvia(material, emisor.rut);
+    return {
+      company,
+      transaction,
+      lines,
+      saleDoc,
+      issuedAt,
+      emisor,
+      material,
+      rutEnvia,
+    };
+  }
+
+  private async mapEmissionToListItem(emission: FiscalDteEmission): Promise<FiscalEmissionListItem> {
+    const tx = await this.transactionRepo.findOne({ where: { id: emission.transactionId } });
+    let branchName: string | null = null;
+    if (tx?.branchId) {
+      const branch = await this.dataSource.getRepository(Branch).findOne({
+        where: { id: tx.branchId },
+      });
+      branchName = branch?.name ?? null;
+    }
+    return mapFiscalEmissionListItem({ emission, transaction: tx, branchName });
   }
 
   private async reconcileFailedIfSiiAccepted(
@@ -576,10 +968,25 @@ export class FiscalBoletaEmissionService {
     return saved;
   }
 
+  private mapDbStatusToResultStatus(
+    status: FiscalDteEmissionStatus,
+  ): FiscalEmissionResult['status'] {
+    if (
+      status === FiscalDteEmissionStatus.PENDING ||
+      status === FiscalDteEmissionStatus.SENDING
+    ) {
+      return 'PENDING';
+    }
+    if (status === FiscalDteEmissionStatus.EPR) return 'EPR';
+    if (status === FiscalDteEmissionStatus.SENT) return 'SENT';
+    return 'FAILED';
+  }
+
   private async resultFromExisting(
     companyId: string,
     emission: FiscalDteEmission,
   ): Promise<FiscalEmissionResult> {
+    const status = this.mapDbStatusToResultStatus(emission.envioStatus);
     const company = await this.companyRepo.findOne({ where: { id: companyId } });
     const transaction = await this.transactionRepo.findOne({
       where: { id: emission.transactionId },
@@ -587,9 +994,11 @@ export class FiscalBoletaEmissionService {
     const lines = await this.lineRepo.find({ where: { transactionId: emission.transactionId } });
     if (!company || !transaction || !lines.length || !emission.tedXml) {
       return {
-        status: isSuccessfulEnvioStatus(emission.envioStatus) ? 'SENT' : 'FAILED',
+        status,
+        emissionId: emission.id,
         folio: emission.folio,
         trackId: emission.trackId,
+        siiPending: status === 'PENDING',
         error:
           emission.errorDetail && typeof emission.errorDetail.message === 'string'
             ? emission.errorDetail.message
@@ -614,9 +1023,11 @@ export class FiscalBoletaEmissionService {
       transactionDocumentNumber: transaction.documentNumber,
     });
     return {
-      status: isSuccessfulEnvioStatus(emission.envioStatus) ? 'SENT' : 'FAILED',
+      status,
+      emissionId: emission.id,
       folio: emission.folio,
       trackId: emission.trackId,
+      siiPending: status === 'PENDING' || status === 'SENT',
       error:
         emission.errorDetail && typeof emission.errorDetail.message === 'string'
           ? emission.errorDetail.message
@@ -673,28 +1084,13 @@ export class FiscalBoletaEmissionService {
     return { tedXml: built.tedXml, signedDte, signedEnvio };
   }
 
-  private async saveFailedEmission(params: {
-    companyId: string;
-    transactionId: string;
-    folio: number;
-    receptor: { rut: string; name: string };
-    issuedAt: string;
-    error: string;
-  }): Promise<void> {
-    await this.emissionRepo.save(
-      this.emissionRepo.create({
-        companyId: params.companyId,
-        transactionId: params.transactionId,
-        dteType: 39,
-        folio: params.folio,
-        environment: SiiEnvironment.PRODUCTION,
-        receptorRut: params.receptor.rut,
-        receptorName: params.receptor.name,
-        envioStatus: FiscalDteEmissionStatus.FAILED,
-        errorDetail: { message: params.error },
-        issuedAt: params.issuedAt,
-      }),
-    );
+  private encryptSignedEnvio(signedXml: string): { encrypted: string; iv: string } {
+    const { data, iv } = this.crypto.encrypt(signedXml);
+    return { encrypted: data.toString('base64'), iv };
+  }
+
+  private decryptSignedEnvio(encryptedB64: string, iv: string): string {
+    return this.crypto.decrypt(Buffer.from(encryptedB64, 'base64'), iv).toString('utf8');
   }
 
   private async loadCafXmlById(cafId: string): Promise<string> {

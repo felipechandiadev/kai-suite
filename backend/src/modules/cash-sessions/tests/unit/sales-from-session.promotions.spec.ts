@@ -244,6 +244,7 @@ describe('SalesFromSessionService — PR5 promotions integration', () => {
       {} as any,
       {} as any,
       {} as any,
+      { fiscalEmission: { boletaAsyncEmit: false } } as any,
     );
 
     return {

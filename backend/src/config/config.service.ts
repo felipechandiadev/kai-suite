@@ -7,6 +7,7 @@ import {
   JwtConfig,
   Config,
   StorageConfig,
+  FiscalEmissionConfig,
 } from './config.interface';
 
 /**
@@ -152,6 +153,34 @@ export class AppConfigService {
     };
   }
 
+  get fiscalEmission(): FiscalEmissionConfig {
+    return {
+      boletaAsyncEmit: this.envBool(
+        this.configService.get('FISCAL_BOLETA_ASYNC_EMIT'),
+      ),
+      workerIntervalMs: parseInt(
+        this.configService.get<string>('FISCAL_EMISSION_WORKER_INTERVAL_MS')!,
+        10,
+      ),
+      workerBatchSize: parseInt(
+        this.configService.get<string>('FISCAL_EMISSION_WORKER_BATCH_SIZE')!,
+        10,
+      ),
+      maxSubmitAttempts: parseInt(
+        this.configService.get<string>('FISCAL_EMISSION_MAX_SUBMIT_ATTEMPTS')!,
+        10,
+      ),
+      staleSendingMs: parseInt(
+        this.configService.get<string>('FISCAL_EMISSION_STALE_SENDING_MS')!,
+        10,
+      ),
+      submitBackoffBaseMs: parseInt(
+        this.configService.get<string>('FISCAL_EMISSION_SUBMIT_BACKOFF_BASE_MS')!,
+        10,
+      ),
+    };
+  }
+
   // Complete Configuration Object
   get config(): Config {
     return {
@@ -160,6 +189,7 @@ export class AppConfigService {
       redis: this.redis,
       jwt: this.jwt,
       storage: this.storage,
+      fiscalEmission: this.fiscalEmission,
     };
   }
 

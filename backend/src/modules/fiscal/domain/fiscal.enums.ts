@@ -13,6 +13,7 @@ export enum FiscalProfileStatus {
 
 export enum FiscalDteEmissionStatus {
   PENDING = 'PENDING',
+  SENDING = 'SENDING',
   SENT = 'SENT',
   EPR = 'EPR',
   RCH = 'RCH',

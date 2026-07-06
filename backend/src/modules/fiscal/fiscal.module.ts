@@ -21,10 +21,13 @@ import { FiscalController } from './presentation/fiscal.controller';
 import { FiscalCryptoService } from './infrastructure/fiscal-crypto.service';
 import { SiiBoletaAuthService } from './infrastructure/sii-boleta-auth.service';
 import { SiiBoletaRestClient } from './infrastructure/sii-boleta-rest.client';
+import { FiscalEmissionWorkerService } from './application/fiscal-emission-worker.service';
 import { FiscalXmlSchemaValidator } from './infrastructure/fiscal-xml-schema.validator';
+import { AppConfigModule } from '../../config/config.module';
 
 @Module({
   imports: [
+    AppConfigModule,
     TypeOrmModule.forFeature([
       FiscalProfile,
       FiscalCertificate,
@@ -43,6 +46,7 @@ import { FiscalXmlSchemaValidator } from './infrastructure/fiscal-xml-schema.val
   providers: [
     FiscalService,
     FiscalBoletaEmissionService,
+    FiscalEmissionWorkerService,
     PosFolioAllocationService,
     FiscalCafPackageService,
     FiscalFolioLedgerService,

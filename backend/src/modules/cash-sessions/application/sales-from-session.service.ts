@@ -95,6 +95,7 @@ import {
   type SaleDocumentKind,
 } from '@modules/fiscal/domain/sale-document-kind';
 import type { FiscalEmissionResult } from '@modules/fiscal/application/fiscal-emission.types';
+import { AppConfigService } from '../../../config/config.service';
 
 type PosCommercialRegisterConfig = {
   transactionType:
@@ -170,6 +171,7 @@ export class SalesFromSessionService {
     private readonly presaleTicketsService: PresaleTicketsService,
     private readonly fiscalBoletaEmission: FiscalBoletaEmissionService,
     private readonly fiscalEffectiveOptions: FiscalEffectiveOptionsService,
+    private readonly appConfig: AppConfigService,
   ) {}
 
   /**
@@ -355,6 +357,13 @@ export class SalesFromSessionService {
     );
 
     try {
+      if (this.appConfig.fiscalEmission.boletaAsyncEmit) {
+        return await this.fiscalBoletaEmission.prepareFromSale(
+          pos.companyId,
+          result.transaction.id,
+          createSaleDto.pointOfSaleId,
+        );
+      }
       return await this.fiscalBoletaEmission.emitFromSale(
         pos.companyId,
         result.transaction.id,

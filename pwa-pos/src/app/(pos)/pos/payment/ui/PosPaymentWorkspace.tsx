@@ -2540,15 +2540,23 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
       saleFolio: confirmRes.success ? confirmRes.documentNumber : undefined,
       transactionId: confirmRes.success ? confirmRes.transactionId : undefined,
       fiscalFolio:
-        fiscalEmission?.status === "SENT" && fiscalEmission.folio != null
+        fiscalEmission?.folio != null &&
+        (fiscalEmission.status === "PENDING" ||
+          fiscalEmission.status === "SENT" ||
+          fiscalEmission.status === "EPR")
           ? String(fiscalEmission.folio)
           : null,
       fiscalPrintPreview:
-        fiscalEmission?.status === "SENT" ? fiscalEmission.printPreview ?? null : null,
+        fiscalEmission?.printPreview &&
+        (fiscalEmission.status === "PENDING" ||
+          fiscalEmission.status === "SENT" ||
+          fiscalEmission.status === "EPR")
+          ? fiscalEmission.printPreview
+          : null,
       fiscalBoletaWarning:
         fiscalEmission?.status === "FAILED"
           ? fiscalEmission.error?.trim() ||
-            "Venta registrada; boleta pendiente de envío al SII."
+            "Venta registrada; reintento de envío al SII en curso."
           : null,
       documentKind: isEncargoMode ? "backorder" : "sale",
       backorder:

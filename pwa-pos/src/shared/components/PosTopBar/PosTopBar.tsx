@@ -164,6 +164,7 @@ function PosTopBarNav({
       ) : null}
       <PrintServiceTopBarDropdown
         panelVariant="pos"
+        notificationBadgeVariant="secondary"
         connected={printService.connected}
         health={printService.health}
         visual={printService.visual}
@@ -174,7 +175,7 @@ function PosTopBarNav({
         unreadCount={printService.unreadCount}
         markNotificationsRead={printService.markNotificationsRead}
         clearNotifications={printService.clearNotifications}
-        triggerClassName={`fs-icon-button fs-icon-button--action inline-flex items-center justify-center w-10 h-10 shrink-0 ${
+        triggerClassName={`fs-icon-button fs-icon-button--action relative inline-flex items-center justify-center overflow-visible w-10 h-10 shrink-0 ${
           printService.connected
             ? "text-emerald-600 dark:text-emerald-400"
             : "text-red-600 dark:text-red-400"

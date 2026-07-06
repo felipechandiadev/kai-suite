@@ -1,11 +1,17 @@
 import Link from "next/link";
 
-export type EShopUnavailableReason = "disabled" | "not_found";
+export type EShopUnavailableReason = "disabled" | "not_found" | "backend_unreachable";
 
 const PUBLIC_COPY: Record<
   EShopUnavailableReason,
   { title: string; description: string; retryLabel: string }
 > = {
+  backend_unreachable: {
+    title: "No pudimos conectar con la tienda",
+    description:
+      "El servicio no está disponible en este momento. Intenta de nuevo en unos minutos.",
+    retryLabel: "Volver a intentar",
+  },
   disabled: {
     title: "Tienda temporalmente cerrada",
     description:
@@ -45,7 +51,12 @@ export function EShopStoreUnavailable({ reason }: Props) {
             Información para desarrollo
           </summary>
           <div className="mt-3 space-y-3 rounded-lg border border-border bg-muted/20 p-4 text-xs text-muted-foreground">
-            {reason === "disabled" ? (
+            {reason === "backend_unreachable" ? (
+              <p>
+                <strong>ECONNREFUSED</strong> al llamar <code className="text-[11px]">BACKEND_API_URL</code>
+                . El API Nest no está escuchando (dev: puerto <strong>5030</strong>).
+              </p>
+            ) : reason === "disabled" ? (
               <p>
                 El backend respondió <strong>503</strong>: eShop desactivado en admin o tienda no
                 habilitada.
@@ -56,20 +67,35 @@ export function EShopStoreUnavailable({ reason }: Props) {
                 coincide con la configuración.
               </p>
             )}
-            <ol className="list-decimal space-y-2 pl-4">
-              <li>
-                En <strong>pwa-admin</strong> → Configuración → Empresa → eShop: active la tienda
-                y defina el slug público.
-              </li>
-              <li>
-                En <code className="text-[11px]">pwa-eshop/.env.local</code>:{" "}
-                <code className="text-[11px]">NEXT_PUBLIC_ESHOP_STORE_SLUG=&lt;mismo-slug&gt;</code>
-              </li>
-              <li>
-                O ejecute:{" "}
-                <code className="text-[11px]">cd backend && npm run eshop:enable-demo</code>
-              </li>
-            </ol>
+            {reason === "backend_unreachable" ? (
+              <ol className="list-decimal space-y-2 pl-4">
+                <li>
+                  Verifica que el backend esté en ejecución:{" "}
+                  <code className="text-[11px]">cd backend && npm run start:dev</code> o{" "}
+                  <code className="text-[11px]">npm run dev:all</code> en la raíz del monorepo.
+                </li>
+                <li>
+                  En <code className="text-[11px]">pwa-eshop/.env.local</code>:{" "}
+                  <code className="text-[11px]">BACKEND_API_URL=http://localhost:5030</code>
+                </li>
+              </ol>
+            ) : null}
+            {reason !== "backend_unreachable" ? (
+              <ol className="list-decimal space-y-2 pl-4">
+                <li>
+                  En <strong>pwa-admin</strong> → Configuración → Empresa → eShop: active la tienda
+                  y defina el slug público.
+                </li>
+                <li>
+                  En <code className="text-[11px]">pwa-eshop/.env.local</code>:{" "}
+                  <code className="text-[11px]">NEXT_PUBLIC_ESHOP_STORE_SLUG=&lt;mismo-slug&gt;</code>
+                </li>
+                <li>
+                  O ejecute:{" "}
+                  <code className="text-[11px]">cd backend && npm run eshop:enable-demo</code>
+                </li>
+              </ol>
+            ) : null}
           </div>
         </details>
       ) : null}

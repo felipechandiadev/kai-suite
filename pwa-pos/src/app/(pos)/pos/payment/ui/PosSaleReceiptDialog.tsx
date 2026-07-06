@@ -784,7 +784,7 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
           setAutoPrintStatus(null);
         }
       })();
-    }, 1200);
+    }, 300);
     return () => clearTimeout(t);
   }, [open, data?.folio, data?.transactionId, data?.documentKind]);
 

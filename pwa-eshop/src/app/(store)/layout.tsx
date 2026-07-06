@@ -1,7 +1,10 @@
 import { Suspense } from "react";
 import { EShopCartProvider } from "@/features/e-shop-cart/EShopCartProvider";
 import { getStorefrontAction } from "@/features/e-shop-storefront/actions/storefront.action";
-import { EShopApiError } from "@/features/e-shop-storefront/infrastructure/eshop-api-error";
+import {
+  EShopApiError,
+  isEshopFetchNetworkError,
+} from "@/features/e-shop-storefront/infrastructure/eshop-api-error";
 import { isLightHexColor } from "@/features/e-shop-storefront/lib/is-light-hex-color";
 import { CLASSIC_THEME_FALLBACK } from "@/features/e-shop-storefront/lib/build-theme-css-vars";
 import { DEFAULT_ESHOP_TOP_BAR } from "@/features/e-shop-storefront/lib/default-eshop-shell";
@@ -20,6 +23,9 @@ export default async function StoreLayout({ children }: { children: React.ReactN
   try {
     storefront = await getStorefrontAction();
   } catch (e) {
+    if (isEshopFetchNetworkError(e)) {
+      return <EShopStoreUnavailable reason="backend_unreachable" />;
+    }
     if (e instanceof EShopApiError) {
       if (e.status === 503) {
         return <EShopStoreUnavailable reason="disabled" />;

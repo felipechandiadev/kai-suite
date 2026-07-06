@@ -8,7 +8,7 @@ import type {
   FiscalEmissionsListParams,
 } from "../types/fiscal.types";
 
-type EnvioFilter = "" | "SENT" | "FAILED" | "EPR" | "RCH";
+type EnvioFilter = "" | "PENDING" | "SENDING" | "SENT" | "FAILED" | "EPR" | "RCH";
 
 type UseFiscalEmissionsListOptions = {
   initialItems: FiscalEmissionRow[];

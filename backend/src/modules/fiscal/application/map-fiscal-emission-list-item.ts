@@ -60,5 +60,7 @@ export function mapFiscalEmissionListItem(row: FiscalEmissionListJoinRow): Fisca
     subPackCode: subPackCode ?? null,
     pointOfSaleId: e.pointOfSaleId ?? null,
     pointOfSaleName: pointOfSaleName ?? null,
+    submitAttempts: e.submitAttempts ?? 0,
+    nextRetryAt: e.nextRetryAt ? e.nextRetryAt.toISOString() : null,
   };
 }

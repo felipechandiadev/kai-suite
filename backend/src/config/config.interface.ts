@@ -92,6 +92,15 @@ export interface FeatureFlags {
   enableCache: boolean;
 }
 
+export interface FiscalEmissionConfig {
+  boletaAsyncEmit: boolean;
+  workerIntervalMs: number;
+  workerBatchSize: number;
+  maxSubmitAttempts: number;
+  staleSendingMs: number;
+  submitBackoffBaseMs: number;
+}
+
 export interface AppConfig {
   nodeEnv: 'development' | 'staging' | 'production' | 'test';
   port: number;
@@ -110,4 +119,5 @@ export interface Config {
   redis: RedisConfig;
   jwt: JwtConfig;
   storage: StorageConfig;
+  fiscalEmission: FiscalEmissionConfig;
 }

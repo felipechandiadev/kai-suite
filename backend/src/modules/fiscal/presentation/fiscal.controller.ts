@@ -28,6 +28,8 @@ import { EnableProductionDto } from '../application/dto/enable-production.dto';
 import { FiscalDteEmissionStatus, FiscalCafPackageStatus, SiiEnvironment } from '../domain/fiscal.enums';
 
 const VALID_EMISSION_STATUSES = new Set<string>([
+  FiscalDteEmissionStatus.PENDING,
+  FiscalDteEmissionStatus.SENDING,
   FiscalDteEmissionStatus.SENT,
   FiscalDteEmissionStatus.FAILED,
   FiscalDteEmissionStatus.EPR,

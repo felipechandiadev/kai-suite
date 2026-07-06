@@ -398,6 +398,22 @@ export class TransactionsController {
     return { success: true, receipt };
   }
 
+  @Get(':id/fiscal-emission-status')
+  @ApiOperation({ summary: 'Estado de emisión boleta SII para una venta' })
+  async getFiscalEmissionStatus(
+    @Param('id') id: string,
+    @CurrentCompany() companyId: string,
+  ) {
+    const status = await this.fiscalBoletaEmission.getEmissionStatusForTransaction(
+      companyId,
+      id,
+    );
+    if (!status) {
+      return { success: false, message: 'No hay emisión fiscal para esta venta' };
+    }
+    return { success: true, status };
+  }
+
   @Get(':id/fiscal-boleta-print-preview')
   @ApiOperation({
     summary: 'Vista previa boleta electrónica SII para reimpresión POS',

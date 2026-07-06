@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, IsNull, Repository } from 'typeorm';
+import { DataSource, EntityManager, IsNull, Repository } from 'typeorm';
 import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
 import { PointOfSaleFolioAllocation } from '../domain/point-of-sale-folio-allocation.entity';
 import { FiscalCaf } from '../domain/fiscal-caf.entity';
@@ -190,51 +190,63 @@ export class PosFolioAllocationService {
   async reserveFolio(
     posId: string,
     dteType: number,
+    manager?: EntityManager,
   ): Promise<{ folio: number; allocationId: string; cafId: string }> {
-    return this.dataSource.transaction(async (manager) => {
-      const pos = await manager.getRepository(PointOfSale).findOne({
-        where: { id: posId, deletedAt: IsNull() },
-      });
-      if (!pos?.companyId) {
-        throw new NotFoundException('Punto de venta no encontrado');
-      }
+    if (manager) {
+      return this.reserveFolioInManager(manager, posId, dteType);
+    }
+    return this.dataSource.transaction((txManager) =>
+      this.reserveFolioInManager(txManager, posId, dteType),
+    );
+  }
 
-      const allocation = await manager.getRepository(PointOfSaleFolioAllocation).findOne({
-        where: {
-          pointOfSaleId: posId,
-          dteType,
-          environment: SiiEnvironment.PRODUCTION,
-          isActive: true,
-        },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!allocation) {
-        throw new ConflictException('El POS no tiene folios asignados para este tipo de documento');
-      }
-      if (allocation.nextFolio > allocation.rangeTo) {
-        throw new ConflictException('Sin folios disponibles en el POS');
-      }
-
-      const caf = await manager.getRepository(FiscalCaf).findOne({
-        where: { id: allocation.cafId, companyId: pos.companyId },
-      });
-      if (!caf) {
-        throw new BadRequestException('CAF del sub-paquete no encontrado');
-      }
-      if (
-        allocation.nextFolio < allocation.rangeFrom ||
-        allocation.nextFolio > allocation.rangeTo ||
-        allocation.nextFolio < caf.rangeFrom ||
-        allocation.nextFolio > caf.rangeTo
-      ) {
-        throw new ConflictException('Folio fuera del rango CAF o asignación POS');
-      }
-
-      const folio = allocation.nextFolio;
-      allocation.nextFolio = folio + 1;
-      await manager.getRepository(PointOfSaleFolioAllocation).save(allocation);
-      return { folio, allocationId: allocation.id, cafId: caf.id };
+  async reserveFolioInManager(
+    manager: EntityManager,
+    posId: string,
+    dteType: number,
+  ): Promise<{ folio: number; allocationId: string; cafId: string }> {
+    const pos = await manager.getRepository(PointOfSale).findOne({
+      where: { id: posId, deletedAt: IsNull() },
     });
+    if (!pos?.companyId) {
+      throw new NotFoundException('Punto de venta no encontrado');
+    }
+
+    const allocation = await manager.getRepository(PointOfSaleFolioAllocation).findOne({
+      where: {
+        pointOfSaleId: posId,
+        dteType,
+        environment: SiiEnvironment.PRODUCTION,
+        isActive: true,
+      },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!allocation) {
+      throw new ConflictException('El POS no tiene folios asignados para este tipo de documento');
+    }
+    if (allocation.nextFolio > allocation.rangeTo) {
+      throw new ConflictException('Sin folios disponibles en el POS');
+    }
+
+    const caf = await manager.getRepository(FiscalCaf).findOne({
+      where: { id: allocation.cafId, companyId: pos.companyId },
+    });
+    if (!caf) {
+      throw new BadRequestException('CAF del sub-paquete no encontrado');
+    }
+    if (
+      allocation.nextFolio < allocation.rangeFrom ||
+      allocation.nextFolio > allocation.rangeTo ||
+      allocation.nextFolio < caf.rangeFrom ||
+      allocation.nextFolio > caf.rangeTo
+    ) {
+      throw new ConflictException('Folio fuera del rango CAF o asignación POS');
+    }
+
+    const folio = allocation.nextFolio;
+    allocation.nextFolio = folio + 1;
+    await manager.getRepository(PointOfSaleFolioAllocation).save(allocation);
+    return { folio, allocationId: allocation.id, cafId: caf.id };
   }
 
   async validateNoOverlap(

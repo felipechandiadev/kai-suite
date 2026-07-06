@@ -56,6 +56,30 @@ export class FiscalDteEmission {
   @Column({ name: 'ted_xml', type: 'text', nullable: true })
   tedXml?: string | null;
 
+  @Column({ name: 'encrypted_signed_envio', type: 'text', nullable: true })
+  encryptedSignedEnvio?: string | null;
+
+  @Column({ name: 'signed_envio_iv', type: 'varchar', length: 32, nullable: true })
+  signedEnvioIv?: string | null;
+
+  @Column({ name: 'submit_attempts', type: 'smallint', default: 0 })
+  submitAttempts!: number;
+
+  @Column({ name: 'poll_attempts', type: 'smallint', default: 0 })
+  pollAttempts!: number;
+
+  @Column({ name: 'next_retry_at', type: 'timestamptz', nullable: true })
+  nextRetryAt?: Date | null;
+
+  @Column({ name: 'submitted_at', type: 'timestamptz', nullable: true })
+  submittedAt?: Date | null;
+
+  @Column({ name: 'processing_claimed_at', type: 'timestamptz', nullable: true })
+  processingClaimedAt?: Date | null;
+
+  @Column({ name: 'sii_poll_after', type: 'timestamptz', nullable: true })
+  siiPollAfter?: Date | null;
+
   @Column({ name: 'error_detail', type: 'jsonb', nullable: true })
   errorDetail?: Record<string, unknown> | null;
 
