@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   allowedDevOrigins: buildLanAllowedDevOrigins(),
-  transpilePackages: ["@kai/print-service-client"],
+  transpilePackages: ["@kai/print-service-client", "@kai/fiscal-ted"],
   env: {
     NEXT_PUBLIC_BACKEND_API_URL:
       process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_BACKEND_API_URL || "",

@@ -21,7 +21,8 @@
     "brand:icons": "cd packages/kai-brand && npm install && npm run generate",
     "seed:demo": "npm run seed:demo --prefix seeds",
     "seed:joyarte": "npm run seed:joyarte --prefix seeds",
-    "seed:san-sebastian": "npm run seed:san-sebastian --prefix seeds"
+    "seed:san-sebastian": "npm run seed:san-sebastian --prefix seeds",
+    "build:fiscal-ted": "npm run build --prefix packages/fiscal-ted"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

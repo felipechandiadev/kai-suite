@@ -305,6 +305,16 @@ export class SalesFromSessionService {
     return result;
   }
 
+  /** Venta sincronizada desde cola offline: sin emisión automática (adoptOfflineEmission aparte). */
+  async createSaleFromOfflineSync(createSaleDto: CreateSaleDto) {
+    const result = await this.registerPosCommercial(createSaleDto, {
+      transactionType: TransactionType.SALE,
+      skipStockCheck: false,
+      deferPayment: false,
+    });
+    return result;
+  }
+
   private shouldEmitSaleBoleta(
     createSaleDto: CreateSaleDto,
     fulfillBackorderId?: string,

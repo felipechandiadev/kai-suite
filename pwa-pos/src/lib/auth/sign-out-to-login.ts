@@ -1,6 +1,8 @@
 "use client";
 
 import { signOut } from "next-auth/react";
+import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
+import { clearOfflineSensitiveDataForPos } from "@/features/pos-offline/application/clear-offline-session-data.usecase";
 
 let inFlight: Promise<void> | null = null;
 
@@ -11,6 +13,14 @@ let inFlight: Promise<void> | null = null;
  */
 export async function signOutToLogin(): Promise<void> {
   if (typeof window === "undefined") return;
+  const ctx = readPosContextClient();
+  if (ctx?.pointOfSaleId) {
+    try {
+      await clearOfflineSensitiveDataForPos(ctx.pointOfSaleId);
+    } catch {
+      // No bloquear logout si IndexedDB falla.
+    }
+  }
   try {
     await signOut({ redirect: false });
   } catch {

@@ -72,6 +72,14 @@ import { resolvePosOperatorDisplayName } from "@/features/pos-print/lib/ticket-r
 import { formatReceiptLineDisplayName } from "@/features/pos-print/lib/format-receipt-line-name";
 import { createBackorderFromPosAction } from "@/features/session/actions/create-backorder.action";
 import { createSaleFromPosAction } from "@/features/session/actions/create-sale.action";
+import { usePosOffline } from "@/features/pos-offline/hooks/use-pos-offline";
+import { enqueueOfflineSale } from "@/features/pos-offline/application/enqueue-sale.usecase";
+import { nextLocalDocumentNumber } from "@/features/pos-offline/application/device-id";
+import { reserveLocalFolio } from "@/features/pos-offline/application/reserve-local-folio.usecase";
+import { getStoredFiscalPack, isFiscalPackExpired } from "@/features/pos-offline/application/download-fiscal-pack.usecase";
+import { buildOfflineBoletaPreview } from "@/features/pos-offline/application/build-offline-boleta-preview.usecase";
+import { decrementOfflineCatalogStock } from "@/features/pos-offline/application/decrement-offline-catalog-stock.usecase";
+import { companyDetailsFromFiscalPackEmisor } from "@/features/pos-offline/lib/company-from-fiscal-pack";
 import { collectPendingSalesFromPosAction } from "@/features/session/actions/collect-pending-sales.action";
 import { collectPendingQuotasFromPosAction } from "@/features/session/actions/collect-pending-quotas.action";
 import { payoutCustomerCreditNotesFromPosAction } from "@/features/session/actions/payout-customer-credit-notes.action";
@@ -525,6 +533,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
   } = cart;
 
   const { data: authSession } = useSession();
+  const { isBackendReachable: backendReachable } = usePosOffline();
   const posOperatorName = resolvePosOperatorDisplayName(
     authSession?.user as { name?: string | null; email?: string | null; userName?: string | null } | undefined,
   );
@@ -2444,6 +2453,169 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
         setPageAlert(
           e instanceof Error ? e.message : "No se pudo registrar la devolución con nota de crédito.",
         );
+        return;
+      }
+    }
+
+    const isSimpleSaleMode =
+      !isEncargoMode &&
+      !isCollectMode &&
+      !isQuotaMode &&
+      !isNcPayoutMode &&
+      !isReturnMode &&
+      !isReturnDocumentMode;
+
+    if (isSimpleSaleMode && !backendReachable) {
+      const usedPayments = payments.filter((p) => (Number(p.amount) || 0) > 0);
+      const offlineAllowed = usedPayments.every(
+        (p) =>
+          (p.type === "CASH" || p.type === "DEBIT_CARD" || p.type === "CREDIT_CARD") &&
+          !p.paymentGatewayIntentId?.trim(),
+      );
+      if (!offlineAllowed) {
+        setConfirmLoading(false);
+        setPageAlert(
+          "Sin conexión: solo ventas con efectivo o tarjeta manual (sin pasarela).",
+        );
+        return;
+      }
+
+      try {
+        const salePayload = buildCreateSaleClientPayload({
+          pointOfSaleId,
+          cashSessionId,
+          cartLines: cart.lines,
+          payments,
+          customer,
+          appliedPromotions,
+          appliedTotal,
+          overpay,
+          fulfillPresaleTicketIds: loadedPresaleTickets.map((t) => t.id),
+          loadedPresaleTickets,
+          loadedQuotation: cart.loadedQuotation,
+          saleDocumentKind: saleDteKind,
+        });
+
+        let fiscalBlock: {
+          folio: number;
+          allocationId: string;
+          cafId: string;
+          tedXml: string;
+          issuedAt: string;
+        } | null = null;
+        let fiscalPrintPreview = null as import("@/features/fiscal/types/fiscal-emission.types").FiscalBoletaPrintPreview | null;
+        let fiscalFolio: string | null = null;
+        let boletaSkippedMessage: string | null = null;
+        let localDocumentNumber = await nextLocalDocumentNumber();
+
+        if (saleDteKind === "BOLETA") {
+          const pack = await getStoredFiscalPack(pointOfSaleId);
+          if (!pack) {
+            boletaSkippedMessage =
+              "Sin paquete fiscal local. Se imprimirá solo ticket interno.";
+          } else if (isFiscalPackExpired(pack)) {
+            boletaSkippedMessage =
+              "Paquete fiscal vencido. Renueva folios con conexión. Solo ticket interno.";
+          } else {
+            const reserved = await reserveLocalFolio(pointOfSaleId);
+            if (!reserved.ok) {
+              boletaSkippedMessage =
+                reserved.reason === "NO_FOLIOS"
+                  ? "Sin folios CAF disponibles offline. Solo ticket interno."
+                  : "Paquete fiscal no cargado. Solo ticket interno.";
+            } else {
+              const built = buildOfflineBoletaPreview({
+                cartLines: cart.lines,
+                customer,
+                fiscalPack: pack,
+                folio: reserved.folio,
+                localDocumentNumber,
+                operatorName: posOperatorName,
+              });
+              fiscalBlock = {
+                folio: reserved.folio,
+                allocationId: reserved.allocationId,
+                cafId: reserved.cafId,
+                tedXml: built.tedXml,
+                issuedAt: built.issuedAt,
+              };
+              fiscalPrintPreview = built.preview;
+              fiscalFolio = String(reserved.folio);
+            }
+          }
+        }
+
+        await enqueueOfflineSale({
+          payload: { ...salePayload, pointOfSaleId, cashSessionId },
+          fiscal: fiscalBlock,
+          localDocumentNumber,
+        });
+
+        const priceListId = posCtx?.priceListId?.trim();
+        if (priceListId) {
+          await decrementOfflineCatalogStock({
+            pointOfSaleId,
+            priceListId,
+            lines: cart.lines.map((l) => ({
+              variantId: l.variantId,
+              quantity: l.quantity,
+              trackInventory: l.trackInventory,
+            })),
+          });
+        }
+
+        let details = companyDetails;
+        if (!details) {
+          const pack = await getStoredFiscalPack(pointOfSaleId);
+          if (pack?.emisor) {
+            details = companyDetailsFromFiscalPackEmisor(pack.emisor);
+          } else {
+            try {
+              details = (await getCompanyDetailsAction()) ?? null;
+              if (details) setCompanyDetails(details);
+            } catch {
+              details = null;
+            }
+          }
+        }
+
+        const snapshot = buildPosSaleReceiptSnapshot({
+          lines: cart.lines,
+          payments,
+          customer,
+          company: details,
+          posContext: posCtx,
+          appliedPromotions,
+          orderDiscount,
+          lineDiscountsTotal,
+          totals: {
+            net: totals.net,
+            gross: totals.gross,
+            taxes,
+            discounts,
+            saleTotal,
+            appliedTotal,
+            overpay,
+          },
+          methodsById,
+          loadedQuotation,
+          saleFolio: localDocumentNumber,
+          fiscalFolio,
+          fiscalPrintPreview,
+          fiscalBoletaWarning: boletaSkippedMessage
+            ? `${boletaSkippedMessage} Pendiente de sincronización.`
+            : "Venta guardada localmente. Se sincronizará al reconectar.",
+          documentKind: "sale",
+          operatorName: posOperatorName,
+        });
+        setReceiptData(snapshot);
+        setConfirmLoading(false);
+        emitKaiScreenSaleCompleted();
+        setSuccessOpen(true);
+        return;
+      } catch (e) {
+        setConfirmLoading(false);
+        setPageAlert(e instanceof Error ? e.message : "No se pudo registrar la venta offline.");
         return;
       }
     }

@@ -4,6 +4,8 @@ import { usePathname } from "next/navigation";
 import PosCartProvider from "@/features/pos-cart/PosCartProvider";
 import { CustomerDisplayPublisher } from "@/features/customer-display/ui/CustomerDisplayPublisher";
 import { FiscalBoletaBrowserPrintHost } from "@/features/fiscal/print/FiscalBoletaBrowserPrintHost";
+import { PosOfflineBanner } from "@/features/pos-offline/ui/PosOfflineBanner";
+import { usePosOffline } from "@/features/pos-offline/hooks/use-pos-offline";
 import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
 import { usePosTabletDensity } from "@/shared/hooks/usePosTabletDensity";
 
@@ -22,6 +24,7 @@ export default function PosLayoutChrome({ children, topBar }: Props) {
   const resultOnly = isCashClosingResultPath(pathname);
   const compact = usePosCompactLayout();
   usePosTabletDensity();
+  const { lastSyncedDocument, clearLastSyncedDocument, authExpiredMessage } = usePosOffline();
 
   if (resultOnly) {
     return (
@@ -41,6 +44,24 @@ export default function PosLayoutChrome({ children, topBar }: Props) {
     <div className="flex h-screen overflow-hidden flex-col bg-background">
       <FiscalBoletaBrowserPrintHost />
       {topBar}
+      <PosOfflineBanner />
+      {lastSyncedDocument ? (
+        <div className="shrink-0 border-b border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-center text-sm text-emerald-950 dark:text-emerald-100 flex items-center justify-center gap-3">
+          <span>Venta sincronizada: {lastSyncedDocument}</span>
+          <button
+            type="button"
+            className="underline text-xs"
+            onClick={() => clearLastSyncedDocument()}
+          >
+            Cerrar
+          </button>
+        </div>
+      ) : null}
+      {authExpiredMessage ? (
+        <div className="shrink-0 border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-center text-sm text-destructive">
+          {authExpiredMessage}
+        </div>
+      ) : null}
       <main
         className={`mt-(--app-topbar-height) flex min-h-0 flex-1 flex-col overflow-auto bg-background pt-4 ${
           compact

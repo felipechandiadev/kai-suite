@@ -12,6 +12,7 @@ import {
   type PosKind,
 } from "@/features/session/lib/pos-context-storage";
 import { StockAlertsDropdown } from "@/features/inventory-stock/ui/StockAlertsDropdown";
+import { OfflineStatusBadge } from "@/features/pos-offline/ui/OfflineStatusBadge";
 import { PrintServiceTopBarDropdown, usePrintServiceConnection } from "@kai/print-service-client";
 import Dialog from "@/shared/components/Dialog/Dialog";
 import { Button } from "@/shared/components/Button";
@@ -108,6 +109,7 @@ function PosTopBarNav({
         />
       ) : null}
       <StockAlertsDropdown />
+      <OfflineStatusBadge />
       {!isPresalePos ? (
         <>
           <IconButton

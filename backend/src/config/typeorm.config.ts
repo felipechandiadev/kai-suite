@@ -83,6 +83,7 @@ import { FiscalCaf } from '@modules/fiscal/domain/fiscal-caf.entity';
 import { FiscalCertificationRun } from '@modules/fiscal/domain/fiscal-certification-run.entity';
 import { FiscalDteEmission } from '@modules/fiscal/domain/fiscal-dte-emission.entity';
 import { PointOfSaleFolioAllocation } from '@modules/fiscal/domain/point-of-sale-folio-allocation.entity';
+import { PosSyncCommand } from '@modules/pos-sync/domain/pos-sync-command.entity';
 import { AuditSubscriber } from '../subscribers/AuditSubscriber';
 import { TenantSubscriber } from '../common/tenant/tenant.subscriber';
 
@@ -179,6 +180,7 @@ export const typeOrmConfig = (
       FiscalCertificationRun,
       FiscalDteEmission,
       PointOfSaleFolioAllocation,
+      PosSyncCommand,
     ],
 
     // Register subscribers (TypeORM EventSubscribers)

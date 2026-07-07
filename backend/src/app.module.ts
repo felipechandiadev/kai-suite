@@ -72,6 +72,7 @@ import { PromotionsModule } from './modules/promotions/promotions.module';
 import { PaymentGatewaysModule } from './modules/payment-gateways/payment-gateways.module';
 import { PresaleTicketsModule } from './modules/presale-tickets/presale-tickets.module';
 import { FiscalModule } from './modules/fiscal/fiscal.module';
+import { PosSyncModule } from './modules/pos-sync/pos-sync.module';
 
 @Module({
   imports: [
@@ -92,6 +93,7 @@ import { FiscalModule } from './modules/fiscal/fiscal.module';
     AuthModule,
     CompaniesModule,
     FiscalModule,
+    PosSyncModule,
     ShareholdersModule,
     BranchesModule,
     StoragesModule,

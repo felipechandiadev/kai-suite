@@ -28,6 +28,8 @@ import { LoadBackorderDialog } from "./LoadBackorderDialog";
 import { runPendingCashSessionOpeningPrintIfAny } from "@/features/cash-session-opening/lib/run-pending-cash-session-opening-print";
 import { requestPosProductSearchFocus } from "@/features/pos-products/lib/pos-product-search-focus";
 import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
+import { isBackendReachable } from "@/features/pos-offline/infrastructure/connectivity";
+import type { PosProductSearchItem } from "@/features/pos-products/types/pos-product.types";
 
 type MobilePanel = "products" | "cart";
 function formatMoney(n: number) {
@@ -148,8 +150,19 @@ export default function PosWorkspace() {
 
   const branchId = ctx?.branchId?.trim() ? ctx.branchId.trim() : null;
 
+  const [stockWarning, setStockWarning] = useState<string | null>(null);
+
   const addProduct = useCallback(
-    (item: any) => {
+    (item: PosProductSearchItem) => {
+      if (!isBackendReachable() && item.trackInventory && item.availableStock != null) {
+        const existing = cart.lines.find((l) => l.variantId === item.variantId);
+        const nextQty = (existing?.quantity ?? 0) + 1;
+        if (nextQty > item.availableStock) {
+          setStockWarning(
+            `Stock local bajo para ${item.productName} (${item.availableStock} disponibles). La venta puede fallar al sincronizar.`,
+          );
+        }
+      }
       cart.addItem(item);
       if (compactLayout) {
         setMobilePanel("cart");
@@ -304,6 +317,11 @@ export default function PosWorkspace() {
       style={compactLayout ? undefined : { height: `${POS_PRODUCT_SEARCH_PANEL_HEIGHT_VH}vh` }}
       data-test-id="pos-cart-panel"
     >
+        {stockWarning ? (
+          <Alert variant="warning" className="shrink-0">
+            {stockWarning}
+          </Alert>
+        ) : null}
         <div className="flex shrink-0 items-start justify-between gap-2">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             {quotationsEnabled && !isPresaleMode ? (

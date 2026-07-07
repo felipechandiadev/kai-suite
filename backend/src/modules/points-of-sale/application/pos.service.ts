@@ -34,6 +34,8 @@ import {
 } from '../domain/pos-fiscal-settings.types';
 import { PosFolioAllocationService } from '@modules/fiscal/application/pos-folio-allocation.service';
 import { FiscalEffectiveOptionsService } from '@modules/fiscal/application/fiscal-effective-options.service';
+import { OfflineFiscalPackService } from '@modules/fiscal/application/offline-fiscal-pack.service';
+import { ProductsPosService } from '@modules/products/application/products-pos.service';
 import type { UpsertPosFolioAllocationInput } from '@modules/fiscal/application/pos-folio-allocation.service';
 
 @Injectable()
@@ -46,6 +48,8 @@ export class PosService {
     private readonly companiesService: CompaniesService,
     private readonly posFolioAllocation: PosFolioAllocationService,
     private readonly fiscalEffectiveOptions: FiscalEffectiveOptionsService,
+    private readonly offlineFiscalPack: OfflineFiscalPackService,
+    private readonly productsPosService: ProductsPosService,
   ) {}
 
   async findAll(includeInactive: boolean) {
@@ -422,5 +426,45 @@ export class PosService {
       return 'El almacén sala de venta está inactivo';
     }
     return null;
+  }
+
+  async getOfflineFiscalPack(posId: string) {
+    try {
+      const pack = await this.offlineFiscalPack.getPackForPos(posId);
+      return { success: true, pack };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'No se pudo obtener paquete fiscal';
+      const statusCode = e instanceof NotFoundException ? 404 : 400;
+      return { success: false, message, statusCode };
+    }
+  }
+
+  async getOfflineCatalogSnapshot(
+    posId: string,
+    query: { priceListId?: string; cursor?: string; limit?: string },
+  ) {
+    const priceListId = query.priceListId?.trim();
+    if (!priceListId) {
+      return {
+        success: false,
+        message: 'priceListId es requerido',
+        statusCode: 400,
+      };
+    }
+    try {
+      const limit = query.limit ? Number(query.limit) : undefined;
+      const snapshot = await this.productsPosService.buildCatalogSnapshotForPos({
+        pointOfSaleId: posId,
+        priceListId,
+        cursor: query.cursor,
+        limit: Number.isFinite(limit) ? limit : undefined,
+      });
+      return { success: true, ...snapshot };
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : 'No se pudo obtener snapshot de catálogo';
+      const statusCode = e instanceof NotFoundException ? 404 : 400;
+      return { success: false, message, statusCode };
+    }
   }
 }

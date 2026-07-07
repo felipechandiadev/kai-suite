@@ -3,6 +3,8 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Search, Tags } from "lucide-react";
 import { searchPosProductsAction, lookupPosVariantsAction } from "@/features/pos-products/actions/pos-products.action";
+import { isBackendReachable } from "@/features/pos-offline/infrastructure/connectivity";
+import { searchOfflineCatalog } from "@/features/pos-offline/application/search-offline-catalog.usecase";
 import type { PosProductSearchItem } from "@/features/pos-products/types/pos-product.types";
 import {
   looksLikeBarcodeScan,
@@ -273,6 +275,26 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
           setTotal(0);
           return;
         }
+      }
+
+      if (!isBackendReachable()) {
+        const offline = await searchOfflineCatalog({
+          pointOfSaleId,
+          priceListId,
+          query: searchQuery,
+          page,
+          pageSize,
+        });
+        if (offline.products.length === 0 && searchQuery.trim()) {
+          setError("Sin conexión. Producto no está en el catálogo local.");
+        } else {
+          setError(null);
+        }
+        setItems(offline.products);
+        setTotal(offline.total);
+        setResultPageSize(pageSize);
+        tryAutoAddSingleResult(offline.products, offline.total, page);
+        return;
       }
 
       const res = await searchPosProductsAction({

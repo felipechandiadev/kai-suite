@@ -6,6 +6,9 @@ import { useSession } from "next-auth/react";
 import type { PointOfSaleListItem, PosPriceList } from "@/features/session/types/point-of-sale.types";
 import type { CashSessionListItem } from "@/features/session/types/cash-session.types";
 import { openCashSessionAction } from "@/features/session/actions/session-setup.action";
+import { runOfflineBootstrap } from "@/features/pos-offline/hooks/use-offline-bootstrap";
+import { OfflineBootstrapStatusPanel } from "@/features/pos-offline/ui/OfflineBootstrapStatusPanel";
+import type { OfflineBootstrapStatus } from "@/features/pos-offline/hooks/use-offline-bootstrap";
 import { listOpenCashSessionsAction } from "@/features/session/actions/cash-session.action";
 import { listCashHubsForPosAction } from "@/features/session/actions/cash-hub-pos.action";
 import type { CashHubDepositCandidate } from "@/features/session/types/cash-hub-deposit.types";
@@ -122,16 +125,19 @@ function MyOpenSessionPanel({
   const myPos = pointsOfSale.find((p) => p.id === myOpenSession.pointOfSaleId) ?? null;
 
   const handleContinue = async () => {
+    let priceListId: string | null = null;
     if (myPos) {
+      const ctx = buildPosContextFromPos(myPos);
+      priceListId = ctx.priceListId;
       savePosContext({
-        ...buildPosContextFromPos(myPos),
+        ...ctx,
         cashSessionId: myOpenSession.cashSessionId,
       });
     } else {
       const fetched = await fetchPointOfSalePriceListsAction(myOpenSession.pointOfSaleId);
       const priceLists =
         fetched.success && fetched.priceLists.length > 0 ? fetched.priceLists : [];
-      const priceListId =
+      priceListId =
         (fetched.success &&
           fetched.defaultPriceListId &&
           priceLists.some((p) => p.id === fetched.defaultPriceListId) &&
@@ -151,6 +157,9 @@ function MyOpenSessionPanel({
         posKind: fetched.success ? fetched.posKind : "SALE",
         acceptsPresaleTickets: fetched.success ? fetched.acceptsPresaleTickets : false,
       });
+    }
+    if (priceListId) {
+      void runOfflineBootstrap(myOpenSession.pointOfSaleId, priceListId);
     }
     router.push("/pos");
   };
@@ -280,6 +289,11 @@ function NewSessionForm({
   const [cashHubs, setCashHubs] = useState<CashHubDepositCandidate[]>([]);
   const [loadingCashHubs, setLoadingCashHubs] = useState(false);
   const [error, setError] = useState<string>(initialError);
+  const [bootstrapStatus, setBootstrapStatus] = useState<OfflineBootstrapStatus>({
+    fiscal: "idle",
+    catalog: "idle",
+  });
+  const [bootstrapLoading, setBootstrapLoading] = useState(false);
 
   const openingAmountNum = parseOpeningAmount(openingAmount);
   const requiresCashHub = openingAmountNum > 0;
@@ -344,10 +358,18 @@ function NewSessionForm({
       }
 
       if (selectedPos) {
+        const ctx = buildPosContextFromPos(selectedPos);
         savePosContext({
-          ...buildPosContextFromPos(selectedPos),
+          ...ctx,
           cashSessionId: result.cashSessionId,
         });
+        if (ctx.priceListId) {
+          setBootstrapLoading(true);
+          setBootstrapStatus({ fiscal: "loading", catalog: "loading" });
+          const bootstrap = await runOfflineBootstrap(pointOfSaleId, ctx.priceListId);
+          setBootstrapStatus(bootstrap);
+          setBootstrapLoading(false);
+        }
       }
 
       queueCashSessionOpeningPrint({
@@ -503,7 +525,7 @@ function NewSessionForm({
               variant="primary"
               onClick={handleConfirmOpen}
               disabled={!canSubmitOpening}
-              loading={isPending}
+              loading={isPending || bootstrapLoading}
             >
               Abrir sesión de caja
             </Button>
@@ -563,6 +585,21 @@ function NewSessionForm({
             required
             disabled={isPending}
             className="w-full"
+          />
+          <OfflineBootstrapStatusPanel
+            status={bootstrapStatus}
+            loading={bootstrapLoading}
+            onRetry={() => {
+              if (!selectedPos) return;
+              const ctx = buildPosContextFromPos(selectedPos);
+              if (!ctx.priceListId) return;
+              setBootstrapLoading(true);
+              setBootstrapStatus({ fiscal: "loading", catalog: "loading" });
+              void runOfflineBootstrap(pointOfSaleId, ctx.priceListId).then((next) => {
+                setBootstrapStatus(next);
+                setBootstrapLoading(false);
+              });
+            }}
           />
         </div>
       </Dialog>

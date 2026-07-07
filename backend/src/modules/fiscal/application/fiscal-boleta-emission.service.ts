@@ -224,6 +224,134 @@ export class FiscalBoletaEmissionService {
     };
   }
 
+  /**
+   * Adopta emisión offline ya timbrada en cliente: reconcilia folio POS,
+   * firma envío con PFX y persiste PENDING para el worker SII.
+   */
+  async adoptOfflineEmission(
+    companyId: string,
+    transactionId: string,
+    pointOfSaleId: string,
+    fiscal: {
+      folio: number;
+      allocationId: string;
+      cafId: string;
+      tedXml: string;
+      issuedAt: string;
+    },
+  ): Promise<FiscalEmissionResult> {
+    const profile = await this.profileRepo.findOne({ where: { companyId } });
+    if (!profile?.productionEnabled) {
+      return { status: 'SKIPPED' };
+    }
+
+    const existing = await this.emissionRepo.findOne({ where: { transactionId } });
+    if (existing) {
+      return this.handleExistingEmissionForPrepare(companyId, existing);
+    }
+
+    const ctx = await this.loadSaleEmissionContext(companyId, transactionId);
+    if (ctx.transaction.transactionType !== TransactionType.SALE) {
+      return { status: 'SKIPPED' };
+    }
+
+    const tedMatch = fiscal.tedXml.match(/<TSTED>([^<]+)<\/TSTED>/i);
+    const tmstFirma = tedMatch?.[1]?.trim() || fiscal.issuedAt;
+
+    let emission: FiscalDteEmission;
+    try {
+      emission = await this.dataSource.transaction(async (manager) => {
+        await this.posFolioAllocation.reconcileOfflineFolioInManager(
+          manager,
+          fiscal.allocationId,
+          fiscal.cafId,
+          fiscal.folio,
+        );
+
+        const built = buildSaleDteBoletaXml(
+          ctx.emisor,
+          ctx.saleDoc,
+          fiscal.folio,
+          {
+            issuedAt: fiscal.issuedAt,
+            tedXml: fiscal.tedXml,
+            tmstFirma,
+          },
+        );
+        const signedDte = this.auth.signDteBoleta(
+          withIso8859Declaration(built.dteXml),
+          `F${fiscal.folio}T39`,
+          ctx.material,
+        );
+        const signedEnvio = buildSignedEnvioBoleta(
+          this.auth,
+          ctx.emisor,
+          [signedDte],
+          ctx.rutEnvia,
+          ctx.material,
+        );
+        const validation = this.schemaValidator.validateEnvioBoletaXml(signedEnvio);
+        if (!validation.valid) {
+          throw new Error(
+            `XML no cumple schema SII: ${(validation.errors[0] ?? 'error desconocido').slice(0, 300)}`,
+          );
+        }
+
+        const encrypted = this.encryptSignedEnvio(signedEnvio);
+        const row = manager.getRepository(FiscalDteEmission).create({
+          companyId,
+          transactionId,
+          pointOfSaleId,
+          cafId: fiscal.cafId,
+          allocationId: fiscal.allocationId,
+          dteType: 39,
+          folio: fiscal.folio,
+          environment: SiiEnvironment.PRODUCTION,
+          receptorRut: ctx.saleDoc.receptor.rut,
+          receptorName: ctx.saleDoc.receptor.name,
+          envioStatus: FiscalDteEmissionStatus.PENDING,
+          tedXml: fiscal.tedXml,
+          encryptedSignedEnvio: encrypted.encrypted,
+          signedEnvioIv: encrypted.iv,
+          submitAttempts: 0,
+          pollAttempts: 0,
+          issuedAt: fiscal.issuedAt,
+        });
+        const saved = await manager.getRepository(FiscalDteEmission).save(row);
+        await manager.getRepository(Transaction).update(transactionId, {
+          documentType: 'BOLETA',
+          documentFolio: String(fiscal.folio),
+        });
+        return saved;
+      });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Error al adoptar emisión offline';
+      if (message.includes('rango') || message.includes('Folio')) {
+        return { status: 'FAILED', error: message };
+      }
+      return { status: 'FAILED', error: message };
+    }
+
+    this.eventEmitter.emit(FISCAL_EMISSION_PENDING_EVENT, { emissionId: emission.id });
+
+    const printPreview = buildSaleBoletaPrintPreview({
+      company: ctx.company,
+      doc: ctx.saleDoc,
+      folio: emission.folio,
+      issuedAt: fiscal.issuedAt,
+      tedXml: emission.tedXml!,
+      transactionDocumentNumber: ctx.transaction.documentNumber,
+    });
+
+    return {
+      status: 'PENDING',
+      emissionId: emission.id,
+      folio: emission.folio,
+      printPreview,
+      siiPending: true,
+    };
+  }
+
   /** Envía al SII una emisión PENDING/FAILED o hace poll de una SENT. */
   async submitPendingToSii(emissionId: string): Promise<void> {
     const emission = await this.tryClaimEmission(emissionId);

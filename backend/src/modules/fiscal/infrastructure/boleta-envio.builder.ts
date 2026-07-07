@@ -78,6 +78,10 @@ export type BuildDteBoletaOptions = {
   cafXml?: string;
   /** YYYY-MM-DD; por defecto hoy */
   issuedAt?: string;
+  /** TED preconstruido en cliente offline (sync) */
+  tedXml?: string;
+  /** TmstFirma asociado al TED offline */
+  tmstFirma?: string;
 };
 
 export function buildDteBoletaXml(
@@ -174,22 +178,25 @@ export function buildSaleDteBoletaXml(
     totals.mntNeto > 0 ? `<MntNeto>${totals.mntNeto}</MntNeto>` : '';
   const ivaBlock = totals.iva > 0 ? `<IVA>${totals.iva}</IVA>` : '';
   const issuedAt = options?.issuedAt ?? todayIso();
-  if (!options?.cafXml) {
-    throw new Error('CAF XML requerido para boleta de venta');
+  if (!options?.cafXml && !options?.tedXml) {
+    throw new Error('CAF XML o TED requerido para boleta de venta');
   }
-  const tmstFirma = new Date().toISOString().slice(0, 19);
-  const tedXml = buildTedStamp({
-    rutEmisor: emisor.rut,
-    tipoDte: 39,
-    folio,
-    fechaEmision: issuedAt,
-    rutReceptor: doc.receptor.rut,
-    razonSocialReceptor: doc.receptor.name,
-    mntTotal: totals.mntTotal,
-    primerItem: doc.lines[0]?.name ?? 'Item',
-    cafXml: options.cafXml,
-    timestamp: tmstFirma,
-  });
+  const tmstFirma =
+    options?.tmstFirma?.trim() || new Date().toISOString().slice(0, 19);
+  const tedXml =
+    options?.tedXml?.trim() ||
+    buildTedStamp({
+      rutEmisor: emisor.rut,
+      tipoDte: 39,
+      folio,
+      fechaEmision: issuedAt,
+      rutReceptor: doc.receptor.rut,
+      razonSocialReceptor: doc.receptor.name,
+      mntTotal: totals.mntTotal,
+      primerItem: doc.lines[0]?.name ?? 'Item',
+      cafXml: options!.cafXml!,
+      timestamp: tmstFirma,
+    });
   const dteXml = `<?xml version="1.0" encoding="ISO-8859-1"?>
 <DTE version="1.0">
 <Documento ID="F${folio}T39">

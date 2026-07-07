@@ -184,6 +184,21 @@ export class PosController {
     return { success: true, allocations };
   }
 
+  @Get(':id/offline-fiscal-pack')
+  async getOfflineFiscalPack(@Param('id') id: string) {
+    return this.posService.getOfflineFiscalPack(id);
+  }
+
+  @Get(':id/offline-catalog-snapshot')
+  async getOfflineCatalogSnapshot(
+    @Param('id') id: string,
+    @Query('priceListId') priceListId?: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.posService.getOfflineCatalogSnapshot(id, { priceListId, cursor, limit });
+  }
+
   @Delete(':id')
   async deletePointOfSale(@Param('id') id: string) {
     return this.posService.deletePointOfSale(id);

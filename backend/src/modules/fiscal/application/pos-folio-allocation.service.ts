@@ -249,6 +249,30 @@ export class PosFolioAllocationService {
     return { folio, allocationId: allocation.id, cafId: caf.id };
   }
 
+  /** Reconcilia folio consumido offline sin reservar de nuevo. */
+  async reconcileOfflineFolioInManager(
+    manager: EntityManager,
+    allocationId: string,
+    cafId: string,
+    folio: number,
+  ): Promise<void> {
+    const allocation = await manager.getRepository(PointOfSaleFolioAllocation).findOne({
+      where: { id: allocationId, isActive: true },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!allocation) {
+      throw new ConflictException('Sub-paquete de folios no encontrado');
+    }
+    if (allocation.cafId !== cafId) {
+      throw new ConflictException('CAF no coincide con la asignación POS');
+    }
+    if (folio < allocation.rangeFrom || folio > allocation.rangeTo) {
+      throw new ConflictException('Folio offline fuera del rango asignado al POS');
+    }
+    allocation.nextFolio = Math.max(allocation.nextFolio, folio + 1);
+    await manager.getRepository(PointOfSaleFolioAllocation).save(allocation);
+  }
+
   async validateNoOverlap(
     companyId: string,
     cafId: string,

@@ -16,6 +16,7 @@ import { FiscalBoletaEmissionService } from './application/fiscal-boleta-emissio
 import { PosFolioAllocationService } from './application/pos-folio-allocation.service';
 import { FiscalCafPackageService } from './application/fiscal-caf-package.service';
 import { FiscalFolioLedgerService } from './application/fiscal-folio-ledger.service';
+import { OfflineFiscalPackService } from './application/offline-fiscal-pack.service';
 import { FiscalEffectiveOptionsService } from './application/fiscal-effective-options.service';
 import { FiscalController } from './presentation/fiscal.controller';
 import { FiscalCryptoService } from './infrastructure/fiscal-crypto.service';
@@ -51,6 +52,7 @@ import { AppConfigModule } from '../../config/config.module';
     FiscalCafPackageService,
     FiscalFolioLedgerService,
     FiscalEffectiveOptionsService,
+    OfflineFiscalPackService,
     FiscalCryptoService,
     SiiBoletaAuthService,
     SiiBoletaRestClient,
@@ -63,6 +65,7 @@ import { AppConfigModule } from '../../config/config.module';
     FiscalCafPackageService,
     FiscalFolioLedgerService,
     FiscalEffectiveOptionsService,
+    OfflineFiscalPackService,
   ],
 })
 export class FiscalModule {}

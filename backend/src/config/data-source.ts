@@ -125,12 +125,14 @@ import { CompanySiiEmisorFields1756580000000 } from '../migrations/1756580000000
 import { FiscalDteEmissions1756590000000 } from '../migrations/1756590000000-FiscalDteEmissions';
 import { PosFiscalAllocations1756600000000 } from '../migrations/1756600000000-PosFiscalAllocations';
 import { FolioPackagesAndSubAllocations1756610000000 } from '../migrations/1756610000000-FolioPackagesAndSubAllocations';
+import { PosSyncCommands1756710000000 } from '../migrations/1756710000000-PosSyncCommands';
 import { FiscalProfile } from '@modules/fiscal/domain/fiscal-profile.entity';
 import { FiscalCertificate } from '@modules/fiscal/domain/fiscal-certificate.entity';
 import { FiscalCaf } from '@modules/fiscal/domain/fiscal-caf.entity';
 import { FiscalCertificationRun } from '@modules/fiscal/domain/fiscal-certification-run.entity';
 import { FiscalDteEmission } from '@modules/fiscal/domain/fiscal-dte-emission.entity';
 import { PointOfSaleFolioAllocation } from '@modules/fiscal/domain/point-of-sale-folio-allocation.entity';
+import { PosSyncCommand } from '@modules/pos-sync/domain/pos-sync-command.entity';
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
 import { EShopFulfillmentMethod } from '@modules/e-shop/domain/e-shop-fulfillment-method.entity';
@@ -240,6 +242,7 @@ export const AppDataSource = new DataSource({
     FiscalCertificationRun,
     FiscalDteEmission,
     PointOfSaleFolioAllocation,
+    PosSyncCommand,
   ],
   subscribers: [AuditSubscriber, TenantSubscriber],
   migrations: [
@@ -294,6 +297,7 @@ export const AppDataSource = new DataSource({
     FiscalDteEmissions1756590000000,
     PosFiscalAllocations1756600000000,
     FolioPackagesAndSubAllocations1756610000000,
+    PosSyncCommands1756710000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

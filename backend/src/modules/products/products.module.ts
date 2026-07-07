@@ -73,6 +73,6 @@ import { ProductEshopVisibilitySyncService } from './application/services/produc
     SearchProductsQueryHandler,
     ProductEshopVisibilitySyncService,
   ],
-  exports: [ProductsServiceAdapter, ProductsService, ProductEshopVisibilitySyncService],
+  exports: [ProductsServiceAdapter, ProductsService, ProductsPosService, ProductEshopVisibilitySyncService],
 })
 export class ProductsModule {}

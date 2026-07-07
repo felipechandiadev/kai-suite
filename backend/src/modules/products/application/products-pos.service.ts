@@ -187,6 +187,96 @@ export class ProductsPosService {
   }
 
   /**
+   * Snapshot paginado del catálogo POS para uso offline (cursor por variantId).
+   */
+  async buildCatalogSnapshotForPos(args: {
+    pointOfSaleId: string;
+    priceListId: string;
+    cursor?: string;
+    limit?: number;
+  }) {
+    const priceListId = args.priceListId?.trim();
+    if (!priceListId) {
+      throw new NotFoundException('priceListId es requerido para snapshot de catálogo');
+    }
+    const limit = Math.min(500, Math.max(1, args.limit ?? 500));
+    const scope = await this.resolvePosStockScope({
+      pointOfSaleId: args.pointOfSaleId,
+    });
+
+    const baseQb = this.variantRepository
+      .createQueryBuilder('v')
+      .innerJoin('v.product', 'product')
+      .innerJoin(
+        'v.priceListItems',
+        'priceListItem',
+        'priceListItem.priceListId = :priceListId AND priceListItem.deletedAt IS NULL',
+        { priceListId },
+      )
+      .leftJoin('v.unit', 'unit')
+      .leftJoin('v.saleUnit', 'saleUnit')
+      .leftJoin('v.stockBaseUnit', 'stockBaseUnit')
+      .where('v.deletedAt IS NULL')
+      .andWhere('v.isActive = :isActive', { isActive: true })
+      .andWhere('product.deletedAt IS NULL')
+      .andWhere('product.isActive = :isActive', { isActive: true });
+
+    const totalCount = await baseQb.getCount();
+
+    const qb = baseQb.clone();
+    const cursor = args.cursor?.trim();
+    if (cursor) {
+      qb.andWhere('v.id > :cursor', { cursor });
+    }
+
+    qb.select([
+      'v.id',
+      'v.productId',
+      'v.sku',
+      'v.barcode',
+      'v.trackInventory',
+      'v.stockBaseUnitId',
+      'v.saleUnitId',
+      'v.stockBaseQtyPerCountSaleUnit',
+      'v.attributeValues',
+      'product.id',
+      'product.companyId',
+      'product.name',
+      'product.description',
+      'unit.id',
+      'unit.symbol',
+      'unit.allowDecimals',
+      'saleUnit.id',
+      'saleUnit.symbol',
+      'saleUnit.dimension',
+      'saleUnit.allowDecimals',
+      'stockBaseUnit.id',
+      'stockBaseUnit.symbol',
+      'stockBaseUnit.dimension',
+      'priceListItem.id',
+      'priceListItem.netPrice',
+      'priceListItem.grossPrice',
+      'priceListItem.taxIds',
+    ]);
+
+    qb.orderBy('v.id', 'ASC').take(limit);
+
+    const variants = await qb.getMany();
+    const items = await this.mapVariantsToPosSearchResults(variants, scope, {
+      skipMultimedia: true,
+    });
+    const nextCursor =
+      variants.length === limit ? variants[variants.length - 1]?.id : undefined;
+
+    return {
+      items,
+      snapshotAt: new Date().toISOString(),
+      totalCount,
+      nextCursor,
+    };
+  }
+
+  /**
    * Datos POS actuales (stock, atributos, imagen) para variantes conocidas.
    * No exige lista de precios; los precios en la respuesta pueden ser 0 (el cliente
    * debe conservar precios congelados, p. ej. desde una cotización).
@@ -314,6 +404,7 @@ export class ProductsPosService {
       resolvedBranchId?: string;
       storageIdsForStock: string[] | null;
     },
+    options?: { skipMultimedia?: boolean },
   ): Promise<PosProductSearchResult[]> {
     if (!variants.length) {
       return [];
@@ -375,10 +466,12 @@ export class ProductsPosService {
     }
 
     await Promise.all(
-      productIds.map(async (productId) => {
-        const assets = await this.multimediaService.listByEntity('product', productId);
-        multimediaByProduct[productId] = assets[0]?.publicUrl ?? null;
-      }),
+      options?.skipMultimedia
+        ? []
+        : productIds.map(async (productId) => {
+            const assets = await this.multimediaService.listByEntity('product', productId);
+            multimediaByProduct[productId] = assets[0]?.publicUrl ?? null;
+          }),
     );
 
     if (attributeIds.length > 0) {
