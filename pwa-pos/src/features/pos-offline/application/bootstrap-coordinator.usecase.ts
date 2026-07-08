@@ -1,3 +1,4 @@
+import { ensurePosOfflineDbOpen } from "../infrastructure/pos-offline-db";
 import { downloadFiscalPackForPos } from "./download-fiscal-pack.usecase";
 import { downloadCatalogSnapshotForPos } from "./download-catalog-snapshot.usecase";
 import { downloadCustomersSnapshot } from "./download-customers-snapshot.usecase";
@@ -22,6 +23,7 @@ export async function runBootstrapCoordinator(
   const startedAt = Date.now();
   bootstrapKey = key;
   bootstrapInFlight = (async () => {
+    await ensurePosOfflineDbOpen();
     onProgress?.({ fiscal: "loading", catalog: "loading", customers: "loading" });
 
     const [fiscalRes, catalogRes, customersRes] = await Promise.all([

@@ -26,6 +26,7 @@ import { getFiscalBoletaTestPreviewAction } from "@/features/fiscal/actions/fisc
 import { printFiscalBoletaPreview } from "@/features/fiscal/print/fiscal-boleta-preview-print";
 import { DocumentPrintTestButton } from "@/features/pos-print/ui/DocumentPrintTestButton";
 import { getQuotationsEnabledAction } from "@/features/company/actions/company-quotations.action";
+import { shouldUseBackendApi } from "@/features/pos-offline/infrastructure/connectivity";
 import { getPresalesEnabledAction } from "@/features/presale-tickets/actions/presales-enabled.action";
 
 type Props = {
@@ -95,8 +96,13 @@ export function PosLocalPrintPreferencesForm({
   const [presalesEnabled, setPresalesEnabled] = useState(false);
 
   useEffect(() => {
-    void getQuotationsEnabledAction().then(setQuotationsEnabled);
-    void getPresalesEnabledAction().then(setPresalesEnabled);
+    if (!shouldUseBackendApi()) return;
+    void getQuotationsEnabledAction()
+      .then(setQuotationsEnabled)
+      .catch(() => setQuotationsEnabled(false));
+    void getPresalesEnabledAction()
+      .then(setPresalesEnabled)
+      .catch(() => setPresalesEnabled(false));
   }, []);
 
   useEffect(() => {

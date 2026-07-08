@@ -34,6 +34,7 @@ import {
 } from "@/features/promotions/actions/promotions-pos.action";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/pos-api-failure";
 import { getQuotationsEnabledAction } from "@/features/company/actions/company-quotations.action";
+import { shouldUseBackendApi } from "@/features/pos-offline/infrastructure/connectivity";
 
 type PosCartContextValue = {
   ready: boolean;
@@ -259,7 +260,10 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
   }, []);
 
   useEffect(() => {
-    void getQuotationsEnabledAction().then(setQuotationsEnabled);
+    if (!shouldUseBackendApi()) return;
+    void getQuotationsEnabledAction()
+      .then(setQuotationsEnabled)
+      .catch(() => setQuotationsEnabled(false));
   }, []);
 
   useEffect(() => {
@@ -656,15 +660,23 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       setEffectivePromotions([]);
       return;
     }
-    const res = await listEffectivePromotionsAction({
-      branchId: ctx.branchId,
-      pointOfSaleId: ctx.pointOfSaleId,
-    });
-    if (!res.success) {
-      redirectToLoginIfUnauthorized(res);
+    if (!shouldUseBackendApi()) {
+      setEffectivePromotions([]);
       return;
     }
-    setEffectivePromotions(res.promotions);
+    try {
+      const res = await listEffectivePromotionsAction({
+        branchId: ctx.branchId,
+        pointOfSaleId: ctx.pointOfSaleId,
+      });
+      if (!res.success) {
+        redirectToLoginIfUnauthorized(res);
+        return;
+      }
+      setEffectivePromotions(res.promotions);
+    } catch {
+      setEffectivePromotions([]);
+    }
   }, []);
 
   useEffect(() => {

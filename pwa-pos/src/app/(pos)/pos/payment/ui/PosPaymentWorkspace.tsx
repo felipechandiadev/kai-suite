@@ -73,6 +73,12 @@ import { formatReceiptLineDisplayName } from "@/features/pos-print/lib/format-re
 import { createBackorderFromPosAction } from "@/features/session/actions/create-backorder.action";
 import { createSaleFromPosAction } from "@/features/session/actions/create-sale.action";
 import { usePosOffline } from "@/features/pos-offline/hooks/use-pos-offline";
+import { shouldUseBackendApi } from "@/features/pos-offline/infrastructure/connectivity";
+import {
+  OFFLINE_EFFECTIVE_PAYMENT_METHODS,
+  resolveOfflineCompanyDetails,
+  resolveOfflineSaleDteOptions,
+} from "@/features/pos-offline/lib/offline-pos-mount-fallbacks";
 import { assertCatalogReady } from "@/features/pos-offline/application/catalog-readiness.usecase";
 import { commitOfflineSale } from "@/features/pos-offline/application/commit-offline-sale.usecase";
 import { getStoredFiscalPack, isFiscalPackExpired } from "@/features/pos-offline/application/download-fiscal-pack.usecase";
@@ -640,12 +646,26 @@ export default function PosPaymentWorkspace({
         if (!cancelled) setSaleDteLoaded(true);
         return;
       }
-      const res = await getEffectiveDocumentOptionsAction(posId);
-      if (cancelled) return;
-      if (res.success) {
-        setSaleDteOptions(res.options);
-        setSaleDteKind(res.defaultKind);
-      } else {
+      if (!shouldUseBackendApi()) {
+        const offline = await resolveOfflineSaleDteOptions(posId);
+        if (cancelled) return;
+        setSaleDteOptions(offline.options);
+        setSaleDteKind(offline.defaultKind);
+        setSaleDteLoaded(true);
+        return;
+      }
+      try {
+        const res = await getEffectiveDocumentOptionsAction(posId);
+        if (cancelled) return;
+        if (res.success) {
+          setSaleDteOptions(res.options);
+          setSaleDteKind(res.defaultKind);
+        } else {
+          setSaleDteOptions([{ kind: "TICKET", enabled: true }]);
+          setSaleDteKind(DEFAULT_SALE_DTE_KIND);
+        }
+      } catch {
+        if (cancelled) return;
         setSaleDteOptions([{ kind: "TICKET", enabled: true }]);
         setSaleDteKind(DEFAULT_SALE_DTE_KIND);
       }
@@ -674,16 +694,29 @@ export default function PosPaymentWorkspace({
         }
         return;
       }
-      const res = await getEffectivePosPaymentMethodsAction({
-        pointOfSaleId: posId,
-      });
-      if (cancelled) return;
-      if (res.success) {
-        setEffectiveMethods(res.paymentMethods);
+      if (!shouldUseBackendApi()) {
+        if (cancelled) return;
+        setEffectiveMethods(OFFLINE_EFFECTIVE_PAYMENT_METHODS);
         setEffectiveError(null);
-      } else {
-        setEffectiveMethods([]);
-        setEffectiveError(res.message);
+        setEffectiveLoaded(true);
+        return;
+      }
+      try {
+        const res = await getEffectivePosPaymentMethodsAction({
+          pointOfSaleId: posId,
+        });
+        if (cancelled) return;
+        if (res.success) {
+          setEffectiveMethods(res.paymentMethods);
+          setEffectiveError(null);
+        } else {
+          setEffectiveMethods([]);
+          setEffectiveError(res.message);
+        }
+      } catch {
+        if (cancelled) return;
+        setEffectiveMethods(OFFLINE_EFFECTIVE_PAYMENT_METHODS);
+        setEffectiveError(null);
       }
       setEffectiveLoaded(true);
     })();
@@ -696,7 +729,14 @@ export default function PosPaymentWorkspace({
     let cancelled = false;
     void (async () => {
       try {
-        const details = await getCompanyDetailsAction();
+        const ctx = readPosContextClient();
+        const posId = ctx?.pointOfSaleId?.trim() ?? "";
+        let details: CompanyDetails | null = null;
+        if (shouldUseBackendApi()) {
+          details = await getCompanyDetailsAction();
+        } else if (posId) {
+          details = await resolveOfflineCompanyDetails(posId);
+        }
         if (cancelled) return;
         setCompanyDetails(details);
         const opts =
@@ -722,10 +762,20 @@ export default function PosPaymentWorkspace({
 
   useEffect(() => {
     let cancelled = false;
-    void getPosMercadoPagoSettingsAction().then((res) => {
-      if (cancelled) return;
-      setPosPointEnabled(res.success && res.posPointEnabled);
-    });
+    if (!shouldUseBackendApi()) {
+      setPosPointEnabled(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+    void getPosMercadoPagoSettingsAction()
+      .then((res) => {
+        if (cancelled) return;
+        setPosPointEnabled(res.success && res.posPointEnabled);
+      })
+      .catch(() => {
+        if (!cancelled) setPosPointEnabled(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -1074,7 +1124,16 @@ export default function PosPaymentWorkspace({
   }, [cashOutRefundOnly, setPayments]);
 
   useEffect(() => {
-    void getInternalCustomerCreditContextAction().then(setInternalCreditCtx);
+    if (!shouldUseBackendApi()) return;
+    void getInternalCustomerCreditContextAction()
+      .then(setInternalCreditCtx)
+      .catch(() => {
+        setInternalCreditCtx({
+          enabled: false,
+          paymentMethodId: null,
+          paymentMethodLabel: null,
+        });
+      });
   }, []);
 
   useEffect(() => {
@@ -1082,17 +1141,25 @@ export default function PosPaymentWorkspace({
       setCustomerAvailableCredit(0);
       return;
     }
+    if (!shouldUseBackendApi()) {
+      setCustomerAvailableCredit(0);
+      return;
+    }
     let cancelled = false;
-    void getCustomerPosDetailBundleAction(saleCustomerId).then((res) => {
-      if (cancelled) return;
-      if (res?.success && res.customer) {
-        setCustomerAvailableCredit(
-          Math.max(0, Math.round(Number(res.customer.availableCredit) || 0)),
-        );
-      } else {
-        setCustomerAvailableCredit(0);
-      }
-    });
+    void getCustomerPosDetailBundleAction(saleCustomerId)
+      .then((res) => {
+        if (cancelled) return;
+        if (res?.success && res.customer) {
+          setCustomerAvailableCredit(
+            Math.max(0, Math.round(Number(res.customer.availableCredit) || 0)),
+          );
+        } else {
+          setCustomerAvailableCredit(0);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCustomerAvailableCredit(0);
+      });
     return () => {
       cancelled = true;
     };

@@ -1,4 +1,4 @@
-import { getPosOfflineDb } from "../infrastructure/pos-offline-db";
+import { getPosOfflineDb, ensurePosOfflineDbOpen } from "../infrastructure/pos-offline-db";
 import type {
   PosCommandType,
   PosOfflineCommand,
@@ -24,6 +24,7 @@ export type EnqueueOfflineCommandInput = {
 export async function enqueueOfflineCommand(
   input: EnqueueOfflineCommandInput,
 ): Promise<PosOfflineCommand> {
+  await ensurePosOfflineDbOpen();
   const db = getPosOfflineDb();
   const now = new Date().toISOString();
   const deviceId = await getOrCreateDeviceId();

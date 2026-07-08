@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Star } from "lucide-react";
 import { DotProgress } from "@/shared/admin-shared";
 import { lookupPosVariantsAction } from "@/features/pos-products/actions/pos-products.action";
+import { shouldUseBackendApi } from "@/features/pos-offline/infrastructure/connectivity";
+import { lookupOfflineCatalogByVariantIds } from "@/features/pos-offline/application/search-offline-catalog.usecase";
 import type { PosProductSearchItem } from "@/features/pos-products/types/pos-product.types";
 import { PosProductNameWithAttributes } from "@/features/pos-products/ui/posProductPreview";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/pos-api-failure";
@@ -41,19 +43,29 @@ export function PosFavoriteQuickPickBar({
 
     setLoading(true);
     try {
-      const res = await lookupPosVariantsAction({
-        variantIds: stored.map((f) => f.variantId),
-        pointOfSaleId,
-        branchId,
-        priceListId,
-      });
-      if (!res.success) {
-        if (redirectToLoginIfUnauthorized(res)) return;
-        setItems([]);
-        return;
+      let products: PosProductSearchItem[] = [];
+      if (shouldUseBackendApi()) {
+        const res = await lookupPosVariantsAction({
+          variantIds: stored.map((f) => f.variantId),
+          pointOfSaleId,
+          branchId,
+          priceListId,
+        });
+        if (!res.success) {
+          if (redirectToLoginIfUnauthorized(res)) return;
+          setItems([]);
+          return;
+        }
+        products = res.products;
+      } else {
+        products = await lookupOfflineCatalogByVariantIds({
+          pointOfSaleId,
+          priceListId,
+          variantIds: stored.map((f) => f.variantId),
+        });
       }
       const order = stored.map((f) => f.variantId);
-      const byId = new Map(res.products.map((p) => [p.variantId, p]));
+      const byId = new Map(products.map((p) => [p.variantId, p]));
       const ordered = order
         .map((id) => byId.get(id))
         .filter((p): p is PosProductSearchItem => Boolean(p));

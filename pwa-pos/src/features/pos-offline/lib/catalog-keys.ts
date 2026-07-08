@@ -1,4 +1,4 @@
-export const OFFLINE_CATALOG_SCHEMA_VERSION = 4;
+export const OFFLINE_CATALOG_SCHEMA_VERSION = 5;
 
 export function catalogRowId(
   pointOfSaleId: string,

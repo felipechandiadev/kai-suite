@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchPointOfSalePriceListsAction } from "@/features/session/actions/point-of-sale-pos.action";
+import { shouldUseBackendApi } from "@/features/pos-offline/infrastructure/connectivity";
 import {
   patchPosContextClient,
   readPosContextClient,
@@ -28,7 +29,6 @@ import { LoadBackorderDialog } from "./LoadBackorderDialog";
 import { runPendingCashSessionOpeningPrintIfAny } from "@/features/cash-session-opening/lib/run-pending-cash-session-opening-print";
 import { requestPosProductSearchFocus } from "@/features/pos-products/lib/pos-product-search-focus";
 import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
-import { isBackendReachable } from "@/features/pos-offline/infrastructure/connectivity";
 import { usePosOffline } from "@/features/pos-offline/hooks/use-pos-offline";
 import type { PosProductSearchItem } from "@/features/pos-products/types/pos-product.types";
 import PosPaymentWorkspace from "@/app/(pos)/pos/payment/ui/PosPaymentWorkspace";
@@ -76,10 +76,12 @@ export default function PosWorkspace() {
   const cartLocked = isReturnMode || isFulfillBackorderMode;
 
   const refreshPriceListOptions = useCallback(async (posId: string, currentListId?: string) => {
-    const res = await fetchPointOfSalePriceListsAction(posId);
-    if (!res.success) {
-      return;
-    }
+    if (!shouldUseBackendApi()) return;
+    try {
+      const res = await fetchPointOfSalePriceListsAction(posId);
+      if (!res.success) {
+        return;
+      }
 
     if (res.branchId) {
       patchPosContextClient({
@@ -111,6 +113,9 @@ export default function PosWorkspace() {
       setPriceListId(preferred);
       patchPosContextClient({ priceListId: preferred });
     }
+    } catch {
+      /* offline o red inestable: conservar listas en contexto local */
+    }
   }, []);
 
   useEffect(() => {
@@ -121,8 +126,16 @@ export default function PosWorkspace() {
     }
 
     void (async () => {
-      const res = await fetchPointOfSalePriceListsAction(c.pointOfSaleId);
-      if (res.success) {
+      let res: Awaited<ReturnType<typeof fetchPointOfSalePriceListsAction>> | null = null;
+      if (shouldUseBackendApi()) {
+        try {
+          res = await fetchPointOfSalePriceListsAction(c.pointOfSaleId);
+        } catch {
+          res = null;
+        }
+      }
+
+      if (res?.success) {
         patchPosContextClient({
           ...(res.branchId ? { branchId: res.branchId, branchName: res.branchName ?? null } : {}),
           storageId: res.storageId ?? null,
@@ -143,7 +156,7 @@ export default function PosWorkspace() {
       } else {
         setPriceListOptions([{ id: listId, name: "Lista de precios" }]);
       }
-      if (res.success && res.priceLists.length > 0) {
+      if (res?.success && res.priceLists.length > 0) {
         const preferred =
           (listId && res.priceLists.some((p) => p.id === listId) ? listId : null) ??
           (res.defaultPriceListId && res.priceLists.some((p) => p.id === res.defaultPriceListId)
@@ -164,7 +177,7 @@ export default function PosWorkspace() {
   }, []);
 
   useEffect(() => {
-    if (isBackendReachable()) {
+    if (shouldUseBackendApi()) {
       router.prefetch("/pos/payment");
     }
   }, [router]);
@@ -175,7 +188,7 @@ export default function PosWorkspace() {
 
   const addProduct = useCallback(
     (item: PosProductSearchItem) => {
-      if (!isBackendReachable() && item.trackInventory && item.availableStock != null) {
+      if (!shouldUseBackendApi() && item.trackInventory && item.availableStock != null) {
         const existing = cart.lines.find((l) => l.variantId === item.variantId);
         const nextQty = (existing?.quantity ?? 0) + 1;
         if (nextQty > item.availableStock) {

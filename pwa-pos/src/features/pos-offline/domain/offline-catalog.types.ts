@@ -34,5 +34,7 @@ export type OfflineCatalogSnapshotApiResponse = {
 
 export type OfflineCatalogDownloadProgress = {
   downloaded: number;
+  /** Filas ya persistidas en IndexedDB (catálogo Dexie). */
+  persisted: number;
   total: number;
 };

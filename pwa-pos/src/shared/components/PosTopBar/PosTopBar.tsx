@@ -13,7 +13,7 @@ import {
 } from "@/features/session/lib/pos-context-storage";
 import { StockAlertsDropdown } from "@/features/inventory-stock/ui/StockAlertsDropdown";
 import { OfflineStatusBadge } from "@/features/pos-offline/ui/OfflineStatusBadge";
-import { OfflineCatalogStatusBadge } from "@/features/pos-offline/ui/OfflineCatalogStatusBadge";
+import { OfflineCatalogSyncDonut } from "@/features/pos-offline/ui/OfflineCatalogSyncDonut";
 import { usePosOffline } from "@/features/pos-offline/hooks/use-pos-offline";
 import { PrintServiceTopBarDropdown, usePrintServiceConnection } from "@kai/print-service-client";
 import Dialog from "@/shared/components/Dialog/Dialog";
@@ -93,7 +93,6 @@ function PosTopBarNav({
         aria-label="Navegación principal (modo offline)"
       >
         <OfflineStatusBadge />
-        <OfflineCatalogStatusBadge />
         <IconButton
           icon="ShoppingCart"
           variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/pos"))}
@@ -182,7 +181,6 @@ function PosTopBarNav({
       aria-label="Navegación principal"
     >
       <OfflineStatusBadge />
-      <OfflineCatalogStatusBadge />
       <IconButton
         icon="ShoppingCart"
         variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/pos"))}
@@ -356,7 +354,7 @@ export default function PosTopBar({
   const effectiveRole = userRole?.trim() ? roleLabel(userRole) : "";
   const router = useRouter();
   const pathname = usePathname() ?? "";
-  const { isOffline } = usePosOffline();
+  const { isOffline, connectivity } = usePosOffline();
 
   const onNavigate = useCallback(
     (path: string) => {
@@ -401,6 +399,25 @@ export default function PosTopBar({
     onPrintJobFailed,
     onPrintJobDone,
   });
+
+  const lastBrowserOnlineRef = useRef(connectivity.browserOnline);
+  const lastBackendReachableRef = useRef(connectivity.backendReachable);
+  useEffect(() => {
+    if (lastBrowserOnlineRef.current !== connectivity.browserOnline) {
+      lastBrowserOnlineRef.current = connectivity.browserOnline;
+      printService.reconnect();
+      return;
+    }
+    const wasBackendReachable = lastBackendReachableRef.current;
+    lastBackendReachableRef.current = connectivity.backendReachable;
+    if (wasBackendReachable && !connectivity.backendReachable && connectivity.browserOnline) {
+      printService.reconnect();
+    }
+  }, [
+    connectivity.browserOnline,
+    connectivity.backendReachable,
+    printService.reconnect,
+  ]);
 
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [logoLoaded, setLogoLoaded] = useState(false);
@@ -690,6 +707,18 @@ export default function PosTopBar({
             />
             {!isOffline ? (
               <IconButton
+                icon="RefreshCw"
+                variant="text"
+                size="md"
+                ariaLabel="Recargar página"
+                title="Recargar página"
+                onClick={() => window.location.reload()}
+                data-test-id="pos-topbar-reload"
+              />
+            ) : null}
+            <OfflineCatalogSyncDonut />
+            {!isOffline ? (
+              <IconButton
                 icon="LogOut"
                 variant="text"
                 size="md"
@@ -740,6 +769,18 @@ export default function PosTopBar({
               onClick={() => onNavigate("/settings")}
               data-test-id="pos-sidebar-settings"
             />
+            {!isOffline ? (
+              <IconButton
+                icon="RefreshCw"
+                variant="action"
+                size="md"
+                ariaLabel="Recargar página"
+                title="Recargar página"
+                onClick={() => window.location.reload()}
+                data-test-id="pos-sidebar-reload"
+              />
+            ) : null}
+            <OfflineCatalogSyncDonut />
             {!isOffline ? (
               <IconButton
                 icon="LogOut"

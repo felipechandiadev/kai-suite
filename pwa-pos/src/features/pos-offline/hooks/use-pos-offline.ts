@@ -18,8 +18,10 @@ import {
 import { runBootstrapCoordinator } from "../application/bootstrap-coordinator.usecase";
 import { applyCatalogDeltaForPos } from "../application/download-catalog-delta.usecase";
 import { getCatalogMeta } from "../application/catalog-readiness.usecase";
+import { OFFLINE_CATALOG_SCHEMA_VERSION } from "../lib/catalog-keys";
 import type { PosOfflineCommand } from "../domain/offline-command.types";
 import { resolveSyncUserName } from "../lib/resolve-sync-user-name";
+import { ensurePosOfflineDbOpen } from "../infrastructure/pos-offline-db";
 
 export function usePosOffline() {
   const { data: session } = useSession();
@@ -46,9 +48,13 @@ export function usePosOffline() {
   }, []);
 
   useEffect(() => {
+    void ensurePosOfflineDbOpen()
+      .then(() => refreshQueue())
+      .catch(() => {
+        /* recovery ya intentó borrar DB; evitar unhandled rejection en consola */
+      });
     startConnectivityHeartbeat();
     const unsub = subscribeConnectivity(setConnectivity);
-    void refreshQueue();
     const interval = setInterval(() => void refreshQueue(), 5_000);
     return () => {
       unsub();
@@ -75,30 +81,44 @@ export function usePosOffline() {
       if (ctx?.pointOfSaleId && ctx.priceListId) {
         void (async () => {
           const meta = await getCatalogMeta(ctx.pointOfSaleId!, ctx.priceListId!);
-          if (meta?.snapshotAt) {
-            const delta = await applyCatalogDeltaForPos(
-              ctx.pointOfSaleId!,
-              ctx.priceListId!,
-              meta.snapshotAt,
-            );
-            if (delta.success) {
+          const schemaOutdated =
+            !meta?.schemaVersion || meta.schemaVersion < OFFLINE_CATALOG_SCHEMA_VERSION;
+
+          if (schemaOutdated || !meta?.snapshotAt) {
+            const bootstrap = await runBootstrapCoordinator(ctx.pointOfSaleId!, ctx.priceListId!);
+            if (bootstrap.catalog === "ok") {
               setCatalogRefreshMessage(
-                delta.updated > 0
-                  ? `Catálogo actualizado (+${delta.updated} cambios).`
-                  : "Catálogo verificado al reconectar.",
+                schemaOutdated
+                  ? "Catálogo offline actualizado (nueva versión)."
+                  : "Catálogo offline descargado.",
               );
             } else {
-              const bootstrap = await runBootstrapCoordinator(ctx.pointOfSaleId!, ctx.priceListId!);
-              if (bootstrap.catalog === "ok") {
-                setCatalogRefreshMessage("Catálogo offline actualizado.");
-              } else {
-                setCatalogRefreshMessage(bootstrap.catalogMessage ?? "No se pudo actualizar el catálogo.");
-              }
+              setCatalogRefreshMessage(
+                bootstrap.catalogMessage ?? "No se pudo actualizar el catálogo.",
+              );
             }
+            return;
+          }
+
+          const delta = await applyCatalogDeltaForPos(
+            ctx.pointOfSaleId!,
+            ctx.priceListId!,
+            meta.snapshotAt,
+          );
+          if (delta.success) {
+            setCatalogRefreshMessage(
+              delta.updated > 0
+                ? `Catálogo actualizado (+${delta.updated} cambios).`
+                : "Catálogo verificado al reconectar.",
+            );
           } else {
             const bootstrap = await runBootstrapCoordinator(ctx.pointOfSaleId!, ctx.priceListId!);
             if (bootstrap.catalog === "ok") {
-              setCatalogRefreshMessage("Catálogo offline descargado.");
+              setCatalogRefreshMessage("Catálogo offline actualizado.");
+            } else {
+              setCatalogRefreshMessage(
+                bootstrap.catalogMessage ?? "No se pudo actualizar el catálogo.",
+              );
             }
           }
         })();

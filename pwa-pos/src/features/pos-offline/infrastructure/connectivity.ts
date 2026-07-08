@@ -74,3 +74,10 @@ export function stopConnectivityHeartbeat() {
 export function isBackendReachable(): boolean {
   return state.browserOnline && state.backendReachable;
 }
+
+/** Permite intentar API si hay red y el backend no fue descartado aún por heartbeat. */
+export function shouldUseBackendApi(): boolean {
+  if (!state.browserOnline) return false;
+  if (!state.backendReachable && state.lastCheckedAt != null) return false;
+  return true;
+}

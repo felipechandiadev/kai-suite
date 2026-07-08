@@ -1,13 +1,18 @@
 import { getPosOfflineDb } from "../infrastructure/pos-offline-db";
 import type { OfflineCatalogMetaRow } from "../domain/offline-catalog.types";
-import { catalogMetaId } from "../lib/catalog-keys";
+import { catalogMetaId, OFFLINE_CATALOG_SCHEMA_VERSION } from "../lib/catalog-keys";
 
 export type CatalogReadiness = {
   ready: boolean;
   rowCount: number;
   snapshotAt: string | null;
+  schemaVersion?: number | null;
   message?: string;
 };
+
+function isCatalogSchemaCurrent(meta: OfflineCatalogMetaRow | null | undefined): boolean {
+  return (meta?.schemaVersion ?? 0) >= OFFLINE_CATALOG_SCHEMA_VERSION;
+}
 
 export async function getCatalogMeta(
   pointOfSaleId: string,
@@ -27,7 +32,17 @@ export async function assertCatalogReady(
       ready: false,
       rowCount: meta?.rowCount ?? 0,
       snapshotAt: meta?.snapshotAt ?? null,
+      schemaVersion: meta?.schemaVersion ?? null,
       message: "Catálogo offline no listo. Espera la descarga o reconecta.",
+    };
+  }
+  if (!isCatalogSchemaCurrent(meta)) {
+    return {
+      ready: false,
+      rowCount: meta.rowCount,
+      snapshotAt: meta.snapshotAt,
+      schemaVersion: meta.schemaVersion,
+      message: "Catálogo desactualizado. Reconecta para actualizar.",
     };
   }
   if (meta.rowCount <= 0) {
@@ -35,6 +50,7 @@ export async function assertCatalogReady(
       ready: false,
       rowCount: 0,
       snapshotAt: meta.snapshotAt,
+      schemaVersion: meta.schemaVersion,
       message: "Catálogo local vacío. Reconecta para descargar productos.",
     };
   }
@@ -42,24 +58,32 @@ export async function assertCatalogReady(
     ready: true,
     rowCount: meta.rowCount,
     snapshotAt: meta.snapshotAt,
+    schemaVersion: meta.schemaVersion,
   };
 }
 
 export async function getOfflineCatalogStatus(
   pointOfSaleId: string,
   priceListId: string,
-): Promise<{ rowCount: number; snapshotAt: string | null; ready: boolean }> {
+): Promise<{
+  rowCount: number;
+  snapshotAt: string | null;
+  ready: boolean;
+  schemaVersion: number | null;
+}> {
   const meta = await getCatalogMeta(pointOfSaleId, priceListId);
   if (meta) {
+    const schemaCurrent = isCatalogSchemaCurrent(meta);
     return {
       rowCount: meta.rowCount,
       snapshotAt: meta.snapshotAt,
-      ready: meta.ready,
+      ready: meta.ready && meta.rowCount > 0 && schemaCurrent,
+      schemaVersion: meta.schemaVersion ?? null,
     };
   }
   const db = getPosOfflineDb();
   const rowCount = await db.catalog.where({ pointOfSaleId, priceListId }).count();
-  return { rowCount, snapshotAt: null, ready: rowCount > 0 };
+  return { rowCount, snapshotAt: null, ready: rowCount > 0, schemaVersion: null };
 }
 
 export function formatCatalogAge(snapshotAt: string | null): string | null {

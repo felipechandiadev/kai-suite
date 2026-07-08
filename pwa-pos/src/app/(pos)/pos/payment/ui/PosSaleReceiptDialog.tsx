@@ -12,6 +12,7 @@ import type { AppliedSnapshot } from "@/features/promotions/lib/discount-engine.
 import type { LoadedQuotationMeta } from "@/features/pos-cart/cart-storage";
 import type { FiscalBoletaPrintPreview } from "@/features/fiscal/types/fiscal-emission.types";
 import { getFiscalBoletaPrintPreviewAction } from "@/features/fiscal/actions/reprint-fiscal-boleta.action";
+import { shouldUseBackendApi } from "@/features/pos-offline/infrastructure/connectivity";
 import { printFiscalBoletaPreview } from "@/features/fiscal/print/fiscal-boleta-preview-print";
 import { buildFiscalBoletaPreviewHtml } from "@/features/fiscal/print/build-fiscal-boleta-preview-html";
 import { fiscalTimbrePdf417SvgForPreview } from "@/features/fiscal/print/fiscal-timbre-pdf417";
@@ -660,20 +661,25 @@ async function tryAutoPrintFiscalBoleta(
   if (snapshot.documentKind !== "sale") {
     return { printed: false, hasFiscalDocument: false };
   }
-  const txId = snapshot.transactionId?.trim();
-  if (!txId) return { printed: false, hasFiscalDocument: false };
 
   let preview = snapshot.fiscalPrintPreview ?? null;
   if (!preview) {
-    const res = await getFiscalBoletaPrintPreviewAction(txId);
-    if (res.success) {
-      preview = res.preview;
+    const txId = snapshot.transactionId?.trim();
+    if (txId && shouldUseBackendApi()) {
+      try {
+        const res = await getFiscalBoletaPrintPreviewAction(txId);
+        if (res.success) {
+          preview = res.preview;
+        }
+      } catch {
+        preview = null;
+      }
     }
   }
 
   const hasFiscalDocument = Boolean(preview ?? snapshot.fiscalFolio?.trim());
   if (!preview) {
-    return { printed: false, hasFiscalDocument: false };
+    return { printed: false, hasFiscalDocument };
   }
 
   try {

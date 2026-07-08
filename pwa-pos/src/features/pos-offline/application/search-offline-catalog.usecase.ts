@@ -1,5 +1,6 @@
 import type { PosProductSearchItem } from "@/features/pos-products/types/pos-product.types";
 import { getPosOfflineDb } from "../infrastructure/pos-offline-db";
+import { catalogRowId } from "../lib/catalog-keys";
 import { normalizeCatalogSearchText } from "../lib/normalize-catalog-search";
 
 function stripCatalogRow(row: OfflineCatalogRowLike): PosProductSearchItem {
@@ -72,6 +73,24 @@ export async function searchOfflineCatalog(args: {
     products: filtered.slice(start, start + pageSize).map(stripCatalogRow),
     total,
   };
+}
+
+export async function lookupOfflineCatalogByVariantIds(args: {
+  pointOfSaleId: string;
+  priceListId: string;
+  variantIds: string[];
+}): Promise<PosProductSearchItem[]> {
+  const ids = [...new Set(args.variantIds.map((id) => id.trim()).filter(Boolean))];
+  if (ids.length === 0) return [];
+
+  const db = getPosOfflineDb();
+  const keys = ids.map((variantId) =>
+    catalogRowId(args.pointOfSaleId, args.priceListId, variantId),
+  );
+  const rows = await db.catalog.bulkGet(keys);
+  return rows
+    .filter((row): row is OfflineCatalogRowLike => row != null)
+    .map(stripCatalogRow);
 }
 
 export async function lookupOfflineCatalogByBarcode(args: {

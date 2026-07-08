@@ -21,7 +21,18 @@ export type PosOfflineMetaRow = {
 };
 
 const DB_NAME = "kai-pos-offline";
-const DB_VERSION = 4;
+const DB_VERSION = 5;
+
+const SHARED_STORES_V3 = {
+  commands:
+    "id, clientOperationId, status, commandType, createdAt, dependsOn, [status+commandType]",
+  fiscal_pack: "pointOfSaleId",
+  device: "id",
+  meta: "id",
+  customers: "customerId, searchName, lastUsedAt",
+  company_cache: "id",
+  session_meta: "id",
+} as const;
 
 export class PosOfflineDatabase extends Dexie {
   commands!: Table<PosOfflineCommand, string>;
@@ -51,42 +62,56 @@ export class PosOfflineDatabase extends Dexie {
       catalog: "variantId, [pointOfSaleId+priceListId], barcode, sku, searchName",
     });
     this.version(3).stores({
-      commands:
-        "id, clientOperationId, status, commandType, createdAt, dependsOn, [status+commandType]",
-      fiscal_pack: "pointOfSaleId",
-      device: "id",
-      meta: "id",
+      ...SHARED_STORES_V3,
       catalog: "variantId, [pointOfSaleId+priceListId], barcode, sku, searchName",
-      customers: "customerId, searchName, lastUsedAt",
       stock_snapshot: "variantId, [pointOfSaleId+priceListId]",
-      company_cache: "id",
-      session_meta: "id",
     });
-    this.version(4)
-      .stores({
-        commands:
-          "id, clientOperationId, status, commandType, createdAt, dependsOn, [status+commandType]",
-        fiscal_pack: "pointOfSaleId",
-        device: "id",
-        meta: "id",
-        catalog:
-          "id, variantId, pointOfSaleId, priceListId, [pointOfSaleId+priceListId], barcode, sku, searchName",
-        catalog_meta: "id, pointOfSaleId, priceListId, [pointOfSaleId+priceListId]",
-        customers: "customerId, searchName, lastUsedAt",
-        stock_snapshot:
-          "id, variantId, pointOfSaleId, priceListId, [pointOfSaleId+priceListId]",
-        company_cache: "id",
-        session_meta: "id",
-      })
-      .upgrade(async (tx) => {
-        await tx.table("catalog").clear();
-        await tx.table("stock_snapshot").clear();
-        await tx.table("catalog_meta").clear();
-      });
+    // Dexie no permite cambiar PK in-place: primero eliminamos tablas con PK vieja.
+    this.version(4).stores({
+      ...SHARED_STORES_V3,
+      catalog: null,
+      stock_snapshot: null,
+      catalog_meta: "id, pointOfSaleId, priceListId, [pointOfSaleId+priceListId]",
+    });
+    // Recreamos catálogo/stock con PK compuesta en campo `id`.
+    this.version(5).stores({
+      ...SHARED_STORES_V3,
+      catalog:
+        "id, variantId, pointOfSaleId, priceListId, [pointOfSaleId+priceListId], barcode, sku, searchName",
+      catalog_meta: "id, pointOfSaleId, priceListId, [pointOfSaleId+priceListId]",
+      stock_snapshot:
+        "id, variantId, pointOfSaleId, priceListId, [pointOfSaleId+priceListId]",
+    });
   }
 }
 
 let dbSingleton: PosOfflineDatabase | null = null;
+let openPromise: Promise<PosOfflineDatabase> | null = null;
+
+function isPrimaryKeyUpgradeError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err ?? "");
+  const name = err instanceof Error ? err.name : "";
+  return (
+    name === "UpgradeError" ||
+    name === "DatabaseClosedError" ||
+    /primary key/i.test(message) ||
+    /changing primary key/i.test(message)
+  );
+}
+
+async function openDatabaseWithRecovery(): Promise<PosOfflineDatabase> {
+  const db = new PosOfflineDatabase();
+  try {
+    await db.open();
+    return db;
+  } catch (err) {
+    if (!isPrimaryKeyUpgradeError(err)) throw err;
+    await Dexie.delete(DB_NAME);
+    const fresh = new PosOfflineDatabase();
+    await fresh.open();
+    return fresh;
+  }
+}
 
 export function getPosOfflineDb(): PosOfflineDatabase {
   if (typeof indexedDB === "undefined") {
@@ -98,9 +123,28 @@ export function getPosOfflineDb(): PosOfflineDatabase {
   return dbSingleton;
 }
 
+/** Abre IndexedDB y recupera DB corrupta tras migración fallida de PK. */
+export async function ensurePosOfflineDbOpen(): Promise<PosOfflineDatabase> {
+  if (typeof indexedDB === "undefined") {
+    throw new Error("IndexedDB no disponible en este entorno");
+  }
+  if (openPromise) {
+    return openPromise;
+  }
+  openPromise = (async () => {
+    const db = await openDatabaseWithRecovery();
+    dbSingleton = db;
+    return db;
+  })().finally(() => {
+    openPromise = null;
+  });
+  return openPromise;
+}
+
 /** Solo tests: reinicia singleton Dexie entre casos. */
 export function resetPosOfflineDbForTests(): void {
   dbSingleton = null;
+  openPromise = null;
 }
 
-export { OFFLINE_CATALOG_SCHEMA_VERSION };
+export { OFFLINE_CATALOG_SCHEMA_VERSION, DB_VERSION };

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Inject, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, IsNull, In } from 'typeorm';
+import { Repository, DataSource, IsNull, In, SelectQueryBuilder } from 'typeorm';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { Product } from '@modules/products/domain/product.entity';
 import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
@@ -81,23 +81,8 @@ export class ProductsPosService {
 
     const scope = await this.resolvePosStockScope({ pointOfSaleId, branchId });
 
-    // Construir query base
-    const qb = this.variantRepository
-      .createQueryBuilder('v')
-      .innerJoin('v.product', 'product')
-      .innerJoin(
-        'v.priceListItems',
-        'priceListItem',
-        'priceListItem.priceListId = :priceListId AND priceListItem.deletedAt IS NULL',
-        { priceListId },
-      )
-      .leftJoin('v.unit', 'unit')
-      .leftJoin('v.saleUnit', 'saleUnit')
-      .leftJoin('v.stockBaseUnit', 'stockBaseUnit')
-      .where('v.deletedAt IS NULL')
-      .andWhere('v.isActive = :isActive', { isActive: true })
-      .andWhere('product.deletedAt IS NULL')
-      .andWhere('product.isActive = :isActive', { isActive: true });
+    const qb = this.variantRepository.createQueryBuilder('v');
+    this.applyPosPriceListVariantJoins(qb, priceListId);
 
     // Filtrar por búsqueda de texto (nombre, SKU, barcode)
     if (query && query.trim()) {
@@ -116,37 +101,6 @@ export class ProductsPosService {
         { q: `%${query.trim()}%` },
       );
     }
-
-    // Seleccionar campos necesarios
-    qb.select([
-      'v.id',
-      'v.productId',
-      'v.sku',
-      'v.barcode',
-      'v.trackInventory',
-      'v.stockBaseUnitId',
-      'v.saleUnitId',
-      'v.stockBaseQtyPerCountSaleUnit',
-      'v.attributeValues',
-      'product.id',
-      'product.companyId',
-      'product.name',
-      'product.description',
-      'unit.id',
-      'unit.symbol',
-      'unit.allowDecimals',
-      'saleUnit.id',
-      'saleUnit.symbol',
-      'saleUnit.dimension',
-      'saleUnit.allowDecimals',
-      'stockBaseUnit.id',
-      'stockBaseUnit.symbol',
-      'stockBaseUnit.dimension',
-      'priceListItem.id',
-      'priceListItem.netPrice',
-      'priceListItem.grossPrice',
-      'priceListItem.taxIds',
-    ]);
 
     // Paginación
     const skip = (page - 1) * pageSize;
@@ -204,22 +158,8 @@ export class ProductsPosService {
       pointOfSaleId: args.pointOfSaleId,
     });
 
-    const baseQb = this.variantRepository
-      .createQueryBuilder('v')
-      .innerJoin('v.product', 'product')
-      .innerJoin(
-        'v.priceListItems',
-        'priceListItem',
-        'priceListItem.priceListId = :priceListId AND priceListItem.deletedAt IS NULL',
-        { priceListId },
-      )
-      .leftJoin('v.unit', 'unit')
-      .leftJoin('v.saleUnit', 'saleUnit')
-      .leftJoin('v.stockBaseUnit', 'stockBaseUnit')
-      .where('v.deletedAt IS NULL')
-      .andWhere('v.isActive = :isActive', { isActive: true })
-      .andWhere('product.deletedAt IS NULL')
-      .andWhere('product.isActive = :isActive', { isActive: true });
+    const baseQb = this.variantRepository.createQueryBuilder('v');
+    this.applyPosPriceListVariantJoins(baseQb, priceListId);
 
     const totalCount = await baseQb.getCount();
 
@@ -228,36 +168,6 @@ export class ProductsPosService {
     if (cursor) {
       qb.andWhere('v.id > :cursor', { cursor });
     }
-
-    qb.select([
-      'v.id',
-      'v.productId',
-      'v.sku',
-      'v.barcode',
-      'v.trackInventory',
-      'v.stockBaseUnitId',
-      'v.saleUnitId',
-      'v.stockBaseQtyPerCountSaleUnit',
-      'v.attributeValues',
-      'product.id',
-      'product.companyId',
-      'product.name',
-      'product.description',
-      'unit.id',
-      'unit.symbol',
-      'unit.allowDecimals',
-      'saleUnit.id',
-      'saleUnit.symbol',
-      'saleUnit.dimension',
-      'saleUnit.allowDecimals',
-      'stockBaseUnit.id',
-      'stockBaseUnit.symbol',
-      'stockBaseUnit.dimension',
-      'priceListItem.id',
-      'priceListItem.netPrice',
-      'priceListItem.grossPrice',
-      'priceListItem.taxIds',
-    ]);
 
     qb.orderBy('v.id', 'ASC').take(limit);
 
@@ -297,53 +207,9 @@ export class ProductsPosService {
       pointOfSaleId: args.pointOfSaleId,
     });
 
-    const activeQb = this.variantRepository
-      .createQueryBuilder('v')
-      .innerJoin('v.product', 'product')
-      .innerJoin(
-        'v.priceListItems',
-        'priceListItem',
-        'priceListItem.priceListId = :priceListId AND priceListItem.deletedAt IS NULL',
-        { priceListId },
-      )
-      .leftJoin('v.unit', 'unit')
-      .leftJoin('v.saleUnit', 'saleUnit')
-      .leftJoin('v.stockBaseUnit', 'stockBaseUnit')
-      .where('v.deletedAt IS NULL')
-      .andWhere('v.isActive = :isActive', { isActive: true })
-      .andWhere('product.deletedAt IS NULL')
-      .andWhere('product.isActive = :isActive', { isActive: true })
-      .andWhere('product.updatedAt >= :since', { since: sinceDate });
-
-    activeQb.select([
-      'v.id',
-      'v.productId',
-      'v.sku',
-      'v.barcode',
-      'v.trackInventory',
-      'v.stockBaseUnitId',
-      'v.saleUnitId',
-      'v.stockBaseQtyPerCountSaleUnit',
-      'v.attributeValues',
-      'product.id',
-      'product.companyId',
-      'product.name',
-      'product.description',
-      'unit.id',
-      'unit.symbol',
-      'unit.allowDecimals',
-      'saleUnit.id',
-      'saleUnit.symbol',
-      'saleUnit.dimension',
-      'saleUnit.allowDecimals',
-      'stockBaseUnit.id',
-      'stockBaseUnit.symbol',
-      'stockBaseUnit.dimension',
-      'priceListItem.id',
-      'priceListItem.netPrice',
-      'priceListItem.grossPrice',
-      'priceListItem.taxIds',
-    ]);
+    const activeQb = this.variantRepository.createQueryBuilder('v');
+    this.applyPosPriceListVariantJoins(activeQb, priceListId);
+    activeQb.andWhere('product.updatedAt >= :since', { since: sinceDate });
     activeQb.orderBy('v.id', 'ASC').take(500);
 
     const activeVariants = await activeQb.getMany();
@@ -401,53 +267,9 @@ export class ProductsPosService {
     let activeVariants: ProductVariant[];
 
     if (priceListId) {
-      activeVariants = await this.variantRepository
-        .createQueryBuilder('v')
-        .innerJoin('v.product', 'product')
-        .innerJoin(
-          'v.priceListItems',
-          'priceListItem',
-          'priceListItem.priceListId = :priceListId AND priceListItem.deletedAt IS NULL',
-          { priceListId },
-        )
-        .leftJoin('v.unit', 'unit')
-        .leftJoin('v.saleUnit', 'saleUnit')
-        .leftJoin('v.stockBaseUnit', 'stockBaseUnit')
-        .where('v.id IN (:...ids)', { ids })
-        .andWhere('v.deletedAt IS NULL')
-        .andWhere('v.isActive = :isActive', { isActive: true })
-        .andWhere('product.deletedAt IS NULL')
-        .andWhere('product.isActive = :isActive', { isActive: true })
-        .select([
-          'v.id',
-          'v.productId',
-          'v.sku',
-          'v.barcode',
-          'v.trackInventory',
-          'v.stockBaseUnitId',
-          'v.saleUnitId',
-          'v.stockBaseQtyPerCountSaleUnit',
-          'v.attributeValues',
-          'product.id',
-          'product.companyId',
-          'product.name',
-          'product.description',
-          'unit.id',
-          'unit.symbol',
-          'unit.allowDecimals',
-          'saleUnit.id',
-          'saleUnit.symbol',
-          'saleUnit.dimension',
-          'saleUnit.allowDecimals',
-          'stockBaseUnit.id',
-          'stockBaseUnit.symbol',
-          'stockBaseUnit.dimension',
-          'priceListItem.id',
-          'priceListItem.netPrice',
-          'priceListItem.grossPrice',
-          'priceListItem.taxIds',
-        ])
-        .getMany();
+      const qb = this.variantRepository.createQueryBuilder('v');
+      this.applyPosPriceListVariantJoins(qb, priceListId);
+      activeVariants = await qb.andWhere('v.id IN (:...ids)', { ids }).getMany();
     } else {
       const variants = await this.variantRepository.find({
         where: {
@@ -495,6 +317,31 @@ export class ProductsPosService {
       }
     }
     return { resolvedBranchId, storageIdsForStock };
+  }
+
+  /**
+   * Hidrata product, priceListItems (lista activa), unidades en getMany().
+   * innerJoin + select parcial no poblaba relaciones y dejaba nombre/precio en 0 offline.
+   */
+  private applyPosPriceListVariantJoins(
+    qb: SelectQueryBuilder<ProductVariant>,
+    priceListId: string,
+  ): SelectQueryBuilder<ProductVariant> {
+    return qb
+      .innerJoinAndSelect('v.product', 'product')
+      .innerJoinAndSelect(
+        'v.priceListItems',
+        'priceListItem',
+        'priceListItem.priceListId = :priceListId AND priceListItem.deletedAt IS NULL',
+        { priceListId },
+      )
+      .leftJoinAndSelect('v.unit', 'unit')
+      .leftJoinAndSelect('v.saleUnit', 'saleUnit')
+      .leftJoinAndSelect('v.stockBaseUnit', 'stockBaseUnit')
+      .where('v.deletedAt IS NULL')
+      .andWhere('v.isActive = :isActive', { isActive: true })
+      .andWhere('product.deletedAt IS NULL')
+      .andWhere('product.isActive = :isActive', { isActive: true });
   }
 
   private async mapVariantsToPosSearchResults(

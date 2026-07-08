@@ -139,6 +139,15 @@ function printServiceDebugLog(message: string, detail?: Record<string, unknown>)
   }
 }
 
+function isLoopbackPrintUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === "127.0.0.1" || host === "localhost" || host === "::1";
+  } catch {
+    return false;
+  }
+}
+
 export function usePrintServiceConnection(opts: UsePrintServiceConnectionOptions = {}): UsePrintServiceConnectionReturn {
   const [tick, setTick] = useState(0);
   const [connected, setConnected] = useState(false);
@@ -158,6 +167,7 @@ export function usePrintServiceConnection(opts: UsePrintServiceConnectionOptions
   const disconnectNotifiedRef = useRef(false);
   const lineStatusByIdRef = useRef<Map<string, string>>(new Map());
   const debugRef = useRef(false);
+  const attemptedUrlRef = useRef<string | null>(null);
   debugRef.current = Boolean(opts.debug);
 
   const envDefaults = useMemo(() => {
@@ -309,17 +319,40 @@ export function usePrintServiceConnection(opts: UsePrintServiceConnectionOptions
 
   const scheduleReconnect = useCallback(() => {
     if (timerRef.current) window.clearTimeout(timerRef.current);
-    const delay = Math.min(30_000, 1000 * 2 ** Math.min(retryRef.current, 5));
+    const loopback = attemptedUrlRef.current
+      ? isLoopbackPrintUrl(attemptedUrlRef.current)
+      : true;
+    const maxDelayMs = loopback ? 8_000 : 30_000;
+    const delay = Math.min(maxDelayMs, 1000 * 2 ** Math.min(retryRef.current, 5));
     if (debugRef.current) {
       printServiceDebugLog("reconnect_scheduled", {
         delayMs: delay,
         nextAttempt: retryRef.current + 1,
+        loopback,
       });
     }
     timerRef.current = window.setTimeout(() => {
       retryRef.current += 1;
       setTick((t: number) => t + 1);
     }, delay);
+  }, []);
+
+  useEffect(() => {
+    const onBrowserConnectivity = () => {
+      if (debugRef.current) {
+        printServiceDebugLog("browser_connectivity_changed", {
+          onLine: typeof navigator !== "undefined" ? navigator.onLine : true,
+        });
+      }
+      retryRef.current = 0;
+      setTick((t: number) => t + 1);
+    };
+    window.addEventListener("online", onBrowserConnectivity);
+    window.addEventListener("offline", onBrowserConnectivity);
+    return () => {
+      window.removeEventListener("online", onBrowserConnectivity);
+      window.removeEventListener("offline", onBrowserConnectivity);
+    };
   }, []);
 
   useEffect(() => {
@@ -361,6 +394,7 @@ export function usePrintServiceConnection(opts: UsePrintServiceConnectionOptions
     const port = useTls ? fromLs.wssPort || envDefaults.wssPort : fromLs.port || envDefaults.port;
     const tlsBecause = pageHttps ? "https_page" : fromLs.useTls ? "local_storage_printServiceUseTls" : "plain_ws";
     const url = buildWebSocketUrl(host, port, useTls);
+    attemptedUrlRef.current = url;
     setAttemptedWsUrl(url);
 
     if (opts.debug) {

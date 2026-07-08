@@ -6,6 +6,12 @@ import { normalizeCatalogSearchText } from "../lib/normalize-catalog-search";
 import { rebuildStockSnapshotFromCatalog } from "./stock-snapshot.usecase";
 import { catalogMetaId, catalogRowId } from "../lib/catalog-keys";
 import { logOfflineTelemetry } from "../lib/offline-telemetry";
+import {
+  beginCatalogSync,
+  completeCatalogSync,
+  failCatalogSync,
+  updateCatalogSyncProgress,
+} from "../lib/offline-catalog-sync-progress";
 
 function toCatalogRow(
   item: PosProductSearchItem,
@@ -24,6 +30,17 @@ function toCatalogRow(
   };
 }
 
+function reportProgress(
+  onProgress: ((progress: OfflineCatalogDownloadProgress) => void) | undefined,
+  downloaded: number,
+  persisted: number,
+  total: number,
+) {
+  const progress = { downloaded, persisted, total: total || downloaded };
+  updateCatalogSyncProgress(progress);
+  onProgress?.(progress);
+}
+
 export async function downloadCatalogSnapshotForPos(
   pointOfSaleId: string,
   priceListId: string,
@@ -38,18 +55,25 @@ export async function downloadCatalogSnapshotForPos(
   let cursor: string | undefined;
   let total = 0;
   let snapshotAt = new Date().toISOString();
-  const rows: OfflineCatalogRow[] = [];
+  let downloaded = 0;
 
-  await db.catalog_meta.put({
-    id: metaId,
-    pointOfSaleId,
-    priceListId,
-    snapshotAt,
-    rowCount: 0,
-    ready: false,
-    schemaVersion: OFFLINE_CATALOG_SCHEMA_VERSION,
-    downloadedAt: new Date().toISOString(),
+  beginCatalogSync(0);
+
+  await db.transaction("rw", [db.catalog, db.catalog_meta], async () => {
+    await db.catalog.where({ pointOfSaleId, priceListId }).delete();
+    await db.catalog_meta.put({
+      id: metaId,
+      pointOfSaleId,
+      priceListId,
+      snapshotAt,
+      rowCount: 0,
+      ready: false,
+      schemaVersion: OFFLINE_CATALOG_SCHEMA_VERSION,
+      downloadedAt: new Date().toISOString(),
+    });
   });
+
+  reportProgress(onProgress, 0, 0, 0);
 
   for (;;) {
     const res = await fetchOfflineCatalogSnapshot(pointOfSaleId, {
@@ -59,6 +83,7 @@ export async function downloadCatalogSnapshotForPos(
     });
     if (!res.ok) {
       await db.catalog_meta.update(metaId, { ready: false });
+      failCatalogSync();
       return {
         success: false,
         message: res.unreachable
@@ -69,6 +94,7 @@ export async function downloadCatalogSnapshotForPos(
     const body = res.data;
     if (!body.success || !body.items) {
       await db.catalog_meta.update(metaId, { ready: false });
+      failCatalogSync();
       return {
         success: false,
         message: body.message || "No se pudo descargar el catálogo offline",
@@ -76,42 +102,52 @@ export async function downloadCatalogSnapshotForPos(
     }
     if (body.snapshotAt) snapshotAt = body.snapshotAt;
     total = body.totalCount ?? total;
-    for (const item of body.items) {
-      rows.push(toCatalogRow(item, pointOfSaleId, priceListId, snapshotAt));
-    }
-    onProgress?.({ downloaded: rows.length, total: total || rows.length });
+
+    const pageRows = body.items.map((item) =>
+      toCatalogRow(item, pointOfSaleId, priceListId, snapshotAt),
+    );
+    downloaded += pageRows.length;
+
+    await db.catalog.bulkPut(pageRows);
+    const persisted = await db.catalog
+      .where({ pointOfSaleId, priceListId })
+      .count();
+
+    await db.catalog_meta.update(metaId, {
+      rowCount: persisted,
+      snapshotAt,
+      ready: false,
+    });
+
+    reportProgress(onProgress, downloaded, persisted, total || downloaded);
+
     if (!body.nextCursor) break;
     cursor = body.nextCursor;
   }
 
-  await db.transaction("rw", [db.catalog, db.catalog_meta], async () => {
-    await db.catalog.where({ pointOfSaleId, priceListId }).delete();
-    if (rows.length > 0) {
-      await db.catalog.bulkPut(rows);
-    }
-    await db.catalog_meta.put({
-      id: metaId,
-      pointOfSaleId,
-      priceListId,
-      snapshotAt,
-      rowCount: rows.length,
-      ready: true,
-      schemaVersion: OFFLINE_CATALOG_SCHEMA_VERSION,
-      downloadedAt: new Date().toISOString(),
-    });
+  await db.catalog_meta.put({
+    id: metaId,
+    pointOfSaleId,
+    priceListId,
+    snapshotAt,
+    rowCount: downloaded,
+    ready: true,
+    schemaVersion: OFFLINE_CATALOG_SCHEMA_VERSION,
+    downloadedAt: new Date().toISOString(),
   });
 
   await rebuildStockSnapshotFromCatalog(pointOfSaleId, priceListId);
+  completeCatalogSync(downloaded);
 
   logOfflineTelemetry("offline_catalog_download", {
     pointOfSaleId,
     priceListId,
-    total: rows.length,
+    total: downloaded,
     durationMs: Date.now() - startedAt,
     mode: "full",
   });
 
-  return { success: true, total: rows.length, snapshotAt };
+  return { success: true, total: downloaded, snapshotAt };
 }
 
 export async function getOfflineCatalogCount(
