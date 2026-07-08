@@ -33,6 +33,9 @@ export class PosSyncCommand {
   @Column({ name: 'command_type', type: 'varchar', length: 32 })
   commandType!: string;
 
+  @Column({ name: 'cash_session_id', type: 'uuid', nullable: true })
+  cashSessionId?: string | null;
+
   @Column({ name: 'transaction_id', type: 'uuid', nullable: true })
   transactionId?: string | null;
 

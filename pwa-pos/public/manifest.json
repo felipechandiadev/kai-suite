@@ -2,7 +2,7 @@
   "name": "KaiStore POS",
   "short_name": "KaiStore POS",
   "description": "Punto de venta KaiStore (PWA)",
-  "start_url": "/",
+  "start_url": "/pos",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
@@ -58,14 +58,14 @@
       "name": "Abrir POS",
       "short_name": "POS",
       "description": "Ir al punto de venta",
-      "url": "/",
+      "url": "/pos",
       "icons": [{ "src": "/icons/shortcut-pos.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
-      "name": "Configurar sesión",
-      "short_name": "Sesión",
-      "description": "Abrir configuración de caja / sesión",
-      "url": "/session-setup",
+      "name": "Impresión local",
+      "short_name": "Impresión",
+      "description": "Configurar impresión en el POS",
+      "url": "/settings/local-printing",
       "icons": [{ "src": "/icons/shortcut-pos.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]

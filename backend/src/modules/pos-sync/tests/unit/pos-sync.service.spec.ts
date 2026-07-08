@@ -23,8 +23,10 @@ describe('PosSyncService idempotency', () => {
 
     const service = new PosSyncService(
       syncRepo as any,
-      { createSaleFromOfflineSync: jest.fn() } as any,
-      { adoptOfflineEmission: jest.fn() } as any,
+      { execute: jest.fn() } as any,
+      { execute: jest.fn() } as any,
+      { executeDeposit: jest.fn(), executeWithdrawal: jest.fn() } as any,
+      { execute: jest.fn() } as any,
     );
 
     jest.spyOn(require('@common/tenant/tenant.context').TenantContext, 'getCompanyId').mockReturnValue('co-1');
@@ -59,8 +61,8 @@ describe('PosSyncService stock conflict', () => {
       save: jest.fn(),
     };
 
-    const salesService = {
-      createSaleFromOfflineSync: jest.fn().mockRejectedValue(
+    const salesHandler = {
+      execute: jest.fn().mockRejectedValue(
         new BadRequestException(
           'Stock insuficiente en sala de venta para SKU-1: se requieren 2 (unidad base), disponible 0.',
         ),
@@ -69,8 +71,10 @@ describe('PosSyncService stock conflict', () => {
 
     const service = new PosSyncService(
       syncRepo as any,
-      salesService as any,
-      { adoptOfflineEmission: jest.fn() } as any,
+      salesHandler as any,
+      { execute: jest.fn() } as any,
+      { executeDeposit: jest.fn(), executeWithdrawal: jest.fn() } as any,
+      { execute: jest.fn() } as any,
     );
 
     jest

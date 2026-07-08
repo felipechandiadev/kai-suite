@@ -1,34 +1,19 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { downloadFiscalPackForPos } from "../application/download-fiscal-pack.usecase";
-import { downloadCatalogSnapshotForPos } from "../application/download-catalog-snapshot.usecase";
+import { runBootstrapCoordinator } from "../application/bootstrap-coordinator.usecase";
+import type { OfflineBootstrapStatus } from "../domain/offline-bootstrap.types";
 
-export type OfflineBootstrapStatus = {
-  fiscal: "idle" | "loading" | "ok" | "error";
-  catalog: "idle" | "loading" | "ok" | "error";
-  fiscalMessage?: string;
-  catalogMessage?: string;
-  catalogTotal?: number;
-};
+export type { OfflineBootstrapStatus };
 
-const IDLE: OfflineBootstrapStatus = { fiscal: "idle", catalog: "idle" };
+const IDLE: OfflineBootstrapStatus = { fiscal: "idle", catalog: "idle", customers: "idle" };
 
+/** @deprecated Use runBootstrapCoordinator */
 export async function runOfflineBootstrap(
   pointOfSaleId: string,
   priceListId: string,
 ): Promise<OfflineBootstrapStatus> {
-  const [fiscalRes, catalogRes] = await Promise.all([
-    downloadFiscalPackForPos(pointOfSaleId),
-    downloadCatalogSnapshotForPos(pointOfSaleId, priceListId),
-  ]);
-  return {
-    fiscal: fiscalRes.success ? "ok" : "error",
-    catalog: catalogRes.success ? "ok" : "error",
-    fiscalMessage: fiscalRes.success ? undefined : fiscalRes.message,
-    catalogMessage: catalogRes.success ? undefined : catalogRes.message,
-    catalogTotal: catalogRes.success ? catalogRes.total : undefined,
-  };
+  return runBootstrapCoordinator(pointOfSaleId, priceListId);
 }
 
 export function useOfflineBootstrapRunner() {
@@ -37,9 +22,9 @@ export function useOfflineBootstrapRunner() {
 
   const run = useCallback(async (pointOfSaleId: string, priceListId: string) => {
     setLoading(true);
-    setStatus({ fiscal: "loading", catalog: "loading" });
+    setStatus({ fiscal: "loading", catalog: "loading", customers: "loading" });
     try {
-      const next = await runOfflineBootstrap(pointOfSaleId, priceListId);
+      const next = await runBootstrapCoordinator(pointOfSaleId, priceListId, setStatus);
       setStatus(next);
       return next;
     } finally {

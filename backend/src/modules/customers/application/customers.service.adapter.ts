@@ -77,6 +77,10 @@ export class CustomersServiceAdapter {
     return this.customersCore.search(dto);
   }
 
+  async buildOfflineSnapshot(query: { cursor?: string; limit?: number }) {
+    return this.customersCore.buildOfflineSnapshot(query);
+  }
+
   async getPendingPayments(customerId: string) {
     const query = new GetCustomerPendingPaymentsQuery(customerId);
     return this.queryBus.execute(query);

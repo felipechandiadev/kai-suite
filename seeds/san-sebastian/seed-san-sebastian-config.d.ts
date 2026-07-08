@@ -1,0 +1,55 @@
+import type { CompanyBankAccount } from '@modules/companies/domain/company.entity';
+import type { CompanyPaymentMethodConfig, PosPaymentMethodConfig } from '@modules/payment-methods-config/domain/payment-method-config.types';
+import { DocumentType } from '@modules/persons/domain/person.entity';
+import type { PosFiscalSettings } from '@modules/points-of-sale/domain/pos-fiscal-settings.types';
+export declare const SEED_SAN_SEBASTIAN_COMPANY: {
+    readonly razonSocial: "Supermercado San Sebastián";
+    readonly nombreFantasia: "San Sebastián";
+    readonly rut: "78.543.570-2";
+    readonly mail: "san.sebastian@kai.local";
+    readonly phone: "+56984488195";
+    readonly address: "Población Ajial S/N";
+    readonly businessActivity: "Supermercado y abastecimiento";
+    readonly defaultCurrency: "CLP";
+};
+export declare const SEED_BRANCH_NAME = "Local San Sebasti\u00E1n";
+export declare const SEED_BRANCH_ADDRESS: "Población Ajial S/N";
+export declare const SEED_BRANCH_PHONE: "+56984488195";
+export declare const SEED_BRANCH_LOCATION: {
+    lat: number;
+    lng: number;
+};
+export declare const SEED_STORAGE_NAME = "Sala de venta";
+export declare const SEED_STORAGE_CODE = "SEED-SS-SALA";
+export declare const SEED_PRICE_LIST_NAME = "UNICA";
+export declare const SEED_POS_NAME = "CAJA SAN SEBASTIAN";
+export declare const SEED_PRESALE_POS_NAME = "PREVENTA SAN SEBASTIAN";
+export declare const SEED_CASH_HUB_CODE = "CEV-SS-01";
+export declare const SEED_CASH_HUB_NAME = "Caja principal";
+export declare const SEED_ADMIN_USERNAME = "admin";
+export declare const SEED_OPERATOR_USERNAME = "operador";
+export declare const SEED_ADMIN_EMAIL = "admin@san.sebastian.kai.local";
+export declare const SEED_OPERATOR_EMAIL = "operador@san.sebastian.kai.local";
+export type SanSebastianSiiEmisor = {
+    commune: string;
+    city: string;
+    siiResolutionNumber: string;
+    siiResolutionDate: string;
+};
+export declare function loadSanSebastianSiiEmisor(): SanSebastianSiiEmisor;
+export declare function getSeedSanSebastianSiiEmisorFields(): SanSebastianSiiEmisor;
+export declare const SEED_SAN_SEBASTIAN_POS_FISCAL: PosFiscalSettings;
+export declare const SEED_SAN_SEBASTIAN_SHAREHOLDER: {
+    readonly firstName: "María Marcela Del Rosario";
+    readonly lastName: "Tapia Cofré";
+    readonly documentType: DocumentType.RUN;
+    readonly documentNumber: "10.708.387-1";
+    readonly ownershipPercentage: 100;
+    readonly partnerType: "FOUNDING_PARTNER";
+    readonly joinDate: "2020-01-01";
+    readonly notes: "Nacionalidad: Chilena. Sexo: F. Nacimiento: 1968-08-11. N° documento: 516.731.893";
+};
+export declare function buildSeedCompanyBankAccounts(accountHolderName: string): CompanyBankAccount[];
+export declare function buildSeedCompanyPaymentCatalog(): CompanyPaymentMethodConfig[];
+export declare function buildSeedPosPaymentList(catalog: CompanyPaymentMethodConfig[]): PosPaymentMethodConfig[];
+export declare function buildSeedSanSebastianCompanySettings(existing: Record<string, unknown> | undefined, paymentMethods: CompanyPaymentMethodConfig[]): Record<string, unknown>;

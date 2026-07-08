@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { PosFavoriteProductsSection } from "@/features/pos-settings/ui/PosFavoriteProductsSection";
+import { OfflineConflictPanel } from "@/features/pos-offline/ui/OfflineConflictPanel";
 import IconButton from "@/shared/components/IconButton/IconButton";
 
 type SettingsSectionProps = {
@@ -115,6 +116,15 @@ export function PosSettingsPageClient() {
               data-test-id="pos-settings-customer-display-link"
             />
           </div>
+        </SettingsSection>
+
+        <SettingsSection
+          title="Cola offline y conflictos"
+          description="Operaciones pendientes de sincronizar, fallidas o en conflicto (stock, folio, sesión)."
+          badge="Offline"
+          data-test-id="pos-settings-offline-conflicts-section"
+        >
+          <OfflineConflictPanel />
         </SettingsSection>
 
         <SettingsSection

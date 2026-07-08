@@ -3,6 +3,7 @@
 import { Dialog, Button } from "@/shared/admin-shared";
 import { usePosOffline } from "../hooks/use-pos-offline";
 import { retryOfflineCommand } from "../application/sync-queue.usecase";
+import type { PosOfflineCommand } from "../domain/offline-command.types";
 
 type SyncQueuePanelProps = {
   open: boolean;
@@ -32,6 +33,23 @@ function conflictHint(message: string | null | undefined): string | null {
   return "Revisa el detalle del error, corrige en administración y reintenta.";
 }
 
+function saleLineSummary(cmd: PosOfflineCommand): string | null {
+  if (cmd.commandType !== "SALE") return null;
+  const lines = (cmd.payload as { lines?: Array<{ productName?: string; quantity?: number }> })
+    .lines;
+  if (!Array.isArray(lines) || lines.length === 0) return null;
+  const preview = lines
+    .slice(0, 3)
+    .map((l) => {
+      const name = l.productName?.trim() || "Item";
+      const qty = Number(l.quantity) || 0;
+      return `${name} ×${qty}`;
+    })
+    .join(" · ");
+  const extra = lines.length > 3 ? ` (+${lines.length - 3} más)` : "";
+  return `${preview}${extra}`;
+}
+
 export function SyncQueuePanel({ open, onOpenChange }: SyncQueuePanelProps) {
   const { commands, refreshQueue, userName, isBackendReachable } = usePosOffline();
   const visible = commands.filter((c) => c.status !== "SYNCED");
@@ -49,15 +67,22 @@ export function SyncQueuePanel({ open, onOpenChange }: SyncQueuePanelProps) {
           <p className="text-sm text-muted-foreground">No hay ventas pendientes de sincronizar.</p>
         ) : (
           <ul className="flex flex-col gap-2 max-h-[50vh] overflow-y-auto">
-            {visible.map((cmd) => (
+            {visible.map((cmd) => {
+              const lineSummary = saleLineSummary(cmd);
+              return (
               <li
                 key={cmd.id}
                 className="rounded-md border border-border p-3 text-sm flex flex-col gap-1"
               >
                 <div className="flex justify-between gap-2">
-                  <span className="font-medium">{cmd.localDocumentNumber}</span>
+                  <span className="font-medium">
+                    {cmd.commandType} · {cmd.localDocumentNumber}
+                  </span>
                   <span className="text-muted-foreground">{STATUS_LABEL[cmd.status] ?? cmd.status}</span>
                 </div>
+                {lineSummary ? (
+                  <span className="text-xs text-muted-foreground">{lineSummary}</span>
+                ) : null}
                 <span className="text-xs text-muted-foreground">
                   {new Date(cmd.createdAt).toLocaleString("es-CL")}
                 </span>
@@ -84,7 +109,8 @@ export function SyncQueuePanel({ open, onOpenChange }: SyncQueuePanelProps) {
                   </Button>
                 ) : null}
               </li>
-            ))}
+            );
+            })}
           </ul>
         )}
 

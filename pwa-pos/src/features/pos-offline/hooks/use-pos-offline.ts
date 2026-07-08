@@ -15,24 +15,23 @@ import {
   syncOfflineQueueOnce,
   type SyncQueueEvent,
 } from "../application/sync-queue.usecase";
-import { downloadFiscalPackForPos } from "../application/download-fiscal-pack.usecase";
-import { downloadCatalogSnapshotForPos } from "../application/download-catalog-snapshot.usecase";
-import type { PosOfflineSaleCommand } from "../domain/offline-command.types";
+import { runBootstrapCoordinator } from "../application/bootstrap-coordinator.usecase";
+import { applyCatalogDeltaForPos } from "../application/download-catalog-delta.usecase";
+import { getCatalogMeta } from "../application/catalog-readiness.usecase";
+import type { PosOfflineCommand } from "../domain/offline-command.types";
+import { resolveSyncUserName } from "../lib/resolve-sync-user-name";
 
 export function usePosOffline() {
   const { data: session } = useSession();
-  const userName =
-    session?.user?.name?.trim() ||
-    session?.user?.email?.trim() ||
-    (session?.user as { userName?: string } | undefined)?.userName?.trim() ||
-    "";
+  const userName = resolveSyncUserName(session);
 
   const [connectivity, setConnectivity] = useState<ConnectivityState>(() => getConnectivityState());
   const [pendingCount, setPendingCount] = useState(0);
   const [failedCount, setFailedCount] = useState(0);
-  const [commands, setCommands] = useState<PosOfflineSaleCommand[]>([]);
+  const [commands, setCommands] = useState<PosOfflineCommand[]>([]);
   const [lastSyncedDocument, setLastSyncedDocument] = useState<string | null>(null);
   const [authExpiredMessage, setAuthExpiredMessage] = useState<string | null>(null);
+  const [catalogRefreshMessage, setCatalogRefreshMessage] = useState<string | null>(null);
   const wasBackendReachableRef = useRef(false);
 
   const refreshQueue = useCallback(async () => {
@@ -73,11 +72,36 @@ export function usePosOffline() {
     const reachable = connectivity.browserOnline && connectivity.backendReachable;
     if (reachable && !wasBackendReachableRef.current) {
       const ctx = readPosContextClient();
-      if (ctx?.pointOfSaleId) {
-        void downloadFiscalPackForPos(ctx.pointOfSaleId);
-        if (ctx.priceListId) {
-          void downloadCatalogSnapshotForPos(ctx.pointOfSaleId, ctx.priceListId);
-        }
+      if (ctx?.pointOfSaleId && ctx.priceListId) {
+        void (async () => {
+          const meta = await getCatalogMeta(ctx.pointOfSaleId!, ctx.priceListId!);
+          if (meta?.snapshotAt) {
+            const delta = await applyCatalogDeltaForPos(
+              ctx.pointOfSaleId!,
+              ctx.priceListId!,
+              meta.snapshotAt,
+            );
+            if (delta.success) {
+              setCatalogRefreshMessage(
+                delta.updated > 0
+                  ? `Catálogo actualizado (+${delta.updated} cambios).`
+                  : "Catálogo verificado al reconectar.",
+              );
+            } else {
+              const bootstrap = await runBootstrapCoordinator(ctx.pointOfSaleId!, ctx.priceListId!);
+              if (bootstrap.catalog === "ok") {
+                setCatalogRefreshMessage("Catálogo offline actualizado.");
+              } else {
+                setCatalogRefreshMessage(bootstrap.catalogMessage ?? "No se pudo actualizar el catálogo.");
+              }
+            }
+          } else {
+            const bootstrap = await runBootstrapCoordinator(ctx.pointOfSaleId!, ctx.priceListId!);
+            if (bootstrap.catalog === "ok") {
+              setCatalogRefreshMessage("Catálogo offline descargado.");
+            }
+          }
+        })();
       }
     }
     wasBackendReachableRef.current = reachable;
@@ -101,8 +125,10 @@ export function usePosOffline() {
     userName,
     lastSyncedDocument,
     authExpiredMessage,
+    catalogRefreshMessage,
     clearLastSyncedDocument: () => setLastSyncedDocument(null),
     clearAuthExpiredMessage: () => setAuthExpiredMessage(null),
+    clearCatalogRefreshMessage: () => setCatalogRefreshMessage(null),
   };
 }
 

@@ -40,5 +40,6 @@ export function mapPreviewToFiscalBoletaPayload(
     totals: { ...preview.totals },
     observation: preview.observation,
     timbrePdf417Payload: preview.timbrePdf417Payload,
+    operatorName: preview.operatorName ?? null,
   };
 }

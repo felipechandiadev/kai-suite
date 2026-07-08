@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { typeOrmConfig } from '../../backend/src/config/typeorm.config';
 import { AppConfigModule } from '../../backend/src/config/config.module';
 import { AppConfigService } from '../../backend/src/config/config.service';
@@ -40,6 +41,7 @@ import { FiscalModule } from '@modules/fiscal/fiscal.module';
 @Module({
   imports: [
     AppConfigModule,
+    EventEmitterModule.forRoot(),
     TypeOrmModule.forRootAsync({
       imports: [AppConfigModule],
       useFactory: typeOrmConfig,

@@ -1,17 +1,49 @@
 import { getPosOfflineDb } from "../infrastructure/pos-offline-db";
-import { postSyncSaleCommand } from "../infrastructure/sync-client";
-import type { PosOfflineSaleCommand } from "../domain/offline-command.types";
+import { postSyncCommand } from "../infrastructure/sync-client";
+import type { PosOfflineCommand } from "../domain/offline-command.types";
 import { isBackendReachable } from "../infrastructure/connectivity";
 
 const MAX_BACKOFF_MS = 60_000;
 const BASE_BACKOFF_MS = 2_000;
-const SYNCED_PURGE_DAYS = 7;
+const SYNCED_PURGE_DAYS = 30;
+const FAILED_PURGE_DAYS = 90;
+const SYNCING_STALE_MS = 2 * 60 * 1000;
+const SYNC_LOCK_NAME = "kai-pos-offline-sync";
+const SYNC_BATCH_SIZE = 10;
 
 function backoffMs(retryCount: number): number {
   return Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * 2 ** Math.max(0, retryCount));
 }
 
 let syncInFlight = false;
+
+export async function recoverStaleSyncingCommands(): Promise<number> {
+  const db = getPosOfflineDb();
+  const syncing = await db.commands.where("status").equals("SYNCING").toArray();
+  const now = Date.now();
+  let recovered = 0;
+  for (const cmd of syncing) {
+    const updatedAt = cmd.updatedAt ? new Date(cmd.updatedAt).getTime() : 0;
+    if (updatedAt > 0 && now - updatedAt > SYNCING_STALE_MS) {
+      await db.commands.update(cmd.id, {
+        status: "PENDING",
+        updatedAt: new Date().toISOString(),
+      });
+      recovered += 1;
+    }
+  }
+  return recovered;
+}
+
+async function withSyncLeader<T>(fn: () => Promise<T>): Promise<T | undefined> {
+  if (typeof navigator !== "undefined" && "locks" in navigator && navigator.locks?.request) {
+    return navigator.locks.request(SYNC_LOCK_NAME, { mode: "exclusive", ifAvailable: true }, (lock) => {
+      if (!lock) return undefined;
+      return fn();
+    });
+  }
+  return fn();
+}
 
 export type SyncQueueEvent =
   | { type: "SYNCED"; documentNumber: string; localDocumentNumber: string }
@@ -30,12 +62,17 @@ function emitSyncEvent(event: SyncQueueEvent) {
 
 export async function purgeOldSyncedCommands(): Promise<number> {
   const db = getPosOfflineDb();
-  const cutoff = Date.now() - SYNCED_PURGE_DAYS * 24 * 60 * 60 * 1000;
-  const synced = await db.commands.where("status").equals("SYNCED").toArray();
+  const syncedCutoff = Date.now() - SYNCED_PURGE_DAYS * 24 * 60 * 60 * 1000;
+  const failedCutoff = Date.now() - FAILED_PURGE_DAYS * 24 * 60 * 60 * 1000;
+  const all = await db.commands.toArray();
   let removed = 0;
-  for (const cmd of synced) {
+  for (const cmd of all) {
     const updatedAt = cmd.updatedAt ? new Date(cmd.updatedAt).getTime() : 0;
-    if (updatedAt > 0 && updatedAt < cutoff) {
+    if (updatedAt <= 0) continue;
+    const purgeSynced = cmd.status === "SYNCED" && updatedAt < syncedCutoff;
+    const purgeFailed =
+      (cmd.status === "FAILED" || cmd.status === "CONFLICT") && updatedAt < failedCutoff;
+    if (purgeSynced || purgeFailed) {
       await db.commands.delete(cmd.id);
       removed += 1;
     }
@@ -45,56 +82,103 @@ export async function purgeOldSyncedCommands(): Promise<number> {
 
 export async function syncOfflineQueueOnce(userName: string): Promise<void> {
   if (syncInFlight || !isBackendReachable()) return;
-  syncInFlight = true;
-  try {
-    await purgeOldSyncedCommands();
-    const db = getPosOfflineDb();
-    const pending = await db.commands
-      .where("status")
-      .anyOf(["PENDING", "FAILED"])
-      .sortBy("createdAt");
 
-    for (const cmd of pending) {
-      if (!isBackendReachable()) break;
-      const waitMs = backoffMs(cmd.retryCount);
-      if (cmd.retryCount > 0 && cmd.updatedAt) {
-        const elapsed = Date.now() - new Date(cmd.updatedAt).getTime();
-        if (elapsed < waitMs) continue;
+  await withSyncLeader(async () => {
+    if (syncInFlight) return;
+    syncInFlight = true;
+    try {
+      await recoverStaleSyncingCommands();
+      await purgeOldSyncedCommands();
+      const db = getPosOfflineDb();
+      const pending = await db.commands
+        .where("status")
+        .anyOf(["PENDING", "FAILED"])
+        .sortBy("createdAt");
+
+      let processed = 0;
+      for (const cmd of pending) {
+        if (!isBackendReachable()) break;
+        if (processed >= SYNC_BATCH_SIZE) break;
+        if (cmd.dependsOn) {
+          const dep = await db.commands.get(cmd.dependsOn);
+          if (dep && dep.status !== "SYNCED") continue;
+        }
+        const waitMs = backoffMs(cmd.retryCount);
+        if (cmd.retryCount > 0 && cmd.updatedAt) {
+          const elapsed = Date.now() - new Date(cmd.updatedAt).getTime();
+          if (elapsed < waitMs) continue;
+        }
+        await syncOneCommand(cmd, userName);
+        processed += 1;
       }
-      await syncOneCommand(cmd, userName);
+    } finally {
+      syncInFlight = false;
     }
-  } finally {
-    syncInFlight = false;
+  });
+}
+
+function buildSyncBody(cmd: PosOfflineCommand, userName: string): Record<string, unknown> {
+  const payload = cmd.payload as Record<string, unknown>;
+  const base = {
+    clientOperationId: cmd.clientOperationId,
+    deviceId: cmd.deviceId,
+    commandType: cmd.commandType,
+    userName,
+    pointOfSaleId: String(payload.pointOfSaleId ?? ""),
+    cashSessionId: String(payload.cashSessionId ?? ""),
+  };
+
+  switch (cmd.commandType) {
+    case "SALE":
+      return {
+        ...base,
+        paymentMethod: payload.paymentMethod,
+        lines: payload.lines ?? [],
+        payments: payload.payments,
+        amountPaid: payload.amountPaid,
+        changeAmount: payload.changeAmount,
+        customerId: payload.customerId,
+        saleDocumentKind: payload.saleDocumentKind,
+        metadata: {
+          ...(payload.metadata as Record<string, unknown> | undefined),
+          offlineLocalDocumentNumber: cmd.localDocumentNumber,
+        },
+        promotionSnapshot: payload.promotionSnapshot,
+        fiscal: cmd.fiscal ?? undefined,
+      };
+    case "CASH_MOVEMENT":
+      return {
+        ...base,
+        direction: payload.direction,
+        amount: payload.amount,
+        reason: payload.reason,
+      };
+    case "HUB_DEPOSIT":
+    case "HUB_WITHDRAWAL":
+      return {
+        ...base,
+        cashHubId: payload.cashHubId,
+        amount: payload.amount,
+        reason: payload.reason,
+      };
+    case "CLOSE_SESSION":
+      return {
+        ...base,
+        cashHubId: payload.cashHubId,
+        notes: payload.notes,
+        counted: payload.counted,
+      };
+    default:
+      return base;
   }
 }
 
-async function syncOneCommand(cmd: PosOfflineSaleCommand, userName: string) {
+async function syncOneCommand(cmd: PosOfflineCommand, userName: string) {
   const db = getPosOfflineDb();
   const now = new Date().toISOString();
   await db.commands.update(cmd.id, { status: "SYNCING", updatedAt: now });
 
-  const payload = cmd.payload as Record<string, unknown>;
-  const res = await postSyncSaleCommand({
-    clientOperationId: cmd.clientOperationId,
-    deviceId: cmd.deviceId,
-    commandType: "SALE",
-    userName,
-    pointOfSaleId: String(payload.pointOfSaleId ?? ""),
-    cashSessionId: String(payload.cashSessionId ?? ""),
-    paymentMethod: payload.paymentMethod as string | undefined,
-    lines: (payload.lines as unknown[]) ?? [],
-    payments: payload.payments as unknown[] | undefined,
-    amountPaid: payload.amountPaid as number | undefined,
-    changeAmount: payload.changeAmount as number | undefined,
-    customerId: payload.customerId as string | undefined,
-    saleDocumentKind: payload.saleDocumentKind as string | undefined,
-    metadata: {
-      ...(payload.metadata as Record<string, unknown> | undefined),
-      offlineLocalDocumentNumber: cmd.localDocumentNumber,
-    },
-    promotionSnapshot: payload.promotionSnapshot as unknown[] | undefined,
-    fiscal: cmd.fiscal ?? undefined,
-  });
+  const res = await postSyncCommand(buildSyncBody(cmd, userName) as Parameters<typeof postSyncCommand>[0]);
 
   if (!res.ok) {
     if (res.status === 401) {
@@ -153,4 +237,9 @@ export async function retryOfflineCommand(commandId: string, userName: string) {
     updatedAt: new Date().toISOString(),
   });
   await syncOfflineQueueOnce(userName);
+}
+
+export async function discardOfflineCommand(commandId: string) {
+  const db = getPosOfflineDb();
+  await db.commands.delete(commandId);
 }

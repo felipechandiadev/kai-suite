@@ -16,6 +16,8 @@ import {
   withdrawCashSessionToHubAction,
 } from "@/features/session/actions/cash-hub-withdrawal.action";
 import type { CashHubDepositCandidate } from "@/features/session/types/cash-hub-deposit.types";
+import { usePosOffline } from "@/features/pos-offline/hooks/use-pos-offline";
+import { enqueueOfflineHubWithdrawal } from "@/features/pos-offline/application/enqueue-offline-cash.usecase";
 
 const currencyFmt = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -44,6 +46,7 @@ export default function HubWithdrawalPageClient() {
   const [formError, setFormError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { isOffline } = usePosOffline();
 
   useEffect(() => {
     const ctx = readPosContextClient();
@@ -142,6 +145,23 @@ export default function HubWithdrawalPageClient() {
       return;
     }
     startTransition(async () => {
+      if (isOffline) {
+        try {
+          const cmd = await enqueueOfflineHubWithdrawal({
+            cashHubId: hubId,
+            amount: amountNum,
+            reason: reason.trim() || undefined,
+          });
+          setSuccessMsg(
+            `Egreso encolado offline (${cmd.localDocumentNumber}). Se sincronizará al reconectar.`,
+          );
+          setAmountRaw("");
+          setReason("");
+        } catch (e) {
+          setFormError(e instanceof Error ? e.message : "No se pudo encolar el egreso");
+        }
+        return;
+      }
       const res = await withdrawCashSessionToHubAction({
         cashSessionId,
         cashHubId: hubId,

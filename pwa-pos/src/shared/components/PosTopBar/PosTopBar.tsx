@@ -13,6 +13,8 @@ import {
 } from "@/features/session/lib/pos-context-storage";
 import { StockAlertsDropdown } from "@/features/inventory-stock/ui/StockAlertsDropdown";
 import { OfflineStatusBadge } from "@/features/pos-offline/ui/OfflineStatusBadge";
+import { OfflineCatalogStatusBadge } from "@/features/pos-offline/ui/OfflineCatalogStatusBadge";
+import { usePosOffline } from "@/features/pos-offline/hooks/use-pos-offline";
 import { PrintServiceTopBarDropdown, usePrintServiceConnection } from "@kai/print-service-client";
 import Dialog from "@/shared/components/Dialog/Dialog";
 import { Button } from "@/shared/components/Button";
@@ -71,6 +73,7 @@ type PosTopBarNavProps = {
   onNavigate: (path: string) => void;
   printService: PrintServiceNavProps;
   isPresalePos?: boolean;
+  isOffline?: boolean;
   className?: string;
 };
 
@@ -79,14 +82,107 @@ function PosTopBarNav({
   onNavigate,
   printService,
   isPresalePos = false,
+  isOffline = false,
   className = "",
 }: PosTopBarNavProps) {
+  if (isOffline) {
+    return (
+      <nav
+        className={`flex items-center gap-2 ${className}`.trim()}
+        data-test-id="pos-topbar-nav"
+        aria-label="Navegación principal (modo offline)"
+      >
+        <OfflineStatusBadge />
+        <OfflineCatalogStatusBadge />
+        <IconButton
+          icon="ShoppingCart"
+          variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/pos"))}
+          size="md"
+          ariaLabel="Ir al punto de venta"
+          title="Punto de venta"
+          aria-current={pathnameMatchesRoute(pathname, "/pos") ? "page" : undefined}
+          onClick={() => onNavigate("/pos")}
+          data-test-id="pos-topbar-pos"
+        />
+        <IconButton
+          icon="ArrowLeftRight"
+          variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/cash/movements"))}
+          size="md"
+          ariaLabel="Movimientos de caja"
+          title="Movimientos de caja"
+          onClick={() => onNavigate("/cash/movements")}
+          data-test-id="pos-topbar-cash-movements-offline"
+        />
+        <IconButton
+          icon="LockKeyhole"
+          variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/cash/closing"))}
+          size="md"
+          ariaLabel="Cierre de caja"
+          title="Cierre de caja"
+          onClick={() => onNavigate("/cash/closing")}
+          data-test-id="pos-topbar-cash-closing-offline"
+        />
+        <PrintServiceTopBarDropdown
+          panelVariant="pos"
+          notificationBadgeVariant="secondary"
+          connected={printService.connected}
+          health={printService.health}
+          visual={printService.visual}
+          lastError={printService.lastError}
+          attemptedWsUrl={printService.attemptedWsUrl}
+          reconnect={printService.reconnect}
+          notifications={printService.notifications}
+          unreadCount={printService.unreadCount}
+          markNotificationsRead={printService.markNotificationsRead}
+          clearNotifications={printService.clearNotifications}
+          triggerClassName={`fs-icon-button fs-icon-button--action relative inline-flex items-center justify-center overflow-visible w-10 h-10 shrink-0 ${
+            printService.connected
+              ? "text-emerald-600 dark:text-emerald-400"
+              : "text-red-600 dark:text-red-400"
+          }`}
+          renderLocalAgentStatus={({ connected }) => {
+            const label = connected
+              ? "Conectado al servicio local de impresión"
+              : "Sin conexión al servicio local de impresión";
+            return (
+              <span
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center"
+                title={label}
+                aria-label={label}
+                role="img"
+              >
+                {connected ? (
+                  <Wifi
+                    className="shrink-0 text-emerald-600 dark:text-emerald-400"
+                    size={24}
+                    strokeWidth={2}
+                    aria-hidden
+                  />
+                ) : (
+                  <WifiOff
+                    className="shrink-0 text-red-600 dark:text-red-400"
+                    size={24}
+                    strokeWidth={2}
+                    aria-hidden
+                  />
+                )}
+              </span>
+            );
+          }}
+          data-test-id="pos-topbar-session-print"
+        />
+      </nav>
+    );
+  }
+
   return (
     <nav
       className={`flex items-center gap-2 ${className}`.trim()}
       data-test-id="pos-topbar-nav"
       aria-label="Navegación principal"
     >
+      <OfflineStatusBadge />
+      <OfflineCatalogStatusBadge />
       <IconButton
         icon="ShoppingCart"
         variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/pos"))}
@@ -109,7 +205,6 @@ function PosTopBarNav({
         />
       ) : null}
       <StockAlertsDropdown />
-      <OfflineStatusBadge />
       {!isPresalePos ? (
         <>
           <IconButton
@@ -261,6 +356,17 @@ export default function PosTopBar({
   const effectiveRole = userRole?.trim() ? roleLabel(userRole) : "";
   const router = useRouter();
   const pathname = usePathname() ?? "";
+  const { isOffline } = usePosOffline();
+
+  const onNavigate = useCallback(
+    (path: string) => {
+      if (isOffline && path !== "/pos" && !path.startsWith("/pos/") && !path.startsWith("/settings")) {
+        return;
+      }
+      router.push(path);
+    },
+    [isOffline, router],
+  );
 
   const title = "KaiStore";
   const subtitle = posAppSubtitle(posKindFromClient);
@@ -353,9 +459,10 @@ export default function PosTopBar({
 
   const navProps: PosTopBarNavProps = {
     pathname,
-    onNavigate: (path) => router.push(path),
+    onNavigate,
     printService: printServiceNav,
     isPresalePos,
+    isOffline,
   };
 
   const userName = effectivePerson || "—";
@@ -578,17 +685,19 @@ export default function PosTopBar({
               aria-current={
                 pathnameMatchesRoute(pathname, "/settings") ? "page" : undefined
               }
-              onClick={() => router.push("/settings")}
+              onClick={() => onNavigate("/settings")}
               data-test-id="pos-topbar-settings"
             />
-            <IconButton
-              icon="LogOut"
-              variant="text"
-              size="md"
-              ariaLabel="Cerrar sesión"
-              onClick={() => void signOutToLogin()}
-              data-test-id="pos-topbar-logout"
-            />
+            {!isOffline ? (
+              <IconButton
+                icon="LogOut"
+                variant="text"
+                size="md"
+                ariaLabel="Cerrar sesión"
+                onClick={() => void signOutToLogin()}
+                data-test-id="pos-topbar-logout"
+              />
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -606,15 +715,17 @@ export default function PosTopBar({
             className="flex min-w-0 flex-1 flex-row items-center justify-start gap-0.5 overflow-x-auto overscroll-x-contain py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           />
           <div className="flex shrink-0 items-center gap-0.5 border-l border-border pl-1">
-            <IconButton
-              icon="CircleUser"
-              variant="action"
-              size="md"
-              ariaLabel="Ver información de usuario"
-              title="Usuario"
-              onClick={() => setUserDialogOpen(true)}
-              data-test-id="pos-sidebar-user"
-            />
+            {!isOffline ? (
+              <IconButton
+                icon="CircleUser"
+                variant="action"
+                size="md"
+                ariaLabel="Ver información de usuario"
+                title="Usuario"
+                onClick={() => setUserDialogOpen(true)}
+                data-test-id="pos-sidebar-user"
+              />
+            ) : null}
             <IconButton
               icon="Settings"
               variant={
@@ -626,18 +737,20 @@ export default function PosTopBar({
               aria-current={
                 pathnameMatchesRoute(pathname, "/settings") ? "page" : undefined
               }
-              onClick={() => router.push("/settings")}
+              onClick={() => onNavigate("/settings")}
               data-test-id="pos-sidebar-settings"
             />
-            <IconButton
-              icon="LogOut"
-              variant="action"
-              size="md"
-              ariaLabel="Cerrar sesión"
-              title="Cerrar sesión"
-              onClick={() => void signOutToLogin()}
-              data-test-id="pos-sidebar-logout"
-            />
+            {!isOffline ? (
+              <IconButton
+                icon="LogOut"
+                variant="action"
+                size="md"
+                ariaLabel="Cerrar sesión"
+                title="Cerrar sesión"
+                onClick={() => void signOutToLogin()}
+                data-test-id="pos-sidebar-logout"
+              />
+            ) : null}
           </div>
         </div>
       </nav>

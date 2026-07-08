@@ -29,7 +29,20 @@ import { runPendingCashSessionOpeningPrintIfAny } from "@/features/cash-session-
 import { requestPosProductSearchFocus } from "@/features/pos-products/lib/pos-product-search-focus";
 import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
 import { isBackendReachable } from "@/features/pos-offline/infrastructure/connectivity";
+import { usePosOffline } from "@/features/pos-offline/hooks/use-pos-offline";
 import type { PosProductSearchItem } from "@/features/pos-products/types/pos-product.types";
+import PosPaymentWorkspace from "@/app/(pos)/pos/payment/ui/PosPaymentWorkspace";
+import { POS_CUSTOMER_SEARCH_DEFAULT_PAGE_SIZE } from "@/features/customers/lib/posCustomerSearchStorage";
+import type { PosCustomerSearchInitial } from "@/features/customers/ui/PosCustomerSearchPanel";
+
+const emptyCustomerSearch: PosCustomerSearchInitial = {
+  query: "",
+  page: 1,
+  pageSize: POS_CUSTOMER_SEARCH_DEFAULT_PAGE_SIZE,
+  items: [],
+  total: 0,
+  error: null,
+};
 
 type MobilePanel = "products" | "cart";
 function formatMoney(n: number) {
@@ -47,12 +60,14 @@ export default function PosWorkspace() {
   const [priceListId, setPriceListId] = useState("");
   const [priceListOptions, setPriceListOptions] = useState<PosPriceListSnapshot[]>([]);
   const cart = usePosCart();
+  const { isOffline } = usePosOffline();
   const [loadQuotationOpen, setLoadQuotationOpen] = useState(false);
   const [loadReturnOpen, setLoadReturnOpen] = useState(false);
   const [loadBackorderOpen, setLoadBackorderOpen] = useState(false);
   const [presaleBusy, setPresaleBusy] = useState(false);
   const [presaleError, setPresaleError] = useState("");
   const [lastPresaleTicket, setLastPresaleTicket] = useState<PresaleTicketDetail | null>(null);
+  const [embeddedPaymentOpen, setEmbeddedPaymentOpen] = useState(false);
   const isReturnMode = cart.isReturnMode;
   const isFulfillBackorderMode = cart.isFulfillBackorderMode;
   const hasLoadedQuotation = cart.loadedQuotation != null;
@@ -148,6 +163,12 @@ export default function PosWorkspace() {
     requestPosProductSearchFocus();
   }, []);
 
+  useEffect(() => {
+    if (isBackendReachable()) {
+      router.prefetch("/pos/payment");
+    }
+  }, [router]);
+
   const branchId = ctx?.branchId?.trim() ? ctx.branchId.trim() : null;
 
   const [stockWarning, setStockWarning] = useState<string | null>(null);
@@ -193,7 +214,9 @@ export default function PosWorkspace() {
   );
   const saleTotal = Math.max(0, totals.gross - lineDiscountsTotal - (cart.orderDiscount ?? 0));
 
-  const checkoutDisabled = cart.lines.length === 0;
+  const checkoutDisabled =
+    cart.lines.length === 0 ||
+    (isOffline && (isPresaleMode || isReturnMode || isFulfillBackorderMode));
 
   const checkoutTitle = useMemo(() => {
     if (isPresaleMode) return "Generar ticket";
@@ -265,10 +288,15 @@ export default function PosWorkspace() {
       }
       return;
     }
+    if (isOffline) {
+      setEmbeddedPaymentOpen(true);
+      return;
+    }
     router.push("/pos/payment");
   }, [
     cart,
     ctx,
+    isOffline,
     isPresaleMode,
     lineDiscountsTotal,
     priceListId,
@@ -282,6 +310,18 @@ export default function PosWorkspace() {
     return (
       <div className="flex min-h-[40vh] items-center justify-center text-sm text-zinc-500">
         Cargando contexto del punto de venta…
+      </div>
+    );
+  }
+
+  if (embeddedPaymentOpen) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col" data-test-id="pos-embedded-payment">
+        <PosPaymentWorkspace
+          initialCustomerSearch={emptyCustomerSearch}
+          embedded
+          onCloseEmbedded={() => setEmbeddedPaymentOpen(false)}
+        />
       </div>
     );
   }
@@ -324,7 +364,7 @@ export default function PosWorkspace() {
         ) : null}
         <div className="flex shrink-0 items-start justify-between gap-2">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            {quotationsEnabled && !isPresaleMode ? (
+            {quotationsEnabled && !isPresaleMode && !isOffline ? (
             <Button
               variant="outlined"
               size="sm"
@@ -337,7 +377,7 @@ export default function PosWorkspace() {
               <span>Cotización</span>
             </Button>
             ) : null}
-            {!isPresaleMode ? (
+            {!isPresaleMode && !isOffline ? (
             <Button
               variant="outlined"
               size="sm"
@@ -357,7 +397,7 @@ export default function PosWorkspace() {
               <span>Devolución</span>
             </Button>
             ) : null}
-            {!isPresaleMode ? (
+            {!isPresaleMode && !isOffline ? (
             <Button
               variant="outlined"
               size="sm"

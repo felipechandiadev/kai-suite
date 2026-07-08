@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/shared/admin-shared";
-import type { OfflineBootstrapStatus } from "../hooks/use-offline-bootstrap";
+import type { OfflineBootstrapStatus } from "../domain/offline-bootstrap.types";
 
 type Props = {
   status: OfflineBootstrapStatus;
@@ -33,10 +33,17 @@ function line(
 }
 
 export function OfflineBootstrapStatusPanel({ status, loading, onRetry }: Props) {
-  const hasError = status.fiscal === "error" || status.catalog === "error";
-  const busy = loading || status.fiscal === "loading" || status.catalog === "loading";
+  const hasError =
+    status.fiscal === "error" || status.catalog === "error" || status.customers === "error";
+  const busy =
+    loading ||
+    status.fiscal === "loading" ||
+    status.catalog === "loading" ||
+    status.customers === "loading";
 
-  if (status.fiscal === "idle" && status.catalog === "idle") return null;
+  if (status.fiscal === "idle" && status.catalog === "idle" && status.customers === "idle") {
+    return null;
+  }
 
   return (
     <div className="rounded-md border border-border bg-muted/30 p-3 flex flex-col gap-2">
@@ -48,6 +55,12 @@ export function OfflineBootstrapStatusPanel({ status, loading, onRetry }: Props)
           status.catalog,
           status.catalogMessage,
           status.catalogTotal != null ? `${status.catalogTotal} productos` : undefined,
+        )}
+        {line(
+          "Clientes",
+          status.customers ?? "idle",
+          status.customersMessage,
+          status.customersTotal != null ? `${status.customersTotal} clientes` : undefined,
         )}
       </ul>
       {hasError && onRetry ? (

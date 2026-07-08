@@ -7,7 +7,7 @@ import type {
   LoadedReturnSaleMeta,
   PosCartMode,
 } from "@/features/pos-cart/types/pos-cart-mode.types";
-import type { ResolvedLineDiscount } from "@/features/promotions/lib/discount-engine.types";
+import type { PosPaymentLine } from "./pos-payment.types";
 import {
   getMigratedLocalStorageItem,
   setMigratedLocalStorageItem,
@@ -50,6 +50,7 @@ type StoredCart = {
   loadedBackorder?: LoadedBackorderMeta | null;
   loadedPresaleTicket?: LoadedPresaleTicketMeta | null;
   loadedPresaleTickets?: LoadedPresaleTicketMeta[] | null;
+  payments?: PosPaymentLine[] | null;
 };
 
 function parseDiscount(value: unknown): ResolvedLineDiscount | null {
@@ -198,6 +199,11 @@ function parseLoadedReturnSale(value: unknown): LoadedReturnSaleMeta | null {
   };
 }
 
+function parsePayments(value: unknown): PosPaymentLine[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((p) => p && typeof p === "object") as PosPaymentLine[];
+}
+
 export function readCartClient(input: { pointOfSaleId: string; priceListId: string }): {
   lines: PosCartLine[];
   customer: PosSaleCustomer | null;
@@ -208,6 +214,7 @@ export function readCartClient(input: { pointOfSaleId: string; priceListId: stri
   loadedReturnSale: LoadedReturnSaleMeta | null;
   loadedBackorder: LoadedBackorderMeta | null;
   loadedPresaleTickets: LoadedPresaleTicketMeta[];
+  payments: PosPaymentLine[];
 } {
   const empty = {
     lines: [] as PosCartLine[],
@@ -219,6 +226,7 @@ export function readCartClient(input: { pointOfSaleId: string; priceListId: stri
     loadedReturnSale: null,
     loadedBackorder: null,
     loadedPresaleTickets: [] as LoadedPresaleTicketMeta[],
+    payments: [] as PosPaymentLine[],
   };
   if (typeof window === "undefined") return empty;
   try {
@@ -301,6 +309,7 @@ export function readCartClient(input: { pointOfSaleId: string; priceListId: stri
       loadedReturnSale,
       loadedBackorder,
       loadedPresaleTickets,
+      payments: parsePayments(parsed.payments),
     };
   } catch {
     return empty;
@@ -318,6 +327,7 @@ export function writeCartClient(
   encargoModeEnabled = false,
   loadedBackorder: LoadedBackorderMeta | null = null,
   loadedPresaleTickets: LoadedPresaleTicketMeta[] = [],
+  payments: PosPaymentLine[] = [],
 ): void {
   if (typeof window === "undefined") return;
   try {
@@ -339,6 +349,7 @@ export function writeCartClient(
       loadedReturnSale: cartMode === "return" ? loadedReturnSale : null,
       loadedBackorder: cartMode === "fulfill_backorder" ? loadedBackorder : null,
       loadedPresaleTickets: loadedPresaleTickets.length > 0 ? loadedPresaleTickets : null,
+      payments: payments.length > 0 ? payments : null,
     };
     setMigratedLocalStorageItem(keyFor(input), legacyKeyFor(input), JSON.stringify(payload));
   } catch {

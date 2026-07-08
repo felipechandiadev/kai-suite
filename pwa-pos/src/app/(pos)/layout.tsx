@@ -1,6 +1,6 @@
-import PosTopBarServer from "@/shared/components/PosTopBar/PosTopBarServer";
+import PosTopBarClient from "@/shared/components/PosTopBar/PosTopBarClient";
 import PosLayoutChrome from "./PosLayoutChrome";
 
-export default async function PosLayout({ children }: { children: React.ReactNode }) {
-  return <PosLayoutChrome topBar={<PosTopBarServer />}>{children}</PosLayoutChrome>;
+export default function PosLayout({ children }: { children: React.ReactNode }) {
+  return <PosLayoutChrome topBar={<PosTopBarClient />}>{children}</PosLayoutChrome>;
 }

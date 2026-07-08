@@ -199,6 +199,15 @@ export class PosController {
     return this.posService.getOfflineCatalogSnapshot(id, { priceListId, cursor, limit });
   }
 
+  @Get(':id/offline-catalog-delta')
+  async getOfflineCatalogDelta(
+    @Param('id') id: string,
+    @Query('priceListId') priceListId?: string,
+    @Query('since') since?: string,
+  ) {
+    return this.posService.getOfflineCatalogDelta(id, { priceListId, since });
+  }
+
   @Delete(':id')
   async deletePointOfSale(@Param('id') id: string) {
     return this.posService.deletePointOfSale(id);

@@ -15,6 +15,8 @@ import {
   listCashHubsForDepositAction,
 } from "@/features/session/actions/cash-hub-deposit.action";
 import type { CashHubDepositCandidate } from "@/features/session/types/cash-hub-deposit.types";
+import { usePosOffline } from "@/features/pos-offline/hooks/use-pos-offline";
+import { enqueueOfflineHubDeposit } from "@/features/pos-offline/application/enqueue-offline-cash.usecase";
 
 const currencyFmt = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -40,6 +42,7 @@ export default function HubDepositPageClient() {
   const [formError, setFormError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { isOffline } = usePosOffline();
 
   useEffect(() => {
     const ctx = readPosContextClient();
@@ -117,6 +120,23 @@ export default function HubDepositPageClient() {
       return;
     }
     startTransition(async () => {
+      if (isOffline) {
+        try {
+          const cmd = await enqueueOfflineHubDeposit({
+            cashHubId: hubId,
+            amount: amountNum,
+            reason: reason.trim() || undefined,
+          });
+          setSuccessMsg(
+            `Ingreso encolado offline (${cmd.localDocumentNumber}). Se sincronizará al reconectar.`,
+          );
+          setAmountRaw("");
+          setReason("");
+        } catch (e) {
+          setFormError(e instanceof Error ? e.message : "No se pudo encolar el ingreso");
+        }
+        return;
+      }
       const res = await depositCashFromHubAction({
         cashSessionId,
         cashHubId: hubId,

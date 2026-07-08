@@ -467,4 +467,32 @@ export class PosService {
       return { success: false, message, statusCode };
     }
   }
+
+  async getOfflineCatalogDelta(
+    posId: string,
+    query: { priceListId?: string; since?: string },
+  ) {
+    const priceListId = query.priceListId?.trim();
+    const since = query.since?.trim();
+    if (!priceListId || !since) {
+      return {
+        success: false,
+        message: 'priceListId y since son requeridos',
+        statusCode: 400,
+      };
+    }
+    try {
+      const delta = await this.productsPosService.buildCatalogDeltaForPos({
+        pointOfSaleId: posId,
+        priceListId,
+        since,
+      });
+      return { success: true, ...delta };
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : 'No se pudo obtener delta de catálogo';
+      const statusCode = e instanceof NotFoundException ? 404 : 400;
+      return { success: false, message, statusCode };
+    }
+  }
 }

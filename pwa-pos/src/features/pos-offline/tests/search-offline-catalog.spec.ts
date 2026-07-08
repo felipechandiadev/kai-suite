@@ -2,9 +2,14 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { getPosOfflineDb, resetPosOfflineDbForTests } from "../infrastructure/pos-offline-db";
 import { searchOfflineCatalog, lookupOfflineCatalogByBarcode } from "../application/search-offline-catalog.usecase";
 import type { OfflineCatalogRow } from "../domain/offline-catalog.types";
+import { catalogRowId } from "../lib/catalog-keys";
 
 function row(partial: Partial<OfflineCatalogRow> & Pick<OfflineCatalogRow, "variantId">): OfflineCatalogRow {
+  const pointOfSaleId = partial.pointOfSaleId ?? "pos-1";
+  const priceListId = partial.priceListId ?? "pl-1";
+  const variantId = partial.variantId;
   return {
+    id: catalogRowId(pointOfSaleId, priceListId, variantId),
     productId: "p1",
     productName: partial.productName ?? "Producto",
     productDescription: null,

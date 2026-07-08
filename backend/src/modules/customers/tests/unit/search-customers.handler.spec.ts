@@ -17,6 +17,7 @@ describe('SearchCustomersHandler', () => {
       findByIdWithPerson: jest.fn(),
       findAll: jest.fn(),
       findAllWithPagination: jest.fn(),
+      findOfflineSnapshotPage: jest.fn(),
       findByPersonId: jest.fn(),
       findByDocumentNumber: jest.fn(),
       update: jest.fn(),
@@ -25,6 +26,7 @@ describe('SearchCustomersHandler', () => {
       getTransactions: jest.fn(),
       getPendingPayments: jest.fn(),
       getPurchases: jest.fn(),
+      getPaymentIns: jest.fn(),
       calculateAvailableCredit: jest.fn(),
     };
 

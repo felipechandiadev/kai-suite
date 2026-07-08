@@ -21,9 +21,13 @@ object FiscalBoletaPreviewEscPos {
         val company = t.jsonObj("company")
         EscPosLogo.appendForJob(w, context, logoSettings, company?.jsonStr("logoBase64"))
 
-        w.alignCenter(true)
-        w.line("SIMULACION - NO VALIDO")
-        w.alignCenter(false)
+        val simulated = t.jsonBool("isSimulated") == true
+
+        if (simulated) {
+            w.alignCenter(true)
+            w.line("SIMULACION - NO VALIDO")
+            w.alignCenter(false)
+        }
 
         val emisor = t.jsonObj("emisor")
         val store = emisor?.jsonStr("legalName").present()?.takeIf { it.isNotBlank() } ?: "—"
@@ -120,7 +124,9 @@ object FiscalBoletaPreviewEscPos {
             w.line("Res. SII N $resNum de $dateShort")
         }
 
-        w.line("Ref. Set BE: ${t.jsonStr("caso").orEmpty()}")
+        if (simulated) {
+            w.line("Ref. Set BE: ${t.jsonStr("caso").orEmpty()}")
+        }
 
         t.jsonStr("observation").present()?.let { obs ->
             w.divider()
@@ -129,15 +135,24 @@ object FiscalBoletaPreviewEscPos {
 
         w.divider()
         w.alignCenter(true)
-        w.line("Timbre electronico (simulado)")
+        w.line(if (simulated) "Timbre electronico (simulado)" else "Timbre electronico SII")
         w.alignCenter(false)
         val timbre = t.jsonStr("timbrePdf417Payload").present().orEmpty()
         if (timbre.isNotEmpty()) {
             EscPosPdf417.appendCentered(w, timbre, widthChars)
+            if (!simulated) {
+                w.alignCenter(true)
+                w.line("Verifique en www.sii.cl")
+                w.alignCenter(false)
+            }
         } else {
             w.alignCenter(true)
-            w.line("TIMBRE SIMULADO")
-            w.line("No valido tributariamente")
+            if (simulated) {
+                w.line("TIMBRE SIMULADO")
+                w.line("No valido tributariamente")
+            } else {
+                w.line("TIMBRE NO DISPONIBLE")
+            }
             w.alignCenter(false)
         }
         repeat(BOTTOM_FEED_LINES) { w.line() }

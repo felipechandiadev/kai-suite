@@ -387,6 +387,59 @@ export class CustomersService {
     return { success: true, page, pageSize, total, customers };
   }
 
+  async buildOfflineSnapshot(query: {
+    cursor?: string;
+    limit?: number;
+  }): Promise<{
+    success: true;
+    items: Array<{
+      customerId: string;
+      displayName: string;
+      documentNumber: string | null;
+      phone: string | null;
+      email: string | null;
+      searchName: string;
+    }>;
+    nextCursor: string | null;
+    hasMore: boolean;
+  }> {
+    const limit = Math.min(Math.max(query.limit ?? 500, 50), 1000);
+    const cursor = query.cursor?.trim() || null;
+    const fetchLimit = limit + 1;
+    const rows = await this.customersRepository.findOfflineSnapshotPage(
+      cursor,
+      fetchLimit,
+    );
+    const hasMore = rows.length > limit;
+    const pageRows = hasMore ? rows.slice(0, limit) : rows;
+
+    const items = pageRows.map((c) => {
+      const displayName = this.buildDisplayName(c.person || null);
+      const documentNumber = c.person?.documentNumber?.trim() || null;
+      const phone = c.person?.phone?.trim() || null;
+      const email = c.person?.email?.trim() || null;
+      const searchName = [displayName, documentNumber, phone, email]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return {
+        customerId: c.id,
+        displayName,
+        documentNumber,
+        phone,
+        email,
+        searchName,
+      };
+    });
+
+    const nextCursor =
+      hasMore && pageRows.length > 0
+        ? pageRows[pageRows.length - 1].id
+        : null;
+
+    return { success: true, items, nextCursor, hasMore };
+  }
+
   async getPendingPayments(customerId: string) {
     // Return a list of pending transactions/payments for the customer. Minimal implementation for now.
     const pending =

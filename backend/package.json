@@ -24,7 +24,8 @@
     "migration:run": "npm run build && typeorm migration:run -d dist/config/data-source.js --transaction each",
     "eshop:enable-demo": "ts-node -r tsconfig-paths/register src/scripts/enable-eshop-demo.ts",
     "fiscal:try-pfx-password": "ts-node -r tsconfig-paths/register src/scripts/try-pfx-password.ts",
-    "fiscal:export-ss-seed": "ts-node -r tsconfig-paths/register src/scripts/export-san-sebastian-fiscal-seed.ts"
+    "fiscal:export-ss-seed": "ts-node -r tsconfig-paths/register src/scripts/export-san-sebastian-fiscal-seed.ts",
+    "fiscal:import-ss-to-company": "npm run import-fiscal-to-company --prefix ../seeds"
   },
   "dependencies": {
     "@kai/fiscal-ted": "file:../packages/fiscal-ted",

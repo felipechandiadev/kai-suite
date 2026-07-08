@@ -12,6 +12,10 @@ export interface CustomersRepositoryPort {
     page?: number,
     pageSize?: number,
   ): Promise<{ customers: Customer[]; total: number }>;
+  findOfflineSnapshotPage(
+    cursor: string | null,
+    limit: number,
+  ): Promise<Customer[]>;
   findByPersonId(personId: string): Promise<Customer | null>;
   findByDocumentNumber(documentNumber: string): Promise<Customer | null>;
   update(id: string, updateData: Partial<Customer>): Promise<Customer>;

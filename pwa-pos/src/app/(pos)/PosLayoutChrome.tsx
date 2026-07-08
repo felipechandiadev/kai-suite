@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import PosCartProvider from "@/features/pos-cart/PosCartProvider";
 import { CustomerDisplayPublisher } from "@/features/customer-display/ui/CustomerDisplayPublisher";
 import { FiscalBoletaBrowserPrintHost } from "@/features/fiscal/print/FiscalBoletaBrowserPrintHost";
@@ -25,6 +26,11 @@ export default function PosLayoutChrome({ children, topBar }: Props) {
   const compact = usePosCompactLayout();
   usePosTabletDensity();
   const { lastSyncedDocument, clearLastSyncedDocument, authExpiredMessage } = usePosOffline();
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   if (resultOnly) {
     return (
@@ -45,7 +51,7 @@ export default function PosLayoutChrome({ children, topBar }: Props) {
       <FiscalBoletaBrowserPrintHost />
       {topBar}
       <PosOfflineBanner />
-      {lastSyncedDocument ? (
+      {hydrated && lastSyncedDocument ? (
         <div className="shrink-0 border-b border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-center text-sm text-emerald-950 dark:text-emerald-100 flex items-center justify-center gap-3">
           <span>Venta sincronizada: {lastSyncedDocument}</span>
           <button
@@ -57,7 +63,7 @@ export default function PosLayoutChrome({ children, topBar }: Props) {
           </button>
         </div>
       ) : null}
-      {authExpiredMessage ? (
+      {hydrated && authExpiredMessage ? (
         <div className="shrink-0 border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-center text-sm text-destructive">
           {authExpiredMessage}
         </div>

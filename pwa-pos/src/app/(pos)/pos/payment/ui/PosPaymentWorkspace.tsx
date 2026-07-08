@@ -73,12 +73,9 @@ import { formatReceiptLineDisplayName } from "@/features/pos-print/lib/format-re
 import { createBackorderFromPosAction } from "@/features/session/actions/create-backorder.action";
 import { createSaleFromPosAction } from "@/features/session/actions/create-sale.action";
 import { usePosOffline } from "@/features/pos-offline/hooks/use-pos-offline";
-import { enqueueOfflineSale } from "@/features/pos-offline/application/enqueue-sale.usecase";
-import { nextLocalDocumentNumber } from "@/features/pos-offline/application/device-id";
-import { reserveLocalFolio } from "@/features/pos-offline/application/reserve-local-folio.usecase";
+import { assertCatalogReady } from "@/features/pos-offline/application/catalog-readiness.usecase";
+import { commitOfflineSale } from "@/features/pos-offline/application/commit-offline-sale.usecase";
 import { getStoredFiscalPack, isFiscalPackExpired } from "@/features/pos-offline/application/download-fiscal-pack.usecase";
-import { buildOfflineBoletaPreview } from "@/features/pos-offline/application/build-offline-boleta-preview.usecase";
-import { decrementOfflineCatalogStock } from "@/features/pos-offline/application/decrement-offline-catalog-stock.usecase";
 import { companyDetailsFromFiscalPackEmisor } from "@/features/pos-offline/lib/company-from-fiscal-pack";
 import { collectPendingSalesFromPosAction } from "@/features/session/actions/collect-pending-sales.action";
 import { collectPendingQuotasFromPosAction } from "@/features/session/actions/collect-pending-quotas.action";
@@ -494,10 +491,24 @@ function PaymentCartReadOnlyRow({ line }: { line: PosCartLine }) {
 
 type Props = {
   initialCustomerSearch: PosCustomerSearchInitial;
+  embedded?: boolean;
+  onCloseEmbedded?: () => void;
 };
 
-export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
+export default function PosPaymentWorkspace({
+  initialCustomerSearch,
+  embedded = false,
+  onCloseEmbedded,
+}: Props) {
   const router = useRouter();
+  const goBackToPos = useCallback(() => {
+    if (embedded && onCloseEmbedded) {
+      onCloseEmbedded();
+      return;
+    }
+    router.push("/pos");
+  }, [embedded, onCloseEmbedded, router]);
+
   const searchParams = useSearchParams();
   const isCollectMode = (searchParams.get("mode") ?? "").trim() === "collect";
   const isQuotaMode = (searchParams.get("mode") ?? "").trim() === "quota";
@@ -533,7 +544,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
   } = cart;
 
   const { data: authSession } = useSession();
-  const { isBackendReachable: backendReachable } = usePosOffline();
+  const { isBackendReachable: backendReachable, isOffline } = usePosOffline();
   const posOperatorName = resolvePosOperatorDisplayName(
     authSession?.user as { name?: string | null; email?: string | null; userName?: string | null } | undefined,
   );
@@ -2481,88 +2492,45 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
       }
 
       try {
-        const salePayload = buildCreateSaleClientPayload({
+        const priceListId = posCtx?.priceListId?.trim();
+        if (!priceListId) {
+          setConfirmLoading(false);
+          setPageAlert("Sin lista de precios en el contexto POS.");
+          return;
+        }
+
+        const catalogReady = await assertCatalogReady(pointOfSaleId, priceListId);
+        if (!catalogReady.ready) {
+          setConfirmLoading(false);
+          setPageAlert(catalogReady.message ?? "Catálogo offline no disponible.");
+          return;
+        }
+
+        const pack = saleDteKind === "BOLETA" ? await getStoredFiscalPack(pointOfSaleId) : null;
+        const committed = await commitOfflineSale({
           pointOfSaleId,
           cashSessionId,
+          priceListId,
           cartLines: cart.lines,
           payments,
           customer,
           appliedPromotions,
           appliedTotal,
           overpay,
-          fulfillPresaleTicketIds: loadedPresaleTickets.map((t) => t.id),
-          loadedPresaleTickets,
-          loadedQuotation: cart.loadedQuotation,
           saleDocumentKind: saleDteKind,
+          fiscalPack: pack,
+          fiscalPackExpired: pack ? isFiscalPackExpired(pack) : false,
+          operatorName: posOperatorName,
+          loadedQuotation: cart.loadedQuotation,
+          loadedPresaleTickets: loadedPresaleTickets.map((t) => ({ id: t.id, code: t.code })),
         });
 
-        let fiscalBlock: {
-          folio: number;
-          allocationId: string;
-          cafId: string;
-          tedXml: string;
-          issuedAt: string;
-        } | null = null;
-        let fiscalPrintPreview = null as import("@/features/fiscal/types/fiscal-emission.types").FiscalBoletaPrintPreview | null;
-        let fiscalFolio: string | null = null;
-        let boletaSkippedMessage: string | null = null;
-        let localDocumentNumber = await nextLocalDocumentNumber();
-
-        if (saleDteKind === "BOLETA") {
-          const pack = await getStoredFiscalPack(pointOfSaleId);
-          if (!pack) {
-            boletaSkippedMessage =
-              "Sin paquete fiscal local. Se imprimirá solo ticket interno.";
-          } else if (isFiscalPackExpired(pack)) {
-            boletaSkippedMessage =
-              "Paquete fiscal vencido. Renueva folios con conexión. Solo ticket interno.";
-          } else {
-            const reserved = await reserveLocalFolio(pointOfSaleId);
-            if (!reserved.ok) {
-              boletaSkippedMessage =
-                reserved.reason === "NO_FOLIOS"
-                  ? "Sin folios CAF disponibles offline. Solo ticket interno."
-                  : "Paquete fiscal no cargado. Solo ticket interno.";
-            } else {
-              const built = buildOfflineBoletaPreview({
-                cartLines: cart.lines,
-                customer,
-                fiscalPack: pack,
-                folio: reserved.folio,
-                localDocumentNumber,
-                operatorName: posOperatorName,
-              });
-              fiscalBlock = {
-                folio: reserved.folio,
-                allocationId: reserved.allocationId,
-                cafId: reserved.cafId,
-                tedXml: built.tedXml,
-                issuedAt: built.issuedAt,
-              };
-              fiscalPrintPreview = built.preview;
-              fiscalFolio = String(reserved.folio);
-            }
-          }
-        }
-
-        await enqueueOfflineSale({
-          payload: { ...salePayload, pointOfSaleId, cashSessionId },
-          fiscal: fiscalBlock,
+        const {
           localDocumentNumber,
-        });
-
-        const priceListId = posCtx?.priceListId?.trim();
-        if (priceListId) {
-          await decrementOfflineCatalogStock({
-            pointOfSaleId,
-            priceListId,
-            lines: cart.lines.map((l) => ({
-              variantId: l.variantId,
-              quantity: l.quantity,
-              trackInventory: l.trackInventory,
-            })),
-          });
-        }
+          fiscalPrintPreview,
+          fiscalFolio,
+          boletaSkippedMessage,
+        } = committed;
 
         let details = companyDetails;
         if (!details) {
@@ -2802,7 +2770,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
               title="Volver al POS"
               onClick={() => {
                 requestPosProductSearchFocus();
-                router.push("/pos");
+                goBackToPos();
               }}
               className="shrink-0"
               data-test-id="pos-payment-back"
@@ -3141,6 +3109,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
           disabled={customerLocked}
           showAddCustomer={!customerLocked}
           onAddCustomerClick={() => setCreateCustomerOpen(true)}
+          offlineMode={isOffline}
           paymentSourcesSlot={
             customer?.customerId?.trim() ? (
               <PosCustomerPaymentSourcesPanel
@@ -3193,7 +3162,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
               {showSaleDteSelector && saleDteLoaded ? (
                 showSaleDteSelectorCompact ? (
                   <div
-                    className="ml-auto w-28 shrink-0"
+                    className="ml-auto w-36 shrink-0"
                     title={
                       saleDteOptions.find((o) => o.kind === saleDteKind)
                         ? effectiveDocumentOptionTitle(
@@ -3459,7 +3428,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
           setReceiptData(null);
           cart.clear();
           requestPosProductSearchFocus();
-          router.push("/pos");
+          goBackToPos();
         }}
       />
 
@@ -3472,7 +3441,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
           cart.clear();
           exitReturnMode();
           requestPosProductSearchFocus();
-          router.push("/pos");
+          goBackToPos();
         }}
       />
 
@@ -3482,7 +3451,7 @@ export default function PosPaymentWorkspace({ initialCustomerSearch }: Props) {
         onClose={() => setSaveQuotationOpen(false)}
         onSaved={() => {
           requestPosProductSearchFocus();
-          router.push("/pos");
+          goBackToPos();
         }}
       />
       ) : null}

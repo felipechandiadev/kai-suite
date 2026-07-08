@@ -28,6 +28,18 @@ export class CustomersController {
     return this.customersService.search(searchDto);
   }
 
+  @Get('pos/offline-snapshot')
+  async getOfflineSnapshot(
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedLimit = limit ? Number(limit) : undefined;
+    return this.customersService.buildOfflineSnapshot({
+      cursor,
+      limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
+    });
+  }
+
   @Get()
   async list(@Query() searchDto: SearchCustomersDto) {
     return this.customersService.search(searchDto);

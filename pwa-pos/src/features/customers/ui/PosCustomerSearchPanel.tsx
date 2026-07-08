@@ -33,6 +33,8 @@ import {
   readPosCustomerSearchPageSize,
   writePosCustomerSearchPageSize,
 } from "@/features/customers/lib/posCustomerSearchStorage";
+import { searchOfflineCustomers } from "@/features/pos-offline/application/search-offline-customers.usecase";
+import { touchOfflineCustomerUsed } from "@/features/pos-offline/application/download-customers-snapshot.usecase";
 
 /**
  * URL params controlados por este panel. Se prefijan con `customer*`
@@ -74,6 +76,11 @@ type Props = {
   onAddCustomerClick?: () => void;
   /** Contenido extra bajo la ficha del cliente (p. ej. NC y abonos disponibles). */
   paymentSourcesSlot?: ReactNode;
+  /** Si se provee, la lista usa estos ítems (búsqueda offline en cliente). */
+  offlineItems?: PosCustomerSearchRow[] | null;
+  offlineTotal?: number;
+  /** Activa búsqueda local IndexedDB (sin navegación URL). */
+  offlineMode?: boolean;
 };
 
 /**
@@ -101,6 +108,9 @@ export default function PosCustomerSearchPanel({
   showAddCustomer = false,
   onAddCustomerClick,
   paymentSourcesSlot,
+  offlineItems = null,
+  offlineTotal,
+  offlineMode = false,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -109,6 +119,7 @@ export default function PosCustomerSearchPanel({
   const [isPending, startTransition] = useTransition();
   const [draftQuery, setDraftQuery] = useState(initial.query ?? "");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const offlineDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const navigateCustomerSearch = useCallback(
     (params: URLSearchParams) => {
@@ -132,6 +143,15 @@ export default function PosCustomerSearchPanel({
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [draftPageSize, setDraftPageSize] = useState<number>(initial.pageSize);
+  const [localOfflineItems, setLocalOfflineItems] = useState<PosCustomerSearchRow[]>([]);
+  const [localOfflineTotal, setLocalOfflineTotal] = useState(0);
+
+  const visibleItems = offlineMode
+    ? localOfflineItems
+    : offlineItems ?? initial.items;
+  const visibleTotal = offlineMode
+    ? localOfflineTotal
+    : offlineTotal ?? initial.total;
 
   // --- Sync draftQuery con la URL externa (back/forward del navegador). ---
   // Si el usuario navega y llega un `initial.query` distinto, alineamos el
@@ -162,8 +182,32 @@ export default function PosCustomerSearchPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al montar
   }, []);
 
+  useEffect(() => {
+    if (!offlineMode) return;
+    void searchOfflineCustomers("").then((rows) => {
+      setLocalOfflineItems(rows);
+      setLocalOfflineTotal(rows.length);
+    });
+  }, [offlineMode]);
+
+  useEffect(() => {
+    if (!offlineMode) return;
+    if (offlineDebounceRef.current) clearTimeout(offlineDebounceRef.current);
+    offlineDebounceRef.current = setTimeout(() => {
+      offlineDebounceRef.current = null;
+      void searchOfflineCustomers(draftQuery).then((rows) => {
+        setLocalOfflineItems(rows);
+        setLocalOfflineTotal(rows.length);
+      });
+    }, POS_CUSTOMER_SEARCH_DEBOUNCE_MS);
+    return () => {
+      if (offlineDebounceRef.current) clearTimeout(offlineDebounceRef.current);
+    };
+  }, [draftQuery, offlineMode]);
+
   // --- Debounced URL update for query. ---
   useEffect(() => {
+    if (offlineMode) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       debounceRef.current = null;
@@ -226,18 +270,20 @@ export default function PosCustomerSearchPanel({
   }, [draftPageSize, sp, navigateCustomerSearch]);
 
   const totalPages = useMemo(
-    () => Math.max(1, Math.ceil((initial.total || 0) / Math.max(1, initial.pageSize)) || 1),
-    [initial.total, initial.pageSize],
+    () =>
+      Math.max(1, Math.ceil((visibleTotal || 0) / Math.max(1, initial.pageSize)) || 1),
+    [visibleTotal, initial.pageSize],
   );
 
-  const queryPending = draftQuery.trim() !== urlQuery;
-  const resultsPending =
-    urlQuery !== (initial.query ?? "").trim() ||
-    urlPage !== initial.page ||
-    urlPageSize !== initial.pageSize;
+  const queryPending = offlineMode ? false : draftQuery.trim() !== urlQuery;
+  const resultsPending = offlineMode
+    ? false
+    : urlQuery !== (initial.query ?? "").trim() ||
+      urlPage !== initial.page ||
+      urlPageSize !== initial.pageSize;
   const showLoading = isPending || queryPending || resultsPending;
 
-  const hasResults = initial.items.length > 0;
+  const hasResults = visibleItems.length > 0;
   const queryLen = draftQuery.trim().length;
   const noMatches = !showLoading && hasResults === false && queryLen >= 2 && !initial.error;
 
@@ -414,7 +460,7 @@ export default function PosCustomerSearchPanel({
         ) : null}
 
         {hasResults
-          ? initial.items.map((row) => {
+          ? visibleItems.map((row) => {
               const detailBits = [row.documentNumber, row.phone, row.email]
                 .map((s) => (s ?? "").trim())
                 .filter((s) => s.length > 0);
@@ -426,7 +472,12 @@ export default function PosCustomerSearchPanel({
                 <button
                   key={row.customerId}
                   type="button"
-                  onClick={() => onPick(row)}
+                  onClick={() => {
+                    if (offlineMode) {
+                      void touchOfflineCustomerUsed(row.customerId);
+                    }
+                    onPick(row);
+                  }}
                   disabled={disabled}
                   className={`block w-full rounded-xl border bg-surface p-3 text-left shadow-sm transition-colors focus:outline-none ${
                     picked

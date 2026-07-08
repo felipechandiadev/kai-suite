@@ -99,6 +99,25 @@ export class CustomersRepository implements CustomersRepositoryPort {
     return { customers, total };
   }
 
+  async findOfflineSnapshotPage(
+    cursor: string | null,
+    limit: number,
+  ): Promise<Customer[]> {
+    const qb = this.repo
+      .createQueryBuilder('c')
+      .leftJoinAndSelect('c.person', 'person')
+      .where('c.deletedAt IS NULL')
+      .andWhere('c.isActive = :active', { active: true })
+      .orderBy('c.id', 'ASC')
+      .take(limit);
+
+    if (cursor) {
+      qb.andWhere('c.id > :cursor', { cursor });
+    }
+
+    return qb.getMany();
+  }
+
   async findByPersonId(personId: string): Promise<Customer | null> {
     return this.repo.findOne({
       where: { personId },

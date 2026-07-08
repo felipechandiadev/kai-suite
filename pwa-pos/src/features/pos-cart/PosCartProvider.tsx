@@ -3,7 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { PosProductSearchItem } from "@/features/pos-products/types/pos-product.types";
 import type { PosCartLine } from "@/app/(pos)/pos/ui/PosCartLineCard";
-import { readPosContextClient, POS_CONTEXT_KEY, POS_CONTEXT_KEY_LEGACY } from "@/features/session/lib/pos-context-storage";
+import { readPosContextClient, POS_CONTEXT_KEY, POS_CONTEXT_KEY_LEGACY, POS_CONTEXT_CHANGED_EVENT } from "@/features/session/lib/pos-context-storage";
 import { readCartClient, writeCartClient, type LoadedQuotationMeta } from "./cart-storage";
 import {
   mergePresaleTicketIntoCart,
@@ -243,10 +243,11 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       loadedReturnSale: loadedReturn,
       loadedBackorder: loadedBo,
       loadedPresaleTickets: loadedPresale,
+      payments: loadedPayments,
     } = readCartClient(s);
     setLines(loadedLines);
     setSaleCustomer(customer);
-    setPayments([]);
+    setPayments(loadedPayments);
     setLoadedQuotation(quotation);
     setBackorderDeposit(loadedDeposit);
     setEncargoModeEnabled(loadedEncargoMode);
@@ -280,6 +281,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       encargoModeEnabled,
       loadedBackorder,
       loadedPresaleTickets,
+      payments,
     );
   }, [
     lines,
@@ -291,15 +293,16 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     loadedReturnSale,
     loadedBackorder,
     loadedPresaleTickets,
+    payments,
     ready,
     scope,
   ]);
 
-  // If POS context changes (e.g. price list changed in settings), reload cart scope.
+  // If POS context changes (same tab or other tab), reload cart scope.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const onStorage = (e: StorageEvent) => {
-      if (e.key !== POS_CONTEXT_KEY && e.key !== POS_CONTEXT_KEY_LEGACY) return;
+
+    const reloadFromContext = () => {
       const s = cartScope();
       setScope(s);
       if (!s) {
@@ -312,6 +315,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
         setCartMode("sale");
         setLoadedReturnSale(null);
         setLoadedBackorder(null);
+        setLoadedPresaleTickets([]);
         return;
       }
       const {
@@ -324,10 +328,11 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
         loadedReturnSale: nextReturn,
         loadedBackorder: nextBo,
         loadedPresaleTickets: nextPresale,
+        payments: savedPayments,
       } = readCartClient(s);
       setLines(nextLines);
       setSaleCustomer(customer);
-      setPayments([]);
+      setPayments(savedPayments);
       setLoadedQuotation(quotation);
       setBackorderDeposit(nextDeposit);
       setEncargoModeEnabled(nextEncargoMode);
@@ -336,8 +341,18 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       setLoadedBackorder(nextBo);
       setLoadedPresaleTickets(nextPresale);
     };
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== POS_CONTEXT_KEY && e.key !== POS_CONTEXT_KEY_LEGACY) return;
+      reloadFromContext();
+    };
+
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    window.addEventListener(POS_CONTEXT_CHANGED_EVENT, reloadFromContext);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(POS_CONTEXT_CHANGED_EVENT, reloadFromContext);
+    };
   }, []);
 
   const itemsCount = useMemo(() => lines.reduce((a, l) => a + (Number(l.quantity) || 0), 0), [lines]);

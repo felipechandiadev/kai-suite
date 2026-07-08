@@ -46,14 +46,17 @@ fn show_receptor_on_ticket(boleta: &FiscalBoletaPreview) -> bool {
 pub fn build_fiscal_boleta_preview_escpos(boleta: &FiscalBoletaPreview) -> Result<Vec<u8>> {
     let mut buf = escpos_init();
     escpos_apply_ticket_typography(&mut buf);
+    let simulated = boleta.is_simulated;
 
     if let Some(company) = boleta.company.as_ref() {
         append_ticket_logo(&mut buf, company.logo_base64.as_deref());
     }
 
-    escpos_align(&mut buf, 1);
-    append_line(&mut buf, "SIMULACION - NO VALIDO");
-    escpos_align(&mut buf, 0);
+    if simulated {
+        escpos_align(&mut buf, 1);
+        append_line(&mut buf, "SIMULACION - NO VALIDO");
+        escpos_align(&mut buf, 0);
+    }
 
     let store = or_dash(boleta.emisor.legal_name.as_deref());
     escpos_align(&mut buf, 1);
@@ -181,7 +184,9 @@ pub fn build_fiscal_boleta_preview_escpos(boleta: &FiscalBoletaPreview) -> Resul
         }
     }
 
-    append_line(&mut buf, &format!("Ref. Set BE: {}", boleta.caso.trim()));
+    if simulated {
+        append_line(&mut buf, &format!("Ref. Set BE: {}", boleta.caso.trim()));
+    }
 
     if let Some(obs) = boleta.observation.as_deref().filter(|s| !s.trim().is_empty()) {
         append_divider(&mut buf);
@@ -192,7 +197,11 @@ pub fn build_fiscal_boleta_preview_escpos(boleta: &FiscalBoletaPreview) -> Resul
 
     append_divider(&mut buf);
     escpos_align(&mut buf, 1);
-    append_line(&mut buf, "Timbre electronico (simulado)");
+    if simulated {
+        append_line(&mut buf, "Timbre electronico (simulado)");
+    } else {
+        append_line(&mut buf, "Timbre electronico SII");
+    }
     escpos_align(&mut buf, 0);
 
     let timbre_payload = boleta
@@ -204,14 +213,26 @@ pub fn build_fiscal_boleta_preview_escpos(boleta: &FiscalBoletaPreview) -> Resul
         if let Err(e) = crate::pdf417_escpos::append_pdf417_centered(&mut buf, timbre_payload) {
             tracing::warn!(err = %e, "escpos: pdf417 timbre omitido");
             escpos_align(&mut buf, 1);
-            append_line(&mut buf, "TIMBRE SIMULADO");
-            append_line(&mut buf, "No valido tributariamente");
+            if simulated {
+                append_line(&mut buf, "TIMBRE SIMULADO");
+                append_line(&mut buf, "No valido tributariamente");
+            } else {
+                append_line(&mut buf, "TIMBRE NO DISPONIBLE");
+            }
+            escpos_align(&mut buf, 0);
+        } else if !simulated {
+            escpos_align(&mut buf, 1);
+            append_line(&mut buf, "Verifique en www.sii.cl");
             escpos_align(&mut buf, 0);
         }
     } else {
         escpos_align(&mut buf, 1);
-        append_line(&mut buf, "TIMBRE SIMULADO");
-        append_line(&mut buf, "No valido tributariamente");
+        if simulated {
+            append_line(&mut buf, "TIMBRE SIMULADO");
+            append_line(&mut buf, "No valido tributariamente");
+        } else {
+            append_line(&mut buf, "TIMBRE NO DISPONIBLE");
+        }
         escpos_align(&mut buf, 0);
     }
     append_operator_footer(&mut buf, boleta.operator_name.as_deref());
@@ -244,6 +265,7 @@ mod tests {
             "folio": 1,
             "issuedAt": "2026-06-28",
             "tipoDte": 39,
+            "isSimulated": true,
             "emisor": { "legalName": "Empresa Test", "rut": "1-9" },
             "receptor": { "rut": "66666666-6", "name": "Cliente" },
             "lines": [{ "name": "Item", "quantity": 1, "unitPriceWithIva": 1000, "lineTotal": 1000 }],
@@ -258,6 +280,28 @@ mod tests {
         assert!(text.contains("SIMULACION"));
         let has_pdf417_raster = bytes.windows(3).any(|w| w == [0x1D, 0x76, 0x30]);
         assert!(has_pdf417_raster || text.contains("TIMBRE SIMULADO"));
+    }
+
+    #[test]
+    fn fiscal_boleta_escpos_real_sale_omits_simulation_banner() {
+        let v = serde_json::json!({
+            "caso": "VTA-26-00009",
+            "folio": 198581,
+            "issuedAt": "2026-07-08",
+            "tipoDte": 39,
+            "isSimulated": false,
+            "emisor": { "legalName": "Empresa Test", "rut": "78543570-2" },
+            "receptor": { "rut": "66666666-6", "name": "Cliente" },
+            "lines": [{ "name": "Item", "quantity": 1, "unitPriceWithIva": 1000, "lineTotal": 1000 }],
+            "totals": { "mntNeto": 840, "mntExe": 0, "iva": 160, "mntTotal": 1000 },
+            "timbrePdf417Payload": "<TED version=\"1.0\"><DD><RE>78543570-2</RE><TD>39</TD><F>198581</F></DD></TED>"
+        });
+        let boleta = parse_fiscal_boleta_preview_from_value(&v).unwrap();
+        let bytes = build_fiscal_boleta_preview_escpos(&boleta).unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(!text.contains("SIMULACION"));
+        assert!(!text.contains("Ref. Set BE"));
+        assert!(text.contains("Timbre electronico SII"));
     }
 
     #[test]

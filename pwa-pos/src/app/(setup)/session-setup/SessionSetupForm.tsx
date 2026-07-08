@@ -6,9 +6,9 @@ import { useSession } from "next-auth/react";
 import type { PointOfSaleListItem, PosPriceList } from "@/features/session/types/point-of-sale.types";
 import type { CashSessionListItem } from "@/features/session/types/cash-session.types";
 import { openCashSessionAction } from "@/features/session/actions/session-setup.action";
-import { runOfflineBootstrap } from "@/features/pos-offline/hooks/use-offline-bootstrap";
+import { runBootstrapCoordinator } from "@/features/pos-offline/application/bootstrap-coordinator.usecase";
 import { OfflineBootstrapStatusPanel } from "@/features/pos-offline/ui/OfflineBootstrapStatusPanel";
-import type { OfflineBootstrapStatus } from "@/features/pos-offline/hooks/use-offline-bootstrap";
+import type { OfflineBootstrapStatus } from "@/features/pos-offline/domain/offline-bootstrap.types";
 import { listOpenCashSessionsAction } from "@/features/session/actions/cash-session.action";
 import { listCashHubsForPosAction } from "@/features/session/actions/cash-hub-pos.action";
 import type { CashHubDepositCandidate } from "@/features/session/types/cash-hub-deposit.types";
@@ -123,8 +123,16 @@ function MyOpenSessionPanel({
 }) {
   const router = useRouter();
   const myPos = pointsOfSale.find((p) => p.id === myOpenSession.pointOfSaleId) ?? null;
+  const [bootstrapStatus, setBootstrapStatus] = useState<OfflineBootstrapStatus>({
+    fiscal: "idle",
+    catalog: "idle",
+    customers: "idle",
+  });
+  const [bootstrapLoading, setBootstrapLoading] = useState(false);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
 
   const handleContinue = async () => {
+    setBootstrapError(null);
     let priceListId: string | null = null;
     if (myPos) {
       const ctx = buildPosContextFromPos(myPos);
@@ -159,7 +167,22 @@ function MyOpenSessionPanel({
       });
     }
     if (priceListId) {
-      void runOfflineBootstrap(myOpenSession.pointOfSaleId, priceListId);
+      setBootstrapLoading(true);
+      setBootstrapStatus({ fiscal: "loading", catalog: "loading", customers: "loading" });
+      const bootstrap = await runBootstrapCoordinator(
+        myOpenSession.pointOfSaleId,
+        priceListId,
+        setBootstrapStatus,
+      );
+      setBootstrapStatus(bootstrap);
+      setBootstrapLoading(false);
+      if (bootstrap.catalog !== "ok") {
+        setBootstrapError(
+          bootstrap.catalogMessage ??
+            "No se pudo descargar el catálogo offline. Reintenta con conexión.",
+        );
+        return;
+      }
     }
     router.push("/pos");
   };
@@ -197,9 +220,21 @@ function MyOpenSessionPanel({
         <Button type="button" variant="outlined" onClick={handleClose}>
           Cerrar sesión de caja
         </Button>
-        <Button type="button" onClick={handleContinue}>
-          Continuar sesión de caja
+        <Button type="button" onClick={handleContinue} disabled={bootstrapLoading}>
+          {bootstrapLoading ? "Preparando offline…" : "Continuar sesión de caja"}
         </Button>
+      </div>
+
+      {bootstrapError ? (
+        <p className="mt-3 text-sm text-destructive">{bootstrapError}</p>
+      ) : null}
+
+      <div className="mt-3">
+        <OfflineBootstrapStatusPanel
+          status={bootstrapStatus}
+          loading={bootstrapLoading}
+          onRetry={() => void handleContinue()}
+        />
       </div>
     </div>
   );
@@ -292,6 +327,7 @@ function NewSessionForm({
   const [bootstrapStatus, setBootstrapStatus] = useState<OfflineBootstrapStatus>({
     fiscal: "idle",
     catalog: "idle",
+    customers: "idle",
   });
   const [bootstrapLoading, setBootstrapLoading] = useState(false);
 
@@ -365,8 +401,8 @@ function NewSessionForm({
         });
         if (ctx.priceListId) {
           setBootstrapLoading(true);
-          setBootstrapStatus({ fiscal: "loading", catalog: "loading" });
-          const bootstrap = await runOfflineBootstrap(pointOfSaleId, ctx.priceListId);
+          setBootstrapStatus({ fiscal: "loading", catalog: "loading", customers: "loading" });
+          const bootstrap = await runBootstrapCoordinator(pointOfSaleId, ctx.priceListId, setBootstrapStatus);
           setBootstrapStatus(bootstrap);
           setBootstrapLoading(false);
         }
@@ -390,12 +426,19 @@ function NewSessionForm({
 
   const isPresalePos = (selectedPos?.kind ?? "SALE") === "PRESALE";
 
-  const handleEnterPresale = () => {
+  const handleEnterPresale = async () => {
     if (!selectedPos) return;
+    const ctx = buildPosContextFromPos(selectedPos);
     savePosContext({
-      ...buildPosContextFromPos(selectedPos),
+      ...ctx,
       cashSessionId: null,
     });
+    if (ctx.priceListId) {
+      setBootstrapLoading(true);
+      setBootstrapStatus({ fiscal: "loading", catalog: "loading", customers: "loading" });
+      await runBootstrapCoordinator(selectedPos.id, ctx.priceListId, setBootstrapStatus);
+      setBootstrapLoading(false);
+    }
     router.push("/pos");
   };
 

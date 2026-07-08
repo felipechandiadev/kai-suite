@@ -2,6 +2,7 @@ import { buildTedStamp } from "@kai/fiscal-ted";
 import type { PosCartLine } from "@/app/(pos)/pos/ui/PosCartLineCard";
 import type { PosSaleCustomer } from "@/features/customers/types/pos-customer.types";
 import type { FiscalBoletaPrintPreview } from "@/features/fiscal/types/fiscal-emission.types";
+import { formatReceiptLineDisplayName } from "@/features/pos-print/lib/format-receipt-line-name";
 import type { OfflineFiscalPack } from "../domain/offline-fiscal-pack.types";
 
 function splitLineAmounts(
@@ -31,17 +32,11 @@ function formatChileanRut(raw: string): string | null {
 }
 
 function resolveReceptor(customer: PosSaleCustomer | null): { rut: string; name: string } {
-  const doc = customer?.documentNumber?.trim() ?? "";
-  const docType = (customer?.documentType ?? "").toUpperCase();
-  if (docType === "RUN" || docType === "RUT") {
-    const rut = formatChileanRut(doc);
-    if (rut) {
-      const name =
-        customer?.businessName?.trim() ||
-        [customer?.firstName, customer?.lastName].filter(Boolean).join(" ").trim() ||
-        "Cliente";
-      return { rut, name: name.slice(0, 100) };
-    }
+  const doc = customer?.document?.trim() ?? "";
+  const rut = formatChileanRut(doc);
+  if (rut) {
+    const name = customer?.name?.trim() || "Cliente";
+    return { rut, name: name.slice(0, 100) };
   }
   return { rut: "66666666-6", name: "Cliente" };
 }
@@ -52,7 +47,10 @@ function mapCartLine(line: PosCartLine) {
   const taxRate = Number(line.unitTaxRate) || 0;
   const taxAmount = Math.round(Math.max(0, unitGross - (Number(line.unitPrice) || 0)) * qty);
   const exempt = taxRate === 0 && taxAmount === 0;
-  const name = line.name?.trim() || line.sku?.trim() || "Item";
+  const name =
+    formatReceiptLineDisplayName(line.productName ?? "", line.attributes) ||
+    line.sku?.trim() ||
+    "Item";
   return {
     name: name.slice(0, 80),
     quantity: qty,

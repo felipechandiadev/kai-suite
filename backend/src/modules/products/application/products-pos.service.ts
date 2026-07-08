@@ -277,6 +277,105 @@ export class ProductsPosService {
   }
 
   /**
+   * Delta de catálogo POS desde un timestamp ISO (productos actualizados o dados de baja).
+   */
+  async buildCatalogDeltaForPos(args: {
+    pointOfSaleId: string;
+    priceListId: string;
+    since: string;
+  }) {
+    const priceListId = args.priceListId?.trim();
+    if (!priceListId) {
+      throw new NotFoundException('priceListId es requerido para delta de catálogo');
+    }
+    const sinceDate = new Date(args.since);
+    if (Number.isNaN(sinceDate.getTime())) {
+      throw new BadRequestException('since inválido (ISO 8601 requerido)');
+    }
+
+    const scope = await this.resolvePosStockScope({
+      pointOfSaleId: args.pointOfSaleId,
+    });
+
+    const activeQb = this.variantRepository
+      .createQueryBuilder('v')
+      .innerJoin('v.product', 'product')
+      .innerJoin(
+        'v.priceListItems',
+        'priceListItem',
+        'priceListItem.priceListId = :priceListId AND priceListItem.deletedAt IS NULL',
+        { priceListId },
+      )
+      .leftJoin('v.unit', 'unit')
+      .leftJoin('v.saleUnit', 'saleUnit')
+      .leftJoin('v.stockBaseUnit', 'stockBaseUnit')
+      .where('v.deletedAt IS NULL')
+      .andWhere('v.isActive = :isActive', { isActive: true })
+      .andWhere('product.deletedAt IS NULL')
+      .andWhere('product.isActive = :isActive', { isActive: true })
+      .andWhere('product.updatedAt >= :since', { since: sinceDate });
+
+    activeQb.select([
+      'v.id',
+      'v.productId',
+      'v.sku',
+      'v.barcode',
+      'v.trackInventory',
+      'v.stockBaseUnitId',
+      'v.saleUnitId',
+      'v.stockBaseQtyPerCountSaleUnit',
+      'v.attributeValues',
+      'product.id',
+      'product.companyId',
+      'product.name',
+      'product.description',
+      'unit.id',
+      'unit.symbol',
+      'unit.allowDecimals',
+      'saleUnit.id',
+      'saleUnit.symbol',
+      'saleUnit.dimension',
+      'saleUnit.allowDecimals',
+      'stockBaseUnit.id',
+      'stockBaseUnit.symbol',
+      'stockBaseUnit.dimension',
+      'priceListItem.id',
+      'priceListItem.netPrice',
+      'priceListItem.grossPrice',
+      'priceListItem.taxIds',
+    ]);
+    activeQb.orderBy('v.id', 'ASC').take(500);
+
+    const activeVariants = await activeQb.getMany();
+    const items = await this.mapVariantsToPosSearchResults(activeVariants, scope, {
+      skipMultimedia: true,
+    });
+
+    const tombstoneRows = await this.variantRepository
+      .createQueryBuilder('v')
+      .innerJoin('v.product', 'product')
+      .innerJoin(
+        'v.priceListItems',
+        'priceListItem',
+        'priceListItem.priceListId = :priceListId',
+        { priceListId },
+      )
+      .where(
+        '(v.deletedAt IS NOT NULL AND v.deletedAt >= :since) OR (v.isActive = false AND v.updatedAt >= :since) OR (product.deletedAt IS NOT NULL AND product.deletedAt >= :since) OR (product.isActive = false AND product.updatedAt >= :since)',
+        { since: sinceDate },
+      )
+      .select(['v.id'])
+      .take(500)
+      .getMany();
+
+    return {
+      items,
+      tombstones: tombstoneRows.map((v) => v.id),
+      snapshotAt: new Date().toISOString(),
+    };
+  }
+
+  /**
    * Datos POS actuales (stock, atributos, imagen) para variantes conocidas.
    * No exige lista de precios; los precios en la respuesta pueden ser 0 (el cliente
    * debe conservar precios congelados, p. ej. desde una cotización).

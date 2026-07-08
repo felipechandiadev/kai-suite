@@ -13,6 +13,7 @@ import {
   PromotionSnapshotDto,
   SaleLineDto,
 } from '@modules/cash-sessions/application/dto/create-sale.dto';
+import { SyncCommandBaseDto } from './sync-command-base.dto';
 
 export class OfflineFiscalSyncDto {
   @IsNumber()
@@ -31,24 +32,8 @@ export class OfflineFiscalSyncDto {
   issuedAt!: string;
 }
 
-export class SyncSaleCommandDto {
-  @IsString()
-  clientOperationId!: string;
-
-  @IsString()
-  deviceId!: string;
-
-  @IsString()
-  commandType!: 'SALE';
-
-  @IsString()
-  userName!: string;
-
-  @IsString()
-  pointOfSaleId!: string;
-
-  @IsString()
-  cashSessionId!: string;
+export class SyncSaleCommandDto extends SyncCommandBaseDto {
+  declare commandType: 'SALE';
 
   @IsOptional()
   @IsString()

@@ -13,6 +13,8 @@ import type { LoadedQuotationMeta } from "@/features/pos-cart/cart-storage";
 import type { FiscalBoletaPrintPreview } from "@/features/fiscal/types/fiscal-emission.types";
 import { getFiscalBoletaPrintPreviewAction } from "@/features/fiscal/actions/reprint-fiscal-boleta.action";
 import { printFiscalBoletaPreview } from "@/features/fiscal/print/fiscal-boleta-preview-print";
+import { buildFiscalBoletaPreviewHtml } from "@/features/fiscal/print/build-fiscal-boleta-preview-html";
+import { fiscalTimbrePdf417SvgForPreview } from "@/features/fiscal/print/fiscal-timbre-pdf417";
 import {
   describePosDocumentPrintMode,
   formatPrintJobFailedMessage,
@@ -683,6 +685,8 @@ async function tryAutoPrintFiscalBoleta(
   }
 }
 
+const FISCAL_BOLETA_PREVIEW_FORMAT: PrintFormat = "ticket_80mm";
+
 export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
   const autoPrintForFolioRef = useRef<string | null>(null);
   const receiptDataRef = useRef(data);
@@ -690,6 +694,31 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
   const [printMode, setPrintMode] = useState<PosDocumentPrintMode>("ticket");
   const [autoPrintStatus, setAutoPrintStatus] = useState<string | null>(null);
   const [fiscalPrintBusy, setFiscalPrintBusy] = useState(false);
+  const [fiscalBoletaPreviewHtml, setFiscalBoletaPreviewHtml] = useState<string | null>(null);
+
+  const fiscalPrintPreview = data?.fiscalPrintPreview ?? null;
+  const showingFiscalBoletaPreview = Boolean(fiscalPrintPreview);
+
+  useEffect(() => {
+    if (!fiscalPrintPreview) {
+      setFiscalBoletaPreviewHtml(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const pdf417Svg = await fiscalTimbrePdf417SvgForPreview(
+        fiscalPrintPreview,
+        FISCAL_BOLETA_PREVIEW_FORMAT,
+      );
+      if (cancelled) return;
+      setFiscalBoletaPreviewHtml(
+        buildFiscalBoletaPreviewHtml(fiscalPrintPreview, FISCAL_BOLETA_PREVIEW_FORMAT, pdf417Svg),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [fiscalPrintPreview]);
 
   useEffect(() => {
     if (data) {
@@ -703,15 +732,20 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
     }
   }, [open]);
 
-  const wireFormat = posDocumentPrintModeToWireFormat(printMode);
-  const isDocument = isPosDocumentPrintModeDocument(printMode);
+  const wireFormat = showingFiscalBoletaPreview
+    ? FISCAL_BOLETA_PREVIEW_FORMAT
+    : posDocumentPrintModeToWireFormat(printMode);
+  const isDocument = !showingFiscalBoletaPreview && isPosDocumentPrintModeDocument(printMode);
 
   const previewSrcDoc = useMemo(() => {
     if (!data || typeof window === "undefined") return null;
+    if (fiscalPrintPreview) {
+      return fiscalBoletaPreviewHtml;
+    }
     return isDocument
       ? buildPosSaleDocumentHtml(data, wireFormat)
       : buildPosSaleReceiptHtml(data, window.location.origin, wireFormat, { showLogo: false });
-  }, [data, isDocument, wireFormat]);
+  }, [data, fiscalPrintPreview, fiscalBoletaPreviewHtml, isDocument, wireFormat]);
 
   useEffect(() => {
     if (!open || !data) {
@@ -860,15 +894,29 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
       }
     >
       <div className="grid gap-2 text-sm">
-        <p className="mb-2 text-xs text-muted-foreground">
-          Modo:{" "}
-          <span className="font-medium text-foreground">{describePosDocumentPrintMode(printMode)}</span>
-        </p>
-        <PosDocumentPrintModeSelector
-          value={printMode}
-          onChange={setPrintMode}
-          data-test-id="pos-sale-receipt-print-format"
-        />
+        {showingFiscalBoletaPreview ? (
+          <p className="mb-2 text-xs text-muted-foreground">
+            Comprobante:{" "}
+            <span className="font-medium text-foreground">
+              Boleta electrónica SII
+              {data.fiscalFolio?.trim() ? ` · folio ${data.fiscalFolio.trim()}` : ""}
+            </span>
+          </p>
+        ) : (
+          <>
+            <p className="mb-2 text-xs text-muted-foreground">
+              Modo:{" "}
+              <span className="font-medium text-foreground">
+                {describePosDocumentPrintMode(printMode)}
+              </span>
+            </p>
+            <PosDocumentPrintModeSelector
+              value={printMode}
+              onChange={setPrintMode}
+              data-test-id="pos-sale-receipt-print-format"
+            />
+          </>
+        )}
         {autoPrintStatus ? (
           <p className="text-sm text-destructive" data-test-id="pos-sale-auto-print-error">
             {autoPrintStatus}
@@ -877,7 +925,18 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
         <PosPrintDocumentPreview
           html={previewSrcDoc}
           format={wireFormat}
-          title={isDocument ? "Vista previa documento" : "Vista previa ticket"}
+          title={
+            showingFiscalBoletaPreview
+              ? "Vista previa boleta electrónica"
+              : isDocument
+                ? "Vista previa documento"
+                : "Vista previa ticket"
+          }
+          loadingLabel={
+            showingFiscalBoletaPreview
+              ? "Preparando vista previa de boleta…"
+              : "Preparando vista previa…"
+          }
           data-test-id="pos-sale-receipt-preview"
         />
       </div>

@@ -28,6 +28,11 @@ import {
 } from "@kai/print-service-client";
 import type { CashCountSheetPrintInput } from "@/features/cash-closing/lib/cash-count-sheet-print.types";
 import { printCashCountSheetAwait } from "@/features/cash-closing/lib/cash-count-sheet-print";
+import { usePosOffline } from "@/features/pos-offline/hooks/use-pos-offline";
+import {
+  enqueueOfflineCloseSession,
+} from "@/features/pos-offline/application/enqueue-offline-cash.usecase";
+import { hasBlockingCommandsForClose } from "@/features/pos-offline/application/enqueue-command.usecase";
 
 /** Si el POS no devuelve catálogo, permitimos arqueo con los medios estándar. */
 function fallbackCloseMethods(): EffectivePaymentMethod[] {
@@ -103,6 +108,7 @@ export default function CashClosingPageClient() {
   const [countSheetPrintBusy, setCountSheetPrintBusy] = useState(false);
 
   const [isPending, startTransition] = useTransition();
+  const { isOffline } = usePosOffline();
 
   useEffect(() => {
     const ctx = readPosContextClient();
@@ -316,7 +322,7 @@ export default function CashClosingPageClient() {
       setFormError("Espera a que carguen los centros de efectivo.");
       return;
     }
-    if (hubs.length === 0) {
+    if (hubs.length === 0 && !isOffline) {
       setFormError(
         hubsError ??
           "No hay centros de efectivo habilitados para este POS. Configúralos en administración antes de cerrar la caja.",
@@ -324,12 +330,37 @@ export default function CashClosingPageClient() {
       return;
     }
     const selectedHubId = hubId?.trim() ?? "";
-    if (!selectedHubId) {
+    if (!selectedHubId && !isOffline) {
       setFormError("Selecciona el centro de efectivo donde se depositará el efectivo contado.");
       return;
     }
 
     startTransition(async () => {
+      if (isOffline) {
+        const blocking = await hasBlockingCommandsForClose();
+        if (blocking) {
+          setFormError(
+            "Hay operaciones pendientes en la cola offline. Sincroniza o resuelve conflictos antes de cerrar.",
+          );
+          return;
+        }
+        try {
+          const cmd = await enqueueOfflineCloseSession({
+            cashHubId: selectedHubId || undefined,
+            notes: notes.trim() || undefined,
+            counted: countedPayload,
+          });
+          patchPosContextClient({ cashSessionId: null });
+          cart.clear();
+          setFormError(null);
+          router.push(
+            `/cash/closing/result?offline=1&localDoc=${encodeURIComponent(cmd.localDocumentNumber)}`,
+          );
+        } catch (e) {
+          setFormError(e instanceof Error ? e.message : "No se pudo encolar el cierre");
+        }
+        return;
+      }
       const res = await closeCashSessionAction({
         cashSessionId,
         userId,
