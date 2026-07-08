@@ -28,15 +28,15 @@ object PosBankAccountTicketEscPos {
         t.jsonStr("paymentMethodLabel").present()?.let { w.line(it) }
 
         w.divider()
-        w.appendLabelValueWrapped("Banco:", t.jsonStr("bankName").present().orEmpty())
-        w.appendLabelValueWrapped("Tipo cuenta:", t.jsonStr("accountType").present().orEmpty())
+        w.labelValueWrapped("Banco:", t.jsonStr("bankName").present().orEmpty())
+        w.labelValueWrapped("Tipo cuenta:", t.jsonStr("accountType").present().orEmpty())
 
         w.bold(true)
-        w.appendLabelValueWrapped("N° cuenta:", t.jsonStr("accountNumber").present().orEmpty())
+        w.labelValueWrapped("N° cuenta:", t.jsonStr("accountNumber").present().orEmpty())
         w.bold(false)
 
         t.jsonStr("accountHolderName").present()?.let {
-            w.appendLabelValueWrapped("Titular:", it)
+            w.labelValueWrapped("Titular:", it)
         }
         company?.jsonStr("rut").present()?.let {
             w.line(w.padLeft("RUT empresa:", it))
@@ -47,7 +47,7 @@ object PosBankAccountTicketEscPos {
 
         t.jsonStr("notes").present()?.let {
             w.divider()
-            w.appendLabelValueWrapped("Notas:", it)
+            w.labelValueWrapped("Notas:", it)
         }
 
         w.appendOriginBlock(t.jsonStr("branchName"), t.jsonStr("pointOfSaleName"))
