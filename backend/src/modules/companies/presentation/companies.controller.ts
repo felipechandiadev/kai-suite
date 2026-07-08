@@ -302,6 +302,31 @@ export class CompaniesController {
     return { success: true, presaleSettings };
   }
 
+  @Get('companies/:id/deferred-payment-settings')
+  @AdminOnly()
+  @AllowAdminWithoutCompany()
+  async getCompanyDeferredPaymentSettings(@Param('id') id: string) {
+    const deferredPayment =
+      await this.companiesService.getDeferredPaymentSettings(id);
+    return { success: true, deferredPayment };
+  }
+
+  @Put('companies/:id/deferred-payment-settings')
+  @AdminOnly()
+  @AllowAdminWithoutCompany()
+  async replaceCompanyDeferredPaymentSettings(
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    const incoming =
+      body && typeof body === 'object' && 'deferredPayment' in (body as any)
+        ? (body as any).deferredPayment
+        : body;
+    const deferredPayment =
+      await this.companiesService.replaceDeferredPaymentSettings(id, incoming);
+    return { success: true, deferredPayment };
+  }
+
   /**
    * Política de crédito interno de la empresa activa (ADMIN/OPERATOR/POS).
    * Incluye el medio empresa `INTERNAL_CREDIT` si está habilitado.
@@ -336,6 +361,15 @@ export class CompaniesController {
     const presaleSettings =
       await this.companiesService.getPresaleSettings(activeCompanyId);
     return { success: true, presaleSettings };
+  }
+
+  @Get('company/deferred-payment-settings')
+  async getActiveCompanyDeferredPaymentSettings(
+    @CurrentCompany() activeCompanyId: string,
+  ) {
+    const deferredPayment =
+      await this.companiesService.getDeferredPaymentSettings(activeCompanyId);
+    return { success: true, deferredPayment };
   }
 
   @Get('company/mercado-pago-settings')

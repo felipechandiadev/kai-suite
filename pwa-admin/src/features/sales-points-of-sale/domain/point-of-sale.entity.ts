@@ -24,6 +24,7 @@ export const CreatePointOfSaleFormSchema = z
     defaultPriceListId: z.string().uuid().nullable().optional(),
     kind: posKindSchema,
     acceptsPresaleTickets: z.boolean().default(false),
+    allowsDeferredPayment: z.boolean().default(false),
   })
   .refine(
     (d) => {
@@ -51,6 +52,7 @@ export const UpdatePointOfSaleFormSchema = z
     defaultPriceListId: z.string().uuid().nullable().optional(),
     kind: posKindSchema,
     acceptsPresaleTickets: z.boolean().default(false),
+    allowsDeferredPayment: z.boolean().default(false),
   })
   .refine(
     (d) => {

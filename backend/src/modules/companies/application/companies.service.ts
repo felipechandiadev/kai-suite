@@ -43,6 +43,11 @@ import {
   sanitizeInternalCustomerCreditSettings,
 } from '../domain/company-internal-customer-credit.types';
 import {
+  CompanyDeferredPaymentSettings,
+  buildDefaultCompanyDeferredPaymentSettings,
+  sanitizeCompanyDeferredPaymentSettings,
+} from '../domain/company-deferred-payment.types';
+import {
   CompanyPublicContactSettings,
   buildDefaultCompanyPublicContact,
   sanitizeCompanyPublicContact,
@@ -748,6 +753,37 @@ export class CompaniesService {
     const validated = sanitizeCompanyPresaleSettings(raw);
     const settings = { ...(company.settings ?? {}) };
     settings.presales = validated;
+    company.settings = settings;
+    await this.companyRepository.save(company);
+    return validated;
+  }
+
+  async getDeferredPaymentSettings(
+    companyId: string,
+  ): Promise<CompanyDeferredPaymentSettings> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+    const raw = company.settings?.deferredPayment;
+    if (!raw || typeof raw !== 'object') {
+      return buildDefaultCompanyDeferredPaymentSettings();
+    }
+    return sanitizeCompanyDeferredPaymentSettings(raw);
+  }
+
+  async replaceDeferredPaymentSettings(
+    companyId: string,
+    raw: unknown,
+  ): Promise<CompanyDeferredPaymentSettings> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+
+    const validated = sanitizeCompanyDeferredPaymentSettings(raw);
+    const settings = { ...(company.settings ?? {}) };
+    settings.deferredPayment = validated;
     company.settings = settings;
     await this.companyRepository.save(company);
     return validated;

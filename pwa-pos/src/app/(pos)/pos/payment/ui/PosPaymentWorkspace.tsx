@@ -13,6 +13,10 @@ import {
   TextField,
 } from "@/shared/admin-shared";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
+import {
+  POS_CONTEXT_CHANGED_EVENT,
+  readDeferredPaymentEnabledFromOfflineCache,
+} from "@/features/pos-offline/lib/read-deferred-payment-enabled";
 import { usePosCart } from "@/features/pos-cart/PosCartProvider";
 import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
 import { usePosTabletDensity } from "@/shared/hooks/usePosTabletDensity";
@@ -551,6 +555,23 @@ export default function PosPaymentWorkspace({
 
   const { data: authSession } = useSession();
   const { isBackendReachable: backendReachable, isOffline } = usePosOffline();
+  const [deferredPaymentEnabled, setDeferredPaymentEnabled] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => {
+      void readDeferredPaymentEnabledFromOfflineCache().then((enabled) => {
+        if (!cancelled) setDeferredPaymentEnabled(enabled);
+      });
+    };
+    refresh();
+    window.addEventListener(POS_CONTEXT_CHANGED_EVENT, refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(POS_CONTEXT_CHANGED_EVENT, refresh);
+    };
+  }, []);
+
   const posOperatorName = resolvePosOperatorDisplayName(
     authSession?.user as { name?: string | null; email?: string | null; userName?: string | null } | undefined,
   );
@@ -1882,6 +1903,8 @@ export default function PosPaymentWorkspace({
   const confirmPaymentDisabled = !canConfirm || confirmLoading || deferLoading;
 
   const showDeferPaymentButton =
+    deferredPaymentEnabled &&
+    !isOffline &&
     !isDebtCollectMode &&
     !isNcPayoutMode &&
     !isReturnMode &&
@@ -2090,7 +2113,7 @@ export default function PosPaymentWorkspace({
   };
 
   const handleDeferPaymentSale = async () => {
-    if (!showDeferPaymentButton) return;
+    if (!showDeferPaymentButton || !deferredPaymentEnabled || isOffline) return;
     setPageAlert("");
     setDeferLoading(true);
     const posCtx = readPosContextClient();

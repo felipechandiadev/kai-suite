@@ -1,39 +1,123 @@
 # Descargas agentes locales (POS)
 
-Archivos estáticos servidos en **`/downloads/`** por la PWA del POS.
+Archivos estáticos servidos en **`/downloads/`** por la PWA del POS (`/settings/local-printing`).
 
-## Kai Printers — Android
+## Publicar todas las plataformas (comando único)
+
+Desde la **raíz del monorepo**:
 
 ```bash
 npm run kai-printers:publish
-# o: bash kai-printers-android/scripts/publish-to-pos-downloads.sh [--bump patch|minor|code-only]
 ```
 
-| Archivo | En git | Descripción |
-|---------|--------|-------------|
-| `kai-printers-android-{version}.apk` | No | Binario instalable |
-| `kai-printers-android.manifest.json` | Sí | Versión, nombre de archivo y `builtAt` |
-| `INSTALACION_ANDROID.md` | Sí | Guía operador |
+Publica en `pwa-pos/public/downloads/`:
 
-## Kai Printers — Windows y macOS
+| Plataforma | Artefacto | En git |
+|------------|-----------|--------|
+| Android | `kai-printers-android-{version}.apk` | No |
+| Windows | `kai-printers-windows-{version}-x64-portable.zip` | No |
+| macOS | `kai-printers-macos-{version}-aarch64.dmg` | No |
+| Manifests JSON | `kai-printers-*.manifest.json` | Sí |
 
-Requiere `kai-printers-desktop/` en el monorepo. Compila si falta el artefacto.
+Requisitos:
+
+- **Android:** `kai-printers-android/` (Gradle + keystore release).
+- **Desktop:** `kai-printers-desktop/` (Tauri; carpeta local, no siempre en git).
+
+### Flags útiles
 
 ```bash
-npm run kai-printers-desktop:publish
-npm run kai-printers-desktop:publish -- --build          # fuerza recompilar
-npm run kai-printers-desktop:publish -- --windows-only   # solo ZIP Windows
-npm run kai-printers-desktop:publish -- --macos-only     # solo DMG macOS
+# Recompilar desktop antes de copiar
+npm run kai-printers:publish -- --build
+
+# Solo una plataforma
+npm run kai-printers:publish -- --android-only
+npm run kai-printers:publish -- --desktop-only
+npm run kai-printers:publish -- --windows-only
+npm run kai-printers:publish -- --macos-only
+
+# Subir versión Android (patch / minor / code-only)
+npm run kai-printers:publish -- --bump patch
 ```
 
-| Archivo | En git | Descripción |
-|---------|--------|-------------|
-| `kai-printers-windows-{version}-x64-portable.zip` | No | ZIP portable (KaiPrinters.exe + SumatraPDF.exe) |
-| `kai-printers-windows.manifest.json` | Sí | Versión y nombre del ZIP |
-| `kai-printers-macos-{version}-aarch64.dmg` | No | Instalador macOS (Apple Silicon) |
-| `kai-printers-macos.manifest.json` | Sí | Versión y nombre del DMG |
+Comandos por plataforma (legacy / avanzado):
 
-En el POS: **Configuración → Impresión local → Descargar Kai Printers** (Android, Windows, macOS).
+```bash
+npm run kai-printers:publish:android
+npm run kai-printers:publish:desktop
+```
+
+---
+
+## Deploy al VPS (flujo recomendado)
+
+Los **binarios no van en git** (`.gitignore`). Con `git pull` en el VPS solo llegan los **manifest JSON** y el código; los `.apk` / `.zip` / `.dmg` hay que copiarlos aparte.
+
+### 1. Publicar en tu máquina de desarrollo
+
+```bash
+npm run kai-printers:publish
+# opcional: npm run kai-printers:publish -- --build
+```
+
+Verificá localmente:
+
+- http://localhost:5032/settings/local-printing
+- http://localhost:5032/downloads/kai-printers-android.manifest.json
+- http://localhost:5032/downloads/kai-printers-android-{version}.apk
+
+### 2. Commit y push (solo manifests + metadatos)
+
+```bash
+git add pwa-pos/public/downloads/kai-printers-*.manifest.json
+# si bump Android:
+git add kai-printers-android/version.properties
+git commit -m "chore(printers): actualizar manifests Kai Printers"
+git push
+```
+
+No commitees `.apk`, `.zip` ni `.dmg`.
+
+### 3. Pull en el VPS
+
+```bash
+cd /ruta/al/repo/kai
+git pull
+```
+
+### 4. Copiar binarios al VPS (rsync)
+
+Desde tu máquina local (ajustá usuario, host y ruta):
+
+```bash
+rsync -avz pwa-pos/public/downloads/ \
+  usuario@tu-vps:/ruta/al/repo/kai/pwa-pos/public/downloads/
+```
+
+Incluye manifests y binarios. Si ya hiciste `git pull` en el VPS, el rsync asegura que los artefactos grandes estén presentes.
+
+### 5. Verificar en producción
+
+Abrir en el navegador (reemplazá el dominio):
+
+- `https://pos.tu-dominio.cl/downloads/kai-printers-android.manifest.json`
+- `https://pos.tu-dominio.cl/downloads/kai-printers-android-{version}.apk`
+
+Luego **Configuración → Impresión local → Descargar Kai Printers**.
+
+> **Nota:** Agregar archivos en `public/downloads/` normalmente no exige rebuild de Next.js; sí reiniciá el proceso si cambiaste código de la app.
+
+### URL personalizada (opcional)
+
+Si servís los binarios desde CDN u otro origen:
+
+```env
+NEXT_PUBLIC_KAI_PRINTERS_ANDROID_URL=https://cdn.tu-dominio.cl/kai-printers-android-1.1.8.apk
+NEXT_PUBLIC_KAI_PRINTERS_WINDOWS_URL=https://cdn.tu-dominio.cl/kai-printers-windows-1.0.2-x64-portable.zip
+NEXT_PUBLIC_KAI_PRINTERS_MACOS_URL=https://cdn.tu-dominio.cl/kai-printers-macos-1.0.2-aarch64.dmg
+```
+
+---
 
 ## Kai Screen — publicar APK Android
 
@@ -46,29 +130,9 @@ npm run kai-screen:publish
 | `kai-screen-android-{version}.apk` | No |
 | `kai-screen-android.manifest.json` | Sí |
 
-## Subir manualmente al VPS
+Mismo flujo de rsync al VPS que Kai Printers.
 
-Copiá los binarios versionados **y** los manifest JSON a `pwa-pos/public/downloads/` en el deploy (o sirvelos desde el mismo origen del POS).
-
-Ejemplo:
-
-```text
-pwa-pos/public/downloads/
-  kai-printers-android-1.1.8.apk          # no en git
-  kai-printers-android.manifest.json      # sí en git
-  kai-printers-windows-1.0.2-x64-portable.zip
-  kai-printers-windows.manifest.json
-  kai-printers-macos-1.0.2-aarch64.dmg
-  kai-printers-macos.manifest.json
-```
-
-## URL personalizada (opcional)
-
-```env
-NEXT_PUBLIC_KAI_PRINTERS_ANDROID_URL=https://pos.tu-dominio.cl/downloads/kai-printers-android-1.1.8.apk
-NEXT_PUBLIC_KAI_PRINTERS_WINDOWS_URL=https://pos.tu-dominio.cl/downloads/kai-printers-windows-1.0.2-x64-portable.zip
-NEXT_PUBLIC_KAI_PRINTERS_MACOS_URL=https://pos.tu-dominio.cl/downloads/kai-printers-macos-1.0.2-aarch64.dmg
-```
+---
 
 ## Git
 

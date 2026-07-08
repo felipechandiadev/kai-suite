@@ -16,6 +16,8 @@ export type PointOfSaleListItem = {
   defaultPriceListId: string | null;
   kind?: PosKind;
   acceptsPresaleTickets?: boolean;
+  allowsDeferredPayment?: boolean;
+  deferredPaymentEnabled?: boolean;
 };
 
 export type ListPointsOfSaleResult =

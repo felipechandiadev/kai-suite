@@ -25,6 +25,7 @@ export type PosContextV1 = {
   priceLists?: PosPriceListSnapshot[];
   posKind?: PosKind;
   acceptsPresaleTickets?: boolean;
+  deferredPaymentEnabled?: boolean;
   updatedAt?: string;
 };
 

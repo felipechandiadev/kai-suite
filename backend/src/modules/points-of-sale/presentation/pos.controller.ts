@@ -71,6 +71,7 @@ export class PosController {
       defaultPriceListId?: string | null;
       kind?: 'PRESALE' | 'SALE';
       acceptsPresaleTickets?: boolean;
+      allowsDeferredPayment?: boolean;
     },
   ) {
     return this.posService.createPointOfSale(data);
@@ -90,6 +91,7 @@ export class PosController {
       storageId: string | null;
       kind?: 'PRESALE' | 'SALE';
       acceptsPresaleTickets?: boolean;
+      allowsDeferredPayment?: boolean;
     }>,
   ) {
     return this.posService.updatePointOfSale(id, data);

@@ -20,6 +20,7 @@ export class UpdatePointOfSaleUseCase {
       defaultPriceListId: d.defaultPriceListId ?? null,
       kind: d.kind,
       acceptsPresaleTickets: d.kind === "SALE" ? d.acceptsPresaleTickets : false,
+      allowsDeferredPayment: d.kind === "SALE" ? d.allowsDeferredPayment : false,
     });
   }
 }

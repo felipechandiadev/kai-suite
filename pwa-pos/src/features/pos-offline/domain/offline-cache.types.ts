@@ -32,5 +32,6 @@ export type SessionMetaRow = {
   pointOfSaleName: string | null;
   userRole: string | null;
   personName: string | null;
+  deferredPaymentEnabled?: boolean;
   cachedAt: string;
 };

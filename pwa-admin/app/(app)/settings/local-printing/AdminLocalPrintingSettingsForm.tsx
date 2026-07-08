@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   PrintServiceConnection,
-  buildWebSocketUrl,
-  printServicePageRequiresTls,
+  resolvePrintAgentConnectionUrls,
   readAdminDocumentPrintFormatsFromStorage,
   readAdminPurposePrinterAliasFromStorage,
   readPrintServiceConfigFromStorage,
@@ -16,6 +15,7 @@ import {
   writePrintServiceConfigToStorage,
   KaiPrintersDownloadSection,
   type KaiPrintersDownloadsManifests,
+  PrintServiceAgentConnectionHints,
 } from "@kai/print-service-client";
 import { Button } from "@/shared/components/Button";
 import { Select } from "@/shared/components/Select";
@@ -85,11 +85,16 @@ export function AdminLocalPrintingSettingsForm({
     setStorageHydrated(true);
   }, []);
 
-  const url = useMemo(() => {
-    const tls = printServicePageRequiresTls() || useTls;
-    const p = Number(tls ? wssPort : port) || (tls ? 14568 : 14567);
-    return buildWebSocketUrl(host, p, tls);
-  }, [host, port, wssPort, useTls]);
+  const { wsUrl: url } = useMemo(
+    () =>
+      resolvePrintAgentConnectionUrls({
+        host,
+        port,
+        wssPort,
+        useTls,
+      }),
+    [host, port, wssPort, useTls],
+  );
 
   const connOpts = useMemo(
     () => ({
@@ -205,6 +210,15 @@ export function AdminLocalPrintingSettingsForm({
                 data-test-id="admin-print-prefs-use-tls"
               />
             </div>
+          </div>
+          <div className="mt-3">
+            <PrintServiceAgentConnectionHints
+              host={host}
+              port={port}
+              wssPort={wssPort}
+              useTls={useTls}
+              data-test-id="admin-print-prefs-connection-hints"
+            />
           </div>
         </section>
 

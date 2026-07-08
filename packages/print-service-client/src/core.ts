@@ -1547,6 +1547,44 @@ export function printServicePageRequiresTls(): boolean {
   return typeof window !== "undefined" && window.location.protocol === "https:";
 }
 
+/** URL HTTPS del agente para aceptar el certificado autofirmado (mismo host/puerto WSS). */
+export function buildPrintAgentTrustCertificateUrl(
+  host: string,
+  wssPort: number | string,
+): string {
+  const h = normalizePrintAgentHost(host);
+  const port = Number(wssPort) || 14568;
+  return `https://${h}:${port}/`;
+}
+
+/** Deriva la URL de confianza desde una URL `wss://` (p. ej. la del cliente conectado). */
+export function httpsPageFromWebSocketUrl(wsUrl: string): string | null {
+  try {
+    if (!wsUrl.startsWith("wss://")) return null;
+    const u = new URL(wsUrl);
+    return `https://${u.hostname}${u.port ? `:${u.port}` : ""}/`;
+  } catch {
+    return null;
+  }
+}
+
+export function resolvePrintAgentConnectionUrls(args: {
+  host: string;
+  port: number | string;
+  wssPort: number | string;
+  useTls: boolean;
+  pageRequiresTls?: boolean;
+}): { wsUrl: string; usesTls: boolean; trustCertificateUrl: string | null } {
+  const pageHttps = args.pageRequiresTls ?? printServicePageRequiresTls();
+  const usesTls = pageHttps || args.useTls;
+  const portNum = Number(usesTls ? args.wssPort : args.port) || (usesTls ? 14568 : 14567);
+  const wsUrl = buildWebSocketUrl(args.host, portNum, usesTls);
+  const trustCertificateUrl = usesTls
+    ? buildPrintAgentTrustCertificateUrl(args.host, args.wssPort)
+    : null;
+  return { wsUrl, usesTls, trustCertificateUrl };
+}
+
 export type PrintServiceProbeResult = {
   ok: boolean;
   url: string;

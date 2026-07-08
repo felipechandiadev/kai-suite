@@ -12,6 +12,7 @@ type PointOfSaleWriteBody = {
   defaultPriceListId: string | null;
   kind?: PosKind;
   acceptsPresaleTickets?: boolean;
+  allowsDeferredPayment?: boolean;
 };
 
 function apiUrl(path: string): string {
@@ -85,6 +86,7 @@ export class PointOfSaleRequest {
           defaultPriceListId: body.defaultPriceListId,
           kind: body.kind,
           acceptsPresaleTickets: body.acceptsPresaleTickets,
+          allowsDeferredPayment: body.allowsDeferredPayment,
         }),
         cache: "no-store",
       });
@@ -124,6 +126,7 @@ export class PointOfSaleRequest {
           defaultPriceListId: body.defaultPriceListId,
           kind: body.kind,
           acceptsPresaleTickets: body.acceptsPresaleTickets,
+          allowsDeferredPayment: body.allowsDeferredPayment,
         }),
         cache: "no-store",
       });

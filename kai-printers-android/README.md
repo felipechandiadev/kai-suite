@@ -52,7 +52,15 @@ chmod +x scripts/*.sh
 # Respalda release/ y keystore.properties en lugar seguro.
 ```
 
-Compilar y publicar APK versionado hacia el POS:
+Compilar y publicar (desde la raíz del monorepo, Android + desktop si aplica):
+
+```bash
+npm run kai-printers:publish
+# Solo Android: npm run kai-printers:publish -- --android-only
+# Bump versión: npm run kai-printers:publish -- --bump patch
+```
+
+O solo Android:
 
 ```bash
 ./scripts/publish-to-pos-downloads.sh

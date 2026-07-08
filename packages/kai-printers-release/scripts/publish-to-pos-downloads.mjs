@@ -4,9 +4,10 @@
  * Requiere kai-printers-desktop/ en el monorepo (gitignored localmente).
  *
  * Uso (desde raíz del monorepo):
- *   npm run kai-printers-desktop:publish
- *   npm run kai-printers-desktop:publish -- --build
- *   npm run kai-printers-desktop:publish -- --windows-only
+ *   npm run kai-printers:publish              # Android + desktop (recomendado)
+ *   npm run kai-printers:publish:desktop      # solo desktop
+ *   npm run kai-printers:publish:desktop -- --build
+ *   npm run kai-printers:publish:desktop -- --windows-only
  */
 import {
   cpSync,

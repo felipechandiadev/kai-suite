@@ -1,6 +1,8 @@
 import {
   readAcceptsPresaleTickets,
+  readAllowsDeferredPayment,
   readPosKind,
+  resolveDeferredPaymentEnabled,
   sanitizePosSettingsPatch,
 } from '@modules/points-of-sale/domain/pos-settings.types';
 
@@ -28,6 +30,38 @@ describe('pos-settings.types', () => {
       true,
     );
     expect(readAcceptsPresaleTickets({ kind: 'PRESALE', acceptsPresaleTickets: true })).toBe(
+      false,
+    );
+  });
+
+  it('clears allowsDeferredPayment on PRESALE', () => {
+    const out = sanitizePosSettingsPatch(
+      { allowsDeferredPayment: true },
+      { kind: 'PRESALE' },
+    );
+    expect(out.allowsDeferredPayment).toBe(false);
+  });
+
+  it('resolveDeferredPaymentEnabled requires company and POS flags', () => {
+    expect(
+      resolveDeferredPaymentEnabled(true, {
+        kind: 'SALE',
+        allowsDeferredPayment: true,
+      }),
+    ).toBe(true);
+    expect(
+      resolveDeferredPaymentEnabled(false, {
+        kind: 'SALE',
+        allowsDeferredPayment: true,
+      }),
+    ).toBe(false);
+    expect(
+      resolveDeferredPaymentEnabled(true, {
+        kind: 'SALE',
+        allowsDeferredPayment: false,
+      }),
+    ).toBe(false);
+    expect(readAllowsDeferredPayment({ kind: 'PRESALE', allowsDeferredPayment: true })).toBe(
       false,
     );
   });

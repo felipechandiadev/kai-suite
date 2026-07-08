@@ -10,6 +10,7 @@ import { CompanyGeneralSection } from "./CompanyGeneralSection";
 import { CompanyBankAccountsSection } from "./CompanyBankAccountsSection";
 import { CompanyPaymentMethodsSection } from "./CompanyPaymentMethodsSection";
 import { CompanyInternalCustomerCreditSection } from "./CompanyInternalCustomerCreditSection";
+import { CompanyDeferredPaymentSection } from "./CompanyDeferredPaymentSection";
 import { CompanyChecksSection } from "./CompanyChecksSection";
 import { CompanyQuotationsSection } from "./CompanyQuotationsSection";
 import { CompanyPresalesSection } from "./CompanyPresalesSection";
@@ -94,7 +95,10 @@ export function CompanySettingsContent({ company, shareholders }: Props) {
         {activeTab === "bancos" ? <CompanyBankAccountsSection company={company} /> : null}
         {activeTab === "medios-pago" ? <CompanyPaymentMethodsSection companyId={company.id} /> : null}
         {activeTab === "credito-interno" ? (
-          <CompanyInternalCustomerCreditSection company={company} />
+          <div className="flex flex-col gap-6">
+            <CompanyInternalCustomerCreditSection company={company} />
+            <CompanyDeferredPaymentSection company={company} />
+          </div>
         ) : null}
         {activeTab === "cheques" ? <CompanyChecksSection company={company} /> : null}
         {activeTab === "cotizaciones" ? <CompanyQuotationsSection company={company} /> : null}

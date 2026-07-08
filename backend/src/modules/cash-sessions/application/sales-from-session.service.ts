@@ -79,6 +79,7 @@ import {
 import {
   readAcceptsPresaleTickets,
   readPosKind,
+  resolveDeferredPaymentEnabled,
 } from '@modules/points-of-sale/domain/pos-settings.types';
 import { computeCashSessionExpectedAmount } from './cash-session-expected-amount.util';
 import {
@@ -289,6 +290,9 @@ export class SalesFromSessionService {
         'No se puede diferir el cobro al cobrar un ticket de preventa.',
       );
     }
+    if (createSaleDto.deferPayment) {
+      await this.assertDeferredPaymentAllowed(createSaleDto.pointOfSaleId);
+    }
     await this.validateSaleDocumentKindForCreate(createSaleDto);
     const result = await this.registerPosCommercial(createSaleDto, {
       transactionType: TransactionType.SALE,
@@ -313,6 +317,29 @@ export class SalesFromSessionService {
       deferPayment: false,
     });
     return result;
+  }
+
+  private async assertDeferredPaymentAllowed(pointOfSaleId: string): Promise<void> {
+    const posId = pointOfSaleId?.trim();
+    if (!posId) {
+      throw new BadRequestException('pointOfSaleId es requerido');
+    }
+    const pos = await this.pointOfSaleRepository.findOne({
+      where: { id: posId, deletedAt: IsNull() },
+    });
+    if (!pos) {
+      throw new NotFoundException('Punto de venta no encontrado');
+    }
+    const companyPolicy = await this.companiesService.getDeferredPaymentSettings(
+      pos.companyId,
+    );
+    if (
+      !resolveDeferredPaymentEnabled(companyPolicy.enabled, pos.settings)
+    ) {
+      throw new BadRequestException(
+        'Venta sin pago no habilitada para este punto de venta',
+      );
+    }
   }
 
   private shouldEmitSaleBoleta(

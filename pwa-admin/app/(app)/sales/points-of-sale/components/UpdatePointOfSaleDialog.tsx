@@ -21,6 +21,7 @@ import {
   type PosPaymentMethodConfig,
 } from "@/features/sales-points-of-sale/types/pos-payment-methods.types";
 import { getCompanyDetailsAction } from "@/features/settings-company/actions/company.action";
+import { getCompanyDeferredPaymentSettingsAction } from "@/features/companies/actions/companies-deferred-payment.action";
 import {
   PosPaymentMethodsCardsEditor,
   type PosPaymentMethodsCardsEditorHandle,
@@ -62,6 +63,8 @@ export function UpdatePointOfSaleDialog({
   const [isActive, setIsActive] = useState(true);
   const [posKind, setPosKind] = useState<PosKind>("SALE");
   const [acceptsPresaleTickets, setAcceptsPresaleTickets] = useState(false);
+  const [allowsDeferredPayment, setAllowsDeferredPayment] = useState(false);
+  const [companyDeferredPaymentEnabled, setCompanyDeferredPaymentEnabled] = useState(false);
   const [selectedListIds, setSelectedListIds] = useState<string[]>([]);
   const [defaultListId, setDefaultListId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -160,6 +163,7 @@ export function UpdatePointOfSaleDialog({
     setIsActive(point.isActive);
     setPosKind(point.kind ?? "SALE");
     setAcceptsPresaleTickets(Boolean(point.acceptsPresaleTickets));
+    setAllowsDeferredPayment(Boolean(point.allowsDeferredPayment));
     setSelectedListIds(
       (point.priceLists && point.priceLists.length > 0
         ? point.priceLists.map((p) => p.id)
@@ -181,6 +185,21 @@ export function UpdatePointOfSaleDialog({
     setCompanyCaf39(null);
     setLoadingFiscal(false);
   }, [open, point, branches, storages]);
+
+  useEffect(() => {
+    if (!open || !resolvedCompanyId) {
+      setCompanyDeferredPaymentEnabled(false);
+      return;
+    }
+    let cancelled = false;
+    void getCompanyDeferredPaymentSettingsAction(resolvedCompanyId).then((res) => {
+      if (cancelled) return;
+      setCompanyDeferredPaymentEnabled(res.success && res.deferredPayment.enabled === true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, resolvedCompanyId]);
 
   useEffect(() => {
     if (!open || !resolvedCompanyId || posKind !== "SALE") {
@@ -337,6 +356,10 @@ export function UpdatePointOfSaleDialog({
           defaultPriceListId: defaultListId,
           kind: posKind,
           acceptsPresaleTickets: posKind === "SALE" ? acceptsPresaleTickets : false,
+          allowsDeferredPayment:
+            posKind === "SALE" && companyDeferredPaymentEnabled
+              ? allowsDeferredPayment
+              : false,
         });
         if (!r.success) {
           setError(r.error);
@@ -482,7 +505,10 @@ export function UpdatePointOfSaleDialog({
           onChange={(id) => {
             if (id === "PRESALE" || id === "SALE") {
               setPosKind(id);
-              if (id === "PRESALE") setAcceptsPresaleTickets(false);
+              if (id === "PRESALE") {
+                setAcceptsPresaleTickets(false);
+                setAllowsDeferredPayment(false);
+              }
             }
           }}
           options={[
@@ -493,13 +519,28 @@ export function UpdatePointOfSaleDialog({
           data-test-id="pos-update-kind"
         />
         {posKind === "SALE" ? (
-          <Switch
-            checked={acceptsPresaleTickets}
-            onChange={setAcceptsPresaleTickets}
-            label="Acepta tickets de preventa"
-            labelPosition="right"
-            data-test-id="pos-update-accepts-presale"
-          />
+          <>
+            <Switch
+              checked={acceptsPresaleTickets}
+              onChange={setAcceptsPresaleTickets}
+              label="Acepta tickets de preventa"
+              labelPosition="right"
+              data-test-id="pos-update-accepts-presale"
+            />
+            <Switch
+              checked={allowsDeferredPayment}
+              onChange={setAllowsDeferredPayment}
+              label="Permite venta sin pago"
+              labelPosition="right"
+              disabled={!companyDeferredPaymentEnabled}
+              data-test-id="pos-update-allows-deferred-payment"
+            />
+            {!companyDeferredPaymentEnabled ? (
+              <p className="text-xs text-muted-foreground">
+                Activa «Venta sin pago inmediato» en Configuración → Empresa → Crédito interno.
+              </p>
+            ) : null}
+          </>
         ) : null}
         <div className="space-y-2">
           <p className="text-sm font-medium text-foreground">Listas de precio</p>

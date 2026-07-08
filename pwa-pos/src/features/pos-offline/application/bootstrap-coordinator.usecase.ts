@@ -2,6 +2,7 @@ import { ensurePosOfflineDbOpen } from "../infrastructure/pos-offline-db";
 import { downloadFiscalPackForPos } from "./download-fiscal-pack.usecase";
 import { downloadCatalogSnapshotForPos } from "./download-catalog-snapshot.usecase";
 import { downloadCustomersSnapshot } from "./download-customers-snapshot.usecase";
+import { downloadPosOperationalFlagsForPos } from "./download-pos-operational-flags.usecase";
 import type { OfflineBootstrapStatus } from "../domain/offline-bootstrap.types";
 import { logOfflineTelemetry } from "../lib/offline-telemetry";
 
@@ -26,7 +27,7 @@ export async function runBootstrapCoordinator(
     await ensurePosOfflineDbOpen();
     onProgress?.({ fiscal: "loading", catalog: "loading", customers: "loading" });
 
-    const [fiscalRes, catalogRes, customersRes] = await Promise.all([
+    const [fiscalRes, catalogRes, customersRes, flagsRes] = await Promise.all([
       downloadFiscalPackForPos(pointOfSaleId),
       downloadCatalogSnapshotForPos(pointOfSaleId, priceListId, (progress) => {
         onProgress?.({
@@ -37,6 +38,7 @@ export async function runBootstrapCoordinator(
         });
       }),
       downloadCustomersSnapshot(),
+      downloadPosOperationalFlagsForPos(pointOfSaleId),
     ]);
 
     const status: OfflineBootstrapStatus = {
@@ -58,6 +60,7 @@ export async function runBootstrapCoordinator(
       catalogOk: catalogRes.success,
       catalogTotal: catalogRes.success ? catalogRes.total : 0,
       customersOk: customersRes.success,
+      posFlagsOk: flagsRes.success,
     });
 
     onProgress?.(status);

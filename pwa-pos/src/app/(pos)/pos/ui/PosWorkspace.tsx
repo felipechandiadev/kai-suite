@@ -142,6 +142,7 @@ export default function PosWorkspace() {
           pointOfSaleName: res.pointOfSaleName ?? c.pointOfSaleName ?? null,
           posKind: res.posKind,
           acceptsPresaleTickets: res.acceptsPresaleTickets,
+          deferredPaymentEnabled: res.deferredPaymentEnabled,
           ...(res.priceLists.length > 0 ? { priceLists: res.priceLists } : {}),
         });
       }

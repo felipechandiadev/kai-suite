@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   PrintServiceConnection,
-  buildWebSocketUrl,
   printModesForPosDocumentKind,
-  printServicePageRequiresTls,
+  PrintServiceAgentConnectionHints,
+  resolvePrintAgentConnectionUrls,
   readPrintServiceConfigFromStorage,
   readPosDocumentPrintModesFromStorage,
   readPosPurposePrinterAliasesFromStorage,
@@ -123,11 +123,16 @@ export function PosLocalPrintPreferencesForm({
     setStorageHydrated(true);
   }, []);
 
-  const url = useMemo(() => {
-    const tls = printServicePageRequiresTls() || useTls;
-    const p = Number(tls ? wssPort : port) || (tls ? 14568 : 14567);
-    return buildWebSocketUrl(host, p, tls);
-  }, [host, port, wssPort, useTls]);
+  const { wsUrl: url } = useMemo(
+    () =>
+      resolvePrintAgentConnectionUrls({
+        host,
+        port,
+        wssPort,
+        useTls,
+      }),
+    [host, port, wssPort, useTls],
+  );
 
   const connOpts = useMemo(
     () => ({
@@ -431,18 +436,15 @@ export function PosLocalPrintPreferencesForm({
               />
             </div>
           </div>
-          <p className="mt-3 text-sm text-muted-foreground">
-            URL de conexión: <code className="text-foreground">{url}</code>
-          </p>
-          {useTls && !printServicePageRequiresTls() ? (
-            <p className="mt-2 text-sm text-muted-foreground">
-              Con WSS activo, abrí una vez{" "}
-              <code className="text-foreground">
-                https://{(host || "127.0.0.1").trim()}:{wssPort || "14568"}/
-              </code>{" "}
-              en este navegador y aceptá el certificado antes de imprimir.
-            </p>
-          ) : null}
+          <div className="mt-3">
+            <PrintServiceAgentConnectionHints
+              host={host}
+              port={port}
+              wssPort={wssPort}
+              useTls={useTls}
+              data-test-id="pos-print-prefs-connection-hints"
+            />
+          </div>
         </section>
 
         <section className="rounded-xl border border-border bg-background p-4 shadow-sm">

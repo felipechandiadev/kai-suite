@@ -43,6 +43,7 @@ function savePosContext(input: {
   priceLists?: PosPriceListSnapshot[];
   posKind?: "PRESALE" | "SALE";
   acceptsPresaleTickets?: boolean;
+  deferredPaymentEnabled?: boolean;
 }) {
   savePosContextClient({
     pointOfSaleId: input.pointOfSaleId,
@@ -56,6 +57,9 @@ function savePosContext(input: {
     ...(input.posKind ? { posKind: input.posKind } : {}),
     ...(input.acceptsPresaleTickets != null
       ? { acceptsPresaleTickets: input.acceptsPresaleTickets }
+      : {}),
+    ...(input.deferredPaymentEnabled != null
+      ? { deferredPaymentEnabled: input.deferredPaymentEnabled }
       : {}),
   });
 }
@@ -97,6 +101,7 @@ function buildPosContextFromPos(pos: PointOfSaleListItem) {
     priceLists: availablePriceLists.map((p) => ({ id: p.id, name: p.name })),
     posKind: pos.kind ?? "SALE",
     acceptsPresaleTickets: pos.acceptsPresaleTickets === true,
+    deferredPaymentEnabled: pos.deferredPaymentEnabled === true,
   };
 }
 
@@ -164,6 +169,7 @@ function MyOpenSessionPanel({
         priceLists,
         posKind: fetched.success ? fetched.posKind : "SALE",
         acceptsPresaleTickets: fetched.success ? fetched.acceptsPresaleTickets : false,
+        deferredPaymentEnabled: fetched.success ? fetched.deferredPaymentEnabled : false,
       });
     }
     if (priceListId) {

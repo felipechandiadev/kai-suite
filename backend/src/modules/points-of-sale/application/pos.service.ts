@@ -22,7 +22,9 @@ import {
 } from '@modules/payment-methods-config';
 import {
   readAcceptsPresaleTickets,
+  readAllowsDeferredPayment,
   readPosKind,
+  resolveDeferredPaymentEnabled,
   sanitizePosSettingsPatch,
   type PosKind,
   type PosSettings,
@@ -66,9 +68,19 @@ export class PosService {
 
     const pointsOfSale = await query.getMany();
 
+    const companyId = TenantContext.getCompanyId();
+    let companyDeferredEnabled = false;
+    if (companyId) {
+      const deferred =
+        await this.companiesService.getDeferredPaymentSettings(companyId);
+      companyDeferredEnabled = deferred.enabled;
+    }
+
     return {
       success: true,
-      pointsOfSale: pointsOfSale.map((pos) => this.mapPointOfSale(pos)),
+      pointsOfSale: pointsOfSale.map((pos) =>
+        this.mapPointOfSale(pos, companyDeferredEnabled),
+      ),
     };
   }
 
@@ -80,7 +92,10 @@ export class PosService {
     if (!pos) {
       return null;
     }
-    return this.mapPointOfSale(pos);
+    const deferred = await this.companiesService.getDeferredPaymentSettings(
+      pos.companyId,
+    );
+    return this.mapPointOfSale(pos, deferred.enabled);
   }
 
   async createPointOfSale(data: {
@@ -93,6 +108,7 @@ export class PosService {
     defaultPriceListId?: string | null;
     kind?: PosKind;
     acceptsPresaleTickets?: boolean;
+    allowsDeferredPayment?: boolean;
   }) {
     if (!data.name || !data.name.trim()) {
       return { success: false, error: 'El nombre es requerido' };
@@ -127,6 +143,7 @@ export class PosService {
     const settings = sanitizePosSettingsPatch(null, {
       kind: data.kind,
       acceptsPresaleTickets: data.acceptsPresaleTickets,
+      allowsDeferredPayment: data.allowsDeferredPayment,
     });
 
     const pos = this.posRepository.create({
@@ -158,6 +175,7 @@ export class PosService {
       storageId: string | null;
       kind?: PosKind;
       acceptsPresaleTickets?: boolean;
+      allowsDeferredPayment?: boolean;
     }>,
   ) {
     const pos = await this.posRepository.findOne({
@@ -233,12 +251,17 @@ export class PosService {
       }
     }
 
-    if (data.kind !== undefined || data.acceptsPresaleTickets !== undefined) {
+    if (
+      data.kind !== undefined ||
+      data.acceptsPresaleTickets !== undefined ||
+      data.allowsDeferredPayment !== undefined
+    ) {
       const nextSettings = sanitizePosSettingsPatch(
         (pos.settings ?? {}) as PosSettings,
         {
           kind: data.kind,
           acceptsPresaleTickets: data.acceptsPresaleTickets,
+          allowsDeferredPayment: data.allowsDeferredPayment,
         },
       );
       updateData.settings = nextSettings;
@@ -332,7 +355,8 @@ export class PosService {
     return mergeCompanyAndPos(catalog, list);
   }
 
-  private mapPointOfSale(pos: PointOfSale) {
+  private mapPointOfSale(pos: PointOfSale, companyDeferredEnabled = false) {
+    const settings = pos.settings;
     return {
       id: pos.id,
       companyId: pos.companyId,
@@ -356,8 +380,13 @@ export class PosService {
       deviceId: pos.deviceId,
       isActive: pos.isActive,
       defaultPriceListId: pos.defaultPriceListId ?? null,
-      kind: readPosKind(pos.settings),
-      acceptsPresaleTickets: readAcceptsPresaleTickets(pos.settings),
+      kind: readPosKind(settings),
+      acceptsPresaleTickets: readAcceptsPresaleTickets(settings),
+      allowsDeferredPayment: readAllowsDeferredPayment(settings),
+      deferredPaymentEnabled: resolveDeferredPaymentEnabled(
+        companyDeferredEnabled,
+        settings,
+      ),
       createdAt: pos.createdAt,
       updatedAt: pos.updatedAt,
     };

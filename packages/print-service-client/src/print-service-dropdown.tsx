@@ -3,21 +3,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { PrintServiceNotification, PrintAgentVisualStatus, PrinterHealthPayload } from "./core";
+import { httpsPageFromWebSocketUrl } from "./core";
 import { TopBarNotificationCountBadge, type TopBarNotificationCountBadgeVariant } from "./top-bar-notification-badge";
 
 /** Misma capa que alertas de stock (`StockAlertsDropdown`) para apilar sobre la top bar. */
 const PANEL_Z = 200;
-
-/** Misma máquina/puerto que `wss://`, en HTTPS, para que el navegador permita el cert autofirmado del agente. */
-function httpsPageForLocalTlsCert(wssUrl: string): string | null {
-  try {
-    if (!wssUrl.startsWith("wss://")) return null;
-    const u = new URL(wssUrl);
-    return `https://${u.hostname}${u.port ? `:${u.port}` : ""}/`;
-  } catch {
-    return null;
-  }
-}
 
 export type PrintServiceDropdownProps = {
   connected: boolean;
@@ -307,10 +297,10 @@ export function PrintServiceTopBarDropdown({
               </ul>
             ) : null}
             {lastError ? <p className="mt-1 text-xs text-red-600 dark:text-red-400">{lastError}</p> : null}
-            {lastError?.includes("1006") && attemptedWsUrl && httpsPageForLocalTlsCert(attemptedWsUrl) ? (
+            {lastError?.includes("1006") && attemptedWsUrl && httpsPageFromWebSocketUrl(attemptedWsUrl) ? (
               <div className="mt-2">
                 <a
-                  href={httpsPageForLocalTlsCert(attemptedWsUrl)!}
+                  href={httpsPageFromWebSocketUrl(attemptedWsUrl)!}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex rounded-md border border-primary/40 bg-primary/10 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/15"
