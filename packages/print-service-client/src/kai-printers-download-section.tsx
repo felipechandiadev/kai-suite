@@ -7,6 +7,7 @@ import {
   type KaiPrintersDownloadsManifests,
   type KaiPrintersPlatform,
 } from "./kai-printers-downloads";
+import { PRINT_OUTLINED_ACTION_LINK_CLASS } from "./print-outlined-button-styles";
 
 function DownloadIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
@@ -143,7 +144,7 @@ export function KaiPrintersDownloadSection({
               <a
                 href={offer.href!}
                 download={offer.platform === "android" ? undefined : offer.filename}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+                className={PRINT_OUTLINED_ACTION_LINK_CLASS}
                 data-test-id={`kai-printers-download-${offer.platform}`}
               >
                 <DownloadIcon />

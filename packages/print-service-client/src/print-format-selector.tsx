@@ -2,6 +2,7 @@
 
 import type { PrintFormat } from "./print-format";
 import { PRINT_FORMATS, describePrintFormat } from "./print-format";
+import { printOutlinedToggleButtonClass } from "./print-outlined-button-styles";
 
 type Props = {
   value: PrintFormat;
@@ -54,11 +55,7 @@ export function PrintFormatSelector({
             aria-pressed={active}
             data-test-id={`${dataTestId}-${format}`}
             onClick={() => onChange(format)}
-            className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors sm:px-3 sm:text-sm ${
-              active
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            } ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
+            className={printOutlinedToggleButtonClass(active, disabled)}
           >
             {SHORT_LABELS[format]}
           </button>

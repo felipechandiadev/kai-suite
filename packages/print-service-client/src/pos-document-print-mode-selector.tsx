@@ -1,6 +1,7 @@
 "use client";
 
 import type { PosDocumentPrintMode } from "./print-format";
+import { printOutlinedToggleButtonClass } from "./print-outlined-button-styles";
 
 type Props = {
   value: PosDocumentPrintMode;
@@ -25,12 +26,7 @@ export function PosDocumentPrintModeSelector({
   const showTicket = allowedModes.includes("ticket");
   const showDocument = allowedModes.includes("document");
 
-  const buttonClass = (active: boolean) =>
-    `rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors sm:px-3 sm:text-sm ${
-      active
-        ? "bg-primary text-primary-foreground shadow-sm"
-        : "text-muted-foreground hover:text-foreground"
-    } ${disabled ? "cursor-not-allowed opacity-60" : ""}`;
+  const buttonClass = (active: boolean) => printOutlinedToggleButtonClass(active, disabled);
 
   return (
     <div
