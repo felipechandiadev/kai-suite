@@ -1,0 +1,19 @@
+---
+import { MARQUEE_ITEMS } from '../content/site';
+
+const items = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS];
+---
+
+<section class="marquee-section" aria-label="Capturas del ecosistema">
+  <p class="marquee-label">Ecosistema KaiStore</p>
+  <div class="marquee-track">
+    <div class="marquee-group">
+      {items.map((item) => (
+        <figure class="marquee-card">
+          <img src={item.screenshot} alt={`Captura ${item.label}`} loading="lazy" />
+          <figcaption>{item.label}</figcaption>
+        </figure>
+      ))}
+    </div>
+  </div>
+</section>

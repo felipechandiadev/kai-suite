@@ -66,6 +66,7 @@ import {
   seedEshopHeroSlidesFromDefs,
   seedEshopTestimonialsFromDefs,
   seedMultimediaFileLink,
+  resolveSeedMultimediaStorage,
 } from '../shared/seed-multimedia.util';
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
@@ -921,14 +922,14 @@ async function bootstrap() {
     const dataSource = app.get(DataSource);
     const configService = app.get(AppConfigService);
 
-    if (configService.storage.strategy !== 'local') {
-      console.log(
-        '⚠️  STORAGE_STRATEGY≠local — se omite limpieza de public/ y multimedia seed desde archivos.',
-      );
-    } else {
+    if (configService.storage.strategy === 'local') {
       await cleanBackendPublicFolder(configService.storage.local.path);
       console.log(
         `✅ Carpeta public del backend limpiada (${path.dirname(path.resolve(configService.storage.local.path))})`,
+      );
+    } else {
+      console.log(
+        `✅ Multimedia seed: subiendo archivos a R2 (${configService.storage.r2.bucketName})`,
       );
     }
 
@@ -1065,31 +1066,28 @@ async function bootstrap() {
       { activeCompanyId: company.id, userId: null, rol: null },
       async () => {
 
-    if (configService.storage.strategy === 'local') {
-      const multimediaAssetRepo = dataSource.getRepository(MultimediaAsset);
-      const multimediaLinkRepo = dataSource.getRepository(MultimediaLink);
-      try {
-        const logoAsset = await seedMultimediaFileLink({
-          assetRepo: multimediaAssetRepo,
-          linkRepo: multimediaLinkRepo,
-          sourceRelativePath: SEED_JOYARTE_COMPANY_LOGO_FILE,
-          localStoragePath: configService.storage.local.path,
-          publicBasePath: configService.storage.publicBasePath,
-          storageProvider: configService.storage.strategy,
-          entityType: 'company',
-          entityId: company.id,
-          usageType: 'default',
-          isPrimary: true,
-          assetsRoot: SEED_JOYARTE_ASSETS_ROOT,
-        });
-        console.log(
-          `✅ Logo empresa seed enlazado (companyId=${company.id}, url=${logoAsset.publicUrl})`,
-        );
-      } catch (err) {
-        console.warn(
-          `⚠️  Logo empresa seed omitido: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
+    const seedStorage = resolveSeedMultimediaStorage(app, configService);
+
+    try {
+      const logoAsset = await seedMultimediaFileLink({
+        assetRepo: dataSource.getRepository(MultimediaAsset),
+        linkRepo: dataSource.getRepository(MultimediaLink),
+        storage: seedStorage.storage,
+        storageProvider: seedStorage.storageProvider,
+        sourceRelativePath: SEED_JOYARTE_COMPANY_LOGO_FILE,
+        entityType: 'company',
+        entityId: company.id,
+        usageType: 'default',
+        isPrimary: true,
+        assetsRoot: SEED_JOYARTE_ASSETS_ROOT,
+      });
+      console.log(
+        `✅ Logo empresa seed enlazado (companyId=${company.id}, url=${logoAsset.publicUrl})`,
+      );
+    } catch (err) {
+      console.warn(
+        `⚠️  Logo empresa seed omitido: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
 
     let ivaTax = await taxRepo.findOne({
@@ -1935,10 +1933,7 @@ async function bootstrap() {
       assetRepo: dataSource.getRepository(MultimediaAsset),
       linkRepo: dataSource.getRepository(MultimediaLink),
       companyId: company.id,
-      localStoragePath: configService.storage.local.path,
-      publicBasePath: configService.storage.publicBasePath,
-      storageProvider: configService.storage.strategy as 'local' | 'cloudflare',
-      seedImages: configService.storage.strategy === 'local',
+      ...resolveSeedMultimediaStorage(app, configService),
     };
 
     await seedCatalogMultimediaByProductName({

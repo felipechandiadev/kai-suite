@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'crypto';
+import { createHash } from 'crypto';
 import { access } from 'fs/promises';
 import { promises as fs } from 'fs';
 import * as path from 'path';
@@ -25,6 +25,34 @@ import {
   SEED_DEV_ESHOP_TESTIMONIALS,
   type SeedDevEshopTestimonialDef,
 } from '../demo/eshop-testimonials';
+import type { StorageProviderPort } from '@modules/multimedia/application/ports/storage-provider.port';
+import type { INestApplicationContext } from '@nestjs/common';
+import { AppConfigService } from '../../backend/src/config/config.service';
+import { CloudflareR2Adapter } from '@modules/multimedia/infrastructure/adapters/cloudflare-r2.adapter';
+import { LocalStorageAdapter } from '@modules/multimedia/infrastructure/adapters/local-storage.adapter';
+
+export type SeedMultimediaStorageParams = {
+  storage: StorageProviderPort;
+  storageProvider: 'local' | 'cloudflare';
+  seedImages: boolean;
+};
+
+export function resolveSeedMultimediaStorage(
+  app: INestApplicationContext,
+  configService: AppConfigService,
+): SeedMultimediaStorageParams {
+  const storageProvider = configService.storage.strategy as 'local' | 'cloudflare';
+  const storage =
+    storageProvider === 'cloudflare'
+      ? app.get(CloudflareR2Adapter)
+      : app.get(LocalStorageAdapter);
+
+  return {
+    storage,
+    storageProvider,
+    seedImages: true,
+  };
+}
 
 /** Raíz de archivos estáticos versionados para el seed demo (`seeds/demo/assets`). */
 export const SEED_ASSETS_ROOT = path.join(__dirname, '../demo/assets');
@@ -54,10 +82,9 @@ export async function cleanBackendPublicFolder(localStoragePath: string): Promis
 export async function seedMultimediaFileLink(params: {
   assetRepo: Repository<MultimediaAsset>;
   linkRepo: Repository<MultimediaLink>;
-  sourceRelativePath: string;
-  localStoragePath: string;
-  publicBasePath: string;
+  storage: StorageProviderPort;
   storageProvider: 'local' | 'cloudflare';
+  sourceRelativePath: string;
   entityType: string;
   entityId: string;
   usageType?: string;
@@ -71,21 +98,20 @@ export async function seedMultimediaFileLink(params: {
   const ext = path.extname(sourcePath).toLowerCase();
   const mimeType = MIME_BY_EXT[ext] ?? 'application/octet-stream';
   const originalName = path.basename(sourcePath);
-  const storedName = `${randomUUID()}${ext}`;
-  const targetDir = path.resolve(params.localStoragePath);
 
-  await fs.mkdir(targetDir, { recursive: true });
-  await fs.writeFile(path.join(targetDir, storedName), buffer);
-
-  const publicUrl = `${params.publicBasePath.replace(/\/$/, '')}/${storedName}`;
+  const stored = await params.storage.upload({
+    buffer,
+    originalName,
+    mimeType,
+  });
   const checksum = createHash('sha256').update(buffer).digest('hex');
 
   const asset = await params.assetRepo.save(
     params.assetRepo.create({
       originalName,
-      storedName,
-      storageKey: storedName,
-      publicUrl,
+      storedName: stored.storedName,
+      storageKey: stored.storageKey,
+      publicUrl: stored.publicUrl,
       mimeType,
       kind: mimeType.startsWith('image/') ? 'image' : 'document',
       storageProvider: params.storageProvider,
@@ -127,11 +153,7 @@ export async function seedDevEshopHeroSlides(params: {
   assetRepo: Repository<MultimediaAsset>;
   linkRepo: Repository<MultimediaLink>;
   companyId: string;
-  localStoragePath: string;
-  publicBasePath: string;
-  storageProvider: 'local' | 'cloudflare';
-  seedImages: boolean;
-}): Promise<void> {
+} & SeedMultimediaStorageParams): Promise<void> {
   await params.heroSlideRepo.delete({ companyId: params.companyId });
 
   let linkedImages = 0;
@@ -153,10 +175,9 @@ export async function seedDevEshopHeroSlides(params: {
     await seedMultimediaFileLink({
       assetRepo: params.assetRepo,
       linkRepo: params.linkRepo,
-      sourceRelativePath: def.imageFile,
-      localStoragePath: params.localStoragePath,
-      publicBasePath: params.publicBasePath,
+      storage: params.storage,
       storageProvider: params.storageProvider,
+      sourceRelativePath: def.imageFile,
       entityType: ESHOP_HERO_SLIDE_MULTIMEDIA_ENTITY,
       entityId: slide.id,
       usageType: 'default',
@@ -186,11 +207,7 @@ export async function seedDevEshopTestimonials(params: {
   assetRepo: Repository<MultimediaAsset>;
   linkRepo: Repository<MultimediaLink>;
   companyId: string;
-  localStoragePath: string;
-  publicBasePath: string;
-  storageProvider: 'local' | 'cloudflare';
-  seedImages: boolean;
-}): Promise<void> {
+} & SeedMultimediaStorageParams): Promise<void> {
   await params.testimonialRepo.delete({ companyId: params.companyId });
 
   let linkedImages = 0;
@@ -212,10 +229,9 @@ export async function seedDevEshopTestimonials(params: {
     await seedMultimediaFileLink({
       assetRepo: params.assetRepo,
       linkRepo: params.linkRepo,
-      sourceRelativePath: def.imageFile,
-      localStoragePath: params.localStoragePath,
-      publicBasePath: params.publicBasePath,
+      storage: params.storage,
       storageProvider: params.storageProvider,
+      sourceRelativePath: def.imageFile,
       entityType: ESHOP_TESTIMONIAL_MULTIMEDIA_ENTITY,
       entityId: row.id,
       usageType: 'default',
@@ -236,13 +252,9 @@ export async function seedDevCatalogMultimedia(params: {
   assetRepo: Repository<MultimediaAsset>;
   linkRepo: Repository<MultimediaLink>;
   companyId: string;
-  localStoragePath: string;
-  publicBasePath: string;
-  storageProvider: 'local' | 'cloudflare';
-  seedImages: boolean;
-}): Promise<void> {
+} & SeedMultimediaStorageParams): Promise<void> {
   if (!params.seedImages) {
-    console.log('⏭️ Imágenes catálogo seed omitidas (storage no local)');
+    console.log('⏭️ Imágenes catálogo seed omitidas');
     return;
   }
 
@@ -268,10 +280,9 @@ export async function seedDevCatalogMultimedia(params: {
     await seedMultimediaFileLink({
       assetRepo: params.assetRepo,
       linkRepo: params.linkRepo,
-      sourceRelativePath: def.imageFile,
-      localStoragePath: params.localStoragePath,
-      publicBasePath: params.publicBasePath,
+      storage: params.storage,
       storageProvider: params.storageProvider,
+      sourceRelativePath: def.imageFile,
       entityType: 'product',
       entityId: product.id,
       usageType: 'primary-image',
@@ -320,10 +331,9 @@ export async function seedDevCatalogMultimedia(params: {
     await seedMultimediaFileLink({
       assetRepo: params.assetRepo,
       linkRepo: params.linkRepo,
-      sourceRelativePath: def.imageFile,
-      localStoragePath: params.localStoragePath,
-      publicBasePath: params.publicBasePath,
+      storage: params.storage,
       storageProvider: params.storageProvider,
+      sourceRelativePath: def.imageFile,
       entityType: 'product-variant',
       entityId: variant.id,
       usageType: 'default',
@@ -383,14 +393,10 @@ export async function seedEshopHeroSlidesFromDefs(params: {
   assetRepo: Repository<MultimediaAsset>;
   linkRepo: Repository<MultimediaLink>;
   companyId: string;
-  localStoragePath: string;
-  publicBasePath: string;
-  storageProvider: 'local' | 'cloudflare';
-  seedImages: boolean;
   slides: readonly GenericHeroSlideDef[];
   assetsRoot: string;
   logLabel: string;
-}): Promise<void> {
+} & SeedMultimediaStorageParams): Promise<void> {
   await params.heroSlideRepo.delete({ companyId: params.companyId });
 
   let linkedImages = 0;
@@ -412,10 +418,9 @@ export async function seedEshopHeroSlidesFromDefs(params: {
     await seedMultimediaFileLink({
       assetRepo: params.assetRepo,
       linkRepo: params.linkRepo,
-      sourceRelativePath: def.imageFile,
-      localStoragePath: params.localStoragePath,
-      publicBasePath: params.publicBasePath,
+      storage: params.storage,
       storageProvider: params.storageProvider,
+      sourceRelativePath: def.imageFile,
       entityType: ESHOP_HERO_SLIDE_MULTIMEDIA_ENTITY,
       entityId: slide.id,
       usageType: 'default',
@@ -435,14 +440,10 @@ export async function seedEshopTestimonialsFromDefs(params: {
   assetRepo: Repository<MultimediaAsset>;
   linkRepo: Repository<MultimediaLink>;
   companyId: string;
-  localStoragePath: string;
-  publicBasePath: string;
-  storageProvider: 'local' | 'cloudflare';
-  seedImages: boolean;
   testimonials: readonly GenericTestimonialDef[];
   assetsRoot: string;
   logLabel: string;
-}): Promise<void> {
+} & SeedMultimediaStorageParams): Promise<void> {
   await params.testimonialRepo.delete({ companyId: params.companyId });
 
   let linkedImages = 0;
@@ -464,10 +465,9 @@ export async function seedEshopTestimonialsFromDefs(params: {
     await seedMultimediaFileLink({
       assetRepo: params.assetRepo,
       linkRepo: params.linkRepo,
-      sourceRelativePath: def.imageFile,
-      localStoragePath: params.localStoragePath,
-      publicBasePath: params.publicBasePath,
+      storage: params.storage,
       storageProvider: params.storageProvider,
+      sourceRelativePath: def.imageFile,
       entityType: ESHOP_TESTIMONIAL_MULTIMEDIA_ENTITY,
       entityId: row.id,
       usageType: 'default',
@@ -487,16 +487,12 @@ export async function seedCatalogMultimediaByProductName(params: {
   assetRepo: Repository<MultimediaAsset>;
   linkRepo: Repository<MultimediaLink>;
   companyId: string;
-  localStoragePath: string;
-  publicBasePath: string;
-  storageProvider: 'local' | 'cloudflare';
-  seedImages: boolean;
   images: readonly { productName: string; imageFile: string }[];
   assetsRoot: string;
   logLabel: string;
-}): Promise<void> {
+} & SeedMultimediaStorageParams): Promise<void> {
   if (!params.seedImages) {
-    console.log(`⏭️ Imágenes catálogo ${params.logLabel} omitidas (storage no local)`);
+    console.log(`⏭️ Imágenes catálogo ${params.logLabel} omitidas`);
     return;
   }
 
@@ -522,10 +518,9 @@ export async function seedCatalogMultimediaByProductName(params: {
     await seedMultimediaFileLink({
       assetRepo: params.assetRepo,
       linkRepo: params.linkRepo,
-      sourceRelativePath: def.imageFile,
-      localStoragePath: params.localStoragePath,
-      publicBasePath: params.publicBasePath,
+      storage: params.storage,
       storageProvider: params.storageProvider,
+      sourceRelativePath: def.imageFile,
       entityType: 'product',
       entityId: product.id,
       usageType: 'primary-image',

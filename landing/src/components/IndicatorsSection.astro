@@ -1,0 +1,34 @@
+---
+import { INDICATORS } from '../content/site';
+import Reveal from './Reveal.astro';
+---
+
+<section class="section" id="indicadores">
+  <div class="wrap">
+    <Reveal>
+      <div class="section-header">
+        <span class="eyebrow">Resultados</span>
+        <h2>Lo que tu negocio necesita ver — no solo operar</h2>
+        <p class="lead">
+          Kai cierra el ciclo entre mostrador, bodega y oficina: ventas, stock, caja y cumplimiento en
+          un solo territorio de datos.
+        </p>
+      </div>
+    </Reveal>
+
+    <div class="indicators-grid grid-cards">
+      {INDICATORS.map((indicator) => (
+        <Reveal>
+          <article class="indicator-card surface">
+            <div class="indicator-top">
+              <h3>{indicator.name}</h3>
+              <span class="indicator-short">{indicator.short}</span>
+            </div>
+            {indicator.range && <p class="indicator-range">Escala {indicator.range}</p>}
+            <p>{indicator.description}</p>
+          </article>
+        </Reveal>
+      ))}
+    </div>
+  </div>
+</section>

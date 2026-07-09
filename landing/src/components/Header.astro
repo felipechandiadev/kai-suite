@@ -1,0 +1,42 @@
+---
+import { NAV, SITE } from '../content/site';
+---
+
+<header class="site-header" id="site-header">
+  <div class="wrap">
+    <a class="brand" href="#intro" aria-label="Kai inicio">
+      <img src="/favicon.svg" alt="" width="30" height="30" />
+      <span>{SITE.name}</span>
+    </a>
+
+    <nav class="nav-links" aria-label="Principal">
+      {NAV.map((link) => (
+        <a href={link.href}>{link.label}</a>
+      ))}
+    </nav>
+
+    <div class="header-ctas">
+      <a class="btn btn-ghost" href="#modulos">Módulos</a>
+    </div>
+
+    <button class="menu-toggle" type="button" aria-label="Abrir menú" id="menu-toggle">
+      ☰
+    </button>
+  </div>
+</header>
+
+<script>
+  const header = document.getElementById('site-header');
+  const toggle = document.getElementById('menu-toggle');
+
+  const onScroll = () => {
+    header?.classList.toggle('is-scrolled', window.scrollY > 12);
+  };
+
+  toggle?.addEventListener('click', () => {
+    header?.classList.toggle('is-menu-open');
+  });
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+</script>

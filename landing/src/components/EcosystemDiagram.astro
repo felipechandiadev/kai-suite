@@ -1,0 +1,396 @@
+---
+import { ECOSYSTEM } from '../content/site';
+import Reveal from './Reveal.astro';
+
+const W = 1000;
+const H = 700;
+
+const hubIconSize = 40;
+const hubSatIconSize = 36;
+const coreIconSize = 36;
+
+const hub = {
+  pos: { x: 90, y: 48, w: 168, h: 118 },
+  eshop: { x: 416, y: 28, w: 168, h: 118 },
+  agents: { x: 742, y: 48, w: 168, h: 118 },
+  core: { x: 280, y: 208, w: 440, h: 132 },
+  admin: { x: 72, y: 378, w: 156, h: 104 },
+  stock: { x: 772, y: 378, w: 156, h: 104 },
+};
+
+const coreCx = hub.core.x + hub.core.w / 2;
+
+const flowY = 536;
+const flowStepW = 148;
+const flowGap = 22;
+const flowTotalW = ECOSYSTEM.flowSteps.length * flowStepW + (ECOSYSTEM.flowSteps.length - 1) * flowGap;
+const flowStartX = (W - flowTotalW) / 2;
+const flowIconSize = 46;
+const flowHaloR = 28;
+const flowIconCy = flowY + flowIconSize / 2;
+const flowLabelY = flowY + flowIconSize + 14;
+const flowSubY = flowLabelY + 16;
+
+function flowStepX(index: number) {
+  return flowStartX + index * (flowStepW + flowGap);
+}
+
+function flowStepCx(index: number) {
+  return flowStepX(index) + flowStepW / 2;
+}
+
+function nodeCenter(box: { x: number; y: number; w: number; h: number }) {
+  return { cx: box.x + box.w / 2, cy: box.y + box.h / 2 };
+}
+
+const posC = nodeCenter(hub.pos);
+const eshopC = nodeCenter(hub.eshop);
+const agentsC = nodeCenter(hub.agents);
+const adminC = nodeCenter(hub.admin);
+const stockC = nodeCenter(hub.stock);
+
+const iconUse = (icon: string, cx: number, y: number, size: number) => ({
+  href: `#eco-icon-${icon}`,
+  x: cx - size / 2,
+  y,
+  w: size,
+  h: size,
+});
+---
+
+<section class="section" id="ecosistema">
+  <div class="wrap">
+    <Reveal>
+      <div class="section-header center">
+        <span class="eyebrow">{ECOSYSTEM.eyebrow}</span>
+        <h2>{ECOSYSTEM.title}</h2>
+        <p class="lead">{ECOSYSTEM.intro}</p>
+      </div>
+    </Reveal>
+
+    <Reveal>
+      <div class="ecosystem-wrap">
+        <svg
+          class="ecosystem-svg"
+          viewBox={`0 0 ${W} ${H}`}
+          role="img"
+          aria-labelledby="eco-diagram-title eco-diagram-desc"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <title id="eco-diagram-title">Ecosistema Kai — hub y flujo retail</title>
+          <desc id="eco-diagram-desc">
+            POS, eShop y agentes locales conectan a Kai Core; Admin y Stock orbitan el núcleo. Flujo:
+            Vender, Cobrar, Imprimir, Stock y Reportar en ciclo continuo.
+          </desc>
+
+          <defs>
+            <linearGradient id="eco-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#04c9e6" />
+              <stop offset="100%" stop-color="#0a7cad" />
+            </linearGradient>
+
+            <symbol id="eco-icon-tablet" viewBox="0 0 24 24">
+              <rect x="5" y="2" width="14" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="1.5" />
+              <rect x="7" y="5" width="10" height="13" rx="1" fill="currentColor" opacity="0.25" />
+              <circle cx="12" cy="20" r="0.8" fill="currentColor" />
+            </symbol>
+            <symbol id="eco-icon-laptop" viewBox="0 0 24 24">
+              <rect x="4" y="4" width="16" height="11" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+              <path d="M2 17h20l-2 3H4l-2-3z" fill="currentColor" opacity="0.2" stroke="currentColor" stroke-width="1.2" />
+            </symbol>
+            <symbol id="eco-icon-printer" viewBox="0 0 24 24">
+              <rect x="6" y="9" width="12" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5" />
+              <rect x="8" y="3" width="8" height="4" rx="0.5" fill="currentColor" opacity="0.3" />
+              <rect x="8" y="15" width="8" height="5" rx="0.5" fill="currentColor" opacity="0.2" />
+            </symbol>
+            <symbol id="eco-icon-monitor" viewBox="0 0 24 24">
+              <rect x="3" y="4" width="18" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+              <path d="M8 20h8M12 16v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </symbol>
+            <symbol id="eco-icon-phone" viewBox="0 0 24 24">
+              <rect x="7" y="2" width="10" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="1.5" />
+              <rect x="8.5" y="5" width="7" height="12" rx="0.5" fill="currentColor" opacity="0.25" />
+            </symbol>
+            <symbol id="eco-icon-cloud" viewBox="0 0 24 24">
+              <path
+                d="M7 18h11a4 4 0 0 0 .5-8 5.5 5.5 0 0 0-10.6-1.8A3.5 3.5 0 0 0 7 18z"
+                fill="currentColor"
+                opacity="0.2"
+                stroke="currentColor"
+                stroke-width="1.4"
+              />
+            </symbol>
+            <symbol id="eco-icon-cart" viewBox="0 0 24 24">
+              <circle cx="9" cy="20" r="1.5" fill="currentColor" />
+              <circle cx="18" cy="20" r="1.5" fill="currentColor" />
+              <path d="M2 3h2l2.5 12h11l2-8H6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+            </symbol>
+            <symbol id="eco-icon-cash" viewBox="0 0 24 24">
+              <rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5" />
+              <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.4" />
+            </symbol>
+            <symbol id="eco-icon-print" viewBox="0 0 24 24">
+              <rect x="6" y="9" width="12" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.5" />
+              <rect x="8" y="3" width="8" height="4" rx="0.5" fill="currentColor" opacity="0.3" />
+              <rect x="8" y="15" width="8" height="5" rx="0.5" fill="currentColor" opacity="0.2" />
+            </symbol>
+            <symbol id="eco-icon-boxes" viewBox="0 0 24 24">
+              <path d="M4 8l8-4 8 4v8l-8 4-8-4V8z" fill="none" stroke="currentColor" stroke-width="1.5" />
+              <path d="M12 4v16M4 8l8 4 8-4" stroke="currentColor" stroke-width="1.2" opacity="0.6" />
+            </symbol>
+            <symbol id="eco-icon-chart" viewBox="0 0 24 24">
+              <path d="M4 19V5M4 19h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              <rect x="7" y="11" width="3" height="6" fill="currentColor" opacity="0.7" />
+              <rect x="12" y="8" width="3" height="9" fill="currentColor" opacity="0.85" />
+              <rect x="17" y="13" width="3" height="4" fill="currentColor" opacity="0.6" />
+            </symbol>
+          </defs>
+
+          <!-- ═══ HUB LAYER ═══ -->
+          <g class="eco-hub" aria-label="Hub del ecosistema">
+            <text x={W / 2} y="24" text-anchor="middle" fill="#9ca3af" font-size="11" letter-spacing="0.12em">
+              CANALES Y NÚCLEO
+            </text>
+
+            <!-- POS -->
+            <g class="eco-node">
+              <rect
+                x={hub.pos.x}
+                y={hub.pos.y}
+                width={hub.pos.w}
+                height={hub.pos.h}
+                rx="14"
+                fill="rgba(4,201,230,0.12)"
+                stroke="#04c9e6"
+                stroke-width="1.5"
+              />
+              <use
+                href="#eco-icon-tablet"
+                x={posC.cx - hubIconSize / 2}
+                y={hub.pos.y + 14}
+                width={hubIconSize}
+                height={hubIconSize}
+                color="#04c9e6"
+              />
+              <text x={posC.cx} y={hub.pos.y + 68} text-anchor="middle" fill="#f5f5f7" font-size="14" font-weight="700">
+                {ECOSYSTEM.channels[0].label}
+              </text>
+              <text x={posC.cx} y={hub.pos.y + 84} text-anchor="middle" fill="#9ca3af" font-size="10">
+                {ECOSYSTEM.channels[0].sub}
+              </text>
+              <text x={posC.cx} y={hub.pos.y + hub.pos.h - 10} text-anchor="middle" fill="#65F3FF" font-size="9" font-weight="600">
+                offline-first
+              </text>
+            </g>
+
+            <!-- eShop -->
+            <g class="eco-node">
+              <rect
+                x={hub.eshop.x}
+                y={hub.eshop.y}
+                width={hub.eshop.w}
+                height={hub.eshop.h}
+                rx="14"
+                fill="rgba(24,179,214,0.12)"
+                stroke="#18B3D6"
+                stroke-width="1.5"
+              />
+              <use
+                href="#eco-icon-laptop"
+                x={eshopC.cx - hubIconSize / 2}
+                y={hub.eshop.y + 14}
+                width={hubIconSize}
+                height={hubIconSize}
+                color="#18B3D6"
+              />
+              <text x={eshopC.cx} y={hub.eshop.y + 68} text-anchor="middle" fill="#f5f5f7" font-size="14" font-weight="700">
+                {ECOSYSTEM.channels[1].label}
+              </text>
+              <text x={eshopC.cx} y={hub.eshop.y + 84} text-anchor="middle" fill="#9ca3af" font-size="10">
+                {ECOSYSTEM.channels[1].sub}
+              </text>
+            </g>
+
+            <!-- Agents -->
+            <g class="eco-node">
+              <rect
+                x={hub.agents.x}
+                y={hub.agents.y}
+                width={hub.agents.w}
+                height={hub.agents.h}
+                rx="14"
+                fill="rgba(10,124,173,0.14)"
+                stroke="#0a7cad"
+                stroke-width="1.5"
+                stroke-dasharray="5 4"
+              />
+              <use
+                href="#eco-icon-printer"
+                x={agentsC.cx - hubIconSize + 4}
+                y={hub.agents.y + 14}
+                width={hubIconSize - 8}
+                height={hubIconSize - 8}
+                color="#04c9e6"
+              />
+              <use
+                href="#eco-icon-monitor"
+                x={agentsC.cx + 4}
+                y={hub.agents.y + 14}
+                width={hubIconSize - 8}
+                height={hubIconSize - 8}
+                color="#0a7cad"
+              />
+              <text x={agentsC.cx} y={hub.agents.y + 62} text-anchor="middle" fill="#f5f5f7" font-size="12" font-weight="700">
+                {ECOSYSTEM.agents.label}
+              </text>
+              <text x={agentsC.cx} y={hub.agents.y + 78} text-anchor="middle" fill="#9ca3af" font-size="9.5">
+                {ECOSYSTEM.agents.items.join(' · ')}
+              </text>
+              <text x={agentsC.cx} y={hub.agents.y + hub.agents.h - 10} text-anchor="middle" fill="#6b7280" font-size="8.5">
+                impresión local desde POS
+              </text>
+            </g>
+
+            <!-- Kai Core -->
+            <g class="eco-core">
+              <rect
+                x={hub.core.x}
+                y={hub.core.y}
+                width={hub.core.w}
+                height={hub.core.h}
+                rx="20"
+                fill="#0f2340"
+                stroke="url(#eco-grad)"
+                stroke-width="2.5"
+              />
+              <rect
+                x={hub.core.x + 3}
+                y={hub.core.y + 3}
+                width={hub.core.w - 6}
+                height={hub.core.h - 6}
+                rx="18"
+                fill="rgba(4,201,230,0.08)"
+                stroke="none"
+              />
+              <use
+                href="#eco-icon-cloud"
+                x={coreCx - coreIconSize / 2}
+                y={hub.core.y + 14}
+                width={coreIconSize}
+                height={coreIconSize}
+                color="#04c9e6"
+              />
+              <text x={coreCx} y={hub.core.y + 62} text-anchor="middle" fill="#fff" font-size="18" font-weight="700">
+                {ECOSYSTEM.core.label}
+              </text>
+              <text x={coreCx} y={hub.core.y + 80} text-anchor="middle" fill="#9ca3af" font-size="11">
+                {ECOSYSTEM.core.sub}
+              </text>
+              {
+                ECOSYSTEM.core.pills.map((pill, i) => {
+                  const pillW = 118;
+                  const gap = 10;
+                  const total = ECOSYSTEM.core.pills.length * pillW + (ECOSYSTEM.core.pills.length - 1) * gap;
+                  const px = hub.core.x + (hub.core.w - total) / 2 + i * (pillW + gap);
+                  const py = hub.core.y + 94;
+                  return (
+                    <>
+                      <rect x={px} y={py} width={pillW} height="26" rx="13" fill="rgba(4,201,230,0.15)" stroke="rgba(4,201,230,0.35)" />
+                      <text x={px + pillW / 2} y={py + 17} text-anchor="middle" fill="#e5e7eb" font-size="9.5" font-weight="600">
+                        {pill}
+                      </text>
+                    </>
+                  );
+                })
+              }
+            </g>
+
+            <!-- Admin -->
+            <g class="eco-node">
+              <rect
+                x={hub.admin.x}
+                y={hub.admin.y}
+                width={hub.admin.w}
+                height={hub.admin.h}
+                rx="12"
+                fill="rgba(10,124,173,0.14)"
+                stroke="#0a7cad"
+                stroke-width="1.5"
+              />
+              <use
+                href="#eco-icon-monitor"
+                x={adminC.cx - hubSatIconSize / 2}
+                y={hub.admin.y + 12}
+                width={hubSatIconSize}
+                height={hubSatIconSize}
+                color="#0a7cad"
+              />
+              <text x={adminC.cx} y={hub.admin.y + 58} text-anchor="middle" fill="#f5f5f7" font-size="13" font-weight="700">
+                {ECOSYSTEM.satellites[0].label}
+              </text>
+              <text x={adminC.cx} y={hub.admin.y + 74} text-anchor="middle" fill="#9ca3af" font-size="9.5">
+                {ECOSYSTEM.satellites[0].sub}
+              </text>
+            </g>
+
+            <!-- Stock -->
+            <g class="eco-node">
+              <rect
+                x={hub.stock.x}
+                y={hub.stock.y}
+                width={hub.stock.w}
+                height={hub.stock.h}
+                rx="12"
+                fill="rgba(101,243,255,0.1)"
+                stroke="#65F3FF"
+                stroke-width="1.5"
+              />
+              <use
+                href="#eco-icon-phone"
+                x={stockC.cx - hubSatIconSize / 2}
+                y={hub.stock.y + 12}
+                width={hubSatIconSize}
+                height={hubSatIconSize}
+                color="#65F3FF"
+              />
+              <text x={stockC.cx} y={hub.stock.y + 58} text-anchor="middle" fill="#f5f5f7" font-size="13" font-weight="700">
+                {ECOSYSTEM.satellites[1].label}
+              </text>
+              <text x={stockC.cx} y={hub.stock.y + 74} text-anchor="middle" fill="#9ca3af" font-size="9.5">
+                {ECOSYSTEM.satellites[1].sub}
+              </text>
+            </g>
+          </g>
+
+          <line x1="48" y1="500" x2={W - 48} y2="500" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
+
+          <!-- ═══ FLOW LAYER ═══ -->
+          <g class="eco-flow" aria-label="Flujo continuo de retail">
+            <text x={W / 2} y="520" text-anchor="middle" fill="#9ca3af" font-size="11" letter-spacing="0.12em">
+              FLUJO CONTINUO
+            </text>
+
+            {
+              ECOSYSTEM.flowSteps.map((step, i) => {
+                const cx = flowStepCx(i);
+                const icon = iconUse(step.icon, cx, flowY, flowIconSize);
+                return (
+                  <g class="eco-flow-step">
+                    <circle cx={cx} cy={flowIconCy} r={flowHaloR} fill="rgba(4,201,230,0.1)" />
+                    <use href={icon.href} x={icon.x} y={icon.y} width={icon.w} height={icon.h} color="#04c9e6" />
+                    <text x={cx} y={flowLabelY} text-anchor="middle" fill="#f5f5f7" font-size="13" font-weight="700">
+                      {step.label}
+                    </text>
+                    <text x={cx} y={flowSubY} text-anchor="middle" fill="#9ca3af" font-size="9.5">
+                      {step.sub}
+                    </text>
+                  </g>
+                );
+              })
+            }
+          </g>
+        </svg>
+      </div>
+    </Reveal>
+  </div>
+</section>

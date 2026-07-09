@@ -33,6 +33,8 @@ import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity'
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
 import { OperationalExpensesModule } from '@modules/operational-expenses/operational-expenses.module';
 import { FiscalModule } from '@modules/fiscal/fiscal.module';
+import { CloudflareR2Adapter } from '@modules/multimedia/infrastructure/adapters/cloudflare-r2.adapter';
+import { LocalStorageAdapter } from '@modules/multimedia/infrastructure/adapters/local-storage.adapter';
 
 /**
  * Misma conexión y entidades que el API: el esquema lo define TypeORM vía
@@ -79,5 +81,6 @@ import { FiscalModule } from '@modules/fiscal/fiscal.module';
     OperationalExpensesModule,
     FiscalModule,
   ],
+  providers: [LocalStorageAdapter, CloudflareR2Adapter],
 })
 export class MinimalSeedModule {}

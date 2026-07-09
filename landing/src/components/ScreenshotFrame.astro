@@ -1,0 +1,14 @@
+---
+type Props = {
+  src: string;
+  alt: string;
+  app: string;
+  accent?: string;
+};
+
+const { src, alt, app, accent = '#04c9e6' } = Astro.props;
+---
+
+<div class="screenshot-frame" data-app={app} style={`--accent: ${accent}`}>
+  <img src={src} alt={alt} loading="lazy" />
+</div>

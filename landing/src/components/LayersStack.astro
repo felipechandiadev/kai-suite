@@ -1,0 +1,37 @@
+---
+import { LAYERS } from '../content/site';
+import Reveal from './Reveal.astro';
+---
+
+<section class="section" id="capas">
+  <div class="wrap">
+    <Reveal>
+      <div class="section-header">
+        <span class="eyebrow">Arquitectura</span>
+        <h2>Capas que se conectan, no silos que compiten</h2>
+        <p class="lead">
+          Kai no es solo un POS: es un ecosistema retail donde mostrador, gestión, inventario y canal
+          digital comparten el mismo dato.
+        </p>
+      </div>
+    </Reveal>
+
+    <div class="layers-grid">
+      {LAYERS.map((layer) => (
+        <Reveal>
+          <article class="layer-card surface" id={layer.id}>
+            <div>
+              <h3>{layer.title}</h3>
+              <p>{layer.summary}</p>
+            </div>
+            <div class="layer-apps">
+              {layer.apps.map((app) => (
+                <span class="layer-pill">{app}</span>
+              ))}
+            </div>
+          </article>
+        </Reveal>
+      ))}
+    </div>
+  </div>
+</section>

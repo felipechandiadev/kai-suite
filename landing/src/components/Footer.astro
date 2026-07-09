@@ -1,0 +1,30 @@
+---
+import { CTA, NAV, SITE } from '../content/site';
+---
+
+<footer class="site-footer" id="contacto">
+  <div class="wrap footer-grid">
+    <div class="footer-brand">
+      <img src="/favicon.svg" alt="" width="36" height="36" />
+      <strong>{SITE.name}</strong>
+      <p>{SITE.tagline}</p>
+    </div>
+
+    <div class="footer-links">
+      <strong>Navegación</strong>
+      {NAV.map((link) => (
+        <a href={link.href}>{link.label}</a>
+      ))}
+    </div>
+
+    <div class="footer-links">
+      <strong>Contacto</strong>
+      <a href={CTA.primary.href}>{CTA.primary.label}</a>
+      <a href="#intro">KaiStore</a>
+    </div>
+  </div>
+
+  <div class="wrap footer-bottom">
+    © {new Date().getFullYear()} {SITE.name} — Plataforma comercial para retail chileno.
+  </div>
+</footer>

@@ -1,0 +1,40 @@
+---
+import { MULTI_EMPRESA } from '../content/site';
+import Reveal from './Reveal.astro';
+---
+
+<section class="section" id="multi-empresa">
+  <div class="wrap">
+    <Reveal>
+      <div class="section-header center">
+        <span class="eyebrow">{MULTI_EMPRESA.eyebrow}</span>
+        <h2>{MULTI_EMPRESA.title}</h2>
+        <p class="lead">{MULTI_EMPRESA.intro}</p>
+      </div>
+    </Reveal>
+
+    <div class="compliance-grid multi-empresa-grid grid-cards">
+      {MULTI_EMPRESA.models.map((model) => (
+        <Reveal>
+          <article class="compliance-card surface multi-empresa-card">
+            <span class="compliance-law">{model.audience}</span>
+            <h3>{model.title}</h3>
+            <p>{model.summary}</p>
+            <ul class="pillar-bullets multi-empresa-bullets">
+              {model.bullets.map((item) => (
+                <li>{item}</li>
+              ))}
+            </ul>
+          </article>
+        </Reveal>
+      ))}
+    </div>
+
+    <Reveal>
+      <div class="compliance-focus surface">
+        <span class="eyebrow">Cómo se usa en la práctica</span>
+        <p class="lead">{MULTI_EMPRESA.note}</p>
+      </div>
+    </Reveal>
+  </div>
+</section>

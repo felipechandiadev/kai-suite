@@ -1,0 +1,31 @@
+---
+export type PlatformId = 'android' | 'windows' | 'macos' | 'ios';
+
+type Props = {
+  platform: PlatformId;
+  size?: number;
+};
+
+const { platform, size = 22 } = Astro.props;
+
+/** Assets originales del usuario embebidos en /public/icons/*.svg */
+const ICONS: Record<PlatformId, { src: string }> = {
+  windows: { src: '/icons/windows.svg' },
+  android: { src: '/icons/android.svg' },
+  ios: { src: '/icons/apple.svg' },
+  macos: { src: '/icons/apple.svg' },
+};
+
+const icon = ICONS[platform];
+---
+
+<img
+  class="platform-icon-img"
+  src={icon.src}
+  width={size}
+  height={size}
+  alt=""
+  aria-hidden="true"
+  loading="lazy"
+  decoding="async"
+/>

@@ -21,6 +21,8 @@
     "kai-printers-desktop:publish": "node packages/kai-printers-release/scripts/publish-to-pos-downloads.mjs",
     "kai-screen:publish": "bash kai-screen-android/scripts/publish-to-pos-downloads.sh",
     "brand:icons": "cd packages/kai-brand && npm install && npm run generate",
+    "landing:dev": "npm run dev --prefix landing",
+    "landing:build": "npm run build --prefix landing",
     "seed:demo": "npm run seed:demo --prefix seeds",
     "seed:joyarte": "npm run seed:joyarte --prefix seeds",
     "seed:san-sebastian": "npm run seed:san-sebastian --prefix seeds",

@@ -1,0 +1,14 @@
+---
+import ScreenshotFrame from './ScreenshotFrame.astro';
+
+type Props = {
+  app: string;
+  src: string;
+  alt: string;
+  accent?: string;
+};
+
+const { app, src, alt, accent } = Astro.props;
+---
+
+<ScreenshotFrame src={src} alt={alt} app={app} accent={accent} />
