@@ -1,13 +1,9 @@
 "use client";
 
-import { TextField } from "@/shared/components/TextField/TextField";
-import Select from "@/shared/components/Select/Select";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { IconButton, SelectDefault as Select, TextField, type Option } from "@kai/ui";
 import type { CompanyBankAccountItem } from "@/features/settings-branches/infrastructure/company.request";
 import type { PayeeBankAccount } from "@/shared/lib/planned-payment-plan";
 import { bankAccountOptionKey } from "@/features/purchasing-dte/lib/planned-payment-helpers";
-
-import type { Option } from "@/shared/components/Select";
 
 export type InvoicePlannedPaymentMethodUI = "CASH" | "TRANSFER" | "CHECK";
 

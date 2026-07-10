@@ -1,6 +1,9 @@
 # Guía de Integración de Componentes Compartidos
 
-Instrucciones paso a paso para integrar los componentes compartidos en features según la arquitectura Server Actions Only del proyecto.
+Instrucciones paso a paso para integrar componentes en features según la arquitectura Server Actions Only del proyecto.
+
+**Primitivos UI** (`Button`, `Dialog`, `DataGrid`, `TextField`, etc.): importar desde `@kai/ui`.  
+**Dominio admin** (`TopBar`, `Multimedia`, `BaseForm`, …): importar desde `@/shared/components/...`.
 
 ---
 

@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import PosPaymentWorkspace from "./ui/PosPaymentWorkspace";
 import { POS_CUSTOMER_SEARCH_DEFAULT_PAGE_SIZE } from "@/features/customers/lib/posCustomerSearchStorage";
 import type { PosCustomerSearchInitial } from "@/features/customers/ui/PosCustomerSearchPanel";
+import { DotProgress } from "@kai/ui";
 
 const emptyCustomerSearch: PosCustomerSearchInitial = {
   query: "",
@@ -18,7 +20,9 @@ const emptyCustomerSearch: PosCustomerSearchInitial = {
 export default function Page() {
   return (
     <div className="h-full min-h-0">
-      <PosPaymentWorkspace initialCustomerSearch={emptyCustomerSearch} />
+      <Suspense fallback={<div className="flex justify-center py-12"><DotProgress /></div>}>
+        <PosPaymentWorkspace initialCustomerSearch={emptyCustomerSearch} />
+      </Suspense>
     </div>
   );
 }

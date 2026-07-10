@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listTaxesForPage } from "@/features/accounting-taxes/actions/tax.action";
 import { TaxesCollection } from "./components/TaxesCollection";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import { Button } from "@/shared/components/Button";
+import { Dialog } from "@kai/ui";
+import { Button } from "@kai/ui";
 import { getFiscalPackLedgerSummaryAction, getFiscalSubPackLedgerSummaryAction } from "../actions/fiscal.actions";
 import type { FiscalEmissionRow, FiscalPackLedgerSummary } from "../types/fiscal.types";
 import { FiscalEmissionsGridCore } from "./FiscalEmissionsGridCore";

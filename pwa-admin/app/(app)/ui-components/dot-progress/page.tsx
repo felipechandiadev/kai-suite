@@ -1,6 +1,6 @@
 'use client';
 
-import DotProgress from '@/shared/components/DotProgress/DotProgress';
+import { DotProgress } from '@kai/ui';
 
 export default function DotProgressPage() {
   return (

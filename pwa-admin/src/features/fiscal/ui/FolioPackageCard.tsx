@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Badge from "@/shared/components/Badge/Badge";
-import { Button } from "@/shared/components/Button";
-import { DeleteDialog } from "@/shared/components/Dialog/DeleteDialog";
+import Badge from "@kai/ui";
+import { Button } from "@kai/ui";
+import { DeleteDialog } from "@kai/ui";
 import type { FiscalCafPackage, FiscalCafPackageDetail } from "../types/fiscal.types";
 import { dteTypeLabel } from "@/features/sales-points-of-sale/types/pos-fiscal.types";
 import type { PointOfSaleListItem } from "@/features/sales-points-of-sale/types/point-of-sale.types";

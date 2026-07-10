@@ -5,10 +5,10 @@ import type { BranchListItem } from "@/features/settings-branches/types/branch.t
 import type { PointOfSaleListItem } from "@/features/sales-points-of-sale/types/point-of-sale.types";
 import type { CashHubRow } from "@/features/treasury-cash-hubs/types/cash-hub.types";
 import { createCashHubAction } from "@/features/treasury-cash-hubs/actions/cash-hub.action";
-import { Card } from "@/shared/components/Cards";
-import Alert from "@/shared/components/Alert/Alert";
-import { Button } from "@/shared/components/Button";
-import { TextField } from "@/shared/components/TextField/TextField";
+import { Card } from "@kai/ui";
+import { Alert } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { TextField } from "@kai/ui";
 
 type Props = {
   companyId: string;

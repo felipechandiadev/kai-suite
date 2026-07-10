@@ -3,7 +3,7 @@
 import { signIn, useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, TextField } from '@/shared/components';
+import { Button, TextField } from '@kai/ui';
 
 const POST_LOGIN_PATH = '/dashboard';
 

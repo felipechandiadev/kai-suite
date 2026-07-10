@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listAttributesForPage } from "@/features/inventory-attributes/actions/attribute.action";
 import { AttributesCollection } from "./components/AttributesCollection";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { PosFavoriteProductsSection } from "@/features/pos-settings/ui/PosFavoriteProductsSection";
 import { OfflineConflictPanel } from "@/features/pos-offline/ui/OfflineConflictPanel";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { IconButton } from "@kai/ui";
 
 type SettingsSectionProps = {
   title: string;

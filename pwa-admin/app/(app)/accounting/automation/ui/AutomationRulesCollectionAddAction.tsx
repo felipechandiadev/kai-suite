@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/shared/components/Button";
+import { Button } from "@kai/ui";
 import { CreateAutomationRuleDialog } from "./CreateAutomationRuleDialog";
 
 export function AutomationRulesCollectionAddAction() {

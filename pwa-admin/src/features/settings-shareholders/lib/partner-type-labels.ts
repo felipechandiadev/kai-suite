@@ -1,4 +1,4 @@
-import type { Option } from "@/shared/components/Select";
+import type { Option } from "@kai/ui";
 
 /** Códigos de `partnerType` en backend → etiqueta en español para UI. */
 export const PARTNER_TYPE_LABELS: Record<string, string> = {

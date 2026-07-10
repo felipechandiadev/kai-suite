@@ -1,4 +1,4 @@
-import { BasicPageLayout } from "@/shared/components/layouts/BasicPageLayout";
+import { BasicPageLayout } from "@kai/ui";
 import { FulfillmentPageContent } from "./FulfillmentPageContent";
 import {
   getFulfillmentSettingsAction,

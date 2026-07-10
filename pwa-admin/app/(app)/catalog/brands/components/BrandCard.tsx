@@ -3,8 +3,8 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Tag } from "lucide-react";
-import { Card } from "@/shared/components/Cards";
-import { DeleteDialog } from "@/shared/components/Dialog/DeleteDialog";
+import { Card } from "@kai/ui";
+import { DeleteDialog } from "@kai/ui";
 import type { BrandListItem } from "@/features/catalog-brands/types/brand.types";
 import { deleteBrandAction } from "@/features/catalog-brands/actions/brand.action";
 import { UpdateBrandDialog } from "./UpdateBrandDialog";

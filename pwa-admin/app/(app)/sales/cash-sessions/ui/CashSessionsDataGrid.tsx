@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import DataGrid from "@/shared/components/DataGrid/DataGrid";
-import type { DataGridColumn } from "@/shared/components/DataGrid/DataGrid";
-import Badge, { type BadgeVariant } from "@/shared/components/Badge/Badge";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { DataGridTable as DataGrid } from "@kai/ui";
+import type { DataGridColumn } from "@kai/ui";
+import Badge, { type BadgeVariant } from "@kai/ui";
+import { IconButton } from "@kai/ui";
 import {
   CASH_SESSION_STATUS_LABEL,
   type CashSessionListRow,

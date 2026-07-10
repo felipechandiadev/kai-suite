@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import { signOut } from "next-auth/react";
-import { Alert, Button } from "@/shared";
+import { Alert, Button } from "@kai/ui";
 
 type StockErrorProps = {
   error: Error & { digest?: string };

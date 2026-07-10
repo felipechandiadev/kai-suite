@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { GripVertical } from "lucide-react";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import { DeleteDialog } from "@/shared/components/Dialog/DeleteDialog";
+import { IconButton } from "@kai/ui";
+import { DeleteDialog } from "@kai/ui";
 import type { EShopHeroSlideRow } from "@/features/e-shop-hero-slides/types/hero-slide.types";
 import { deleteHeroSlideAction } from "@/features/e-shop-hero-slides/actions/hero-slide.action";
 import { getHeroSlideTextPresentation } from "@/features/e-shop-hero-slides/utils/hero-slide-text-presentation";

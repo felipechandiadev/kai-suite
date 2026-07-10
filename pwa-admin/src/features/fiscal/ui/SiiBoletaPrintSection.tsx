@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button } from "@/shared/components/Button";
+import { Button } from "@kai/ui";
 import type { PrintFormat } from "@kai/print-service-client";
 import { getBoletaPrintPreviewAction } from "../actions/fiscal.actions";
 import { printFiscalBoletaPreview } from "../print/fiscal-boleta-preview-print";

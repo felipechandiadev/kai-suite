@@ -1,6 +1,6 @@
 "use client";
 
-import NumberStepper from "@/shared/components/NumberStepper/NumberStepper";
+import { NumberStepper } from "@kai/ui";
 import {
   HERO_SLIDER_AUTOPLAY_MIN_SECONDS,
 } from "@/features/e-shop-hero-slides/constants/hero-slider.constants";

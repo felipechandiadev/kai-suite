@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Button } from "@/shared/components";
+import { Alert, Button } from "@kai/ui";
 import { saveEShopThemeAction } from "../actions/eshop-theme.action";
 import type {
   CompanyEShopThemeSettings,

@@ -1,11 +1,11 @@
 "use client";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import Alert from "@/shared/components/Alert/Alert";
-import { Button } from "@/shared/components/Button";
-import Switch from "@/shared/components/Switch/Switch";
+import { Dialog } from "@kai/ui";
+import { Alert } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { Switch } from "@kai/ui";
 import type { StockGridRow } from "@/features/inventory-stock/types/stock-grid.types";
 import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
 import { getProductVariantDetailForPage } from "@/features/inventory-products/actions/product.action";

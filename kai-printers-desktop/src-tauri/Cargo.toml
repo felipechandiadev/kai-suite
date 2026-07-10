@@ -1,6 +1,6 @@
 [package]
 name = "print-service"
-version = "1.0.4"
+version = "1.0.5"
 description = "KaiPrinters — agente local de impresión (Tauri)"
 authors = ["Felipe Chandía Castillo"]
 edition = "2021"
@@ -53,4 +53,5 @@ windows = { version = "0.58", features = [
   "Win32_Graphics_Printing",
   "Win32_Graphics_Gdi",
   "Win32_Foundation",
+  "Win32_Security",
 ] }

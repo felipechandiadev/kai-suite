@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, TextField } from "@/shared/admin-shared";
+import { Button, TextField } from "@kai/ui";
 import { useEShopCart } from "@/features/e-shop-cart/EShopCartProvider";
 import {
   fetchFulfillmentMethodsAction,

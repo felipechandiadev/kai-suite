@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { BasicPageLayout } from "@/shared/components/layouts";
+import { BasicPageLayout } from "@kai/ui";
 
 export default function PurchaseOrderNewLayout({ children }: { children: ReactNode }) {
   return (

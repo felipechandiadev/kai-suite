@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { CollectionPageLayout, type CollectionPageLayoutProps } from "@/shared/components/layouts";
+import { CollectionPageLayout, type CollectionPageLayoutProps } from "@kai/ui";
 
 type Props = Partial<CollectionPageLayoutProps> & { children?: ReactNode };
 

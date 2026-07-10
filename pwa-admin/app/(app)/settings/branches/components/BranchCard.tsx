@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MapPin, Phone } from "lucide-react";
-import { Card } from "@/shared/components/Cards";
-import { DeleteDialog } from "@/shared/components/Dialog/DeleteDialog";
+import { Card } from "@kai/ui";
+import { DeleteDialog } from "@kai/ui";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
 import { parseBranchLocation } from "@/features/settings-branches/utils/parse-branch-location";
 import { deleteBranchAction } from "@/features/settings-branches/actions/branch.action";

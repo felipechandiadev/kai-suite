@@ -1,6 +1,6 @@
 'use client';
 
-import Tabs from '@/shared/components/Tabs/Tabs';
+import { Tabs } from '@kai/ui';
 
 const NAV_TABS = [
   { label: 'Button', url: '/ui-components/button' },

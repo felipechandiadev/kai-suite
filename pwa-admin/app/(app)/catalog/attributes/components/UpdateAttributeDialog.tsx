@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import Alert from "@/shared/components/Alert/Alert";
-import { Button } from "@/shared/components/Button";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import { TextField } from "@/shared/components/TextField/TextField";
-import Badge from "@/shared/components/Badge/Badge";
-import Switch from "@/shared/components/Switch/Switch";
+import { Dialog } from "@kai/ui";
+import { Alert } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { IconButton } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import Badge from "@kai/ui";
+import { Switch } from "@kai/ui";
 import type { AttributeListItem } from "@/features/inventory-attributes/types/attribute.types";
 import { updateAttributeAction } from "@/features/inventory-attributes/actions/attribute.action";
 

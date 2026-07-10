@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button, TextField } from "@/shared/admin-shared";
+import { Button, TextField } from "@kai/ui";
 import {
   checkUsernameAvailabilityAction,
   registerCustomerAction,

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/shared/admin-shared";
+import { Button } from "@kai/ui";
 import { useEShopCart } from "@/features/e-shop-cart/EShopCartProvider";
 import type {
   EShopCatalogMultimediaItem,

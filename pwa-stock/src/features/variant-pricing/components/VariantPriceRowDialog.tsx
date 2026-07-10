@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Button, Dialog, Select, Switch, TextField } from "@/shared";
-import type { SelectOption } from "@/shared";
+import { Alert, Button, Dialog, Select, Switch, TextField } from "@kai/ui";
+import type { SelectOption } from "@kai/ui";
 import type { PriceListListItem } from "../types/price-list.types";
 import type { TaxListItem } from "../types/tax.types";
 import {

@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, Hash, Briefcase } from "lucide-react";
-import { Card } from "@/shared/components/Cards";
-import { DeleteDialog } from "@/shared/components/Dialog/DeleteDialog";
+import { Card } from "@kai/ui";
+import { DeleteDialog } from "@kai/ui";
 import type { CompanyDetail } from "@/features/companies/types/company.types";
 import { removeCompanyAction } from "@/features/companies/actions/companies.action";
 import { UpdateCompanyDialog } from "./UpdateCompanyDialog";

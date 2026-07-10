@@ -12,12 +12,11 @@ import {
   type PosContextV1,
   type PosPriceListSnapshot,
 } from "@/features/session/lib/pos-context-storage";
-import { Button, IconButton } from "@/shared/admin-shared";
+import { Alert, Button, Dialog, IconButton } from "@kai/ui";
 import { ArrowUpFromLine, Package, RotateCcw, ShoppingCart } from "lucide-react";
 import { createPresaleTicketAction } from "@/features/presale-tickets/actions/presale-tickets.action";
 import { printPresaleTicketAgentOrBrowser } from "@/features/presale-tickets/lib/presale-ticket-agent";
 import type { PresaleTicketDetail } from "@/features/presale-tickets/types/presale-ticket.types";
-import { Alert, Dialog } from "@/shared/admin-shared";
 import PosProductSearchPanel, {
   POS_PRODUCT_SEARCH_PANEL_HEIGHT_VH,
   type PosProductSearchPanelHandle,

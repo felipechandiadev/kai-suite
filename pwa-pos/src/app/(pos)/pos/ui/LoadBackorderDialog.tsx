@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Alert, Button, Dialog, TextField } from "@/shared/admin-shared";
+import { Alert, Button, Dialog, TextField } from "@kai/ui";
 import { usePosCart } from "@/features/pos-cart/PosCartProvider";
 import { findBackorderForFulfillPosAction } from "@/features/pos-backorders/actions/find-backorder-for-fulfill.action";
 import { backorderLinesToCart } from "@/features/pos-backorders/lib/backorder-lines-to-cart";

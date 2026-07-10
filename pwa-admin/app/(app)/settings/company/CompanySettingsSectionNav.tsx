@@ -1,6 +1,6 @@
 "use client";
 
-import "@/shared/components/Tabs/tabs.css";
+import "@kai/ui/components/Tabs/tabs.css";
 import type { CompanySettingsTabId, CompanySettingsTabItem } from "./company-settings-tabs.types";
 
 type Props = {

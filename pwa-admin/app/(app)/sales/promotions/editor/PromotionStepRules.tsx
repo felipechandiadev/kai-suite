@@ -1,7 +1,7 @@
 "use client";
 
-import { TextField } from "@/shared/components/TextField/TextField";
-import Switch from "@/shared/components/Switch/Switch";
+import { TextField } from "@kai/ui";
+import { Switch } from "@kai/ui";
 import type { CreatePromotionInput } from "@/features/promotions/types/promotion.types";
 import { PROMOTION_TYPE_LABEL } from "@/features/promotions/types/promotion.types";
 import {

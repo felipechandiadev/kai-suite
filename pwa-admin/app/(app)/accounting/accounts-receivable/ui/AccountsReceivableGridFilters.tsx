@@ -2,9 +2,9 @@
 
 import { useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Select, type Option } from "@/shared/components/Select";
-import { TextField } from "@/shared/components/TextField/TextField";
-import Switch from "@/shared/components/Switch/Switch";
+import { Select, type Option } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import { Switch } from "@kai/ui";
 
 const STATUS_OPTIONS: Option[] = [
   { id: "", label: "Todos" },

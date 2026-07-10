@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarClock, CalendarDays, Layers, Tags } from "lucide-react";
-import { Card } from "@/shared/components/Cards";
-import { DeleteDialog } from "@/shared/components/Dialog/DeleteDialog";
-import Badge from "@/shared/components/Badge/Badge";
+import { Card } from "@kai/ui";
+import { DeleteDialog } from "@kai/ui";
+import Badge from "@kai/ui";
 import type { PriceListListItem } from "@/features/sales-price-lists/types/price-list.types";
 import { PRICE_LIST_TYPE_OPTIONS } from "@/features/sales-price-lists/types/price-list.types";
 import { deletePriceListAction } from "@/features/sales-price-lists/actions/price-list.action";

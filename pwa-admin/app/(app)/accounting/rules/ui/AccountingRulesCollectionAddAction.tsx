@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Button } from "@/shared/components/Button";
+import { Button } from "@kai/ui";
 import type { AccountHierarchyNode } from "@/features/accounting-chart-of-accounts/types/chart-of-accounts.types";
 import type { TaxListItem } from "@/features/accounting-taxes/types/tax.types";
 import type { ExpenseCategoryListItem } from "@/features/expense-categories/types/expense-category.types";

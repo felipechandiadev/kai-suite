@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import DataGrid from "@/shared/components/DataGrid/DataGrid";
-import type { DataGridColumn } from "@/shared/components/DataGrid/DataGrid";
+import { DataGridTable as DataGrid } from "@kai/ui";
+import type { DataGridColumn } from "@kai/ui";
 import type { SupplierGuideListItem } from "@/features/purchasing-supplier-guides/types/supplier-guide.types";
 import { dteFolioDisplay } from "@/features/purchasing-dte/lib/dte-folio-display";
 import { CreateSupplierGuideDialogForm } from "./CreateSupplierGuideDialogForm";

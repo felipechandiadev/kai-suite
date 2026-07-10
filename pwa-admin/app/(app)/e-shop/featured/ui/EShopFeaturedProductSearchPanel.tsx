@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import { TextField } from "@/shared/components/TextField/TextField";
-import NumberStepper from "@/shared/components/NumberStepper/NumberStepper";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import { Button } from "@/shared/components/Button";
+import { IconButton } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import { NumberStepper } from "@kai/ui";
+import { Dialog } from "@kai/ui";
+import { Button } from "@kai/ui";
 import type { ProductGridRow } from "@/features/inventory-products/types/product-grid.types";
 import type { ListProductsForGridResult } from "@/features/inventory-products/actions/product.action";
 import { InlineSepDot } from "@/shared/components/PurchaseDocumentBuilder/PurchaseDocumentProductPreview";

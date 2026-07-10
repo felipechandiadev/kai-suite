@@ -6,16 +6,34 @@ import { buildLanAllowedDevOrigins } from "../shared/next-lan-dev-origins";
 import packageJson from "./package.json";
 
 const appRoot = path.dirname(fileURLToPath(import.meta.url));
+const monorepoRoot = path.join(appRoot, "..");
+const packagesRoot = path.join(monorepoRoot, "packages");
 loadEnvConfig(appRoot);
+
+const kaiResolveAlias = {
+  "@kai/ui": path.join(packagesRoot, "ui", "src", "index.ts"),
+};
+
+const isDev = process.env.NODE_ENV === "development";
+const turbopackRoot = isDev ? appRoot : monorepoRoot;
 
 const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
   turbopack: {
-    root: appRoot,
+    root: turbopackRoot,
+    ...(isDev ? { resolveAlias: kaiResolveAlias } : {}),
   },
   allowedDevOrigins: buildLanAllowedDevOrigins(),
+  transpilePackages: ["@kai/ui"],
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@kai/ui": path.join(packagesRoot, "ui", "src", "index.ts"),
+    };
+    return config;
+  },
   async headers() {
     return [
       {

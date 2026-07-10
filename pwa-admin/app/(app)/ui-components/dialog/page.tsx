@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import Dialog from '@/shared/components/Dialog/Dialog';
-import { Button } from '@/shared/components/Button/Button';
+import { Dialog } from '@kai/ui';
+import { Button } from '@kai/ui';
 
 /** Tabla de referencia: prop, tipo, default, descripción. */
 function DialogPropsReference({

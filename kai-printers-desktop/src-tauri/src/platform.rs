@@ -264,7 +264,6 @@ fn list_windows() -> Result<Vec<PrinterInfo>> {
 /// Enumeración rápida vía Win32 (sin spawn de PowerShell).
 #[cfg(target_os = "windows")]
 fn list_windows_native() -> Result<Vec<PrinterInfo>> {
-    use std::ffi::c_void;
     use windows::core::PCWSTR;
     use windows::Win32::Graphics::Printing::*;
 
@@ -278,7 +277,6 @@ fn list_windows_native() -> Result<Vec<PrinterInfo>> {
             PCWSTR::null(),
             2,
             None,
-            0,
             &mut needed,
             &mut returned,
         );
@@ -292,8 +290,7 @@ fn list_windows_native() -> Result<Vec<PrinterInfo>> {
             flags,
             PCWSTR::null(),
             2,
-            Some(buf.as_mut_ptr()),
-            needed,
+            Some(buf.as_mut_slice()),
             &mut needed,
             &mut returned,
         )
@@ -327,6 +324,7 @@ fn list_windows_native() -> Result<Vec<PrinterInfo>> {
 #[cfg(target_os = "windows")]
 fn windows_default_printer_name() -> Result<String> {
     use windows::core::PWSTR;
+    use windows::Win32::Foundation::BOOL;
     use windows::Win32::Graphics::Printing::GetDefaultPrinterW;
     let mut needed: u32 = 0;
     unsafe {
@@ -335,8 +333,10 @@ fn windows_default_printer_name() -> Result<String> {
             return Ok(String::new());
         }
         let mut buf = vec![0u16; needed as usize];
-        GetDefaultPrinterW(PWSTR(buf.as_mut_ptr()), &mut needed)
-            .map_err(|e| anyhow::anyhow!("GetDefaultPrinterW: {e}"))?;
+        let ok: BOOL = GetDefaultPrinterW(PWSTR(buf.as_mut_ptr()), &mut needed);
+        if !ok.as_bool() {
+            return Err(anyhow::anyhow!("GetDefaultPrinterW falló"));
+        }
         let end = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
         Ok(String::from_utf16_lossy(&buf[..end]))
     }

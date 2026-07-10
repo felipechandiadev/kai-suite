@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, Dialog, TextField } from "@/shared";
+import { Button, Dialog, TextField } from "@kai/ui";
 import type { TaxListItem } from "../types/tax.types";
 import {
   effectiveIvaFactor,

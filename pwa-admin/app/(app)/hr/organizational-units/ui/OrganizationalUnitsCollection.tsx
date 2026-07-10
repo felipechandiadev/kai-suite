@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { CollectionPageLayout } from "@/shared/components/layouts";
+import { CollectionPageLayout } from "@kai/ui";
 import type { OrganizationalUnitListItem } from "@/features/hr-organizational-units/types/organizational-unit.types";
 
 const UNIT_TYPE_LABEL: Record<string, string> = {

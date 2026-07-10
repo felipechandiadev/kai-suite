@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import { Button } from "@/shared/components/Button";
-import Select from "@/shared/components/Select/Select";
-import { TextField } from "@/shared/components/TextField/TextField";
+import { Dialog } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { SelectDefault as Select } from "@kai/ui";
+import { TextField } from "@kai/ui";
 import { createFiscalSubPackAction } from "../actions/fiscal.actions";
 import type { FiscalCafPackage } from "../types/fiscal.types";
 import type { PointOfSaleListItem } from "@/features/sales-points-of-sale/types/point-of-sale.types";

@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Dialog from "@/shared/components/Dialog";
-import { TextField } from "@/shared/components/TextField/TextField";
-import { Select } from "@/shared/components/Select";
-import Switch from "@/shared/components/Switch/Switch";
-import { Button } from "@/shared/components/Button";
-import Alert from "@/shared/components/Alert/Alert";
+import { Dialog } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import { Select } from "@kai/ui";
+import { Switch } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { Alert } from "@kai/ui";
 import {
   ACCOUNT_TYPE_OPTIONS,
   BANK_OPTIONS,

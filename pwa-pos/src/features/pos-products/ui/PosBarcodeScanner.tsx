@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { Alert, Button } from "@/shared/admin-shared";
+import { Alert, Button } from "@kai/ui";
 import {
   getCameraStartConfigs,
   isCameraSecureContext,

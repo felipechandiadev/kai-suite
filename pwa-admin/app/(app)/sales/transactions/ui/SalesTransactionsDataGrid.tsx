@@ -2,12 +2,12 @@
 
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import DataGrid from "@/shared/components/DataGrid/DataGrid";
-import type { DataGridColumn } from "@/shared/components/DataGrid/DataGrid";
-import { dataGridFillViewportTabPageProps } from "@/shared/components/layouts/layoutPageTokens";
-import Badge, { type BadgeVariant } from "@/shared/components/Badge/Badge";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import { DeleteDialog } from "@/shared/components/Dialog/DeleteDialog";
+import { DataGridTable as DataGrid } from "@kai/ui";
+import type { DataGridColumn } from "@kai/ui";
+import { dataGridFillViewportTabPageProps } from "@kai/ui";
+import Badge, { type BadgeVariant } from "@kai/ui";
+import { IconButton } from "@kai/ui";
+import { DeleteDialog } from "@kai/ui";
 import { cancelBackorderAction } from "@/features/sales-transactions/actions/cancel-backorder.action";
 import { backorderRefundableAmount } from "@/features/sales-transactions/lib/backorder-refundable-amount";
 import {

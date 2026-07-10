@@ -2,10 +2,10 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import DataGrid from "@/shared/components/DataGrid/DataGrid";
-import type { DataGridColumn } from "@/shared/components/DataGrid/DataGrid";
-import Badge from "@/shared/components/Badge/Badge";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { DataGridTable as DataGrid } from "@kai/ui";
+import type { DataGridColumn } from "@kai/ui";
+import Badge from "@kai/ui";
+import { IconButton } from "@kai/ui";
 import type { EmployeeGridRow } from "@/features/hr-employees/types/employee.types";
 import { employeeDisplayName } from "@/features/hr-employees/types/employee.types";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";

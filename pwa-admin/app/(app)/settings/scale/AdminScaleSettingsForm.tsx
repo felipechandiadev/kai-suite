@@ -13,11 +13,11 @@ import {
   writeScaleConfigToStorage,
   type ScaleOutputUnit,
 } from "@kai/scale-service-client";
-import Alert from "@/shared/components/Alert/Alert";
-import { Button } from "@/shared/components/Button";
-import { Select } from "@/shared/components/Select";
-import Switch from "@/shared/components/Switch";
-import TextField from "@/shared/components/TextField";
+import { Alert } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { Select } from "@kai/ui";
+import { Switch } from "@kai/ui";
+import { TextField } from "@kai/ui";
 
 type Props = {
   className?: string;

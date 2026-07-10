@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listPurchaseOrdersForGrid } from "@/features/purchasing-document/actions/purchase-order-list.action";
 import PurchaseOrdersDataGrid from "./ui/PurchaseOrdersDataGrid";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

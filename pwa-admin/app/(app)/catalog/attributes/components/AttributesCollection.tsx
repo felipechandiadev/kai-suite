@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { CollectionPageLayout } from "@/shared/components/layouts";
+import { CollectionPageLayout } from "@kai/ui";
 import type { AttributeListItem } from "@/features/inventory-attributes/types/attribute.types";
 import { AttributesCollectionAddAction } from "./AttributesCollectionAddAction";
 import { AttributeCard } from "./AttributeCard";

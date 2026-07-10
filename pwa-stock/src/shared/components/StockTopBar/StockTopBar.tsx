@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { IconButton } from "@/shared";
+import { IconButton } from "@kai/ui";
 import SideBar from "@/shared/components/SideBar/SideBar";
 import { stockMenuItems } from "@/navigation/stockMenu";
 

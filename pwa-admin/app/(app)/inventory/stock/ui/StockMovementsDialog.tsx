@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import Alert from "@/shared/components/Alert/Alert";
-import Select from "@/shared/components/Select/Select";
-import type { Option } from "@/shared/components/Select";
+import { Dialog } from "@kai/ui";
+import { Alert } from "@kai/ui";
+import { SelectDefault as Select } from "@kai/ui";
+import type { Option } from "@kai/ui";
 import type { StockGridRow } from "@/features/inventory-stock/types/stock-grid.types";
 import type { StockMovementRow } from "@/features/inventory-stock/types/stock-grid.types";
 import { listStockMovementsAction } from "@/features/inventory-stock/actions/stock.action";

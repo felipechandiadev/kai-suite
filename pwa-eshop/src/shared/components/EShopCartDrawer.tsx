@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
-import { Button, IconButton } from "@/shared/admin-shared";
+import { Button, IconButton } from "@kai/ui";
 import { useEShopCart } from "@/features/e-shop-cart/EShopCartProvider";
 import { getFeaturedProductsAction } from "@/features/e-shop-storefront/actions/storefront.action";
 import { EShopFreeShippingProgress } from "./EShopFreeShippingProgress";

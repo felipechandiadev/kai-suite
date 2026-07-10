@@ -1,13 +1,13 @@
 "use client";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 import { useCallback, useEffect, useState } from "react";
-import Dialog from "@/shared/components/Dialog";
-import { Button } from "@/shared/components/Button";
-import { TextField } from "@/shared/components/TextField/TextField";
-import Badge from "@/shared/components/Badge/Badge";
-import Alert from "@/shared/components/Alert/Alert";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { Dialog } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import Badge from "@kai/ui";
+import { Alert } from "@kai/ui";
+import { IconButton } from "@kai/ui";
 import { getCompanyDetailsAction } from "@/features/settings-company/actions/company.action";
 import {
   QUOTATION_EFFECTIVE_STATUS_LABEL,

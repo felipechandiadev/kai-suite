@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { IconButton } from "@kai/ui";
 import { MonthlyCalendar, type MonthlyCalendarItem } from "@/shared/components/Calendar";
 import type { AccountsReceivableRow } from "@/features/accounting-accounts-receivable/types/accounts-receivable.types";
 

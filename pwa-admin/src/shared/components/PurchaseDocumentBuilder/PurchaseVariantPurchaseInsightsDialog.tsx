@@ -1,5 +1,5 @@
 "use client";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import Dialog from "@/shared/components/Dialog/Dialog";
+import { Dialog } from "@kai/ui";
 import type { PurchasingVariantSearchItem } from "@/features/purchasing-document/types/purchasing-document.types";
 import { fetchVariantPurchaseInsights } from "@/features/purchasing-document/infrastructure/purchasing-variant-insights.client";
 import type { VariantPurchaseInsights } from "@/features/purchasing-document/types/purchasing-document.types";

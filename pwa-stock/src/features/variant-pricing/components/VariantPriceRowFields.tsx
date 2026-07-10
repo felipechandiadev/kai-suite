@@ -1,6 +1,6 @@
 "use client";
 
-import { Switch, TextField } from "@/shared";
+import { Switch, TextField } from "@kai/ui";
 import type { TaxListItem } from "../types/tax.types";
 import {
   effectiveIvaFactor,

@@ -5,15 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { CompanyDetails } from "@/features/settings-branches/infrastructure/company.request";
 import type { ShareholderRow } from "@/features/settings-shareholders/types/shareholder.types";
 import type { CashHubRow } from "@/features/treasury-cash-hubs/types/cash-hub.types";
-import { Card, StatisticsCard, type LucideIconName } from "@/shared/components/Cards";
-import "@/shared/components/Cards/cards.css";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import Alert from "@/shared/components/Alert/Alert";
-import { Button } from "@/shared/components/Button";
-import { TextField } from "@/shared/components/TextField/TextField";
-import Select from "@/shared/components/Select/Select";
-import type { Option } from "@/shared/components/Select";
+import { Alert, Button, Card, Dialog, IconButton, SelectDefault as Select, StatisticsCard, TextField, type LucideIconName, type Option } from "@kai/ui";
 import {
   postCapitalContributionAction,
   postCashDepositAction,

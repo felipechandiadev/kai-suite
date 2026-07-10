@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { unstable_noStore as noStore } from "next/cache";
 import { connection } from "next/server";
 import ReceptionNewPageContent from "./ReceptionNewPageContent";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

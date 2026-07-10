@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Button, Dialog, Select, TextField } from "@/shared";
-import type { SelectOption as Option } from "@/shared";
+import { Alert, Button, Dialog, Select, TextField } from "@kai/ui";
+import type { SelectOption as Option } from "@kai/ui";
 import type { StockGridRow } from "../types/stock-grid.types";
 import type { StorageListItem } from "@/features/stock/types/storage-list.types";
 import { adjustStockAction, transferStockAction } from "../actions/stock.action";

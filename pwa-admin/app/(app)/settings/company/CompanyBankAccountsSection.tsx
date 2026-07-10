@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import Badge from "@/shared/components/Badge/Badge";
+import { IconButton } from "@kai/ui";
+import Badge from "@kai/ui";
 import type { CompanyBankAccountItem, CompanyDetails } from "@/features/settings-branches/infrastructure/company.request";
 import { CreateCompanyBankAccountDialog } from "./CreateCompanyBankAccountDialog";
 

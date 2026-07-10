@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Alert, Button, DotProgress, Select, TextField } from "@/shared/admin-shared";
-import type { Option } from "@/shared/components/Select/Select";
+import { Alert, Button, DotProgress, Select, TextField } from "@kai/ui";
+import type { Option } from "@kai/ui";
 import { readPosContextClient, patchPosContextClient } from "@/features/session/lib/pos-context-storage";
 import { listOpenCashSessionsAction } from "@/features/session/actions/cash-session.action";
 import { listCashHubsForDepositAction } from "@/features/session/actions/cash-hub-deposit.action";

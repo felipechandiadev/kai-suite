@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import Alert from "@/shared/components/Alert/Alert";
+import { Alert } from "@kai/ui";
 import MultimediaUpdater from "@/shared/components/FileUploader/MultimediaUpdater";
 import {
   listMultimediaForEntityAction,

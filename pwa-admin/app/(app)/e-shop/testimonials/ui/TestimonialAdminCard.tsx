@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Button } from "@/shared/components/Button";
+import { Button } from "@kai/ui";
 import { EntityMultimediaPanel } from "../../../catalog/products/ui/EntityMultimediaPanel";
 import type { EShopTestimonialRow } from "@/features/e-shop-testimonials/infrastructure/eshop-testimonials.request";
 import { deleteTestimonialAction } from "@/features/e-shop-testimonials/actions/testimonial.action";

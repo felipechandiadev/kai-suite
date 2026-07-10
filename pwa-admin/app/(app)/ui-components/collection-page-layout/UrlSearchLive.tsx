@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Card } from "@/shared/components/Cards";
+import { Card } from "@kai/ui";
 
 /**
  * Mismo query que CollectionPageLayout: refleja el valor en la URL al instante (cliente).

@@ -1,8 +1,5 @@
 import { Suspense } from "react";
-import { BasicPageLayout } from "@/shared/components/layouts/BasicPageLayout";
-import { adminFillViewportBelowTopBarClassName } from "@/shared/components/layouts/layoutPageTokens";
-import { GetCompanyUseCase } from "@/features/settings-company/application/get-company.usecase";
-import LoadingState from "@/shared/components/LoadingState";
+import { BasicPageLayout, LoadingState, adminFillViewportBelowTopBarClassName } from "@kai/ui";
 import TopbarPageContent from "./TopbarPageContent";
 
 export const dynamic = "force-dynamic";

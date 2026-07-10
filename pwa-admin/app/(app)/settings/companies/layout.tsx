@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/auth-options";
-import { TabPageLayout } from "@/shared/components/layouts";
+import { TabPageLayout } from "@kai/ui";
 import { SettingsCompaniesTabs } from "./SettingsCompaniesTabs";
 
 export default async function SettingsCompaniesLayout({

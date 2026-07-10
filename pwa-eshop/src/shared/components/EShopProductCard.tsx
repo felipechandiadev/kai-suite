@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { IconButton } from "@/shared/admin-shared";
+import { IconButton } from "@kai/ui";
 import { useEShopCart } from "@/features/e-shop-cart/EShopCartProvider";
 import type { EShopProductCard as Product } from "@/features/e-shop-storefront/types/storefront.types";
 

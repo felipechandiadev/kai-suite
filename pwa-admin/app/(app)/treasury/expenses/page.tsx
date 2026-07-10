@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listOperationalExpensesForGrid } from "@/features/treasury-expenses/actions/operational-expense.action";
 import ExpensesDataGrid from "./ui/ExpensesDataGrid";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

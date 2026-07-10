@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { Alert, Button, TextField } from "@/shared";
+import { Alert, Button, TextField } from "@kai/ui";
 import { handleUnauthorizedClient } from "@/lib/auth/handle-unauthorized";
 import { createQuickProductAction } from "@/features/product/actions/product.action";
 import { SCAN_PATH } from "@/features/variant/lib/variant-routes";

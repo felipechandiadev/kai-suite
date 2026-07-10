@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useState } from "react";
-import { Alert, Button } from "@/shared/components";
+import { Alert, Button } from "@kai/ui";
 import type { EShopResolvedTheme } from "@/features/e-shop-appearance/types/eshop-theme.types";
 import type { CategoryListItem } from "@/features/inventory-categories/types/category.types";
 import { saveEShopTopBarAction } from "../actions/eshop-topbar.action";

@@ -1,4 +1,4 @@
-import { Card } from "@/shared/components/Cards";
+import { Card } from "@kai/ui";
 
 /**
  * Contenido solo servidor: demuestra que la página recibe `search` por query al renderizar.

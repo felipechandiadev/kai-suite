@@ -1,4 +1,4 @@
-import { BasicPageLayout } from "@/shared/components/layouts/BasicPageLayout";
+import { BasicPageLayout } from "@kai/ui";
 import { getAnalyticsDashboardAction } from "@/features/analytics/actions/analytics.action";
 import { DashboardPanel } from "./ui/DashboardPanel";
 

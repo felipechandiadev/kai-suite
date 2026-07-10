@@ -2,11 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { Button } from "@/shared/components/Button";
-import { Select } from "@/shared/components/Select";
-import { TextField } from "@/shared/components/TextField/TextField";
-import Badge from "@/shared/components/Badge/Badge";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { Button } from "@kai/ui";
+import { Select } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import Badge from "@kai/ui";
+import { IconButton } from "@kai/ui";
 import {
   CHECK_DIRECTION_LABELS,
   checkStatusLabel,

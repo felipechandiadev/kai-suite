@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { BasicPageLayout } from "@/shared/components/layouts";
-import { adminFillViewportBelowTopBarClassName } from "@/shared/components/layouts/layoutPageTokens";
+import { BasicPageLayout } from "@kai/ui";
+import { adminFillViewportBelowTopBarClassName } from "@kai/ui";
 
 export default function PurchaseReturnNewLayout({ children }: { children: ReactNode }) {
   return (

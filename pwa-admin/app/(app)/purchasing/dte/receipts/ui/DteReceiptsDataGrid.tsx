@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import DataGrid from "@/shared/components/DataGrid/DataGrid";
-import type { DataGridColumn } from "@/shared/components/DataGrid/DataGrid";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { DataGridTable as DataGrid } from "@kai/ui";
+import type { DataGridColumn } from "@kai/ui";
+import { IconButton } from "@kai/ui";
 import type { SupplierReceiptListItem } from "@/features/purchasing-supplier-receipts/types/supplier-receipt.types";
 import { dteFolioDisplay } from "@/features/purchasing-dte/lib/dte-folio-display";
 import PurchasingDteDetailDialog from "@/features/purchasing-document/ui/PurchasingDteDetailDialog";

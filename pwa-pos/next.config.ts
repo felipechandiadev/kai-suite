@@ -39,6 +39,7 @@ const nextConfig: NextConfig = {
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
+      "@kai/ui": path.join(packagesRoot, "ui", "src", "index.ts"),
       "next-auth": path.join(appRoot, "node_modules/next-auth"),
       "next-auth/react": path.join(appRoot, "node_modules/next-auth/react"),
     };

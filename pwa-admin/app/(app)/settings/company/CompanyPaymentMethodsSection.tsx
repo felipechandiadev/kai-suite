@@ -1,10 +1,10 @@
 "use client";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import Badge from "@/shared/components/Badge/Badge";
+import { IconButton } from "@kai/ui";
+import Badge from "@kai/ui";
 import {
   companyPaymentMethodAlwaysRequiresReference,
   companyPaymentMethodLabel,

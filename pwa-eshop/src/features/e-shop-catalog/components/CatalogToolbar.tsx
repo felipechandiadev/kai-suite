@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
-import { Select, TextField } from "@/shared/admin-shared";
+import { Select, TextField } from "@kai/ui";
 import { patchCatalogSearchParams, replaceCatalogUrl } from "../lib/catalog-url";
 import type { EShopCatalogCategoryOption } from "../types/catalog.types";
 

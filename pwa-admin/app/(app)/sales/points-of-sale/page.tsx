@@ -6,7 +6,7 @@ import { listBranchesForSettingsPage } from "@/features/settings-branches/action
 import { listPriceListsForPage } from "@/features/sales-price-lists/actions/price-list.action";
 import { PointsOfSaleCollection } from "./components/PointsOfSaleCollection";
 import { authOptions } from "@/lib/auth/auth-options";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

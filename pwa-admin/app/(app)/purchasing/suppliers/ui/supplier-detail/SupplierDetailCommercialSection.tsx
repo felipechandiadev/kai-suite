@@ -1,11 +1,11 @@
 "use client";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 import { useCallback, useEffect, useState } from "react";
 import type { SupplierDetailView, UpdateSupplierPayload } from "@/features/purchasing-suppliers/types/supplier.types";
-import { TextField } from "@/shared/components/TextField/TextField";
-import { Select, type Option } from "@/shared/components/Select";
-import IconButton from "@/shared/components/IconButton";
+import { TextField } from "@kai/ui";
+import { Select, type Option } from "@kai/ui";
+import { IconButton } from "@kai/ui";
 import { updateSupplierAction } from "@/features/purchasing-suppliers/actions/supplier.action";
 
 const SUPPLIER_TYPE_OPTIONS: Option[] = [

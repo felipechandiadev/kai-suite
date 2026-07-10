@@ -1,6 +1,6 @@
 "use client";
 
-import { Alert, IconButton } from "@/shared";
+import { Alert, IconButton } from "@kai/ui";
 import type { VariantPriceListItem } from "../types/pricing.types";
 import type { TaxListItem } from "../types/tax.types";
 import { formatMoney } from "../lib/format-money";

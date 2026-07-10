@@ -1,7 +1,7 @@
 {
-  "version": "1.0.3",
-  "filename": "kai-printers-windows-1.0.3-x64-portable.zip",
-  "builtAt": "2026-07-09T23:32:16.523Z",
+  "version": "1.0.5",
+  "filename": "kai-printers-windows-1.0.5-x64-portable.zip",
+  "builtAt": "2026-07-10T06:49:19.933Z",
   "format": "zip-portable",
   "note": "ZIP portable (KaiPrinters.exe + SumatraPDF.exe). Extraer y ejecutar KaiPrinters.exe."
 }

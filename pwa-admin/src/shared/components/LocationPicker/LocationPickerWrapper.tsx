@@ -1,5 +1,5 @@
 import dynamic from 'next/dynamic';
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 const LocationPickerComponent = dynamic(() => import('./LocationPicker'), {
   ssr: false,

@@ -10,8 +10,8 @@ import {
   useState,
 } from "react";
 import { GripVertical } from "lucide-react";
-import Switch from "@/shared/components/Switch/Switch";
-import Select from "@/shared/components/Select/Select";
+import { Switch } from "@kai/ui";
+import { SelectDefault as Select } from "@kai/ui";
 import type { CompanyPaymentMethodConfig } from "@/features/companies/types/company-payment-methods.types";
 import {
   COMPANY_PAYMENT_METHOD_LABELS,

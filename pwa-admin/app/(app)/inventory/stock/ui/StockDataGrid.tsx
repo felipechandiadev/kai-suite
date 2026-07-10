@@ -2,25 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import DataGrid from "@/shared/components/DataGrid/DataGrid";
-import type { DataGridColumn } from "@/shared/components/DataGrid/DataGrid";
-import Badge from "@/shared/components/Badge/Badge";
-import { Select, type Option } from "@/shared/components/Select";
-import type { StockGridRow, StockStorageBreakdownRow } from "@/features/inventory-stock/types/stock-grid.types";
-import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import { useNotificationsRealtime } from "@/features/notifications/realtime/notifications-realtime-context";
-import { EditVariantStockConfigDialog } from "./EditVariantStockConfigDialog";
-import { StockMovementsDialog } from "./StockMovementsDialog";
-import { StockReservationsDialog } from "./StockReservationsDialog";
-import {
-  STOCK_THRESHOLD_ALERT_ROW_CLASS,
-  stockRowHasThresholdAlert,
-} from "@/features/inventory-stock/lib/stock-threshold-alert";
-import { formatStockSlashPair } from "@/features/inventory-stock/lib/stock-unit-display";
-import { StockStorageCardsGrid } from "@/features/inventory-stock/components/StockStorageCardsGrid";
-import { useStockStorageOperations } from "@/features/inventory-stock/components/useStockStorageOperations";
-import Switch from "@/shared/components/Switch/Switch";
+import { DataGridTable as DataGrid, IconButton, Select, Switch, Badge, type Option } from "@kai/ui";
 
 type StockDataGridProps = {
   rows: StockGridRow[];

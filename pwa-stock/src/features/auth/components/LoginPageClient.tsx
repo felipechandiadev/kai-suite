@@ -4,7 +4,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Building2, Warehouse } from "lucide-react";
-import { Alert, Button, IconButton, TextField } from "@/shared";
+import { Alert, Button, IconButton, TextField } from "@kai/ui";
 import LoginPageShell from "@/shared/components/LoginPageShell/LoginPageShell";
 import { validateLoginInput } from "../application/login.usecase";
 import {

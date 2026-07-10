@@ -2,13 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import { TextField } from "@/shared/components/TextField/TextField";
-import NumberStepper from "@/shared/components/NumberStepper/NumberStepper";
-import { Select, type Option } from "@/shared/components/Select";
-import AutoComplete from "@/shared/components/AutoComplete/AutoComplete";
-import Switch from "@/shared/components/Switch/Switch";
-import { Button } from "@/shared/components/Button";
+import {
+  AutoComplete,
+  Button,
+  Dialog,
+  IconButton,
+  NumberStepper,
+  PrintDialog,
+  Select,
+  Switch,
+  TextField,
+  usePrint,
+  type Option,
+} from "@kai/ui";
 import type { PurchasingVariantSearchItem, PurchasingVariantSearchResult } from "@/features/purchasing-reception/types/purchasing-document.types";
 import type { SupplierGridRow } from "@/features/purchasing-reception/types/supplier.types";
 import type { StorageListItem } from "@/features/purchasing-reception/types/storage.types";
@@ -42,8 +48,6 @@ import type { CompanyDetails, CompanyBankAccountItem } from "@/features/purchasi
 import { formatMoney, InlineSepDot, ProductNameWithAttributes } from "./PurchaseDocumentProductPreview";
 import { PurchaseDocumentVariantSearchPanel } from "./PurchaseDocumentVariantSearchPanel";
 import { usePosPurchaseDocumentReferenceData } from "@/features/purchasing-reception/hooks/usePosPurchaseDocumentReferenceData";
-import { usePrint } from "@/shared/components/PrintDialog/usePrint";
-import { PrintDialog } from "@/shared/components/PrintDialog/PrintDialog";
 import {
   PurchaseOrderPrintDocument,
   type PurchaseOrderPrintModel,
@@ -54,7 +58,6 @@ import { buildSupplierIdentityPrintFields } from "@/shared/components/PrintDocum
 import type { PrintableCompanyInfo } from "@/shared/components/PrintDocuments/PrintableDocumentLayout";
 import type { CashHubRow } from "@/features/purchasing-reception/types/cash-hub.types";
 import { PurchaseDocumentReceptionPaymentDialog } from "./PurchaseDocumentReceptionPaymentDialog";
-import Dialog from "@/shared/components/Dialog/Dialog";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

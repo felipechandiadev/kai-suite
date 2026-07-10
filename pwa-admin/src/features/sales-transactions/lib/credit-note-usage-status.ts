@@ -1,4 +1,4 @@
-import type { BadgeVariant } from "@/shared/components/Badge/Badge";
+import type { BadgeVariant } from "@kai/ui";
 import type { CustomerCreditNoteUsageStatus } from "@/features/sales-customers/types/customer-related-documents.types";
 
 export const CREDIT_NOTE_USAGE_LABEL: Record<

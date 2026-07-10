@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { TabPageLayout } from "@/shared/components/layouts";
-import { adminFillViewportBelowTopBarClassName } from "@/shared/components/layouts/layoutPageTokens";
+import { TabPageLayout } from "@kai/ui";
+import { adminFillViewportBelowTopBarClassName } from "@kai/ui";
 import { AccountsReceivableTabs } from "./AccountsReceivableTabs";
 
 export default function AccountsReceivableLayout({ children }: { children: ReactNode }) {

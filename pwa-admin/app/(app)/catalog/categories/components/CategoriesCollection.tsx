@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { CollectionPageLayout } from "@/shared/components/layouts";
+import { CollectionPageLayout } from "@kai/ui";
 import type { CategoryListItem } from "@/features/inventory-categories/types/category.types";
 import { CategoriesCollectionAddAction } from "./CategoriesCollectionAddAction";
 import { CategoryCard } from "./CategoryCard";

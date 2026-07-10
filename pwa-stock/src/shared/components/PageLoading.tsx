@@ -1,11 +1,7 @@
 "use client";
 
-import DotProgress from "@/shared/DotProgress/DotProgress";
+import { LoadingState } from "@kai/ui";
 
 export default function PageLoading() {
-  return (
-    <div className="flex justify-center py-12">
-      <DotProgress />
-    </div>
-  );
+  return <LoadingState className="flex justify-center py-12" />;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Option } from "@/shared/components/Select";
+import type { Option } from "@kai/ui";
 import type { CompanyBankAccountItem } from "@/features/settings-branches/infrastructure/company.request";
 import type { PayeeBankAccount } from "@/shared/lib/planned-payment-plan";
 import { parseClpAmountInput, splitTotalAcrossLines } from "@/features/purchasing-dte/lib/planned-payment-helpers";

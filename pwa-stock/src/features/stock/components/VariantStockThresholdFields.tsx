@@ -1,6 +1,6 @@
 "use client";
 
-import { TextField, Switch } from "@/shared";
+import { TextField, Switch } from "@kai/ui";
 import type {
   StorageThresholdFieldDraft,
   VariantThresholdDraft,

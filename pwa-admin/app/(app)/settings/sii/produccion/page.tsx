@@ -1,4 +1,4 @@
-import { BasicPageLayout } from "@/shared/components/layouts/BasicPageLayout";
+import { BasicPageLayout } from "@kai/ui";
 import { getFiscalSummaryAction } from "@/features/fiscal/actions/fiscal.actions";
 import { SiiProductionForm } from "@/features/fiscal/ui/SiiProductionForm";
 import { SiiNarrowContent } from "@/features/fiscal/ui/SiiNarrowContent";

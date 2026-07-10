@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
-import { Button, Dialog, IconButton, TextField } from "@/shared";
-import NumberStepper from "@/shared/NumberStepper";
+import { Button, Dialog, IconButton, TextField } from "@kai/ui";
+import { NumberStepper } from "@kai/ui";
 import type { VariantSearchItem, VariantSearchResult } from "../types/variant-search.types";
 import {
   VARIANT_SEARCH_DEBOUNCE_MS,

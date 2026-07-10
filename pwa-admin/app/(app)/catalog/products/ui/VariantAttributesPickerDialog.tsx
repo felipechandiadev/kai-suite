@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import { Button } from "@/shared/components/Button";
+import { Dialog } from "@kai/ui";
+import { Button } from "@kai/ui";
 import type { AttributeListItem } from "@/features/inventory-attributes/types/attribute.types";
 
 export type VariantAttributesPickerDialogProps = {

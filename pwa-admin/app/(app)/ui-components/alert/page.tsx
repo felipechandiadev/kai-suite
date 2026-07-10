@@ -1,7 +1,7 @@
 'use client';
 
-import Alert from '@/shared/components/Alert/Alert';
-import type { AlertVariant } from '@/shared/components/Alert/Alert';
+import { Alert } from '@kai/ui';
+import type { AlertVariant } from '@kai/ui';
 
 const VARIANTS: { variant: AlertVariant; label: string; text: string }[] = [
   { variant: 'success', label: 'Success', text: 'Operation completed successfully.' },

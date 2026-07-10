@@ -1,4 +1,4 @@
-import { BasicPageLayout } from "@/shared/components/layouts/BasicPageLayout";
+import { BasicPageLayout } from "@kai/ui";
 import { listMetalPricesForPage } from "@/features/metal-prices/actions/metal-price.action";
 import { isJewelryModuleEnabled } from "@/config/jewelry-module.config";
 import { redirect } from "next/navigation";

@@ -40,17 +40,17 @@ export const KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT: KaiPrintersAndroidManifest =
 };
 
 export const KAI_PRINTERS_WINDOWS_MANIFEST_DEFAULT: KaiPrintersDesktopManifest = {
-  version: "1.0.2",
-  filename: "kai-printers-windows-1.0.2-x64-portable.zip",
-  builtAt: "2026-06-24T00:00:00Z",
+  version: "1.0.5",
+  filename: "kai-printers-windows-1.0.5-x64-portable.zip",
+  builtAt: "2026-07-10T06:42:00.000Z",
   format: "zip-portable",
   note: "ZIP portable (KaiPrinters.exe + SumatraPDF.exe).",
 };
 
 export const KAI_PRINTERS_MACOS_MANIFEST_DEFAULT: KaiPrintersDesktopManifest = {
-  version: "1.0.2",
-  filename: "kai-printers-macos-1.0.2-aarch64.dmg",
-  builtAt: "2026-06-24T00:00:00Z",
+  version: "1.0.5",
+  filename: "kai-printers-macos-1.0.5-aarch64.dmg",
+  builtAt: "2026-07-10T06:42:00.000Z",
   format: "dmg",
   arch: "aarch64",
   note: "Abrir el .dmg y arrastrar Kai Printers a Aplicaciones.",

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listSupplierInvoicesForPage } from "@/features/purchasing-invoices/actions/supplier-invoice.action";
 import DteInvoicesDataGrid from "./ui/DteInvoicesDataGrid";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

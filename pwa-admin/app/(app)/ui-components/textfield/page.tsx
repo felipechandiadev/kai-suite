@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import { Mail, Search } from 'lucide-react';
-import TextField from '@/shared/components/TextField/TextField';
-import IconButton from '@/shared/components/IconButton';
-import Switch from '@/shared/components/Switch';
-import { Card } from '@/shared/components/Cards';
+import { TextField } from '@kai/ui';
+import { IconButton } from '@kai/ui';
+import { Switch } from '@kai/ui';
+import { Card } from '@kai/ui';
 
 export default function TextFieldPage() {
   const [texto, setTexto] = useState('');

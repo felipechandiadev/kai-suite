@@ -18,7 +18,7 @@ import {
   IconButton,
   NumberStepper,
   TextField,
-} from "@/shared/admin-shared";
+} from "@kai/ui";
 import type {
   PosCustomerSearchRow,
   PosSaleCustomer,

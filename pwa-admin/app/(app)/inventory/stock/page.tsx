@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { listStockForGrid } from "@/features/inventory-stock/actions/stock.action";
 import { listStoragesForPage } from "@/features/inventory-storages/actions/storage.action";
 import StockDataGrid from "./ui/StockDataGrid";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

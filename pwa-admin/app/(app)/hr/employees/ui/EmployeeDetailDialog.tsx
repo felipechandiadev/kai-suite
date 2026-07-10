@@ -1,9 +1,6 @@
 "use client";
 
-import LoadingState from "@/shared/components/LoadingState";
-import { useCallback, useEffect, useState } from "react";
-import Dialog from "@/shared/components/Dialog";
-import Badge from "@/shared/components/Badge/Badge";
+import Badge, { Dialog, LoadingState } from "@kai/ui";
 import { SIDE_BAR_MENU_ITEM_CLASSNAMES } from "@/shared/components/TopBar/SideBar";
 import { getEmployeeDetailAction } from "@/features/hr-employees/actions/employee.action";
 import type { EmployeeDetailView } from "@/features/hr-employees/types/employee.types";

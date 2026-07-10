@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listLedgerAccountsAction } from "@/features/accounting-ledgers/actions/accounting-ledger.action";
 import LedgersDataGrid from "./ui/LedgersDataGrid";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

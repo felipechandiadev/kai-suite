@@ -2,8 +2,8 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Card } from "@/shared/components/Cards/Card";
-import DeleteDialog from "@/shared/components/Dialog/DeleteDialog";
+import { Card } from "@kai/ui";
+import DeleteDialog from "@kai/ui";
 import type { AccountHierarchyNode } from "@/features/accounting-chart-of-accounts/types/chart-of-accounts.types";
 import type { TaxListItem } from "@/features/accounting-taxes/types/tax.types";
 import type { ExpenseCategoryListItem } from "@/features/expense-categories/types/expense-category.types";

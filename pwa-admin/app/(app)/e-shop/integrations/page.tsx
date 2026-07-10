@@ -1,4 +1,4 @@
-import { BasicPageLayout } from "@/shared/components/layouts/BasicPageLayout";
+import { BasicPageLayout } from "@kai/ui";
 import { getEShopMercadoPagoSettingsAction } from "@/features/e-shop-integrations/actions/eshop-mercado-pago.action";
 import { defaultCompanyMercadoPagoSettings } from "@/features/company-integrations/types/company-mercado-pago.types";
 import { EShopIntegrationsForm } from "./EShopIntegrationsForm";

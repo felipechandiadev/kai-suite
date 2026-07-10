@@ -11,7 +11,7 @@ import ReactFlow, {
   type Node,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { Button } from "@/shared/components/Button";
+import { Button } from "@kai/ui";
 
 const nodeStyle = {
   border: "1px solid var(--color-border)",

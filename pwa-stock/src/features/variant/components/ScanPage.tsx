@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Button } from "@/shared";
+import { Alert, Button } from "@kai/ui";
 import { createProductPath } from "@/features/product/lib/product-routes";
 import BarcodeScanner from "./BarcodeScanner";
 import ScanModeSwitch from "./ScanModeSwitch";

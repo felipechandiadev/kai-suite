@@ -1,4 +1,4 @@
-import { BasicPageLayout } from "@/shared/components/layouts";
+import { BasicPageLayout } from "@kai/ui";
 import { GetCompanyUseCase } from "@/features/settings-company/application/get-company.usecase";
 import { ShareholderRequest } from "@/features/settings-shareholders/infrastructure/shareholder.request";
 import { CompanySettingsContent } from "./CompanySettingsContent";

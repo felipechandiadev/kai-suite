@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/shared/components/Button";
+import { Button } from "@kai/ui";
 import type { EShopOrderListRow } from "@/features/e-shop-fulfillment/types/eshop-fulfillment.types";
 import { FULFILLMENT_STATUS_LABELS } from "@/features/e-shop-fulfillment/lib/eshop-fulfillment-labels";
 import { EShopOrderDetailDialog } from "./EShopOrderDetailDialog";

@@ -1,6 +1,6 @@
 "use client";
 
-import { TextField } from "@/shared/components/TextField/TextField";
+import { TextField } from "@kai/ui";
 import type { CreatePromotionInput } from "@/features/promotions/types/promotion.types";
 
 type Props = {

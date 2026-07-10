@@ -1,4 +1,4 @@
-import { BasicPageLayout } from "@/shared/components/layouts/BasicPageLayout";
+import { BasicPageLayout } from "@kai/ui";
 import { getBoletaPrintPreviewAction } from "@/features/fiscal/actions/fiscal.actions";
 import { SiiBoletaPrintSection } from "@/features/fiscal/ui/SiiBoletaPrintSection";
 import { SiiNarrowContent } from "@/features/fiscal/ui/SiiNarrowContent";

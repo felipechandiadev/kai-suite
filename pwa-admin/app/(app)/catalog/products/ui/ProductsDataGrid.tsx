@@ -3,24 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Barcode, Check, X } from "lucide-react";
-import DataGrid from "@/shared/components/DataGrid/DataGrid";
-import type { DataGridColumn } from "@/shared/components/DataGrid/DataGrid";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import Badge from "@/shared/components/Badge/Badge";
-import { DeleteDialog } from "@/shared/components/Dialog/DeleteDialog";
-import type { ProductGridRow, ProductVariantGridRow, ProductVariantMediaAsset } from "@/features/inventory-products/types/product-grid.types";
-import { Button } from "@/shared/components/Button";
-import { CreateProductDialog } from "./CreateProductDialog";
-import { EditProductDialog } from "./EditProductDialog";
-import { CreateProductVariantDialog } from "./CreateProductVariantDialog";
-import { ProductEShopPreviewDialog } from "./ProductEShopPreviewDialog";
-import {
-  deleteProductAction,
-  deleteProductVariantAction,
-  patchProductGridFlagsAction,
-} from "@/features/inventory-products/actions/product.action";
-import Switch from "@/shared/components/Switch/Switch";
-import { Select, type Option } from "@/shared/components/Select";
+import { Badge, Button, DataGridTable as DataGrid, DeleteDialog, IconButton, Select, Switch, type Option } from "@kai/ui";
 import { MultimediaLightbox } from "@/shared/components/Multimedia";
 import type { MultimediaLightboxItem } from "@/shared/components/Multimedia/types";
 import {

@@ -1,10 +1,10 @@
 "use client";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 import { useCallback, useEffect, useState } from "react";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import { Button } from "@/shared/components/Button";
-import Alert from "@/shared/components/Alert/Alert";
+import { Dialog } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { Alert } from "@kai/ui";
 import { getPurchasingTransactionDetailAction } from "@/features/purchasing-document/actions/purchasing-detail.action";
 import { getReceptionDetailForReturnAction } from "@/features/receptions/actions/reception.action";
 import type { PurchasingTransactionDetail } from "@/features/purchasing-document/types/purchasing-detail.types";

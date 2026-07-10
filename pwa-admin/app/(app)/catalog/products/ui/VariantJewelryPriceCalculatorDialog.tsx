@@ -7,11 +7,11 @@ import {
   readScaleConfigFromStorage,
   readWeightFromScale,
 } from "@kai/scale-service-client";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import Alert from "@/shared/components/Alert/Alert";
-import { Button } from "@/shared/components/Button";
-import { TextField } from "@/shared/components/TextField/TextField";
-import { Select } from "@/shared/components/Select";
+import { Dialog } from "@kai/ui";
+import { Alert } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import { Select } from "@kai/ui";
 import { fetchMetalPricesForPage } from "@/features/metal-prices/lib/fetch-metal-prices-for-page";
 import { METAL_SELECT_OPTIONS } from "@/features/metal-prices/lib/metal-options";
 import { latestMetalPriceByMetal } from "@/features/metal-prices/lib/metal-price-latest";

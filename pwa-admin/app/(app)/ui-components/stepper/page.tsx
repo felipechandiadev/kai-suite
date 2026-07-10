@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Stepper } from "@/shared/components/Stepper/Stepper";
-import type { StepperStepItem } from "@/shared/components/Stepper/Stepper";
-import { Button } from "@/shared/components/Button";
+import { Stepper } from "@kai/ui";
+import type { StepperStepItem } from "@kai/ui";
+import { Button } from "@kai/ui";
 
 const DEMO_STEPS: StepperStepItem[] = [
   { id: "a", title: "Primer paso", description: "Descripción de ejemplo para el paso 1." },

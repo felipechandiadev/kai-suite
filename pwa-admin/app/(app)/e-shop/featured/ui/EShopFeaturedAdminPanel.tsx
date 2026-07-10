@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useMemo, useState, useTransition } from "react";
-import Alert from "@/shared/components/Alert/Alert";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { Alert } from "@kai/ui";
+import { IconButton } from "@kai/ui";
 import type { ProductGridRow } from "@/features/inventory-products/types/product-grid.types";
 import type { ListProductsForGridResult } from "@/features/inventory-products/actions/product.action";
 import type { EShopFeaturedProductItem } from "@/features/e-shop-featured/types/featured.types";

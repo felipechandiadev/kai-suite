@@ -2,12 +2,12 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import Alert from "@/shared/components/Alert/Alert";
-import { Button } from "@/shared/components/Button";
-import { TextField } from "@/shared/components/TextField/TextField";
-import Switch from "@/shared/components/Switch/Switch";
-import { Select, type Option } from "@/shared/components/Select";
+import { Dialog } from "@kai/ui";
+import { Alert } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import { Switch } from "@kai/ui";
+import { Select, type Option } from "@kai/ui";
 import { createProductAction, createProductVariantAction } from "@/features/inventory-products/actions/product.action";
 import { listCategoriesForPage } from "@/features/inventory-categories/actions/category.action";
 import { listBrandsForPage } from "@/features/catalog-brands/actions/brand.action";

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/shared/components/Button";
-import { TextField } from "@/shared/components/TextField/TextField";
+import { Button } from "@kai/ui";
+import { TextField } from "@kai/ui";
 import {
   createFulfillmentMethodAction,
   deleteFulfillmentMethodAction,

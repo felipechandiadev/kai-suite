@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { signOutToLogin } from "@/lib/auth/sign-out-to-login";
-import { Button } from "@/shared/components/Button/Button";
+import { Button } from "@kai/ui";
 
 type ErrorBoundaryProps = {
   error: Error & { digest?: string };

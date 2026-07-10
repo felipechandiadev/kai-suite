@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listCashSessionsAction } from "@/features/sales-cash-sessions/actions/cash-sessions-list.action";
 import CashSessionsDataGrid from "./ui/CashSessionsDataGrid";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

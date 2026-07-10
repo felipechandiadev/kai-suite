@@ -3,10 +3,10 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FileText, Percent, Tag } from "lucide-react";
-import { Card } from "@/shared/components/Cards";
-import Badge from "@/shared/components/Badge/Badge";
-import Switch from "@/shared/components/Switch/Switch";
-import { DeleteDialog } from "@/shared/components/Dialog/DeleteDialog";
+import { Card } from "@kai/ui";
+import Badge from "@kai/ui";
+import { Switch } from "@kai/ui";
+import { DeleteDialog } from "@kai/ui";
 import type { TaxListItem } from "@/features/accounting-taxes/types/tax.types";
 import { formatTaxRate, taxTypeLabel } from "@/features/accounting-taxes/types/tax.types";
 import { deleteTaxAction, updateTaxActiveAction } from "@/features/accounting-taxes/actions/tax.action";

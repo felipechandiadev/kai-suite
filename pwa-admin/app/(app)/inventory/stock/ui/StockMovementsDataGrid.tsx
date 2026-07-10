@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import DataGrid from "@/shared/components/DataGrid/DataGrid";
-import type { DataGridColumn } from "@/shared/components/DataGrid/DataGrid";
+import { DataGridTable as DataGrid } from "@kai/ui";
+import type { DataGridColumn } from "@kai/ui";
 import type { StockMovementRow } from "@/features/inventory-stock/types/stock-grid.types";
 import { getTransactionTypeLabel } from "@/features/transactions/types/transaction-types";
 

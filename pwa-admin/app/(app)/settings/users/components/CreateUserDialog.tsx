@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import Alert from "@/shared/components/Alert/Alert";
-import { Button } from "@/shared/components/Button";
-import { TextField } from "@/shared/components/TextField/TextField";
-import { Select, type Option } from "@/shared/components/Select";
+import { Dialog } from "@kai/ui";
+import { Alert } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import { Select, type Option } from "@kai/ui";
 import { createUserAction } from "@/features/settings-users/actions/user.action";
 import { USER_ROLE_OPTIONS } from "@/features/settings-users/types/user.types";
 

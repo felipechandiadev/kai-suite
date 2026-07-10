@@ -3,20 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Button } from "@/shared/components/Button";
-import Badge from "@/shared/components/Badge/Badge";
-import {
-  cancelEshopOrderBackorderAction,
-  convertEshopOrderToSaleAction,
-  getEshopOrderAction,
-  updateEshopOrderStatusAction,
-} from "@/features/e-shop-fulfillment/actions/eshop-fulfillment.action";
-import type { EShopOrderDetail } from "@/features/e-shop-fulfillment/types/eshop-fulfillment.types";
-import {
-  FULFILLMENT_STATUS_LABELS,
-  NEXT_STATUS_OPTIONS,
-} from "@/features/e-shop-fulfillment/lib/eshop-fulfillment-labels";
-import LoadingState from "@/shared/components/LoadingState";
+import Badge, { Button, LoadingState } from "@kai/ui";
 
 const TX_TYPE_LABEL: Record<string, string> = {
   BACKORDER: "Encargo",

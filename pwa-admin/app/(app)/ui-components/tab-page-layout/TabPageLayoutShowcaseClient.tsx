@@ -1,7 +1,7 @@
 "use client";
 
-import { TabPageLayout } from "@/shared/components/layouts";
-import Tabs from "@/shared/components/Tabs/Tabs";
+import { TabPageLayout } from "@kai/ui";
+import { Tabs } from "@kai/ui";
 
 const SHOWCASE_TABS = [
   { label: "General", url: "/ui-components/tab-page-layout" },

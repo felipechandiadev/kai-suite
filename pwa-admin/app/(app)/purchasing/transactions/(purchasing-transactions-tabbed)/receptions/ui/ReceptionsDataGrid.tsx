@@ -2,9 +2,9 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import DataGrid from "@/shared/components/DataGrid/DataGrid";
-import type { DataGridColumn } from "@/shared/components/DataGrid/DataGrid";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { DataGridTable as DataGrid } from "@kai/ui";
+import type { DataGridColumn } from "@kai/ui";
+import { IconButton } from "@kai/ui";
 import type { ReceptionGridRow } from "@/features/receptions/types/reception.types";
 import ReceptionDetailDialog from "@/features/purchasing-document/ui/ReceptionDetailDialog";
 

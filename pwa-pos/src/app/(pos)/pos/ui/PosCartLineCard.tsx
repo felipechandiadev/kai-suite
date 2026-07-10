@@ -19,8 +19,8 @@ import {
   posFormatStockQuantity,
 } from "@/features/pos-products/ui/posProductPreview";
 import { PosNoDteBadge } from "@/features/pos-products/ui/PosNoDteBadge";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import { Alert, Button, Dialog, TextField } from "@/shared/admin-shared";
+import { IconButton } from "@kai/ui";
+import { Alert, Button, Dialog, TextField } from "@kai/ui";
 import { listActivePosInventoryReservationsAction } from "@/features/pos-inventory-reservations/actions/list-active-reservations.action";
 
 /**

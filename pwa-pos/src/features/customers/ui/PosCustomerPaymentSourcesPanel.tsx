@@ -1,6 +1,6 @@
 "use client";
 
-import { DotProgress } from "@/shared/admin-shared";
+import { DotProgress } from "@kai/ui";
 import type {
   CustomerCreditNoteSource,
   CustomerPaymentSources,

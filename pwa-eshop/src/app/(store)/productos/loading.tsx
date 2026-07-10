@@ -1,5 +1,5 @@
 import { CatalogSectionSkeleton } from "@/features/e-shop-catalog/components/CatalogSectionSkeleton";
-import { Skeleton } from "@/shared/components/Skeleton";
+import { Skeleton } from "@kai/ui";
 import { StorePageShell } from "@/shared/components/StorePageShell";
 
 export default function ProductosLoading() {

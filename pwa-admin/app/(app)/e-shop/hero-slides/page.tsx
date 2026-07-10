@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listHeroSlidesAction } from "@/features/e-shop-hero-slides/actions/hero-slide.action";
 import { HeroSlidesCollection } from "./components/HeroSlidesCollection";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

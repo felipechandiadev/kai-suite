@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import Alert from "@/shared/components/Alert/Alert";
-import { Button } from "@/shared/components/Button";
-import { TextField } from "@/shared/components/TextField/TextField";
-import Select from "@/shared/components/Select/Select";
+import { Dialog } from "@kai/ui";
+import { Alert } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import { SelectDefault as Select } from "@kai/ui";
 import { createMetalPriceAction } from "@/features/metal-prices/actions/metal-price.action";
 import { METAL_SELECT_OPTIONS } from "@/features/metal-prices/lib/metal-options";
 import type { MetalTypeOption } from "@/features/metal-prices/types/metal-price.types";

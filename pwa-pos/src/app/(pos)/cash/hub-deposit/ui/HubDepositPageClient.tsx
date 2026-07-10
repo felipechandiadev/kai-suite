@@ -8,8 +8,8 @@ import {
   DotProgress,
   Select,
   TextField,
-} from "@/shared/admin-shared";
-import type { Option } from "@/shared/components/Select/Select";
+} from "@kai/ui";
+import type { Option } from "@kai/ui";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
 import {
   depositCashFromHubAction,

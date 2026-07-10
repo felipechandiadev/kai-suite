@@ -1,38 +1,29 @@
-# Componentes Compartidos - Flow Store Web Admin
+# Componentes compartidos — Kai Admin
 
-Librería completa de componentes reutilizables para el frontend de Flow Store. Basada en React 19, TypeScript y Tailwind CSS.
+Los **primitivos UI** viven en [`@kai/ui`](../../../packages/ui). Esta carpeta contiene solo componentes **de dominio** (TopBar, Multimedia, compras, etc.).
 
-## 📁 Estructura
+Ver [`packages/ui/ADAPTACION.md`](../../../packages/ui/ADAPTACION.md) para la matriz app × componente.
+
+**Imports:** `import { Button, Dialog } from "@kai/ui";`
+
+## Estructura local (dominio)
 
 ```
 shared/components/
-├── Alert/                      # Notificaciones
-├── Badge/                      # Etiquetas
-├── Button/                     # Botones (Button, ButtonPill)
-├── Card/                       # Contenedor base
-├── Dialog/                     # Modales
-├── TextField/                  # Campo de texto avanzado
-├── Select/                     # Selector de opciones
-├── AutoComplete/               # Autocomplete
-├── DropdownList/               # Dropdown
-├── DataGrid/                   # Tabla compleja
-├── RangeSlider/                # Rango deslizante
-├── NumberStepper/              # Incrementador numérico
-├── Stepper/                    # Indicador de pasos (wizard / flujo)
-├── Switch/                     # Interruptor
-├── Tabs/                       # Pestañas
-├── FileUploader/               # Cargador de archivos
-├── LocationPicker/             # Selector de ubicación
-├── DotProgress/                # Indicador de progreso
-├── PrintDialog/                # Diálogo de impresión
-├── TopBar/                     # Barra superior
-├── IconButton/                 # Botón con icono
+├── TopBar/                     # Barra superior + SideBar
+├── Multimedia/                 # Campos y grids multimedia
+├── PurchaseDocumentBuilder/    # Compras / recepciones
+├── PlannedPaymentLines/        # Planes de pago
+├── PrintDocuments/             # Layouts de impresión ERP
+├── FileUploader/               # Compat multimedia legacy
+├── BaseForm/                   # Formularios auto-generados
+├── Calendar/                   # Calendario mensual
 ├── SplashScreen/               # Pantalla de inicio
-└── BaseForm/                   # Formularios auto-generados
-    ├── CreateBaseForm.tsx
-    ├── UpdateBaseForm.tsx
-    └── DeleteBaseForm.tsx
+├── LocationPicker/             # Mapa / coordenadas
+└── StockThresholdField/        # Umbrales de stock
 ```
+
+> Los ejemplos siguientes usan `@/shared/components` histórico; en código nuevo usar `@kai/ui` para primitivos.
 
 ---
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { IconButton } from "@/shared/admin-shared";
+import { IconButton } from "@kai/ui";
 import { useEShopCart } from "@/features/e-shop-cart/EShopCartProvider";
 import type { CompanyEShopTopBarSettings } from "@/features/e-shop-storefront/types/storefront.types";
 import {

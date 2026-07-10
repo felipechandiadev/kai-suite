@@ -2,12 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import DataGrid from "@/shared/components/DataGrid/DataGrid";
-import type { DataGridColumn } from "@/shared/components/DataGrid/DataGrid";
-import Badge from "@/shared/components/Badge/Badge";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import type { AccountsPayableRow } from "@/features/accounting-accounts-payable/types/accounts-payable.types";
-import { dataGridFillViewportTabPageProps } from "@/shared/components/layouts/layoutPageTokens";
+import Badge, { DataGridTable as DataGrid, IconButton, dataGridFillViewportTabPageProps } from "@kai/ui";
 import {
   labelAccountsPayableOriginCategory,
   labelAccountsPayablePayeeType,

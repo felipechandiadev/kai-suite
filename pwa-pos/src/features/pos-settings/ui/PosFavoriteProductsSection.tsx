@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { IconButton } from "@kai/ui";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
 import { readPosFavoriteProducts } from "../lib/pos-favorite-products-storage";
 import { PosFavoriteProductsDialog } from "./PosFavoriteProductsDialog";

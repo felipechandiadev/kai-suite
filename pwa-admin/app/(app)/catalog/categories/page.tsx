@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listCategoriesForPage } from "@/features/inventory-categories/actions/category.action";
 import { CategoriesCollection } from "./components/CategoriesCollection";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import Alert from "@/shared/components/Alert/Alert";
-import { Button } from "@/shared/components/Button";
-import { TextField } from "@/shared/components/TextField/TextField";
-import Select from "@/shared/components/Select/Select";
-import Switch from "@/shared/components/Switch/Switch";
+import { Dialog } from "@kai/ui";
+import { Alert } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import { SelectDefault as Select } from "@kai/ui";
+import { Switch } from "@kai/ui";
 import type { AccountHierarchyNode, AccountType } from "@/features/accounting-chart-of-accounts/types/chart-of-accounts.types";
 import { createChartOfAccountAction } from "@/features/accounting-chart-of-accounts/actions/chart-of-accounts.action";
 

@@ -27,6 +27,7 @@ Guía para Cursor al desarrollar la **plataforma Kai** (KaiStore, KaiFood, compo
 
 - Server Actions Only; NO fetch en UI/hooks.
 - Validaciones Zod; SIEMPRE Bearer token al backend.
+- Primitivos UI: `@kai/ui` (`packages/ui`). Nuevo código: `import { Button } from "@kai/ui"`.
 
 ## Docs
 

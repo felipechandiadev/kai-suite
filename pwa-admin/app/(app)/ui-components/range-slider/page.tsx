@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import RangeSlider from '@/shared/components/RangeSlider/RangeSlider';
+import { RangeSlider } from '@kai/ui';
 
 export default function RangeSliderPage() {
   const [range, setRange] = useState<[number, number]>([20, 80]);

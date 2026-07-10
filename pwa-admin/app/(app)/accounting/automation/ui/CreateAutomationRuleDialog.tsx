@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Dialog from "@/shared/components/Dialog";
-import TextField from "@/shared/components/TextField";
-import { Select } from "@/shared/components/Select";
-import Switch from "@/shared/components/Switch";
-import { Button } from "@/shared/components/Button";
+import { Dialog } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import { Select } from "@kai/ui";
+import { Switch } from "@kai/ui";
+import { Button } from "@kai/ui";
 import { createAutomationRuleAction } from "@/features/automation/actions/automation.action";
 import type { AutomationActionType, CreateAutomationRuleInput } from "@/features/automation/types/automation.types";
 import { AUTOMATION_ACTION_OPTIONS, AUTOMATION_EVENT_OPTIONS } from "./automationOptions";

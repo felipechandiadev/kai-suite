@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import { DotProgress, TextField } from "@/shared/admin-shared";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { Dialog } from "@kai/ui";
+import { DotProgress, TextField } from "@kai/ui";
+import { IconButton } from "@kai/ui";
 import { searchPosProductsAction } from "@/features/pos-products/actions/pos-products.action";
 import type { PosProductSearchItem } from "@/features/pos-products/types/pos-product.types";
 import {

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button } from "@/shared/components/Button";
-import { TextField } from "@/shared/components/TextField/TextField";
+import { Button } from "@kai/ui";
+import { TextField } from "@kai/ui";
 import { useCompany } from "@/providers/CompanyProvider";
 import {
   getCompanyEShopSettingsAction,

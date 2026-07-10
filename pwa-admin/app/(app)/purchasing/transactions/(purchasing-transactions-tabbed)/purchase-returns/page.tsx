@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 import {
   listPurchaseReturnsForPage,
   loadReceptionFoliosByIdsAction,

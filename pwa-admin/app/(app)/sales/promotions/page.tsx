@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listPromotionsAction } from "@/features/promotions/actions/promotions.action";
 import { PromotionsPageContent } from "./PromotionsPageContent";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

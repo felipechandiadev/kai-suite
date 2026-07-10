@@ -4,7 +4,7 @@ import { signIn, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, Store } from "lucide-react";
-import { Button, IconButton, TextField } from "@/shared/admin-shared";
+import { Button, IconButton, TextField } from "@kai/ui";
 import {
   readPosCompany,
   type PosCompanyConfig,

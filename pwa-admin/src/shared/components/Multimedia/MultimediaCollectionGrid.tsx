@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { IconButton } from "@kai/ui";
 import type { MultimediaAspectRatio, MultimediaGridItem, MultimediaLightboxItem } from "./types";
 import { MultimediaLightbox } from "./MultimediaLightbox";
 

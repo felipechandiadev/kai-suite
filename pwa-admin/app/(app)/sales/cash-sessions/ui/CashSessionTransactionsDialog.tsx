@@ -1,9 +1,9 @@
 "use client";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 import { useEffect, useState } from "react";
-import Dialog from "@/shared/components/Dialog";
-import Alert from "@/shared/components/Alert/Alert";
+import { Dialog } from "@kai/ui";
+import { Alert } from "@kai/ui";
 import { getCashSessionDetailAction } from "@/features/sales-cash-sessions/actions/cash-session-detail.action";
 import type { CashSessionListRow } from "@/features/sales-cash-sessions/types/cash-session-list.types";
 import type { CashSessionMovementRow } from "@/features/sales-cash-sessions/types/cash-session-movement.types";

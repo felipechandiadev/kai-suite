@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
 import { useParams } from "next/navigation";
 import { Barcode } from "lucide-react";
 import Link from "next/link";
-import { Alert, Badge, DotProgress } from "@/shared";
+import { Alert, Badge, DotProgress } from "@kai/ui";
 import { VariantDetailPricingSection } from "@/features/variant-pricing/components/VariantDetailPricingSection";
 import { VariantDetailPhotoSection } from "@/features/variant-multimedia/components/VariantDetailPhotoSection";
 import { VariantDetailStockByStorageSection } from "./VariantDetailStockByStorageSection";

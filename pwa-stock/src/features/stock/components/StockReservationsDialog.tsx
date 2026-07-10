@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Alert, Button, Dialog } from "@/shared";
+import { Alert, Button, Dialog } from "@kai/ui";
 import type { StockGridRow, StockStorageBreakdownRow } from "@/features/stock/types/stock-grid.types";
 
 function apiBase(): string {

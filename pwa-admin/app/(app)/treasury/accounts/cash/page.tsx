@@ -10,7 +10,7 @@ import { redirect } from "next/navigation";
 import { resolveTreasuryCashHubSelection } from "./treasury-cash-hubs";
 import { mapCashHubMovementsToGridRows, type TreasuryCashMovementGridRow } from "./treasury-cash-hub-movements-mapper";
 import TreasuryCashTabContent from "./TreasuryCashTabContent";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

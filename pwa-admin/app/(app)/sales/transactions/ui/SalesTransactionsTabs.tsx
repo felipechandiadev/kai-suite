@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
-import Tabs from "@/shared/components/Tabs";
+import { Tabs } from "@kai/ui";
 import {
   SALES_TRANSACTIONS_TAB_ITEMS,
   salesTransactionsActiveTabUrl,

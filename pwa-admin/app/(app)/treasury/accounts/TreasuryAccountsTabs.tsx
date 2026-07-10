@@ -1,6 +1,6 @@
 "use client";
 
-import Tabs from "@/shared/components/Tabs";
+import { Tabs } from "@kai/ui";
 
 export function TreasuryAccountsTabs() {
   const items = [

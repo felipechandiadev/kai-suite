@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { Dialog } from "@kai/ui";
+import { IconButton } from "@kai/ui";
 import type { MultimediaLightboxItem } from "./types";
 
 export type MultimediaLightboxProps = {

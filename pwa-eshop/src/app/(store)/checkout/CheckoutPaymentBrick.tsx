@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { Button } from "@/shared/admin-shared";
+import { Button } from "@kai/ui";
 import {
   confirmCheckoutPaymentAction,
   fetchCheckoutPaymentStatusAction,

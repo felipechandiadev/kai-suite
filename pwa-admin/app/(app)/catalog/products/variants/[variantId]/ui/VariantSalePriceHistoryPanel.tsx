@@ -1,6 +1,6 @@
 "use client";
 
-import LoadingState from "@/shared/components/LoadingState";
+import { LoadingState } from "@kai/ui";
 import type { VariantSalePriceHistoryEntry } from "@/features/inventory-products/types/variant-sale-price-history.types";
 import { VariantSalePriceHistoryChart } from "./VariantSalePriceHistoryChart";
 

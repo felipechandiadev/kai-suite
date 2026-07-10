@@ -1,8 +1,8 @@
 "use client";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 import { useEffect, useState } from "react";
-import Dialog from "@/shared/components/Dialog/Dialog";
+import { Dialog } from "@kai/ui";
 import type { ProductGridRow } from "@/features/inventory-products/types/product-grid.types";
 import { EShopProductDetailPreview } from "@/features/eshop-preview/components/EShopProductDetailPreview";
 import { getEShopCatalogProductPreviewAction } from "@/features/eshop-preview/actions/eshop-preview.action";

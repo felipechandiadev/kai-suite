@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Alert, IconButton } from "@/shared/admin-shared";
+import { Alert, IconButton } from "@kai/ui";
 import { listPersonBankAccountsAction } from "@/features/person-bank-accounts/actions/person-bank-account.action";
 import { CreatePersonBankAccountDialog } from "@/features/person-bank-accounts/ui/CreatePersonBankAccountDialog";
 import { PersonBankAccountCard } from "@/features/person-bank-accounts/ui/PersonBankAccountCard";

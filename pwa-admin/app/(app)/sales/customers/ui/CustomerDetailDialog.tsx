@@ -1,9 +1,9 @@
 "use client";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Dialog from "@/shared/components/Dialog";
-import Badge from "@/shared/components/Badge/Badge";
+import { Dialog } from "@kai/ui";
+import Badge from "@kai/ui";
 import { SIDE_BAR_MENU_ITEM_CLASSNAMES } from "@/shared/components/TopBar/SideBar";
 import { getCustomerDetailAction } from "@/features/sales-customers/actions/customer.action";
 import type { CustomerDetailView } from "@/features/sales-customers/types/customer.types";

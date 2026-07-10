@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { listRemunerationsForGridAction } from "@/features/hr-remunerations/actions/remuneration.action";
 import { listEmployeesForGridAction } from "@/features/hr-employees/actions/employee.action";
 import RemunerationsDataGrid from "./ui/RemunerationsDataGrid";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

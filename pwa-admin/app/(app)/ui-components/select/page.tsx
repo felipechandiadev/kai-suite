@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Select from '@/shared/components/Select/Select';
+import { SelectDefault as Select } from '@kai/ui';
 
 export default function SelectPage() {
   const [selectedValue1, setSelectedValue1] = useState<string | number | null>(null);

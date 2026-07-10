@@ -1,4 +1,4 @@
-import type { BadgeVariant } from "@/shared/components/Badge/Badge";
+import type { BadgeVariant } from "@kai/ui";
 
 export const EMPLOYEE_STATUS_LABEL: Record<string, string> = {
   ACTIVE: "Activo",

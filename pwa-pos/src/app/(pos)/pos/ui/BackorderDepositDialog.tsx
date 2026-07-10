@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Button, Dialog, TextField } from "@/shared/admin-shared";
+import { Alert, Button, Dialog, TextField } from "@kai/ui";
 import type { BackorderDepositConfig } from "@/features/pos-cart/types/backorder-deposit.types";
 import {
   clampDepositAmount,

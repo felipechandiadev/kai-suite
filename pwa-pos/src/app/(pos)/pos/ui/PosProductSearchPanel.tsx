@@ -39,7 +39,7 @@ import {
   Select,
   Switch,
   TextField,
-} from "@/shared/admin-shared";
+} from "@kai/ui";
 import { PosFavoriteQuickPickBar } from "@/features/pos-settings/ui/PosFavoriteQuickPickBar";
 import { findPresaleTicketByCodeAction } from "@/features/presale-tickets/actions/presale-tickets.action";
 import { looksLikePresaleTicketCode } from "@/features/presale-tickets/lib/presale-ticket-code";

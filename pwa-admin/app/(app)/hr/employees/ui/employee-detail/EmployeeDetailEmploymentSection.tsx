@@ -1,12 +1,6 @@
 "use client";
 
-import LoadingState from "@/shared/components/LoadingState";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { EmployeeDetailView, UpdateEmployeePayload } from "@/features/hr-employees/types/employee.types";
-import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
-import { TextField } from "@/shared/components/TextField/TextField";
-import { Select, type Option } from "@/shared/components/Select";
-import IconButton from "@/shared/components/IconButton";
+import { IconButton, LoadingState, Select, TextField, type Option } from "@kai/ui";
 import {
   listOrganizationalUnitsAction,
 } from "@/features/hr-organizational-units/actions/organizational-unit.action";

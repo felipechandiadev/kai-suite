@@ -13,8 +13,7 @@ import { isMultiCompanyModuleEnabled } from '@/config/multi-company-module.confi
 import { getKaiAdminAppName } from '@/config/product-brand.config';
 import { isEShopEnabledFromSettings } from '@/features/companies/types/company-eshop.types';
 import { useCompany } from '@/providers/CompanyProvider';
-import { Button } from '../Button/Button';
-import IconButton from '../IconButton/IconButton';
+import { Button, IconButton } from '@kai/ui';
 
 export interface SideBarMenuItem {
   id?: string;

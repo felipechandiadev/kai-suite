@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import Tabs from "@/shared/components/Tabs";
+import { Tabs } from "@kai/ui";
 
 const TAB_SALES = "/accounting/flows/sales";
 const TAB_PURCHASE = "/accounting/flows/purchase";

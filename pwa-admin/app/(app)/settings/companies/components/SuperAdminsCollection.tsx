@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import { CollectionPageLayout } from "@/shared/components/layouts";
+import { IconButton } from "@kai/ui";
+import { CollectionPageLayout } from "@kai/ui";
 import type { SuperAdminUser } from "@/features/settings-users/types/super-admin.types";
 import { SuperAdminCard } from "./SuperAdminCard";
 import { CreateSuperAdminDialog } from "./CreateSuperAdminDialog";

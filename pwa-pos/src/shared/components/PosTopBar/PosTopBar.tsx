@@ -5,7 +5,8 @@ import { signOutToLogin } from "@/lib/auth/sign-out-to-login";
 import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BadgeCheck, Building2, CircleUser, ImageOff, Image as ImageIcon, Store, Wifi, WifiOff } from "lucide-react";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import ChangePasswordDialog from "@/shared/components/Dialog/ChangePasswordDialog";
+import { Button, Dialog, IconButton } from "@kai/ui";
 import {
   POS_CONTEXT_CHANGED_EVENT,
   readPosContextClient,
@@ -16,9 +17,6 @@ import { OfflineStatusBadge } from "@/features/pos-offline/ui/OfflineStatusBadge
 import { OfflineCatalogSyncDonut } from "@/features/pos-offline/ui/OfflineCatalogSyncDonut";
 import { usePosOffline } from "@/features/pos-offline/hooks/use-pos-offline";
 import { PrintServiceTopBarDropdown, usePrintServiceConnection } from "@kai/print-service-client";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import { Button } from "@/shared/components/Button";
-import ChangePasswordDialog from "@/shared/components/Dialog/ChangePasswordDialog";
 import {
   clearPosPrintJobBrowserFallback,
   tryPosPrintJobBrowserFallback,

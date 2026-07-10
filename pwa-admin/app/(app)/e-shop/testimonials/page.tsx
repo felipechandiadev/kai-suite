@@ -1,4 +1,4 @@
-import { BasicPageLayout } from "@/shared/components/layouts/BasicPageLayout";
+import { BasicPageLayout } from "@kai/ui";
 import { TestimonialsAdminPanel } from "./ui/TestimonialsAdminPanel";
 import { listTestimonialsAction } from "@/features/e-shop-testimonials/actions/testimonial.action";
 

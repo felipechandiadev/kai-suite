@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { IconButton } from "@/shared";
+import { IconButton } from "@kai/ui";
 import {
   createProductPagePath,
   isCreateProductPath,

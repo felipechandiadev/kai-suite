@@ -1,8 +1,6 @@
 "use client";
 import React from "react";
-import { Button } from "../Button/Button";
-import DotProgress from "../DotProgress/DotProgress";
-import Alert from "../Alert/Alert";
+import { Button, DotProgress, Alert } from "@kai/ui";
 import { Trash2 } from "lucide-react";
 
 export interface DeleteBaseFormProps {

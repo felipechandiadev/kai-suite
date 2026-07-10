@@ -17,10 +17,10 @@ import {
   type KaiPrintersDownloadsManifests,
   PrintServiceAgentConnectionHints,
 } from "@kai/print-service-client";
-import { Button } from "@/shared/components/Button";
-import { Select } from "@/shared/components/Select";
-import TextField from "@/shared/components/TextField";
-import Switch from "@/shared/components/Switch";
+import { Button } from "@kai/ui";
+import { Select } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import { Switch } from "@kai/ui";
 
 type Props = {
   className?: string;

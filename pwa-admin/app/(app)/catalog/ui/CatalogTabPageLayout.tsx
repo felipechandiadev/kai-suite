@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { TabPageLayout } from "@/shared/components/layouts";
+import { TabPageLayout } from "@kai/ui";
 import { CatalogTabs } from "./CatalogTabs";
 import { CatalogLayoutTitle } from "./CatalogLayoutTitle";
 

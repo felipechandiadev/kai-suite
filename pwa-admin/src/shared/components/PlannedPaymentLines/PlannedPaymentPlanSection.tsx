@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
-import type { Option } from "@/shared/components/Select";
+import type { Option } from "@kai/ui";
 import type { CompanyBankAccountItem } from "@/features/settings-branches/infrastructure/company.request";
 import type { PlannedPaymentPayload } from "@/shared/lib/planned-payment-plan";
 import {

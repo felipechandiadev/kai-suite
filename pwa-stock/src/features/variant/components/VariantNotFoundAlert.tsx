@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, IconButton } from "@/shared";
+import { Button, IconButton } from "@kai/ui";
 
 export type VariantNotFoundAlertProps = {
   code: string;

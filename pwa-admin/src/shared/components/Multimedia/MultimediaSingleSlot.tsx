@@ -2,8 +2,8 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Image as ImageIcon, User } from "lucide-react";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import Alert from "@/shared/components/Alert/Alert";
+import { IconButton } from "@kai/ui";
+import { Alert } from "@kai/ui";
 import { bannerAreaClassName, bannerPlaceholderIconDimension } from "@/shared/components/FileUploader/multimedia-banner-size";
 import type { MultimediaBannerSize } from "@/shared/components/FileUploader/multimedia-banner-size";
 import { logoAreaClassName, logoPlaceholderIconDimension } from "@/shared/components/FileUploader/multimedia-logo-size";

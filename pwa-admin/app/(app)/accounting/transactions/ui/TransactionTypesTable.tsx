@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { TextField } from "@/shared/components/TextField/TextField";
+import { TextField } from "@kai/ui";
 import { TRANSACTION_TYPE_OPTIONS } from "@/features/transactions/types/transaction-types";
 
 export function TransactionTypesTable() {

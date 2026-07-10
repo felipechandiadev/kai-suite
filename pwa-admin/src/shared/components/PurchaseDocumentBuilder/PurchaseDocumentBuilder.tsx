@@ -1,15 +1,21 @@
 "use client";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from "@kai/ui";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import { TextField } from "@/shared/components/TextField/TextField";
-import NumberStepper from "@/shared/components/NumberStepper/NumberStepper";
-import { Select, type Option } from "@/shared/components/Select";
-import AutoComplete from "@/shared/components/AutoComplete/AutoComplete";
-import Switch from "@/shared/components/Switch/Switch";
-import { Button } from "@/shared/components/Button";
+import {
+  AutoComplete,
+  Button,
+  Dialog,
+  IconButton,
+  NumberStepper,
+  PrintDialog,
+  Select,
+  Switch,
+  TextField,
+  usePrint,
+  type Option,
+} from "@kai/ui";
 import type { PurchasingVariantSearchItem, PurchasingVariantSearchResult } from "@/features/purchasing-document/types/purchasing-document.types";
 import type { SupplierGridRow } from "@/features/purchasing-suppliers/types/supplier.types";
 import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
@@ -43,8 +49,6 @@ import type { CompanyDetails, CompanyBankAccountItem } from "@/features/settings
 import { formatMoney, InlineSepDot, ProductNameWithAttributes } from "./PurchaseDocumentProductPreview";
 import { PurchaseDocumentVariantSearchPanel } from "./PurchaseDocumentVariantSearchPanel";
 import { usePurchaseDocumentReferenceData } from "./usePurchaseDocumentReferenceData";
-import { usePrint } from "@/shared/components/PrintDialog/usePrint";
-import { PrintDialog } from "@/shared/components/PrintDialog/PrintDialog";
 import {
   PurchaseOrderPrintDocument,
   type PurchaseOrderPrintModel,
@@ -55,7 +59,6 @@ import { buildSupplierIdentityPrintFields } from "@/shared/components/PrintDocum
 import type { PrintableCompanyInfo } from "@/shared/components/PrintDocuments/PrintableDocumentLayout";
 import type { CashHubRow } from "@/features/treasury-cash-hubs/types/cash-hub.types";
 import { PurchaseDocumentReceptionPaymentDialog } from "./PurchaseDocumentReceptionPaymentDialog";
-import Dialog from "@/shared/components/Dialog/Dialog";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

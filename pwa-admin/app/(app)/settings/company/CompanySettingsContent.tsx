@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { TabPageLayout } from "@/shared/components/layouts";
+import { TabPageLayout } from "@kai/ui";
 import type { CompanyDetails } from "@/features/settings-branches/infrastructure/company.request";
 import type { ShareholderRow } from "@/features/settings-shareholders/types/shareholder.types";
 import { isEShopModuleEnabled } from "@/config/eshop-module.config";

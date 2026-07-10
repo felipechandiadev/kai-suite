@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/shared/components/Button";
-import { TextField } from "@/shared/components/TextField/TextField";
-import Switch from "@/shared/components/Switch/Switch";
+import { Button } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import { Switch } from "@kai/ui";
 import {
   defaultCompanyMercadoPagoSettings,
   toMercadoPagoForm,

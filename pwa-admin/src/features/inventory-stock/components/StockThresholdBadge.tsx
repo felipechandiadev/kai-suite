@@ -1,6 +1,6 @@
 "use client";
 
-import Badge from "@/shared/components/Badge/Badge";
+import Badge from "@kai/ui";
 import { formatThreshold } from "../lib/stock-unit-display";
 
 export function StockThresholdBadge({

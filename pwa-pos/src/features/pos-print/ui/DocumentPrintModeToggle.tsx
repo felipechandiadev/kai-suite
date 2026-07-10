@@ -1,6 +1,6 @@
 "use client";
 
-import Switch from "@/shared/components/Switch/Switch";
+import { Switch } from "@kai/ui";
 
 export type DocumentPrintMode = "ticket" | "document";
 

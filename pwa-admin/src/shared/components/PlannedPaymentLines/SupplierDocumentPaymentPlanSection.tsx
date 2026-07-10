@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import type { Option } from "@/shared/components/Select";
+import type { Option } from "@kai/ui";
 import type { CompanyBankAccountItem } from "@/features/settings-branches/infrastructure/company.request";
 import type { SupplierGridRow } from "@/features/purchasing-suppliers/types/supplier.types";
 import type { ReceptionSupplierDocumentPaymentPayload } from "@/features/receptions/types/reception-document-payment.types";

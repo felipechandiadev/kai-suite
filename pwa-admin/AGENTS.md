@@ -28,7 +28,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## UI: diálogos y cards
 
-- **Todos** los modales / diálogos deben construirse con el componente compartido `Dialog` (`@kai/ui` o `@/shared/components/Dialog/Dialog.tsx`, re-export).
+- **Primitivos compartidos:** importar desde `@kai/ui` (fuente: `packages/ui`). `src/shared/components/` es solo dominio ERP.
+- Inventario / limpieza: `npm run ui:audit` — ver `packages/ui/ADAPTACION.md`.
+
+- **Todos** los modales / diálogos deben construirse con el componente compartido `Dialog` (`@kai/ui`).
 - **Fila de acciones del `Dialog`:** por defecto **`space-between`** (`actionsJustify="between"`): cancelar/ secundario a la izquierda, primero en `actions`, confirmar/ primario a la derecha, segundo. No redefinir al `end` sin buen motivo.
 - **Cabecera del `Dialog`:** no usar el botón de cierre al lado del título; **`showCloseButton` por defecto desactivado** (cierre: backdrop, `Esc`, Cancelar en el pie).
 - **Títulos de diálogos de creación:** el `title` (y `aria-label` de controles que abren el diálogo) deben usar el verbo **«Crear …»** (p. ej. `Crear sucursal`, `Crear producto`). **No** usar **«Nueva …»** / **«Nuevo …»** en títulos de creación, para unificar criterio con el botón primario del pie (típicamente «Crear»).
@@ -37,5 +40,5 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Está **prohibido** crear o usar otro enfoque de diálogo (overlays con `fixed` + caja a mano, otra lib de modales, `<dialog>` alternativo, etc.) salvo excepción explícita en el repositorio.
 - **IconButton** en **cards** (pies de `Card`, acciones con icono en tarjetas): **solo** `variant="action"` (el `Card` aplica esto a acciones con `icon` + `ariaLabel`).
 - **Formularios con `TextField`:** el `placeholder` de cada campo debe ser **el mismo texto que el `label`**; no textos de ejemplo en el placeholder (norma en `webadmin.instruction`).
-- **Indicadores de carga (loading):** cualquier UI de carga reutilizable —`loading.tsx` de segmentos, `Suspense` fallback, `dynamic({ loading: ... })`, bloques mientras se obtienen datos, etc.— debe usar el componente compartido **`DotProgress`** (`@kai/ui` o `@/shared/components/DotProgress/DotProgress`). **No** usar `animate-spin` a mano, “skeletons” de spinner custom ni texto solo «Cargando…» sin `DotProgress`, salvo excepción explícita. El **`loading` integrado de `Button`** (icono de spinner en el propio botón) sigue siendo el patrón de ese control.
+- **Indicadores de carga (loading):** cualquier UI de carga reutilizable —`loading.tsx` de segmentos, `Suspense` fallback, `dynamic({ loading: ... })`, bloques mientras se obtienen datos, etc.— debe usar el componente compartido **`DotProgress`** (`@kai/ui`). **No** usar `animate-spin` a mano, “skeletons” de spinner custom ni texto solo «Cargando…» sin `DotProgress`, salvo excepción explícita. El **`loading` integrado de `Button`** (icono de spinner en el propio botón) sigue siendo el patrón de ese control.
 - Ver también `.instructions/webadmin.instruction` e `../docs/legacy/WEBADMIN_INSTRUCTIONS.md` para el resto de reglas del frontend admin.

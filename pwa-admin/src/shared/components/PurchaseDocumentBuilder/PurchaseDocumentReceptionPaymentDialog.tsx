@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import { Button } from "@/shared/components/Button";
-import Alert from "@/shared/components/Alert/Alert";
-import type { Option } from "@/shared/components/Select";
+import { Dialog } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { Alert } from "@kai/ui";
+import type { Option } from "@kai/ui";
 import type { SupplierGridRow } from "@/features/purchasing-suppliers/types/supplier.types";
 import type { CompanyBankAccountItem } from "@/features/settings-branches/infrastructure/company.request";
 import type { ReceptionSupplierDocumentPaymentPayload } from "@/features/receptions/types/reception-document-payment.types";

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listSupplierReceiptsForPage } from "@/features/purchasing-supplier-receipts/actions/supplier-receipt.action";
 import DteReceiptsDataGrid from "./ui/DteReceiptsDataGrid";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

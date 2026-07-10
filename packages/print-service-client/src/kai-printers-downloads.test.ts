@@ -29,10 +29,10 @@ describe("resolveKaiPrintersDownloadUrl", () => {
 
   it("defaults Windows and macOS from manifests", () => {
     expect(resolveKaiPrintersDownloadUrl("windows", SAMPLE_MANIFESTS)).toBe(
-      "/downloads/kai-printers-windows-1.0.2-x64-portable.zip",
+      "/downloads/kai-printers-windows-1.0.5-x64-portable.zip",
     );
     expect(resolveKaiPrintersDownloadUrl("macos", SAMPLE_MANIFESTS)).toBe(
-      "/downloads/kai-printers-macos-1.0.2-aarch64.dmg",
+      "/downloads/kai-printers-macos-1.0.5-aarch64.dmg",
     );
   });
 
@@ -50,10 +50,10 @@ describe("resolveKaiPrintersDownloadUrl", () => {
       "/downloads/kai-printers-android-1.1.8.apk",
     );
     expect(offers.find((o) => o.platform === "windows")?.href).toBe(
-      "/downloads/kai-printers-windows-1.0.2-x64-portable.zip",
+      "/downloads/kai-printers-windows-1.0.5-x64-portable.zip",
     );
     expect(offers.find((o) => o.platform === "macos")?.href).toBe(
-      "/downloads/kai-printers-macos-1.0.2-aarch64.dmg",
+      "/downloads/kai-printers-macos-1.0.5-aarch64.dmg",
     );
   });
 

@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import type { AutomationRuleDto } from "@/features/automation/types/automation.types";
-import { Card } from "@/shared/components/Cards/Card";
-import { Button } from "@/shared/components/Button";
-import { DeleteDialog } from "@/shared/components/Dialog";
+import { Card } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { DeleteDialog } from "@kai/ui";
 import { deleteAutomationRuleAction } from "@/features/automation/actions/automation.action";
 import { UpdateAutomationRuleDialog } from "./UpdateAutomationRuleDialog";
 import { AUTOMATION_ACTION_OPTIONS, AUTOMATION_EVENT_OPTIONS } from "./automationOptions";

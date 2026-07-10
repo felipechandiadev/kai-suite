@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listReceptionsForGridAction } from "@/features/receptions/actions/reception.action";
 import ReceptionsDataGrid from "./ui/ReceptionsDataGrid";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

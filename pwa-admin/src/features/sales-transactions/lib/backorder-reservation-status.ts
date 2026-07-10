@@ -1,4 +1,4 @@
-import type { BadgeVariant } from "@/shared/components/Badge/Badge";
+import type { BadgeVariant } from "@kai/ui";
 
 /** Ciclo de vida comercial del encargo (`metadata.backorder.reservationStatus`). */
 export type BackorderReservationStatus =

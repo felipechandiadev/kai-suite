@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { IconButton } from "@kai/ui";
 import { CreateAttributeDialog } from "./CreateAttributeDialog";
 
 export function AttributesCollectionAddAction() {

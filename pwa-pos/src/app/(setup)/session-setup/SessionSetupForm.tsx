@@ -12,7 +12,7 @@ import type { OfflineBootstrapStatus } from "@/features/pos-offline/domain/offli
 import { listOpenCashSessionsAction } from "@/features/session/actions/cash-session.action";
 import { listCashHubsForPosAction } from "@/features/session/actions/cash-hub-pos.action";
 import type { CashHubDepositCandidate } from "@/features/session/types/cash-hub-deposit.types";
-import { Alert, Button, Dialog, Select, TextField } from "@/shared/admin-shared";
+import { Alert, Button, Dialog, Select, TextField } from "@kai/ui";
 import { fetchPointOfSalePriceListsAction } from "@/features/session/actions/point-of-sale-pos.action";
 import { savePosContextClient, type PosPriceListSnapshot } from "@/features/session/lib/pos-context-storage";
 import { queueCashSessionOpeningPrint } from "@/features/cash-session-opening/lib/pending-cash-session-opening-print";

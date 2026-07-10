@@ -1,15 +1,22 @@
 #!/usr/bin/env node
 /**
  * Reemplaza implementaciones locales por re-exports desde @kai/ui.
- * Mantiene rutas @/shared/components/... para compatibilidad.
+ * ADVERTENCIA: tras la limpieza post-@kai/ui, no ejecutar en apps ya migradas
+ * (recrearía stubs eliminados). Usar solo al introducir un primitivo nuevo
+ * antes de migrar imports. Ver packages/ui/ADAPTACION.md.
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../..");
-const apps = ["pwa-admin", "pwa-pos"];
-const componentsRoot = "src/shared/components";
+
+const appConfigs = [
+  { app: "pwa-admin", componentsRoot: "src/shared/components" },
+  { app: "pwa-pos", componentsRoot: "src/shared/components" },
+  { app: "pwa-eshop", componentsRoot: "src/shared/components" },
+  { app: "pwa-stock", componentsRoot: "src/shared" },
+];
 
 const stubs = {
   Alert: {
@@ -39,8 +46,8 @@ const stubs = {
     "DotProgress.tsx": `export { DotProgress as default } from "@kai/ui";\n`,
   },
   Select: {
-    "index.ts": `export { Select, type SelectOption, type Option } from "@kai/ui";\nexport { default } from "@kai/ui/components/Select/Select";\n`,
-    "Select.tsx": `export { default, type Option } from "@kai/ui/components/Select/Select";\n`,
+    "index.ts": `export { Select, type SelectOption, type Option } from "@kai/ui";\nexport { SelectDefault as default } from "@kai/ui";\n`,
+    "Select.tsx": `export { SelectDefault as default, type Option } from "@kai/ui";\n`,
   },
   AutoComplete: {
     "index.ts": `export { AutoComplete as default } from "@kai/ui";\n`,
@@ -57,7 +64,7 @@ const stubs = {
   TextField: {
     "index.ts": `export { default, TextField } from "@kai/ui";\n`,
     "TextField.tsx": `export { TextField, default } from "@kai/ui";\n`,
-    "resolve-touch-input-mode.ts": `export * from "@kai/ui/components/TextField/resolve-touch-input-mode";\n`,
+    "resolve-touch-input-mode.ts": `export { resolveTouchInputMode, shouldUseTextInputForNumericType, type TouchInputMode, type ResolveTouchInputModeParams } from "@kai/ui";\n`,
   },
   Dialog: {
     "index.ts": `export { Dialog as default, DeleteDialog, type DeleteDialogProps } from "@kai/ui";\n`,
@@ -78,55 +85,165 @@ const stubs = {
     "DataGridWrapper.tsx": `export { DataGrid as default } from "@kai/ui";\n`,
     "components/RowActions.tsx": `export { RowActions } from "@kai/ui";\n`,
   },
+  Tabs: {
+    "index.ts": `export { Tabs as default, type TabItem, type TabsProps } from "@kai/ui";\n`,
+    "Tabs.tsx": `export { Tabs as default, type TabItem, type TabsProps } from "@kai/ui";\n`,
+  },
+  Cards: {
+    "index.ts": `export { Card, StatisticsCard, type CardProps, type StatisticsCardProps } from "@kai/ui";\n`,
+    "Card.tsx": `export { Card, type CardProps, type CardAction, type CardIconAction, type CardTextAction, type LucideIconName } from "@kai/ui";\n`,
+    "StatisticsCard.tsx": `export { StatisticsCard, type StatisticsCardProps, type StatisticsValueTone } from "@kai/ui";\n`,
+  },
+  Stepper: {
+    "index.ts": `export { Stepper as default, type StepperProps, type StepperStepItem } from "@kai/ui";\n`,
+    "Stepper.tsx": `export { Stepper as default, type StepperProps, type StepperStepItem } from "@kai/ui";\n`,
+  },
+  RangeSlider: {
+    "index.ts": `export { RangeSlider as default } from "@kai/ui";\n`,
+    "RangeSlider.tsx": `export { RangeSlider as default } from "@kai/ui";\n`,
+  },
+  LoadingState: {
+    "index.ts": `export { LoadingState as default, type LoadingStateProps } from "@kai/ui";\n`,
+    "LoadingState.tsx": `export { LoadingState as default, type LoadingStateProps } from "@kai/ui";\n`,
+  },
+  Skeleton: {
+    "index.ts": `export { Skeleton as default, type SkeletonProps } from "@kai/ui";\n`,
+    "Skeleton.tsx": `export { Skeleton as default, type SkeletonProps } from "@kai/ui";\n`,
+  },
+  PrintDialog: {
+    "index.ts": `export { PrintDialog, usePrint, type PrintDialogProps, type PageOrientation, type PageSize } from "@kai/ui";\nexport { PrintDialog as default } from "@kai/ui";\n`,
+    "PrintDialog.tsx": `export { PrintDialog, type PrintDialogProps } from "@kai/ui";\nexport { PrintDialog as default } from "@kai/ui";\n`,
+    "usePrint.ts": `export { usePrint } from "@kai/ui";\n`,
+    "PrintDialog.types.ts": `export type { PrintDialogProps, PageOrientation, PageSize } from "@kai/ui";\n`,
+  },
 };
 
-for (const app of apps) {
-  for (const [folder, files] of Object.entries(stubs)) {
-    const dir = path.join(root, app, componentsRoot, folder);
-    if (!fs.existsSync(dir)) {
+const stockOnlyStubs = ["Alert", "Badge", "Button", "IconButton", "Switch", "DotProgress", "Select", "DropdownList", "NumberStepper", "TextField", "Dialog", "Cards", "LoadingState"];
+
+function stubFolder(app, componentsRoot, folder, files) {
+  const dir = path.join(root, app, componentsRoot, folder);
+  if (!fs.existsSync(dir)) {
+    return;
+  }
+  if (folder === "DataGrid") {
+    const compDir = path.join(dir, "components");
+    if (fs.existsSync(compDir)) {
+      fs.rmSync(compDir, { recursive: true, force: true });
+    }
+  }
+  for (const entry of fs.readdirSync(dir)) {
+    const full = path.join(dir, entry);
+    if (entry === "ChangePasswordDialog.tsx") continue;
+    if (fs.statSync(full).isFile()) {
+      fs.unlinkSync(full);
+    } else if (fs.statSync(full).isDirectory()) {
+      fs.rmSync(full, { recursive: true, force: true });
+    }
+  }
+  for (const [file, content] of Object.entries(files)) {
+    if (content == null) {
       continue;
     }
-    if (folder === "DataGrid") {
-      const compDir = path.join(dir, "components");
-      if (fs.existsSync(compDir)) {
-        fs.rmSync(compDir, { recursive: true, force: true });
-      }
-    }
-    for (const entry of fs.readdirSync(dir)) {
-      const full = path.join(dir, entry);
-      if (fs.statSync(full).isFile()) {
-        fs.unlinkSync(full);
-      } else if (fs.statSync(full).isDirectory()) {
-        fs.rmSync(full, { recursive: true, force: true });
-      }
-    }
-    for (const [file, content] of Object.entries(files)) {
-      if (content == null) {
-        continue;
-      }
-      const target = path.join(dir, file);
-      fs.mkdirSync(path.dirname(target), { recursive: true });
-      fs.writeFileSync(target, content, "utf8");
-    }
-    console.log(`stubbed ${app}/${folder}`);
+    const target = path.join(dir, file);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, content, "utf8");
+  }
+  console.log(`stubbed ${app}/${componentsRoot}/${folder}`);
+}
+
+for (const { app, componentsRoot } of appConfigs) {
+  const allowed =
+    app === "pwa-stock"
+      ? stockOnlyStubs
+      : Object.keys(stubs).filter((k) => k !== "layouts" || app !== "pwa-eshop");
+  for (const folder of allowed) {
+    if (!stubs[folder]) continue;
+    if (folder === "layouts" && app === "pwa-eshop") continue;
+    if (folder === "layouts" && app === "pwa-stock") continue;
+    if (folder === "DataGrid" && (app === "pwa-eshop" || app === "pwa-stock")) continue;
+    if (folder === "AutoComplete" && app === "pwa-stock") continue;
+    if (folder === "PrintDialog" && app === "pwa-eshop") continue;
+    if (folder === "Stepper" && (app === "pwa-eshop" || app === "pwa-stock")) continue;
+    if (folder === "RangeSlider" && (app === "pwa-eshop" || app === "pwa-stock")) continue;
+    if (folder === "Tabs" && app === "pwa-stock") continue;
+    stubFolder(app, componentsRoot, folder, stubs[folder]);
   }
 }
 
-// POS hook stub
+// Stock Cards live under components/Cards
+if (fs.existsSync(path.join(root, "pwa-stock/src/shared/components/Cards"))) {
+  stubFolder("pwa-stock", "src/shared/components", "Cards", stubs.Cards);
+}
+
 const posHook = path.join(root, "pwa-pos/src/shared/hooks/useCoarsePointer.ts");
 if (fs.existsSync(posHook)) {
   fs.writeFileSync(posHook, `export { useCoarsePointer } from "@kai/ui";\n`, "utf8");
 }
 
-// admin-shared.ts
-const adminShared = path.join(root, "pwa-pos/src/shared/admin-shared.ts");
+const posAdminShared = path.join(root, "pwa-pos/src/shared/admin-shared.ts");
 fs.writeFileSync(
-  adminShared,
+  posAdminShared,
   `// Re-exports desde @kai/ui (fuente: packages/ui)
-export { Dialog, Alert, Button, TextField, DotProgress, Select, IconButton, NumberStepper, Switch, DataGrid } from "@kai/ui";
-export type { SwitchOptionLabels, DataGridColumn } from "@kai/ui";
+export {
+  Dialog,
+  Alert,
+  Button,
+  TextField,
+  DotProgress,
+  Select,
+  IconButton,
+  NumberStepper,
+  Switch,
+  DataGrid,
+  Tabs,
+  Card,
+  StatisticsCard,
+  LoadingState,
+  Skeleton,
+} from "@kai/ui";
+export type { SwitchOptionLabels, DataGridColumn, TabItem, TabsProps } from "@kai/ui";
 `,
   "utf8",
 );
+
+const eshopAdminShared = path.join(root, "pwa-eshop/src/shared/admin-shared.ts");
+if (fs.existsSync(eshopAdminShared)) {
+  fs.writeFileSync(
+    eshopAdminShared,
+    `// Re-exports desde @kai/ui (fuente: packages/ui)
+export {
+  Button,
+  TextField,
+  IconButton,
+  Select,
+  Dialog,
+  Alert,
+  DotProgress,
+  Switch,
+  Tabs,
+  Skeleton,
+  LoadingState,
+} from "@kai/ui";
+export type { Option as SelectOption, TabItem, TabsProps } from "@kai/ui";
+`,
+    "utf8",
+  );
+}
+
+const stockPageLoading = path.join(root, "pwa-stock/src/shared/components/PageLoading.tsx");
+if (fs.existsSync(stockPageLoading)) {
+  fs.writeFileSync(
+    stockPageLoading,
+    `"use client";
+
+import { LoadingState } from "@kai/ui";
+
+export default function PageLoading() {
+  return <LoadingState className="flex justify-center py-12" />;
+}
+`,
+    "utf8",
+  );
+}
 
 console.log("done");

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listCustomersForPage } from "@/features/sales-customers/actions/customer.action";
 import CustomersDataGrid from "./ui/CustomersDataGrid";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

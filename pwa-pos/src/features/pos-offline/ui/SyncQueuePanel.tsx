@@ -1,6 +1,6 @@
 "use client";
 
-import { Dialog, Button } from "@/shared/admin-shared";
+import { Dialog, Button } from "@kai/ui";
 import { usePosOffline } from "../hooks/use-pos-offline";
 import { retryOfflineCommand } from "../application/sync-queue.usecase";
 import type { PosOfflineCommand } from "../domain/offline-command.types";

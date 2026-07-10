@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import { Button } from "@/shared/components/Button";
-import { TextField } from "@/shared/components/TextField/TextField";
+import { Dialog } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { TextField } from "@kai/ui";
 import type { TaxListItem } from "@/features/accounting-taxes/types/tax.types";
 import {
   netFromPmpAndUtilityPercent,

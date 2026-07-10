@@ -14,7 +14,7 @@ import ReactFlow, {
   type NodeProps,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { Button } from "@/shared/components/Button";
+import { Button } from "@kai/ui";
 
 export type PurchasingFlowStepData = {
   title: string;

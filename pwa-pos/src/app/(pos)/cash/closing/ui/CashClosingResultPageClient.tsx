@@ -10,7 +10,7 @@ import {
   isPosDocumentPrintModeDocument,
   posDocumentPrintModeToWireFormat,
 } from "@kai/print-service-client";
-import { Alert, Button } from "@/shared/admin-shared";
+import { Alert, Button } from "@kai/ui";
 import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
 import type { CompanyDetails } from "@/features/company/infrastructure/company.request";
 import type { CashClosingPrintInput } from "@/features/cash-closing/lib/cash-closing-print.types";

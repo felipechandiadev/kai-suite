@@ -12,15 +12,7 @@ import {
   postCapitalContributionAction,
   postCashDepositAction,
 } from "@/features/treasury-bank-operations/actions/treasury-bank-operations.action";
-import { StatisticsCard } from "@/shared/components/Cards";
-import "@/shared/components/Cards/cards.css";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import Alert from "@/shared/components/Alert/Alert";
-import { Button } from "@/shared/components/Button";
-import { TextField } from "@/shared/components/TextField/TextField";
-import Select from "@/shared/components/Select/Select";
-import type { Option } from "@/shared/components/Select";
+import { Alert, Button, Dialog, IconButton, SelectDefault as Select, StatisticsCard, TextField, type Option } from "@kai/ui";
 import TreasuryCashMovementsGrid from "./TreasuryCashMovementsGrid";
 import type { TreasuryCashMovementGridRow } from "./treasury-cash-hub-movements-mapper";
 import { UpdateCashHubDialog } from "./UpdateCashHubDialog";

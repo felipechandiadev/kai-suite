@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/shared/admin-shared";
+import { Button } from "@kai/ui";
 import { usePosOffline } from "../hooks/use-pos-offline";
 import {
   discardOfflineCommand,

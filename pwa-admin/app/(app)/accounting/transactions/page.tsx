@@ -1,4 +1,4 @@
-import { BasicPageLayout } from "@/shared/components/layouts/BasicPageLayout";
+import { BasicPageLayout } from "@kai/ui";
 import { TransactionTypesTable } from "./ui/TransactionTypesTable";
 
 export const dynamic = "force-dynamic";

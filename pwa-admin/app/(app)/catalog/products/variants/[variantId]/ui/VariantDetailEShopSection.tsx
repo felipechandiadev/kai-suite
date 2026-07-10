@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Switch from "@/shared/components/Switch/Switch";
-import { Button } from "@/shared/components/Button";
+import { Switch } from "@kai/ui";
+import { Button } from "@kai/ui";
 import type { ProductVariantGridRow } from "@/features/inventory-products/types/product-grid.types";
 import { ProductRequest } from "@/features/inventory-products/infrastructure/product.request";
 

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { CollectionPageLayout } from "@/shared/components/layouts";
+import { CollectionPageLayout } from "@kai/ui";
 import type { PriceListListItem } from "@/features/sales-price-lists/types/price-list.types";
 import { PRICE_LIST_TYPE_OPTIONS } from "@/features/sales-price-lists/types/price-list.types";
 import { PriceListCollectionAddAction } from "./PriceListCollectionAddAction";

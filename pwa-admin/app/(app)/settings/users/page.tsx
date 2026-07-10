@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listUsersForSettingsPage } from "@/features/settings-users/actions/user.action";
 import { SettingsUsersCollection } from "./components/SettingsUsersCollection";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

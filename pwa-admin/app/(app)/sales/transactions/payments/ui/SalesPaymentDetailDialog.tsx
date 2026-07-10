@@ -1,11 +1,11 @@
 "use client";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 import { useCallback, useEffect, useState } from "react";
-import Dialog from "@/shared/components/Dialog";
-import Alert from "@/shared/components/Alert/Alert";
-import Badge, { type BadgeVariant } from "@/shared/components/Badge/Badge";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { Dialog } from "@kai/ui";
+import { Alert } from "@kai/ui";
+import Badge, { type BadgeVariant } from "@kai/ui";
+import { IconButton } from "@kai/ui";
 import { getCompanyDetailsAction } from "@/features/settings-company/actions/company.action";
 import {
   canAdminPrintPaymentIn,

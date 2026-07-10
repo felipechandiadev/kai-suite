@@ -1,8 +1,8 @@
 "use client";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 import { useEffect, useState } from "react";
-import Badge from "@/shared/components/Badge/Badge";
+import Badge from "@kai/ui";
 import type { StockStorageBreakdownRow } from "@/features/inventory-stock/types/stock-grid.types";
 import {
   StorageThresholdField,

@@ -1,4 +1,4 @@
-import { BasicPageLayout } from "@/shared/components/layouts/BasicPageLayout";
+import { BasicPageLayout } from "@kai/ui";
 import { GetCompanyUseCase } from "@/features/settings-company/application/get-company.usecase";
 import { getCompanyMercadoPagoSettingsAction } from "@/features/company-integrations/actions/companies-mercado-pago.action";
 import {

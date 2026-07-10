@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { IconButton } from "@kai/ui";
 import type { PersonBankAccountItem } from "../types/person-bank-account.types";
 import { PersonBankAccountCard } from "./PersonBankAccountCard";
 import { CreatePersonBankAccountDialog } from "./CreatePersonBankAccountDialog";

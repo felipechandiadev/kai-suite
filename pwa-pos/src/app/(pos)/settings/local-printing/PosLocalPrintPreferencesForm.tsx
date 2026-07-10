@@ -19,7 +19,7 @@ import {
   writePrintServiceConfigToStorage,
   KaiPrintersDownloadSection,
 } from "@kai/print-service-client";
-import { Button, Select, Switch, TextField } from "@/shared/admin-shared";
+import { Button, Select, Switch, TextField } from "@kai/ui";
 import { printPosDocumentTest } from "@/features/pos-print/lib/print-pos-document-test";
 import { printPosQuickTicketTest } from "@/features/pos-print/lib/print-pos-quick-print-test";
 import { getFiscalBoletaTestPreviewAction } from "@/features/fiscal/actions/fiscal-boleta-test-preview.action";

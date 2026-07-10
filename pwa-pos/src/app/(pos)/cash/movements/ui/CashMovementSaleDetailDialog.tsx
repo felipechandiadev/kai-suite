@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Alert, Button, Dialog, DotProgress } from "@/shared/admin-shared";
+import { Alert, Button, Dialog, DotProgress } from "@kai/ui";
 import { getPosSaleReceiptPrintAction } from "@/features/pos-print/actions/pos-sale-receipt-print.action";
 import type { PosSaleReceiptPrintDto } from "@/features/pos-print/types/pos-sale-receipt-print.types";
 import { formatReceiptLineDisplayName } from "@/features/pos-print/lib/format-receipt-line-name";

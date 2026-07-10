@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { signOut } from 'next-auth/react';
-import { Button } from '@/shared/components/Button';
+import { Button } from '@kai/ui';
 
 type ErrorBoundaryProps = {
   error: Error & { digest?: string };

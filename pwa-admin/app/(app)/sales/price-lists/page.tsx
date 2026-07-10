@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listPriceListsForPage } from "@/features/sales-price-lists/actions/price-list.action";
 import { PriceListCollection } from "./components/PriceListCollection";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

@@ -7,7 +7,7 @@ import { TreasuryBankMovementsRequest } from "@/features/treasury-bank-operation
 import TreasuryBankTabContent from "./TreasuryBankTabContent";
 import { resolveTreasuryBankAccountSelection } from "./treasury-bank-accounts";
 import { mapApiTxToMovementGridRow, type TreasuryMovementGridRow } from "./treasury-movements-mapper";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

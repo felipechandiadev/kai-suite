@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/shared/components/Button";
+import { Button } from "@kai/ui";
 import type { FiscalSubPack } from "../types/fiscal.types";
 
 type Props = {

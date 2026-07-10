@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@source "../../../packages/ui/src";
+
 /**
  * Tipografía: Inter (cuerpo) + League Spartan (titulares), autohospedadas con next/font/local.
  * Ver src/shared/fonts/eshop-fonts.ts — sin CDN externo ni descarga en runtime del build.

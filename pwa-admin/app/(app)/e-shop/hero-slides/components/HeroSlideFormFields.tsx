@@ -1,7 +1,7 @@
 "use client";
 
 import type { EShopHeroSlideCtaStyle, EShopHeroSlideTextAlign } from "@/features/e-shop-hero-slides/types/hero-slide.types";
-import { TextField } from "@/shared/components/TextField/TextField";
+import { TextField } from "@kai/ui";
 import { HeroSlideTextColorField } from "./HeroSlideTextColorField";
 
 const TEXT_ALIGN_OPTIONS: { value: EShopHeroSlideTextAlign; label: string }[] = [

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { CollectionPageLayout } from "@/shared/components/layouts";
+import { CollectionPageLayout } from "@kai/ui";
 import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
 import { storageCategoryLabel, storageTypeLabel } from "@/features/inventory-storages/types/storage.types";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";

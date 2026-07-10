@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { IconButton } from "@/shared/admin-shared";
+import { IconButton } from "@kai/ui";
 import type { EShopTestimonial } from "@/features/e-shop-storefront/types/storefront.types";
 import { TestimonialCard } from "@/app/(store)/ui/TestimonialCard";
 

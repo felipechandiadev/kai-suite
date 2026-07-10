@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/shared/admin-shared";
+import { Button } from "@kai/ui";
 import type { OfflineBootstrapStatus } from "../domain/offline-bootstrap.types";
 
 type Props = {

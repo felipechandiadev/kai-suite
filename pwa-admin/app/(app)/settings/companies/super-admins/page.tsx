@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/auth-options";
 import { listSuperAdminsAction } from "@/features/settings-users/actions/super-admin.action";
 import { SuperAdminsCollection } from "../components/SuperAdminsCollection";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

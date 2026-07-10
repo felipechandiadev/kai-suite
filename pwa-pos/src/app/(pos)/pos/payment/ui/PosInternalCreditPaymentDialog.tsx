@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Button, Dialog, Select, TextField } from "@/shared/admin-shared";
-import type { Option } from "@/shared/components/Select";
+import { Alert, Button, Dialog, Select, TextField } from "@kai/ui";
+import type { Option } from "@kai/ui";
 import { getCustomerPosDetailBundleAction } from "@/features/customers/actions/customers-pos.action";
 import type { PosCustomerDetail } from "@/features/customers/types/pos-customer-detail.types";
 import type { PosPaymentLine } from "@/features/pos-cart/pos-payment.types";

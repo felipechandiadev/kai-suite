@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import { Button } from "@/shared/components/Button";
-import Alert from "@/shared/components/Alert/Alert";
-import { TextField } from "@/shared/components/TextField/TextField";
-import { Select, type Option } from "@/shared/components/Select";
+import { Dialog } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { Alert } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import { Select, type Option } from "@kai/ui";
 import type {
   SupplierGridRow,
   SupplierPersonBankAccount,

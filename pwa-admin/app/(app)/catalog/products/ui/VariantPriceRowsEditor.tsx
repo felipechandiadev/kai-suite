@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { TextField } from "@/shared/components/TextField/TextField";
-import { Select, type Option } from "@/shared/components/Select";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import Switch from "@/shared/components/Switch/Switch";
+import { TextField } from "@kai/ui";
+import { Select, type Option } from "@kai/ui";
+import { IconButton } from "@kai/ui";
+import { Switch } from "@kai/ui";
 import { isJewelryModuleEnabled } from "@/config/jewelry-module.config";
 import type { PriceListListItem } from "@/features/sales-price-lists/types/price-list.types";
 import type { TaxListItem } from "@/features/accounting-taxes/types/tax.types";

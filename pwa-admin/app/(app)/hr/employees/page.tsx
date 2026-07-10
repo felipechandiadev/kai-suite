@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { listEmployeesForGridAction } from "@/features/hr-employees/actions/employee.action";
 import { listBranchesForSettingsPage } from "@/features/settings-branches/actions/branch.action";
 import EmployeesDataGrid from "./ui/EmployeesDataGrid";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

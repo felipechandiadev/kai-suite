@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { listStoragesForPage } from "@/features/inventory-storages/actions/storage.action";
 import { listBranchesForSettingsPage } from "@/features/settings-branches/actions/branch.action";
 import { StoragesCollection } from "./components/StoragesCollection";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

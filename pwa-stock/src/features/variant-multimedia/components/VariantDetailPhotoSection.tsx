@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { Alert, DotProgress, IconButton } from "@/shared";
+import { Alert, DotProgress, IconButton } from "@kai/ui";
 import { useImageWithPlaceholder } from "@/shared/hooks/useImageWithPlaceholder";
 import { listAttributesForStockAction } from "../actions/attributes.action";
 import {

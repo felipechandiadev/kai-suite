@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listBrandsForPage } from "@/features/catalog-brands/actions/brand.action";
 import { BrandsCollection } from "./components/BrandsCollection";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

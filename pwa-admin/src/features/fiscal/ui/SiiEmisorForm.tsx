@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/shared/components/Button";
-import { TextField } from "@/shared/components/TextField/TextField";
-import Switch from "@/shared/components/Switch/Switch";
+import { Button } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import { Switch } from "@kai/ui";
 import type { EmisorFormValues } from "../types/fiscal.types";
 import { updateFiscalEmisorAction } from "../actions/fiscal.actions";
 

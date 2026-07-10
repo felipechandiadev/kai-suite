@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { usePathname } from "next/navigation";
-import Tabs from "@/shared/components/Tabs";
+import { Tabs } from "@kai/ui";
 
 const BASE = "/purchasing/transactions";
 

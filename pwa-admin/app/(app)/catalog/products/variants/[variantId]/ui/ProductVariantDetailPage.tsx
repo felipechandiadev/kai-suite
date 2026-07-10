@@ -2,11 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Badge from "@/shared/components/Badge/Badge";
-import type { ProductVariantGridRow } from "@/features/inventory-products/types/product-grid.types";
-import { CreateRecipeDialog } from "../../../ui/CreateRecipeDialog";
-import { catalogProductTypeAllowsRecipeBom, normalizeCatalogProductType } from "../../../ui/catalog-product-type-options";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import Badge, { IconButton } from "@kai/ui";
 import {
   VariantDetailIdentitySection,
   VariantDetailInventorySection,

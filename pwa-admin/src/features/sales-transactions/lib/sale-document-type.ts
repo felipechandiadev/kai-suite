@@ -1,4 +1,4 @@
-import type { BadgeVariant } from "@/shared/components/Badge/Badge";
+import type { BadgeVariant } from "@kai/ui";
 
 export type SaleDocumentType = "TICKET" | "BOLETA" | "FACTURA" | (string & {});
 

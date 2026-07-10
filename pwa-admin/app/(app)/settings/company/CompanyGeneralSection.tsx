@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { TextField } from "@/shared/components/TextField/TextField";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import Alert from "@/shared/components/Alert/Alert";
+import { TextField } from "@kai/ui";
+import { IconButton } from "@kai/ui";
+import { Alert } from "@kai/ui";
 import type { CompanyDetails } from "@/features/settings-branches/infrastructure/company.request";
 import { updateCompanyGeneralAction } from "@/features/settings-company/actions/company.action";
 

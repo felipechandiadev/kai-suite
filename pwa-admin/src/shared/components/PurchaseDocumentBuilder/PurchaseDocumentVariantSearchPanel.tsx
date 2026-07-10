@@ -3,14 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import { TextField } from "@/shared/components/TextField/TextField";
-import NumberStepper from "@/shared/components/NumberStepper/NumberStepper";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import { Button } from "@/shared/components/Button";
-import type { PurchasingVariantSearchItem, PurchasingVariantSearchResult } from "@/features/purchasing-document/types/purchasing-document.types";
-import { formatMoney, InlineSepDot, ProductNameWithAttributes } from "./PurchaseDocumentProductPreview";
-import Badge from "@/shared/components/Badge/Badge";
+import Badge, { Button, Dialog, IconButton, NumberStepper, TextField } from "@kai/ui";
 import {
   STOCK_THRESHOLD_ALERT_CARD_CLASS,
 } from "@/features/inventory-stock/lib/stock-threshold-alert";

@@ -1,4 +1,4 @@
-import DotProgress from '@/shared/components/DotProgress/DotProgress';
+import { DotProgress } from '@kai/ui';
 
 /**
  * UI por defecto mientras carga un segmento bajo (app) (RSC + navegación).

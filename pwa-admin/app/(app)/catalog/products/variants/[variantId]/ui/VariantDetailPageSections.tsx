@@ -2,16 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Alert from "@/shared/components/Alert/Alert";
-import Badge from "@/shared/components/Badge/Badge";
-import { TextField } from "@/shared/components/TextField/TextField";
-import { Select, type Option } from "@/shared/components/Select";
-import Switch from "@/shared/components/Switch/Switch";
-import {
-  StockThresholdField,
-  formatThresholdReadOnly,
-} from "@/shared/components/StockThresholdField/StockThresholdField";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { Alert, Badge, IconButton, Select, Switch, TextField, type Option } from "@kai/ui";
 import {
   updateProductVariantIdentityPartialAction,
   updateProductVariantInventoryPartialAction,

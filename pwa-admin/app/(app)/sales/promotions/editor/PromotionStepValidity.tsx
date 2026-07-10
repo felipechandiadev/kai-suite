@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { Select } from "@/shared/components/Select";
-import { TextField } from "@/shared/components/TextField/TextField";
+import { Select } from "@kai/ui";
+import { TextField } from "@kai/ui";
 import type { CreatePromotionInput } from "@/features/promotions/types/promotion.types";
 import {
   PROMOTION_ACTIVATION_LABEL,

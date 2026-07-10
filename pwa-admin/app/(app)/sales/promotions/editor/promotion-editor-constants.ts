@@ -1,4 +1,4 @@
-import type { StepperStepItem } from "@/shared/components/Stepper/Stepper";
+import type { StepperStepItem } from "@kai/ui";
 import type { CreatePromotionInput } from "@/features/promotions/types/promotion.types";
 
 export const PROMOTION_EDITOR_WIZARD_STEPS: StepperStepItem[] = [

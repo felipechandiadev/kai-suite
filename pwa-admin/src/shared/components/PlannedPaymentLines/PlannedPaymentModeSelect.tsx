@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import Select from "@/shared/components/Select/Select";
+import { SelectDefault as Select } from "@kai/ui";
 import {
   PLANNED_PAYMENT_MODE_OPTIONS,
   type PlannedPaymentMode,

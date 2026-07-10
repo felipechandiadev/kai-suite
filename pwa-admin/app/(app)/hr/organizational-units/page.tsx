@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listOrganizationalUnitsAction } from "@/features/hr-organizational-units/actions/organizational-unit.action";
 import { OrganizationalUnitsCollection } from "./ui/OrganizationalUnitsCollection";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

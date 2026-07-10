@@ -3,8 +3,8 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FolderTree } from "lucide-react";
-import { Card } from "@/shared/components/Cards";
-import { DeleteDialog } from "@/shared/components/Dialog/DeleteDialog";
+import { Card } from "@kai/ui";
+import { DeleteDialog } from "@kai/ui";
 import type { CategoryListItem } from "@/features/inventory-categories/types/category.types";
 import { deleteCategoryAction } from "@/features/inventory-categories/actions/category.action";
 import { UpdateCategoryDialog } from "./UpdateCategoryDialog";

@@ -1,6 +1,6 @@
 "use client";
 
-import "@/shared/components/Tabs/tabs.css";
+import "@kai/ui/components/Tabs/tabs.css";
 import type { VariantDetailSectionId, VariantDetailTabItem } from "./variant-detail-section.types";
 
 type VariantDetailSectionNavProps = {

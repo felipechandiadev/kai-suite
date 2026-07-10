@@ -1,15 +1,18 @@
 
 "use client";
 import React, { useState } from "react";
-import { TextField } from "../TextField/TextField";
-import AutoComplete, { Option } from "../AutoComplete/AutoComplete";
-import { Button } from "../Button/Button";
-import DotProgress from "../DotProgress/DotProgress";
-import Alert from "../Alert/Alert";
-import Switch from "../Switch/Switch";
-import Select from "../Select/Select";
-import RangeSlider from "../RangeSlider/RangeSlider";
-import NumberStepper from "../NumberStepper/NumberStepper";
+import {
+  TextField,
+  AutoComplete,
+  Button,
+  DotProgress,
+  Alert,
+  Switch,
+  Select,
+  RangeSlider,
+  NumberStepper,
+} from "@kai/ui";
+import type { Option } from "@kai/ui";
 import LocationPickerWrapper from "../LocationPicker/LocationPickerWrapper";
 import { MultimediaField } from "@/shared/components/Multimedia";
 

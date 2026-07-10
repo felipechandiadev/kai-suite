@@ -5,7 +5,7 @@ import type {
   PosCustomerPaymentRow,
   PosCustomerQuotaRow,
 } from "@/features/customers/types/pos-customer-detail.types";
-import { Alert } from "@/shared/admin-shared";
+import { Alert } from "@kai/ui";
 
 const money = new Intl.NumberFormat("es-CL", {
   style: "currency",

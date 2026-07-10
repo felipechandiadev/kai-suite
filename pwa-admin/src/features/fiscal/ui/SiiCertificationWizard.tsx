@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/shared/components/Button";
-import Switch from "@/shared/components/Switch/Switch";
+import { Button } from "@kai/ui";
+import { Switch } from "@kai/ui";
 import type { FiscalSummary } from "../types/fiscal.types";
 import {
   completeCertificationAction,

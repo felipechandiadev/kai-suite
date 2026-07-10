@@ -1,7 +1,7 @@
 "use client";
 
-import { TextField } from "@/shared/components/TextField/TextField";
-import { Select } from "@/shared/components/Select";
+import { TextField } from "@kai/ui";
+import { Select } from "@kai/ui";
 import type { CategoryListItem } from "@/features/inventory-categories/types/category.types";
 import type { EShopNavLink, EShopNavLinkKind } from "../types/eshop-topbar.types";
 import {

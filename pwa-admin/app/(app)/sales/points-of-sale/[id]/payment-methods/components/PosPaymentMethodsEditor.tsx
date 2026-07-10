@@ -3,11 +3,11 @@
 import { useCallback, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { BasicPageLayout } from "@/shared/components/layouts";
-import { Button } from "@/shared/components/Button";
-import { TextField } from "@/shared/components/TextField/TextField";
-import Switch from "@/shared/components/Switch/Switch";
-import Alert from "@/shared/components/Alert/Alert";
+import { BasicPageLayout } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import { Switch } from "@kai/ui";
+import { Alert } from "@kai/ui";
 import {
   COMPANY_PAYMENT_METHOD_LABELS,
   companyPaymentMethodAlwaysRequiresReference,

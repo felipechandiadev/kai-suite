@@ -6,7 +6,7 @@ import {
   ButtonGroup,
   ButtonGroupItem,
   ButtonGroupToggle,
-} from '@/shared/components/Button';
+} from '@kai/ui';
 
 export default function ButtonPage() {
   const [clickCount, setClickCount] = useState(0);

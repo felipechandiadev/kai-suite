@@ -1,6 +1,6 @@
 "use client";
 
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { IconButton } from "@kai/ui";
 
 type Props = {
   onClick: () => void;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import AutoComplete from '@/shared/components/AutoComplete/AutoComplete';
+import { AutoComplete } from '@kai/ui';
 
 const countries = [
   { id: '1', label: 'Chile', value: 'chile' },

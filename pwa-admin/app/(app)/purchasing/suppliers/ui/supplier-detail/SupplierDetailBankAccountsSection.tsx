@@ -1,6 +1,6 @@
 "use client";
 
-import LoadingState from "@/shared/components/LoadingState";
+import { LoadingState } from "@kai/ui";
 import type { SupplierDetailView } from "@/features/purchasing-suppliers/types/supplier.types";
 import { PersonBankAccountsSection } from "@/features/person-bank-accounts/ui/PersonBankAccountsSection";
 import type { PersonBankAccountItem } from "@/features/person-bank-accounts/types/person-bank-account.types";

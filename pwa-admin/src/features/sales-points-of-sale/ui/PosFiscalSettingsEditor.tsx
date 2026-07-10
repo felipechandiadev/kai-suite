@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import Select from "@/shared/components/Select/Select";
-import { Button } from "@/shared/components/Button";
+import { SelectDefault as Select } from "@kai/ui";
+import { Button } from "@kai/ui";
 import type {
   PosFiscalPolicy,
   PosFolioAllocation,

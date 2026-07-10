@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Button, Dialog, TextField } from "@/shared/admin-shared";
+import { Alert, Button, Dialog, TextField } from "@kai/ui";
 import { usePosCart } from "@/features/pos-cart/PosCartProvider";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
 import { createQuotationPosAction } from "@/features/quotations/actions/quotations-pos.action";

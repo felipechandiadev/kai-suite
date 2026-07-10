@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef } from "react";
-import { Button } from "@/shared/components/Button/Button";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { Button } from "@kai/ui";
+import { IconButton } from "@kai/ui";
 import type { MultimediaPickButtonType } from "./types";
 
 export type MultimediaPickTriggerProps = {

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listSupplierCreditNotesForPage } from "@/features/purchasing-supplier-credit-notes/actions/supplier-credit-note.action";
 import DteCreditNotesDataGrid from "./ui/DteCreditNotesDataGrid";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

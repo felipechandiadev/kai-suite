@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { DataGrid, type DataGridColumn, Alert, IconButton, DotProgress } from "@/shared/admin-shared";
+import { DataGrid, type DataGridColumn, Alert, IconButton, DotProgress } from "@kai/ui";
 import { listCashSessionMovementsAction } from "@/features/session/actions/cash-session-movements.action";
 import type { CashSessionMovementRow } from "@/features/session/types/cash-session-movement.types";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";

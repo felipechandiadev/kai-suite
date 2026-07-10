@@ -1,9 +1,9 @@
 'use client';
 
 import { Suspense, useCallback, useMemo } from 'react';
-import DataGrid from '@/shared/components/DataGrid/DataGrid';
-import type { DataGridColumn } from '@/shared/components/DataGrid/DataGrid';
-import { RowActions } from '@/shared/components/DataGrid/components/RowActions';
+import { DataGridTable as DataGrid } from '@kai/ui';
+import type { DataGridColumn } from '@kai/ui';
+import { RowActions } from '@kai/ui';
 
 type PropRow = { prop: string; type: string; default: string; desc: string };
 

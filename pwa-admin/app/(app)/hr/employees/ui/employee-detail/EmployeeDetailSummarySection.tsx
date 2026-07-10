@@ -1,12 +1,9 @@
 "use client";
 
-import LoadingState from "@/shared/components/LoadingState";
 import { useCallback, useEffect, useState } from "react";
+import { IconButton, LoadingState, Select, TextField, type Option } from "@kai/ui";
 import type { EmployeeDetailView, UpdateEmployeePersonPayload } from "@/features/hr-employees/types/employee.types";
 import { documentTypeLabel } from "@/features/sales-customers/lib/customer-document-labels";
-import { TextField } from "@/shared/components/TextField/TextField";
-import { Select, type Option } from "@/shared/components/Select";
-import IconButton from "@/shared/components/IconButton";
 import { updateEmployeePersonAction } from "@/features/hr-employees/actions/employee.action";
 
 const DOC_OPTIONS: Option[] = [

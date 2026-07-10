@@ -1,5 +1,5 @@
 "use client";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 import { useCallback, useEffect, useState } from "react";
 import type {
@@ -7,9 +7,9 @@ import type {
   UpdateSupplierPersonPayload,
 } from "@/features/purchasing-suppliers/types/supplier.types";
 import { documentTypeLabel } from "@/features/sales-customers/lib/customer-document-labels";
-import { TextField } from "@/shared/components/TextField/TextField";
-import { Select, type Option } from "@/shared/components/Select";
-import IconButton from "@/shared/components/IconButton";
+import { TextField } from "@kai/ui";
+import { Select, type Option } from "@kai/ui";
+import { IconButton } from "@kai/ui";
 import { updateSupplierAction } from "@/features/purchasing-suppliers/actions/supplier.action";
 
 const DOC_OPTIONS_NATURAL: Option[] = [

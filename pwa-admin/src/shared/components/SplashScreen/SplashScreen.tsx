@@ -1,7 +1,7 @@
 'use client';
 
 import Image from "next/image";
-import DotProgress from "../DotProgress/DotProgress";
+import { DotProgress } from "@kai/ui";
 
 const SplashScreen = () => {
   return (

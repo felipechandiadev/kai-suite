@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Star } from "lucide-react";
-import { DotProgress } from "@/shared/admin-shared";
+import { DotProgress } from "@kai/ui";
 import { lookupPosVariantsAction } from "@/features/pos-products/actions/pos-products.action";
 import { shouldUseBackendApi } from "@/features/pos-offline/infrastructure/connectivity";
 import { lookupOfflineCatalogByVariantIds } from "@/features/pos-offline/application/search-offline-catalog.usecase";

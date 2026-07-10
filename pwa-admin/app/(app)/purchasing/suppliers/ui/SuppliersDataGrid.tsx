@@ -2,10 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import DataGrid from "@/shared/components/DataGrid/DataGrid";
-import type { DataGridColumn } from "@/shared/components/DataGrid/DataGrid";
-import type { SupplierGridRow } from "@/features/purchasing-suppliers/types/supplier.types";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { DataGridTable as DataGrid, IconButton, type DataGridColumn } from "@kai/ui";
 import { CreateSupplierDialog } from "./CreateSupplierDialog";
 import { SupplierDetailDialog } from "./SupplierDetailDialog";
 

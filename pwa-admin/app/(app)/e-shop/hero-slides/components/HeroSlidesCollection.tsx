@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CollectionPageLayout } from "@/shared/components/layouts";
+import { CollectionPageLayout } from "@kai/ui";
 import type { EShopHeroSlideRow } from "@/features/e-shop-hero-slides/types/hero-slide.types";
 import { reorderHeroSlidesAction } from "@/features/e-shop-hero-slides/actions/hero-slide.action";
 import { HeroSlidesCollectionAddAction } from "./HeroSlidesCollectionAddAction";

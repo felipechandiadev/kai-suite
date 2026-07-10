@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Switch from '@/shared/components/Switch/Switch';
+import { Switch } from '@kai/ui';
 
 export default function SwitchPage() {
   const [a, setA] = useState(true);

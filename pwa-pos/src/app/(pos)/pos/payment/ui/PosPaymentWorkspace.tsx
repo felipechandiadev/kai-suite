@@ -11,7 +11,7 @@ import {
   IconButton,
   Select,
   TextField,
-} from "@/shared/admin-shared";
+} from "@kai/ui";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
 import {
   POS_CONTEXT_CHANGED_EVENT,
@@ -135,7 +135,7 @@ import type { CustomerCreditNotePrintData } from "@/features/customer-credit-not
 import { PosCustomerCreditNoteDialog } from "@/app/(pos)/pos/payment/ui/PosCustomerCreditNoteDialog";
 import { PosInternalCreditPaymentDialog } from "@/app/(pos)/pos/payment/ui/PosInternalCreditPaymentDialog";
 import { formatInternalCreditPlanSubtitle } from "@/features/pos-payment/lib/internal-credit-plan";
-import Switch from "@/shared/components/Switch/Switch";
+import { Switch } from "@kai/ui";
 import {
   POS_INSUFFICIENT_STOCK_LINE_CLASS,
   POS_INSUFFICIENT_STOCK_SURFACE_CLASS,

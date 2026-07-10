@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, StatisticsCard } from '@/shared/components/Cards';
+import { Card, StatisticsCard } from '@kai/ui';
 
 export default function CardsShowcasePage() {
   return (
@@ -178,7 +178,7 @@ export default function CardsShowcasePage() {
         <h2 className="text-2xl font-semibold mb-4">Contenedor: Card (API)</h2>
         <ul className="list-disc list-inside space-y-2 text-gray-700">
           <li>
-            Import: <code className="text-sm">Card</code> desde <code className="text-sm">@/shared/components/Cards</code>
+            Import: <code className="text-sm">Card</code> desde <code className="text-sm">@kai/ui</code>
           </li>
           <li>
             <strong>Modo compuesto</strong> (cualquiera de estos prop activa el layout estructurado): <code>media</code>, <code>title</code>,{' '}
@@ -208,7 +208,7 @@ export default function CardsShowcasePage() {
         </h2>
         <p className="mt-2 text-sm text-gray-600">
           Componente <strong>independiente</strong> (compone <code className="text-xs">Card</code> con solo <code>children</code>) para KPIs. Import:{' '}
-          <code className="text-sm">StatisticsCard</code> desde <code className="text-sm">@/shared/components/Cards</code>
+          <code className="text-sm">StatisticsCard</code> desde <code className="text-sm">@kai/ui</code>
         </p>
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatisticsCard

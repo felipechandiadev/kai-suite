@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { DeleteDialog } from "@/shared/components/Dialog/DeleteDialog";
+import { DeleteDialog } from "@kai/ui";
 import { deleteMetalPriceAction } from "@/features/metal-prices/actions/metal-price.action";
 import type { MetalPriceRow } from "@/features/metal-prices/types/metal-price.types";
 

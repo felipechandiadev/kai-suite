@@ -1,9 +1,11 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@source "../../../packages/ui/src";
 
 /* Paleta, layout y tokens de app (componentes: CSS colocalizado + var(--color-*)) */
 :root {
+  color-scheme: light;
+
   /* Must match the fixed header in TopBar (py-2 + h-10 logo row + pb-3) */
   --app-topbar-height: 3.75rem;
   --color-primary: #002b59;
@@ -19,46 +21,51 @@
   --color-warning: #ffc107;
   --color-error: #f44336;
   --color-neutral: #f3f4f6;
-  /* Hover de filas / superficies; DataGrid y similares */
+  --color-surface: #ffffff;
   --color-hover: color-mix(
     in srgb,
     var(--color-neutral) 65%,
     var(--color-background)
   );
 
-  /* Sidebar (glass en claro, oscuro derivado del negro) */
   --color-sidebar-bg: rgba(255, 255, 255, 0.2);
   --sidebar-backdrop-blur: 7px;
-  /* Overlay al abrir menú lateral (zona clickeable detrás de la sidebar) */
   --color-sidebar-overlay: rgba(0, 43, 89, 0.25);
 }
 
-/* ==========================================================================
-   MODO OSCURO (Se activa automáticamente según el sistema/navegador)
-   ========================================================================== */
+@theme inline {
+  --color-primary: var(--color-primary);
+  --color-background: var(--color-background);
+  --color-surface: var(--color-surface);
+  --color-foreground: var(--color-foreground);
+  --color-border: var(--color-border);
+  --color-active: var(--color-active);
+  --color-accent: var(--color-accent);
+  --color-secondary: var(--color-secondary);
+  --color-muted: var(--color-muted);
+  --color-success: var(--color-success);
+  --color-info: var(--color-info);
+  --color-warning: var(--color-warning);
+  --color-error: var(--color-error);
+  --color-neutral: var(--color-neutral);
+  --color-hover: var(--color-hover);
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --color-primary: #0a7cad;
-
     --color-background: #121212;
     --color-surface: #1e1e1e;
-
     --color-foreground: #f3f4f6;
     --color-muted: #9ca3af;
     --color-border: #374151;
-
     --color-neutral: #1f2937;
-
     --color-success: #81c784;
     --color-info: #64b5f6;
     --color-warning: #ffd54f;
     --color-error: #e57373;
-
     --color-hover: color-mix(in srgb, var(--color-neutral) 40%, var(--color-background));
-
-    /* Mismo secondary que en claro (iconos date, adornos) */
     --color-secondary: #04c9e6;
-
     --color-sidebar-bg: rgba(18, 18, 18, 0.3);
     --sidebar-backdrop-blur: 8px;
     --color-sidebar-overlay: rgba(0, 32, 66, 0.3);
@@ -71,11 +78,11 @@ body {
 
 @layer base {
   html {
-    font-family: 'Inter', 'System UI', sans-serif;
+    font-family: "Inter", "System UI", sans-serif;
   }
 
   body {
-    font-family: 'Inter', 'System UI', sans-serif;
+    font-family: "Inter", "System UI", sans-serif;
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
@@ -87,7 +94,6 @@ body {
   }
 }
 
-/* Recharts: sin recuadro azul de foco/selección al hacer clic en el gráfico */
 .fs-chart-surface,
 .fs-chart-surface .recharts-wrapper,
 .fs-chart-surface .recharts-wrapper *,
@@ -114,7 +120,6 @@ body {
   box-shadow: none !important;
 }
 
-/* Banda vertical del tooltip (cursor) — sin borde/relleno visible al clic */
 .fs-chart-surface .recharts-tooltip-cursor,
 .fs-chart-surface .recharts-rectangle.recharts-tooltip-cursor {
   fill: transparent !important;
@@ -127,7 +132,6 @@ body {
   pointer-events: none;
 }
 
-/* Después de @tailwind utilities (importado arriba) para que no lo pisen utilidades */
 aside[data-test-id="side-bar-root"].fs-app-sidebar {
   background-color: var(--color-sidebar-bg);
   color: var(--color-foreground);

@@ -1,11 +1,11 @@
 # `@kai/ui`
 
-Librería de componentes React compartidos entre `pwa-admin` y `pwa-pos`.
+Librería de componentes React compartidos entre **pwa-admin**, **pwa-pos**, **pwa-eshop** y **pwa-stock**.
 
 ## Uso
 
 ```ts
-import { Button, Dialog, Alert, DataGrid } from "@kai/ui";
+import { Button, Dialog, Alert, DataGrid, Tabs, Card } from "@kai/ui";
 ```
 
 Cada PWA define tokens `--color-*` en su `globals.css`. Los componentes usan CSS colocalizado y variables CSS.
@@ -13,8 +13,21 @@ Cada PWA define tokens `--color-*` en su `globals.css`. Los componentes usan CSS
 ## Scripts
 
 - `npm run typecheck` — verificación TypeScript
-- `npm run test` — tests unitarios (p. ej. `resolve-touch-input-mode`)
+- `npm run test` — tests unitarios
 
-## Alcance fase 1
+Desde la raíz del monorepo:
 
-Primitivos UI, DataGrid y layouts base. Ver [ADAPTACION.md](./ADAPTACION.md) para exclusiones (TopBar, dominio ERP, etc.).
+```bash
+npm run ui:typecheck
+npm run ui:test
+```
+
+## Alcance
+
+Primitivos UI genéricos, DataGrid y layouts base. Ver [ADAPTACION.md](./ADAPTACION.md) para exclusiones (TopBar, dominio ERP, kai-printers-desktop).
+
+## Stubs
+
+```bash
+node packages/ui/scripts/create-reexport-stubs.mjs
+```

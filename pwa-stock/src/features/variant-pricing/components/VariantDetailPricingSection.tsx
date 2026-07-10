@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import { Alert, IconButton } from "@/shared";
+import { Alert, IconButton } from "@kai/ui";
 import { handleUnauthorizedClient } from "@/lib/auth/handle-unauthorized";
 import type { VariantDetail } from "@/features/variant/types/variant.types";
 import {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Switch } from "@/shared";
+import { Switch } from "@kai/ui";
 
 export type ScanModeSwitchProps = {
   skuMode: boolean;

@@ -1,11 +1,11 @@
 "use client";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/shared/components/Button";
-import Switch from "@/shared/components/Switch/Switch";
-import Alert from "@/shared/components/Alert/Alert";
+import { Button } from "@kai/ui";
+import { Switch } from "@kai/ui";
+import { Alert } from "@kai/ui";
 import type { CompanyDetails } from "@/features/settings-branches/infrastructure/company.request";
 import {
   defaultCompanyDeferredPaymentSettings,

@@ -1,7 +1,7 @@
 'use client';
 
-import { Badge } from '@/shared/components/Badge';
-import type { BadgeVariant } from '@/shared/components/Badge/Badge';
+import { Badge } from '@kai/ui';
+import type { BadgeVariant } from '@kai/ui';
 
 const FILLED: BadgeVariant[] = ['primary', 'secondary', 'success', 'error', 'warning', 'info'];
 const OUTLINED: BadgeVariant[] = [

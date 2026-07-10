@@ -1,8 +1,8 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import { Select } from "@/shared/admin-shared";
+import { IconButton } from "@kai/ui";
+import { Select } from "@kai/ui";
 import { patchCatalogSearchParams, replaceCatalogUrl } from "../lib/catalog-url";
 
 type CatalogPaginationProps = {

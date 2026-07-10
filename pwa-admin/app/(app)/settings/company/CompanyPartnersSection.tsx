@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { IconButton } from "@kai/ui";
 import type { ShareholderRow } from "@/features/settings-shareholders/types/shareholder.types";
 import { deleteShareholderAction } from "@/features/settings-shareholders/actions/shareholder.action";
 import { partnerTypeLabel } from "@/features/settings-shareholders/lib/partner-type-labels";

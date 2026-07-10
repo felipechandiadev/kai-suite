@@ -1,4 +1,4 @@
-import { BasicPageLayout } from "@/shared/components/layouts";
+import { BasicPageLayout } from "@kai/ui";
 import { PurchasingUiFlowDiagram } from "./ui/PurchasingUiFlowDiagram";
 
 export default function PurchasingFlowPage() {

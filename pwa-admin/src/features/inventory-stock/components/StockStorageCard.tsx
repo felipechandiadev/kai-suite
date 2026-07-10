@@ -1,8 +1,8 @@
 "use client";
 
 import type { StockGridRow, StockStorageBreakdownRow } from "../types/stock-grid.types";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import Switch from "@/shared/components/Switch/Switch";
+import { IconButton } from "@kai/ui";
+import { Switch } from "@kai/ui";
 import {
   computeStorageThresholdAlert,
   labelStorageThresholdAlert,

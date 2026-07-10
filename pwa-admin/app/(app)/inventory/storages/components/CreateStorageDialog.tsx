@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import Alert from "@/shared/components/Alert/Alert";
-import { Button } from "@/shared/components/Button";
-import { TextField } from "@/shared/components/TextField/TextField";
-import Select from "@/shared/components/Select/Select";
-import Switch from "@/shared/components/Switch/Switch";
+import { Dialog } from "@kai/ui";
+import { Alert } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import { SelectDefault as Select } from "@kai/ui";
+import { Switch } from "@kai/ui";
 import type { StorageCategory, StorageType } from "@/features/inventory-storages/types/storage.types";
 import { createStorageAction } from "@/features/inventory-storages/actions/storage.action";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";

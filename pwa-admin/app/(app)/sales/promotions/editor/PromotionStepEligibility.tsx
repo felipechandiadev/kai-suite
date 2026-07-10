@@ -1,11 +1,11 @@
 "use client";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { TextField } from "@/shared/components/TextField/TextField";
-import AutoComplete from "@/shared/components/AutoComplete/AutoComplete";
-import Select from "@/shared/components/Select/Select";
-import Switch from "@/shared/components/Switch/Switch";
+import { TextField } from "@kai/ui";
+import { AutoComplete } from "@kai/ui";
+import { SelectDefault as Select } from "@kai/ui";
+import { Switch } from "@kai/ui";
 import type { CreatePromotionInput, PromotionScopes } from "@/features/promotions/types/promotion.types";
 import { digitsFromClp, parseClpDigitsNullableFromValue } from "./promotion-editor-currency";
 import { loadPromotionScopeOptionsAction } from "@/features/promotions/actions/promotion-scope-options.action";

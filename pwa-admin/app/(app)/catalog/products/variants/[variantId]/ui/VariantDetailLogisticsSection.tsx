@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import type { ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
-import Alert from "@/shared/components/Alert/Alert";
-import { TextField } from "@/shared/components/TextField/TextField";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { Alert } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import { IconButton } from "@kai/ui";
 import { updateProductVariantLogisticsAction } from "@/features/inventory-products/actions/product.action";
 import type { ProductVariantGridRow } from "@/features/inventory-products/types/product-grid.types";
 

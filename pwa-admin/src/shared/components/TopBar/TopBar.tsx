@@ -1,8 +1,9 @@
 'use client'
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { ImageOff, Image as ImageIcon, Wifi, WifiOff } from 'lucide-react';
-import IconButton from '@/shared/components/IconButton';
+import { IconButton } from '@kai/ui';
 import { useImageWithPlaceholder } from '@/shared/hooks/useImageWithPlaceholder';
 import CompanySwitcher from '@/features/companies/components/CompanySwitcher';
 import SideBar, { SideBarMenuItem } from './SideBar';
@@ -72,6 +73,7 @@ const TopBar: React.FC<TopBarProps & { className?: string }> = ({
   className = ""
 }) => {
   const { data: session } = useSession();
+  const router = useRouter();
   const [showSidebar, setShowSidebar] = useState(false);
   const [sidebarExpanded, setSidebarExpanded] = useState<Record<string, boolean>>({});
   const {
@@ -116,6 +118,10 @@ const TopBar: React.FC<TopBarProps & { className?: string }> = ({
     enableInAppNotifications: true,
     briefWsErrorMessages: true,
   });
+
+  const handleRefresh = useCallback(() => {
+    router.refresh();
+  }, [router]);
 
   return (
     <SideBarContext.Provider value={{ open, close, isOpen: showSidebar, expanded: sidebarExpanded, setExpanded: setSidebarExpanded }}>
@@ -267,6 +273,16 @@ const TopBar: React.FC<TopBarProps & { className?: string }> = ({
                 }}
               />
             </div>
+
+            <IconButton
+              icon="RefreshCw"
+              variant="action"
+              size="md"
+              strokeWidth={2.5}
+              onClick={handleRefresh}
+              ariaLabel="Recargar página"
+              data-test-id="top-bar-refresh-button"
+            />
 
             {/* Notification Bell - TODO: Implement when notifications feature is ready */}
             {/* <div className="mr-4">

@@ -1,5 +1,5 @@
-import { Card } from "@/shared/components/Cards";
-import { StatisticsCard } from "@/shared/components/Cards";
+import { Card } from "@kai/ui";
+import { StatisticsCard } from "@kai/ui";
 import type { AnalyticsDashboardResponse } from "@/features/analytics/types/analytics.types";
 import { DashboardHeroChart } from "./DashboardHeroChart";
 

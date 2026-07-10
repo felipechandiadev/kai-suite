@@ -4,7 +4,7 @@ import type { InvoicePlannedPaymentLineState } from "@/shared/components/Planned
 import type { InvoicePlannedPaymentMethodUI } from "@/shared/components/PlannedPaymentLines/InvoicePlannedPaymentLines";
 import type { PlannedPaymentMode } from "@/shared/components/PlannedPaymentLines/planned-payment-mode.types";
 import type { CompanyBankAccountItem } from "@/features/settings-branches/infrastructure/company.request";
-import type { Option } from "@/shared/components/Select";
+import type { Option } from "@kai/ui";
 import {
   bankAccountOptionKey,
   parseClpAmountInput,

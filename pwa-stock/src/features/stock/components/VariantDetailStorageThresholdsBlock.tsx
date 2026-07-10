@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Badge, DotProgress } from "@/shared";
+import { Badge, DotProgress } from "@kai/ui";
 import type { StockStorageBreakdownRow } from "../types/stock-grid.types";
 import { StorageThresholdField } from "./VariantStockThresholdFields";
 import type {

@@ -9,7 +9,7 @@ import {
   faWhatsapp,
 } from "@fortawesome/free-brands-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
-import { IconButton } from "@/shared/admin-shared";
+import { IconButton } from "@kai/ui";
 import {
   buildProductShareChannels,
   copyTextToClipboard,

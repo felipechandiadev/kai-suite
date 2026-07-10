@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Button, Dialog, Select, Switch, TextField } from "@/shared/admin-shared";
+import { Alert, Button, Dialog, Select, Switch, TextField } from "@kai/ui";
 import {
   ACCOUNT_TYPE_OPTIONS,
   BANK_OPTIONS,

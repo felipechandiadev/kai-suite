@@ -1,9 +1,9 @@
 "use client";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import Alert from "@/shared/components/Alert/Alert";
+import { Alert } from "@kai/ui";
 import {
   listMultimediaForEntityAction,
   revalidateMultimediaCachesAction,

@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import DataGrid from "@/shared/components/DataGrid/DataGrid";
-import type { DataGridColumn } from "@/shared/components/DataGrid/DataGrid";
+import { DataGridTable as DataGrid } from "@kai/ui";
+import type { DataGridColumn } from "@kai/ui";
 import type { TreasuryMovementGridRow } from "./treasury-movements-mapper";
 
 const columns: DataGridColumn[] = [

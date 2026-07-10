@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Select } from "@/shared/components/Select";
+import { Select } from "@kai/ui";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
 import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
 import { storageTypeLabel } from "@/features/inventory-storages/types/storage.types";

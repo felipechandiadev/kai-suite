@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listSalesPaymentsAction } from "@/features/sales-payments/actions/sales-payments.action";
 import SalesPaymentsDataGrid from "./ui/SalesPaymentsDataGrid";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

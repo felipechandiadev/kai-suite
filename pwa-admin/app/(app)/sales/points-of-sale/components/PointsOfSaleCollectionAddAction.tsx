@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
 import type { PriceListListItem } from "@/features/sales-price-lists/types/price-list.types";
 import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { IconButton } from "@kai/ui";
 import { CreatePointOfSaleDialog } from "./CreatePointOfSaleDialog";
 
 type PointsOfSaleCollectionAddActionProps = {

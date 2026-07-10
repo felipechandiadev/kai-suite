@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle } from "lucide-react";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { IconButton } from "@kai/ui";
 import { useNotificationsRealtime } from "../realtime/notifications-realtime-context";
 import { labelNotificationKind } from "../lib/notification-labels";
 import { formatReceivedAt } from "@/features/inventory-stock/lib/stock-alert-copy";

@@ -1,4 +1,4 @@
-import { Skeleton } from "@/shared/components/Skeleton";
+import { Skeleton } from "@kai/ui";
 
 const PRODUCT_CARD_COUNT = 8;
 

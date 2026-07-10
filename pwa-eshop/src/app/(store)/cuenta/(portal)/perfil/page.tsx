@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, TextField } from "@/shared/admin-shared";
+import { Button, TextField } from "@kai/ui";
 import {
   getCustomerProfileAction,
   updateCustomerProfileAction,

@@ -1,5 +1,5 @@
 "use client";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 import { useEffect, useState } from "react";
 import { getCustomerPaymentsListAction } from "@/features/sales-customers/actions/customer.action";

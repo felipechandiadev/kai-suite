@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { TabPageLayout } from "@/shared/components/layouts";
+import { TabPageLayout } from "@kai/ui";
 import { SalesTransactionsTabs } from "./ui/SalesTransactionsTabs";
 
 export default function SalesTransactionsLayout({ children }: { children: ReactNode }) {

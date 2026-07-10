@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import LoadingState from "@/shared/components/LoadingState";
+import { LoadingState } from "@kai/ui";
 import { listPersonBankAccountsAction } from "@/features/person-bank-accounts/actions/person-bank-account.action";
 import { PersonBankAccountsSection } from "@/features/person-bank-accounts/ui/PersonBankAccountsSection";
 import type { PersonBankAccountItem } from "@/features/person-bank-accounts/types/person-bank-account.types";

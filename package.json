@@ -27,7 +27,13 @@
     "seed:joyarte": "npm run seed:joyarte --prefix seeds",
     "seed:san-sebastian": "npm run seed:san-sebastian --prefix seeds",
     "import-fiscal-ss-to-demo": "npm run import-fiscal-ss-to-demo --prefix seeds",
-    "build:fiscal-ted": "npm run build --prefix packages/fiscal-ted"
+    "build:fiscal-ted": "npm run build --prefix packages/fiscal-ted",
+    "ui:typecheck": "npm run typecheck --prefix packages/ui",
+    "ui:test": "npm run test --prefix packages/ui",
+    "ui:stubs": "node packages/ui/scripts/create-reexport-stubs.mjs",
+    "ui:audit": "node packages/ui/scripts/audit-ui-imports.mjs",
+    "ui:migrate": "node packages/ui/scripts/migrate-ui-imports.mjs",
+    "ui:remove-stubs": "node packages/ui/scripts/remove-ui-stubs.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

@@ -1,8 +1,8 @@
 "use client";
 
-import IconButton from "@/shared/components/IconButton/IconButton";
-import { TextField } from "@/shared/components/TextField/TextField";
-import { Select, type Option } from "@/shared/components/Select";
+import { IconButton } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import { Select, type Option } from "@kai/ui";
 import {
   deductionTypeOptions,
   earningTypeOptions,

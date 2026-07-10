@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useState } from "react";
-import { Alert, Button } from "@/shared/components";
-import { TextField } from "@/shared/components/TextField/TextField";
+import { Alert, Button } from "@kai/ui";
+import { TextField } from "@kai/ui";
 import type { EShopResolvedTheme } from "@/features/e-shop-appearance/types/eshop-theme.types";
 import { saveEShopFooterAction } from "../actions/eshop-footer.action";
 import type {

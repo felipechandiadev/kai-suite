@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Button, Dialog, IconButton } from "@/shared/admin-shared";
-import { Badge } from "@/shared/components/Badge";
+import { Alert, Button, Dialog, IconButton } from "@kai/ui";
+import { Badge } from "@kai/ui";
 import { writePosArCollectDraft } from "@/features/session/lib/pos-ar-collect-storage";
 import { writePosNcPayoutDraft } from "@/features/session/lib/pos-nc-payout-storage";
 import { writePosQuotaCollectDraft } from "@/features/session/lib/pos-quota-collect-storage";

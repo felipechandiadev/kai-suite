@@ -2,7 +2,7 @@ import { CollectionPageLayoutShowcaseClient } from "./CollectionPageLayoutShowca
 import { SearchQueryServerPreview } from "./SearchQueryServerPreview";
 import { UrlSearchLive } from "./UrlSearchLive";
 import { Suspense } from "react";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export default async function CollectionPageLayoutShowcasePage({
   searchParams,

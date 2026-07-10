@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { TextField } from "@/shared/components/TextField/TextField";
-import AutoComplete from "@/shared/components/AutoComplete/AutoComplete";
-import type { Option } from "@/shared/components/AutoComplete/AutoComplete";
-import { Button } from "@/shared/components/Button";
+import { TextField } from "@kai/ui";
+import { AutoComplete } from "@kai/ui";
+import type { Option } from "@kai/ui";
+import { Button } from "@kai/ui";
 import type { CreateSupplierInvoiceInput } from "@/features/purchasing-invoices/types/supplier-invoice.types";
 import { createSupplierInvoiceAction } from "@/features/purchasing-invoices/actions/supplier-invoice.action";
 import { usePurchaseDocumentReferenceData } from "@/shared/components/PurchaseDocumentBuilder/usePurchaseDocumentReferenceData";

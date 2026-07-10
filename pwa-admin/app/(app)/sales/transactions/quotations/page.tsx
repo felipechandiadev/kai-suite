@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listQuotationsAction } from "@/features/quotations/actions/quotations.action";
 import QuotationsDataGrid from "./ui/QuotationsDataGrid";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

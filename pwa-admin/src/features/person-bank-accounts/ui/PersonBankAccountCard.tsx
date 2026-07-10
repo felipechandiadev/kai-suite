@@ -1,6 +1,6 @@
 "use client";
 
-import Badge from "@/shared/components/Badge/Badge";
+import Badge from "@kai/ui";
 import type { PersonBankAccountItem } from "../types/person-bank-account.types";
 
 function formatMoney(n?: number): string {

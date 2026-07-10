@@ -1,4 +1,4 @@
-import { BasicPageLayout } from "@/shared/components/layouts";
+import { BasicPageLayout } from "@kai/ui";
 
 export default function BasicPageLayoutShowcasePage() {
   return (

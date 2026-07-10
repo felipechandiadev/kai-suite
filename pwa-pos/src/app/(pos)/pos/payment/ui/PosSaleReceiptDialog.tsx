@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Dialog } from "@/shared/admin-shared";
+import { Button, Dialog } from "@kai/ui";
 import type { PosCartLine } from "@/app/(pos)/pos/ui/PosCartLineCard";
 import type { PosPaymentLine, PosPaymentMethodId } from "@/features/pos-cart/pos-payment.types";
 import type { PosSaleCustomer } from "@/features/customers/types/pos-customer.types";

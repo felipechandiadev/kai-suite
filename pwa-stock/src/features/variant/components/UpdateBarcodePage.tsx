@@ -2,7 +2,7 @@
 
 import { useCallback, useState, useTransition } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Alert, Button, IconButton, TextField } from "@/shared";
+import { Alert, Button, IconButton, TextField } from "@kai/ui";
 import BarcodeScanner from "./BarcodeScanner";
 import { handleUnauthorizedClient } from "@/lib/auth/handle-unauthorized";
 import { updateBarcodeAction } from "../actions/variant.action";

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { TextField } from "@/shared/components/TextField/TextField";
+import { TextField } from "@kai/ui";
 import { InvoicePlannedPaymentLines } from "./InvoicePlannedPaymentLines";
 import { PlannedPaymentModeSelect } from "./PlannedPaymentModeSelect";
 import type { PlannedPaymentDefinitionViewModel } from "./usePlannedPaymentDefinition";

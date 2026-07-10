@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Alert, Button } from "@/shared/components";
+import { Alert, Button } from "@kai/ui";
 import type { CategoryListItem } from "@/features/inventory-categories/types/category.types";
 import {
   buildCategoryNavLinksFromSelection,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Dialog } from "@/shared/admin-shared";
+import { Button, Dialog } from "@kai/ui";
 import {
   describePosDocumentPrintMode,
   getPosDocumentPrintMode,

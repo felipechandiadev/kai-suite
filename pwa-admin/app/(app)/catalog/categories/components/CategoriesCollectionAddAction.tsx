@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { IconButton } from "@kai/ui";
 import type { CategoryListItem } from "@/features/inventory-categories/types/category.types";
 import { CreateCategoryDialog } from "./CreateCategoryDialog";
 

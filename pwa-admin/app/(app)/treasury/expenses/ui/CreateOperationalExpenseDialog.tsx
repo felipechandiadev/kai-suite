@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import Alert from "@/shared/components/Alert/Alert";
-import { Button } from "@/shared/components/Button";
-import { TextField } from "@/shared/components/TextField/TextField";
-import Select from "@/shared/components/Select/Select";
-import type { Option } from "@/shared/components/Select";
-import AutoComplete from "@/shared/components/AutoComplete/AutoComplete";
-import type { Option as AutoOption } from "@/shared/components/AutoComplete/AutoComplete";
+import { Dialog } from "@kai/ui";
+import { Alert } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import { SelectDefault as Select } from "@kai/ui";
+import type { Option } from "@kai/ui";
+import { AutoComplete } from "@kai/ui";
+import type { Option as AutoOption } from "@kai/ui";
 import { createOperationalExpenseAction } from "@/features/treasury-expenses/actions/operational-expense.action";
 import type {
   ExpenseCategoryOption,

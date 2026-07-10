@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import Dialog from "@/shared/components/Dialog/Dialog";
-import Alert from "@/shared/components/Alert/Alert";
-import { Button } from "@/shared/components/Button";
-import { TextField } from "@/shared/components/TextField/TextField";
-import Select from "@/shared/components/Select/Select";
-import Switch from "@/shared/components/Switch/Switch";
+import { Dialog } from "@kai/ui";
+import { Alert } from "@kai/ui";
+import { Button } from "@kai/ui";
+import { TextField } from "@kai/ui";
+import { SelectDefault as Select } from "@kai/ui";
+import { Switch } from "@kai/ui";
 import type { UnitDimension, UnitListItem } from "@/features/inventory-units/types/unit.types";
 import { UNIT_DIMENSIONS, dimensionLabel } from "@/features/inventory-units/types/unit.types";
 import { createUnitAction } from "@/features/inventory-units/actions/unit.action";

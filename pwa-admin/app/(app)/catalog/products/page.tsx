@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { listProductsForGrid } from "@/features/inventory-products/actions/product.action";
 import ProductsDataGrid from "./ui/ProductsDataGrid";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

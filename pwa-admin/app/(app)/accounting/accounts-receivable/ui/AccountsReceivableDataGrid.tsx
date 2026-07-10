@@ -2,12 +2,7 @@
 
 import { Suspense, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import DataGrid from "@/shared/components/DataGrid/DataGrid";
-import type { DataGridColumn } from "@/shared/components/DataGrid/DataGrid";
-import Badge from "@/shared/components/Badge/Badge";
-import IconButton from "@/shared/components/IconButton/IconButton";
-import type { AccountsReceivableRow } from "@/features/accounting-accounts-receivable/types/accounts-receivable.types";
-import { dataGridFillViewportTabPageProps } from "@/shared/components/layouts/layoutPageTokens";
+import Badge, { DataGridTable as DataGrid, IconButton, dataGridFillViewportTabPageProps } from "@kai/ui";
 import { labelAccountsReceivableStatus } from "@/features/accounting-accounts-receivable/lib/accounts-receivable-labels";
 import CompleteAccountsReceivablePaymentDialog from "./CompleteAccountsReceivablePaymentDialog";
 import AccountsReceivablePaymentDetailsDialog from "./AccountsReceivablePaymentDetailsDialog";

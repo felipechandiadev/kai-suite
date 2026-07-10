@@ -4,7 +4,7 @@ import { listChartOfAccountsForPage } from "@/features/accounting-chart-of-accou
 import { listTaxesForPage } from "@/features/accounting-taxes/actions/tax.action";
 import { listExpenseCategoriesForPage } from "@/features/expense-categories/actions/expense-category.action";
 import { AccountingRulesCollection } from "./ui/AccountingRulesCollection";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

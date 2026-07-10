@@ -1,8 +1,8 @@
 "use client";
 
 import { type ReactNode } from "react";
-import Alert from "@/shared/components/Alert/Alert";
-import { Stepper } from "@/shared/components/Stepper/Stepper";
+import { Alert } from "@kai/ui";
+import { Stepper } from "@kai/ui";
 import type { CreatePromotionInput } from "@/features/promotions/types/promotion.types";
 import { PROMOTION_EDITOR_WIZARD_STEPS } from "./promotion-editor-constants";
 import { PromotionStepAccounting } from "./PromotionStepAccounting";

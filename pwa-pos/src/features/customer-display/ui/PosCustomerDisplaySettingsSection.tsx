@@ -17,7 +17,7 @@ import {
   maintainCustomerDisplayConnection,
 } from "@/features/customer-display/lib/customer-display-publisher";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
-import { Button, Switch, TextField } from "@/shared/admin-shared";
+import { Button, Switch, TextField } from "@kai/ui";
 
 type Props = {
   className?: string;

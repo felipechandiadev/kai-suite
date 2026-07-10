@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/shared/components/Button";
+import { Button } from "@kai/ui";
 import { uploadFiscalCafAction } from "../actions/fiscal.actions";
 
 export function SiiFoliosCafSection() {

@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import { listChartOfAccountsForPage } from "@/features/accounting-chart-of-accounts/actions/chart-of-accounts.action";
 import ChartOfAccountsDataGrid from "./ui/ChartOfAccountsDataGrid";
-import { CollectionPageLayout } from "@/shared/components/layouts";
+import { CollectionPageLayout } from "@kai/ui";
 import { ChartOfAccountsCollectionAddAction } from "./ui/ChartOfAccountsCollectionAddAction";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 export const dynamic = "force-dynamic";
 

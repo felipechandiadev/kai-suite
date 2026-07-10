@@ -5,8 +5,8 @@ import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, User, LogOut, ImageOff } from "lucide-react";
 import { useImageWithPlaceholder } from "@/shared/hooks/useImageWithPlaceholder";
-import { Button } from "@/shared/Button/Button";
-import IconButton from "@/shared/IconButton/IconButton";
+import { Button } from "@kai/ui";
+import { IconButton } from "@kai/ui";
 
 export interface SideBarMenuItem {
   id?: string;

@@ -1,4 +1,4 @@
-import type { Option } from "@/shared/components/Select";
+import type { Option } from "@kai/ui";
 
 /** Valores alineados con `BankName` del backend (`person.entity`). */
 export const BANK_OPTIONS: Option[] = [

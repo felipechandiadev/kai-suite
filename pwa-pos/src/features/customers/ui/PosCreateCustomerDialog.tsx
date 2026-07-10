@@ -7,8 +7,8 @@ import {
   Dialog,
   Select,
   TextField,
-} from "@/shared/admin-shared";
-import type { Option } from "@/shared/components/Select/Select";
+} from "@kai/ui";
+import type { Option } from "@kai/ui";
 import { createPosCustomerAction } from "@/features/customers/actions/customers-pos.action";
 import type {
   PosCreateCustomerInput,

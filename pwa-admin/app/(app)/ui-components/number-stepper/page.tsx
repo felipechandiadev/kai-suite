@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import NumberStepper from '@/shared/components/NumberStepper/NumberStepper';
+import { NumberStepper } from '@kai/ui';
 
 export default function NumberStepperPage() {
   const [qty, setQty] = useState(1);

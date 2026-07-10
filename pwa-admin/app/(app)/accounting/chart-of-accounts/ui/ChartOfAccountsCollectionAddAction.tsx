@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/shared/components/Button";
+import { Button } from "@kai/ui";
 import type { AccountHierarchyNode } from "@/features/accounting-chart-of-accounts/types/chart-of-accounts.types";
 import { CreateChartOfAccountDialog } from "./CreateChartOfAccountDialog";
 

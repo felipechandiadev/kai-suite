@@ -1,7 +1,7 @@
 "use client";
 
-import LoadingState from "@/shared/components/LoadingState";
-import Badge from "@/shared/components/Badge/Badge";
+import { LoadingState } from "@kai/ui";
+import Badge from "@kai/ui";
 import type { CustomerDetailView } from "@/features/sales-customers/types/customer.types";
 import { formatCustomerDateTime } from "./customer-detail-format";
 

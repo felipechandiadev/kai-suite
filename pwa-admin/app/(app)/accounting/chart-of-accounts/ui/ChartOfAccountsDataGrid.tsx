@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Switch from "@/shared/components/Switch/Switch";
+import { Switch } from "@kai/ui";
 import type { AccountHierarchyNode } from "@/features/accounting-chart-of-accounts/types/chart-of-accounts.types";
 
 type Row = {

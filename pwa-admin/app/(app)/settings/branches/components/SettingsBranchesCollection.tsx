@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { CollectionPageLayout } from "@/shared/components/layouts";
+import { CollectionPageLayout } from "@kai/ui";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
 import { BranchesCollectionAddAction } from "./BranchesCollectionAddAction";
 import { BranchCard } from "./BranchCard";

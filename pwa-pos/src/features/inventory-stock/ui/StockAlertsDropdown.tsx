@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle } from "lucide-react";
-import IconButton from "@/shared/components/IconButton/IconButton";
+import { IconButton } from "@kai/ui";
 import { formatReceivedAt } from "../lib/stock-alert-copy";
 import { labelNotificationKind } from "@/features/notifications/lib/notification-labels";
 import { useStockRealtime } from "../realtime/stock-realtime-context";

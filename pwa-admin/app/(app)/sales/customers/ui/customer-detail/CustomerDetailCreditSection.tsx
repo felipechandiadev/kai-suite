@@ -1,11 +1,11 @@
 "use client";
-import LoadingState from '@/shared/components/LoadingState';
+import { LoadingState } from '@kai/ui';
 
 import { useCallback, useEffect, useState } from "react";
 import type { CustomerDetailView, UpdateCustomerPayload } from "@/features/sales-customers/types/customer.types";
-import { TextField } from "@/shared/components/TextField/TextField";
-import { Select, type Option } from "@/shared/components/Select";
-import IconButton from "@/shared/components/IconButton";
+import { TextField } from "@kai/ui";
+import { Select, type Option } from "@kai/ui";
+import { IconButton } from "@kai/ui";
 import { updateCustomerAction } from "@/features/sales-customers/actions/customer.action";
 
 const PAYMENT_DAY_OPTIONS: Option[] = [
