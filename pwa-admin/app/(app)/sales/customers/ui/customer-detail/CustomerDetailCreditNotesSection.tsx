@@ -2,7 +2,7 @@
 import { LoadingState } from '@kai/ui';
 
 import { useEffect, useState } from "react";
-import Badge from "@kai/ui";
+import { Badge } from "@kai/ui";
 import { getCustomerCreditNotesListAction } from "@/features/sales-customers/actions/customer.action";
 import type {
   CustomerCreditNoteRow,

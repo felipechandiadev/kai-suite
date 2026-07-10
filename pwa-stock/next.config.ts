@@ -11,7 +11,7 @@ const packagesRoot = path.join(monorepoRoot, "packages");
 loadEnvConfig(appRoot);
 
 const kaiResolveAlias = {
-  "@kai/ui": path.join(packagesRoot, "ui", "src", "index.ts"),
+  "@kai/ui$": path.join(packagesRoot, "ui", "src", "index.ts"),
 };
 
 const isDev = process.env.NODE_ENV === "development";
@@ -30,7 +30,7 @@ const nextConfig: NextConfig = {
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
-      "@kai/ui": path.join(packagesRoot, "ui", "src", "index.ts"),
+      "@kai/ui$": path.join(packagesRoot, "ui", "src", "index.ts"),
     };
     return config;
   },

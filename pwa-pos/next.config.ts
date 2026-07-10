@@ -11,7 +11,7 @@ const packagesRoot = path.join(monorepoRoot, "packages");
 loadEnvConfig(appRoot);
 
 const kaiResolveAlias = {
-  "@kai/ui": path.join(packagesRoot, "ui", "src", "index.ts"),
+  "@kai/ui$": path.join(packagesRoot, "ui", "src", "index.ts"),
   "@kai/print-service-client": path.join(
     packagesRoot,
     "print-service-client",
@@ -39,7 +39,7 @@ const nextConfig: NextConfig = {
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
-      "@kai/ui": path.join(packagesRoot, "ui", "src", "index.ts"),
+      "@kai/ui$": path.join(packagesRoot, "ui", "src", "index.ts"),
       "next-auth": path.join(appRoot, "node_modules/next-auth"),
       "next-auth/react": path.join(appRoot, "node_modules/next-auth/react"),
     };

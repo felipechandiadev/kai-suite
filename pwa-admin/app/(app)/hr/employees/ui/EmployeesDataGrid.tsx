@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataGridTable as DataGrid } from "@kai/ui";
 import type { DataGridColumn } from "@kai/ui";
-import Badge from "@kai/ui";
+import { Badge } from "@kai/ui";
 import { IconButton } from "@kai/ui";
 import type { EmployeeGridRow } from "@/features/hr-employees/types/employee.types";
 import { employeeDisplayName } from "@/features/hr-employees/types/employee.types";

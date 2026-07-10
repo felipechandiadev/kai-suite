@@ -9,9 +9,12 @@ import {
 import { SiiEnvironment } from './fiscal.enums';
 
 @Entity('point_of_sale_folio_allocations')
-@Index('uq_pos_folio_alloc_pos_dte_env', ['pointOfSaleId', 'dteType', 'environment'], {
-  unique: true,
-})
+@Index('idx_pos_folio_alloc_pos_dte_env_range', [
+  'pointOfSaleId',
+  'dteType',
+  'environment',
+  'rangeFrom',
+])
 @Index('idx_pos_folio_alloc_company_dte', ['companyId', 'dteType', 'environment'])
 @Index('idx_pos_folio_alloc_caf', ['cafId'])
 @Index('uq_pos_folio_alloc_company_sub_pack', ['companyId', 'subPackCode'], {

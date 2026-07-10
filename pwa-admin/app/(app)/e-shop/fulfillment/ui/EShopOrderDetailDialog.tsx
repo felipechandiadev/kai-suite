@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import Badge, { Button, LoadingState } from "@kai/ui";
+import { Badge, Button, LoadingState } from "@kai/ui";
 
 const TX_TYPE_LABEL: Record<string, string> = {
   BACKORDER: "Encargo",

@@ -113,6 +113,8 @@ export type FiscalCafSubPackItem = {
   nextFolio: number;
   availableFolios: number;
   isActive: boolean;
+  isCurrent: boolean;
+  isExhausted: boolean;
 };
 
 export type FiscalCafPackageDetail = FiscalCafPackageListItem & {

@@ -1,6 +1,10 @@
 import { getPosOfflineDb } from "../infrastructure/pos-offline-db";
 import { fetchOfflineFiscalPack } from "../infrastructure/offline-fiscal-pack.request";
 import type { OfflineFiscalPack } from "../domain/offline-fiscal-pack.types";
+import {
+  apiSliceToLocalPack,
+  apiSliceToStandbyPack,
+} from "../lib/fiscal-pack-transition";
 
 export async function downloadFiscalPackForPos(
   pointOfSaleId: string,
@@ -15,7 +19,7 @@ export async function downloadFiscalPackForPos(
     };
   }
   const body = res.data;
-  if (!body.success || !body.pack) {
+  if (!body.success || !body.current) {
     return {
       success: false,
       message: body.message || "El POS no tiene folios configurados para operar offline",
@@ -24,24 +28,27 @@ export async function downloadFiscalPackForPos(
 
   const db = getPosOfflineDb();
   const existing = await db.fiscal_pack.get(pointOfSaleId);
-  const serverNext = body.pack.nextFolio;
-  const localNext = existing?.nextFolioLocal ?? serverNext;
+  const existingStandby = await db.fiscal_pack_standby.get(pointOfSaleId);
+  const downloadedAt = new Date().toISOString();
 
-  const pack: OfflineFiscalPack = {
+  const pack = apiSliceToLocalPack(
     pointOfSaleId,
-    allocationId: body.pack.allocationId,
-    cafId: body.pack.cafId,
-    dteType: body.pack.dteType,
-    rangeFrom: body.pack.rangeFrom,
-    rangeTo: body.pack.rangeTo,
-    nextFolioLocal: Math.max(localNext, serverNext),
-    cafXml: body.pack.cafXml,
-    emisor: body.pack.emisor,
-    downloadedAt: new Date().toISOString(),
-    packExpiresAt: body.pack.packExpiresAt,
-  };
+    body.current,
+    existing?.allocationId === body.current.allocationId
+      ? existing.nextFolioLocal
+      : undefined,
+    downloadedAt,
+  );
 
   await db.fiscal_pack.put(pack);
+
+  if (body.next) {
+    const standby = apiSliceToStandbyPack(pointOfSaleId, body.next, existingStandby);
+    await db.fiscal_pack_standby.put(standby);
+  } else {
+    await db.fiscal_pack_standby.delete(pointOfSaleId);
+  }
+
   return { success: true, pack };
 }
 
@@ -60,4 +67,5 @@ export function isFiscalPackExpired(pack: OfflineFiscalPack | null): boolean {
 export async function clearFiscalPackForPos(pointOfSaleId: string): Promise<void> {
   const db = getPosOfflineDb();
   await db.fiscal_pack.delete(pointOfSaleId);
+  await db.fiscal_pack_standby.delete(pointOfSaleId);
 }

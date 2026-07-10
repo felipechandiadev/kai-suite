@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Dialog } from "@kai/ui";
 import { Button } from "@kai/ui";
 import { TextField } from "@kai/ui";
-import Badge from "@kai/ui";
+import { Badge } from "@kai/ui";
 import { Alert } from "@kai/ui";
 import {
   CHECK_DIRECTION_LABELS,

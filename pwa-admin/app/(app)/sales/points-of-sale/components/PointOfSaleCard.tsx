@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Building2, CreditCard, Cpu, Package, Store, Tags } from "lucide-react";
 import { Card } from "@kai/ui";
 import { DeleteDialog } from "@kai/ui";
-import Badge from "@kai/ui";
+import { Badge } from "@kai/ui";
 import type { PointOfSaleListItem, PosKind } from "@/features/sales-points-of-sale/types/point-of-sale.types";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
 import type { PriceListListItem } from "@/features/sales-price-lists/types/price-list.types";

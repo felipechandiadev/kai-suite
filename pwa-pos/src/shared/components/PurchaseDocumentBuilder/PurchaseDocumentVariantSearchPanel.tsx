@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
-import Badge, { Button, Dialog, IconButton, NumberStepper, TextField } from "@kai/ui";
+import { Badge, Button, Dialog, IconButton, NumberStepper, TextField } from "@kai/ui";
 import {
   clampPurchaseDocVariantSearchPageSize,
   PURCHASE_DOC_VARIANT_SEARCH_DEFAULT_PAGE_SIZE,

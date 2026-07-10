@@ -34,9 +34,11 @@ describe('FiscalEffectiveOptionsService', () => {
       findOne: jest.fn().mockResolvedValue(input.caf ?? null),
     };
     const allocationService = {
-      getActiveAllocation: jest.fn().mockResolvedValue(input.allocation ?? null),
-      getAvailableCount: jest.fn().mockReturnValue(
-        input.allocation ? Math.max(0, input.allocation.rangeTo - input.allocation.nextFolio + 1) : 0,
+      listOrderedActiveForPos: jest.fn().mockResolvedValue(input.allocation ? [input.allocation] : []),
+      getAvailableFoliosForPos: jest.fn().mockResolvedValue(
+        input.allocation
+          ? Math.max(0, input.allocation.rangeTo - input.allocation.nextFolio + 1)
+          : 0,
       ),
     } as unknown as PosFolioAllocationService;
 

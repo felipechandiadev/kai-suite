@@ -155,19 +155,21 @@ export default function LoginPageClient() {
               {error ? <Alert variant="error">{error}</Alert> : null}
               <TextField
                 label="Usuario"
-                placeholder="Usuario"
+                placeholder=""
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
                 autoComplete="username"
+                required
                 disabled={submitting}
               />
               <TextField
                 label="Contraseña"
-                placeholder="Contraseña"
+                placeholder=""
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
+                required
                 disabled={submitting}
               />
               <Button type="submit" loading={submitting} disabled={submitting} className="w-full">

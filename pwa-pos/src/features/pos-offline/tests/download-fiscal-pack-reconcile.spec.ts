@@ -48,7 +48,7 @@ describe("download-fiscal-pack reconcile", () => {
       status: 200,
       data: {
         success: true,
-        pack: {
+        current: {
           allocationId: "a1",
           cafId: "c1",
           dteType: 39,
@@ -59,6 +59,7 @@ describe("download-fiscal-pack reconcile", () => {
           emisor: existing.emisor,
           packExpiresAt: existing.packExpiresAt,
         },
+        next: null,
       },
     });
 
@@ -66,5 +67,62 @@ describe("download-fiscal-pack reconcile", () => {
     expect(result.success).toBe(true);
     const stored = await getPosOfflineDb().fiscal_pack.get("pos-1");
     expect(stored?.nextFolioLocal).toBe(150);
+  });
+
+  it("persists current and standby packs from API", async () => {
+    vi.mocked(fetchOfflineFiscalPack).mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: {
+        success: true,
+        current: {
+          allocationId: "a1",
+          cafId: "c1",
+          dteType: 39,
+          rangeFrom: 100,
+          rangeTo: 110,
+          nextFolio: 100,
+          cafXml: "<AUTORIZACION/>",
+          emisor: {
+            rut: "1-9",
+            legalName: "X",
+            businessActivity: null,
+            address: null,
+            commune: null,
+            city: null,
+            resolutionNumber: null,
+            resolutionDate: null,
+          },
+          packExpiresAt: new Date(Date.now() + 86400000).toISOString(),
+        },
+        next: {
+          allocationId: "a2",
+          cafId: "c2",
+          dteType: 39,
+          rangeFrom: 200,
+          rangeTo: 210,
+          nextFolio: 200,
+          cafXml: "<AUTORIZACION/>",
+          emisor: {
+            rut: "1-9",
+            legalName: "X",
+            businessActivity: null,
+            address: null,
+            commune: null,
+            city: null,
+            resolutionNumber: null,
+            resolutionDate: null,
+          },
+          packExpiresAt: new Date(Date.now() + 86400000).toISOString(),
+        },
+      },
+    });
+
+    const result = await downloadFiscalPackForPos("pos-2");
+    expect(result.success).toBe(true);
+    const current = await getPosOfflineDb().fiscal_pack.get("pos-2");
+    const standby = await getPosOfflineDb().fiscal_pack_standby.get("pos-2");
+    expect(current?.allocationId).toBe("a1");
+    expect(standby?.allocationId).toBe("a2");
   });
 });

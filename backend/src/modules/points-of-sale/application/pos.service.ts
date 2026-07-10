@@ -459,8 +459,8 @@ export class PosService {
 
   async getOfflineFiscalPack(posId: string) {
     try {
-      const pack = await this.offlineFiscalPack.getPackForPos(posId);
-      return { success: true, pack };
+      const bundle = await this.offlineFiscalPack.getPackForPos(posId);
+      return { success: true, ...bundle };
     } catch (e) {
       const message = e instanceof Error ? e.message : 'No se pudo obtener paquete fiscal';
       const statusCode = e instanceof NotFoundException ? 404 : 400;

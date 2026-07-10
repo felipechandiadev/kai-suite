@@ -2,7 +2,7 @@
 
 import { Suspense, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Badge, { DataGridTable as DataGrid, IconButton, dataGridFillViewportTabPageProps } from "@kai/ui";
+import { Badge, DataGridTable as DataGrid, IconButton, dataGridFillViewportTabPageProps } from "@kai/ui";
 import { labelAccountsReceivableStatus } from "@/features/accounting-accounts-receivable/lib/accounts-receivable-labels";
 import CompleteAccountsReceivablePaymentDialog from "./CompleteAccountsReceivablePaymentDialog";
 import AccountsReceivablePaymentDetailsDialog from "./AccountsReceivablePaymentDetailsDialog";

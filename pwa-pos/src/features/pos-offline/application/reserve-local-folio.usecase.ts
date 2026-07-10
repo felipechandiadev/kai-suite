@@ -1,4 +1,5 @@
 import { getPosOfflineDb } from "../infrastructure/pos-offline-db";
+import { promoteStandbyFiscalPackIfNeeded } from "../lib/fiscal-pack-transition";
 
 export type ReserveLocalFolioResult =
   | { ok: true; folio: number; allocationId: string; cafId: string }
@@ -8,8 +9,8 @@ export async function reserveLocalFolio(
   pointOfSaleId: string,
 ): Promise<ReserveLocalFolioResult> {
   const db = getPosOfflineDb();
-  return db.transaction("rw", db.fiscal_pack, async () => {
-    const pack = await db.fiscal_pack.get(pointOfSaleId);
+  return db.transaction("rw", [db.fiscal_pack, db.fiscal_pack_standby], async () => {
+    let pack = await promoteStandbyFiscalPackIfNeeded(db, pointOfSaleId);
     if (!pack) {
       return { ok: false as const, reason: "NO_PACK" as const };
     }

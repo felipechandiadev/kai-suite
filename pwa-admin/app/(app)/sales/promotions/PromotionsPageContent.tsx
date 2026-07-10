@@ -5,7 +5,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Button } from "@kai/ui";
 import { Select } from "@kai/ui";
 import { TextField } from "@kai/ui";
-import Badge from "@kai/ui";
+import { Badge } from "@kai/ui";
 import { IconButton } from "@kai/ui";
 import {
   PROMOTION_ACTIVATION_LABEL,

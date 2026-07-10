@@ -4,7 +4,7 @@ import { LoadingState } from '@kai/ui';
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconButton } from "@kai/ui";
-import Badge from "@kai/ui";
+import { Badge } from "@kai/ui";
 import {
   companyPaymentMethodAlwaysRequiresReference,
   companyPaymentMethodLabel,

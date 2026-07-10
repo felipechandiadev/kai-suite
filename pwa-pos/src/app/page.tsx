@@ -151,7 +151,7 @@ export default function LoginPage() {
               type="text"
               value={userName}
               onChange={(e) => setUserName(e.target.value)}
-              placeholder="Usuario"
+              placeholder=""
               required
               disabled={submitting}
               autoComplete="username"
@@ -165,7 +165,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Contraseña"
+              placeholder=""
               required
               disabled={submitting}
               autoComplete="current-password"

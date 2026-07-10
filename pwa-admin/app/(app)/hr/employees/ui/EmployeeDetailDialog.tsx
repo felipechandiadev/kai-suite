@@ -1,6 +1,6 @@
 "use client";
 
-import Badge, { Dialog, LoadingState } from "@kai/ui";
+import { Badge, Dialog, LoadingState } from "@kai/ui";
 import { SIDE_BAR_MENU_ITEM_CLASSNAMES } from "@/shared/components/TopBar/SideBar";
 import { getEmployeeDetailAction } from "@/features/hr-employees/actions/employee.action";
 import type { EmployeeDetailView } from "@/features/hr-employees/types/employee.types";

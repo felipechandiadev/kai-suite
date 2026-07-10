@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Badge, { DataGridTable as DataGrid, IconButton, dataGridFillViewportTabPageProps } from "@kai/ui";
+import { Badge, DataGridTable as DataGrid, IconButton, dataGridFillViewportTabPageProps } from "@kai/ui";
 import {
   labelAccountsPayableOriginCategory,
   labelAccountsPayablePayeeType,

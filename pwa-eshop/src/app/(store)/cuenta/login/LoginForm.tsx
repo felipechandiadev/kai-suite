@@ -28,6 +28,8 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
         value={login}
         onChange={(e) => setLogin(e.target.value)}
         autoComplete="username"
+        placeholder=""
+        required
         helperText="Puedes usar tu correo o tu nombre de usuario (sin @)."
       />
       <TextField
@@ -36,6 +38,8 @@ export function LoginForm({ initialEmail = "" }: LoginFormProps) {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         autoComplete="current-password"
+        placeholder=""
+        required
       />
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <Button

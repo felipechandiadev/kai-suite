@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FileText, ListChecks, Tags } from "lucide-react";
 import { Card } from "@kai/ui";
-import Badge from "@kai/ui";
+import { Badge } from "@kai/ui";
 import { Switch } from "@kai/ui";
 import { DeleteDialog } from "@kai/ui";
 import type { AttributeListItem } from "@/features/inventory-attributes/types/attribute.types";

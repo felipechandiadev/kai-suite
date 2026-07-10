@@ -4,7 +4,7 @@ import { LoadingState } from '@kai/ui';
 import { useCallback, useEffect, useState } from "react";
 import { Dialog } from "@kai/ui";
 import { Alert } from "@kai/ui";
-import Badge, { type BadgeVariant } from "@kai/ui";
+import { Badge, type BadgeVariant } from "@kai/ui";
 import { IconButton } from "@kai/ui";
 import { getCompanyDetailsAction } from "@/features/settings-company/actions/company.action";
 import {

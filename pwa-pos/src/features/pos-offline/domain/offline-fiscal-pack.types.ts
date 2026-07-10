@@ -9,8 +9,7 @@ export type OfflineFiscalPackEmisor = {
   resolutionDate: string | null;
 };
 
-export type OfflineFiscalPack = {
-  pointOfSaleId: string;
+export type OfflineFiscalPackSlice = {
   allocationId: string;
   cafId: string;
   dteType: number;
@@ -19,23 +18,40 @@ export type OfflineFiscalPack = {
   nextFolioLocal: number;
   cafXml: string;
   emisor: OfflineFiscalPackEmisor;
+  packExpiresAt: string;
+};
+
+export type OfflineFiscalPack = OfflineFiscalPackSlice & {
+  pointOfSaleId: string;
   downloadedAt: string;
+};
+
+export type OfflineFiscalPackStandbyRow = OfflineFiscalPackSlice & {
+  pointOfSaleId: string;
+};
+
+export type OfflineFiscalPackApiSlice = {
+  allocationId: string;
+  cafId: string;
+  dteType: number;
+  rangeFrom: number;
+  rangeTo: number;
+  nextFolio: number;
+  cafXml: string;
+  emisor: OfflineFiscalPackEmisor;
   packExpiresAt: string;
 };
 
 export type OfflineFiscalPackApiResponse = {
   success: boolean;
-  pack?: {
+  current?: OfflineFiscalPackApiSlice;
+  next?: OfflineFiscalPackApiSlice | null;
+  queueMeta?: Array<{
     allocationId: string;
-    cafId: string;
-    dteType: number;
     rangeFrom: number;
     rangeTo: number;
     nextFolio: number;
-    cafXml: string;
-    emisor: OfflineFiscalPackEmisor;
-    packExpiresAt: string;
-  };
+  }>;
   message?: string;
   statusCode?: number;
 };

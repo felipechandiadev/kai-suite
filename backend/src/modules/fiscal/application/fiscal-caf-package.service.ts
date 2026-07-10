@@ -123,6 +123,8 @@ export class FiscalCafPackageService {
         : [];
     const posById = new Map(posRows.map((p) => [p.id, p.name]));
 
+    const currentIds = this.resolveCurrentAllocationIds(allocations);
+
     const subPacks: FiscalCafSubPackItem[] = allocations.map((a) => ({
       id: a.id,
       subPackCode: a.subPackCode,
@@ -134,6 +136,8 @@ export class FiscalCafPackageService {
       nextFolio: a.nextFolio,
       availableFolios: this.getAllocationAvailable(a),
       isActive: a.isActive,
+      isCurrent: currentIds.has(a.id),
+      isExhausted: this.isAllocationExhausted(a),
     }));
 
     return { ...base, subPacks };
@@ -288,6 +292,32 @@ export class FiscalCafPackageService {
         subPackCount,
       },
     };
+  }
+
+  private isAllocationExhausted(allocation: PointOfSaleFolioAllocation): boolean {
+    return allocation.nextFolio > allocation.rangeTo;
+  }
+
+  private resolveCurrentAllocationIds(allocations: PointOfSaleFolioAllocation[]): Set<string> {
+    const currentIds = new Set<string>();
+    const groups = new Map<string, PointOfSaleFolioAllocation[]>();
+    for (const row of allocations) {
+      if (!row.isActive) continue;
+      const key = `${row.pointOfSaleId}:${row.dteType}:${row.environment}`;
+      const bucket = groups.get(key) ?? [];
+      bucket.push(row);
+      groups.set(key, bucket);
+    }
+    for (const group of groups.values()) {
+      const ordered = [...group].sort(
+        (a, b) =>
+          a.rangeFrom - b.rangeFrom ||
+          a.createdAt.getTime() - b.createdAt.getTime(),
+      );
+      const current = ordered.find((row) => !this.isAllocationExhausted(row));
+      if (current) currentIds.add(current.id);
+    }
+    return currentIds;
   }
 
   private getAllocationAvailable(allocation: PointOfSaleFolioAllocation): number {

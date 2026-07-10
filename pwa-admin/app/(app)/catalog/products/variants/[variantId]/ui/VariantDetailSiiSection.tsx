@@ -18,13 +18,13 @@ import {
 import type { ProductVariantGridRow } from "@/features/inventory-products/types/product-grid.types";
 import {
   allowsSaleTaxIds,
-  DEFAULT_VARIANT_TAX_CATEGORY,
   forcesNetEqualsGross,
   isOutOfFiscalScope,
   VARIANT_TAX_CATEGORY_OPTIONS,
   variantBoletaLineKind,
   variantHasLocalIva,
   variantTaxCategoryDescription,
+  normalizeVariantTaxCategory,
   type VariantTaxCategory,
 } from "@/features/inventory-products/types/variant-fiscal.types";
 
@@ -61,7 +61,7 @@ export function VariantDetailSiiSection({ variant }: Props) {
     [catalogTaxes],
   );
 
-  const readCategory = variant.taxCategory ?? DEFAULT_VARIANT_TAX_CATEGORY;
+  const readCategory = normalizeVariantTaxCategory(variant.taxCategory);
   const readRequiresDte = variant.requiresDte !== false;
   const readTaxIds = useMemo(
     () => resolveVariantTaxIds(variant, undefined, defaultIvaTaxIds),
@@ -95,7 +95,7 @@ export function VariantDetailSiiSection({ variant }: Props) {
     if (editing) {
       return;
     }
-    setTaxCategory(variant.taxCategory ?? DEFAULT_VARIANT_TAX_CATEGORY);
+    setTaxCategory(normalizeVariantTaxCategory(variant.taxCategory));
     setRequiresDte(variant.requiresDte !== false);
     setTaxIds(resolveVariantTaxIds(variant, undefined, defaultIvaTaxIds));
   }, [variant.taxCategory, variant.requiresDte, variant.taxIds, editing, defaultIvaTaxIds, variant]);
@@ -121,7 +121,7 @@ export function VariantDetailSiiSection({ variant }: Props) {
   );
 
   function hydrateFromVariant() {
-    setTaxCategory(variant.taxCategory ?? DEFAULT_VARIANT_TAX_CATEGORY);
+    setTaxCategory(normalizeVariantTaxCategory(variant.taxCategory));
     setRequiresDte(variant.requiresDte !== false);
     setTaxIds(resolveVariantTaxIds(variant, undefined, defaultIvaTaxIds));
   }

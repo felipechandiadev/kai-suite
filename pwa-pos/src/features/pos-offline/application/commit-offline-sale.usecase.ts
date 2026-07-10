@@ -6,6 +6,7 @@ import type { PosPaymentLine } from "@/features/pos-cart/pos-payment.types";
 import type { FiscalBoletaPrintPreview } from "@/features/fiscal/types/fiscal-emission.types";
 import { buildCreateSaleClientPayload } from "@/features/session/lib/build-create-sale-payload";
 import { getPosOfflineDb } from "../infrastructure/pos-offline-db";
+import { promoteStandbyFiscalPackIfNeeded } from "../lib/fiscal-pack-transition";
 import type { PosOfflineCommand, PosOfflineFiscalBlock } from "../domain/offline-command.types";
 import type { OfflineFiscalPack } from "../domain/offline-fiscal-pack.types";
 import { getOrCreateDeviceId, nextLocalDocumentNumber } from "./device-id";
@@ -117,7 +118,7 @@ export async function commitOfflineSale(
 
   const command = await db.transaction(
     "rw",
-    [db.commands, db.fiscal_pack, db.stock_snapshot, db.catalog, db.meta],
+    [db.commands, db.fiscal_pack, db.fiscal_pack_standby, db.stock_snapshot, db.catalog, db.meta],
     async () => {
       if (input.saleDocumentKind === "BOLETA") {
         if (buckets.dteLines.length === 0) {
@@ -126,17 +127,19 @@ export async function commitOfflineSale(
               "Sin ítems tributarios en el carrito. Se imprimirá solo ticket interno.";
           }
         } else {
-        const pack = input.fiscalPack;
+        let pack = input.fiscalPack;
         if (!pack) {
           boletaSkippedMessage =
             "Sin paquete fiscal local. Se imprimirá solo ticket interno.";
         } else if (input.fiscalPackExpired) {
           boletaSkippedMessage =
             "Paquete fiscal vencido. Renueva folios con conexión. Solo ticket interno.";
-        } else if (pack.nextFolioLocal > pack.rangeTo) {
-          boletaSkippedMessage =
-            "Sin folios CAF disponibles offline. Solo ticket interno.";
         } else {
+          pack = (await promoteStandbyFiscalPackIfNeeded(db, input.pointOfSaleId)) ?? pack;
+          if (pack.nextFolioLocal > pack.rangeTo) {
+            boletaSkippedMessage =
+              "Sin folios CAF disponibles offline. Reconecte para actualizar el pack fiscal.";
+          } else {
           const folio = pack.nextFolioLocal;
           pack.nextFolioLocal = folio + 1;
           await db.fiscal_pack.put(pack);
@@ -161,6 +164,8 @@ export async function commitOfflineSale(
           fiscalPrintPreview = built.preview;
           fiscalFolio = String(folio);
           boletaSkippedMessage = null;
+          }
+        }
         }
         }
       }

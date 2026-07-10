@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { LoadingState } from "@kai/ui";
-import Badge, { type BadgeVariant } from "@kai/ui";
+import { Badge, type BadgeVariant } from "@kai/ui";
 import { listRemunerationsForGridAction } from "@/features/hr-remunerations/actions/remuneration.action";
 import type { RemunerationGridRow } from "@/features/hr-remunerations/types/remuneration.types";
 import { getTransactionStatusLabel } from "@/features/transactions/types/transaction-types";

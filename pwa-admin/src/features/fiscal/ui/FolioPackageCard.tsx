@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Badge from "@kai/ui";
-import { Button } from "@kai/ui";
-import { DeleteDialog } from "@kai/ui";
+import { Badge, Button, DeleteDialog } from "@kai/ui";
 import type { FiscalCafPackage, FiscalCafPackageDetail } from "../types/fiscal.types";
 import { dteTypeLabel } from "@/features/sales-points-of-sale/types/pos-fiscal.types";
 import type { PointOfSaleListItem } from "@/features/sales-points-of-sale/types/point-of-sale.types";
@@ -192,6 +190,7 @@ export function FolioPackageCard({ pkg, pointsOfSale, highlight }: Props) {
         onClose={() => setAssignOpen(false)}
         pkg={pkg}
         pointsOfSale={pointsOfSale}
+        existingSubPacks={subPacks}
       />
 
       <FolioLedgerDialog

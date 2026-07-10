@@ -1,6 +1,6 @@
 "use client";
 
-import Badge from "@kai/ui";
+import { Badge } from "@kai/ui";
 
 export function productSkipsDte(requiresDte?: boolean | null): boolean {
   return requiresDte === false;

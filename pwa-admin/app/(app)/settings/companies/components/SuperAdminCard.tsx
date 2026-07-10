@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Shield, Mail, AtSign } from "lucide-react";
 import { Card } from "@kai/ui";
-import Badge from "@kai/ui";
+import { Badge } from "@kai/ui";
 import { DeleteDialog } from "@kai/ui";
 import { deleteSuperAdminAction } from "@/features/settings-users/actions/super-admin.action";
 import type { SuperAdminUser } from "@/features/settings-users/types/super-admin.types";

@@ -26,6 +26,8 @@ export type PosFolioAllocationItem = {
   environment: string;
   isActive: boolean;
   availableFolios: number;
+  isCurrent: boolean;
+  isExhausted: boolean;
 };
 
 export type UpsertPosFolioAllocationInput = {
@@ -66,7 +68,7 @@ export class PosFolioAllocationService {
   async listByPos(posId: string): Promise<PosFolioAllocationItem[]> {
     const rows = await this.allocationRepo.find({
       where: { pointOfSaleId: posId },
-      order: { dteType: 'ASC' },
+      order: { dteType: 'ASC', rangeFrom: 'ASC', createdAt: 'ASC' },
     });
     const cafIds = [...new Set(rows.map((r) => r.cafId))];
     const cafs =
@@ -74,7 +76,10 @@ export class PosFolioAllocationService {
         ? await this.cafRepo.find({ where: cafIds.map((id) => ({ id })) })
         : [];
     const cafById = new Map(cafs.map((c) => [c.id, c]));
-    return rows.map((r) => this.toItem(r, cafById.get(r.cafId)?.packageCode ?? null));
+    const currentIds = this.resolveCurrentAllocationIds(rows);
+    return rows.map((r) =>
+      this.toItem(r, cafById.get(r.cafId)?.packageCode ?? null, currentIds.has(r.id)),
+    );
   }
 
   async replaceAllocationsForPos(
@@ -102,19 +107,6 @@ export class PosFolioAllocationService {
     await this.validateWithinCaf(companyId, cafId, rangeFrom, rangeTo);
     await this.validateNoOverlap(companyId, cafId, { from: rangeFrom, to: rangeTo });
 
-    const existing = await this.allocationRepo.findOne({
-      where: {
-        pointOfSaleId: pos.id,
-        dteType: caf.dteType,
-        environment: caf.environment,
-      },
-    });
-    if (existing) {
-      throw new ConflictException(
-        'Este POS ya tiene un sub-paquete para este tipo de documento. Edítelo o elimínelo primero.',
-      );
-    }
-
     const subPackCode = await this.generateSubPackCode(companyId, caf.packageCode);
     const saved = await this.allocationRepo.save(
       this.allocationRepo.create({
@@ -131,7 +123,12 @@ export class PosFolioAllocationService {
         isActive: true,
       }),
     );
-    return this.toItem(saved, caf.packageCode);
+    const current = await this.getCurrentAllocationForPos(
+      pos.id,
+      caf.dteType,
+      caf.environment,
+    );
+    return this.toItem(saved, caf.packageCode, current?.id === saved.id);
   }
 
   async updateSubPack(
@@ -156,7 +153,12 @@ export class PosFolioAllocationService {
     if (input.label !== undefined) row.label = input.label?.trim() || null;
     const saved = await this.allocationRepo.save(row);
     const caf = await this.cafRepo.findOne({ where: { id: row.cafId } });
-    return this.toItem(saved, caf?.packageCode ?? null);
+    const current = await this.getCurrentAllocationForPos(
+      row.pointOfSaleId,
+      row.dteType,
+      row.environment as SiiEnvironment,
+    );
+    return this.toItem(saved, caf?.packageCode ?? null, current?.id === saved.id);
   }
 
   async deleteSubPack(companyId: string, allocationId: string): Promise<void> {
@@ -172,9 +174,105 @@ export class PosFolioAllocationService {
     return this.deleteSubPack(companyId, id);
   }
 
+  isExhausted(allocation: PointOfSaleFolioAllocation): boolean {
+    return allocation.nextFolio > allocation.rangeTo;
+  }
+
   getAvailableCount(allocation: PointOfSaleFolioAllocation): number {
     if (!allocation.isActive) return 0;
     return Math.max(0, allocation.rangeTo - allocation.nextFolio + 1);
+  }
+
+  sortAllocationsForPos(rows: PointOfSaleFolioAllocation[]): PointOfSaleFolioAllocation[] {
+    return [...rows].sort(
+      (a, b) =>
+        a.rangeFrom - b.rangeFrom ||
+        a.createdAt.getTime() - b.createdAt.getTime(),
+    );
+  }
+
+  resolveCurrentAllocationIds(rows: PointOfSaleFolioAllocation[]): Set<string> {
+    const currentIds = new Set<string>();
+    const groups = new Map<string, PointOfSaleFolioAllocation[]>();
+    for (const row of rows) {
+      if (!row.isActive) continue;
+      const key = `${row.pointOfSaleId}:${row.dteType}:${row.environment}`;
+      const bucket = groups.get(key) ?? [];
+      bucket.push(row);
+      groups.set(key, bucket);
+    }
+    for (const group of groups.values()) {
+      const current = this.pickCurrentFromOrdered(this.sortAllocationsForPos(group));
+      if (current) currentIds.add(current.id);
+    }
+    return currentIds;
+  }
+
+  pickCurrentFromOrdered(
+    ordered: PointOfSaleFolioAllocation[],
+  ): PointOfSaleFolioAllocation | null {
+    return ordered.find((row) => row.isActive && !this.isExhausted(row)) ?? null;
+  }
+
+  pickNextStandbyAllocation(
+    ordered: PointOfSaleFolioAllocation[],
+    currentId: string | null,
+  ): PointOfSaleFolioAllocation | null {
+    const activeOrdered = ordered.filter((row) => row.isActive);
+    const currentIndex =
+      currentId != null ? activeOrdered.findIndex((row) => row.id === currentId) : -1;
+    const start = currentIndex >= 0 ? currentIndex + 1 : 0;
+    for (let i = start; i < activeOrdered.length; i += 1) {
+      const row = activeOrdered[i];
+      if (!this.isExhausted(row)) return row;
+    }
+    return null;
+  }
+
+  async listOrderedActiveForPos(
+    posId: string,
+    dteType: number,
+    environment: SiiEnvironment = SiiEnvironment.PRODUCTION,
+    manager?: EntityManager,
+  ): Promise<PointOfSaleFolioAllocation[]> {
+    const repo = manager
+      ? manager.getRepository(PointOfSaleFolioAllocation)
+      : this.allocationRepo;
+    const rows = await repo.find({
+      where: { pointOfSaleId: posId, dteType, environment, isActive: true },
+      order: { rangeFrom: 'ASC', createdAt: 'ASC' },
+    });
+    return this.sortAllocationsForPos(rows);
+  }
+
+  async getCurrentAllocationForPos(
+    posId: string,
+    dteType: number,
+    environment: SiiEnvironment = SiiEnvironment.PRODUCTION,
+    manager?: EntityManager,
+  ): Promise<PointOfSaleFolioAllocation | null> {
+    const ordered = await this.listOrderedActiveForPos(posId, dteType, environment, manager);
+    return this.pickCurrentFromOrdered(ordered);
+  }
+
+  async getNextStandbyAllocationForPos(
+    posId: string,
+    dteType: number,
+    environment: SiiEnvironment = SiiEnvironment.PRODUCTION,
+    manager?: EntityManager,
+  ): Promise<PointOfSaleFolioAllocation | null> {
+    const ordered = await this.listOrderedActiveForPos(posId, dteType, environment, manager);
+    const current = this.pickCurrentFromOrdered(ordered);
+    return this.pickNextStandbyAllocation(ordered, current?.id ?? null);
+  }
+
+  async getAvailableFoliosForPos(
+    posId: string,
+    dteType: number,
+    environment: SiiEnvironment = SiiEnvironment.PRODUCTION,
+  ): Promise<number> {
+    const ordered = await this.listOrderedActiveForPos(posId, dteType, environment);
+    return ordered.reduce((sum, row) => sum + this.getAvailableCount(row), 0);
   }
 
   async getActiveAllocation(
@@ -182,9 +280,7 @@ export class PosFolioAllocationService {
     dteType: number,
     environment: SiiEnvironment = SiiEnvironment.PRODUCTION,
   ): Promise<PointOfSaleFolioAllocation | null> {
-    return this.allocationRepo.findOne({
-      where: { pointOfSaleId: posId, dteType, environment, isActive: true },
-    });
+    return this.getCurrentAllocationForPos(posId, dteType, environment);
   }
 
   async reserveFolio(
@@ -212,41 +308,48 @@ export class PosFolioAllocationService {
       throw new NotFoundException('Punto de venta no encontrado');
     }
 
-    const allocation = await manager.getRepository(PointOfSaleFolioAllocation).findOne({
-      where: {
-        pointOfSaleId: posId,
-        dteType,
-        environment: SiiEnvironment.PRODUCTION,
-        isActive: true,
-      },
-      lock: { mode: 'pessimistic_write' },
-    });
-    if (!allocation) {
+    const ordered = await this.listOrderedActiveForPos(
+      posId,
+      dteType,
+      SiiEnvironment.PRODUCTION,
+      manager,
+    );
+    if (ordered.length === 0) {
       throw new ConflictException('El POS no tiene folios asignados para este tipo de documento');
     }
-    if (allocation.nextFolio > allocation.rangeTo) {
-      throw new ConflictException('Sin folios disponibles en el POS');
+
+    const allocationRepo = manager.getRepository(PointOfSaleFolioAllocation);
+    for (const candidate of ordered) {
+      const allocation = await allocationRepo.findOne({
+        where: { id: candidate.id, isActive: true },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!allocation || this.isExhausted(allocation)) {
+        continue;
+      }
+
+      const caf = await manager.getRepository(FiscalCaf).findOne({
+        where: { id: allocation.cafId, companyId: pos.companyId },
+      });
+      if (!caf) {
+        throw new BadRequestException('CAF del sub-paquete no encontrado');
+      }
+      if (
+        allocation.nextFolio < allocation.rangeFrom ||
+        allocation.nextFolio > allocation.rangeTo ||
+        allocation.nextFolio < caf.rangeFrom ||
+        allocation.nextFolio > caf.rangeTo
+      ) {
+        throw new ConflictException('Folio fuera del rango CAF o asignación POS');
+      }
+
+      const folio = allocation.nextFolio;
+      allocation.nextFolio = folio + 1;
+      await allocationRepo.save(allocation);
+      return { folio, allocationId: allocation.id, cafId: caf.id };
     }
 
-    const caf = await manager.getRepository(FiscalCaf).findOne({
-      where: { id: allocation.cafId, companyId: pos.companyId },
-    });
-    if (!caf) {
-      throw new BadRequestException('CAF del sub-paquete no encontrado');
-    }
-    if (
-      allocation.nextFolio < allocation.rangeFrom ||
-      allocation.nextFolio > allocation.rangeTo ||
-      allocation.nextFolio < caf.rangeFrom ||
-      allocation.nextFolio > caf.rangeTo
-    ) {
-      throw new ConflictException('Folio fuera del rango CAF o asignación POS');
-    }
-
-    const folio = allocation.nextFolio;
-    allocation.nextFolio = folio + 1;
-    await manager.getRepository(PointOfSaleFolioAllocation).save(allocation);
-    return { folio, allocationId: allocation.id, cafId: caf.id };
+    throw new ConflictException('Sin folios disponibles en el POS');
   }
 
   /** Reconcilia folio consumido offline sin reservar de nuevo. */
@@ -388,6 +491,7 @@ export class PosFolioAllocationService {
   private toItem(
     row: PointOfSaleFolioAllocation,
     packageCode: string | null,
+    isCurrent: boolean,
   ): PosFolioAllocationItem {
     return {
       id: row.id,
@@ -403,6 +507,8 @@ export class PosFolioAllocationService {
       environment: row.environment,
       isActive: row.isActive,
       availableFolios: this.getAvailableCount(row),
+      isCurrent,
+      isExhausted: this.isExhausted(row),
     };
   }
 }

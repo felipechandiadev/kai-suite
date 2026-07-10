@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog } from "@kai/ui";
 import { Button } from "@kai/ui";
 import { SelectDefault as Select } from "@kai/ui";
 import { TextField } from "@kai/ui";
 import { createFiscalSubPackAction } from "../actions/fiscal.actions";
-import type { FiscalCafPackage } from "../types/fiscal.types";
+import type { FiscalCafPackage, FiscalSubPack } from "../types/fiscal.types";
 import type { PointOfSaleListItem } from "@/features/sales-points-of-sale/types/point-of-sale.types";
 
 type Props = {
@@ -15,9 +15,16 @@ type Props = {
   onClose: () => void;
   pkg: FiscalCafPackage;
   pointsOfSale: PointOfSaleListItem[];
+  existingSubPacks?: FiscalSubPack[];
 };
 
-export function AssignSubPackDialog({ open, onClose, pkg, pointsOfSale }: Props) {
+export function AssignSubPackDialog({
+  open,
+  onClose,
+  pkg,
+  pointsOfSale,
+  existingSubPacks = [],
+}: Props) {
   const router = useRouter();
   const [posId, setPosId] = useState("");
   const [rangeFrom, setRangeFrom] = useState(String(pkg.rangeFrom));
@@ -32,6 +39,30 @@ export function AssignSubPackDialog({ open, onClose, pkg, pointsOfSale }: Props)
       id: p.id,
       label: p.branch?.name ? `${p.name} (${p.branch.name})` : p.name,
     }));
+
+  const posExistingSubPacks = useMemo(
+    () => existingSubPacks.filter((sp) => sp.pointOfSaleId === posId && sp.isActive),
+    [existingSubPacks, posId],
+  );
+
+  const suggestedRangeFrom = useMemo(() => {
+    if (posExistingSubPacks.length === 0) return pkg.rangeFrom;
+    return Math.max(...posExistingSubPacks.map((sp) => sp.rangeTo)) + 1;
+  }, [posExistingSubPacks, pkg.rangeFrom]);
+
+  useEffect(() => {
+    if (!open) return;
+    setPosId("");
+    setRangeFrom(String(pkg.rangeFrom));
+    setRangeTo(String(pkg.rangeTo));
+    setLabel("");
+    setError("");
+  }, [open, pkg.id, pkg.rangeFrom, pkg.rangeTo]);
+
+  useEffect(() => {
+    if (!posId) return;
+    setRangeFrom(String(suggestedRangeFrom));
+  }, [posId, suggestedRangeFrom]);
 
   async function handleSubmit() {
     if (!posId) {
@@ -82,7 +113,8 @@ export function AssignSubPackDialog({ open, onClose, pkg, pointsOfSale }: Props)
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
           Paquete SII: {pkg.rangeFrom} – {pkg.rangeTo}. El rango debe estar contenido en el paquete
-          y no solaparse con otros sub-paquetes del mismo CAF.
+          y no solaparse con otros sub-paquetes del mismo CAF. Un POS puede tener varios
+          sub-paquetes; se usarán en orden por rango.
         </p>
         <Select
           label="Punto de venta"
@@ -93,6 +125,22 @@ export function AssignSubPackDialog({ open, onClose, pkg, pointsOfSale }: Props)
           placeholder="Seleccionar POS"
           required
         />
+        {posExistingSubPacks.length > 0 ? (
+          <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
+            <p className="font-medium">Este POS ya tiene sub-paquetes en este CAF:</p>
+            <ul className="mt-1 list-inside list-disc">
+              {posExistingSubPacks.map((sp) => (
+                <li key={sp.id}>
+                  {sp.rangeFrom}–{sp.rangeTo}
+                  {sp.isCurrent ? " (corriente)" : sp.isExhausted ? " (agotado)" : " (standby)"}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1 text-muted-foreground">
+              Sugerido desde folio {suggestedRangeFrom}. Puede haber huecos; evite solapamientos.
+            </p>
+          </div>
+        ) : null}
         <div className="grid grid-cols-2 gap-2">
           <TextField
             label="Desde"

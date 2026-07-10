@@ -6,7 +6,7 @@ import { Alert } from "@kai/ui";
 import { Button } from "@kai/ui";
 import { IconButton } from "@kai/ui";
 import { TextField } from "@kai/ui";
-import Badge from "@kai/ui";
+import { Badge } from "@kai/ui";
 import { createAttributeAction } from "@/features/inventory-attributes/actions/attribute.action";
 
 export type CreateAttributeDialogProps = {

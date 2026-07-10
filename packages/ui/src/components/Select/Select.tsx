@@ -128,6 +128,9 @@ const Select: React.FC<SelectProps> = ({
   }, [highlightedIndex, open]);
 
   const hasValue = value !== null && value !== undefined;
+  const hasSelection = Boolean(selected);
+  /** Texto visible: siempre el label de la opción, nunca el id crudo (`value`). */
+  const selectedDisplayLabel = selected ? String(selected.label) : "";
   const hasClear = allowClear && hasValue;
   const shrinkMinimal = focused || hasValue || alwaysShowLabel;
   const showMinimalCompactFloat =
@@ -163,6 +166,13 @@ const Select: React.FC<SelectProps> = ({
     textFieldWrapClassName: string,
     insetLabel?: { text: string; required?: boolean },
   ) {
+    const comboInputValue = hasSelection
+      ? selectedDisplayLabel
+      : alwaysShowLabel && placeholder
+        ? placeholder
+        : "";
+    const comboPlaceholder = hasSelection ? undefined : placeholder;
+
     return (
       <div
         className={`${defaultComboShellClass(Boolean(insetLabel))}${
@@ -188,12 +198,11 @@ const Select: React.FC<SelectProps> = ({
         aria-controls="select-list"
       >
         <input
-          type="text"
+          type="hidden"
           value={value !== null && value !== undefined ? value.toString() : ""}
           required={required}
           onChange={() => {}}
           name={name || "select-validation"}
-          className="pointer-events-none absolute -z-10 opacity-0"
           tabIndex={-1}
           aria-hidden="true"
         />
@@ -213,13 +222,12 @@ const Select: React.FC<SelectProps> = ({
         >
         <TextField
           label={textFieldLabel}
-          value={selected ? selected.label : (placeholder ?? "")}
+          value={comboInputValue}
           onChange={() => {}}
-          placeholder={placeholder}
-          name={name}
+          placeholder={comboPlaceholder}
           required={required}
           data-test-id="select-input"
-          className={`${textFieldWrapClassName}${!selected && placeholder ? " [&_.fs-text-field__input]:text-muted-foreground" : ""}`.trim()}
+          className={`${textFieldWrapClassName}${!hasSelection && placeholder ? " [&_.fs-text-field__input]:text-muted-foreground" : ""}`.trim()}
           variante="autocomplete"
           readOnly={true}
           disabled={disabled}
@@ -346,12 +354,11 @@ const Select: React.FC<SelectProps> = ({
               </span>
             ) : null}
             <input
-              type="text"
+              type="hidden"
               value={value !== null && value !== undefined ? value.toString() : ""}
               required={required}
               onChange={() => {}}
               name={name || "select-validation"}
-              className="pointer-events-none absolute -z-10 opacity-0"
               tabIndex={-1}
               aria-hidden="true"
             />
@@ -463,7 +470,7 @@ const Select: React.FC<SelectProps> = ({
             </div>
           ) : (
             renderDefaultCombo(
-              label || placeholder || "",
+              label ?? "",
               `min-h-0 min-w-0 ${isCompact ? "flex-1" : ""} pr-16`.trim(),
             )
           )}

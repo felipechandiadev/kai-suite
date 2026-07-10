@@ -1,7 +1,7 @@
 "use client";
 
 import type { ProductGridRow } from "@/features/inventory-products/types/product-grid.types";
-import Badge from "@kai/ui";
+import { Badge } from "@kai/ui";
 
 type Props = {
   product: ProductGridRow;

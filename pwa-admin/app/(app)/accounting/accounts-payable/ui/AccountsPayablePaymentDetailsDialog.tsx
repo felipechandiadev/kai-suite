@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Dialog } from "@kai/ui";
 import { Alert } from "@kai/ui";
-import Badge from "@kai/ui";
+import { Badge } from "@kai/ui";
 import type { AccountsPayableRow } from "@/features/accounting-accounts-payable/types/accounts-payable.types";
 import {
   labelAccountsPayableOriginCategory,

@@ -6,7 +6,7 @@ import { Alert } from "@kai/ui";
 import { Button } from "@kai/ui";
 import { IconButton } from "@kai/ui";
 import { TextField } from "@kai/ui";
-import Badge from "@kai/ui";
+import { Badge } from "@kai/ui";
 import { Switch } from "@kai/ui";
 import type { AttributeListItem } from "@/features/inventory-attributes/types/attribute.types";
 import { updateAttributeAction } from "@/features/inventory-attributes/actions/attribute.action";

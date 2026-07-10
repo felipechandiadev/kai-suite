@@ -3,7 +3,17 @@
 import { useCallback, useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Barcode, Check, X } from "lucide-react";
-import { Badge, Button, DataGridTable as DataGrid, DeleteDialog, IconButton, Select, Switch, type Option } from "@kai/ui";
+import { Badge, Button, DataGridTable as DataGrid, DeleteDialog, IconButton, Select, Switch, type DataGridColumn, type Option } from "@kai/ui";
+import type { ProductGridRow, ProductVariantGridRow, ProductVariantMediaAsset } from "@/features/inventory-products/types/product-grid.types";
+import {
+  deleteProductAction,
+  deleteProductVariantAction,
+  patchProductGridFlagsAction,
+} from "@/features/inventory-products/actions/product.action";
+import { CreateProductDialog } from "./CreateProductDialog";
+import { EditProductDialog } from "./EditProductDialog";
+import { CreateProductVariantDialog } from "./CreateProductVariantDialog";
+import { ProductEShopPreviewDialog } from "./ProductEShopPreviewDialog";
 import { MultimediaLightbox } from "@/shared/components/Multimedia";
 import type { MultimediaLightboxItem } from "@/shared/components/Multimedia/types";
 import {

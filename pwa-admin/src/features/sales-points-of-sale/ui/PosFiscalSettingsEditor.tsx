@@ -41,6 +41,16 @@ export function PosFiscalSettingsEditor({
     [initialAllocations],
   );
 
+  const currentBoletaAlloc = useMemo(
+    () => boletaAllocs.find((a) => a.isCurrent) ?? boletaAllocs[0] ?? null,
+    [boletaAllocs],
+  );
+
+  const totalAvailableBoletaFolios = useMemo(
+    () => boletaAllocs.reduce((sum, a) => sum + (a.availableFolios ?? 0), 0),
+    [boletaAllocs],
+  );
+
   useEffect(() => {
     setPolicy(initialPolicy);
   }, [initialPolicy]);
@@ -131,8 +141,8 @@ export function PosFiscalSettingsEditor({
             <p className="text-sm font-medium">Folios boleta asignados</p>
             <Link
               href={
-                boletaAllocs[0]?.cafId
-                  ? `/settings/sii/folios?package=${encodeURIComponent(boletaAllocs[0].cafId)}`
+                currentBoletaAlloc?.cafId
+                  ? `/settings/sii/folios?package=${encodeURIComponent(currentBoletaAlloc.cafId)}`
                   : "/settings/sii/folios"
               }
               className="text-xs text-primary underline-offset-2 hover:underline"
@@ -140,6 +150,13 @@ export function PosFiscalSettingsEditor({
               Gestionar folios
             </Link>
           </div>
+
+          {boletaAllocs.length > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Total disponible en sub-paquetes activos:{" "}
+              <span className="font-semibold tabular-nums">{totalAvailableBoletaFolios}</span>
+            </p>
+          ) : null}
 
           {!companyCaf39 ? (
             <p className="text-xs text-amber-800 dark:text-amber-200">
@@ -167,6 +184,19 @@ export function PosFiscalSettingsEditor({
                     <div className="min-w-0">
                       <p className="font-medium">
                         {alloc.label?.trim() || alloc.packageCode || "Sub-paquete boleta"}
+                        {alloc.isCurrent ? (
+                          <span className="ml-2 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:text-emerald-200">
+                            Corriente
+                          </span>
+                        ) : alloc.isExhausted ? (
+                          <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                            Agotado
+                          </span>
+                        ) : (
+                          <span className="ml-2 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-900 dark:text-amber-100">
+                            Standby
+                          </span>
+                        )}
                       </p>
                       <p className="mt-0.5 font-mono text-xs text-muted-foreground">
                         {alloc.subPackCode ?? alloc.id.slice(0, 8)}

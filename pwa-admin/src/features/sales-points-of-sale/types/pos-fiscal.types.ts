@@ -19,6 +19,8 @@ export type PosFolioAllocation = {
   environment: string;
   isActive: boolean;
   availableFolios: number;
+  isCurrent?: boolean;
+  isExhausted?: boolean;
 };
 
 export type UpsertPosFolioAllocationInput = {

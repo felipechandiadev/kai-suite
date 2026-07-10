@@ -3,7 +3,7 @@ import { LoadingState } from '@kai/ui';
 
 import { useCallback, useEffect, useState } from "react";
 import { Dialog } from "@kai/ui";
-import Badge from "@kai/ui";
+import { Badge } from "@kai/ui";
 import { SIDE_BAR_MENU_ITEM_CLASSNAMES } from "@/shared/components/TopBar/SideBar";
 import { getSupplierDetailAction } from "@/features/purchasing-suppliers/actions/supplier.action";
 import type { SupplierDetailView } from "@/features/purchasing-suppliers/types/supplier.types";

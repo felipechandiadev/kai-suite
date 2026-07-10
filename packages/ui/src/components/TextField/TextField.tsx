@@ -458,8 +458,9 @@ export const TextField: React.FC<TextFieldProps> = ({
   };
 
   const displayValue = getDisplayValue();
+  const hasInputValue = Boolean(displayValue && displayValue.length > 0);
   const labelAlwaysVisible = type === 'date' || alwaysShowLabel;
-  const shrink = labelAlwaysVisible || focused || (displayValue && displayValue.length > 0);
+  const shrink = labelAlwaysVisible || focused || hasInputValue;
   const [showPlaceholder, setShowPlaceholder] = useState(labelAlwaysVisible ? false : !shrink);
 
   // Unique class for placeholder styling when placeholderColor is provided
@@ -648,6 +649,7 @@ export const TextField: React.FC<TextFieldProps> = ({
           className={`${placeholderClassRef.current ?? ""} fs-text-field__input ${compactInputClass} ${inputBorderlessClass} ${inlineInsetInputClass} block ${isCompact ? "min-w-0" : "min-w-[180px]"} pr-4 ${startPaddingClass} ${variantInput} ${disabledStyles} ${comboReadOnlyCursor} z-0`}
           placeholder={
             type === "datePicker" ? `Ej: ${new Date().getFullYear()}` :
+            hasInputValue ? "" :
             (required ? "" : (shrink || !showPlaceholder ? "" : (placeholder ?? label)))
           }
           required={required}
@@ -687,6 +689,7 @@ export const TextField: React.FC<TextFieldProps> = ({
             className={`${placeholderClassRef.current ?? ""} fs-text-field__input ${compactInputClass} ${inputBorderlessClass} ${inlineInsetInputClass} block w-full ${isCompact ? "min-w-0" : "min-w-[180px]"} ${startPaddingClass} ${hasEndAdornment ? " pr-3" : (hasEndSymbol || hasPasswordToggle) ? " pr-10" : " pr-3"} ${variantInput} ${disabledStyles} ${comboReadOnlyCursor} z-0`}
             placeholder={
               type === "datePicker" ? `Ej: ${new Date().getFullYear()}` :
+              hasInputValue ? "" :
               (required ? "" : (shrink || !showPlaceholder ? "" : (placeholder ?? label)))
             }
             required={required}
@@ -759,7 +762,7 @@ export const TextField: React.FC<TextFieldProps> = ({
         </div>
       )}
       {/* Placeholder personalizado para campos requeridos */}
-      {required && !shrink && showPlaceholder && !isCompact && (
+      {required && !hasInputValue && showPlaceholder && !isCompact && (
         <div
           className={`absolute pointer-events-none text-sm font-medium text-muted transition-opacity duration-300 ${shrink ? 'opacity-0' : 'opacity-100'}`}
           style={{

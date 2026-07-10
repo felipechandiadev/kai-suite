@@ -1,7 +1,7 @@
 "use client";
 
 import { Dialog } from "@kai/ui";
-import Badge from "@kai/ui";
+import { Badge } from "@kai/ui";
 import type { AccountsReceivableRow } from "@/features/accounting-accounts-receivable/types/accounts-receivable.types";
 import {
   labelAccountsReceivableOriginCategory,

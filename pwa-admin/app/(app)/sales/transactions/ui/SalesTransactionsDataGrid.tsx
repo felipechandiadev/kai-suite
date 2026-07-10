@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { DataGridTable as DataGrid } from "@kai/ui";
 import type { DataGridColumn } from "@kai/ui";
 import { dataGridFillViewportTabPageProps } from "@kai/ui";
-import Badge, { type BadgeVariant } from "@kai/ui";
+import { Badge, type BadgeVariant } from "@kai/ui";
 import { IconButton } from "@kai/ui";
 import { DeleteDialog } from "@kai/ui";
 import { cancelBackorderAction } from "@/features/sales-transactions/actions/cancel-backorder.action";

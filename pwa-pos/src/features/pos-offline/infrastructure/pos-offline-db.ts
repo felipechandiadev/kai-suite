@@ -1,6 +1,10 @@
 import Dexie, { type Table } from "dexie";
 import type { PosOfflineCommand } from "../domain/offline-command.types";
-import type { OfflineFiscalPack } from "../domain/offline-fiscal-pack.types";
+import type {
+  OfflineFiscalPack,
+  OfflineFiscalPackSlice,
+  OfflineFiscalPackStandbyRow,
+} from "../domain/offline-fiscal-pack.types";
 import type { OfflineCatalogMetaRow, OfflineCatalogRow } from "../domain/offline-catalog.types";
 import type {
   CompanyCacheRow,
@@ -21,7 +25,7 @@ export type PosOfflineMetaRow = {
 };
 
 const DB_NAME = "kai-pos-offline";
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 const SHARED_STORES_V3 = {
   commands:
@@ -34,9 +38,15 @@ const SHARED_STORES_V3 = {
   session_meta: "id",
 } as const;
 
+const SHARED_STORES_V6 = {
+  ...SHARED_STORES_V3,
+  fiscal_pack_standby: "pointOfSaleId",
+} as const;
+
 export class PosOfflineDatabase extends Dexie {
   commands!: Table<PosOfflineCommand, string>;
   fiscal_pack!: Table<OfflineFiscalPack, string>;
+  fiscal_pack_standby!: Table<OfflineFiscalPackStandbyRow, string>;
   device!: Table<PosOfflineDeviceRow, string>;
   meta!: Table<PosOfflineMetaRow, string>;
   catalog!: Table<OfflineCatalogRow, string>;
@@ -76,6 +86,14 @@ export class PosOfflineDatabase extends Dexie {
     // Recreamos catálogo/stock con PK compuesta en campo `id`.
     this.version(5).stores({
       ...SHARED_STORES_V3,
+      catalog:
+        "id, variantId, pointOfSaleId, priceListId, [pointOfSaleId+priceListId], barcode, sku, searchName",
+      catalog_meta: "id, pointOfSaleId, priceListId, [pointOfSaleId+priceListId]",
+      stock_snapshot:
+        "id, variantId, pointOfSaleId, priceListId, [pointOfSaleId+priceListId]",
+    });
+    this.version(6).stores({
+      ...SHARED_STORES_V6,
       catalog:
         "id, variantId, pointOfSaleId, priceListId, [pointOfSaleId+priceListId], barcode, sku, searchName",
       catalog_meta: "id, pointOfSaleId, priceListId, [pointOfSaleId+priceListId]",

@@ -129,12 +129,20 @@ export class FiscalEffectiveOptionsService {
       return { kind, enabled: false, reason: 'NO_CAF' };
     }
 
-    const allocation = await this.allocationService.getActiveAllocation(posId, dteType);
-    if (!allocation) {
+    const ordered = await this.allocationService.listOrderedActiveForPos(
+      posId,
+      dteType,
+      SiiEnvironment.PRODUCTION,
+    );
+    if (ordered.length === 0) {
       return { kind, enabled: false, reason: 'NO_ALLOCATION' };
     }
 
-    const availableFolios = this.allocationService.getAvailableCount(allocation);
+    const availableFolios = await this.allocationService.getAvailableFoliosForPos(
+      posId,
+      dteType,
+      SiiEnvironment.PRODUCTION,
+    );
     if (availableFolios <= 0) {
       return { kind, enabled: false, reason: 'NO_FOLIOS', availableFolios: 0 };
     }

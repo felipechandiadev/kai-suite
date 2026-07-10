@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
 import { FiscalCaf } from '../domain/fiscal-caf.entity';
+import { PointOfSaleFolioAllocation } from '../domain/point-of-sale-folio-allocation.entity';
 import { SiiEnvironment } from '../domain/fiscal.enums';
 import { PosFolioAllocationService } from './pos-folio-allocation.service';
 import { FiscalCryptoService } from '../infrastructure/fiscal-crypto.service';
@@ -25,6 +26,21 @@ export type OfflineFiscalPackResponse = {
   packExpiresAt: string;
 };
 
+export type OfflineFiscalPackQueueMeta = {
+  allocationId: string;
+  rangeFrom: number;
+  rangeTo: number;
+  nextFolio: number;
+};
+
+export type OfflineFiscalPackBundle = {
+  current: OfflineFiscalPackResponse;
+  next: OfflineFiscalPackResponse | null;
+  queueMeta: OfflineFiscalPackQueueMeta[];
+};
+
+const BOLETA_DTE_TYPE = 39;
+
 @Injectable()
 export class OfflineFiscalPackService {
   constructor(
@@ -38,7 +54,7 @@ export class OfflineFiscalPackService {
     private readonly crypto: FiscalCryptoService,
   ) {}
 
-  async getPackForPos(posId: string): Promise<OfflineFiscalPackResponse> {
+  async getPackForPos(posId: string): Promise<OfflineFiscalPackBundle> {
     const pos = await this.posRepo.findOne({
       where: { id: posId, deletedAt: IsNull() },
     });
@@ -46,27 +62,66 @@ export class OfflineFiscalPackService {
       throw new NotFoundException('Punto de venta no encontrado');
     }
 
-    const allocation = await this.posFolioAllocation.getActiveAllocation(
+    const ordered = await this.posFolioAllocation.listOrderedActiveForPos(
       posId,
-      39,
+      BOLETA_DTE_TYPE,
       SiiEnvironment.PRODUCTION,
     );
-    if (!allocation) {
+    if (ordered.length === 0) {
       throw new NotFoundException(
         'El POS no tiene sub-paquete de folios configurado',
       );
     }
 
-    const caf = await this.cafRepo.findOne({
-      where: { id: allocation.cafId, companyId: pos.companyId },
-    });
-    if (!caf) {
-      throw new BadRequestException('CAF del sub-paquete no encontrado');
+    const currentAllocation = this.posFolioAllocation.pickCurrentFromOrdered(ordered);
+    if (!currentAllocation) {
+      throw new NotFoundException('Sin folios disponibles en el POS');
     }
+
+    const nextAllocation = this.posFolioAllocation.pickNextStandbyAllocation(
+      ordered,
+      currentAllocation.id,
+    );
 
     const company = await this.companyRepo.findOne({ where: { id: pos.companyId } });
     if (!company) {
       throw new NotFoundException('Empresa no encontrada');
+    }
+
+    const emisor = companyToEmisorPreview(company);
+    const packExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+    const current = await this.buildPackResponse(
+      pos.companyId,
+      currentAllocation,
+      emisor,
+      packExpiresAt,
+    );
+    const next = nextAllocation
+      ? await this.buildPackResponse(pos.companyId, nextAllocation, emisor, packExpiresAt)
+      : null;
+
+    const queueMeta: OfflineFiscalPackQueueMeta[] = ordered.map((row) => ({
+      allocationId: row.id,
+      rangeFrom: row.rangeFrom,
+      rangeTo: row.rangeTo,
+      nextFolio: row.nextFolio,
+    }));
+
+    return { current, next, queueMeta };
+  }
+
+  private async buildPackResponse(
+    companyId: string,
+    allocation: PointOfSaleFolioAllocation,
+    emisor: ReturnType<typeof companyToEmisorPreview>,
+    packExpiresAt: string,
+  ): Promise<OfflineFiscalPackResponse> {
+    const caf = await this.cafRepo.findOne({
+      where: { id: allocation.cafId, companyId },
+    });
+    if (!caf) {
+      throw new BadRequestException('CAF del sub-paquete no encontrado');
     }
 
     const cafXml = this.crypto
@@ -81,8 +136,8 @@ export class OfflineFiscalPackService {
       rangeTo: allocation.rangeTo,
       nextFolio: allocation.nextFolio,
       cafXml,
-      emisor: companyToEmisorPreview(company),
-      packExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      emisor,
+      packExpiresAt,
     };
   }
 }
