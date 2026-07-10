@@ -1,2 +1,1 @@
-export { default } from './Switch';
-export type { SwitchDensity, SwitchOptionLabels } from './Switch';
+export { Switch as default, type SwitchOptionLabels, type SwitchDensity } from "@kai/ui";

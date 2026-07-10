@@ -47,15 +47,7 @@ async function uploadFilesToEntity(
   return null;
 }
 
-/** IVA por defecto del catálogo (misma lógica que CreateProductVariantDialog). */
-function catalogDefaultIvaTaxIds(taxes: TaxListItem[]): string[] {
-  const iva = taxes.filter((t) => t.isActive && t.taxType === "IVA");
-  const defaults = iva.filter((t) => t.isDefault).map((t) => t.id);
-  if (defaults.length > 0) {
-    return defaults;
-  }
-  return iva[0]?.id != null ? [iva[0].id] : [];
-}
+import { catalogDefaultIvaTaxIds } from "@/features/inventory-products/lib/sale-taxes";
 
 /** SKU único para la primera variante creada automáticamente al crear el producto. */
 function buildInitialSku(productName: string, productId: string): string {

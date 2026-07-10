@@ -1,10 +1,10 @@
 import {
-  BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
 import { FiscalCaf } from '../domain/fiscal-caf.entity';
 import { FiscalDteEmission } from '../domain/fiscal-dte-emission.entity';
@@ -46,6 +46,8 @@ export class FiscalCafPackageService {
     @InjectRepository(Company)
     private readonly companyRepo: Repository<Company>,
     private readonly crypto: FiscalCryptoService,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   async uploadPackage(
@@ -160,6 +162,60 @@ export class FiscalCafPackageService {
     caf.isActive = true;
     const saved = await this.cafRepo.save(caf);
     return this.buildPackageListItem(saved);
+  }
+
+  async deletePackage(companyId: string, cafId: string): Promise<void> {
+    const caf = await this.requirePackage(companyId, cafId);
+
+    const emittedFolios = await fetchDistinctEmittedFoliosInRange(this.emissionRepo, {
+      companyId: caf.companyId,
+      dteType: caf.dteType,
+      environment: caf.environment,
+      rangeFrom: caf.rangeFrom,
+      rangeTo: caf.rangeTo,
+    });
+    if (emittedFolios.size > 0) {
+      throw new ConflictException(
+        'No se puede eliminar: el paquete tiene emisiones registradas',
+      );
+    }
+
+    const allocations = await this.allocationRepo.find({ where: { companyId, cafId } });
+    const consumedAllocation = allocations.find((a) => a.nextFolio !== a.rangeFrom);
+    if (consumedAllocation) {
+      throw new ConflictException(
+        'No se puede eliminar: hay folios consumidos en asignaciones POS',
+      );
+    }
+
+    const wasActiveProduction =
+      caf.status === FiscalCafPackageStatus.ACTIVE &&
+      caf.environment === SiiEnvironment.PRODUCTION &&
+      caf.isActive;
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager.delete(PointOfSaleFolioAllocation, { companyId, cafId });
+      await manager.delete(FiscalCaf, { id: cafId, companyId });
+    });
+
+    if (wasActiveProduction) {
+      const remainingActive = await this.cafRepo.findOne({
+        where: {
+          companyId,
+          dteType: caf.dteType,
+          environment: SiiEnvironment.PRODUCTION,
+          status: FiscalCafPackageStatus.ACTIVE,
+          isActive: true,
+        },
+      });
+      if (!remainingActive) {
+        const profile = await this.profileRepo.findOne({ where: { companyId } });
+        if (profile?.productionEnabled) {
+          profile.productionEnabled = false;
+          await this.profileRepo.save(profile);
+        }
+      }
+    }
   }
 
   async updatePackageStatus(

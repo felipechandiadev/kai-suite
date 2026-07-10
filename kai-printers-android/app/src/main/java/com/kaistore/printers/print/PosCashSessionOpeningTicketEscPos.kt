@@ -48,6 +48,12 @@ object PosCashSessionOpeningTicketEscPos {
         w.alignCenter(false)
         w.line()
 
-        return w.toByteArray(openDrawer = false)
+        return w.toByteArray(
+            openDrawer = CashDrawerPolicy.shouldOpenDrawer(
+                "pos-cash-session-opening-ticket",
+                widthChars,
+                drawerEnabledInMapping = true,
+            ),
+        )
     }
 }

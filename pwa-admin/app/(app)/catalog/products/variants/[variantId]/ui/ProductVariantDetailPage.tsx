@@ -19,6 +19,7 @@ import { VariantDetailMultimediaSection } from "./VariantDetailMultimediaSection
 import { VariantDetailRecipeSection } from "./VariantDetailRecipeSection";
 import { VariantDetailEShopSection } from "./VariantDetailEShopSection";
 import { VariantDetailPurchasesSection } from "./VariantDetailPurchasesSection";
+import { VariantDetailSiiSection } from "./VariantDetailSiiSection";
 import { VariantDetailSectionNav } from "./VariantDetailSectionNav";
 import {
   VARIANT_DETAIL_TABS,
@@ -165,6 +166,7 @@ export default function ProductVariantDetailPage({ product, variant: initialVari
       >
         {activeSection === "identidad" ? <VariantDetailIdentitySection {...sectionProps} /> : null}
         {activeSection === "precios" ? <VariantDetailPricingSection {...sectionProps} /> : null}
+        {activeSection === "sii" ? <VariantDetailSiiSection variant={variant} /> : null}
         {activeSection === "compras" ? <VariantDetailPurchasesSection variant={variant} /> : null}
         {activeSection === "inventario" ? (
           <div className="flex flex-col gap-4">

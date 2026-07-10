@@ -122,6 +122,46 @@ const SEED_HONORARIUM_RETENTION_NAME = 'Retención pago Honorarios';
 const SEED_HONORARIUM_RETENTION_DESCRIPTION =
   'Retención de impuesto aplicable al pago de honorarios (tasa referencial 15,25%).';
 
+/** ILA / impuestos adicionales de venta (códigos SII). */
+const SEED_SPECIFIC_TAXES = [
+  {
+    name: 'ILA Bebidas analcohólicas',
+    code: '27',
+    rate: 10,
+    description: 'Impuesto adicional bebidas analcohólicas (código SII 27).',
+  },
+  {
+    name: 'ILA Bebidas alto azúcar',
+    code: '271',
+    rate: 18,
+    description: 'Impuesto adicional bebidas con alto contenido de azúcar (código SII 271).',
+  },
+  {
+    name: 'ILA Vinos',
+    code: '25',
+    rate: 20.5,
+    description: 'Impuesto adicional vinos (código SII 25).',
+  },
+  {
+    name: 'ILA Cervezas',
+    code: '26',
+    rate: 20.5,
+    description: 'Impuesto adicional cervezas y bebidas alcohólicas fermentadas (código SII 26).',
+  },
+  {
+    name: 'ILA Licores y destilados',
+    code: '24',
+    rate: 31.5,
+    description: 'Impuesto adicional licores, piscos, whisky y aguardientes (código SII 24).',
+  },
+  {
+    name: 'Impuesto artículos suntuarios',
+    code: '23',
+    rate: 15,
+    description: 'Impuesto adicional artículos suntuarios (código SII 23).',
+  },
+] as const;
+
 const SEED_UNIT_BASE_NAME = 'Unidad';
 const SEED_UNIT_BASE_SYMBOL = 'un';
 
@@ -1247,6 +1287,41 @@ async function bootstrap() {
       console.log(
         `✅ Impuesto ejemplo ${SEED_HONORARIUM_RETENTION_NAME} ya existía: id=${honorariumRetentionTax.id} (sincronizado con seed)`,
       );
+    }
+
+    for (const def of SEED_SPECIFIC_TAXES) {
+      let specificTax = await taxRepo.findOne({
+        where: { companyId: company.id, code: def.code, taxType: TaxType.SPECIFIC },
+      });
+      if (!specificTax) {
+        specificTax = taxRepo.create({
+          companyId: company.id,
+          name: def.name,
+          code: def.code,
+          taxType: TaxType.SPECIFIC,
+          rate: def.rate,
+          description: def.description,
+          isDefault: false,
+          isActive: true,
+          nonDeletable: true,
+        });
+        await taxRepo.save(specificTax);
+        console.log(
+          `✅ Impuesto SPECIFIC creado: ${def.name} (${def.rate}%) code=${def.code} id=${specificTax.id}`,
+        );
+      } else {
+        specificTax.name = def.name;
+        specificTax.rate = def.rate;
+        specificTax.description = def.description;
+        specificTax.isDefault = false;
+        specificTax.isActive = true;
+        specificTax.taxType = TaxType.SPECIFIC;
+        specificTax.nonDeletable = true;
+        await taxRepo.save(specificTax);
+        console.log(
+          `✅ Impuesto SPECIFIC sincronizado: ${def.name} code=${def.code} id=${specificTax.id}`,
+        );
+      }
     }
 
     // ---------------------------------------------------------------------

@@ -25,6 +25,9 @@ const kaiResolveAlias = {
     "src",
     "index.ts",
   ),
+  "@kai/ui": path.join(packagesRoot, "ui", "src", "index.ts"),
+  "next-auth": path.join(appRoot, "node_modules/next-auth"),
+  "next-auth/react": path.join(appRoot, "node_modules/next-auth/react"),
 };
 
 // Dev: root acotado a la app + alias (menos RAM/watchers). Build: root del monorepo.
@@ -49,7 +52,16 @@ const nextConfig: NextConfig = {
     "@kai/document-print",
     "@kai/print-service-client",
     "@kai/scale-service-client",
+    "@kai/ui",
   ],
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "next-auth": path.join(appRoot, "node_modules/next-auth"),
+      "next-auth/react": path.join(appRoot, "node_modules/next-auth/react"),
+    };
+    return config;
+  },
   env: {
     NEXT_PUBLIC_BACKEND_API_URL:
       process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_BACKEND_API_URL || "",

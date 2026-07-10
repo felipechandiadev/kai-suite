@@ -39,11 +39,20 @@ import { fetchAttributesForPage } from "@/features/inventory-attributes/lib/fetc
 import type { AttributeListItem } from "@/features/inventory-attributes/types/attribute.types";
 import type { ProductVariantGridRow } from "@/features/inventory-products/types/product-grid.types";
 import {
+  catalogDefaultIvaTaxIds,
+  filterSelectableSaleTaxes,
+  resolveVariantTaxIds,
+} from "@/features/inventory-products/lib/sale-taxes";
+import {
   deriveBasePriceFromPriceRows,
-  effectiveIvaFactor,
   netToGross,
+  resolvePricingGrossFactor,
   roundMoneyInt,
 } from "@/features/inventory-products/domain/price-tax-math";
+import {
+  forcesNetEqualsGross,
+  normalizeVariantTaxCategory,
+} from "@/features/inventory-products/types/variant-fiscal.types";
 import {
   priceListItemsToVariantRows,
   VariantPriceRowsEditor,
@@ -65,15 +74,6 @@ import {
 } from "@/features/inventory-products/lib/variant-sale-price-history";
 import type { VariantSalePriceHistoryEntry } from "@/features/inventory-products/types/variant-sale-price-history.types";
 import { VariantSalePriceHistoryPanel } from "./VariantSalePriceHistoryPanel";
-
-function catalogDefaultIvaTaxIds(taxes: TaxListItem[]): string[] {
-  const iva = taxes.filter((t) => t.isActive && t.taxType === "IVA");
-  const defaults = iva.filter((t) => t.isDefault).map((t) => t.id);
-  if (defaults.length > 0) {
-    return defaults;
-  }
-  return iva[0]?.id != null ? [iva[0].id] : [];
-}
 
 type SectionProps = {
   productId: string;
@@ -687,11 +687,17 @@ export function VariantDetailPricingSection({ productId, variant }: SectionProps
     [historyItems],
   );
 
-  const ivaTaxes = useMemo(
-    () => taxes.filter((t) => t.isActive && t.taxType === "IVA"),
-    [taxes],
-  );
+  const catalogTaxes = useMemo(() => filterSelectableSaleTaxes(taxes), [taxes]);
   const defaultIvaTaxIds = useMemo(() => catalogDefaultIvaTaxIds(taxes), [taxes]);
+  const taxCategory = useMemo(
+    () => normalizeVariantTaxCategory(variant.taxCategory),
+    [variant.taxCategory],
+  );
+  const netEqualsGross = forcesNetEqualsGross(taxCategory);
+  const masterTaxIds = useMemo(
+    () => resolveVariantTaxIds(variant, undefined, defaultIvaTaxIds),
+    [variant, defaultIvaTaxIds],
+  );
 
   useEffect(() => {
     const loadId = ++referenceDataLoadIdRef.current;
@@ -722,7 +728,8 @@ export function VariantDetailPricingSection({ productId, variant }: SectionProps
       return;
     }
     const defaultIva = catalogDefaultIvaTaxIds(taxes);
-    setPriceRows(priceListItemsToVariantRows(variant.priceListItems ?? [], defaultIva));
+    const master = resolveVariantTaxIds(variant, undefined, defaultIva);
+    setPriceRows(priceListItemsToVariantRows(variant.priceListItems ?? [], master));
   }, [variant, taxes, editing]);
 
   useEffect(() => {
@@ -766,7 +773,8 @@ export function VariantDetailPricingSection({ productId, variant }: SectionProps
     setError(null);
     if (!editing) {
       const defaultIva = catalogDefaultIvaTaxIds(taxes);
-      setPriceRows(priceListItemsToVariantRows(variant.priceListItems ?? [], defaultIva));
+      const master = resolveVariantTaxIds(variant, undefined, defaultIva);
+      setPriceRows(priceListItemsToVariantRows(variant.priceListItems ?? [], master));
       const w = netWeightKgToDisplay(
         variant.netWeightKg != null && Number.isFinite(Number(variant.netWeightKg))
           ? Number(variant.netWeightKg)
@@ -807,12 +815,23 @@ export function VariantDetailPricingSection({ productId, variant }: SectionProps
       setError("No se pudo determinar el precio de referencia.");
       return;
     }
-    const priceListItems = filteredRows.map((r) => ({
-      priceListId: r.priceListId!.trim(),
-      netPrice: roundMoneyInt(r.net),
-      grossPrice: roundMoneyInt(r.gross),
-      taxIds: r.taxIds.length > 0 ? r.taxIds : undefined,
-    }));
+    if (netEqualsGross) {
+      const mismatch = filteredRows.some((r) => roundMoneyInt(r.net) !== roundMoneyInt(r.gross));
+      if (mismatch) {
+        setError("Para este tratamiento SII el precio neto debe ser igual al precio con impuestos.");
+        return;
+      }
+    }
+    const priceListItems = filteredRows.map((r) => {
+      const netPrice = roundMoneyInt(r.net);
+      const grossPrice = netEqualsGross ? netPrice : roundMoneyInt(r.gross);
+      return {
+        priceListId: r.priceListId!.trim(),
+        netPrice,
+        grossPrice,
+        taxIds: netEqualsGross ? undefined : masterTaxIds.length > 0 ? [...masterTaxIds] : undefined,
+      };
+    });
 
     startTransition(() => {
       void (async () => {
@@ -869,9 +888,10 @@ export function VariantDetailPricingSection({ productId, variant }: SectionProps
         if (r.key !== priceRowKey) {
           return r;
         }
-        const f = effectiveIvaFactor(ivaTaxes, r.taxIds);
+        const f = resolvePricingGrossFactor(taxCategory, catalogTaxes, masterTaxIds);
         const n = roundMoneyInt(net);
-        return { ...r, net: n, gross: netToGross(n, f), lastEdited: "net" as const };
+        const g = netEqualsGross ? n : netToGross(n, f);
+        return { ...r, net: n, gross: g, lastEdited: "net" as const };
       }),
     );
   };
@@ -933,8 +953,17 @@ export function VariantDetailPricingSection({ productId, variant }: SectionProps
                     <span className="font-medium">{p.priceListName}</span>
                     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
                       <span className="min-w-0 tabular-nums text-muted-foreground">
-                        Neto {formatMoney(p.netPrice, p.currency)} · Con impuestos{" "}
-                        {formatMoney(p.grossPrice, p.currency)}
+                        {netEqualsGross ? (
+                          <>
+                            Precio de venta {formatMoney(p.netPrice, p.currency)}
+                            <span className="text-xs"> (neto = con impuestos)</span>
+                          </>
+                        ) : (
+                          <>
+                            Neto {formatMoney(p.netPrice, p.currency)} · Con impuestos{" "}
+                            {formatMoney(p.grossPrice, p.currency)}
+                          </>
+                        )}
                       </span>
                       {updatedAtLabel ? (
                         <span
@@ -973,7 +1002,9 @@ export function VariantDetailPricingSection({ productId, variant }: SectionProps
           />
           <VariantPriceRowsEditor
             priceLists={priceLists}
-            ivaTaxes={ivaTaxes}
+            catalogTaxes={catalogTaxes}
+            taxCategory={taxCategory}
+            variantTaxIds={masterTaxIds}
             rows={priceRows}
             onRowsChange={setPriceRows}
             defaultIvaTaxIds={defaultIvaTaxIds}
@@ -1002,13 +1033,10 @@ export function VariantDetailPricingSection({ productId, variant }: SectionProps
         initialPmp={
           variant.pmp != null && Number.isFinite(variant.pmp) ? Math.max(0, Math.round(variant.pmp)) : 0
         }
+        taxCategory={taxCategory}
         priceRowKey={pmpCalculatorRowKey}
-        taxIdsForPreview={
-          pmpCalculatorRowKey != null
-            ? (priceRows.find((r) => r.key === pmpCalculatorRowKey)?.taxIds ?? [])
-            : []
-        }
-        ivaTaxes={ivaTaxes}
+        taxIdsForPreview={masterTaxIds}
+        catalogTaxes={catalogTaxes}
         onApply={handlePmpCalculatorApply}
       />
       <VariantJewelryPriceCalculatorDialog

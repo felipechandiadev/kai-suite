@@ -1,2 +1,2 @@
-export { default as Select } from './Select';
-export type { Option } from './Select';
+export { Select, type SelectOption, type Option } from "@kai/ui";
+export { default } from "@kai/ui/components/Select/Select";

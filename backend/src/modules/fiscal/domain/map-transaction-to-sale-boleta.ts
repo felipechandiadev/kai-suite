@@ -1,5 +1,7 @@
 import type { Person } from '@modules/persons/domain/person.entity';
 import type { TransactionLine } from '@modules/transaction-lines/domain/transaction-line.entity';
+import type { VariantTaxCategory } from '@modules/product-variants/domain/variant-tax-category';
+import { resolveLineBoletaExempt } from './resolve-line-boleta-exempt';
 import type { SaleBoletaDocument, SaleBoletaLine, SaleBoletaReceptor } from './sale-boleta.types';
 
 export const GENERIC_BOLETA_RECEPTOR: SaleBoletaReceptor = {
@@ -53,7 +55,10 @@ export function resolveReceptorFromPerson(person: Person | null | undefined): Sa
   };
 }
 
-export function mapTransactionLineToBoletaLine(line: TransactionLine): SaleBoletaLine {
+export function mapTransactionLineToBoletaLine(
+  line: TransactionLine,
+  variantTaxCategory?: VariantTaxCategory,
+): SaleBoletaLine {
   const qty = Number(line.quantity) || 0;
   const total = Math.round(Number(line.total) || 0);
   const taxRate = Number(line.taxRate) || 0;
@@ -69,7 +74,11 @@ export function mapTransactionLineToBoletaLine(line: TransactionLine): SaleBolet
     name: name.slice(0, 80),
     quantity: qty,
     unitPriceWithIva,
-    exempt: taxRate === 0 && taxAmount === 0,
+    exempt: resolveLineBoletaExempt({
+      taxCategory: variantTaxCategory,
+      taxRate,
+      taxAmount,
+    }),
     unitMeasure: unitMeasure.slice(0, 4) || 'UN',
   };
 }
@@ -77,12 +86,20 @@ export function mapTransactionLineToBoletaLine(line: TransactionLine): SaleBolet
 export function mapTransactionToSaleBoleta(
   lines: TransactionLine[],
   person?: Person | null,
+  variantTaxCategoryByVariantId?: ReadonlyMap<string, VariantTaxCategory>,
 ): SaleBoletaDocument {
   if (!lines.length) {
     throw new Error('La venta no tiene líneas para boleta');
   }
   return {
-    lines: lines.map(mapTransactionLineToBoletaLine),
+    lines: lines.map((line) => {
+      const variantId = line.productVariantId?.trim() ?? '';
+      const taxCategory =
+        variantId && variantTaxCategoryByVariantId
+          ? variantTaxCategoryByVariantId.get(variantId)
+          : undefined;
+      return mapTransactionLineToBoletaLine(line, taxCategory);
+    }),
     receptor: resolveReceptorFromPerson(person),
   };
 }

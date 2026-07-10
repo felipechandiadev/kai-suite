@@ -25,6 +25,10 @@ import { User } from '@modules/users/domain/user.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { Unit } from '@modules/units/domain/unit.entity';
 import { VariantQuantityConversionService } from '@modules/product-variants/application/variant-quantity-conversion.service';
+import {
+  forcesNetEqualsGross,
+  normalizeVariantTaxCategory,
+} from '@modules/product-variants/domain/variant-tax-category';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { CollectPendingSalesDto } from './dto/collect-pending-sales.dto';
 import { CollectPendingQuotasDto } from './dto/collect-pending-quotas.dto';
@@ -1609,11 +1613,14 @@ export class SalesFromSessionService {
 
         const lineSubtotal = line.quantity * line.unitPrice;
         const lineDiscount = line.discountAmount || 0;
-        const lineTax = line.taxAmount || 0;
+        const variantTaxCategory = normalizeVariantTaxCategory(variant.taxCategory);
+        let lineTax = line.taxAmount || 0;
+        let safeTaxRate = Math.max(0, Math.min(100, line.taxRate || 0));
+        if (forcesNetEqualsGross(variantTaxCategory)) {
+          lineTax = 0;
+          safeTaxRate = 0;
+        }
         const lineTotal = lineSubtotal - lineDiscount + lineTax;
-
-        // Defensive: Ensure taxRate is within valid range (0-100)
-        const safeTaxRate = Math.max(0, Math.min(100, line.taxRate || 0));
 
         subtotal += lineSubtotal;
         discountAmount += lineDiscount;

@@ -9,6 +9,7 @@ import Select from "@/shared/components/Select/Select";
 import Switch from "@/shared/components/Switch/Switch";
 import type { TaxListItem, TaxType } from "@/features/accounting-taxes/types/tax.types";
 import { updateTaxAction } from "@/features/accounting-taxes/actions/tax.action";
+import { parseTaxRateFromInput } from "@/features/accounting-taxes/domain/tax.entity";
 import { TAX_TYPE_SELECT_OPTIONS } from "./taxFormOptions";
 
 export type UpdateTaxDialogProps = {
@@ -70,7 +71,12 @@ export function UpdateTaxDialog({ open, onClose, tax, onSuccess }: UpdateTaxDial
     });
   };
 
-  const canSubmit = name.trim() && !isPending;
+  const parsedRate = parseTaxRateFromInput(rateStr);
+  const canSubmit = name.trim() && parsedRate != null && !isPending;
+  const rateHint =
+    rateStr.trim() !== "" && parsedRate == null
+      ? "La tasa debe ser mayor a 0% (máx. 999,99)"
+      : undefined;
 
   return (
     <Dialog
@@ -123,7 +129,10 @@ export function UpdateTaxDialog({ open, onClose, tax, onSuccess }: UpdateTaxDial
           name="tax-update-rate"
           value={rateStr}
           onChange={(e) => setRateStr(e.target.value)}
-          placeholder="Tasa (%)"
+          placeholder="Ej: 19"
+          required
+          helperText={rateHint}
+          inputMode="decimal"
           data-test-id="tax-update-rate"
         />
         <TextField

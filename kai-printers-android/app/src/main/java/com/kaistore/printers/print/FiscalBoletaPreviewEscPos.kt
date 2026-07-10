@@ -157,6 +157,12 @@ object FiscalBoletaPreviewEscPos {
         }
         repeat(BOTTOM_FEED_LINES) { w.line() }
 
-        return w.toByteArray(openDrawer = false)
+        return w.toByteArray(
+            openDrawer = CashDrawerPolicy.shouldOpenDrawer(
+                "fiscal-boleta-preview",
+                widthChars,
+                drawerEnabledInMapping = true,
+            ),
+        )
     }
 }

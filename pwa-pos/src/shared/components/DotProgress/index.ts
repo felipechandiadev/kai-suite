@@ -1,1 +1,1 @@
-export { default } from './DotProgress'
+export { DotProgress as default } from "@kai/ui";

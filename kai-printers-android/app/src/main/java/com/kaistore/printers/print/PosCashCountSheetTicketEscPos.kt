@@ -68,7 +68,13 @@ object PosCashCountSheetTicketEscPos {
         w.alignCenter(false)
         w.line()
 
-        return w.toByteArray(openDrawer = false)
+        return w.toByteArray(
+            openDrawer = CashDrawerPolicy.shouldOpenDrawer(
+                "pos-cash-count-sheet-ticket",
+                widthChars,
+                drawerEnabledInMapping = true,
+            ),
+        )
     }
 
     private fun paymentRows(t: kotlinx.serialization.json.JsonObject): List<String> {

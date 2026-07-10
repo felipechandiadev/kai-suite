@@ -144,6 +144,12 @@ object PosSaleTicketEscPos {
         w.alignCenter(false)
         w.line()
 
-        return w.toByteArray(openDrawer = EscPosTail.shouldOpenCashDrawer(widthChars))
+        return w.toByteArray(
+            openDrawer = CashDrawerPolicy.shouldOpenDrawer(
+                "pos-sale-ticket",
+                widthChars,
+                drawerEnabledInMapping = true,
+            ),
+        )
     }
 }

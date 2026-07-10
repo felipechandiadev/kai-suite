@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, Check } from "lucide-react";
 import { Button, IconButton } from "@/shared/admin-shared";
-import "@/shared/components/Dialog/dialog.css";
+import "@kai/ui/components/Dialog/dialog.css";
 import type { PublicCompany } from "@/features/company/infrastructure/public-companies.request";
 import {
   readPosCompany,

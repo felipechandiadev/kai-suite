@@ -1,3 +1,4 @@
+export * from "./cash-drawer-policy";
 export * from "./core";
 export * from "./print-format";
 export * from "./print-format-presets";
@@ -13,6 +14,7 @@ export * from "./pos-customer-credit-note-ticket";
 export * from "./pos-cash-closing-ticket";
 export * from "./pos-cash-count-sheet-ticket";
 export * from "./pos-cash-session-opening-ticket";
+export * from "./pos-cash-hub-movement-ticket";
 export * from "./pos-bank-account-ticket";
 export * from "./variant-barcode-label";
 export * from "./react";

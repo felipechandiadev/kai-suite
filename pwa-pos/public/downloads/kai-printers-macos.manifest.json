@@ -1,7 +1,7 @@
 {
-  "version": "1.0.2",
-  "filename": "kai-printers-macos-1.0.2-aarch64.dmg",
-  "builtAt": "2026-07-08T23:46:23.110Z",
+  "version": "1.0.3",
+  "filename": "kai-printers-macos-1.0.3-aarch64.dmg",
+  "builtAt": "2026-07-09T23:34:48.058Z",
   "format": "dmg",
   "arch": "aarch64",
   "note": "Abrir el .dmg y arrastrar Kai Printers a Aplicaciones."

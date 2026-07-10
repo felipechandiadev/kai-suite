@@ -67,7 +67,7 @@ import {
   loadSanSebastianCategoriesJson,
   seedSanSebastianCatalogBulk,
 } from './seed-san-sebastian-catalog';
-import { seedSanSebastianFiscal } from './seed-san-sebastian-fiscal';
+import { seedSanSebastianFiscal } from './seed-san-sebastian-fiscal.ts';
 
 const SEED_IVA_DESCRIPTION =
   'Impuesto al Valor Agregado sobre ventas, servicios e importaciones.';

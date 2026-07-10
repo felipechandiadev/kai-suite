@@ -17,6 +17,8 @@ pub struct PendingJob {
     /** Impresora térmica en red (IP/host, puerto RAW 9100). */
     pub target_network_host: Option<String>,
     pub document_type: Option<String>,
+    /** Tipo agente (`pos-sale-ticket`, etc.) para gaveta y logs; distinto de document_type de negocio. */
+    pub agent_print_type: Option<String>,
     pub format: Option<String>,
 }
 
@@ -548,6 +550,21 @@ fn migrate_v11(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+/// Tipo agente (`pos-sale-ticket`, etc.) en cola de impresión — usado para gaveta.
+fn migrate_v13(conn: &Connection) -> Result<()> {
+    let job_cols: Vec<String> = conn
+        .prepare("PRAGMA table_info(print_jobs)")?
+        .query_map([], |r| r.get::<_, String>(1))?
+        .collect::<Result<Vec<_>, _>>()?;
+    if !job_cols.iter().any(|c| c == "agent_print_type") {
+        conn.execute(
+            "ALTER TABLE print_jobs ADD COLUMN agent_print_type TEXT",
+            [],
+        )?;
+    }
+    Ok(())
+}
+
 fn migrate_v2(conn: &Connection) -> Result<()> {
     let sql = r#"
 CREATE UNIQUE INDEX IF NOT EXISTS idx_mapping_lines_display_label_unique
@@ -599,6 +616,7 @@ impl Db {
         migrate_v10(&conn).context("migrate_v10")?;
         migrate_v11(&conn).context("migrate_v11")?;
         migrate_v12(&conn, dir.as_path()).context("migrate_v12")?;
+        migrate_v13(&conn).context("migrate_v13")?;
         Ok(Self {
             inner: Arc::new(Mutex::new(conn)),
         })
@@ -1489,13 +1507,14 @@ impl Db {
         target_system_printer: Option<&str>,
         target_network_host: Option<&str>,
         format: Option<&str>,
+        agent_print_type: Option<&str>,
     ) -> Result<()> {
         let c = self.inner.lock();
         let now = Utc::now().to_rfc3339();
         c.execute(
             "INSERT INTO print_jobs(id, status, purpose, filename, payload_ref, copies, created_at, client_id, priority,
-             document_type, internal_folio, source_app, requested_by, target_system_printer, target_network_host, format)
-             VALUES(?1, 'pending', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+             document_type, internal_folio, source_app, requested_by, target_system_printer, target_network_host, format, agent_print_type)
+             VALUES(?1, 'pending', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
             params![
                 id,
                 purpose,
@@ -1512,6 +1531,7 @@ impl Db {
                 target_system_printer,
                 target_network_host,
                 format,
+                agent_print_type,
             ],
         )?;
         Ok(())
@@ -1592,7 +1612,7 @@ impl Db {
     pub fn next_pending_job(&self) -> Result<Option<PendingJob>> {
         let c = self.inner.lock();
         let mut stmt = c.prepare(
-            "SELECT id, payload_ref, purpose, copies, target_system_printer, document_type, target_network_host, format FROM print_jobs WHERE status = 'pending'
+            "SELECT id, payload_ref, purpose, copies, target_system_printer, document_type, target_network_host, format, agent_print_type FROM print_jobs WHERE status = 'pending'
              ORDER BY priority DESC, created_at ASC LIMIT 1",
         )?;
         let mut rows = stmt.query([])?;
@@ -1606,6 +1626,7 @@ impl Db {
                 document_type: r.get(5)?,
                 target_network_host: r.get(6)?,
                 format: r.get(7)?,
+                agent_print_type: r.get(8)?,
             }));
         }
         Ok(None)

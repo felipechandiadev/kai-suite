@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useSession } from "next-auth/react";
 import {
   Alert,
   Button,
@@ -18,6 +19,7 @@ import {
 import type { CashHubDepositCandidate } from "@/features/session/types/cash-hub-deposit.types";
 import { usePosOffline } from "@/features/pos-offline/hooks/use-pos-offline";
 import { enqueueOfflineHubWithdrawal } from "@/features/pos-offline/application/enqueue-offline-cash.usecase";
+import { printCashHubMovementReceipt } from "@/features/cash-hub-movement/lib/print-cash-hub-movement-receipt";
 
 const currencyFmt = new Intl.NumberFormat("es-CL", {
   style: "currency",
@@ -47,6 +49,11 @@ export default function HubWithdrawalPageClient() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const { isOffline } = usePosOffline();
+  const { data: authSession } = useSession();
+  const operatorName =
+    (authSession?.user as { userName?: string; name?: string } | undefined)?.userName?.trim() ||
+    authSession?.user?.name?.trim() ||
+    null;
 
   useEffect(() => {
     const ctx = readPosContextClient();
@@ -155,6 +162,14 @@ export default function HubWithdrawalPageClient() {
           setSuccessMsg(
             `Egreso encolado offline (${cmd.localDocumentNumber}). Se sincronizará al reconectar.`,
           );
+          printCashHubMovementReceipt({
+            direction: "OUT",
+            documentNumber: cmd.localDocumentNumber,
+            amount: amountNum,
+            cashHubName: selectedHub.name,
+            reason: reason.trim() || undefined,
+            operatorName,
+          });
           setAmountRaw("");
           setReason("");
         } catch (e) {
@@ -175,6 +190,14 @@ export default function HubWithdrawalPageClient() {
       setSuccessMsg(
         `Traslado registrado: ${res.transaction.documentNumber} por ${currencyFmt.format(res.transaction.total)} al centro de efectivo.`,
       );
+      printCashHubMovementReceipt({
+        direction: "OUT",
+        documentNumber: res.transaction.documentNumber,
+        amount: res.transaction.total,
+        cashHubName: selectedHub.name,
+        reason: reason.trim() || undefined,
+        operatorName,
+      });
       setAmountRaw("");
       setReason("");
       void loadData(cashSessionId);

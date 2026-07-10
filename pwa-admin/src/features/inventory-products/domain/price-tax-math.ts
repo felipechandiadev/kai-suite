@@ -1,4 +1,10 @@
 import type { TaxListItem } from "@/features/accounting-taxes/types/tax.types";
+import { isSaleTaxType } from "../lib/sale-taxes";
+import {
+  forcesNetEqualsGross,
+  normalizeVariantTaxCategory,
+  type VariantTaxCategory,
+} from "../types/variant-fiscal.types";
 
 /** Normaliza montos a entero (CLP / catálogo sin decimales). */
 export function roundMoneyInt(n: number): number {
@@ -9,20 +15,17 @@ export function roundMoneyInt(n: number): number {
 }
 
 /**
- * Factor multiplicador neto → bruto: 1 + suma(tasas IVA % / 100) para los impuestos
- * seleccionados y activos en catálogo. Sin IVA seleccionado → 1.
+ * Factor multiplicador neto → bruto: 1 + suma(tasas % / 100) para impuestos
+ * de venta seleccionados (IVA, SPECIFIC, EXEMPT). Sin impuestos → 1.
  */
-export function effectiveIvaFactor(
+export function effectiveGrossFactor(
   catalogTaxes: readonly TaxListItem[],
   selectedTaxIds: readonly string[],
 ): number {
   const idSet = new Set(selectedTaxIds);
   let sumRates = 0;
   for (const t of catalogTaxes) {
-    if (!t.isActive || !idSet.has(t.id)) {
-      continue;
-    }
-    if (t.taxType !== "IVA") {
+    if (!t.isActive || !idSet.has(t.id) || !isSaleTaxType(t.taxType)) {
       continue;
     }
     const r = Number(t.rate);
@@ -31,6 +34,27 @@ export function effectiveIvaFactor(
     }
   }
   return 1 + sumRates / 100;
+}
+
+/** @deprecated Use effectiveGrossFactor — alias por compatibilidad. */
+export function effectiveIvaFactor(
+  catalogTaxes: readonly TaxListItem[],
+  selectedTaxIds: readonly string[],
+): number {
+  return effectiveGrossFactor(catalogTaxes, selectedTaxIds);
+}
+
+/** Factor neto→bruto según tratamiento SII de la variante. */
+export function resolvePricingGrossFactor(
+  taxCategory: VariantTaxCategory | unknown,
+  catalogTaxes: readonly TaxListItem[],
+  selectedTaxIds: readonly string[],
+): number {
+  const category = normalizeVariantTaxCategory(taxCategory);
+  if (forcesNetEqualsGross(category)) {
+    return 1;
+  }
+  return effectiveGrossFactor(catalogTaxes, selectedTaxIds);
 }
 
 export function netToGross(net: number, factor: number): number {
@@ -56,10 +80,6 @@ export function parseIntegerMoneyInput(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/**
- * Precio base de catálogo: primer precio neto de filas completas (orden del array).
- * Sin filas válidas → null (usar precio base manual u otro fallback).
- */
 /**
  * Precio neto de venta desde PMP (costo ponderado) y utilidad esperada % sobre el costo.
  * `net = round(PMP × (1 + utilidad%/100))`.

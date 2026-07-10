@@ -190,6 +190,12 @@ export class FiscalController {
     return { success: true, allocation };
   }
 
+  @Delete('company/fiscal-caf-packages/:cafId')
+  async deleteCafPackage(@CurrentCompany() companyId: string, @Param('cafId') cafId: string) {
+    await this.cafPackageService.deletePackage(companyId, cafId);
+    return { success: true };
+  }
+
   @Patch('company/fiscal-caf-packages/:cafId/status')
   async updatePackageStatus(
     @CurrentCompany() companyId: string,

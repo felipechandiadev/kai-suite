@@ -158,6 +158,7 @@ pub fn is_vector_pos_ticket_type(print_type: &str) -> bool {
             | "pos-cash-closing-ticket"
             | "pos-cash-count-sheet-ticket"
             | "pos-cash-session-opening-ticket"
+            | "pos-cash-hub-movement-ticket"
             |         "pos-bank-account-ticket"
             | "pos-presale-ticket"
             | "fiscal-boleta-preview"

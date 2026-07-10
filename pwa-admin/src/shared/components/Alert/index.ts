@@ -1,2 +1,1 @@
-export { default, default as Alert } from './Alert';
-export type { AlertVariant } from './Alert';
+export { Alert as default, type AlertVariant } from "@kai/ui";

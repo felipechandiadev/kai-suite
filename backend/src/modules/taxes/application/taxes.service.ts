@@ -1,7 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DeepPartial, Repository } from 'typeorm';
 import { Tax, TaxType } from '../domain/tax.entity';
+
+function assertPositiveTaxRate(rate: number): void {
+  if (!Number.isFinite(rate) || rate <= 0) {
+    throw new BadRequestException('La tasa del impuesto debe ser mayor a 0%');
+  }
+  if (rate > 999.99) {
+    throw new BadRequestException('La tasa del impuesto está fuera de rango');
+  }
+}
 
 @Injectable()
 export class TaxesService {
@@ -41,6 +50,7 @@ export class TaxesService {
     isDefault?: boolean;
     isActive?: boolean;
   }) {
+    assertPositiveTaxRate(Number(data.rate));
     const code =
       data.code != null && String(data.code).trim() !== ''
         ? String(data.code).trim().slice(0, 20)
@@ -75,6 +85,9 @@ export class TaxesService {
       isActive: boolean;
     }>,
   ) {
+    if (data.rate != null) {
+      assertPositiveTaxRate(Number(data.rate));
+    }
     const updateData: Record<string, unknown> = { ...data };
     if ('code' in data) {
       const raw = data.code;

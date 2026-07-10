@@ -6,6 +6,11 @@ import type {
   ProductVariantGridRow,
   ProductVariantMediaAsset,
 } from "../types/product-grid.types";
+import {
+  DEFAULT_VARIANT_TAX_CATEGORY,
+  isVariantTaxCategory,
+  normalizeVariantTaxCategory,
+} from "../types/variant-fiscal.types";
 import { resolveMultimediaPublicUrl } from "@/features/multimedia/utils/resolve-multimedia-public-url";
 import type { VariantSalePriceHistoryResponse } from "../types/variant-sale-price-history.types";
 
@@ -260,6 +265,11 @@ function normalizeVariant(v: unknown): ProductVariantGridRow | null {
         : null,
     mediaAssets: mediaAssets && mediaAssets.length > 0 ? mediaAssets : undefined,
     priceListItems,
+    taxIds: Array.isArray(o.taxIds) ? o.taxIds.map(String).filter(Boolean) : undefined,
+    taxCategory: isVariantTaxCategory(o.taxCategory)
+      ? normalizeVariantTaxCategory(o.taxCategory)
+      : DEFAULT_VARIANT_TAX_CATEGORY,
+    requiresDte: o.requiresDte !== false,
   };
 }
 

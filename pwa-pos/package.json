@@ -15,6 +15,7 @@
     "@kai/document-print": "file:../packages/document-print",
     "@kai/fiscal-ted": "file:../packages/fiscal-ted",
     "@kai/print-service-client": "file:../packages/print-service-client",
+    "@kai/ui": "file:../packages/ui",
     "@tanstack/react-query": "^5.100.9",
     "dexie": "^4.0.11",
     "@types/leaflet": "^1.9.21",

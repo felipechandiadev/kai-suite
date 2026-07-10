@@ -1,1 +1,1 @@
-export { default } from './AutoComplete'
+export { AutoComplete as default } from "@kai/ui";

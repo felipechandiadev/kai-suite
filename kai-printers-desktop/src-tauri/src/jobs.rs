@@ -77,14 +77,31 @@ pub fn spawn_worker(state: Arc<AppState>) {
 }
 
 fn is_local_test_job(job: &PendingJob) -> bool {
+    let agent = job.agent_print_type.as_deref();
+    let doc = job.document_type.as_deref();
     matches!(
-        job.document_type.as_deref(),
+        agent,
+        Some("test_escpos_qa")
+            | Some("test_escpos_qa_nocut")
+            | Some("test_cut")
+            | Some("test_drawer")
+            | Some("test_print")
+    ) || matches!(
+        doc,
         Some("test_escpos_qa")
             | Some("test_escpos_qa_nocut")
             | Some("test_cut")
             | Some("test_drawer")
             | Some("test_print")
     )
+}
+
+fn resolve_agent_print_type(job: &PendingJob) -> &str {
+    job.agent_print_type
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .or(job.document_type.as_deref())
+        .unwrap_or("")
 }
 
 fn cut_enabled_for_ticket_line(
@@ -117,24 +134,12 @@ fn drawer_enabled_for_ticket_line(
     false
 }
 
-/// Cajón solo en rollo 80 mm: venta, cobro cliente y pruebas (si está habilitado en mapeo).
-fn open_cash_drawer_for_job(document_type: &str, roll_width_mm: u8, drawer_enabled: bool) -> bool {
-    if roll_width_mm != 80 {
-        return false;
-    }
-    if document_type == "test_drawer" {
-        return true;
-    }
-    if !drawer_enabled {
-        return false;
-    }
-    matches!(
-        document_type,
-        "pos-sale-ticket"
-            | "pos-payment-in-ticket"
-            | "test_print"
-            | "test_escpos_qa"
-            | "test_escpos_qa_nocut"
+/// Cajón solo en rollo 80 mm y tipos agente permitidos (si está habilitado en mapeo).
+fn open_cash_drawer_for_job(agent_type: &str, roll_width_mm: u8, drawer_enabled: bool) -> bool {
+    crate::cash_drawer_policy::open_cash_drawer_for_agent_type(
+        agent_type,
+        roll_width_mm,
+        drawer_enabled,
     )
 }
 
@@ -143,7 +148,8 @@ fn ticket_thermal_options_for_job(
     purpose: &str,
     system_printer: Option<&str>,
     network_host: Option<&str>,
-    document_type: Option<&str>,
+    agent_print_type: Option<&str>,
+    business_document_type: Option<&str>,
     print_format: crate::print_formats::PrintFormat,
 ) -> platform::ThermalPrintOptions {
     if !print_format.is_ticket() {
@@ -158,11 +164,14 @@ fn ticket_thermal_options_for_job(
         crate::print_formats::PrintFormat::Ticket58mm => 58,
         _ => 80,
     };
-    let doc = document_type.unwrap_or("");
+    let agent = agent_print_type
+        .filter(|s| !s.is_empty())
+        .or(business_document_type)
+        .unwrap_or("");
     let cut_line = || cut_enabled_for_ticket_line(db, purpose, system_printer, network_host);
     let drawer_line = || drawer_enabled_for_ticket_line(db, purpose, system_printer, network_host);
-    let drawer_kick = open_cash_drawer_for_job(doc, roll_width_mm, drawer_line());
-    let (auto_cut, open_drawer) = match doc {
+    let drawer_kick = open_cash_drawer_for_job(agent, roll_width_mm, drawer_line());
+    let (auto_cut, open_drawer) = match business_document_type.unwrap_or("") {
         "test_cut" => (true, false),
         "test_drawer" => (cut_line(), drawer_kick),
         "test_escpos_qa" => (true, drawer_kick),
@@ -306,6 +315,7 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
             purpose,
             None,
             Some(&host),
+            job.agent_print_type.as_deref(),
             job.document_type.as_deref(),
             print_format,
         );
@@ -358,6 +368,7 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
             purpose,
             Some(printer.as_str()),
             None,
+            job.agent_print_type.as_deref(),
             job.document_type.as_deref(),
             print_format,
         );
@@ -368,7 +379,7 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
             .map(|e| e.eq_ignore_ascii_case("escpos"))
             .unwrap_or(false);
         if is_escpos {
-            let kind = job.document_type.as_deref().unwrap_or("ticket");
+            let kind = resolve_agent_print_type(job);
             print_diag::info(format!(
                 "Trabajo {} ({kind}): enviando ESC/POS ({payload_bytes} bytes) → «{printer}», corte={}, gaveta={}, copias={copies}",
                 job.id,
@@ -607,6 +618,15 @@ pub fn write_pos_cash_session_opening_ticket_escpos_from_value(
     value: &serde_json::Value,
 ) -> Result<PathBuf> {
     crate::pos_cash_session_opening_ticket::write_pos_cash_session_opening_ticket_escpos_from_value(
+        dir, value,
+    )
+}
+
+pub fn write_pos_cash_hub_movement_ticket_escpos_from_value(
+    dir: &PathBuf,
+    value: &serde_json::Value,
+) -> Result<PathBuf> {
+    crate::pos_cash_hub_movement_ticket::write_pos_cash_hub_movement_ticket_escpos_from_value(
         dir, value,
     )
 }

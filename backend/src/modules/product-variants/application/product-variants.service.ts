@@ -58,6 +58,17 @@ import {
   stockLevelToThresholdSlice,
 } from '@modules/stock-realtime/variant-stock-alert.util';
 import { ProductEshopVisibilitySyncService } from '@modules/products/application/services/product-eshop-visibility-sync.service';
+import { Tax, TaxType } from '@modules/taxes/domain/tax.entity';
+import {
+  applyTaxIdsToPriceRows,
+  applyVariantFiscalProfile,
+  resolveDefaultIvaTaxIdsFromCatalog,
+  type VariantPriceFiscalRow,
+} from './helpers/variant-fiscal-profile';
+import {
+  DEFAULT_VARIANT_TAX_CATEGORY,
+  isSpecialVariantTaxCategory,
+} from '../domain/variant-tax-category';
 
 /** PMP en API: `null` si no hubo primera compra; nunca forzar 0 por defecto. */
 function pmpForApi(value: unknown): number | null {
@@ -101,6 +112,8 @@ export class ProductVariantsService {
     private readonly variantOrm: Repository<ProductVariant>,
     @InjectRepository(StockLevel)
     private readonly stockLevelOrm: Repository<StockLevel>,
+    @InjectRepository(Tax)
+    private readonly taxRepo: Repository<Tax>,
     private readonly conversion: VariantQuantityConversionService,
     private readonly eshopVisibilitySync: ProductEshopVisibilitySyncService,
   ) {}
@@ -572,7 +585,9 @@ export class ProductVariantsService {
       packageHeightCm: sanitizedData.packageHeightCm ?? null,
       volumetricDivisorK: sanitizedData.volumetricDivisorK ?? null,
       attributeValues: normalizedAttrValues,
-      taxIds: sanitizedData.taxIds ?? null,
+      taxIds: null as string[] | null,
+      taxCategory: DEFAULT_VARIANT_TAX_CATEGORY,
+      requiresDte: true,
       trackInventory:
         typeof sanitizedData.trackInventory === 'boolean'
           ? sanitizedData.trackInventory
@@ -595,6 +610,26 @@ export class ProductVariantsService {
         ? sanitizedData.visibleInEShop === true
         : product.visibleInEShop === true,
     } as any;
+
+    const createPriceRows = this.mapPriceRowsFromPayload(sanitizedData.priceListItems);
+    const createFiscal = await this.buildFiscalProfileForSave(
+      companyId,
+      {
+        taxCategory: sanitizedData.taxCategory,
+        requiresDte: sanitizedData.requiresDte,
+        taxIds: sanitizedData.taxIds,
+        priceListItems: createPriceRows.length ? createPriceRows : undefined,
+      },
+    );
+    variant.taxCategory = createFiscal.taxCategory;
+    variant.requiresDte = createFiscal.requiresDte;
+    variant.taxIds = createFiscal.taxIds;
+    if (createFiscal.priceListItems && sanitizedData.priceListItems?.length) {
+      sanitizedData.priceListItems = this.mergeFiscalPriceRowsIntoPayload(
+        sanitizedData.priceListItems,
+        createFiscal.priceListItems,
+      );
+    }
 
     try {
       const saved = await this.variantRepository.save(variant);
@@ -750,6 +785,34 @@ export class ProductVariantsService {
     (v as any).stockBaseQtyPerCountSaleUnit = persistedBridges.stockBaseQtyPerCountSaleUnit;
     (v as any).stockBaseQtyPerCountPurchaseUnit = persistedBridges.stockBaseQtyPerCountPurchaseUnit;
 
+    const existingPriceItems = await this.priceListItemRepository.findByVariantId(id);
+    const payloadPriceRows = this.mapPriceRowsFromPayload(sanitizedData.priceListItems);
+    const fiscalPriceRows =
+      payloadPriceRows.length > 0
+        ? payloadPriceRows
+        : this.mapPriceRowsFromEntities(existingPriceItems);
+    const updateFiscal = await this.buildFiscalProfileForSave(companyId, {
+      taxCategory: Object.prototype.hasOwnProperty.call(sanitizedData, 'taxCategory')
+        ? sanitizedData.taxCategory
+        : (v as any).taxCategory,
+      requiresDte: Object.prototype.hasOwnProperty.call(sanitizedData, 'requiresDte')
+        ? sanitizedData.requiresDte
+        : (v as any).requiresDte,
+      taxIds: Object.prototype.hasOwnProperty.call(sanitizedData, 'taxIds')
+        ? sanitizedData.taxIds
+        : (v as any).taxIds,
+      priceListItems: fiscalPriceRows.length ? fiscalPriceRows : undefined,
+    });
+    (v as any).taxCategory = updateFiscal.taxCategory;
+    (v as any).requiresDte = updateFiscal.requiresDte;
+    (v as any).taxIds = updateFiscal.taxIds;
+    if (updateFiscal.priceListItems && sanitizedData.priceListItems?.length) {
+      sanitizedData.priceListItems = this.mergeFiscalPriceRowsIntoPayload(
+        sanitizedData.priceListItems,
+        updateFiscal.priceListItems,
+      );
+    }
+
     // `findById` carga ManyToOne de unidades; si solo actualizamos las columnas FK, las relaciones
     // en memoria siguen con el id anterior y TypeORM puede volver a escribir esos ids al guardar.
     delete (v as any).unit;
@@ -800,6 +863,26 @@ export class ProductVariantsService {
       );
       await Promise.all(
         priceListItems.map((it: any) => this.priceListItemRepository.save(it)),
+      );
+    } else if (
+      isSpecialVariantTaxCategory(updateFiscal.taxCategory) &&
+      existingPriceItems.length > 0
+    ) {
+      await this.syncPriceListItemsForSpecialCategory(saved.id, existingPriceItems);
+    } else if (
+      Object.prototype.hasOwnProperty.call(sanitizedData, 'taxIds') &&
+      !(
+        sanitizedData.priceListItems &&
+        Array.isArray(sanitizedData.priceListItems) &&
+        sanitizedData.priceListItems.length > 0
+      ) &&
+      existingPriceItems.length > 0
+    ) {
+      await this.syncPriceListItemsTaxIds(
+        saved.id,
+        existingPriceItems,
+        updateFiscal.taxIds ?? [],
+        companyId,
       );
     }
 
@@ -1256,6 +1339,111 @@ export class ProductVariantsService {
       return;
     }
     // Galería general de variantes eliminada; multimedia solo por atributo en admin.
+  }
+
+  private async resolveDefaultIvaTaxIds(companyId: string): Promise<string[]> {
+    const taxes = await this.taxRepo.find({
+      where: { companyId, isActive: true, taxType: TaxType.IVA },
+    });
+    return resolveDefaultIvaTaxIdsFromCatalog(taxes);
+  }
+
+  private mapPriceRowsFromPayload(items: unknown): VariantPriceFiscalRow[] {
+    if (!Array.isArray(items)) {
+      return [];
+    }
+    return items.map((item: any) => ({
+      netPrice: Math.round(Number(item?.netPrice) || 0),
+      grossPrice: Math.round(Number(item?.grossPrice) || 0),
+      taxIds: Array.isArray(item?.taxIds) ? item.taxIds.map(String) : null,
+    }));
+  }
+
+  private mapPriceRowsFromEntities(items: PriceListItem[]): VariantPriceFiscalRow[] {
+    return items.map((item) => ({
+      netPrice: Math.round(Number(item.netPrice) || 0),
+      grossPrice: Math.round(Number(item.grossPrice) || 0),
+      taxIds: Array.isArray(item.taxIds) ? item.taxIds.map(String) : null,
+    }));
+  }
+
+  private mergeFiscalPriceRowsIntoPayload(
+    payloadItems: any[],
+    fiscalRows: VariantPriceFiscalRow[],
+  ): any[] {
+    return payloadItems.map((item, index) => {
+      const fiscal = fiscalRows[index];
+      if (!fiscal) {
+        return item;
+      }
+      return {
+        ...item,
+        grossPrice: fiscal.grossPrice,
+        taxIds: fiscal.taxIds ?? null,
+      };
+    });
+  }
+
+  private async buildFiscalProfileForSave(
+    companyId: string,
+    input: {
+      taxCategory?: unknown;
+      requiresDte?: unknown;
+      taxIds?: string[] | null;
+      priceListItems?: VariantPriceFiscalRow[];
+    },
+  ) {
+    const defaultIvaTaxIds = await this.resolveDefaultIvaTaxIds(companyId);
+    return applyVariantFiscalProfile(input, defaultIvaTaxIds);
+  }
+
+  private async syncPriceListItemsForSpecialCategory(
+    variantId: string,
+    items: PriceListItem[],
+  ): Promise<void> {
+    for (const item of items) {
+      const net = Math.round(Number(item.netPrice) || 0);
+      await this.priceListItemRepository.save({
+        ...item,
+        productVariantId: variantId,
+        grossPrice: net,
+        taxIds: null,
+      } as any);
+    }
+  }
+
+  private async syncPriceListItemsTaxIds(
+    variantId: string,
+    items: PriceListItem[],
+    taxIds: string[] | null,
+    companyId: string,
+  ): Promise<void> {
+    const catalogTaxes = await this.taxRepo.find({
+      where: { companyId, isActive: true },
+    });
+    const saleCatalog = catalogTaxes
+      .filter((t) => t.taxType !== TaxType.RETENTION)
+      .map((t) => ({
+        id: t.id,
+        taxType: String(t.taxType),
+        rate: Number(t.rate) || 0,
+        isActive: t.isActive,
+      }));
+    const fiscalRows = this.mapPriceRowsFromEntities(items);
+    const nextRows = applyTaxIdsToPriceRows(fiscalRows, taxIds, saleCatalog);
+    for (let i = 0; i < items.length; i += 1) {
+      const item = items[i];
+      const next = nextRows[i];
+      if (!item || !next) {
+        continue;
+      }
+      await this.priceListItemRepository.save({
+        ...item,
+        productVariantId: variantId,
+        grossPrice: next.grossPrice,
+        taxIds: next.taxIds ?? null,
+      } as any);
+    }
   }
 
   private formatSalePriceHistoryUserName(user: User): string {

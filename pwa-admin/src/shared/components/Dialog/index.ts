@@ -1,2 +1,1 @@
-export { default } from './Dialog'
-export { DeleteDialog, type DeleteDialogProps } from './DeleteDialog'
+export { Dialog as default, DeleteDialog, type DeleteDialogProps } from "@kai/ui";

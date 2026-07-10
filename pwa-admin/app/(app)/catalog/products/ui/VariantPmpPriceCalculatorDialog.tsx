@@ -6,20 +6,25 @@ import { Button } from "@/shared/components/Button";
 import { TextField } from "@/shared/components/TextField/TextField";
 import type { TaxListItem } from "@/features/accounting-taxes/types/tax.types";
 import {
-  effectiveIvaFactor,
   netFromPmpAndUtilityPercent,
   netToGross,
+  resolvePricingGrossFactor,
 } from "@/features/inventory-products/domain/price-tax-math";
+import {
+  forcesNetEqualsGross,
+  type VariantTaxCategory,
+} from "@/features/inventory-products/types/variant-fiscal.types";
 
 export type VariantPmpPriceCalculatorDialogProps = {
   open: boolean;
   onClose: () => void;
   /** PMP inicial (p. ej. referencia de otras variantes o 0 si no hay). */
   initialPmp: number;
+  taxCategory: VariantTaxCategory;
   taxIdsForPreview: readonly string[];
   /** Fila de precio a la que aplica el neto al confirmar (misma que abrió el diálogo). */
   priceRowKey: string | null;
-  ivaTaxes: readonly TaxListItem[];
+  catalogTaxes: readonly TaxListItem[];
   onApply: (pmp: number, net: number, priceRowKey: string) => void;
 };
 
@@ -36,11 +41,13 @@ export function VariantPmpPriceCalculatorDialog({
   open,
   onClose,
   initialPmp,
+  taxCategory,
   taxIdsForPreview,
   priceRowKey,
-  ivaTaxes,
+  catalogTaxes,
   onApply,
 }: VariantPmpPriceCalculatorDialogProps) {
+  const netEqualsGross = forcesNetEqualsGross(taxCategory);
   const [pmpValue, setPmpValue] = useState(String(Math.max(0, Math.round(initialPmp))));
   const [utilityRaw, setUtilityRaw] = useState("");
 
@@ -64,7 +71,7 @@ export function VariantPmpPriceCalculatorDialog({
   const utilityPct = parsePercent(utilityRaw);
   const netSuggested =
     utilityPct != null ? netFromPmpAndUtilityPercent(pmpInt, utilityPct) : netFromPmpAndUtilityPercent(pmpInt, 0);
-  const factorPreview = effectiveIvaFactor(ivaTaxes, taxIdsForPreview);
+  const factorPreview = resolvePricingGrossFactor(taxCategory, catalogTaxes, taxIdsForPreview);
   const grossPreview = netToGross(netSuggested, factorPreview);
 
   const handleApply = () => {
@@ -125,13 +132,22 @@ export function VariantPmpPriceCalculatorDialog({
         />
         <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Vista previa</p>
-          <p className="mt-1 tabular-nums text-foreground" data-test-id="variant-pmp-calc-preview-net">
-            Precio neto sugerido: <span className="font-semibold">${netSuggested.toLocaleString("es-CL")}</span>
-          </p>
-          <p className="mt-0.5 tabular-nums text-muted-foreground" data-test-id="variant-pmp-calc-preview-gross">
-            Precio con impuestos:{" "}
-            <span className="font-medium text-foreground">${grossPreview.toLocaleString("es-CL")}</span>
-          </p>
+          {netEqualsGross ? (
+            <p className="mt-1 tabular-nums text-foreground" data-test-id="variant-pmp-calc-preview-sale">
+              Precio de venta sugerido:{" "}
+              <span className="font-semibold">${netSuggested.toLocaleString("es-CL")}</span>
+            </p>
+          ) : (
+            <>
+              <p className="mt-1 tabular-nums text-foreground" data-test-id="variant-pmp-calc-preview-net">
+                Precio neto sugerido: <span className="font-semibold">${netSuggested.toLocaleString("es-CL")}</span>
+              </p>
+              <p className="mt-0.5 tabular-nums text-muted-foreground" data-test-id="variant-pmp-calc-preview-gross">
+                Precio con impuestos:{" "}
+                <span className="font-medium text-foreground">${grossPreview.toLocaleString("es-CL")}</span>
+              </p>
+            </>
+          )}
         </div>
       </div>
     </Dialog>

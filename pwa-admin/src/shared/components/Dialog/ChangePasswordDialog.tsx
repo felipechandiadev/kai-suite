@@ -1,14 +1,11 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import React from 'react';
-import { useSession, signOut } from 'next-auth/react';
-import TextField from '@/shared/components/TextField';
-import { Button } from '@/shared/components/Button';
-import Alert from '@/shared/components/Alert';
-import Dialog from './Dialog';
+import { useState } from "react";
+import React from "react";
+import { useSession, signOut } from "next-auth/react";
+import { Alert, Button, Dialog, TextField } from "@kai/ui";
 
-const CHANGE_PASSWORD_FORM_ID = 'change-password-form';
+const CHANGE_PASSWORD_FORM_ID = "change-password-form";
 
 interface ChangePasswordDialogProps {
   isOpen: boolean;
@@ -17,9 +14,9 @@ interface ChangePasswordDialogProps {
 
 export default function ChangePasswordDialog({ isOpen, onClose }: ChangePasswordDialogProps) {
   const { data: session } = useSession();
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -29,11 +26,16 @@ export default function ChangePasswordDialog({ isOpen, onClose }: ChangePassword
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3001/auth/change-password', {
-        method: 'POST',
+      const accessToken = (session?.user as { accessToken?: string } | undefined)?.accessToken;
+      const baseUrl =
+        process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim() ||
+        process.env.BACKEND_API_URL?.trim() ||
+        "http://localhost:3001";
+      const response = await fetch(`${baseUrl.replace(/\/$/, "")}/auth/change-password`, {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.user?.accessToken}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken ?? ""}`,
         },
         body: JSON.stringify({
           currentPassword,
@@ -44,13 +46,13 @@ export default function ChangePasswordDialog({ isOpen, onClose }: ChangePassword
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.message || 'Error al cambiar la contraseña');
+        throw new Error(data.message || "Error al cambiar la contraseña");
       }
 
       onClose();
-      await signOut({ callbackUrl: '/' });
+      await signOut({ callbackUrl: "/" });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+      setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +79,7 @@ export default function ChangePasswordDialog({ isOpen, onClose }: ChangePassword
             variant="primary"
             disabled={isLoading}
           >
-            {isLoading ? 'Cambiando…' : 'Cambiar contraseña'}
+            {isLoading ? "Cambiando…" : "Cambiar contraseña"}
           </Button>
         </>
       }
@@ -87,7 +89,9 @@ export default function ChangePasswordDialog({ isOpen, onClose }: ChangePassword
           label="Contraseña actual"
           type="password"
           value={currentPassword}
-          onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setCurrentPassword(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+            setCurrentPassword(e.target.value)
+          }
           required
           name="currentPassword"
         />
@@ -96,7 +100,9 @@ export default function ChangePasswordDialog({ isOpen, onClose }: ChangePassword
           label="Nueva contraseña"
           type="password"
           value={newPassword}
-          onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setNewPassword(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+            setNewPassword(e.target.value)
+          }
           required
           name="newPassword"
         />
@@ -105,7 +111,9 @@ export default function ChangePasswordDialog({ isOpen, onClose }: ChangePassword
           label="Confirmar contraseña"
           type="password"
           value={confirmPassword}
-          onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setConfirmPassword(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+            setConfirmPassword(e.target.value)
+          }
           required
           name="confirmPassword"
         />

@@ -211,6 +211,12 @@ export async function deleteFiscalSubPackAction(allocationId: string) {
   return res;
 }
 
+export async function deleteFiscalPackageAction(cafId: string) {
+  const res = await FiscalRequest.deletePackage(cafId);
+  if (res.success) revalidateSii();
+  return res;
+}
+
 export async function updateFiscalPackageStatusAction(
   cafId: string,
   status: FiscalCafPackageStatus,

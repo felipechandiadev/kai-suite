@@ -128,6 +128,7 @@ import { FolioPackagesAndSubAllocations1756610000000 } from '../migrations/17566
 import { FiscalDteEmissionAsync1756700000000 } from '../migrations/1756700000000-FiscalDteEmissionAsync';
 import { PosSyncCommands1756710000000 } from '../migrations/1756710000000-PosSyncCommands';
 import { PosSyncCashSessionId1756720000000 } from '../migrations/1756720000000-PosSyncCashSessionId';
+import { ProductVariantFiscalFields1756730000000 } from '../migrations/1756730000000-ProductVariantFiscalFields';
 import { FiscalProfile } from '@modules/fiscal/domain/fiscal-profile.entity';
 import { FiscalCertificate } from '@modules/fiscal/domain/fiscal-certificate.entity';
 import { FiscalCaf } from '@modules/fiscal/domain/fiscal-caf.entity';
@@ -302,6 +303,7 @@ export const AppDataSource = new DataSource({
     FiscalDteEmissionAsync1756700000000,
     PosSyncCommands1756710000000,
     PosSyncCashSessionId1756720000000,
+    ProductVariantFiscalFields1756730000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

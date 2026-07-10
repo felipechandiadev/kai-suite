@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { ProductRequest } from "../infrastructure/product.request";
 import type { CatalogProductType, ProductGridRow } from "../types/product-grid.types";
+import type { VariantTaxCategory } from "../types/variant-fiscal.types";
 import { latinSearchIncludes } from "@/shared/utils/fold-latin-search-text";
 
 const PRODUCTS_PATH = "/catalog/products";
@@ -516,6 +517,36 @@ export async function updateProductVariantLogisticsAction(
     packageHeightCm: input.packageHeightCm ?? null,
     volumetricDivisorK: input.volumetricDivisorK ?? null,
   };
+  const r = await ProductRequest.patchVariantFields(trimmedId, body);
+  if (r.success) {
+    revalidatePath(PRODUCTS_PATH, "page");
+    revalidatePath(`${PRODUCT_VARIANT_DETAIL_PATH_PREFIX}/${encodeURIComponent(trimmedId)}`, "page");
+  }
+  return r;
+}
+
+export type UpdateProductVariantFiscalPartialInput = {
+  taxCategory: VariantTaxCategory;
+  requiresDte: boolean;
+  taxIds?: string[];
+};
+
+/** Actualiza tratamiento tributario SII vía `PUT product-variants/:id` parcial. */
+export async function updateProductVariantFiscalPartialAction(
+  variantId: string,
+  input: UpdateProductVariantFiscalPartialInput,
+): Promise<UpdateProductVariantResult> {
+  const trimmedId = variantId?.trim() ?? "";
+  if (!trimmedId) {
+    return { success: false, error: "Variante no válida" };
+  }
+  const body: Record<string, unknown> = {
+    taxCategory: input.taxCategory,
+    requiresDte: input.requiresDte,
+  };
+  if (Array.isArray(input.taxIds)) {
+    body.taxIds = input.taxIds.map(String).filter(Boolean);
+  }
   const r = await ProductRequest.patchVariantFields(trimmedId, body);
   if (r.success) {
     revalidatePath(PRODUCTS_PATH, "page");

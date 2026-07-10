@@ -64,7 +64,13 @@ object PosPaymentInTicketEscPos {
         w.alignCenter(false)
         w.line()
 
-        return w.toByteArray(openDrawer = EscPosTail.shouldOpenCashDrawer(widthChars))
+        return w.toByteArray(
+            openDrawer = CashDrawerPolicy.shouldOpenDrawer(
+                "pos-payment-in-ticket",
+                widthChars,
+                drawerEnabledInMapping = true,
+            ),
+        )
     }
 
     private fun appendPaymentRows(w: EscPosWriter, t: kotlinx.serialization.json.JsonObject) {

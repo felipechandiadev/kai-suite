@@ -2,6 +2,7 @@ import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -14,6 +15,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
+import { VARIANT_TAX_CATEGORIES } from '../../domain/variant-tax-category';
 
 export class PriceListItemInputDto {
   @IsUUID()
@@ -126,6 +128,15 @@ export class CreateProductVariantDto {
   @IsArray()
   @IsUUID('4', { each: true })
   taxIds?: string[];
+
+  @IsOptional()
+  @IsIn([...VARIANT_TAX_CATEGORIES])
+  taxCategory?: string;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  requiresDte?: boolean;
 
   @IsOptional()
   @Type(() => Boolean)

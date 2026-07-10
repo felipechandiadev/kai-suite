@@ -1,1 +1,1 @@
-export { default } from './DropdownList'
+export { DropdownList as default } from "@kai/ui";

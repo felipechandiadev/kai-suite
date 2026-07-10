@@ -20,6 +20,7 @@ import { ProductsModule } from '@modules/products/products.module';
 import { VariantQuantityConversionService } from './application/variant-quantity-conversion.service';
 import { ProductVariantShippingSchemaBootstrap } from './application/product-variant-shipping-schema.bootstrap';
 import { StockLevel } from '@modules/stock-levels/domain/stock-level.entity';
+import { Tax } from '@modules/taxes/domain/tax.entity';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { StockLevel } from '@modules/stock-levels/domain/stock-level.entity';
       Supplier,
       Storage,
       StockLevel,
+      Tax,
     ]),
     CqrsModule,
     MultimediaModule,

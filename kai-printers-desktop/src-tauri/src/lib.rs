@@ -1,3 +1,4 @@
+mod cash_drawer_policy;
 mod agent_log;
 mod print_diag;
 mod db;
@@ -23,6 +24,8 @@ mod pos_cash_count_sheet_ticket;
 mod pos_cash_count_sheet_ticket_escpos;
 mod pos_cash_session_opening_ticket;
 mod pos_cash_session_opening_ticket_escpos;
+mod pos_cash_hub_movement_ticket;
+mod pos_cash_hub_movement_ticket_escpos;
 mod pos_bank_account_ticket;
 mod pos_bank_account_ticket_escpos;
 mod pos_payment_in_ticket;
@@ -649,10 +652,11 @@ fn queue_test_cut_print(
             Some("test_cut"),
             None,
             None,
+            None,
             target_sp.as_deref(),
             net.as_deref(),
             None,
-            None,
+            Some("test_cut"),
         )
         .map_err(|e| e.to_string())?;
     notify_jobs_changed(&state);
@@ -709,10 +713,11 @@ fn queue_test_drawer_print(
             Some("test_drawer"),
             None,
             None,
+            None,
             target_sp.as_deref(),
             net.as_deref(),
             None,
-            None,
+            Some("test_drawer"),
         )
         .map_err(|e| e.to_string())?;
     notify_jobs_changed(&state);
@@ -821,6 +826,7 @@ fn queue_escpos_qa_print(
             target_sp.as_deref(),
             net.as_deref(),
             Some(qa_format.wire_value()),
+            Some(document_type),
         )
         .map_err(|e| e.to_string())?;
     notify_jobs_changed(&state);
@@ -882,6 +888,7 @@ fn queue_test_print(
             None,
             None,
             None,
+            Some("test_print"),
         )
         .map_err(|e| e.to_string())?;
     notify_jobs_changed(&state);

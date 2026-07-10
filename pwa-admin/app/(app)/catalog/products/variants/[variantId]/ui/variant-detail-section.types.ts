@@ -1,6 +1,7 @@
 export const VARIANT_DETAIL_SECTION_IDS = [
   "identidad",
   "precios",
+  "sii",
   "compras",
   "inventario",
   "despacho",
@@ -19,6 +20,7 @@ export type VariantDetailTabItem = {
 export const VARIANT_DETAIL_TABS: VariantDetailTabItem[] = [
   { id: "identidad", label: "Identidad" },
   { id: "precios", label: "Precios" },
+  { id: "sii", label: "SII" },
   { id: "compras", label: "Compras" },
   { id: "inventario", label: "Inventario" },
   { id: "despacho", label: "Despacho" },

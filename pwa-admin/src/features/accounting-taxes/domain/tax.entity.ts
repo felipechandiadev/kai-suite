@@ -3,13 +3,29 @@ import { TAX_TYPES } from "../types/tax.types";
 
 const taxTypeSchema = z.enum(TAX_TYPES);
 
+export function parseTaxRateFromInput(val: string): number | null {
+  const trimmed = val.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const n = Number(trimmed.replace(",", "."));
+  if (!Number.isFinite(n) || n <= 0 || n > 999.99) {
+    return null;
+  }
+  return n;
+}
+
 const rateFromInput = z.preprocess((val: unknown) => {
   if (val === "" || val == null) {
     return NaN;
   }
   const n = typeof val === "number" ? val : Number(String(val).replace(",", "."));
   return n;
-}, z.number().min(0, "La tasa no puede ser negativa").max(999.99, "Tasa fuera de rango"));
+}, z
+  .number({ invalid_type_error: "Ingrese una tasa válida" })
+  .refine((n) => Number.isFinite(n), "Ingrese una tasa válida")
+  .refine((n) => n > 0, "La tasa debe ser mayor a 0%")
+  .refine((n) => n <= 999.99, "Tasa fuera de rango"));
 
 const optionalCode = z
   .string()

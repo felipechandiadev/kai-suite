@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { AppConfigService } from '../../../config/config.service';
 import { Company } from '@modules/companies/domain/company.entity';
 import { Branch } from '@modules/branches/domain/branch.entity';
@@ -17,6 +17,8 @@ import {
 import { TransactionLine } from '@modules/transaction-lines/domain/transaction-line.entity';
 import { Customer } from '@modules/customers/domain/customer.entity';
 import { Person } from '@modules/persons/domain/person.entity';
+import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
+import type { VariantTaxCategory } from '@modules/product-variants/domain/variant-tax-category';
 import { FiscalProfile } from '../domain/fiscal-profile.entity';
 import { FiscalCertificate } from '../domain/fiscal-certificate.entity';
 import { FiscalCaf } from '../domain/fiscal-caf.entity';
@@ -26,6 +28,7 @@ import {
   SiiEnvironment,
 } from '../domain/fiscal.enums';
 import { emisorFromCompany } from '../domain/fiscal-emisor-from-company';
+import { buildVariantTaxCategoryMap } from '../domain/resolve-line-boleta-exempt';
 import { mapTransactionToSaleBoleta } from '../domain/map-transaction-to-sale-boleta';
 import { buildSaleBoletaPrintPreview } from '../domain/build-sale-boleta-print-preview';
 import { FiscalCryptoService } from '../infrastructure/fiscal-crypto.service';
@@ -1032,7 +1035,8 @@ export class FiscalBoletaEmissionService {
       person = customer?.person ?? null;
     }
     const emisor = emisorFromCompany(company);
-    const saleDoc = mapTransactionToSaleBoleta(lines, person);
+    const variantTaxCategoryByVariantId = await this.loadVariantTaxCategoryMap(lines);
+    const saleDoc = mapTransactionToSaleBoleta(lines, person, variantTaxCategoryByVariantId);
     const issuedAt = (transaction.createdAt ?? new Date()).toISOString().slice(0, 10);
     const material = await this.loadPfxMaterial(companyId);
     const rutEnvia = this.resolveRutEnvia(material, emisor.rut);
@@ -1141,7 +1145,11 @@ export class FiscalBoletaEmissionService {
       });
       person = customer?.person ?? null;
     }
-    const doc = mapTransactionToSaleBoleta(lines, person);
+    const doc = mapTransactionToSaleBoleta(
+      lines,
+      person,
+      await this.loadVariantTaxCategoryMap(lines),
+    );
     const printPreview = buildSaleBoletaPrintPreview({
       company,
       doc,
@@ -1176,6 +1184,31 @@ export class FiscalBoletaEmissionService {
       cafId: allocation.cafId,
       allocationId: allocation.id,
     };
+  }
+
+  private async loadVariantTaxCategoryMap(
+    lines: TransactionLine[],
+  ): Promise<Map<string, VariantTaxCategory>> {
+    const variantIds = [
+      ...new Set(
+        lines
+          .map((line) => line.productVariantId?.trim() ?? '')
+          .filter((id) => id.length > 0),
+      ),
+    ];
+    if (variantIds.length === 0) {
+      return new Map();
+    }
+    const variants = await this.dataSource.getRepository(ProductVariant).find({
+      where: { id: In(variantIds) },
+      select: ['id', 'taxCategory'],
+    });
+    return buildVariantTaxCategoryMap(
+      variants.map((variant) => ({
+        variantId: variant.id,
+        taxCategory: variant.taxCategory,
+      })),
+    );
   }
 
   private buildAndSignSaleBoleta(

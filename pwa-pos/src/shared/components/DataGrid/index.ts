@@ -1,3 +1,2 @@
-export { default } from './DataGridWrapper';
-export type { DataGridColumn, DataGridProps } from './DataGrid';
-export { RowActions } from './components/RowActions';
+export { DataGrid as default, RowActions } from "@kai/ui";
+export type { DataGridColumn, DataGridCellOverflow, DataGridProps } from "@kai/ui";

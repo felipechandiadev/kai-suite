@@ -20,7 +20,7 @@ import {
   SEED_SAN_SEBASTIAN_COMPANY,
   getSeedSanSebastianSiiEmisorFields,
 } from './seed-san-sebastian-config';
-import { seedSanSebastianFiscal } from './seed-san-sebastian-fiscal';
+import { seedSanSebastianFiscal } from './seed-san-sebastian-fiscal.ts';
 
 const DEFAULT_COMPANY_ID = '24780018-649b-4d43-8318-cad6cef745bc';
 

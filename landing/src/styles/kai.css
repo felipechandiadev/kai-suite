@@ -391,8 +391,20 @@ p {
   justify-content: center;
 }
 
+.pillar-stock-preview {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-height: 220px;
+}
+
 @media (min-width: 768px) {
   .pillar--stock .pillar-visual {
+    justify-content: flex-start;
+  }
+
+  .pillar-stock-preview {
     justify-content: flex-start;
   }
 }

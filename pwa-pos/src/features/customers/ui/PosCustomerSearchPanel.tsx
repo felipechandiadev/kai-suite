@@ -33,6 +33,7 @@ import {
   readPosCustomerSearchPageSize,
   writePosCustomerSearchPageSize,
 } from "@/features/customers/lib/posCustomerSearchStorage";
+import { searchPosCustomersAction } from "@/features/customers/actions/customers-pos.action";
 import { searchOfflineCustomers } from "@/features/pos-offline/application/search-offline-customers.usecase";
 import { touchOfflineCustomerUsed } from "@/features/pos-offline/application/download-customers-snapshot.usecase";
 
@@ -81,6 +82,13 @@ type Props = {
   offlineTotal?: number;
   /** Activa búsqueda local IndexedDB (sin navegación URL). */
   offlineMode?: boolean;
+  /**
+   * Pantallas sin SSR (p. ej. cobro offline-first): resuelve resultados vía
+   * server action en cliente cuando cambian los params de URL.
+   */
+  clientFetchMode?: boolean;
+  /** Solo clientes activos (cobro POS). */
+  activeOnly?: boolean;
 };
 
 /**
@@ -90,12 +98,10 @@ type Props = {
  * customerPageSize) y este componente escribe en la URL ante cambios.
  *
  * Estado:
- *  - `initial.*` proviene del SSR y manda como source-of-truth de los
- *    resultados visibles.
- *  - `draftQuery` es el input local con debounce; al asentarse se
- *    refleja en la URL y dispara un nuevo render del Server Component.
- *  - `pageSize` se persiste en `localStorage` (preferencia personal) y,
- *    si no estaba explícita en la URL, se reflecta a la URL al montar.
+ *  - `initial.*` proviene del SSR (página Clientes) o es vacío (cobro).
+ *  - Con `clientFetchMode`, los resultados se obtienen en cliente vía server action.
+ *  - `draftQuery` es el input local con debounce; al asentarse se refleja en la URL.
+ *  - `pageSize` se persiste en `localStorage` y se sincroniza con la URL al montar.
  */
 export default function PosCustomerSearchPanel({
   initial,
@@ -111,6 +117,8 @@ export default function PosCustomerSearchPanel({
   offlineItems = null,
   offlineTotal,
   offlineMode = false,
+  clientFetchMode = false,
+  activeOnly = false,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -145,23 +153,101 @@ export default function PosCustomerSearchPanel({
   const [draftPageSize, setDraftPageSize] = useState<number>(initial.pageSize);
   const [localOfflineItems, setLocalOfflineItems] = useState<PosCustomerSearchRow[]>([]);
   const [localOfflineTotal, setLocalOfflineTotal] = useState(0);
+  const [clientFetchLoading, setClientFetchLoading] = useState(false);
+  const [clientFetchSnapshot, setClientFetchSnapshot] = useState<PosCustomerSearchInitial>(() => ({
+    query: initial.query ?? "",
+    page: initial.page,
+    pageSize: initial.pageSize,
+    items: initial.items,
+    total: initial.total,
+    error: initial.error,
+  }));
 
-  const visibleItems = offlineMode
-    ? localOfflineItems
-    : offlineItems ?? initial.items;
-  const visibleTotal = offlineMode
-    ? localOfflineTotal
-    : offlineTotal ?? initial.total;
+  const useClientFetch = clientFetchMode && !offlineMode;
+
+  const resolvedSearch = useMemo((): PosCustomerSearchInitial => {
+    if (offlineMode) {
+      return {
+        query: draftQuery.trim(),
+        page: 1,
+        pageSize: initial.pageSize,
+        items: localOfflineItems,
+        total: localOfflineTotal,
+        error: null,
+      };
+    }
+    if (useClientFetch) {
+      return clientFetchSnapshot;
+    }
+    return {
+      query: initial.query ?? "",
+      page: initial.page,
+      pageSize: initial.pageSize,
+      items: offlineItems ?? initial.items,
+      total: offlineTotal ?? initial.total,
+      error: initial.error,
+    };
+  }, [
+    clientFetchSnapshot,
+    draftQuery,
+    initial,
+    localOfflineItems,
+    localOfflineTotal,
+    offlineItems,
+    offlineMode,
+    offlineTotal,
+    useClientFetch,
+  ]);
+
+  const visibleItems = resolvedSearch.items;
+  const visibleTotal = resolvedSearch.total;
+  const visibleError = resolvedSearch.error;
 
   // --- Sync draftQuery con la URL externa (back/forward del navegador). ---
-  // Si el usuario navega y llega un `initial.query` distinto, alineamos el
-  // input local sólo cuando NO está editando un valor distinto pendiente.
   useEffect(() => {
+    const externalQuery = useClientFetch ? urlQuery : (initial.query ?? "").trim();
     setDraftQuery((current) => {
-      if (current.trim() === (initial.query ?? "").trim()) return current;
-      return initial.query ?? "";
+      if (current.trim() === externalQuery) return current;
+      return externalQuery;
     });
-  }, [initial.query]);
+  }, [initial.query, urlQuery, useClientFetch]);
+
+  useEffect(() => {
+    if (!useClientFetch) return;
+    let cancelled = false;
+    setClientFetchLoading(true);
+    void searchPosCustomersAction({
+      query: urlQuery,
+      page: urlPage,
+      pageSize: urlPageSize,
+      activeOnly: activeOnly || undefined,
+    }).then((res) => {
+      if (cancelled) return;
+      if (res.success) {
+        setClientFetchSnapshot({
+          query: urlQuery,
+          page: res.page || urlPage,
+          pageSize: res.pageSize || urlPageSize,
+          items: res.customers,
+          total: res.total,
+          error: null,
+        });
+      } else {
+        setClientFetchSnapshot({
+          query: urlQuery,
+          page: urlPage,
+          pageSize: urlPageSize,
+          items: [],
+          total: 0,
+          error: res.message,
+        });
+      }
+      setClientFetchLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeOnly, urlPage, urlPageSize, urlQuery, useClientFetch]);
 
   // --- Auto-sync de pageSize entre LS ↔ URL al montar. ---
   // Si la URL no trae `customerPageSize` y la preferencia local difiere
@@ -271,21 +357,29 @@ export default function PosCustomerSearchPanel({
 
   const totalPages = useMemo(
     () =>
-      Math.max(1, Math.ceil((visibleTotal || 0) / Math.max(1, initial.pageSize)) || 1),
-    [visibleTotal, initial.pageSize],
+      Math.max(
+        1,
+        Math.ceil((visibleTotal || 0) / Math.max(1, resolvedSearch.pageSize)) || 1,
+      ),
+    [resolvedSearch.pageSize, visibleTotal],
   );
 
   const queryPending = offlineMode ? false : draftQuery.trim() !== urlQuery;
   const resultsPending = offlineMode
     ? false
-    : urlQuery !== (initial.query ?? "").trim() ||
-      urlPage !== initial.page ||
-      urlPageSize !== initial.pageSize;
+    : useClientFetch
+      ? clientFetchLoading ||
+        urlQuery !== (clientFetchSnapshot.query ?? "").trim() ||
+        urlPage !== clientFetchSnapshot.page ||
+        urlPageSize !== clientFetchSnapshot.pageSize
+      : urlQuery !== (initial.query ?? "").trim() ||
+        urlPage !== initial.page ||
+        urlPageSize !== initial.pageSize;
   const showLoading = isPending || queryPending || resultsPending;
 
   const hasResults = visibleItems.length > 0;
   const queryLen = draftQuery.trim().length;
-  const noMatches = !showLoading && hasResults === false && queryLen >= 2 && !initial.error;
+  const noMatches = !showLoading && hasResults === false && queryLen >= 2 && !visibleError;
 
   // ─── Modo DETALLE embebido (sólo pantalla de cobro) ───────────────────────
   if (variant === "stacked" && selectedCustomer) {
@@ -433,9 +527,9 @@ export default function PosCustomerSearchPanel({
         aria-busy={showLoading}
       />
 
-      {initial.error ? (
+      {visibleError ? (
         <Alert variant="error" className="py-2 text-sm">
-          {initial.error}
+          {visibleError}
         </Alert>
       ) : null}
 
@@ -447,7 +541,7 @@ export default function PosCustomerSearchPanel({
         aria-busy={showLoading}
         data-test-id="pos-customer-search-results"
       >
-        {!hasResults && !initial.error && queryLen < 2 ? (
+        {!hasResults && !visibleError && queryLen < 2 ? (
           <p className="text-sm text-muted-foreground">
             Escribe al menos 2 caracteres para buscar (nombre, RUT o teléfono).
           </p>
@@ -512,7 +606,7 @@ export default function PosCustomerSearchPanel({
             data-test-id="pos-customer-search-settings"
           />
           <span className="truncate text-xs text-muted-foreground">
-            Pág. {initial.page} / {totalPages} ({initial.total} clientes)
+            Pág. {resolvedSearch.page} / {totalPages} ({resolvedSearch.total} clientes)
           </span>
         </div>
         <div className="flex shrink-0 gap-1">
@@ -520,20 +614,20 @@ export default function PosCustomerSearchPanel({
             icon="ChevronLeft"
             variant="action"
             size="sm"
-            disabled={initial.page <= 1 || showLoading}
+            disabled={resolvedSearch.page <= 1 || showLoading || offlineMode}
             title="Anterior"
             ariaLabel="Página anterior"
-            onClick={() => goToPage(initial.page - 1)}
+            onClick={() => goToPage(resolvedSearch.page - 1)}
             data-test-id="pos-customer-search-prev"
           />
           <IconButton
             icon="ChevronRight"
             variant="action"
             size="sm"
-            disabled={initial.page >= totalPages || showLoading}
+            disabled={resolvedSearch.page >= totalPages || showLoading || offlineMode}
             title="Siguiente"
             ariaLabel="Página siguiente"
-            onClick={() => goToPage(initial.page + 1)}
+            onClick={() => goToPage(resolvedSearch.page + 1)}
             data-test-id="pos-customer-search-next"
           />
         </div>

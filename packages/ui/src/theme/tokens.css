@@ -1,0 +1,21 @@
+/**
+ * Contrato de tokens visuales para @kai/ui.
+ * Cada PWA define estos valores en :root (globals.css).
+ * Los componentes usan var(--color-*) y CSS colocalizado.
+ */
+:root {
+  --color-primary: #002b59;
+  --color-background: #ffffff;
+  --color-foreground: #131615;
+  --color-border: #c1c1c2;
+  --color-active: #0a7cad;
+  --color-accent: #0a7cad;
+  --color-secondary: #04c9e6;
+  --color-muted: #6b7280;
+  --color-success: #4caf50;
+  --color-info: #2196f3;
+  --color-warning: #ffc107;
+  --color-error: #f44336;
+  --color-neutral: #f3f4f6;
+  --color-hover: color-mix(in srgb, var(--color-neutral) 65%, var(--color-background));
+}

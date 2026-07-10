@@ -45,6 +45,7 @@ fn is_vector_pos_ticket_type(print_type: &str) -> bool {
             | "pos-cash-closing-ticket"
             | "pos-cash-count-sheet-ticket"
             | "pos-cash-session-opening-ticket"
+            | "pos-cash-hub-movement-ticket"
             | "pos-bank-account-ticket"
             | "pos-presale-ticket"
             | "fiscal-boleta-preview"
@@ -65,8 +66,12 @@ fn vector_ticket_folio(print_type: &str, ticket: &serde_json::Value) -> String {
             .unwrap_or("")
             .to_string(),
         "pos-cash-closing-ticket"
-        | "pos-cash-count-sheet-ticket"
-        | "pos-cash-session-opening-ticket" => {
+        | "pos-cash-count-sheet-ticket" => ticket
+            .get("documentNumber")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        "pos-cash-session-opening-ticket" => {
             let sid = ticket
                 .get("cashSessionId")
                 .and_then(|v| v.as_str())
@@ -77,6 +82,11 @@ fn vector_ticket_folio(print_type: &str, ticket: &serde_json::Value) -> String {
                 sid.to_string()
             }
         }
+        "pos-cash-hub-movement-ticket" => ticket
+            .get("documentNumber")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
         "pos-presale-ticket" => ticket
             .get("code")
             .and_then(|v| v.as_str())
@@ -134,6 +144,7 @@ fn vector_ticket_escpos_writer(print_type: &str) -> WriteVectorTicketFn {
         "pos-cash-session-opening-ticket" => {
             jobs::write_pos_cash_session_opening_ticket_escpos_from_value
         }
+        "pos-cash-hub-movement-ticket" => jobs::write_pos_cash_hub_movement_ticket_escpos_from_value,
         "pos-bank-account-ticket" => jobs::write_pos_bank_account_ticket_escpos_from_value,
         "pos-presale-ticket" => jobs::write_pos_presale_ticket_escpos_from_value,
         "fiscal-boleta-preview" => jobs::write_fiscal_boleta_preview_escpos_from_value,
@@ -382,6 +393,7 @@ where
                                     "pos-cash-closing-ticket",
                                     "pos-cash-count-sheet-ticket",
                                     "pos-cash-session-opening-ticket",
+                                    "pos-cash-hub-movement-ticket",
                                     "pos-bank-account-ticket",
                                     "pos-presale-ticket",
                                     "fiscal-boleta-preview",
@@ -687,6 +699,13 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
             let internal_folio = env.extra.get("internalFolio").and_then(|v| v.as_str());
             let source_app = env.extra.get("sourceApp").and_then(|v| v.as_str());
             let requested_by = env.extra.get("requestedBy").and_then(|v| v.as_str());
+            let agent_print_type = if is_vector_pos_ticket_type(print_type) {
+                Some(print_type)
+            } else if print_type != "pdf-base64" {
+                Some(print_type)
+            } else {
+                None
+            };
             let printer_display_label = env
                 .extra
                 .get("printerDisplayLabel")
@@ -738,6 +757,7 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
                 target_system_printer.as_deref(),
                 target_network_host.as_deref(),
                 Some(print_format.wire_value()),
+                agent_print_type,
             ) {
                 return OutResponse::err(rid, format!("{e:#}"));
             }
@@ -806,6 +826,7 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
                 target_system_printer.as_deref(),
                 target_network_host.as_deref(),
                 None,
+                Some("test_print"),
             ) {
                 return OutResponse::err(rid, format!("{e:#}"));
             }

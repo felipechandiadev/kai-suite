@@ -16,6 +16,7 @@ import { SearchPosProductsDto } from './dto/search-pos-products.dto';
 import { MultimediaServiceAdapter } from '@modules/multimedia/application/services/multimedia.service.adapter';
 import { AttributeOrmEntity } from '@modules/attributes/infrastructure/orm-mappers/attribute.orm-entity';
 import { posDisplayStockInSaleUnits } from '@modules/product-variants/application/variant-count-bridge.util';
+import { normalizeVariantTaxCategory } from '@modules/product-variants/domain/variant-tax-category';
 
 export type PosProductSearchResult = {
   productId: string;
@@ -44,6 +45,9 @@ export type PosProductSearchResult = {
   stockBaseUnitSymbol?: string | null;
   stockBaseQtyPerCountSaleUnit?: number | null;
   metadata: Record<string, unknown> | null;
+  taxCategory: string;
+  requiresDte: boolean;
+  taxIds: string[];
 };
 
 @Injectable()
@@ -536,6 +540,11 @@ export class ProductsPosService {
           stockBaseQtyPerCountSaleUnit:
             (variant as any).stockBaseQtyPerCountSaleUnit ?? null,
           metadata: null,
+          taxCategory: normalizeVariantTaxCategory(variant.taxCategory),
+          requiresDte: variant.requiresDte !== false,
+          taxIds: Array.isArray(variant.taxIds)
+            ? variant.taxIds.map((id) => String(id)).filter(Boolean)
+            : [],
         };
       });
   }

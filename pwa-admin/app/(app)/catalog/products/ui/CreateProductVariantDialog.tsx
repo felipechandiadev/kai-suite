@@ -20,11 +20,16 @@ import type { TaxListItem } from "@/features/accounting-taxes/types/tax.types";
 import { listAttributesForPage } from "@/features/inventory-attributes/actions/attribute.action";
 import type { AttributeListItem } from "@/features/inventory-attributes/types/attribute.types";
 import {
+  catalogDefaultIvaTaxIds,
+  filterSelectableSaleTaxes,
+} from "@/features/inventory-products/lib/sale-taxes";
+import {
   deriveBasePriceFromPriceRows,
-  effectiveIvaFactor,
   netToGross,
+  resolvePricingGrossFactor,
   roundMoneyInt,
 } from "@/features/inventory-products/domain/price-tax-math";
+import { DEFAULT_VARIANT_TAX_CATEGORY } from "@/features/inventory-products/types/variant-fiscal.types";
 import {
   createVariantPriceRow,
   VariantPriceRowsEditor,
@@ -41,15 +46,6 @@ import {
 } from "@/features/inventory-products/lib/variant-weight";
 
 /** IVA marcado como predeterminado en catálogo; si no hay ninguno, se usa el primer IVA activo. */
-function catalogDefaultIvaTaxIds(taxes: TaxListItem[]): string[] {
-  const iva = taxes.filter((t) => t.isActive && t.taxType === "IVA");
-  const defaults = iva.filter((t) => t.isDefault).map((t) => t.id);
-  if (defaults.length > 0) {
-    return defaults;
-  }
-  return iva[0]?.id != null ? [iva[0].id] : [];
-}
-
 export type CreateProductVariantDialogProps = {
   open: boolean;
   onClose: () => void;
@@ -104,11 +100,7 @@ export function CreateProductVariantDialog({
   const [isPending, startTransition] = useTransition();
   const [attributesPickerOpen, setAttributesPickerOpen] = useState(false);
 
-  const ivaTaxes = useMemo(
-    () => taxes.filter((t) => t.isActive && t.taxType === "IVA"),
-    [taxes],
-  );
-
+  const catalogTaxes = useMemo(() => filterSelectableSaleTaxes(taxes), [taxes]);
   const defaultIvaTaxIds = useMemo(() => catalogDefaultIvaTaxIds(taxes), [taxes]);
 
   const selectableAttributes = useMemo(() => {
@@ -370,7 +362,7 @@ export function CreateProductVariantDialog({
         if (r.key !== priceRowKey) {
           return r;
         }
-        const f = effectiveIvaFactor(ivaTaxes, r.taxIds);
+        const f = resolvePricingGrossFactor(DEFAULT_VARIANT_TAX_CATEGORY, catalogTaxes, r.taxIds);
         const n = roundMoneyInt(net);
         return { ...r, net: n, gross: netToGross(n, f), lastEdited: "net" as const };
       }),
@@ -594,10 +586,13 @@ export function CreateProductVariantDialog({
           </p>
           <VariantPriceRowsEditor
             priceLists={priceLists}
-            ivaTaxes={ivaTaxes}
+            catalogTaxes={catalogTaxes}
+            taxCategory={DEFAULT_VARIANT_TAX_CATEGORY}
+            variantTaxIds={priceRows[0]?.taxIds ?? defaultIvaTaxIds}
             rows={priceRows}
             onRowsChange={setPriceRows}
             defaultIvaTaxIds={defaultIvaTaxIds}
+            taxesEditable
             onOpenPmpCalculator={(rowKey) => setPmpCalculatorRowKey(rowKey)}
             onOpenJewelryCalculator={(rowKey) => setJewelryCalculatorRowKey(rowKey)}
           />
@@ -660,13 +655,14 @@ export function CreateProductVariantDialog({
         open={pmpCalculatorRowKey != null}
         onClose={() => setPmpCalculatorRowKey(null)}
         initialPmp={Math.max(0, Math.round(Number(referencePmp) || 0))}
+        taxCategory={DEFAULT_VARIANT_TAX_CATEGORY}
         priceRowKey={pmpCalculatorRowKey}
         taxIdsForPreview={
           pmpCalculatorRowKey != null
             ? (priceRows.find((r) => r.key === pmpCalculatorRowKey)?.taxIds ?? [])
             : []
         }
-        ivaTaxes={ivaTaxes}
+        catalogTaxes={catalogTaxes}
         onApply={handlePmpCalculatorApply}
       />
       <VariantJewelryPriceCalculatorDialog

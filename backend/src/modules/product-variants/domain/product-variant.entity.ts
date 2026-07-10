@@ -16,6 +16,10 @@ import { Unit } from '@modules/units/domain/unit.entity';
 import { PriceListItem } from '@modules/price-list-items/domain/price-list-item.entity';
 import type { PmpHistoryEntry } from './pmp-history.types';
 import type { SalePriceHistoryEntry } from './sale-price-history.types';
+import {
+  DEFAULT_VARIANT_TAX_CATEGORY,
+  type VariantTaxCategory,
+} from './variant-tax-category';
 
 export interface ProductVariantMediaAsset {
   id: string;
@@ -211,6 +215,14 @@ export class ProductVariant {
    */
   @Column({ type: 'json', nullable: true })
   taxIds?: string[];
+
+  /** Tratamiento tributario de venta (SII). */
+  @Column({ name: 'tax_category', type: 'varchar', length: 40, default: DEFAULT_VARIANT_TAX_CATEGORY })
+  taxCategory!: VariantTaxCategory;
+
+  /** Si la venta debe emitir DTE (boleta/factura) ante el SII. */
+  @Column({ name: 'requires_dte', type: 'boolean', default: true })
+  requiresDte!: boolean;
 
   /**
    * Si se controla inventario para esta variante

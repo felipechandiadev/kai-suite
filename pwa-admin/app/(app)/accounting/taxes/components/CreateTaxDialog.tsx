@@ -9,6 +9,7 @@ import Select from "@/shared/components/Select/Select";
 import Switch from "@/shared/components/Switch/Switch";
 import type { TaxType } from "@/features/accounting-taxes/types/tax.types";
 import { createTaxAction } from "@/features/accounting-taxes/actions/tax.action";
+import { parseTaxRateFromInput } from "@/features/accounting-taxes/domain/tax.entity";
 import { TAX_TYPE_SELECT_OPTIONS } from "./taxFormOptions";
 
 export type CreateTaxDialogProps = {
@@ -73,7 +74,12 @@ export function CreateTaxDialog({ open, onClose, onSuccess }: CreateTaxDialogPro
     });
   };
 
-  const canSubmit = name.trim() && !isPending;
+  const parsedRate = parseTaxRateFromInput(rateStr);
+  const canSubmit = name.trim() && parsedRate != null && !isPending;
+  const rateHint =
+    rateStr.trim() !== "" && parsedRate == null
+      ? "La tasa debe ser mayor a 0% (máx. 999,99)"
+      : undefined;
 
   return (
     <Dialog
@@ -126,7 +132,10 @@ export function CreateTaxDialog({ open, onClose, onSuccess }: CreateTaxDialogPro
           name="tax-create-rate"
           value={rateStr}
           onChange={(e) => setRateStr(e.target.value)}
-          placeholder="Tasa (%)"
+          placeholder="Ej: 19"
+          required
+          helperText={rateHint}
+          inputMode="decimal"
           data-test-id="tax-create-rate"
         />
         <TextField

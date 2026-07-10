@@ -1,15 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Badge from "@/shared/components/Badge/Badge";
 import { Button } from "@/shared/components/Button";
+import { DeleteDialog } from "@/shared/components/Dialog/DeleteDialog";
 import type { FiscalCafPackage, FiscalCafPackageDetail } from "../types/fiscal.types";
 import { dteTypeLabel } from "@/features/sales-points-of-sale/types/pos-fiscal.types";
 import type { PointOfSaleListItem } from "@/features/sales-points-of-sale/types/point-of-sale.types";
 import { AssignSubPackDialog } from "./AssignSubPackDialog";
 import { FolioLedgerDialog } from "./FolioLedgerDialog";
 import { FolioSubPackRow } from "./FolioSubPackRow";
-import { getFiscalCafPackageDetailAction } from "../actions/fiscal.actions";
+import {
+  deleteFiscalPackageAction,
+  getFiscalCafPackageDetailAction,
+} from "../actions/fiscal.actions";
 
 type Props = {
   pkg: FiscalCafPackage;
@@ -35,8 +40,12 @@ function envLabel(env: string): string {
 }
 
 export function FolioPackageCard({ pkg, pointsOfSale, highlight }: Props) {
+  const router = useRouter();
   const [assignOpen, setAssignOpen] = useState(false);
   const [ledgerOpen, setLedgerOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteErrors, setDeleteErrors] = useState<string[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [detail, setDetail] = useState<FiscalCafPackageDetail | null>(null);
   const [ledgerSubPack, setLedgerSubPack] = useState<{
     allocationId: string;
@@ -125,6 +134,18 @@ export function FolioPackageCard({ pkg, pointsOfSale, highlight }: Props) {
                 Asignar a POS
               </Button>
             ) : null}
+            <Button
+              variant="danger"
+              size="sm"
+              disabled={isDeleting}
+              onClick={() => {
+                setDeleteErrors([]);
+                setDeleteOpen(true);
+              }}
+              data-test-id={`folio-package-delete-${pkg.id}`}
+            >
+              Eliminar
+            </Button>
           </div>
         </div>
 
@@ -188,6 +209,43 @@ export function FolioPackageCard({ pkg, pointsOfSale, highlight }: Props) {
         allocationId={ledgerSubPack?.allocationId}
         folioFrom={ledgerSubPack?.rangeFrom ?? pkg.rangeFrom}
         folioTo={ledgerSubPack?.rangeTo ?? pkg.rangeTo}
+      />
+
+      <DeleteDialog
+        open={deleteOpen}
+        onClose={() => {
+          if (!isDeleting) {
+            setDeleteOpen(false);
+            setDeleteErrors([]);
+          }
+        }}
+        title="Eliminar paquete de folios"
+        message={
+          <>
+            ¿Eliminar el paquete <strong className="font-semibold">«{pkg.packageCode}»</strong>? Se
+            eliminarán también todas las asignaciones a POS asociadas. No se puede deshacer.
+          </>
+        }
+        errors={deleteErrors}
+        isSubmitting={isDeleting}
+        data-test-id={`folio-package-delete-dialog-${pkg.id}`}
+        onConfirm={() => {
+          setDeleteErrors([]);
+          setIsDeleting(true);
+          void (async () => {
+            try {
+              const res = await deleteFiscalPackageAction(pkg.id);
+              if (res.success) {
+                setDeleteOpen(false);
+                await router.refresh();
+              } else {
+                setDeleteErrors([res.error]);
+              }
+            } finally {
+              setIsDeleting(false);
+            }
+          })();
+        }}
       />
     </>
   );

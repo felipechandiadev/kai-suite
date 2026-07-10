@@ -422,6 +422,16 @@ export class FiscalRequest {
     return { success: true as const };
   }
 
+  static async deletePackage(cafId: string) {
+    const res = await fetch(apiUrl(`/company/fiscal-caf-packages/${encodeURIComponent(cafId)}`), {
+      method: "DELETE",
+      headers: await authHeadersJson(),
+    });
+    const json = await res.json();
+    if (!res.ok) return { success: false as const, error: errorMessage(json, "Error al eliminar paquete") };
+    return { success: true as const };
+  }
+
   static async updatePackageStatus(cafId: string, status: FiscalCafPackageStatus) {
     const res = await fetch(apiUrl(`/company/fiscal-caf-packages/${encodeURIComponent(cafId)}/status`), {
       method: "PATCH",

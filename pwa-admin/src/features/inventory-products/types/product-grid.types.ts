@@ -7,6 +7,8 @@ export type CatalogProductType =
   | "ELABORADO"
   | "PREPARADO";
 
+import type { VariantTaxCategory } from "./variant-fiscal.types";
+
 export type ProductPriceListItemRow = {
   priceListId: string;
   priceListName: string;
@@ -75,6 +77,10 @@ export type ProductVariantGridRow = {
   primaryImageUrl?: string | null;
   mediaAssets?: ProductVariantMediaAsset[];
   priceListItems: ProductPriceListItemRow[];
+  /** Impuestos de venta asignados a la variante (maestro fiscal; catálogo /accounting/taxes). */
+  taxIds?: string[];
+  taxCategory?: VariantTaxCategory;
+  requiresDte?: boolean;
 };
 
 export type ProductGridRow = {

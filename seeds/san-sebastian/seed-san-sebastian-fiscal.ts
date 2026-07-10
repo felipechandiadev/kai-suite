@@ -41,8 +41,10 @@ export async function seedSanSebastianFiscal(args: {
   companyId: string;
   posId: string;
   posRepo: Repository<PointOfSale>;
+  /** Solo certificado + perfil + POS fiscal; sin CAF ni folios (subir en Admin). */
+  skipCaf?: boolean;
 }): Promise<void> {
-  const { app, companyId, posId, posRepo } = args;
+  const { app, companyId, posId, posRepo, skipCaf = false } = args;
 
   const pfxPath = resolveFiscalAssetPath('SAN_SEBASTIAN_SII_PFX_PATH', DEFAULT_PFX_PATH);
   const cafPath = resolveFiscalAssetPath('SAN_SEBASTIAN_SII_CAF_PATH', DEFAULT_CAF_PATH);
@@ -54,7 +56,7 @@ export async function seedSanSebastianFiscal(args: {
   }
 
   const pfxBuffer = requireFiscalAsset(pfxPath, 'certificado PFX');
-  const cafBuffer = requireFiscalAsset(cafPath, 'CAF boleta 39');
+  const cafBuffer = skipCaf ? null : requireFiscalAsset(cafPath, 'CAF boleta 39');
 
   const dataSource = app.get(DataSource);
   const companyRepo = dataSource.getRepository(Company);
@@ -69,8 +71,6 @@ export async function seedSanSebastianFiscal(args: {
   }
 
   const fiscalService = app.get(FiscalService);
-  const cafPackageService = app.get(FiscalCafPackageService);
-  const allocationService = app.get(PosFolioAllocationService);
 
   await fiscalService.updateProfile(companyId, {
     environment: SiiEnvironment.PRODUCTION,
@@ -81,29 +81,38 @@ export async function seedSanSebastianFiscal(args: {
   await fiscalService.uploadCertificate(companyId, pfxBuffer, pfxPassword);
   console.log('✅ Certificado digital SII cargado');
 
-  const cafPackage = await cafPackageService.uploadPackage(
-    companyId,
-    cafBuffer,
-    SiiEnvironment.PRODUCTION,
-  );
-  console.log(
-    `✅ CAF producción: ${cafPackage.packageCode} folios ${cafPackage.rangeFrom}–${cafPackage.rangeTo}`,
-  );
+  if (skipCaf) {
+    await fiscalService.acknowledgePortalCertification(companyId);
+    console.log('✅ Perfil fiscal: certificado cargado, estado CERTIFIED');
+    console.log('⏭️  CAF/folios omitidos — suba folios en Admin → SII y habilite producción');
+  } else {
+    const cafPackageService = app.get(FiscalCafPackageService);
+    const allocationService = app.get(PosFolioAllocationService);
 
-  await fiscalService.acknowledgePortalCertification(companyId);
-  await fiscalService.enableProduction(companyId, {
-    productionEnabled: true,
-    environment: SiiEnvironment.PRODUCTION,
-  });
-  console.log('✅ Perfil fiscal: certificado y producción habilitados');
+    const cafPackage = await cafPackageService.uploadPackage(
+      companyId,
+      cafBuffer!,
+      SiiEnvironment.PRODUCTION,
+    );
+    console.log(
+      `✅ CAF producción: ${cafPackage.packageCode} folios ${cafPackage.rangeFrom}–${cafPackage.rangeTo}`,
+    );
 
-  await allocationService.createSubPack(companyId, cafPackage.id, {
-    pointOfSaleId: posId,
-    rangeFrom: cafPackage.rangeFrom,
-    rangeTo: cafPackage.rangeTo,
-    label: SEED_POS_NAME,
-  });
-  console.log(`✅ Sub-paquete folios asignado a «${SEED_POS_NAME}»`);
+    await fiscalService.acknowledgePortalCertification(companyId);
+    await fiscalService.enableProduction(companyId, {
+      productionEnabled: true,
+      environment: SiiEnvironment.PRODUCTION,
+    });
+    console.log('✅ Perfil fiscal: certificado y producción habilitados');
+
+    await allocationService.createSubPack(companyId, cafPackage.id, {
+      pointOfSaleId: posId,
+      rangeFrom: cafPackage.rangeFrom,
+      rangeTo: cafPackage.rangeTo,
+      label: SEED_POS_NAME,
+    });
+    console.log(`✅ Sub-paquete folios asignado a «${SEED_POS_NAME}»`);
+  }
 
   const posRow = await posRepo.findOne({ where: { id: posId } });
   if (!posRow) {

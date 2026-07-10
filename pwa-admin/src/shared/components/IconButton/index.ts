@@ -1,2 +1,1 @@
-export { default } from './IconButton';
-export type { IconButtonVariant } from './IconButton';
+export { IconButton as default } from "@kai/ui";

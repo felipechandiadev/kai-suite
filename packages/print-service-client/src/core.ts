@@ -24,6 +24,10 @@ import type {
   PosCashSessionOpeningTicketPrintExtras,
 } from "./pos-cash-session-opening-ticket";
 import type {
+  PosCashHubMovementTicketPayload,
+  PosCashHubMovementTicketPrintExtras,
+} from "./pos-cash-hub-movement-ticket";
+import type {
   PosBankAccountTicketPayload,
   PosBankAccountTicketPrintExtras,
 } from "./pos-bank-account-ticket";
@@ -159,6 +163,8 @@ export const AGENT_CAPABILITY_POS_CASH_CLOSING_TICKET = "pos-cash-closing-ticket
 export const AGENT_CAPABILITY_POS_CASH_COUNT_SHEET_TICKET = "pos-cash-count-sheet-ticket";
 export const AGENT_CAPABILITY_POS_CASH_SESSION_OPENING_TICKET =
   "pos-cash-session-opening-ticket";
+export const AGENT_CAPABILITY_POS_CASH_HUB_MOVEMENT_TICKET =
+  "pos-cash-hub-movement-ticket";
 export const AGENT_CAPABILITY_POS_BANK_ACCOUNT_TICKET = "pos-bank-account-ticket";
 export const AGENT_CAPABILITY_POS_PRESALE_TICKET = "pos-presale-ticket";
 export const AGENT_CAPABILITY_FISCAL_BOLETA_PREVIEW = "fiscal-boleta-preview";
@@ -680,6 +686,19 @@ export class PrintServiceConnection {
     return this.enqueuePosPrint(body);
   }
 
+  /**
+   * Ingreso / egreso centro de efectivo: ESC/POS (`type: "pos-cash-hub-movement-ticket"`).
+   */
+  enqueuePosCashHubMovementTicket(
+    ticket: PosCashHubMovementTicketPayload,
+    extras: PosCashHubMovementTicketPrintExtras & { purpose?: string; format?: PrintFormat },
+    omitPrinterDisplayLabel = false,
+  ): Promise<unknown> {
+    const body = buildPosTicketEnqueueBody("pos-cash-hub-movement-ticket", ticket, extras);
+    if (omitPrinterDisplayLabel) return this.enqueuePrint(body);
+    return this.enqueuePosPrint(body);
+  }
+
   /** Cuenta bancaria empresa (transferencia POS): ESC/POS (`type: "pos-bank-account-ticket"`). */
   enqueuePosBankAccountTicket(
     ticket: PosBankAccountTicketPayload,
@@ -1040,6 +1059,16 @@ export function agentSupportsPosCashSessionOpeningTicket(
   const caps = hello?.agentCapabilities;
   if (Array.isArray(caps) && caps.length > 0) {
     return caps.includes(AGENT_CAPABILITY_POS_CASH_SESSION_OPENING_TICKET);
+  }
+  return Boolean(hello?.serviceStatus);
+}
+
+export function agentSupportsPosCashHubMovementTicket(
+  hello: HelloResponseData | null | undefined,
+): boolean {
+  const caps = hello?.agentCapabilities;
+  if (Array.isArray(caps) && caps.length > 0) {
+    return caps.includes(AGENT_CAPABILITY_POS_CASH_HUB_MOVEMENT_TICKET);
   }
   return Boolean(hello?.serviceStatus);
 }

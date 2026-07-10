@@ -1,1 +1,1 @@
-export { default } from './NumberStepper'
+export { NumberStepper as default } from "@kai/ui";

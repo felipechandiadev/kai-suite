@@ -21,11 +21,20 @@ import { listAttributesForPage } from "@/features/inventory-attributes/actions/a
 import type { AttributeListItem } from "@/features/inventory-attributes/types/attribute.types";
 import type { ProductGridRow, ProductVariantGridRow } from "@/features/inventory-products/types/product-grid.types";
 import {
+  catalogDefaultIvaTaxIds,
+  filterSelectableSaleTaxes,
+  resolveVariantTaxIds,
+} from "@/features/inventory-products/lib/sale-taxes";
+import {
   deriveBasePriceFromPriceRows,
-  effectiveIvaFactor,
   netToGross,
+  resolvePricingGrossFactor,
   roundMoneyInt,
 } from "@/features/inventory-products/domain/price-tax-math";
+import {
+  forcesNetEqualsGross,
+  normalizeVariantTaxCategory,
+} from "@/features/inventory-products/types/variant-fiscal.types";
 import {
   priceListItemsToVariantRows,
   VariantPriceRowsEditor,
@@ -44,15 +53,6 @@ import {
 import { EntityMultimediaPanel } from "./EntityMultimediaPanel";
 
 function noop() {}
-
-function catalogDefaultIvaTaxIds(taxes: TaxListItem[]): string[] {
-  const iva = taxes.filter((t) => t.isActive && t.taxType === "IVA");
-  const defaults = iva.filter((t) => t.isDefault).map((t) => t.id);
-  if (defaults.length > 0) {
-    return defaults;
-  }
-  return iva[0]?.id != null ? [iva[0].id] : [];
-}
 
 export type EditProductVariantDialogProps = {
   open: boolean;
@@ -108,12 +108,17 @@ export function EditProductVariantDialog({
   const [isPending, startTransition] = useTransition();
   const [attributesPickerOpen, setAttributesPickerOpen] = useState(false);
 
-  const ivaTaxes = useMemo(
-    () => taxes.filter((t) => t.isActive && t.taxType === "IVA"),
-    [taxes],
-  );
-
+  const catalogTaxes = useMemo(() => filterSelectableSaleTaxes(taxes), [taxes]);
   const defaultIvaTaxIds = useMemo(() => catalogDefaultIvaTaxIds(taxes), [taxes]);
+  const taxCategory = useMemo(
+    () => normalizeVariantTaxCategory(variant.taxCategory),
+    [variant.taxCategory],
+  );
+  const netEqualsGross = forcesNetEqualsGross(taxCategory);
+  const dialogTaxIds = useMemo(
+    () => resolveVariantTaxIds(variant, undefined, defaultIvaTaxIds),
+    [variant, defaultIvaTaxIds],
+  );
 
   const selectableAttributes = useMemo(() => {
     return [...attributes]
@@ -195,7 +200,8 @@ export function EditProductVariantDialog({
         setAttributes(attrs);
 
         const defaultIva = catalogDefaultIvaTaxIds(txs);
-        setPriceRows(priceListItemsToVariantRows(variant.priceListItems ?? [], defaultIva));
+        const master = resolveVariantTaxIds(variant, undefined, defaultIva);
+        setPriceRows(priceListItemsToVariantRows(variant.priceListItems ?? [], master));
         setSku(variant.sku ?? "");
         setBarcode(variant.barcode?.trim() ?? "");
         const saleId =
@@ -378,12 +384,23 @@ export function EditProductVariantDialog({
       return;
     }
     const basePrice = derived;
-    const priceListItems = filteredRows.map((r) => ({
-      priceListId: r.priceListId!.trim(),
-      netPrice: roundMoneyInt(r.net),
-      grossPrice: roundMoneyInt(r.gross),
-      taxIds: r.taxIds.length > 0 ? r.taxIds : undefined,
-    }));
+    if (netEqualsGross) {
+      const mismatch = filteredRows.some((r) => roundMoneyInt(r.net) !== roundMoneyInt(r.gross));
+      if (mismatch) {
+        setError("Para este tratamiento SII el precio neto debe ser igual al precio con impuestos.");
+        return;
+      }
+    }
+    const priceListItems = filteredRows.map((r) => {
+      const netPrice = roundMoneyInt(r.net);
+      const grossPrice = netEqualsGross ? netPrice : roundMoneyInt(r.gross);
+      return {
+        priceListId: r.priceListId!.trim(),
+        netPrice,
+        grossPrice,
+        taxIds: netEqualsGross ? undefined : r.taxIds.length > 0 ? r.taxIds : undefined,
+      };
+    });
 
     const attributeValues: Record<string, string> = {};
     for (const a of selectableAttributes) {
@@ -490,9 +507,10 @@ export function EditProductVariantDialog({
         if (r.key !== priceRowKey) {
           return r;
         }
-        const f = effectiveIvaFactor(ivaTaxes, r.taxIds);
+        const f = resolvePricingGrossFactor(taxCategory, catalogTaxes, r.taxIds);
         const n = roundMoneyInt(net);
-        return { ...r, net: n, gross: netToGross(n, f), lastEdited: "net" as const };
+        const g = netEqualsGross ? n : netToGross(n, f);
+        return { ...r, net: n, gross: g, lastEdited: "net" as const };
       }),
     );
   };
@@ -709,10 +727,13 @@ export function EditProductVariantDialog({
           />
           <VariantPriceRowsEditor
             priceLists={priceLists}
-            ivaTaxes={ivaTaxes}
+            catalogTaxes={catalogTaxes}
+            taxCategory={taxCategory}
+            variantTaxIds={priceRows[0]?.taxIds ?? dialogTaxIds}
             rows={priceRows}
             onRowsChange={setPriceRows}
             defaultIvaTaxIds={defaultIvaTaxIds}
+            taxesEditable
             onOpenPmpCalculator={(rowKey) => setPmpCalculatorRowKey(rowKey)}
             onOpenJewelryCalculator={(rowKey) => setJewelryCalculatorRowKey(rowKey)}
           />
@@ -828,13 +849,14 @@ export function EditProductVariantDialog({
         initialPmp={
           variant.pmp != null && Number.isFinite(variant.pmp) ? Math.max(0, Math.round(variant.pmp)) : 0
         }
+        taxCategory={taxCategory}
         priceRowKey={pmpCalculatorRowKey}
         taxIdsForPreview={
           pmpCalculatorRowKey != null
             ? (priceRows.find((r) => r.key === pmpCalculatorRowKey)?.taxIds ?? [])
             : []
         }
-        ivaTaxes={ivaTaxes}
+        catalogTaxes={catalogTaxes}
         onApply={handlePmpCalculatorApply}
       />
       <VariantJewelryPriceCalculatorDialog

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
@@ -218,7 +218,18 @@ type PosPaymentMethodCardProps = {
   desktopLayout?: boolean;
   bankAccountPrintLoading?: boolean;
   onPrintBankAccount?: () => void;
+  /** Enter en un campo del medio de pago → confirmar pago (mismo CTA del header). */
+  onConfirmEnter?: () => void;
 };
+
+function paymentFieldConfirmOnEnter(
+  e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+  onConfirmEnter?: () => void,
+) {
+  if (e.key !== "Enter" || !onConfirmEnter) return;
+  e.preventDefault();
+  onConfirmEnter();
+}
 
 /** Card de medio de pago: nombre arriba; monto y acciones en la fila siguiente. */
 function PosPaymentMethodCard({
@@ -244,6 +255,7 @@ function PosPaymentMethodCard({
   desktopLayout = false,
   bankAccountPrintLoading = false,
   onPrintBankAccount,
+  onConfirmEnter,
 }: PosPaymentMethodCardProps) {
   const amountValue = String(Math.max(0, Math.round(p.amount)));
   const isInternalCreditLine = p.type === "INTERNAL_CREDIT";
@@ -344,6 +356,7 @@ function PosPaymentMethodCard({
           data-test-id={
             index === 0 ? "pos-payment-default-cash-amount" : `pos-payment-line-amount-${p.id}`
           }
+          onKeyDown={(e) => paymentFieldConfirmOnEnter(e, onConfirmEnter)}
         />
       </div>
       {p.type === "TRANSFER" && bankAccountOptions.length > 0 ? (
@@ -405,6 +418,7 @@ function PosPaymentMethodCard({
             placeholder="Opcional"
             alwaysShowLabel
             density="compact"
+            onKeyDown={(e) => paymentFieldConfirmOnEnter(e, onConfirmEnter)}
           />
         </div>
       ) : null}
@@ -423,6 +437,7 @@ function PosPaymentMethodCard({
             density="compact"
             required
             data-test-id={`pos-payment-check-number-${p.id}`}
+            onKeyDown={(e) => paymentFieldConfirmOnEnter(e, onConfirmEnter)}
           />
           <TextField
             label="Banco emisor"
@@ -433,6 +448,7 @@ function PosPaymentMethodCard({
             density="compact"
             required
             data-test-id={`pos-payment-check-bank-${p.id}`}
+            onKeyDown={(e) => paymentFieldConfirmOnEnter(e, onConfirmEnter)}
           />
           <TextField
             label="Girador"
@@ -443,6 +459,7 @@ function PosPaymentMethodCard({
             density="compact"
             placeholder="Nombre del firmante"
             data-test-id={`pos-payment-check-drawer-${p.id}`}
+            onKeyDown={(e) => paymentFieldConfirmOnEnter(e, onConfirmEnter)}
           />
           <TextField
             label="RUT girador"
@@ -453,6 +470,7 @@ function PosPaymentMethodCard({
             density="compact"
             placeholder="Opcional"
             data-test-id={`pos-payment-check-drawer-doc-${p.id}`}
+            onKeyDown={(e) => paymentFieldConfirmOnEnter(e, onConfirmEnter)}
           />
           <TextField
             label="A fecha"
@@ -463,6 +481,7 @@ function PosPaymentMethodCard({
             density="compact"
             placeholder="YYYY-MM-DD (opcional)"
             data-test-id={`pos-payment-check-due-${p.id}`}
+            onKeyDown={(e) => paymentFieldConfirmOnEnter(e, onConfirmEnter)}
           />
         </div>
       ) : null}
@@ -1902,6 +1921,11 @@ export default function PosPaymentWorkspace({
 
   const confirmPaymentDisabled = !canConfirm || confirmLoading || deferLoading;
 
+  const confirmPaymentFromField = () => {
+    if (confirmPaymentDisabled) return;
+    void handleConfirm();
+  };
+
   const showDeferPaymentButton =
     deferredPaymentEnabled &&
     !isOffline &&
@@ -3200,6 +3224,8 @@ export default function PosPaymentWorkspace({
           showAddCustomer={!customerLocked}
           onAddCustomerClick={() => setCreateCustomerOpen(true)}
           offlineMode={isOffline}
+          clientFetchMode={!isOffline}
+          activeOnly
           paymentSourcesSlot={
             customer?.customerId?.trim() ? (
               <PosCustomerPaymentSourcesPanel
@@ -3397,6 +3423,7 @@ export default function PosPaymentWorkspace({
                       ? () => void handlePrintBankAccount(p.id)
                       : undefined
                   }
+                  onConfirmEnter={confirmPaymentFromField}
                 />
               );
             })}

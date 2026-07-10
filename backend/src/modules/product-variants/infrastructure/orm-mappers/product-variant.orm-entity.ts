@@ -146,6 +146,12 @@ export class ProductVariantOrmEntity {
   @Column({ type: 'json', nullable: true })
   taxIds?: string[];
 
+  @Column({ name: 'tax_category', type: 'varchar', length: 40, default: 'TAX_STANDARD' })
+  taxCategory!: string;
+
+  @Column({ name: 'requires_dte', type: 'boolean', default: true })
+  requiresDte!: boolean;
+
   @Column({ type: 'boolean', default: true })
   trackInventory!: boolean;
 

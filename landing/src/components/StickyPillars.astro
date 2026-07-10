@@ -22,13 +22,10 @@ import Reveal from './Reveal.astro';
         <Reveal>
           <div class="pillar-visual">
             {pillar.id === 'stock' ? (
-              <div
-                class="mockup-shell mockup-shell--mobile mockup-shell--phone"
-                style={`box-shadow: 0 40px 100px ${pillar.accent}22`}
-              >
+              <div class="pillar-stock-preview">
                 <AppPreview
                   app={pillar.id}
-                  src="/screenshots/stock-pillar.svg"
+                  src={pillar.screenshot}
                   alt={pillar.title}
                   accent={pillar.accent}
                 />
