@@ -215,9 +215,19 @@ export type PrintJobDeliveryResult =
   | { status: "done" }
   | { status: "failed"; error: string };
 
+export type PrintJobAwaitUntil = "spooled" | "done";
+
+export type PrintTimingEvent = {
+  stage: string;
+  ms: number;
+  detail?: string;
+  jobId?: string;
+};
+
 type JobWaiter = {
   resolve: (result: PrintJobDeliveryResult) => void;
   timer: ReturnType<typeof globalThis.setTimeout>;
+  awaitUntil: PrintJobAwaitUntil;
 };
 
 export type PrintServiceWsCloseInfo = {
@@ -244,7 +254,10 @@ export type PrintServiceConnectionOptions = {
   onServiceStatus?: (payload: unknown) => void;
   onConfigChanged?: () => void;
   onPrintJobDone?: (jobId: string) => void;
+  onPrintJobSpooled?: (jobId: string) => void;
   onPrintJobFailed?: (jobId: string, error: string) => void;
+  /** Callback opcional de métricas (debug / performance). */
+  onTiming?: (event: PrintTimingEvent) => void;
   onOpen?: () => void;
   onClose?: (info: PrintServiceWsCloseInfo) => void;
   onError?: (message: string) => void;
@@ -288,11 +301,27 @@ export class PrintServiceConnection {
    * Espera la respuesta `hello` del agente (capabilities, printerHealth).
    * Sin esto, `onHello` puede llegar después del primer `print` y el POS cree que no hay vector/ESC/POS.
    */
+  private emitTiming(stage: string, ms: number, detail?: string, jobId?: string): void {
+    this.opts.onTiming?.({ stage, ms, detail, jobId });
+    if (typeof performance !== "undefined" && typeof performance.mark === "function") {
+      try {
+        performance.mark(`kai-print:${stage}`);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   /**
-   * Espera `print_job_done` o `print_job_failed` del agente para un job encolado.
-   * Mantener la conexión abierta hasta resolver o timeout.
+   * Espera `print_job_spooled` (default tickets) o `print_job_done` del agente.
    */
-  waitForPrintJob(jobId: string, timeoutMs = 45_000): Promise<PrintJobDeliveryResult> {
+  waitForPrintJob(
+    jobId: string,
+    options?: number | { timeoutMs?: number; awaitUntil?: PrintJobAwaitUntil },
+  ): Promise<PrintJobDeliveryResult> {
+    const opts = typeof options === "number" ? { timeoutMs: options } : (options ?? {});
+    const timeoutMs = opts.timeoutMs ?? 45_000;
+    const awaitUntil = opts.awaitUntil ?? "done";
     const id = jobId.trim();
     if (!id) {
       return Promise.resolve({ status: "failed", error: "missing_job_id" });
@@ -307,8 +336,16 @@ export class PrintServiceConnection {
         this.jobWaiters.delete(id);
         resolve({ status: "failed", error: "print_job_timeout" });
       }, timeoutMs);
-      this.jobWaiters.set(id, { resolve, timer });
+      this.jobWaiters.set(id, { resolve, timer, awaitUntil });
     });
+  }
+
+  getHelloPayload(): HelloResponseData | null {
+    return this.helloPayload;
+  }
+
+  isConnected(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
   }
 
   waitForHello(timeoutMs = 6_000): Promise<HelloResponseData> {
@@ -437,6 +474,18 @@ export class PrintServiceConnection {
     globalThis.clearTimeout(waiter.timer);
     this.jobWaiters.delete(jobId);
     waiter.resolve(result);
+  }
+
+  private trySettleJobWaiter(jobId: string, event: "spooled" | "done"): void {
+    const waiter = this.jobWaiters.get(jobId);
+    if (!waiter) return;
+    if (event === "spooled" && waiter.awaitUntil === "spooled") {
+      this.settleJobWaiter(jobId, { status: "done" });
+      return;
+    }
+    if (event === "done") {
+      this.settleJobWaiter(jobId, { status: "done" });
+    }
   }
 
   private clearJobWaiters(): void {
@@ -808,10 +857,25 @@ export class PrintServiceConnection {
       this.opts.onConfigChanged?.();
       return;
     }
+    if (event === "print_job_spooled") {
+      const p = (msg.payload ?? {}) as { jobId?: string };
+      if (p.jobId) {
+        this.trySettleJobWaiter(p.jobId, "spooled");
+        this.opts.onPrintJobSpooled?.(p.jobId);
+      }
+      return;
+    }
+    if (event === "print_timing") {
+      const p = (msg.payload ?? {}) as { stage?: string; ms?: number; detail?: string; jobId?: string };
+      if (p.stage && typeof p.ms === "number") {
+        this.emitTiming(p.stage, p.ms, p.detail, p.jobId);
+      }
+      return;
+    }
     if (event === "print_job_done") {
       const p = (msg.payload ?? {}) as { jobId?: string };
       if (p.jobId) {
-        this.settleJobWaiter(p.jobId, { status: "done" });
+        this.trySettleJobWaiter(p.jobId, "done");
         this.opts.onPrintJobDone?.(p.jobId);
       }
       return;

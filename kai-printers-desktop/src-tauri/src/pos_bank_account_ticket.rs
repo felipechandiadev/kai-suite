@@ -11,6 +11,7 @@ pub struct PosBankAccountTicket {
     #[serde(default)]
     #[allow(dead_code)]
     pub version: i32,
+    #[allow(dead_code)]
     pub account_key: String,
     pub bank_name: String,
     pub account_type: String,
@@ -20,9 +21,12 @@ pub struct PosBankAccountTicket {
     #[serde(default)]
     pub is_primary: bool,
     pub company: TicketCompany,
+    #[allow(dead_code)]
     pub branch_name: Option<String>,
+    #[allow(dead_code)]
     pub point_of_sale_name: Option<String>,
     pub payment_method_label: Option<String>,
+    #[allow(dead_code)]
     pub issued_at: String,
 }
 

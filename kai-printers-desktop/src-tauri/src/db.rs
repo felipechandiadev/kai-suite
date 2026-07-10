@@ -20,6 +20,11 @@ pub struct PendingJob {
     /** Tipo agente (`pos-sale-ticket`, etc.) para gaveta y logs; distinto de document_type de negocio. */
     pub agent_print_type: Option<String>,
     pub format: Option<String>,
+    /** `escpos_file` (default) | `ticket_json` */
+    pub payload_kind: Option<String>,
+    /** JSON del ticket cuando payload_kind = ticket_json */
+    pub payload_ticket_json: Option<String>,
+    pub created_at: Option<String>,
 }
 
 /// Destino de impresión resuelto desde una línea de mapeo.
@@ -565,6 +570,27 @@ fn migrate_v13(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+/// Cola: JSON de ticket en worker (`ticket_json`) vs archivo ESC/POS/PDF listo.
+fn migrate_v14(conn: &Connection) -> Result<()> {
+    let job_cols: Vec<String> = conn
+        .prepare("PRAGMA table_info(print_jobs)")?
+        .query_map([], |r| r.get::<_, String>(1))?
+        .collect::<Result<Vec<_>, _>>()?;
+    if !job_cols.iter().any(|c| c == "payload_kind") {
+        conn.execute(
+            "ALTER TABLE print_jobs ADD COLUMN payload_kind TEXT NOT NULL DEFAULT 'escpos_file'",
+            [],
+        )?;
+    }
+    if !job_cols.iter().any(|c| c == "payload_ticket_json") {
+        conn.execute(
+            "ALTER TABLE print_jobs ADD COLUMN payload_ticket_json TEXT",
+            [],
+        )?;
+    }
+    Ok(())
+}
+
 fn migrate_v2(conn: &Connection) -> Result<()> {
     let sql = r#"
 CREATE UNIQUE INDEX IF NOT EXISTS idx_mapping_lines_display_label_unique
@@ -617,6 +643,7 @@ impl Db {
         migrate_v11(&conn).context("migrate_v11")?;
         migrate_v12(&conn, dir.as_path()).context("migrate_v12")?;
         migrate_v13(&conn).context("migrate_v13")?;
+        migrate_v14(&conn).context("migrate_v14")?;
         Ok(Self {
             inner: Arc::new(Mutex::new(conn)),
         })
@@ -733,91 +760,6 @@ impl Db {
             }
         }
         true
-    }
-
-    /// ESC/POS RAW para tickets según la línea de mapeo. Por defecto desactivado (PDF).
-    pub fn ticket_escpos_enabled_for_printer(&self, system_printer_name: &str, purpose: &str) -> bool {
-        if purpose != "tickets" {
-            return false;
-        }
-        let name = system_printer_name.trim();
-        if name.is_empty() {
-            return false;
-        }
-        let c = self.inner.lock();
-        let mut stmt = match c.prepare(
-            "SELECT ticket_escpos_enabled FROM printer_mapping_lines
-             WHERE trim(system_printer_name) = trim(?1) AND purpose = ?2
-             ORDER BY sort_order ASC, id ASC LIMIT 1",
-        ) {
-            Ok(s) => s,
-            Err(_) => return false,
-        };
-        let mut rows = match stmt.query(params![name, purpose]) {
-            Ok(r) => r,
-            Err(_) => return false,
-        };
-        if let Some(row) = rows.next().ok().flatten() {
-            if let Ok(v) = row.get::<_, i32>(0) {
-                return v != 0;
-            }
-        }
-        let mut fallback = match c.prepare(
-            "SELECT ticket_escpos_enabled FROM printer_mapping_lines
-             WHERE trim(system_printer_name) = trim(?1)
-             ORDER BY sort_order ASC, id ASC LIMIT 1",
-        ) {
-            Ok(s) => s,
-            Err(_) => return false,
-        };
-        let mut rows = match fallback.query(params![name]) {
-            Ok(r) => r,
-            Err(_) => return false,
-        };
-        if let Some(row) = rows.next().ok().flatten() {
-            if let Ok(v) = row.get::<_, i32>(0) {
-                return v != 0;
-            }
-        }
-        false
-    }
-
-    /// Si el trabajo de tickets usaría ESC/POS (misma resolución de impresora que `print` en WS).
-    pub fn ticket_escpos_enabled_for_enqueue(
-        &self,
-        purpose: &str,
-        display_label: Option<&str>,
-    ) -> Result<bool> {
-        if purpose != "tickets" {
-            return Ok(false);
-        }
-        let Some(target) = self.resolve_print_target_for_enqueue(purpose, display_label)? else {
-            return Ok(false);
-        };
-        if target
-            .network_host
-            .as_ref()
-            .map(|s| !s.trim().is_empty())
-            .unwrap_or(false)
-        {
-            return Ok(true);
-        }
-        Ok(target
-            .system_printer
-            .as_deref()
-            .map(|p| self.ticket_escpos_enabled_for_printer(p, purpose))
-            .unwrap_or(false))
-    }
-
-    /// Impresora que usará un trabajo encolado (alias POS o primera línea del propósito).
-    pub fn resolve_printer_for_enqueue(
-        &self,
-        purpose: &str,
-        display_label: Option<&str>,
-    ) -> Result<Option<String>> {
-        Ok(self
-            .resolve_print_target_for_enqueue(purpose, display_label)?
-            .and_then(|t| t.display_string()))
     }
 
     /// Destino de impresión: alias POS o primera línea configurada (SO o red).
@@ -1102,19 +1044,7 @@ impl Db {
         Ok(None)
     }
 
-    /// Resuelve `display_label` (alias) + propósito a la impresora del sistema de esa línea.
-    pub fn system_printer_for_purpose_display_label(
-        &self,
-        purpose: &str,
-        display_label: &str,
-    ) -> Result<Option<String>> {
-        Ok(self
-            .print_target_for_purpose_display_label(purpose, display_label)?
-            .and_then(|t| t.system_printer))
-    }
-
     /// Lista de alias por propósito (solo `display_label` no vacío, sin repetir, orden de failover).
-
     pub fn paper_profile_by_alias_json(&self) -> Result<serde_json::Value> {
         let lines = self.list_mapping_lines()?;
         let mut root = serde_json::Map::new();
@@ -1135,7 +1065,7 @@ impl Db {
         display_label: Option<&str>,
     ) -> Result<String> {
         if let Some(lbl) = display_label.map(str::trim).filter(|s| !s.is_empty()) {
-            if let Some(t) = self.print_target_for_purpose_display_label(purpose, lbl)? {
+            if self.print_target_for_purpose_display_label(purpose, lbl)?.is_some() {
                 let c = self.inner.lock();
                 let mut stmt = c.prepare(
                     "SELECT paper_profile FROM printer_mapping_lines
@@ -1508,13 +1438,17 @@ impl Db {
         target_network_host: Option<&str>,
         format: Option<&str>,
         agent_print_type: Option<&str>,
+        payload_kind: Option<&str>,
+        payload_ticket_json: Option<&str>,
     ) -> Result<()> {
         let c = self.inner.lock();
         let now = Utc::now().to_rfc3339();
+        let kind = payload_kind.unwrap_or("escpos_file");
         c.execute(
             "INSERT INTO print_jobs(id, status, purpose, filename, payload_ref, copies, created_at, client_id, priority,
-             document_type, internal_folio, source_app, requested_by, target_system_printer, target_network_host, format, agent_print_type)
-             VALUES(?1, 'pending', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+             document_type, internal_folio, source_app, requested_by, target_system_printer, target_network_host, format, agent_print_type,
+             payload_kind, payload_ticket_json)
+             VALUES(?1, 'pending', ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
             params![
                 id,
                 purpose,
@@ -1532,6 +1466,8 @@ impl Db {
                 target_network_host,
                 format,
                 agent_print_type,
+                kind,
+                payload_ticket_json,
             ],
         )?;
         Ok(())
@@ -1612,7 +1548,9 @@ impl Db {
     pub fn next_pending_job(&self) -> Result<Option<PendingJob>> {
         let c = self.inner.lock();
         let mut stmt = c.prepare(
-            "SELECT id, payload_ref, purpose, copies, target_system_printer, document_type, target_network_host, format, agent_print_type FROM print_jobs WHERE status = 'pending'
+            "SELECT id, payload_ref, purpose, copies, target_system_printer, document_type, target_network_host, format, agent_print_type,
+                    payload_kind, payload_ticket_json, created_at
+             FROM print_jobs WHERE status = 'pending'
              ORDER BY priority DESC, created_at ASC LIMIT 1",
         )?;
         let mut rows = stmt.query([])?;
@@ -1627,6 +1565,9 @@ impl Db {
                 target_network_host: r.get(6)?,
                 format: r.get(7)?,
                 agent_print_type: r.get(8)?,
+                payload_kind: r.get(9)?,
+                payload_ticket_json: r.get(10)?,
+                created_at: r.get(11)?,
             }));
         }
         Ok(None)

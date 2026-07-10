@@ -1,5 +1,6 @@
 import {
   agentSupportsFiscalBoletaPreview,
+  isSharedPrintServiceConnected,
   mergePrinterDisplayLabelForPurposeIntoPrintExtras,
   probePrintServiceReachable,
   type PrintFormat,
@@ -33,6 +34,7 @@ async function assertQueued(res: unknown): Promise<void> {
 
 async function isPrintAgentReachable(): Promise<boolean> {
   if (typeof window === "undefined") return false;
+  if (isSharedPrintServiceConnected(["tickets"])) return true;
   const probe = await probePrintServiceReachable({ timeoutMs: 2500 });
   return probe.ok;
 }

@@ -21,9 +21,13 @@ pub struct FiscalBoletaPreviewEmisor {
 #[serde(rename_all = "camelCase")]
 pub struct FiscalBoletaPreviewCompany {
     #[serde(default)]
+    #[allow(dead_code)]
     pub razon_social: String,
+    #[allow(dead_code)]
     pub nombre_fantasia: Option<String>,
+    #[allow(dead_code)]
     pub rut: Option<String>,
+    #[allow(dead_code)]
     pub business_activity: Option<String>,
     #[serde(default)]
     pub logo_base64: Option<String>,

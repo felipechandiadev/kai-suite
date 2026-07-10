@@ -2,7 +2,6 @@
 
 use crate::db::{Db, PendingJob};
 use crate::events;
-use crate::pos_sale_ticket_pdf;
 use crate::reachability;
 use crate::cut_test_pdf;
 use crate::ticket_test_pdf;
@@ -39,28 +38,31 @@ pub fn spawn_worker(state: Arc<AppState>) {
                         break;
                     }
                 };
-                if let Err(e) = process_one(&state, &job) {
-                tracing::error!(job_id = %job.id, "print job: {e:#}");
-                let retries = db.retry_count(&job.id).unwrap_or(0);
-                let allow_retry = !is_local_test_job(&job) && retries < 3;
+                let job_id = job.id.clone();
+                let job_purpose = job.purpose.clone();
+                let is_test = is_local_test_job(&job);
+                if let Err(e) = process_one_async(&state, job).await {
+                tracing::error!(job_id = %job_id, "print job: {e:#}");
+                let retries = db.retry_count(&job_id).unwrap_or(0);
+                let allow_retry = !is_test && retries < 3;
                 if allow_retry {
-                    let _ = db.bump_retry(&job.id);
-                    let _ = db.update_job_status(&job.id, "pending", None);
+                    let _ = db.bump_retry(&job_id);
+                    let _ = db.update_job_status(&job_id, "pending", None);
                 } else {
                     let err_msg = format!("{e:#}");
                     state.agent_log.push_error(format!(
                         "Impresión fallida (trabajo {}, propósito {:?}): {}",
-                        job.id,
-                        job.purpose,
+                        job_id,
+                        job_purpose,
                         err_msg
                     ));
-                    let _ = db.update_job_status(&job.id, "error", Some(&err_msg));
+                    let _ = db.update_job_status(&job_id, "error", Some(&err_msg));
                     let fail = serde_json::json!({
                         "version": crate::protocol::PROTOCOL_VERSION,
                         "event": "print_job_failed",
                         "payload": {
-                            "jobId": job.id,
-                            "purpose": job.purpose,
+                            "jobId": job_id,
+                            "purpose": job_purpose,
                             "error": format!("{e:#}")
                         }
                     });
@@ -246,20 +248,100 @@ fn printers_for_purpose_with_fallback(db: &Db, purpose: &str) -> Result<Vec<Stri
     Ok(printers)
 }
 
-fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
+fn emit_job_spooled(notify: &tokio::sync::broadcast::Sender<String>, job: &PendingJob) {
+    let ev = serde_json::json!({
+        "version": crate::protocol::PROTOCOL_VERSION,
+        "event": "print_job_spooled",
+        "payload": { "jobId": job.id, "purpose": job.purpose }
+    });
+    let _ = notify.send(ev.to_string());
+}
+
+fn emit_job_done(notify: &tokio::sync::broadcast::Sender<String>, job: &PendingJob) {
+    let ev = serde_json::json!({
+        "version": crate::protocol::PROTOCOL_VERSION,
+        "event": "print_job_done",
+        "payload": { "jobId": job.id, "purpose": job.purpose }
+    });
+    let _ = notify.send(ev.to_string());
+}
+
+fn is_ticket_json_job(job: &PendingJob) -> bool {
+    job.payload_kind
+        .as_deref()
+        .map(|k| k == "ticket_json")
+        .unwrap_or(false)
+}
+
+type WriteVectorEscPosFn = fn(&PathBuf, &serde_json::Value) -> Result<PathBuf>;
+
+fn vector_escpos_writer(print_type: &str) -> WriteVectorEscPosFn {
+    match print_type {
+        "pos-quotation-ticket" => write_pos_quotation_ticket_escpos_from_value,
+        "pos-payment-in-ticket" => write_pos_payment_in_ticket_escpos_from_value,
+        "pos-customer-credit-note-ticket" => write_pos_customer_credit_note_ticket_escpos_from_value,
+        "pos-cash-closing-ticket" => write_pos_cash_closing_ticket_escpos_from_value,
+        "pos-cash-count-sheet-ticket" => write_pos_cash_count_sheet_ticket_escpos_from_value,
+        "pos-cash-session-opening-ticket" => write_pos_cash_session_opening_ticket_escpos_from_value,
+        "pos-cash-hub-movement-ticket" => write_pos_cash_hub_movement_ticket_escpos_from_value,
+        "pos-bank-account-ticket" => write_pos_bank_account_ticket_escpos_from_value,
+        "pos-presale-ticket" => write_pos_presale_ticket_escpos_from_value,
+        "fiscal-boleta-preview" => write_fiscal_boleta_preview_escpos_from_value,
+        "variant-barcode-label" => write_variant_barcode_label_escpos_from_value,
+        _ => write_pos_sale_ticket_escpos_from_value,
+    }
+}
+
+pub fn build_vector_ticket_escpos_bytes(
+    print_type: &str,
+    value: &serde_json::Value,
+    temp_dir: &PathBuf,
+) -> Result<Vec<u8>> {
+    let build_started = Instant::now();
+    let write = vector_escpos_writer(print_type);
+    let path = write(temp_dir, value)?;
+    let bytes = std::fs::read(&path).with_context(|| format!("read built escpos {}", path.display()))?;
+    let _ = std::fs::remove_file(&path);
+    print_diag::info_elapsed(
+        "escpos_build",
+        build_started,
+        format!("{print_type} {}B", bytes.len()),
+    );
+    Ok(bytes)
+}
+
+async fn process_one_async(state: &Arc<AppState>, job: PendingJob) -> Result<()> {
     let job_started = Instant::now();
     let db = state.db.as_ref();
     let notify = &state.broadcast;
+    let ticket_json = is_ticket_json_job(&job);
+
+    if let Some(created) = job.created_at.as_deref() {
+        if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(created) {
+            let ms = chrono::Utc::now()
+                .signed_duration_since(dt.with_timezone(&chrono::Utc))
+                .num_milliseconds()
+                .max(0) as u128;
+            print_diag::info_stage(
+                Some(notify),
+                Some(&job.id),
+                "queue_wait",
+                ms,
+                "",
+            );
+        }
+    }
+
     db.update_job_status(&job.id, "printing", None)?;
     let path = PathBuf::from(&job.payload_ref);
-    if !path.exists() {
+    if !ticket_json && !path.exists() {
         anyhow::bail!("payload file missing");
     }
     let purpose = job
         .purpose
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("missing purpose"))?;
-    let (printers, network_host) = resolve_job_print_targets(db, job, purpose)?;
+    let (printers, network_host) = resolve_job_print_targets(db, &job, purpose)?;
     if printers.is_empty() && network_host.is_none() {
         anyhow::bail!(
             "no printer mapped for {purpose} (configure «Tickets» in KaiPrinters or map «Documentos»)"
@@ -277,11 +359,13 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
         purpose,
     );
     crate::escpos_width::set_escpos_width_chars(print_format.chars_per_line());
-    let lpstat_started = Instant::now();
+    let enum_started = Instant::now();
     let system = platform::list_system_printers_cached().unwrap_or_default();
-    print_diag::info_elapsed(
-        "lpstat",
-        lpstat_started,
+    print_diag::info_elapsed_stage(
+        Some(notify),
+        Some(&job.id),
+        "printer_enum",
+        enum_started,
         format!("{} impresoras", system.len()),
     );
     let reach_started = Instant::now();
@@ -293,14 +377,16 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
         printers.first().map(|s| s.as_str()),
         network_host.as_deref(),
     )?;
-    print_diag::info_elapsed(
+    print_diag::info_elapsed_stage(
+        Some(notify),
+        Some(&job.id),
         "reachability",
         reach_started,
         line_id.as_deref().unwrap_or("sin línea"),
     );
     if let Some(ref id) = line_id {
         if let Some(entry) = reachability::status_for_line(&state.reachability, id) {
-            if !reachability::is_online(&entry) && !is_local_test_job(job) {
+            if !reachability::is_online(&entry) && !is_local_test_job(&job) {
                 let reason = entry
                     .reason
                     .unwrap_or_else(|| "impresora no disponible".into());
@@ -308,8 +394,46 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
             }
         }
     }
-    let payload_bytes = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+
+    let is_escpos_file = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.eq_ignore_ascii_case("escpos"))
+        .unwrap_or(false);
+    let is_escpos = ticket_json || is_escpos_file;
+
+    let escpos_bytes: Option<Vec<u8>> = if ticket_json {
+        let json_str = job
+            .payload_ticket_json
+            .as_deref()
+            .filter(|s| !s.trim().is_empty())
+            .ok_or_else(|| anyhow::anyhow!("ticket_json_missing"))?;
+        let value: serde_json::Value = serde_json::from_str(json_str).context("parse ticket_json")?;
+        let print_type = job
+            .agent_print_type
+            .as_deref()
+            .filter(|s| !s.is_empty())
+            .unwrap_or("pos-sale-ticket");
+        Some(build_vector_ticket_escpos_bytes(
+            print_type,
+            &value,
+            &state.temp_dir,
+        )?)
+    } else {
+        None
+    };
+
+    let payload_bytes = escpos_bytes
+        .as_ref()
+        .map(|b| b.len())
+        .unwrap_or_else(|| std::fs::metadata(&path).map(|m| m.len() as usize).unwrap_or(0));
+
+    emit_job_spooled(notify, &job);
+
     if let Some(host) = network_host {
+        if !is_escpos {
+            anyhow::bail!("impresora en red solo admite tickets ESC/POS");
+        }
         let thermal = ticket_thermal_options_for_job(
             db,
             purpose,
@@ -319,40 +443,49 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
             job.document_type.as_deref(),
             print_format,
         );
-        let is_escpos = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .map(|e| e.eq_ignore_ascii_case("escpos"))
-            .unwrap_or(false);
-        if !is_escpos {
-            anyhow::bail!("impresora en red solo admite tickets ESC/POS");
-        }
-        let data = std::fs::read(&path).context("read escpos for network")?;
+        let data = match escpos_bytes {
+            Some(bytes) => bytes,
+            None => std::fs::read(&path).context("read escpos for network")?,
+        };
         let copies = job.copies.max(1) as u32;
         print_diag::info(format!(
             "Trabajo {}: ESC/POS por red → {host} ({payload_bytes} bytes), corte={}, gaveta={}",
             job.id, thermal.auto_cut, thermal.open_drawer
         ));
         let spooler_started = Instant::now();
-        match platform::print_escpos_bytes_to_network(&host, &data, copies, thermal) {
+        let host_copy = host.clone();
+        let data_copy = data.clone();
+        let print_res = tokio::task::spawn_blocking(move || {
+            platform::print_escpos_bytes_to_network(&host_copy, &data_copy, copies, thermal)
+        })
+        .await
+        .context("spawn_blocking network print")?;
+        match print_res {
             Ok(()) => {
-                print_diag::info_elapsed("spooler red", spooler_started, host.as_str());
-                print_diag::info_elapsed("job total", job_started, &job.id);
-                let _ = std::fs::remove_file(&path);
+                print_diag::info_elapsed_stage(
+                    Some(notify),
+                    Some(&job.id),
+                    "spooler",
+                    spooler_started,
+                    host.as_str(),
+                );
+                print_diag::info_elapsed_stage(
+                    Some(notify),
+                    Some(&job.id),
+                    "job_total",
+                    job_started,
+                    &job.id,
+                );
+                if path.exists() {
+                    let _ = std::fs::remove_file(&path);
+                }
                 db.delete_job(&job.id)?;
-                let ev = serde_json::json!({
-                    "version": crate::protocol::PROTOCOL_VERSION,
-                    "event": "print_job_done",
-                    "payload": { "jobId": job.id, "purpose": job.purpose }
-                });
-                let _ = notify.send(ev.to_string());
+                emit_job_done(notify, &job);
                 return Ok(());
             }
             Err(e) => {
                 if let Some(ref id) = line_id {
-                    state
-                        .reachability
-                        .mark_offline(id, format!("{e:#}"));
+                    state.reachability.mark_offline(id, format!("{e:#}"));
                 }
                 if let Ok(ph) = events::emit_printer_health_json(db, &[], &state.reachability) {
                     let _ = notify.send(ph.to_string());
@@ -361,6 +494,7 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
             }
         }
     }
+
     let mut last_err: Option<anyhow::Error> = None;
     for printer in &printers {
         let thermal = ticket_thermal_options_for_job(
@@ -373,13 +507,8 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
             print_format,
         );
         let copies = job.copies.max(1) as u32;
-        let is_escpos = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .map(|e| e.eq_ignore_ascii_case("escpos"))
-            .unwrap_or(false);
         if is_escpos {
-            let kind = resolve_agent_print_type(job);
+            let kind = resolve_agent_print_type(&job);
             print_diag::info(format!(
                 "Trabajo {} ({kind}): enviando ESC/POS ({payload_bytes} bytes) → «{printer}», corte={}, gaveta={}, copias={copies}",
                 job.id,
@@ -388,33 +517,59 @@ fn process_one(state: &Arc<AppState>, job: &PendingJob) -> Result<()> {
             ));
         }
         let spooler_started = Instant::now();
-        let print_result = if is_escpos {
-            platform::print_escpos_to_printer(&path, printer, copies, thermal)
+        let print_result = if ticket_json {
+            let bytes = escpos_bytes.as_ref().expect("ticket_json bytes");
+            let printer_name = printer.clone();
+            let bytes_vec = bytes.clone();
+            tokio::task::spawn_blocking(move || {
+                platform::print_escpos_bytes_to_printer(&bytes_vec, &printer_name, copies, thermal)
+            })
+            .await
+            .context("spawn_blocking escpos print")?
+        } else if is_escpos_file {
+            let path_copy = path.clone();
+            let printer_name = printer.clone();
+            tokio::task::spawn_blocking(move || {
+                platform::print_escpos_to_printer(&path_copy, &printer_name, copies, thermal)
+            })
+            .await
+            .context("spawn_blocking escpos file print")?
         } else {
-            platform::print_pdf_to_printer(&path, printer, copies, thermal)
+            let path_copy = path.clone();
+            let printer_name = printer.clone();
+            tokio::task::spawn_blocking(move || {
+                platform::print_pdf_to_printer(&path_copy, &printer_name, copies, thermal)
+            })
+            .await
+            .context("spawn_blocking pdf print")?
         };
         match print_result {
             Ok(()) => {
-                print_diag::info_elapsed(
+                print_diag::info_elapsed_stage(
+                    Some(notify),
+                    Some(&job.id),
                     "spooler",
                     spooler_started,
                     format!("«{printer}» {payload_bytes}B"),
                 );
-                print_diag::info_elapsed("job total", job_started, &job.id);
+                print_diag::info_elapsed_stage(
+                    Some(notify),
+                    Some(&job.id),
+                    "job_total",
+                    job_started,
+                    &job.id,
+                );
                 if is_escpos {
                     print_diag::info(format!(
-                        "Trabajo {}: ESC/POS entregado al spooler de «{printer}» ({payload_bytes} bytes en archivo)",
+                        "Trabajo {}: ESC/POS entregado al spooler de «{printer}» ({payload_bytes} bytes)",
                         job.id
                     ));
                 }
-                let _ = std::fs::remove_file(&path);
+                if path.exists() {
+                    let _ = std::fs::remove_file(&path);
+                }
                 db.delete_job(&job.id)?;
-                let ev = serde_json::json!({
-                    "version": crate::protocol::PROTOCOL_VERSION,
-                    "event": "print_job_done",
-                    "payload": { "jobId": job.id, "purpose": job.purpose }
-                });
-                let _ = notify.send(ev.to_string());
+                emit_job_done(notify, &job);
                 return Ok(());
             }
             Err(e) => {
@@ -477,11 +632,6 @@ pub fn write_drawer_test_path(dir: &PathBuf) -> Result<PathBuf> {
     Ok(p)
 }
 
-/// PDF mínimo con una línea para probar corte automático (tickets / 80 mm).
-pub fn write_cut_test_pdf_path(dir: &PathBuf) -> Result<PathBuf> {
-    write_cut_test_path(dir, false)
-}
-
 /// Prueba de impresión: ticket 80 mm (PDF o ESC/POS) o documento A4 mínimo.
 pub fn write_test_print_path(
     dir: &PathBuf,
@@ -504,11 +654,6 @@ pub fn write_test_print_path(
         std::fs::write(&p, PDF)?;
     }
     Ok(p)
-}
-
-/// PDF de prueba: ticket 80 mm para `tickets`, documento A4 mínimo para `documents`.
-pub fn write_test_print_pdf(dir: &PathBuf, purpose: &str, agent_label: &str) -> Result<PathBuf> {
-    write_test_print_path(dir, purpose, agent_label, false)
 }
 
 /// Hoja QA ESC/POS (RAW). Logo según flags; corte según flag al encolar.
@@ -534,28 +679,12 @@ pub fn write_escpos_qa_path(
     Ok((p, bytes))
 }
 
-/// Genera PDF vectorial de ticket de venta POS desde JSON (`pos-sale-ticket`).
-pub fn write_pos_sale_ticket_pdf_from_value(
-    dir: &PathBuf,
-    value: &serde_json::Value,
-) -> Result<PathBuf> {
-    pos_sale_ticket_pdf::write_pos_sale_ticket_pdf_from_value(dir, value)
-}
-
 /// Genera bytes ESC/POS de ticket de venta POS desde JSON (`pos-sale-ticket-escpos`).
 pub fn write_pos_sale_ticket_escpos_from_value(
     dir: &PathBuf,
     value: &serde_json::Value,
 ) -> Result<PathBuf> {
     crate::pos_sale_ticket_escpos::write_pos_sale_ticket_escpos_from_value(dir, value)
-}
-
-/// Genera ticket de cotización POS (PDF o ESC/POS según resolución en `ws`).
-pub fn write_pos_quotation_ticket_pdf_from_value(
-    dir: &PathBuf,
-    value: &serde_json::Value,
-) -> Result<PathBuf> {
-    crate::pos_quotation_ticket::write_pos_quotation_ticket_pdf_from_value(dir, value)
 }
 
 pub fn write_pos_quotation_ticket_escpos_from_value(
@@ -572,15 +701,6 @@ pub fn write_pos_payment_in_ticket_escpos_from_value(
     crate::pos_payment_in_ticket::write_pos_payment_in_ticket_escpos_from_value(dir, value)
 }
 
-pub fn write_pos_customer_credit_note_ticket_pdf_from_value(
-    dir: &PathBuf,
-    value: &serde_json::Value,
-) -> Result<PathBuf> {
-    crate::pos_customer_credit_note_ticket::write_pos_customer_credit_note_ticket_pdf_from_value(
-        dir, value,
-    )
-}
-
 pub fn write_pos_customer_credit_note_ticket_escpos_from_value(
     dir: &PathBuf,
     value: &serde_json::Value,
@@ -588,13 +708,6 @@ pub fn write_pos_customer_credit_note_ticket_escpos_from_value(
     crate::pos_customer_credit_note_ticket::write_pos_customer_credit_note_ticket_escpos_from_value(
         dir, value,
     )
-}
-
-pub fn write_pos_cash_closing_ticket_pdf_from_value(
-    dir: &PathBuf,
-    value: &serde_json::Value,
-) -> Result<PathBuf> {
-    crate::pos_cash_closing_ticket::write_pos_cash_closing_ticket_pdf_from_value(dir, value)
 }
 
 pub fn write_pos_cash_closing_ticket_escpos_from_value(

@@ -23,7 +23,8 @@ pub struct PrinterInfo {
     pub online: bool,
 }
 
-const SYSTEM_PRINTERS_CACHE_TTL: Duration = Duration::from_secs(8);
+/// TTL de enumeración de impresoras del SO (Windows EnumPrinters / macOS lpstat).
+const SYSTEM_PRINTERS_CACHE_TTL: Duration = Duration::from_secs(45);
 
 struct SystemPrintersCacheEntry {
     fetched_at: Instant,
@@ -247,6 +248,102 @@ fn windows_powershell_output(script: &str) -> Result<std::process::Output> {
 
 #[cfg(target_os = "windows")]
 fn list_windows() -> Result<Vec<PrinterInfo>> {
+    match list_windows_native() {
+        Ok(printers) if !printers.is_empty() => Ok(printers),
+        Ok(_) => {
+            print_diag::warn("printer_enum: Win32 vacío; probando PowerShell");
+            list_windows_powershell()
+        }
+        Err(e) => {
+            print_diag::warn(format!("printer_enum: Win32 falló ({e:#}); probando PowerShell"));
+            list_windows_powershell()
+        }
+    }
+}
+
+/// Enumeración rápida vía Win32 (sin spawn de PowerShell).
+#[cfg(target_os = "windows")]
+fn list_windows_native() -> Result<Vec<PrinterInfo>> {
+    use std::ffi::c_void;
+    use windows::core::PCWSTR;
+    use windows::Win32::Graphics::Printing::*;
+
+    let default_name = windows_default_printer_name().unwrap_or_default();
+    let flags = PRINTER_ENUM_LOCAL | PRINTER_ENUM_CONNECTIONS;
+    let mut needed: u32 = 0;
+    let mut returned: u32 = 0;
+    unsafe {
+        let _ = EnumPrintersW(
+            flags,
+            PCWSTR::null(),
+            2,
+            None,
+            0,
+            &mut needed,
+            &mut returned,
+        );
+    }
+    if needed == 0 {
+        return Ok(vec![]);
+    }
+    let mut buf = vec![0u8; needed as usize];
+    unsafe {
+        EnumPrintersW(
+            flags,
+            PCWSTR::null(),
+            2,
+            Some(buf.as_mut_ptr()),
+            needed,
+            &mut needed,
+            &mut returned,
+        )
+        .map_err(|e| anyhow::anyhow!("EnumPrintersW: {e}"))?;
+    }
+    let mut out = Vec::new();
+    let entry_size = std::mem::size_of::<PRINTER_INFO_2W>();
+    for i in 0..returned as usize {
+        let offset = i * entry_size;
+        if offset + entry_size > buf.len() {
+            break;
+        }
+        let info: &PRINTER_INFO_2W =
+            unsafe { &*(buf.as_ptr().add(offset) as *const PRINTER_INFO_2W) };
+        let name = unsafe { info.pPrinterName.to_string() }
+            .map_err(|e| anyhow::anyhow!("printer name: {e}"))?;
+        if name.trim().is_empty() {
+            continue;
+        }
+        let offline = info.Attributes & PRINTER_ATTRIBUTE_WORK_OFFLINE != 0
+            || info.Status & PRINTER_STATUS_OFFLINE != 0;
+        out.push(PrinterInfo {
+            name: name.clone(),
+            is_default: !default_name.is_empty() && name.eq_ignore_ascii_case(&default_name),
+            online: !offline,
+        });
+    }
+    Ok(out)
+}
+
+#[cfg(target_os = "windows")]
+fn windows_default_printer_name() -> Result<String> {
+    use windows::core::PWSTR;
+    use windows::Win32::Graphics::Printing::GetDefaultPrinterW;
+    let mut needed: u32 = 0;
+    unsafe {
+        let _ = GetDefaultPrinterW(PWSTR::null(), &mut needed);
+        if needed == 0 {
+            return Ok(String::new());
+        }
+        let mut buf = vec![0u16; needed as usize];
+        GetDefaultPrinterW(PWSTR(buf.as_mut_ptr()), &mut needed)
+            .map_err(|e| anyhow::anyhow!("GetDefaultPrinterW: {e}"))?;
+        let end = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
+        Ok(String::from_utf16_lossy(&buf[..end]))
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn list_windows_powershell() -> Result<Vec<PrinterInfo>> {
     let ps = r#"Get-CimInstance Win32_Printer | Select-Object Name,Default,WorkOffline | ConvertTo-Json"#;
     let out = windows_powershell_output(ps).context("powershell printers")?;
     if !out.status.success() {
@@ -518,11 +615,6 @@ fn socket_addrs_ipv4_first(
 }
 
 /// Prueba TCP al puerto RAW (sin enviar datos de impresión).
-pub fn probe_network_printer(host: &str) -> Result<()> {
-    probe_network_printer_with_timeout(host, NETWORK_CONNECT_TIMEOUT)
-}
-
-/// Igual que `probe_network_printer` con timeout de conexión configurable (health checks).
 pub fn probe_network_printer_with_timeout(host: &str, connect_timeout: Duration) -> Result<()> {
     let (host, port) = parse_network_printer_target(host)?;
     let addr = format!("{host}:{port}");
@@ -602,20 +694,18 @@ pub fn print_escpos_bytes_to_network(
     Ok(())
 }
 
-/// Envía bytes ESC/POS a la impresora (RAW). En tickets con `auto_cut` añade feed + corte GS V.
-pub fn print_escpos_to_printer(
-    escpos_path: &Path,
+/// Envía bytes ESC/POS ya construidos a la impresora (RAW).
+pub fn print_escpos_bytes_to_printer(
+    data: &[u8],
     printer: &str,
     copies: u32,
     thermal: ThermalPrintOptions,
 ) -> Result<()> {
-    let mut data = std::fs::read(escpos_path).with_context(|| {
-        format!("read escpos {}", escpos_path.display())
-    })?;
-    append_escpos_ticket_trailer(&mut data, thermal);
+    let mut payload = data.to_vec();
+    append_escpos_ticket_trailer(&mut payload, thermal);
     let copy_count = copies.max(1);
     for i in 0..copy_count {
-        print_raw_bytes_to_printer(printer, &data).with_context(|| {
+        print_raw_bytes_to_printer(printer, &payload).with_context(|| {
             if copy_count > 1 {
                 format!("copia {} de {copy_count}", i + 1)
             } else {
@@ -625,12 +715,27 @@ pub fn print_escpos_to_printer(
     }
     tracing::info!(
         printer,
-        bytes = data.len(),
+        bytes = payload.len(),
         auto_cut = thermal.auto_cut,
         open_drawer = thermal.open_drawer,
-        "ESC/POS enviado a impresora (RAW)"
+        "ESC/POS enviado a impresora (RAW bytes)"
     );
     Ok(())
+}
+
+/// Envía bytes ESC/POS a la impresora (RAW). En tickets con `auto_cut` añade feed + corte GS V.
+pub fn print_escpos_to_printer(
+    escpos_path: &Path,
+    printer: &str,
+    copies: u32,
+    thermal: ThermalPrintOptions,
+) -> Result<()> {
+    let read_started = Instant::now();
+    let data = std::fs::read(escpos_path).with_context(|| {
+        format!("read escpos {}", escpos_path.display())
+    })?;
+    print_diag::info_elapsed("disk_read", read_started, escpos_path.display().to_string());
+    print_escpos_bytes_to_printer(&data, printer, copies, thermal)
 }
 
 fn print_raw_bytes_to_printer(printer: &str, data: &[u8]) -> Result<()> {

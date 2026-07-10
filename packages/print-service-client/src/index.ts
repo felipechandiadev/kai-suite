@@ -1,4 +1,5 @@
 export * from "./cash-drawer-policy";
+export * from "./connection-manager";
 export * from "./core";
 export * from "./print-format";
 export * from "./print-format-presets";

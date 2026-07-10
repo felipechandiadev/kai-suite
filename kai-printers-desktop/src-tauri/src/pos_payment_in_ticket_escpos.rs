@@ -7,7 +7,7 @@ use crate::pos_sale_ticket_escpos::{
     append_divider, append_label_value_wrapped, append_line, append_ticket_logo,
     append_folio_barcode_footer, escpos_align, escpos_apply_ticket_typography, escpos_bold,
     escpos_double_height_off, escpos_double_height_on, escpos_init, footer_folio_datetime_line,
-    format_datetime, money, pad_left, wrap_lines, layout_width,
+    money, pad_left, wrap_lines, layout_width,
 };
 use anyhow::Result;
 use std::path::PathBuf;

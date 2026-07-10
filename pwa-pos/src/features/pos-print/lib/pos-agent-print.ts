@@ -7,6 +7,7 @@ import {
   readConfiguredPurposePrinterAliasMap,
   readPrintServiceConfigFromStorage,
   resolvePrintFormat,
+  withSharedPrintServiceConnection,
   type HelloResponseData,
   type PrintFormat,
   type PosPrintAgentPurpose,
@@ -88,7 +89,11 @@ export async function enqueueVectorTicketAndAwaitDelivery(
     { purpose: options?.purpose ?? "tickets" },
   );
   if (jobId) {
-    const delivery = await conn.waitForPrintJob(jobId, options?.timeoutMs ?? 60_000);
+    const purpose = options?.purpose ?? "tickets";
+    const delivery = await conn.waitForPrintJob(jobId, {
+      timeoutMs: options?.timeoutMs ?? 60_000,
+      awaitUntil: purpose === "tickets" ? "spooled" : "done",
+    });
     if (delivery.status === "failed") {
       throw new Error(delivery.error);
     }
@@ -159,33 +164,20 @@ export async function withPrintAgentConnection<T>(
   purpose: PosPrintAgentPurpose,
   fn: (conn: PrintServiceConnection, hello: HelloResponseData | null) => Promise<T>,
 ): Promise<T> {
-  const cfg = readPrintServiceConfigFromStorage();
-  let hello: HelloResponseData | null = null;
-  let reachedOpen = false;
-
-  const conn = new PrintServiceConnection({
-    url: buildAgentWebSocketUrl(),
-    clientId: "pwa-pos-print",
-    appLabel: "KaiStore POS",
-    requiredPurposes: [purpose],
-    onHello: (d) => {
-      hello = d;
+  return withSharedPrintServiceConnection(
+    purpose,
+    {
+      clientId: "pwa-pos-print",
+      appLabel: "KaiStore POS",
+      requiredPurposes: [purpose],
+      onTiming: (event) => {
+        if (process.env.NODE_ENV === "development") {
+          console.debug("[KaiStore print:timing]", event);
+        }
+      },
     },
-  });
-
-  try {
-    conn.connect();
-    await conn.waitForOpen(15_000);
-    reachedOpen = true;
-    try {
-      hello = await conn.waitForHello(10_000);
-    } catch {
-      hello = null;
-    }
-    return await fn(conn, hello);
-  } finally {
-    conn.disconnect({ ifConnecting: reachedOpen ? "default" : "abandon" });
-  }
+    fn,
+  );
 }
 
 async function tryEnqueueDocumentPdfOnAgent(

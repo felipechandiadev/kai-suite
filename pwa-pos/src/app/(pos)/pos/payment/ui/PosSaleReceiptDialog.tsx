@@ -800,7 +800,7 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
               const raw = firstErr instanceof Error ? firstErr.message : "print_failed";
               ticketPrintError = `No se pudo enviar el ticket al agente. ${formatPrintJobFailedMessage(raw)} Usá «Imprimir de nuevo».`;
             } else {
-              await new Promise((resolve) => window.setTimeout(resolve, 900));
+              await new Promise((resolve) => window.setTimeout(resolve, 400));
               try {
                 await runTicketPrint();
               } catch (secondErr) {
@@ -824,7 +824,7 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
           setAutoPrintStatus(null);
         }
       })();
-    }, 300);
+    }, 100);
     return () => clearTimeout(t);
   }, [open, data?.folio, data?.transactionId, data?.documentKind]);
 

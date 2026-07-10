@@ -6,7 +6,7 @@ use crate::pos_bank_account_ticket::{
 use crate::pos_sale_ticket_escpos::{
     append_divider, append_label_value_wrapped, append_line, append_ticket_logo, escpos_align,
     escpos_apply_ticket_typography, escpos_bold, escpos_double_height_off, escpos_double_height_on,
-    escpos_init, format_datetime, pad_left, wrap_lines, layout_width,
+    escpos_init, pad_left, wrap_lines, layout_width,
 };
 use anyhow::Result;
 use std::path::PathBuf;

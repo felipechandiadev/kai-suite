@@ -8,9 +8,13 @@ use std::path::PathBuf;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PresaleLine {
+    #[allow(dead_code)]
     pub product_name: String,
+    #[allow(dead_code)]
     pub variant_name: Option<String>,
+    #[allow(dead_code)]
     pub quantity: f64,
+    #[allow(dead_code)]
     pub total: f64,
 }
 
@@ -27,6 +31,7 @@ pub struct PosPresaleTicket {
     pub branch_name: Option<String>,
     pub point_of_sale_name: Option<String>,
     #[serde(default)]
+    #[allow(dead_code)]
     pub lines: Vec<PresaleLine>,
     pub total: f64,
     #[serde(default)]

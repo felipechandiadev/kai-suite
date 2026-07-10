@@ -64,10 +64,6 @@ impl ReachabilityCache {
         );
     }
 
-    pub fn snapshot(&self) -> HashMap<String, LineReachEntry> {
-        self.lines.lock().clone()
-    }
-
     fn is_fresh(&self, line_id: &str, force: bool) -> bool {
         if force {
             return false;
@@ -215,27 +211,6 @@ pub fn refresh_all_lines(
         cache.set(&id, entry);
     }
     Ok(())
-}
-
-/// Refresca solo la línea indicada (p. ej. probe manual de red).
-pub fn refresh_line_id(
-    db: &Db,
-    system: &[PrinterInfo],
-    cache: &ReachabilityCache,
-    line_id: &str,
-) -> anyhow::Result<Option<LineReachEntry>> {
-    let rows = db.list_mapping_lines()?;
-    let Some(row) = rows.iter().find(|r| {
-        r.get("id")
-            .and_then(|v| v.as_str())
-            .map(|s| s.trim() == line_id.trim())
-            .unwrap_or(false)
-    }) else {
-        return Ok(None);
-    };
-    let entry = evaluate_mapping_line(row, system);
-    cache.set(line_id, entry.clone());
-    Ok(Some(entry))
 }
 
 /// Refresca la línea que usaría un trabajo (por destino explícito o primera del propósito).

@@ -398,8 +398,15 @@ pub(crate) fn append_ticket_logo(buf: &mut Vec<u8>, logo_base64: Option<&str>) {
     let Some(b64) = logo_base64.map(str::trim).filter(|s| !s.is_empty()) else {
         return;
     };
+    let width_chars = crate::escpos_width::escpos_width_chars() as u16;
+    let key = crate::escpos_logo_cache::cache_key(b64, width_chars);
+    if let Some((bitmap, w_bytes, h_dots)) = crate::escpos_logo_cache::get_cached_raster(&key) {
+        append_ticket_logo_raster(buf, &bitmap, w_bytes, h_dots);
+        return;
+    }
     match logo_base64_to_raster(b64) {
         Ok(Some((bitmap, w_bytes, h_dots))) => {
+            crate::escpos_logo_cache::put_cached_raster(key, bitmap.clone(), w_bytes, h_dots);
             append_ticket_logo_raster(buf, &bitmap, w_bytes, h_dots);
         }
         Ok(None) => {}

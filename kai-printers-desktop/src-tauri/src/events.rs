@@ -251,7 +251,17 @@ pub fn emit_printer_health_json(
     required: &[String],
     cache: &ReachabilityCache,
 ) -> Result<Value> {
-    let sys = platform::list_system_printers().unwrap_or_default();
-    reachability::refresh_all_lines(db, &sys, cache, true)?;
+    emit_printer_health_json_with_force(db, required, cache, false)
+}
+
+/// Health con reprobe completo (p. ej. refresh manual o tarea en background).
+pub fn emit_printer_health_json_with_force(
+    db: &Db,
+    required: &[String],
+    cache: &ReachabilityCache,
+    force: bool,
+) -> Result<Value> {
+    let sys = platform::list_system_printers_cached().unwrap_or_default();
+    reachability::refresh_all_lines(db, &sys, cache, force)?;
     Ok(printer_health_event_json(db, &sys, required, cache))
 }

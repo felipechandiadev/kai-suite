@@ -38,6 +38,7 @@ pub struct PosQuotationTicket {
     pub discount_amount: f64,
     pub total: f64,
     pub notes: Option<String>,
+    #[allow(dead_code)]
     pub terms: Option<String>,
     #[serde(default)]
     pub operator_name: Option<String>,
@@ -52,11 +53,4 @@ pub fn write_pos_quotation_ticket_escpos_from_value(
     value: &serde_json::Value,
 ) -> Result<PathBuf> {
     crate::pos_quotation_ticket_escpos::write_pos_quotation_ticket_escpos_from_value(dir, value)
-}
-
-pub fn write_pos_quotation_ticket_pdf_from_value(
-    dir: &PathBuf,
-    value: &serde_json::Value,
-) -> Result<PathBuf> {
-    crate::pos_quotation_ticket_pdf::write_pos_quotation_ticket_pdf_from_value(dir, value)
 }

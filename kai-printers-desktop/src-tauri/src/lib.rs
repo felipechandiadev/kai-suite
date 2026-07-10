@@ -9,17 +9,15 @@ mod ticket_test_escpos;
 mod escpos_qa;
 mod cut_test_pdf;
 mod pos_sale_ticket_pdf;
+mod escpos_logo_cache;
 mod escpos_raster;
 mod pos_sale_ticket_escpos;
 mod pos_quotation_ticket;
 mod pos_quotation_ticket_escpos;
-mod pos_quotation_ticket_pdf;
 mod pos_customer_credit_note_ticket;
 mod pos_customer_credit_note_ticket_escpos;
-mod pos_customer_credit_note_ticket_pdf;
 mod pos_cash_closing_ticket;
 mod pos_cash_closing_ticket_escpos;
-mod pos_cash_closing_ticket_pdf;
 mod pos_cash_count_sheet_ticket;
 mod pos_cash_count_sheet_ticket_escpos;
 mod pos_cash_session_opening_ticket;
@@ -657,6 +655,8 @@ fn queue_test_cut_print(
             net.as_deref(),
             None,
             Some("test_cut"),
+            None,
+            None,
         )
         .map_err(|e| e.to_string())?;
     notify_jobs_changed(&state);
@@ -718,6 +718,8 @@ fn queue_test_drawer_print(
             net.as_deref(),
             None,
             Some("test_drawer"),
+            None,
+            None,
         )
         .map_err(|e| e.to_string())?;
     notify_jobs_changed(&state);
@@ -827,6 +829,8 @@ fn queue_escpos_qa_print(
             net.as_deref(),
             Some(qa_format.wire_value()),
             Some(document_type),
+            None,
+            None,
         )
         .map_err(|e| e.to_string())?;
     notify_jobs_changed(&state);
@@ -889,6 +893,8 @@ fn queue_test_print(
             None,
             None,
             Some("test_print"),
+            None,
+            None,
         )
         .map_err(|e| e.to_string())?;
     notify_jobs_changed(&state);
@@ -953,6 +959,7 @@ async fn pick_and_store_global_ticket_logo(
         .db
         .set_global_ticket_logo_path(&rel)
         .map_err(|e| e.to_string())?;
+    crate::escpos_logo_cache::invalidate_all();
 
     Ok(GlobalTicketLogoPickResult {
         ticket_logo_path: rel,
@@ -967,6 +974,7 @@ fn clear_global_ticket_logo(state: tauri::State<'_, Arc<AppState>>) -> Result<()
         .db
         .clear_global_ticket_logo_path()
         .map_err(|e| e.to_string())?;
+    crate::escpos_logo_cache::invalidate_all();
     Ok(())
 }
 

@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use barcoders::sym::code128::Code128;
 use printpdf::{Color, Line, Mm, Point, Rgb};
 
-/// Ancho de página del ticket (debe coincidir con `pos_sale_ticket_pdf::PAGE_W_MM`).
+/// Ancho de página del ticket térmico (~72 mm imprimibles en bobina 80 mm).
 const PAGE_W_MM: f32 = 72.0;
 /// Inicio charset B en Code128 (`barcoders` / Unicode Ɓ).
 const CODE128_CHARSET_B: char = '\u{0181}';
@@ -18,8 +18,6 @@ pub const BAR_HEIGHT_MM: f32 = 11.0;
 pub const BARCODE_FOLIO_FONT_PT: f32 = 7.0;
 const BAR_WIDTH_MM: f32 = 0.34;
 pub const TEXT_GAP_MM: f32 = 2.0;
-/// Margen superior antes del bloque de código de barras (separación de la sección anterior).
-pub const BARCODE_SECTION_TOP_GAP_MM: f32 = 3.5;
 
 /// Altura del pie: barras + línea «folio · fecha hora».
 pub fn ticket_footer_tail_height_mm() -> f32 {

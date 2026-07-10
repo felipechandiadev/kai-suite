@@ -73,12 +73,3 @@ pub fn write_pos_customer_credit_note_ticket_escpos_from_value(
         dir, value,
     )
 }
-
-pub fn write_pos_customer_credit_note_ticket_pdf_from_value(
-    dir: &PathBuf,
-    value: &serde_json::Value,
-) -> Result<PathBuf> {
-    crate::pos_customer_credit_note_ticket_pdf::write_pos_customer_credit_note_ticket_pdf_from_value(
-        dir, value,
-    )
-}
