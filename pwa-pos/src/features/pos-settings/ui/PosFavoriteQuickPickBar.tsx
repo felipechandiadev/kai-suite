@@ -7,12 +7,18 @@ import { lookupPosVariantsAction } from "@/features/pos-products/actions/pos-pro
 import { shouldUseBackendApi } from "@/features/pos-offline/infrastructure/connectivity";
 import { lookupOfflineCatalogByVariantIds } from "@/features/pos-offline/application/search-offline-catalog.usecase";
 import type { PosProductSearchItem } from "@/features/pos-products/types/pos-product.types";
-import { PosProductNameWithAttributes } from "@/features/pos-products/ui/posProductPreview";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/pos-api-failure";
 import {
   POS_FAVORITE_PRODUCTS_CHANGED_EVENT,
   readPosFavoriteProducts,
 } from "../lib/pos-favorite-products-storage";
+import {
+  POS_FAVORITE_UI_CHANGED_EVENT,
+  readPosFavoriteButtonSize,
+  type PosFavoriteButtonSize,
+} from "../lib/pos-favorite-quickpick-storage";
+import { getFavoriteButtonSizeStyles } from "../lib/pos-favorite-quickpick-styles";
+import { PosFavoriteQuickPickChip } from "./PosFavoriteQuickPickChip";
 
 type PosFavoriteQuickPickBarProps = {
   pointOfSaleId: string;
@@ -32,6 +38,11 @@ export function PosFavoriteQuickPickBar({
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<PosProductSearchItem[]>([]);
   const [storedCount, setStoredCount] = useState(0);
+  const [buttonSize, setButtonSize] = useState<PosFavoriteButtonSize>(() =>
+    readPosFavoriteButtonSize(),
+  );
+
+  const sizeStyles = getFavoriteButtonSizeStyles(buttonSize);
 
   const load = useCallback(async () => {
     const stored = readPosFavoriteProducts(pointOfSaleId);
@@ -90,6 +101,14 @@ export function PosFavoriteQuickPickBar({
       window.removeEventListener(POS_FAVORITE_PRODUCTS_CHANGED_EVENT, onChanged);
   }, [load, pointOfSaleId]);
 
+  useEffect(() => {
+    const onUiChanged = () => {
+      setButtonSize(readPosFavoriteButtonSize());
+    };
+    window.addEventListener(POS_FAVORITE_UI_CHANGED_EVENT, onUiChanged);
+    return () => window.removeEventListener(POS_FAVORITE_UI_CHANGED_EVENT, onUiChanged);
+  }, []);
+
   if (storedCount === 0) {
     return (
       <div
@@ -133,29 +152,20 @@ export function PosFavoriteQuickPickBar({
           {storedCount > items.length ? ` de ${storedCount}` : ""})
         </span>
       </div>
-      <div className="flex max-h-24 flex-wrap gap-1 overflow-y-auto">
+      <div
+        className={`flex flex-wrap overflow-y-auto ${sizeStyles.barMaxHeightClass} ${sizeStyles.gapClass}`}
+      >
         {items.map((item) => {
           const canPick = !disabled && !!onPickProduct;
           return (
-            <button
+            <PosFavoriteQuickPickChip
               key={item.variantId}
-              type="button"
+              size={buttonSize}
+              item={item}
               disabled={!canPick}
-              onClick={() => onPickProduct?.(item)}
-              className={`max-w-[9rem] shrink-0 rounded-md border px-1.5 py-1 text-left transition-colors ${
-                canPick
-                  ? "border-border bg-surface hover:border-secondary active:bg-secondary/10"
-                  : "cursor-not-allowed border-border opacity-60"
-              }`}
+              onClick={canPick ? () => onPickProduct?.(item) : undefined}
               data-test-id={`pos-favorite-quickpick-${item.variantId}`}
-            >
-              <PosProductNameWithAttributes
-                name={item.productName}
-                attributes={item.attributes}
-                attributeSeparator="slash"
-                className="line-clamp-2 text-[10px] font-medium leading-tight text-foreground"
-              />
-            </button>
+            />
           );
         })}
       </div>

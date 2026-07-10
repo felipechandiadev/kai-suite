@@ -1,10 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { IconButton } from "@kai/ui";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { IconButton, SelectDefault as Select } from "@kai/ui";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
 import { readPosFavoriteProducts } from "../lib/pos-favorite-products-storage";
+import {
+  POS_FAVORITE_BUTTON_SIZE_LABELS,
+  POS_FAVORITE_BUTTON_SIZES,
+  readPosFavoriteButtonSize,
+  writePosFavoriteButtonSize,
+  type PosFavoriteButtonSize,
+} from "../lib/pos-favorite-quickpick-storage";
 import { PosFavoriteProductsDialog } from "./PosFavoriteProductsDialog";
+import { PosFavoriteButtonSizePreview } from "./PosFavoriteButtonSizePreview";
 
 export function PosFavoriteProductsSection() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -13,6 +21,18 @@ export function PosFavoriteProductsSection() {
   const [priceListId, setPriceListId] = useState<string | null>(null);
   const [branchId, setBranchId] = useState<string | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
+  const [buttonSize, setButtonSize] = useState<PosFavoriteButtonSize>(() =>
+    readPosFavoriteButtonSize(),
+  );
+
+  const sizeOptions = useMemo(
+    () =>
+      POS_FAVORITE_BUTTON_SIZES.map((size) => ({
+        id: size,
+        label: POS_FAVORITE_BUTTON_SIZE_LABELS[size],
+      })),
+    [],
+  );
 
   const refreshCount = useCallback(() => {
     const ctx = readPosContextClient();
@@ -46,6 +66,13 @@ export function PosFavoriteProductsSection() {
 
   const canOpenDialog = Boolean(posId && priceListId);
 
+  function handleButtonSizeChange(id: string | number | null) {
+    if (id == null) return;
+    const next = String(id) as PosFavoriteButtonSize;
+    setButtonSize(next);
+    writePosFavoriteButtonSize(next);
+  }
+
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -66,6 +93,20 @@ export function PosFavoriteProductsSection() {
           data-test-id="pos-settings-favorites-open"
         />
       </div>
+
+      <div className="mt-4 space-y-3">
+        <Select
+          label="Tamaño de botones en venta"
+          name="pos-favorite-button-size"
+          value={buttonSize}
+          onChange={handleButtonSizeChange}
+          options={sizeOptions}
+          alwaysShowLabel
+          data-test-id="pos-favorite-button-size-select"
+        />
+        <PosFavoriteButtonSizePreview size={buttonSize} />
+      </div>
+
       {configError ? (
         <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">{configError}</p>
       ) : null}
