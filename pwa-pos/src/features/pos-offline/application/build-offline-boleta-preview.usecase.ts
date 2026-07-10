@@ -3,22 +3,8 @@ import type { PosCartLine } from "@/app/(pos)/pos/ui/PosCartLineCard";
 import type { PosSaleCustomer } from "@/features/customers/types/pos-customer.types";
 import type { FiscalBoletaPrintPreview } from "@/features/fiscal/types/fiscal-emission.types";
 import { formatReceiptLineDisplayName } from "@/features/pos-print/lib/format-receipt-line-name";
-import { classifySaleLines } from "@/features/sale-print-plan/classify-sale-lines";
+import { buildDteBoletaLinesFromCart } from "@/features/sale-print-plan/build-dte-boleta-lines-from-cart";
 import type { OfflineFiscalPack } from "../domain/offline-fiscal-pack.types";
-
-function splitLineAmounts(
-  quantity: number,
-  unitPriceWithIva: number,
-  exempt: boolean,
-): { lineNet: number; lineExe: number; lineIva: number; lineTotal: number } {
-  const lineTotal = quantity * unitPriceWithIva;
-  if (exempt) {
-    return { lineNet: 0, lineExe: lineTotal, lineIva: 0, lineTotal };
-  }
-  const lineNet = Math.round(lineTotal / 1.19);
-  const lineIva = lineTotal - lineNet;
-  return { lineNet, lineExe: 0, lineIva, lineTotal };
-}
 
 function formatChileanRut(raw: string): string | null {
   const cleaned = raw.replace(/\./g, "").replace(/\s/g, "").toUpperCase();
@@ -42,29 +28,18 @@ function resolveReceptor(customer: PosSaleCustomer | null): { rut: string; name:
   return { rut: "66666666-6", name: "Cliente" };
 }
 
-function mapCartLine(line: PosCartLine) {
-  const qty = Number(line.quantity) || 0;
-  const unitGross = Number(line.unitPriceWithTax) || 0;
-  const taxRate = Number(line.unitTaxRate) || 0;
-  const taxAmount = Math.round(Math.max(0, unitGross - (Number(line.unitPrice) || 0)) * qty);
-  const exempt = taxRate === 0 && taxAmount === 0;
+function mapLineName(line: PosCartLine): string {
   const attrBits = (
     line.attributes?.map((a) => {
       if (typeof a === "string") return a.trim();
       return String(a.attributeValue ?? "").trim();
     }) ?? []
   ).filter(Boolean);
-  const name =
+  return (
     formatReceiptLineDisplayName(line.productName ?? "", attrBits) ||
     line.sku?.trim() ||
-    "Item";
-  return {
-    name: name.slice(0, 80),
-    quantity: qty,
-    unitPriceWithIva: unitGross,
-    exempt,
-    unitMeasure: "UN",
-  };
+    "Item"
+  );
 }
 
 export function buildOfflineBoletaPreview(input: {
@@ -74,35 +49,17 @@ export function buildOfflineBoletaPreview(input: {
   folio: number;
   localDocumentNumber: string;
   operatorName?: string | null;
+  orderDiscount?: number;
 }): { tedXml: string; issuedAt: string; preview: FiscalBoletaPrintPreview } {
-  const { dteLines } = classifySaleLines(input.cartLines);
-  const docLines = dteLines.map(mapCartLine);
-  if (!docLines.length) {
+  const { previewLines, totals } = buildDteBoletaLinesFromCart({
+    cartLines: input.cartLines,
+    orderDiscount: input.orderDiscount ?? 0,
+    mapLineName,
+  });
+
+  if (!previewLines.length) {
     throw new Error("Sin líneas tributarias para boleta offline");
   }
-
-  let mntNeto = 0;
-  let mntExe = 0;
-  let iva = 0;
-  let mntTotal = 0;
-  const previewLines = docLines.map((line) => {
-    const amounts = splitLineAmounts(line.quantity, line.unitPriceWithIva, line.exempt);
-    mntNeto += amounts.lineNet;
-    mntExe += amounts.lineExe;
-    iva += amounts.lineIva;
-    mntTotal += amounts.lineTotal;
-    return {
-      name: line.name,
-      quantity: line.quantity,
-      unitPriceWithIva: line.unitPriceWithIva,
-      exempt: line.exempt,
-      unitMeasure: line.unitMeasure,
-      lineNet: amounts.lineNet,
-      lineExe: amounts.lineExe,
-      lineIva: amounts.lineIva,
-      lineTotal: amounts.lineTotal,
-    };
-  });
 
   const receptor = resolveReceptor(input.customer);
   const issuedAt = new Date().toISOString().slice(0, 10);
@@ -119,8 +76,8 @@ export function buildOfflineBoletaPreview(input: {
     fechaEmision: issuedAt,
     rutReceptor: receptor.rut,
     razonSocialReceptor: receptor.name,
-    mntTotal,
-    primerItem: docLines[0]?.name ?? "Item",
+    mntTotal: totals.mntTotal,
+    primerItem: previewLines[0]?.name ?? "Item",
     cafXml: input.fiscalPack.cafXml,
   });
 
@@ -146,7 +103,7 @@ export function buildOfflineBoletaPreview(input: {
     emisorComplete,
     receptor,
     lines: previewLines,
-    totals: { mntNeto, mntExe, iva, mntTotal },
+    totals,
     observation: null,
     operatorName: input.operatorName ?? null,
   };

@@ -4,6 +4,7 @@ import type { PosSaleCustomer } from "@/features/customers/types/pos-customer.ty
 import type { AppliedSnapshot } from "@/features/promotions/lib/discount-engine.types";
 import type { LoadedQuotationMeta } from "@/features/pos-cart/cart-storage";
 import { extractInstallmentMetadataFromPayments } from "@/features/pos-payment/lib/internal-credit-plan";
+import { buildLineRequiresDteSnapshot } from "@/features/sale-print-plan/build-line-requires-dte-snapshot";
 
 /** Cuerpo enviado a `POST /api/cash-sessions/sales` (CreateSaleDto). */
 export type CreateSaleApiBody = {
@@ -151,6 +152,8 @@ export function buildCreateSaleClientPayload(input: {
   fulfillPresaleTicketIds?: string[];
   deferPayment?: boolean;
   saleDocumentKind?: CreateSaleApiBody["saleDocumentKind"];
+  /** Selector del cajero (puede diferir del documento efectivo enviado). */
+  selectedSaleDocumentKind?: CreateSaleApiBody["saleDocumentKind"];
   loadedQuotation?: LoadedQuotationMeta | null;
   loadedPresaleTickets?: { id: string; code: string }[];
 }): CreateSaleClientPayload {
@@ -178,6 +181,14 @@ export function buildCreateSaleClientPayload(input: {
     metadata.firstDueDate = installmentMetadata.firstDueDate;
     metadata.paymentSchedule = installmentMetadata.paymentSchedule;
     metadata.customerCreditPlan = installmentMetadata.customerCreditPlan;
+  }
+
+  const lineRequiresDte = buildLineRequiresDteSnapshot(input.cartLines);
+  if (Object.keys(lineRequiresDte).length > 0) {
+    metadata.lineRequiresDte = lineRequiresDte;
+  }
+  if (input.selectedSaleDocumentKind) {
+    metadata.selectedSaleDocumentKind = input.selectedSaleDocumentKind;
   }
 
   const hasMetadata = Object.keys(metadata).length > 0;

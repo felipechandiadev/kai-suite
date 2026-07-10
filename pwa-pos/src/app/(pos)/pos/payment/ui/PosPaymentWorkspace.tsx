@@ -141,6 +141,7 @@ import {
   POS_INSUFFICIENT_STOCK_SURFACE_CLASS,
   posCartQuantityExceedsAvailableStock,
 } from "@/features/pos-products/ui/posProductPreview";
+import { PosNoDteBadge } from "@/features/pos-products/ui/PosNoDteBadge";
 
 /**
  * Alto de los paneles de la pantalla de cobro respecto al viewport (`vh`).
@@ -512,13 +513,16 @@ function PaymentCartReadOnlyRow({ line }: { line: PosCartLine }) {
       data-test-id={`pos-payment-cart-line-${line.variantId}`}
       data-stock-exceeded={exceedsAvailableStock ? "true" : undefined}
     >
-      <p className="min-w-0 flex-1 wrap-break-word text-foreground">
-        <span className="font-medium">{nameWithAttrs}</span>
-        <span className="font-normal text-muted-foreground">
-          {" "}
-          · {qtyPrice}
-        </span>
-      </p>
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+        <p className="min-w-0 wrap-break-word text-sm text-foreground">
+          <span className="font-medium">{nameWithAttrs}</span>
+          <span className="font-normal text-muted-foreground">
+            {" "}
+            · {qtyPrice}
+          </span>
+        </p>
+        <PosNoDteBadge requiresDte={line.requiresDte} />
+      </div>
       <span className="shrink-0 tabular-nums font-semibold text-foreground">{formatMoney(lineGross)}</span>
     </li>
   );
@@ -2616,6 +2620,18 @@ export default function PosPaymentWorkspace({
       ? resolveEffectiveSaleDocumentKind(saleDteKind, cartLinesForSale)
       : saleDteKind;
 
+    if (
+      isSimpleSaleMode &&
+      saleDteKind === "BOLETA" &&
+      cartLinesForSale.some((line) => line.requiresDte == null)
+    ) {
+      setConfirmLoading(false);
+      setPageAlert(
+        "No se pudo clasificar el perfil fiscal de uno o más productos. Sincroniza el catálogo e intenta de nuevo.",
+      );
+      return;
+    }
+
     if (isSimpleSaleMode && !backendReachable) {
       const usedPayments = payments.filter((p) => (Number(p.amount) || 0) > 0);
       const offlineAllowed = usedPayments.every(
@@ -2663,6 +2679,7 @@ export default function PosPaymentWorkspace({
           operatorName: posOperatorName,
           loadedQuotation: cart.loadedQuotation,
           loadedPresaleTickets: loadedPresaleTickets.map((t) => ({ id: t.id, code: t.code })),
+          orderDiscount: orderDiscount ?? 0,
         });
 
         const {
@@ -2781,6 +2798,7 @@ export default function PosPaymentWorkspace({
             loadedPresaleTickets,
             loadedQuotation: cart.loadedQuotation,
             saleDocumentKind: effectiveSaleDocumentKind,
+            selectedSaleDocumentKind: saleDteKind,
           }),
         );
 

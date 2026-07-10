@@ -34,6 +34,17 @@ import {
   filterDteTransactionLines,
   type VariantRequiresDteMap,
 } from '../domain/filter-dte-transaction-lines';
+import {
+  buildDbRequiresDteMap,
+  parsePosLineRequiresDteSnapshot,
+  resolveEffectiveLineRequiresDteMap,
+} from '../domain/resolve-effective-line-requires-dte';
+import { validateOfflineTedAgainstSaleContext } from '../domain/validate-offline-ted-sale-context';
+import {
+  allocateOrderDiscountForTransactionLines,
+  applyOrderDiscountToSaleBoletaDocument,
+  resolveTransactionOrderDiscount,
+} from '../domain/allocate-mixed-sale-order-discount';
 import { buildSaleBoletaPrintPreview } from '../domain/build-sale-boleta-print-preview';
 import { FiscalCryptoService } from '../infrastructure/fiscal-crypto.service';
 import { SiiBoletaAuthService } from '../infrastructure/sii-boleta-auth.service';
@@ -158,6 +169,7 @@ export class FiscalBoletaEmissionService {
     if (!ctx.dteLines.length || !ctx.saleDoc) {
       return { status: 'SKIPPED', skippedReason: 'NO_DTE_LINES' };
     }
+    const saleDoc = ctx.saleDoc;
 
     let emission: FiscalDteEmission;
     try {
@@ -170,7 +182,7 @@ export class FiscalBoletaEmissionService {
         const cafXml = await this.loadCafXmlById(reserved.cafId);
         const built = this.buildAndSignSaleBoleta(
           ctx.emisor,
-          ctx.saleDoc,
+          saleDoc,
           reserved.folio,
           cafXml,
           ctx.issuedAt,
@@ -187,8 +199,8 @@ export class FiscalBoletaEmissionService {
           dteType: 39,
           folio: reserved.folio,
           environment: SiiEnvironment.PRODUCTION,
-          receptorRut: ctx.saleDoc.receptor.rut,
-          receptorName: ctx.saleDoc.receptor.name,
+          receptorRut: saleDoc.receptor.rut,
+          receptorName: saleDoc.receptor.name,
           envioStatus: FiscalDteEmissionStatus.PENDING,
           tedXml: built.tedXml,
           encryptedSignedEnvio: encrypted.encrypted,
@@ -216,7 +228,7 @@ export class FiscalBoletaEmissionService {
 
     const printPreview = buildSaleBoletaPrintPreview({
       company: ctx.company,
-      doc: ctx.saleDoc,
+      doc: saleDoc,
       folio: emission.folio,
       issuedAt: ctx.issuedAt,
       tedXml: emission.tedXml!,
@@ -265,6 +277,15 @@ export class FiscalBoletaEmissionService {
     if (!ctx.dteLines.length || !ctx.saleDoc) {
       return { status: 'SKIPPED', skippedReason: 'NO_DTE_LINES' };
     }
+    const saleDoc = ctx.saleDoc;
+
+    const tedMismatch = validateOfflineTedAgainstSaleContext(
+      fiscal.tedXml,
+      saleDoc,
+    );
+    if (tedMismatch) {
+      return { status: 'FAILED', error: tedMismatch };
+    }
 
     const tedMatch = fiscal.tedXml.match(/<TSTED>([^<]+)<\/TSTED>/i);
     const tmstFirma = tedMatch?.[1]?.trim() || fiscal.issuedAt;
@@ -281,7 +302,7 @@ export class FiscalBoletaEmissionService {
 
         const built = buildSaleDteBoletaXml(
           ctx.emisor,
-          ctx.saleDoc,
+          saleDoc,
           fiscal.folio,
           {
             issuedAt: fiscal.issuedAt,
@@ -318,8 +339,8 @@ export class FiscalBoletaEmissionService {
           dteType: 39,
           folio: fiscal.folio,
           environment: SiiEnvironment.PRODUCTION,
-          receptorRut: ctx.saleDoc.receptor.rut,
-          receptorName: ctx.saleDoc.receptor.name,
+          receptorRut: saleDoc.receptor.rut,
+          receptorName: saleDoc.receptor.name,
           envioStatus: FiscalDteEmissionStatus.PENDING,
           tedXml: fiscal.tedXml,
           encryptedSignedEnvio: encrypted.encrypted,
@@ -347,7 +368,7 @@ export class FiscalBoletaEmissionService {
 
     const printPreview = buildSaleBoletaPrintPreview({
       company: ctx.company,
-      doc: ctx.saleDoc,
+      doc: saleDoc,
       folio: emission.folio,
       issuedAt: fiscal.issuedAt,
       tedXml: emission.tedXml!,
@@ -467,6 +488,7 @@ export class FiscalBoletaEmissionService {
     if (!ctx.dteLines.length || !ctx.saleDoc) {
       return { status: 'SKIPPED', skippedReason: 'NO_DTE_LINES' };
     }
+    const saleDoc = ctx.saleDoc;
 
     const peeked = await this.peekPosFolio(pointOfSaleId);
     if (!peeked) {
@@ -480,7 +502,7 @@ export class FiscalBoletaEmissionService {
     try {
       const built = this.buildAndSignSaleBoleta(
         ctx.emisor,
-        ctx.saleDoc,
+        saleDoc,
         folio,
         cafXml,
         ctx.issuedAt,
@@ -512,7 +534,7 @@ export class FiscalBoletaEmissionService {
       if (folio !== peeked.folio || reserved.cafId !== peeked.cafId) {
         const rebuilt = this.buildAndSignSaleBoleta(
           ctx.emisor,
-          ctx.saleDoc,
+          saleDoc,
           folio,
           reservedCafXml,
           ctx.issuedAt,
@@ -567,8 +589,8 @@ export class FiscalBoletaEmissionService {
         dteType: 39,
         folio,
         environment: SiiEnvironment.PRODUCTION,
-        receptorRut: ctx.saleDoc.receptor.rut,
-        receptorName: ctx.saleDoc.receptor.name,
+        receptorRut: saleDoc.receptor.rut,
+        receptorName: saleDoc.receptor.name,
         trackId,
         envioStatus,
         tedXml,
@@ -593,7 +615,7 @@ export class FiscalBoletaEmissionService {
 
     const printPreview = buildSaleBoletaPrintPreview({
       company: ctx.company,
-      doc: ctx.saleDoc,
+      doc: saleDoc,
       folio,
       issuedAt: ctx.issuedAt,
       tedXml,
@@ -1044,12 +1066,35 @@ export class FiscalBoletaEmissionService {
     }
     const emisor = emisorFromCompany(company);
     const variantTaxCategoryByVariantId = await this.loadVariantTaxCategoryMap(lines);
-    const requiresDteByVariantId = await this.loadVariantRequiresDteMap(lines);
+    const requiresDteByVariantId = await this.resolveRequiresDteMapForTransaction(
+      transaction,
+      lines,
+    );
     const dteLines = filterDteTransactionLines(lines, requiresDteByVariantId);
-    const saleDoc =
+    let saleDoc =
       dteLines.length > 0
         ? mapTransactionToSaleBoleta(dteLines, person, variantTaxCategoryByVariantId)
         : null;
+    if (saleDoc) {
+      const orderDiscount = resolveTransactionOrderDiscount(
+        Number(transaction.discountAmount) || 0,
+        lines,
+      );
+      if (orderDiscount > 0) {
+        const { dteOrderDiscount } = allocateOrderDiscountForTransactionLines(
+          lines,
+          requiresDteByVariantId,
+          orderDiscount,
+        );
+        if (dteOrderDiscount > 0) {
+          saleDoc = applyOrderDiscountToSaleBoletaDocument(
+            saleDoc,
+            dteLines,
+            dteOrderDiscount,
+          );
+        }
+      }
+    }
     const issuedAt = (transaction.createdAt ?? new Date()).toISOString().slice(0, 10);
     const material = await this.loadPfxMaterial(companyId);
     const rutEnvia = this.resolveRutEnvia(material, emisor.rut);
@@ -1198,6 +1243,34 @@ export class FiscalBoletaEmissionService {
       cafId: allocation.cafId,
       allocationId: allocation.id,
     };
+  }
+
+  private async resolveRequiresDteMapForTransaction(
+    transaction: Transaction,
+    lines: TransactionLine[],
+  ): Promise<VariantRequiresDteMap> {
+    const meta =
+      transaction.metadata && typeof transaction.metadata === 'object'
+        ? (transaction.metadata as Record<string, unknown>)
+        : {};
+
+    const variantIds = [
+      ...new Set(
+        lines
+          .map((line) => line.productVariantId?.trim() ?? '')
+          .filter(Boolean),
+      ),
+    ];
+    if (variantIds.length === 0) {
+      return new Map();
+    }
+    const variants = await this.dataSource.getRepository(ProductVariant).find({
+      where: { id: In(variantIds) },
+      select: ['id', 'requiresDte', 'taxCategory', 'taxIds'],
+    });
+    const dbMap = buildDbRequiresDteMap(variants);
+    const posSnapshot = parsePosLineRequiresDteSnapshot(meta);
+    return resolveEffectiveLineRequiresDteMap(variantIds, dbMap, posSnapshot);
   }
 
   private async loadVariantRequiresDteMap(

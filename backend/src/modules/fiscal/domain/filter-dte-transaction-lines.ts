@@ -7,8 +7,8 @@ export function variantRequiresDte(
   map: VariantRequiresDteMap,
 ): boolean {
   const id = variantId?.trim() ?? '';
-  if (!id) return true;
-  if (!map.has(id)) return true;
+  if (!id) return false;
+  if (!map.has(id)) return false;
   return map.get(id) !== false;
 }
 

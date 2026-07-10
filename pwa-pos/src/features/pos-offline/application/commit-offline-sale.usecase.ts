@@ -28,6 +28,15 @@ function randomUuid(): string {
   return `cmd-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+function resolveOrderDiscount(appliedPromotions: AppliedSnapshot[]): number {
+  return appliedPromotions
+    .filter((promo) => promo.isOrderLevel)
+    .reduce(
+      (sum, promo) => sum + Math.max(0, Math.round(Number(promo.amountDiscounted) || 0)),
+      0,
+    );
+}
+
 export type CommitOfflineSaleInput = {
   pointOfSaleId: string;
   cashSessionId: string;
@@ -44,6 +53,7 @@ export type CommitOfflineSaleInput = {
   operatorName?: string | null;
   loadedQuotation?: LoadedQuotationMeta | null;
   loadedPresaleTickets?: { id: string; code: string }[];
+  orderDiscount?: number;
 };
 
 export type CommitOfflineSaleResult = {
@@ -81,6 +91,7 @@ export async function commitOfflineSale(
     loadedPresaleTickets: input.loadedPresaleTickets,
     loadedQuotation: input.loadedQuotation,
     saleDocumentKind: effectiveSaleDocumentKind,
+    selectedSaleDocumentKind: input.saleDocumentKind,
   });
 
   const salePayload = {
@@ -137,6 +148,8 @@ export async function commitOfflineSale(
             folio,
             localDocumentNumber,
             operatorName: input.operatorName,
+            orderDiscount:
+              input.orderDiscount ?? resolveOrderDiscount(input.appliedPromotions),
           });
           fiscalBlock = {
             folio,

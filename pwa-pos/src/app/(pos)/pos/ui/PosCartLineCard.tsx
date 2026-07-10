@@ -18,6 +18,7 @@ import {
   posFormatStockForCard,
   posFormatStockQuantity,
 } from "@/features/pos-products/ui/posProductPreview";
+import { PosNoDteBadge } from "@/features/pos-products/ui/PosNoDteBadge";
 import IconButton from "@/shared/components/IconButton/IconButton";
 import { Alert, Button, Dialog, TextField } from "@/shared/admin-shared";
 import { listActivePosInventoryReservationsAction } from "@/features/pos-inventory-reservations/actions/list-active-reservations.action";
@@ -278,11 +279,13 @@ export default function PosCartLineCard({
                 data-test-id="pos-cart-line-stock-info"
               />
             ) : null}
-            <PosProductNameWithAttributes
-              name={line.productName}
-              attributes={line.attributes}
-              className="min-w-0 flex-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100"
-            />
+            <div className="min-w-0 flex-1">
+              <PosProductNameWithAttributes
+                name={line.productName}
+                attributes={line.attributes}
+                className="text-sm font-semibold text-zinc-900 dark:text-zinc-100"
+              />
+            </div>
           </div>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 font-mono text-[11px] text-muted-foreground">
             <span>SKU {line.sku ?? "—"}</span>
@@ -308,6 +311,7 @@ export default function PosCartLineCard({
               Stock:{" "}
               <span className="font-semibold text-foreground">{stockLabel}</span>
             </span>
+            <PosNoDteBadge requiresDte={line.requiresDte} />
           </div>
           {line.discount ? (
             <div

@@ -9,9 +9,9 @@ describe('filter-dte-transaction-lines', () => {
   const line = (variantId: string): TransactionLine =>
     ({ productVariantId: variantId }) as TransactionLine;
 
-  it('variantRequiresDte default true when unknown', () => {
+  it('variantRequiresDte default false when unknown', () => {
     const map = new Map<string, boolean>();
-    expect(variantRequiresDte('v1', map)).toBe(true);
+    expect(variantRequiresDte('v1', map)).toBe(false);
   });
 
   it('filterDteTransactionLines keeps only DTE lines', () => {
@@ -23,7 +23,7 @@ describe('filter-dte-transaction-lines', () => {
       [line('v1'), line('v2'), line('v3')],
       map,
     );
-    expect(filtered.map((l) => l.productVariantId)).toEqual(['v1', 'v3']);
+    expect(filtered.map((l) => l.productVariantId)).toEqual(['v1']);
   });
 
   it('resolveSalePrintPlanFromLines mixto con Boleta', () => {

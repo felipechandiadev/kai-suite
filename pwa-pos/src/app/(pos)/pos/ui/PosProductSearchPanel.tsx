@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type MouseEvent } from "react";
 import { Search, Tags } from "lucide-react";
 import { searchPosProductsAction, lookupPosVariantsAction } from "@/features/pos-products/actions/pos-products.action";
 import { isBackendReachable } from "@/features/pos-offline/infrastructure/connectivity";
@@ -27,6 +27,7 @@ import {
   posDisplaySaleUnitSymbol,
   posFormatStockForCard,
 } from "@/features/pos-products/ui/posProductPreview";
+import { PosNoDteBadge } from "@/features/pos-products/ui/PosNoDteBadge";
 import { patchPosContextClient, type PosPriceListSnapshot } from "@/features/session/lib/pos-context-storage";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/pos-api-failure";
 import {
@@ -130,11 +131,20 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
   }, [disabled, focusSearchField]);
 
   const clearSearch = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
     setDraftSearch("");
     setSearchQuery("");
     searchCommittedRef.current = "";
     setPage(1);
   }, []);
+
+  const handleClearSearchClick = useCallback(() => {
+    clearSearch();
+    window.setTimeout(() => focusSearchField(), 0);
+  }, [clearSearch, focusSearchField]);
 
   useEffect(() => {
     const n = readPosProductSearchPageSize();
@@ -492,6 +502,20 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
         autoComplete="off"
         alwaysShowLabel
         startAdornment={<Search className="h-4 w-4 shrink-0 text-secondary" strokeWidth={2} aria-hidden />}
+        endAdornment={
+          draftSearch.length > 0 ? (
+            <IconButton
+              icon="X"
+              variant="basic"
+              size="xs"
+              ariaLabel="Limpiar búsqueda"
+              title="Limpiar búsqueda"
+              onMouseDown={(e: MouseEvent<HTMLButtonElement>) => e.preventDefault()}
+              onClick={handleClearSearchClick}
+              data-test-id="pos-product-search-clear"
+            />
+          ) : null
+        }
         data-test-id="pos-product-search-field"
         aria-busy={searchTextPending}
       />
@@ -541,11 +565,14 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
                 }`}
                 data-test-id={`pos-product-variant-card-${item.variantId}`}
               >
-                <PosProductNameWithAttributes
-                  name={item.productName}
-                  attributes={item.attributes}
-                  className="break-words text-sm font-medium leading-snug text-foreground"
-                />
+                <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
+                  <PosProductNameWithAttributes
+                    name={item.productName}
+                    attributes={item.attributes}
+                    className="min-w-0 flex-1 break-words text-sm font-medium leading-snug text-foreground"
+                  />
+                  <PosNoDteBadge requiresDte={item.requiresDte} />
+                </div>
                 <p className="mt-1 break-all font-mono text-[11px] text-muted-foreground">
                   SKU {item.sku ?? "—"}
                   {item.barcode?.trim() ? ` · ${item.barcode.trim()}` : ""}

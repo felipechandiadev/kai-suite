@@ -5,12 +5,17 @@ import type { SalePrintPlan } from "@/features/sale-print-plan/types";
 /** Convierte el DTO del backend al modelo usado por los builders de impresión POS. */
 export function mapPosSaleReceiptPrintToReceiptData(
   dto: PosSaleReceiptPrintDto,
-  extras?: { printPlan?: SalePrintPlan | null },
+  extras?: {
+    printPlan?: SalePrintPlan | null;
+    ticketRole?: PosSaleReceiptData["ticketRole"];
+  },
 ): PosSaleReceiptData {
+  const ticketRole = extras?.ticketRole ?? "sale";
   return {
     folio: dto.folio.trim(),
     transactionId: dto.transactionId,
     printPlan: extras?.printPlan ?? dto.salePrintPlan ?? "TICKET_ONLY",
+    ticketRole,
     issuedAtIso: dto.issuedAtIso,
     documentKind: dto.documentKind,
     backorder: dto.backorder,

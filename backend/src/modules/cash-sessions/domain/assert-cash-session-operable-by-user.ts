@@ -10,7 +10,7 @@ export type CashSessionOperableInput = {
   id: string;
   status: CashSessionStatus | string;
   openedById?: string | null;
-  pointOfSaleId: string;
+  pointOfSaleId?: string | null;
 };
 
 export type CashSessionOperableParams = {

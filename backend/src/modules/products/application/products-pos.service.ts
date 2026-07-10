@@ -17,6 +17,7 @@ import { MultimediaServiceAdapter } from '@modules/multimedia/application/servic
 import { AttributeOrmEntity } from '@modules/attributes/infrastructure/orm-mappers/attribute.orm-entity';
 import { posDisplayStockInSaleUnits } from '@modules/product-variants/application/variant-count-bridge.util';
 import { normalizeVariantTaxCategory } from '@modules/product-variants/domain/variant-tax-category';
+import { applyVariantFiscalProfile } from '@modules/product-variants/application/helpers/variant-fiscal-profile';
 
 export type PosProductSearchResult = {
   productId: string;
@@ -544,7 +545,7 @@ export class ProductsPosService {
             (variant as any).stockBaseQtyPerCountSaleUnit ?? null,
           metadata: null,
           taxCategory: normalizeVariantTaxCategory(variant.taxCategory),
-          requiresDte: variant.requiresDte !== false,
+          requiresDte: this.resolvePosRequiresDte(variant),
           taxIds: Array.isArray(variant.taxIds)
             ? variant.taxIds.map((id) => String(id)).filter(Boolean)
             : [],
@@ -793,5 +794,17 @@ export class ProductsPosService {
       posStorageId,
       breakdown,
     };
+  }
+
+  private resolvePosRequiresDte(variant: ProductVariant): boolean {
+    const profile = applyVariantFiscalProfile(
+      {
+        taxCategory: variant.taxCategory,
+        requiresDte: variant.requiresDte,
+        taxIds: variant.taxIds,
+      },
+      [],
+    );
+    return profile.requiresDte;
   }
 }

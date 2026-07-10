@@ -536,8 +536,11 @@ pub(crate) fn append_barcode_centered(buf: &mut Vec<u8>, payload: &str) {
 
 fn append_totals_block(buf: &mut Vec<u8>, ticket: &PosSaleTicket) {
     let tot = &ticket.totals;
-    append_line(buf, &pad_left("Subtotal neto:", &money(tot.subtotal_net)));
-    append_line(buf, &pad_left("Impuestos:", &money(tot.taxes)));
+    let is_non_dte_complement = ticket.ticket_role.as_deref() == Some("non_dte_complement");
+    if !is_non_dte_complement {
+        append_line(buf, &pad_left("Subtotal neto:", &money(tot.subtotal_net)));
+        append_line(buf, &pad_left("Impuestos:", &money(tot.taxes)));
+    }
     if tot.line_discounts > 0.01 {
         append_line(
             buf,
@@ -575,6 +578,9 @@ fn append_totals_block(buf: &mut Vec<u8>, ticket: &PosSaleTicket) {
 }
 
 fn append_sale_body_banners(buf: &mut Vec<u8>, ticket: &PosSaleTicket) {
+    if ticket.ticket_role.as_deref() == Some("non_dte_complement") {
+        return;
+    }
     if let Some(ff) = ticket.fiscal_folio.as_deref().filter(|s| !s.trim().is_empty()) {
         append_divider(buf);
         escpos_align(buf, 1);

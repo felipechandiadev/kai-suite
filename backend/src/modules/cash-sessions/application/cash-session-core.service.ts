@@ -533,9 +533,15 @@ export class CashSessionCoreService {
         `No se puede cerrar sesión en estado ${session.status}`,
       );
     }
+    const pointOfSaleId = session.pointOfSaleId;
+    if (!pointOfSaleId) {
+      throw new BadRequestException(
+        'Punto de venta no configurado en la sesión de caja',
+      );
+    }
     assertCashSessionOperableByUser(session, {
       userId,
-      pointOfSaleId: session.pointOfSaleId,
+      pointOfSaleId,
     });
 
     // 2. Totales de referencia
@@ -872,13 +878,19 @@ export class CashSessionCoreService {
     if (!session) {
       throw new NotFoundException('Sesión de caja no encontrada');
     }
+    const pointOfSaleId = session.pointOfSaleId;
+    if (!pointOfSaleId) {
+      throw new BadRequestException(
+        'Punto de venta no configurado en la sesión de caja',
+      );
+    }
     assertCashSessionOperableByUser(session, {
       userId,
-      pointOfSaleId: session.pointOfSaleId,
+      pointOfSaleId,
     });
     const pos = session.pointOfSale;
-    const posId = session.pointOfSaleId;
-    if (!posId || !pos?.branchId) {
+    const posId = pointOfSaleId;
+    if (!pos?.branchId) {
       throw new BadRequestException('Punto de venta o sucursal no configurados');
     }
     const companyId = session.companyId;
@@ -978,13 +990,19 @@ export class CashSessionCoreService {
     if (!session) {
       throw new NotFoundException('Sesión de caja no encontrada');
     }
+    const pointOfSaleId = session.pointOfSaleId;
+    if (!pointOfSaleId) {
+      throw new BadRequestException(
+        'Punto de venta no configurado en la sesión de caja',
+      );
+    }
     assertCashSessionOperableByUser(session, {
       userId,
-      pointOfSaleId: session.pointOfSaleId,
+      pointOfSaleId,
     });
     const pos = session.pointOfSale;
-    const posId = session.pointOfSaleId;
-    if (!posId || !pos?.branchId) {
+    const posId = pointOfSaleId;
+    if (!pos?.branchId) {
       throw new BadRequestException('Punto de venta o sucursal no configurados');
     }
     const companyId = session.companyId;

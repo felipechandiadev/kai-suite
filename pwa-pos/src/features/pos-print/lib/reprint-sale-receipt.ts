@@ -26,9 +26,14 @@ export async function loadPosSaleReceiptDataForReprint(
     return { success: false, message: res.message };
   }
   const printPlan = res.receipt.salePrintPlan ?? null;
+  const isNonDteScope = options?.scope === "non_dte";
+  const data = mapPosSaleReceiptPrintToReceiptData(res.receipt, {
+    printPlan,
+    ticketRole: isNonDteScope ? "non_dte_complement" : "sale",
+  });
   return {
     success: true,
-    data: mapPosSaleReceiptPrintToReceiptData(res.receipt, { printPlan }),
+    data,
     printPlan,
   };
 }

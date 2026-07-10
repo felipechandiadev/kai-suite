@@ -137,6 +137,8 @@ pub struct PosSaleTicket {
     #[serde(default)]
     pub fiscal_boleta_warning: Option<String>,
     #[serde(default)]
+    pub ticket_role: Option<String>,
+    #[serde(default)]
     pub collection_pending: bool,
     #[serde(default, deserialize_with = "deserialize_null_as_default_vec")]
     pub ar_collection: Vec<TicketCollectionRow>,

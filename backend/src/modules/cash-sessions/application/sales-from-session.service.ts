@@ -34,10 +34,19 @@ import {
   resolveSalePrintPlanFromLines,
   type VariantRequiresDteMap,
 } from '@modules/fiscal/domain/filter-dte-transaction-lines';
+import {
+  buildDbRequiresDteMap,
+  effectiveLineRequiresDteMapToRecord,
+  FISCAL_METADATA_VERSION,
+  parsePosLineRequiresDteSnapshot,
+  parseSelectedSaleDocumentKind,
+  resolveEffectiveLineRequiresDteMap,
+} from '@modules/fiscal/domain/resolve-effective-line-requires-dte';
 import { CollectPendingSalesDto } from './dto/collect-pending-sales.dto';
 import { CollectPendingQuotasDto } from './dto/collect-pending-quotas.dto';
 import { PayoutCustomerCreditNotesDto } from './dto/payout-customer-credit-notes.dto';
 import { CreateBackorderDto } from './dto/create-backorder.dto';
+import { CreateSaleDto } from './dto/create-sale.dto';
 import {
   isSaleCollectible,
   saleBalanceDue,
@@ -310,10 +319,10 @@ export class SalesFromSessionService {
       fulfillPresaleTicketIds,
       deferPayment: Boolean(createSaleDto.deferPayment),
     });
-    const fiscalEmission = await this.maybeEmitSaleBoleta(createSaleDto, result);
     if (result.success && result.transaction?.id) {
-      await this.persistSalePrintPlanMetadata(result.transaction.id, createSaleDto);
+      await this.persistSaleFiscalMetadata(result.transaction.id, createSaleDto);
     }
+    const fiscalEmission = await this.maybeEmitSaleBoleta(createSaleDto, result);
     if (fiscalEmission) {
       return { ...result, fiscalEmission };
     }
@@ -327,6 +336,9 @@ export class SalesFromSessionService {
       skipStockCheck: false,
       deferPayment: false,
     });
+    if (result.success && result.transaction?.id) {
+      await this.persistSaleFiscalMetadata(result.transaction.id, createSaleDto);
+    }
     return result;
   }
 
@@ -434,7 +446,7 @@ export class SalesFromSessionService {
     }
   }
 
-  private async persistSalePrintPlanMetadata(
+  private async persistSaleFiscalMetadata(
     transactionId: string,
     createSaleDto: CreateSaleDto,
   ): Promise<void> {
@@ -447,47 +459,59 @@ export class SalesFromSessionService {
       where: { transactionId },
       order: { createdAt: 'ASC' },
     });
-    const variantIds = [
-      ...new Set(
-        lines
-          .map((line) => line.productVariantId?.trim() ?? '')
-          .filter(Boolean),
-      ),
-    ];
-    let requiresDteByVariantId: VariantRequiresDteMap = new Map();
-    if (variantIds.length > 0) {
-      const variants = await this.dataSource.getRepository(ProductVariant).find({
-        where: { id: In(variantIds) },
-        select: ['id', 'requiresDte'],
-      });
-      requiresDteByVariantId = new Map(
-        variants.map((v) => [v.id, v.requiresDte !== false] as const),
-      );
-    }
+    const effectiveRequiresDte = await this.loadEffectiveRequiresDteForSaleDto(
+      createSaleDto,
+    );
 
     const saleDocumentKind = this.resolveSaleDocumentKind(createSaleDto);
     const printPlan = resolveSalePrintPlanFromLines(
       saleDocumentKind,
       lines,
-      requiresDteByVariantId,
+      effectiveRequiresDte,
     );
-    const lineRequiresDte = Object.fromEntries(
-      lines
-        .map((line) => {
-          const variantId = line.productVariantId?.trim() ?? '';
-          if (!variantId) return null;
-          return [variantId, requiresDteByVariantId.get(variantId) !== false] as const;
-        })
-        .filter((entry): entry is [string, boolean] => entry != null),
+    const lineRequiresDte = effectiveLineRequiresDteMapToRecord(effectiveRequiresDte);
+    const selectedSaleDocumentKind = parseSelectedSaleDocumentKind(
+      createSaleDto.metadata,
     );
 
+    const nextMetadata: Record<string, any> = {
+      ...(typeof tx.metadata === 'object' && tx.metadata !== null
+        ? tx.metadata
+        : {}),
+      salePrintPlan: printPlan,
+      lineRequiresDte,
+      fiscalMetadataVersion: FISCAL_METADATA_VERSION,
+      ...(selectedSaleDocumentKind
+        ? { selectedSaleDocumentKind }
+        : {}),
+    };
+
     await this.dataSource.getRepository(Transaction).update(transactionId, {
-      metadata: {
-        ...(tx.metadata ?? {}),
-        salePrintPlan: printPlan,
-        lineRequiresDte,
-      },
+      metadata: nextMetadata,
     });
+  }
+
+  private async loadEffectiveRequiresDteForSaleDto(
+    createSaleDto: CreateSaleDto,
+  ): Promise<VariantRequiresDteMap> {
+    const variantIds = [
+      ...new Set(
+        (createSaleDto.lines ?? [])
+          .map((line) => line.productVariantId?.trim() ?? '')
+          .filter(Boolean),
+      ),
+    ];
+    if (variantIds.length === 0) {
+      return new Map();
+    }
+
+    const variants = await this.dataSource.getRepository(ProductVariant).find({
+      where: { id: In(variantIds) },
+      select: ['id', 'requiresDte', 'taxCategory', 'taxIds'],
+    });
+    const dbMap = buildDbRequiresDteMap(variants);
+    const posSnapshot = parsePosLineRequiresDteSnapshot(createSaleDto.metadata);
+    return resolveEffectiveLineRequiresDteMap(variantIds, dbMap, posSnapshot);
   }
 
   private resolveSaleDocumentKind(createSaleDto: CreateSaleDto): SaleDocumentKind {
@@ -498,23 +522,10 @@ export class SalesFromSessionService {
   }
 
   private async saleDtoHasTributaryLines(createSaleDto: CreateSaleDto): Promise<boolean> {
-    const variantIds = [
-      ...new Set(
-        (createSaleDto.lines ?? [])
-          .map((line) => line.productVariantId?.trim() ?? '')
-          .filter(Boolean),
-      ),
-    ];
-    if (variantIds.length === 0) return false;
-
-    const variants = await this.dataSource.getRepository(ProductVariant).find({
-      where: { id: In(variantIds) },
-      select: ['id', 'requiresDte'],
-    });
-    const requiresDteByVariantId = new Map(
-      variants.map((v) => [v.id, v.requiresDte !== false] as const),
+    const effectiveRequiresDte = await this.loadEffectiveRequiresDteForSaleDto(
+      createSaleDto,
     );
-    return variantIds.some((id) => requiresDteByVariantId.get(id) !== false);
+    return [...effectiveRequiresDte.values()].some((requiresDte) => requiresDte);
   }
 
   private async validateSaleDocumentKindForCreate(createSaleDto: CreateSaleDto): Promise<void> {

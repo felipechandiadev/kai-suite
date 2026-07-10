@@ -80,22 +80,37 @@ export function buildTicketReceiptDataFromCart(args: {
   );
   const total = bucketSaleTotalAfterDiscounts(ticketCartLines, orderDiscountShare);
 
-  const avgTaxRate =
-    cartLines.length > 0
-      ? cartLines.reduce((acc, l) => acc + (Number(l.unitTaxRate) || 0), 0) / cartLines.length
-      : 19;
-  const { net, taxes } = estimateTaxesFromGross(total, avgTaxRate);
-
   const isComplement = printPlan === "BOLETA_AND_TICKET" && ticketScope === "non_dte";
+
+  let subtotalNet: number;
+  let taxes: number;
+  if (isComplement) {
+    subtotalNet = 0;
+    taxes = 0;
+  } else {
+    const rateSource = ticketCartLines.length > 0 ? ticketCartLines : cartLines;
+    const avgTaxRate =
+      rateSource.length > 0
+        ? rateSource.reduce((acc, l) => acc + (Number(l.unitTaxRate) || 0), 0) /
+          rateSource.length
+        : 19;
+    const estimated = estimateTaxesFromGross(total, avgTaxRate);
+    subtotalNet = Math.round(estimated.net);
+    taxes = Math.round(estimated.taxes);
+  }
 
   return {
     ...base,
+    ticketRole: isComplement ? "non_dte_complement" : "sale",
+    fiscalFolio: isComplement ? null : base.fiscalFolio,
+    fiscalPrintPreview: isComplement ? null : base.fiscalPrintPreview,
+    fiscalBoletaWarning: isComplement ? null : base.fiscalBoletaWarning,
     lines: mapCartLinesToReceiptLines(ticketCartLines),
     promotions: isComplement ? [] : base.promotions,
     totals: {
-      subtotalNet: Math.round(net),
+      subtotalNet,
       subtotalGross: Math.round(subtotalGross),
-      taxes: Math.round(taxes),
+      taxes,
       lineDiscounts: lineDiscountsTotal,
       orderDiscount: Math.round(orderDiscountShare),
       discountsTotal: lineDiscountsTotal + Math.round(orderDiscountShare),

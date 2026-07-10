@@ -92,6 +92,8 @@ export type PosSaleTicketPayload = {
   /** Folio SII cuando la venta emitió boleta (referencia en ticket interno). */
   fiscalFolio?: string | null;
   fiscalBoletaWarning?: string | null;
+  /** Complemento no-DTE: sin banner fiscal en impresión. */
+  ticketRole?: "sale" | "non_dte_complement";
   /** Venta registrada sin cobro inmediato. */
   collectionPending?: boolean;
   arCollection?: PosSaleTicketCollectionRow[] | null;

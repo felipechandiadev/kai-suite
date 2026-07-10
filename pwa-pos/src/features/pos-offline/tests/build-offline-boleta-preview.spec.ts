@@ -103,4 +103,19 @@ describe("build-offline-boleta-preview", () => {
     expect(preview.lines).toHaveLength(1);
     expect(preview.lines[0]?.name).toContain("Con DTE");
   });
+
+  it("aplica descuento de orden prorrateado en carrito mixto", () => {
+    const { preview } = buildOfflineBoletaPreview({
+      cartLines: [
+        cartLine({ variantId: "v1", requiresDte: true, unitPriceWithTax: 2000 }),
+        cartLine({ variantId: "v2", requiresDte: false, unitPriceWithTax: 1000 }),
+      ],
+      customer: null,
+      fiscalPack,
+      folio: 13,
+      localDocumentNumber: "OFF-004",
+      orderDiscount: 300,
+    });
+    expect(preview.totals.mntTotal).toBe(1800);
+  });
 });

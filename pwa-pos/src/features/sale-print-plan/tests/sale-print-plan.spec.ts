@@ -9,6 +9,7 @@ import {
   resolveEffectiveSaleDocumentKind,
   boletaReducedToTicketMessage,
 } from "../resolve-effective-sale-document-kind";
+import { buildDteBoletaLinesFromCart } from "../build-dte-boleta-lines-from-cart";
 import type { PosSaleReceiptData } from "@/app/(pos)/pos/payment/ui/PosSaleReceiptDialog";
 import type { FiscalBoletaPrintPreview } from "@/features/fiscal/types/fiscal-emission.types";
 
@@ -156,7 +157,11 @@ describe("sale-print-plan", () => {
       cartLine({ variantId: "v2", productName: "No DTE", requiresDte: false, unitPriceWithTax: 1000 }),
     ];
     const ticket = buildTicketReceiptDataFromCart({
-      base: baseReceipt(),
+      base: {
+        ...baseReceipt(),
+        fiscalFolio: "198774",
+        fiscalBoletaWarning: "Aviso fiscal",
+      },
       cartLines: lines,
       totals: {
         net: 2500,
@@ -174,6 +179,11 @@ describe("sale-print-plan", () => {
     expect(ticket?.lines[0]?.productName).toBe("No DTE");
     expect(ticket?.totals.total).toBe(900);
     expect(ticket?.payments).toHaveLength(0);
+    expect(ticket?.ticketRole).toBe("non_dte_complement");
+    expect(ticket?.fiscalFolio).toBeNull();
+    expect(ticket?.fiscalBoletaWarning).toBeNull();
+    expect(ticket?.totals.taxes).toBe(0);
+    expect(ticket?.totals.subtotalNet).toBe(0);
   });
 
   it("resolveEffectiveSaleDocumentKind: Boleta sin líneas DTE → TICKET", () => {
@@ -193,5 +203,19 @@ describe("sale-print-plan", () => {
     expect(boletaReducedToTicketMessage("BOLETA", lines)).toMatch(/ticket interno/i);
     expect(boletaReducedToTicketMessage("TICKET", lines)).toBeNull();
     expect(boletaReducedToTicketMessage("BOLETA", [cartLine({ variantId: "v1" })])).toBeNull();
+  });
+
+  it("buildDteBoletaLinesFromCart prorratea descuento de orden en mixto", () => {
+    const lines = [
+      cartLine({ variantId: "v1", requiresDte: true, unitPriceWithTax: 2000 }),
+      cartLine({ variantId: "v2", requiresDte: false, unitPriceWithTax: 1000 }),
+    ];
+    const built = buildDteBoletaLinesFromCart({
+      cartLines: lines,
+      orderDiscount: 300,
+      mapLineName: (line) => line.productName ?? "Item",
+    });
+    expect(built.dteOrderDiscount).toBe(200);
+    expect(built.totals.mntTotal).toBe(1800);
   });
 });

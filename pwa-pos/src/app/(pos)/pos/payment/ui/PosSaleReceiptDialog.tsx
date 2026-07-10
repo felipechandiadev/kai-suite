@@ -146,6 +146,8 @@ export type PosSaleReceiptData = {
   ticketPrintPreview?: PosSaleReceiptData | null;
   /** Plan de impresión resuelto en POS. */
   printPlan?: SalePrintPlan;
+  /** Rol del ticket: complemento no-DTE sin vínculo fiscal. */
+  ticketRole?: "sale" | "non_dte_complement";
   issuedAtIso: string;
   documentKind: PosSaleReceiptDocumentKind;
   backorder?: PosSaleReceiptBackorder | null;
@@ -402,6 +404,7 @@ export function buildPosSaleReceiptHtml(
   options?: PosPrintHtmlOptions,
 ): string {
   const isBackorder = data.documentKind === "backorder";
+  const isNonDteComplement = data.ticketRole === "non_dte_complement";
   const isArCollection = Boolean(data.arCollection?.length);
   const isQuotaCollection = Boolean(data.quotaCollection?.length);
   const isNcPayout = Boolean(data.ncPayout?.length);
@@ -522,10 +525,10 @@ export function buildPosSaleReceiptHtml(
       : "";
 
   const fiscalBodyBanner = [
-    data.fiscalFolio?.trim()
+    data.ticketRole !== "non_dte_complement" && data.fiscalFolio?.trim()
       ? `<p class="center muted">Boleta SII: ${escapeHtml(data.fiscalFolio.trim())}</p>`
       : "",
-    data.fiscalBoletaWarning?.trim()
+    data.ticketRole !== "non_dte_complement" && data.fiscalBoletaWarning?.trim()
       ? `<p class="center" style="color:#b45309">${escapeHtml(data.fiscalBoletaWarning.trim())}</p>`
       : "",
   ].join("");
@@ -578,8 +581,12 @@ export function buildPosSaleReceiptHtml(
   ${promoRows ? `<div class="sep"></div><div class="section-title">Promociones</div>${promoRows}` : ""}
   ${collectionPendingBanner ? `<div class="sep"></div>${collectionPendingBanner}` : ""}
   <div class="sep"></div>
-  <div class="row"><span>Subtotal neto</span><span>${formatMoney(data.totals.subtotalNet)}</span></div>
-  <div class="row"><span>Impuestos</span><span>${formatMoney(data.totals.taxes)}</span></div>
+  ${
+    isNonDteComplement
+      ? ""
+      : `<div class="row"><span>Subtotal neto</span><span>${formatMoney(data.totals.subtotalNet)}</span></div>
+  <div class="row"><span>Impuestos</span><span>${formatMoney(data.totals.taxes)}</span></div>`
+  }
   ${data.totals.lineDiscounts > 0.01 ? `<div class="row"><span>Descuentos línea</span><span>−${formatMoney(data.totals.lineDiscounts)}</span></div>` : ""}
   ${data.totals.orderDiscount > 0.01 ? `<div class="row"><span>Descuento orden</span><span>−${formatMoney(data.totals.orderDiscount)}</span></div>` : ""}
   ${

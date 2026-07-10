@@ -113,8 +113,19 @@ export function posSaleReceiptToTicketPayload(
       amount: p.amount,
       detail: p.detail,
     })),
-    fiscalFolio: data.fiscalFolio?.trim() ? data.fiscalFolio.trim() : null,
-    fiscalBoletaWarning: data.fiscalBoletaWarning?.trim() ? data.fiscalBoletaWarning.trim() : null,
+    fiscalFolio:
+      data.ticketRole === "non_dte_complement"
+        ? null
+        : data.fiscalFolio?.trim()
+          ? data.fiscalFolio.trim()
+          : null,
+    fiscalBoletaWarning:
+      data.ticketRole === "non_dte_complement"
+        ? null
+        : data.fiscalBoletaWarning?.trim()
+          ? data.fiscalBoletaWarning.trim()
+          : null,
+    ticketRole: data.ticketRole ?? "sale",
     collectionPending: data.collectionPending === true,
     arCollection: data.arCollection?.length ? data.arCollection : null,
     quotaCollection: data.quotaCollection?.length ? data.quotaCollection : null,

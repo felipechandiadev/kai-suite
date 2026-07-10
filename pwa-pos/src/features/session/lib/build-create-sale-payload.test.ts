@@ -1,16 +1,46 @@
 import { describe, expect, it } from "vitest";
 import { buildCreateSaleClientPayload } from "./build-create-sale-payload";
 import type { PosPaymentLine } from "@/features/pos-cart/pos-payment.types";
+import type { PosCartLine } from "@/app/(pos)/pos/ui/PosCartLineCard";
 
 const baseInput = {
   pointOfSaleId: "pos-1",
   cashSessionId: "session-1",
-  cartLines: [],
+  cartLines: [] as PosCartLine[],
   customer: { customerId: "cust-1", name: "Cliente", document: "", phone: "", email: null },
   appliedPromotions: [],
   appliedTotal: 100000,
   overpay: 0,
 };
+
+function cartLine(variantId: string, requiresDte: boolean): PosCartLine {
+  return {
+    productId: "p1",
+    variantId,
+    productName: variantId,
+    productDescription: null,
+    productImageUrl: null,
+    sku: null,
+    barcode: null,
+    unitSymbol: "UN",
+    unitId: null,
+    unitAllowDecimals: false,
+    unitPrice: 1000,
+    unitTaxRate: 19,
+    unitTaxAmount: 190,
+    unitPriceWithTax: 1190,
+    trackInventory: false,
+    availableStock: null,
+    availableStockBase: null,
+    attributes: [],
+    metadata: null,
+    taxCategory: "TAX_STANDARD",
+    requiresDte,
+    taxIds: [],
+    quantity: 1,
+    discount: null,
+  };
+}
 
 describe("buildCreateSaleClientPayload installment metadata", () => {
   it("includes installment metadata when INTERNAL_CREDIT has scheduled plan", () => {
@@ -53,5 +83,22 @@ describe("buildCreateSaleClientPayload installment metadata", () => {
     ];
     const payload = buildCreateSaleClientPayload({ ...baseInput, payments });
     expect(payload.metadata?.numberOfInstallments).toBeUndefined();
+  });
+});
+
+describe("buildCreateSaleClientPayload fiscal snapshot", () => {
+  it("incluye lineRequiresDte y selectedSaleDocumentKind en metadata", () => {
+    const payload = buildCreateSaleClientPayload({
+      ...baseInput,
+      cartLines: [cartLine("v-dte", true), cartLine("v-lucky", false)],
+      payments: [{ id: "c1", type: "CASH", amount: 5000, reference: "" }],
+      selectedSaleDocumentKind: "BOLETA",
+      saleDocumentKind: "BOLETA",
+    });
+    expect(payload.metadata?.lineRequiresDte).toEqual({
+      "v-dte": true,
+      "v-lucky": false,
+    });
+    expect(payload.metadata?.selectedSaleDocumentKind).toBe("BOLETA");
   });
 });
