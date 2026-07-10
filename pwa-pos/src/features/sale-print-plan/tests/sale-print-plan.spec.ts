@@ -151,6 +151,31 @@ describe("sale-print-plan", () => {
     expect(jobs[1]?.kind).toBe("pos-sale-ticket");
   });
 
+  it("buildSalePrintJobs BOLETA_ONLY sin preview fiscal degrada a ticket interno", () => {
+    const receipt = baseReceipt();
+    const jobs = buildSalePrintJobs({
+      printPlan: "BOLETA_ONLY",
+      receipt,
+      ticketReceipt: null,
+    });
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]?.kind).toBe("pos-sale-ticket");
+    expect(jobs[0]?.kind === "pos-sale-ticket" && jobs[0].data.folio).toBe("SALE-1");
+  });
+
+  it("buildSalePrintJobs BOLETA_AND_TICKET sin preview imprime complemento no-DTE", () => {
+    const receipt = baseReceipt();
+    const ticket = { ...baseReceipt(), folio: "SALE-1-T", ticketRole: "non_dte_complement" as const };
+    const jobs = buildSalePrintJobs({
+      printPlan: "BOLETA_AND_TICKET",
+      receipt,
+      ticketReceipt: ticket,
+    });
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]?.kind).toBe("pos-sale-ticket");
+    expect(jobs[0]?.kind === "pos-sale-ticket" && jobs[0].data.folio).toBe("SALE-1-T");
+  });
+
   it("ticket complemento no-DTE en mixto", () => {
     const lines = [
       cartLine({ variantId: "v1", productName: "DTE", requiresDte: true, unitPriceWithTax: 2000 }),

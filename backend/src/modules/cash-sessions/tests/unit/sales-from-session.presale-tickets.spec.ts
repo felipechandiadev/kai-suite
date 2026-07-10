@@ -139,6 +139,31 @@ describe('SalesFromSessionService — presale tickets', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('allows boleta emission when fulfilling presale tickets', () => {
+    const service = Object.create(
+      SalesFromSessionService.prototype,
+    ) as SalesFromSessionService;
+    const shouldEmit = (service as unknown as {
+      shouldEmitSaleBoleta: (
+        dto: { deferPayment?: boolean; payments?: { amount: number }[] },
+        fulfillBackorderId?: string,
+      ) => boolean;
+    }).shouldEmitSaleBoleta;
+
+    expect(
+      shouldEmit(
+        { payments: [{ amount: 5000 }] },
+        undefined,
+      ),
+    ).toBe(true);
+    expect(
+      shouldEmit(
+        { payments: [{ amount: 5000 }] },
+        'backorder-1',
+      ),
+    ).toBe(false);
+  });
+
   it('dedupes presale ticket ids in createSale before registerPosCommercial', async () => {
     const registerPosCommercial = jest.fn().mockResolvedValue({ success: true });
     const service = Object.create(SalesFromSessionService.prototype) as SalesFromSessionService;

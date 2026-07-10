@@ -368,11 +368,9 @@ export class SalesFromSessionService {
   private shouldEmitSaleBoleta(
     createSaleDto: CreateSaleDto,
     fulfillBackorderId?: string,
-    fulfillPresaleTicketIds?: string[],
   ): boolean {
     if (createSaleDto.deferPayment) return false;
     if (fulfillBackorderId) return false;
-    if (fulfillPresaleTicketIds?.length) return false;
     const payments = Array.isArray(createSaleDto.payments) ? createSaleDto.payments : [];
     return payments.some((p) => (Number(p.amount) || 0) > 0);
   }
@@ -406,7 +404,7 @@ export class SalesFromSessionService {
           .filter(Boolean),
       ),
     ];
-    if (!this.shouldEmitSaleBoleta(createSaleDto, fulfillBackorderId, fulfillPresaleTicketIds)) {
+    if (!this.shouldEmitSaleBoleta(createSaleDto, fulfillBackorderId)) {
       return undefined;
     }
     const pos = await this.pointOfSaleRepository.findOne({

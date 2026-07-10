@@ -13,20 +13,26 @@ export function buildSalePrintJobs(args: {
 }): SalePrintJob[] {
   const jobs: SalePrintJob[] = [];
   const { printPlan, receipt, ticketReceipt } = args;
+  const preview = receipt.fiscalPrintPreview;
+  const wantsBoleta = printPlan === "BOLETA_ONLY" || printPlan === "BOLETA_AND_TICKET";
 
-  if (printPlan === "BOLETA_ONLY" || printPlan === "BOLETA_AND_TICKET") {
-    const preview = receipt.fiscalPrintPreview;
-    if (preview) {
-      jobs.push({ kind: "fiscal-boleta", preview });
-    }
+  if (wantsBoleta && preview) {
+    jobs.push({ kind: "fiscal-boleta", preview });
   }
 
-  const ticketData =
-    printPlan === "BOLETA_AND_TICKET"
-      ? ticketReceipt
-      : printPlan === "TICKET_ONLY"
-        ? ticketReceipt ?? receipt
-        : null;
+  const boletaMissing = wantsBoleta && !preview;
+
+  let ticketData: PosSaleReceiptData | null = null;
+  if (printPlan === "BOLETA_AND_TICKET") {
+    ticketData = ticketReceipt;
+    if (boletaMissing && !ticketData) {
+      ticketData = receipt;
+    }
+  } else if (printPlan === "TICKET_ONLY") {
+    ticketData = ticketReceipt ?? receipt;
+  } else if (printPlan === "BOLETA_ONLY" && boletaMissing) {
+    ticketData = ticketReceipt ?? receipt;
+  }
 
   if (ticketData) {
     jobs.push({ kind: "pos-sale-ticket", data: ticketData });
