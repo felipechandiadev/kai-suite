@@ -3,6 +3,7 @@ import type { PosCartLine } from "@/app/(pos)/pos/ui/PosCartLineCard";
 import type { PosSaleCustomer } from "@/features/customers/types/pos-customer.types";
 import type { FiscalBoletaPrintPreview } from "@/features/fiscal/types/fiscal-emission.types";
 import { formatReceiptLineDisplayName } from "@/features/pos-print/lib/format-receipt-line-name";
+import { classifySaleLines } from "@/features/sale-print-plan/classify-sale-lines";
 import type { OfflineFiscalPack } from "../domain/offline-fiscal-pack.types";
 
 function splitLineAmounts(
@@ -47,8 +48,14 @@ function mapCartLine(line: PosCartLine) {
   const taxRate = Number(line.unitTaxRate) || 0;
   const taxAmount = Math.round(Math.max(0, unitGross - (Number(line.unitPrice) || 0)) * qty);
   const exempt = taxRate === 0 && taxAmount === 0;
+  const attrBits = (
+    line.attributes?.map((a) => {
+      if (typeof a === "string") return a.trim();
+      return String(a.attributeValue ?? "").trim();
+    }) ?? []
+  ).filter(Boolean);
   const name =
-    formatReceiptLineDisplayName(line.productName ?? "", line.attributes) ||
+    formatReceiptLineDisplayName(line.productName ?? "", attrBits) ||
     line.sku?.trim() ||
     "Item";
   return {
@@ -68,9 +75,10 @@ export function buildOfflineBoletaPreview(input: {
   localDocumentNumber: string;
   operatorName?: string | null;
 }): { tedXml: string; issuedAt: string; preview: FiscalBoletaPrintPreview } {
-  const docLines = input.cartLines.map(mapCartLine);
+  const { dteLines } = classifySaleLines(input.cartLines);
+  const docLines = dteLines.map(mapCartLine);
   if (!docLines.length) {
-    throw new Error("Carrito vacío");
+    throw new Error("Sin líneas tributarias para boleta offline");
   }
 
   let mntNeto = 0;

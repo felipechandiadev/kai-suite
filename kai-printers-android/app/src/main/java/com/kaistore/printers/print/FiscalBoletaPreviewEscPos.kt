@@ -5,7 +5,7 @@ import com.kaistore.printers.data.PrintLogoSettings
 import kotlinx.serialization.json.Json
 
 object FiscalBoletaPreviewEscPos {
-    private const val BOTTOM_FEED_LINES = 4
+    private const val BOTTOM_FEED_LINES = 2
 
     fun fromTicketJson(
         ticketJson: String,
@@ -119,10 +119,6 @@ object FiscalBoletaPreviewEscPos {
 
         val resNum = emisor?.jsonStr("resolutionNumber").present()
         val resDate = emisor?.jsonStr("resolutionDate").present()
-        if (!resNum.isNullOrBlank() && !resDate.isNullOrBlank()) {
-            val dateShort = if (resDate.length >= 10) resDate.substring(0, 10) else resDate
-            w.line("Res. SII N $resNum de $dateShort")
-        }
 
         if (simulated) {
             w.line("Ref. Set BE: ${t.jsonStr("caso").orEmpty()}")
@@ -136,25 +132,25 @@ object FiscalBoletaPreviewEscPos {
         w.divider()
         w.alignCenter(true)
         w.line(if (simulated) "Timbre electronico (simulado)" else "Timbre electronico SII")
-        w.alignCenter(false)
         val timbre = t.jsonStr("timbrePdf417Payload").present().orEmpty()
         if (timbre.isNotEmpty()) {
             EscPosPdf417.appendCentered(w, timbre, widthChars)
             if (!simulated) {
-                w.alignCenter(true)
                 w.line("Verifique en www.sii.cl")
-                w.alignCenter(false)
             }
         } else {
-            w.alignCenter(true)
             if (simulated) {
                 w.line("TIMBRE SIMULADO")
                 w.line("No valido tributariamente")
             } else {
                 w.line("TIMBRE NO DISPONIBLE")
             }
-            w.alignCenter(false)
         }
+        if (!resNum.isNullOrBlank() && !resDate.isNullOrBlank()) {
+            val dateShort = if (resDate.length >= 10) resDate.substring(0, 10) else resDate
+            w.line("Res. SII N $resNum de $dateShort")
+        }
+        w.alignCenter(false)
         repeat(BOTTOM_FEED_LINES) { w.line() }
 
         return w.toByteArray(

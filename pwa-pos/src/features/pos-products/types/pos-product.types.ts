@@ -32,6 +32,10 @@ export type PosProductSearchItem = {
   stockBaseQtyPerCountSaleUnit?: number | null;
   attributes: PosProductAttribute[];
   metadata: Record<string, unknown> | null;
+  /** Perfil fiscal de la variante (catálogo POS / offline). */
+  taxCategory: string;
+  requiresDte: boolean;
+  taxIds: string[];
 };
 
 export type PosProductSearchPagination = {

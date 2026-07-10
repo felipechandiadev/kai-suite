@@ -20,6 +20,7 @@ import {
   CashSession,
   CashSessionStatus,
 } from '@modules/cash-sessions/domain/cash-session.entity';
+import { assertCashSessionOperableByUser } from '@modules/cash-sessions/domain/assert-cash-session-operable-by-user';
 import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
 import { User } from '@modules/users/domain/user.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
@@ -29,7 +30,10 @@ import {
   forcesNetEqualsGross,
   normalizeVariantTaxCategory,
 } from '@modules/product-variants/domain/variant-tax-category';
-import { CreateSaleDto } from './dto/create-sale.dto';
+import {
+  resolveSalePrintPlanFromLines,
+  type VariantRequiresDteMap,
+} from '@modules/fiscal/domain/filter-dte-transaction-lines';
 import { CollectPendingSalesDto } from './dto/collect-pending-sales.dto';
 import { CollectPendingQuotasDto } from './dto/collect-pending-quotas.dto';
 import { PayoutCustomerCreditNotesDto } from './dto/payout-customer-credit-notes.dto';
@@ -307,6 +311,9 @@ export class SalesFromSessionService {
       deferPayment: Boolean(createSaleDto.deferPayment),
     });
     const fiscalEmission = await this.maybeEmitSaleBoleta(createSaleDto, result);
+    if (result.success && result.transaction?.id) {
+      await this.persistSalePrintPlanMetadata(result.transaction.id, createSaleDto);
+    }
     if (fiscalEmission) {
       return { ...result, fiscalEmission };
     }
@@ -370,6 +377,10 @@ export class SalesFromSessionService {
     const saleDocumentKind = this.resolveSaleDocumentKind(createSaleDto);
     if (saleDocumentKind !== 'BOLETA') return undefined;
 
+    if (!(await this.saleDtoHasTributaryLines(createSaleDto))) {
+      return { status: 'SKIPPED', skippedReason: 'NO_DTE_LINES' };
+    }
+
     const fulfillBackorderId = createSaleDto.fulfillBackorderId?.trim() || undefined;
     const fulfillPresaleTicketIds = [
       ...new Set(
@@ -423,11 +434,87 @@ export class SalesFromSessionService {
     }
   }
 
+  private async persistSalePrintPlanMetadata(
+    transactionId: string,
+    createSaleDto: CreateSaleDto,
+  ): Promise<void> {
+    const tx = await this.transactionLineRepository.manager
+      .getRepository(Transaction)
+      .findOne({ where: { id: transactionId } });
+    if (!tx) return;
+
+    const lines = await this.transactionLineRepository.find({
+      where: { transactionId },
+      order: { createdAt: 'ASC' },
+    });
+    const variantIds = [
+      ...new Set(
+        lines
+          .map((line) => line.productVariantId?.trim() ?? '')
+          .filter(Boolean),
+      ),
+    ];
+    let requiresDteByVariantId: VariantRequiresDteMap = new Map();
+    if (variantIds.length > 0) {
+      const variants = await this.dataSource.getRepository(ProductVariant).find({
+        where: { id: In(variantIds) },
+        select: ['id', 'requiresDte'],
+      });
+      requiresDteByVariantId = new Map(
+        variants.map((v) => [v.id, v.requiresDte !== false] as const),
+      );
+    }
+
+    const saleDocumentKind = this.resolveSaleDocumentKind(createSaleDto);
+    const printPlan = resolveSalePrintPlanFromLines(
+      saleDocumentKind,
+      lines,
+      requiresDteByVariantId,
+    );
+    const lineRequiresDte = Object.fromEntries(
+      lines
+        .map((line) => {
+          const variantId = line.productVariantId?.trim() ?? '';
+          if (!variantId) return null;
+          return [variantId, requiresDteByVariantId.get(variantId) !== false] as const;
+        })
+        .filter((entry): entry is [string, boolean] => entry != null),
+    );
+
+    await this.dataSource.getRepository(Transaction).update(transactionId, {
+      metadata: {
+        ...(tx.metadata ?? {}),
+        salePrintPlan: printPlan,
+        lineRequiresDte,
+      },
+    });
+  }
+
   private resolveSaleDocumentKind(createSaleDto: CreateSaleDto): SaleDocumentKind {
     if (createSaleDto.saleDocumentKind != null && isSaleDocumentKind(createSaleDto.saleDocumentKind)) {
       return normalizeSaleDocumentKind(createSaleDto.saleDocumentKind);
     }
     return 'TICKET';
+  }
+
+  private async saleDtoHasTributaryLines(createSaleDto: CreateSaleDto): Promise<boolean> {
+    const variantIds = [
+      ...new Set(
+        (createSaleDto.lines ?? [])
+          .map((line) => line.productVariantId?.trim() ?? '')
+          .filter(Boolean),
+      ),
+    ];
+    if (variantIds.length === 0) return false;
+
+    const variants = await this.dataSource.getRepository(ProductVariant).find({
+      where: { id: In(variantIds) },
+      select: ['id', 'requiresDte'],
+    });
+    const requiresDteByVariantId = new Map(
+      variants.map((v) => [v.id, v.requiresDte !== false] as const),
+    );
+    return variantIds.some((id) => requiresDteByVariantId.get(id) !== false);
   }
 
   private async validateSaleDocumentKindForCreate(createSaleDto: CreateSaleDto): Promise<void> {
@@ -499,11 +586,10 @@ export class SalesFromSessionService {
         `Sesión de caja ${dto.cashSessionId} no encontrada`,
       );
     }
-    if (cashSession.status !== CashSessionStatus.OPEN) {
-      throw new ConflictException(
-        `La sesión de caja está en estado ${cashSession.status}, no se pueden registrar operaciones`,
-      );
-    }
+    assertCashSessionOperableByUser(cashSession, {
+      userId: user.id,
+      pointOfSaleId: dto.pointOfSaleId,
+    });
 
     const sales = await this.transactionRepository.find({
       where: { id: In(saleIds) },
@@ -709,11 +795,10 @@ export class SalesFromSessionService {
         `Sesión de caja ${dto.cashSessionId} no encontrada`,
       );
     }
-    if (cashSession.status !== CashSessionStatus.OPEN) {
-      throw new ConflictException(
-        `La sesión de caja está en estado ${cashSession.status}, no se pueden registrar operaciones`,
-      );
-    }
+    assertCashSessionOperableByUser(cashSession, {
+      userId: user.id,
+      pointOfSaleId: dto.pointOfSaleId,
+    });
 
     const installments = await this.installmentRepository.find({
       where: { id: In(installmentIds) },
@@ -986,11 +1071,10 @@ export class SalesFromSessionService {
         `Sesión de caja ${dto.cashSessionId} no encontrada`,
       );
     }
-    if (cashSession.status !== CashSessionStatus.OPEN) {
-      throw new ConflictException(
-        `La sesión de caja está en estado ${cashSession.status}, no se pueden registrar operaciones`,
-      );
-    }
+    assertCashSessionOperableByUser(cashSession, {
+      userId: user.id,
+      pointOfSaleId: dto.pointOfSaleId,
+    });
 
     const sources =
       await this.customerPaymentSourcesService.listForCustomer(customerId);
@@ -1569,11 +1653,10 @@ export class SalesFromSessionService {
         );
       }
 
-      if (cashSession.status !== CashSessionStatus.OPEN) {
-        throw new ConflictException(
-          `La sesión de caja está en estado ${cashSession.status}, no se pueden registrar operaciones`,
-        );
-      }
+      assertCashSessionOperableByUser(cashSession, {
+        userId: user.id,
+        pointOfSaleId,
+      });
 
       // Calcular totales
       let subtotal = 0;

@@ -82,8 +82,7 @@ export async function seedSanSebastianFiscal(args: {
   console.log('✅ Certificado digital SII cargado');
 
   if (skipCaf) {
-    await fiscalService.acknowledgePortalCertification(companyId);
-    console.log('✅ Perfil fiscal: certificado cargado, estado CERTIFIED');
+    console.log('✅ Perfil fiscal: certificado cargado (pendiente CAF en Admin)');
     console.log('⏭️  CAF/folios omitidos — suba folios en Admin → SII y habilite producción');
   } else {
     const cafPackageService = app.get(FiscalCafPackageService);

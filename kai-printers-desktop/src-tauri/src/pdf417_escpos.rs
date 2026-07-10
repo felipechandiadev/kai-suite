@@ -134,8 +134,6 @@ pub fn append_pdf417_centered(buf: &mut Vec<u8>, payload: &str) -> Result<()> {
     };
     crate::pos_sale_ticket_escpos::escpos_align(buf, 1);
     append_gs_v0(buf, &bitmap, w_bytes, h_dots);
-    buf.push(b'\n');
-    crate::pos_sale_ticket_escpos::escpos_align(buf, 0);
     Ok(())
 }
 

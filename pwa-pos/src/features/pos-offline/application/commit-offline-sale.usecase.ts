@@ -11,6 +11,13 @@ import type { OfflineFiscalPack } from "../domain/offline-fiscal-pack.types";
 import { getOrCreateDeviceId, nextLocalDocumentNumber } from "./device-id";
 import { buildOfflineBoletaPreview } from "./build-offline-boleta-preview.usecase";
 import { buildOfflineSaleLines } from "./build-offline-sale-lines";
+import { classifySaleLines } from "@/features/sale-print-plan/classify-sale-lines";
+import { resolvePrintPlan } from "@/features/sale-print-plan/resolve-print-plan";
+import {
+  boletaReducedToTicketMessage,
+  hydrateCartLinesFiscalFlags,
+  resolveEffectiveSaleDocumentKind,
+} from "@/features/sale-print-plan";
 import { stockSnapshotRowId, catalogRowId } from "../lib/catalog-keys";
 import { logOfflineTelemetry } from "../lib/offline-telemetry";
 
@@ -46,15 +53,25 @@ export type CommitOfflineSaleResult = {
   fiscalPrintPreview: FiscalBoletaPrintPreview | null;
   fiscalFolio: string | null;
   boletaSkippedMessage: string | null;
+  printPlan: ReturnType<typeof resolvePrintPlan>;
 };
 
 export async function commitOfflineSale(
   input: CommitOfflineSaleInput,
 ): Promise<CommitOfflineSaleResult> {
+  const cartLines = await hydrateCartLinesFiscalFlags(
+    input.cartLines,
+    input.pointOfSaleId,
+    input.priceListId,
+  );
+  const effectiveSaleDocumentKind = resolveEffectiveSaleDocumentKind(
+    input.saleDocumentKind,
+    cartLines,
+  );
   const salePayloadBase = buildCreateSaleClientPayload({
     pointOfSaleId: input.pointOfSaleId,
     cashSessionId: input.cashSessionId,
-    cartLines: input.cartLines,
+    cartLines,
     payments: input.payments,
     customer: input.customer,
     appliedPromotions: input.appliedPromotions,
@@ -63,14 +80,14 @@ export async function commitOfflineSale(
     fulfillPresaleTicketIds: input.loadedPresaleTickets?.map((t) => t.id),
     loadedPresaleTickets: input.loadedPresaleTickets,
     loadedQuotation: input.loadedQuotation,
-    saleDocumentKind: input.saleDocumentKind,
+    saleDocumentKind: effectiveSaleDocumentKind,
   });
 
   const salePayload = {
     ...salePayloadBase,
     pointOfSaleId: input.pointOfSaleId,
     cashSessionId: input.cashSessionId,
-    lines: buildOfflineSaleLines(input.cartLines),
+    lines: buildOfflineSaleLines(cartLines),
   };
 
   const db = getPosOfflineDb();
@@ -82,13 +99,22 @@ export async function commitOfflineSale(
   let fiscalBlock: PosOfflineFiscalBlock | null = null;
   let fiscalPrintPreview: FiscalBoletaPrintPreview | null = null;
   let fiscalFolio: string | null = null;
-  let boletaSkippedMessage: string | null = null;
+  let boletaSkippedMessage: string | null =
+    boletaReducedToTicketMessage(input.saleDocumentKind, cartLines);
+  const buckets = classifySaleLines(cartLines);
+  const printPlan = resolvePrintPlan(input.saleDocumentKind, buckets);
 
   const command = await db.transaction(
     "rw",
     [db.commands, db.fiscal_pack, db.stock_snapshot, db.catalog, db.meta],
     async () => {
       if (input.saleDocumentKind === "BOLETA") {
+        if (buckets.dteLines.length === 0) {
+          if (!boletaSkippedMessage) {
+            boletaSkippedMessage =
+              "Sin ítems tributarios en el carrito. Se imprimirá solo ticket interno.";
+          }
+        } else {
         const pack = input.fiscalPack;
         if (!pack) {
           boletaSkippedMessage =
@@ -105,7 +131,7 @@ export async function commitOfflineSale(
           await db.fiscal_pack.put(pack);
 
           const built = buildOfflineBoletaPreview({
-            cartLines: input.cartLines,
+            cartLines,
             customer: input.customer,
             fiscalPack: pack,
             folio,
@@ -121,10 +147,12 @@ export async function commitOfflineSale(
           };
           fiscalPrintPreview = built.preview;
           fiscalFolio = String(folio);
+          boletaSkippedMessage = null;
+        }
         }
       }
 
-      for (const line of input.cartLines) {
+      for (const line of cartLines) {
         if (!line.trackInventory) continue;
         const qty = Math.max(0, Number(line.quantity) || 0);
         if (qty <= 0) continue;
@@ -205,7 +233,7 @@ export async function commitOfflineSale(
   logOfflineTelemetry("offline_sale_committed", {
     pointOfSaleId: input.pointOfSaleId,
     localDocumentNumber,
-    lineCount: input.cartLines.length,
+    lineCount: cartLines.length,
     hasFiscal: !!fiscalBlock,
   });
 
@@ -216,5 +244,6 @@ export async function commitOfflineSale(
     fiscalPrintPreview,
     fiscalFolio,
     boletaSkippedMessage,
+    printPlan,
   };
 }

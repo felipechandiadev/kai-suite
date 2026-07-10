@@ -25,6 +25,7 @@ function apiUrl(path: string): string | null {
 export class PosSaleReceiptPrintRequest {
   static async getByTransactionId(
     transactionId: string,
+    options?: { scope?: "full" | "non_dte" },
   ): Promise<
     | { success: true; receipt: PosSaleReceiptPrintDto }
     | { success: false; message: string }
@@ -33,7 +34,11 @@ export class PosSaleReceiptPrintRequest {
     if (!id) {
       return { success: false, message: "Transacción no especificada" };
     }
-    const url = apiUrl(`transactions/${encodeURIComponent(id)}/pos-sale-receipt`);
+    const scopeQuery =
+      options?.scope === "non_dte" ? "?scope=non_dte" : "";
+    const url = apiUrl(
+      `transactions/${encodeURIComponent(id)}/pos-sale-receipt${scopeQuery}`,
+    );
     if (!url) {
       return { success: false, message: "BACKEND_API_URL no está configurada" };
     }

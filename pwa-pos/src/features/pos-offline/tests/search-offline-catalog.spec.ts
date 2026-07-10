@@ -28,6 +28,9 @@ function row(partial: Partial<OfflineCatalogRow> & Pick<OfflineCatalogRow, "vari
     availableStockBase: partial.availableStock ?? 5,
     attributes: [],
     metadata: null,
+    taxCategory: "TAX_STANDARD",
+    requiresDte: true,
+    taxIds: [],
     pointOfSaleId: "pos-1",
     priceListId: "pl-1",
     snapshotAt: new Date().toISOString(),
@@ -72,5 +75,23 @@ describe("search-offline-catalog", () => {
     });
     expect(res.total).toBe(1);
     expect(res.products[0]?.productName).toBe("Café molido");
+  });
+
+  it("persiste requiresDte en búsqueda offline", async () => {
+    await getPosOfflineDb().catalog.bulkPut([
+      row({ variantId: "v-dte", productName: "Con DTE", requiresDte: true }),
+      row({ variantId: "v-no", productName: "Sin DTE", requiresDte: false }),
+    ]);
+
+    const res = await searchOfflineCatalog({
+      pointOfSaleId: "pos-1",
+      priceListId: "pl-1",
+      query: "",
+      page: 1,
+      pageSize: 20,
+    });
+    const byId = new Map(res.products.map((p) => [p.variantId, p]));
+    expect(byId.get("v-dte")?.requiresDte).toBe(true);
+    expect(byId.get("v-no")?.requiresDte).toBe(false);
   });
 });

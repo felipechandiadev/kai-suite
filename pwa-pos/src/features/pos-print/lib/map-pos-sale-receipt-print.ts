@@ -1,12 +1,16 @@
 import type { PosSaleReceiptData } from "@/app/(pos)/pos/payment/ui/PosSaleReceiptDialog";
 import type { PosSaleReceiptPrintDto } from "@/features/pos-print/types/pos-sale-receipt-print.types";
+import type { SalePrintPlan } from "@/features/sale-print-plan/types";
 
 /** Convierte el DTO del backend al modelo usado por los builders de impresión POS. */
 export function mapPosSaleReceiptPrintToReceiptData(
   dto: PosSaleReceiptPrintDto,
+  extras?: { printPlan?: SalePrintPlan | null },
 ): PosSaleReceiptData {
   return {
     folio: dto.folio.trim(),
+    transactionId: dto.transactionId,
+    printPlan: extras?.printPlan ?? dto.salePrintPlan ?? "TICKET_ONLY",
     issuedAtIso: dto.issuedAtIso,
     documentKind: dto.documentKind,
     backorder: dto.backorder,

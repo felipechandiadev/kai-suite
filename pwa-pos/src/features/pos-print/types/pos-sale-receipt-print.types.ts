@@ -59,4 +59,5 @@ export type PosSaleReceiptPrintDto = {
     change: number;
   };
   payments: Array<{ label: string; amount: number; detail: string | null }>;
+  salePrintPlan?: "TICKET_ONLY" | "BOLETA_ONLY" | "BOLETA_AND_TICKET" | null;
 };

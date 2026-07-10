@@ -54,6 +54,7 @@ export class PosSaleReceiptPrintService {
   async findReceiptByTransactionId(
     companyId: string,
     transactionId: string,
+    options?: { scope?: 'full' | 'non_dte' },
   ): Promise<PosSaleReceiptPrintDto> {
     const id = transactionId?.trim();
     if (!id) {
@@ -92,12 +93,13 @@ export class PosSaleReceiptPrintService {
     }
 
     const company = await this.companiesService.getCompanyById(companyId);
-    return this.toReceiptDto(tx, company);
+    return this.toReceiptDto(tx, company, options?.scope ?? 'full');
   }
 
   private toReceiptDto(
     tx: Transaction,
     company: CompanyDetail,
+    scope: 'full' | 'non_dte' = 'full',
   ): PosSaleReceiptPrintDto {
     const meta =
       tx.metadata && typeof tx.metadata === 'object'
@@ -106,8 +108,14 @@ export class PosSaleReceiptPrintService {
 
     const isBackorder = tx.transactionType === TransactionType.BACKORDER;
     const documentKind: 'sale' | 'backorder' = isBackorder ? 'backorder' : 'sale';
+    const salePrintPlan =
+      typeof meta.salePrintPlan === 'string' ? meta.salePrintPlan : null;
+    const lineRequiresDte =
+      meta.lineRequiresDte && typeof meta.lineRequiresDte === 'object'
+        ? (meta.lineRequiresDte as Record<string, boolean>)
+        : {};
 
-    const lines = this.mapLines(tx);
+    const lines = this.mapLines(tx, scope, lineRequiresDte);
     const lineDiscounts = lines.reduce(
       (acc, l) => acc + (Number(l.discountAmount) || 0),
       0,
@@ -163,6 +171,12 @@ export class PosSaleReceiptPrintService {
         total,
         company,
       ),
+      salePrintPlan:
+        salePrintPlan === 'TICKET_ONLY' ||
+        salePrintPlan === 'BOLETA_ONLY' ||
+        salePrintPlan === 'BOLETA_AND_TICKET'
+          ? salePrintPlan
+          : null,
     };
   }
 
@@ -263,11 +277,23 @@ export class PosSaleReceiptPrintService {
     return { percent, depositAmount, orderTotal };
   }
 
-  private mapLines(tx: Transaction): PosSaleReceiptPrintLineDto[] {
+  private mapLines(
+    tx: Transaction,
+    scope: 'full' | 'non_dte' = 'full',
+    lineRequiresDte: Record<string, boolean> = {},
+  ): PosSaleReceiptPrintLineDto[] {
     const sorted = [...(tx.lines ?? [])].sort(
       (a, b) => (a.lineNumber ?? 0) - (b.lineNumber ?? 0),
     );
-    return sorted.map((line) => {
+    const filtered =
+      scope === 'non_dte'
+        ? sorted.filter((line) => {
+            const variantId = line.productVariantId?.trim() ?? '';
+            if (!variantId) return false;
+            return lineRequiresDte[variantId] === false;
+          })
+        : sorted;
+    return filtered.map((line) => {
       const qty = Number(line.quantity) || 0;
       const lineTotal = Number(line.total) || 0;
       const unitPriceWithTax =

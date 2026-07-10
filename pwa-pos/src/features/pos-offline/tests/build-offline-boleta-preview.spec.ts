@@ -49,8 +49,11 @@ function cartLine(partial: Partial<PosCartLine> & Pick<PosCartLine, "variantId">
     trackInventory: true,
     availableStock: 5,
     availableStockBase: 5,
-    attributes: partial.attributes ?? ["Rojo"],
+    attributes: partial.attributes ?? [{ attributeId: "a1", attributeName: "Color", attributeValue: "Rojo" }],
     metadata: null,
+    taxCategory: "TAX_STANDARD",
+    requiresDte: partial.requiresDte ?? true,
+    taxIds: [],
     quantity: partial.quantity ?? 1,
     ...partial,
   };
@@ -84,5 +87,20 @@ describe("build-offline-boleta-preview", () => {
     });
     expect(preview.receptor.rut).toBe("12345678-5");
     expect(preview.receptor.name).toBe("Juan Pérez");
+  });
+
+  it("excluye líneas sin requiresDte del preview offline", () => {
+    const { preview } = buildOfflineBoletaPreview({
+      cartLines: [
+        cartLine({ variantId: "v1", requiresDte: true, productName: "Con DTE" }),
+        cartLine({ variantId: "v2", requiresDte: false, productName: "Sin DTE" }),
+      ],
+      customer: null,
+      fiscalPack,
+      folio: 12,
+      localDocumentNumber: "OFF-003",
+    });
+    expect(preview.lines).toHaveLength(1);
+    expect(preview.lines[0]?.name).toContain("Con DTE");
   });
 });

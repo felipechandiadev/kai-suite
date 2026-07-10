@@ -842,7 +842,18 @@ export class ProductVariantsService {
       });
     }
 
+    const fiscalProfileChanged =
+      Object.prototype.hasOwnProperty.call(sanitizedData, 'taxCategory') ||
+      Object.prototype.hasOwnProperty.call(sanitizedData, 'requiresDte') ||
+      Object.prototype.hasOwnProperty.call(sanitizedData, 'taxIds');
+
     const saved = await this.variantRepository.save(v);
+
+    if (fiscalProfileChanged && saved.productId) {
+      await this.variantOrm.manager
+        .getRepository(Product)
+        .update({ id: saved.productId }, { updatedAt: new Date() });
+    }
 
     if (
       sanitizedData.priceListItems &&

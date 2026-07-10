@@ -26,7 +26,7 @@ import {
   SEED_SAN_SEBASTIAN_COMPANY,
   getSeedSanSebastianSiiEmisorFields,
 } from '../san-sebastian/seed-san-sebastian-config';
-import { seedSanSebastianFiscal } from '../san-sebastian/seed-san-sebastian-fiscal.ts';
+import { seedSanSebastianFiscal } from '../san-sebastian/seed-san-sebastian-fiscal';
 
 async function resolveDemoCompanyId(dataSource: DataSource): Promise<Company> {
   const explicitId =

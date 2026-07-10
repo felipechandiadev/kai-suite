@@ -75,4 +75,5 @@ export type PosSaleReceiptPrintDto = {
     change: number;
   };
   payments: PosSaleReceiptPrintPaymentDto[];
+  salePrintPlan?: 'TICKET_ONLY' | 'BOLETA_ONLY' | 'BOLETA_AND_TICKET' | null;
 };

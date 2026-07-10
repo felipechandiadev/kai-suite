@@ -72,6 +72,12 @@ import {
   buildPosSaleReceiptSnapshot,
   type PosSaleReceiptData,
 } from "@/app/(pos)/pos/payment/ui/PosSaleReceiptDialog";
+import {
+  buildSaleReceiptWithPrintPlan,
+  boletaReducedToTicketMessage,
+  hydrateCartLinesFiscalFlags,
+  resolveEffectiveSaleDocumentKind,
+} from "@/features/sale-print-plan";
 import { resolvePosOperatorDisplayName } from "@/features/pos-print/lib/ticket-receipt-footer";
 import { formatReceiptLineDisplayName } from "@/features/pos-print/lib/format-receipt-line-name";
 import { createBackorderFromPosAction } from "@/features/session/actions/create-backorder.action";
@@ -2590,6 +2596,26 @@ export default function PosPaymentWorkspace({
       !isReturnMode &&
       !isReturnDocumentMode;
 
+    let cartLinesForSale = cart.lines;
+    let fiscalBoletaDegradedMessage: string | null = null;
+    if (isSimpleSaleMode) {
+      const priceListId = posCtx?.priceListId?.trim();
+      if (priceListId) {
+        cartLinesForSale = await hydrateCartLinesFiscalFlags(
+          cart.lines,
+          pointOfSaleId,
+          priceListId,
+        );
+        fiscalBoletaDegradedMessage = boletaReducedToTicketMessage(
+          saleDteKind,
+          cartLinesForSale,
+        );
+      }
+    }
+    const effectiveSaleDocumentKind = isSimpleSaleMode
+      ? resolveEffectiveSaleDocumentKind(saleDteKind, cartLinesForSale)
+      : saleDteKind;
+
     if (isSimpleSaleMode && !backendReachable) {
       const usedPayments = payments.filter((p) => (Number(p.amount) || 0) > 0);
       const offlineAllowed = usedPayments.every(
@@ -2625,7 +2651,7 @@ export default function PosPaymentWorkspace({
           pointOfSaleId,
           cashSessionId,
           priceListId,
-          cartLines: cart.lines,
+          cartLines: cartLinesForSale,
           payments,
           customer,
           appliedPromotions,
@@ -2661,34 +2687,48 @@ export default function PosPaymentWorkspace({
           }
         }
 
-        const snapshot = buildPosSaleReceiptSnapshot({
-          lines: cart.lines,
-          payments,
-          customer,
-          company: details,
-          posContext: posCtx,
-          appliedPromotions,
-          orderDiscount,
-          lineDiscountsTotal,
+        const snapshot = buildSaleReceiptWithPrintPlan({
+          snapshotInput: {
+            lines: cartLinesForSale,
+            payments,
+            customer,
+            company: details,
+            posContext: posCtx,
+            appliedPromotions,
+            orderDiscount,
+            lineDiscountsTotal,
+            totals: {
+              net: totals.net,
+              gross: totals.gross,
+              taxes,
+              discounts,
+              saleTotal,
+              appliedTotal,
+              overpay,
+            },
+            methodsById,
+            loadedQuotation,
+            saleFolio: localDocumentNumber,
+            fiscalFolio,
+            fiscalPrintPreview,
+            fiscalBoletaWarning: boletaSkippedMessage
+              ? `${boletaSkippedMessage} Pendiente de sincronización.`
+              : fiscalBoletaDegradedMessage
+                ? `${fiscalBoletaDegradedMessage} Pendiente de sincronización.`
+                : "Venta guardada localmente. Se sincronizará al reconectar.",
+            documentKind: "sale",
+            operatorName: posOperatorName,
+          },
+          saleDocumentKind: saleDteKind,
           totals: {
             net: totals.net,
             gross: totals.gross,
             taxes,
             discounts,
             saleTotal,
-            appliedTotal,
-            overpay,
+            orderDiscount,
+            lineDiscountsTotal,
           },
-          methodsById,
-          loadedQuotation,
-          saleFolio: localDocumentNumber,
-          fiscalFolio,
-          fiscalPrintPreview,
-          fiscalBoletaWarning: boletaSkippedMessage
-            ? `${boletaSkippedMessage} Pendiente de sincronización.`
-            : "Venta guardada localmente. Se sincronizará al reconectar.",
-          documentKind: "sale",
-          operatorName: posOperatorName,
         });
         setReceiptData(snapshot);
         setConfirmLoading(false);
@@ -2728,7 +2768,7 @@ export default function PosPaymentWorkspace({
           buildCreateSaleClientPayload({
             pointOfSaleId,
             cashSessionId,
-            cartLines: cart.lines,
+            cartLines: cartLinesForSale,
             payments,
             customer,
             appliedPromotions,
@@ -2740,7 +2780,7 @@ export default function PosPaymentWorkspace({
             fulfillPresaleTicketIds: loadedPresaleTickets.map((t) => t.id),
             loadedPresaleTickets,
             loadedQuotation: cart.loadedQuotation,
-            saleDocumentKind: saleDteKind,
+            saleDocumentKind: effectiveSaleDocumentKind,
           }),
         );
 
@@ -2771,57 +2811,73 @@ export default function PosPaymentWorkspace({
     }
     const fiscalEmission =
       confirmRes.success && "fiscalEmission" in confirmRes ? confirmRes.fiscalEmission : undefined;
-    const snapshot = buildPosSaleReceiptSnapshot({
-      lines: cart.lines,
-      payments,
-      customer,
-      company: details,
-      posContext: posCtx,
-      appliedPromotions,
-      orderDiscount,
-      lineDiscountsTotal,
+    const snapshot = buildSaleReceiptWithPrintPlan({
+      snapshotInput: {
+        lines: cartLinesForSale,
+        payments,
+        customer,
+        company: details,
+        posContext: posCtx,
+        appliedPromotions,
+        orderDiscount,
+        lineDiscountsTotal,
+        totals: {
+          net: totals.net,
+          gross: totals.gross,
+          taxes,
+          discounts,
+          saleTotal,
+          appliedTotal: appliedTotal,
+          overpay,
+        },
+        methodsById,
+        loadedQuotation,
+        saleFolio: confirmRes.success ? confirmRes.documentNumber : undefined,
+        transactionId: confirmRes.success ? confirmRes.transactionId : undefined,
+        fiscalFolio:
+          fiscalEmission?.folio != null &&
+          (fiscalEmission.status === "PENDING" ||
+            fiscalEmission.status === "SENT" ||
+            fiscalEmission.status === "EPR")
+            ? String(fiscalEmission.folio)
+            : null,
+        fiscalPrintPreview:
+          fiscalEmission?.printPreview &&
+          (fiscalEmission.status === "PENDING" ||
+            fiscalEmission.status === "SENT" ||
+            fiscalEmission.status === "EPR")
+            ? fiscalEmission.printPreview
+            : null,
+        fiscalBoletaWarning:
+          fiscalBoletaDegradedMessage ??
+          (fiscalEmission?.status === "FAILED"
+            ? fiscalEmission.error?.trim() ||
+              "Venta registrada; reintento de envío al SII en curso."
+            : fiscalEmission?.status === "SKIPPED" &&
+                fiscalEmission.skippedReason === "NO_DTE_LINES"
+              ? boletaReducedToTicketMessage(saleDteKind, cartLinesForSale)
+              : null),
+        documentKind: isEncargoMode ? "backorder" : "sale",
+        backorder:
+          isEncargoMode && backorderDeposit
+            ? {
+                percent: backorderDeposit.percent,
+                depositAmount: Math.round(backorderDeposit.amount),
+                orderTotal: saleTotal,
+              }
+            : null,
+        operatorName: posOperatorName,
+      },
+      saleDocumentKind: saleDteKind,
       totals: {
         net: totals.net,
         gross: totals.gross,
         taxes,
         discounts,
         saleTotal,
-        appliedTotal: appliedTotal,
-        overpay,
+        orderDiscount,
+        lineDiscountsTotal,
       },
-      methodsById,
-      loadedQuotation,
-      saleFolio: confirmRes.success ? confirmRes.documentNumber : undefined,
-      transactionId: confirmRes.success ? confirmRes.transactionId : undefined,
-      fiscalFolio:
-        fiscalEmission?.folio != null &&
-        (fiscalEmission.status === "PENDING" ||
-          fiscalEmission.status === "SENT" ||
-          fiscalEmission.status === "EPR")
-          ? String(fiscalEmission.folio)
-          : null,
-      fiscalPrintPreview:
-        fiscalEmission?.printPreview &&
-        (fiscalEmission.status === "PENDING" ||
-          fiscalEmission.status === "SENT" ||
-          fiscalEmission.status === "EPR")
-          ? fiscalEmission.printPreview
-          : null,
-      fiscalBoletaWarning:
-        fiscalEmission?.status === "FAILED"
-          ? fiscalEmission.error?.trim() ||
-            "Venta registrada; reintento de envío al SII en curso."
-          : null,
-      documentKind: isEncargoMode ? "backorder" : "sale",
-      backorder:
-        isEncargoMode && backorderDeposit
-          ? {
-              percent: backorderDeposit.percent,
-              depositAmount: Math.round(backorderDeposit.amount),
-              orderTotal: saleTotal,
-            }
-          : null,
-      operatorName: posOperatorName,
     });
     setReceiptData(snapshot);
     setConfirmLoading(false);

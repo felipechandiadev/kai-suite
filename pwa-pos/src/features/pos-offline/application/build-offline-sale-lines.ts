@@ -7,6 +7,7 @@ export type OfflineSaleLinePayload = ReturnType<typeof buildCreateSaleLines>[num
   sku?: string | null;
   unitPriceWithTax: number;
   barcode?: string | null;
+  requiresDte?: boolean;
 };
 
 export function buildOfflineSaleLines(cartLines: PosCartLine[]): OfflineSaleLinePayload[] {
@@ -23,6 +24,7 @@ export function buildOfflineSaleLines(cartLines: PosCartLine[]): OfflineSaleLine
       sku: line.sku ?? null,
       barcode: line.barcode ?? null,
       unitPriceWithTax: Number(line.unitPriceWithTax) || 0,
+      requiresDte: line.requiresDte !== false,
     };
   });
 }

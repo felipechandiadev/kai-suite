@@ -48,6 +48,7 @@ export type FiscalEmissionResponse = {
   folio?: number;
   trackId?: string | null;
   error?: string;
+  skippedReason?: string;
   printPreview?: FiscalBoletaPrintPreview;
   siiPending?: boolean;
 };

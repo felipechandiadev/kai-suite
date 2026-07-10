@@ -9,7 +9,7 @@ use crate::pos_sale_ticket_escpos::{
 use anyhow::Result;
 use std::path::PathBuf;
 
-const BOTTOM_FEED_LINES: usize = 4;
+const BOTTOM_FEED_LINES: usize = 2;
 
 fn or_dash(s: Option<&str>) -> &str {
     match s {
@@ -168,22 +168,6 @@ pub fn build_fiscal_boleta_preview_escpos(boleta: &FiscalBoletaPreview) -> Resul
     );
     escpos_bold(&mut buf, false);
 
-    if let (Some(num), Some(date)) = (
-        boleta.emisor.resolution_number.as_deref(),
-        boleta.emisor.resolution_date.as_deref(),
-    ) {
-        if !num.trim().is_empty() && !date.trim().is_empty() {
-            append_line(
-                &mut buf,
-                &format!(
-                    "Res. SII N {} de {}",
-                    num.trim(),
-                    format_date_short(date)
-                ),
-            );
-        }
-    }
-
     if simulated {
         append_line(&mut buf, &format!("Ref. Set BE: {}", boleta.caso.trim()));
     }
@@ -202,7 +186,6 @@ pub fn build_fiscal_boleta_preview_escpos(boleta: &FiscalBoletaPreview) -> Resul
     } else {
         append_line(&mut buf, "Timbre electronico SII");
     }
-    escpos_align(&mut buf, 0);
 
     let timbre_payload = boleta
         .timbre_pdf417_payload
@@ -212,29 +195,41 @@ pub fn build_fiscal_boleta_preview_escpos(boleta: &FiscalBoletaPreview) -> Resul
     if !timbre_payload.is_empty() {
         if let Err(e) = crate::pdf417_escpos::append_pdf417_centered(&mut buf, timbre_payload) {
             tracing::warn!(err = %e, "escpos: pdf417 timbre omitido");
-            escpos_align(&mut buf, 1);
             if simulated {
                 append_line(&mut buf, "TIMBRE SIMULADO");
                 append_line(&mut buf, "No valido tributariamente");
             } else {
                 append_line(&mut buf, "TIMBRE NO DISPONIBLE");
             }
-            escpos_align(&mut buf, 0);
         } else if !simulated {
-            escpos_align(&mut buf, 1);
             append_line(&mut buf, "Verifique en www.sii.cl");
-            escpos_align(&mut buf, 0);
         }
     } else {
-        escpos_align(&mut buf, 1);
         if simulated {
             append_line(&mut buf, "TIMBRE SIMULADO");
             append_line(&mut buf, "No valido tributariamente");
         } else {
             append_line(&mut buf, "TIMBRE NO DISPONIBLE");
         }
-        escpos_align(&mut buf, 0);
     }
+
+    if let (Some(num), Some(date)) = (
+        boleta.emisor.resolution_number.as_deref(),
+        boleta.emisor.resolution_date.as_deref(),
+    ) {
+        if !num.trim().is_empty() && !date.trim().is_empty() {
+            append_line(
+                &mut buf,
+                &format!(
+                    "Res. SII N {} de {}",
+                    num.trim(),
+                    format_date_short(date)
+                ),
+            );
+        }
+    }
+
+    escpos_align(&mut buf, 0);
     append_operator_footer(&mut buf, boleta.operator_name.as_deref());
     append_bottom_feed(&mut buf);
 
@@ -290,7 +285,12 @@ mod tests {
             "issuedAt": "2026-07-08",
             "tipoDte": 39,
             "isSimulated": false,
-            "emisor": { "legalName": "Empresa Test", "rut": "78543570-2" },
+            "emisor": {
+                "legalName": "Empresa Test",
+                "rut": "78543570-2",
+                "resolutionNumber": "80",
+                "resolutionDate": "2014-08-22"
+            },
             "receptor": { "rut": "66666666-6", "name": "Cliente" },
             "lines": [{ "name": "Item", "quantity": 1, "unitPriceWithIva": 1000, "lineTotal": 1000 }],
             "totals": { "mntNeto": 840, "mntExe": 0, "iva": 160, "mntTotal": 1000 },
@@ -302,6 +302,10 @@ mod tests {
         assert!(!text.contains("SIMULACION"));
         assert!(!text.contains("Ref. Set BE"));
         assert!(text.contains("Timbre electronico SII"));
+        let verifique_pos = text.find("Verifique en www.sii.cl");
+        let res_pos = text.find("Res. SII N");
+        assert!(verifique_pos.is_some() && res_pos.is_some());
+        assert!(verifique_pos.unwrap() < res_pos.unwrap());
     }
 
     #[test]

@@ -5,19 +5,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, Store } from "lucide-react";
 import { Button, IconButton, TextField } from "@/shared/admin-shared";
-import { findMyOpenCashSessionAction } from "@/features/session/actions/cash-session.action";
-import { fetchPointOfSalePriceListsAction } from "@/features/session/actions/point-of-sale-pos.action";
-import {
-  readPosContextClient,
-  savePosContextClient,
-} from "@/features/session/lib/pos-context-storage";
 import {
   readPosCompany,
   type PosCompanyConfig,
 } from "@/features/company/storage/pos-company-storage";
 import { usePosTabletDensity } from "@/shared/hooks/usePosTabletDensity";
 
-const POST_LOGIN_PATH = "/pos";
+const POST_LOGIN_PATH = "/session-setup";
 
 export default function LoginPage() {
   usePosTabletDensity();
@@ -64,53 +58,7 @@ export default function LoginPage() {
         return;
       }
 
-      const cashSession = await findMyOpenCashSessionAction();
-
-      if (cashSession.success) {
-        if (cashSession.cashSessionId && cashSession.pointOfSaleId) {
-          const posRes = await fetchPointOfSalePriceListsAction(cashSession.pointOfSaleId);
-          const prev = readPosContextClient();
-          const priceLists =
-            posRes.success && posRes.priceLists.length > 0
-              ? posRes.priceLists
-              : (prev?.priceLists ?? []);
-          const priceListId =
-            (prev?.priceListId &&
-              priceLists.some((p) => p.id === prev.priceListId) &&
-              prev.priceListId) ||
-            (posRes.success &&
-              posRes.defaultPriceListId &&
-              priceLists.some((p) => p.id === posRes.defaultPriceListId) &&
-              posRes.defaultPriceListId) ||
-            priceLists[0]?.id ||
-            prev?.priceListId ||
-            null;
-
-          savePosContextClient({
-            pointOfSaleId: cashSession.pointOfSaleId,
-            cashSessionId: cashSession.cashSessionId,
-            pointOfSaleName:
-              (posRes.success ? posRes.pointOfSaleName : null) ??
-              cashSession.pointOfSaleName ??
-              prev?.pointOfSaleName ??
-              null,
-            branchName:
-              (posRes.success ? posRes.branchName : null) ??
-              cashSession.branchName ??
-              prev?.branchName ??
-              null,
-            branchId:
-              (posRes.success ? posRes.branchId : null) ?? prev?.branchId ?? null,
-            storageId: posRes.success ? posRes.storageId : (prev?.storageId ?? null),
-            priceListId,
-            priceLists,
-          });
-        }
-        router.push(cashSession.cashSessionId ? POST_LOGIN_PATH : "/session-setup");
-        return;
-      }
-
-      router.push("/session-setup");
+      router.push(POST_LOGIN_PATH);
     } finally {
       setSubmitting(false);
     }

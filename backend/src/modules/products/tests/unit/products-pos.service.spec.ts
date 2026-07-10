@@ -25,6 +25,9 @@ function hydratedVariant(id: string): ProductVariant {
     ],
     saleUnit: { id: 'u1', symbol: 'UN', allowDecimals: false } as any,
     stockBaseUnit: { id: 'u1', symbol: 'UN' } as any,
+    taxCategory: 'TAX_STANDARD',
+    requiresDte: true,
+    taxIds: [],
   } as unknown as ProductVariant;
 }
 
@@ -129,5 +132,73 @@ describe('ProductsPosService.buildCatalogSnapshotForPos', () => {
     );
     expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('v.saleUnit', 'saleUnit');
     expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('v.stockBaseUnit', 'stockBaseUnit');
+  });
+});
+
+describe('ProductsPosService.buildCatalogDeltaForPos', () => {
+  function createStockQb() {
+    return {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+    };
+  }
+
+  it('incluye variantes con v.updatedAt o priceListItem.updatedAt además de product.updatedAt', async () => {
+    const activeQb = {
+      innerJoinAndSelect: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([hydratedVariant('v-fiscal')]),
+    };
+
+    const tombstoneQb = {
+      innerJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
+    };
+
+    const variantRepository = {
+      createQueryBuilder: jest
+        .fn()
+        .mockReturnValueOnce(activeQb)
+        .mockReturnValueOnce(tombstoneQb),
+    };
+
+    const service = new ProductsPosService(
+      variantRepository as any,
+      {} as any,
+      {} as any,
+      { createQueryBuilder: jest.fn().mockReturnValue(createStockQb()) } as any,
+      { find: jest.fn().mockResolvedValue([]) } as any,
+      { listByEntity: jest.fn() } as any,
+      { getRepository: jest.fn() } as any,
+    );
+
+    jest.spyOn(service as any, 'resolvePosStockScope').mockResolvedValue({
+      storageIdsForStock: ['st-1'],
+    });
+
+    const since = new Date(Date.now() - 60_000).toISOString();
+    const delta = await service.buildCatalogDeltaForPos({
+      pointOfSaleId: 'pos-1',
+      priceListId: 'pl-1',
+      since,
+    });
+
+    expect(activeQb.andWhere).toHaveBeenCalledWith(
+      '(product.updatedAt >= :since OR v.updatedAt >= :since OR priceListItem.updatedAt >= :since)',
+      { since: new Date(since) },
+    );
+    expect(delta.items).toHaveLength(1);
+    expect(delta.items[0].requiresDte).toBe(true);
   });
 });

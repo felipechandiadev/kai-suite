@@ -30,6 +30,10 @@ import {
 import { emisorFromCompany } from '../domain/fiscal-emisor-from-company';
 import { buildVariantTaxCategoryMap } from '../domain/resolve-line-boleta-exempt';
 import { mapTransactionToSaleBoleta } from '../domain/map-transaction-to-sale-boleta';
+import {
+  filterDteTransactionLines,
+  type VariantRequiresDteMap,
+} from '../domain/filter-dte-transaction-lines';
 import { buildSaleBoletaPrintPreview } from '../domain/build-sale-boleta-print-preview';
 import { FiscalCryptoService } from '../infrastructure/fiscal-crypto.service';
 import { SiiBoletaAuthService } from '../infrastructure/sii-boleta-auth.service';
@@ -81,7 +85,8 @@ type SaleEmissionContext = {
   company: Company;
   transaction: Transaction;
   lines: TransactionLine[];
-  saleDoc: ReturnType<typeof mapTransactionToSaleBoleta>;
+  dteLines: TransactionLine[];
+  saleDoc: ReturnType<typeof mapTransactionToSaleBoleta> | null;
   issuedAt: string;
   emisor: ReturnType<typeof emisorFromCompany>;
   material: ReturnType<SiiBoletaAuthService['loadPfx']>;
@@ -150,8 +155,8 @@ export class FiscalBoletaEmissionService {
     if (ctx.transaction.transactionType !== TransactionType.SALE) {
       return { status: 'SKIPPED' };
     }
-    if (!ctx.lines.length) {
-      return { status: 'SKIPPED', error: 'Venta sin líneas' };
+    if (!ctx.dteLines.length || !ctx.saleDoc) {
+      return { status: 'SKIPPED', skippedReason: 'NO_DTE_LINES' };
     }
 
     let emission: FiscalDteEmission;
@@ -256,6 +261,9 @@ export class FiscalBoletaEmissionService {
     const ctx = await this.loadSaleEmissionContext(companyId, transactionId);
     if (ctx.transaction.transactionType !== TransactionType.SALE) {
       return { status: 'SKIPPED' };
+    }
+    if (!ctx.dteLines.length || !ctx.saleDoc) {
+      return { status: 'SKIPPED', skippedReason: 'NO_DTE_LINES' };
     }
 
     const tedMatch = fiscal.tedXml.match(/<TSTED>([^<]+)<\/TSTED>/i);
@@ -456,8 +464,8 @@ export class FiscalBoletaEmissionService {
     if (ctx.transaction.transactionType !== TransactionType.SALE) {
       return { status: 'SKIPPED' };
     }
-    if (!ctx.lines.length) {
-      return { status: 'SKIPPED', error: 'Venta sin líneas' };
+    if (!ctx.dteLines.length || !ctx.saleDoc) {
+      return { status: 'SKIPPED', skippedReason: 'NO_DTE_LINES' };
     }
 
     const peeked = await this.peekPosFolio(pointOfSaleId);
@@ -1036,7 +1044,12 @@ export class FiscalBoletaEmissionService {
     }
     const emisor = emisorFromCompany(company);
     const variantTaxCategoryByVariantId = await this.loadVariantTaxCategoryMap(lines);
-    const saleDoc = mapTransactionToSaleBoleta(lines, person, variantTaxCategoryByVariantId);
+    const requiresDteByVariantId = await this.loadVariantRequiresDteMap(lines);
+    const dteLines = filterDteTransactionLines(lines, requiresDteByVariantId);
+    const saleDoc =
+      dteLines.length > 0
+        ? mapTransactionToSaleBoleta(dteLines, person, variantTaxCategoryByVariantId)
+        : null;
     const issuedAt = (transaction.createdAt ?? new Date()).toISOString().slice(0, 10);
     const material = await this.loadPfxMaterial(companyId);
     const rutEnvia = this.resolveRutEnvia(material, emisor.rut);
@@ -1044,6 +1057,7 @@ export class FiscalBoletaEmissionService {
       company,
       transaction,
       lines,
+      dteLines,
       saleDoc,
       issuedAt,
       emisor,
@@ -1184,6 +1198,28 @@ export class FiscalBoletaEmissionService {
       cafId: allocation.cafId,
       allocationId: allocation.id,
     };
+  }
+
+  private async loadVariantRequiresDteMap(
+    lines: TransactionLine[],
+  ): Promise<VariantRequiresDteMap> {
+    const variantIds = [
+      ...new Set(
+        lines
+          .map((line) => line.productVariantId?.trim() ?? '')
+          .filter((id) => id.length > 0),
+      ),
+    ];
+    if (variantIds.length === 0) {
+      return new Map();
+    }
+    const variants = await this.dataSource.getRepository(ProductVariant).find({
+      where: { id: In(variantIds) },
+      select: ['id', 'requiresDte'],
+    });
+    return new Map(
+      variants.map((variant) => [variant.id, variant.requiresDte !== false] as const),
+    );
   }
 
   private async loadVariantTaxCategoryMap(

@@ -138,9 +138,9 @@ export function buildFiscalBoletaReceiptInnerHtml(
 
   const timbreBlock = pdf417Svg?.trim()
     ? `<div class="barcode-section">
-      <p class="center muted" style="margin:0 0 4px;">${timbreLabel}</p>
+      <p class="center muted" style="margin:0 0 2px;">${timbreLabel}</p>
       <div class="barcode-wrap pdf417">${pdf417Svg}</div>
-      <p class="center muted" style="margin:4px 0 0;font-size:7.5px;">${timbreFootnote}</p>
+      <p class="center muted" style="margin:2px 0 0;font-size:7.5px;">${timbreFootnote}</p>
     </div>`
     : `<div class="barcode-section">
       <div class="barcode-wrap" style="border:1px dashed #888;padding:8px 4px;min-height:36px;">
@@ -153,8 +153,8 @@ export function buildFiscalBoletaReceiptInnerHtml(
     : "";
 
   const footerNote = simulated
-    ? `<p class="center muted" style="margin-top:6px;">Documento de prueba sin validez fiscal</p>`
-    : `<p class="center muted" style="margin-top:6px;">Boleta electrónica</p>`;
+    ? `<p class="center muted" style="margin-top:4px;">Documento de prueba sin validez fiscal</p>`
+    : "";
 
   return `${headerBanner}
     <p class="store">${orDash(e.legalName)}</p>
@@ -179,10 +179,10 @@ export function buildFiscalBoletaReceiptInnerHtml(
     ${exeRow}
     ${ivaRow}
     <div class="row tot"><span>TOTAL</span><span>${formatMoney(preview.totals.mntTotal)}</span></div>
-    ${resolution}
     ${observation}
     <div class="sep"></div>
     ${timbreBlock}
+    ${resolution}
     ${footerNote}
     ${ticketOperatorHtml(preview.operatorName)}`;
 }

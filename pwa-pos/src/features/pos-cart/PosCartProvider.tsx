@@ -35,6 +35,7 @@ import {
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/pos-api-failure";
 import { getQuotationsEnabledAction } from "@/features/company/actions/company-quotations.action";
 import { shouldUseBackendApi } from "@/features/pos-offline/infrastructure/connectivity";
+import { hydrateCartLinesFiscalFlags } from "@/features/sale-print-plan";
 
 type PosCartContextValue = {
   ready: boolean;
@@ -218,45 +219,60 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
   const [promotionWarnings, setPromotionWarnings] = useState<EngineWarning[]>([]);
 
   useEffect(() => {
-    const s = cartScope();
-    setScope(s);
-    if (!s) {
-      setLines([]);
-      setSaleCustomer(null);
-      setPayments([]);
-      setLoadedQuotation(null);
-      setBackorderDeposit(null);
-      setEncargoModeEnabled(false);
-      setCartMode("sale");
-      setLoadedReturnSale(null);
-      setLoadedBackorder(null);
-      setLoadedPresaleTickets([]);
+    let cancelled = false;
+
+    const loadCart = async () => {
+      const s = cartScope();
+      setScope(s);
+      if (!s) {
+        setLines([]);
+        setSaleCustomer(null);
+        setPayments([]);
+        setLoadedQuotation(null);
+        setBackorderDeposit(null);
+        setEncargoModeEnabled(false);
+        setCartMode("sale");
+        setLoadedReturnSale(null);
+        setLoadedBackorder(null);
+        setLoadedPresaleTickets([]);
+        setReady(true);
+        return;
+      }
+      const {
+        lines: loadedLines,
+        customer,
+        quotation,
+        backorderDeposit: loadedDeposit,
+        encargoModeEnabled: loadedEncargoMode,
+        cartMode: loadedMode,
+        loadedReturnSale: loadedReturn,
+        loadedBackorder: loadedBo,
+        loadedPresaleTickets: loadedPresale,
+        payments: loadedPayments,
+      } = readCartClient(s);
+      const hydratedLines = await hydrateCartLinesFiscalFlags(
+        loadedLines,
+        s.pointOfSaleId,
+        s.priceListId,
+      );
+      if (cancelled) return;
+      setLines(hydratedLines);
+      setSaleCustomer(customer);
+      setPayments(loadedPayments);
+      setLoadedQuotation(quotation);
+      setBackorderDeposit(loadedDeposit);
+      setEncargoModeEnabled(loadedEncargoMode);
+      setCartMode(loadedMode);
+      setLoadedReturnSale(loadedReturn);
+      setLoadedBackorder(loadedBo);
+      setLoadedPresaleTickets(loadedPresale);
       setReady(true);
-      return;
-    }
-    const {
-      lines: loadedLines,
-      customer,
-      quotation,
-      backorderDeposit: loadedDeposit,
-      encargoModeEnabled: loadedEncargoMode,
-      cartMode: loadedMode,
-      loadedReturnSale: loadedReturn,
-      loadedBackorder: loadedBo,
-      loadedPresaleTickets: loadedPresale,
-      payments: loadedPayments,
-    } = readCartClient(s);
-    setLines(loadedLines);
-    setSaleCustomer(customer);
-    setPayments(loadedPayments);
-    setLoadedQuotation(quotation);
-    setBackorderDeposit(loadedDeposit);
-    setEncargoModeEnabled(loadedEncargoMode);
-    setCartMode(loadedMode);
-    setLoadedReturnSale(loadedReturn);
-    setLoadedBackorder(loadedBo);
-    setLoadedPresaleTickets(loadedPresale);
-    setReady(true);
+    };
+
+    void loadCart();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -307,43 +323,50 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     if (typeof window === "undefined") return;
 
     const reloadFromContext = () => {
-      const s = cartScope();
-      setScope(s);
-      if (!s) {
-        setLines([]);
-        setSaleCustomer(null);
-        setPayments([]);
-        setLoadedQuotation(null);
-        setBackorderDeposit(null);
-        setEncargoModeEnabled(false);
-        setCartMode("sale");
-        setLoadedReturnSale(null);
-        setLoadedBackorder(null);
-        setLoadedPresaleTickets([]);
-        return;
-      }
-      const {
-        lines: nextLines,
-        customer,
-        quotation,
-        backorderDeposit: nextDeposit,
-        encargoModeEnabled: nextEncargoMode,
-        cartMode: nextMode,
-        loadedReturnSale: nextReturn,
-        loadedBackorder: nextBo,
-        loadedPresaleTickets: nextPresale,
-        payments: savedPayments,
-      } = readCartClient(s);
-      setLines(nextLines);
-      setSaleCustomer(customer);
-      setPayments(savedPayments);
-      setLoadedQuotation(quotation);
-      setBackorderDeposit(nextDeposit);
-      setEncargoModeEnabled(nextEncargoMode);
-      setCartMode(nextMode);
-      setLoadedReturnSale(nextReturn);
-      setLoadedBackorder(nextBo);
-      setLoadedPresaleTickets(nextPresale);
+      void (async () => {
+        const s = cartScope();
+        setScope(s);
+        if (!s) {
+          setLines([]);
+          setSaleCustomer(null);
+          setPayments([]);
+          setLoadedQuotation(null);
+          setBackorderDeposit(null);
+          setEncargoModeEnabled(false);
+          setCartMode("sale");
+          setLoadedReturnSale(null);
+          setLoadedBackorder(null);
+          setLoadedPresaleTickets([]);
+          return;
+        }
+        const {
+          lines: nextLines,
+          customer,
+          quotation,
+          backorderDeposit: nextDeposit,
+          encargoModeEnabled: nextEncargoMode,
+          cartMode: nextMode,
+          loadedReturnSale: nextReturn,
+          loadedBackorder: nextBo,
+          loadedPresaleTickets: nextPresale,
+          payments: savedPayments,
+        } = readCartClient(s);
+        const hydratedLines = await hydrateCartLinesFiscalFlags(
+          nextLines,
+          s.pointOfSaleId,
+          s.priceListId,
+        );
+        setLines(hydratedLines);
+        setSaleCustomer(customer);
+        setPayments(savedPayments);
+        setLoadedQuotation(quotation);
+        setBackorderDeposit(nextDeposit);
+        setEncargoModeEnabled(nextEncargoMode);
+        setCartMode(nextMode);
+        setLoadedReturnSale(nextReturn);
+        setLoadedBackorder(nextBo);
+        setLoadedPresaleTickets(nextPresale);
+      })();
     };
 
     const onStorage = (e: StorageEvent) => {

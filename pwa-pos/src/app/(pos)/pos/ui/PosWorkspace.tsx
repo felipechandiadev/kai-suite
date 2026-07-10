@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchPointOfSalePriceListsAction } from "@/features/session/actions/point-of-sale-pos.action";
+import { validatePosEntryAction } from "@/features/session/actions/cash-session.action";
 import { shouldUseBackendApi } from "@/features/pos-offline/infrastructure/connectivity";
 import {
+  clearPosContextClient,
   patchPosContextClient,
   readPosContextClient,
   type PosContextV1,
@@ -126,6 +128,19 @@ export default function PosWorkspace() {
     }
 
     void (async () => {
+      if (shouldUseBackendApi()) {
+        const validation = await validatePosEntryAction({
+          pointOfSaleId: c.pointOfSaleId,
+          cashSessionId: c.cashSessionId ?? null,
+          posKind: c.posKind ?? null,
+        });
+        if (!validation.valid) {
+          clearPosContextClient();
+          router.replace("/session-setup");
+          return;
+        }
+      }
+
       let res: Awaited<ReturnType<typeof fetchPointOfSalePriceListsAction>> | null = null;
       if (shouldUseBackendApi()) {
         try {

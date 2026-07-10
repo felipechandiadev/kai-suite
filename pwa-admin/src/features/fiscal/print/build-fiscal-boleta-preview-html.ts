@@ -124,12 +124,12 @@ export function buildFiscalBoletaPreviewHtml(
     ${exeRow}
     ${ivaRow}
     <div class="row tot"><span>TOTAL</span><span>${formatMoney(preview.totals.mntTotal)}</span></div>
-    ${resolution}
     <p class="center muted">Ref. Set BE: ${escapeHtml(preview.caso)}</p>
     ${observation}
     <div class="sep"></div>
     ${timbreBlock}
-    <p class="center muted" style="margin-top:6px;">Documento de prueba sin validez fiscal</p>
+    ${resolution}
+    <p class="center muted" style="margin-top:4px;">Documento de prueba sin validez fiscal</p>
     ${ticketOperatorHtml(preview.operatorName)}
   </div>
 </body>

@@ -213,7 +213,10 @@ export class ProductsPosService {
 
     const activeQb = this.variantRepository.createQueryBuilder('v');
     this.applyPosPriceListVariantJoins(activeQb, priceListId);
-    activeQb.andWhere('product.updatedAt >= :since', { since: sinceDate });
+    activeQb.andWhere(
+      '(product.updatedAt >= :since OR v.updatedAt >= :since OR priceListItem.updatedAt >= :since)',
+      { since: sinceDate },
+    );
     activeQb.orderBy('v.id', 'ASC').take(500);
 
     const activeVariants = await activeQb.getMany();

@@ -11,9 +11,13 @@ import type { EffectivePaymentMethod } from "@/features/pos-payment-methods/type
 import type { AppliedSnapshot } from "@/features/promotions/lib/discount-engine.types";
 import type { LoadedQuotationMeta } from "@/features/pos-cart/cart-storage";
 import type { FiscalBoletaPrintPreview } from "@/features/fiscal/types/fiscal-emission.types";
+import type { SalePrintPlan } from "@/features/sale-print-plan/types";
+import {
+  executeSalePrintPlan,
+  formatSalePrintPlanErrors,
+} from "@/features/pos-print/lib/execute-sale-print-plan";
 import { getFiscalBoletaPrintPreviewAction } from "@/features/fiscal/actions/reprint-fiscal-boleta.action";
 import { shouldUseBackendApi } from "@/features/pos-offline/infrastructure/connectivity";
-import { printFiscalBoletaPreview } from "@/features/fiscal/print/fiscal-boleta-preview-print";
 import { buildFiscalBoletaPreviewHtml } from "@/features/fiscal/print/build-fiscal-boleta-preview-html";
 import { fiscalTimbrePdf417SvgForPreview } from "@/features/fiscal/print/fiscal-timbre-pdf417";
 import {
@@ -138,6 +142,10 @@ export type PosSaleReceiptData = {
   fiscalBoletaWarning?: string | null;
   /** Vista previa para imprimir boleta electrónica al cerrar la venta. */
   fiscalPrintPreview?: FiscalBoletaPrintPreview | null;
+  /** Ticket complementario (líneas no-DTE) en ventas mixtas. */
+  ticketPrintPreview?: PosSaleReceiptData | null;
+  /** Plan de impresión resuelto en POS. */
+  printPlan?: SalePrintPlan;
   issuedAtIso: string;
   documentKind: PosSaleReceiptDocumentKind;
   backorder?: PosSaleReceiptBackorder | null;
@@ -216,6 +224,8 @@ export type PosSaleReceiptSnapshotInput = {
   fiscalFolio?: string | null;
   fiscalBoletaWarning?: string | null;
   fiscalPrintPreview?: FiscalBoletaPrintPreview | null;
+  ticketPrintPreview?: PosSaleReceiptData | null;
+  printPlan?: SalePrintPlan;
   documentKind?: PosSaleReceiptDocumentKind;
   backorder?: PosSaleReceiptBackorder | null;
   collectionPending?: boolean;
@@ -338,6 +348,8 @@ export function buildPosSaleReceiptSnapshot(input: PosSaleReceiptSnapshotInput):
     fiscalFolio: input.fiscalFolio?.trim() ? input.fiscalFolio.trim() : null,
     fiscalBoletaWarning: input.fiscalBoletaWarning?.trim() ? input.fiscalBoletaWarning.trim() : null,
     fiscalPrintPreview: input.fiscalPrintPreview ?? null,
+    ticketPrintPreview: input.ticketPrintPreview ?? null,
+    printPlan: input.printPlan ?? "TICKET_ONLY",
     issuedAtIso,
     documentKind,
     backorder: input.backorder ?? null,
@@ -651,44 +663,57 @@ function shouldRetryAutoPrint(err: unknown): boolean {
 }
 
 /**
- * Ventas: un solo comprobante automático.
- * 1) Boleta SII si hay documento fiscal emitido.
- * 2) Ticket interno solo si no hay boleta (SII no disponible / sin emisión).
+ * Ventas: imprime según printPlan (boleta, ticket o ambos).
  */
-async function tryAutoPrintFiscalBoleta(
-  snapshot: PosSaleReceiptData,
-): Promise<{ printed: boolean; hasFiscalDocument: boolean; error?: string }> {
+async function autoPrintSaleReceipt(snapshot: PosSaleReceiptData): Promise<{
+  errorMessage: string | null;
+}> {
   if (snapshot.documentKind !== "sale") {
-    return { printed: false, hasFiscalDocument: false };
+    const mode = resolveSalePrintMode(snapshot);
+    try {
+      await autoPrintSaleByMode(snapshot, mode);
+      return { errorMessage: null };
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : "print_failed";
+      return {
+        errorMessage: `No se pudo enviar el ticket al agente. ${formatPrintJobFailedMessage(raw)} Usá «Imprimir de nuevo».`,
+      };
+    }
   }
 
-  let preview = snapshot.fiscalPrintPreview ?? null;
-  if (!preview) {
-    const txId = snapshot.transactionId?.trim();
+  const printPlan = snapshot.printPlan ?? "TICKET_ONLY";
+  let receipt = snapshot;
+  if (
+    (printPlan === "BOLETA_ONLY" || printPlan === "BOLETA_AND_TICKET") &&
+    !receipt.fiscalPrintPreview
+  ) {
+    const txId = receipt.transactionId?.trim();
     if (txId && shouldUseBackendApi()) {
       try {
         const res = await getFiscalBoletaPrintPreviewAction(txId);
         if (res.success) {
-          preview = res.preview;
+          receipt = { ...receipt, fiscalPrintPreview: res.preview };
         }
       } catch {
-        preview = null;
+        // sin preview remota
       }
     }
   }
 
-  const hasFiscalDocument = Boolean(preview ?? snapshot.fiscalFolio?.trim());
-  if (!preview) {
-    return { printed: false, hasFiscalDocument };
-  }
+  const ticketReceipt =
+    printPlan === "BOLETA_AND_TICKET"
+      ? snapshot.ticketPrintPreview ?? null
+      : printPlan === "TICKET_ONLY"
+        ? snapshot.ticketPrintPreview ?? snapshot
+        : null;
 
-  try {
-    await printFiscalBoletaPreview(preview);
-    return { printed: true, hasFiscalDocument: true };
-  } catch (e) {
-    const raw = e instanceof Error ? e.message : "print_failed";
-    return { printed: false, hasFiscalDocument: true, error: raw };
-  }
+  const result = await executeSalePrintPlan({
+    printPlan,
+    receipt,
+    ticketReceipt,
+  });
+
+  return { errorMessage: formatSalePrintPlanErrors(result) };
 }
 
 const FISCAL_BOLETA_PREVIEW_FORMAT: PrintFormat = "ticket_80mm";
@@ -703,7 +728,11 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
   const [fiscalBoletaPreviewHtml, setFiscalBoletaPreviewHtml] = useState<string | null>(null);
 
   const fiscalPrintPreview = data?.fiscalPrintPreview ?? null;
+  const ticketPrintPreview = data?.ticketPrintPreview ?? null;
+  const printPlan = data?.printPlan ?? "TICKET_ONLY";
   const showingFiscalBoletaPreview = Boolean(fiscalPrintPreview);
+  const showingDualPreview = printPlan === "BOLETA_AND_TICKET" && Boolean(ticketPrintPreview);
+  const [ticketPreviewHtml, setTicketPreviewHtml] = useState<string | null>(null);
 
   useEffect(() => {
     if (!fiscalPrintPreview) {
@@ -725,6 +754,19 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
       cancelled = true;
     };
   }, [fiscalPrintPreview]);
+
+  useEffect(() => {
+    const ticketData = ticketPrintPreview ?? (showingDualPreview ? null : data);
+    if (!ticketPrintPreview || typeof window === "undefined") {
+      setTicketPreviewHtml(null);
+      return;
+    }
+    setTicketPreviewHtml(
+      buildPosSaleReceiptHtml(ticketPrintPreview, window.location.origin, "ticket_80mm", {
+        showLogo: false,
+      }),
+    );
+  }, [ticketPrintPreview, showingDualPreview, data]);
 
   useEffect(() => {
     if (data) {
@@ -763,65 +805,32 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
     const folio = data.folio.trim();
     if (!folio || autoPrintForFolioRef.current === folio) return;
     autoPrintForFolioRef.current = folio;
-    const mode = resolveSalePrintMode(data);
     const t = window.setTimeout(() => {
       void (async () => {
         const snapshot = receiptDataRef.current;
         if (!snapshot) return;
 
-        const runTicketPrint = async () => {
-          await autoPrintSaleByMode(snapshot, mode);
+        const runPrint = async () => {
+          const { errorMessage } = await autoPrintSaleReceipt(snapshot);
+          if (errorMessage) {
+            setAutoPrintStatus(errorMessage);
+          } else {
+            setAutoPrintStatus(null);
+          }
         };
 
-        let fiscalPrintError: string | null = null;
-        let ticketPrintError: string | null = null;
-        let shouldPrintTicket = snapshot.documentKind !== "sale";
-
-        if (snapshot.documentKind === "sale") {
-          const fiscal = await tryAutoPrintFiscalBoleta(snapshot);
-          if (fiscal.printed) {
-            shouldPrintTicket = false;
-          } else if (fiscal.hasFiscalDocument) {
-            shouldPrintTicket = false;
-            if (fiscal.error) {
-              const raw = formatPrintJobFailedMessage(fiscal.error);
-              fiscalPrintError = `No se pudo imprimir la boleta SII. ${raw} Reintentá con «Imprimir boleta SII» o desde Caja → Movimientos.`;
-            }
+        try {
+          await runPrint();
+        } catch (firstErr) {
+          if (!shouldRetryAutoPrint(firstErr)) {
+            const raw = firstErr instanceof Error ? firstErr.message : "print_failed";
+            setAutoPrintStatus(
+              `No se pudo enviar el comprobante al agente. ${formatPrintJobFailedMessage(raw)} Usá «Imprimir de nuevo».`,
+            );
           } else {
-            shouldPrintTicket = true;
+            await new Promise((resolve) => window.setTimeout(resolve, 400));
+            await runPrint();
           }
-        }
-
-        if (shouldPrintTicket) {
-          try {
-            await runTicketPrint();
-          } catch (firstErr) {
-            if (!shouldRetryAutoPrint(firstErr)) {
-              const raw = firstErr instanceof Error ? firstErr.message : "print_failed";
-              ticketPrintError = `No se pudo enviar el ticket al agente. ${formatPrintJobFailedMessage(raw)} Usá «Imprimir de nuevo».`;
-            } else {
-              await new Promise((resolve) => window.setTimeout(resolve, 400));
-              try {
-                await runTicketPrint();
-              } catch (secondErr) {
-                const raw =
-                  secondErr instanceof Error
-                    ? secondErr.message
-                    : firstErr instanceof Error
-                      ? firstErr.message
-                      : "print_failed";
-                ticketPrintError = `No se pudo enviar el ticket al agente. ${formatPrintJobFailedMessage(raw)} Usá «Imprimir de nuevo».`;
-              }
-            }
-          }
-        }
-
-        if (fiscalPrintError) {
-          setAutoPrintStatus(fiscalPrintError);
-        } else if (ticketPrintError) {
-          setAutoPrintStatus(ticketPrintError);
-        } else {
-          setAutoPrintStatus(null);
         }
       })();
     }, 100);
@@ -832,35 +841,22 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
     data?.documentKind === "sale" &&
       (data.fiscalFolio?.trim() || data.fiscalPrintPreview),
   );
+  const reprintLabel =
+    printPlan === "BOLETA_AND_TICKET"
+      ? "Imprimir ambos"
+      : hasFiscalBoletaOnRecord
+        ? "Imprimir boleta SII"
+        : "Imprimir ticket";
 
   async function handleReprintComprobante(): Promise<void> {
     const snapshot = receiptDataRef.current;
     if (!snapshot) return;
-    if (snapshot.documentKind === "sale") {
-      setFiscalPrintBusy(true);
-      try {
-        const fiscal = await tryAutoPrintFiscalBoleta(snapshot);
-        if (fiscal.printed) {
-          setAutoPrintStatus(null);
-          return;
-        }
-        if (fiscal.hasFiscalDocument) {
-          const raw = fiscal.error ? formatPrintJobFailedMessage(fiscal.error) : "sin_vista_previa_boleta";
-          setAutoPrintStatus(`No se pudo imprimir la boleta SII. ${raw}`);
-          return;
-        }
-      } finally {
-        setFiscalPrintBusy(false);
-      }
-    }
+    setFiscalPrintBusy(true);
     try {
-      await autoPrintSaleByMode(snapshot, resolveSalePrintMode(snapshot));
-      setAutoPrintStatus(null);
-    } catch (e) {
-      const raw = e instanceof Error ? e.message : "print_failed";
-      setAutoPrintStatus(
-        `No se pudo enviar el ticket al agente. ${formatPrintJobFailedMessage(raw)}`,
-      );
+      const { errorMessage } = await autoPrintSaleReceipt(snapshot);
+      setAutoPrintStatus(errorMessage);
+    } finally {
+      setFiscalPrintBusy(false);
     }
   }
 
@@ -890,7 +886,7 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
             onClick={() => void handleReprintComprobante()}
             disabled={fiscalPrintBusy}
             isLoading={fiscalPrintBusy}
-            title={hasFiscalBoletaOnRecord ? "Imprimir boleta SII" : "Imprimir ticket"}
+            title={reprintLabel}
             data-test-id="pos-sale-receipt-reprint-comprobante"
           />
           <Button type="button" variant="primary" onClick={onClose}>
@@ -899,8 +895,12 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
         </>
       }
     >
-      <div className="grid gap-2 text-sm">
-        {showingFiscalBoletaPreview ? (
+      <div className="grid gap-4 text-sm">
+        {showingDualPreview ? (
+          <p className="text-xs text-muted-foreground">
+            Venta mixta: comprobante tributario (SII) + ticket interno (ítems no tributarios).
+          </p>
+        ) : showingFiscalBoletaPreview ? (
           <p className="mb-2 text-xs text-muted-foreground">
             Comprobante:{" "}
             <span className="font-medium text-foreground">
@@ -928,23 +928,33 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
             {autoPrintStatus}
           </p>
         ) : null}
-        <PosPrintDocumentPreview
-          html={previewSrcDoc}
-          format={wireFormat}
-          title={
-            showingFiscalBoletaPreview
-              ? "Vista previa boleta electrónica"
-              : isDocument
-                ? "Vista previa documento"
-                : "Vista previa ticket"
-          }
-          loadingLabel={
-            showingFiscalBoletaPreview
-              ? "Preparando vista previa de boleta…"
-              : "Preparando vista previa…"
-          }
-          data-test-id="pos-sale-receipt-preview"
-        />
+        {showingFiscalBoletaPreview ? (
+          <PosPrintDocumentPreview
+            html={fiscalBoletaPreviewHtml}
+            format={FISCAL_BOLETA_PREVIEW_FORMAT}
+            title="Vista previa boleta SII"
+            loadingLabel="Preparando vista previa de boleta…"
+            data-test-id="pos-sale-receipt-fiscal-preview"
+          />
+        ) : null}
+        {showingDualPreview && ticketPreviewHtml ? (
+          <PosPrintDocumentPreview
+            html={ticketPreviewHtml}
+            format="ticket_80mm"
+            title="Vista previa ticket interno (no tributario)"
+            loadingLabel="Preparando ticket complementario…"
+            data-test-id="pos-sale-receipt-ticket-preview"
+          />
+        ) : null}
+        {!showingFiscalBoletaPreview && !showingDualPreview ? (
+          <PosPrintDocumentPreview
+            html={previewSrcDoc}
+            format={wireFormat}
+            title={isDocument ? "Vista previa documento" : "Vista previa ticket"}
+            loadingLabel="Preparando vista previa…"
+            data-test-id="pos-sale-receipt-preview"
+          />
+        ) : null}
       </div>
     </Dialog>
   );

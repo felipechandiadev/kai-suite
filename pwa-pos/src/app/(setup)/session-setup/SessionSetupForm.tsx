@@ -17,17 +17,9 @@ import { fetchPointOfSalePriceListsAction } from "@/features/session/actions/poi
 import { savePosContextClient, type PosPriceListSnapshot } from "@/features/session/lib/pos-context-storage";
 import { queueCashSessionOpeningPrint } from "@/features/cash-session-opening/lib/pending-cash-session-opening-print";
 
-export type MyOpenSession = {
-  cashSessionId: string;
-  pointOfSaleId: string;
-  pointOfSaleName: string | null;
-  branchName: string | null;
-};
-
 type Props = {
   pointsOfSale: PointOfSaleListItem[];
   initialError?: string;
-  myOpenSession?: MyOpenSession | null;
 };
 
 type BranchOption = { id: string; name: string };
@@ -105,161 +97,37 @@ function buildPosContextFromPos(pos: PointOfSaleListItem) {
   };
 }
 
+async function bootstrapAndEnterPos(
+  pointOfSaleId: string,
+  priceListId: string | null,
+  setBootstrapStatus: (status: OfflineBootstrapStatus) => void,
+  setBootstrapLoading: (loading: boolean) => void,
+  setBootstrapError: (error: string | null) => void,
+): Promise<boolean> {
+  if (!priceListId) return true;
+  setBootstrapLoading(true);
+  setBootstrapStatus({ fiscal: "loading", catalog: "loading", customers: "loading" });
+  const bootstrap = await runBootstrapCoordinator(pointOfSaleId, priceListId, setBootstrapStatus);
+  setBootstrapStatus(bootstrap);
+  setBootstrapLoading(false);
+  if (bootstrap.catalog !== "ok") {
+    setBootstrapError(
+      bootstrap.catalogMessage ??
+        "No se pudo descargar el catálogo offline. Reintenta con conexión.",
+    );
+    return false;
+  }
+  return true;
+}
+
 export default function SessionSetupForm({
   pointsOfSale,
   initialError = "",
-  myOpenSession = null,
 }: Props) {
-  if (myOpenSession) {
-    return <MyOpenSessionPanel pointsOfSale={pointsOfSale} myOpenSession={myOpenSession} />;
-  }
-  return <NewSessionForm pointsOfSale={pointsOfSale} initialError={initialError} />;
-}
-
-// -----------------------------------------------------------------------------
-// Panel: el usuario ya tiene una sesión de caja abierta.
-// -----------------------------------------------------------------------------
-function MyOpenSessionPanel({
-  pointsOfSale,
-  myOpenSession,
-}: {
-  pointsOfSale: PointOfSaleListItem[];
-  myOpenSession: MyOpenSession;
-}) {
-  const router = useRouter();
-  const myPos = pointsOfSale.find((p) => p.id === myOpenSession.pointOfSaleId) ?? null;
-  const [bootstrapStatus, setBootstrapStatus] = useState<OfflineBootstrapStatus>({
-    fiscal: "idle",
-    catalog: "idle",
-    customers: "idle",
-  });
-  const [bootstrapLoading, setBootstrapLoading] = useState(false);
-  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
-
-  const handleContinue = async () => {
-    setBootstrapError(null);
-    let priceListId: string | null = null;
-    if (myPos) {
-      const ctx = buildPosContextFromPos(myPos);
-      priceListId = ctx.priceListId;
-      savePosContext({
-        ...ctx,
-        cashSessionId: myOpenSession.cashSessionId,
-      });
-    } else {
-      const fetched = await fetchPointOfSalePriceListsAction(myOpenSession.pointOfSaleId);
-      const priceLists =
-        fetched.success && fetched.priceLists.length > 0 ? fetched.priceLists : [];
-      priceListId =
-        (fetched.success &&
-          fetched.defaultPriceListId &&
-          priceLists.some((p) => p.id === fetched.defaultPriceListId) &&
-          fetched.defaultPriceListId) ||
-        priceLists[0]?.id ||
-        null;
-      savePosContext({
-        pointOfSaleId: myOpenSession.pointOfSaleId,
-        cashSessionId: myOpenSession.cashSessionId,
-        pointOfSaleName: fetched.success ? fetched.pointOfSaleName : myOpenSession.pointOfSaleName,
-        branchName:
-          (fetched.success ? fetched.branchName : null) ?? myOpenSession.branchName,
-        branchId: fetched.success ? fetched.branchId : null,
-        storageId: fetched.success ? fetched.storageId : null,
-        priceListId,
-        priceLists,
-        posKind: fetched.success ? fetched.posKind : "SALE",
-        acceptsPresaleTickets: fetched.success ? fetched.acceptsPresaleTickets : false,
-        deferredPaymentEnabled: fetched.success ? fetched.deferredPaymentEnabled : false,
-      });
-    }
-    if (priceListId) {
-      setBootstrapLoading(true);
-      setBootstrapStatus({ fiscal: "loading", catalog: "loading", customers: "loading" });
-      const bootstrap = await runBootstrapCoordinator(
-        myOpenSession.pointOfSaleId,
-        priceListId,
-        setBootstrapStatus,
-      );
-      setBootstrapStatus(bootstrap);
-      setBootstrapLoading(false);
-      if (bootstrap.catalog !== "ok") {
-        setBootstrapError(
-          bootstrap.catalogMessage ??
-            "No se pudo descargar el catálogo offline. Reintenta con conexión.",
-        );
-        return;
-      }
-    }
-    router.push("/pos");
-  };
-
-  const handleClose = () => {
-    router.push("/cash/closing");
-  };
-
-  return (
-    <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
-      <h1 className="text-2xl font-semibold tracking-tight">Sesión de caja</h1>
-      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-        Tienes una sesión de caja abierta. ¿Quieres continuarla o cerrarla?
-      </p>
-
-      <div className="mt-4 rounded-xl border border-border bg-neutral p-4">
-        <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Sesión abierta</h2>
-        <dl className="mt-2 grid gap-1 text-sm">
-          <div className="flex justify-between gap-4">
-            <dt className="text-zinc-500 dark:text-zinc-400">Sucursal</dt>
-            <dd className="font-medium text-zinc-900 dark:text-zinc-100">
-              {myOpenSession.branchName ?? myPos?.branch?.name ?? "—"}
-            </dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-zinc-500 dark:text-zinc-400">Punto de venta</dt>
-            <dd className="font-medium text-zinc-900 dark:text-zinc-100">
-              {myOpenSession.pointOfSaleName ?? myPos?.name ?? "—"}
-            </dd>
-          </div>
-        </dl>
-      </div>
-
-      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <Button type="button" variant="outlined" onClick={handleClose}>
-          Cerrar sesión de caja
-        </Button>
-        <Button type="button" onClick={handleContinue} disabled={bootstrapLoading}>
-          {bootstrapLoading ? "Preparando offline…" : "Continuar sesión de caja"}
-        </Button>
-      </div>
-
-      {bootstrapError ? (
-        <p className="mt-3 text-sm text-destructive">{bootstrapError}</p>
-      ) : null}
-
-      <div className="mt-3">
-        <OfflineBootstrapStatusPanel
-          status={bootstrapStatus}
-          loading={bootstrapLoading}
-          onRetry={() => void handleContinue()}
-        />
-      </div>
-    </div>
-  );
-}
-
-// -----------------------------------------------------------------------------
-// Form: el usuario NO tiene sesión propia abierta. Permite seleccionar
-// sucursal + punto de venta y abrir una nueva sesión.
-// -----------------------------------------------------------------------------
-function NewSessionForm({
-  pointsOfSale,
-  initialError,
-}: {
-  pointsOfSale: PointOfSaleListItem[];
-  initialError: string;
-}) {
   const router = useRouter();
   const { data: authSession } = useSession();
   const [isPending, startTransition] = useTransition();
+  const currentUserId = authSession?.user?.id ?? null;
 
   const branches: BranchOption[] = useMemo(() => {
     const map = new Map<string, string>();
@@ -313,11 +181,33 @@ function NewSessionForm({
     refreshOpenSessions();
   }, []);
 
+  useEffect(() => {
+    if (!currentUserId || openSessions.length === 0 || pointOfSaleId) return;
+    const mine = openSessions.find((s) => s.openedById === currentUserId);
+    if (!mine) return;
+    const pos = pointsOfSale.find((p) => p.id === mine.pointOfSaleId);
+    if (!pos) return;
+    const bId = getBranchId(pos);
+    if (bId) {
+      setBranchId(bId);
+      setPointOfSaleId(mine.pointOfSaleId);
+    }
+  }, [currentUserId, openSessions, pointsOfSale, pointOfSaleId]);
+
   const openSessionForSelectedPos = useMemo(
     () => (pointOfSaleId ? openSessions.find((s) => s.pointOfSaleId === pointOfSaleId) ?? null : null),
     [openSessions, pointOfSaleId],
   );
-  const hasOpenSessionForPos = openSessionForSelectedPos !== null;
+
+  const isMyOpenSession =
+    openSessionForSelectedPos != null &&
+    currentUserId != null &&
+    openSessionForSelectedPos.openedById === currentUserId;
+
+  const isOtherUserOpenSession =
+    openSessionForSelectedPos != null &&
+    currentUserId != null &&
+    openSessionForSelectedPos.openedById !== currentUserId;
 
   const handleBranchChange = (nextId: string) => {
     setBranchId(nextId);
@@ -336,6 +226,7 @@ function NewSessionForm({
     customers: "idle",
   });
   const [bootstrapLoading, setBootstrapLoading] = useState(false);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
 
   const openingAmountNum = parseOpeningAmount(openingAmount);
   const requiresCashHub = openingAmountNum > 0;
@@ -430,22 +321,77 @@ function NewSessionForm({
     });
   };
 
+  const handleContinueOpenSession = async () => {
+    if (!openSessionForSelectedPos || !isMyOpenSession) return;
+    setBootstrapError(null);
+    setError("");
+
+    let priceListId: string | null = null;
+    if (selectedPos) {
+      const ctx = buildPosContextFromPos(selectedPos);
+      priceListId = ctx.priceListId;
+      savePosContext({
+        ...ctx,
+        cashSessionId: openSessionForSelectedPos.id,
+      });
+    } else {
+      const fetched = await fetchPointOfSalePriceListsAction(openSessionForSelectedPos.pointOfSaleId);
+      const priceLists =
+        fetched.success && fetched.priceLists.length > 0 ? fetched.priceLists : [];
+      priceListId =
+        (fetched.success &&
+          fetched.defaultPriceListId &&
+          priceLists.some((p) => p.id === fetched.defaultPriceListId) &&
+          fetched.defaultPriceListId) ||
+        priceLists[0]?.id ||
+        null;
+      savePosContext({
+        pointOfSaleId: openSessionForSelectedPos.pointOfSaleId,
+        cashSessionId: openSessionForSelectedPos.id,
+        pointOfSaleName: fetched.success ? fetched.pointOfSaleName : null,
+        branchName: fetched.success ? fetched.branchName : null,
+        branchId: fetched.success ? fetched.branchId : null,
+        storageId: fetched.success ? fetched.storageId : null,
+        priceListId,
+        priceLists,
+        posKind: fetched.success ? fetched.posKind : "SALE",
+        acceptsPresaleTickets: fetched.success ? fetched.acceptsPresaleTickets : false,
+        deferredPaymentEnabled: fetched.success ? fetched.deferredPaymentEnabled : false,
+      });
+    }
+
+    const ok = await bootstrapAndEnterPos(
+      openSessionForSelectedPos.pointOfSaleId,
+      priceListId,
+      setBootstrapStatus,
+      setBootstrapLoading,
+      setBootstrapError,
+    );
+    if (ok) {
+      router.push("/pos");
+    }
+  };
+
   const isPresalePos = (selectedPos?.kind ?? "SALE") === "PRESALE";
 
   const handleEnterPresale = async () => {
     if (!selectedPos) return;
+    setBootstrapError(null);
     const ctx = buildPosContextFromPos(selectedPos);
     savePosContext({
       ...ctx,
       cashSessionId: null,
     });
-    if (ctx.priceListId) {
-      setBootstrapLoading(true);
-      setBootstrapStatus({ fiscal: "loading", catalog: "loading", customers: "loading" });
-      await runBootstrapCoordinator(selectedPos.id, ctx.priceListId, setBootstrapStatus);
-      setBootstrapLoading(false);
+    const ok = await bootstrapAndEnterPos(
+      selectedPos.id,
+      ctx.priceListId,
+      setBootstrapStatus,
+      setBootstrapLoading,
+      setBootstrapError,
+    );
+    if (ok) {
+      router.push("/pos");
     }
-    router.push("/pos");
   };
 
   return (
@@ -456,7 +402,7 @@ function NewSessionForm({
       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
         {isPresalePos
           ? "Selecciona la sucursal y el punto de preventa para armar carritos y generar tickets."
-          : "Selecciona la sucursal y el punto de venta para abrir una sesión de caja."}
+          : "Selecciona la sucursal y el punto de venta para continuar o abrir una sesión de caja."}
       </p>
 
       <div className="mt-6 grid gap-4">
@@ -519,13 +465,14 @@ function NewSessionForm({
         ) : null}
 
         {error && !isOpenAmountDialog ? <Alert variant="error">{error}</Alert> : null}
+        {bootstrapError ? <Alert variant="error">{bootstrapError}</Alert> : null}
 
         {selectedPos ? (
           isPresalePos ? (
-            <Button type="button" onClick={handleEnterPresale} disabled={!defaultPriceListId}>
-              Entrar a preventa
+            <Button type="button" onClick={handleEnterPresale} disabled={!defaultPriceListId || bootstrapLoading}>
+              {bootstrapLoading ? "Preparando offline…" : "Entrar a preventa"}
             </Button>
-          ) : hasOpenSessionForPos ? (
+          ) : isOtherUserOpenSession ? (
             <Alert variant="info">
               Ya existe una sesión de caja abierta para este punto de venta
               {openSessionForSelectedPos?.openedByFullName
@@ -533,6 +480,14 @@ function NewSessionForm({
                 : ""}
               .
             </Alert>
+          ) : isMyOpenSession ? (
+            <Button
+              type="button"
+              onClick={() => void handleContinueOpenSession()}
+              disabled={bootstrapLoading || loadingOpenSessions}
+            >
+              {bootstrapLoading ? "Preparando offline…" : "Continuar sesión de caja"}
+            </Button>
           ) : (
             <Button
               type="button"
@@ -548,6 +503,17 @@ function NewSessionForm({
               Abrir nueva sesión de caja
             </Button>
           )
+        ) : null}
+
+        {bootstrapLoading && !isOpenAmountDialog ? (
+          <OfflineBootstrapStatusPanel
+            status={bootstrapStatus}
+            loading={bootstrapLoading}
+            onRetry={() => {
+              if (isMyOpenSession) void handleContinueOpenSession();
+              else if (isPresalePos && selectedPos) void handleEnterPresale();
+            }}
+          />
         ) : null}
       </div>
 
@@ -643,8 +609,8 @@ function NewSessionForm({
               const ctx = buildPosContextFromPos(selectedPos);
               if (!ctx.priceListId) return;
               setBootstrapLoading(true);
-              setBootstrapStatus({ fiscal: "loading", catalog: "loading" });
-              void runOfflineBootstrap(pointOfSaleId, ctx.priceListId).then((next) => {
+              setBootstrapStatus({ fiscal: "loading", catalog: "loading", customers: "loading" });
+              void runBootstrapCoordinator(pointOfSaleId, ctx.priceListId, setBootstrapStatus).then((next) => {
                 setBootstrapStatus(next);
                 setBootstrapLoading(false);
               });

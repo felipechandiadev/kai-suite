@@ -2,6 +2,7 @@
 
 import {
   getMigratedLocalStorageItem,
+  removeMigratedLocalStorageKeys,
   setMigratedLocalStorageItem,
 } from "@kai-shared/storage-key-migrate";
 
@@ -68,4 +69,14 @@ export function patchPosContextClient(partial: Partial<PosContextV1>): void {
   const prev = readPosContextClient();
   if (!prev?.pointOfSaleId) return;
   savePosContextClient({ ...prev, ...partial, pointOfSaleId: prev.pointOfSaleId });
+}
+
+export function clearPosContextClient(): void {
+  if (typeof window === "undefined") return;
+  try {
+    removeMigratedLocalStorageKeys(POS_CONTEXT_KEY, POS_CONTEXT_KEY_LEGACY);
+  } catch {
+    // ignore
+  }
+  notifyPosContextChanged();
 }

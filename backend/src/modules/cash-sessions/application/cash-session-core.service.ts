@@ -15,6 +15,7 @@ import {
   type CashSessionClosingDetails,
   type CashSessionTenderBreakdown,
 } from '@modules/cash-sessions/domain/cash-session.entity';
+import { assertCashSessionOperableByUser } from '@modules/cash-sessions/domain/assert-cash-session-operable-by-user';
 import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
 import { User } from '@modules/users/domain/user.entity';
 import { OpenCashSessionDto } from './dto/open-cash-session.dto';
@@ -532,6 +533,10 @@ export class CashSessionCoreService {
         `No se puede cerrar sesión en estado ${session.status}`,
       );
     }
+    assertCashSessionOperableByUser(session, {
+      userId,
+      pointOfSaleId: session.pointOfSaleId,
+    });
 
     // 2. Totales de referencia
     const salesTotal =
@@ -867,9 +872,10 @@ export class CashSessionCoreService {
     if (!session) {
       throw new NotFoundException('Sesión de caja no encontrada');
     }
-    if (session.status !== CashSessionStatus.OPEN) {
-      throw new BadRequestException('La sesión no está abierta');
-    }
+    assertCashSessionOperableByUser(session, {
+      userId,
+      pointOfSaleId: session.pointOfSaleId,
+    });
     const pos = session.pointOfSale;
     const posId = session.pointOfSaleId;
     if (!posId || !pos?.branchId) {
@@ -972,9 +978,10 @@ export class CashSessionCoreService {
     if (!session) {
       throw new NotFoundException('Sesión de caja no encontrada');
     }
-    if (session.status !== CashSessionStatus.OPEN) {
-      throw new BadRequestException('La sesión no está abierta');
-    }
+    assertCashSessionOperableByUser(session, {
+      userId,
+      pointOfSaleId: session.pointOfSaleId,
+    });
     const pos = session.pointOfSale;
     const posId = session.pointOfSaleId;
     if (!posId || !pos?.branchId) {

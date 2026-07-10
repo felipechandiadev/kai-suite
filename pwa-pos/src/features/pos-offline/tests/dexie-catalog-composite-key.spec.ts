@@ -32,6 +32,9 @@ describe("dexie catalog composite keys", () => {
       availableStockBase: 5,
       attributes: [],
       metadata: null,
+      taxCategory: "TAX_STANDARD",
+      requiresDte: true,
+      taxIds: [],
       snapshotAt: new Date().toISOString(),
       searchName: "item a",
     } satisfies Omit<OfflineCatalogRow, "id" | "variantId" | "pointOfSaleId" | "priceListId">;

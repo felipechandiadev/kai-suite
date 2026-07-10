@@ -390,10 +390,12 @@ export class TransactionsController {
   async getPosSaleReceipt(
     @Param('id') id: string,
     @CurrentCompany() companyId: string,
+    @Query('scope') scope?: 'full' | 'non_dte',
   ) {
     const receipt = await this.posSaleReceiptPrint.findReceiptByTransactionId(
       companyId,
       id,
+      { scope: scope === 'non_dte' ? 'non_dte' : 'full' },
     );
     return { success: true, receipt };
   }
