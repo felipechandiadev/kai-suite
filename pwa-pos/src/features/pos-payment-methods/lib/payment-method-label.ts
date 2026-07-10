@@ -42,3 +42,10 @@ export function paymentMethodLabelEs(
     .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
     .join(" ");
 }
+
+/** Etiqueta del campo monto en pantalla de pago POS (p. ej. «Monto efectivo»). */
+export function paymentAmountFieldLabel(methodLabel: string | null | undefined): string {
+  const trimmed = methodLabel?.trim();
+  if (!trimmed) return "Monto";
+  return `Monto ${trimmed.charAt(0).toLowerCase()}${trimmed.slice(1)}`;
+}

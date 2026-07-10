@@ -38,7 +38,7 @@ import type {
   CustomerPaymentSources,
 } from "@/features/customers/types/customer-payment-sources.types";
 import { tryBuildCreditNotePaymentLine } from "@/features/pos-payment-methods/lib/apply-customer-linked-payment";
-import { paymentMethodLabelEs } from "@/features/pos-payment-methods/lib/payment-method-label";
+import { paymentMethodLabelEs, paymentAmountFieldLabel } from "@/features/pos-payment-methods/lib/payment-method-label";
 import { getCustomerPosDetailBundleAction, getCustomerPosPaymentSourcesAction } from "@/features/customers/actions/customers-pos.action";
 import PosCustomerPaymentSourcesPanel from "@/features/customers/ui/PosCustomerPaymentSourcesPanel";
 import type { PosCartLine } from "@/app/(pos)/pos/ui/PosCartLineCard";
@@ -238,7 +238,7 @@ function paymentFieldConfirmOnEnter(
   onConfirmEnter();
 }
 
-/** Card de medio de pago: nombre arriba; monto y acciones en la fila siguiente. */
+/** Card de medio de pago: monto con nombre del medio en el label; acciones a la derecha. */
 function PosPaymentMethodCard({
   payment: p,
   index,
@@ -265,6 +265,7 @@ function PosPaymentMethodCard({
   onConfirmEnter,
 }: PosPaymentMethodCardProps) {
   const amountValue = String(Math.max(0, Math.round(p.amount)));
+  const amountLabel = paymentAmountFieldLabel(label);
   const isInternalCreditLine = p.type === "INTERNAL_CREDIT";
   const lineAmountLocked = amountLocked || isInternalCreditLine;
   const appliedNcAmount = Math.max(0, Math.round(p.amount));
@@ -275,96 +276,95 @@ function PosPaymentMethodCard({
 
   return (
     <li
-      className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-surface p-3 shadow-sm"
+      className="grid grid-cols-1 gap-2"
       data-test-id={`pos-payment-method-row-${p.id}`}
     >
-      <div className="grid grid-cols-1 gap-3">
-        <div className="flex items-center justify-between gap-2">
+      <div className="grid grid-cols-1 gap-2">
+        <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium leading-snug text-foreground" title={label}>
-              {label}
-            </p>
-            {planSubtitle ? (
-              <p className="mt-0.5 text-xs text-muted-foreground">{planSubtitle}</p>
-            ) : null}
+            <TextField
+              type="currency"
+              label={amountLabel}
+              name={`pos-payment-line-${index}`}
+              value={amountValue}
+              onChange={(e) => onUpdateAmount(p.id, e.target.value)}
+              readOnly={lineAmountLocked}
+              title={
+                amountLocked
+                  ? "El abono del encargo no se puede modificar al liquidar"
+                  : isInternalCreditLine
+                    ? "Edite el plan con el botón lápiz"
+                    : undefined
+              }
+              currencySymbol="$"
+              alwaysShowLabel
+              className="w-full min-w-0"
+              endAdornment={
+                amountLocked ? null : (
+                <span className="inline-flex items-center">
+                  {remaining > 0.01 && !isInternalCreditLine ? (
+                    <IconButton
+                      icon="ArrowUpToLine"
+                      variant="neutral"
+                      size="xs"
+                      ariaLabel="Rellenar con saldo pendiente"
+                      title="Rellenar con saldo pendiente"
+                      disabled={confirmLoading}
+                      onMouseDown={(e: MouseEvent<HTMLButtonElement>) => e.preventDefault()}
+                      onClick={() => onFillRemaining(p.id)}
+                      data-test-id={`pos-payment-fill-remaining-${p.id}`}
+                    />
+                  ) : null}
+                  <IconButton
+                    icon="X"
+                    variant="neutral"
+                    size="xs"
+                    ariaLabel="Limpiar monto"
+                    title="Limpiar monto"
+                    disabled={confirmLoading}
+                    onMouseDown={(e: MouseEvent<HTMLButtonElement>) => e.preventDefault()}
+                    onClick={() => onClearAmount(p.id)}
+                    data-test-id={`pos-payment-clear-amount-${p.id}`}
+                  />
+                </span>
+                )
+              }
+              data-test-id={
+                index === 0 ? "pos-payment-default-cash-amount" : `pos-payment-line-amount-${p.id}`
+              }
+              onKeyDown={(e) => paymentFieldConfirmOnEnter(e, onConfirmEnter)}
+            />
           </div>
-          {onEditInternalCredit ? (
+          <div className="flex shrink-0 items-center gap-1">
+            {onEditInternalCredit ? (
+              <IconButton
+                icon="Pencil"
+                variant="action"
+                size="sm"
+                className="shrink-0"
+                ariaLabel="Editar crédito interno"
+                title="Editar crédito interno"
+                disabled={confirmLoading}
+                onClick={onEditInternalCredit}
+                data-test-id={`pos-payment-edit-internal-credit-${p.id}`}
+              />
+            ) : null}
             <IconButton
-              icon="Pencil"
+              icon="Trash2"
               variant="action"
               size="sm"
               className="shrink-0"
-              ariaLabel="Editar crédito interno"
-              title="Editar crédito interno"
-              disabled={confirmLoading}
-              onClick={onEditInternalCredit}
-              data-test-id={`pos-payment-edit-internal-credit-${p.id}`}
+              ariaLabel="Quitar medio de pago"
+              title="Quitar medio de pago"
+              disabled={paymentsCount <= 1 || confirmLoading || amountLocked}
+              onClick={() => onRemove(p.id)}
+              data-test-id={`pos-payment-remove-line-${p.id}`}
             />
-          ) : null}
-          <IconButton
-            icon="Trash2"
-            variant="action"
-            size="sm"
-            className="shrink-0"
-            ariaLabel="Quitar medio de pago"
-            title="Quitar medio de pago"
-            disabled={paymentsCount <= 1 || confirmLoading || amountLocked}
-            onClick={() => onRemove(p.id)}
-            data-test-id={`pos-payment-remove-line-${p.id}`}
-          />
+          </div>
         </div>
-        <TextField
-          type="currency"
-          label="Monto"
-          name={`pos-payment-line-${index}`}
-          value={amountValue}
-          onChange={(e) => onUpdateAmount(p.id, e.target.value)}
-          readOnly={lineAmountLocked}
-          title={
-            amountLocked
-              ? "El abono del encargo no se puede modificar al liquidar"
-              : isInternalCreditLine
-                ? "Edite el plan con el botón lápiz"
-                : undefined
-          }
-          currencySymbol="$"
-          alwaysShowLabel
-          className="w-full min-w-0"
-          endAdornment={
-            amountLocked ? null : (
-            <span className="inline-flex items-center">
-              {remaining > 0.01 && !isInternalCreditLine ? (
-                <IconButton
-                  icon="ArrowUpToLine"
-                  variant="neutral"
-                  size="xs"
-                  ariaLabel="Rellenar con saldo pendiente"
-                  title="Rellenar con saldo pendiente"
-                  disabled={confirmLoading}
-                  onMouseDown={(e: MouseEvent<HTMLButtonElement>) => e.preventDefault()}
-                  onClick={() => onFillRemaining(p.id)}
-                  data-test-id={`pos-payment-fill-remaining-${p.id}`}
-                />
-              ) : null}
-              <IconButton
-                icon="X"
-                variant="neutral"
-                size="xs"
-                ariaLabel="Limpiar monto"
-                title="Limpiar monto"
-                disabled={confirmLoading}
-                onMouseDown={(e: MouseEvent<HTMLButtonElement>) => e.preventDefault()}
-                onClick={() => onClearAmount(p.id)}
-                data-test-id={`pos-payment-clear-amount-${p.id}`}
-              />
-            </span>
-            )
-          }
-          data-test-id={
-            index === 0 ? "pos-payment-default-cash-amount" : `pos-payment-line-amount-${p.id}`
-          }
-          onKeyDown={(e) => paymentFieldConfirmOnEnter(e, onConfirmEnter)}
-        />
+        {planSubtitle ? (
+          <p className="text-xs text-muted-foreground">{planSubtitle}</p>
+        ) : null}
       </div>
       {p.type === "TRANSFER" && bankAccountOptions.length > 0 ? (
         <div className="grid grid-cols-1 gap-2">
@@ -985,6 +985,15 @@ export default function PosPaymentWorkspace({
       return true;
     });
   }, [effectiveMethods, resolveMethodForOption, cashOutRefundOnly]);
+
+  const draftPaymentAmountLabel = useMemo(() => {
+    const cfg = methodsById.get(draftOptionId);
+    const label =
+      cfg?.label ??
+      paymentTypeOptions.find((o) => o.id === draftOptionId)?.label ??
+      paymentMethodLabelEs(cfg?.method ?? draftOptionId);
+    return paymentAmountFieldLabel(label);
+  }, [draftOptionId, methodsById, paymentTypeOptions]);
 
   // Si el medio seleccionado es transferencia y el POS configuró una cuenta destino preferente,
   // precárgala en el diálogo (pero sin pisar una selección manual).
@@ -2988,42 +2997,42 @@ export default function PosPaymentWorkspace({
             className="flex shrink-0 flex-wrap items-stretch gap-2 text-sm"
             data-test-id="pos-payment-summary"
           >
-          <div className="flex min-w-28 flex-col rounded-lg bg-slate-100/80 px-3 py-1.5 dark:bg-slate-800/40">
-            <span className="text-xs text-slate-600 dark:text-slate-300">{amountDueLabel}</span>
-            <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+          <div className="flex min-w-32 flex-col rounded-lg bg-slate-100/80 px-3 py-2 dark:bg-slate-800/40">
+            <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{amountDueLabel}</span>
+            <span className="text-lg font-bold tabular-nums text-slate-900 dark:text-slate-100 sm:text-xl">
               {formatMoney(amountToPay)}
             </span>
           </div>
-          <div className="flex min-w-28 flex-col rounded-lg bg-sky-100/70 px-3 py-1.5 dark:bg-sky-900/30">
-            <span className="text-xs text-sky-700 dark:text-sky-300">Total recibido</span>
+          <div className="flex min-w-32 flex-col rounded-lg bg-sky-100/70 px-3 py-2 dark:bg-sky-900/30">
+            <span className="text-sm font-medium text-sky-700 dark:text-sky-300">Total recibido</span>
             <span
-              className="font-semibold tabular-nums text-sky-900 dark:text-sky-100"
+              className="text-lg font-bold tabular-nums text-sky-900 dark:text-sky-100 sm:text-xl"
               data-test-id="pos-payment-applied-total"
             >
               {formatMoney(appliedTotal)}
             </span>
           </div>
           {remaining > 0 ? (
-            <div className="flex min-w-28 flex-col rounded-lg bg-amber-100/70 px-3 py-1.5 dark:bg-amber-900/30">
-              <span className="text-xs text-amber-800 dark:text-amber-300">Saldo restante</span>
-              <span className="font-semibold tabular-nums text-amber-900 dark:text-amber-100">
+            <div className="flex min-w-32 flex-col rounded-lg bg-amber-100/70 px-3 py-2 dark:bg-amber-900/30">
+              <span className="text-sm font-medium text-amber-800 dark:text-amber-300">Saldo restante</span>
+              <span className="text-lg font-bold tabular-nums text-amber-900 dark:text-amber-100 sm:text-xl">
                 {formatMoney(remaining)}
               </span>
             </div>
           ) : null}
           {overpay > 0 ? (
-            <div className="flex min-w-28 flex-col rounded-lg bg-emerald-100/70 px-3 py-1.5 dark:bg-emerald-900/30">
-              <span className="text-xs text-emerald-700 dark:text-emerald-300">Vuelto</span>
-              <span className="font-semibold tabular-nums text-emerald-900 dark:text-emerald-100">
+            <div className="flex min-w-32 flex-col rounded-lg bg-emerald-100/70 px-3 py-2 dark:bg-emerald-900/30">
+              <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Vuelto</span>
+              <span className="text-lg font-bold tabular-nums text-emerald-900 dark:text-emerald-100 sm:text-xl">
                 {formatMoney(overpay)}
               </span>
             </div>
           ) : null}
           <div
-            className={`flex min-w-28 flex-col rounded-lg px-3 py-1.5 ${paymentStatusBoxTone}`}
+            className={`flex min-w-32 flex-col rounded-lg px-3 py-2 ${paymentStatusBoxTone}`}
           >
-            <span className="text-xs opacity-80">Estado del pago</span>
-            <span className="font-semibold">{paymentStatusLabel}</span>
+            <span className="text-sm font-medium opacity-80">Estado del pago</span>
+            <span className="text-lg font-bold sm:text-xl">{paymentStatusLabel}</span>
           </div>
           </div>
         ) : null}
@@ -3450,7 +3459,7 @@ export default function PosPaymentWorkspace({
               {effectiveError} (usando catálogo por defecto)
             </Alert>
           ) : null}
-          <ul className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+          <ul className="mt-3 min-h-0 flex-1 space-y-4 overflow-y-auto pt-4 pr-1">
             {payments.map((p, index) => {
               const cfg = p.companyPaymentMethodId
                 ? methodsById.get(p.companyPaymentMethodId)
@@ -3572,11 +3581,11 @@ export default function PosPaymentWorkspace({
           />
           <TextField
             type="currency"
-            label="Monto"
+            label={draftPaymentAmountLabel}
             name="payment-amount"
             value={draftAmount}
             onChange={(e) => setDraftAmount(e.target.value)}
-            placeholder="Monto"
+            placeholder={draftPaymentAmountLabel}
             alwaysShowLabel
             currencySymbol="$"
             required

@@ -7,6 +7,9 @@ import {
 
 export const POS_PRODUCT_SEARCH_LS_KEY = "kai.posProductSearch.pageSize";
 export const POS_PRODUCT_SEARCH_LS_KEY_LEGACY = "flowstore.posProductSearch.pageSize";
+export const POS_PRODUCT_SEARCH_SHOW_FAVORITES_LS_KEY = "kai.posProductSearch.showFavorites";
+export const POS_PRODUCT_SEARCH_SHOW_FAVORITES_LS_KEY_LEGACY =
+  "flowstore.posProductSearch.showFavorites";
 
 /** Mismo criterio que `PURCHASE_DOC_SEARCH_DEBOUNCE_MS` en pwa-admin (PurchaseDocumentVariantSearchPanel). */
 export const POS_PRODUCT_SEARCH_DEBOUNCE_MS = 400;
@@ -51,6 +54,40 @@ export function writePosProductSearchPageSize(n: number): void {
       POS_PRODUCT_SEARCH_LS_KEY,
       POS_PRODUCT_SEARCH_LS_KEY_LEGACY,
       String(clampPosProductSearchPageSize(n)),
+    );
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+/** Solo en cliente; en SSR devolver false. */
+export function readPosProductSearchShowFavorites(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  try {
+    const raw = getMigratedLocalStorageItem(
+      POS_PRODUCT_SEARCH_SHOW_FAVORITES_LS_KEY,
+      POS_PRODUCT_SEARCH_SHOW_FAVORITES_LS_KEY_LEGACY,
+    );
+    if (raw == null || raw === "") {
+      return false;
+    }
+    return raw === "1" || raw === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function writePosProductSearchShowFavorites(enabled: boolean): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    setMigratedLocalStorageItem(
+      POS_PRODUCT_SEARCH_SHOW_FAVORITES_LS_KEY,
+      POS_PRODUCT_SEARCH_SHOW_FAVORITES_LS_KEY_LEGACY,
+      enabled ? "1" : "0",
     );
   } catch {
     // ignore quota / private mode

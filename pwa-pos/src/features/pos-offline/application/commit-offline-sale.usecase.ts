@@ -127,46 +127,45 @@ export async function commitOfflineSale(
               "Sin ítems tributarios en el carrito. Se imprimirá solo ticket interno.";
           }
         } else {
-        let pack = input.fiscalPack;
-        if (!pack) {
-          boletaSkippedMessage =
-            "Sin paquete fiscal local. Se imprimirá solo ticket interno.";
-        } else if (input.fiscalPackExpired) {
-          boletaSkippedMessage =
-            "Paquete fiscal vencido. Renueva folios con conexión. Solo ticket interno.";
-        } else {
-          pack = (await promoteStandbyFiscalPackIfNeeded(db, input.pointOfSaleId)) ?? pack;
-          if (pack.nextFolioLocal > pack.rangeTo) {
+          let pack = input.fiscalPack;
+          if (!pack) {
             boletaSkippedMessage =
-              "Sin folios CAF disponibles offline. Reconecte para actualizar el pack fiscal.";
+              "Sin paquete fiscal local. Se imprimirá solo ticket interno.";
+          } else if (input.fiscalPackExpired) {
+            boletaSkippedMessage =
+              "Paquete fiscal vencido. Renueva folios con conexión. Solo ticket interno.";
           } else {
-          const folio = pack.nextFolioLocal;
-          pack.nextFolioLocal = folio + 1;
-          await db.fiscal_pack.put(pack);
+            pack = (await promoteStandbyFiscalPackIfNeeded(db, input.pointOfSaleId)) ?? pack;
+            if (pack.nextFolioLocal > pack.rangeTo) {
+              boletaSkippedMessage =
+                "Sin folios CAF disponibles offline. Reconecte para actualizar el pack fiscal.";
+            } else {
+              const folio = pack.nextFolioLocal;
+              pack.nextFolioLocal = folio + 1;
+              await db.fiscal_pack.put(pack);
 
-          const built = buildOfflineBoletaPreview({
-            cartLines,
-            customer: input.customer,
-            fiscalPack: pack,
-            folio,
-            localDocumentNumber,
-            operatorName: input.operatorName,
-            orderDiscount:
-              input.orderDiscount ?? resolveOrderDiscount(input.appliedPromotions),
-          });
-          fiscalBlock = {
-            folio,
-            allocationId: pack.allocationId,
-            cafId: pack.cafId,
-            tedXml: built.tedXml,
-            issuedAt: built.issuedAt,
-          };
-          fiscalPrintPreview = built.preview;
-          fiscalFolio = String(folio);
-          boletaSkippedMessage = null;
+              const built = buildOfflineBoletaPreview({
+                cartLines,
+                customer: input.customer,
+                fiscalPack: pack,
+                folio,
+                localDocumentNumber,
+                operatorName: input.operatorName,
+                orderDiscount:
+                  input.orderDiscount ?? resolveOrderDiscount(input.appliedPromotions),
+              });
+              fiscalBlock = {
+                folio,
+                allocationId: pack.allocationId,
+                cafId: pack.cafId,
+                tedXml: built.tedXml,
+                issuedAt: built.issuedAt,
+              };
+              fiscalPrintPreview = built.preview;
+              fiscalFolio = String(folio);
+              boletaSkippedMessage = null;
+            }
           }
-        }
-        }
         }
       }
 

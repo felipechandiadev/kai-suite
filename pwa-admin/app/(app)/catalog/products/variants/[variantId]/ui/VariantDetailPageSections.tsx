@@ -65,6 +65,7 @@ import {
 } from "@/features/inventory-products/lib/variant-sale-price-history";
 import type { VariantSalePriceHistoryEntry } from "@/features/inventory-products/types/variant-sale-price-history.types";
 import { VariantSalePriceHistoryPanel } from "./VariantSalePriceHistoryPanel";
+import { formatThresholdReadOnly } from "@/shared/components/StockThresholdField/StockThresholdField";
 
 type SectionProps = {
   productId: string;

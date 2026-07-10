@@ -613,9 +613,11 @@ export default function PosWorkspace() {
                 <span className="text-muted-foreground">Impuestos</span>
                 <span className="font-medium text-foreground">{formatMoney(taxes)}</span>
               </div>
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-sm font-semibold text-foreground">Total</span>
-                <span className="text-sm font-semibold text-foreground">{formatMoney(totals.gross)}</span>
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-xl font-bold text-foreground sm:text-2xl">Total</span>
+                <span className="text-2xl font-bold tabular-nums text-foreground sm:text-3xl">
+                  {formatMoney(totals.gross)}
+                </span>
               </div>
             </div>
             {isPresaleMode ? (

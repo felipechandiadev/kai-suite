@@ -15,7 +15,9 @@ import {
   POS_PRODUCT_SEARCH_DEBOUNCE_MS,
   POS_PRODUCT_SEARCH_DEFAULT_PAGE_SIZE,
   readPosProductSearchPageSize,
+  readPosProductSearchShowFavorites,
   writePosProductSearchPageSize,
+  writePosProductSearchShowFavorites,
 } from "@/features/pos-products/lib/posProductSearchStorage";
 import {
   addPosProductSearchFocusListener,
@@ -107,7 +109,7 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
   /** Tras Enter o código tipo barras: agregar al carrito si hay un solo resultado. */
   const scanAutoAddRef = useRef(false);
   const [scanAddedHint, setScanAddedHint] = useState("");
-  const [showFavorites, setShowFavorites] = useState(false);
+  const [showFavorites, setShowFavorites] = useState(() => readPosProductSearchShowFavorites());
 
   const focusSearchField = useCallback(() => {
     const input =
@@ -150,6 +152,11 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
     const n = readPosProductSearchPageSize();
     setPageSize(n);
     setDraftPageSize(n);
+  }, []);
+
+  const handleShowFavoritesChange = useCallback((enabled: boolean) => {
+    setShowFavorites(enabled);
+    writePosProductSearchShowFavorites(enabled);
   }, []);
 
   useEffect(() => {
@@ -447,7 +454,7 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
       <div className="flex items-center justify-between gap-3">
         <Switch
           checked={showFavorites}
-          onChange={setShowFavorites}
+          onChange={handleShowFavoritesChange}
           label="Favoritos"
           labelPosition="right"
           disabled={disabled}
