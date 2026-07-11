@@ -12,57 +12,57 @@
 }
 
 .fs-badge--primary {
-  background-color: var(--color-primary, #002b59);
+  background-color: var(--color-primary, #1e73ae);
   color: var(--color-background, #fff);
 }
 .fs-badge--secondary {
-  background-color: var(--color-secondary, #04c9e6);
+  background-color: var(--color-secondary, #00deef);
   color: var(--color-background, #fff);
 }
 .fs-badge--success {
-  background-color: var(--color-success, #4caf50);
+  background-color: var(--color-success, #2e9e5b);
   color: var(--color-background, #fff);
 }
 .fs-badge--error {
-  background-color: var(--color-error, #f44336);
+  background-color: var(--color-error, #d64545);
   color: var(--color-background, #fff);
 }
 .fs-badge--warning {
-  background-color: var(--color-warning, #ffc107);
+  background-color: var(--color-warning, #e6a100);
   color: var(--color-foreground, #131615);
 }
 .fs-badge--info {
-  background-color: var(--color-info, #2196f3);
+  background-color: var(--color-info, #1e73ae);
   color: var(--color-background, #fff);
 }
 
 .fs-badge--primary-outlined {
-  border: 1px solid var(--color-primary, #002b59);
-  color: var(--color-primary, #002b59);
+  border: 1px solid var(--color-primary, #1e73ae);
+  color: var(--color-primary, #1e73ae);
   background-color: transparent;
 }
 .fs-badge--secondary-outlined {
-  border: 1px solid var(--color-secondary, #04c9e6);
-  color: var(--color-secondary, #04c9e6);
+  border: 1px solid var(--color-secondary, #00deef);
+  color: var(--color-secondary, #00deef);
   background-color: transparent;
 }
 .fs-badge--success-outlined {
-  border: 1px solid var(--color-success, #4caf50);
-  color: var(--color-success, #4caf50);
+  border: 1px solid var(--color-success, #2e9e5b);
+  color: var(--color-success, #2e9e5b);
   background-color: transparent;
 }
 .fs-badge--error-outlined {
-  border: 1px solid var(--color-error, #f44336);
-  color: var(--color-error, #f44336);
+  border: 1px solid var(--color-error, #d64545);
+  color: var(--color-error, #d64545);
   background-color: transparent;
 }
 .fs-badge--warning-outlined {
-  border: 1px solid var(--color-warning, #ffc107);
-  color: var(--color-warning, #ffc107);
+  border: 1px solid var(--color-warning, #e6a100);
+  color: var(--color-warning, #e6a100);
   background-color: transparent;
 }
 .fs-badge--info-outlined {
-  border: 1px solid var(--color-info, #2196f3);
-  color: var(--color-info, #2196f3);
+  border: 1px solid var(--color-info, #1e73ae);
+  color: var(--color-info, #1e73ae);
   background-color: transparent;
 }

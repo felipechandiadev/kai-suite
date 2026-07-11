@@ -179,7 +179,7 @@ export function PosPaymentMethodsEditor({
         <div className="flex items-center justify-between gap-2">
           <Link
             href="/sales/points-of-sale"
-            className="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
             data-test-id="pos-payment-methods-back"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -209,7 +209,7 @@ export function PosPaymentMethodsEditor({
           </Alert>
         ) : null}
 
-        <p className="text-sm text-muted">
+        <p className="text-sm text-muted-foreground">
           Habilita los medios de la empresa que estarán disponibles en este POS y
           marca cuáles aparecen precargados en la pantalla de cobro. El medio
           “Default para vuelto” se autocompleta con el saldo restante.
@@ -238,7 +238,7 @@ export function PosPaymentMethodsEditor({
                       <span className="text-sm font-medium text-foreground">
                         {c.alias?.trim() || COMPANY_PAYMENT_METHOD_LABELS[c.method]}
                       </span>
-                      <span className="text-xs text-muted">
+                      <span className="text-xs text-muted-foreground">
                         {COMPANY_PAYMENT_METHOD_LABELS[c.method]}
                         {c.bankAccountKey ? ` · ${c.bankAccountKey}` : ""}
                       </span>

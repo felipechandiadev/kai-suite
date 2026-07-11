@@ -17,14 +17,14 @@
 
 .fs-tabs__link--inactive {
   border-bottom-color: transparent;
-  color: var(--color-muted, #6b7280);
+  color: var(--color-muted-foreground, #7a8280);
 }
 .fs-tabs__link--inactive:hover {
-  border-bottom-color: var(--color-border, #c1c1c2);
+  border-bottom-color: var(--color-border, #a5c2c2);
   color: var(--color-foreground, #131615);
 }
 
 .fs-tabs__link--active {
-  border-bottom-color: var(--color-primary, #002b59);
-  color: var(--color-primary, #002b59);
+  border-bottom-color: var(--color-primary, #1e73ae);
+  color: var(--color-primary, #1e73ae);
 }

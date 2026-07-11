@@ -71,7 +71,10 @@ const nextConfig: NextConfig = {
   // experimental: { appDir: true },
   async redirects() {
     return [
-      { source: '/ui-components/card', destination: '/ui-components/cards', permanent: true },
+      { source: '/ui-components/color-scheme', destination: '/design-system/foundations/colors', permanent: true },
+      { source: '/ui-components/card', destination: '/design-system/components/cards', permanent: true },
+      { source: '/ui-components', destination: '/design-system/components', permanent: true },
+      { source: '/ui-components/:path*', destination: '/design-system/components/:path*', permanent: true },
       { source: '/inventory/products', destination: '/catalog/products', permanent: true },
       { source: '/inventory/products/:path*', destination: '/catalog/products/:path*', permanent: true },
       { source: '/inventory/categories', destination: '/catalog/categories', permanent: true },

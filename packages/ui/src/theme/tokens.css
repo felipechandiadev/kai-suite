@@ -4,18 +4,20 @@
  * Los componentes usan var(--color-*) y CSS colocalizado.
  */
 :root {
-  --color-primary: #002b59;
+  --color-primary: #1e73ae;
   --color-background: #ffffff;
+  --color-surface: #fcfffe;
   --color-foreground: #131615;
-  --color-border: #c1c1c2;
-  --color-active: #0a7cad;
-  --color-accent: #0a7cad;
-  --color-secondary: #04c9e6;
-  --color-muted: #6b7280;
-  --color-success: #4caf50;
-  --color-info: #2196f3;
-  --color-warning: #ffc107;
-  --color-error: #f44336;
+  --color-border: #a5c2c2;
+  --color-active: #02578b;
+  --color-accent: #02578b;
+  --color-secondary: #00deef;
+  --color-muted: #cfeef0;
+  --color-muted-foreground: #7a8280;
+  --color-success: #2e9e5b;
+  --color-info: #1e73ae;
+  --color-warning: #e6a100;
+  --color-error: #d64545;
   --color-neutral: #f3f4f6;
   --color-hover: color-mix(in srgb, var(--color-neutral) 65%, var(--color-background));
 }

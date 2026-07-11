@@ -151,7 +151,7 @@ function renderContentSection(
           className="flex min-h-[12rem] w-full min-w-0 flex-1 flex-col items-center justify-center py-10"
           data-test-id="collection-page-layout-empty"
         >
-          <p className="text-center text-sm text-muted">{text}</p>
+          <p className="text-center text-sm text-muted-foreground">{text}</p>
         </div>
       );
     }
@@ -436,7 +436,7 @@ function CollectionPageLayoutFallback({
             className="flex min-h-[12rem] w-full min-w-0 flex-col items-center justify-center py-10"
             data-test-id="collection-page-layout-empty"
           >
-            <p className="text-center text-sm text-muted">{emptyText}</p>
+            <p className="text-center text-sm text-muted-foreground">{emptyText}</p>
           </div>
         ) : (
           children

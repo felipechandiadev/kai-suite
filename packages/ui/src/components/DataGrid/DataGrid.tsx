@@ -7,9 +7,7 @@ import Footer from './components/Footer';
 import { ColHeader } from './components/ColHeader';
 import {
   calculateColumnStyles,
-  DATA_GRID_COLUMN_ROW_CLASS,
   DataGridStyles,
-  DataGridZIndex,
   useScreenSize,
   type ColumnStyle,
   type DataGridCellOverflow,
@@ -225,16 +223,13 @@ const DataGrid: React.FC<DataGridProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const columnHeaderRowRef = useRef<HTMLDivElement>(null);
+  /** Wrapper (sin scrollbar) de la fila de encabezados; su scrollLeft se sincroniza con el body. */
+  const columnHeaderScrollRef = useRef<HTMLDivElement>(null);
   const fillViewportHeightPx = useDataGridFillViewportHeight(
     fillViewport,
     containerRef,
     viewportBottomInset,
   );
-  /**
-   * Distancia desde el borde superior del área con scroll hasta donde debe pegarse la fila expandida
-   * (= debajo del header sticky). Se mide con rect para incluir bordes y evitar que la fila quede tapada.
-   */
-  const [expandedStickyRowTopPx, setExpandedStickyRowTopPx] = useState(44);
   const [gridWidth, setGridWidth] = useState(1024);
 
   useLayoutEffect(() => {
@@ -261,41 +256,6 @@ const DataGrid: React.FC<DataGridProps> = ({
     };
   }, []);
 
-  useLayoutEffect(() => {
-    const scrollEl = scrollAreaRef.current;
-    const headerEl = columnHeaderRowRef.current;
-    if (!scrollEl || !headerEl) {
-      return;
-    }
-
-    /**
-     * `sticky top` se resuelve respecto al scrollport del contenedor con overflow (padding edge),
-     * no al viewport. `getBoundingClientRect()` puede desalinearse con zoom, bordes del scroll o DPR.
-     * `offsetTop + offsetHeight` del header respecto a su offsetParent (el área con scroll) coincide
-     * con la distancia desde el borde superior del scrollport hasta el borde inferior del header.
-     */
-    const measure = () => {
-      const h = columnHeaderRowRef.current;
-      const s = scrollAreaRef.current;
-      if (!h || !s) return;
-      const topPx = h.offsetTop + h.offsetHeight;
-      if (topPx > 0) {
-        setExpandedStickyRowTopPx(Math.round(topPx));
-      }
-    };
-
-    measure();
-    const ro = new ResizeObserver(() => {
-      requestAnimationFrame(measure);
-    });
-    ro.observe(headerEl);
-    ro.observe(scrollEl);
-    window.addEventListener('resize', measure);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener('resize', measure);
-    };
-  }, []);
   // Inicializar filterMode basado en si hay filtros activos en la URL
   const [filterMode, setFilterMode] = useState(() => {
     const filtration = searchParams.get('filtration') === 'true';
@@ -348,7 +308,6 @@ const DataGrid: React.FC<DataGridProps> = ({
   const containerClasses = [
     DataGridStyles.container,
     DataGridStyles.responsive.minWidth,
-    DataGridStyles.responsive.mobileScroll,
     fillViewport ? 'min-h-0' : '',
     showBorder ? 'border border-border' : '',
   ]
@@ -415,18 +374,17 @@ const DataGrid: React.FC<DataGridProps> = ({
         onSearchChange={onSearchChange}
         />
       </div>
-      {/* Scrollable container for columns header and body */}
-      <div ref={scrollAreaRef} className={`${DataGridStyles.scrollContainer} relative`}>
-        {/* Column Headers Row */}
-        <div 
+      {/* Fila de encabezados de columna: FUERA del área con scroll del body.
+          Queda fija arriba; el scroll horizontal se sincroniza con el body (onScroll). */}
+      <div ref={columnHeaderScrollRef} className="shrink-0 overflow-hidden">
+        <div
           ref={columnHeaderRowRef}
-          className={`${DataGridStyles.headerRow} sticky top-0 bg-background`}
-          style={{ zIndex: DataGridZIndex.headerRow }}
+          className={DataGridStyles.headerRow}
         >
           {/* Expand column header placeholder */}
           {expandable && (
             <div
-              className={`${dataGridChrome.subtleLineBottom} w-10 min-w-[40px] shrink-0 bg-background px-1`}
+              className={`${dataGridChrome.subtleLineBottom} w-10 min-w-[40px] shrink-0 px-1`}
               style={{
                 height: '56px',
                 minHeight: '56px',
@@ -451,7 +409,18 @@ const DataGrid: React.FC<DataGridProps> = ({
             );
           })}
         </div>
-        {/* Body */}
+      </div>
+      {/* Cuerpo: único contenedor con scroll (vertical y horizontal). */}
+      <div
+        ref={scrollAreaRef}
+        className={`${DataGridStyles.scrollContainer} relative`}
+        onScroll={(e) => {
+          const headerEl = columnHeaderScrollRef.current;
+          if (headerEl) {
+            headerEl.scrollLeft = (e.currentTarget as HTMLDivElement).scrollLeft;
+          }
+        }}
+      >
         <Body 
           columns={columns} 
           rows={loading ? [] : data}
@@ -463,7 +432,7 @@ const DataGrid: React.FC<DataGridProps> = ({
           expandableRowContent={expandableRowContent}
           pinActionsColumn={pinActionsColumn}
           actionsColumnField={actionsColumnField}
-          stickyExpandedRowTopPx={expandable ? expandedStickyRowTopPx : undefined}
+          stickyExpandedRowTopPx={expandable ? 0 : undefined}
           onRowClick={onRowClick}
           selectedRowId={selectedRowId}
           getRowAppearance={getRowAppearance}

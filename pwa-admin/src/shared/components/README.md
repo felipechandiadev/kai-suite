@@ -739,7 +739,7 @@ Los componentes incluyen clases responsive de Tailwind:
 
 ## ✨ Próximas Mejoras
 
-- [x] Stepper para flujos paso a paso (`Stepper/`, demo en `/ui-components/stepper`)
+- [x] Stepper para flujos paso a paso (`Stepper/`, demo en `/design-system/components/stepper`)
 - [ ] Tooltip mejorado
 - [ ] Autocomplete con búsqueda remota
 - [ ] Carga de imágenes con preview

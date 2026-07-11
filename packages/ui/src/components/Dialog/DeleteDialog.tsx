@@ -111,7 +111,7 @@ export function DeleteDialog({
       }
     >
       {typeof subtitle === "string" && subtitle.trim() !== "" ? (
-        <p className="mb-4 text-sm text-muted" data-test-id={`${dataTestId}-subtitle`}>
+        <p className="mb-4 text-sm text-muted-foreground" data-test-id={`${dataTestId}-subtitle`}>
           {subtitle}
         </p>
       ) : null}

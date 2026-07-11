@@ -48,9 +48,9 @@ function formatQuantity(qty: number, unitLabel: string | null): string {
   return unitLabel ? `${base} ${unitLabel}` : base;
 }
 
-const primary = "var(--color-primary, #002b59)";
-const muted = "var(--color-muted, #6b7280)";
-const border = "var(--color-border, #c1c1c2)";
+const primary = "var(--color-primary, #1e73ae)";
+const muted = "var(--color-muted-foreground, #7a8280)";
+const border = "var(--color-border, #a5c2c2)";
 
 type PurchaseVariantPurchaseInsightsDialogProps = {
   open: boolean;

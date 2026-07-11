@@ -272,7 +272,7 @@ const SideBar: React.FC<SideBarProps> = ({
         {/* <div className="text-xl font-bold" data-test-id="side-bar-app-name">{APP_NAME}</div> */}
         {/* <div className="text-sm opacity-70" data-test-id="side-bar-app-version">{'1.2.12'}</div> */}
         <div className="text-lg font-bold text-foreground" data-test-id="side-bar-app-name">{APP_NAME}</div>
-        <div className="text-sm text-muted" data-test-id="side-bar-app-version">v{APP_VERSION}</div>
+        <div className="text-sm text-muted-foreground" data-test-id="side-bar-app-version">v{APP_VERSION}</div>
       </div>
 
       {session?.user && (() => {
@@ -285,7 +285,7 @@ const SideBar: React.FC<SideBarProps> = ({
           <div className="w-full px-4 mb-4">
             <div className="flex items-start justify-between gap-2.5 border border-border rounded-lg px-2.5 py-1.5" style={{ background: "transparent", borderWidth: "0.3px" }}>
               <div className="flex min-w-0 flex-1 items-start gap-3">
-                <User className="mt-0.5 shrink-0 text-muted" size={24} />
+                <User className="mt-0.5 shrink-0 text-muted-foreground" size={24} />
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span
                     className="line-clamp-2 break-words text-left text-[11px] font-semibold leading-snug text-foreground"

@@ -54,10 +54,10 @@ function formatQuantity(qty: number, unitLabel: string | null): string {
   return unitLabel ? `${base} ${unitLabel}` : base;
 }
 
-const primary = "var(--color-primary, #002b59)";
+const primary = "var(--color-primary, #1e73ae)";
 const qtyBar = "#0d9488";
-const muted = "var(--color-muted, #6b7280)";
-const border = "var(--color-border, #c1c1c2)";
+const muted = "var(--color-muted-foreground, #7a8280)";
+const border = "var(--color-border, #a5c2c2)";
 
 function formatQtyAxis(value: number): string {
   const n = Number(value);

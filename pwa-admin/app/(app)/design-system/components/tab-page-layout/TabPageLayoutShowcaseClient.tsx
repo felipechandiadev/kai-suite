@@ -4,9 +4,9 @@ import { TabPageLayout } from "@kai/ui";
 import { Tabs } from "@kai/ui";
 
 const SHOWCASE_TABS = [
-  { label: "General", url: "/ui-components/tab-page-layout" },
-  { label: "Button", url: "/ui-components/button" },
-  { label: "TextField", url: "/ui-components/textfield" },
+  { label: "General", url: "/design-system/components/tab-page-layout" },
+  { label: "Button", url: "/design-system/components/button" },
+  { label: "TextField", url: "/design-system/components/textfield" },
 ];
 
 export function TabPageLayoutShowcaseClient() {
@@ -17,7 +17,7 @@ export function TabPageLayoutShowcaseClient() {
         subtitle="En md+ el título ocupa ~30vw a la izquierda y el slot de pestañas se alinea a la derecha; en viewport angosto se apilan."
         tabs={
           <div className="w-full min-w-0 border-b border-border">
-            <Tabs items={SHOWCASE_TABS} activeTab="/ui-components/tab-page-layout" />
+            <Tabs items={SHOWCASE_TABS} activeTab="/design-system/components/tab-page-layout" />
           </div>
         }
         data-test-id="ui-showcase-tab-page-layout-main"
@@ -39,7 +39,7 @@ export function TabPageLayoutShowcaseClient() {
         <TabPageLayout
           tabs={
             <div className="w-full min-w-0 border-b border-border">
-              <Tabs items={SHOWCASE_TABS} activeTab="/ui-components/button" />
+              <Tabs items={SHOWCASE_TABS} activeTab="/design-system/components/button" />
             </div>
           }
           data-test-id="ui-showcase-tab-page-layout-tabs-only"

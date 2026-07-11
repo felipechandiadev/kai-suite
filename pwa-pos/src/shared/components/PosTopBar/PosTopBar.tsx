@@ -585,7 +585,7 @@ export default function PosTopBar({
                     >
                       <Building2
                         size={14}
-                        className="shrink-0 text-muted"
+                        className="shrink-0 text-muted-foreground"
                         aria-hidden
                         data-test-id="pos-topbar-company-icon"
                       />
@@ -601,7 +601,7 @@ export default function PosTopBar({
                     >
                       <Store
                         size={14}
-                        className="shrink-0 text-muted"
+                        className="shrink-0 text-muted-foreground"
                         aria-hidden
                         data-test-id="pos-topbar-store-icon"
                       />
@@ -626,7 +626,7 @@ export default function PosTopBar({
                       <button
                         type="button"
                         onClick={() => setUserDialogOpen(true)}
-                        className="shrink-0 rounded-sm text-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         aria-label="Ver información de usuario"
                         data-test-id="pos-topbar-user-icon-btn"
                       >
@@ -648,7 +648,7 @@ export default function PosTopBar({
                     >
                       <BadgeCheck
                         size={14}
-                        className="shrink-0 text-muted"
+                        className="shrink-0 text-muted-foreground"
                         aria-hidden
                         data-test-id="pos-topbar-user-role-icon"
                       />

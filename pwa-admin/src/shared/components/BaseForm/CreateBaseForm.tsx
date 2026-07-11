@@ -272,7 +272,7 @@ const CreateBaseForm: React.FC<CreateBaseFormProps> = ({
 				return (
 					<div key={group.id} className="fs-form-group w-full">
 						{group.title && <h4 className="text-base font-semibold text-foreground">{group.title}</h4>}
-						{group.subtitle && <p className="text-sm text-muted">{group.subtitle}</p>}
+						{group.subtitle && <p className="text-sm text-muted-foreground">{group.subtitle}</p>}
 						<div className={`${containerClass}`} style={containerStyle as React.CSSProperties}>
 							{group.fields.map((field, index) => (
 								<div key={`${group.id}-${field.name}-${index}`} className="mb-0">

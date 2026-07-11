@@ -20,7 +20,7 @@
 }
 
 .fs-icon-button:focus-visible {
-  outline: 2px solid var(--color-accent, #0a7cad);
+  outline: 2px solid var(--color-accent, #02578b);
   outline-offset: 2px;
 }
 
@@ -32,26 +32,26 @@
 
 /* Primary (relleno) */
 .fs-icon-button--primary {
-  background-color: var(--color-primary, #002b59);
+  background-color: var(--color-primary, #1e73ae);
   color: var(--color-background, #ffffff);
   border-color: transparent;
 }
 .fs-icon-button--primary:hover:not(:disabled) {
-  background-color: var(--color-accent, #0a7cad);
+  background-color: var(--color-accent, #02578b);
 }
 .fs-icon-button--primary:active:not(:disabled) {
-  background-color: var(--color-primary, #002b59);
+  background-color: var(--color-primary, #1e73ae);
   filter: brightness(0.92);
 }
 
 /* Secondary (relleno) */
 .fs-icon-button--secondary {
-  background-color: var(--color-secondary, #04c9e6);
+  background-color: var(--color-secondary, #00deef);
   color: var(--color-background, #ffffff);
   border-color: transparent;
 }
 .fs-icon-button--secondary:hover:not(:disabled) {
-  background-color: var(--color-accent, #0a7cad);
+  background-color: var(--color-accent, #02578b);
 }
 .fs-icon-button--secondary:active:not(:disabled) {
   filter: brightness(0.95);
@@ -60,27 +60,27 @@
 /* Primary circle (relleno, circular) */
 .fs-icon-button--primary-circle {
   border-radius: 9999px;
-  background-color: var(--color-primary, #002b59);
+  background-color: var(--color-primary, #1e73ae);
   color: var(--color-background, #ffffff);
   border-color: transparent;
 }
 .fs-icon-button--primary-circle:hover:not(:disabled) {
-  background-color: var(--color-accent, #0a7cad);
+  background-color: var(--color-accent, #02578b);
 }
 .fs-icon-button--primary-circle:active:not(:disabled) {
-  background-color: var(--color-primary, #002b59);
+  background-color: var(--color-primary, #1e73ae);
   filter: brightness(0.92);
 }
 
 /* Secondary circle (relleno, circular) */
 .fs-icon-button--secondary-circle {
   border-radius: 9999px;
-  background-color: var(--color-secondary, #04c9e6);
+  background-color: var(--color-secondary, #00deef);
   color: var(--color-background, #ffffff);
   border-color: transparent;
 }
 .fs-icon-button--secondary-circle:hover:not(:disabled) {
-  background-color: var(--color-accent, #0a7cad);
+  background-color: var(--color-accent, #02578b);
 }
 .fs-icon-button--secondary-circle:active:not(:disabled) {
   filter: brightness(0.95);
@@ -89,31 +89,31 @@
 /* Text: icono primary, sin borde; hover solo cambia color a active */
 .fs-icon-button--text {
   background-color: transparent;
-  color: var(--color-primary, #002b59);
+  color: var(--color-primary, #1e73ae);
   border-color: transparent;
 }
 .fs-icon-button--text:hover:not(:disabled) {
   background-color: transparent;
-  color: var(--color-active, #0a7cad);
+  color: var(--color-active, #02578b);
 }
 .fs-icon-button--text:active:not(:disabled) {
   background-color: transparent;
-  color: var(--color-active, #0a7cad);
+  color: var(--color-active, #02578b);
   opacity: 0.88;
 }
 
 /* Action (toolbars, grids, cards): hover solo color */
 .fs-icon-button--action {
   background-color: transparent;
-  color: var(--color-secondary, #04c9e6);
+  color: var(--color-secondary, #00deef);
   border-color: transparent;
 }
 .fs-icon-button--action:hover:not(:disabled) {
-  color: var(--color-primary, #002b59);
+  color: var(--color-primary, #1e73ae);
   background-color: transparent;
 }
 .fs-icon-button--action:active:not(:disabled) {
-  color: var(--color-primary, #002b59);
+  color: var(--color-primary, #1e73ae);
   background-color: transparent;
   opacity: 0.88;
 }
@@ -138,20 +138,20 @@
 /* Outlined */
 .fs-icon-button--outlined {
   background-color: transparent;
-  color: var(--color-primary, #002b59);
-  border-color: var(--color-primary, #002b59);
+  color: var(--color-primary, #1e73ae);
+  border-color: var(--color-primary, #1e73ae);
 }
 .fs-icon-button--outlined:hover:not(:disabled) {
   background-color: color-mix(
     in srgb,
-    var(--color-primary, #002b59) 10%,
+    var(--color-primary, #1e73ae) 10%,
     var(--color-background, #ffffff) 90%
   );
 }
 .fs-icon-button--outlined:active:not(:disabled) {
   background-color: color-mix(
     in srgb,
-    var(--color-primary, #002b59) 18%,
+    var(--color-primary, #1e73ae) 18%,
     var(--color-background, #ffffff) 82%
   );
 }
@@ -165,5 +165,5 @@
 }
 .fs-icon-button--text.fs-icon-button--no-hover:hover:not(:disabled),
 .fs-icon-button--text.fs-icon-button--no-hover:active:not(:disabled) {
-  color: var(--color-primary, #002b59);
+  color: var(--color-primary, #1e73ae);
 }

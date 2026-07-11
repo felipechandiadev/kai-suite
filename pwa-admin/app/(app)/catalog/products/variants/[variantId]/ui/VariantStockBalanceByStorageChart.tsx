@@ -22,7 +22,7 @@ import {
 } from "@/shared/charts/recharts-tooltip";
 
 const primary = "var(--color-primary, #002b59)";
-const muted = "var(--color-muted, #6b7280)";
+const muted = "var(--color-muted-foreground, #7a8280)";
 const border = "var(--color-border, #c1c1c2)";
 
 const SERIES_COLORS = [primary, "#0d9488", "#ca8a04", "#9333ea", "#dc2626", "#2563eb"];

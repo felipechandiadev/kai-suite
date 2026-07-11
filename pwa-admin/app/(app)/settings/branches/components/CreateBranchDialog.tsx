@@ -138,7 +138,7 @@ export function CreateBranchDialog({ open, onClose, onSuccess }: CreateBranchDia
         />
         <div className="min-w-0">
           <p className="mb-2 text-sm font-medium text-foreground">Ubicación (opcional)</p>
-          <p className="mb-2 text-xs text-muted">
+          <p className="mb-2 text-xs text-muted-foreground">
             Indicá en el mapa o arrastrá el marcador. Se guardan latitud y longitud.
           </p>
           <div className="relative z-10" data-test-id="branch-create-location">

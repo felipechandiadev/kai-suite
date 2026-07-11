@@ -19,7 +19,7 @@ export function EShopFooter({ storefront }: Props) {
   const year = new Date().getFullYear();
   const contact = storefront.publicContact ?? {};
   const footer = storefront.footer ?? DEFAULT_ESHOP_FOOTER;
-  const chrome = storefront.theme?.tokens.chrome ?? "#002b59";
+  const chrome = storefront.theme?.tokens.chrome ?? "#02578b";
   const chromeIsLight = isLightHexColor(chrome);
 
   const brandColumn =

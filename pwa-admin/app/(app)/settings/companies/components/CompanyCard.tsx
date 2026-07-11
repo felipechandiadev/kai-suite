@@ -36,7 +36,7 @@ export function CompanyCard({
             className="flex min-h-32 w-full items-center justify-center bg-neutral-100"
             aria-hidden
           >
-            <Building2 className="h-12 w-12 text-muted" />
+            <Building2 className="h-12 w-12 text-muted-foreground" />
           </div>
         }
         title={company.razonSocial}
@@ -47,7 +47,7 @@ export function CompanyCard({
           >
             <div className="flex min-h-[1.35rem] items-start gap-2.5">
               <Hash
-                className="mt-0.5 h-4 w-4 shrink-0 text-muted"
+                className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
                 strokeWidth={2}
                 aria-hidden
               />
@@ -57,7 +57,7 @@ export function CompanyCard({
             </div>
             <div className="flex min-h-[1.35rem] items-start gap-2.5">
               <Briefcase
-                className="mt-0.5 h-4 w-4 shrink-0 text-muted"
+                className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
                 strokeWidth={2}
                 aria-hidden
               />
@@ -66,7 +66,7 @@ export function CompanyCard({
               </span>
             </div>
             {fantasiaLine ? (
-              <div className="text-muted">{fantasiaLine}</div>
+              <div className="text-muted-foreground">{fantasiaLine}</div>
             ) : null}
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-2">
@@ -83,7 +83,7 @@ export function CompanyCard({
                   {company.isActive ? "Activa" : "Inactiva"}
                 </span>
               </span>
-              <span className="text-muted">· {company.defaultCurrency}</span>
+              <span className="text-muted-foreground">· {company.defaultCurrency}</span>
             </div>
           </div>
         }

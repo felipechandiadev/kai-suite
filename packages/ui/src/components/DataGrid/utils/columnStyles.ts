@@ -244,14 +244,16 @@ export const DataGridZIndex = {
   headerRow: 20,
   headerPinnedCell: 21,
   expandedStickyRow: 15,
+  // Contenido expandido: por debajo de la fila que lo despliega.
+  expandedContent: 14,
 } as const;
 
 /**
  * Constantes para estilos consistentes del DataGrid
  */
 export const DataGridStyles = {
-  // Contenedor principal
-  container: 'rounded-md bg-background flex flex-col',
+  // Contenedor principal (fondo transparente: deja ver el fondo ambiental)
+  container: 'rounded-md flex flex-col',
 
   // Contenedor scrollable (min-h-0 permite que flex-1 encoja y haga scroll el body)
   scrollContainer: 'min-h-0 flex-1 overflow-auto',
@@ -261,7 +263,7 @@ export const DataGridStyles = {
   headerCell: 'px-3 py-2 text-sm font-medium text-foreground border-r border-border last:border-r-0',
 
   // Celdas del body (desde Cell.tsx)
-  bodyCell: 'px-3 py-1 text-sm text-foreground border-b border-border border-r border-border bg-background whitespace-pre-line break-words min-h-[22px] flex-auto last:border-r-0',
+  bodyCell: 'px-3 py-1 text-sm text-foreground border-b border-border border-r border-border whitespace-pre-line break-words min-h-[22px] flex-auto last:border-r-0',
 
   // Responsive breakpoints
   responsive: {

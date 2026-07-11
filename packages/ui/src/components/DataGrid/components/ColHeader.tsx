@@ -155,7 +155,7 @@ export const ColHeader: React.FC<ColHeaderProps> = ({
   
   if (!column.sortable) {
     iconName = 'ArrowUp';
-    iconColor = "text-muted";
+    iconColor = "text-muted-foreground";
   } else if (isThisColumnSorted) {
     // If this column is sorted, show the appropriate direction icon in primary color
     iconName = currentSort === 'asc' ? 'ArrowUp' : 'ArrowDown';
@@ -163,7 +163,7 @@ export const ColHeader: React.FC<ColHeaderProps> = ({
   } else {
     // If sortable but not sorted, show upward arrow in secondary color (lighter)
     iconName = 'ArrowUp';
-    iconColor = "text-muted hover:text-secondary";
+    iconColor = "text-muted-foreground hover:text-secondary";
   }
 
   const fallbackHeaderStyle = computedStyle
@@ -179,7 +179,6 @@ export const ColHeader: React.FC<ColHeaderProps> = ({
     <div
       className={`${dataGridChrome.subtleLineBottom} ${DataGridCellMetrics.paddingX} box-border min-w-0 font-semibold text-xs text-foreground flex items-center ${headerAlignClasses.cell}`}
       style={{
-        backgroundColor: 'var(--color-background)',
         height: '56px',
         minHeight: '56px',
         maxHeight: '56px',

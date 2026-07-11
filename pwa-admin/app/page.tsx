@@ -47,15 +47,15 @@ export default function LoginPage() {
   if (status === 'loading' || status === 'authenticated') {
     return (
       <div
-        className="flex min-h-screen items-center justify-center bg-background"
+        className="flex min-h-screen items-center justify-center"
         data-test-id="login-session-redirect"
       />
     );
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="w-full max-w-md rounded-xl border border-border/70 bg-background/80 p-8 shadow-lg backdrop-blur-md">
         <div className="flex flex-col items-center text-center mb-6">
           <img
             src="/logo.png"
@@ -66,7 +66,7 @@ export default function LoginPage() {
             <span className="block text-2xl font-bold leading-tight tracking-tight text-foreground">
               KaiStore
             </span>
-            <span className="-mt-px block text-[11px] font-normal leading-tight text-muted sm:text-xs">
+            <span className="-mt-px block text-[11px] font-normal leading-tight text-muted-foreground sm:text-xs">
               Administración
             </span>
           </div>

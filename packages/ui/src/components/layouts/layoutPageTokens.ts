@@ -18,7 +18,7 @@ export const layoutPageHeaderClassName = "w-full min-w-0";
 export const layoutPageTitleClassName =
   "text-lg font-semibold tracking-tight text-foreground";
 
-export const layoutPageSubtitleClassName = "mt-1 text-sm text-muted";
+export const layoutPageSubtitleClassName = "mt-1 text-sm text-muted-foreground";
 
 /** Contenedor principal bajo la cabecera (scroll / flex en página). */
 export const layoutPageContentClassName =

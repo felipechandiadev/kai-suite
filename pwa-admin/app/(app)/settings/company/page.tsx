@@ -16,7 +16,7 @@ export default async function Page() {
       data-test-id="settings-company-page"
     >
       {company == null ? (
-        <p className="text-sm text-muted">No se pudo cargar la empresa. Revisa la sesión y el API.</p>
+        <p className="text-sm text-muted-foreground">No se pudo cargar la empresa. Revisa la sesión y el API.</p>
       ) : (
         <CompanySettingsContent company={company} shareholders={shareholders} />
       )}

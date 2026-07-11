@@ -325,10 +325,10 @@ export const PosPaymentMethodsCardsEditor = forwardRef<
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <GripVertical className="h-4 w-4 shrink-0 text-muted" aria-hidden />
+                  <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                   <span className="min-w-0 truncate">{label}</span>
                 </p>
-                <p className="mt-0.5 text-xs text-muted">{subtitle}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
               </div>
               {r?.preloadOnPaymentScreen ? (
                 <span className="shrink-0 rounded-md border border-secondary/40 bg-secondary/10 px-2 py-1 text-[11px] font-semibold text-secondary">

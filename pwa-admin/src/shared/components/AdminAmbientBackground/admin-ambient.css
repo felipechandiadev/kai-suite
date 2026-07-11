@@ -1,0 +1,93 @@
+@keyframes admin-ambient-blob-float {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-30px, 50px) scale(1.2);
+  }
+}
+
+.admin-ambient-blob {
+  position: absolute;
+  height: 20rem;
+  width: 20rem;
+  border-radius: 9999px;
+  filter: blur(100px);
+  opacity: 0.16;
+  animation: admin-ambient-blob-float 7s infinite ease-in-out;
+  will-change: transform;
+}
+
+.admin-ambient-blob--accent {
+  top: -6rem;
+  left: -2.5rem;
+  background-color: color-mix(in srgb, var(--color-accent) 65%, var(--color-background));
+}
+
+.admin-ambient-blob--secondary {
+  top: -3rem;
+  right: -2.5rem;
+  background-color: var(--color-secondary);
+}
+
+.admin-ambient-blob--soft {
+  bottom: -5rem;
+  left: 25%;
+  background-color: color-mix(in srgb, var(--color-accent-soft) 60%, var(--color-background));
+}
+
+.admin-ambient-blob--primary-mid {
+  top: 42%;
+  right: 15%;
+  height: 18rem;
+  width: 18rem;
+  opacity: 0.12;
+  background-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-background));
+}
+
+.admin-ambient-blob--accent-low {
+  top: 68%;
+  left: -3rem;
+  height: 22rem;
+  width: 22rem;
+  background-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-background));
+}
+
+.admin-ambient-blob--success {
+  bottom: 8%;
+  right: -4rem;
+  height: 16rem;
+  width: 16rem;
+  opacity: 0.1;
+  background-color: color-mix(in srgb, var(--color-success) 45%, var(--color-background));
+}
+
+.admin-ambient-blob--delay-2 {
+  animation-delay: 2s;
+}
+
+.admin-ambient-blob--delay-4 {
+  animation-delay: 4s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-ambient-blob {
+    animation: none;
+    will-change: auto;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .admin-ambient-blob {
+    opacity: 0.1;
+  }
+
+  .admin-ambient-blob--primary-mid {
+    opacity: 0.08;
+  }
+
+  .admin-ambient-blob--success {
+    opacity: 0.07;
+  }
+}

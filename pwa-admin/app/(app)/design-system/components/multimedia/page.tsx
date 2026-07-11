@@ -43,7 +43,7 @@ export default function MultimediaUiComponentsPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-14 p-8">
       <div>
-        <Link href="/ui-components" className="text-sm font-medium text-primary hover:underline">
+        <Link href="/design-system/components" className="text-sm font-medium text-primary hover:underline">
           ← UI Components
         </Link>
         <h1 className="mt-4 text-3xl font-bold tracking-tight text-foreground">Multimedia</h1>

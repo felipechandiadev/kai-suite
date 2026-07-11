@@ -93,11 +93,14 @@ const Body: React.FC<BodyProps> = ({
         const rowBackgroundColor = resolveRowCellBackgroundColor({
           isSelected,
           isHovered,
+          isExpanded,
           appearance: rowAppearance,
         });
         const rowAppearanceClassName = rowAppearance?.className?.trim() ?? '';
-        /** Si solo hay clases Tailwind `bg-*`, no pisarlas con `backgroundColor` inline (hover/default). */
+        /** Si solo hay clases Tailwind `bg-*`, no pisarlas con `backgroundColor` inline (hover/default).
+            Excepción: una fila expandida siempre fuerza el fondo blanco inline. */
         const rowAppearanceUsesBgClass =
+          !isExpanded &&
           Boolean(rowAppearanceClassName) &&
           /\bbg-/.test(rowAppearanceClassName) &&
           !rowAppearance?.backgroundColor;
@@ -258,7 +261,7 @@ const Body: React.FC<BodyProps> = ({
             {expandable && isExpanded && expandableRowContent && (
               <div
                 className={`sticky left-0 w-full min-w-0 max-w-full overflow-x-hidden ${dataGridChrome.subtleLineBottom} bg-neutral/50`}
-                style={{ zIndex: DataGridZIndex.expandedStickyRow }}
+                style={{ zIndex: DataGridZIndex.expandedContent }}
                 data-test-id="data-grid-expanded-row"
               >
                 <div className="box-border w-full min-w-0 max-w-full overflow-x-hidden p-4">

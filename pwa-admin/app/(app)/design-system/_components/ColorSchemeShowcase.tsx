@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { Alert, Button, IconButton } from '@kai/ui';
 
 type ColorToken = {
@@ -81,10 +82,18 @@ const SURFACE_TOKENS: ColorToken[] = [
   },
   {
     id: 'muted',
-    label: 'Muted',
+    label: 'Muted (tinte)',
     cssVar: '--color-muted',
-    tailwind: 'text-muted',
-    usage: 'Texto secundario, placeholders, metadatos, hints.',
+    tailwind: 'bg-muted',
+    usage: 'Tinte / fondo suave (chips, zonas decorativas). No usar para texto legible.',
+    textOnSwatch: 'dark',
+  },
+  {
+    id: 'muted-foreground',
+    label: 'Muted foreground',
+    cssVar: '--color-muted-foreground',
+    tailwind: 'text-muted-foreground',
+    usage: 'Texto secundario, placeholders, metadatos, hints, subtítulos de layout.',
     textOnSwatch: 'light',
   },
   {
@@ -103,7 +112,7 @@ const FEEDBACK_TOKENS: ColorToken[] = [
     label: 'Success',
     cssVar: '--color-success',
     tailwind: 'text-success',
-    usage: 'Confirmaciones, estados OK, Alert success.',
+    usage: 'Confirmaciones, operaciones completadas, estados OK, Alert success.',
     textOnSwatch: 'light',
   },
   {
@@ -111,7 +120,7 @@ const FEEDBACK_TOKENS: ColorToken[] = [
     label: 'Info',
     cssVar: '--color-info',
     tailwind: 'text-info',
-    usage: 'Información neutral positiva, Alert info.',
+    usage: 'Información contextual, ayuda, mensajes informativos, Alert info.',
     textOnSwatch: 'light',
   },
   {
@@ -119,7 +128,7 @@ const FEEDBACK_TOKENS: ColorToken[] = [
     label: 'Warning',
     cssVar: '--color-warning',
     tailwind: 'text-warning',
-    usage: 'Advertencias reversibles, Alert warning.',
+    usage: 'Advertencias reversibles, validaciones preventivas, Alert warning.',
     textOnSwatch: 'dark',
   },
   {
@@ -127,7 +136,7 @@ const FEEDBACK_TOKENS: ColorToken[] = [
     label: 'Error',
     cssVar: '--color-error',
     tailwind: 'text-error',
-    usage: 'Errores, destructivo, Alert error, validaciones.',
+    usage: 'Errores, acciones destructivas, fallos de validación, Alert error.',
     textOnSwatch: 'light',
   },
 ];
@@ -149,8 +158,65 @@ const APP_TOKENS: ColorToken[] = [
   },
 ];
 
+function rgbChannelToHex(channel: string): string {
+  return Math.round(Number(channel)).toString(16).padStart(2, '0');
+}
+
+/** Convierte rgb()/rgba() del DOM a #RRGGBB (ignora alpha en el hex). */
+function rgbStringToHex(rgb: string): string | null {
+  const match = rgb.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+  if (!match) return null;
+  return `#${rgbChannelToHex(match[1])}${rgbChannelToHex(match[2])}${rgbChannelToHex(match[3])}`.toUpperCase();
+}
+
+/** Normaliza el valor computado para mostrar hex o rgba legible. */
+function formatResolvedColor(computed: string): string {
+  const trimmed = computed.trim();
+  if (!trimmed) return '—';
+  if (trimmed.startsWith('#')) return trimmed.toUpperCase();
+
+  const hex = rgbStringToHex(trimmed);
+  if (hex) {
+    const alphaMatch = trimmed.match(/^rgba\(\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+\s*,\s*([\d.]+)\s*\)/i);
+    if (alphaMatch && Number(alphaMatch[1]) < 1) {
+      return `${hex} · ${Math.round(Number(alphaMatch[1]) * 100)}% opacidad`;
+    }
+    return hex;
+  }
+
+  return trimmed;
+}
+
+function useResolvedTokenColor(cssVar: string): string {
+  const [resolved, setResolved] = React.useState('…');
+
+  React.useEffect(() => {
+    const read = () => {
+      const probe = document.createElement('span');
+      probe.style.position = 'fixed';
+      probe.style.visibility = 'hidden';
+      probe.style.pointerEvents = 'none';
+      probe.style.backgroundColor = `var(${cssVar})`;
+      document.body.appendChild(probe);
+      const computed = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      setResolved(formatResolvedColor(computed));
+    };
+
+    read();
+
+    const darkMq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => read();
+    darkMq.addEventListener('change', onChange);
+    return () => darkMq.removeEventListener('change', onChange);
+  }, [cssVar]);
+
+  return resolved;
+}
+
 function Swatch({ token }: { token: ColorToken }) {
   const fg = token.textOnSwatch === 'light' ? '#ffffff' : '#131615';
+  const colorCode = useResolvedTokenColor(token.cssVar);
 
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-surface">
@@ -162,12 +228,13 @@ function Swatch({ token }: { token: ColorToken }) {
       </div>
       <div className="space-y-2 p-3 text-xs">
         <p className="font-mono text-foreground">{token.cssVar}</p>
+        <p className="font-mono text-sm font-semibold tracking-wide text-primary">{colorCode}</p>
         {token.tailwind ? (
-          <p className="text-muted">
+          <p className="text-muted-foreground">
             Tailwind: <code className="rounded bg-neutral px-1 py-0.5">{token.tailwind}</code>
           </p>
         ) : null}
-        <p className="leading-relaxed text-muted">{token.usage}</p>
+        <p className="leading-relaxed text-muted-foreground">{token.usage}</p>
       </div>
     </div>
   );
@@ -177,31 +244,14 @@ function SectionTitle({ title, description }: { title: string; description: stri
   return (
     <div className="space-y-1">
       <h2 className="text-xl font-semibold text-foreground">{title}</h2>
-      <p className="max-w-3xl text-sm text-muted">{description}</p>
+      <p className="max-w-3xl text-sm text-muted-foreground">{description}</p>
     </div>
   );
 }
 
-export default function ColorSchemePage() {
+export default function ColorSchemeShowcase() {
   return (
-    <div className="mx-auto max-w-6xl space-y-12 p-8">
-      <header className="space-y-3">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Esquema de colores</h1>
-        <p className="max-w-3xl text-sm leading-relaxed text-muted">
-          Referencia viva de tokens Kai para el admin. Los valores viven en{' '}
-          <code className="rounded bg-neutral px-1 py-0.5">pwa-admin/app/globals.css</code> (
-          <code className="rounded bg-neutral px-1 py-0.5">:root</code>) y el contrato compartido en{' '}
-          <code className="rounded bg-neutral px-1 py-0.5">packages/ui/src/theme/tokens.css</code>.
-          Los componentes de <code className="rounded bg-neutral px-1 py-0.5">@kai/ui</code> consumen{' '}
-          <code className="rounded bg-neutral px-1 py-0.5">var(--color-*)</code> — no colores hex sueltos en UI.
-        </p>
-        <Alert variant="info">
-          <span className="text-sm">
-            Modo oscuro: definido en <code className="rounded bg-neutral/80 px-1">@media (prefers-color-scheme: dark)</code>{' '}
-            en globals.css. Cambia el esquema del SO para previsualizarlo aquí.
-          </span>
-        </Alert>
-      </header>
+    <div className="space-y-12">
 
       {/* Reglas */}
       <section className="space-y-4">
@@ -211,7 +261,7 @@ export default function ColorSchemePage() {
         />
         <div className="overflow-hidden rounded-lg border border-border">
           <table className="w-full text-left text-sm">
-            <thead className="bg-neutral text-xs font-semibold uppercase tracking-wide text-muted">
+            <thead className="bg-neutral text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-2">Situación</th>
                 <th className="px-4 py-2">Token / patrón</th>
@@ -222,42 +272,42 @@ export default function ColorSchemePage() {
               <tr>
                 <td className="px-4 py-3 align-top">Texto principal</td>
                 <td className="px-4 py-3 align-top font-mono text-xs text-foreground">text-foreground</td>
-                <td className="px-4 py-3 align-top text-muted">text-gray-900 sueltos</td>
+                <td className="px-4 py-3 align-top text-muted-foreground">text-gray-900 sueltos</td>
               </tr>
               <tr>
                 <td className="px-4 py-3 align-top">Texto secundario / hints</td>
-                <td className="px-4 py-3 align-top font-mono text-xs text-foreground">text-muted</td>
-                <td className="px-4 py-3 align-top text-muted">opacity sobre foreground</td>
+                <td className="px-4 py-3 align-top font-mono text-xs text-foreground">text-muted-foreground</td>
+                <td className="px-4 py-3 align-top text-muted-foreground">text-muted-foreground (tinte) · opacity sobre foreground</td>
               </tr>
               <tr>
                 <td className="px-4 py-3 align-top">Fondo de página</td>
                 <td className="px-4 py-3 align-top font-mono text-xs text-foreground">bg-background</td>
-                <td className="px-4 py-3 align-top text-muted">bg-white hardcodeado</td>
+                <td className="px-4 py-3 align-top text-muted-foreground">bg-white hardcodeado</td>
               </tr>
               <tr>
                 <td className="px-4 py-3 align-top">Hover filas / listas</td>
                 <td className="px-4 py-3 align-top font-mono text-xs text-foreground">bg-hover o var(--color-hover)</td>
-                <td className="px-4 py-3 align-top text-muted">bg-gray-50 arbitrario</td>
+                <td className="px-4 py-3 align-top text-muted-foreground">bg-gray-50 arbitrario</td>
               </tr>
               <tr>
                 <td className="px-4 py-3 align-top">CTA principal</td>
                 <td className="px-4 py-3 align-top font-mono text-xs text-foreground">Button primary → primary / hover accent</td>
-                <td className="px-4 py-3 align-top text-muted">Nuevo hex por pantalla</td>
+                <td className="px-4 py-3 align-top text-muted-foreground">Nuevo hex por pantalla</td>
               </tr>
               <tr>
                 <td className="px-4 py-3 align-top">Focus teclado</td>
                 <td className="px-4 py-3 align-top font-mono text-xs text-foreground">outline 2px accent, offset 2px</td>
-                <td className="px-4 py-3 align-top text-muted">outline:none sin alternativa</td>
+                <td className="px-4 py-3 align-top text-muted-foreground">outline:none sin alternativa</td>
               </tr>
               <tr>
                 <td className="px-4 py-3 align-top">Bordes sutiles</td>
                 <td className="px-4 py-3 align-top font-mono text-xs text-foreground">border-border o color-mix con border</td>
-                <td className="px-4 py-3 align-top text-muted">#ccc sueltos</td>
+                <td className="px-4 py-3 align-top text-muted-foreground">#ccc sueltos</td>
               </tr>
               <tr>
                 <td className="px-4 py-3 align-top">Feedback usuario</td>
                 <td className="px-4 py-3 align-top font-mono text-xs text-foreground">success / warning / error / info</td>
-                <td className="px-4 py-3 align-top text-muted">Verde/rojo custom por módulo</td>
+                <td className="px-4 py-3 align-top text-muted-foreground">Verde/rojo custom por módulo</td>
               </tr>
             </tbody>
           </table>
@@ -319,7 +369,7 @@ export default function ColorSchemePage() {
         <div className="grid gap-8 lg:grid-cols-2">
           <div className="space-y-4 rounded-lg border border-border p-4">
             <h3 className="text-sm font-semibold text-foreground">Hover</h3>
-            <ul className="list-inside list-disc space-y-1 text-sm text-muted">
+            <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
               <li>Contained primary/secondary: fondo pasa a <code className="rounded bg-neutral px-1">accent</code></li>
               <li>Outlined: relleno accent + texto background</li>
               <li>IconButton action: texto <code className="rounded bg-neutral px-1">active</code></li>
@@ -334,7 +384,7 @@ export default function ColorSchemePage() {
 
           <div className="space-y-4 rounded-lg border border-border p-4">
             <h3 className="text-sm font-semibold text-foreground">Focus-visible</h3>
-            <ul className="list-inside list-disc space-y-1 text-sm text-muted">
+            <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
               <li>IconButton / RangeSlider: <code className="rounded bg-neutral px-1">outline 2px accent</code>, offset 2px</li>
               <li>Siempre visible al navegar con teclado; no quitar sin reemplazo</li>
             </ul>
@@ -346,7 +396,7 @@ export default function ColorSchemePage() {
 
           <div className="space-y-4 rounded-lg border border-border p-4">
             <h3 className="text-sm font-semibold text-foreground">Active / pressed</h3>
-            <ul className="list-inside list-disc space-y-1 text-sm text-muted">
+            <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
               <li>Button: <code className="rounded bg-neutral px-1">scale(0.9)</code> + sombra inset</li>
               <li>IconButton filled: <code className="rounded bg-neutral px-1">brightness(0.92)</code></li>
             </ul>
@@ -355,7 +405,7 @@ export default function ColorSchemePage() {
 
           <div className="space-y-4 rounded-lg border border-border p-4">
             <h3 className="text-sm font-semibold text-foreground">Disabled</h3>
-            <ul className="list-inside list-disc space-y-1 text-sm text-muted">
+            <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
               <li>Opacidad reducida + <code className="rounded bg-neutral px-1">cursor-not-allowed</code></li>
               <li>Sin hover ni active</li>
             </ul>
@@ -383,7 +433,7 @@ export default function ColorSchemePage() {
             }}
           >
             <p className="text-sm font-medium text-foreground">--color-hover (definición en globals)</p>
-            <p className="mt-1 text-xs text-muted">color-mix(neutral 65%, background)</p>
+            <p className="mt-1 text-xs text-muted-foreground">color-mix(neutral 65%, background)</p>
           </div>
           <div
             className="rounded-lg border p-4"
@@ -392,7 +442,7 @@ export default function ColorSchemePage() {
             }}
           >
             <p className="text-sm font-medium text-foreground">Borde sutil (ej. DataGrid col header)</p>
-            <p className="mt-1 text-xs text-muted">color-mix(border 55%, transparent)</p>
+            <p className="mt-1 text-xs text-muted-foreground">color-mix(border 55%, transparent)</p>
           </div>
         </div>
       </section>
@@ -400,7 +450,7 @@ export default function ColorSchemePage() {
       {/* Implementación */}
       <section className="space-y-3 rounded-lg border border-dashed border-border bg-neutral/40 p-4">
         <h2 className="text-lg font-semibold text-foreground">Implementación</h2>
-        <ul className="list-inside list-disc space-y-2 text-sm text-muted">
+        <ul className="list-inside list-disc space-y-2 text-sm text-muted-foreground">
           <li>
             Nuevo token: añadir en <code className="rounded bg-neutral px-1">globals.css</code> (:root + bloque dark) y en{' '}
             <code className="rounded bg-neutral px-1">@theme inline</code> para Tailwind v4.

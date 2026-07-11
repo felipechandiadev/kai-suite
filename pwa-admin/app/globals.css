@@ -8,20 +8,23 @@
 
   /* Must match the fixed header in TopBar (py-2 + h-10 logo row + pb-3) */
   --app-topbar-height: 3.75rem;
-  --color-primary: #002b59;
+  --color-primary: #1e73ae;
   --color-background: #ffffff;
   --color-foreground: #131615;
-  --color-border: #c1c1c2;
-  --color-active: #0a7cad;
-  --color-accent: #0a7cad;
-  --color-secondary: #04c9e6;
-  --color-muted: #6b7280;
-  --color-success: #4caf50;
-  --color-info: #2196f3;
-  --color-warning: #ffc107;
-  --color-error: #f44336;
+  --color-border: #a5c2c2;
+  --color-active: #02578b;
+  --color-accent: #02578b;
+  --color-secondary: #00deef;
+  --color-muted: #cfeef0;
+  --color-muted-foreground: #7a8280;
+  --color-success: #2e9e5b;
+  --color-info: #1e73ae;
+  --color-warning: #e6a100;
+  --color-error: #d64545;
   --color-neutral: #f3f4f6;
-  --color-surface: #ffffff;
+  --color-surface: #fcfffe;
+  --color-accent-soft: color-mix(in srgb, var(--color-secondary) 38%, var(--color-background));
+  --color-shell-chrome: var(--color-neutral);
   --color-hover: color-mix(
     in srgb,
     var(--color-neutral) 65%,
@@ -30,7 +33,7 @@
 
   --color-sidebar-bg: rgba(255, 255, 255, 0.2);
   --sidebar-backdrop-blur: 7px;
-  --color-sidebar-overlay: rgba(0, 43, 89, 0.25);
+  --color-sidebar-overlay: rgba(2, 87, 139, 0.25);
 }
 
 @theme inline {
@@ -43,6 +46,7 @@
   --color-accent: var(--color-accent);
   --color-secondary: var(--color-secondary);
   --color-muted: var(--color-muted);
+  --color-muted-foreground: var(--color-muted-foreground);
   --color-success: var(--color-success);
   --color-info: var(--color-info);
   --color-warning: var(--color-warning);
@@ -53,27 +57,41 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-primary: #0a7cad;
+    --color-primary: #1e73ae;
     --color-background: #121212;
     --color-surface: #1e1e1e;
     --color-foreground: #f3f4f6;
-    --color-muted: #9ca3af;
+    --color-muted: #cfeef0;
+    --color-muted-foreground: #7a8280;
     --color-border: #374151;
     --color-neutral: #1f2937;
-    --color-success: #81c784;
-    --color-info: #64b5f6;
-    --color-warning: #ffd54f;
-    --color-error: #e57373;
+    --color-success: #2e9e5b;
+    --color-info: #1e73ae;
+    --color-warning: #e6a100;
+    --color-error: #d64545;
     --color-hover: color-mix(in srgb, var(--color-neutral) 40%, var(--color-background));
-    --color-secondary: #04c9e6;
+    --color-active: #02578b;
+    --color-accent: #02578b;
+    --color-secondary: #00deef;
     --color-sidebar-bg: rgba(18, 18, 18, 0.3);
     --sidebar-backdrop-blur: 8px;
-    --color-sidebar-overlay: rgba(0, 32, 66, 0.3);
+    --color-sidebar-overlay: rgba(2, 87, 139, 0.35);
   }
 }
 
 body {
-  background-color: var(--color-background);
+  margin: 0;
+}
+
+.kai-admin-app-shell {
+  position: relative;
+  min-height: 100dvh;
+  background-color: color-mix(
+    in srgb,
+    var(--color-shell-chrome) 30%,
+    var(--color-background)
+  );
+  color: var(--color-foreground);
 }
 
 @layer base {
@@ -83,7 +101,6 @@ body {
 
   body {
     font-family: "Inter", "System UI", sans-serif;
-    background-color: var(--color-background);
     color: var(--color-foreground);
   }
 

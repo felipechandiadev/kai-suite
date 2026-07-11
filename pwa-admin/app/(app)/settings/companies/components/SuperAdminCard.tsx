@@ -50,7 +50,7 @@ export function SuperAdminCard({
             className="flex min-h-24 w-full items-center justify-center bg-neutral-100"
             aria-hidden
           >
-            <Shield className="h-10 w-10 text-muted" />
+            <Shield className="h-10 w-10 text-muted-foreground" />
           </div>
         }
         title={personName}
@@ -68,7 +68,7 @@ export function SuperAdminCard({
           >
             <div className="flex items-start gap-2.5">
               <AtSign
-                className="mt-0.5 h-4 w-4 shrink-0 text-muted"
+                className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
                 strokeWidth={2}
                 aria-hidden
               />
@@ -78,7 +78,7 @@ export function SuperAdminCard({
             </div>
             <div className="flex items-start gap-2.5">
               <Mail
-                className="mt-0.5 h-4 w-4 shrink-0 text-muted"
+                className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
                 strokeWidth={2}
                 aria-hidden
               />

@@ -187,7 +187,7 @@ const TopBar: React.FC<TopBarProps & { className?: string }> = ({
                 </span>
                 {subtitle?.trim() ? (
                   <span
-                    className="-mt-px block text-[11px] font-normal leading-tight text-muted sm:text-xs"
+                    className="-mt-px block text-[11px] font-normal leading-tight text-muted-foreground sm:text-xs"
                     data-test-id="top-bar-subtitle"
                   >
                     {subtitle}
@@ -210,7 +210,7 @@ const TopBar: React.FC<TopBarProps & { className?: string }> = ({
                 >
                   {personName}
                   {personName && userName ? (
-                    <span className="font-normal text-muted">{' '}@{userName}</span>
+                    <span className="font-normal text-muted-foreground">{' '}@{userName}</span>
                   ) : !personName && userName ? (
                     <span>@{userName}</span>
                   ) : null}

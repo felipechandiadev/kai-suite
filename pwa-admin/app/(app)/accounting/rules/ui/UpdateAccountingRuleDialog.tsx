@@ -183,7 +183,7 @@ export function UpdateAccountingRuleDialog({
         </>
       }
     >
-      <p className="mb-4 text-sm text-muted" data-test-id="rule-update-subtitle">
+      <p className="mb-4 text-sm text-muted-foreground" data-test-id="rule-update-subtitle">
         {subtitle}
       </p>
       <div className="flex w-full min-w-0 flex-col gap-4">

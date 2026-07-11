@@ -12,7 +12,7 @@ export function UrlSearchLive({ paramName = "search" }: { paramName?: string }) 
   return (
     <Card>
       <p className="text-sm font-medium text-foreground">Misma URL, vista en el cliente</p>
-      <p className="mt-2 text-sm text-muted">
+      <p className="mt-2 text-sm text-muted-foreground">
         Valor actual de <code className="rounded bg-neutral px-1.5 py-0.5 text-xs">?{paramName}=</code> (
         <code>useSearchParams</code>):
       </p>

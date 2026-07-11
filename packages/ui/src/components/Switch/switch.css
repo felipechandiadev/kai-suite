@@ -79,7 +79,7 @@
   font-size: 0.875rem;
   font-weight: 500;
   line-height: 1.25;
-  color: var(--color-muted-foreground, #6b7280);
+  color: var(--color-muted-foreground, #7a8280);
 }
 
 .fs-switch__root--compact .fs-switch__label {

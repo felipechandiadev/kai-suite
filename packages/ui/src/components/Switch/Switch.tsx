@@ -63,7 +63,7 @@ const Switch: React.FC<SwitchProps> = ({
   const labelBase = isCompact
     ? 'fs-switch__label text-foreground'
     : 'text-sm font-medium leading-normal';
-  const labelMuted = isCompact ? 'fs-switch__label' : 'text-muted';
+  const labelMuted = isCompact ? 'fs-switch__label' : 'text-muted-foreground';
   const optionClass = (active: boolean) => {
     const tone = active ? (isCompact ? 'text-foreground' : 'text-foreground') : labelMuted;
     return [

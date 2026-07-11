@@ -5,7 +5,7 @@
 .fs-card {
   background-color: var(--color-background, #fff);
   border: 1px solid
-    color-mix(in srgb, var(--color-border, #c1c1c2) 70%, transparent);
+    color-mix(in srgb, var(--color-border, #a5c2c2) 70%, transparent);
   border-radius: 0.5rem;
   box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   overflow: hidden;
@@ -31,7 +31,7 @@
 
 /** Centro / ítem seleccionado (p. ej. tesorería · centros de efectivo). */
 .fs-card.fs-card--border-secondary {
-  border-color: var(--color-secondary, #04c9e6);
+  border-color: var(--color-secondary, #00deef);
 }
 
 .fs-card__header {
@@ -46,7 +46,7 @@
 }
 .fs-card__subtitle {
   margin-top: 0.125rem;
-  color: var(--color-muted);
+  color: var(--color-muted-foreground);
   font-size: 0.875rem;
   line-height: 1.25rem;
 }
@@ -70,7 +70,7 @@
   justify-content: flex-end;
   gap: 0.5rem;
   border-top: 1px solid
-    color-mix(in srgb, var(--color-border, #c1c1c2) 70%, transparent);
+    color-mix(in srgb, var(--color-border, #a5c2c2) 70%, transparent);
   padding: 0.75rem 1rem 1rem 1rem;
   flex-shrink: 0;
 }
@@ -99,7 +99,7 @@
 
 .fs-statistics-card__label {
   margin-bottom: 0.5rem;
-  color: var(--color-muted);
+  color: var(--color-muted-foreground);
   font-size: 0.875rem;
   line-height: 1.25rem;
 }
@@ -117,7 +117,7 @@
   margin-top: 0.5rem;
   font-size: 0.75rem;
   line-height: 1rem;
-  color: var(--color-muted);
+  color: var(--color-muted-foreground);
   opacity: 0.9;
 }
 
@@ -146,7 +146,7 @@
  */
 .fs-treasury-pick-card,
 .fs-cash-hub-card {
-  border: 1px solid color-mix(in srgb, var(--color-border, #c1c1c2) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border, #a5c2c2) 70%, transparent);
   background-color: var(--color-background, #fff);
   box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   transition:
@@ -156,15 +156,15 @@
 
 .fs-treasury-pick-card:not(.fs-treasury-pick-card--selected):hover,
 .fs-cash-hub-card:not(.fs-cash-hub-card--selected):hover {
-  border-color: color-mix(in srgb, var(--color-secondary, #04c9e6) 60%, var(--color-border, #c1c1c2));
+  border-color: color-mix(in srgb, var(--color-secondary, #00deef) 60%, var(--color-border, #a5c2c2));
 }
 
 .fs-treasury-pick-card--selected,
 .fs-cash-hub-card--selected {
-  border-color: color-mix(in srgb, var(--color-secondary, #04c9e6) 40%, var(--color-border, #c1c1c2));
+  border-color: color-mix(in srgb, var(--color-secondary, #00deef) 40%, var(--color-border, #a5c2c2));
   background-color: color-mix(
     in srgb,
-    var(--color-secondary, #04c9e6) 10%,
+    var(--color-secondary, #00deef) 10%,
     var(--color-background, #fff)
   );
 }

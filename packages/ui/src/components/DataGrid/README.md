@@ -220,7 +220,7 @@ La barra superior del DataGrid usa **CSS Grid de 3 columnas** en `md+` y **stack
 />
 ```
 
-Demo interactiva: `/ui-components/datagrid` (sección *Header actions*).
+Demo interactiva: `/design-system/components/datagrid` (sección *Header actions*).
 
 Utilidades: `utils/flattenHeaderActions.ts`, `utils/headerGridPlacement.ts`. Estilos responsive del toolbar/header: `components/Header.module.css` (evita depender de clases Tailwind `sm:grid` que no siempre se generan en consumidores).
 
@@ -271,7 +271,7 @@ Definición única en `dataGridChrome.module.css`:
 - Header: borde **inferior** por celda (cada col header al scroll horizontal).
 - Footer: borde **superior** en el contenedor de paginación.
 - Filas: borde **inferior** por celda, mismo estilo que el header.
-- Alineado con el esquema de colores Kai (`--color-border` + `color-mix`); ver showcase `/ui-components/color-scheme`.
+- Alineado con el esquema de colores Kai (`--color-border` + `color-mix`); ver showcase `/design-system/foundations/colors`.
 
 #### Archivos relevantes
 

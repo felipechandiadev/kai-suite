@@ -3,9 +3,9 @@
 import { Tabs } from '@kai/ui';
 
 const NAV_TABS = [
-  { label: 'Button', url: '/ui-components/button' },
-  { label: 'Cards', url: '/ui-components/cards' },
-  { label: 'Tabs (here)', url: '/ui-components/tabs' },
+  { label: 'Button', url: '/design-system/components/button' },
+  { label: 'Cards', url: '/design-system/components/cards' },
+  { label: 'Tabs (here)', url: '/design-system/components/tabs' },
 ];
 
 export default function TabsPage() {
@@ -28,7 +28,7 @@ export default function TabsPage() {
       <div className="space-y-2">
         <h2 className="text-sm font-medium text-gray-500">Forced active: second item (preview)</h2>
         <div className="max-w-3xl border-b border-border">
-          <Tabs items={NAV_TABS} activeTab="/ui-components/cards" />
+          <Tabs items={NAV_TABS} activeTab="/design-system/components/cards" />
         </div>
       </div>
     </div>

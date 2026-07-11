@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AuthProvider from '@/providers/AuthProvider';
 import ErrorHandlerProvider from '@/providers/ErrorHandlerProvider';
+import AdminAmbientBackground from '@/shared/components/AdminAmbientBackground/AdminAmbientBackground';
 
 const THEME_COLOR = "#002B59";
 
@@ -68,11 +69,16 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content={APP_TITLE} />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} min-h-full flex flex-col`}>
-        <AuthProvider>
-          <ErrorHandlerProvider>
-            {children}
-          </ErrorHandlerProvider>
-        </AuthProvider>
+        <div className="kai-admin-app-shell flex min-h-dvh flex-1 flex-col">
+          <AdminAmbientBackground />
+          <div className="relative z-10 flex min-h-dvh flex-1 flex-col">
+            <AuthProvider>
+              <ErrorHandlerProvider>
+                {children}
+              </ErrorHandlerProvider>
+            </AuthProvider>
+          </div>
+        </div>
         <Script id="flowstore-register-sw" strategy="afterInteractive">
           {`
             if ('serviceWorker' in navigator && ${registerServiceWorkerInProduction}) {

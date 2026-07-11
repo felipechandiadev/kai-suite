@@ -605,7 +605,7 @@ export const TextField: React.FC<TextFieldProps> = ({
       {hasStartSymbol && (
         <span
           ref={startLeadingRef}
-          className={`fs-text-field__icon ${showDisabledChrome ? "text-muted opacity-50" : "text-secondary"}`}
+          className={`fs-text-field__icon ${showDisabledChrome ? "text-muted-foreground opacity-50" : "text-secondary"}`}
           style={{
             fontSize: isCompact ? 15 : 20,
             display: "inline-flex",
@@ -622,7 +622,7 @@ export const TextField: React.FC<TextFieldProps> = ({
       {!hasStartSymbol && startAdornment && (
         <span
           ref={startLeadingRef}
-          className={`fs-text-field__icon ${showDisabledChrome ? "text-muted opacity-50" : "text-secondary"}`}
+          className={`fs-text-field__icon ${showDisabledChrome ? "text-muted-foreground opacity-50" : "text-secondary"}`}
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -764,7 +764,7 @@ export const TextField: React.FC<TextFieldProps> = ({
       {/* Placeholder personalizado para campos requeridos */}
       {required && !hasInputValue && showPlaceholder && !isCompact && (
         <div
-          className={`absolute pointer-events-none text-sm font-medium text-muted transition-opacity duration-300 ${shrink ? 'opacity-0' : 'opacity-100'}`}
+          className={`absolute pointer-events-none text-sm font-medium text-muted-foreground transition-opacity duration-300 ${shrink ? 'opacity-0' : 'opacity-100'}`}
           style={{
             backgroundColor: "var(--color-background)",
             left: floatingStartLeft,
@@ -802,7 +802,7 @@ export const TextField: React.FC<TextFieldProps> = ({
       ) : null}
       {typeof endSymbol === "string" && endSymbol.length > 0 && (
         <span
-              className={`fs-text-field__icon--end ${showDisabledChrome ? "text-muted opacity-50" : "text-secondary"}`}
+              className={`fs-text-field__icon--end ${showDisabledChrome ? "text-muted-foreground opacity-50" : "text-secondary"}`}
           style={{
             fontSize: isCompact ? 15 : 20,
             width: isCompact ? 15 : 20,

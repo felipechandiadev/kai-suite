@@ -50,7 +50,7 @@ export default function AppShellLayoutClient({ children }: { children: React.Rea
         menuItems={mainMenuItems}
         onOpenChangePassword={() => setIsDialogOpen(true)}
       />
-      <main className="flex-1 overflow-auto bg-background px-6 pb-6 pt-[calc(var(--app-topbar-height)+1rem)] md:px-10">
+      <main className="flex-1 overflow-auto px-6 pb-6 pt-[calc(var(--app-topbar-height)+1rem)] md:px-10">
         {children}
       </main>
       <ChangePasswordDialog

@@ -5,6 +5,7 @@ export default withAuth({
 export const config = {
   matcher: [
     '/dashboard/:path*',
+    '/design-system/:path*',
     '/ui-components/:path*',
     '/sales/:path*',
     '/purchasing/:path*',

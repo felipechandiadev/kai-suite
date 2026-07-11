@@ -95,7 +95,7 @@ const CompanySwitcher: React.FC<CompanySwitcherProps> = ({
   if (!isSuperAdmin) {
     return (
       <div className="flex items-center gap-1.5 text-sm text-foreground">
-        <Building2 size={14} className="text-muted" aria-hidden />
+        <Building2 size={14} className="text-muted-foreground" aria-hidden />
         <span className="truncate font-semibold" title={label}>
           {label}
         </span>
@@ -129,11 +129,11 @@ const CompanySwitcher: React.FC<CompanySwitcherProps> = ({
         disabled={pending}
         data-test-id="company-switcher-button"
       >
-        <Building2 size={14} className="text-muted" aria-hidden />
+        <Building2 size={14} className="text-muted-foreground" aria-hidden />
         <span className="max-w-[10rem] truncate" title={label}>
           {label}
         </span>
-        <ChevronDown size={14} className="text-muted" aria-hidden />
+        <ChevronDown size={14} className="text-muted-foreground" aria-hidden />
       </button>
       {open ? (
         <div
@@ -141,7 +141,7 @@ const CompanySwitcher: React.FC<CompanySwitcherProps> = ({
           role="listbox"
           data-test-id="company-switcher-dropdown"
         >
-          <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
+          <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Cambiar empresa
           </div>
           <ul className="max-h-72 overflow-y-auto py-1">

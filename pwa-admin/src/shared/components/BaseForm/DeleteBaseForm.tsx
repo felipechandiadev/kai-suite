@@ -44,7 +44,7 @@ const DeleteBaseForm: React.FC<DeleteBaseFormProps> = ({
                         <h2 className="text-lg font-bold text-foreground">{title}</h2>
                     )}
                     {subtitle && subtitle !== "" && (
-                        <p className="text-sm text-muted mt-1">{subtitle}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
                     )}
                 </div>
             )}

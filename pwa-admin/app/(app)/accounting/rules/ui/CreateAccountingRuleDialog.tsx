@@ -193,7 +193,7 @@ export function CreateAccountingRuleDialog({
 
         <div className="flex min-w-0 flex-col gap-2" data-test-id="rule-create-lines">
           <p className="text-sm font-medium text-foreground">Líneas contables</p>
-          <p className="text-xs text-muted">
+          <p className="text-xs text-muted-foreground">
             Agregá una o más líneas en Debe/Haber. La regla debe tener al menos una línea en cada lado.
           </p>
           <div className="flex min-w-0 flex-col gap-3">

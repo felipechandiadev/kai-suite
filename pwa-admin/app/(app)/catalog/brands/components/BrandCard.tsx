@@ -34,7 +34,7 @@ export function BrandCard({ brand, "data-test-id": dataTestId }: BrandCardProps)
       data-test-id="brand-card-media"
     >
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-border">
-        <Tag className="h-8 w-8 text-muted" strokeWidth={1.5} aria-hidden />
+        <Tag className="h-8 w-8 text-muted-foreground" strokeWidth={1.5} aria-hidden />
       </div>
     </div>
   );

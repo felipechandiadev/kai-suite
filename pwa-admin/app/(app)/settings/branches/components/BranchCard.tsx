@@ -44,8 +44,8 @@ export function BranchCard({ branch, "data-test-id": dataTestId }: BranchCardPro
       className="flex min-h-36 w-full flex-col items-center justify-center gap-2 bg-neutral-100 px-4 text-center"
       data-test-id="branch-card-no-map"
     >
-      <MapPin className="h-8 w-8 text-muted" aria-hidden />
-      <p className="text-sm text-muted">Ubicación no indicada en mapa</p>
+      <MapPin className="h-8 w-8 text-muted-foreground" aria-hidden />
+      <p className="text-sm text-muted-foreground">Ubicación no indicada en mapa</p>
     </div>
   );
 
@@ -63,7 +63,7 @@ export function BranchCard({ branch, "data-test-id": dataTestId }: BranchCardPro
             title={!phoneLine ? "Teléfono no agregado" : undefined}
           >
             <Phone
-              className="mt-0.5 h-4 w-4 shrink-0 text-muted"
+              className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
               strokeWidth={2}
               aria-hidden
             />
@@ -77,7 +77,7 @@ export function BranchCard({ branch, "data-test-id": dataTestId }: BranchCardPro
             title={!addressLine ? "Dirección no agregada" : undefined}
           >
             <MapPin
-              className="mt-0.5 h-4 w-4 shrink-0 text-muted"
+              className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
               strokeWidth={2}
               aria-hidden
             />
@@ -104,7 +104,7 @@ export function BranchCard({ branch, "data-test-id": dataTestId }: BranchCardPro
               </span>
             </span>
             {branch.isHeadquarters ? (
-              <span className="text-muted">· Sede</span>
+              <span className="text-muted-foreground">· Sede</span>
             ) : null}
           </div>
         </div>

@@ -8,7 +8,7 @@ export function SearchQueryServerPreview({ searchFromUrl }: { searchFromUrl: str
   return (
     <Card>
       <p className="text-sm font-medium text-foreground">Bloque renderizado en el servidor</p>
-      <p className="mt-2 text-sm text-muted">
+      <p className="mt-2 text-sm text-muted-foreground">
         Último parámetro <code className="rounded bg-neutral px-1.5 py-0.5 text-xs">?search=</code> visto
         al generar la página (recarga o navegación con el parámetro en la URL):
       </p>

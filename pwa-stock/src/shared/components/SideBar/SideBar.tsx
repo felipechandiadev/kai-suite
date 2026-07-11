@@ -232,7 +232,7 @@ export default function SideBar({
                   style={{ background: "transparent", borderWidth: "0.3px" }}
                 >
                   <div className="flex min-w-0 flex-1 items-start gap-3">
-                    <User className="mt-0.5 shrink-0 text-muted" size={24} />
+                    <User className="mt-0.5 shrink-0 text-muted-foreground" size={24} />
                     <div className="flex min-w-0 flex-1 flex-col">
                       <span
                         className="line-clamp-2 wrap-break-word text-left text-[11px] font-semibold leading-snug text-foreground"

@@ -51,7 +51,7 @@ export function UserCard({ user, "data-test-id": dataTestId }: UserCardProps) {
       data-test-id="user-card-media"
     >
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-border">
-        <UserIcon className="h-8 w-8 text-muted" strokeWidth={1.5} aria-hidden />
+        <UserIcon className="h-8 w-8 text-muted-foreground" strokeWidth={1.5} aria-hidden />
       </div>
     </div>
   );
@@ -68,7 +68,7 @@ export function UserCard({ user, "data-test-id": dataTestId }: UserCardProps) {
             <p className="min-w-0 break-words text-foreground" data-test-id="user-card-mail">
               {user.mail}
             </p>
-            <p className="text-muted" data-test-id="user-card-role">
+            <p className="text-muted-foreground" data-test-id="user-card-role">
               {roleLabel(user.rol === "USER" || user.rol === "MANAGER" ? "OPERATOR" : user.rol)}
             </p>
           </div>
