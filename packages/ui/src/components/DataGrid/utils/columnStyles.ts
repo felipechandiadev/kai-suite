@@ -211,6 +211,17 @@ function applyOverflowConstraints(style: ColumnStyle, col: DataGridColumn): Colu
 }
 
 /**
+ * Capas sticky del DataGrid (scroll vertical u horizontal).
+ * El header y la esquina de acciones deben quedar por encima de las celdas de acciones del body.
+ */
+export const DataGridZIndex = {
+  bodyPinnedCell: 1,
+  headerRow: 20,
+  headerPinnedCell: 21,
+  expandedStickyRow: 15,
+} as const;
+
+/**
  * Constantes para estilos consistentes del DataGrid
  */
 export const DataGridStyles = {

@@ -66,6 +66,9 @@ export type MultimediaFieldProps = {
   /** Al cambiar, reinicia previews en modo staging (p. ej. al abrir diálogo). */
   stagingResetKey?: string | number;
 
+  /** Fondo del área de vista previa (hex, rgb, var). Útil para logos PNG sin fondo. */
+  previewBackgroundColor?: string;
+
   className?: string;
   "data-test-id"?: string;
 };

@@ -872,6 +872,7 @@ export default function ProductsDataGrid({ rows, total }: ProductsDataGridProps)
   return (
     <>
       <DataGrid
+        title="Productos"
         columns={columns}
         rows={rows}
         totalRows={total}

@@ -188,6 +188,39 @@ export default function UsersDataGrid({ data, total, page, limit }: Props) {
 | `getRowAppearance` | `(ctx) => DataGridRowAppearance \| null` | - | Fondo/clases condicionales por fila. Prioridad de fondo: selección > custom > hover > default |
 | `selectedRowId` | `string \| number \| null` | - | Resalta la fila cuyo `row.id` coincide |
 | `onRowClick` | `(row) => void` | - | Clic en la fila |
+| `headerActions` | `ReactNode` | - | Filtros o acciones de negocio en la cabecera (ver layout abajo) |
+
+### Cabecera (`headerActions`) — layout en grid
+
+La barra superior del DataGrid usa **CSS Grid de 3 columnas** en `md+` y **stack alineado a la izquierda** en `sm` / `xs` (`< md`):
+
+```
+| Add + título (col 1)     | vacío (col 2)             | Toolbar + Search (col 3) |  ← fila 1
+| header action (col 1)    | header action (col 2)     | header action (col 3)    |  ← fila 2+
+```
+
+| Breakpoint | Layout |
+|------------|--------|
+| `md+` | Grid 3 cols (`auto 1fr auto`); fila 1: Add+título col 1, Toolbar col 3; col 2 fila 1 vacía; acciones desde fila 2 (3 por fila) |
+| `sm` / `xs` (`< md`) | Stack vertical, todo alineado a la izquierda: Add+título → Toolbar+Search → acciones (wrap) |
+
+**Recomendación:** pasa cada filtro o control como **hermano directo** (Fragment o array), no envuelto en un `<div className="flex">`. Si usas un wrapper único con varios hijos, el grid los aplana igualmente, pero hermanos directos son más predecibles.
+
+```tsx
+<DataGrid
+  title="Productos"
+  headerActions={
+    <>
+      <ProductTypeFilter />
+      <BrandFilter />
+      <StockStatusFilter />
+    </>
+  }
+  /* ... */
+/>
+```
+
+Demo interactiva: `/ui-components/datagrid` (sección *Header actions*).
 
 ### DataGridColumn
 

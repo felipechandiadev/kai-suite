@@ -33,6 +33,8 @@ interface IconButtonProps {
 	disabled?: boolean;
 	isLoading?: boolean;
 	className?: string;
+	/** Clases aplicadas al SVG del icono (p. ej. `fill-current` en estrella destacada). */
+	iconClassName?: string;
 	onClick?: React.MouseEventHandler<HTMLButtonElement>;
 	ariaLabel?: string;
 	[key: string]: any;
@@ -89,6 +91,7 @@ const IconButton: React.FC<IconButtonProps> = ({
 	disabled = false,
 	isLoading = false,
 	className = '',
+	iconClassName = '',
 	onClick,
 	ariaLabel,
 	...props
@@ -134,7 +137,7 @@ const IconButton: React.FC<IconButtonProps> = ({
 			<IconComponent
 				size={iconSize}
 				strokeWidth={strokeWidth}
-				className={`select-none ${isLoading ? 'animate-spin' : ''}`}
+				className={`select-none ${isLoading ? 'animate-spin' : ''} ${iconClassName}`.trim()}
 				aria-hidden
 			/>
 		</button>

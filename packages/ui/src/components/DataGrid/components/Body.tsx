@@ -5,6 +5,7 @@ import {
   calculateColumnStyles,
   getCellOverflowClassNames,
   resolveColumnCellOverflow,
+  DataGridZIndex,
 } from '../utils/columnStyles';
 import type {
   DataGridColumn,
@@ -110,12 +111,12 @@ const Body: React.FC<BodyProps> = ({
                 onRowClick ? 'cursor-pointer' : ''
               } ${
                 expandable && isExpanded && stickyExpandedRowTopPx != null
-                  ? 'sticky z-[25] border-b border-border bg-background shadow-sm'
+                  ? 'sticky border-b border-border bg-background shadow-sm'
                   : ''
               }`}
               style={{
                 ...(expandable && isExpanded && stickyExpandedRowTopPx != null
-                  ? { top: stickyExpandedRowTopPx }
+                  ? { top: stickyExpandedRowTopPx, zIndex: DataGridZIndex.expandedStickyRow }
                   : undefined),
               }}
               data-test-id="data-grid-row"
@@ -160,7 +161,7 @@ const Body: React.FC<BodyProps> = ({
                     ? {
                         position: 'sticky' as const,
                         right: 0,
-                        zIndex: 8,
+                        zIndex: DataGridZIndex.bodyPinnedCell,
                         borderLeft: '1px solid var(--color-border)',
                         flex:
                           typeof column.width === 'number'
@@ -243,7 +244,8 @@ const Body: React.FC<BodyProps> = ({
             {/* Expanded content panel */}
             {expandable && isExpanded && expandableRowContent && (
               <div
-                className="sticky left-0 z-[20] w-full min-w-0 max-w-full overflow-x-hidden border-b border-border bg-neutral/50"
+                className="sticky left-0 w-full min-w-0 max-w-full overflow-x-hidden border-b border-border bg-neutral/50"
+                style={{ zIndex: DataGridZIndex.expandedStickyRow }}
                 data-test-id="data-grid-expanded-row"
               >
                 <div className="box-border w-full min-w-0 max-w-full overflow-x-hidden p-4">

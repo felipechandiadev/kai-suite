@@ -2,6 +2,7 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 import type { DataGridColumn } from '../DataGrid';
 import IconButton from '../../IconButton';
+import { DataGridZIndex } from '../utils/columnStyles';
 import { useSearchParams, useRouter } from 'next/navigation';
 
 interface ColHeaderProps {
@@ -182,12 +183,16 @@ export const ColHeader: React.FC<ColHeaderProps> = ({
         maxHeight: '56px',
         ...fallbackHeaderStyle,
         ...(computedStyle || {}),
+        position: 'relative',
+        zIndex: isPinned ? DataGridZIndex.headerPinnedCell : 2,
         ...(isPinned
           ? {
               position: 'sticky',
               top: 0,
               right: 0,
-              zIndex: 40,
+              zIndex: DataGridZIndex.headerPinnedCell,
+              borderLeft: '1px solid var(--color-border)',
+              boxShadow: '-4px 0 8px -4px color-mix(in srgb, var(--color-foreground) 8%, transparent)',
               flex:
                 typeof column.width === 'number'
                   ? `0 0 ${column.width}px`

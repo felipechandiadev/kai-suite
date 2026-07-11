@@ -1,44 +1,47 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Image as ImageIcon, User } from "lucide-react";
-import { IconButton } from "@kai/ui";
-import { Alert } from "@kai/ui";
-import { bannerAreaClassName, bannerPlaceholderIconDimension } from "@/shared/components/FileUploader/multimedia-banner-size";
-import type { MultimediaBannerSize } from "@/shared/components/FileUploader/multimedia-banner-size";
-import { logoAreaClassName, logoPlaceholderIconDimension } from "@/shared/components/FileUploader/multimedia-logo-size";
-import type { MultimediaLogoSize } from "@/shared/components/FileUploader/multimedia-logo-size";
-import type { MultimediaSingleVariant } from "./types";
+import { Image as ImageIcon } from "lucide-react";
+import { Alert, IconButton } from "@kai/ui";
+import {
+  thumbnailAreaClassName,
+  thumbnailPlaceholderIconDimension,
+  type MultimediaThumbnailAspectRatio,
+  type MultimediaThumbnailSize,
+} from "@/shared/components/FileUploader/multimedia-thumbnail-size";
 import { resolvePreviewSurface } from "./multimedia-preview-surface";
 
-export type MultimediaSingleSlotProps = {
-  variant: MultimediaSingleVariant;
+export type MultimediaThumbnailSlotProps = {
   currentUrl?: string | null;
   currentType?: "image" | "video";
   disabled?: boolean;
   allowDragDrop?: boolean;
   acceptedTypes?: string[];
   maxSizeMb?: number;
-  logoSize?: MultimediaLogoSize;
-  bannerSize?: MultimediaBannerSize;
+  /** Proporción de la miniatura. */
+  aspectRatio?: MultimediaThumbnailAspectRatio;
+  /** Ancho máximo del área de vista previa. */
+  size?: MultimediaThumbnailSize;
+  /** Centra el slot en el contenedor padre. */
+  centered?: boolean;
   /** Fondo del área de vista previa (hex, rgb, var). Útil para logos PNG sin fondo. */
   previewBackgroundColor?: string;
   onFileChange?: (file: File | null) => void;
 };
 
-export function MultimediaSingleSlot({
-  variant,
+export function MultimediaThumbnailSlot({
   currentUrl,
   currentType = "image",
   disabled = false,
   allowDragDrop = true,
-  acceptedTypes = ["image/*", "video/*"],
+  acceptedTypes = ["image/*"],
   maxSizeMb = 9,
-  logoSize = "md",
-  bannerSize = "lg",
+  aspectRatio = "16:9",
+  size = "lg",
+  centered = false,
   previewBackgroundColor,
   onFileChange,
-}: MultimediaSingleSlotProps) {
+}: MultimediaThumbnailSlotProps) {
   const inputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentUrl ?? null);
@@ -105,48 +108,40 @@ export function MultimediaSingleSlot({
 
   const renderPreview = () => {
     if (!previewUrl) {
-      if (variant === "avatar") {
-        return <User className="text-secondary" size={64} />;
-      }
       return (
         <ImageIcon
           className="text-secondary"
-          size={
-            variant === "logo"
-              ? logoPlaceholderIconDimension(logoSize)
-              : bannerPlaceholderIconDimension(bannerSize)
-          }
+          size={thumbnailPlaceholderIconDimension(size)}
         />
       );
     }
     if (currentType === "video") {
       return (
-        <video src={previewUrl} className="h-full w-full rounded-lg object-cover" controls muted />
+        <video
+          src={previewUrl}
+          className="h-full w-full object-cover"
+          controls
+          muted
+        />
       );
     }
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={previewUrl}
-        alt=""
-        className={`h-full w-full rounded-lg ${imageObjectClass}`}
-      />
+      <img src={previewUrl} alt="" className={`h-full w-full ${imageObjectClass}`} />
     );
   };
 
-  const defaultBgClass = previewSurface.omitDefaultBg ? "" : "bg-muted/25";
-  const areaClass =
-    variant === "avatar"
-      ? "relative mx-auto flex h-24 w-24 cursor-pointer items-center justify-center rounded-full border-4 border-secondary bg-neutral-100 hover:border-primary"
-      : variant === "logo"
-        ? `${logoAreaClassName(logoSize, { useDefaultBackground: !previewSurface.omitDefaultBg })} cursor-pointer hover:border-primary`
-        : `${bannerAreaClassName(bannerSize)} cursor-pointer border border-border ${defaultBgClass} hover:border-primary`;
+  const areaClass = thumbnailAreaClassName(aspectRatio, size, centered, {
+    useDefaultBackground: !previewSurface.omitDefaultBg,
+  });
 
   return (
-    <div className={`flex flex-col items-center space-y-3 ${disabled ? "pointer-events-none opacity-60" : ""}`}>
+    <div
+      className={`flex flex-col space-y-3 ${centered ? "items-center" : "items-stretch"} ${disabled ? "pointer-events-none opacity-60" : ""}`}
+    >
       <div
         className={`${areaClass} ${isDragOver ? "ring-2 ring-primary" : ""}`}
-        style={variant === "avatar" ? undefined : previewSurface.style}
+        style={previewSurface.style}
         onClick={openFile}
         onDragOver={(e) => {
           if (allowDragDrop) {

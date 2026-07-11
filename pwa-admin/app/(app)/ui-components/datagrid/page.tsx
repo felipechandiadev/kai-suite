@@ -1,8 +1,8 @@
 'use client';
 
 import { Suspense, useCallback, useMemo } from 'react';
-import { DataGridTable as DataGrid } from '@kai/ui';
-import type { DataGridColumn } from '@kai/ui';
+import { DataGridTable as DataGrid, Select } from '@kai/ui';
+import type { DataGridColumn, SelectOption } from '@kai/ui';
 import { RowActions } from '@kai/ui';
 
 type PropRow = { prop: string; type: string; default: string; desc: string };
@@ -75,7 +75,7 @@ const DATAGRID_PROPS: PropRow[] = [
   { prop: 'expandable', type: 'boolean', default: 'false', desc: "Primera columna con **chevrón** para expandir; fila extra bajo el registro con `expandableRowContent`." },
   { prop: 'expandableRowContent', type: '(row: any) => ReactNode (opcional)', default: 'undefined', desc: "Contenido renderizado debajo de la fila cuando está expandida." },
   { prop: 'defaultExpandedRowIds', type: '(string | number)[]', default: '[]', desc: "IDs de fila expandidas al montar (ids en `row.id` o el índice de fila si no hay id)." },
-  { prop: 'headerActions', type: 'ReactNode (opcional)', default: 'undefined', desc: "Contenido extra en el header (p. ej. filtros de negocio o acciones a la derecha del título)." },
+  { prop: 'headerActions', type: 'ReactNode (opcional)', default: 'undefined', desc: "Filtros o acciones de negocio en el header (layout en grid: Add+título arriba-izq., Toolbar+Search arriba-der.; cada hijo directo ocupa una celda)." },
   { prop: 'pinActionsColumn', type: 'boolean', default: 'false', desc: "Fija a la **derecha** con `position: sticky` la columna cuyo `field` coincide con `actionsColumnField` (scroll horizontal)." },
   { prop: 'actionsColumnField', type: "string", default: "'actions'", desc: "Nombre del `field` de la columna de acciones que debe quedar fija (con `pinActionsColumn`)." },
 ];
@@ -177,6 +177,61 @@ const PIN_ACTIONS_ROWS = [
   { id: 5, order: 'FAC-2024-0005', customer: 'Casa de Cambio Express', status: 'Pagado', channel: 'POS', createdAt: '2024-12-13', total: 999000 },
 ];
 
+const MOCK_HEADER_FILTER_OPTIONS: Record<string, SelectOption[]> = {
+  region: [
+    { id: 'north', label: 'Norte' },
+    { id: 'center', label: 'Centro' },
+    { id: 'south', label: 'Sur' },
+  ],
+  channel: [
+    { id: 'pos', label: 'POS' },
+    { id: 'web', label: 'Web' },
+    { id: 'wholesale', label: 'Mayorista' },
+  ],
+  status: [
+    { id: 'open', label: 'Abierto' },
+    { id: 'paid', label: 'Pagado' },
+    { id: 'cancelled', label: 'Anulado' },
+  ],
+  warehouse: [
+    { id: 'main', label: 'Bodega central' },
+    { id: 'branch-a', label: 'Sucursal A' },
+    { id: 'branch-b', label: 'Sucursal B' },
+  ],
+  priority: [
+    { id: 'high', label: 'Alta' },
+    { id: 'normal', label: 'Normal' },
+    { id: 'low', label: 'Baja' },
+  ],
+};
+
+function MockHeaderFilter({
+  label,
+  name,
+  options,
+}: {
+  label: string;
+  name: keyof typeof MOCK_HEADER_FILTER_OPTIONS;
+  options: SelectOption[];
+}) {
+  return (
+    <div className="min-w-[9rem] max-w-[11rem]" data-test-id={`header-actions-demo-${name}`}>
+      <Select
+        label={label}
+        name={`demo-${name}`}
+        placeholder="Todos"
+        options={options}
+        value={null}
+        onChange={() => {}}
+        allowClear
+        density="compact"
+        labelLayout="inline"
+        alwaysShowLabel
+      />
+    </div>
+  );
+}
+
 function DataGridDemo() {
   const columns = useMemo(() => COLUMNS, []);
   const rows = useMemo(() => ROWS, []);
@@ -194,6 +249,38 @@ function DataGridDemo() {
       showSearch={true}
       showSortButton={true}
       showBorder
+    />
+  );
+}
+
+/** Cinco filtros mock como hermanos: valida el reparto en grid (3 slots/fila en lg). */
+function DataGridHeaderActionsDemo() {
+  const columns = useMemo(() => COLUMNS, []);
+  const rows = useMemo(() => ROWS, []);
+
+  return (
+    <DataGrid
+      title="Orders with header filters"
+      columns={columns}
+      rows={rows}
+      height={420}
+      totalRows={rows.length}
+      totalGeneral={rows.length}
+      showExportButton={false}
+      showFilterButton={true}
+      showSearch={true}
+      showSortButton={true}
+      showBorder
+      headerActions={
+        <>
+          <MockHeaderFilter label="Región" name="region" options={MOCK_HEADER_FILTER_OPTIONS.region} />
+          <MockHeaderFilter label="Canal" name="channel" options={MOCK_HEADER_FILTER_OPTIONS.channel} />
+          <MockHeaderFilter label="Estado" name="status" options={MOCK_HEADER_FILTER_OPTIONS.status} />
+          <MockHeaderFilter label="Bodega" name="warehouse" options={MOCK_HEADER_FILTER_OPTIONS.warehouse} />
+          <MockHeaderFilter label="Prioridad" name="priority" options={MOCK_HEADER_FILTER_OPTIONS.priority} />
+        </>
+      }
+      data-test-id="datagrid-header-actions-demo"
     />
   );
 }
@@ -321,6 +408,16 @@ export default function DataGridPage() {
       >
         <div className="space-y-10">
           <DataGridDemo />
+          <div>
+            <h2 className="mb-2 text-xl font-semibold text-gray-900">Header actions (grid layout)</h2>
+            <p className="mb-4 text-sm text-gray-600">
+              <code className="rounded bg-gray-100 px-1">headerActions</code> con varios filtros como hermanos
+              (Fragment). En desktop el header usa CSS Grid de 3 columnas: fila 1 con Add+título
+              (col 1), celda central vacía (col 2) y Toolbar+Search (col 3); las acciones van
+              desde la fila 2, repartidas 3 por fila.
+            </p>
+            <DataGridHeaderActionsDemo />
+          </div>
           <div>
             <h2 className="mb-2 text-xl font-semibold text-gray-900">Row expand</h2>
             <p className="mb-4 text-sm text-gray-600">

@@ -7,6 +7,7 @@ import { ColHeader } from './components/ColHeader';
 import {
   calculateColumnStyles,
   DataGridStyles,
+  DataGridZIndex,
   useScreenSize,
   type DataGridCellOverflow,
 } from './utils/columnStyles';
@@ -388,7 +389,8 @@ const DataGrid: React.FC<DataGridProps> = ({
         {/* Column Headers Row */}
         <div 
           ref={columnHeaderRowRef}
-          className={`${DataGridStyles.headerRow} sticky top-0 z-30 w-full min-w-0 bg-background`}
+          className={`${DataGridStyles.headerRow} sticky top-0 w-full min-w-0 bg-background`}
+          style={{ zIndex: DataGridZIndex.headerRow }}
         >
           {/* Expand column header placeholder */}
           {expandable && (

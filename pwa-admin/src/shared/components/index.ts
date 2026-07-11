@@ -12,6 +12,8 @@ export {
   multimediaDefaultsForEntity,
 } from "./Multimedia";
 export type { MultimediaFieldProps } from "./Multimedia";
+export { MultimediaThumbnailSlot } from "./Multimedia/MultimediaThumbnailSlot";
+export type { MultimediaThumbnailSlotProps } from "./Multimedia/MultimediaThumbnailSlot";
 
 export { MultimediaUploader, MultimediaUpdater } from "./FileUploader";
 export type { MultimediaBannerSize, MultimediaLogoSize } from "./FileUploader";

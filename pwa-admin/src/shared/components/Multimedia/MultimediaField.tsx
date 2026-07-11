@@ -76,6 +76,7 @@ export function MultimediaField(props: MultimediaFieldProps) {
     allowReorder: allowReorderProp,
     enableGallery: enableGalleryProp,
     stagingResetKey,
+    previewBackgroundColor,
     className = "",
     "data-test-id": testId = "multimedia-field",
   } = props;
@@ -463,6 +464,7 @@ export function MultimediaField(props: MultimediaFieldProps) {
             onRemove={handleRemove}
             onSetPrimary={handleSetPrimary}
             onReorder={handleReorder}
+            previewBackgroundColor={previewBackgroundColor}
             data-test-id={`${testId}-grid`}
           />
         ) : null}

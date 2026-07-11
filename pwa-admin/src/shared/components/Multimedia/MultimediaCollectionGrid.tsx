@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { IconButton } from "@kai/ui";
 import type { MultimediaAspectRatio, MultimediaGridItem, MultimediaLightboxItem } from "./types";
 import { MultimediaLightbox } from "./MultimediaLightbox";
+import { resolvePreviewSurface } from "./multimedia-preview-surface";
 
 function aspectClass(ratio: MultimediaAspectRatio): string {
   if (ratio === "square") {
@@ -31,6 +32,8 @@ export type MultimediaCollectionGridProps = {
   /** Reorden local (staging) o tras API (persisted). */
   onReorder?: (fromIndex: number, toIndex: number) => void;
   allowReorder?: boolean;
+  /** Fondo del área de vista previa (hex, rgb, var). */
+  previewBackgroundColor?: string;
   "data-test-id"?: string;
 };
 
@@ -45,11 +48,14 @@ export function MultimediaCollectionGrid({
   onSetPrimary,
   onReorder,
   allowReorder = false,
+  previewBackgroundColor,
   "data-test-id": testId = "multimedia-collection-grid",
 }: MultimediaCollectionGridProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const previewSurface = resolvePreviewSurface(previewBackgroundColor);
+  const imageObjectClass = previewSurface.omitDefaultBg ? "object-contain" : "object-cover";
 
   const lightboxItems: MultimediaLightboxItem[] = useMemo(
     () =>
@@ -104,7 +110,10 @@ export function MultimediaCollectionGrid({
     return null;
   }
 
-  const thumbClass = `w-full max-w-[180px] cursor-pointer rounded-lg object-cover shadow ${aspectClass(aspectRatio)}`;
+  const thumbMediaClass = `h-full w-full rounded-lg ${imageObjectClass}`;
+  const thumbFrameClass = `w-full max-w-[180px] overflow-hidden rounded-lg shadow ${aspectClass(aspectRatio)} ${
+    previewSurface.omitDefaultBg ? "flex items-center justify-center" : "bg-muted/25"
+  }`;
 
   return (
     <>
@@ -137,23 +146,25 @@ export function MultimediaCollectionGrid({
             >
               <button
                 type="button"
-                className="block w-full border-0 bg-transparent p-0 text-left"
+                className="block w-full cursor-pointer border-0 bg-transparent p-0 text-left"
                 disabled={!enableGallery}
                 onClick={() => openGalleryAt(index)}
                 aria-label="Ver en tamaño completo"
               >
-                {isVideo ? (
-                  <video
-                    src={url}
-                    className={thumbClass}
-                    muted
-                    playsInline
-                    controls={false}
-                  />
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={url} alt="" className={thumbClass} loading="lazy" />
-                )}
+                <div className={thumbFrameClass} style={previewSurface.style}>
+                  {isVideo ? (
+                    <video
+                      src={url}
+                      className={thumbMediaClass}
+                      muted
+                      playsInline
+                      controls={false}
+                    />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={url} alt="" className={thumbMediaClass} loading="lazy" />
+                  )}
+                </div>
               </button>
 
               <div className="absolute bottom-2 right-2 flex gap-1">
@@ -165,6 +176,7 @@ export function MultimediaCollectionGrid({
                     className={`!rounded-md !border !border-neutral-200/90 !bg-white !shadow-md backdrop-blur-sm ${
                       isPrimary ? "!text-primary" : "text-muted-foreground"
                     }`}
+                    iconClassName={isPrimary ? "fill-current" : "fill-none"}
                     ariaLabel={isPrimary ? "Imagen principal" : "Marcar como principal"}
                     title={isPrimary ? "Imagen principal" : "Marcar como principal"}
                     disabled={disabled || busy}

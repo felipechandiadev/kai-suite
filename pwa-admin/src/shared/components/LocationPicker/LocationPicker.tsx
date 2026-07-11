@@ -90,6 +90,8 @@ interface LocationPickerProps {
   height?: number;
   /** Posición externa para modo update (se ignora en otros modos) */
   externalPosition?: { lat: number; lng: number };
+  /** Si true, recentra el mapa cuando cambia externalPosition (p. ej. carga de otro registro). Default: false */
+  recenterOnExternalChange?: boolean;
 }
 
 const roundedClasses: Record<LocationPickerRounded, string> = {
@@ -196,6 +198,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   zoom = 13,
   height,
   externalPosition,
+  recenterOnExternalChange = false,
 }) => {
   const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null);
   const [showClickEffect, setShowClickEffect] = useState(false);
@@ -203,6 +206,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   const [locationError, setLocationError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hasCenteredInitially = useRef(false);
+  const prevExternalRef = useRef<{ lat: number; lng: number } | null>(null);
   const [positionToCenter, setPositionToCenter] = useState<{ lat: number; lng: number } | null>(null);
 
   // El mapa solo es interactivo en edit/update.
@@ -223,13 +227,21 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
    * `extLat`/`extLng` estabilizan la sync cuando el padre pasa un objeto nuevo con los mismos valores.
    */
   useEffect(() => {
-    // Permite recentrar una única vez cuando cambian datos fuente.
-    hasCenteredInitially.current = false;
-
     if (mode === 'update' && extLat != null && extLng != null && !Number.isNaN(extLat) && !Number.isNaN(extLng)) {
       const fromParent = { lat: extLat, lng: extLng };
       setPosition(fromParent);
-      setPositionToCenter(fromParent);
+
+      const externalChanged =
+        prevExternalRef.current?.lat !== extLat ||
+        prevExternalRef.current?.lng !== extLng;
+      prevExternalRef.current = fromParent;
+
+      if (recenterOnExternalChange && externalChanged) {
+        hasCenteredInitially.current = false;
+        setPositionToCenter(fromParent);
+      } else if (!hasCenteredInitially.current) {
+        setPositionToCenter(fromParent);
+      }
     } else if (mode === 'edit' && !position) {
       // edit: intenta ubicar al usuario para acelerar selección.
       if (typeof window === 'undefined') {
@@ -255,7 +267,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
       onChange?.(defaultPos);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- excl. `position` (evita reset al mover pin) y `onChange` (identidad inestable)
-  }, [mode, extLat, extLng, initialLat, initialLng]);
+  }, [mode, extLat, extLng, initialLat, initialLng, recenterOnExternalChange]);
 
   /**
    * Intenta obtener ubicación actual del usuario vía Geolocation API.
@@ -361,6 +373,14 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
     ? { zIndex: 0, height: `${height}vh`, width: '100%' }
     : { zIndex: 0, height: '200px', width: '100%' };
 
+  const mapInitialCenter = useRef<[number, number] | null>(null);
+  if (mapInitialCenter.current === null) {
+    mapInitialCenter.current =
+      mode === 'update' && externalPosition
+        ? [externalPosition.lat, externalPosition.lng]
+        : [initialLat || -33.4489, initialLng || -70.6693];
+  }
+
   return (
     <div 
       ref={containerRef}
@@ -396,12 +416,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
       )}
       
       <MapContainer
-        // En update se centra en externalPosition; en otros modos usa inicial o fallback.
-        center={
-          mode === 'update' && externalPosition
-            ? [externalPosition.lat, externalPosition.lng]
-            : [initialLat || -33.4489, initialLng || -70.6693]
-        }
+        center={mapInitialCenter.current}
         zoom={zoom}
         style={{ height: '100%', width: '100%' }}
         attributionControl={false}
