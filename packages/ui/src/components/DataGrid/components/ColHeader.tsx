@@ -2,7 +2,8 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 import type { DataGridColumn } from '../DataGrid';
 import IconButton from '../../IconButton';
-import { DataGridZIndex } from '../utils/columnStyles';
+import { DataGridCellMetrics, DataGridZIndex, getColumnAlignClassNames, resolveColumnAlign } from '../utils/columnStyles';
+import colHeaderStyles from './ColHeader.module.css';
 import { useSearchParams, useRouter } from 'next/navigation';
 
 interface ColHeaderProps {
@@ -37,7 +38,8 @@ export const ColHeader: React.FC<ColHeaderProps> = ({
   isPinned = false,
   sortingEnabled = true,
 }) => {
-  const { headerName, headerAlign, align, width, flex, minWidth, maxWidth, field, filterable = true } = column;
+  const { headerName, width, flex, minWidth, maxWidth, field, filterable = true } = column;
+  const headerAlignClasses = getColumnAlignClassNames(resolveColumnAlign(column, 'header'));
   const searchParams = useSearchParams();
   const router = useRouter();
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
@@ -175,7 +177,7 @@ export const ColHeader: React.FC<ColHeaderProps> = ({
 
   return (
     <div
-      className="px-3 font-semibold text-xs text-foreground flex items-stretch text-left"
+      className={`${colHeaderStyles.headerCell} ${DataGridCellMetrics.paddingX} box-border min-w-0 font-semibold text-xs text-foreground flex items-center ${headerAlignClasses.cell}`}
       style={{
         backgroundColor: 'var(--color-background)',
         height: '56px',
@@ -191,8 +193,6 @@ export const ColHeader: React.FC<ColHeaderProps> = ({
               top: 0,
               right: 0,
               zIndex: DataGridZIndex.headerPinnedCell,
-              borderLeft: '1px solid var(--color-border)',
-              boxShadow: '-4px 0 8px -4px color-mix(in srgb, var(--color-foreground) 8%, transparent)',
               flex:
                 typeof column.width === 'number'
                   ? `0 0 ${column.width}px`
@@ -205,50 +205,50 @@ export const ColHeader: React.FC<ColHeaderProps> = ({
       }}
       data-test-id={`data-grid-column-header-${field}`}
     >
-      <div className="relative flex items-center w-full h-full gap-1">
-        {filterMode && filterable ? (
-            <div className={`relative flex h-full min-w-0 flex-1 items-center justify-start overflow-hidden`}>
-              {localFilterValue && (
-                <label
-                  className="absolute left-0 text-[10px] text-foreground bg-white px-0 pointer-events-none z-10 transition-all duration-200 text-left"
-                  style={{lineHeight:1, top: '2px'}}>
-                  {headerName}
-                </label>
-              )}
-              <input
-                type="text"
-                size={1}
-                value={localFilterValue}
-                onChange={handleFilterChange}
-                placeholder={headerName}
-                className={`block w-full min-w-0 max-w-full text-xs h-[28px] bg-transparent outline-none p-0 border-0 ${localFilterValue ? 'text-secondary pt-3' : ''} text-left`}
-                aria-label={headerName}
-                style={{ width: '100%', minWidth: 0, maxWidth: '100%', border: 'none' }}
-              />
-            </div>
-        ) : (
-          <span className={`break-words leading-tight min-w-0 flex-1 h-full flex items-center`}>
+      {filterMode && filterable ? (
+        <div className="relative flex h-full min-w-0 w-full flex-1 items-center justify-start overflow-hidden">
+          {localFilterValue && (
+            <label
+              className="absolute left-0 text-[10px] text-foreground bg-white px-0 pointer-events-none z-10 transition-all duration-200 text-left"
+              style={{lineHeight:1, top: '2px'}}>
+              {headerName}
+            </label>
+          )}
+          <input
+            type="text"
+            size={1}
+            value={localFilterValue}
+            onChange={handleFilterChange}
+            placeholder={headerName}
+            className={`block w-full min-w-0 max-w-full text-xs h-[28px] bg-transparent outline-none p-0 border-0 ${localFilterValue ? 'text-secondary pt-3' : ''} text-left`}
+            aria-label={headerName}
+            style={{ width: '100%', minWidth: 0, maxWidth: '100%', border: 'none' }}
+          />
+        </div>
+      ) : (
+        <>
+          <span className={`min-w-0 flex-1 truncate ${headerAlignClasses.content}`}>
             {headerName}
           </span>
-        )}
-        {hasSortIcon && (
-          <div className="flex-shrink-0 flex h-full items-center justify-center" style={{ width: '28px' }}>
-            <IconButton
-              icon={iconName}
-              variant="action"
-              size="sm"
-              title={isThisColumnSorted ? 
-                (currentSort === 'asc' ? 'Cambiar a descendente' : 'Cambiar a ascendente') : 
-                'Ordenar por esta columna'
-              }
-              onClick={handleSortClick}
-              className={iconColor}
-              style={{ fontSize: 18, width: 28, height: 28, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-              aria-hidden={false}
-            />
-          </div>
-        )}
-      </div>
+          {hasSortIcon ? (
+            <div className="ml-1 flex h-7 w-7 shrink-0 items-center justify-center">
+              <IconButton
+                icon={iconName}
+                variant="action"
+                size="sm"
+                title={isThisColumnSorted ? 
+                  (currentSort === 'asc' ? 'Cambiar a descendente' : 'Cambiar a ascendente') : 
+                  'Ordenar por esta columna'
+                }
+                onClick={handleSortClick}
+                className={iconColor}
+                style={{ fontSize: 18, width: 28, height: 28, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                aria-hidden={false}
+              />
+            </div>
+          ) : null}
+        </>
+      )}
     </div>
   );
 };

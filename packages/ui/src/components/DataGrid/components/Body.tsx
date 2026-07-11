@@ -1,11 +1,15 @@
 'use client'
-import React from 'react';
-import { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   calculateColumnStyles,
+  DATA_GRID_COLUMN_ROW_CLASS,
   getCellOverflowClassNames,
   resolveColumnCellOverflow,
   DataGridZIndex,
+  DataGridCellMetrics,
+  getColumnAlignClassNames,
+  resolveColumnAlign,
+  type ColumnStyle,
 } from '../utils/columnStyles';
 import type {
   DataGridColumn,
@@ -16,7 +20,7 @@ import { resolveRowCellBackgroundColor } from '../utils/rowAppearance';
 import IconButton from '../../IconButton';
 
 const CELL_BASE_CLASS =
-  'px-3 py-1 border-b border-border text-xs flex items-center justify-start';
+  `${DataGridCellMetrics.paddingX} py-1 border-b border-border text-xs flex min-w-0 box-border items-center`;
 
 function cellOverflowClasses(column: DataGridColumn) {
   return getCellOverflowClassNames(resolveColumnCellOverflow(column));
@@ -26,6 +30,8 @@ interface BodyProps {
   columns?: DataGridColumn[];
   rows?: any[];
   filterMode?: boolean;
+  /** Estilos de columna precalculados en DataGrid (misma fuente que ColHeader). */
+  computedColumnStyles?: ColumnStyle[];
   screenWidth?: number;
   expandable?: boolean;
   expandedRowIds?: Set<string | number>;
@@ -46,6 +52,7 @@ const Body: React.FC<BodyProps> = ({
   columns = [],
   rows = [],
   filterMode = false,
+  computedColumnStyles,
   screenWidth = 1024,
   expandable = false,
   expandedRowIds = new Set(),
@@ -62,7 +69,10 @@ const Body: React.FC<BodyProps> = ({
   const visibleColumns = columns.filter((c) => !c.hide);
 
   // Usar utilidad centralizada para calcular estilos
-  const computedStyles = calculateColumnStyles(columns, screenWidth);
+  const computedStyles = useMemo(
+    () => computedColumnStyles ?? calculateColumnStyles(columns, screenWidth),
+    [computedColumnStyles, columns, screenWidth],
+  );
 
   return (
     <div className="flex-1" data-test-id="data-grid-body">
@@ -107,7 +117,7 @@ const Body: React.FC<BodyProps> = ({
                   : undefined
               }
               onClick={onRowClick ? () => onRowClick(row) : undefined}
-              className={`flex w-full min-w-0 items-stretch data-grid-row ${
+              className={`${DATA_GRID_COLUMN_ROW_CLASS} items-stretch data-grid-row ${
                 onRowClick ? 'cursor-pointer' : ''
               } ${
                 expandable && isExpanded && stickyExpandedRowTopPx != null
@@ -162,7 +172,6 @@ const Body: React.FC<BodyProps> = ({
                         position: 'sticky' as const,
                         right: 0,
                         zIndex: DataGridZIndex.bodyPinnedCell,
-                        borderLeft: '1px solid var(--color-border)',
                         flex:
                           typeof column.width === 'number'
                             ? `0 0 ${column.width}px`
@@ -179,9 +188,12 @@ const Body: React.FC<BodyProps> = ({
                   ? column.valueGetter({ row, value: rawValue, column, rowIndex })
                   : rawValue;
 
+                const alignClasses = getColumnAlignClassNames(
+                  resolveColumnAlign(column, 'body'),
+                );
                 const overflow = cellOverflowClasses(column);
                 const overflowMode = resolveColumnCellOverflow(column);
-                const cellClassName = `${CELL_BASE_CLASS} ${
+                const cellClassName = `${CELL_BASE_CLASS} ${alignClasses.cell} ${
                   overflowMode === 'wrap' ? 'items-start' : 'items-center'
                 } ${overflow.cell} ${rowAppearanceClassName}`.trim();
                 const displayText =
@@ -202,7 +214,7 @@ const Body: React.FC<BodyProps> = ({
                       onMouseEnter={() => setHoveredRowId(rowId)}
                       onMouseLeave={() => setHoveredRowId(null)}
                     >
-                      <div className={overflow.content}>
+                      <div className={`${overflow.content} ${alignClasses.content}`}>
                         <ActionComponent row={row} column={column} />
                       </div>
                     </div>
@@ -219,7 +231,7 @@ const Body: React.FC<BodyProps> = ({
                       onMouseEnter={() => setHoveredRowId(rowId)}
                       onMouseLeave={() => setHoveredRowId(null)}
                     >
-                      <div className={overflow.content}>
+                      <div className={`${overflow.content} ${alignClasses.content}`}>
                         {column.renderCell({ row, value, column })}
                       </div>
                     </div>
@@ -234,7 +246,7 @@ const Body: React.FC<BodyProps> = ({
                     onMouseEnter={() => setHoveredRowId(rowId)}
                     onMouseLeave={() => setHoveredRowId(null)}
                   >
-                    <span className={overflow.content} title={cellTitle}>
+                    <span className={`${overflow.content} ${alignClasses.content}`} title={cellTitle}>
                       {displayText}
                     </span>
                   </div>

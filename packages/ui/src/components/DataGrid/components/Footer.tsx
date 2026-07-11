@@ -74,7 +74,7 @@ const Footer: React.FC<FooterProps> = ({
 
   if (isMobile) {
     return (
-      <div className="flex min-h-0 flex-col gap-2 border-t border-t-border p-0 py-2" data-test-id="data-grid-footer">
+      <div className="flex min-h-0 flex-col gap-2 p-0 py-2" data-test-id="data-grid-footer">
         {/* Fila superior: Paginación */}
         <div className="flex justify-center">
           <Pagination {...paginationProps} mobileMode={true} />
@@ -101,7 +101,7 @@ const Footer: React.FC<FooterProps> = ({
   }
 
   return (
-    <div className="p-0 border-t border-t-border" data-test-id="data-grid-footer">
+    <div className="p-0" data-test-id="data-grid-footer">
       <Pagination {...paginationProps} />
     </div>
   );

@@ -222,6 +222,49 @@ La barra superior del DataGrid usa **CSS Grid de 3 columnas** en `md+` y **stack
 
 Demo interactiva: `/ui-components/datagrid` (sección *Header actions*).
 
+Utilidades: `utils/flattenHeaderActions.ts`, `utils/headerGridPlacement.ts`. Estilos responsive del toolbar/header: `components/Header.module.css` (evita depender de clases Tailwind `sm:grid` que no siempre se generan en consumidores).
+
+### Alineación column headers ↔ celdas
+
+Los títulos de columna y el contenido de cada fila deben compartir **el mismo ancho de columna y el mismo padding horizontal** en todos los breakpoints (incluido scroll horizontal en viewports estrechos).
+
+#### Reglas de implementación
+
+| Tema | Detalle |
+|------|---------|
+| Padding horizontal | `DataGridCellMetrics.paddingX` (`px-3`) en `ColHeader` y celdas del `Body` |
+| Alineación | `align` en celdas; `headerAlign` (fallback `align`) en headers — ver `resolveColumnAlign` / `getColumnAlignClassNames` en `utils/columnStyles.ts` |
+| Ancho de fila | Header y body usan `DATA_GRID_COLUMN_ROW_CLASS` → `flex w-max min-w-full` para que ambas filas tengan el **mismo ancho intrínseco** al hacer scroll horizontal |
+| Estilos de columna | `calculateColumnStyles(columns, layoutWidth)` — **una sola vez** en `DataGrid.tsx`; el mismo array se pasa a `ColHeader` y a `Body` vía `computedColumnStyles` |
+| `layoutWidth` | Ancho real del área scroll (`scrollAreaRef.clientWidth`), medido con `ResizeObserver` — **no** usar `window.innerWidth` (sidebar, tabs y padding desalineaban columnas en md/sm) |
+| Columna expand | Header y body: `w-10 min-w-[40px]` + `px-1` |
+| Columna acciones fija | Sin `border-left`; header y body aplican los mismos overrides sticky (`pinActionsColumn`) |
+| Borde inferior header | `ColHeader.module.css` → borde sutil por celda (`border-bottom` al 55% de `--color-border`), no sombra externa (evita recorte con `overflow-auto` y desalineación al scroll) |
+| Footer | Sin `border-top` en `Footer.tsx` |
+
+#### Por qué se desalineaba al reducir el viewport
+
+En `lg+` sobra espacio y el bug pasa desapercibido. Al estrechar la ventana:
+
+1. **`w-full` en la fila de headers** limitaba el header al viewport visible mientras el body necesitaba más ancho → columnas desfasadas al scroll horizontal.
+2. **`getSmartMinWidth` con `window.innerWidth`** calculaba `minWidth` distinto al espacio real del grid.
+
+Solución: `w-max min-w-full` + medir `gridWidth` del contenedor scroll + compartir `computedStyles`.
+
+#### Archivos relevantes
+
+```
+DataGrid/
+├── DataGrid.tsx              # gridWidth, computedStyles, fila header
+├── components/
+│   ├── ColHeader.tsx         # padding/alineación compartidos
+│   ├── ColHeader.module.css  # borde inferior sutil por header
+│   ├── Body.tsx              # DATA_GRID_COLUMN_ROW_CLASS + computedColumnStyles
+│   └── Footer.tsx
+└── utils/
+    └── columnStyles.ts       # calculateColumnStyles, alineación, DATA_GRID_COLUMN_ROW_CLASS
+```
+
 ### DataGridColumn
 
 | Prop | Tipo | Default | Descripción |

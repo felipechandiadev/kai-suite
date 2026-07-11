@@ -10,6 +10,9 @@ export interface ColumnStyle {
   overflow?: string;
 }
 
+/** Clases compartidas para filas header/body: mismo ancho intrínseco al hacer scroll horizontal. */
+export const DATA_GRID_COLUMN_ROW_CLASS = 'flex w-max min-w-full';
+
 /** Cómo trata el contenido largo la celda respecto al ancho de columna. */
 export type DataGridCellOverflow = 'truncate' | 'wrap' | 'clip' | 'visible';
 
@@ -53,6 +56,36 @@ export function resolveColumnCellOverflow(
   return column.cellOverflow ?? DEFAULT_CELL_OVERFLOW;
 }
 
+export type DataGridColumnAlign = 'left' | 'center' | 'right';
+
+/** Padding horizontal compartido entre header y body. */
+export const DataGridCellMetrics = {
+  paddingX: 'px-3',
+} as const;
+
+export function resolveColumnAlign(
+  column: { align?: DataGridColumnAlign; headerAlign?: DataGridColumnAlign },
+  target: 'header' | 'body',
+): DataGridColumnAlign {
+  if (target === 'header') {
+    return column.headerAlign ?? column.align ?? 'left';
+  }
+  return column.align ?? 'left';
+}
+
+export function getColumnAlignClassNames(
+  align: DataGridColumnAlign,
+): { cell: string; content: string } {
+  switch (align) {
+    case 'center':
+      return { cell: 'justify-center', content: 'text-center' };
+    case 'right':
+      return { cell: 'justify-end', content: 'text-right' };
+    default:
+      return { cell: 'justify-start', content: 'text-left' };
+  }
+}
+
 /**
  * Hook personalizado para detectar tamaño de pantalla
  */
@@ -92,7 +125,7 @@ export function useScreenSize() {
  */
 function getSmartMinWidth(
   baseMinWidth: number,
-  screenWidth: number,
+  layoutWidth: number,
   totalColumns: number,
   headerText: string = ''
 ): number {
@@ -109,33 +142,25 @@ function getSmartMinWidth(
   // - Calcula espacio disponible después de padding
   // - Distribuye equitativamente entre columnas
   // - Mínimo garantizado: 35px para legibilidad
-  if (screenWidth < 640) { // Mobile
-    // Calculamos cuánto espacio tenemos disponible después de padding
-    const availableWidth = screenWidth - 32; // 16px padding left + 16px padding right
+  if (layoutWidth < 640) { // Mobile
+    const availableWidth = layoutWidth - 32;
     const calculatedMinWidth = Math.max(35, Math.floor(availableWidth / totalColumns));
 
-    // No reducimos por debajo del ancho necesario para el header
     return Math.max(headerBasedMinWidth, calculatedMinWidth);
   }
 
-  // En tablets (640px - 1024px):
-  // - Reduce minWidth en 20% para mejor adaptación
-  // - Pero nunca por debajo del ancho del header
-  if (screenWidth < 1024) { // Tablet
+  if (layoutWidth < 1024) { // Tablet
     return Math.max(headerBasedMinWidth, Math.max(40, baseMinWidth * 0.8));
   }
 
-  // En desktop (> 1024px):
-  // - Usa el ancho base definido, pero nunca menor que el necesario para el header
   return Math.max(headerBasedMinWidth, baseMinWidth);
 }
 
 /**
- * Utilidad centralizada para calcular estilos de columna de DataGrid
- * Garantiza consistencia entre headers, body y celdas
- * Adaptable al tamaño de pantalla para evitar superposición
+ * Utilidad centralizada para calcular estilos de columna de DataGrid.
+ * `layoutWidth` = ancho real del área scroll del grid (no window.innerWidth).
  */
-export function calculateColumnStyles(columns: DataGridColumn[], screenWidth: number = 1024): ColumnStyle[] {
+export function calculateColumnStyles(columns: DataGridColumn[], layoutWidth: number = 1024): ColumnStyle[] {
   const visibleColumns = columns.filter((c) => !c.hide);
   const hasFlex = visibleColumns.some((c) => typeof c.flex === 'number');
 
@@ -170,7 +195,7 @@ export function calculateColumnStyles(columns: DataGridColumn[], screenWidth: nu
 
     // Ancho mínimo inteligente basado en pantalla y texto del header
     const baseMinWidth = typeof col.minWidth === 'number' ? col.minWidth : 50;
-    style.minWidth = getSmartMinWidth(baseMinWidth, screenWidth, visibleColumns.length, col.headerName);
+    style.minWidth = getSmartMinWidth(baseMinWidth, layoutWidth, visibleColumns.length, col.headerName);
 
     // Ancho máximo si está definido
     if (typeof col.maxWidth === 'number') {
@@ -231,9 +256,8 @@ export const DataGridStyles = {
   // Contenedor scrollable (min-h-0 permite que flex-1 encoja y haga scroll el body)
   scrollContainer: 'min-h-0 flex-1 overflow-auto',
 
-  // Headers de columna: un solo border-b en la fila (headerRow) evita doble trazo
-  // cuando columnas sticky se superponen al hacer scroll horizontal.
-  headerRow: 'flex min-w-full border-b border-border',
+  // Fila de encabezados de columna (mismo ancho intrínseco que las filas del body).
+  headerRow: DATA_GRID_COLUMN_ROW_CLASS,
   headerCell: 'px-3 py-2 text-sm font-medium text-foreground border-r border-border last:border-r-0',
 
   // Celdas del body (desde Cell.tsx)

@@ -1,14 +1,17 @@
 'use client'
 import React from 'react';
 import Header from './components/Header';
+import colHeaderStyles from './components/ColHeader.module.css';
 import Body from './components/Body';
 import Footer from './components/Footer';
 import { ColHeader } from './components/ColHeader';
 import {
   calculateColumnStyles,
+  DATA_GRID_COLUMN_ROW_CLASS,
   DataGridStyles,
   DataGridZIndex,
   useScreenSize,
+  type ColumnStyle,
   type DataGridCellOverflow,
 } from './utils/columnStyles';
 
@@ -232,6 +235,31 @@ const DataGrid: React.FC<DataGridProps> = ({
    * (= debajo del header sticky). Se mide con rect para incluir bordes y evitar que la fila quede tapada.
    */
   const [expandedStickyRowTopPx, setExpandedStickyRowTopPx] = useState(44);
+  const [gridWidth, setGridWidth] = useState(1024);
+
+  useLayoutEffect(() => {
+    const scrollEl = scrollAreaRef.current;
+    if (!scrollEl) {
+      return;
+    }
+
+    const measureGridWidth = () => {
+      const width = scrollEl.clientWidth;
+      if (width > 0) {
+        setGridWidth(width);
+      }
+    };
+
+    measureGridWidth();
+    const gridWidthObserver = new ResizeObserver(() => {
+      requestAnimationFrame(measureGridWidth);
+    });
+    gridWidthObserver.observe(scrollEl);
+
+    return () => {
+      gridWidthObserver.disconnect();
+    };
+  }, []);
 
   useLayoutEffect(() => {
     const scrollEl = scrollAreaRef.current;
@@ -327,7 +355,10 @@ const DataGrid: React.FC<DataGridProps> = ({
     .filter(Boolean)
     .join(' ');
   const visibleColumns = columns.filter((c) => !c.hide);
-  const computedStyles = calculateColumnStyles(columns, screenWidth);
+  const computedStyles = useMemo(
+    () => calculateColumnStyles(columns, gridWidth),
+    [columns, gridWidth],
+  );
 
   const tabLayoutFallbackExtra =
     fillViewport && fillViewportInTabLayout ? DATA_GRID_TAB_LAYOUT_FALLBACK_EXTRA_PX : 0;
@@ -389,12 +420,19 @@ const DataGrid: React.FC<DataGridProps> = ({
         {/* Column Headers Row */}
         <div 
           ref={columnHeaderRowRef}
-          className={`${DataGridStyles.headerRow} sticky top-0 w-full min-w-0 bg-background`}
+          className={`${DataGridStyles.headerRow} sticky top-0 bg-background`}
           style={{ zIndex: DataGridZIndex.headerRow }}
         >
           {/* Expand column header placeholder */}
           {expandable && (
-            <div className="w-10 min-w-[40px] shrink-0" />
+            <div
+              className={`${colHeaderStyles.headerCell} w-10 min-w-[40px] shrink-0 bg-background px-1`}
+              style={{
+                height: '56px',
+                minHeight: '56px',
+                maxHeight: '56px',
+              }}
+            />
           )}
           {visibleColumns.map((column, i) => {
             const style = computedStyles[i];
@@ -417,8 +455,8 @@ const DataGrid: React.FC<DataGridProps> = ({
         <Body 
           columns={columns} 
           rows={loading ? [] : data}
-          filterMode={filterMode} 
-          screenWidth={screenWidth}
+          filterMode={filterMode}
+          computedColumnStyles={computedStyles}
           expandable={expandable}
           expandedRowIds={expandedRowIds}
           onToggleExpand={toggleRowExpanded}
