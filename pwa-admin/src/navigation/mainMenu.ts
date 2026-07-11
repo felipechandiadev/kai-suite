@@ -2,6 +2,7 @@ import type { SideBarMenuItem } from '@/shared/components/TopBar/SideBar';
 
 /** Showcase UI (oculto temporalmente en sidebar; restaurar entradas según necesidad). */
 export const uiComponentItems: SideBarMenuItem[] = [
+  { id: 'ui-color-scheme', label: 'Esquema de colores', url: '/ui-components/color-scheme' },
   { id: 'ui-alert', label: 'Alert', url: '/ui-components/alert' },
   { id: 'ui-autocomplete', label: 'Autocomplete', url: '/ui-components/autocomplete' },
   { id: 'ui-badge', label: 'Badge', url: '/ui-components/badge' },

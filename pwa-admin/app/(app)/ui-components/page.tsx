@@ -6,7 +6,7 @@ export default function UiComponentsIndexPage() {
     <div className="mx-auto max-w-3xl p-8">
       <h1 className="text-3xl font-bold tracking-tight text-foreground">UI Components</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Galería de componentes compartidos del admin. Elija una entrada para ver variantes y ejemplos interactivos.
+        Galería de componentes compartidos del admin. Elija una entrada para ver variantes, tokens de color y ejemplos interactivos.
       </p>
       <ul className="mt-8 grid gap-2 sm:grid-cols-2">
         {uiComponentItems

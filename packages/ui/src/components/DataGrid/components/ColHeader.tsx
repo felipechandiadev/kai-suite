@@ -3,7 +3,7 @@ import React, { useCallback, useRef, useState, useEffect } from 'react';
 import type { DataGridColumn } from '../DataGrid';
 import IconButton from '../../IconButton';
 import { DataGridCellMetrics, DataGridZIndex, getColumnAlignClassNames, resolveColumnAlign } from '../utils/columnStyles';
-import colHeaderStyles from './ColHeader.module.css';
+import dataGridChrome from '../dataGridChrome.module.css';
 import { useSearchParams, useRouter } from 'next/navigation';
 
 interface ColHeaderProps {
@@ -177,7 +177,7 @@ export const ColHeader: React.FC<ColHeaderProps> = ({
 
   return (
     <div
-      className={`${colHeaderStyles.headerCell} ${DataGridCellMetrics.paddingX} box-border min-w-0 font-semibold text-xs text-foreground flex items-center ${headerAlignClasses.cell}`}
+      className={`${dataGridChrome.subtleLineBottom} ${DataGridCellMetrics.paddingX} box-border min-w-0 font-semibold text-xs text-foreground flex items-center ${headerAlignClasses.cell}`}
       style={{
         backgroundColor: 'var(--color-background)',
         height: '56px',

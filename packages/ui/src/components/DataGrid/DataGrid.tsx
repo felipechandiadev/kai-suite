@@ -1,7 +1,7 @@
 'use client'
 import React from 'react';
 import Header from './components/Header';
-import colHeaderStyles from './components/ColHeader.module.css';
+import dataGridChrome from './dataGridChrome.module.css';
 import Body from './components/Body';
 import Footer from './components/Footer';
 import { ColHeader } from './components/ColHeader';
@@ -426,7 +426,7 @@ const DataGrid: React.FC<DataGridProps> = ({
           {/* Expand column header placeholder */}
           {expandable && (
             <div
-              className={`${colHeaderStyles.headerCell} w-10 min-w-[40px] shrink-0 bg-background px-1`}
+              className={`${dataGridChrome.subtleLineBottom} w-10 min-w-[40px] shrink-0 bg-background px-1`}
               style={{
                 height: '56px',
                 minHeight: '56px',

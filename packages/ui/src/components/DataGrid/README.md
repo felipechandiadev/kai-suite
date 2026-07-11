@@ -239,8 +239,7 @@ Los títulos de columna y el contenido de cada fila deben compartir **el mismo a
 | `layoutWidth` | Ancho real del área scroll (`scrollAreaRef.clientWidth`), medido con `ResizeObserver` — **no** usar `window.innerWidth` (sidebar, tabs y padding desalineaban columnas en md/sm) |
 | Columna expand | Header y body: `w-10 min-w-[40px]` + `px-1` |
 | Columna acciones fija | Sin `border-left`; header y body aplican los mismos overrides sticky (`pinActionsColumn`) |
-| Borde inferior header | `ColHeader.module.css` → borde sutil por celda (`border-bottom` al 55% de `--color-border`), no sombra externa (evita recorte con `overflow-auto` y desalineación al scroll) |
-| Footer | Sin `border-top` en `Footer.tsx` |
+| Borde sutil (header, filas, footer) | `dataGridChrome.module.css` → `1px solid color-mix(border 55%, transparent)` en bottom (headers/filas) y top (footer) |
 
 #### Por qué se desalineaba al reducir el viewport
 
@@ -251,6 +250,29 @@ En `lg+` sobra espacio y el bug pasa desapercibido. Al estrechar la ventana:
 
 Solución: `w-max min-w-full` + medir `gridWidth` del contenedor scroll + compartir `computedStyles`.
 
+### Bordes sutiles (`dataGridChrome`)
+
+Separadores horizontales del grid (no confundir con `showBorder` del contenedor externo).
+
+| Clase CSS module | Aplicado en |
+|------------------|-------------|
+| `subtleLineBottom` | `ColHeader`, celdas del `Body`, columna expand, fila/panel expandido |
+| `subtleLineTop` | `Footer` (mobile y desktop) |
+
+Definición única en `dataGridChrome.module.css`:
+
+```css
+1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
+```
+
+**Reglas:**
+
+- No usar `border-border` / `border-b border-border` en filas ni headers; importar `dataGridChrome.module.css`.
+- Header: borde **inferior** por celda (cada col header al scroll horizontal).
+- Footer: borde **superior** en el contenedor de paginación.
+- Filas: borde **inferior** por celda, mismo estilo que el header.
+- Alineado con el esquema de colores Kai (`--color-border` + `color-mix`); ver showcase `/ui-components/color-scheme`.
+
 #### Archivos relevantes
 
 ```
@@ -258,9 +280,10 @@ DataGrid/
 ├── DataGrid.tsx              # gridWidth, computedStyles, fila header
 ├── components/
 │   ├── ColHeader.tsx         # padding/alineación compartidos
-│   ├── ColHeader.module.css  # borde inferior sutil por header
 │   ├── Body.tsx              # DATA_GRID_COLUMN_ROW_CLASS + computedColumnStyles
-│   └── Footer.tsx
+│   ├── Footer.tsx
+│   └── ...
+├── dataGridChrome.module.css # bordes sutiles compartidos (header / filas / footer)
 └── utils/
     └── columnStyles.ts       # calculateColumnStyles, alineación, DATA_GRID_COLUMN_ROW_CLASS
 ```

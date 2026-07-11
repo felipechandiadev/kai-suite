@@ -18,9 +18,10 @@ import type {
 } from '../DataGrid';
 import { resolveRowCellBackgroundColor } from '../utils/rowAppearance';
 import IconButton from '../../IconButton';
+import dataGridChrome from '../dataGridChrome.module.css';
 
 const CELL_BASE_CLASS =
-  `${DataGridCellMetrics.paddingX} py-1 border-b border-border text-xs flex min-w-0 box-border items-center`;
+  `${DataGridCellMetrics.paddingX} py-1 ${dataGridChrome.subtleLineBottom} text-xs flex min-w-0 box-border items-center`;
 
 function cellOverflowClasses(column: DataGridColumn) {
   return getCellOverflowClassNames(resolveColumnCellOverflow(column));
@@ -121,7 +122,7 @@ const Body: React.FC<BodyProps> = ({
                 onRowClick ? 'cursor-pointer' : ''
               } ${
                 expandable && isExpanded && stickyExpandedRowTopPx != null
-                  ? 'sticky border-b border-border bg-background shadow-sm'
+                  ? `sticky ${dataGridChrome.subtleLineBottom} bg-background shadow-sm`
                   : ''
               }`}
               style={{
@@ -136,7 +137,7 @@ const Body: React.FC<BodyProps> = ({
               {/* Expand/Collapse button */}
               {expandable && (
                 <div
-                  className={`w-10 min-w-[40px] px-1 py-1 border-b border-border flex items-center justify-center ${rowAppearanceClassName}`}
+                  className={`w-10 min-w-[40px] px-1 py-1 ${dataGridChrome.subtleLineBottom} flex items-center justify-center ${rowAppearanceClassName}`}
                   style={
                     rowAppearanceUsesBgClass && !isSelected
                       ? undefined
@@ -256,7 +257,7 @@ const Body: React.FC<BodyProps> = ({
             {/* Expanded content panel */}
             {expandable && isExpanded && expandableRowContent && (
               <div
-                className="sticky left-0 w-full min-w-0 max-w-full overflow-x-hidden border-b border-border bg-neutral/50"
+                className={`sticky left-0 w-full min-w-0 max-w-full overflow-x-hidden ${dataGridChrome.subtleLineBottom} bg-neutral/50`}
                 style={{ zIndex: DataGridZIndex.expandedStickyRow }}
                 data-test-id="data-grid-expanded-row"
               >
