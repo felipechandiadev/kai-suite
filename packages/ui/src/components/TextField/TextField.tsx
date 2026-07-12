@@ -498,8 +498,8 @@ export const TextField: React.FC<TextFieldProps> = ({
     ? "border-none focus:border-none focus:ring-0 bg-transparent"
     : "text-foreground border-border focus:border-primary bg-transparent";
 
-  const controlSurfaceStyle: React.CSSProperties | undefined =
-    variante === "contrast" ? { ["--tf-surface" as string]: "var(--color-primary)" } : undefined;
+  const controlVariantClass =
+    variante === "contrast" ? "fs-text-field__control--contrast " : "";
 
   const borderlessInputClass =
     variante === "autocomplete" ? "fs-text-field__input--borderless" : "";
@@ -599,8 +599,7 @@ export const TextField: React.FC<TextFieldProps> = ({
 
   const controlEl = (
       <div
-        className={`fs-text-field__control relative ${className}`.trim()}
-        style={controlSurfaceStyle}
+        className={`fs-text-field__control relative ${controlVariantClass}${className}`.trim()}
         data-test-id="text-field-root"
       >
       {hasStartSymbol && (
@@ -792,7 +791,7 @@ export const TextField: React.FC<TextFieldProps> = ({
         className={`absolute z-20 -top-1 pointer-events-none transition-all duration-300 ease-in-out px-1 font-medium text-xs rounded-md fs-text-field__floating-label ` +
           (variante === "contrast" ? "text-background" : "text-foreground") +
           (shrink ? " -translate-y-1 scale-90 opacity-100" : " opacity-0")}
-        style={{ left: floatingStartLeft, marginTop: "-2px", ...labelStyle }}
+        style={{ left: floatingStartLeft, marginTop: "-3px", ...labelStyle }}
         onClick={focusField}
         htmlFor={inputDomId}
         data-test-id="text-field-label"

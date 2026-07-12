@@ -9,11 +9,40 @@
 
 .fs-text-field__control {
   --tf-surface: var(--color-background, #fff);
+  --tf-label-border: var(--color-border, #a5c2c2);
+}
+
+.fs-text-field__control:focus-within {
+  --tf-label-border: var(--color-primary, #1e73ae);
+}
+
+/* Variante contrast: el campo vive sobre una barra primary. */
+.fs-text-field__control--contrast {
+  --tf-surface: var(--color-primary, #1e73ae);
+  --tf-label-border: var(--color-background, #fff);
 }
 
 /* Label flotante uniforme: máscara con la superficie real del control (--tf-surface). */
 .fs-text-field__floating-label {
   background-color: var(--tf-surface, var(--color-background, #fff));
+}
+
+/**
+ * Pestaña del label: borde visible solo en la mitad superior. Los laterales bajan
+ * hasta la línea del borde del input, dando continuidad visual con el marco.
+ */
+.fs-text-field__floating-label::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 50%;
+  border: 1px solid var(--tf-label-border, var(--color-border, #a5c2c2));
+  border-bottom: none;
+  border-radius: 5px 5px 0 0;
+  z-index: -1;
+  transition: border-color 0.2s ease;
 }
 
 /* Shell de Select/AutoComplete: el borde vive aquí; el label hereda la misma superficie. */
