@@ -28,7 +28,7 @@ interface IconButtonProps {
 	icon: LucideIconName;
 	variant?: IconButtonVariant | IconButtonVariantLegacy;
 	size?: IconButtonSize;
-	/** Grosor del trazo del icono Lucide (por defecto 2). Valores mayores = icono más “fuerte”. */
+	/** Grosor del trazo del icono Lucide (por defecto 2.25, para igualar la intensidad de los iconos sueltos de la app). Valores mayores = icono más “fuerte”. */
 	strokeWidth?: number;
 	disabled?: boolean;
 	isLoading?: boolean;
@@ -87,7 +87,7 @@ const IconButton: React.FC<IconButtonProps> = ({
 	icon,
 	variant = 'action',
 	size = 'md',
-	strokeWidth = 2,
+	strokeWidth = 2.25,
 	disabled = false,
 	isLoading = false,
 	className = '',

@@ -6,6 +6,8 @@ import { TextField } from '@kai/ui';
 import { IconButton } from '@kai/ui';
 import { Switch } from '@kai/ui';
 import { Card } from '@kai/ui';
+import { Dialog } from '@kai/ui';
+import { Button } from '@kai/ui';
 
 export default function TextFieldPage() {
   const [texto, setTexto] = useState('');
@@ -33,6 +35,17 @@ export default function TextFieldPage() {
   const [compactInsetAlias, setCompactInsetAlias] = useState('Tickets caja 1');
   const [compactInsetLogoEnabled, setCompactInsetLogoEnabled] = useState(true);
   const [compactInsetLogoFile, setCompactInsetLogoFile] = useState('logo-tickets.png');
+  const [clienteSeleccionado, setClienteSeleccionado] = useState('');
+  const [buscadorClienteOpen, setBuscadorClienteOpen] = useState(false);
+  const [enlaceVenta, setEnlaceVenta] = useState('https://kai.app/venta/VTA-26-00016');
+  const [enlaceCopiado, setEnlaceCopiado] = useState(false);
+
+  const clientesDemo = [
+    'Ana Pérez',
+    'Comercial Los Andes SpA',
+    'Distribuidora Sur Ltda.',
+    'Juan Soto',
+  ];
 
   return (
     <div className="p-8 space-y-12 max-w-3xl">
@@ -289,6 +302,124 @@ export default function TextFieldPage() {
             startAdornment={<Mail className="h-4 w-4" aria-hidden />}
           />
         </div>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-2xl font-semibold">endAdornment como botón que abre un diálogo</h2>
+        <p className="text-sm text-muted-foreground">
+          El <code className="rounded bg-muted/50 px-1 text-xs">endAdornment</code> admite cualquier nodo React, incluido un{" "}
+          <code className="rounded bg-muted/50 px-1 text-xs">IconButton</code> con un{" "}
+          <code className="rounded bg-muted/50 px-1 text-xs">onClick</code> que ejecute acciones (abrir un buscador,
+          seleccionar en un modal, etc.). Aquí el botón abre un diálogo y el valor elegido se escribe en el campo. Se usa{" "}
+          <code className="rounded bg-muted/50 px-1 text-xs">readOnly</code> para que el valor solo se defina desde el diálogo.
+        </p>
+        <TextField
+          label="Cliente"
+          value={clienteSeleccionado}
+          onChange={(e) => setClienteSeleccionado(e.target.value)}
+          readOnly
+          placeholder="Selecciona un cliente…"
+          endAdornment={
+            <IconButton
+              icon="Search"
+              variant="action"
+              size="sm"
+              ariaLabel="Buscar cliente"
+              tabIndex={-1}
+              onClick={() => setBuscadorClienteOpen(true)}
+            />
+          }
+        />
+        <Dialog
+          open={buscadorClienteOpen}
+          onClose={() => setBuscadorClienteOpen(false)}
+          title="Buscar cliente"
+          size="sm"
+          showCloseButton
+          actions={
+            <Button variant="outlined" size="sm" onClick={() => setBuscadorClienteOpen(false)}>
+              Cancelar
+            </Button>
+          }
+          actionsJustify="end"
+        >
+          <ul className="divide-y divide-border/70">
+            {clientesDemo.map((cliente) => (
+              <li key={cliente}>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between px-1 py-2.5 text-left text-sm text-foreground hover:text-primary"
+                  onClick={() => {
+                    setClienteSeleccionado(cliente);
+                    setBuscadorClienteOpen(false);
+                  }}
+                >
+                  <span>{cliente}</span>
+                  <Search className="h-4 w-4 opacity-40" aria-hidden />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Dialog>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-2xl font-semibold">endAdornment con hasta 3 botones de acción</h2>
+        <p className="text-sm text-muted-foreground">
+          El <code className="rounded bg-muted/50 px-1 text-xs">endAdornment</code> acepta varios{" "}
+          <code className="rounded bg-muted/50 px-1 text-xs">IconButton</code> dentro de un fragmento. Aquí un campo de
+          enlace con tres acciones: <strong className="font-medium text-foreground">copiar</strong>,{" "}
+          <strong className="font-medium text-foreground">abrir</strong> y{" "}
+          <strong className="font-medium text-foreground">limpiar</strong>. Usa{" "}
+          <code className="rounded bg-muted/50 px-1 text-xs">size=&quot;xs&quot;</code> y{" "}
+          <code className="rounded bg-muted/50 px-1 text-xs">{"tabIndex={-1}"}</code> para que no interfieran con la edición.
+        </p>
+        <TextField
+          label="Enlace de la venta"
+          value={enlaceVenta}
+          onChange={(e) => {
+            setEnlaceVenta(e.target.value);
+            setEnlaceCopiado(false);
+          }}
+          placeholder="https://…"
+          endAdornment={
+            <>
+              <IconButton
+                icon={enlaceCopiado ? 'Check' : 'Copy'}
+                variant="action"
+                size="xs"
+                ariaLabel={enlaceCopiado ? 'Enlace copiado' : 'Copiar enlace'}
+                tabIndex={-1}
+                disabled={!enlaceVenta}
+                onClick={() => {
+                  navigator.clipboard?.writeText(enlaceVenta);
+                  setEnlaceCopiado(true);
+                }}
+              />
+              <IconButton
+                icon="ExternalLink"
+                variant="action"
+                size="xs"
+                ariaLabel="Abrir enlace"
+                tabIndex={-1}
+                disabled={!enlaceVenta}
+                onClick={() => window.open(enlaceVenta, '_blank', 'noopener,noreferrer')}
+              />
+              <IconButton
+                icon="X"
+                variant="action"
+                size="xs"
+                ariaLabel="Limpiar enlace"
+                tabIndex={-1}
+                disabled={!enlaceVenta}
+                onClick={() => {
+                  setEnlaceVenta('');
+                  setEnlaceCopiado(false);
+                }}
+              />
+            </>
+          }
+        />
       </section>
 
       <section className="space-y-4">
