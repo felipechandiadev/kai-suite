@@ -400,6 +400,8 @@ export const TextField: React.FC<TextFieldProps> = ({
       : undefined;
   const startPaddingClass = hasStartLeading ? "" : "pl-3";
   const floatingStartLeft = hasStartLeading ? inputPaddingStart ?? START_LEADING_INSET : "0.75rem";
+  /** Label flotante: siempre pegado al borde (misma posición con o sin startSymbol/adornment). */
+  const floatingLabelLeft = START_LEADING_INSET;
 
   useLayoutEffect(() => {
     const el = startLeadingRef.current;
@@ -791,7 +793,7 @@ export const TextField: React.FC<TextFieldProps> = ({
         className={`absolute z-20 -top-1 pointer-events-none transition-all duration-300 ease-in-out px-1 font-medium text-xs rounded-md fs-text-field__floating-label ` +
           (variante === "contrast" ? "text-background" : "text-foreground") +
           (shrink ? " -translate-y-1 scale-90 opacity-100" : " opacity-0")}
-        style={{ left: floatingStartLeft, marginTop: "-3px", ...labelStyle }}
+        style={{ left: floatingLabelLeft, marginTop: "-3px", ...labelStyle }}
         onClick={focusField}
         htmlFor={inputDomId}
         data-test-id="text-field-label"
