@@ -54,11 +54,12 @@ export function buildCustomerCreditNoteDocumentHtml(
   const lineRows = data.lines
     .map((l, idx) => {
       const attrs = l.attributes.length > 0 ? ` · ${escapeHtml(l.attributes.join(" · "))}` : "";
+      const unit = l.unitSymbol?.trim() ? ` ${escapeHtml(l.unitSymbol.trim())}` : "";
       return `<tr>
         <td class="muted">${idx + 1}</td>
         <td><span>${escapeHtml(l.productName)}</span>${attrs}</td>
-        <td class="num">${l.quantity}</td>
-        <td class="num">${formatMoneyClp(l.unitPriceWithTax)}</td>
+        <td class="numl">${l.quantity}${unit}</td>
+        <td class="numl">${formatMoneyClp(l.unitPriceWithTax)}</td>
         <td class="num">${formatMoneyClp(l.lineGross - l.discountAmount)}</td>
       </tr>`;
     })
@@ -101,7 +102,8 @@ export function buildCustomerCreditNoteDocumentHtml(
   .companyName { margin: 0; font-size: 20px; font-weight: 800; }
   .documentTitle { margin: 0; font-size: 22px; font-weight: 900; color: #1e3a8a; text-align: right; }
   .separator { margin: 1rem 0; height: 1px; background: rgba(17,24,39,0.2); }
-  .summaryGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .summaryGrid { display: flex; flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+  .summaryGrid > div { text-align: left; }
   .label { font-size: 10px; color: #6b7280; text-transform: uppercase; margin: 0 0 0.2rem; }
   .value { margin: 0; font-weight: 700; }
   .muted { color: #6b7280; }
@@ -109,6 +111,7 @@ export function buildCustomerCreditNoteDocumentHtml(
   .table th { text-align: left; border-bottom: 1px solid #d1d5db; padding: 0.35rem; font-size: 9px; text-transform: uppercase; }
   .table td { padding: 0.35rem; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
   .num { text-align: right; white-space: nowrap; }
+  .numl { text-align: left; white-space: nowrap; }
   .printTotals { margin-top: 1rem; border: 1px solid #d1d5db; border-radius: 6px; padding: 0.5rem; max-width: 280px; margin-left: auto; }
   .printTotalsRow { display: flex; justify-content: space-between; padding: 0.15rem 0; }
   .printTotalsTotalRow { font-weight: 800; border-top: 1px solid #d1d5db; margin-top: 0.25rem; padding-top: 0.35rem; }
@@ -141,7 +144,7 @@ export function buildCustomerCreditNoteDocumentHtml(
   <div class="separator"></div>
   <table class="table">
     <thead><tr>
-      <th>#</th><th>Producto</th><th class="num">Cant.</th><th class="num">P. unit.</th><th class="num">Total</th>
+      <th>#</th><th>Producto</th><th class="numl">Cant.</th><th class="numl">P. unit.</th><th class="num">Total</th>
     </tr></thead>
     <tbody>${lineRows}</tbody>
   </table>

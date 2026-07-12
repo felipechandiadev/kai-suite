@@ -15,6 +15,8 @@ import {
 } from "@/features/pos-print/lib/pos-agent-print";
 import { formatReceiptLineDisplayName } from "@/features/pos-print/lib/format-receipt-line-name";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";
+import { fiscalTimbrePdf417SvgForPreview } from "@/features/fiscal/print/fiscal-timbre-pdf417";
+import { getFiscalBoletaPrintPreviewAction } from "@/features/fiscal/actions/reprint-fiscal-boleta.action";
 
 function escapeHtml(s: string) {
   return s
@@ -51,11 +53,14 @@ function formatDateSlash(iso: string): string {
 export function buildPosSaleDocumentHtml(
   data: PosSaleReceiptData,
   format: PrintFormat = "document_a4",
+  options?: { fiscalTimbreSvg?: string },
 ): string {
   const isBackorder = data.documentKind === "backorder";
   const documentTitle = isBackorder ? "ENCARGO" : "VENTA";
   const folio = data.folio.trim() || "—";
-  const barcodeSvg = receiptBarcodeSvgString(folio);
+  const fiscalTimbreSvg = options?.fiscalTimbreSvg?.trim() ?? "";
+  const barcodeSvg = fiscalTimbreSvg || receiptBarcodeSvgString(folio);
+  const footerClass = fiscalTimbreSvg ? "documentFiscalTimbreFooter" : "documentBarcodeFooter";
   const c = data.company;
   const razonSocial = (c.razonSocial ?? "").trim();
   const displayName = (c.nombreFantasia ?? "").trim();
@@ -100,11 +105,12 @@ export function buildPosSaleDocumentHtml(
       const qty = Number(l.quantity) || 0;
       const price = Number(l.unitPriceWithTax) || 0;
       const lineTotal = Math.round(l.lineGross);
+      const unit = l.unitSymbol?.trim() ? ` ${escapeHtml(l.unitSymbol.trim())}` : "";
       return `<tr>
         <td class="muted">${idx + 1}</td>
         <td>${escapeHtml(name)}</td>
-        <td class="num">${qty}</td>
-        <td class="num">${formatMoneyClp(price)}</td>
+        <td class="numl">${qty}${unit}</td>
+        <td class="numl">${formatMoneyClp(price)}</td>
         <td class="num">${formatMoneyClp(lineTotal)}</td>
       </tr>`;
     })
@@ -174,21 +180,24 @@ export function buildPosSaleDocumentHtml(
   body { margin: 0; padding: 0; color: #111827; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size: 11px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .page { width: 100%; max-width: ${documentContentMaxWidth(format)}; margin: 0 auto; padding: 4mm 0; }
   ${DOCUMENT_HEADER_PRINT_CSS}
-  .summaryGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem 1.25rem; margin-bottom: 0.9rem; }
-  .field { font-size: 11px; color: #111827; }
+  .summaryGrid { display: flex; flex-direction: column; align-items: flex-start; gap: 0.55rem; margin-bottom: 0.9rem; }
+  .field { font-size: 11px; color: #111827; text-align: left; }
   .label { font-size: 10px; color: #6b7280; margin: 0 0 0.2rem 0; text-transform: uppercase; letter-spacing: 0.06em; }
   .value { margin: 0; font-size: 11px; line-height: 1.35; font-weight: 700; color: #111827; }
   .muted { color: #6b7280; font-weight: 500; }
-  .customerIdentity { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; font-size: 11px; color: #111827; }
+  .customerIdentity { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; font-size: 11px; color: #111827; text-align: left; }
   .table { width: 100%; border-collapse: collapse; font-size: 9.5px; }
   .thead th { text-align: left; padding: 0.3rem 0.45rem; border-bottom: 1px solid rgba(17, 24, 39, 0.22); color: #374151; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
   .tbody td { padding: 0.32rem 0.45rem; border-bottom: 1px solid rgba(17, 24, 39, 0.12); vertical-align: top; }
   .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .numl { text-align: left; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .printTotals { margin-top: 0.85rem; border: 1px solid rgba(17, 24, 39, 0.18); border-radius: 6px; padding: 0.32rem 0.5rem; font-size: 9px; color: #111827; }
   .printTotalsRow { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; padding: 0.12rem 0; }
   .printTotalsTotalRow { margin-top: 0.1rem; padding-top: 0.22rem; border-top: 1px solid rgba(17, 24, 39, 0.16); font-weight: 800; }
   .documentBarcodeFooter { margin-top: 1rem; display: flex; justify-content: flex-end; width: 100%; }
   .documentBarcodeFooter .barcode-wrap svg { max-width: 55mm; height: auto; }
+  .documentFiscalTimbreFooter { margin-top: 1rem; display: flex; justify-content: center; width: 100%; }
+  .documentFiscalTimbreFooter .barcode-wrap svg { max-width: 72mm; height: auto; }
 </style></head><body>
 <div class="page" data-test-id="pos-sale-print-document">
   <header class="companyHeader">
@@ -212,8 +221,8 @@ export function buildPosSaleDocumentHtml(
         <tr>
           <th style="width:4ch">#</th>
           <th>Producto</th>
-          <th class="num" style="width:10ch">Cant.</th>
-          <th class="num" style="width:14ch">Precio</th>
+          <th class="numl" style="width:12ch">Cant.</th>
+          <th class="numl" style="width:14ch">Precio</th>
           <th class="num" style="width:14ch">Total</th>
         </tr>
       </thead>
@@ -230,7 +239,7 @@ export function buildPosSaleDocumentHtml(
     ${paymentsSection}
     ${
       barcodeSvg
-        ? `<div class="documentBarcodeFooter"><div class="barcode-wrap">${barcodeSvg}</div></div>`
+        ? `<div class="${footerClass}"><div class="barcode-wrap">${barcodeSvg}</div></div>`
         : ""
     }
   </section>
@@ -238,11 +247,15 @@ export function buildPosSaleDocumentHtml(
 </body></html>`;
 }
 
-function posSaleDocumentPrintMeta(data: PosSaleReceiptData, format: PrintFormat = "document_a4") {
+function posSaleDocumentPrintMeta(
+  data: PosSaleReceiptData,
+  format: PrintFormat = "document_a4",
+  options?: { fiscalTimbreSvg?: string },
+) {
   const label = data.documentKind === "backorder" ? "Impresión encargo documento" : "Impresión venta documento";
   const folio = data.folio.trim() || "documento";
   return {
-    html: buildPosSaleDocumentHtml(data, format),
+    html: buildPosSaleDocumentHtml(data, format, options),
     label,
     meta: {
       filename: `${folio}.pdf`,
@@ -259,10 +272,37 @@ export function printPosSaleDocument(data: PosSaleReceiptData, format?: PrintFor
   printPosHtmlViaAgentOrBrowserFireAndForget(html, "documents", meta);
 }
 
+async function resolveDocumentFiscalTimbreSvg(
+  data: PosSaleReceiptData,
+  format: PrintFormat,
+): Promise<string | undefined> {
+  const printPlan = data.printPlan ?? "TICKET_ONLY";
+  const isBoletaPlan = printPlan === "BOLETA_ONLY" || printPlan === "BOLETA_AND_TICKET";
+  if (!isBoletaPlan) {
+    return undefined;
+  }
+
+  let preview = data.fiscalPrintPreview ?? null;
+  if (!preview && data.transactionId?.trim()) {
+    const res = await getFiscalBoletaPrintPreviewAction(data.transactionId.trim());
+    if (res.success) {
+      preview = res.preview;
+    }
+  }
+  if (!preview) return undefined;
+
+  const svg = await fiscalTimbrePdf417SvgForPreview(preview, format);
+  return svg.trim() || undefined;
+}
+
 export async function printPosSaleDocumentAgentOrBrowser(
   data: PosSaleReceiptData,
   format?: PrintFormat,
 ): Promise<"agent" | "browser"> {
-  const { html, meta } = posSaleDocumentPrintMeta(data, format);
+  const resolvedFormat = format ?? "document_a4";
+  const fiscalTimbreSvg = await resolveDocumentFiscalTimbreSvg(data, resolvedFormat);
+  const { html, meta } = posSaleDocumentPrintMeta(data, resolvedFormat, {
+    fiscalTimbreSvg,
+  });
   return printPosHtmlViaAgentOrBrowser(html, "documents", meta);
 }

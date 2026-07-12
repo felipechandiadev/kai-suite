@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Dialog } from "@kai/ui";
 import type { PosCartLine } from "@/app/(pos)/pos/ui/PosCartLineCard";
 import type { PosPaymentLine, PosPaymentMethodId } from "@/features/pos-cart/pos-payment.types";
@@ -18,23 +18,19 @@ import {
 } from "@/features/pos-print/lib/execute-sale-print-plan";
 import { getFiscalBoletaPrintPreviewAction } from "@/features/fiscal/actions/reprint-fiscal-boleta.action";
 import { shouldUseBackendApi } from "@/features/pos-offline/infrastructure/connectivity";
-import { buildFiscalBoletaPreviewHtml } from "@/features/fiscal/print/build-fiscal-boleta-preview-html";
-import { fiscalTimbrePdf417SvgForPreview } from "@/features/fiscal/print/fiscal-timbre-pdf417";
 import {
-  describePosDocumentPrintMode,
   formatPrintJobFailedMessage,
   getPosDocumentPrintMode,
   isPosDocumentPrintModeDocument,
   posDocumentPrintModeToWireFormat,
-  PosDocumentPrintModeSelector,
   type PosDocumentPrintMode,
   type PrintFormat,
 } from "@kai/print-service-client";
 import {
-  buildPosSaleDocumentHtml,
   printPosSaleDocument,
   printPosSaleDocumentAgentOrBrowser,
 } from "@/features/pos-print/lib/pos-sale-document-print";
+import { fiscalTimbrePdf417SvgForPreview } from "@/features/fiscal/print/fiscal-timbre-pdf417";
 import {
   printPosSaleTicketAgentOrBrowser,
   printPosSaleTicketAgentOrBrowserFireAndForget,
@@ -49,8 +45,8 @@ import {
   printHtmlShowsLogo,
   type PosPrintHtmlOptions,
 } from "@/features/pos-print/lib/pos-print-html-options";
-import { PosPrintDocumentPreview } from "@/features/pos-print/ui/PosPrintDocumentPreview";
 import { PosPrintPreviewReprintButton } from "@/features/pos-print/ui/PosPrintPreviewReprintButton";
+import { PosSaleReceiptPreview } from "@/features/pos-print/ui/PosSaleReceiptPreview";
 import { receiptBarcodeSvgString } from "@/lib/receipt-barcode";
 import { formatReceiptLineDisplayName } from "@/features/pos-print/lib/format-receipt-line-name";
 import { formatInternalCreditPlanSubtitle } from "@/features/pos-payment/lib/internal-credit-plan";
@@ -723,8 +719,6 @@ async function autoPrintSaleReceipt(snapshot: PosSaleReceiptData): Promise<{
   return { errorMessage: formatSalePrintPlanErrors(result) };
 }
 
-const FISCAL_BOLETA_PREVIEW_FORMAT: PrintFormat = "ticket_80mm";
-
 export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
   const autoPrintForFolioRef = useRef<string | null>(null);
   const receiptDataRef = useRef(data);
@@ -732,48 +726,9 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
   const [printMode, setPrintMode] = useState<PosDocumentPrintMode>("ticket");
   const [autoPrintStatus, setAutoPrintStatus] = useState<string | null>(null);
   const [fiscalPrintBusy, setFiscalPrintBusy] = useState(false);
-  const [fiscalBoletaPreviewHtml, setFiscalBoletaPreviewHtml] = useState<string | null>(null);
+  const [documentFiscalTimbreSvg, setDocumentFiscalTimbreSvg] = useState<string | null>(null);
 
-  const fiscalPrintPreview = data?.fiscalPrintPreview ?? null;
-  const ticketPrintPreview = data?.ticketPrintPreview ?? null;
   const printPlan = data?.printPlan ?? "TICKET_ONLY";
-  const showingFiscalBoletaPreview = Boolean(fiscalPrintPreview);
-  const showingDualPreview = printPlan === "BOLETA_AND_TICKET" && Boolean(ticketPrintPreview);
-  const [ticketPreviewHtml, setTicketPreviewHtml] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!fiscalPrintPreview) {
-      setFiscalBoletaPreviewHtml(null);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      const pdf417Svg = await fiscalTimbrePdf417SvgForPreview(
-        fiscalPrintPreview,
-        FISCAL_BOLETA_PREVIEW_FORMAT,
-      );
-      if (cancelled) return;
-      setFiscalBoletaPreviewHtml(
-        buildFiscalBoletaPreviewHtml(fiscalPrintPreview, FISCAL_BOLETA_PREVIEW_FORMAT, pdf417Svg),
-      );
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [fiscalPrintPreview]);
-
-  useEffect(() => {
-    const ticketData = ticketPrintPreview ?? (showingDualPreview ? null : data);
-    if (!ticketPrintPreview || typeof window === "undefined") {
-      setTicketPreviewHtml(null);
-      return;
-    }
-    setTicketPreviewHtml(
-      buildPosSaleReceiptHtml(ticketPrintPreview, window.location.origin, "ticket_80mm", {
-        showLogo: false,
-      }),
-    );
-  }, [ticketPrintPreview, showingDualPreview, data]);
 
   useEffect(() => {
     if (data) {
@@ -787,20 +742,31 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
     }
   }, [open]);
 
-  const wireFormat = showingFiscalBoletaPreview
-    ? FISCAL_BOLETA_PREVIEW_FORMAT
-    : posDocumentPrintModeToWireFormat(printMode);
-  const isDocument = !showingFiscalBoletaPreview && isPosDocumentPrintModeDocument(printMode);
-
-  const previewSrcDoc = useMemo(() => {
-    if (!data || typeof window === "undefined") return null;
-    if (fiscalPrintPreview) {
-      return fiscalBoletaPreviewHtml;
+  useEffect(() => {
+    if (!data || !isPosDocumentPrintModeDocument(printMode)) {
+      setDocumentFiscalTimbreSvg(null);
+      return;
     }
-    return isDocument
-      ? buildPosSaleDocumentHtml(data, wireFormat)
-      : buildPosSaleReceiptHtml(data, window.location.origin, wireFormat, { showLogo: false });
-  }, [data, fiscalPrintPreview, fiscalBoletaPreviewHtml, isDocument, wireFormat]);
+    const isBoletaPlan = printPlan === "BOLETA_ONLY" || printPlan === "BOLETA_AND_TICKET";
+    const preview = data.fiscalPrintPreview;
+    if (!isBoletaPlan || !preview) {
+      setDocumentFiscalTimbreSvg(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const svg = await fiscalTimbrePdf417SvgForPreview(
+        preview,
+        posDocumentPrintModeToWireFormat(printMode),
+      );
+      if (!cancelled) {
+        setDocumentFiscalTimbreSvg(svg.trim() || null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [data, printMode, printPlan]);
 
   useEffect(() => {
     if (!open || !data) {
@@ -902,67 +868,14 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
         </>
       }
     >
-      <div className="grid gap-4 text-sm">
-        {showingDualPreview ? (
-          <p className="text-xs text-muted-foreground">
-            Venta mixta: comprobante tributario (SII) + ticket interno (ítems no tributarios).
-          </p>
-        ) : showingFiscalBoletaPreview ? (
-          <p className="mb-2 text-xs text-muted-foreground">
-            Comprobante:{" "}
-            <span className="font-medium text-foreground">
-              Boleta electrónica SII
-              {data.fiscalFolio?.trim() ? ` · folio ${data.fiscalFolio.trim()}` : ""}
-            </span>
-          </p>
-        ) : (
-          <>
-            <p className="mb-2 text-xs text-muted-foreground">
-              Modo:{" "}
-              <span className="font-medium text-foreground">
-                {describePosDocumentPrintMode(printMode)}
-              </span>
-            </p>
-            <PosDocumentPrintModeSelector
-              value={printMode}
-              onChange={setPrintMode}
-              data-test-id="pos-sale-receipt-print-format"
-            />
-          </>
-        )}
-        {autoPrintStatus ? (
-          <p className="text-sm text-destructive" data-test-id="pos-sale-auto-print-error">
-            {autoPrintStatus}
-          </p>
-        ) : null}
-        {showingFiscalBoletaPreview ? (
-          <PosPrintDocumentPreview
-            html={fiscalBoletaPreviewHtml}
-            format={FISCAL_BOLETA_PREVIEW_FORMAT}
-            title="Vista previa boleta SII"
-            loadingLabel="Preparando vista previa de boleta…"
-            data-test-id="pos-sale-receipt-fiscal-preview"
-          />
-        ) : null}
-        {showingDualPreview && ticketPreviewHtml ? (
-          <PosPrintDocumentPreview
-            html={ticketPreviewHtml}
-            format="ticket_80mm"
-            title="Vista previa ticket interno (no tributario)"
-            loadingLabel="Preparando ticket complementario…"
-            data-test-id="pos-sale-receipt-ticket-preview"
-          />
-        ) : null}
-        {!showingFiscalBoletaPreview && !showingDualPreview ? (
-          <PosPrintDocumentPreview
-            html={previewSrcDoc}
-            format={wireFormat}
-            title={isDocument ? "Vista previa documento" : "Vista previa ticket"}
-            loadingLabel="Preparando vista previa…"
-            data-test-id="pos-sale-receipt-preview"
-          />
-        ) : null}
-      </div>
+      <PosSaleReceiptPreview
+        data={data}
+        printMode={printMode}
+        onPrintModeChange={setPrintMode}
+        documentFiscalTimbreSvg={documentFiscalTimbreSvg}
+        statusMessage={autoPrintStatus}
+        data-test-id="pos-payment-success-preview"
+      />
     </Dialog>
   );
 }

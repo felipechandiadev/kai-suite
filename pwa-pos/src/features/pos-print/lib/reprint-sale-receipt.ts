@@ -38,7 +38,7 @@ export async function loadPosSaleReceiptDataForReprint(
   };
 }
 
-async function loadReprintBundle(transactionId: string): Promise<
+export async function loadReprintBundle(transactionId: string): Promise<
   | {
       success: true;
       full: PosSaleReceiptData;

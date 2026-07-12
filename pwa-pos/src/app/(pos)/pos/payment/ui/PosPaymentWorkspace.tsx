@@ -2998,15 +2998,15 @@ export default function PosPaymentWorkspace({
             data-test-id="pos-payment-summary"
           >
           <div className="flex min-w-32 flex-col rounded-lg bg-slate-100/80 px-3 py-2 dark:bg-slate-800/40">
-            <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{amountDueLabel}</span>
-            <span className="text-lg font-bold tabular-nums text-slate-900 dark:text-slate-100 sm:text-xl">
+            <span className="text-sm font-medium text-slate-600 dark:text-slate-300 sm:text-base">{amountDueLabel}</span>
+            <span className="text-xl font-bold tabular-nums text-slate-900 dark:text-slate-100 sm:text-2xl">
               {formatMoney(amountToPay)}
             </span>
           </div>
           <div className="flex min-w-32 flex-col rounded-lg bg-sky-100/70 px-3 py-2 dark:bg-sky-900/30">
-            <span className="text-sm font-medium text-sky-700 dark:text-sky-300">Total recibido</span>
+            <span className="text-sm font-medium text-sky-700 dark:text-sky-300 sm:text-base">Total recibido</span>
             <span
-              className="text-lg font-bold tabular-nums text-sky-900 dark:text-sky-100 sm:text-xl"
+              className="text-xl font-bold tabular-nums text-sky-900 dark:text-sky-100 sm:text-2xl"
               data-test-id="pos-payment-applied-total"
             >
               {formatMoney(appliedTotal)}
@@ -3014,16 +3014,16 @@ export default function PosPaymentWorkspace({
           </div>
           {remaining > 0 ? (
             <div className="flex min-w-32 flex-col rounded-lg bg-amber-100/70 px-3 py-2 dark:bg-amber-900/30">
-              <span className="text-sm font-medium text-amber-800 dark:text-amber-300">Saldo restante</span>
-              <span className="text-lg font-bold tabular-nums text-amber-900 dark:text-amber-100 sm:text-xl">
+              <span className="text-sm font-medium text-amber-800 dark:text-amber-300 sm:text-base">Saldo restante</span>
+              <span className="text-xl font-bold tabular-nums text-amber-900 dark:text-amber-100 sm:text-2xl">
                 {formatMoney(remaining)}
               </span>
             </div>
           ) : null}
           {overpay > 0 ? (
             <div className="flex min-w-32 flex-col rounded-lg bg-emerald-100/70 px-3 py-2 dark:bg-emerald-900/30">
-              <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Vuelto</span>
-              <span className="text-lg font-bold tabular-nums text-emerald-900 dark:text-emerald-100 sm:text-xl">
+              <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300 sm:text-base">Vuelto</span>
+              <span className="text-xl font-bold tabular-nums text-emerald-900 dark:text-emerald-100 sm:text-2xl">
                 {formatMoney(overpay)}
               </span>
             </div>
@@ -3031,8 +3031,8 @@ export default function PosPaymentWorkspace({
           <div
             className={`flex min-w-32 flex-col rounded-lg px-3 py-2 ${paymentStatusBoxTone}`}
           >
-            <span className="text-sm font-medium opacity-80">Estado del pago</span>
-            <span className="text-lg font-bold sm:text-xl">{paymentStatusLabel}</span>
+            <span className="text-sm font-medium opacity-80 sm:text-base">Estado del pago</span>
+            <span className="text-xl font-bold sm:text-2xl">{paymentStatusLabel}</span>
           </div>
           </div>
         ) : null}

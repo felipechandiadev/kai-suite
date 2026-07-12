@@ -1,20 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { DataGrid, type DataGridColumn, Alert, IconButton, DotProgress } from "@kai/ui";
+import { DataGrid, type DataGridColumn, Alert, IconButton, DotProgress, Badge } from "@kai/ui";
+import { CashMovementReprintPreviewDialog } from "@/app/(pos)/cash/movements/ui/CashMovementReprintPreviewDialog";
+import { CashMovementSaleDetailDialog } from "@/app/(pos)/cash/movements/ui/CashMovementSaleDetailDialog";
+import { canReprintPosSaleReceipt } from "@/features/pos-print/lib/reprint-sale-receipt";
+import {
+  formatSaleDocumentFolio,
+  saleDocumentTypeBadgeVariant,
+  saleDocumentTypeLabel,
+} from "@/features/sales-transactions/lib/sale-document-type";
+import { paymentMethodLabelEs } from "@/features/pos-payment-methods/lib/payment-method-label";
+import { posTransactionTypeLabel } from "@/features/transactions/lib/pos-transaction-type-label";
 import { listCashSessionMovementsAction } from "@/features/session/actions/cash-session-movements.action";
 import type { CashSessionMovementRow } from "@/features/session/types/cash-session-movement.types";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
-import {
-  canReprintPosSaleReceipt,
-  reprintSaleDocument,
-  reprintSaleTicket,
-} from "@/features/pos-print/lib/reprint-sale-receipt";
-import { reprintFiscalBoleta } from "@/features/fiscal/print/reprint-fiscal-boleta";
-import { formatPrintJobFailedMessage } from "@kai/print-service-client";
-import { CashMovementSaleDetailDialog } from "@/app/(pos)/cash/movements/ui/CashMovementSaleDetailDialog";
-import { paymentMethodLabelEs } from "@/features/pos-payment-methods/lib/payment-method-label";
-import { posTransactionTypeLabel } from "@/features/transactions/lib/pos-transaction-type-label";
 
 function pad2(n: number): string {
   return n < 10 ? `0${n}` : String(n);
@@ -53,10 +53,11 @@ export default function CashMovementsPageClient() {
   const [rows, setRows] = useState<CashSessionMovementRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [printBusyId, setPrintBusyId] = useState<string | null>(null);
   const [printNotice, setPrintNotice] = useState<string | null>(null);
   const [detailTxId, setDetailTxId] = useState<string | null>(null);
   const [detailDocNumber, setDetailDocNumber] = useState<string | null>(null);
+  const [reprintTxId, setReprintTxId] = useState<string | null>(null);
+  const [reprintDocNumber, setReprintDocNumber] = useState<string | null>(null);
 
   useEffect(() => {
     const ctx = readPosContextClient();
@@ -106,28 +107,14 @@ export default function CashMovementsPageClient() {
     [rows],
   );
 
-  const handleReprintTicket = useCallback(async (row: CashSessionMovementRow) => {
-    setPrintNotice(null);
-    setPrintBusyId(`${row.id}:ticket`);
-    try {
-      const res = await reprintSaleTicket(movementTransactionId(row));
-      if (!res.success) {
-        setPrintNotice(res.message ?? "No se pudo reimprimir el ticket");
-        return;
-      }
-      if (res.channel === "browser") {
-        setPrintNotice(
-          "Ticket enviado al diálogo de impresión del navegador (KaiPrinters no disponible o sin impresora Tickets).",
-        );
-        return;
-      }
-      setPrintNotice("Ticket enviado a Kai Printers.");
-    } catch (e) {
-      const raw = e instanceof Error ? e.message : String(e);
-      setPrintNotice(formatPrintJobFailedMessage(raw));
-    } finally {
-      setPrintBusyId(null);
-    }
+  const openReprintPreview = useCallback((row: CashSessionMovementRow) => {
+    setReprintTxId(movementTransactionId(row));
+    setReprintDocNumber(row.documentNumber?.trim() || null);
+  }, []);
+
+  const closeReprintPreview = useCallback(() => {
+    setReprintTxId(null);
+    setReprintDocNumber(null);
   }, []);
 
   const openSaleDetail = useCallback((row: CashSessionMovementRow) => {
@@ -138,54 +125,6 @@ export default function CashMovementsPageClient() {
   const closeSaleDetail = useCallback(() => {
     setDetailTxId(null);
     setDetailDocNumber(null);
-  }, []);
-
-  const handleReprintFiscalBoleta = useCallback(async (row: CashSessionMovementRow) => {
-    setPrintNotice(null);
-    setPrintBusyId(`${row.id}:fiscal`);
-    try {
-      const res = await reprintFiscalBoleta(movementTransactionId(row));
-      if (!res.success) {
-        setPrintNotice(res.message ?? "No se pudo imprimir la boleta SII");
-        return;
-      }
-      if (res.channel === "browser") {
-        setPrintNotice(
-          "Boleta SII enviada al diálogo de impresión del navegador (KaiPrinters no disponible).",
-        );
-        return;
-      }
-      setPrintNotice("Boleta SII enviada a Kai Printers.");
-    } catch (e) {
-      const raw = e instanceof Error ? e.message : String(e);
-      setPrintNotice(formatPrintJobFailedMessage(raw));
-    } finally {
-      setPrintBusyId(null);
-    }
-  }, []);
-
-  const handleReprintDocument = useCallback(async (row: CashSessionMovementRow) => {
-    setPrintNotice(null);
-    setPrintBusyId(`${row.id}:doc`);
-    try {
-      const res = await reprintSaleDocument(movementTransactionId(row));
-      if (!res.success) {
-        setPrintNotice(res.message ?? "No se pudo imprimir el documento");
-        return;
-      }
-      if (res.channel === "browser") {
-        setPrintNotice(
-          "Documento enviado al diálogo de impresión del navegador (KaiPrinters no disponible o sin impresora Documentos).",
-        );
-        return;
-      }
-      setPrintNotice("Documento enviado a Kai Printers.");
-    } catch (e) {
-      const raw = e instanceof Error ? e.message : String(e);
-      setPrintNotice(formatPrintJobFailedMessage(raw));
-    } finally {
-      setPrintBusyId(null);
-    }
   }, []);
 
   const columns: DataGridColumn[] = useMemo(
@@ -205,6 +144,38 @@ export default function CashMovementsPageClient() {
         flex: 0.8,
         sortable: false,
         filterable: false,
+      },
+      {
+        field: "documentType",
+        headerName: "DTE",
+        width: 100,
+        minWidth: 88,
+        sortable: false,
+        filterable: false,
+        valueGetter: ({ row }: { row: CashSessionMovementRow }) =>
+          saleDocumentTypeLabel(row.documentType),
+        renderCell: ({ row }: { row: CashSessionMovementRow }) => (
+          <Badge variant={saleDocumentTypeBadgeVariant(row.documentType)}>
+            {saleDocumentTypeLabel(row.documentType)}
+          </Badge>
+        ),
+      },
+      {
+        field: "documentFolio",
+        headerName: "Folio DTE",
+        minWidth: 96,
+        flex: 0.5,
+        sortable: false,
+        filterable: false,
+        valueGetter: ({ row }: { row: CashSessionMovementRow }) =>
+          formatSaleDocumentFolio(row.documentType, row.documentFolio),
+        renderCell: ({ row }: { row: CashSessionMovementRow }) => {
+          const folio = formatSaleDocumentFolio(row.documentType, row.documentFolio);
+          if (folio === "—") {
+            return <span className="text-muted-foreground">—</span>;
+          }
+          return <span className="font-mono text-xs">{folio}</span>;
+        },
       },
       {
         field: "typeLabel",
@@ -264,9 +235,9 @@ export default function CashMovementsPageClient() {
       {
         field: "actions",
         headerName: "",
-        width: 128,
-        minWidth: 128,
-        maxWidth: 128,
+        width: 88,
+        minWidth: 88,
+        maxWidth: 88,
         sortable: false,
         filterable: false,
         align: "center",
@@ -279,49 +250,17 @@ export default function CashMovementsPageClient() {
           if (!isSale && !canPrint) {
             return <span className="text-xs text-muted-foreground">—</span>;
           }
-          const ticketBusy = printBusyId === `${row.id}:ticket`;
-          const docBusy = printBusyId === `${row.id}:doc`;
-          const fiscalBusy = printBusyId === `${row.id}:fiscal`;
-          const anyBusy = printBusyId != null;
           return (
             <div className="flex items-center justify-center gap-1">
               {canPrint ? (
-                <>
-                  <IconButton
-                    icon="Receipt"
-                    variant="action"
-                    size="sm"
-                    ariaLabel="Reimprimir ticket"
-                    title="Reimprimir ticket (80 mm)"
-                    disabled={anyBusy && !ticketBusy}
-                    isLoading={ticketBusy}
-                    onClick={() => void handleReprintTicket(row)}
-                    data-test-id={`cash-movements-reprint-ticket-${row.id}`}
-                  />
-                  <IconButton
-                    icon="FileText"
-                    variant="action"
-                    size="sm"
-                    ariaLabel="Imprimir documento"
-                    title="Imprimir documento (hoja)"
-                    disabled={anyBusy && !docBusy}
-                    isLoading={docBusy}
-                    onClick={() => void handleReprintDocument(row)}
-                    data-test-id={`cash-movements-reprint-document-${row.id}`}
-                  />
-                </>
-              ) : null}
-              {isSale ? (
                 <IconButton
-                  icon="FileCheck"
+                  icon="Printer"
                   variant="action"
                   size="sm"
-                  ariaLabel="Imprimir boleta SII"
-                  title="Imprimir boleta electrónica SII"
-                  disabled={anyBusy && !fiscalBusy}
-                  isLoading={fiscalBusy}
-                  onClick={() => void handleReprintFiscalBoleta(row)}
-                  data-test-id={`cash-movements-reprint-fiscal-${row.id}`}
+                  ariaLabel="Reimprimir comprobante"
+                  title="Reimprimir comprobante"
+                  onClick={() => openReprintPreview(row)}
+                  data-test-id={`cash-movements-reprint-${row.id}`}
                 />
               ) : null}
               {isSale ? (
@@ -331,7 +270,6 @@ export default function CashMovementsPageClient() {
                   size="sm"
                   ariaLabel="Ver detalle de la venta"
                   title="Detalle de la venta"
-                  disabled={anyBusy}
                   onClick={() => openSaleDetail(row)}
                   data-test-id={`cash-movements-sale-detail-${row.id}`}
                 />
@@ -341,7 +279,7 @@ export default function CashMovementsPageClient() {
         },
       },
     ],
-    [handleReprintDocument, handleReprintFiscalBoleta, handleReprintTicket, openSaleDetail, printBusyId],
+    [openReprintPreview, openSaleDetail],
   );
 
   return (
@@ -361,6 +299,14 @@ export default function CashMovementsPageClient() {
           {printNotice}
         </Alert>
       ) : null}
+
+      <CashMovementReprintPreviewDialog
+        open={reprintTxId != null}
+        transactionId={reprintTxId}
+        documentNumber={reprintDocNumber}
+        onClose={closeReprintPreview}
+        onPrintNotice={setPrintNotice}
+      />
 
       <CashMovementSaleDetailDialog
         open={detailTxId != null}

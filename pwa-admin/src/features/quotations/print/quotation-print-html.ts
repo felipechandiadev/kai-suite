@@ -211,8 +211,8 @@ export function buildQuotationDocumentHtml(input: QuotationPrintInput): string {
         <td class="muted">${idx + 1}</td>
         <td><span>${escapeHtml(l.productName)}</span>${variant}</td>
         <td class="muted">${sku}</td>
-        <td class="num">${qty}</td>
-        <td class="num">${formatMoney(price)}</td>
+        <td class="numl">${qty}</td>
+        <td class="numl">${formatMoney(price)}</td>
         <td class="num">${formatMoney(lineTotal)}</td>
       </tr>`;
     })
@@ -244,16 +244,17 @@ export function buildQuotationDocumentHtml(input: QuotationPrintInput): string {
   body { margin: 0; padding: 0; color: #111827; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; font-size: 11px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .page { width: 100%; max-width: 190mm; margin: 0 auto; padding: 4mm 0; }
   ${DOCUMENT_HEADER_PRINT_CSS}
-  .summaryGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem 1.25rem; margin-bottom: 0.9rem; }
-  .field { font-size: 11px; color: #111827; }
+  .summaryGrid { display: flex; flex-direction: column; align-items: flex-start; gap: 0.55rem; margin-bottom: 0.9rem; }
+  .field { font-size: 11px; color: #111827; text-align: left; }
   .label { font-size: 10px; color: #6b7280; margin: 0 0 0.2rem 0; text-transform: uppercase; letter-spacing: 0.06em; }
   .value { margin: 0; font-size: 11px; line-height: 1.35; font-weight: 700; color: #111827; }
   .muted { color: #6b7280; font-weight: 500; }
-  .customerIdentity { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; font-size: 11px; color: #111827; }
+  .customerIdentity { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; font-size: 11px; color: #111827; text-align: left; }
   .table { width: 100%; border-collapse: collapse; font-size: 9.5px; }
   .thead th { text-align: left; padding: 0.3rem 0.45rem; border-bottom: 1px solid rgba(17, 24, 39, 0.22); color: #374151; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
   .tbody td { padding: 0.32rem 0.45rem; border-bottom: 1px solid rgba(17, 24, 39, 0.12); vertical-align: top; }
   .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .numl { text-align: left; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .printTotals { margin-top: 0.85rem; border: 1px solid rgba(17, 24, 39, 0.18); border-radius: 6px; padding: 0.32rem 0.5rem; font-size: 9px; color: #111827; }
   .printTotalsRow { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; padding: 0.12rem 0; }
   .printTotalsTotalRow { margin-top: 0.1rem; padding-top: 0.22rem; border-top: 1px solid rgba(17, 24, 39, 0.16); font-weight: 800; }
@@ -288,8 +289,8 @@ export function buildQuotationDocumentHtml(input: QuotationPrintInput): string {
           <th style="width:4ch">#</th>
           <th>Producto</th>
           <th style="width:18ch">SKU</th>
-          <th class="num" style="width:10ch">Cant.</th>
-          <th class="num" style="width:14ch">Precio</th>
+          <th class="numl" style="width:10ch">Cant.</th>
+          <th class="numl" style="width:14ch">Precio</th>
           <th class="num" style="width:14ch">Total</th>
         </tr>
       </thead>

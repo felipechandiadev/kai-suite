@@ -6,6 +6,10 @@ export type CashSessionMovementRow = {
   id: string;
   transactionType: string;
   documentNumber: string;
+  /** Tipo de documento tributario (`transactions.documentType`). */
+  documentType?: string | null;
+  /** Folio del documento tributario (`transactions.documentFolio`). */
+  documentFolio?: string | null;
   createdAt: string;
   total: number;
   paymentMethod: string;

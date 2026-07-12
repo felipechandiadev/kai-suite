@@ -9,6 +9,10 @@ export interface SessionMovement {
   id: string;
   transactionType: TransactionType;
   documentNumber: string;
+  /** Tipo de documento tributario (`transactions.documentType`). */
+  documentType?: string | null;
+  /** Folio del documento tributario (`transactions.documentFolio`). */
+  documentFolio?: string | null;
   createdAt?: Date;
   total: number;
   paymentMethod?: string;
@@ -75,6 +79,8 @@ export class GetMovementsForSessionQueryHandler implements IQueryHandler<GetMove
       id: tx.id,
       transactionType: tx.transactionType,
       documentNumber: tx.documentNumber,
+      documentType: tx.documentType ?? null,
+      documentFolio: tx.documentFolio ?? null,
       createdAt: tx.createdAt,
       total: Number(tx.total || 0),
       paymentMethod: tx.paymentMethod,
