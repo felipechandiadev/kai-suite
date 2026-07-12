@@ -14,6 +14,23 @@
     ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
     monospace;
 
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-sans);
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.625;
+
+  --letter-spacing-tight: -0.02em;
+  --letter-spacing-normal: 0em;
+  --letter-spacing-wide: 0.05em;
+
   color-scheme: light;
 
   /* Fuente de verdad (cambia en @media dark); @theme referencia var(--fs-*) */
@@ -55,6 +72,21 @@
   --color-neutral: var(--fs-neutral);
   --color-hover: color-mix(in srgb, var(--fs-neutral) 65%, var(--fs-background));
 
+  --color-link: var(--color-primary);
+  --color-text-primary: var(--color-foreground);
+  --color-text-secondary: var(--color-muted-foreground);
+  --color-text-link: var(--color-link);
+  --color-text-disabled: color-mix(in srgb, var(--color-muted-foreground) 72%, transparent);
+  --color-text-on-primary: #ffffff;
+  --color-text-on-success: #ffffff;
+  --color-text-on-warning: #ffffff;
+  --color-text-on-error: #ffffff;
+  --color-text-positive: var(--color-success);
+  --color-text-negative: var(--color-error);
+  --color-text-info: var(--color-info);
+  --color-text-warning: var(--color-warning);
+  --color-text-error: var(--color-error);
+
   --app-topbar-height: 3.75rem;
   --app-sidebar-width: 3.5rem;
   --app-bottom-nav-height: 3.75rem;
@@ -69,6 +101,7 @@
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-display);
 
   --app-topbar-height: 3.75rem;
   --app-sidebar-width: 3.5rem;
@@ -92,15 +125,29 @@
   --color-destructive-foreground: var(--fs-destructive-foreground);
   --color-neutral: var(--fs-neutral);
   --color-hover: color-mix(in srgb, var(--fs-neutral) 65%, var(--fs-background));
+  --color-link: var(--color-link);
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-link: var(--color-text-link);
+  --color-text-disabled: var(--color-text-disabled);
+  --color-text-on-primary: var(--color-text-on-primary);
+  --color-text-on-success: var(--color-text-on-success);
+  --color-text-on-warning: var(--color-text-on-warning);
+  --color-text-on-error: var(--color-text-on-error);
+  --color-text-positive: var(--color-text-positive);
+  --color-text-negative: var(--color-text-negative);
+  --color-text-info: var(--color-text-info);
+  --color-text-warning: var(--color-text-warning);
+  --color-text-error: var(--color-text-error);
 }
 
 @layer base {
   html {
-    font-family: var(--font-geist-sans);
+    font-family: var(--font-sans);
   }
 
   body {
-    font-family: var(--font-geist-sans);
+    font-family: var(--font-sans);
     background-color: var(--fs-background);
     color: var(--fs-foreground);
   }
@@ -169,6 +216,7 @@
     --fs-accent: #02578b;
 
     --color-hover: color-mix(in srgb, var(--fs-neutral) 40%, var(--fs-background));
+    --color-text-disabled: color-mix(in srgb, var(--fs-muted-foreground) 55%, transparent);
 
     --color-sidebar-bg: rgba(18, 18, 18, 0.3);
     --sidebar-backdrop-blur: 8px;

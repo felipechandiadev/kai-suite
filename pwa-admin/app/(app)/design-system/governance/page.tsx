@@ -35,6 +35,7 @@ export default function DesignSystemGovernancePage() {
         <ol className="list-inside list-decimal space-y-2 text-sm text-muted-foreground">
           <li>Elegir layout en Patrones → Layouts.</li>
           <li>Usar tokens (Foundations → Colores); prohibido hex suelto en JSX/CSS de feature.</li>
+          <li>Tipografía: usar tokens de `typographyTokens.ts` y reglas de `typographyRules.ts`; no clases sueltas (`text-muted`, `text-primary` como link).</li>
           <li>Importar primitivos desde @kai/ui, no desde stubs legacy en shared/components.</li>
           <li>Listado: TabPageLayout compact + DataGrid con title y headerActions documentados.</li>
           <li>Formulario: Zod + Server Action; Alert para feedback; Dialog para destructivo.</li>

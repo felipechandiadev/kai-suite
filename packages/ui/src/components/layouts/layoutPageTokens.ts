@@ -1,4 +1,8 @@
 import { DATA_GRID_TAB_LAYOUT_FALLBACK_EXTRA_PX } from "../DataGrid/utils/useDataGridFillViewportHeight";
+import {
+  typographyPageSubtitleClassName,
+  typographyPageTitleClassName,
+} from "./typographyTokens";
 
 /**
  * Clases compartidas entre {@link BasicPageLayout}, {@link TabPageLayout} y {@link CollectionPageLayout}
@@ -15,10 +19,9 @@ export const layoutPageRootClassNameCompact =
 export const layoutPageHeaderClassName = "w-full min-w-0";
 
 /** Título principal (h1). En Collection la fila compacta añade `whitespace-nowrap`. */
-export const layoutPageTitleClassName =
-  "text-lg font-semibold tracking-tight text-foreground";
+export const layoutPageTitleClassName = typographyPageTitleClassName;
 
-export const layoutPageSubtitleClassName = "mt-1 text-sm text-muted-foreground";
+export const layoutPageSubtitleClassName = typographyPageSubtitleClassName;
 
 /** Contenedor principal bajo la cabecera (scroll / flex en página). */
 export const layoutPageContentClassName =

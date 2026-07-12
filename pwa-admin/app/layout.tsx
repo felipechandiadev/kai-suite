@@ -1,23 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AuthProvider from '@/providers/AuthProvider';
 import ErrorHandlerProvider from '@/providers/ErrorHandlerProvider';
 import AdminAmbientBackground from '@/shared/components/AdminAmbientBackground/AdminAmbientBackground';
+import { adminFontClassName } from '@/shared/fonts/admin-fonts';
 
 const THEME_COLOR = "#002B59";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 const APP_TITLE = "KaiStore | Administración";
 
 export const metadata: Metadata = {
@@ -68,7 +57,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content={APP_TITLE} />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} min-h-full flex flex-col`}>
+      <body className={`${adminFontClassName} min-h-full flex flex-col`}>
         <div className="kai-admin-app-shell flex min-h-dvh flex-1 flex-col">
           <AdminAmbientBackground />
           <div className="relative z-10 flex min-h-dvh flex-1 flex-col">

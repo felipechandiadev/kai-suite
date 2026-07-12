@@ -20,7 +20,7 @@ Abrir en dev: **http://localhost:5031/design-system**
 ├── /                          Hub
 ├── /foundations
 │   ├── /colors                Tokens y reglas semánticas
-│   ├── /typography            Inter, escala h1–caption
+│   ├── /typography            Contrato global: roles ERP, POS, eShop, reglas
 │   ├── /spacing-and-borders   gap layouts, color-mix líneas
 │   └── /interaction           hover, focus, disabled
 ├── /patterns
@@ -36,7 +36,7 @@ Navegación centralizada: `pwa-admin/src/navigation/designSystemNav.ts`
 ## Foundations
 
 - **Colores**: solo `var(--color-*)` y clases Tailwind mapeadas en `@theme inline`. Nuevo token → `globals.css` + `tokens.css` + showcase.
-- **Tipografía**: `layoutPageTitleClassName` para h1 de página; `text-muted` para secundario.
+- **Tipografía**: contrato global en `typographyTokens.ts` (roles por contexto: jerarquía, formularios, DataGrid, montos, POS, eShop) y `typographyRules.ts` (grupos, reglas, antipatrones). `layoutPageTitleClassName` es alias de `typographyPageTitleClassName`. Montos negativos en UI: signo explícito (`- $48.200`), no paréntesis contables. Texto secundario: `text-muted-foreground` / `typographyMutedClassName`, no `text-muted`. Enlaces: `typographyLinkClassName` / `text-link`. Showcase: `/design-system/foundations/typography`.
 - **Espaciado**: `gap-4` (layout normal), `gap-2` (TabPageLayout compact + DataGrid).
 - **Bordes**: `border-border` o `color-mix(border 55%, transparent)` en grids.
 
