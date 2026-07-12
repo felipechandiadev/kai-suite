@@ -151,7 +151,7 @@ const Select: React.FC<SelectProps> = ({
   const defaultComboShellClass = (
     insetShell?: boolean,
   ) =>
-    `relative w-full rounded-md border border-border focus-within:border-primary ${
+    `relative w-full rounded-md border border-border focus-within:border-primary fs-text-field__combo-shell ${
       insetShell
         ? isCompact
           ? "flex h-8 min-h-8 w-full min-w-0 items-stretch box-border"

@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useContext, useCallback } from 'react';
+import React, { useState, useContext, useCallback, useTransition } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { ImageOff, Image as ImageIcon, Wifi, WifiOff } from 'lucide-react';
@@ -119,8 +119,12 @@ const TopBar: React.FC<TopBarProps & { className?: string }> = ({
     briefWsErrorMessages: true,
   });
 
+  const [isRefreshing, startRefresh] = useTransition();
+
   const handleRefresh = useCallback(() => {
-    router.refresh();
+    startRefresh(() => {
+      router.refresh();
+    });
   }, [router]);
 
   return (
@@ -276,10 +280,11 @@ const TopBar: React.FC<TopBarProps & { className?: string }> = ({
 
             <IconButton
               icon="RefreshCw"
-              variant="action"
+              variant="text"
               size="md"
               strokeWidth={2.5}
               onClick={handleRefresh}
+              isLoading={isRefreshing}
               ariaLabel="Recargar página"
               data-test-id="top-bar-refresh-button"
             />

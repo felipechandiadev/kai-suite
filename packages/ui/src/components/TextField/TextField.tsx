@@ -497,9 +497,9 @@ export const TextField: React.FC<TextFieldProps> = ({
     : variante === "autocomplete"
     ? "border-none focus:border-none focus:ring-0 bg-transparent"
     : "text-foreground border-border focus:border-primary bg-transparent";
-  const contrastLabel = variante === "contrast"
-  ? "bg-foreground text-background"
-  : "bg-background text-foreground";
+
+  const controlSurfaceStyle: React.CSSProperties | undefined =
+    variante === "contrast" ? { ["--tf-surface" as string]: "var(--color-primary)" } : undefined;
 
   const borderlessInputClass =
     variante === "autocomplete" ? "fs-text-field__input--borderless" : "";
@@ -600,6 +600,7 @@ export const TextField: React.FC<TextFieldProps> = ({
   const controlEl = (
       <div
         className={`fs-text-field__control relative ${className}`.trim()}
+        style={controlSurfaceStyle}
         data-test-id="text-field-root"
       >
       {hasStartSymbol && (
@@ -764,9 +765,9 @@ export const TextField: React.FC<TextFieldProps> = ({
       {/* Placeholder personalizado para campos requeridos */}
       {required && !hasInputValue && showPlaceholder && !isCompact && (
         <div
-          className={`absolute pointer-events-none text-sm font-medium text-muted-foreground transition-opacity duration-300 ${shrink ? 'opacity-0' : 'opacity-100'}`}
+          className={`absolute pointer-events-none text-sm text-muted-foreground transition-opacity duration-300 ${shrink ? 'opacity-0' : 'opacity-100'}`}
           style={{
-            backgroundColor: "var(--color-background)",
+            backgroundColor: "var(--tf-surface, var(--color-background))",
             left: floatingStartLeft,
             paddingRight:
               hasEndAdornment && endAdornmentSlotPx > 0
@@ -780,7 +781,6 @@ export const TextField: React.FC<TextFieldProps> = ({
           onClick={focusField}
         >
           {type === "datePicker" ? `Ej: ${new Date().getFullYear()}` : (placeholder ?? label)}
-          <span className="text-red-500 ml-1">*</span>
         </div>
       )}
       {/* Inject scoped placeholder style if requested */}
@@ -789,9 +789,10 @@ export const TextField: React.FC<TextFieldProps> = ({
       )}
       {!isCompact ? (
       <label
-        className={`absolute z-20 -top-1 pointer-events-none transition-all duration-300 ease-in-out px-1 font-medium text-xs text-foreground rounded-md bg-background` +
+        className={`absolute z-20 -top-1 pointer-events-none transition-all duration-300 ease-in-out px-1 font-medium text-xs rounded-md fs-text-field__floating-label ` +
+          (variante === "contrast" ? "text-background" : "text-foreground") +
           (shrink ? " -translate-y-1 scale-90 opacity-100" : " opacity-0")}
-        style={{ left: floatingStartLeft }}
+        style={{ left: floatingStartLeft, marginTop: "-2px", ...labelStyle }}
         onClick={focusField}
         htmlFor={inputDomId}
         data-test-id="text-field-label"

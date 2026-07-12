@@ -2,8 +2,23 @@
  * TextField y agrupación de formulario. Colores: --color-* (tema en globals :root).
  */
 .fs-text-field {
+  --tf-surface: var(--color-background, #fff);
   position: relative;
   width: 100%;
+}
+
+.fs-text-field__control {
+  --tf-surface: var(--color-background, #fff);
+}
+
+/* Label flotante uniforme: máscara con la superficie real del control (--tf-surface). */
+.fs-text-field__floating-label {
+  background-color: var(--tf-surface, var(--color-background, #fff));
+}
+
+/* Shell de Select/AutoComplete: el borde vive aquí; el label hereda la misma superficie. */
+.fs-text-field__combo-shell {
+  --tf-surface: var(--color-background, #fff);
 }
 
 /* Sin shorthand `padding` aquí: si no, pisa el padding-left de Tailwind (pl-9) y el texto tapa al icono. */
