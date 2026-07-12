@@ -3,6 +3,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataGridTable as DataGrid, IconButton, type DataGridColumn } from "@kai/ui";
+import { documentTypeLabel } from "@/features/sales-customers/lib/customer-document-labels";
+import type { CustomerListRow } from "@/features/sales-customers/types/customer.types";
 import { CreateCustomerDialog } from "./CreateCustomerDialog";
 import { CustomerDetailDialog } from "./CustomerDetailDialog";
 

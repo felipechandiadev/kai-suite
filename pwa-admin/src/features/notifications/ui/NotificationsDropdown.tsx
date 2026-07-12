@@ -80,7 +80,7 @@ export function NotificationsDropdown() {
       <div className="relative inline-flex shrink-0">
         <IconButton
           icon="Bell"
-          variant="action"
+          variant="text"
           size="md"
           strokeWidth={2.5}
           ariaLabel={`Notificaciones${unreadCount > 0 ? `: ${unreadCount} sin leer` : ""}`}

@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@source "../../../packages/ui/src";
+@source "../../packages/ui/src";
 
 /**
  * Tipografía: Inter autohospedada (next/font/local) — ver src/shared/fonts/admin-fonts.ts.
@@ -40,7 +40,7 @@
   --color-background: #ffffff;
   --color-foreground: #131615;
   --color-border: #a5c2c2;
-  --color-active: #02578b;
+  --color-active: #034b78;
   --color-accent: #02578b;
   --color-secondary: #00deef;
   --color-muted: #cfeef0;
@@ -131,7 +131,7 @@
     --color-warning: #e6a100;
     --color-error: #d64545;
     --color-hover: color-mix(in srgb, var(--color-neutral) 40%, var(--color-background));
-    --color-active: #02578b;
+    --color-active: #034b78;
     --color-accent: #02578b;
     --color-secondary: #00deef;
     --color-text-disabled: color-mix(in srgb, var(--color-muted-foreground) 55%, transparent);
