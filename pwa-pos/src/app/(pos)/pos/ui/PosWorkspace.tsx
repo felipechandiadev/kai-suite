@@ -13,7 +13,7 @@ import {
   type PosPriceListSnapshot,
 } from "@/features/session/lib/pos-context-storage";
 import { Alert, Button, Dialog, IconButton } from "@kai/ui";
-import { ArrowUpFromLine, Package, RotateCcw, ShoppingCart } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 import { createPresaleTicketAction } from "@/features/presale-tickets/actions/presale-tickets.action";
 import { printPresaleTicketAgentOrBrowser } from "@/features/presale-tickets/lib/presale-ticket-agent";
 import type { PresaleTicketDetail } from "@/features/presale-tickets/types/presale-ticket.types";
@@ -393,24 +393,26 @@ export default function PosWorkspace() {
         <div className="flex shrink-0 items-start justify-between gap-2">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             {quotationsEnabled && !isPresaleMode && !isOffline ? (
-            <Button
+            <IconButton
+              icon="File"
               variant="outlined"
               size="sm"
               onClick={() => setLoadQuotationOpen(true)}
               disabled={cartLocked}
+              ariaLabel="Cotización"
+              title="Cargar cotización"
               data-test-id="pos-load-quotation-btn"
               className="shrink-0"
-            >
-              <ArrowUpFromLine size={14} className="shrink-0" aria-hidden />
-              <span>Cotización</span>
-            </Button>
+            />
             ) : null}
             {!isPresaleMode && !isOffline ? (
-            <Button
+            <IconButton
+              icon="RotateCcw"
               variant="outlined"
               size="sm"
               onClick={() => setLoadReturnOpen(true)}
               disabled={(isReturnMode || isFulfillBackorderMode) && cart.lines.length > 0}
+              ariaLabel="Devolución"
               title={
                 isFulfillBackorderMode && cart.lines.length > 0
                   ? "Desvincule el encargo actual para cargar una devolución"
@@ -420,17 +422,16 @@ export default function PosWorkspace() {
               }
               data-test-id="pos-load-return-btn"
               className="shrink-0"
-            >
-              <RotateCcw size={14} className="shrink-0" aria-hidden />
-              <span>Devolución</span>
-            </Button>
+            />
             ) : null}
             {!isPresaleMode && !isOffline ? (
-            <Button
+            <IconButton
+              icon="Package"
               variant="outlined"
               size="sm"
               onClick={() => setLoadBackorderOpen(true)}
               disabled={isFulfillBackorderMode && cart.lines.length > 0}
+              ariaLabel="Encargo"
               title={
                 isFulfillBackorderMode && cart.lines.length > 0
                   ? "Desvincule el encargo actual para cargar otro"
@@ -438,10 +439,7 @@ export default function PosWorkspace() {
               }
               data-test-id="pos-load-backorder-btn"
               className="shrink-0"
-            >
-              <Package size={14} className="shrink-0" aria-hidden />
-              <span>Encargo</span>
-            </Button>
+            />
             ) : null}
           </div>
           <div className="flex items-center gap-2">

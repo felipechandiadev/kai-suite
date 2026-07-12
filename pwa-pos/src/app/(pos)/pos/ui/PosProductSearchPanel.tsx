@@ -513,7 +513,7 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
           draftSearch.length > 0 ? (
             <IconButton
               icon="X"
-              variant="basic"
+              variant="action"
               size="xs"
               ariaLabel="Limpiar búsqueda"
               title="Limpiar búsqueda"

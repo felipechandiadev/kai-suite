@@ -300,12 +300,24 @@ function PosPaymentMethodCard({
               alwaysShowLabel
               className="w-full min-w-0"
               endAdornment={
-                amountLocked ? null : (
-                <span className="inline-flex items-center">
-                  {remaining > 0.01 && !isInternalCreditLine ? (
+                <span className="inline-flex items-center gap-0.5">
+                  {onEditInternalCredit ? (
+                    <IconButton
+                      icon="Pencil"
+                      variant="action"
+                      size="xs"
+                      ariaLabel="Editar crédito interno"
+                      title="Editar crédito interno"
+                      disabled={confirmLoading}
+                      onMouseDown={(e: MouseEvent<HTMLButtonElement>) => e.preventDefault()}
+                      onClick={onEditInternalCredit}
+                      data-test-id={`pos-payment-edit-internal-credit-${p.id}`}
+                    />
+                  ) : null}
+                  {remaining > 0.01 && !isInternalCreditLine && !amountLocked ? (
                     <IconButton
                       icon="ArrowUpToLine"
-                      variant="neutral"
+                      variant="action"
                       size="xs"
                       ariaLabel="Rellenar con saldo pendiente"
                       title="Rellenar con saldo pendiente"
@@ -315,50 +327,36 @@ function PosPaymentMethodCard({
                       data-test-id={`pos-payment-fill-remaining-${p.id}`}
                     />
                   ) : null}
+                  {!amountLocked ? (
+                    <IconButton
+                      icon="X"
+                      variant="action"
+                      size="xs"
+                      ariaLabel="Limpiar monto"
+                      title="Limpiar monto"
+                      disabled={confirmLoading}
+                      onMouseDown={(e: MouseEvent<HTMLButtonElement>) => e.preventDefault()}
+                      onClick={() => onClearAmount(p.id)}
+                      data-test-id={`pos-payment-clear-amount-${p.id}`}
+                    />
+                  ) : null}
                   <IconButton
-                    icon="X"
-                    variant="neutral"
+                    icon="Trash2"
+                    variant="action"
                     size="xs"
-                    ariaLabel="Limpiar monto"
-                    title="Limpiar monto"
-                    disabled={confirmLoading}
+                    ariaLabel="Quitar medio de pago"
+                    title="Quitar medio de pago"
+                    disabled={paymentsCount <= 1 || confirmLoading || amountLocked}
                     onMouseDown={(e: MouseEvent<HTMLButtonElement>) => e.preventDefault()}
-                    onClick={() => onClearAmount(p.id)}
-                    data-test-id={`pos-payment-clear-amount-${p.id}`}
+                    onClick={() => onRemove(p.id)}
+                    data-test-id={`pos-payment-remove-line-${p.id}`}
                   />
                 </span>
-                )
               }
               data-test-id={
                 index === 0 ? "pos-payment-default-cash-amount" : `pos-payment-line-amount-${p.id}`
               }
               onKeyDown={(e) => paymentFieldConfirmOnEnter(e, onConfirmEnter)}
-            />
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            {onEditInternalCredit ? (
-              <IconButton
-                icon="Pencil"
-                variant="action"
-                size="sm"
-                className="shrink-0"
-                ariaLabel="Editar crédito interno"
-                title="Editar crédito interno"
-                disabled={confirmLoading}
-                onClick={onEditInternalCredit}
-                data-test-id={`pos-payment-edit-internal-credit-${p.id}`}
-              />
-            ) : null}
-            <IconButton
-              icon="Trash2"
-              variant="action"
-              size="sm"
-              className="shrink-0"
-              ariaLabel="Quitar medio de pago"
-              title="Quitar medio de pago"
-              disabled={paymentsCount <= 1 || confirmLoading || amountLocked}
-              onClick={() => onRemove(p.id)}
-              data-test-id={`pos-payment-remove-line-${p.id}`}
             />
           </div>
         </div>
