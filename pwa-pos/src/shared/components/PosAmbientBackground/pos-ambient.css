@@ -1,4 +1,4 @@
-.admin-ambient-blob {
+.pos-ambient-blob {
   position: absolute;
   height: 20rem;
   width: 20rem;
@@ -7,25 +7,25 @@
   opacity: 0.16;
 }
 
-.admin-ambient-blob--accent {
+.pos-ambient-blob--accent {
   top: -6rem;
   left: -2.5rem;
   background-color: color-mix(in srgb, var(--color-accent) 65%, var(--color-background));
 }
 
-.admin-ambient-blob--secondary {
+.pos-ambient-blob--secondary {
   top: -3rem;
   right: -2.5rem;
   background-color: var(--color-secondary);
 }
 
-.admin-ambient-blob--soft {
+.pos-ambient-blob--soft {
   bottom: -5rem;
   left: 25%;
   background-color: color-mix(in srgb, var(--color-accent-soft) 60%, var(--color-background));
 }
 
-.admin-ambient-blob--primary-mid {
+.pos-ambient-blob--primary-mid {
   top: 42%;
   right: 15%;
   height: 18rem;
@@ -34,7 +34,7 @@
   background-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-background));
 }
 
-.admin-ambient-blob--accent-low {
+.pos-ambient-blob--accent-low {
   top: 68%;
   left: -3rem;
   height: 22rem;
@@ -42,7 +42,7 @@
   background-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-background));
 }
 
-.admin-ambient-blob--success {
+.pos-ambient-blob--success {
   bottom: 8%;
   right: -4rem;
   height: 16rem;
@@ -52,15 +52,15 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  .admin-ambient-blob {
+  .pos-ambient-blob {
     opacity: 0.1;
   }
 
-  .admin-ambient-blob--primary-mid {
+  .pos-ambient-blob--primary-mid {
     opacity: 0.08;
   }
 
-  .admin-ambient-blob--success {
+  .pos-ambient-blob--success {
     opacity: 0.07;
   }
 }

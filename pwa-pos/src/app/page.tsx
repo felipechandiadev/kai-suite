@@ -10,6 +10,7 @@ import {
   type PosCompanyConfig,
 } from "@/features/company/storage/pos-company-storage";
 import { usePosTabletDensity } from "@/shared/hooks/usePosTabletDensity";
+import PosAmbientBackground from "@/shared/components/PosAmbientBackground/PosAmbientBackground";
 
 const POST_LOGIN_PATH = "/session-setup";
 
@@ -67,10 +68,15 @@ export default function LoginPage() {
   if (!hydrated || sessionStatus === "loading" || sessionStatus === "authenticated") {
     return (
       <div
-        className="flex min-h-dvh items-center justify-center bg-background px-6"
+        className="flex min-h-dvh items-center justify-center px-6"
+        style={{
+          backgroundColor:
+            "color-mix(in srgb, var(--color-neutral) 30%, var(--color-background))",
+        }}
         data-test-id={
           sessionStatus === "authenticated" ? "login-session-redirect" : "login-loading"
         }
+        suppressHydrationWarning
       />
     );
   }
@@ -81,10 +87,15 @@ export default function LoginPage() {
   if (!posCompany) {
     return (
       <div
-        className="flex min-h-dvh items-center justify-center bg-background px-6"
+        className="relative flex min-h-dvh items-center justify-center px-6"
+        style={{
+          backgroundColor:
+            "color-mix(in srgb, var(--color-neutral) 30%, var(--color-background))",
+        }}
         data-test-id="login-unconfigured-root"
       >
-        <div className="w-full max-w-md rounded-lg border border-border bg-surface p-8 shadow-md">
+        <PosAmbientBackground />
+        <div className="relative z-10 w-full max-w-md rounded-lg border border-border bg-surface p-8 shadow-md">
           <div className="mb-4 flex items-center gap-3 text-gray-700">
             <Store className="h-6 w-6 shrink-0 text-secondary" strokeWidth={2} aria-hidden />
             <h1 className="text-xl font-bold">POS no configurado</h1>
@@ -112,10 +123,15 @@ export default function LoginPage() {
 
   return (
     <div
-      className="flex min-h-dvh items-center justify-center bg-background px-6"
+      className="relative flex min-h-dvh items-center justify-center px-6"
+      style={{
+        backgroundColor:
+          "color-mix(in srgb, var(--color-neutral) 30%, var(--color-background))",
+      }}
       data-test-id="login-root"
     >
-      <div className="w-full max-w-md rounded-lg border border-border bg-surface p-8 shadow-md">
+      <PosAmbientBackground />
+      <div className="relative z-10 w-full max-w-md rounded-lg border border-border bg-surface p-8 shadow-md">
         <div className="mb-6 flex flex-col items-center text-center">
           <img
             src="/logo.png"
@@ -153,6 +169,7 @@ export default function LoginPage() {
               onChange={(e) => setUserName(e.target.value)}
               placeholder=""
               required
+              alwaysShowLabel
               disabled={submitting}
               autoComplete="username"
               className="w-full"
@@ -167,6 +184,7 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder=""
               required
+              alwaysShowLabel
               disabled={submitting}
               autoComplete="current-password"
               className="w-full"

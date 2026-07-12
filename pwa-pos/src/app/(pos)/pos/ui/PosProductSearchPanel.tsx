@@ -20,6 +20,10 @@ import {
   writePosProductSearchShowFavorites,
 } from "@/features/pos-products/lib/posProductSearchStorage";
 import {
+  isCameraSecureContext,
+  prefersCameraUserGesture,
+} from "@/features/pos-products/lib/barcode-scanner-camera";
+import {
   addPosProductSearchFocusListener,
   requestPosProductSearchFocus,
 } from "@/features/pos-products/lib/pos-product-search-focus";
@@ -69,6 +73,8 @@ type Props = {
   /** En móvil el panel ocupa el alto del contenedor padre (sin 88vh fijo). */
   compactLayout?: boolean;
   acceptsPresaleTickets?: boolean;
+  cameraEnabled?: boolean;
+  onCameraEnabledChange?: (enabled: boolean) => void;
 };
 
 export type PosProductSearchPanelHandle = {
@@ -87,6 +93,8 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
   disabledHint,
   compactLayout = false,
   acceptsPresaleTickets = false,
+  cameraEnabled = false,
+  onCameraEnabledChange,
 }, ref) {
   const cart = usePosCart();
   const [draftSearch, setDraftSearch] = useState("");
@@ -457,6 +465,7 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
           onChange={handleShowFavoritesChange}
           label="Favoritos"
           labelPosition="right"
+          density="compact"
           disabled={disabled}
           className="shrink-0"
           data-test-id="pos-product-favorites-switch"
@@ -690,6 +699,28 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
           allowNegative={false}
           data-test-id="pos-product-search-page-size"
         />
+          <div className="grid gap-2">
+            <p className="text-sm font-medium text-foreground">Cámara</p>
+            <Switch
+              checked={cameraEnabled}
+              onChange={(enabled) => onCameraEnabledChange?.(enabled)}
+              label="Escanear con cámara"
+              labelPosition="right"
+              density="compact"
+              disabled={disabled || !onCameraEnabledChange}
+              data-test-id="pos-product-camera-switch"
+            />
+            {!isCameraSecureContext() ? (
+              <p className="text-xs text-muted-foreground">
+                La cámara requiere HTTPS o localhost. En Safari no uses la IP de la red; abre con
+                https:// o http://localhost:5032.
+              </p>
+            ) : prefersCameraUserGesture() ? (
+              <p className="text-xs text-muted-foreground">
+                En iPhone/Safari el navegador pedirá permiso de cámara al activar el escáner.
+              </p>
+            ) : null}
+          </div>
         </div>
       </Dialog>
     </aside>

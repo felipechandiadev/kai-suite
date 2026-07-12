@@ -29,6 +29,10 @@ import { LoadReturnSaleDialog } from "./LoadReturnSaleDialog";
 import { LoadBackorderDialog } from "./LoadBackorderDialog";
 import { runPendingCashSessionOpeningPrintIfAny } from "@/features/cash-session-opening/lib/run-pending-cash-session-opening-print";
 import { requestPosProductSearchFocus } from "@/features/pos-products/lib/pos-product-search-focus";
+import {
+  readPosProductSearchCameraEnabled,
+  writePosProductSearchCameraEnabled,
+} from "@/features/pos-products/lib/posProductSearchStorage";
 import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
 import { usePosOffline } from "@/features/pos-offline/hooks/use-pos-offline";
 import type { PosProductSearchItem } from "@/features/pos-products/types/pos-product.types";
@@ -57,6 +61,7 @@ export default function PosWorkspace() {
   const compactLayout = usePosCompactLayout();
   const productSearchRef = useRef<PosProductSearchPanelHandle>(null);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("products");
+  const [cameraEnabled, setCameraEnabled] = useState(() => readPosProductSearchCameraEnabled());
   const [ctx, setCtx] = useState<PosContextV1 | null>(null);
   const [priceListId, setPriceListId] = useState("");
   const [priceListOptions, setPriceListOptions] = useState<PosPriceListSnapshot[]>([]);
@@ -253,6 +258,11 @@ export default function PosWorkspace() {
     return "Ir a cobro";
   }, [isPresaleMode, isReturnMode, isFulfillBackorderMode]);
 
+  const handleCameraEnabledChange = useCallback((enabled: boolean) => {
+    writePosProductSearchCameraEnabled(enabled);
+    setCameraEnabled(enabled);
+  }, []);
+
   const handleCheckout = useCallback(async () => {
     if (!ctx?.pointOfSaleId || !priceListId) return;
     if (isPresaleMode) {
@@ -374,6 +384,8 @@ export default function PosWorkspace() {
       }
       acceptsPresaleTickets={ctx.acceptsPresaleTickets === true && !isPresaleMode}
       compactLayout={compactLayout}
+      cameraEnabled={cameraEnabled}
+      onCameraEnabledChange={handleCameraEnabledChange}
     />
   );
 
@@ -654,7 +666,7 @@ export default function PosWorkspace() {
       className={
         compactLayout
           ? "flex min-h-0 flex-1 flex-col gap-3"
-          : "grid min-h-[calc(100dvh-6rem)] grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-6"
+          : "grid min-h-[calc(100dvh-6rem)] grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-4"
       }
     >
       {compactLayout ? (
@@ -707,7 +719,7 @@ export default function PosWorkspace() {
         </div>
       ) : null}
 
-      {compactLayout && isPresaleMode && mobilePanel === "products" ? (
+      {compactLayout && mobilePanel === "products" && cameraEnabled ? (
         <PosBarcodeScanner
           onScan={(code) => productSearchRef.current?.submitScanCode(code)}
           paused={cartLocked}

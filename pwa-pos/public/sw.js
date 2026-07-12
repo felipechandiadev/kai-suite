@@ -1,7 +1,7 @@
 // Cache básico para el POS (PWA) — shell offline IF-02
-const CACHE_SHELL = "flow-pos-shell-v2";
-const CACHE_STATIC = "flow-pos-static-v2";
-const CACHE_RSC = "flow-pos-rsc-v2";
+const CACHE_SHELL = "flow-pos-shell-v3";
+const CACHE_STATIC = "flow-pos-static-v3";
+const CACHE_RSC = "flow-pos-rsc-v3";
 
 const SHELL_PATHS = [
   "/",
@@ -61,15 +61,23 @@ async function networkFirst(request, cacheName, timeoutMs = NAV_TIMEOUT_MS) {
   }
 }
 
-async function cacheFirst(request) {
-  const cache = await caches.open(CACHE_STATIC);
+/**
+ * Sirve desde cache al instante pero revalida en segundo plano y actualiza la
+ * cache. Evita servir chunks obsoletos de `/_next/static/` para siempre (lo que
+ * antes provocaba errores de hidratación al editar en desarrollo).
+ */
+async function staleWhileRevalidate(request, cacheName) {
+  const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
-  if (cached) return cached;
-  const response = await fetch(request);
-  if (response.ok) {
-    cache.put(request, response.clone());
-  }
-  return response;
+  const fetchPromise = fetch(request)
+    .then((response) => {
+      if (response.ok) {
+        cache.put(request, response.clone());
+      }
+      return response;
+    })
+    .catch(() => cached);
+  return cached || fetchPromise;
 }
 
 self.addEventListener("fetch", (event) => {
@@ -85,7 +93,14 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (url.pathname.startsWith("/_next/static/")) {
-    event.respondWith(cacheFirst(req).catch(() => caches.match(req)));
+    // Archivos de HMR de desarrollo: nunca cachear (siempre red).
+    if (url.pathname.includes(".hot-update.")) {
+      event.respondWith(fetch(req));
+      return;
+    }
+    event.respondWith(
+      staleWhileRevalidate(req, CACHE_STATIC).catch(() => caches.match(req)),
+    );
     return;
   }
 

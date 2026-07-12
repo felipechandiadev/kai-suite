@@ -613,6 +613,8 @@ export default function PosPaymentWorkspace({
   }, [cart.lines, cart.orderDiscount]);
 
   const saleTitleId = useId();
+  const [saleSummaryOpen, setSaleSummaryOpen] = useState(false);
+  const [customerPanelOpen, setCustomerPanelOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [internalCreditDialogOpen, setInternalCreditDialogOpen] = useState(false);
   const [editingInternalCreditLineId, setEditingInternalCreditLineId] = useState<
@@ -2934,7 +2936,11 @@ export default function PosPaymentWorkspace({
   }
 
   return (
-    <div className={`flex min-h-0 flex-col gap-4 ${compactLayout ? "pb-28" : "pb-0"}`}>
+    <div
+      className={`flex min-h-0 flex-col gap-4 ${
+        compactLayout ? "pb-[calc(14rem+env(safe-area-inset-bottom,0))]" : "pb-0"
+      }`}
+    >
       <PaymentDisplayPublisher
         enabled={showReturnRefundUi}
         lines={cart.lines}
@@ -2948,15 +2954,15 @@ export default function PosPaymentWorkspace({
         customerName={customer?.name?.trim() || null}
         paymentLines={customerDisplayPaymentLines}
       />
-      {/* Context bar (debajo del TopBar global) */}
+      {/* Context bar (debajo del TopBar global). En compact el título/cliente
+          vive en el card inferior fijo, entre los botones de volver y pagar. */}
+      {!compactLayout ? (
       <header
-        className={`flex gap-4 rounded-xl border border-border bg-background px-4 py-3 shadow-sm ${
-          compactLayout ? "flex-col" : "flex-row items-center gap-6"
-        }`}
+        className="flex flex-row items-center gap-6 rounded-xl border border-border bg-background px-4 py-3 shadow-sm"
         aria-labelledby={saleTitleId}
       >
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          {!customerLocked ? (
+          {!customerLocked && !compactLayout ? (
             <IconButton
               icon="ChevronLeft"
               variant="outlined"
@@ -2990,7 +2996,7 @@ export default function PosPaymentWorkspace({
           </div>
         </div>
 
-        {showReturnRefundUi ? (
+        {!compactLayout && showReturnRefundUi ? (
           <div
             className="flex shrink-0 flex-wrap items-stretch gap-2 text-sm"
             data-test-id="pos-payment-summary"
@@ -3068,6 +3074,7 @@ export default function PosPaymentWorkspace({
           />
         </div>
       </header>
+      ) : null}
 
       {pageAlert ? (
         <Alert variant="error">
@@ -3077,28 +3084,53 @@ export default function PosPaymentWorkspace({
       ) : null}
 
       <div
-        className={`grid items-stretch gap-6 ${
-          compactLayout ? "grid-cols-1" : showReturnRefundUi ? "grid-cols-3" : "grid-cols-2"
+        className={`grid items-stretch ${
+          compactLayout ? "grid-cols-1 gap-2" : `gap-4 ${showReturnRefundUi ? "grid-cols-3" : "grid-cols-2"}`
         }`}
       >
         {/* Columna 1 — Carrito */}
         <section
-          className={`flex min-h-0 w-full min-w-0 flex-col gap-3 rounded-xl border p-4 shadow-sm ${
+          className={`flex min-h-0 w-full min-w-0 flex-col rounded-xl border ${
+            compactLayout && !saleSummaryOpen ? "gap-1 px-3 py-2" : "gap-3 p-4"
+          } ${
             isEncargoMode || isFulfillBackorderMode
               ? "border-secondary/40 bg-secondary/10"
               : stockBlocksSalePayment
                 ? POS_INSUFFICIENT_STOCK_SURFACE_CLASS
                 : "border-border bg-background"
           }`}
-          style={{ height: `${paymentPanelVh}vh` }}
+          style={
+            !compactLayout || saleSummaryOpen
+              ? { height: `${paymentPanelVh}vh` }
+              : undefined
+          }
           aria-label={summarySectionLabel}
           data-test-id="pos-payment-cart-summary"
           data-stock-insufficient={stockBlocksSalePayment ? "true" : undefined}
         >
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
-            <h2 className="min-w-0 text-sm font-semibold text-foreground">
-              {summarySectionLabel}
-            </h2>
+            <div className="flex min-w-0 flex-1 items-center gap-1">
+              {compactLayout ? (
+                <IconButton
+                  icon={saleSummaryOpen ? "ChevronDown" : "ChevronRight"}
+                  variant="action"
+                  size="sm"
+                  ariaLabel={
+                    saleSummaryOpen
+                      ? "Contraer resumen de venta"
+                      : "Expandir resumen de venta"
+                  }
+                  title={saleSummaryOpen ? "Contraer" : "Expandir"}
+                  onClick={() => setSaleSummaryOpen((open) => !open)}
+                  data-test-id="pos-payment-sale-summary-toggle"
+                />
+              ) : null}
+              <h2 className="min-w-0 text-sm font-semibold text-foreground">
+                {summarySectionLabel}
+              </h2>
+            </div>
+            {!compactLayout || saleSummaryOpen ? (
+              <>
             {isReturnMode ? (
               <div
                 className="flex shrink-0 items-center justify-end"
@@ -3190,7 +3222,11 @@ export default function PosPaymentWorkspace({
                 ) : null}
               </div>
             )}
+              </>
+            ) : null}
           </div>
+          {!compactLayout || saleSummaryOpen ? (
+            <>
           {collectInitError || ncPayoutInitError ? (
             <Alert variant="error" className="text-xs">
               {collectInitError || ncPayoutInitError}
@@ -3292,9 +3328,65 @@ export default function PosPaymentWorkspace({
               </>
             )}
           </footer>
+            </>
+          ) : null}
         </section>
 
         {/* Columna 2 — Cliente (panel independiente, URL-driven). */}
+        {compactLayout ? (
+          <div className="flex flex-col gap-2" data-test-id="pos-payment-customer-collapsible">
+            <div className="flex items-center gap-1 rounded-xl border border-border bg-background px-3 py-2">
+              <IconButton
+                icon={customerPanelOpen ? "ChevronDown" : "ChevronRight"}
+                variant="action"
+                size="sm"
+                ariaLabel={
+                  customerPanelOpen ? "Contraer panel de cliente" : "Expandir panel de cliente"
+                }
+                title={customerPanelOpen ? "Contraer" : "Expandir"}
+                onClick={() => setCustomerPanelOpen((open) => !open)}
+                data-test-id="pos-payment-customer-toggle"
+              />
+              <h2 className="min-w-0 text-sm font-semibold text-foreground">Cliente</h2>
+            </div>
+            {customerPanelOpen ? (
+              <PosCustomerSearchPanel
+                initial={initialCustomerSearch}
+                selectedCustomer={customer}
+                onPick={pickSearchCustomer}
+                onClearSelected={clearSaleCustomer}
+                heightVh={paymentPanelVh}
+                disabled={customerLocked}
+                showAddCustomer={!customerLocked}
+                onAddCustomerClick={() => setCreateCustomerOpen(true)}
+                offlineMode={isOffline}
+                clientFetchMode={!isOffline}
+                activeOnly
+                paymentSourcesSlot={
+                  customer?.customerId?.trim() ? (
+                    <PosCustomerPaymentSourcesPanel
+                      sources={paymentSources}
+                      loading={paymentSourcesLoading}
+                      error={paymentSourcesError}
+                      showOrderAdvances={false}
+                      onApplyCreditNote={
+                        showReturnRefundUi &&
+                          !isReturnMode &&
+                          !isDebtCollectMode &&
+                          !isNcPayoutMode &&
+                          !isEncargoMode
+                          ? applyCreditNoteFromPanel
+                          : undefined
+                      }
+                      usedCreditNoteIds={usedCreditNoteIds}
+                      disabled={remaining <= 0.01 || stockBlocksSalePayment}
+                    />
+                  ) : null
+                }
+              />
+            ) : null}
+          </div>
+        ) : (
         <PosCustomerSearchPanel
           initial={initialCustomerSearch}
           selectedCustomer={customer}
@@ -3329,12 +3421,13 @@ export default function PosPaymentWorkspace({
             ) : null
           }
         />
+        )}
 
         {showReturnRefundUi ? (
         /* Columna 3 — Métodos de pago */
         <section
-          className="flex min-h-0 w-full min-w-0 flex-col gap-3 rounded-xl border border-border bg-background p-4 shadow-sm"
-          style={{ height: `${paymentPanelVh}vh` }}
+          className="flex min-h-0 w-full min-w-0 flex-col gap-3 rounded-xl border border-border bg-background p-4"
+          style={compactLayout ? undefined : { height: `${paymentPanelVh}vh` }}
           data-test-id="pos-payment-methods"
         >
           <div className="flex shrink-0 flex-col gap-2">
@@ -3356,7 +3449,7 @@ export default function PosPaymentWorkspace({
               <h2 className="shrink-0 text-sm font-semibold text-foreground">
                 Métodos de pago
               </h2>
-              {showSaleDteSelector && saleDteLoaded ? (
+              {!compactLayout && showSaleDteSelector && saleDteLoaded ? (
                 showSaleDteSelectorCompact ? (
                   <div
                     className="ml-auto w-36 shrink-0"
@@ -3387,6 +3480,36 @@ export default function PosPaymentWorkspace({
                 )
               ) : null}
             </div>
+            {compactLayout && showSaleDteSelector && saleDteLoaded ? (
+              showSaleDteSelectorCompact ? (
+                <div
+                  className="w-full"
+                  title={
+                    saleDteOptions.find((o) => o.kind === saleDteKind)
+                      ? effectiveDocumentOptionTitle(
+                          saleDteOptions.find((o) => o.kind === saleDteKind)!,
+                        )
+                      : undefined
+                  }
+                >
+                  <Select
+                    variant="minimal"
+                    value={saleDteKind}
+                    onChange={(id) => {
+                      if (id == null) return;
+                      setSaleDteKind(String(id) as SaleDteKind);
+                    }}
+                    options={saleDteSelectOptions}
+                    disabled={saleDteSelectOptions.every((o) => o.disabled)}
+                    data-test-id="pos-payment-sale-dte-mobile"
+                  />
+                </div>
+              ) : (
+                <span className="text-xs text-muted-foreground">
+                  {saleDteSelectOptions.find((o) => o.id === saleDteKind)?.label ?? "Ticket"}
+                </span>
+              )
+            ) : null}
             {(canOfferInternalCredit && internalCreditCtx.paymentMethodId) ||
             (posPointEnabled && !cashOutRefundOnly && !isDebtCollectMode) ? (
               <div className="flex flex-wrap items-center gap-2">
@@ -3513,43 +3636,176 @@ export default function PosPaymentWorkspace({
         ) : null}
       </div>
 
-      {/* Móvil: CTA fijo */}
-      <div
-        className={`fixed inset-x-0 bottom-0 z-30 justify-center gap-2 border-t border-border bg-background/95 p-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))] ${
-          compactLayout ? "flex" : "hidden"
-        }`}
-      >
-        {showDeferPaymentButton ? (
-          <IconButton
-            icon="BanknoteX"
-            variant="outlined"
-            size="lg"
-            className="shrink-0"
-            ariaLabel="Emitir venta sin pago (cobro pendiente)"
-            title="Emitir venta sin pago (cobro pendiente)"
-            disabled={deferLoading || confirmLoading}
-            isLoading={deferLoading}
-            onClick={() => void handleDeferPaymentSale()}
-            data-test-id="pos-payment-defer-mobile"
-          />
-        ) : null}
-        <IconButton
-          icon={confirmCtaIcon}
-          variant="primary"
-          size="lg"
-          className="shrink-0"
-          ariaLabel={confirmCtaAriaLabel}
-          title={confirmPaymentTitle}
-          disabled={confirmPaymentDisabled}
-          isLoading={confirmLoading}
-          onClick={() => void handleConfirm()}
-          data-test-id={
-            isReturnDocumentMode
-              ? "pos-return-confirm-document-mobile"
-              : "pos-payment-confirm-mobile"
-          }
-        />
-      </div>
+      {/* Móvil: card fijo con resumen de cobro + acciones */}
+      {compactLayout ? (
+        showReturnRefundUi ? (
+          <div
+            className="fixed bottom-0 left-(--app-sidebar-width) right-0 z-30 border-t border-border bg-background/95 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+            data-test-id="pos-payment-mobile-summary-card"
+          >
+            <div
+              className="grid grid-cols-2 gap-2 p-3 text-sm"
+              data-test-id="pos-payment-summary"
+            >
+              <div className="flex flex-col rounded-lg bg-slate-100/80 px-3 py-2 dark:bg-slate-800/40">
+                <span className="text-xs font-medium text-slate-600 dark:text-slate-300 sm:text-sm">
+                  {amountDueLabel}
+                </span>
+                <span className="text-lg font-bold tabular-nums text-slate-900 dark:text-slate-100 sm:text-xl">
+                  {formatMoney(amountToPay)}
+                </span>
+              </div>
+              <div className="flex flex-col rounded-lg bg-sky-100/70 px-3 py-2 dark:bg-sky-900/30">
+                <span className="text-xs font-medium text-sky-700 dark:text-sky-300 sm:text-sm">
+                  Total recibido
+                </span>
+                <span
+                  className="text-lg font-bold tabular-nums text-sky-900 dark:text-sky-100 sm:text-xl"
+                  data-test-id="pos-payment-applied-total"
+                >
+                  {formatMoney(appliedTotal)}
+                </span>
+              </div>
+              {overpay > 0 ? (
+                <div className="flex flex-col rounded-lg bg-emerald-100/70 px-3 py-2 dark:bg-emerald-900/30">
+                  <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300 sm:text-sm">
+                    Vuelto
+                  </span>
+                  <span className="text-lg font-bold tabular-nums text-emerald-900 dark:text-emerald-100 sm:text-xl">
+                    {formatMoney(overpay)}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex flex-col rounded-lg bg-amber-100/70 px-3 py-2 dark:bg-amber-900/30">
+                  <span className="text-xs font-medium text-amber-800 dark:text-amber-300 sm:text-sm">
+                    Saldo restante
+                  </span>
+                  <span className="text-lg font-bold tabular-nums text-amber-900 dark:text-amber-100 sm:text-xl">
+                    {formatMoney(remaining)}
+                  </span>
+                </div>
+              )}
+              <div className={`flex flex-col rounded-lg px-3 py-2 ${paymentStatusBoxTone}`}>
+                <span className="text-xs font-medium opacity-80 sm:text-sm">Estado del pago</span>
+                <span className="text-lg font-bold sm:text-xl">{paymentStatusLabel}</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
+              {!customerLocked ? (
+                <IconButton
+                  icon="ChevronLeft"
+                  variant="outlined"
+                  size="lg"
+                  ariaLabel="Volver al POS"
+                  title="Volver al POS"
+                  onClick={() => {
+                    requestPosProductSearchFocus();
+                    goBackToPos();
+                  }}
+                  className="shrink-0"
+                  data-test-id="pos-payment-back-mobile"
+                />
+              ) : (
+                <span className="w-10 shrink-0" aria-hidden />
+              )}
+              <div
+                className="flex min-w-0 flex-1 flex-col items-center px-1 text-center leading-tight"
+                data-test-id="pos-payment-mobile-context"
+              >
+                <span className="truncate text-sm font-semibold text-foreground">
+                  {flowTitle}
+                </span>
+                <span className="max-w-full truncate text-xs text-muted-foreground">
+                  Cliente:{" "}
+                  <span className="font-medium text-foreground">{customerLabel}</span>
+                </span>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {showDeferPaymentButton ? (
+                  <IconButton
+                    icon="BanknoteX"
+                    variant="outlined"
+                    size="lg"
+                    className="shrink-0"
+                    ariaLabel="Emitir venta sin pago (cobro pendiente)"
+                    title="Emitir venta sin pago (cobro pendiente)"
+                    disabled={deferLoading || confirmLoading}
+                    isLoading={deferLoading}
+                    onClick={() => void handleDeferPaymentSale()}
+                    data-test-id="pos-payment-defer-mobile"
+                  />
+                ) : null}
+                <IconButton
+                  icon={confirmCtaIcon}
+                  variant="primary"
+                  size="lg"
+                  className="shrink-0"
+                  ariaLabel={confirmCtaAriaLabel}
+                  title={confirmPaymentTitle}
+                  disabled={confirmPaymentDisabled}
+                  isLoading={confirmLoading}
+                  onClick={() => void handleConfirm()}
+                  data-test-id={
+                    isReturnDocumentMode
+                      ? "pos-return-confirm-document-mobile"
+                      : "pos-payment-confirm-mobile"
+                  }
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div
+            className="fixed bottom-0 left-(--app-sidebar-width) right-0 z-30 flex items-center justify-between gap-2 border-t border-border bg-background/95 p-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+            data-test-id="pos-payment-mobile-actions"
+          >
+            {!customerLocked ? (
+              <IconButton
+                icon="ChevronLeft"
+                variant="outlined"
+                size="lg"
+                ariaLabel="Volver al POS"
+                title="Volver al POS"
+                onClick={() => {
+                  requestPosProductSearchFocus();
+                  goBackToPos();
+                }}
+                className="shrink-0"
+                data-test-id="pos-payment-back-mobile"
+              />
+            ) : (
+              <span className="w-10 shrink-0" aria-hidden />
+            )}
+            <div
+              className="flex min-w-0 flex-1 flex-col items-center px-1 text-center leading-tight"
+              data-test-id="pos-payment-mobile-context"
+            >
+              <span className="truncate text-sm font-semibold text-foreground">
+                {flowTitle}
+              </span>
+              <span className="max-w-full truncate text-xs text-muted-foreground">
+                Cliente: <span className="font-medium text-foreground">{customerLabel}</span>
+              </span>
+            </div>
+            <IconButton
+              icon={confirmCtaIcon}
+              variant="primary"
+              size="lg"
+              className="shrink-0"
+              ariaLabel={confirmCtaAriaLabel}
+              title={confirmPaymentTitle}
+              disabled={confirmPaymentDisabled}
+              isLoading={confirmLoading}
+              onClick={() => void handleConfirm()}
+              data-test-id={
+                isReturnDocumentMode
+                  ? "pos-return-confirm-document-mobile"
+                  : "pos-payment-confirm-mobile"
+              }
+            />
+          </div>
+        )
+      ) : null}
 
       <Dialog
         open={addOpen}

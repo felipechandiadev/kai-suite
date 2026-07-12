@@ -36,14 +36,14 @@ export function mapCameraStartError(error: unknown): string {
   const msg = error instanceof Error ? error.message : String(error ?? "");
   const lower = msg.toLowerCase();
   if (isOverconstrainedError(error)) {
-    return "No se pudo usar la cámara con la configuración del dispositivo. En el simulador: Features → Camera. En iPhone real, vuelve a tocar «Activar cámara».";
+    return "No se pudo usar la cámara con la configuración del dispositivo. En el simulador: Features → Camera. En iPhone real, desactiva y vuelve a activar el escáner en configuración.";
   }
   if (
     lower.includes("notallowed") ||
     lower.includes("permission") ||
     lower.includes("denied")
   ) {
-    return "Permiso de cámara denegado. En iPhone: Ajustes → Safari → Cámara → Preguntar o Permitir, y vuelve a tocar «Activar cámara».";
+    return "Permiso de cámara denegado. En iPhone: Ajustes → Safari → Cámara → Preguntar o Permitir, y vuelve a activar el escáner en configuración.";
   }
   if (lower.includes("notfound") || lower.includes("no camera")) {
     return "No se encontró cámara. En el simulador: menú Features → Camera y elige la cámara del Mac.";

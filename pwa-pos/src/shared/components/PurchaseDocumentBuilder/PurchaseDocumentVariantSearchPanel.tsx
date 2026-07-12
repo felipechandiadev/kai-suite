@@ -10,6 +10,11 @@ import {
   readPurchaseDocVariantSearchPageSize,
   writePurchaseDocVariantSearchPageSize,
 } from "./purchaseDocVariantSearchStorage";
+import {
+  formatMoney,
+  InlineSepDot,
+  ProductNameWithAttributes,
+} from "./PurchaseDocumentProductPreview";
 
 /** Mismo tinte que las cards con alerta en el grid de stock (pwa-admin). */
 const STOCK_THRESHOLD_ALERT_CARD_CLASS =

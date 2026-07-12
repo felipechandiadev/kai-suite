@@ -436,7 +436,7 @@ export default function PosTopBar({
   const showContextColumn = Boolean(effectiveCompany || effectivePosName);
   const showUserColumn = Boolean(effectivePerson || effectiveRole);
 
-  /** Layout móvil: nav inferior. Tablets POS grandes (iMin) usan desktop. */
+  /** Layout móvil: sidebar izquierdo. Tablets POS grandes (iMin) usan desktop. */
   const sidebarNav = usePosCompactLayout();
   const headerRef = useRef<HTMLElement | null>(null);
   const [userDialogOpen, setUserDialogOpen] = useState(false);
@@ -732,16 +732,16 @@ export default function PosTopBar({
 
     {sidebarNav ? (
       <nav
-        className="fs-app-sidebar fixed inset-x-0 bottom-0 z-30 flex h-(--app-bottom-nav-height) items-center border-t px-2 pb-[env(safe-area-inset-bottom,0px)]"
-        data-test-id="pos-bottom-nav"
+        className="fs-app-sidebar fixed bottom-0 left-0 top-(--app-topbar-height) z-30 flex w-(--app-sidebar-width) flex-col items-center gap-1 overflow-y-auto py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        data-test-id="pos-sidebar-nav"
         aria-label="Accesos rápidos"
       >
-        <div className="flex w-full min-w-0 items-center justify-between gap-1">
+        <div className="flex h-full w-full flex-col items-center justify-between gap-1">
           <PosTopBarNav
             {...navProps}
-            className="flex min-w-0 flex-1 flex-row items-center justify-start gap-0.5 overflow-x-auto overscroll-x-contain py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="flex min-h-0 flex-1 flex-col items-center justify-start gap-0.5 overflow-y-auto overscroll-y-contain py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           />
-          <div className="flex shrink-0 items-center gap-0.5 border-l border-border pl-1">
+          <div className="flex shrink-0 flex-col items-center gap-0.5 border-t border-border pt-1">
             {!isOffline ? (
               <IconButton
                 icon="CircleUser"

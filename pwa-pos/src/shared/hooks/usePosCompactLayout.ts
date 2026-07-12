@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { readPosCompactLayout } from "./pos-layout-breakpoint";
 
-/** true = layout móvil (tabs, nav inferior). false = desktop (dos columnas, nav en top bar). */
+/** true = layout móvil (sidebar, tabs). false = desktop (dos columnas, nav en top bar). */
 export function usePosCompactLayout(): boolean {
   const [compact, setCompact] = useState(false);
 

@@ -59,7 +59,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="KaiStore | POS" />
       </head>
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <body className="min-h-full flex flex-col text-foreground">
         <AuthProvider>{children}</AuthProvider>
         <Script id="sw-register" strategy="afterInteractive">
           {`if ('serviceWorker' in navigator && ${registerServiceWorker}) {

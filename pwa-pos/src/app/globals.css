@@ -71,6 +71,7 @@
   --color-destructive-foreground: var(--fs-destructive-foreground);
   --color-neutral: var(--fs-neutral);
   --color-hover: color-mix(in srgb, var(--fs-neutral) 65%, var(--fs-background));
+  --color-accent-soft: color-mix(in srgb, var(--color-secondary) 38%, var(--color-background));
 
   --color-link: var(--color-primary);
   --color-text-primary: var(--color-foreground);
@@ -88,8 +89,7 @@
   --color-text-error: var(--color-error);
 
   --app-topbar-height: 3.75rem;
-  --app-sidebar-width: 3.5rem;
-  --app-bottom-nav-height: 3.75rem;
+  --app-sidebar-width: 4rem;
   --color-sidebar-bg: rgba(255, 255, 255, 0.2);
   --sidebar-backdrop-blur: 8px;
   --color-sidebar-overlay: rgba(2, 87, 139, 0.25);
@@ -104,8 +104,7 @@
   --font-display: var(--font-display);
 
   --app-topbar-height: 3.75rem;
-  --app-sidebar-width: 3.5rem;
-  --app-bottom-nav-height: 3.75rem;
+  --app-sidebar-width: 4rem;
 
   --color-primary: var(--fs-primary);
   --color-background: var(--fs-background);
@@ -148,7 +147,11 @@
 
   body {
     font-family: var(--font-sans);
-    background-color: var(--fs-background);
+    background-color: color-mix(
+      in srgb,
+      var(--color-neutral) 30%,
+      var(--color-background)
+    );
     color: var(--fs-foreground);
   }
 

@@ -10,11 +10,11 @@ export default function AdminAmbientBackground() {
     >
       <div className="relative h-full w-full overflow-hidden">
         <div className="admin-ambient-blob admin-ambient-blob--accent" />
-        <div className="admin-ambient-blob admin-ambient-blob--secondary admin-ambient-blob--delay-2" />
-        <div className="admin-ambient-blob admin-ambient-blob--soft admin-ambient-blob--delay-4" />
-        <div className="admin-ambient-blob admin-ambient-blob--primary-mid admin-ambient-blob--delay-2" />
-        <div className="admin-ambient-blob admin-ambient-blob--accent-low admin-ambient-blob--delay-4" />
-        <div className="admin-ambient-blob admin-ambient-blob--success admin-ambient-blob--delay-2" />
+        <div className="admin-ambient-blob admin-ambient-blob--secondary" />
+        <div className="admin-ambient-blob admin-ambient-blob--soft" />
+        <div className="admin-ambient-blob admin-ambient-blob--primary-mid" />
+        <div className="admin-ambient-blob admin-ambient-blob--accent-low" />
+        <div className="admin-ambient-blob admin-ambient-blob--success" />
       </div>
     </div>
   );

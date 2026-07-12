@@ -392,7 +392,7 @@ export default function PosCustomerSearchPanel({
 
     return (
       <aside
-        className="flex min-h-0 w-full min-w-0 flex-col gap-3 self-stretch rounded-xl border border-border bg-background p-4 shadow-sm"
+        className="flex min-h-0 w-full min-w-0 flex-col gap-3 self-stretch rounded-xl border border-border bg-background p-4"
         style={{ height: `${heightVh}vh`, minHeight: `${heightVh}vh` }}
         aria-label="Detalle del cliente seleccionado"
         data-test-id="pos-customer-search-panel-detail"
@@ -475,7 +475,7 @@ export default function PosCustomerSearchPanel({
   // ─── Modo BÚSQUEDA: lista de resultados con cards estilo "producto" ─────
   return (
     <aside
-      className="flex min-h-0 w-full min-w-0 flex-col gap-3 self-stretch rounded-xl border border-border bg-background p-4 shadow-sm"
+      className="flex min-h-0 w-full min-w-0 flex-col gap-3 self-stretch rounded-xl border border-border bg-background p-4"
       style={{ height: `${heightVh}vh`, minHeight: `${heightVh}vh` }}
       aria-label="Buscador de clientes"
       data-test-id="pos-customer-search-panel"

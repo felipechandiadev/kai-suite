@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { Alert, Button } from "@kai/ui";
+import { Alert } from "@kai/ui";
 import {
   getCameraStartConfigs,
   isCameraSecureContext,
   isRetryableCameraError,
   mapCameraStartError,
-  prefersCameraUserGesture,
 } from "@/features/pos-products/lib/barcode-scanner-camera";
 
 type PosBarcodeScannerProps = {
@@ -148,7 +147,7 @@ export default function PosBarcodeScanner({ onScan, paused = false }: PosBarcode
       void stopScanner();
       return;
     }
-    if (!prefersCameraUserGesture() && isCameraSecureContext()) {
+    if (isCameraSecureContext()) {
       const timer = window.setTimeout(() => {
         void startScanner();
       }, 0);
@@ -164,42 +163,12 @@ export default function PosBarcodeScanner({ onScan, paused = false }: PosBarcode
     };
   }, [mounted, paused, startScanner, stopScanner]);
 
-  const showActivate = !cameraActive && !starting;
-
-  const hintText = !mounted
-    ? "Toca para activar la cámara."
-    : !isCameraSecureContext()
-      ? "Safari bloquea la cámara en URLs por IP. Usa localhost:5032 en el simulador o HTTPS en el iPhone."
-      : prefersCameraUserGesture()
-        ? "En iPhone/Safari debes tocar el botón para que el navegador pida permiso de cámara."
-        : null;
-
   return (
     <div className="w-full shrink-0" data-test-id="pos-barcode-scanner">
       {cameraError ? (
         <Alert variant="warning" className="mb-2">
           {cameraError}
         </Alert>
-      ) : null}
-
-      {showActivate ? (
-        <div className="mb-2 flex flex-col gap-1.5">
-          <Button
-            type="button"
-            variant="primary"
-            size="sm"
-            className="w-full"
-            loading={starting}
-            disabled={starting || paused}
-            onClick={() => void startScanner()}
-            data-test-id="pos-barcode-scanner-activate"
-          >
-            Activar cámara
-          </Button>
-          {hintText ? (
-            <p className="text-center text-[11px] text-muted-foreground">{hintText}</p>
-          ) : null}
-        </div>
       ) : null}
 
       <div className="pos-barcode-scanner-view relative w-full [&_#qr-shaded-region]:opacity-0">
