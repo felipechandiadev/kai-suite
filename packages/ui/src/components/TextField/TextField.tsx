@@ -794,7 +794,7 @@ export const TextField: React.FC<TextFieldProps> = ({
         className={`absolute z-20 -top-1 pointer-events-none transition-all duration-300 ease-in-out px-1 font-medium text-xs rounded-md fs-text-field__floating-label ` +
           (variante === "contrast" ? "text-background" : "text-foreground") +
           (shrink ? " -translate-y-1 scale-90 opacity-100" : " opacity-0")}
-        style={{ left: floatingLabelLeft, marginTop: "-3px", ...labelStyle }}
+        style={{ left: floatingLabelLeft, marginTop: "0px", ...labelStyle }}
         onClick={focusField}
         htmlFor={inputDomId}
         data-test-id="text-field-label"

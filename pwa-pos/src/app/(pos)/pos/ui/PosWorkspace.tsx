@@ -615,7 +615,7 @@ export default function PosWorkspace() {
               </div>
               <div className="flex items-center justify-between pt-2">
                 <span className="text-xl font-bold text-foreground sm:text-2xl">Total</span>
-                <span className="text-2xl font-bold tabular-nums text-foreground sm:text-3xl">
+                <span className="text-3xl font-bold tabular-nums text-foreground sm:text-4xl">
                   {formatMoney(totals.gross)}
                 </span>
               </div>
