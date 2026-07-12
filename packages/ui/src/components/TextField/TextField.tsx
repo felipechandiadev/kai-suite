@@ -501,7 +501,8 @@ export const TextField: React.FC<TextFieldProps> = ({
     : "text-foreground border-border focus:border-primary bg-transparent";
 
   const controlVariantClass =
-    variante === "contrast" ? "fs-text-field__control--contrast " : "";
+    (variante === "contrast" ? "fs-text-field__control--contrast " : "") +
+    (showDisabledChrome && !isInlineLabel ? "fs-text-field__control--muted " : "");
 
   const borderlessInputClass =
     variante === "autocomplete" ? "fs-text-field__input--borderless" : "";

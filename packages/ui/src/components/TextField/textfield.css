@@ -22,6 +22,11 @@
   --tf-label-border: var(--color-background, #fff);
 }
 
+/* Deshabilitado / solo lectura: el label comparte el fondo muted del input. */
+.fs-text-field__control--muted {
+  --tf-surface: color-mix(in srgb, var(--color-muted, #cfeef0) 50%, var(--color-background, #fff));
+}
+
 /* Label flotante uniforme: máscara con la superficie real del control (--tf-surface). */
 .fs-text-field__floating-label {
   background-color: var(--tf-surface, var(--color-background, #fff));
@@ -95,8 +100,8 @@
 
 .fs-text-field__input:focus {
   outline: none;
-  border-color: transparent;
-  box-shadow: 0 0 0 1px var(--color-primary, #1e73ae);
+  border-color: var(--color-primary, #1e73ae);
+  box-shadow: none;
 }
 
 /* Comboboxes (Select/AutoComplete): el borde va en el contenedor; el input no debe duplicar marco. */
