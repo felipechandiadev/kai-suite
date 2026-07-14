@@ -1,9 +1,44 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import { getEShopStoreSlug } from "@/lib/eshop-store-config";
 import { getCustomerSessionToken } from "@/lib/eshop-customer-session";
+import { getCartToken } from "@/lib/eshop-cart-session";
 import { EShopRequest } from "@/features/e-shop-storefront/infrastructure/eshop.request";
 import type { EShopFulfillmentMethodPublic } from "../types/checkout.types";
+
+type CheckoutBody = {
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  fulfillmentMethodId: string;
+  address?: string;
+  shippingAddress?: {
+    line1?: string;
+    commune?: string;
+    region?: string;
+    notes?: string;
+  };
+  lines?: Array<{ productVariantId: string; quantity: number }>;
+  cartId?: string;
+  cartToken?: string;
+  checkoutAttemptId?: string;
+  notes?: string;
+  paymentMode?: "online" | "coordinate";
+  deliveryZoneId?: string;
+  deliveryOccurrenceId?: string;
+  latitude?: number;
+  longitude?: number;
+};
+
+async function withCartContext(body: CheckoutBody): Promise<CheckoutBody> {
+  const cartToken = body.cartToken ?? (await getCartToken());
+  return {
+    ...body,
+    cartToken: cartToken ?? undefined,
+    checkoutAttemptId: body.checkoutAttemptId ?? randomUUID(),
+  };
+}
 
 export async function fetchFulfillmentMethodsAction(subtotal: number) {
   return EShopRequest.get<EShopFulfillmentMethodPublic[]>(
@@ -21,21 +56,7 @@ export async function fetchPaymentSettingsAction() {
   }>(getEShopStoreSlug(), "/e-shop/payment-settings");
 }
 
-export async function prepareCheckoutAction(body: {
-  customerName: string;
-  customerEmail: string;
-  customerPhone?: string;
-  fulfillmentMethodId: string;
-  address?: string;
-  shippingAddress?: {
-    line1?: string;
-    commune?: string;
-    region?: string;
-    notes?: string;
-  };
-  lines: Array<{ productVariantId: string; quantity: number }>;
-  notes?: string;
-}) {
+export async function prepareCheckoutAction(body: CheckoutBody) {
   const sessionToken = await getCustomerSessionToken();
   return EShopRequest.post<{
     transactionId: string;
@@ -45,7 +66,27 @@ export async function prepareCheckoutAction(body: {
     preferenceId: string | null;
     publicKey: string | null;
     paymentMode: string;
-  }>(getEShopStoreSlug(), "/e-shop/checkout/prepare", body, sessionToken);
+    checkoutAttemptId?: string;
+    cartId?: string | null;
+  }>(
+    getEShopStoreSlug(),
+    "/e-shop/checkout/prepare",
+    await withCartContext(body),
+    sessionToken,
+  );
+}
+
+export async function submitCheckoutAction(body: CheckoutBody) {
+  const sessionToken = await getCustomerSessionToken();
+  return EShopRequest.post<{
+    transactionId: string;
+    documentNumber: string;
+    total: number;
+    fulfillmentStatus?: string;
+    hasStockShortage?: boolean;
+    checkoutAttemptId?: string;
+    cartId?: string | null;
+  }>(getEShopStoreSlug(), "/e-shop/checkout", await withCartContext(body), sessionToken);
 }
 
 export async function fetchCheckoutPaymentStatusAction(intentId: string) {
@@ -77,31 +118,6 @@ export async function confirmCheckoutPaymentAction(body: {
     amount: number;
     awaitingWallet?: boolean;
   }>(getEShopStoreSlug(), "/e-shop/checkout/confirm-payment", body, sessionToken);
-}
-
-export async function submitCheckoutAction(body: {
-  customerName: string;
-  customerEmail: string;
-  customerPhone?: string;
-  fulfillmentMethodId: string;
-  address?: string;
-  shippingAddress?: {
-    line1?: string;
-    commune?: string;
-    region?: string;
-    notes?: string;
-  };
-  lines: Array<{ productVariantId: string; quantity: number }>;
-  notes?: string;
-}) {
-  const sessionToken = await getCustomerSessionToken();
-  return EShopRequest.post<{
-    transactionId: string;
-    documentNumber: string;
-    total: number;
-    fulfillmentStatus?: string;
-    hasStockShortage?: boolean;
-  }>(getEShopStoreSlug(), "/e-shop/checkout", body, sessionToken);
 }
 
 export async function getCheckoutProfilePrefillAction() {

@@ -143,10 +143,13 @@ function readPosContextFull(): {
   pointOfSaleId: string;
 } | null {
   const pos = readPosContextClient();
-  const companyId = (pos as { companyId?: string } | null)?.companyId?.trim();
+  // `companyId` no se persiste en el contexto POS ni lo usa el motor cliente:
+  // el backend resuelve la empresa desde el JWT y `EngineContext.companyId`
+  // nunca se lee. Solo `branchId` + `pointOfSaleId` son requisitos reales.
+  const companyId = (pos as { companyId?: string } | null)?.companyId?.trim() ?? "";
   const branchId = (pos as { branchId?: string } | null)?.branchId?.trim();
   const pointOfSaleId = pos?.pointOfSaleId?.trim();
-  if (!companyId || !branchId || !pointOfSaleId) return null;
+  if (!branchId || !pointOfSaleId) return null;
   return { companyId, branchId, pointOfSaleId };
 }
 

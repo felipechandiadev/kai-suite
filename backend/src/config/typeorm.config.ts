@@ -74,6 +74,16 @@ import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.enti
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
 import { EShopFulfillmentMethod } from '@modules/e-shop/domain/e-shop-fulfillment-method.entity';
 import { EshopCustomerAccount } from '@modules/e-shop/domain/eshop-customer-account.entity';
+import { EShopCart } from '@modules/e-shop/domain/e-shop-cart.entity';
+import { EShopCartItem } from '@modules/e-shop/domain/e-shop-cart-item.entity';
+import { EShopDeliveryCoverageCommune } from '@modules/e-shop-delivery/domain/e-shop-delivery-coverage-commune.entity';
+import { EShopDeliveryZone } from '@modules/e-shop-delivery/domain/e-shop-delivery-zone.entity';
+import { EShopDeliveryOccurrence } from '@modules/e-shop-delivery/domain/e-shop-delivery-occurrence.entity';
+import { EShopDeliveryOccurrenceZone } from '@modules/e-shop-delivery/domain/e-shop-delivery-occurrence-zone.entity';
+import { EShopDeliveryOrder } from '@modules/e-shop-delivery/domain/e-shop-delivery-order.entity';
+import { EShopDeliveryDispatch } from '@modules/e-shop-delivery/domain/e-shop-delivery-dispatch.entity';
+import { EShopDeliveryStop } from '@modules/e-shop-delivery/domain/e-shop-delivery-stop.entity';
+import { EShopDeliverySettings } from '@modules/e-shop-delivery/domain/e-shop-delivery-settings.entity';
 import { PaymentGatewayIntent } from '@modules/payment-gateways/domain/payment-gateway-intent.entity';
 import { PresaleTicket } from '@modules/presale-tickets/domain/presale-ticket.entity';
 import { PresaleTicketLine } from '@modules/presale-tickets/domain/presale-ticket-line.entity';
@@ -171,6 +181,16 @@ export const typeOrmConfig = (
       EShopHeroSlide,
       EShopFulfillmentMethod,
       EshopCustomerAccount,
+      EShopCart,
+      EShopCartItem,
+      EShopDeliveryCoverageCommune,
+      EShopDeliveryZone,
+      EShopDeliveryOccurrence,
+      EShopDeliveryOccurrenceZone,
+      EShopDeliveryOrder,
+      EShopDeliveryDispatch,
+      EShopDeliveryStop,
+      EShopDeliverySettings,
       PaymentGatewayIntent,
       PresaleTicket,
       PresaleTicketLine,

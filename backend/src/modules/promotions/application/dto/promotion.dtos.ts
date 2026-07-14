@@ -91,6 +91,8 @@ export interface ListPromotionsQueryDto {
   type?: PromotionType;
   activation?: PromotionActivation;
   effectiveStatus?: 'ACTIVE' | 'EXPIRED' | 'INACTIVE' | 'EXPIRING_SOON';
+  sortField?: string;
+  sort?: string;
 }
 
 export interface TogglePromotionActiveDto {

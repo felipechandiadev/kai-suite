@@ -46,22 +46,22 @@ export function CompanyEShopSection({ company }: Props) {
         onChange={(e) => setSettings((s) => ({ ...s, eShopPublicSlug: e.target.value || null }))}
       />
       <p className="text-sm text-muted-foreground">
-        Operación (sucursal, almacén, precios):{" "}
-        <Link href="/e-shop/fulfillment" className="text-primary underline-offset-2 hover:underline">
-          Encargos y envíos → Configuración
+        Métodos de entrega, stock, sucursal/almacén, portal cliente y umbral de envío gratis:{" "}
+        <Link
+          href="/e-shop/fulfillment/metodos"
+          className="text-primary underline-offset-2 hover:underline"
+        >
+          Encargos y envíos → Métodos
+        </Link>{" "}
+        y{" "}
+        <Link
+          href="/e-shop/fulfillment/configuracion"
+          className="text-primary underline-offset-2 hover:underline"
+        >
+          Configuración
         </Link>
+        .
       </p>
-      <TextField
-        label="Umbral envío gratis (CLP)"
-        value={settings.eShopFreeShippingThreshold?.toString() ?? ""}
-        onChange={(e) =>
-          setSettings((s) => ({
-            ...s,
-            eShopFreeShippingThreshold: e.target.value ? Number(e.target.value) : null,
-          }))
-        }
-        helperText="También configurable en Encargos y envíos."
-      />
       <Button
         variant="primary"
         disabled={busy || !company.id}

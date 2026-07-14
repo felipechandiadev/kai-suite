@@ -15,7 +15,3 @@
   outline: 2px solid hsl(var(--ring, 212 100% 50%) / 0.5);
   outline-offset: 2px;
 }
-
-.fs-stepper__rail {
-  min-height: 100%;
-}

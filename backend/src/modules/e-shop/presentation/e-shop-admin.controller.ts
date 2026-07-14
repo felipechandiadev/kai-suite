@@ -158,6 +158,24 @@ export class EShopAdminController {
     return this.eShopService.getCatalogProductPreview(companyId, productId);
   }
 
+  @Get('fulfillment-methods/canonical')
+  listCanonicalFulfillmentMethods(@CurrentCompany() companyId: string) {
+    return this.fulfillmentMethods.listCanonicalAdmin(companyId);
+  }
+
+  @Patch('fulfillment-methods/canonical/:code')
+  setCanonicalFulfillmentMethodEnabled(
+    @CurrentCompany() companyId: string,
+    @Param('code') code: string,
+    @Body() body: { enabled: boolean },
+  ) {
+    return this.fulfillmentMethods.setCanonicalMethodEnabled(
+      companyId,
+      code,
+      body.enabled === true,
+    );
+  }
+
   @Get('fulfillment-methods')
   listFulfillmentMethods(@CurrentCompany() companyId: string) {
     return this.fulfillmentMethods.listAdmin(companyId);

@@ -1,9 +1,11 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
+  # PostgreSQL + PostGIS (requerido por e-shop-delivery: zonas/geom).
+  # Si el volumen postgres_data ya existía con postgres:15-alpine sin extensión,
+  # hay que recrearlo o activar PostGIS a mano: docs/project/POSTGIS-DELIVERY.md
   postgres:
-    image: postgres:15-alpine
+    image: postgis/postgis:15-3.4-alpine
     container_name: flow-store-postgres
     environment:
       POSTGRES_DB: kai-demo

@@ -145,10 +145,31 @@ export class PromotionsService {
       qb.andWhere('p.activation = :act', { act: filters.activation });
     }
 
-    qb.orderBy('p.priority', 'DESC')
-      .addOrderBy('p.createdAt', 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit);
+    const sortColumnByField: Record<string, string> = {
+      code: 'p.code',
+      name: 'p.name',
+      type: 'p.type',
+      value: 'p.value',
+      validFrom: 'p.validFrom',
+      validUntil: 'p.validUntil',
+      activation: 'p.activation',
+      usesCount: 'p.usesCount',
+      priority: 'p.priority',
+      createdAt: 'p.createdAt',
+    };
+    const sortColumn = filters.sortField
+      ? sortColumnByField[filters.sortField]
+      : undefined;
+    const sortDirection =
+      (filters.sort || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
+    if (sortColumn) {
+      qb.orderBy(sortColumn, sortDirection);
+    } else {
+      qb.orderBy('p.priority', 'DESC').addOrderBy('p.createdAt', 'DESC');
+    }
+
+    qb.skip((page - 1) * limit).take(limit);
 
     const [rows, total] = await qb.getManyAndCount();
 

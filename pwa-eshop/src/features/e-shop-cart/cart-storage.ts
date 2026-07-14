@@ -1,14 +1,6 @@
-export type EShopCartLine = {
-  productVariantId: string;
-  quantity: number;
-  unitPrice: number;
-  name: string;
-  imageUrl: string | null;
-};
+export type { EShopCartLine, EShopCartState } from "./types/cart.types";
 
-export type EShopCartState = {
-  lines: EShopCartLine[];
-};
+import type { EShopCartState } from "./types/cart.types";
 
 const CART_STORAGE_KEY = "kaistore-eshop-cart:v2";
 

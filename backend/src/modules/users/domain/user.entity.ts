@@ -30,6 +30,10 @@ export enum UserRole {
    * POS y operación día a día, sin permisos de configuración global.
    */
   OPERATOR = 'OPERATOR',
+  /**
+   * Repartidor de pedidos e-shop (app kai-courier).
+   */
+  COURIER = 'COURIER',
 }
 
 @Entity('users')

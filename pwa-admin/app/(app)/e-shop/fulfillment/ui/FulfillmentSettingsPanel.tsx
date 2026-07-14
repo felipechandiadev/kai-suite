@@ -52,7 +52,7 @@ export function FulfillmentSettingsPanel({
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <div className="max-w-xl space-y-6">
+    <div className="mx-auto w-full max-w-xl space-y-6">
       <EShopOperationalSettingsPanel
         value={operational}
         onChange={setOperational}

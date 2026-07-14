@@ -1,5 +1,6 @@
 import type { CustomerDisplaySnapshot } from "@kai/customer-display-client";
 import type { PosCartLine } from "@/app/(pos)/pos/ui/PosCartLineCard";
+import { computePosSaleTotals } from "@/features/pos-cart/lib/pos-sale-totals";
 import type { PosContextV1 } from "@/features/session/lib/pos-context-storage";
 
 export type BuildCustomerDisplaySnapshotInput = {
@@ -59,12 +60,7 @@ export function buildCustomerDisplaySnapshot(
     };
   });
 
-  const gross = input.lines.reduce((acc, l) => acc + lineGross(l), 0);
-  const lineDiscountsTotal = input.lines.reduce(
-    (acc, l) => acc + (l.discount?.discountAmount ?? 0),
-    0,
-  );
-  const total = Math.max(0, gross - lineDiscountsTotal - (input.orderDiscount ?? 0));
+  const { saleTotal: total } = computePosSaleTotals(input.lines, input.orderDiscount);
   const itemCount = input.lines.reduce((acc, l) => acc + (Number(l.quantity) || 0), 0);
 
   const state =
@@ -87,10 +83,5 @@ export function computeCustomerDisplaySaleTotal(
   lines: PosCartLine[],
   orderDiscount: number,
 ): number {
-  const gross = lines.reduce((acc, l) => acc + lineGross(l), 0);
-  const lineDiscountsTotal = lines.reduce(
-    (acc, l) => acc + (l.discount?.discountAmount ?? 0),
-    0,
-  );
-  return Math.max(0, gross - lineDiscountsTotal - (orderDiscount ?? 0));
+  return computePosSaleTotals(lines, orderDiscount).saleTotal;
 }

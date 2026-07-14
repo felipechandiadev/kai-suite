@@ -1,6 +1,9 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/auth-options";
 import type {
+  CanonicalFulfillmentCode,
+  CanonicalFulfillmentMethodRow,
+  CanonicalFulfillmentMethodsResponse,
   EShopFulfillmentMethodRow,
   EShopFulfillmentSettings,
   EShopFulfillmentStatus,
@@ -31,6 +34,37 @@ export class EShopFulfillmentRequest {
       cache: "no-store",
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  static async listCanonicalMethods(): Promise<CanonicalFulfillmentMethodsResponse> {
+    const res = await fetch(apiUrl("/e-shop/admin/fulfillment-methods/canonical"), {
+      headers: await authHeaders(),
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  static async setCanonicalMethodEnabled(
+    code: CanonicalFulfillmentCode,
+    enabled: boolean,
+  ): Promise<CanonicalFulfillmentMethodRow> {
+    const res = await fetch(apiUrl(`/e-shop/admin/fulfillment-methods/canonical/${code}`), {
+      method: "PATCH",
+      headers: await authHeaders(),
+      body: JSON.stringify({ enabled }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const msg =
+        typeof data?.message === "string"
+          ? data.message
+          : Array.isArray(data?.message)
+            ? data.message.join(", ")
+            : `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
     return res.json();
   }
 

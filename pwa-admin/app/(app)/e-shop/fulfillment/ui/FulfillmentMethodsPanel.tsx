@@ -1,132 +1,184 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, useTransition, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Button } from "@kai/ui";
-import { TextField } from "@kai/ui";
-import {
-  createFulfillmentMethodAction,
-  deleteFulfillmentMethodAction,
-  updateFulfillmentMethodAction,
-} from "@/features/e-shop-fulfillment/actions/eshop-fulfillment.action";
+import { Alert, Switch } from "@kai/ui";
+import { setCanonicalFulfillmentMethodEnabledAction } from "@/features/e-shop-fulfillment/actions/eshop-fulfillment.action";
 import type {
-  EShopFulfillmentMethodRow,
-  EShopFulfillmentMethodType,
+  CanonicalFulfillmentCode,
+  CanonicalFulfillmentMethodRow,
+  LocalDeliveryOperationalReadiness,
 } from "@/features/e-shop-fulfillment/types/eshop-fulfillment.types";
-import { METHOD_TYPE_LABELS } from "@/features/e-shop-fulfillment/lib/eshop-fulfillment-labels";
 
-export function FulfillmentMethodsPanel({
-  initialMethods,
-}: {
-  initialMethods: EShopFulfillmentMethodRow[];
-}) {
-  const router = useRouter();
-  const [methods, setMethods] = useState(initialMethods);
-  const [code, setCode] = useState("");
-  const [name, setName] = useState("");
-  const [type, setType] = useState<EShopFulfillmentMethodType>("PICKUP");
-  const [priceFlat, setPriceFlat] = useState("");
-  const [busy, setBusy] = useState(false);
+type Props = {
+  initialMethods: CanonicalFulfillmentMethodRow[];
+  initialReadiness: LocalDeliveryOperationalReadiness;
+};
+
+const METHOD_COPY: Record<
+  CanonicalFulfillmentCode,
+  { title: string; body: string; configHint: ReactNode }
+> = {
+  pickup: {
+    title: "Retiro en tienda",
+    body: "El cliente retira el pedido en la sucursal operativa de la tienda web.",
+    configHint: (
+      <>
+        Usa la sucursal y almacén definidos en{" "}
+        <Link
+          href="/e-shop/fulfillment/configuracion"
+          className="text-primary underline-offset-2 hover:underline"
+        >
+          Configuración
+        </Link>
+        .
+      </>
+    ),
+  },
+  "local-delivery": {
+    title: "Reparto local",
+    body: "Entrega programada en la Región del Maule con zona, franja y ubicación.",
+    configHint: (
+      <>
+        Requiere{" "}
+        <Link href="/e-shop/fulfillment/cobertura" className="text-primary underline-offset-2 hover:underline">
+          Cobertura
+        </Link>
+        ,{" "}
+        <Link href="/e-shop/fulfillment/zonas" className="text-primary underline-offset-2 hover:underline">
+          Zonas
+        </Link>
+        ,{" "}
+        <Link href="/e-shop/fulfillment/calendario" className="text-primary underline-offset-2 hover:underline">
+          Calendario
+        </Link>{" "}
+        y{" "}
+        <Link href="/e-shop/fulfillment/reparto" className="text-primary underline-offset-2 hover:underline">
+          Reparto
+        </Link>
+        .
+      </>
+    ),
+  },
+};
+
+function ReadinessChecklist({ readiness }: { readiness: LocalDeliveryOperationalReadiness }) {
+  const items = [
+    { ok: readiness.localDeliveryEnabled, label: "Método habilitado para checkout" },
+    { ok: readiness.depotConfigured, label: "Bodega y coordenadas configuradas" },
+    { ok: readiness.communesEnabled, label: "Al menos una comuna habilitada" },
+    { ok: readiness.zonesActive, label: "Al menos una zona activa" },
+    { ok: readiness.occurrencesAvailable, label: "Franjas de reparto disponibles" },
+  ];
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <form
-        className="space-y-3 rounded-xl border border-border p-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setBusy(true);
-          createFulfillmentMethodAction({
-            code,
-            name,
-            type,
-            priceFlat: priceFlat ? Number(priceFlat) : null,
-            isActive: true,
-          })
-            .then((r) => {
-              if (r.success) {
-                setCode("");
-                setName("");
-                setPriceFlat("");
-                router.refresh();
-              }
-            })
-            .finally(() => setBusy(false));
-        }}
-      >
-        <h2 className="font-semibold">Nuevo método de entrega</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <TextField label="Código" value={code} onChange={(e) => setCode(e.target.value)} required />
-          <TextField label="Nombre" value={name} onChange={(e) => setName(e.target.value)} required />
-          <label className="text-sm space-y-1">
-            <span className="font-medium">Tipo</span>
-            <select
-              className="w-full rounded-md border border-border bg-background px-3 py-2"
-              value={type}
-              onChange={(e) => setType(e.target.value as EShopFulfillmentMethodType)}
-            >
-              {Object.entries(METHOD_TYPE_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </label>
-          <TextField
-            label="Tarifa fija (CLP)"
-            value={priceFlat}
-            onChange={(e) => setPriceFlat(e.target.value)}
+    <ul className="mt-3 space-y-1.5 text-sm" data-test-id="local-delivery-readiness">
+      {items.map((item) => (
+        <li key={item.label} className="flex items-center gap-2">
+          <span
+            className={
+              item.ok
+                ? "inline-block h-2 w-2 shrink-0 rounded-full bg-emerald-500"
+                : "inline-block h-2 w-2 shrink-0 rounded-full bg-muted-foreground/40"
+            }
+            aria-hidden
           />
-        </div>
-        <Button type="submit" variant="primary" disabled={busy}>
-          Crear método
-        </Button>
-      </form>
+          <span className={item.ok ? "text-foreground" : "text-muted-foreground"}>{item.label}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
-      <ul className="space-y-3">
-        {methods.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No hay métodos configurados.</p>
-        ) : (
-          methods.map((m) => (
-            <li key={m.id} className="rounded-xl border border-border p-4 space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="font-medium">{m.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {m.code} · {METHOD_TYPE_LABELS[m.type]}
-                    {m.priceFlat != null ? ` · $${Number(m.priceFlat).toLocaleString("es-CL")}` : ""}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      updateFulfillmentMethodAction(m.id, { isActive: !m.isActive }).then(() =>
-                        router.refresh(),
-                      );
-                    }}
-                  >
-                    {m.isActive ? "Desactivar" : "Activar"}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      if (!confirm("¿Eliminar método?")) return;
-                      deleteFulfillmentMethodAction(m.id).then(() => router.refresh());
-                    }}
-                  >
-                    Eliminar
-                  </Button>
-                </div>
+export function FulfillmentMethodsPanel({ initialMethods, initialReadiness }: Props) {
+  const router = useRouter();
+  const [methods, setMethods] = useState(initialMethods);
+  const [readiness, setReadiness] = useState(initialReadiness);
+  const [pendingCode, setPendingCode] = useState<CanonicalFulfillmentCode | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const ordered = useMemo(
+    () =>
+      (["pickup", "local-delivery"] as const)
+        .map((code) => methods.find((m) => m.code === code))
+        .filter((m): m is CanonicalFulfillmentMethodRow => Boolean(m)),
+    [methods],
+  );
+
+  function toggle(code: CanonicalFulfillmentCode, enabled: boolean) {
+    setError(null);
+    setPendingCode(code);
+    setMethods((prev) => prev.map((m) => (m.code === code ? { ...m, isActive: enabled } : m)));
+    if (code === "local-delivery") {
+      setReadiness((r) => ({ ...r, localDeliveryEnabled: enabled }));
+    }
+
+    startTransition(() => {
+      void setCanonicalFulfillmentMethodEnabledAction(code, enabled).then((res) => {
+        setPendingCode(null);
+        if (!res.success) {
+          setError(res.error);
+          setMethods(initialMethods);
+          setReadiness(initialReadiness);
+          return;
+        }
+        setMethods((prev) => prev.map((m) => (m.code === code ? { ...m, ...res.method } : m)));
+        router.refresh();
+      });
+    });
+  }
+
+  return (
+    <div
+      className="mx-auto w-full max-w-3xl space-y-4"
+      data-test-id="fulfillment-methods-canonical-panel"
+    >
+      <p className="text-sm text-muted-foreground">
+        Elige qué opciones de entrega verá el cliente en el checkout. La configuración avanzada
+        (sucursal, cobertura, zonas y franjas) vive en las otras pestañas.
+      </p>
+
+      {error ? <Alert variant="error">{error}</Alert> : null}
+
+      {ordered.map((method) => {
+        const copy = METHOD_COPY[method.code];
+        const busy = isPending && pendingCode === method.code;
+        return (
+          <section
+            key={method.code}
+            className="space-y-3 rounded-xl border border-border p-4"
+            data-test-id={`fulfillment-method-card-${method.code}`}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0 space-y-1">
+                <h2 className="font-semibold">{copy.title}</h2>
+                <p className="text-sm text-muted-foreground">{copy.body}</p>
+                <p className="text-sm text-muted-foreground">{copy.configHint}</p>
               </div>
-              {m.instructions ? (
-                <p className="text-sm text-muted-foreground">{m.instructions}</p>
-              ) : null}
-            </li>
-          ))
-        )}
-      </ul>
+              <Switch
+                checked={method.isActive}
+                onChange={(v) => toggle(method.code, v)}
+                disabled={busy}
+                label="Habilitado en checkout"
+                labelPosition="left"
+                data-test-id={`fulfillment-method-switch-${method.code}`}
+              />
+            </div>
+
+            {method.code === "local-delivery" ? (
+              <ReadinessChecklist readiness={readiness} />
+            ) : null}
+          </section>
+        );
+      })}
+
+      {ordered.length === 0 ? (
+        <Alert variant="warning">
+          No se pudieron cargar los métodos canónicos. Revisa la conexión con el backend.
+        </Alert>
+      ) : null}
     </div>
   );
 }

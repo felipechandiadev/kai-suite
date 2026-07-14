@@ -379,6 +379,16 @@ export class ProductRequest {
     }
   }
 
+  /** Resuelve un producto del catálogo por ID (usa búsqueda exacta por UUID). */
+  static async getProductForGridById(id: string): Promise<ProductGridRow | null> {
+    const trimmed = id.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const rows = await ProductRequest.searchProducts(trimmed, 1);
+    return rows.find((r) => r.id === trimmed) ?? null;
+  }
+
   static async create(body: {
     name: string;
     categoryId?: string;

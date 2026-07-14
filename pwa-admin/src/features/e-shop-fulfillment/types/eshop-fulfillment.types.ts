@@ -5,17 +5,23 @@ export type EShopStockPolicy =
 
 export type EShopFulfillmentMethodType =
   | "PICKUP"
+  | "LOCAL_DELIVERY"
   | "FLAT_RATE"
   | "FREE_OVER_THRESHOLD"
   | "MANUAL_QUOTE";
+
+export type CanonicalFulfillmentCode = "pickup" | "local-delivery";
 
 export type EShopFulfillmentStatus =
   | "SUBMITTED"
   | "CONFIRMED"
   | "PREPARING"
   | "READY_FOR_PICKUP"
+  | "READY_FOR_DISPATCH"
+  | "IN_TRANSIT"
   | "SHIPPED"
   | "DELIVERED"
+  | "ISSUE"
   | "CANCELLED";
 
 export type EShopFulfillmentMethodRow = {
@@ -34,6 +40,30 @@ export type EShopFulfillmentMethodRow = {
   pickupBranchId: string | null;
   isActive: boolean;
   sortOrder: number;
+};
+
+export type CanonicalFulfillmentMethodRow = {
+  id: string;
+  code: CanonicalFulfillmentCode;
+  name: string;
+  description: string | null;
+  type: EShopFulfillmentMethodType;
+  isActive: boolean;
+  instructions: string | null;
+  sortOrder: number;
+};
+
+export type LocalDeliveryOperationalReadiness = {
+  localDeliveryEnabled: boolean;
+  depotConfigured: boolean;
+  communesEnabled: boolean;
+  zonesActive: boolean;
+  occurrencesAvailable: boolean;
+};
+
+export type CanonicalFulfillmentMethodsResponse = {
+  methods: CanonicalFulfillmentMethodRow[];
+  localDeliveryReadiness: LocalDeliveryOperationalReadiness;
 };
 
 export type EShopFulfillmentSettings = {

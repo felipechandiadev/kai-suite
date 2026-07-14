@@ -7,27 +7,23 @@ import {
   createProductPagePath,
   isCreateProductPath,
 } from "@/features/product/lib/product-routes";
-import {
-  isVariantDetailPath,
-  SCAN_PATH,
-  SEARCH_PATH,
-} from "@/features/variant/lib/variant-routes";
+import { SCAN_PATH, SEARCH_PATH } from "@/features/variant/lib/variant-routes";
 import SideBar from "@/shared/components/SideBar/SideBar";
 import { stockMenuItems } from "@/navigation/stockMenu";
 
 function StockBrandBlock() {
   return (
-    <div className="flex shrink-0 items-center gap-2" data-test-id="stock-top-bar-brand">
-      <div className="flex flex-col text-right leading-none">
-        <span className="text-base font-bold tracking-tight">KaiStore</span>
-        <span className="text-xs font-normal text-muted-foreground">StockControl</span>
-      </div>
+    <div className="flex min-w-0 items-center gap-2" data-test-id="stock-top-bar-brand">
       <img
         src="/logo.png"
         alt=""
         className="h-9 w-9 shrink-0 object-contain"
         data-test-id="stock-top-bar-logo"
       />
+      <div className="flex min-w-0 flex-col gap-0">
+        <span className="text-base font-bold leading-none tracking-tight">KaiStore</span>
+        <span className="text-xs font-normal leading-none text-muted-foreground">StockControl</span>
+      </div>
     </div>
   );
 }
@@ -38,84 +34,38 @@ const stockNavIconProps = {
   strokeWidth: 2.5,
 };
 
-function StockScanNavButton({ onClick }: { onClick: () => void }) {
-  return (
-    <IconButton
-      icon="Scan"
-      {...stockNavIconProps}
-      onClick={onClick}
-      ariaLabel="Escáner"
-      data-test-id="variant-search-go-scan"
-    />
-  );
-}
-
-function StockSearchNavButton({ onClick }: { onClick: () => void }) {
-  return (
-    <IconButton
-      icon="Search"
-      {...stockNavIconProps}
-      onClick={onClick}
-      ariaLabel="Buscador"
-      data-test-id="variant-search-engine"
-    />
-  );
-}
-
-function StockCreateProductNavButton({ onClick }: { onClick: () => void }) {
-  return (
-    <IconButton
-      icon="Plus"
-      {...stockNavIconProps}
-      onClick={onClick}
-      ariaLabel="Crear producto"
-      data-test-id="stock-create-product-nav"
-    />
-  );
-}
-
 function StockScanSearchNavButton() {
   const pathname = usePathname();
   const router = useRouter();
 
-  if (isCreateProductPath(pathname)) {
-    return (
-      <>
-        <StockScanNavButton onClick={() => router.push(SCAN_PATH)} />
-        <StockSearchNavButton onClick={() => router.push(SEARCH_PATH)} />
-      </>
-    );
-  }
-
-  if (pathname === SCAN_PATH) {
-    return (
-      <>
-        <StockSearchNavButton onClick={() => router.push(SEARCH_PATH)} />
-        <StockCreateProductNavButton onClick={() => router.push(createProductPagePath())} />
-      </>
-    );
-  }
-
-  if (pathname === SEARCH_PATH) {
-    return (
-      <>
-        <StockScanNavButton onClick={() => router.push(SCAN_PATH)} />
-        <StockCreateProductNavButton onClick={() => router.push(createProductPagePath())} />
-      </>
-    );
-  }
-
-  if (isVariantDetailPath(pathname)) {
-    return (
-      <>
-        <StockScanNavButton onClick={() => router.push(SCAN_PATH)} />
-        <StockSearchNavButton onClick={() => router.push(SEARCH_PATH)} />
-        <StockCreateProductNavButton onClick={() => router.push(createProductPagePath())} />
-      </>
-    );
-  }
-
-  return null;
+  return (
+    <>
+      <IconButton
+        icon="Scan"
+        {...stockNavIconProps}
+        aria-current={pathname === SCAN_PATH ? "page" : undefined}
+        onClick={() => router.push(SCAN_PATH)}
+        ariaLabel="Escáner"
+        data-test-id="variant-search-go-scan"
+      />
+      <IconButton
+        icon="Search"
+        {...stockNavIconProps}
+        aria-current={pathname === SEARCH_PATH ? "page" : undefined}
+        onClick={() => router.push(SEARCH_PATH)}
+        ariaLabel="Buscador"
+        data-test-id="variant-search-engine"
+      />
+      <IconButton
+        icon="Plus"
+        {...stockNavIconProps}
+        aria-current={isCreateProductPath(pathname) ? "page" : undefined}
+        onClick={() => router.push(createProductPagePath())}
+        ariaLabel="Crear producto"
+        data-test-id="stock-create-product-nav"
+      />
+    </>
+  );
 }
 
 type StockPageShellProps = {
@@ -140,7 +90,7 @@ export default function StockPageShell({ children }: StockPageShellProps) {
         data-test-id="stock-app-header"
       >
         <div className="mx-auto flex h-full w-full max-w-md items-center justify-between gap-3 px-4">
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="flex min-w-0 items-center gap-1">
             <IconButton
               icon="Menu"
               variant="action"
@@ -150,9 +100,11 @@ export default function StockPageShell({ children }: StockPageShellProps) {
               ariaLabel="Abrir menú"
               data-test-id="stock-menu-button"
             />
+            <StockBrandBlock />
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
             <StockScanSearchNavButton />
           </div>
-          <StockBrandBlock />
         </div>
       </header>
 

@@ -80,7 +80,7 @@ export const Stepper: React.FC<StepperProps> = ({
                 const dotClasses = [
                   "fs-stepper__dot flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-xs font-semibold transition-all duration-200",
                   isActive
-                    ? "border-primary bg-primary text-white shadow-sm"
+                    ? "border-secondary bg-secondary text-white shadow-sm"
                     : isCompleted
                       ? "border-primary/40 bg-primary/15 text-primary"
                       : "border-border bg-card text-muted-foreground",
@@ -126,12 +126,8 @@ export const Stepper: React.FC<StepperProps> = ({
           </div>
 
           <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <div className="relative grid grid-cols-1 gap-4 p-5 sm:grid-cols-[1fr_auto] sm:gap-6 sm:p-6">
-              <div
-                className="fs-stepper__rail absolute left-0 top-0 bottom-0 w-1.5 rounded-full bg-secondary sm:left-0"
-                aria-hidden
-              />
-              <div className="min-w-0 pl-4 sm:pl-5">
+            <div className="relative p-5 sm:p-6">
+              <div className="relative min-w-0 text-right">
                 {current ? (
                   <>
                     <h3 className="text-xl font-semibold tracking-tight text-foreground">
@@ -144,14 +140,6 @@ export const Stepper: React.FC<StepperProps> = ({
                     ) : null}
                   </>
                 ) : null}
-              </div>
-              <div className="flex items-start justify-end sm:items-center">
-                <div
-                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-primary/30 bg-muted/30 text-xl font-bold text-primary"
-                  aria-hidden
-                >
-                  {safeIndex + 1}
-                </div>
               </div>
             </div>
           </div>

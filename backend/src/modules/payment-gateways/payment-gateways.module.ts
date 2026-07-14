@@ -2,6 +2,8 @@ import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CompaniesModule } from '@modules/companies/companies.module';
 import { EShopModule } from '@modules/e-shop/e-shop.module';
+import { EShopCart } from '@modules/e-shop/domain/e-shop-cart.entity';
+import { EShopCartItem } from '@modules/e-shop/domain/e-shop-cart-item.entity';
 import { Transaction } from '@modules/transactions/domain/transaction.entity';
 import { PaymentGatewayIntent } from './domain/payment-gateway-intent.entity';
 import { MercadoPagoClient } from './application/mercado-pago.client';
@@ -19,7 +21,7 @@ import { MercadoPagoEshopController } from './presentation/mercado-pago-eshop.co
   imports: [
     CompaniesModule,
     forwardRef(() => EShopModule),
-    TypeOrmModule.forFeature([PaymentGatewayIntent, Transaction]),
+    TypeOrmModule.forFeature([PaymentGatewayIntent, Transaction, EShopCart, EShopCartItem]),
   ],
   controllers: [
     MercadoPagoWebhookController,

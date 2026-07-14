@@ -10,6 +10,7 @@ import {
 
 export type EShopFulfillmentMethodType =
   | 'PICKUP'
+  | 'LOCAL_DELIVERY'
   | 'FLAT_RATE'
   | 'FREE_OVER_THRESHOLD'
   | 'MANUAL_QUOTE';

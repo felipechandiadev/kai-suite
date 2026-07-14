@@ -18,6 +18,8 @@ import {
   readDeferredPaymentEnabledFromOfflineCache,
 } from "@/features/pos-offline/lib/read-deferred-payment-enabled";
 import { usePosCart } from "@/features/pos-cart/PosCartProvider";
+import { computePosSaleTotals } from "@/features/pos-cart/lib/pos-sale-totals";
+import { PosDiscountDetailDialog } from "@/features/promotions/ui/PosDiscountDetailDialog";
 import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
 import { usePosTabletDensity } from "@/shared/hooks/usePosTabletDensity";
 import { notifyCustomerDisplaySaleCompleted } from "@/features/customer-display/lib/customer-display-publisher";
@@ -614,6 +616,7 @@ export default function PosPaymentWorkspace({
 
   const saleTitleId = useId();
   const [saleSummaryOpen, setSaleSummaryOpen] = useState(false);
+  const [discountDetailOpen, setDiscountDetailOpen] = useState(false);
   const [customerPanelOpen, setCustomerPanelOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [internalCreditDialogOpen, setInternalCreditDialogOpen] = useState(false);
@@ -1044,28 +1047,12 @@ export default function PosPaymentWorkspace({
     setCustomer(null);
   }, [setCustomer, customerLocked]);
 
-  const totals = useMemo(() => {
-    return cart.lines.reduce(
-      (acc, l) => {
-        const q = Number(l.quantity) || 0;
-        const net = (Number(l.unitPrice) || 0) * q;
-        const gross = (Number(l.unitPriceWithTax) || 0) * q;
-        acc.net += net;
-        acc.gross += gross;
-        return acc;
-      },
-      { net: 0, gross: 0 },
-    );
-  }, [cart.lines]);
-
-  const taxes = Math.max(0, totals.gross - totals.net);
-  const lineDiscountsTotal = useMemo(
-    () =>
-      cart.lines.reduce((acc, l) => acc + (l.discount?.discountAmount ?? 0), 0),
-    [cart.lines],
+  const saleTotals = useMemo(
+    () => computePosSaleTotals(cart.lines, cart.orderDiscount ?? 0),
+    [cart.lines, cart.orderDiscount],
   );
-  const discounts = lineDiscountsTotal + (cart.orderDiscount ?? 0);
-  const saleTotal = Math.max(0, totals.gross - discounts);
+  const totals = { net: saleTotals.net, gross: saleTotals.gross };
+  const { taxes, lineDiscountsTotal, discounts, saleTotal } = saleTotals;
   const hasInsufficientStock = useMemo(
     () => cart.lines.some((line) => posCartQuantityExceedsAvailableStock(line)),
     [cart.lines],
@@ -3316,9 +3303,25 @@ export default function PosPaymentWorkspace({
                   </span>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Descuentos</span>
-                  <span className="font-medium tabular-nums text-foreground">
-                    {formatMoney(discounts)}
+                  <span className="flex items-center gap-1 text-muted-foreground">
+                    {discounts > 0 ? (
+                      <IconButton
+                        icon="Info"
+                        variant="action"
+                        size="xs"
+                        ariaLabel="Ver detalle de descuentos"
+                        title="Ver detalle de descuentos"
+                        onClick={() => setDiscountDetailOpen(true)}
+                        data-test-id="pos-payment-summary-discounts-info"
+                      />
+                    ) : null}
+                    Descuentos
+                  </span>
+                  <span
+                    className="font-medium tabular-nums text-emerald-700 dark:text-emerald-300"
+                    data-test-id="pos-payment-summary-discounts"
+                  >
+                    {discounts > 0 ? `-${formatMoney(discounts)}` : formatMoney(discounts)}
                   </span>
                 </div>
                 <div className="flex justify-between gap-4 pt-1 text-base font-semibold">
@@ -3957,6 +3960,16 @@ export default function PosPaymentWorkspace({
           onConfirm={handleInternalCreditConfirm}
         />
       ) : null}
+
+      <PosDiscountDetailDialog
+        open={discountDetailOpen}
+        onClose={() => setDiscountDetailOpen(false)}
+        appliedPromotions={appliedPromotions}
+        lines={cart.lines}
+        totalDiscount={discounts}
+        promotions={cart.effectivePromotions}
+        warnings={cart.promotionWarnings}
+      />
     </div>
   );
 }

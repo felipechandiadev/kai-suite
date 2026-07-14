@@ -9,6 +9,7 @@ import { EShopCheckoutOrderService } from '../application/eshop-checkout-order.s
 import { EshopCustomerAuthService } from '../application/eshop-customer-auth.service';
 import { CompaniesService } from '@modules/companies/application/companies.service';
 import { isMercadoPagoEshopCheckoutOperational } from '@modules/companies/domain/company-mercado-pago.types';
+import { DeliveryCoverageService } from '@modules/e-shop-delivery/application/delivery-coverage.service';
 
 @Controller('e-shop')
 @SkipTenant()
@@ -20,6 +21,7 @@ export class EShopPublicController {
     private readonly checkoutOrder: EShopCheckoutOrderService,
     private readonly customerAuth: EshopCustomerAuthService,
     private readonly companiesService: CompaniesService,
+    private readonly deliveryCoverage: DeliveryCoverageService,
   ) {}
 
   @Get('storefront')
@@ -108,15 +110,23 @@ export class EShopPublicController {
   }
 
   @Get('fulfillment-methods')
-  listFulfillmentMethods(
+  async listFulfillmentMethods(
     @EShopStore() store: EShopStoreContext,
     @Query('subtotal') subtotal?: string,
   ) {
     const sub = Math.max(0, Number(subtotal) || 0);
+    let localDeliveryEnabled = false;
+    try {
+      const deliverySettings = await this.deliveryCoverage.getSettings(store.companyId);
+      localDeliveryEnabled = deliverySettings.localDeliveryEnabled === true;
+    } catch {
+      localDeliveryEnabled = false;
+    }
     return this.fulfillmentMethods.listActiveWithPricing(
       store.companyId,
       sub,
       store.eShop.eShopFreeShippingThreshold,
+      { localDeliveryEnabled },
     );
   }
 
@@ -136,7 +146,10 @@ export class EShopPublicController {
         region?: string;
         notes?: string;
       };
-      lines: Array<{ productVariantId: string; quantity: number }>;
+      lines?: Array<{ productVariantId: string; quantity: number }>;
+      cartId?: string;
+      cartToken?: string;
+      checkoutAttemptId?: string;
       notes?: string;
       paymentMode?: "online" | "coordinate";
     },
@@ -160,7 +173,10 @@ export class EShopPublicController {
         paymentMode: body.paymentMode ?? "coordinate",
       });
     }
-    return this.eShopService.createCheckoutSale(store, body);
+    return this.eShopService.createCheckoutSale(store, {
+      ...body,
+      lines: body.lines ?? [],
+    });
   }
 
   @Post('checkout/prepare')
@@ -179,7 +195,10 @@ export class EShopPublicController {
         region?: string;
         notes?: string;
       };
-      lines: Array<{ productVariantId: string; quantity: number }>;
+      lines?: Array<{ productVariantId: string; quantity: number }>;
+      cartId?: string;
+      cartToken?: string;
+      checkoutAttemptId?: string;
       notes?: string;
     },
     @Headers('authorization') authorization?: string,

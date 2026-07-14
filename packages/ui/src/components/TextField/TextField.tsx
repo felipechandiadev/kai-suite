@@ -783,6 +783,7 @@ export const TextField: React.FC<TextFieldProps> = ({
           onClick={focusField}
         >
           {type === "datePicker" ? `Ej: ${new Date().getFullYear()}` : (placeholder ?? label)}
+          <span className="ml-1 text-red-500">*</span>
         </div>
       )}
       {/* Inject scoped placeholder style if requested */}

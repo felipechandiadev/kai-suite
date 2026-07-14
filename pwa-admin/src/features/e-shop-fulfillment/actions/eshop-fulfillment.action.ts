@@ -3,11 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { EShopFulfillmentRequest } from "../infrastructure/eshop-fulfillment.request";
 import type {
+  CanonicalFulfillmentCode,
   EShopFulfillmentMethodRow,
-  EShopFulfillmentSettings,
   EShopFulfillmentStatus,
   EShopStockPolicy,
 } from "../types/eshop-fulfillment.types";
+
+function revalidateFulfillmentPaths() {
+  revalidatePath("/e-shop/fulfillment");
+  revalidatePath("/e-shop/fulfillment/metodos");
+  revalidatePath("/e-shop/fulfillment/reparto");
+}
 
 export async function listFulfillmentMethodsAction() {
   try {
@@ -18,10 +24,43 @@ export async function listFulfillmentMethodsAction() {
   }
 }
 
+export async function listCanonicalFulfillmentMethodsAction() {
+  try {
+    const data = await EShopFulfillmentRequest.listCanonicalMethods();
+    return { success: true as const, ...data };
+  } catch (e) {
+    return {
+      success: false as const,
+      error: e instanceof Error ? e.message : "Error",
+      methods: [],
+      localDeliveryReadiness: {
+        localDeliveryEnabled: false,
+        depotConfigured: false,
+        communesEnabled: false,
+        zonesActive: false,
+        occurrencesAvailable: false,
+      },
+    };
+  }
+}
+
+export async function setCanonicalFulfillmentMethodEnabledAction(
+  code: CanonicalFulfillmentCode,
+  enabled: boolean,
+) {
+  try {
+    const method = await EShopFulfillmentRequest.setCanonicalMethodEnabled(code, enabled);
+    revalidateFulfillmentPaths();
+    return { success: true as const, method };
+  } catch (e) {
+    return { success: false as const, error: e instanceof Error ? e.message : "Error" };
+  }
+}
+
 export async function createFulfillmentMethodAction(body: Partial<EShopFulfillmentMethodRow>) {
   try {
     await EShopFulfillmentRequest.createMethod(body);
-    revalidatePath("/e-shop/fulfillment");
+    revalidateFulfillmentPaths();
     return { success: true as const };
   } catch (e) {
     return { success: false as const, error: e instanceof Error ? e.message : "Error" };
@@ -34,7 +73,7 @@ export async function updateFulfillmentMethodAction(
 ) {
   try {
     await EShopFulfillmentRequest.updateMethod(id, body);
-    revalidatePath("/e-shop/fulfillment");
+    revalidateFulfillmentPaths();
     return { success: true as const };
   } catch (e) {
     return { success: false as const, error: e instanceof Error ? e.message : "Error" };
@@ -44,7 +83,7 @@ export async function updateFulfillmentMethodAction(
 export async function deleteFulfillmentMethodAction(id: string) {
   try {
     await EShopFulfillmentRequest.deleteMethod(id);
-    revalidatePath("/e-shop/fulfillment");
+    revalidateFulfillmentPaths();
     return { success: true as const };
   } catch (e) {
     return { success: false as const, error: e instanceof Error ? e.message : "Error" };

@@ -5,6 +5,8 @@ import { EShopTestimonial } from './domain/e-shop-testimonial.entity';
 import { EShopHeroSlide } from './domain/e-shop-hero-slide.entity';
 import { EShopFulfillmentMethod } from './domain/e-shop-fulfillment-method.entity';
 import { EshopCustomerAccount } from './domain/eshop-customer-account.entity';
+import { EShopCart } from './domain/e-shop-cart.entity';
+import { EShopCartItem } from './domain/e-shop-cart-item.entity';
 import { EShopService } from './application/e-shop.service';
 import { EShopPublicController } from './presentation/e-shop-public.controller';
 import { EShopAdminController } from './presentation/e-shop-admin.controller';
@@ -34,6 +36,11 @@ import { EShopSchemaBootstrap } from './infrastructure/eshop-schema.bootstrap';
 import { EShopFulfillmentMethodsService } from './application/eshop-fulfillment-methods.service';
 import { EShopCustomerUpsertService } from './application/eshop-customer-upsert.service';
 import { EShopCheckoutOrderService } from './application/eshop-checkout-order.service';
+import { EShopPricingStockService } from './application/eshop-pricing-stock.service';
+import { EShopCartService } from './application/eshop-cart.service';
+import { EShopCartPublisher } from './presentation/eshop-cart.publisher';
+import { EShopCartWebSocketGateway } from './presentation/e-shop-cart-websocket.gateway';
+import { EShopCartController } from './presentation/e-shop-cart.controller';
 import { EShopOrderStatusService } from './application/eshop-order-status.service';
 import { EShopOrderNotificationService } from './application/eshop-order-notification.service';
 import { EshopCustomerOrderConvertService } from './application/eshop-customer-order-convert.service';
@@ -42,6 +49,8 @@ import { EshopCustomerMeService } from './application/eshop-customer-me.service'
 import { EshopCustomerGuard } from './presentation/eshop-customer.guard';
 import { PaymentGatewaysModule } from '@modules/payment-gateways/payment-gateways.module';
 import { KaiMailClient } from '@shared/mail/kai-mail.client';
+import { EShopDeliveryModule } from '@modules/e-shop-delivery/e-shop-delivery.module';
+import { EShopDeliveryZone } from '@modules/e-shop-delivery/domain/e-shop-delivery-zone.entity';
 
 @Module({
   imports: [
@@ -64,6 +73,9 @@ import { KaiMailClient } from '@shared/mail/kai-mail.client';
       Person,
       Transaction,
       EshopCustomerAccount,
+      EShopCart,
+      EShopCartItem,
+      EShopDeliveryZone,
     ]),
     CompaniesModule,
     MultimediaModule,
@@ -72,12 +84,14 @@ import { KaiMailClient } from '@shared/mail/kai-mail.client';
     CustomersModule,
     InstallmentsModule,
     forwardRef(() => PaymentGatewaysModule),
+    EShopDeliveryModule,
   ],
   controllers: [
     EShopPublicController,
     EShopAdminController,
     EShopCustomerAuthController,
     EShopCustomerMeController,
+    EShopCartController,
   ],
   providers: [
     EShopService,
@@ -86,6 +100,10 @@ import { KaiMailClient } from '@shared/mail/kai-mail.client';
     EShopFulfillmentMethodsService,
     EShopCustomerUpsertService,
     EShopCheckoutOrderService,
+    EShopPricingStockService,
+    EShopCartService,
+    EShopCartPublisher,
+    EShopCartWebSocketGateway,
     EShopOrderStatusService,
     EShopOrderNotificationService,
     KaiMailClient,
@@ -94,6 +112,6 @@ import { KaiMailClient } from '@shared/mail/kai-mail.client';
     EshopCustomerMeService,
     EshopCustomerGuard,
   ],
-  exports: [EShopService, EShopStoreGuard],
+  exports: [EShopService, EShopStoreGuard, EShopCartService, EShopPricingStockService],
 })
 export class EShopModule {}

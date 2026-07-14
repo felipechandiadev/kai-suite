@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Transaction } from '@modules/transactions/domain/transaction.entity';
@@ -7,12 +7,20 @@ import {
   TransactionStatus,
 } from '@modules/transactions/domain/transaction.entity';
 import type { PaymentGatewayIntent } from '../domain/payment-gateway-intent.entity';
+import { EShopCart } from '@modules/e-shop/domain/e-shop-cart.entity';
+import { EShopCartItem } from '@modules/e-shop/domain/e-shop-cart-item.entity';
 
 @Injectable()
 export class MercadoPagoEshopOrderSyncService {
+  private readonly logger = new Logger(MercadoPagoEshopOrderSyncService.name);
+
   constructor(
     @InjectRepository(Transaction)
     private readonly transactionRepo: Repository<Transaction>,
+    @InjectRepository(EShopCart)
+    private readonly cartRepo: Repository<EShopCart>,
+    @InjectRepository(EShopCartItem)
+    private readonly cartItemRepo: Repository<EShopCartItem>,
   ) {}
 
   async syncOnApprovedPayment(intent: PaymentGatewayIntent): Promise<void> {
@@ -40,5 +48,22 @@ export class MercadoPagoEshopOrderSyncService {
     meta.eShopOrder = eShopOrder;
     tx.metadata = meta;
     await this.transactionRepo.save(tx);
+
+    const cartId = typeof meta.cartId === 'string' ? meta.cartId.trim() : '';
+    if (cartId) {
+      await this.cartItemRepo.delete({ cartId });
+      await this.cartRepo.update(
+        { id: cartId, companyId: intent.companyId },
+        { status: 'converted' },
+      );
+      this.logger.log(
+        JSON.stringify({
+          event: 'eshop_cart_converted',
+          cartId,
+          transactionId: tx.id,
+          companyId: intent.companyId,
+        }),
+      );
+    }
   }
 }

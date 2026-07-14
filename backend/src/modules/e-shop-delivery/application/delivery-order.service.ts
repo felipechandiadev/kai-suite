@@ -1,0 +1,96 @@
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { DataSource, In, Repository } from 'typeorm';
+import { EShopDeliveryOrder } from '../domain/e-shop-delivery-order.entity';
+import type { DeliveryOrderStatus } from '../domain/delivery.types';
+
+@Injectable()
+export class DeliveryOrderService {
+  constructor(
+    @InjectRepository(EShopDeliveryOrder)
+    private readonly orderRepo: Repository<EShopDeliveryOrder>,
+    private readonly dataSource: DataSource,
+  ) {}
+
+  async createFromCheckout(input: {
+    companyId: string;
+    transactionId: string;
+    fulfillmentType: 'PICKUP' | 'LOCAL_DELIVERY';
+    deliveryZoneId?: string | null;
+    deliveryOccurrenceId?: string | null;
+    addressLine1?: string | null;
+    commune?: string | null;
+    region?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    shippingFee?: number;
+    customerName?: string | null;
+    customerPhone?: string | null;
+    notes?: string | null;
+  }) {
+    const row = await this.orderRepo.save(
+      this.orderRepo.create({
+        companyId: input.companyId,
+        transactionId: input.transactionId,
+        fulfillmentType: input.fulfillmentType,
+        deliveryZoneId: input.deliveryZoneId ?? null,
+        deliveryOccurrenceId: input.deliveryOccurrenceId ?? null,
+        addressLine1: input.addressLine1 ?? null,
+        commune: input.commune ?? null,
+        region: input.region ?? null,
+        latitude: input.latitude ?? null,
+        longitude: input.longitude ?? null,
+        shippingFee: input.shippingFee ?? 0,
+        customerName: input.customerName ?? null,
+        customerPhone: input.customerPhone ?? null,
+        notes: input.notes ?? null,
+        deliveryStatus: 'SUBMITTED',
+      }),
+    );
+
+    if (input.latitude != null && input.longitude != null) {
+      await this.dataSource.query(
+        `UPDATE e_shop_delivery_orders SET delivery_point = ST_SetSRID(ST_MakePoint($2, $3), 4326) WHERE id = $1`,
+        [row.id, input.longitude, input.latitude],
+      );
+    }
+    return row;
+  }
+
+  async updateStatus(companyId: string, deliveryOrderId: string, status: DeliveryOrderStatus) {
+    const row = await this.orderRepo.findOne({ where: { companyId, id: deliveryOrderId } });
+    if (!row) throw new Error('Pedido delivery no encontrado');
+    row.deliveryStatus = status;
+    return this.orderRepo.save(row);
+  }
+
+  async listByStatus(companyId: string, statuses: DeliveryOrderStatus[]) {
+    return this.orderRepo.find({
+      where: { companyId, deliveryStatus: statuses as any },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  async findByTransaction(companyId: string, transactionId: string) {
+    return this.orderRepo.findOne({ where: { companyId, transactionId } });
+  }
+
+  async findByIds(companyId: string, ids: string[]) {
+    if (ids.length === 0) return [];
+    return this.orderRepo.find({
+      where: { companyId, id: In(ids) },
+    });
+  }
+
+  async assignToDispatch(
+    companyId: string,
+    deliveryOrderId: string,
+    dispatchId: string,
+  ) {
+    const row = await this.orderRepo.findOne({ where: { companyId, id: deliveryOrderId } });
+    if (!row) throw new Error('Pedido delivery no encontrado');
+    row.deliveryDispatchId = dispatchId;
+    row.deliveryStatus = 'READY_FOR_DISPATCH';
+    return this.orderRepo.save(row);
+  }
+}

@@ -1,13 +1,9 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BadRequestException } from '@nestjs/common';
-import { In, IsNull, Repository } from 'typeorm';
-import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
-import { StockLevel } from '@modules/stock-levels/domain/stock-level.entity';
-import { Branch } from '@modules/branches/domain/branch.entity';
+import { Repository } from 'typeorm';
 import { User } from '@modules/users/domain/user.entity';
 import { Customer } from '@modules/customers/domain/customer.entity';
-import { PriceListItem } from '@modules/price-list-items/domain/price-list-item.entity';
 import {
   TransactionStatus,
   TransactionType,
@@ -23,9 +19,7 @@ import { EShopCustomerUpsertService } from './eshop-customer-upsert.service';
 import {
   evaluateStockPolicy,
   isEshopCheckoutCommercialBackorder,
-  type StockCheckLine,
 } from './helpers/eshop-stock-policy.util';
-import { resolveEShopOperationalContext } from './helpers/eshop-operational-context.util';
 import type {
   EShopOrderShippingAddress,
   TransactionEShopOrderMetadata,
@@ -40,6 +34,15 @@ import {
   resolveMpWebhookNotificationUrl,
 } from '@modules/payment-gateways/application/mercado-pago-eshop-urls';
 import { Transaction } from '@modules/transactions/domain/transaction.entity';
+import { EShopPricingStockService } from './eshop-pricing-stock.service';
+import { EShopCartService } from './eshop-cart.service';
+import { randomUUID } from 'crypto';
+import { DeliveryOrderService } from '@modules/e-shop-delivery/application/delivery-order.service';
+import { ResolveDeliveryZoneService } from '@modules/e-shop-delivery/application/resolve-delivery-zone.service';
+import { DeliveryQuoteService } from '@modules/e-shop-delivery/application/delivery-quote.service';
+import { DeliveryOccurrenceService } from '@modules/e-shop-delivery/application/delivery-occurrence.service';
+import { DeliveryCoverageService } from '@modules/e-shop-delivery/application/delivery-coverage.service';
+import { EShopDeliveryZone } from '@modules/e-shop-delivery/domain/e-shop-delivery-zone.entity';
 
 export type CheckoutOrderBody = {
   customerName: string;
@@ -48,10 +51,17 @@ export type CheckoutOrderBody = {
   fulfillmentMethodId: string;
   address?: string;
   shippingAddress?: EShopOrderShippingAddress;
-  lines: Array<{ productVariantId: string; quantity: number }>;
+  lines?: Array<{ productVariantId: string; quantity: number }>;
+  cartId?: string;
+  cartToken?: string;
   notes?: string;
   authenticatedCustomerId?: string;
   paymentMode?: 'online' | 'coordinate';
+  checkoutAttemptId?: string;
+  deliveryZoneId?: string;
+  deliveryOccurrenceId?: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 @Injectable()
@@ -59,18 +69,10 @@ export class EShopCheckoutOrderService {
   private readonly logger = new Logger(EShopCheckoutOrderService.name);
 
   constructor(
-    @InjectRepository(ProductVariant)
-    private readonly variantRepo: Repository<ProductVariant>,
-    @InjectRepository(StockLevel)
-    private readonly stockRepo: Repository<StockLevel>,
-    @InjectRepository(Branch)
-    private readonly branchRepo: Repository<Branch>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     @InjectRepository(Customer)
     private readonly customerRepo: Repository<Customer>,
-    @InjectRepository(PriceListItem)
-    private readonly priceListItemRepo: Repository<PriceListItem>,
     private readonly companiesService: CompaniesService,
     private readonly transactionsService: TransactionsService,
     private readonly fulfillmentMethods: EShopFulfillmentMethodsService,
@@ -80,20 +82,27 @@ export class EShopCheckoutOrderService {
     private readonly mpClient: MercadoPagoClient,
     @InjectRepository(Transaction)
     private readonly transactionRepo: Repository<Transaction>,
+    private readonly pricingStock: EShopPricingStockService,
+    private readonly cartService: EShopCartService,
+    @InjectRepository(EShopDeliveryZone)
+    private readonly deliveryZoneRepo: Repository<EShopDeliveryZone>,
+    private readonly deliveryOrderService: DeliveryOrderService,
+    private readonly resolveDeliveryZone: ResolveDeliveryZoneService,
+    private readonly deliveryQuote: DeliveryQuoteService,
+    private readonly deliveryOccurrences: DeliveryOccurrenceService,
+    private readonly deliveryCoverage: DeliveryCoverageService,
     @Optional() private readonly orderNotifications?: EShopOrderNotificationService,
     @Optional() private readonly kaiMail?: KaiMailClient,
   ) {}
 
   async createCheckoutOrder(store: EShopStoreContext, body: CheckoutOrderBody) {
-    if (!body.lines?.length) {
-      throw new BadRequestException('El carrito está vacío');
-    }
+    const checkoutAttemptId = body.checkoutAttemptId?.trim() || randomUUID();
+    const settings = await this.companiesService.getEShopFlatSettings(store.companyId);
+    const stockPolicy = settings.eShopStockPolicy;
+
     if (!body.fulfillmentMethodId?.trim()) {
       throw new BadRequestException('Seleccione un método de entrega');
     }
-
-    const settings = await this.companiesService.getEShopFlatSettings(store.companyId);
-    const stockPolicy = settings.eShopStockPolicy;
 
     const method = await this.fulfillmentMethods.findActiveById(
       store.companyId,
@@ -101,6 +110,12 @@ export class EShopCheckoutOrderService {
     );
     if (!method) {
       throw new BadRequestException('Método de entrega no válido');
+    }
+    if (method.type === 'LOCAL_DELIVERY') {
+      const deliverySettings = await this.deliveryCoverage.getSettings(store.companyId);
+      if (!deliverySettings.localDeliveryEnabled) {
+        throw new BadRequestException('El reparto local no está habilitado');
+      }
     }
     if (!body.authenticatedCustomerId && !body.customerPhone?.trim()) {
       throw new BadRequestException(
@@ -112,67 +127,67 @@ export class EShopCheckoutOrderService {
     }
     const shippingAddress = this.resolveShippingAddress(body, method.requiresAddress);
 
-    const variantIds = body.lines.map((l) => l.productVariantId);
-    const variants = await this.variantRepo.find({
-      where: {
-        id: In(variantIds),
-        companyId: store.companyId,
-        isActive: true,
-        visibleInEShop: true,
-      },
-      relations: ['product'],
-    });
-    const byId = new Map(variants.map((v) => [v.id, v]));
+    let deliveryZoneId: string | null = body.deliveryZoneId?.trim() || null;
+    let deliveryOccurrenceId: string | null = body.deliveryOccurrenceId?.trim() || null;
+    let latitude = body.latitude ?? null;
+    let longitude = body.longitude ?? null;
 
-    const operational = await resolveEShopOperationalContext(
-      store.companyId,
-      store.eShop,
-      this.branchRepo,
-    );
-    const storageId = operational.storageId;
-    const stockMap = await this.loadStockMap(store.companyId, variantIds, storageId);
-    const priceMap = await this.loadPriceMap(
-      store.companyId,
-      variantIds,
-      operational.priceListId,
-    );
+    let pricedLines: Awaited<
+      ReturnType<EShopPricingStockService['resolvePricedLines']>
+    >['pricedLines'];
+    let stockLines: Awaited<
+      ReturnType<EShopPricingStockService['resolvePricedLines']>
+    >['stockLines'];
+    let cartId: string | null = null;
 
-    const stockLines: StockCheckLine[] = [];
+    if (body.cartToken?.trim()) {
+      const resolved = await this.cartService.resolveCheckoutLines(store, {
+        cartToken: body.cartToken.trim(),
+        customerId: body.authenticatedCustomerId,
+      });
+      pricedLines = resolved.pricedLines;
+      stockLines = resolved.stockLines;
+      cartId = resolved.cart.id;
+      if (resolved.issues.some((i) => i.code === 'VARIANT_UNAVAILABLE')) {
+        throw new BadRequestException(
+          'El carrito contiene productos no disponibles. Revísalo antes de continuar.',
+        );
+      }
+    } else if (body.lines?.length) {
+      const resolved = await this.pricingStock.resolvePricedLines(store, {
+        lines: body.lines,
+      });
+      pricedLines = resolved.pricedLines;
+      stockLines = resolved.stockLines;
+      if (pricedLines.length !== body.lines.length) {
+        throw new BadRequestException('Una o más variantes del carrito no son válidas');
+      }
+    } else {
+      throw new BadRequestException('El carrito está vacío');
+    }
+
+    if (!pricedLines.length) {
+      throw new BadRequestException('El carrito está vacío');
+    }
+
+    const { hasShortage, shortages } = evaluateStockPolicy(stockPolicy, stockLines);
+    const useBackorder = isEshopCheckoutCommercialBackorder();
+
     let subtotal = 0;
     const dtoLines: CreateTransactionDto['lines'] = [];
-
-    for (const line of body.lines) {
-      const variant = byId.get(line.productVariantId);
-      if (!variant || variant.product?.visibleInEShop !== true) {
-        throw new BadRequestException(`Variante no válida: ${line.productVariantId}`);
-      }
-      const qty = Math.max(1, Math.floor(line.quantity));
-      const trackInventory = variant.trackInventory === true;
-      const availableQty = trackInventory
-        ? (stockMap.get(variant.id) ?? 0)
-        : Number.MAX_SAFE_INTEGER;
-      stockLines.push({
-        variantId: variant.id,
-        requestedQty: qty,
-        availableQty,
-        trackInventory,
-      });
-
-      const unitPrice =
-        priceMap.get(variant.id) ?? (Number(variant.basePrice) || 0);
-      const lineSubtotal = unitPrice * qty;
+    for (const line of pricedLines) {
+      const lineSubtotal = line.unitPrice * line.quantity;
       subtotal += lineSubtotal;
-
       dtoLines.push({
-        productId: variant.productId!,
-        productVariantId: variant.id,
-        productName: variant.product?.name ?? variant.sku,
-        productSku: variant.sku,
-        variantName: variant.product?.name ?? variant.sku,
-        unitId: variant.saleUnitId,
-        quantity: qty,
-        unitPrice,
-        unitCost: Number(variant.baseCost) || 0,
+        productId: line.productId,
+        productVariantId: line.productVariantId,
+        productName: line.productName,
+        productSku: line.variantName,
+        variantName: line.variantName,
+        unitId: undefined,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        unitCost: 0,
         discountPercentage: 0,
         discountAmount: 0,
         taxRate: 0,
@@ -182,19 +197,26 @@ export class EShopCheckoutOrderService {
       });
     }
 
-    const { hasShortage, shortages } = evaluateStockPolicy(stockPolicy, stockLines);
-    const useBackorder = isEshopCheckoutCommercialBackorder();
-
-    const shippingCost = this.fulfillmentMethods.calculateShippingCost(
+    const shippingCost = await this.resolveShippingCost(
+      store.companyId,
       method,
       subtotal,
       settings.eShopFreeShippingThreshold,
+      {
+        type: method.type,
+        deliveryZoneId,
+        deliveryOccurrenceId,
+        latitude,
+        longitude,
+        communeCode: shippingAddress?.commune ?? null,
+      },
     );
     const total = subtotal;
 
     const customer = await this.resolveCheckoutCustomer(store.companyId, body);
-
+    const operational = await this.pricingStock.resolveOperationalContext(store);
     const branchId = operational.branchId;
+    const storageId = operational.storageId;
     const userId = await this.resolveSystemUserId(store.companyId);
 
     const now = new Date().toISOString();
@@ -254,6 +276,9 @@ export class EShopCheckoutOrderService {
       customerEmail: body.customerEmail.trim(),
       customerPhone: body.customerPhone?.trim() || null,
       shippingAddress: (shippingAddress?.line1 ?? body.address?.trim()) || null,
+      checkoutAttemptId,
+      cartId,
+      cartToken: body.cartToken?.trim() || null,
     };
 
     if (useBackorder) {
@@ -270,8 +295,36 @@ export class EShopCheckoutOrderService {
     }
 
     const payableTotal = Math.round(subtotal + shippingCost);
-
     const tx = await this.transactionsService.createTransaction(dto);
+
+    if (method.type === 'LOCAL_DELIVERY') {
+      await this.deliveryOrderService.createFromCheckout({
+        companyId: store.companyId,
+        transactionId: tx.id,
+        fulfillmentType: 'LOCAL_DELIVERY',
+        deliveryZoneId,
+        deliveryOccurrenceId,
+        addressLine1: shippingAddress?.line1 ?? body.address ?? null,
+        commune: shippingAddress?.commune ?? null,
+        region: shippingAddress?.region ?? null,
+        latitude,
+        longitude,
+        shippingFee: shippingCost,
+        customerName: body.customerName.trim(),
+        customerPhone: body.customerPhone?.trim() || null,
+        notes: body.notes?.trim() || null,
+      });
+    } else if (method.type === 'PICKUP') {
+      await this.deliveryOrderService.createFromCheckout({
+        companyId: store.companyId,
+        transactionId: tx.id,
+        fulfillmentType: 'PICKUP',
+        shippingFee: 0,
+        customerName: body.customerName.trim(),
+        customerPhone: body.customerPhone?.trim() || null,
+        notes: body.notes?.trim() || null,
+      });
+    }
 
     let paymentIntent: Awaited<
       ReturnType<PaymentGatewayIntentService['createIntent']>
@@ -337,6 +390,13 @@ export class EShopCheckoutOrderService {
       });
     }
 
+    if (cartId) {
+      await this.cartService.setCheckoutAttemptId(cartId, checkoutAttemptId);
+      if (!wantsOnline) {
+        await this.cartService.markConverted(cartId, checkoutAttemptId);
+      }
+    }
+
     try {
       if (!wantsOnline) {
         await this.orderNotifications?.publishOrderCreated(store.companyId, tx);
@@ -348,21 +408,32 @@ export class EShopCheckoutOrderService {
     try {
       if (!wantsOnline) {
         await this.kaiMail?.sendOrderTemplate({
-        template: 'order.received',
-        to: body.customerEmail.trim(),
-        idempotencyKey: `order:${tx.id}:received`,
-        variables: {
-          customerName: body.customerName.trim(),
-          orderNumber: tx.documentNumber ?? tx.id,
-          total: String(Math.round(total)),
-          fulfillmentMethod: method.name,
-          storeName: store.companyName ?? 'Tienda',
-        },
+          template: 'order.received',
+          to: body.customerEmail.trim(),
+          idempotencyKey: `order:${tx.id}:received`,
+          variables: {
+            customerName: body.customerName.trim(),
+            orderNumber: tx.documentNumber ?? tx.id,
+            total: String(Math.round(total)),
+            fulfillmentMethod: method.name,
+            storeName: store.companyName ?? 'Tienda',
+          },
         });
       }
     } catch (err) {
       this.logger.warn('No se pudo encolar email de pedido eShop', err);
     }
+
+    this.logger.log(
+      JSON.stringify({
+        event: 'eshop_checkout_created',
+        companyId: store.companyId,
+        transactionId: tx.id,
+        cartId,
+        checkoutAttemptId,
+        paymentMode: wantsOnline ? 'online' : 'coordinate',
+      }),
+    );
 
     return {
       transactionId: tx.id,
@@ -378,6 +449,8 @@ export class EShopCheckoutOrderService {
       preferenceId,
       publicKey: wantsOnline ? mpSettings.publicKey : null,
       mercadoPagoEnvironment: wantsOnline ? mpSettings.environment : null,
+      checkoutAttemptId,
+      cartId,
     };
   }
 
@@ -436,43 +509,56 @@ export class EShopCheckoutOrderService {
     };
   }
 
-  private async loadStockMap(
+  private async resolveShippingCost(
     companyId: string,
-    variantIds: string[],
-    storageId: string | null,
-  ): Promise<Map<string, number>> {
-    if (!storageId || variantIds.length === 0) {
-      return new Map();
-    }
-    const rows = await this.stockRepo
-      .createQueryBuilder('sl')
-      .select('sl.productVariantId', 'variantId')
-      .addSelect('COALESCE(sl.availableStock, 0)', 'qty')
-      .where('sl.companyId = :companyId', { companyId })
-      .andWhere('sl.storageId = :storageId', { storageId })
-      .andWhere('sl.productVariantId IN (:...variantIds)', { variantIds })
-      .getRawMany<{ variantId: string; qty: string }>();
-    return new Map(rows.map((r) => [r.variantId, Math.max(0, Number(r.qty) || 0)]));
-  }
+    method: { type: string; id: string },
+    subtotal: number,
+    globalFreeThreshold: number | null,
+    delivery: {
+      type: string;
+      deliveryZoneId: string | null;
+      deliveryOccurrenceId: string | null;
+      latitude: number | null;
+      longitude: number | null;
+      communeCode: string | null;
+    },
+  ): Promise<number> {
+    if (method.type === 'LOCAL_DELIVERY') {
+      if (!delivery.deliveryZoneId || !delivery.deliveryOccurrenceId) {
+        throw new BadRequestException('Seleccione zona y franja de reparto');
+      }
+      if (delivery.latitude == null || delivery.longitude == null) {
+        throw new BadRequestException('No se pudo validar la ubicación de entrega');
+      }
+      const zoneRow = await this.deliveryZoneRepo.findOne({
+        where: { companyId, id: delivery.deliveryZoneId, isActive: true },
+      });
+      if (!zoneRow) throw new BadRequestException('Zona de reparto no válida');
 
-  private async loadPriceMap(
-    companyId: string,
-    variantIds: string[],
-    priceListId: string | null,
-  ): Promise<Map<string, number>> {
-    if (!priceListId || variantIds.length === 0) {
-      return new Map();
-    }
-    const items = await this.priceListItemRepo.find({
-      where: {
+      const resolved = await this.resolveDeliveryZone.resolveByPoint(
         companyId,
-        priceListId,
-        productVariantId: In(variantIds),
-        deletedAt: IsNull(),
-      },
-    });
-    return new Map(
-      items.map((i) => [i.productVariantId!, Number(i.grossPrice) || 0]),
+        delivery.latitude,
+        delivery.longitude,
+        delivery.communeCode,
+      );
+      if (!resolved || resolved.zoneId !== delivery.deliveryZoneId) {
+        throw new BadRequestException('La dirección queda fuera de la zona de cobertura');
+      }
+
+      await this.deliveryOccurrences.assertOccurrenceAvailable(
+        companyId,
+        delivery.deliveryOccurrenceId,
+        delivery.deliveryZoneId,
+      );
+
+      const quote = await this.deliveryQuote.quote(companyId, resolved, subtotal);
+      return quote.shippingFee;
+    }
+
+    return this.fulfillmentMethods.calculateShippingCost(
+      method as any,
+      subtotal,
+      globalFreeThreshold,
     );
   }
 

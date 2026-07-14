@@ -1,7 +1,7 @@
 "use client";
 import { LoadingState } from '@kai/ui';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { TextField } from "@kai/ui";
 import { AutoComplete } from "@kai/ui";
 import { SelectDefault as Select } from "@kai/ui";
@@ -9,7 +9,6 @@ import { Switch } from "@kai/ui";
 import type { CreatePromotionInput, PromotionScopes } from "@/features/promotions/types/promotion.types";
 import { digitsFromClp, parseClpDigitsNullableFromValue } from "./promotion-editor-currency";
 import { loadPromotionScopeOptionsAction } from "@/features/promotions/actions/promotion-scope-options.action";
-import { searchProductsForPromotionAction } from "@/features/promotions/actions/search-products-for-promotion.action";
 import type { ProductGridRow } from "@/features/inventory-products/types/product-grid.types";
 import type { CategoryListItem } from "@/features/inventory-categories/types/category.types";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
@@ -26,6 +25,7 @@ import {
   scopesToLocationRows,
   type LocationRow,
 } from "./promotion-eligibility-scope";
+import { PromotionProductSearchField } from "./PromotionProductSearchField";
 
 type Props = {
   input: CreatePromotionInput;
@@ -89,15 +89,7 @@ export function PromotionStepEligibility({ input, patch }: Props) {
       : CATALOG_MODE.CATEGORY,
   );
 
-  const [productOptions, setProductOptions] = useState<ProductGridRow[]>([]);
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const selectedProductId = scopes.products.find((p) => p.mode === "INCLUDE")?.productId ?? null;
-
-  const selectedProductRow = useMemo(() => {
-    if (!selectedProductId) return null;
-    return productOptions.find((r) => r.id === selectedProductId) ?? null;
-  }, [selectedProductId, productOptions]);
 
   const categoryIncludes = scopes.categories.filter((c) => c.mode === "INCLUDE");
 
@@ -143,36 +135,6 @@ export function PromotionStepEligibility({ input, patch }: Props) {
       setCatalogMode(CATALOG_MODE.PRODUCT);
     }
   }, [scopes.products]);
-
-  const scheduleProductSearch = useCallback((q: string) => {
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => {
-      void (async () => {
-        const rows = await searchProductsForPromotionAction(q);
-        setProductOptions(rows);
-      })();
-    }, 280);
-  }, []);
-
-  useEffect(() => {
-    if (!selectedProductId) return;
-    void (async () => {
-      const rows = await searchProductsForPromotionAction("");
-      const hit = rows.find((r) => r.id === selectedProductId);
-      if (hit) {
-        setProductOptions((prev) => {
-          if (prev.some((p) => p.id === hit.id)) return prev;
-          return [hit, ...prev];
-        });
-      } else {
-        const rows2 = await searchProductsForPromotionAction(selectedProductId.slice(0, 8));
-        const hit2 = rows2.find((r) => r.id === selectedProductId);
-        if (hit2) {
-          setProductOptions((prev) => (prev.some((p) => p.id === hit2.id) ? prev : [hit2, ...prev]));
-        }
-      }
-    })();
-  }, [selectedProductId]);
 
   const patchScopes = useCallback(
     (partial: Partial<PromotionScopes>) => {
@@ -370,23 +332,11 @@ export function PromotionStepEligibility({ input, patch }: Props) {
 
         {catalogMode === CATALOG_MODE.PRODUCT ? (
           <div className="mt-3 max-w-xl">
-            <AutoComplete<ProductGridRow>
-              label="Producto"
-              placeholder="Buscar por nombre…"
-              options={productOptions}
-              value={selectedProductRow}
-              onChange={onProductPick}
-              onInputChange={(q) => scheduleProductSearch(q)}
-              getOptionLabel={(o) => o.name}
-              getOptionValue={(o) => o.id}
-              filterOption={() => true}
-              alwaysShowLabel
-              data-test-id="promotion-scope-product-autocomplete"
+            <PromotionProductSearchField
+              selectedProductId={selectedProductId}
+              onPickProduct={onProductPick}
+              disabled={optionsLoading}
             />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Solo se permite un producto por promoción en esta versión. Vacío = sin filtro por
-              producto.
-            </p>
           </div>
         ) : (
           <div className="mt-3 max-w-xl">

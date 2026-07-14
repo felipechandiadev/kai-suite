@@ -8,3 +8,9 @@ export async function searchProductsForPromotionAction(
 ): Promise<ProductGridRow[]> {
   return ProductRequest.searchProducts(query, 30);
 }
+
+export async function getProductForPromotionAction(
+  productId: string,
+): Promise<ProductGridRow | null> {
+  return ProductRequest.getProductForGridById(productId);
+}

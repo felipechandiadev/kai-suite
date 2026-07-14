@@ -8,7 +8,7 @@ import { ProductVariant } from '@modules/product-variants/domain/product-variant
 import { attachProductVariantMultimedia } from '../../helpers/attach-product-variant-multimedia';
 import { attachProductMultimedia } from '../../helpers/attach-product-multimedia';
 import { MultimediaServiceAdapter } from '@modules/multimedia/application/services/multimedia.service.adapter';
-import { applyProductCatalogTextSearch } from '../../product-catalog-search.util';
+import { applyProductCatalogTextSearch, isProductIdSearchQuery } from '../../product-catalog-search.util';
 import { TenantContext } from '@common/tenant/tenant.context';
 
 export interface SearchProductsResult {
@@ -86,7 +86,13 @@ export class SearchProductsQueryHandler implements IQueryHandler<
       qb.andWhere('p.companyId = :companyId', { companyId });
     }
 
-    applyProductCatalogTextSearch(qb, query.query, { product: 'p' });
+    if (isProductIdSearchQuery(query.query)) {
+      qb.andWhere('p.id = :productIdExact', {
+        productIdExact: query.query!.trim(),
+      });
+    } else {
+      applyProductCatalogTextSearch(qb, query.query, { product: 'p' });
+    }
 
     const typeFilter = query.productType?.trim().toUpperCase() ?? '';
     if (

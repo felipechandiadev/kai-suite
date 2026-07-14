@@ -102,20 +102,31 @@
   opacity: 0.88;
 }
 
-/* Action (toolbars, grids, cards): hover solo color */
+/* Action (toolbars, grids, cards): normal primary, hover accent; activo (ruta) secondary */
 .fs-icon-button--action {
   background-color: transparent;
-  color: var(--color-secondary, #00deef);
+  color: var(--color-primary, #1e73ae);
   border-color: transparent;
 }
 .fs-icon-button--action:hover:not(:disabled) {
-  color: var(--color-primary, #1e73ae);
+  color: var(--color-accent, #02578b);
   background-color: transparent;
 }
 .fs-icon-button--action:active:not(:disabled) {
-  color: var(--color-primary, #1e73ae);
+  color: var(--color-accent, #02578b);
   background-color: transparent;
   opacity: 0.88;
+}
+/* Activo: elemento que representa la ruta/estado actual (aria-current). */
+.fs-icon-button--action[aria-current="page"],
+.fs-icon-button--action[aria-current="true"],
+.fs-icon-button--action[data-active="true"] {
+  color: var(--color-secondary, #00deef);
+}
+.fs-icon-button--action[aria-current="page"]:hover:not(:disabled),
+.fs-icon-button--action[aria-current="true"]:hover:not(:disabled),
+.fs-icon-button--action[data-active="true"]:hover:not(:disabled) {
+  color: var(--color-secondary, #00deef);
 }
 
 /* Neutral: icono foreground, hover suave */

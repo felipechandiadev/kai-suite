@@ -1,6 +1,14 @@
 import { toLatinSearchPattern } from '@common/text/fold-latin-search-text';
 import type { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function isProductIdSearchQuery(search: string | undefined): boolean {
+  const trimmed = (search ?? '').trim();
+  return trimmed.length > 0 && UUID_RE.test(trimmed);
+}
+
 export type ProductCatalogSearchAliases = {
   product?: string;
 };
@@ -33,8 +41,8 @@ export function applyProductCatalogTextSearch<T extends ObjectLiteral>(
       OR public.unaccent(COALESCE(catalogBrand.name, '')) ILIKE :productCatalogSearchQ
       OR EXISTS (
         SELECT 1 FROM product_variants pv_search
-        WHERE pv_search.product_id = ${productAlias}.id
-          AND pv_search.deleted_at IS NULL
+        WHERE pv_search."productId" = ${productAlias}.id
+          AND pv_search."deletedAt" IS NULL
           AND (
             public.unaccent(COALESCE(pv_search.sku, '')) ILIKE :productCatalogSearchQ
             OR public.unaccent(COALESCE(pv_search.barcode, '')) ILIKE :productCatalogSearchQ

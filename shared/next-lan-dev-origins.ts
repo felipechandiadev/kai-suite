@@ -16,7 +16,13 @@ function hostnameFromEnvUrl(value: string | undefined): string | null {
 
 /** IPv4 no loopback de las interfaces de red de esta máquina (host del dev server en LAN). */
 function localLanIpv4Addresses(): string[] {
-  const nets = os.networkInterfaces();
+  let nets: ReturnType<typeof os.networkInterfaces>;
+  try {
+    nets = os.networkInterfaces();
+  } catch {
+    // Entornos restringidos (sandbox/CI) pueden bloquear uv_interface_addresses.
+    return [];
+  }
   const addresses = new Set<string>();
   for (const iface of Object.values(nets)) {
     for (const net of iface ?? []) {

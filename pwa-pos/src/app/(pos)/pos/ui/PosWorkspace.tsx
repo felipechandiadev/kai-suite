@@ -24,6 +24,8 @@ import PosProductSearchPanel, {
 import PosBarcodeScanner from "@/features/pos-products/ui/PosBarcodeScanner";
 import PosCartLineCard from "./PosCartLineCard";
 import { isQuotationCartVariant, usePosCart } from "@/features/pos-cart/PosCartProvider";
+import { computePosSaleTotals } from "@/features/pos-cart/lib/pos-sale-totals";
+import { PosDiscountDetailDialog } from "@/features/promotions/ui/PosDiscountDetailDialog";
 import { LoadQuotationDialog } from "./LoadQuotationDialog";
 import { LoadReturnSaleDialog } from "./LoadReturnSaleDialog";
 import { LoadBackorderDialog } from "./LoadBackorderDialog";
@@ -74,6 +76,7 @@ export default function PosWorkspace() {
   const [presaleError, setPresaleError] = useState("");
   const [lastPresaleTicket, setLastPresaleTicket] = useState<PresaleTicketDetail | null>(null);
   const [embeddedPaymentOpen, setEmbeddedPaymentOpen] = useState(false);
+  const [discountDetailOpen, setDiscountDetailOpen] = useState(false);
   const isReturnMode = cart.isReturnMode;
   const isFulfillBackorderMode = cart.isFulfillBackorderMode;
   const hasLoadedQuotation = cart.loadedQuotation != null;
@@ -225,27 +228,17 @@ export default function PosWorkspace() {
     [cart, compactLayout],
   );
 
-  const totals = useMemo(
-    () =>
-      cart.lines.reduce(
-        (acc, l) => {
-          const q = Number(l.quantity) || 0;
-          const net = (Number(l.unitPrice) || 0) * q;
-          const gross = (Number(l.unitPriceWithTax) || 0) * q;
-          acc.net += net;
-          acc.gross += gross;
-          return acc;
-        },
-        { net: 0, gross: 0 },
-      ),
-    [cart.lines],
+  const saleTotals = useMemo(
+    () => computePosSaleTotals(cart.lines, cart.orderDiscount ?? 0),
+    [cart.lines, cart.orderDiscount],
   );
-  const taxes = Math.max(0, totals.gross - totals.net);
-  const lineDiscountsTotal = useMemo(
-    () => cart.lines.reduce((acc, l) => acc + (l.discount?.discountAmount ?? 0), 0),
-    [cart.lines],
-  );
-  const saleTotal = Math.max(0, totals.gross - lineDiscountsTotal - (cart.orderDiscount ?? 0));
+  const {
+    net: totalsNet,
+    taxes,
+    lineDiscountsTotal,
+    discounts,
+    saleTotal,
+  } = saleTotals;
 
   const checkoutDisabled =
     cart.lines.length === 0 ||
@@ -306,9 +299,9 @@ export default function PosWorkspace() {
           customerId: cart.saleCustomer?.customerId ?? undefined,
           customerName: cart.saleCustomer?.name,
           customerDocument: cart.saleCustomer?.document,
-          subtotal: totals.net,
+          subtotal: totalsNet,
           taxAmount: taxes,
-          discountAmount: lineDiscountsTotal + (cart.orderDiscount ?? 0),
+          discountAmount: discounts,
           total: saleTotal,
           promotionsSnapshot: cart.appliedPromotions as unknown as Record<string, unknown>[],
         });
@@ -337,11 +330,12 @@ export default function PosWorkspace() {
     isOffline,
     isPresaleMode,
     lineDiscountsTotal,
-    priceListId,
-    router,
+    discounts,
     saleTotal,
     taxes,
-    totals.net,
+    totalsNet,
+    priceListId,
+    router,
   ]);
 
   if (!ctx?.priceListId) {
@@ -617,16 +611,41 @@ export default function PosWorkspace() {
             <div className="grid min-w-0 flex-1 gap-1 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Subtotal neto</span>
-                <span className="font-medium text-foreground">{formatMoney(totals.net)}</span>
+                <span className="font-medium text-foreground">{formatMoney(totalsNet)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Impuestos</span>
                 <span className="font-medium text-foreground">{formatMoney(taxes)}</span>
               </div>
+              {discounts > 0 ? (
+                <div
+                  className="flex items-center justify-between"
+                  data-test-id="pos-cart-summary-discounts"
+                >
+                  <span className="flex items-center gap-1 text-muted-foreground">
+                    <IconButton
+                      icon="Info"
+                      variant="action"
+                      size="xs"
+                      ariaLabel="Ver detalle de descuentos"
+                      title="Ver detalle de descuentos"
+                      onClick={() => setDiscountDetailOpen(true)}
+                      data-test-id="pos-cart-summary-discounts-info"
+                    />
+                    Descuentos
+                  </span>
+                  <span className="font-medium tabular-nums text-emerald-700 dark:text-emerald-300">
+                    -{formatMoney(discounts)}
+                  </span>
+                </div>
+              ) : null}
               <div className="flex items-center justify-between pt-2">
                 <span className="text-xl font-bold text-foreground sm:text-2xl">Total</span>
-                <span className="text-3xl font-bold tabular-nums text-foreground sm:text-4xl">
-                  {formatMoney(totals.gross)}
+                <span
+                  className="text-3xl font-bold tabular-nums text-foreground sm:text-4xl"
+                  data-test-id="pos-cart-summary-total"
+                >
+                  {formatMoney(saleTotal)}
                 </span>
               </div>
             </div>
@@ -760,6 +779,16 @@ export default function PosWorkspace() {
           requestPosProductSearchFocus();
         }}
         pointOfSaleId={ctx?.pointOfSaleId ?? null}
+      />
+
+      <PosDiscountDetailDialog
+        open={discountDetailOpen}
+        onClose={() => setDiscountDetailOpen(false)}
+        appliedPromotions={cart.appliedPromotions}
+        lines={cart.lines}
+        totalDiscount={discounts}
+        promotions={cart.effectivePromotions}
+        warnings={cart.promotionWarnings}
       />
 
       {presaleError ? (
