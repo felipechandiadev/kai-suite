@@ -183,7 +183,10 @@ export function CheckoutWizard({ customerPortalEnabled = false, requireRut = fal
     void fetchFulfillmentMethodsAction(subtotal)
       .then((rows) => {
         const deliveryAdvanced = isDeliveryAdvancedEnabled();
-        const available = deliveryAdvanced
+        const hasLocalDelivery = rows.some((m) => m.type === "LOCAL_DELIVERY");
+        const effectiveAdvanced = deliveryAdvanced || hasLocalDelivery;
+
+        const available = effectiveAdvanced
           ? rows
           : rows.filter((m) => m.type === "PICKUP").length > 0
             ? rows.filter((m) => m.type === "PICKUP")
@@ -269,6 +272,7 @@ export function CheckoutWizard({ customerPortalEnabled = false, requireRut = fal
       deliveryOccurrenceId: isLocal ? deliveryOccurrenceId || undefined : undefined,
       latitude: isLocal ? (location.latitude ?? undefined) : undefined,
       longitude: isLocal ? (location.longitude ?? undefined) : undefined,
+      communeCode: isLocal ? location.communeCode || undefined : undefined,
     };
   }
 

@@ -7,7 +7,7 @@ const COMPONENT_GROUPS = [
   { label: 'Acciones', ids: ['ui-button', 'ui-icon-button'] },
   { label: 'Entrada de datos', ids: ['ui-textfield', 'ui-select', 'ui-autocomplete', 'ui-switch', 'ui-number-stepper', 'ui-range-slider'] },
   { label: 'Overlays', ids: ['ui-dialog'] },
-  { label: 'Navegación', ids: ['ui-tabs', 'ui-stepper'] },
+  { label: 'Navegación', ids: ['ui-tabs', 'ui-stepper', 'ui-calendar'] },
   { label: 'Contenedores', ids: ['ui-cards'] },
   { label: 'Datos', ids: ['ui-datagrid'] },
   { label: 'Layouts (showcase)', ids: ['ui-basic-page-layout', 'ui-tab-page-layout', 'ui-collection-page-layout'] },

@@ -7,6 +7,7 @@ export const uiComponentItems: SideBarMenuItem[] = [
   { id: 'ui-autocomplete', label: 'Autocomplete', url: '/design-system/components/autocomplete' },
   { id: 'ui-badge', label: 'Badge', url: '/design-system/components/badge' },
   { id: 'ui-button', label: 'Button', url: '/design-system/components/button' },
+  { id: 'ui-calendar', label: 'Calendar', url: '/design-system/components/calendar' },
   { id: 'ui-cards', label: 'Cards', url: '/design-system/components/cards' },
   { id: 'ui-datagrid', label: 'DataGrid', url: '/design-system/components/datagrid' },
   { id: 'ui-dialog', label: 'Dialog', url: '/design-system/components/dialog' },

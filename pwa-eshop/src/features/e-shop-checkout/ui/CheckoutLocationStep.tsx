@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Alert, Button, TextField } from "@kai/ui";
+import { Alert, Button, LocationPicker, TextField } from "@kai/ui";
 import {
   fetchDeliveryCoverageAction,
   geocodeDeliveryAddressAction,
@@ -129,6 +129,69 @@ export function CheckoutLocationStep({ value, onChange }: Props) {
         value={value.region || "Región del Maule"}
         onChange={(e) => onChange({ ...value, region: e.target.value })}
       />
+      <Button
+        type="button"
+        variant="secondary"
+        disabled={busy}
+        onClick={() => {
+          setError(null);
+          if (!navigator.geolocation) {
+            setError("Tu navegador no soporta geolocalización");
+            return;
+          }
+
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const lat = pos.coords.latitude;
+              const lng = pos.coords.longitude;
+              onChange({
+                ...value,
+                latitude: lat,
+                longitude: lng,
+                zone: null,
+                covered: false,
+              });
+            },
+            (e) => {
+              const code = (e as GeolocationPositionError).code;
+              if (code === 1) {
+                setError("Permiso de ubicación denegado. Actívalo en el navegador o marca el pin en el mapa.");
+              } else if (code === 3) {
+                setError("Tiempo de espera agotado al obtener tu ubicación. Intenta de nuevo.");
+              } else {
+                setError(e.message || "No se pudo obtener tu ubicación");
+              }
+            },
+            { enableHighAccuracy: true, timeout: 15000 }
+          );
+        }}
+      >
+        Usar mi ubicación
+      </Button>
+      <div className="aspect-video w-full">
+        <LocationPicker
+          fillContainer
+          mode="update"
+          draggable
+          initialLat={value.latitude ?? -35.426}
+          initialLng={value.longitude ?? -71.655}
+          externalPosition={
+            value.latitude != null && value.longitude != null
+              ? { lat: value.latitude, lng: value.longitude }
+              : undefined
+          }
+          recenterOnExternalChange
+          onChange={(coords) => {
+            onChange({
+              ...value,
+              latitude: coords?.lat ?? null,
+              longitude: coords?.lng ?? null,
+              zone: null,
+              covered: false,
+            });
+          }}
+        />
+      </div>
       <Button type="button" variant="secondary" disabled={busy} onClick={() => void validateLocation()}>
         {busy ? "Validando…" : "Validar cobertura"}
       </Button>

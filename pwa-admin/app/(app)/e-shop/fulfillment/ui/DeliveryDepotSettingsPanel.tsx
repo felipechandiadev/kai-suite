@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Alert, Button, TextField } from "@kai/ui";
+import { Alert, Button, TextField, LocationPicker } from "@kai/ui";
 import { updateDeliverySettingsAction } from "@/features/e-shop-delivery/actions/delivery.action";
 import type { DeliverySettingsRow } from "@/features/e-shop-delivery/types/delivery.types";
 
@@ -14,10 +14,15 @@ export function DeliveryDepotSettingsPanel({
 }) {
   const router = useRouter();
   const [depotAddress, setDepotAddress] = useState(initialSettings.depotAddress ?? "");
-  const [depotLat, setDepotLat] = useState(String(initialSettings.depotLat ?? ""));
-  const [depotLng, setDepotLng] = useState(String(initialSettings.depotLng ?? ""));
+  const [depotLat, setDepotLat] = useState<number | null>(initialSettings.depotLat ?? null);
+  const [depotLng, setDepotLng] = useState<number | null>(initialSettings.depotLng ?? null);
   const [osrmUrl, setOsrmUrl] = useState(initialSettings.osrmUrl ?? "");
   const [busy, setBusy] = useState(false);
+  const hasCoords =
+    typeof depotLat === "number" &&
+    typeof depotLng === "number" &&
+    !Number.isNaN(depotLat) &&
+    !Number.isNaN(depotLng);
 
   return (
     <form
@@ -27,8 +32,8 @@ export function DeliveryDepotSettingsPanel({
         setBusy(true);
         void updateDeliverySettingsAction({
           depotAddress: depotAddress || null,
-          depotLat: depotLat ? Number(depotLat) : null,
-          depotLng: depotLng ? Number(depotLng) : null,
+          depotLat,
+          depotLng,
           osrmUrl: osrmUrl || null,
         })
           .then(() => router.refresh())
@@ -48,9 +53,29 @@ export function DeliveryDepotSettingsPanel({
         value={depotAddress}
         onChange={(e) => setDepotAddress(e.target.value)}
       />
-      <div className="grid gap-3 sm:grid-cols-2">
-        <TextField label="Latitud" value={depotLat} onChange={(e) => setDepotLat(e.target.value)} />
-        <TextField label="Longitud" value={depotLng} onChange={(e) => setDepotLng(e.target.value)} />
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-foreground">Ubicación de la bodega (mapa)</p>
+        <p className="text-xs text-muted-foreground">
+          Indicá en el mapa o arrastrá el marcador. Se guardan latitud y longitud.
+        </p>
+        <LocationPicker
+          mode={hasCoords ? "update" : "edit"}
+          externalPosition={hasCoords ? { lat: depotLat!, lng: depotLng! } : undefined}
+          initialLat={-35.426}
+          initialLng={-71.655}
+          height={22}
+          variant="default"
+          rounded="md"
+          onChange={(coords) => {
+            if (!coords) {
+              setDepotLat(null);
+              setDepotLng(null);
+              return;
+            }
+            setDepotLat(coords.lat);
+            setDepotLng(coords.lng);
+          }}
+        />
       </div>
       <TextField
         label="OSRM URL"

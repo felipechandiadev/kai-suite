@@ -18,6 +18,135 @@ export type DeliveryOrderStatus =
   | 'ISSUE'
   | 'CANCELLED';
 
+export type DeliveryOccurrenceZoneRef = {
+  id: string;
+  name: string;
+};
+
+export type DeliveryOccurrenceAdminRow = {
+  id: string;
+  name: string;
+  occurrenceDate: string;
+  departureTime: string;
+  orderCutoffTime: string;
+  maxOrders: number | null;
+  driverUserId: string | null;
+  isCancelled: boolean;
+  routeStatus: DeliveryDispatchStatus;
+  zoneIds: string[];
+  zones: DeliveryOccurrenceZoneRef[];
+  orderCount: number;
+  availableSlots: number | null;
+  canEdit: boolean;
+  canCancel: boolean;
+};
+
+export type SaveDeliveryOccurrenceInput = {
+  name: string;
+  occurrenceDate: string;
+  departureTime: string;
+  orderCutoffTime: string;
+  maxOrders?: number | null;
+  driverUserId?: string | null;
+  zoneIds?: string[];
+  isCancelled?: boolean;
+};
+
+export type UpdateDeliveryOccurrenceInput = Partial<SaveDeliveryOccurrenceInput>;
+
+export type DeliveryDriverDto = {
+  id: string;
+  login: string;
+  displayName: string;
+  email: string | null;
+};
+
+export type DeliveryOrderCounts = Partial<Record<DeliveryOrderStatus, number>>;
+
+export type DeliveryOperationsOrderLineDto = {
+  id: string;
+  productName: string;
+  variantLabel: string;
+  sku: string | null;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  isPicked: boolean;
+};
+
+export type DeliveryOperationsOrderDto = {
+  id: string;
+  transactionId: string;
+  orderNumber: string;
+  deliveryStatus: DeliveryOrderStatus;
+  customerLabel: string;
+  customerPhone: string | null;
+  addressShort: string;
+  commune: string | null;
+  shippingFee: number;
+  itemsSummary: string;
+  lineCount: number;
+  pickedCount: number;
+  lines: DeliveryOperationsOrderLineDto[];
+  allowedNextStatuses: DeliveryOrderStatus[];
+  createdAt: string;
+};
+
+export type DeliveryOperationsBoardOccurrenceDto = {
+  id: string;
+  name: string;
+  occurrenceDate: string;
+  departureTime: string;
+  orderCutoffTime: string;
+  maxOrders: number | null;
+  driverUserId: string | null;
+  driverLabel: string | null;
+  isCancelled: boolean;
+  routeStatus: DeliveryDispatchStatus;
+  zones: DeliveryOccurrenceZoneRef[];
+  orderCounts: DeliveryOrderCounts;
+  totalDistanceM: number | null;
+  totalDurationS: number | null;
+  stopCount: number;
+  routeOptimizedAt: string | null;
+  routeStartedAt: string | null;
+  routeCompletedAt: string | null;
+};
+
+export type DeliveryOperationsTotals = DeliveryOrderCounts;
+
+export type DeliveryOperationsBoardDto = {
+  date: string;
+  occurrence: DeliveryOperationsBoardOccurrenceDto | null;
+  ordersByStatus: Partial<Record<DeliveryOrderStatus, DeliveryOperationsOrderDto[]>>;
+  totals: DeliveryOperationsTotals;
+  submittedCount: number;
+};
+
+export const DELIVERY_OPERATIONS_STAGES: DeliveryOrderStatus[] = [
+  'CONFIRMED',
+  'PREPARING',
+  'READY_FOR_DISPATCH',
+  'IN_TRANSIT',
+  'DELIVERED',
+  'ISSUE',
+];
+
+export const DELIVERY_ORDER_STATUS_TRANSITIONS: Record<
+  DeliveryOrderStatus,
+  DeliveryOrderStatus[]
+> = {
+  SUBMITTED: ['CONFIRMED', 'CANCELLED'],
+  CONFIRMED: ['PREPARING', 'CANCELLED'],
+  PREPARING: ['READY_FOR_DISPATCH', 'CANCELLED'],
+  READY_FOR_PICKUP: ['DELIVERED', 'CANCELLED'],
+  READY_FOR_DISPATCH: ['IN_TRANSIT', 'CANCELLED'],
+  IN_TRANSIT: ['DELIVERED', 'ISSUE', 'CANCELLED'],
+  DELIVERED: [],
+  ISSUE: ['DELIVERED', 'CANCELLED'],
+  CANCELLED: [],
+};
+
 export type GeoJsonPolygon = {
   type: 'Polygon';
   coordinates: number[][][];

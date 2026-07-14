@@ -1,8 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import { EShopDeliveryOrder } from '../domain/e-shop-delivery-order.entity';
-import type { DeliveryOrderStatus } from '../domain/delivery.types';
+import {
+  DELIVERY_ORDER_STATUS_TRANSITIONS,
+  type DeliveryOrderStatus,
+} from '../domain/delivery.types';
 
 @Injectable()
 export class DeliveryOrderService {
@@ -59,7 +62,13 @@ export class DeliveryOrderService {
 
   async updateStatus(companyId: string, deliveryOrderId: string, status: DeliveryOrderStatus) {
     const row = await this.orderRepo.findOne({ where: { companyId, id: deliveryOrderId } });
-    if (!row) throw new Error('Pedido delivery no encontrado');
+    if (!row) throw new BadRequestException('Pedido delivery no encontrado');
+    const allowed = DELIVERY_ORDER_STATUS_TRANSITIONS[row.deliveryStatus] ?? [];
+    if (!allowed.includes(status)) {
+      throw new BadRequestException(
+        `Transición inválida: ${row.deliveryStatus} → ${status}`,
+      );
+    }
     row.deliveryStatus = status;
     return this.orderRepo.save(row);
   }
@@ -88,9 +97,11 @@ export class DeliveryOrderService {
     dispatchId: string,
   ) {
     const row = await this.orderRepo.findOne({ where: { companyId, id: deliveryOrderId } });
-    if (!row) throw new Error('Pedido delivery no encontrado');
+    if (!row) throw new BadRequestException('Pedido delivery no encontrado');
     row.deliveryDispatchId = dispatchId;
-    row.deliveryStatus = 'READY_FOR_DISPATCH';
+    if (row.deliveryStatus === 'PREPARING' || row.deliveryStatus === 'CONFIRMED') {
+      row.deliveryStatus = 'READY_FOR_DISPATCH';
+    }
     return this.orderRepo.save(row);
   }
 }

@@ -35,8 +35,10 @@ export type CheckoutFulfillmentStepProps = {
 };
 
 export function CheckoutFulfillmentStep(props: CheckoutFulfillmentStepProps) {
-  const deliveryAdvanced = isDeliveryAdvancedEnabled();
   const isLocalDelivery = props.selectedMethod?.type === "LOCAL_DELIVERY";
+  // Para LOCAL_DELIVERY, siempre mostramos el flujo avanzado (Ubicación + Franja)
+  // independientemente del flag, ya que el backend ya valida cobertura/zonas.
+  const deliveryAdvanced = isLocalDelivery || isDeliveryAdvancedEnabled();
 
   return (
     <div className="space-y-4">
@@ -45,7 +47,7 @@ export function CheckoutFulfillmentStep(props: CheckoutFulfillmentStepProps) {
         {props.methods.map((m) => (
           <label
             key={m.id}
-            className="flex cursor-pointer gap-3 rounded-lg border border-border p-3 has-[:checked]:border-primary"
+            className="flex cursor-pointer gap-3 rounded-lg border border-border p-3 has-checked:border-primary"
           >
             <input
               type="radio"
@@ -74,11 +76,13 @@ export function CheckoutFulfillmentStep(props: CheckoutFulfillmentStepProps) {
       {deliveryAdvanced && isLocalDelivery ? (
         <>
           <CheckoutLocationStep value={props.location} onChange={props.onLocationChange} />
-          <CheckoutScheduleStep
-            zoneId={props.location.zone?.zoneId ?? null}
-            occurrenceId={props.deliveryOccurrenceId}
-            onOccurrenceIdChange={props.onDeliveryOccurrenceIdChange}
-          />
+          {props.location.covered && props.location.zone?.zoneId ? (
+            <CheckoutScheduleStep
+              zoneId={props.location.zone.zoneId}
+              occurrenceId={props.deliveryOccurrenceId}
+              onOccurrenceIdChange={props.onDeliveryOccurrenceIdChange}
+            />
+          ) : null}
         </>
       ) : props.selectedMethod?.requiresAddress ? (
         <>

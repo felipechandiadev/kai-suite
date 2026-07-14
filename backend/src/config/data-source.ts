@@ -135,6 +135,7 @@ import { EShopDeliveryCore1756760000000 } from '../migrations/1756760000000-ESho
 import { CourierRole1756770000000 } from '../migrations/1756770000000-CourierRole';
 import { EShopCanonicalFulfillmentMethods1756780000000 } from '../migrations/1756780000000-EShopCanonicalFulfillmentMethods';
 import { EShopDeliveryPostgisGeometry1756790000000 } from '../migrations/1756790000000-EShopDeliveryPostgisGeometry';
+import { EShopDeliveryOrderLinePicks1756800000000 } from '../migrations/1756800000000-EShopDeliveryOrderLinePicks';
 import { FiscalProfile } from '@modules/fiscal/domain/fiscal-profile.entity';
 import { FiscalCertificate } from '@modules/fiscal/domain/fiscal-certificate.entity';
 import { FiscalCaf } from '@modules/fiscal/domain/fiscal-caf.entity';
@@ -336,6 +337,7 @@ export const AppDataSource = new DataSource({
     CourierRole1756770000000,
     EShopCanonicalFulfillmentMethods1756780000000,
     EShopDeliveryPostgisGeometry1756790000000,
+    EShopDeliveryOrderLinePicks1756800000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

@@ -62,6 +62,7 @@ export type CheckoutOrderBody = {
   deliveryOccurrenceId?: string;
   latitude?: number;
   longitude?: number;
+  communeCode?: string;
 };
 
 @Injectable()
@@ -208,7 +209,7 @@ export class EShopCheckoutOrderService {
         deliveryOccurrenceId,
         latitude,
         longitude,
-        communeCode: shippingAddress?.commune ?? null,
+        communeCode: body.communeCode?.trim() || null,
       },
     );
     const total = subtotal;

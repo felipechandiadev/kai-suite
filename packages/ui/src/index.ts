@@ -77,6 +77,40 @@ export type {
 } from "./components/Cards";
 export { Stepper } from "./components/Stepper";
 export type { StepperProps, StepperStepItem } from "./components/Stepper";
+export {
+  Calendar,
+  MonthView,
+  WeekView,
+  addDaysIso,
+  DEFAULT_CALENDAR_END_HOUR,
+  DEFAULT_CALENDAR_START_HOUR,
+  DEFAULT_LOCALE,
+  DEFAULT_TIME_ZONE,
+  formatDayHeader,
+  formatIsoDate,
+  formatMonthTitle,
+  formatWeekRangeLabel,
+  getTodayIso,
+  getWeekDays,
+  getWeekStart,
+  groupEventsByDate,
+  hourLabels,
+  nowLineOffsetPercent,
+  parseIsoDate,
+  parseIsoDateForDisplay,
+  resolveReferenceIso,
+  timeToMinutes,
+  timeToOffsetPercent,
+  toLocalIsoDate,
+} from "./components/Calendar";
+export type {
+  CalendarColumnsFrom,
+  CalendarEvent,
+  CalendarProps,
+  CalendarView,
+  MonthViewProps,
+  WeekViewProps,
+} from "./components/Calendar";
 export { default as RangeSlider } from "./components/RangeSlider";
 export { default as LoadingState } from "./components/LoadingState";
 export type { LoadingStateProps } from "./components/LoadingState";
@@ -186,3 +220,9 @@ export type {
   BaseFormField,
   BaseFormFieldType,
 } from "./types";
+
+// LocationPicker
+export {
+  LocationPicker,
+  LocationPickerWrapper,
+} from "./components/LocationPicker";

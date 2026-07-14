@@ -584,11 +584,14 @@ export class EShopCartService {
   async markConverted(cartId: string, checkoutAttemptId?: string) {
     const cart = await this.cartRepo.findOne({ where: { id: cartId } });
     if (!cart) return;
-    cart.status = 'converted';
-    cart.checkoutAttemptId = checkoutAttemptId ?? cart.checkoutAttemptId;
-    cart.items = [];
-    await this.cartRepo.save(cart);
     await this.cartItemRepo.delete({ cartId });
+    await this.cartRepo.update(
+      { id: cartId },
+      {
+        status: 'converted',
+        checkoutAttemptId: checkoutAttemptId ?? cart.checkoutAttemptId,
+      },
+    );
     this.logger.log(`Cart ${cartId} marked converted`);
   }
 

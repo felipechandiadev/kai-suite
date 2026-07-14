@@ -29,6 +29,7 @@ type CheckoutBody = {
   deliveryOccurrenceId?: string;
   latitude?: number;
   longitude?: number;
+  communeCode?: string;
 };
 
 async function withCartContext(body: CheckoutBody): Promise<CheckoutBody> {

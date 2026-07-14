@@ -47,6 +47,11 @@ export type DeliverySettingsRow = {
   osrmUrl: string | null;
 };
 
+export type DeliveryOccurrenceZoneRef = {
+  id: string;
+  name: string;
+};
+
 export type DeliveryOccurrenceRow = {
   id: string;
   name: string;
@@ -57,6 +62,12 @@ export type DeliveryOccurrenceRow = {
   driverUserId: string | null;
   isCancelled: boolean;
   routeStatus: string;
+  zoneIds: string[];
+  zones: DeliveryOccurrenceZoneRef[];
+  orderCount: number;
+  availableSlots: number | null;
+  canEdit: boolean;
+  canCancel: boolean;
 };
 
 export type DeliveryOrderRow = {
@@ -67,6 +78,79 @@ export type DeliveryOrderRow = {
   addressLine1: string | null;
   customerName: string | null;
   shippingFee: number;
+};
+
+export type DeliveryDriverRow = {
+  id: string;
+  login: string;
+  displayName: string;
+  email: string | null;
+};
+
+export type DeliveryOperationsStatus =
+  | "CONFIRMED"
+  | "PREPARING"
+  | "READY_FOR_DISPATCH"
+  | "IN_TRANSIT"
+  | "DELIVERED"
+  | "ISSUE";
+
+export type DeliveryOperationsOrderLine = {
+  id: string;
+  productName: string;
+  variantLabel: string;
+  sku: string | null;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  isPicked: boolean;
+};
+
+export type DeliveryOperationsOrder = {
+  id: string;
+  transactionId: string;
+  orderNumber: string;
+  deliveryStatus: string;
+  customerLabel: string;
+  customerPhone: string | null;
+  addressShort: string;
+  commune: string | null;
+  shippingFee: number;
+  itemsSummary: string;
+  lineCount: number;
+  pickedCount: number;
+  lines: DeliveryOperationsOrderLine[];
+  allowedNextStatuses: string[];
+  createdAt: string;
+};
+
+export type DeliveryOperationsOccurrence = {
+  id: string;
+  name: string;
+  occurrenceDate: string;
+  departureTime: string;
+  orderCutoffTime: string;
+  maxOrders: number | null;
+  driverUserId: string | null;
+  driverLabel: string | null;
+  isCancelled: boolean;
+  routeStatus: string;
+  zones: DeliveryOccurrenceZoneRef[];
+  orderCounts: Partial<Record<string, number>>;
+  totalDistanceM: number | null;
+  totalDurationS: number | null;
+  stopCount: number;
+  routeOptimizedAt: string | null;
+  routeStartedAt: string | null;
+  routeCompletedAt: string | null;
+};
+
+export type DeliveryOperationsBoard = {
+  date: string;
+  occurrence: DeliveryOperationsOccurrence | null;
+  ordersByStatus: Partial<Record<string, DeliveryOperationsOrder[]>>;
+  totals: Partial<Record<string, number>>;
+  submittedCount: number;
 };
 
 export type GeoJsonPolygon = {

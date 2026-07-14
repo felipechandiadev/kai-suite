@@ -5,6 +5,7 @@ import { EShopDeliveryZone } from './domain/e-shop-delivery-zone.entity';
 import { EShopDeliveryOccurrence } from './domain/e-shop-delivery-occurrence.entity';
 import { EShopDeliveryOccurrenceZone } from './domain/e-shop-delivery-occurrence-zone.entity';
 import { EShopDeliveryOrder } from './domain/e-shop-delivery-order.entity';
+import { EShopDeliveryOrderLinePick } from './domain/e-shop-delivery-order-line-pick.entity';
 import { EShopDeliveryDispatch } from './domain/e-shop-delivery-dispatch.entity';
 import { EShopDeliveryStop } from './domain/e-shop-delivery-stop.entity';
 import { EShopDeliverySettings } from './domain/e-shop-delivery-settings.entity';
@@ -17,6 +18,9 @@ import { DeliveryOccurrenceService } from './application/delivery-occurrence.ser
 import { DeliveryOrderService } from './application/delivery-order.service';
 import { DeliveryZoneService } from './application/delivery-zone.service';
 import { DeliveryDispatchService } from './application/delivery-dispatch.service';
+import { DeliveryOperationsBoardService } from './application/delivery-operations-board.service';
+import { DeliveryOrderLinePickingService } from './application/delivery-order-line-picking.service';
+import { ListDeliveryCouriersService } from './application/list-delivery-couriers.service';
 import { OptimizeDeliveryDispatchRouteService } from '@modules/routing/application/optimize-delivery-dispatch-route.service';
 import { DeliveryPublicController } from './presentation/delivery-public.controller';
 import { DeliveryAdminController } from './presentation/delivery-admin.controller';
@@ -24,6 +28,7 @@ import { CourierController } from './presentation/courier.controller';
 import { DeliverySchemaBootstrap } from './infrastructure/delivery-schema.bootstrap';
 import { CompaniesModule } from '@modules/companies/companies.module';
 import { User } from '@modules/users/domain/user.entity';
+import { TransactionLine } from '@modules/transaction-lines/domain/transaction-line.entity';
 import { RoutingModule } from '@modules/routing/routing.module';
 
 @Module({
@@ -36,10 +41,12 @@ import { RoutingModule } from '@modules/routing/routing.module';
       EShopDeliveryOccurrence,
       EShopDeliveryOccurrenceZone,
       EShopDeliveryOrder,
+      EShopDeliveryOrderLinePick,
       EShopDeliveryDispatch,
       EShopDeliveryStop,
       EShopDeliverySettings,
       User,
+      TransactionLine,
     ]),
   ],
   controllers: [DeliveryPublicController, DeliveryAdminController, CourierController],
@@ -53,6 +60,9 @@ import { RoutingModule } from '@modules/routing/routing.module';
     DeliveryOrderService,
     DeliveryZoneService,
     DeliveryDispatchService,
+    DeliveryOperationsBoardService,
+    DeliveryOrderLinePickingService,
+    ListDeliveryCouriersService,
     OptimizeDeliveryDispatchRouteService,
     DeliverySchemaBootstrap,
   ],
@@ -64,6 +74,8 @@ import { RoutingModule } from '@modules/routing/routing.module';
     DeliveryOccurrenceService,
     DeliveryOrderService,
     DeliveryDispatchService,
+    DeliveryOperationsBoardService,
+    ListDeliveryCouriersService,
   ],
 })
 export class EShopDeliveryModule {}

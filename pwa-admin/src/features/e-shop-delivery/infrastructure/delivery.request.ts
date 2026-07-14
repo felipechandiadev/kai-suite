@@ -2,7 +2,9 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/auth-options";
 import type {
   DeliveryCommuneRow,
+  DeliveryDriverRow,
   DeliveryOccurrenceRow,
+  DeliveryOperationsBoard,
   DeliverySettingsRow,
   DeliveryZoneRow,
   GeoJsonPolygon,
@@ -22,6 +24,19 @@ async function authHeaders(): Promise<HeadersInit> {
   if (token) h.Authorization = `Bearer ${token}`;
   if (activeCompanyId) h["X-Active-Company-Id"] = activeCompanyId;
   return h;
+}
+
+async function readErrorMessage(res: Response, fallback: string): Promise<string> {
+  const text = await res.text().catch(() => "");
+  if (!text) return fallback;
+  try {
+    const json = JSON.parse(text) as { message?: string | string[] };
+    if (Array.isArray(json.message)) return json.message.join(", ");
+    if (typeof json.message === "string" && json.message.trim()) return json.message;
+  } catch {
+    // plain text
+  }
+  return text;
 }
 
 export class DeliveryRequest {
@@ -107,23 +122,79 @@ export class DeliveryRequest {
     departureTime: string;
     orderCutoffTime: string;
     maxOrders?: number | null;
+    driverUserId?: string | null;
     zoneIds?: string[];
-  }) {
+  }): Promise<DeliveryOccurrenceRow> {
     const res = await fetch(apiUrl("/e-shop/admin/delivery/calendar/occurrences"), {
       method: "POST",
       headers: await authHeaders(),
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      throw new Error(await readErrorMessage(res, `HTTP ${res.status}`));
+    }
     return res.json();
   }
 
-  static async getOperationsBoard() {
-    const res = await fetch(apiUrl("/e-shop/admin/delivery/operations"), {
+  static async updateOccurrence(
+    id: string,
+    body: {
+      name?: string;
+      occurrenceDate?: string;
+      departureTime?: string;
+      orderCutoffTime?: string;
+      maxOrders?: number | null;
+      driverUserId?: string | null;
+      zoneIds?: string[];
+      isCancelled?: boolean;
+    },
+  ): Promise<DeliveryOccurrenceRow> {
+    const res = await fetch(apiUrl(`/e-shop/admin/delivery/calendar/occurrences/${id}`), {
+      method: "PATCH",
+      headers: await authHeaders(),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      throw new Error(await readErrorMessage(res, `HTTP ${res.status}`));
+    }
+    return res.json();
+  }
+
+  static async cancelOccurrence(id: string): Promise<DeliveryOccurrenceRow> {
+    const res = await fetch(apiUrl(`/e-shop/admin/delivery/calendar/occurrences/${id}/cancel`), {
+      method: "POST",
+      headers: await authHeaders(),
+    });
+    if (!res.ok) {
+      throw new Error(await readErrorMessage(res, `HTTP ${res.status}`));
+    }
+    return res.json();
+  }
+
+  static async getOperationsBoard(params?: {
+    date?: string;
+    occurrenceId?: string | null;
+    search?: string | null;
+  }): Promise<DeliveryOperationsBoard> {
+    const qs = new URLSearchParams();
+    if (params?.date) qs.set("date", params.date);
+    if (params?.occurrenceId) qs.set("occurrenceId", params.occurrenceId);
+    if (params?.search?.trim()) qs.set("search", params.search.trim());
+    const suffix = qs.toString() ? `?${qs}` : "";
+    const res = await fetch(apiUrl(`/e-shop/admin/delivery/operations${suffix}`), {
       headers: await authHeaders(),
       cache: "no-store",
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw new Error(await readErrorMessage(res, `HTTP ${res.status}`));
+    return res.json();
+  }
+
+  static async listDrivers(): Promise<DeliveryDriverRow[]> {
+    const res = await fetch(apiUrl("/e-shop/admin/delivery/drivers"), {
+      headers: await authHeaders(),
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error(await readErrorMessage(res, `HTTP ${res.status}`));
     return res.json();
   }
 
@@ -133,7 +204,70 @@ export class DeliveryRequest {
       headers: await authHeaders(),
       body: JSON.stringify({ status }),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw new Error(await readErrorMessage(res, `HTTP ${res.status}`));
+    return res.json();
+  }
+
+  static async assignOccurrenceDriver(occurrenceId: string, driverUserId: string | null) {
+    const res = await fetch(
+      apiUrl(`/e-shop/admin/delivery/calendar/occurrences/${occurrenceId}/driver`),
+      {
+        method: "PATCH",
+        headers: await authHeaders(),
+        body: JSON.stringify({ driverUserId }),
+      },
+    );
+    if (!res.ok) throw new Error(await readErrorMessage(res, `HTTP ${res.status}`));
+    return res.json();
+  }
+
+  static async optimizeOccurrenceRoute(occurrenceId: string) {
+    const res = await fetch(
+      apiUrl(`/e-shop/admin/delivery/calendar/occurrences/${occurrenceId}/optimize-route`),
+      {
+        method: "POST",
+        headers: await authHeaders(),
+      },
+    );
+    if (!res.ok) throw new Error(await readErrorMessage(res, `HTTP ${res.status}`));
+    return res.json();
+  }
+
+  static async startOccurrenceRoute(occurrenceId: string) {
+    const res = await fetch(
+      apiUrl(`/e-shop/admin/delivery/calendar/occurrences/${occurrenceId}/start-route`),
+      {
+        method: "POST",
+        headers: await authHeaders(),
+      },
+    );
+    if (!res.ok) throw new Error(await readErrorMessage(res, `HTTP ${res.status}`));
+    return res.json();
+  }
+
+  static async toggleOrderLinePicked(orderId: string, lineId: string, isPicked: boolean) {
+    const res = await fetch(
+      apiUrl(`/e-shop/admin/delivery/orders/${orderId}/lines/${lineId}/picked`),
+      {
+        method: "PATCH",
+        headers: await authHeaders(),
+        body: JSON.stringify({ isPicked }),
+      },
+    );
+    if (!res.ok) throw new Error(await readErrorMessage(res, `HTTP ${res.status}`));
+    return res.json();
+  }
+
+  static async pickAllOrderLines(orderId: string, advanceTo?: string | null) {
+    const res = await fetch(
+      apiUrl(`/e-shop/admin/delivery/orders/${orderId}/pick-all-lines`),
+      {
+        method: "POST",
+        headers: await authHeaders(),
+        body: JSON.stringify({ advanceTo: advanceTo ?? null }),
+      },
+    );
+    if (!res.ok) throw new Error(await readErrorMessage(res, `HTTP ${res.status}`));
     return res.json();
   }
 
@@ -142,7 +276,7 @@ export class DeliveryRequest {
       method: "POST",
       headers: await authHeaders(),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw new Error(await readErrorMessage(res, `HTTP ${res.status}`));
     return res.json();
   }
 
@@ -152,7 +286,7 @@ export class DeliveryRequest {
       headers: await authHeaders(),
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw new Error(await readErrorMessage(res, `HTTP ${res.status}`));
     return res.json();
   }
 }

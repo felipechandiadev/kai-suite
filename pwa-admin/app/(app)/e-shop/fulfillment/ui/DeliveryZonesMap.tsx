@@ -129,27 +129,61 @@ function DrawControl({ featureGroup, onGeometryChange }: DrawControlProps) {
   return null;
 }
 
-function FitOperationalBounds({
+function FitCoverageBounds({
+  zones,
   operationalGeoJson,
 }: {
+  zones: DeliveryZoneRow[];
   operationalGeoJson: MauleCommunesFeatureCollection | null;
 }) {
   const map = useMap();
 
+  const zonesBoundsKey = useMemo(() => {
+    return zones
+      .filter((z) => z.geometry)
+      .map((z) => {
+        const ring = z.geometry?.coordinates[0]?.[0];
+        const anchor = ring ? `${ring[0]},${ring[1]}` : "";
+        return `${z.id}:${anchor}`;
+      })
+      .sort()
+      .join("|");
+  }, [zones]);
+
   useEffect(() => {
-    if (!operationalGeoJson || operationalGeoJson.features.length === 0) {
-      map.setView([MAULE_CENTER.lat, MAULE_CENTER.lng], DEFAULT_MAP_ZOOM, {
-        animate: false,
+    const zoneGeometries = zones
+      .map((z) => z.geometry)
+      .filter((g): g is GeoJsonPolygon => g != null);
+
+    if (zoneGeometries.length > 0) {
+      const layer = L.geoJSON({
+        type: "FeatureCollection",
+        features: zoneGeometries.map((geometry) => ({
+          type: "Feature",
+          properties: {},
+          geometry,
+        })),
       });
-      return;
+      const bounds = layer.getBounds();
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [32, 32], maxZoom: 14, animate: false });
+        return;
+      }
     }
 
-    const layer = L.geoJSON(operationalGeoJson);
-    const bounds = layer.getBounds();
-    if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [24, 24], maxZoom: 12, animate: false });
+    if (operationalGeoJson && operationalGeoJson.features.length > 0) {
+      const layer = L.geoJSON(operationalGeoJson);
+      const bounds = layer.getBounds();
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [24, 24], maxZoom: 12, animate: false });
+        return;
+      }
     }
-  }, [map, operationalGeoJson]);
+
+    map.setView([MAULE_CENTER.lat, MAULE_CENTER.lng], DEFAULT_MAP_ZOOM, {
+      animate: false,
+    });
+  }, [map, operationalGeoJson, zonesBoundsKey]);
 
   return null;
 }
@@ -207,7 +241,7 @@ export const DeliveryZonesMap = forwardRef<DeliveryZonesMapHandle, DeliveryZones
           attributionControl={false}
         >
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <FitOperationalBounds key={operationalKey} operationalGeoJson={operationalGeoJson} />
+          <FitCoverageBounds zones={zones} operationalGeoJson={operationalGeoJson} />
           {operationalGeoJson ? (
             <GeoJSON
               key={`operational-${operationalKey}`}

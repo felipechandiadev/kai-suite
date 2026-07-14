@@ -199,6 +199,29 @@ export class DeliverySchemaBootstrap implements OnModuleInit {
         CONSTRAINT "PK_e_shop_delivery_settings" PRIMARY KEY ("company_id")
       );
     `);
+
+    await this.dataSource.query(`
+      CREATE TABLE IF NOT EXISTS "e_shop_delivery_order_line_picks" (
+        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "company_id" uuid NOT NULL,
+        "delivery_order_id" uuid NOT NULL,
+        "transaction_line_id" uuid NOT NULL,
+        "is_picked" boolean NOT NULL DEFAULT false,
+        "picked_at" timestamptz,
+        "picked_by_user_id" uuid,
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
+        CONSTRAINT "PK_e_shop_delivery_order_line_picks" PRIMARY KEY ("id")
+      );
+    `);
+    await this.dataSource.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "uq_e_shop_delivery_order_line_picks"
+      ON "e_shop_delivery_order_line_picks" ("company_id", "delivery_order_id", "transaction_line_id");
+    `);
+    await this.dataSource.query(`
+      CREATE INDEX IF NOT EXISTS "idx_e_shop_delivery_order_line_picks_order"
+      ON "e_shop_delivery_order_line_picks" ("company_id", "delivery_order_id");
+    `);
   }
 
   private async ensureGeometryColumns() {

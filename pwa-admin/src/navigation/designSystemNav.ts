@@ -165,7 +165,7 @@ function buildComponentNavItems(): DesignSystemNavItem[] {
       ids: ['ui-dialog'],
     },
     {
-      ids: ['ui-tabs', 'ui-stepper'],
+      ids: ['ui-tabs', 'ui-stepper', 'ui-calendar'],
     },
     {
       ids: ['ui-cards'],

@@ -13,7 +13,6 @@ const items = [
   { url: `${BASE}/zonas`, label: "Zonas" },
   { url: `${BASE}/calendario`, label: "Calendario" },
   { url: `${BASE}/operacion`, label: "Operación" },
-  { url: `${BASE}/reparto`, label: "Reparto" },
   { url: `${BASE}/configuracion`, label: "Configuración" },
 ];
 
