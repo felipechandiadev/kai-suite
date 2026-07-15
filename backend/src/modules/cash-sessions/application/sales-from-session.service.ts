@@ -123,6 +123,7 @@ import {
   parsePosDeliveryMetadata,
   type PosDeliveryMetadata,
 } from './pos-delivery.metadata';
+import { buildPosDeliveryShippingLine } from './pos-delivery-shipping-line';
 
 type PosCommercialRegisterConfig = {
   transactionType:
@@ -2041,6 +2042,12 @@ export class SalesFromSessionService {
           zoneName: resolved.zoneName || rawPosDelivery.zoneName,
         };
         total = productTotal + quote.shippingFee;
+        const shippingLine = buildPosDeliveryShippingLine({
+          shippingFee: quote.shippingFee,
+          zoneName: validatedPosDelivery.zoneName,
+        });
+        transactionLines.push(shippingLine);
+        subtotal += shippingLine.subtotal;
       }
 
       let paymentSnapshots: ReturnType<
