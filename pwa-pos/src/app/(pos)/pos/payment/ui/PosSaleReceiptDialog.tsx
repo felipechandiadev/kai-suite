@@ -192,6 +192,12 @@ export type PosSaleReceiptData = {
   }> | null;
   /** Liquidación de saldo NC al cliente (egreso en caja). */
   ncPayout?: Array<{ folio: string; amount: number }> | null;
+  /** Reparto local cobrado en caja (fila de ticket). */
+  delivery?: {
+    zoneName: string;
+    shippingFee: number;
+    address?: string | null;
+  } | null;
   /** Operador POS al emitir/imprimir (pie «Operador:»). */
   operatorName?: string | null;
 };
@@ -230,6 +236,11 @@ export type PosSaleReceiptSnapshotInput = {
   arCollection?: Array<{ folio: string; amount: number }> | null;
   quotaCollection?: Array<{ folio: string; dueDate?: string | null; amount: number }> | null;
   ncPayout?: Array<{ folio: string; amount: number }> | null;
+  delivery?: {
+    zoneName: string;
+    shippingFee: number;
+    address?: string | null;
+  } | null;
   operatorName?: string | null;
 };
 
@@ -386,6 +397,7 @@ export function buildPosSaleReceiptSnapshot(input: PosSaleReceiptSnapshotInput):
     arCollection: input.arCollection?.length ? input.arCollection : null,
     quotaCollection: input.quotaCollection?.length ? input.quotaCollection : null,
     ncPayout: input.ncPayout?.length ? input.ncPayout : null,
+    delivery: input.delivery ?? null,
     creditInstallmentPlan: creditLine?.internalCreditPlan?.scheduledLines?.length
       ? creditLine.internalCreditPlan.scheduledLines
       : null,
@@ -587,6 +599,15 @@ export function buildPosSaleReceiptHtml(
   }
   ${data.totals.lineDiscounts > 0.01 ? `<div class="row"><span>Descuentos línea</span><span>−${formatMoney(data.totals.lineDiscounts)}</span></div>` : ""}
   ${data.totals.orderDiscount > 0.01 ? `<div class="row"><span>Descuento orden</span><span>−${formatMoney(data.totals.orderDiscount)}</span></div>` : ""}
+  ${
+    data.delivery && data.delivery.shippingFee >= 0
+      ? `<div class="row"><span>Reparto · ${escapeHtml(data.delivery.zoneName)}</span><span>${formatMoney(data.delivery.shippingFee)}</span></div>${
+          data.delivery.address?.trim()
+            ? `<div class="muted" style="margin-top:2px;">${escapeHtml(data.delivery.address.trim())}</div>`
+            : ""
+        }`
+      : ""
+  }
   ${
     isBackorder && data.backorder
       ? `<div class="row"><span>Total pedido</span><span>${formatMoney(data.backorder.orderTotal)}</span></div>

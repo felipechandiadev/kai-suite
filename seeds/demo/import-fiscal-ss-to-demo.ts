@@ -12,7 +12,7 @@
  *   - certificado.pfx en seeds/san-sebastian/data/fiscal/
  *
  * Variables opcionales:
- *   TARGET_COMPANY_ID  (default: NEXT_PUBLIC_COMPANY_ID_POS o Mi Empresa por RUT)
+ *   TARGET_COMPANY_ID  (default: NEXT_PUBLIC_COMPANY_ID_POS o Kai Suite por RUT)
  *   TARGET_POS_ID      (default: «Caja 1» o primer POS)
  */
 import { NestFactory } from '@nestjs/core';

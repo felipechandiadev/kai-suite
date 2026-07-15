@@ -37,6 +37,8 @@ export type DeliveryZonesMapHandle = {
   startNewZone: () => void;
   loadZone: (geometry: GeoJsonPolygon) => void;
   clearEdit: () => void;
+  /** Geometría actual del polígono en edición (incluye vértices aún no confirmados con ✓). */
+  getDraftGeometry: () => GeoJsonPolygon | null;
 };
 
 type DeliveryZonesMapProps = {
@@ -99,6 +101,10 @@ function DrawControl({ featureGroup, onGeometryChange }: DrawControlProps) {
 
     map.addControl(drawControl);
 
+    const emitCurrentGeometry = () => {
+      onGeometryChange(geometryFromFeatureGroup(featureGroup));
+    };
+
     const handleCreated = (event: L.LeafletEvent) => {
       const created = event as L.DrawEvents.Created;
       featureGroup.clearLayers();
@@ -107,7 +113,12 @@ function DrawControl({ featureGroup, onGeometryChange }: DrawControlProps) {
     };
 
     const handleEdited = () => {
-      onGeometryChange(geometryFromFeatureGroup(featureGroup));
+      emitCurrentGeometry();
+    };
+
+    const handleEditVertex = () => {
+      // leaflet-draw solo dispara EDITED al confirmar con ✓; sincronizamos en cada cambio.
+      emitCurrentGeometry();
     };
 
     const handleDeleted = () => {
@@ -116,11 +127,17 @@ function DrawControl({ featureGroup, onGeometryChange }: DrawControlProps) {
 
     map.on(L.Draw.Event.CREATED, handleCreated);
     map.on(L.Draw.Event.EDITED, handleEdited);
+    map.on(L.Draw.Event.EDITVERTEX, handleEditVertex);
+    map.on(L.Draw.Event.EDITMOVE, handleEditVertex);
+    map.on(L.Draw.Event.EDITRESIZE, handleEditVertex);
     map.on(L.Draw.Event.DELETED, handleDeleted);
 
     return () => {
       map.off(L.Draw.Event.CREATED, handleCreated);
       map.off(L.Draw.Event.EDITED, handleEdited);
+      map.off(L.Draw.Event.EDITVERTEX, handleEditVertex);
+      map.off(L.Draw.Event.EDITMOVE, handleEditVertex);
+      map.off(L.Draw.Event.EDITRESIZE, handleEditVertex);
       map.off(L.Draw.Event.DELETED, handleDeleted);
       map.removeControl(drawControl);
     };
@@ -218,14 +235,19 @@ export const DeliveryZonesMap = forwardRef<DeliveryZonesMapHandle, DeliveryZones
       loadZone(geometry) {
         const group = featureGroupRef.current;
         if (!group) return;
+        // Solo sincroniza el mapa; el padre ya tiene draftGeometry / isDirty.
         syncFeatureGroup(group, geometry);
-        onDraftGeometryChange(geometry);
       },
       clearEdit() {
         const group = featureGroupRef.current;
         if (!group) return;
         group.clearLayers();
         onDraftGeometryChange(null);
+      },
+      getDraftGeometry() {
+        const group = featureGroupRef.current;
+        if (!group) return null;
+        return geometryFromFeatureGroup(group);
       },
     }));
 

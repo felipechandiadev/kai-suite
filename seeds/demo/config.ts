@@ -14,16 +14,20 @@ import { DocumentType } from '@modules/persons/domain/person.entity';
 import { buildDefaultCompanyEShopTopBarSettings } from '@modules/companies/domain/company-eshop-topbar.types';
 import { buildDefaultCompanyEShopFooterSettings } from '@modules/companies/domain/company-eshop-footer.types';
 
-/** Empresa genérica de desarrollo — «Mi Empresa». */
+/** Empresa genérica de desarrollo — «Kai Suite» (estado actual en BD demo). */
 export const SEED_DEV_COMPANY = {
-  razonSocial: 'Mi Empresa SpA',
-  nombreFantasia: 'Mi Empresa',
-  rut: '76.000.000-0',
-  mail: 'contacto@miempresa.cl',
-  phone: '+56 2 2000 0000',
-  address: 'Av. Libertador Bernardo O\'Higgins 1234, Santiago',
-  businessActivity: 'Comercio minorista multi-rubro',
+  razonSocial: 'Kai Suite',
+  nombreFantasia: 'Kai Suite',
+  rut: '11.111.111-1',
+  mail: 'san.sebastian@kai.local',
+  phone: '+56984488195',
+  address: 'Anibal Pinto 405',
+  businessActivity: 'Suite Retail',
   defaultCurrency: 'CLP',
+  commune: 'Parral',
+  city: 'Parral',
+  siiResolutionNumber: '80',
+  siiResolutionDate: '2014-08-22',
 } as const;
 
 /** Segunda empresa (multi-RUT / CompanySwitcher) — solo datos maestros + settings en seed. */
@@ -43,7 +47,7 @@ export const SEED_DEV_COMPANY_SECOND_ESHOP_SLUG = 'demo-2';
 
 /** Contacto público eShop (footer, documentos, pestaña Contacto en admin). */
 export const SEED_DEV_ESHOP_PUBLIC_CONTACT = {
-  email: 'tienda@miempresa.cl',
+  email: SEED_DEV_COMPANY.mail,
   phone: SEED_DEV_COMPANY.phone,
   instagram: 'https://www.instagram.com/kaistore.cl/',
   tiktok: 'https://www.tiktok.com/@kaistore.cl',
@@ -114,16 +118,22 @@ export function buildSeedEshopPublicContact(
 
 export const SEED_BRANCH_NAME = 'Casa matriz';
 export const SEED_BRANCH_ADDRESS = SEED_DEV_COMPANY.address;
-export const SEED_BRANCH_PHONE = '+56 9 8000 0000';
-export const SEED_BRANCH_LOCATION = { lat: -33.4489, lng: -70.6693 };
+export const SEED_BRANCH_PHONE = SEED_DEV_COMPANY.phone;
+export const SEED_BRANCH_LOCATION = { lat: -36.143, lng: -71.824 };
 
 export const SEED_STORAGE_NAME = 'Bodega principal';
 export const SEED_STORAGE_CODE = 'SEED-BODEGA-01';
 
 export const SEED_PRICE_LIST_RETAIL_NAME = 'Minorista';
-export const SEED_PRICE_LIST_WHOLESALE_NAME = 'Mayorista';
+/** Segunda lista POS (antes «Mayorista»); tipo VIP en BD demo. */
+export const SEED_PRICE_LIST_VIP_NAME = 'Vip';
+/** @deprecated Alias de compatibilidad — usar `SEED_PRICE_LIST_VIP_NAME`. */
+export const SEED_PRICE_LIST_WHOLESALE_NAME = SEED_PRICE_LIST_VIP_NAME;
 /** Lista de precios de catálogo eShop (no eliminable). */
 export const SEED_PRICE_LIST_ESHOP_NAME = 'eShop';
+
+/** Nombres legacy a renombrar hacia Vip al re-sembrar. */
+export const SEED_PRICE_LIST_VIP_LEGACY_NAMES = ['Mayorista'] as const;
 
 export const SEED_POS_NAMES = ['Caja 1', 'Caja 2'] as const;
 
@@ -134,6 +144,37 @@ export const SEED_CASH_HUBS = [
   { code: 'CEV-00001', name: 'Principal' },
   { code: 'CEV-00002', name: 'Secundario' },
 ] as const;
+
+/** Zona / cobertura demo (Parral) + calendario Jul–Ago 2026. */
+export const SEED_DELIVERY_ZONE_NAME = 'Parral';
+export const SEED_DELIVERY_COMMUNE_CODE = 'parral';
+export const SEED_DELIVERY_SHIPPING_FEE = 2500;
+export const SEED_DELIVERY_DEPOT = {
+  lat: -36.1315,
+  lng: -71.8188,
+  address: SEED_DEV_COMPANY.address,
+  osrmUrl: 'http://localhost:5000',
+} as const;
+
+/** Reparto local (LOCAL_DELIVERY) — un turno por día. */
+export const SEED_DELIVERY_REPARTO = {
+  name: 'Reparto diario',
+  departureTime: '12:00:00',
+  orderCutoffTime: '10:00:00',
+  maxOrders: 40,
+} as const;
+
+/** Retiro en local (PICKUP) — ventana diaria. */
+export const SEED_DELIVERY_PICKUP = {
+  name: 'Retiro en local',
+  departureTime: '09:00:00',
+  endTime: '18:00:00',
+  orderCutoffTime: '08:30:00',
+  maxOrders: null as number | null,
+} as const;
+
+/** Meses (1–12) a sembrar en el calendario de franjas. */
+export const SEED_DELIVERY_CALENDAR_MONTHS_2026 = [7, 8] as const;
 
 const SEED_PM_NAMESPACE = 'flowstore-seed-pm-dev-v1';
 
@@ -193,7 +234,11 @@ const COMPANY_PAYMENT_METHODS: PaymentMethod[] = [
   PaymentMethod.CREDIT_CARD,
   PaymentMethod.DEBIT_CARD,
   PaymentMethod.TRANSFER,
+  PaymentMethod.CHECK,
+  PaymentMethod.INTERNAL_CREDIT,
 ];
+
+const PRIMARY_BANK_ACCOUNT_KEY = 'seed-dev-banco-estado-cc';
 
 export function buildSeedCompanyPaymentCatalog(): CompanyPaymentMethodConfig[] {
   return COMPANY_PAYMENT_METHODS.map((method, displayOrder) => ({
@@ -203,7 +248,8 @@ export function buildSeedCompanyPaymentCatalog(): CompanyPaymentMethodConfig[] {
     displayOrder,
     isActive: true,
     requireReference: false,
-    bankAccountKey: null,
+    bankAccountKey:
+      method === PaymentMethod.TRANSFER ? PRIMARY_BANK_ACCOUNT_KEY : null,
     metadata: null,
   }));
 }
@@ -214,15 +260,21 @@ type PosMethodSeed = {
   isDefaultForChange?: boolean;
 };
 
+/** Precarga alineada a Caja 1 en BD demo (efectivo + transferencia). */
 const POS_METHOD_SEED: Partial<Record<PaymentMethod, PosMethodSeed>> = {
   [PaymentMethod.CASH]: {
     preloadOnPaymentScreen: true,
     preloadOrder: 0,
     isDefaultForChange: true,
   },
-  [PaymentMethod.CREDIT_CARD]: { preloadOnPaymentScreen: true, preloadOrder: 1 },
-  [PaymentMethod.DEBIT_CARD]: { preloadOnPaymentScreen: true, preloadOrder: 2 },
+  [PaymentMethod.CREDIT_CARD]: { preloadOnPaymentScreen: false, preloadOrder: 1 },
+  [PaymentMethod.DEBIT_CARD]: { preloadOnPaymentScreen: false, preloadOrder: 2 },
   [PaymentMethod.TRANSFER]: { preloadOnPaymentScreen: true, preloadOrder: 3 },
+  [PaymentMethod.CHECK]: { preloadOnPaymentScreen: false, preloadOrder: 4 },
+  [PaymentMethod.INTERNAL_CREDIT]: {
+    preloadOnPaymentScreen: false,
+    preloadOrder: 5,
+  },
 };
 
 export function buildSeedPosPaymentList(
@@ -257,13 +309,13 @@ export function buildSeedCompanySettings(
     ...base,
     paymentMethods,
     checks: {
-      enabled: false,
-      receiveChecks: false,
-      issueChecks: false,
-      allowPostdatedReceived: false,
-      allowPostdatedIssued: false,
-      defaultDepositBankAccountKey: null,
-      defaultIssueBankAccountKey: null,
+      enabled: true,
+      receiveChecks: true,
+      issueChecks: true,
+      allowPostdatedReceived: true,
+      allowPostdatedIssued: true,
+      defaultDepositBankAccountKey: PRIMARY_BANK_ACCOUNT_KEY,
+      defaultIssueBankAccountKey: PRIMARY_BANK_ACCOUNT_KEY,
     },
     quotations: {
       enabled: true,
@@ -272,7 +324,7 @@ export function buildSeedCompanySettings(
       allowCustomValidity: true,
       defaultTerms: null,
     },
-    internalCustomerCredit: { enabled: false },
+    internalCustomerCredit: { enabled: true },
     presales: { enabled: true },
     eShopEnabled: true,
     eShopPublicSlug: 'demo',

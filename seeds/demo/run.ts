@@ -85,7 +85,8 @@ import {
   SEED_PRESALE_POS_NAME,
   SEED_PRICE_LIST_ESHOP_NAME,
   SEED_PRICE_LIST_RETAIL_NAME,
-  SEED_PRICE_LIST_WHOLESALE_NAME,
+  SEED_PRICE_LIST_VIP_LEGACY_NAMES,
+  SEED_PRICE_LIST_VIP_NAME,
   SEED_STORAGE_CODE,
   SEED_STORAGE_NAME,
   buildSeedCompanyBankAccounts,
@@ -107,6 +108,7 @@ import {
   collectSeedDevCatalogSkus,
   type SeedDevUnitKey,
 } from './catalog';
+import { seedDemoDeliveryCalendar } from './seed-delivery-calendar';
 import { runSeedBootstrapGuards } from '../shared/seed-bootstrap.util';
 import {
   seedProductsFromDefinitions,
@@ -1108,6 +1110,10 @@ async function bootstrap() {
         address: companyAddress,
         mail: companyMail,
         phone: companyPhone,
+        commune: SEED_DEV_COMPANY.commune,
+        city: SEED_DEV_COMPANY.city,
+        siiResolutionNumber: SEED_DEV_COMPANY.siiResolutionNumber,
+        siiResolutionDate: SEED_DEV_COMPANY.siiResolutionDate,
         defaultCurrency: SEED_DEV_COMPANY.defaultCurrency,
         isActive: true,
       });
@@ -1122,6 +1128,10 @@ async function bootstrap() {
       company.address = companyAddress;
       company.mail = companyMail;
       company.phone = companyPhone;
+      company.commune = SEED_DEV_COMPANY.commune;
+      company.city = SEED_DEV_COMPANY.city;
+      company.siiResolutionNumber = SEED_DEV_COMPANY.siiResolutionNumber;
+      company.siiResolutionDate = SEED_DEV_COMPANY.siiResolutionDate;
       await companyRepo.save(company);
       console.log(
         `✅ Empresa ya existía: id=${company.id} razonSocial='${company.razonSocial}' rut='${company.rut}' (datos básicos actualizados)`,
@@ -1165,7 +1175,7 @@ async function bootstrap() {
     console.log(
       `✅ Settings empresa sincronizados: medios (${seedCompanyPaymentCatalog
         .map((c) => c.method)
-        .join(', ')}), cotizaciones 10/20 días, cheques off, crédito interno off, preventa ON`,
+        .join(', ')}), cotizaciones 10/20 días, cheques ON, crédito interno ON, preventa ON`,
     );
     const publicContact = syncedSettings.publicContact as {
       email?: string;
@@ -1950,14 +1960,28 @@ async function bootstrap() {
 
     const upsertPriceList = async (
       name: string,
-      opts: { isDefault: boolean; priority: number; nonDeletable?: boolean },
+      opts: {
+        isDefault: boolean;
+        priority: number;
+        nonDeletable?: boolean;
+        priceListType?: PriceListType;
+        legacyNames?: readonly string[];
+      },
     ): Promise<PriceList> => {
-      const existing = await priceListRepo.findOne({
+      let existing = await priceListRepo.findOne({
         where: { companyId: company.id, name },
       });
+      if (!existing && opts.legacyNames?.length) {
+        for (const legacy of opts.legacyNames) {
+          existing = await priceListRepo.findOne({
+            where: { companyId: company.id, name: legacy },
+          });
+          if (existing) break;
+        }
+      }
       const payload = {
         companyId: company.id,
-        priceListType: PriceListType.RETAIL,
+        priceListType: opts.priceListType ?? PriceListType.RETAIL,
         currency: 'CLP',
         validFrom: undefined,
         validUntil: undefined,
@@ -1977,9 +2001,11 @@ async function bootstrap() {
       isDefault: true,
       priority: 0,
     });
-    const listaMayorista = await upsertPriceList(SEED_PRICE_LIST_WHOLESALE_NAME, {
+    const listaVip = await upsertPriceList(SEED_PRICE_LIST_VIP_NAME, {
       isDefault: false,
       priority: 1,
+      priceListType: PriceListType.VIP,
+      legacyNames: SEED_PRICE_LIST_VIP_LEGACY_NAMES,
     });
     const listaEshop = await upsertPriceList(SEED_PRICE_LIST_ESHOP_NAME, {
       isDefault: false,
@@ -1987,7 +2013,7 @@ async function bootstrap() {
       nonDeletable: true,
     });
     console.log(
-      `✅ Listas de precios: «${listaMinorista.name}» id=${listaMinorista.id} (default), «${listaMayorista.name}» id=${listaMayorista.id}, «${listaEshop.name}» id=${listaEshop.id} (eShop, no eliminable)`,
+      `✅ Listas de precios: «${listaMinorista.name}» id=${listaMinorista.id} (default), «${listaVip.name}» id=${listaVip.id} (${listaVip.priceListType}), «${listaEshop.name}» id=${listaEshop.id} (eShop, no eliminable)`,
     );
 
     const productRepo = dataSource.getRepository(Product);
@@ -2015,7 +2041,7 @@ async function bootstrap() {
         attributesByName,
         seedUnitId,
         listaMinoristaId: listaMinorista.id,
-        listaMayoristaId: listaMayorista.id,
+        listaMayoristaId: listaVip.id,
         listaEshopId: listaEshop.id,
         logPrefix: 'Seed dev',
       });
@@ -2104,7 +2130,7 @@ async function bootstrap() {
 
     const priceListsJson = [
       { id: listaMinorista.id, name: listaMinorista.name, isActive: true },
-      { id: listaMayorista.id, name: listaMayorista.name, isActive: true },
+      { id: listaVip.id, name: listaVip.name, isActive: true },
     ];
 
     const reloadedCompany = await companyRepo.findOne({
@@ -2122,8 +2148,9 @@ async function bootstrap() {
     const posPoints: PointOfSale[] = [];
     for (const posName of SEED_POS_NAMES) {
       const defaultListId =
-        posName === SEED_POS_NAMES[0] ? listaMinorista.id : listaMayorista.id;
+        posName === SEED_POS_NAMES[0] ? listaMinorista.id : listaVip.id;
       let posRow = await posRepo.findOne({ where: { name: posName } });
+      const isPrimarySalePos = posName === SEED_POS_NAMES[0];
       const posPayload = {
         name: posName,
         branchId: seedBranch.id,
@@ -2136,6 +2163,15 @@ async function bootstrap() {
           paymentMethods: posPaymentList,
           kind: 'SALE' as const,
           acceptsPresaleTickets: true,
+          allowsDeferredPayment: false,
+          ...(isPrimarySalePos
+            ? {
+                fiscal: {
+                  defaultDocumentKind: 'TICKET' as const,
+                  allowedDocumentKinds: ['TICKET' as const],
+                },
+              }
+            : {}),
         },
       };
       if (!posRow) {
@@ -2161,6 +2197,7 @@ async function bootstrap() {
         paymentMethods: posPaymentList,
         kind: 'PRESALE' as const,
         acceptsPresaleTickets: false,
+        allowsDeferredPayment: false,
       },
     };
     if (!presalePos) {
@@ -2643,6 +2680,11 @@ async function bootstrap() {
       documentNumber: '33333333-3',
     });
 
+    await seedDemoDeliveryCalendar({
+      dataSource,
+      companyId: company.id,
+    });
+
     console.log('✅ Seed mínimo OK. Tres usuarios listos:');
     console.log(`   • superadmin / ${seedPassword}   (SUPER_ADMIN, protegido)`);
     console.log(`   • ${userName} / ${seedPassword}        (ADMIN de la empresa)`);
@@ -2652,6 +2694,9 @@ async function bootstrap() {
     );
     console.log(
       `   • Preventa: ON | POS preventa «${SEED_PRESALE_POS_NAME}» | Cajas aceptan tickets de preventa`,
+    );
+    console.log(
+      `   • Delivery: repartos + retiros en local (jul–ago 2026) | zona «Parral»`,
     );
       },
     );

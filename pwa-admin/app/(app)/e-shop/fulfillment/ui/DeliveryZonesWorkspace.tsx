@@ -184,10 +184,15 @@ export function DeliveryZonesWorkspace({
   };
 
   const handleSave = async () => {
-    if (!draftGeometry) {
+    // Leer del mapa: los vértices editados con el lápiz pueden no estar en draft
+    // hasta confirmar con ✓ en leaflet-draw.
+    const geometryFromMap = mapRef.current?.getDraftGeometry() ?? null;
+    const geometry = geometryFromMap ?? draftGeometry;
+    if (!geometry) {
       setError("El polígono es obligatorio.");
       return;
     }
+    setDraftGeometry(geometry);
     setSaving(true);
     setError(null);
     try {
@@ -196,7 +201,7 @@ export function DeliveryZonesWorkspace({
         name: draft.name.trim(),
         shippingFee: draft.shippingFee,
         isActive: draft.isActive,
-        geometry: draftGeometry,
+        geometry,
       });
       if (!result.success) {
         setError(result.error);
@@ -222,6 +227,7 @@ export function DeliveryZonesWorkspace({
         isActive: saved.isActive,
       });
       if (saved.geometry) {
+        setDraftGeometry(saved.geometry);
         mapRef.current?.loadZone(saved.geometry);
       }
       await router.refresh();

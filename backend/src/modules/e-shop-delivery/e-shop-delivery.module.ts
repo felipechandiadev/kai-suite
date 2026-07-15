@@ -24,6 +24,7 @@ import { ListDeliveryCouriersService } from './application/list-delivery-courier
 import { OptimizeDeliveryDispatchRouteService } from '@modules/routing/application/optimize-delivery-dispatch-route.service';
 import { DeliveryPublicController } from './presentation/delivery-public.controller';
 import { DeliveryAdminController } from './presentation/delivery-admin.controller';
+import { DeliveryPosController } from './presentation/delivery-pos.controller';
 import { CourierController } from './presentation/courier.controller';
 import { DeliverySchemaBootstrap } from './infrastructure/delivery-schema.bootstrap';
 import { CompaniesModule } from '@modules/companies/companies.module';
@@ -49,7 +50,12 @@ import { RoutingModule } from '@modules/routing/routing.module';
       TransactionLine,
     ]),
   ],
-  controllers: [DeliveryPublicController, DeliveryAdminController, CourierController],
+  controllers: [
+    DeliveryPublicController,
+    DeliveryAdminController,
+    DeliveryPosController,
+    CourierController,
+  ],
   providers: [
     DeliveryCoverageService,
     DeliveryZoneGeometryService,
@@ -70,6 +76,7 @@ import { RoutingModule } from '@modules/routing/routing.module';
     DeliveryCoverageService,
     DeliveryZoneService,
     ResolveDeliveryZoneService,
+    GeocodeAddressService,
     DeliveryQuoteService,
     DeliveryOccurrenceService,
     DeliveryOrderService,

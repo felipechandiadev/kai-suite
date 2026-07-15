@@ -19,6 +19,11 @@ import {
 } from "@/features/pos-offline/lib/read-deferred-payment-enabled";
 import { usePosCart } from "@/features/pos-cart/PosCartProvider";
 import { computePosSaleTotals } from "@/features/pos-cart/lib/pos-sale-totals";
+import { amountToPayWithPosDelivery } from "@/features/pos-cart/lib/amount-to-pay-with-delivery";
+import { PosDeliveryDialog } from "@/features/pos-delivery/ui/PosDeliveryDialog";
+import { PosDeliverySummaryCard } from "@/features/pos-delivery/ui/PosDeliverySummaryCard";
+import { fetchPosDeliveryCoverageAction } from "@/features/pos-delivery/actions/pos-delivery.action";
+import type { PosDeliveryConfig } from "@/features/pos-delivery/types/pos-delivery.types";
 import { PosDiscountDetailDialog } from "@/features/promotions/ui/PosDiscountDetailDialog";
 import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
 import { usePosTabletDensity } from "@/shared/hooks/usePosTabletDensity";
@@ -568,6 +573,9 @@ export default function PosPaymentWorkspace({
     loadedQuotation,
     backorderDeposit,
     setBackorderDeposit,
+    posDelivery,
+    setPosDelivery,
+    clearPosDelivery,
     encargoModeEnabled,
     setEncargoModeEnabled,
     disableEncargoMode,
@@ -624,6 +632,8 @@ export default function PosPaymentWorkspace({
   >(null);
   const [saveQuotationOpen, setSaveQuotationOpen] = useState(false);
   const [backorderDepositOpen, setBackorderDepositOpen] = useState(false);
+  const [deliveryDialogOpen, setDeliveryDialogOpen] = useState(false);
+  const [localDeliveryEnabled, setLocalDeliveryEnabled] = useState(false);
   const [createCustomerOpen, setCreateCustomerOpen] = useState(false);
   const [internalCreditCtx, setInternalCreditCtx] =
     useState<InternalCustomerCreditContext>({
@@ -907,6 +917,21 @@ export default function PosPaymentWorkspace({
     );
   }, [customer?.customerId, setPayments]);
 
+  useEffect(() => {
+    if (isOffline) {
+      setLocalDeliveryEnabled(false);
+      return;
+    }
+    let cancelled = false;
+    void fetchPosDeliveryCoverageAction().then((res) => {
+      if (cancelled) return;
+      setLocalDeliveryEnabled(res.success && res.data.localDeliveryEnabled === true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOffline, backendReachable]);
+
   const getCreditNoteAvailable = useCallback(
     (ncId: string, excludeLineId?: string) => {
       const row = paymentSources.creditNotes.find((n) => n.id === ncId);
@@ -943,6 +968,41 @@ export default function PosPaymentWorkspace({
   const hasSaleCustomer = Boolean(saleCustomerId);
   const isEncargoMode = !isReturnMode && !isFulfillBackorderMode && encargoModeEnabled;
   const isQuotationMode = Boolean(loadedQuotation?.id?.trim());
+  const canUsePosDelivery =
+    !isOffline &&
+    !isReturnMode &&
+    !isFulfillBackorderMode &&
+    !isEncargoMode &&
+    !isDebtCollectMode &&
+    !isNcPayoutMode &&
+    localDeliveryEnabled;
+  const deliveryFeeActive =
+    canUsePosDelivery && posDelivery != null
+      ? Math.max(0, Math.round(posDelivery.shippingFee))
+      : 0;
+
+  const showDeliveryCard = canUsePosDelivery || localDeliveryEnabled;
+  const deliveryConfigureDisabled =
+    isOffline ||
+    !localDeliveryEnabled ||
+    !hasSaleCustomer ||
+    !canUsePosDelivery;
+  const deliveryDisabledReason = isOffline
+    ? "Reparto no disponible offline"
+    : !localDeliveryEnabled
+      ? "Reparto local no habilitado"
+      : !hasSaleCustomer
+        ? "Selecciona un cliente para agregar reparto"
+        : !canUsePosDelivery
+          ? "Reparto solo en venta normal"
+          : undefined;
+
+  useEffect(() => {
+    if (!canUsePosDelivery && posDelivery) {
+      clearPosDelivery();
+    }
+  }, [canUsePosDelivery, posDelivery, clearPosDelivery]);
+
   const customerLocked =
     (isFulfillBackorderMode && hasSaleCustomer) ||
     (isEncargoMode && hasSaleCustomer) ||
@@ -1082,7 +1142,10 @@ export default function PosPaymentWorkspace({
         ? collectBalanceTotal
         : isEncargoMode && backorderDeposit
           ? Math.max(0, Math.round(backorderDeposit.amount))
-          : saleTotal;
+          : amountToPayWithPosDelivery(
+              saleTotal,
+              canUsePosDelivery ? posDelivery : null,
+            );
   const encargoDepositAmountRounded =
     isEncargoMode && backorderDeposit != null
       ? Math.max(0, Math.round(backorderDeposit.amount))
@@ -1939,6 +2002,7 @@ export default function PosPaymentWorkspace({
     !isReturnMode &&
     !isFulfillBackorderMode &&
     !isEncargoMode &&
+    !posDelivery &&
     !stockBlocksSalePayment &&
     hasSaleCustomer &&
     cart.lines.length > 0 &&
@@ -2797,6 +2861,10 @@ export default function PosPaymentWorkspace({
             loadedQuotation: cart.loadedQuotation,
             saleDocumentKind: effectiveSaleDocumentKind,
             selectedSaleDocumentKind: saleDteKind,
+            posDelivery:
+              canUsePosDelivery && posDelivery && !isEncargoMode
+                ? posDelivery
+                : null,
           }),
         );
 
@@ -2842,7 +2910,7 @@ export default function PosPaymentWorkspace({
           gross: totals.gross,
           taxes,
           discounts,
-          saleTotal,
+          saleTotal: amountToPay,
           appliedTotal: appliedTotal,
           overpay,
         },
@@ -2874,6 +2942,14 @@ export default function PosPaymentWorkspace({
               ? boletaReducedToTicketMessage(saleDteKind, cartLinesForSale)
               : null),
         documentKind: isEncargoMode ? "backorder" : "sale",
+        delivery:
+          !isEncargoMode && canUsePosDelivery && posDelivery
+            ? {
+                zoneName: posDelivery.zoneName,
+                shippingFee: Math.round(posDelivery.shippingFee),
+                address: posDelivery.address,
+              }
+            : null,
         backorder:
           isEncargoMode && backorderDeposit
             ? {
@@ -2950,7 +3026,7 @@ export default function PosPaymentWorkspace({
         className="flex flex-row items-center gap-6 rounded-xl border border-border bg-background px-4 py-3 shadow-sm"
         aria-labelledby={saleTitleId}
       >
-        <div className="flex min-w-0 flex-1 items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           {!customerLocked && !compactLayout ? (
             <IconButton
               icon="ChevronLeft"
@@ -2967,7 +3043,7 @@ export default function PosPaymentWorkspace({
             />
           ) : null}
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <h1 id={saleTitleId} className="text-base font-semibold text-foreground">
+            <h1 id={saleTitleId} className="truncate text-base font-semibold text-foreground">
               {flowTitle}
             </h1>
             <p className="truncate text-sm text-muted-foreground">
@@ -2983,6 +3059,15 @@ export default function PosPaymentWorkspace({
               Cliente: <span className="font-medium text-foreground">{customerLabel}</span>
             </p>
           </div>
+          {showDeliveryCard ? (
+            <PosDeliverySummaryCard
+              posDelivery={canUsePosDelivery ? posDelivery : null}
+              disabled={deliveryConfigureDisabled}
+              disabledReason={deliveryDisabledReason}
+              onConfigure={() => setDeliveryDialogOpen(true)}
+              data-test-id="pos-payment-delivery"
+            />
+          ) : null}
         </div>
 
         {!compactLayout && showReturnRefundUi ? (
@@ -3280,6 +3365,19 @@ export default function PosPaymentWorkspace({
               : cart.lines.map((line) => (
                   <PaymentCartReadOnlyRow key={line.variantId} line={line} />
                 ))}
+            {deliveryFeeActive > 0 && posDelivery ? (
+              <li
+                className="flex items-center justify-between gap-3 border-t border-border/60 px-3 py-2.5 text-sm"
+                data-test-id="pos-payment-delivery-summary-row"
+              >
+                <span className="min-w-0 truncate text-foreground">
+                  Reparto · {posDelivery.zoneName}
+                </span>
+                <span className="shrink-0 tabular-nums font-semibold">
+                  {formatMoney(posDelivery.shippingFee)}
+                </span>
+              </li>
+            ) : null}
           </ul>
           <footer className="shrink-0 space-y-2 border-t border-border pt-3 text-sm">
             {isDebtCollectMode || isNcPayoutMode || isEncargoMode ? (
@@ -3329,7 +3427,7 @@ export default function PosPaymentWorkspace({
                 </div>
                 <div className="flex justify-between gap-4 pt-1 text-base font-semibold">
                   <span className="text-foreground">Total</span>
-                  <span className="tabular-nums text-foreground">{formatMoney(saleTotal)}</span>
+                  <span className="tabular-nums text-foreground">{formatMoney(amountToPay)}</span>
                 </div>
               </>
             )}
@@ -3715,7 +3813,7 @@ export default function PosPaymentWorkspace({
                 <span className="w-10 shrink-0" aria-hidden />
               )}
               <div
-                className="flex min-w-0 flex-1 flex-col items-center px-1 text-center leading-tight"
+                className="flex min-w-0 flex-1 flex-col items-center gap-1 px-1 text-center leading-tight"
                 data-test-id="pos-payment-mobile-context"
               >
                 <span className="truncate text-sm font-semibold text-foreground">
@@ -3725,6 +3823,17 @@ export default function PosPaymentWorkspace({
                   Cliente:{" "}
                   <span className="font-medium text-foreground">{customerLabel}</span>
                 </span>
+                {showDeliveryCard ? (
+                  <PosDeliverySummaryCard
+                    compact
+                    className="mt-0.5"
+                    posDelivery={canUsePosDelivery ? posDelivery : null}
+                    disabled={deliveryConfigureDisabled}
+                    disabledReason={deliveryDisabledReason}
+                    onConfigure={() => setDeliveryDialogOpen(true)}
+                    data-test-id="pos-payment-delivery-mobile"
+                  />
+                ) : null}
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {showDeferPaymentButton ? (
@@ -3922,6 +4031,26 @@ export default function PosPaymentWorkspace({
         saleTotal={saleTotal}
         initial={backorderDeposit}
         onConfirm={handleBackorderDepositConfirm}
+      />
+
+      <PosDeliveryDialog
+        open={deliveryDialogOpen}
+        onClose={() => setDeliveryDialogOpen(false)}
+        productSubtotal={saleTotal}
+        initial={posDelivery}
+        customerHint={
+          customer
+            ? { name: customer.name, phone: customer.phone }
+            : null
+        }
+        onConfirm={(config: PosDeliveryConfig) => {
+          setPosDelivery(config);
+          setDeliveryDialogOpen(false);
+        }}
+        onClear={() => {
+          clearPosDelivery();
+          setDeliveryDialogOpen(false);
+        }}
       />
 
       <PosCreateCustomerDialog

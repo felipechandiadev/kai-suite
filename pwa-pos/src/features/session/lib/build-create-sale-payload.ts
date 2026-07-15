@@ -156,6 +156,19 @@ export function buildCreateSaleClientPayload(input: {
   selectedSaleDocumentKind?: CreateSaleApiBody["saleDocumentKind"];
   loadedQuotation?: LoadedQuotationMeta | null;
   loadedPresaleTickets?: { id: string; code: string }[];
+  posDelivery?: {
+    deliveryZoneId: string;
+    deliveryOccurrenceId: string;
+    address: string;
+    communeCode: string;
+    communeName?: string | null;
+    region?: string | null;
+    latitude: number;
+    longitude: number;
+    shippingFee: number;
+    zoneName: string;
+    notes?: string | null;
+  } | null;
 }): CreateSaleClientPayload {
   const deferPayment = input.deferPayment === true;
   const paymentLines = deferPayment
@@ -189,6 +202,27 @@ export function buildCreateSaleClientPayload(input: {
   }
   if (input.selectedSaleDocumentKind) {
     metadata.selectedSaleDocumentKind = input.selectedSaleDocumentKind;
+  }
+  const delivery = input.posDelivery;
+  if (
+    delivery &&
+    !deferPayment &&
+    delivery.deliveryZoneId?.trim() &&
+    delivery.deliveryOccurrenceId?.trim()
+  ) {
+    metadata.posDelivery = {
+      deliveryZoneId: delivery.deliveryZoneId.trim(),
+      deliveryOccurrenceId: delivery.deliveryOccurrenceId.trim(),
+      address: delivery.address.trim(),
+      communeCode: delivery.communeCode.trim(),
+      communeName: delivery.communeName?.trim() || null,
+      region: delivery.region?.trim() || null,
+      latitude: delivery.latitude,
+      longitude: delivery.longitude,
+      shippingFee: Math.round(Number(delivery.shippingFee) || 0),
+      zoneName: delivery.zoneName.trim(),
+      notes: delivery.notes?.trim() || null,
+    };
   }
 
   const hasMetadata = Object.keys(metadata).length > 0;

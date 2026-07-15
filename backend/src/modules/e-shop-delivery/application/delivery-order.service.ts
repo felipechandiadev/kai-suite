@@ -60,6 +60,28 @@ export class DeliveryOrderService {
     return row;
   }
 
+  /** Pedido de reparto local creado desde una venta POS (mismo dominio que e-shop). */
+  async createFromPosSale(input: {
+    companyId: string;
+    transactionId: string;
+    deliveryZoneId: string;
+    deliveryOccurrenceId: string;
+    addressLine1: string;
+    commune: string;
+    region?: string | null;
+    latitude: number;
+    longitude: number;
+    shippingFee: number;
+    customerName?: string | null;
+    customerPhone?: string | null;
+    notes?: string | null;
+  }) {
+    return this.createFromCheckout({
+      ...input,
+      fulfillmentType: 'LOCAL_DELIVERY',
+    });
+  }
+
   async updateStatus(companyId: string, deliveryOrderId: string, status: DeliveryOrderStatus) {
     const row = await this.orderRepo.findOne({ where: { companyId, id: deliveryOrderId } });
     if (!row) throw new BadRequestException('Pedido delivery no encontrado');

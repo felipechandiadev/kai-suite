@@ -37,7 +37,7 @@ npm run seed:import-san-sebastian --prefix seeds
 
 | Comando | Empresa | Login | eShop slug | Notas |
 |---------|---------|-------|------------|-------|
-| `seed:demo` | Mi Empresa | `admin` / `098098` | (según config demo) | Desarrollo genérico, multimedia local |
+| `seed:demo` | Kai Suite | `admin` / `098098` | `demo` | Desarrollo genérico, multimedia local, calendario reparto/retiro jul–ago 2026 |
 | `seed:joyarte` | Joyarte SpA | `admin` / `098098` | `joyarte` | Tema jewelry, catálogo joyería |
 | `seed:san-sebastian` | Supermercado San Sebastián | `admin` / `098098` | — | eShop OFF, catálogo supermercado, **SII producción** |
 
@@ -84,7 +84,7 @@ Con `STORAGE_STRATEGY=local`, demo/joyarte/san-sebastian limpian `backend/public
 ```
 seeds/
 ├── shared/           # MinimalSeedModule, bootstrap, catálogo, multimedia
-├── demo/             # Perfil Mi Empresa (+ assets/)
+├── demo/             # Perfil Kai Suite (+ assets/)
 ├── joyarte/          # Perfil joyería (+ import Baron)
 └── san-sebastian/    # Perfil supermercado (+ import sami6, data/fiscal SII)
 ```

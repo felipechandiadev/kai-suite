@@ -9,6 +9,10 @@ import type {
 } from "@/features/pos-cart/types/pos-cart-mode.types";
 import type { PosPaymentLine } from "./pos-payment.types";
 import {
+  parsePosDeliveryConfig,
+  type PosDeliveryConfig,
+} from "@/features/pos-delivery/types/pos-delivery.types";
+import {
   getMigratedLocalStorageItem,
   setMigratedLocalStorageItem,
 } from "@kai-shared/storage-key-migrate";
@@ -51,6 +55,7 @@ type StoredCart = {
   loadedPresaleTicket?: LoadedPresaleTicketMeta | null;
   loadedPresaleTickets?: LoadedPresaleTicketMeta[] | null;
   payments?: PosPaymentLine[] | null;
+  posDelivery?: PosDeliveryConfig | null;
 };
 
 function parseDiscount(value: unknown): ResolvedLineDiscount | null {
@@ -215,6 +220,7 @@ export function readCartClient(input: { pointOfSaleId: string; priceListId: stri
   loadedBackorder: LoadedBackorderMeta | null;
   loadedPresaleTickets: LoadedPresaleTicketMeta[];
   payments: PosPaymentLine[];
+  posDelivery: PosDeliveryConfig | null;
 } {
   const empty = {
     lines: [] as PosCartLine[],
@@ -227,6 +233,7 @@ export function readCartClient(input: { pointOfSaleId: string; priceListId: stri
     loadedBackorder: null,
     loadedPresaleTickets: [] as LoadedPresaleTicketMeta[],
     payments: [] as PosPaymentLine[],
+    posDelivery: null as PosDeliveryConfig | null,
   };
   if (typeof window === "undefined") return empty;
   try {
@@ -299,6 +306,11 @@ export function readCartClient(input: { pointOfSaleId: string; priceListId: stri
       if (legacy) loadedPresaleTickets = [legacy];
     }
 
+    const posDelivery =
+      parsed.v === CART_STORAGE_VERSION
+        ? parsePosDeliveryConfig(parsed.posDelivery)
+        : null;
+
     return {
       lines,
       customer,
@@ -310,6 +322,7 @@ export function readCartClient(input: { pointOfSaleId: string; priceListId: stri
       loadedBackorder,
       loadedPresaleTickets,
       payments: parsePayments(parsed.payments),
+      posDelivery,
     };
   } catch {
     return empty;
@@ -328,6 +341,7 @@ export function writeCartClient(
   loadedBackorder: LoadedBackorderMeta | null = null,
   loadedPresaleTickets: LoadedPresaleTicketMeta[] = [],
   payments: PosPaymentLine[] = [],
+  posDelivery: PosDeliveryConfig | null = null,
 ): void {
   if (typeof window === "undefined") return;
   try {
@@ -350,6 +364,8 @@ export function writeCartClient(
       loadedBackorder: cartMode === "fulfill_backorder" ? loadedBackorder : null,
       loadedPresaleTickets: loadedPresaleTickets.length > 0 ? loadedPresaleTickets : null,
       payments: payments.length > 0 ? payments : null,
+      posDelivery:
+        cartMode === "sale" && !encargoModeEnabled ? posDelivery ?? null : null,
     };
     setMigratedLocalStorageItem(keyFor(input), legacyKeyFor(input), JSON.stringify(payload));
   } catch {

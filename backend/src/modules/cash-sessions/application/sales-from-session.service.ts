@@ -114,6 +114,15 @@ import {
 } from '@modules/fiscal/domain/sale-document-kind';
 import type { FiscalEmissionResult } from '@modules/fiscal/application/fiscal-emission.types';
 import { AppConfigService } from '../../../config/config.service';
+import { DeliveryCoverageService } from '@modules/e-shop-delivery/application/delivery-coverage.service';
+import { ResolveDeliveryZoneService } from '@modules/e-shop-delivery/application/resolve-delivery-zone.service';
+import { DeliveryQuoteService } from '@modules/e-shop-delivery/application/delivery-quote.service';
+import { DeliveryOccurrenceService } from '@modules/e-shop-delivery/application/delivery-occurrence.service';
+import { DeliveryOrderService } from '@modules/e-shop-delivery/application/delivery-order.service';
+import {
+  parsePosDeliveryMetadata,
+  type PosDeliveryMetadata,
+} from './pos-delivery.metadata';
 
 type PosCommercialRegisterConfig = {
   transactionType:
@@ -190,6 +199,11 @@ export class SalesFromSessionService {
     private readonly fiscalBoletaEmission: FiscalBoletaEmissionService,
     private readonly fiscalEffectiveOptions: FiscalEffectiveOptionsService,
     private readonly appConfig: AppConfigService,
+    private readonly deliveryCoverage: DeliveryCoverageService,
+    private readonly resolveDeliveryZone: ResolveDeliveryZoneService,
+    private readonly deliveryQuote: DeliveryQuoteService,
+    private readonly deliveryOccurrences: DeliveryOccurrenceService,
+    private readonly deliveryOrders: DeliveryOrderService,
   ) {}
 
   /**
@@ -1968,6 +1982,67 @@ export class SalesFromSessionService {
         serverAppliedPromotions = serverResult.appliedPromotions;
       }
 
+      let validatedPosDelivery: PosDeliveryMetadata | null = null;
+      const rawPosDelivery = parsePosDeliveryMetadata(metadata);
+      if (rawPosDelivery) {
+        if (
+          !isSale ||
+          isSaleReturn ||
+          config.transactionType === TransactionType.BACKORDER ||
+          deferPayment ||
+          config.fulfillBackorderId ||
+          (config.fulfillPresaleTicketIds?.length ?? 0) > 0
+        ) {
+          throw new BadRequestException(
+            'El reparto local solo aplica a ventas normales con cobro inmediato.',
+          );
+        }
+        if (!customerIdTrimmed) {
+          throw new BadRequestException(
+            'El reparto local requiere un cliente en la venta.',
+          );
+        }
+        const settings = await this.deliveryCoverage.getSettings(companyId);
+        if (!settings.localDeliveryEnabled) {
+          throw new BadRequestException(
+            'El reparto local no está habilitado para esta empresa.',
+          );
+        }
+        const resolved = await this.resolveDeliveryZone.resolveByPoint(
+          companyId,
+          rawPosDelivery.latitude,
+          rawPosDelivery.longitude,
+          rawPosDelivery.communeCode,
+        );
+        if (!resolved || resolved.zoneId !== rawPosDelivery.deliveryZoneId) {
+          throw new BadRequestException(
+            'La dirección queda fuera de la zona de cobertura de reparto.',
+          );
+        }
+        await this.deliveryOccurrences.assertOccurrenceAvailable(
+          companyId,
+          rawPosDelivery.deliveryOccurrenceId,
+          rawPosDelivery.deliveryZoneId,
+        );
+        const productTotal = total;
+        const quote = await this.deliveryQuote.quote(
+          companyId,
+          resolved,
+          productTotal,
+        );
+        if (Math.abs(quote.shippingFee - rawPosDelivery.shippingFee) > 1) {
+          throw new BadRequestException(
+            `El costo de reparto no coincide (${rawPosDelivery.shippingFee} vs ${quote.shippingFee}). Vuelve a configurar el envío.`,
+          );
+        }
+        validatedPosDelivery = {
+          ...rawPosDelivery,
+          shippingFee: quote.shippingFee,
+          zoneName: resolved.zoneName || rawPosDelivery.zoneName,
+        };
+        total = productTotal + quote.shippingFee;
+      }
+
       let paymentSnapshots: ReturnType<
         typeof buildPaymentSnapshotsFromSalePayments
       > = [];
@@ -2201,6 +2276,9 @@ export class SalesFromSessionService {
         bankAccountKey: bankAccountKey || undefined,
         metadata: {
           ...metadata,
+          ...(validatedPosDelivery
+            ? { posDelivery: validatedPosDelivery }
+            : {}),
           ...saleReturnMeta,
           ...(deferPayment ? { deferredPayment: true, collectionSource: 'pos_defer' } : {}),
           ...(backorderMeta ? { backorder: backorderMeta } : {}),
@@ -2265,6 +2343,37 @@ export class SalesFromSessionService {
           finalTransaction,
           pointOfSale.companyId,
         );
+      }
+
+      if (isSale && validatedPosDelivery && pointOfSale.companyId) {
+        let customerName: string | null = null;
+        let customerPhone: string | null = null;
+        try {
+          const customer = await this.customersService.findOne(
+            customerIdTrimmed,
+          );
+          customerName = customer?.displayName?.trim() || null;
+          customerPhone = customer?.phone?.trim() || null;
+        } catch {
+          /* optional enrichment */
+        }
+        await this.deliveryOrders.createFromPosSale({
+          companyId: pointOfSale.companyId,
+          transactionId: finalTransaction.id,
+          deliveryZoneId: validatedPosDelivery.deliveryZoneId,
+          deliveryOccurrenceId: validatedPosDelivery.deliveryOccurrenceId,
+          addressLine1: validatedPosDelivery.address,
+          commune:
+            validatedPosDelivery.communeName?.trim() ||
+            validatedPosDelivery.communeCode,
+          region: validatedPosDelivery.region ?? null,
+          latitude: validatedPosDelivery.latitude,
+          longitude: validatedPosDelivery.longitude,
+          shippingFee: validatedPosDelivery.shippingFee,
+          customerName,
+          customerPhone,
+          notes: validatedPosDelivery.notes ?? null,
+        });
       }
 
       if (isSale && pointOfSale.companyId && paymentsUsed.length > 0) {

@@ -94,8 +94,8 @@ export function DeliveryZoneEditorPanel({
         </Alert>
       ) : null}
       <p className="mt-2 text-xs text-muted-foreground">
-        Usa la barra del mapa: polígono para dibujar, lápiz para editar vértices, confirma con ✓
-        y luego Guardar.
+        Usa la barra del mapa: polígono para dibujar o lápiz para editar vértices. Luego pulsa
+        Guardar.
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
         <Button
