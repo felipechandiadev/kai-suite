@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { EShopStorefront } from "@/features/e-shop-storefront/types/storefront.types";
-import { isLightHexColor } from "@/features/e-shop-storefront/lib/is-light-hex-color";
 import {
   resolveEShopNavHref,
   sortEnabledNavLinks,
@@ -19,8 +18,6 @@ export function EShopFooter({ storefront }: Props) {
   const year = new Date().getFullYear();
   const contact = storefront.publicContact ?? {};
   const footer = storefront.footer ?? DEFAULT_ESHOP_FOOTER;
-  const chrome = storefront.theme?.tokens.chrome ?? "#02578b";
-  const chromeIsLight = isLightHexColor(chrome);
 
   const brandColumn =
     footer.showLogo || footer.showTagline || footer.showBrandManifest;
@@ -57,7 +54,6 @@ export function EShopFooter({ storefront }: Props) {
                   companyName={storefront.companyName}
                   logoUrl={storefront.companyLogoUrl}
                   size="md"
-                  onPrimary={!chromeIsLight}
                   className="shrink-0"
                 />
               ) : null}

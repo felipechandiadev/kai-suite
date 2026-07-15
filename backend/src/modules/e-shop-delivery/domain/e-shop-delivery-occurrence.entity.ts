@@ -6,7 +6,10 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import type { DeliveryDispatchStatus } from './delivery.types';
+import type {
+  DeliveryDispatchStatus,
+  DeliveryOccurrenceKind,
+} from './delivery.types';
 
 @Entity('e_shop_delivery_occurrences')
 @Index('idx_e_shop_delivery_occurrences_company_date', ['companyId', 'occurrenceDate'])
@@ -20,11 +23,20 @@ export class EShopDeliveryOccurrence {
   @Column({ type: 'varchar', length: 120 })
   name!: string;
 
+  /** LOCAL_DELIVERY = reparto; PICKUP = retiro en local. */
+  @Column({ type: 'varchar', length: 32, default: 'LOCAL_DELIVERY' })
+  kind!: DeliveryOccurrenceKind;
+
   @Column({ name: 'occurrence_date', type: 'date' })
   occurrenceDate!: string;
 
+  /** Reparto: hora de salida. Retiro: inicio de ventana. */
   @Column({ name: 'departure_time', type: 'time' })
   departureTime!: string;
+
+  /** Solo PICKUP: fin de ventana de retiro. */
+  @Column({ name: 'end_time', type: 'time', nullable: true })
+  endTime!: string | null;
 
   @Column({ name: 'order_cutoff_time', type: 'time' })
   orderCutoffTime!: string;

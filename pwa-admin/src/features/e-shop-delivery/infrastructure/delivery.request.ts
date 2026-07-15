@@ -118,8 +118,10 @@ export class DeliveryRequest {
 
   static async createOccurrence(body: {
     name: string;
+    kind?: "LOCAL_DELIVERY" | "PICKUP";
     occurrenceDate: string;
     departureTime: string;
+    endTime?: string | null;
     orderCutoffTime: string;
     maxOrders?: number | null;
     driverUserId?: string | null;
@@ -140,8 +142,10 @@ export class DeliveryRequest {
     id: string,
     body: {
       name?: string;
+      kind?: "LOCAL_DELIVERY" | "PICKUP";
       occurrenceDate?: string;
       departureTime?: string;
+      endTime?: string | null;
       orderCutoffTime?: string;
       maxOrders?: number | null;
       driverUserId?: string | null;

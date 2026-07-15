@@ -11,6 +11,7 @@ import { EShopDeliveryOrder } from '../domain/e-shop-delivery-order.entity';
 import { EShopDeliveryZone } from '../domain/e-shop-delivery-zone.entity';
 import type {
   DeliveryOccurrenceAdminRow,
+  DeliveryOccurrenceKind,
   SaveDeliveryOccurrenceInput,
   UpdateDeliveryOccurrenceInput,
 } from '../domain/delivery.types';
@@ -58,6 +59,16 @@ function displayTime(value: string): string {
 function timeToMinutes(value: string): number {
   const [h, m] = displayTime(value).split(':').map(Number);
   return (h ?? 0) * 60 + (m ?? 0);
+}
+
+function normalizeKind(value: string | undefined): DeliveryOccurrenceKind {
+  if (value === undefined || value === null || value === '') {
+    return 'LOCAL_DELIVERY';
+  }
+  if (value === 'LOCAL_DELIVERY' || value === 'PICKUP') {
+    return value;
+  }
+  throw new BadRequestException('Tipo de franja inválido');
 }
 
 const LOCKED_ROUTE_STATUSES = new Set(['out', 'completed']);
@@ -139,8 +150,10 @@ export class DeliveryOccurrenceService {
       this.occurrenceRepo.create({
         companyId,
         name: validated.name,
+        kind: validated.kind,
         occurrenceDate: validated.occurrenceDate,
         departureTime: validated.departureTime,
+        endTime: validated.endTime,
         orderCutoffTime: validated.orderCutoffTime,
         maxOrders: validated.maxOrders,
         driverUserId: validated.driverUserId,
@@ -178,8 +191,15 @@ export class DeliveryOccurrenceService {
 
     const merged: SaveDeliveryOccurrenceInput = {
       name: input.name ?? existing.name,
+      kind: input.kind ?? existing.kind ?? 'LOCAL_DELIVERY',
       occurrenceDate: input.occurrenceDate ?? existing.occurrenceDate,
       departureTime: input.departureTime ?? displayTime(existing.departureTime),
+      endTime:
+        input.endTime !== undefined
+          ? input.endTime
+          : existing.endTime
+            ? displayTime(existing.endTime)
+            : null,
       orderCutoffTime:
         input.orderCutoffTime ?? displayTime(existing.orderCutoffTime),
       maxOrders:
@@ -209,8 +229,10 @@ export class DeliveryOccurrenceService {
     });
 
     existing.name = validated.name;
+    existing.kind = validated.kind;
     existing.occurrenceDate = validated.occurrenceDate;
     existing.departureTime = validated.departureTime;
+    existing.endTime = validated.endTime;
     existing.orderCutoffTime = validated.orderCutoffTime;
     existing.maxOrders = validated.maxOrders;
     existing.driverUserId = validated.driverUserId;
@@ -261,6 +283,7 @@ export class DeliveryOccurrenceService {
       )
       .where('o.company_id = :companyId', { companyId })
       .andWhere('o.is_cancelled = false')
+      .andWhere("(o.kind IS NULL OR o.kind = 'LOCAL_DELIVERY')")
       .andWhere('o.occurrence_date BETWEEN :today AND :end', { today, end })
       .orderBy('o.occurrence_date', 'ASC')
       .addOrderBy('o.departure_time', 'ASC')
@@ -306,6 +329,9 @@ export class DeliveryOccurrenceService {
       where: { companyId, id: occurrenceId, isCancelled: false },
     });
     if (!occurrence) throw new BadRequestException('Franja de reparto no disponible');
+    if (occurrence.kind === 'PICKUP') {
+      throw new BadRequestException('Esta franja es de retiro, no de reparto');
+    }
 
     const now = new Date();
     if (
@@ -353,14 +379,50 @@ export class DeliveryOccurrenceService {
     const name = input.name?.trim() ?? '';
     if (!name) throw new BadRequestException('El nombre es obligatorio');
 
+    const kind = normalizeKind(input.kind);
     const occurrenceDate = normalizeDate(input.occurrenceDate);
     const departureTime = normalizeTime(input.departureTime);
     const orderCutoffTime = normalizeTime(input.orderCutoffTime);
 
-    if (timeToMinutes(orderCutoffTime) >= timeToMinutes(departureTime)) {
-      throw new BadRequestException(
-        'El horario de corte debe ser anterior a la hora de salida',
-      );
+    let endTime: string | null = null;
+    if (kind === 'PICKUP') {
+      if (input.endTime == null || String(input.endTime).trim() === '') {
+        throw new BadRequestException(
+          'El fin de la ventana de retiro es obligatorio',
+        );
+      }
+      endTime = normalizeTime(String(input.endTime));
+      if (timeToMinutes(departureTime) >= timeToMinutes(endTime)) {
+        throw new BadRequestException(
+          'El inicio de la ventana debe ser anterior al fin',
+        );
+      }
+      if (timeToMinutes(orderCutoffTime) >= timeToMinutes(departureTime)) {
+        throw new BadRequestException(
+          'El horario de corte debe ser anterior al inicio de la ventana',
+        );
+      }
+      if (input.zoneIds != null && input.zoneIds.length > 0) {
+        throw new BadRequestException(
+          'Las franjas de retiro no tienen zonas de reparto',
+        );
+      }
+      if (input.driverUserId) {
+        throw new BadRequestException(
+          'Las franjas de retiro no tienen conductor asignado',
+        );
+      }
+    } else {
+      if (input.endTime != null && String(input.endTime).trim() !== '') {
+        throw new BadRequestException(
+          'Las franjas de reparto no usan fin de ventana',
+        );
+      }
+      if (timeToMinutes(orderCutoffTime) >= timeToMinutes(departureTime)) {
+        throw new BadRequestException(
+          'El horario de corte debe ser anterior a la hora de salida',
+        );
+      }
     }
 
     let maxOrders: number | null = null;
@@ -379,49 +441,54 @@ export class DeliveryOccurrenceService {
       );
     }
 
-    const zoneIds = [...new Set((input.zoneIds ?? []).filter(Boolean))];
-    if (zoneIds.length === 0) {
-      throw new BadRequestException('Selecciona al menos una zona');
-    }
+    let zoneIds: string[] = [];
+    if (kind === 'LOCAL_DELIVERY') {
+      zoneIds = [...new Set((input.zoneIds ?? []).filter(Boolean))];
+      if (zoneIds.length === 0) {
+        throw new BadRequestException('Selecciona al menos una zona');
+      }
 
-    const zones = await this.zoneRepo.find({
-      where: { companyId, id: In(zoneIds) },
-    });
-    if (zones.length !== zoneIds.length) {
-      throw new BadRequestException('Una o más zonas no existen');
-    }
-    const inactive = zones.filter((z) => !z.isActive);
-    if (inactive.length > 0) {
-      throw new BadRequestException(
-        `Zonas inactivas: ${inactive.map((z) => z.name).join(', ')}`,
-      );
-    }
+      const zones = await this.zoneRepo.find({
+        where: { companyId, id: In(zoneIds) },
+      });
+      if (zones.length !== zoneIds.length) {
+        throw new BadRequestException('Una o más zonas no existen');
+      }
+      const inactive = zones.filter((z) => !z.isActive);
+      if (inactive.length > 0) {
+        throw new BadRequestException(
+          `Zonas inactivas: ${inactive.map((z) => z.name).join(', ')}`,
+        );
+      }
 
-    if (opts?.occurrenceId && opts.previousZoneIds) {
-      const removed = opts.previousZoneIds.filter((id) => !zoneIds.includes(id));
-      if (removed.length > 0) {
-        const orphanOrders = await this.deliveryOrderRepo.count({
-          where: {
-            companyId,
-            deliveryOccurrenceId: opts.occurrenceId,
-            deliveryZoneId: In(removed),
-          },
-        });
-        if (orphanOrders > 0) {
-          throw new BadRequestException(
-            'No puedes quitar zonas que ya tienen pedidos asignados a esta franja',
-          );
+      if (opts?.occurrenceId && opts.previousZoneIds) {
+        const removed = opts.previousZoneIds.filter((id) => !zoneIds.includes(id));
+        if (removed.length > 0) {
+          const orphanOrders = await this.deliveryOrderRepo.count({
+            where: {
+              companyId,
+              deliveryOccurrenceId: opts.occurrenceId,
+              deliveryZoneId: In(removed),
+            },
+          });
+          if (orphanOrders > 0) {
+            throw new BadRequestException(
+              'No puedes quitar zonas que ya tienen pedidos asignados a esta franja',
+            );
+          }
         }
       }
     }
 
     return {
       name,
+      kind,
       occurrenceDate,
       departureTime,
+      endTime,
       orderCutoffTime,
       maxOrders,
-      driverUserId: input.driverUserId ?? null,
+      driverUserId: kind === 'PICKUP' ? null : (input.driverUserId ?? null),
       zoneIds,
       isCancelled: Boolean(input.isCancelled),
     };
@@ -465,8 +532,10 @@ export class DeliveryOccurrenceService {
     return {
       id: row.id,
       name: row.name,
+      kind: row.kind ?? 'LOCAL_DELIVERY',
       occurrenceDate: row.occurrenceDate,
       departureTime: displayTime(row.departureTime),
+      endTime: row.endTime ? displayTime(row.endTime) : null,
       orderCutoffTime: displayTime(row.orderCutoffTime),
       maxOrders: row.maxOrders,
       driverUserId: row.driverUserId,

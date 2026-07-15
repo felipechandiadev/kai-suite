@@ -32,9 +32,31 @@
   background-color: var(--tf-surface, var(--color-background, #fff));
 }
 
-/* Shell de Select/AutoComplete: el borde vive aquí; el label hereda la misma superficie. */
+/* Shell de Select/AutoComplete: mismo fondo y superficie del label que TextField. */
 .fs-text-field__combo-shell {
   --tf-surface: var(--color-background, #fff);
+  --tf-label-border: var(--color-border, #a5c2c2);
+  box-sizing: border-box;
+  background-color: var(--tf-surface);
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.fs-text-field__combo-shell:focus-within {
+  --tf-label-border: var(--color-primary, #1e73ae);
+}
+
+.fs-text-field__combo-shell:has(.fs-text-field__control--muted),
+.fs-text-field__combo-shell.fs-text-field__combo-shell--muted {
+  --tf-surface: color-mix(in srgb, var(--color-muted, #cfeef0) 50%, var(--color-background, #fff));
+  background-color: var(--tf-surface);
+}
+
+.fs-text-field__combo-shell .fs-text-field__control:not(.fs-text-field__control--muted) {
+  --tf-surface: inherit;
+  --tf-label-border: inherit;
 }
 
 /* Sin shorthand `padding` aquí: si no, pisa el padding-left de Tailwind (pl-9) y el texto tapa al icono. */

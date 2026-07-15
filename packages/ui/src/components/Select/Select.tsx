@@ -159,7 +159,7 @@ const Select: React.FC<SelectProps> = ({
         : isCompact
           ? "flex h-8 min-h-8 w-full min-w-0 items-stretch box-border"
           : ""
-    } ${disabled ? "cursor-not-allowed opacity-50" : ""}`.trim();
+    } ${disabled ? "fs-text-field__combo-shell--muted cursor-not-allowed opacity-50" : ""}`.trim();
 
   function renderDefaultCombo(
     textFieldLabel: string,
@@ -323,7 +323,11 @@ const Select: React.FC<SelectProps> = ({
       {variant === "minimal" ? (
         <>
           <div
-            className={`relative w-full cursor-pointer select-none ${disabled ? "cursor-not-allowed opacity-50" : ""}`.trim()}
+            className={`relative w-full cursor-pointer select-none fs-text-field__combo-shell rounded-md border border-border focus-within:border-primary ${
+              isCompact
+                ? "flex h-8 min-h-8 max-h-8 min-w-0 items-stretch box-border"
+                : "min-h-[2.75rem]"
+            } ${disabled ? "fs-text-field__combo-shell--muted cursor-not-allowed opacity-50" : ""}`.trim()}
             onFocus={() => !disabled && setFocused(true)}
             onBlur={() => {
               if (!isSelecting) {
@@ -342,16 +346,16 @@ const Select: React.FC<SelectProps> = ({
             aria-controls="select-list"
           >
             {showMinimalCompactFloat ? (
-              <span
+              <label
                 className={
-                  `pointer-events-none absolute left-2.5 z-10 rounded-sm bg-background px-0.5 font-medium leading-tight text-foreground transition-all duration-200 ease-in-out ` +
-                  (shrinkMinimal ? "top-[2px] -translate-y-1/2 text-[10px] opacity-100" : "top-2.5 text-[10px] opacity-0")
+                  `pointer-events-none absolute left-3 z-20 -top-1 px-1 text-xs font-medium leading-tight fs-text-field__floating-label text-foreground transition-all duration-300 ease-in-out ` +
+                  (shrinkMinimal ? "-translate-y-1 scale-90 opacity-100" : "opacity-0")
                 }
-                aria-hidden
+                aria-hidden={!shrinkMinimal}
               >
                 {minimalFloatCaption || "\u00a0"}
-                {required ? <span className="ml-0.5 text-red-500">*</span> : null}
-              </span>
+                {required ? <span className="ml-1 text-red-500">*</span> : null}
+              </label>
             ) : null}
             <input
               type="hidden"
@@ -364,20 +368,17 @@ const Select: React.FC<SelectProps> = ({
             />
 
             <div
-              className={`flex items-center rounded-md border border-border bg-background transition-colors ${
+              className={`flex min-w-0 flex-1 items-center ${
                 isCompact
-                  ? "box-border h-8 max-h-8 min-h-8 px-2.5 py-0 text-[0.8125rem] leading-5"
-                  : "min-h-10 px-3 py-2 text-sm"
-              } ${focused ? "border-primary ring-2 ring-primary/20" : "hover:border-border/80"} ${
-                disabled ? "bg-muted text-muted-foreground" : ""
+                  ? "box-border h-full max-h-full min-h-0 px-2.5 py-0 text-[0.8125rem] leading-5"
+                  : "min-h-[2.75rem] px-3 py-2 text-sm"
               } ${hasClear ? "pr-12" : "pr-8"}`.trim()}
             >
               <span
                 title={displayTitle}
-                className={`flex-1 truncate font-light leading-normal ${
+                className={`flex-1 truncate leading-normal ${
                   isCompact ? "min-h-[1.125rem] text-[0.8125rem]" : "min-h-[1.25rem] text-sm"
                 } ${hasValue ? "text-foreground" : "text-muted-foreground"}`}
-                style={hasValue ? { color: "var(--color-foreground)" } : undefined}
               >
                 {selected ? selected.label : placeholder ?? "Selecciona"}
               </span>

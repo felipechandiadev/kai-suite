@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { IconButton } from "@kai/ui";
+import { TopBarNotificationCountBadge } from "@kai/print-service-client";
 import { useStockRealtime } from "../realtime/stock-realtime-context";
 import {
   formatReceivedAt,
@@ -46,11 +47,7 @@ export function StockAlertsDropdown() {
           onClick={() => setOpen((v) => !v)}
           data-test-id="stock-alerts-trigger"
         />
-        {stockAlertCount > 0 ? (
-          <span className="pointer-events-none absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-none text-destructive-foreground">
-            {stockAlertCount > 99 ? "99+" : stockAlertCount}
-          </span>
-        ) : null}
+        <TopBarNotificationCountBadge count={stockAlertCount} variant="secondary" />
       </div>
       {open ? (
         <div

@@ -48,12 +48,12 @@ const TEXT_ALIGN_CLASS: Record<EShopHeroSlide["textAlign"], string> = {
 const heroCarouselContentClassName =
   "mx-auto w-full max-w-6xl px-14 md:px-4";
 
-/** Zona reservada bajo el copy; los indicadores viven fuera del área de texto. */
+/** Zona inferior reservada para indicadores flotantes (py-6 + altura del punto). */
 const heroCarouselCopyShellClassName =
-  "relative z-10 flex min-h-0 flex-1 flex-col justify-end pb-2 pt-16 text-foreground md:pb-3";
+  "relative z-10 flex min-h-0 flex-1 flex-col justify-end pb-16 pt-16 text-foreground";
 
 const heroCarouselIndicatorsClassName =
-  "relative z-20 flex h-11 shrink-0 items-center justify-center gap-2 md:h-12";
+  "pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-center justify-center gap-2 py-6";
 
 function FallbackHero() {
   return (
@@ -260,11 +260,11 @@ function EShopHeroCarousel({
   return (
     <section
       id="hero"
-      className="relative flex min-h-[360px] w-full flex-col overflow-hidden eshop-hero-section-shadow md:min-h-[480px]"
+      className="relative min-h-[360px] w-full overflow-hidden eshop-hero-section-shadow md:min-h-[480px]"
       aria-roledescription="carousel"
       aria-label="Destacados de la tienda"
     >
-      <div className="relative flex min-h-0 flex-1 flex-col">
+      <div className="relative min-h-[360px] w-full md:min-h-[480px]">
         {slides.map((slide, i) => {
           const active = i === index;
           return (
@@ -303,28 +303,28 @@ function EShopHeroCarousel({
         >
           <ChevronRight className="h-5 w-5" />
         </button>
-      </div>
 
-      <div className={heroCarouselIndicatorsClassName}>
-        {slides.map((slide, i) => {
-          const presentation = getHeroSlideTextPresentation(slide.textColor);
-          const active = i === index;
-          const useThemeIndicators = !presentation.usesCustomColor;
+        <div className={heroCarouselIndicatorsClassName}>
+          {slides.map((slide, i) => {
+            const presentation = getHeroSlideTextPresentation(slide.textColor);
+            const active = i === index;
+            const useThemeIndicators = !presentation.usesCustomColor;
 
-          return (
-            <button
-              key={slide.id}
-              type="button"
-              className={`h-2.5 rounded-full transition-all duration-500 ease-in-out ${
-                useThemeIndicators ? "eshop-hero-carousel-indicator-shadow" : ""
-              } ${useThemeIndicators ? (active ? "w-8 bg-foreground" : "w-2.5 bg-foreground/40 hover:bg-foreground/60") : active ? "w-8" : "w-2.5 hover:opacity-80"}`}
-              style={useThemeIndicators ? undefined : presentation.indicatorStyle(active)}
-              aria-label={`Ir al slide ${i + 1}`}
-              aria-current={active ? "true" : undefined}
-              onClick={() => goTo(i)}
-            />
-          );
-        })}
+            return (
+              <button
+                key={slide.id}
+                type="button"
+                className={`pointer-events-auto h-2.5 rounded-full transition-all duration-500 ease-in-out ${
+                  useThemeIndicators ? "eshop-hero-carousel-indicator-shadow" : ""
+                } ${useThemeIndicators ? (active ? "w-8 bg-foreground" : "w-2.5 bg-foreground/40 hover:bg-foreground/60") : active ? "w-8" : "w-2.5 hover:opacity-80"}`}
+                style={useThemeIndicators ? undefined : presentation.indicatorStyle(active)}
+                aria-label={`Ir al slide ${i + 1}`}
+                aria-current={active ? "true" : undefined}
+                onClick={() => goTo(i)}
+              />
+            );
+          })}
+        </div>
       </div>
     </section>
   );

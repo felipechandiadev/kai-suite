@@ -6,10 +6,10 @@ import {
   addDaysIso,
   adminFillViewportBelowTopBarClassName,
   Button,
+  ButtonGroupToggle,
   Calendar,
   Dialog,
   getTodayIso,
-  getWeekStart,
   type CalendarEvent,
 } from "@kai/ui";
 import {
@@ -17,6 +17,7 @@ import {
   saveDeliveryOccurrenceAction,
 } from "@/features/e-shop-delivery/actions/delivery.action";
 import type {
+  DeliveryOccurrenceKind,
   DeliveryOccurrenceRow,
   DeliveryZoneRow,
 } from "@/features/e-shop-delivery/types/delivery.types";
@@ -35,6 +36,8 @@ type DeliveryCalendarWorkspaceProps = {
   initialWeekStart: string;
 };
 
+type KindFilter = "ALL" | DeliveryOccurrenceKind;
+
 type EditorState =
   | { mode: "closed" }
   | { mode: "create"; draft: RepartoEditorDraft }
@@ -43,6 +46,8 @@ type EditorState =
 function normalizeOccurrence(row: DeliveryOccurrenceRow): DeliveryOccurrenceRow {
   return {
     ...row,
+    kind: row.kind ?? "LOCAL_DELIVERY",
+    endTime: row.endTime ?? null,
     zoneIds: row.zoneIds ?? row.zones?.map((z) => z.id) ?? [],
     zones: row.zones ?? [],
     orderCount: row.orderCount ?? 0,
@@ -62,6 +67,7 @@ export function DeliveryCalendarWorkspace({
   const todayIso = getTodayIso();
 
   const weekStart = searchParams.get("week") ?? initialWeekStart;
+  const [kindFilter, setKindFilter] = useState<KindFilter>("ALL");
   const [occurrencesSource, setOccurrencesSource] = useState(initialOccurrences);
   const [occurrences, setOccurrences] = useState(() =>
     initialOccurrences.map(normalizeOccurrence),
@@ -122,12 +128,21 @@ export function DeliveryCalendarWorkspace({
     setError(null);
   };
 
-  const handleNewReparto = (date?: string, hour?: number) => {
+  const createKindForSlot = (): DeliveryOccurrenceKind => {
+    if (kindFilter === "PICKUP") return "PICKUP";
+    return "LOCAL_DELIVERY";
+  };
+
+  const handleNewOccurrence = (
+    kind: DeliveryOccurrenceKind,
+    date?: string,
+    hour?: number,
+  ) => {
     const departureTime =
       hour != null ? `${String(hour).padStart(2, "0")}:00` : "09:00";
     requestEditor({
       mode: "create",
-      draft: defaultRepartoDraft(date ?? todayIso, departureTime),
+      draft: defaultRepartoDraft(date ?? todayIso, departureTime, kind),
     });
   };
 
@@ -155,14 +170,17 @@ export function DeliveryCalendarWorkspace({
     const maxOrdersRaw = draft.maxOrders.trim();
     const maxOrders =
       maxOrdersRaw === "" ? null : Number.parseInt(maxOrdersRaw, 10);
+    const isPickup = draft.kind === "PICKUP";
     try {
       const result = await saveDeliveryOccurrenceAction({
         id: editor.mode === "edit" ? editor.id : undefined,
+        kind: draft.kind,
         name: draft.name.trim(),
         occurrenceDate: draft.occurrenceDate,
         departureTime: draft.departureTime,
+        endTime: isPickup ? draft.endTime : null,
         orderCutoffTime: draft.orderCutoffTime,
-        zoneIds: draft.zoneIds,
+        zoneIds: isPickup ? [] : draft.zoneIds,
         maxOrders: Number.isFinite(maxOrders as number) ? maxOrders : null,
       });
       if (!result.success) {
@@ -210,14 +228,24 @@ export function DeliveryCalendarWorkspace({
     }
   };
 
+  const filteredOccurrences = useMemo(() => {
+    if (kindFilter === "ALL") return occurrences;
+    return occurrences.filter((o) => (o.kind ?? "LOCAL_DELIVERY") === kindFilter);
+  }, [occurrences, kindFilter]);
+
   const events: CalendarEvent[] = useMemo(
     () =>
-      occurrences
-        .filter((o) => o.occurrenceDate >= weekStart && o.occurrenceDate <= addDaysIso(weekStart, 6))
+      filteredOccurrences
+        .filter(
+          (o) =>
+            o.occurrenceDate >= weekStart &&
+            o.occurrenceDate <= addDaysIso(weekStart, 6),
+        )
         .map((occurrence) => ({
           id: occurrence.id,
           date: occurrence.occurrenceDate,
           startTime: occurrence.departureTime,
+          endTime: occurrence.endTime ?? undefined,
           content: (
             <div
               role="button"
@@ -241,7 +269,7 @@ export function DeliveryCalendarWorkspace({
         })),
     // handleEdit depends on editor/isDirty; events rebuild on occurrences/week/zones is enough
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [occurrences, weekStart, zoneIndexById],
+    [filteredOccurrences, weekStart, zoneIndexById],
   );
 
   const editorOpen = editor.mode !== "closed";
@@ -249,8 +277,14 @@ export function DeliveryCalendarWorkspace({
     editor.mode !== "closed" ? editor.draft : defaultRepartoDraft(todayIso);
   const editorIsNew = editor.mode === "create";
   const canCancelOccurrence = editor.mode === "edit" && editor.canCancel;
+  const editingKind =
+    editor.mode === "edit" ? editor.draft.kind : ("LOCAL_DELIVERY" as const);
   const editingName =
-    editor.mode === "edit" ? editor.draft.name || "este reparto" : "";
+    editor.mode === "edit"
+      ? editor.draft.name || (editingKind === "PICKUP" ? "este retiro" : "este reparto")
+      : "";
+  const emptySlotLabel =
+    kindFilter === "PICKUP" ? "Programar retiro" : "Programar reparto";
 
   return (
     <div className={`flex flex-col gap-4 ${adminFillViewportBelowTopBarClassName}`}>
@@ -259,21 +293,45 @@ export function DeliveryCalendarWorkspace({
         referenceDate={weekStart}
         events={events}
         columnsFrom="always"
-        emptySlotLabel="Programar reparto"
+        emptySlotLabel={emptySlotLabel}
         headerRight={
-          <Button
-            type="button"
-            variant="primary"
-            size="sm"
-            onClick={() => handleNewReparto(todayIso)}
-            disabled={saving}
-          >
-            Nuevo reparto
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <ButtonGroupToggle
+              aria-label="Filtrar tipo de franja"
+              density="compact"
+              value={kindFilter}
+              onChange={(id) => setKindFilter(id as KindFilter)}
+              options={[
+                { id: "ALL", label: "Todos" },
+                { id: "LOCAL_DELIVERY", label: "Reparto" },
+                { id: "PICKUP", label: "Retiro" },
+              ]}
+            />
+            <Button
+              type="button"
+              variant="outlinedSecondary"
+              size="sm"
+              onClick={() => handleNewOccurrence("PICKUP", todayIso)}
+              disabled={saving}
+            >
+              Nuevo retiro
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => handleNewOccurrence("LOCAL_DELIVERY", todayIso)}
+              disabled={saving}
+            >
+              Nuevo reparto
+            </Button>
+          </div>
         }
         onNavigate={navigateWeek}
-        onSelectDate={(iso) => handleNewReparto(iso)}
-        onSelectSlot={(iso, hour) => handleNewReparto(iso, hour)}
+        onSelectDate={(iso) => handleNewOccurrence(createKindForSlot(), iso)}
+        onSelectSlot={(iso, hour) =>
+          handleNewOccurrence(createKindForSlot(), iso, hour)
+        }
       />
 
       <DeliveryRepartoEditorDialog
@@ -298,6 +356,7 @@ export function DeliveryCalendarWorkspace({
       <CancelDeliveryOccurrenceDialog
         open={cancelOpen}
         occurrenceName={editingName}
+        entityLabel={editingKind === "PICKUP" ? "retiro" : "reparto"}
         busy={cancelBusy}
         error={cancelError}
         onClose={() => setCancelOpen(false)}

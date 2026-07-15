@@ -2574,34 +2574,21 @@ export class SalesFromSessionService {
   private async assertFulfillPresaleTicketsSatisfiable(
     manager: EntityManager,
     fulfillPresaleTicketIds: string[],
-    saleLines: CreateSaleDto['lines'],
+    _saleLines: CreateSaleDto['lines'],
     pointOfSale: PointOfSale,
   ): Promise<void> {
     if (fulfillPresaleTicketIds.length === 0) return;
 
-    const remaining = new Map<string, number>();
-    for (const sl of saleLines) {
-      const vid = sl.productVariantId?.trim();
-      if (!vid) continue;
-      const qty = Number(sl.quantity) || 0;
-      if (qty <= 0) continue;
-      remaining.set(vid, (remaining.get(vid) ?? 0) + qty);
-    }
-
+    // Ticket = cargador del carrito: no exige cobertura línea-a-línea.
+    // Solo valida que cada ticket sea usable (caja SALE, acepta preventa, READY, sucursal).
     for (const ticketId of fulfillPresaleTicketIds) {
-      await this.assertFulfillPresaleTicketSatisfiable(
-        manager,
-        ticketId,
-        remaining,
-        pointOfSale,
-      );
+      await this.assertFulfillPresaleTicketUsable(manager, ticketId, pointOfSale);
     }
   }
 
-  private async assertFulfillPresaleTicketSatisfiable(
+  private async assertFulfillPresaleTicketUsable(
     manager: EntityManager,
     fulfillPresaleTicketId: string,
-    remaining: Map<string, number>,
     pointOfSale: PointOfSale,
   ): Promise<void> {
     const companyId = pointOfSale.companyId!;
@@ -2618,7 +2605,6 @@ export class SalesFromSessionService {
 
     const ticket = await manager.getRepository(PresaleTicket).findOne({
       where: { id: fulfillPresaleTicketId, companyId },
-      relations: ['lines'],
     });
     if (!ticket) {
       throw new NotFoundException('Ticket de preventa no encontrado.');
@@ -2632,25 +2618,6 @@ export class SalesFromSessionService {
       throw new BadRequestException(
         'El ticket solo puede cobrarse en la misma sucursal donde se emitió.',
       );
-    }
-
-    const expected = new Map<string, number>();
-    for (const tl of ticket.lines ?? []) {
-      const vid = tl.productVariantId?.trim();
-      if (!vid) continue;
-      const qty = Number(tl.quantity) || 0;
-      if (qty <= 0) continue;
-      expected.set(vid, (expected.get(vid) ?? 0) + qty);
-    }
-
-    for (const [vid, expQty] of expected) {
-      const available = remaining.get(vid) ?? 0;
-      if (available + 0.0001 < expQty) {
-        throw new BadRequestException(
-          `Cantidad insuficiente en el carrito para el ticket de preventa (variante ${vid}).`,
-        );
-      }
-      remaining.set(vid, available - expQty);
     }
   }
 

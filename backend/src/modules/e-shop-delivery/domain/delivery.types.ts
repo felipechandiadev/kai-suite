@@ -5,6 +5,8 @@ export type DeliveryDispatchStatus =
   | 'completed'
   | 'cancelled';
 
+export type DeliveryOccurrenceKind = 'LOCAL_DELIVERY' | 'PICKUP';
+
 export type DeliveryStopStatus = 'pending' | 'visited' | 'skipped';
 
 export type DeliveryOrderStatus =
@@ -26,8 +28,10 @@ export type DeliveryOccurrenceZoneRef = {
 export type DeliveryOccurrenceAdminRow = {
   id: string;
   name: string;
+  kind: DeliveryOccurrenceKind;
   occurrenceDate: string;
   departureTime: string;
+  endTime: string | null;
   orderCutoffTime: string;
   maxOrders: number | null;
   driverUserId: string | null;
@@ -43,8 +47,11 @@ export type DeliveryOccurrenceAdminRow = {
 
 export type SaveDeliveryOccurrenceInput = {
   name: string;
+  kind?: DeliveryOccurrenceKind;
   occurrenceDate: string;
   departureTime: string;
+  /** Required when kind is PICKUP. */
+  endTime?: string | null;
   orderCutoffTime: string;
   maxOrders?: number | null;
   driverUserId?: string | null;

@@ -357,9 +357,9 @@ const AutoComplete = <T = Option,>({
   return (
     <div className="fs-dropdown-container" ref={containerRef} data-test-id={props["data-test-id"] || "auto-complete-root"} data-has-options={options.length > 0 ? "true" : "false"}>
       <div
-        className={`relative w-full rounded-md border border-border focus-within:border-primary ${
-          isCompact ? "flex h-8 min-h-8 max-h-8 min-w-0 items-center" : ""
-        }`.trim()}
+        className={`relative w-full min-w-0 fs-text-field__combo-shell rounded-md border border-border focus-within:border-primary ${
+          isCompact ? "flex h-8 min-h-8 max-h-8 items-stretch box-border" : ""
+        } ${disabled ? "fs-text-field__combo-shell--muted cursor-not-allowed opacity-50" : ""}`.trim()}
         onFocusCapture={handleContainerFocusCapture}
         onBlur={handleContainerBlur}
         tabIndex={-1}
@@ -379,7 +379,7 @@ const AutoComplete = <T = Option,>({
           name={name}
           required={required}
           data-test-id="auto-complete-input"
-          className="pr-20"
+          className={`${isCompact ? "min-h-0 min-w-0 flex-1" : "w-full"} pr-20`.trim()}
           variante="autocomplete"
           disabled={disabled}
           alwaysShowLabel={

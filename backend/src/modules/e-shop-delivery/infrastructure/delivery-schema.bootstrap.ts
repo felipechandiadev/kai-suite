@@ -92,8 +92,10 @@ export class DeliverySchemaBootstrap implements OnModuleInit {
         "id" uuid NOT NULL DEFAULT gen_random_uuid(),
         "company_id" uuid NOT NULL,
         "name" varchar(120) NOT NULL,
+        "kind" varchar(32) NOT NULL DEFAULT 'LOCAL_DELIVERY',
         "occurrence_date" date NOT NULL,
         "departure_time" time NOT NULL,
+        "end_time" time,
         "order_cutoff_time" time NOT NULL,
         "max_orders" int,
         "driver_user_id" uuid,
@@ -109,6 +111,15 @@ export class DeliverySchemaBootstrap implements OnModuleInit {
         "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
         CONSTRAINT "PK_e_shop_delivery_occurrences" PRIMARY KEY ("id")
       );
+    `);
+
+    await this.dataSource.query(`
+      ALTER TABLE "e_shop_delivery_occurrences"
+      ADD COLUMN IF NOT EXISTS "kind" varchar(32) NOT NULL DEFAULT 'LOCAL_DELIVERY'
+    `);
+    await this.dataSource.query(`
+      ALTER TABLE "e_shop_delivery_occurrences"
+      ADD COLUMN IF NOT EXISTS "end_time" time
     `);
 
     await this.dataSource.query(`

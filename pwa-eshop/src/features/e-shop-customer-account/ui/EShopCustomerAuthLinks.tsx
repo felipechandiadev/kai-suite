@@ -42,7 +42,7 @@ export function EShopCustomerAuthLinks({
   const registerClass =
     variant === "mobile"
       ? "rounded-md px-3 py-3 text-base font-medium text-chrome-foreground hover:bg-chrome-foreground/10"
-      : "whitespace-nowrap text-sm text-chrome-foreground/80 hover:text-chrome-foreground";
+      : "fs-button fs-button--outlined inline-flex items-center justify-center px-3 py-1.5 text-sm !border-chrome-foreground !text-chrome-foreground hover:!bg-chrome-foreground/10 hover:!text-chrome-foreground hover:!border-chrome-foreground";
 
   function handleClick() {
     onNavigate?.();

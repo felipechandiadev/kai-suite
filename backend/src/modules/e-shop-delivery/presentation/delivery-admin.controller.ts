@@ -102,8 +102,10 @@ export class DeliveryAdminController {
     @Body()
     body: {
       name: string;
+      kind?: 'LOCAL_DELIVERY' | 'PICKUP';
       occurrenceDate: string;
       departureTime: string;
+      endTime?: string | null;
       orderCutoffTime: string;
       maxOrders?: number | null;
       driverUserId?: string | null;
@@ -120,8 +122,10 @@ export class DeliveryAdminController {
     @Body()
     body: {
       name?: string;
+      kind?: 'LOCAL_DELIVERY' | 'PICKUP';
       occurrenceDate?: string;
       departureTime?: string;
+      endTime?: string | null;
       orderCutoffTime?: string;
       maxOrders?: number | null;
       driverUserId?: string | null;

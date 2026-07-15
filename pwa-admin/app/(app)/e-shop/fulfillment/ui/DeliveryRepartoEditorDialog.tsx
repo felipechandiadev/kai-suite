@@ -3,15 +3,18 @@
 import { useEffect, useState } from "react";
 import { Alert, Button, Dialog, TextField, timeToMinutes } from "@kai/ui";
 import type {
+  DeliveryOccurrenceKind,
   DeliveryOccurrenceRow,
   DeliveryZoneRow,
 } from "@/features/e-shop-delivery/types/delivery.types";
 import { zoneColor } from "./delivery-zones-map.constants";
 
 export type RepartoEditorDraft = {
+  kind: DeliveryOccurrenceKind;
   name: string;
   occurrenceDate: string;
   departureTime: string;
+  endTime: string;
   orderCutoffTime: string;
   zoneIds: string[];
   maxOrders: string;
@@ -31,13 +34,26 @@ type DeliveryRepartoEditorDialogProps = {
   canCancelOccurrence?: boolean;
 };
 
+function addHours(time: string, hours: number): string {
+  const [h, m] = time.split(":").map(Number);
+  const total = ((h ?? 0) + hours) * 60 + (m ?? 0);
+  const clamped = Math.min(23 * 60 + 59, Math.max(0, total));
+  const nh = Math.floor(clamped / 60);
+  const nm = clamped % 60;
+  return `${String(nh).padStart(2, "0")}:${String(nm).padStart(2, "0")}`;
+}
+
 export function occurrenceToDraft(
   occurrence: DeliveryOccurrenceRow,
 ): RepartoEditorDraft {
+  const kind = occurrence.kind ?? "LOCAL_DELIVERY";
+  const start = occurrence.departureTime.slice(0, 5);
   return {
+    kind,
     name: occurrence.name,
     occurrenceDate: occurrence.occurrenceDate,
-    departureTime: occurrence.departureTime.slice(0, 5),
+    departureTime: start,
+    endTime: occurrence.endTime?.slice(0, 5) ?? addHours(start, 2),
     orderCutoffTime: occurrence.orderCutoffTime.slice(0, 5),
     zoneIds: occurrence.zoneIds.length
       ? occurrence.zoneIds
@@ -49,13 +65,16 @@ export function occurrenceToDraft(
 export function defaultRepartoDraft(
   date: string,
   departureTime = "09:00",
+  kind: DeliveryOccurrenceKind = "LOCAL_DELIVERY",
 ): RepartoEditorDraft {
   const [h] = departureTime.split(":").map(Number);
   const cutoffHour = Math.max(0, (h ?? 9) - 1);
   return {
+    kind,
     name: "",
     occurrenceDate: date,
     departureTime,
+    endTime: addHours(departureTime, 2),
     orderCutoffTime: `${String(cutoffHour).padStart(2, "0")}:30`,
     zoneIds: [],
     maxOrders: "",
@@ -76,6 +95,8 @@ export function DeliveryRepartoEditorDialog({
   canCancelOccurrence = false,
 }: DeliveryRepartoEditorDialogProps) {
   const [localError, setLocalError] = useState<string | null>(null);
+  const isPickup = draft.kind === "PICKUP";
+  const entityLabel = isPickup ? "retiro" : "reparto";
 
   useEffect(() => {
     if (open) setLocalError(null);
@@ -98,13 +119,30 @@ export function DeliveryRepartoEditorDialog({
       setLocalError("El nombre es obligatorio.");
       return;
     }
-    if (draft.zoneIds.length === 0) {
-      setLocalError("Selecciona al menos una zona.");
-      return;
-    }
-    if (timeToMinutes(draft.orderCutoffTime) >= timeToMinutes(draft.departureTime)) {
-      setLocalError("El cut-off debe ser anterior a la hora de salida.");
-      return;
+    if (isPickup) {
+      if (timeToMinutes(draft.departureTime) >= timeToMinutes(draft.endTime)) {
+        setLocalError("El inicio de la ventana debe ser anterior al fin.");
+        return;
+      }
+      if (
+        timeToMinutes(draft.orderCutoffTime) >= timeToMinutes(draft.departureTime)
+      ) {
+        setLocalError(
+          "El cut-off debe ser anterior al inicio de la ventana de retiro.",
+        );
+        return;
+      }
+    } else {
+      if (draft.zoneIds.length === 0) {
+        setLocalError("Selecciona al menos una zona.");
+        return;
+      }
+      if (
+        timeToMinutes(draft.orderCutoffTime) >= timeToMinutes(draft.departureTime)
+      ) {
+        setLocalError("El cut-off debe ser anterior a la hora de salida.");
+        return;
+      }
     }
     setLocalError(null);
     onSave();
@@ -116,7 +154,7 @@ export function DeliveryRepartoEditorDialog({
     <Dialog
       open={open}
       onClose={onCancel}
-      title={isNew ? "Crear reparto" : "Actualizar reparto"}
+      title={isNew ? `Crear ${entityLabel}` : `Actualizar ${entityLabel}`}
       size="md"
       scroll="paper"
       actionsJustify="end"
@@ -134,7 +172,7 @@ export function DeliveryRepartoEditorDialog({
               disabled={saving}
               className="mr-auto"
             >
-              Cancelar reparto
+              Cancelar {entityLabel}
             </Button>
           ) : (
             <span className="mr-auto" />
@@ -143,7 +181,11 @@ export function DeliveryRepartoEditorDialog({
             Cerrar
           </Button>
           <Button type="button" variant="primary" onClick={handleSave} disabled={saving}>
-            {saving ? "Guardando…" : isNew ? "Crear reparto" : "Actualizar reparto"}
+            {saving
+              ? "Guardando…"
+              : isNew
+                ? `Crear ${entityLabel}`
+                : `Actualizar ${entityLabel}`}
           </Button>
         </>
       }
@@ -155,7 +197,7 @@ export function DeliveryRepartoEditorDialog({
           value={draft.name}
           onChange={(e) => onDraftChange({ ...draft, name: e.target.value })}
         />
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className={`grid gap-4 ${isPickup ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"}`}>
           <TextField
             label="Fecha"
             placeholder="Fecha"
@@ -166,14 +208,25 @@ export function DeliveryRepartoEditorDialog({
             }
           />
           <TextField
-            label="Hora salida"
-            placeholder="Hora salida"
+            label={isPickup ? "Inicio" : "Hora salida"}
+            placeholder={isPickup ? "Inicio" : "Hora salida"}
             type="time"
             value={draft.departureTime}
             onChange={(e) =>
               onDraftChange({ ...draft, departureTime: e.target.value })
             }
           />
+          {isPickup ? (
+            <TextField
+              label="Fin"
+              placeholder="Fin"
+              type="time"
+              value={draft.endTime}
+              onChange={(e) =>
+                onDraftChange({ ...draft, endTime: e.target.value })
+              }
+            />
+          ) : null}
           <TextField
             label="Corte de pedidos"
             placeholder="Corte de pedidos"
@@ -192,43 +245,49 @@ export function DeliveryRepartoEditorDialog({
           onChange={(e) => onDraftChange({ ...draft, maxOrders: e.target.value })}
           helperText="Déjalo vacío para sin límite"
         />
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-foreground">Zonas atendidas</p>
-          {activeZones.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No hay zonas activas. Configúralas en la pestaña Zonas.
-            </p>
-          ) : (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {activeZones.map((zone, index) => {
-                const checked = draft.zoneIds.includes(zone.id);
-                return (
-                  <label
-                    key={zone.id}
-                    className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
-                      checked
-                        ? "border-primary/40 bg-primary/5"
-                        : "border-border hover:bg-muted/30"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleZone(zone.id)}
-                      className="accent-primary"
-                    />
-                    <span
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: zoneColor(index) }}
-                      aria-hidden
-                    />
-                    <span className="truncate">{zone.name}</span>
-                  </label>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        {!isPickup ? (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">Zonas atendidas</p>
+            {activeZones.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No hay zonas activas. Configúralas en la pestaña Zonas.
+              </p>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {activeZones.map((zone, index) => {
+                  const checked = draft.zoneIds.includes(zone.id);
+                  return (
+                    <label
+                      key={zone.id}
+                      className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                        checked
+                          ? "border-primary/40 bg-primary/5"
+                          : "border-border hover:bg-muted/30"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleZone(zone.id)}
+                        className="accent-primary"
+                      />
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: zoneColor(index) }}
+                        aria-hidden
+                      />
+                      <span className="truncate">{zone.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Ventana de retiro en local. No requiere zonas ni conductor.
+          </p>
+        )}
       </div>
     </Dialog>
   );

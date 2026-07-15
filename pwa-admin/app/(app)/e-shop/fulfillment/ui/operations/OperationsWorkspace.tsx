@@ -285,7 +285,9 @@ export function OperationsWorkspace({
 
       <OperationsToolbar
         board={board}
-        repartos={initialOccurrences}
+        repartos={initialOccurrences.filter(
+          (reparto) => (reparto.kind ?? "LOCAL_DELIVERY") === "LOCAL_DELIVERY",
+        )}
         drivers={initialDrivers}
         date={date}
         activeOccurrenceId={occurrenceId}
@@ -294,7 +296,9 @@ export function OperationsWorkspace({
         onDateChange={(nextDate) => {
           const dayRepartos = initialOccurrences.filter(
             (reparto) =>
-              reparto.occurrenceDate === nextDate && !reparto.isCancelled,
+              (reparto.kind ?? "LOCAL_DELIVERY") === "LOCAL_DELIVERY" &&
+              reparto.occurrenceDate === nextDate &&
+              !reparto.isCancelled,
           );
           const nextOccurrenceId = dayRepartos[0]?.id;
           navigate({

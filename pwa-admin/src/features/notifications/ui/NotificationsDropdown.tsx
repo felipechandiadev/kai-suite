@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { IconButton } from "@kai/ui";
+import { TopBarNotificationCountBadge } from "@kai/print-service-client";
 import { useNotificationsRealtime } from "../realtime/notifications-realtime-context";
 import { labelNotificationKind } from "../lib/notification-labels";
 import { formatReceivedAt } from "@/features/inventory-stock/lib/stock-alert-copy";
@@ -90,11 +91,7 @@ export function NotificationsDropdown() {
           onClick={() => setOpen((v) => !v)}
           data-test-id="notifications-trigger"
         />
-        {unreadCount > 0 ? (
-          <span className="pointer-events-none absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-none text-destructive-foreground">
-            {unreadCount > 99 ? "99+" : unreadCount}
-          </span>
-        ) : null}
+        <TopBarNotificationCountBadge count={unreadCount} variant="secondary" />
       </div>
       {open ? (
         <div

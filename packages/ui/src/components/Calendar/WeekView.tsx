@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { Badge } from "../Badge";
 import type { CalendarColumnsFrom, CalendarEvent } from "./Calendar.types";
 import {
   DEFAULT_CALENDAR_END_HOUR,
@@ -177,9 +178,9 @@ function WeekDayColumn({
           {formatDayHeader(date, { locale, timeZone })}
         </p>
         {isToday ? (
-          <span className="mt-0.5 inline-block rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+          <Badge variant="primary-outlined" className="mt-0.5 text-[10px]">
             Hoy
-          </span>
+          </Badge>
         ) : null}
       </button>
       <div
@@ -247,9 +248,9 @@ function WeekDayMobileSection({
         <span className="text-sm font-medium">
           {formatDayHeader(date, { locale, timeZone })}
           {isToday ? (
-            <span className="ml-2 rounded-full bg-primary px-2 py-0.5 text-[10px] text-primary-foreground">
+            <Badge variant="primary-outlined" className="ml-2 text-[10px]">
               Hoy
-            </span>
+            </Badge>
           ) : null}
         </span>
         <span className="text-xs text-muted-foreground">

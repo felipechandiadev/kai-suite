@@ -5,6 +5,8 @@ import { Alert, Button, Dialog } from "@kai/ui";
 type CancelDeliveryOccurrenceDialogProps = {
   open: boolean;
   occurrenceName: string;
+  /** e.g. "reparto" | "retiro" */
+  entityLabel?: string;
   busy?: boolean;
   error?: string | null;
   onConfirm: () => void;
@@ -14,6 +16,7 @@ type CancelDeliveryOccurrenceDialogProps = {
 export function CancelDeliveryOccurrenceDialog({
   open,
   occurrenceName,
+  entityLabel = "reparto",
   busy = false,
   error = null,
   onConfirm,
@@ -23,7 +26,7 @@ export function CancelDeliveryOccurrenceDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Cancelar reparto"
+      title={`Cancelar ${entityLabel}`}
       size="sm"
       actionsJustify="end"
       data-test-id="cancel-delivery-occurrence"
@@ -42,8 +45,11 @@ export function CancelDeliveryOccurrenceDialog({
       }
     >
       <p className="text-sm text-foreground">
-        ¿Cancelar el reparto <strong>{occurrenceName}</strong>? Se conservará el historial
-        y dejará de estar disponible en el checkout.
+        ¿Cancelar el {entityLabel} <strong>{occurrenceName}</strong>? Se conservará el
+        historial
+        {entityLabel === "reparto"
+          ? " y dejará de estar disponible en el checkout."
+          : "."}
       </p>
     </Dialog>
   );

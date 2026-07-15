@@ -1,4 +1,4 @@
-/** Heurística simple para decidir contraste (logo onPrimary, etc.). */
+/** Heurística simple para decidir contraste en fondos de color. */
 export function isLightHexColor(hex: string): boolean {
   const normalized = hex.trim().toLowerCase();
   if (!/^#[0-9a-f]{6}$/.test(normalized)) return false;

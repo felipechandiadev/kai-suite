@@ -5,8 +5,10 @@ type OccurrenceRow = {
   id: string;
   companyId: string;
   name: string;
+  kind: 'LOCAL_DELIVERY' | 'PICKUP';
   occurrenceDate: string;
   departureTime: string;
+  endTime: string | null;
   orderCutoffTime: string;
   maxOrders: number | null;
   driverUserId: string | null;
@@ -186,8 +188,10 @@ describe('DeliveryOccurrenceService', () => {
       id: 'occ-1',
       companyId,
       name: 'Salida tarde',
+      kind: 'LOCAL_DELIVERY',
       occurrenceDate: '2026-07-14',
       departureTime: '15:00:00',
+      endTime: null,
       orderCutoffTime: '13:00:00',
       maxOrders: 20,
       driverUserId: null,
@@ -205,7 +209,9 @@ describe('DeliveryOccurrenceService', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       id: 'occ-1',
+      kind: 'LOCAL_DELIVERY',
       departureTime: '15:00',
+      endTime: null,
       orderCutoffTime: '13:00',
       zoneIds: ['z1'],
       zones: [{ id: 'z1', name: 'Talca centro' }],
@@ -227,8 +233,52 @@ describe('DeliveryOccurrenceService', () => {
     });
 
     expect(row.name).toBe('Mañana');
+    expect(row.kind).toBe('LOCAL_DELIVERY');
+    expect(row.endTime).toBeNull();
     expect(row.zoneIds.sort()).toEqual(['z1', 'z2']);
     expect(links).toHaveLength(2);
+  });
+
+  it('creates pickup occurrence with time window and no zones', async () => {
+    const row = await service.create(companyId, {
+      name: 'Retiro mañana',
+      kind: 'PICKUP',
+      occurrenceDate: '2026-07-15',
+      departureTime: '10:00',
+      endTime: '12:00',
+      orderCutoffTime: '09:30',
+      maxOrders: null,
+    });
+
+    expect(row.kind).toBe('PICKUP');
+    expect(row.departureTime).toBe('10:00');
+    expect(row.endTime).toBe('12:00');
+    expect(row.zoneIds).toEqual([]);
+    expect(links).toHaveLength(0);
+  });
+
+  it('rejects pickup without endTime or with zones', async () => {
+    await expect(
+      service.create(companyId, {
+        name: 'Retiro',
+        kind: 'PICKUP',
+        occurrenceDate: '2026-07-15',
+        departureTime: '10:00',
+        orderCutoffTime: '09:00',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await expect(
+      service.create(companyId, {
+        name: 'Retiro',
+        kind: 'PICKUP',
+        occurrenceDate: '2026-07-15',
+        departureTime: '10:00',
+        endTime: '12:00',
+        orderCutoffTime: '09:00',
+        zoneIds: ['z1'],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('updates occurrence and replaces zone links', async () => {
@@ -236,8 +286,10 @@ describe('DeliveryOccurrenceService', () => {
       id: 'occ-1',
       companyId,
       name: 'Salida',
+      kind: 'LOCAL_DELIVERY',
       occurrenceDate: '2026-07-14',
       departureTime: '15:00:00',
+      endTime: null,
       orderCutoffTime: '13:00:00',
       maxOrders: 20,
       driverUserId: null,
@@ -266,8 +318,10 @@ describe('DeliveryOccurrenceService', () => {
       id: 'occ-1',
       companyId,
       name: 'Salida',
+      kind: 'LOCAL_DELIVERY',
       occurrenceDate: '2026-07-14',
       departureTime: '15:00:00',
+      endTime: null,
       orderCutoffTime: '13:00:00',
       maxOrders: null,
       driverUserId: null,
@@ -286,8 +340,10 @@ describe('DeliveryOccurrenceService', () => {
       id: 'occ-1',
       companyId,
       name: 'Salida',
+      kind: 'LOCAL_DELIVERY',
       occurrenceDate: '2026-07-14',
       departureTime: '15:00:00',
+      endTime: null,
       orderCutoffTime: '13:00:00',
       maxOrders: 20,
       driverUserId: null,
@@ -323,8 +379,10 @@ describe('DeliveryOccurrenceService', () => {
       id: 'occ-1',
       companyId,
       name: 'Salida',
+      kind: 'LOCAL_DELIVERY',
       occurrenceDate: '2026-07-14',
       departureTime: '15:00:00',
+      endTime: null,
       orderCutoffTime: '13:00:00',
       maxOrders: null,
       driverUserId: null,

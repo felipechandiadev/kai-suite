@@ -5,8 +5,6 @@ import {
   EShopApiError,
   isEshopFetchNetworkError,
 } from "@/features/e-shop-storefront/infrastructure/eshop-api-error";
-import { isLightHexColor } from "@/features/e-shop-storefront/lib/is-light-hex-color";
-import { CLASSIC_THEME_FALLBACK } from "@/features/e-shop-storefront/lib/build-theme-css-vars";
 import { DEFAULT_ESHOP_TOP_BAR } from "@/features/e-shop-storefront/lib/default-eshop-shell";
 import { EShopThemeShell } from "@/features/e-shop-storefront/ui/EShopThemeShell";
 import { EShopTopBar } from "@/shared/components/EShopTopBar";
@@ -37,9 +35,6 @@ export default async function StoreLayout({ children }: { children: React.ReactN
     throw e;
   }
 
-  const chrome =
-    storefront.theme?.tokens.chrome ?? CLASSIC_THEME_FALLBACK.tokens.chrome;
-  const chromeIsLight = isLightHexColor(chrome);
   const portalEnabled = storefront.eShopCustomerPortalEnabled === true;
   const customerLoggedIn = portalEnabled ? Boolean(await getValidCustomerSessionToken()) : false;
 
@@ -52,7 +47,6 @@ export default async function StoreLayout({ children }: { children: React.ReactN
             companyName={storefront.companyName}
             companyLogoUrl={storefront.companyLogoUrl}
             topBar={storefront.topBar ?? DEFAULT_ESHOP_TOP_BAR}
-            chromeIsLight={chromeIsLight}
             customerPortalEnabled={portalEnabled}
             customerLoggedIn={customerLoggedIn}
           />

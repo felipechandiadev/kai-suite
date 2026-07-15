@@ -47,6 +47,8 @@ export type DeliverySettingsRow = {
   osrmUrl: string | null;
 };
 
+export type DeliveryOccurrenceKind = "LOCAL_DELIVERY" | "PICKUP";
+
 export type DeliveryOccurrenceZoneRef = {
   id: string;
   name: string;
@@ -55,8 +57,10 @@ export type DeliveryOccurrenceZoneRef = {
 export type DeliveryOccurrenceRow = {
   id: string;
   name: string;
+  kind: DeliveryOccurrenceKind;
   occurrenceDate: string;
   departureTime: string;
+  endTime: string | null;
   orderCutoffTime: string;
   maxOrders: number | null;
   driverUserId: string | null;

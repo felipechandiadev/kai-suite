@@ -20,7 +20,6 @@ type Props = {
   companyName: string;
   companyLogoUrl: string | null;
   topBar: CompanyEShopTopBarSettings;
-  chromeIsLight?: boolean;
   customerPortalEnabled?: boolean;
   customerLoggedIn?: boolean;
 };
@@ -29,7 +28,6 @@ export function EShopTopBar({
   companyName,
   companyLogoUrl,
   topBar,
-  chromeIsLight = false,
   customerPortalEnabled = false,
   customerLoggedIn = false,
 }: Props) {
@@ -67,7 +65,6 @@ export function EShopTopBar({
                 companyName={companyName}
                 logoUrl={companyLogoUrl}
                 size="sm"
-                onPrimary={!chromeIsLight}
                 onError={() => setLogoFailed(true)}
               />
             ) : null}

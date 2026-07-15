@@ -90,8 +90,10 @@ export async function listDeliveryOccurrencesAction(from?: string, to?: string) 
 export async function saveDeliveryOccurrenceAction(body: {
   id?: string;
   name: string;
+  kind?: "LOCAL_DELIVERY" | "PICKUP";
   occurrenceDate: string;
   departureTime: string;
+  endTime?: string | null;
   orderCutoffTime: string;
   maxOrders?: number | null;
   driverUserId?: string | null;

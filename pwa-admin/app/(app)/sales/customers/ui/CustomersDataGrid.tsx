@@ -101,7 +101,10 @@ export default function CustomersDataGrid({
           if (!r.hasEshopAccount) {
             return <span className="text-muted-foreground">—</span>;
           }
-          const label = r.eshopUsername?.trim() || r.eshopLoginEmail?.trim() || "Sí";
+          const username = r.eshopUsername?.trim();
+          const label = username
+            ? `@${username}`
+            : r.eshopLoginEmail?.trim() || "Sí";
           return (
             <span className="text-primary" title={r.eshopLoginEmail ?? undefined}>
               {label}

@@ -824,7 +824,7 @@ export const TextField: React.FC<TextFieldProps> = ({
 
   return (
     <div
-      className={`${variante === "autocomplete" ? "relative w-full" : "fs-text-field"} ${showStaticLabel ? "flex min-w-0 flex-col gap-1" : ""} ${isInlineLabel ? "fs-text-field--inline" : ""}`.trim()}
+      className={`${variante === "autocomplete" ? `relative w-full min-h-0${isCompact ? " flex-1" : ""}` : "fs-text-field"} ${showStaticLabel ? "flex min-w-0 flex-col gap-1" : ""} ${isInlineLabel ? "fs-text-field--inline" : ""}`.trim()}
     >
       {showStaticLabel ? (
         <label

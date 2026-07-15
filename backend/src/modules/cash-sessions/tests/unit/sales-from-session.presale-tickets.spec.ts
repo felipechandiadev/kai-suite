@@ -86,14 +86,24 @@ describe('SalesFromSessionService — presale tickets', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('rejects cart with insufficient quantity for ticket', async () => {
+  it('accepts cart with less quantity than ticket (loader, not commitment)', async () => {
     await expect(
       assertSatisfiable(
         ['ticket-a'],
         [{ productVariantId: 'v1', quantity: 1 }],
         { 'ticket-a': readyTicket('ticket-a', [{ productVariantId: 'v1', quantity: 2 }]) },
       ),
-    ).rejects.toThrow(BadRequestException);
+    ).resolves.toBeUndefined();
+  });
+
+  it('accepts cart without ticket variant when ticket is linked (loader)', async () => {
+    await expect(
+      assertSatisfiable(
+        ['ticket-a'],
+        [{ productVariantId: 'v9', quantity: 1 }],
+        { 'ticket-a': readyTicket('ticket-a', [{ productVariantId: 'v1', quantity: 2 }]) },
+      ),
+    ).resolves.toBeUndefined();
   });
 
   it('accepts two tickets with distinct variants and extra loose product', async () => {
@@ -113,11 +123,11 @@ describe('SalesFromSessionService — presale tickets', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('accepts two tickets sharing a variant when cart has enough total quantity', async () => {
+  it('accepts two tickets sharing a variant when cart has partial quantity (loader)', async () => {
     await expect(
       assertSatisfiable(
         ['ticket-a', 'ticket-b'],
-        [{ productVariantId: 'v1', quantity: 3 }],
+        [{ productVariantId: 'v1', quantity: 2 }],
         {
           'ticket-a': readyTicket('ticket-a', [{ productVariantId: 'v1', quantity: 2 }]),
           'ticket-b': readyTicket('ticket-b', [{ productVariantId: 'v1', quantity: 1 }]),
@@ -126,14 +136,16 @@ describe('SalesFromSessionService — presale tickets', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('rejects two tickets sharing a variant when cart quantity is insufficient', async () => {
+  it('rejects ticket that is not READY', async () => {
     await expect(
       assertSatisfiable(
-        ['ticket-a', 'ticket-b'],
+        ['ticket-a'],
         [{ productVariantId: 'v1', quantity: 2 }],
         {
-          'ticket-a': readyTicket('ticket-a', [{ productVariantId: 'v1', quantity: 2 }]),
-          'ticket-b': readyTicket('ticket-b', [{ productVariantId: 'v1', quantity: 1 }]),
+          'ticket-a': {
+            ...readyTicket('ticket-a', [{ productVariantId: 'v1', quantity: 2 }]),
+            status: PresaleTicketStatus.REDEEMED,
+          },
         },
       ),
     ).rejects.toThrow(BadRequestException);

@@ -240,6 +240,11 @@ export default function PosWorkspace() {
     saleTotal,
   } = saleTotals;
 
+  const presaleLinkedEmptyCart =
+    !isPresaleMode &&
+    cart.loadedPresaleTickets.length > 0 &&
+    cart.lines.length === 0;
+
   const checkoutDisabled =
     cart.lines.length === 0 ||
     (isOffline && (isPresaleMode || isReturnMode || isFulfillBackorderMode));
@@ -468,9 +473,14 @@ export default function PosWorkspace() {
             className="flex shrink-0 items-center justify-between gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs"
             data-test-id="pos-cart-presale-banner"
           >
-            <span>
-              Ticket preventa <strong>{ticket.code}</strong>
-            </span>
+            <div className="min-w-0">
+              <p>
+                Cargado desde ticket <strong>{ticket.code}</strong>
+              </p>
+              <p className="mt-0.5 text-muted-foreground">
+                Puedes editar el carrito libremente.
+              </p>
+            </div>
             <button
               type="button"
               className="shrink-0 text-muted-foreground hover:text-foreground"
@@ -607,6 +617,11 @@ export default function PosWorkspace() {
         </div>
 
         <footer className="shrink-0 border-t border-border pt-3" data-test-id="pos-cart-summary">
+          {presaleLinkedEmptyCart ? (
+            <Alert variant="warning" className="mb-3" data-test-id="pos-cart-presale-empty-block">
+              Desvincula el ticket de preventa o agrega productos para continuar al cobro.
+            </Alert>
+          ) : null}
           <div className="flex items-center justify-between gap-3">
             <div className="grid min-w-0 flex-1 gap-1 text-sm">
               <div className="flex items-center justify-between">
@@ -670,7 +685,11 @@ export default function PosWorkspace() {
                 className="mx-6 shrink-0"
                 ariaLabel={checkoutTitle}
                 disabled={checkoutDisabled}
-                title={checkoutTitle}
+                title={
+                  presaleLinkedEmptyCart
+                    ? "Desvincula el ticket o agrega productos"
+                    : checkoutTitle
+                }
                 onClick={() => void handleCheckout()}
                 data-test-id="pos-cart-checkout-icon"
               />
