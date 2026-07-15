@@ -62,6 +62,8 @@ export type PricedCartLine = {
   unitPrice: number;
   productName: string;
   variantName: string;
+  /** SKU de variante (no confundir con nombre de producto). */
+  sku: string | null;
   imageUrl: string | null;
   availableQty: number;
   trackInventory: boolean;

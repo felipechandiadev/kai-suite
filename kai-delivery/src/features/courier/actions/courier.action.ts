@@ -15,7 +15,16 @@ export type CourierDispatchRow = {
   label: string | null;
   status: string;
   occurrenceId: string;
+  occurrenceName: string;
   startedAt: string | null;
+  departureTime: string;
+  orderCutoffTime: string;
+  stopCount: number;
+  completedStopCount: number;
+  pendingStopCount: number;
+  itemCount: number;
+  totalDistanceM: number | null;
+  totalDurationS: number | null;
 };
 
 export type CourierStopRow = {

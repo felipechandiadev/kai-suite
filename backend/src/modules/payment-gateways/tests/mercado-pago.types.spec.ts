@@ -4,7 +4,12 @@ import {
   maskAccessToken,
   sanitizeCompanyMercadoPagoSettings,
 } from '@modules/companies/domain/company-mercado-pago.types';
-import { mapMpOrderToIntentStatus, mapMpPaymentStatus } from '@modules/payment-gateways/domain/payment-gateway-intent.types';
+import {
+  buildExternalReference,
+  isMpCompatibleExternalReference,
+  mapMpOrderToIntentStatus,
+  mapMpPaymentStatus,
+} from '@modules/payment-gateways/domain/payment-gateway-intent.types';
 
 describe('company-mercado-pago.types', () => {
   it('masks access token for display', () => {
@@ -56,6 +61,15 @@ describe('company-mercado-pago.types', () => {
 });
 
 describe('payment-gateway-intent.types', () => {
+  it('builds MP-compatible external_reference (<=64, sin ":")', () => {
+    const companyId = 'f84dc753-3369-4726-9da3-be42e33fc4be';
+    const intentId = 'ae6062c0-1f3a-4944-9509-894338035151';
+    const ref = buildExternalReference(companyId, 'ESHOP_CHECKOUT', intentId);
+    expect(ref.length).toBeLessThanOrEqual(64);
+    expect(isMpCompatibleExternalReference(ref)).toBe(true);
+    expect(ref).toBe(`ks_eshop_${intentId.replace(/-/g, '')}`);
+  });
+
   it('maps mp approved status', () => {
     expect(mapMpPaymentStatus('approved')).toBe('APPROVED');
   });

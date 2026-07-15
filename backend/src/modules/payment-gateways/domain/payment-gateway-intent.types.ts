@@ -18,13 +18,32 @@ export type PaymentGatewayIntentMetadata = {
   statusDetail?: string | null;
 };
 
+/**
+ * Referencia para MP (Preferences / Orders).
+ * Límite documentado: máx. 64 chars; patrón típico `[A-Za-z0-9_-]` (sin `:`).
+ * El intentId UUID sin guiones es único; no hace falta embeber companyId.
+ */
 export function buildExternalReference(
-  companyId: string,
+  _companyId: string,
   channel: PaymentGatewayChannel,
   intentId: string,
 ): string {
-  const shortChannel = channel === 'POS_POINT' ? 'pos_point' : 'eshop';
-  return `ks:${companyId}:${shortChannel}:${intentId}`;
+  const ch = channel === 'POS_POINT' ? 'pos' : 'eshop';
+  const id = intentId.replace(/-/g, '');
+  return `ks_${ch}_${id}`.slice(0, 64);
+}
+
+/** Normaliza refs legacy (`ks:uuid:eshop:uuid`) antes de enviarlas a MP. */
+export function sanitizeMpExternalReference(raw: string): string {
+  const cleaned = (raw ?? '')
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]/g, '_')
+    .slice(0, 64);
+  return cleaned.length > 0 ? cleaned : `ks_${Date.now()}`;
+}
+
+export function isMpCompatibleExternalReference(raw: string): boolean {
+  return /^[a-zA-Z0-9_-]{1,64}$/.test((raw ?? '').trim());
 }
 
 export function mapMpPaymentStatus(

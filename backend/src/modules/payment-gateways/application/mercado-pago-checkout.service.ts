@@ -4,6 +4,7 @@ import { isMercadoPagoEshopCheckoutOperational } from '@modules/companies/domain
 import { MercadoPagoClient } from './mercado-pago.client';
 import { PaymentGatewayIntentService } from './payment-gateway-intent.service';
 import { MercadoPagoEshopOrderSyncService } from './mercado-pago-eshop-order-sync.service';
+import { resolveMpPayerEmail } from './mercado-pago-eshop-urls';
 
 function normalizePaymentMethodType(
   raw: string | undefined,
@@ -68,6 +69,13 @@ export class MercadoPagoCheckoutService {
       throw new BadRequestException('Falta identificador del medio de pago (tarjeta)');
     }
 
+    intent = await this.intentService.ensureMpCompatibleExternalReference(intent);
+
+    const payerEmail = resolveMpPayerEmail(
+      settings.environment,
+      input.payerEmail,
+    );
+
     const order = await this.mpClient.createOrder({
       accessToken: settings.accessToken,
       environment: settings.environment,
@@ -77,8 +85,9 @@ export class MercadoPagoCheckoutService {
       paymentMethodId,
       paymentMethodType: normalizePaymentMethodType(input.paymentMethodType),
       installments: input.installments ?? 1,
-      payerEmail: input.payerEmail.trim(),
-      idempotencyKey: intent.idempotencyKey,
+      payerEmail,
+      // Nueva clave por intento: si un intento falló (credenciales viejas), MP no reusa el 400 cacheado.
+      idempotencyKey: `${intent.idempotencyKey}-${Date.now()}`,
       description: input.description ?? `Pedido eShop ${intent.id.slice(0, 8)}`,
     });
 
@@ -89,6 +98,9 @@ export class MercadoPagoCheckoutService {
 
   async getIntent(companyId: string, intentId: string) {
     const intent = await this.intentService.findById(companyId, intentId);
+    if (intent.channel !== 'ESHOP_CHECKOUT') {
+      throw new BadRequestException('Intent no válido para checkout');
+    }
     return this.intentService.toPublicDto(intent);
   }
 }

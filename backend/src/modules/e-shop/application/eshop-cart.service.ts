@@ -193,7 +193,11 @@ export class EShopCartService {
 
     if (!cart && context.cartToken) {
       cart = await this.findByCartToken(store.companyId, context.cartToken);
-      if (cart && context.customerId && !cart.customerId) {
+      // Tras un pedido online el token cookie puede seguir apuntando a un carrito
+      // `converted`. Ignorar y crear uno nuevo en lugar de fallar en muteable ops.
+      if (cart && cart.status === 'converted') {
+        cart = null;
+      } else if (cart && context.customerId && !cart.customerId) {
         cart.customerId = context.customerId;
       }
     }

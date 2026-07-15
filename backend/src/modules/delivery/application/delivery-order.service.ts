@@ -102,6 +102,24 @@ export class DeliveryOrderService {
     return this.orderRepo.save(row);
   }
 
+  /**
+   * Cierre de parada en ruta: si el pedido aún está listo para despacho
+   * (ruta no iniciada o enlace incompleto), avanza a IN_TRANSIT antes del resultado.
+   */
+  async completeCourierStop(
+    companyId: string,
+    deliveryOrderId: string,
+    outcome: 'DELIVERED' | 'ISSUE',
+  ) {
+    const row = await this.orderRepo.findOne({ where: { companyId, id: deliveryOrderId } });
+    if (!row) throw new BadRequestException('Pedido delivery no encontrado');
+    if (row.deliveryStatus === outcome) return row;
+    if (row.deliveryStatus === 'READY_FOR_DISPATCH') {
+      await this.updateStatus(companyId, deliveryOrderId, 'IN_TRANSIT');
+    }
+    return this.updateStatus(companyId, deliveryOrderId, outcome);
+  }
+
   async listByStatus(companyId: string, statuses: DeliveryOrderStatus[]) {
     return this.orderRepo.find({
       where: { companyId, deliveryStatus: statuses as any },
@@ -111,6 +129,16 @@ export class DeliveryOrderService {
 
   async findByTransaction(companyId: string, transactionId: string) {
     return this.orderRepo.findOne({ where: { companyId, transactionId } });
+  }
+
+  /**
+   * Tras pago online eShop: SUBMITTED → CONFIRMED (tablero operativo / reparto).
+   */
+  async confirmAfterOnlinePayment(companyId: string, transactionId: string) {
+    const row = await this.findByTransaction(companyId, transactionId);
+    if (!row) return null;
+    if (row.deliveryStatus !== 'SUBMITTED') return row;
+    return this.updateStatus(companyId, row.id, 'CONFIRMED');
   }
 
   async findByIds(companyId: string, ids: string[]) {

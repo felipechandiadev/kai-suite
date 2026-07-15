@@ -1,4 +1,4 @@
-export type CheckoutStepId = "cart" | "contact" | "delivery" | "review" | "payment";
+export type CheckoutStepId = "cart" | "contact" | "delivery" | "review";
 
 export type CheckoutStepItem = {
   id: CheckoutStepId;
@@ -8,7 +8,6 @@ export type CheckoutStepItem = {
 
 export function buildCheckoutSteps(options: {
   includeCartStep?: boolean;
-  includePaymentStep?: boolean;
 }): CheckoutStepItem[] {
   const steps: CheckoutStepItem[] = [];
   if (options.includeCartStep) {
@@ -19,9 +18,6 @@ export function buildCheckoutSteps(options: {
     { id: "delivery", title: "Entrega", description: "Método y dirección" },
     { id: "review", title: "Resumen", description: "Confirma totales y pago" },
   );
-  if (options.includePaymentStep) {
-    steps.push({ id: "payment", title: "Pago", description: "Mercado Pago" });
-  }
   return steps;
 }
 

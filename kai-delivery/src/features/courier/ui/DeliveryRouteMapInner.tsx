@@ -35,23 +35,27 @@ function sequenceIcon(sequence: number, color: string) {
 
 function parseRoutePositions(
   routeGeometry: Record<string, unknown> | null,
+  stops: DeliveryRouteMapStop[],
 ): [number, number][] {
-  if (!routeGeometry || routeGeometry.type !== "LineString") {
-    return [];
+  if (routeGeometry && routeGeometry.type === "LineString") {
+    const coordinates = routeGeometry.coordinates;
+    if (Array.isArray(coordinates)) {
+      const parsed = coordinates
+        .filter(
+          (coord): coord is [number, number] =>
+            Array.isArray(coord) &&
+            coord.length >= 2 &&
+            typeof coord[0] === "number" &&
+            typeof coord[1] === "number",
+        )
+        .map((coord) => [coord[1], coord[0]] as [number, number]);
+      if (parsed.length > 1) return parsed;
+    }
   }
-  const coordinates = routeGeometry.coordinates;
-  if (!Array.isArray(coordinates)) {
-    return [];
-  }
-  return coordinates
-    .filter(
-      (coord): coord is [number, number] =>
-        Array.isArray(coord) &&
-        coord.length >= 2 &&
-        typeof coord[0] === "number" &&
-        typeof coord[1] === "number",
-    )
-    .map((coord) => [coord[1], coord[0]]);
+
+  if (stops.length === 0) return [];
+  const ordered = [...stops].sort((a, b) => a.sequence - b.sequence);
+  return ordered.map((stop) => [stop.latitude, stop.longitude] as [number, number]);
 }
 
 function FitStopsView({
@@ -95,7 +99,7 @@ export function DeliveryRouteMapInner({
   stops,
   routeGeometry,
 }: DeliveryRouteMapInnerProps) {
-  const routePositions = parseRoutePositions(routeGeometry);
+  const routePositions = parseRoutePositions(routeGeometry, stops);
   const color = primaryColor();
 
   return (
@@ -112,7 +116,12 @@ export function DeliveryRouteMapInner({
         {routePositions.length > 1 ? (
           <Polyline
             positions={routePositions}
-            pathOptions={{ color, weight: 4, opacity: 0.85 }}
+            pathOptions={{
+              color,
+              weight: 4,
+              opacity: routeGeometry?.type === "LineString" ? 0.85 : 0.55,
+              dashArray: routeGeometry?.type === "LineString" ? undefined : "6 8",
+            }}
           />
         ) : null}
         {stops.map((stop) => (

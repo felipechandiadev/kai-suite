@@ -77,6 +77,27 @@ export async function prepareCheckoutAction(body: CheckoutBody) {
   );
 }
 
+export async function resumeCheckoutPaymentAction(orderId: string) {
+  const sessionToken = await getCustomerSessionToken();
+  return EShopRequest.post<{
+    orderId: string;
+    documentNumber: string | null;
+    payableTotal: number;
+    paymentIntentId: string;
+    intentId: string;
+    preferenceId: string;
+    publicKey: string | null;
+    mercadoPagoEnvironment: string | null;
+    payerEmail: string;
+    paymentMode: "online";
+  }>(
+    getEShopStoreSlug(),
+    "/e-shop/checkout/resume-payment",
+    { orderId },
+    sessionToken,
+  );
+}
+
 export async function submitCheckoutAction(body: CheckoutBody) {
   const sessionToken = await getCustomerSessionToken();
   return EShopRequest.post<{

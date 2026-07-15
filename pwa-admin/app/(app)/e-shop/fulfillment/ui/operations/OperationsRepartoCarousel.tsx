@@ -201,10 +201,10 @@ export function OperationsRepartoCarousel({
                 </div>
               </div>
 
-              {totalDistanceM != null ? (
+              {(totalDistanceM ?? 0) > 0 ? (
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Ruta: {(totalDistanceM / 1000).toFixed(1)} km
-                  {totalDurationS != null
+                  Ruta: {(totalDistanceM! / 1000).toFixed(1)} km
+                  {totalDurationS != null && totalDurationS > 0
                     ? ` · ~${Math.round(totalDurationS / 60)} min`
                     : ""}
                 </p>

@@ -13,6 +13,41 @@ import type {
 import { DocumentType } from '@modules/persons/domain/person.entity';
 import { buildDefaultCompanyEShopTopBarSettings } from '@modules/companies/domain/company-eshop-topbar.types';
 import { buildDefaultCompanyEShopFooterSettings } from '@modules/companies/domain/company-eshop-footer.types';
+import type { CompanyMercadoPagoSettings } from '@modules/companies/domain/company-mercado-pago.types';
+
+/**
+ * Credenciales sandbox «Mercado PAGO POS-Kai» (Chile) — ver `envs/mercado-pago.md`.
+ * Override local: `SEED_MP_PUBLIC_KEY` / `SEED_MP_ACCESS_TOKEN` / `SEED_MP_ENVIRONMENT`.
+ */
+export const SEED_MP_SANDBOX_DEFAULTS = {
+  publicKey: 'APP_USR-ad2ff5e6-d9c1-423f-9783-9d52c4ef1325',
+  accessToken:
+    'APP_USR-903290524630763-071322-7f1881da338659b1355e50aa6668acc8-3539346207',
+  environment: 'sandbox' as const,
+} as const;
+
+export function buildSeedMercadoPagoSettings(): CompanyMercadoPagoSettings {
+  const publicKey =
+    process.env.SEED_MP_PUBLIC_KEY?.trim() || SEED_MP_SANDBOX_DEFAULTS.publicKey;
+  const accessToken =
+    process.env.SEED_MP_ACCESS_TOKEN?.trim() ||
+    SEED_MP_SANDBOX_DEFAULTS.accessToken;
+  const environment =
+    process.env.SEED_MP_ENVIRONMENT?.trim() === 'production'
+      ? 'production'
+      : 'sandbox';
+
+  return {
+    enabled: true,
+    environment,
+    publicKey,
+    accessToken,
+    pointTerminalId: null,
+    posPointEnabled: false,
+    eshopOnlinePaymentEnabled: true,
+    eshopDefaultPaymentMode: 'online',
+  };
+}
 
 /** Empresa genérica de desarrollo — «Kai Suite» (estado actual en BD demo). */
 export const SEED_DEV_COMPANY = {
@@ -153,7 +188,7 @@ export const SEED_DELIVERY_DEPOT = {
   lat: -36.1315,
   lng: -71.8188,
   address: SEED_DEV_COMPANY.address,
-  osrmUrl: 'http://localhost:5000',
+  osrmUrl: 'http://localhost:5001',
 } as const;
 
 /** Reparto local (LOCAL_DELIVERY) — un turno por día. */
@@ -308,6 +343,7 @@ export function buildSeedCompanySettings(
   return {
     ...base,
     paymentMethods,
+    mercadoPago: buildSeedMercadoPagoSettings(),
     checks: {
       enabled: true,
       receiveChecks: true,

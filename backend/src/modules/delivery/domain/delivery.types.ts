@@ -71,6 +71,26 @@ export type DeliveryDriverDto = {
   email: string | null;
 };
 
+/** Fila del listado de repartos en la app courier (kai-delivery). */
+export type CourierDispatchListItemDto = {
+  id: string;
+  label: string | null;
+  status: DeliveryDispatchStatus;
+  occurrenceId: string;
+  occurrenceName: string;
+  startedAt: string | null;
+  departureTime: string;
+  orderCutoffTime: string;
+  /** Paradas en ruta (o pedidos del turno si aún no hay ruta optimizada). */
+  stopCount: number;
+  completedStopCount: number;
+  pendingStopCount: number;
+  /** Unidades de producto (sin línea de envío). */
+  itemCount: number;
+  totalDistanceM: number | null;
+  totalDurationS: number | null;
+};
+
 export type DeliveryOrderCounts = Partial<Record<DeliveryOrderStatus, number>>;
 
 export type DeliveryOperationsOrderLineDto = {

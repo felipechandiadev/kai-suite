@@ -16,7 +16,6 @@ import {
   isCustomerLoggedInAction,
   registerCustomerAction,
 } from "@/features/e-shop-customer-account/actions/customer-account.action";
-import { CheckoutPaymentBrick } from "@/app/(store)/checkout/CheckoutPaymentBrick";
 import { buildCheckoutSteps, type CheckoutStepId } from "@/features/e-shop-checkout/lib/checkout-steps";
 import { useCheckoutDraft } from "@/features/e-shop-checkout/hooks/useCheckoutDraft";
 import { CheckoutCartStep } from "@/features/e-shop-checkout/ui/CheckoutCartStep";
@@ -81,11 +80,6 @@ export function CheckoutWizard({ customerPortalEnabled = false, requireRut = fal
   const [busy, setBusy] = useState(false);
   const [onlinePaymentEnabled, setOnlinePaymentEnabled] = useState(false);
   const [paymentMode, setPaymentMode] = useState<"online" | "coordinate">("coordinate");
-  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
-  const [paymentPreferenceId, setPaymentPreferenceId] = useState<string | null>(null);
-  const [paymentPublicKey, setPaymentPublicKey] = useState<string | null>(null);
-  const [payableTotal, setPayableTotal] = useState(0);
-  const [pendingDoc, setPendingDoc] = useState("");
   const [checkoutAttemptId, setCheckoutAttemptId] = useState<string | null>(null);
 
   const showAccountChoice = customerPortalEnabled && !isLoggedIn;
@@ -106,9 +100,8 @@ export function CheckoutWizard({ customerPortalEnabled = false, requireRut = fal
     () =>
       buildCheckoutSteps({
         includeCartStep: true,
-        includePaymentStep: onlinePaymentEnabled && paymentMode === "online",
       }),
-    [onlinePaymentEnabled, paymentMode],
+    [],
   );
 
   const draftApi = useCheckoutDraft(
@@ -158,7 +151,9 @@ export function CheckoutWizard({ customerPortalEnabled = false, requireRut = fal
 
     const restored = draftApi.restore();
     if (restored) {
-      setStep(restored.step);
+      const restoredStep =
+        (restored.step as string) === "payment" ? "review" : restored.step;
+      setStep(restoredStep);
       setName(restored.contact.name);
       setEmail(restored.contact.email);
       setPhone(restored.contact.phone);
@@ -314,17 +309,15 @@ export function CheckoutWizard({ customerPortalEnabled = false, requireRut = fal
 
       if (onlinePaymentEnabled && paymentMode === "online") {
         const prepared = await prepareCheckoutAction(checkoutBody);
-        if (!prepared.paymentIntentId || !prepared.publicKey || !prepared.preferenceId) {
+        if (!prepared.transactionId || !prepared.paymentIntentId || !prepared.preferenceId) {
           setError("Pago en línea no disponible. Elija coordinar pago después.");
           return;
         }
         setCheckoutAttemptId(prepared.checkoutAttemptId ?? null);
-        setPaymentIntentId(prepared.paymentIntentId);
-        setPaymentPreferenceId(prepared.preferenceId);
-        setPaymentPublicKey(prepared.publicKey);
-        setPayableTotal(prepared.payableTotal ?? estimatedTotal);
-        setPendingDoc(prepared.documentNumber);
-        setStep("payment");
+        draftApi.clear();
+        router.push(
+          `/checkout/payment?orderId=${encodeURIComponent(prepared.transactionId)}`,
+        );
         return;
       }
 
@@ -405,8 +398,7 @@ export function CheckoutWizard({ customerPortalEnabled = false, requireRut = fal
 
   function goBack() {
     setError(null);
-    if (step === "payment") setStep("review");
-    else if (step === "review") setStep("delivery");
+    if (step === "review") setStep("delivery");
     else if (step === "delivery") setStep("contact");
     else if (step === "contact") setStep("cart");
   }
@@ -483,27 +475,6 @@ export function CheckoutWizard({ customerPortalEnabled = false, requireRut = fal
           onPaymentModeChange={setPaymentMode}
         />
       ) : null}
-      {step === "payment" && paymentIntentId && paymentPublicKey && paymentPreferenceId ? (
-        <CheckoutPaymentBrick
-          publicKey={paymentPublicKey}
-          preferenceId={paymentPreferenceId}
-          intentId={paymentIntentId}
-          amount={payableTotal}
-          payerEmail={email}
-          onBack={() => setStep("review")}
-          onSuccess={() => {
-            void clearCart();
-            draftApi.clear();
-            const qs = new URLSearchParams({
-              doc: pendingDoc,
-              method: selectedMethod?.name ?? "",
-              paid: "1",
-            });
-            if (email.trim()) qs.set("email", email.trim());
-            router.push(`/checkout/confirmacion?${qs.toString()}`);
-          }}
-        />
-      ) : null}
 
       {error ? (
         <div className="space-y-2">
@@ -524,12 +495,12 @@ export function CheckoutWizard({ customerPortalEnabled = false, requireRut = fal
       ) : null}
 
       <div className="flex gap-2">
-        {step !== "cart" && step !== "payment" ? (
+        {step !== "cart" ? (
           <Button type="button" variant="secondary" onClick={goBack}>
             Atrás
           </Button>
         ) : null}
-        {step !== "review" && step !== "payment" ? (
+        {step !== "review" ? (
           <Button
             type="button"
             variant="primary"
@@ -539,7 +510,7 @@ export function CheckoutWizard({ customerPortalEnabled = false, requireRut = fal
           >
             Continuar
           </Button>
-        ) : step === "review" ? (
+        ) : (
           <Button
             type="button"
             variant="primary"
@@ -553,7 +524,7 @@ export function CheckoutWizard({ customerPortalEnabled = false, requireRut = fal
                 ? "Continuar al pago"
                 : "Confirmar encargo"}
           </Button>
-        ) : null}
+        )}
       </div>
     </div>
   );

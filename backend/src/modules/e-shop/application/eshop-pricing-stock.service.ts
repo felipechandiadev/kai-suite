@@ -219,6 +219,7 @@ export class EShopPricingStockService {
         unitPrice,
         productName: variant.product?.name ?? variant.sku,
         variantName: variant.product?.name ?? variant.sku,
+        sku: variant.sku?.trim() || null,
         imageUrl: null,
         availableQty: trackInventory ? availableQty : Number.MAX_SAFE_INTEGER,
         trackInventory,

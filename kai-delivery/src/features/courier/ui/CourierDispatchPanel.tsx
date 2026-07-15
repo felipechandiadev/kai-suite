@@ -62,6 +62,7 @@ export function CourierDispatchPanel({ dispatchId }: { dispatchId: string }) {
   const nextStopId = stops.find((stop) => stop.stopStatus === "pending")?.id;
   const canStart =
     dispatch?.status === "planned" || dispatch?.status === "route_ready";
+  const routeStarted = dispatch?.status === "out" || dispatch?.status === "completed";
 
   return (
     <div className="w-full space-y-4">
@@ -99,6 +100,12 @@ export function CourierDispatchPanel({ dispatchId }: { dispatchId: string }) {
         >
           Iniciar reparto
         </Button>
+      ) : null}
+
+      {canStart ? (
+        <p className="text-sm text-muted-foreground">
+          Inicia el reparto para marcar entregas.
+        </p>
       ) : null}
 
       {error ? <p className="text-sm text-error">{error}</p> : null}
@@ -157,7 +164,7 @@ export function CourierDispatchPanel({ dispatchId }: { dispatchId: string }) {
                     >
                       Navegar
                     </a>
-                    {stop.stopStatus === "pending" ? (
+                    {stop.stopStatus === "pending" && routeStarted ? (
                       <>
                         <Button
                           size="sm"

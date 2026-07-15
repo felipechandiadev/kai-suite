@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BadRequestException } from '@nestjs/common';
 import { Repository } from 'typeorm';
@@ -31,6 +31,7 @@ import { PaymentGatewayIntentService } from '@modules/payment-gateways/applicati
 import { MercadoPagoClient } from '@modules/payment-gateways/application/mercado-pago.client';
 import {
   buildEshopCheckoutBackUrls,
+  resolveMpPayerEmail,
   resolveMpWebhookNotificationUrl,
 } from '@modules/payment-gateways/application/mercado-pago-eshop-urls';
 import { Transaction } from '@modules/transactions/domain/transaction.entity';
@@ -183,7 +184,7 @@ export class EShopCheckoutOrderService {
         productId: line.productId,
         productVariantId: line.productVariantId,
         productName: line.productName,
-        productSku: line.variantName,
+        productSku: line.sku ?? undefined,
         variantName: line.variantName,
         unitId: undefined,
         quantity: line.quantity,
@@ -347,9 +348,12 @@ export class EShopCheckoutOrderService {
         title: `Pedido ${tx.documentNumber ?? tx.id.slice(0, 8)}`,
         unitPrice: payableTotal,
         externalReference: paymentIntent.externalReference,
-        payerEmail: body.customerEmail.trim(),
+        payerEmail: resolveMpPayerEmail(
+          mpSettings.environment,
+          body.customerEmail,
+        ),
         notificationUrl: resolveMpWebhookNotificationUrl(),
-        backUrls: buildEshopCheckoutBackUrls(),
+        backUrls: buildEshopCheckoutBackUrls(tx.id),
       });
       preferenceId = preference.id?.trim() ?? null;
       if (!preferenceId) {
@@ -386,7 +390,8 @@ export class EShopCheckoutOrderService {
           variantName: l.variantName,
           quantity: l.quantity,
           quantityInBase: l.quantity,
-          unitOfMeasure: l.productSku ?? undefined,
+          // unitOfMeasure es varchar(20); no usar nombre/SKU de producto.
+          unitOfMeasure: 'u',
         })),
       });
     }
@@ -457,6 +462,116 @@ export class EShopCheckoutOrderService {
 
   async prepareOnlineCheckout(store: EShopStoreContext, body: CheckoutOrderBody) {
     return this.createCheckoutOrder(store, { ...body, paymentMode: 'online' });
+  }
+
+  /**
+   * Reanuda el pago online de un pedido eShop ya preparado (solo `orderId` en URL).
+   * Reutiliza intent/preference; regenera preference si falta.
+   */
+  async resumeOnlinePayment(store: EShopStoreContext, orderId: string) {
+    const id = orderId?.trim();
+    if (!id) {
+      throw new BadRequestException('orderId requerido');
+    }
+
+    const tx = await this.transactionRepo.findOne({
+      where: { id, companyId: store.companyId },
+    });
+    if (!tx) {
+      throw new NotFoundException('Pedido no encontrado');
+    }
+
+    const meta = { ...(tx.metadata ?? {}) } as Record<string, unknown>;
+    if (meta.source !== 'e-shop') {
+      throw new BadRequestException('Pedido no válido para pago online');
+    }
+    const eShopOrder = (meta.eShopOrder ?? {}) as TransactionEShopOrderMetadata;
+    if (eShopOrder.paymentExpectation !== 'ONLINE_REQUIRED') {
+      throw new BadRequestException('El pedido no requiere pago online');
+    }
+    if (tx.paymentStatus === PaymentStatus.PAID) {
+      throw new BadRequestException('El pedido ya fue pagado');
+    }
+    if (tx.paymentStatus !== PaymentStatus.PENDING) {
+      throw new BadRequestException('El pedido no está pendiente de pago');
+    }
+
+    const mpSettings = await this.companiesService.getMercadoPagoSettingsInternal(
+      store.companyId,
+    );
+    if (!isMercadoPagoEshopCheckoutOperational(mpSettings)) {
+      throw new BadRequestException('Pago online eShop no está habilitado');
+    }
+
+    let intent = eShopOrder.paymentGatewayIntentId?.trim()
+      ? await this.paymentGatewayIntents.findById(
+          store.companyId,
+          eShopOrder.paymentGatewayIntentId.trim(),
+        )
+      : await this.paymentGatewayIntents.findLatestByTransactionId(
+          store.companyId,
+          tx.id,
+        );
+
+    if (!intent || intent.channel !== 'ESHOP_CHECKOUT') {
+      throw new BadRequestException('No hay intent de pago para este pedido');
+    }
+    if (intent.transactionId && intent.transactionId !== tx.id) {
+      throw new BadRequestException('El intent de pago no corresponde a este pedido');
+    }
+    if (intent.status === 'APPROVED' || intent.status === 'CONSUMED') {
+      throw new BadRequestException('El pago ya fue aprobado');
+    }
+
+    intent = await this.paymentGatewayIntents.ensureMpCompatibleExternalReference(
+      intent,
+    );
+
+    const customerEmail = eShopOrder.customerSnapshot?.email?.trim();
+    if (!customerEmail) {
+      throw new BadRequestException('Email del comprador requerido para Mercado Pago');
+    }
+    const payerEmail = resolveMpPayerEmail(mpSettings.environment, customerEmail);
+
+    let preferenceId = intent.metadata?.mpPreferenceId?.trim() ?? null;
+    if (!preferenceId) {
+      if (!mpSettings.accessToken?.trim()) {
+        throw new BadRequestException('Falta Access Token de Mercado Pago');
+      }
+      const preference = await this.mpClient.createCheckoutPreference({
+        accessToken: mpSettings.accessToken,
+        environment: mpSettings.environment,
+        title: `Pedido ${tx.documentNumber ?? tx.id.slice(0, 8)}`,
+        unitPrice: intent.amount,
+        externalReference: intent.externalReference,
+        payerEmail,
+        notificationUrl: resolveMpWebhookNotificationUrl(),
+        backUrls: buildEshopCheckoutBackUrls(tx.id),
+      });
+      preferenceId = preference.id?.trim() ?? null;
+      if (!preferenceId) {
+        throw new BadRequestException(
+          'Mercado Pago no devolvió preferenceId para el checkout',
+        );
+      }
+      intent = await this.paymentGatewayIntents.saveMpPreferenceId(
+        intent,
+        preferenceId,
+      );
+    }
+
+    return {
+      orderId: tx.id,
+      documentNumber: tx.documentNumber,
+      payableTotal: intent.amount,
+      paymentIntentId: intent.id,
+      intentId: intent.id,
+      preferenceId,
+      publicKey: mpSettings.publicKey,
+      mercadoPagoEnvironment: mpSettings.environment,
+      payerEmail,
+      paymentMode: 'online' as const,
+    };
   }
 
   private async resolveCheckoutCustomer(companyId: string, body: CheckoutOrderBody) {

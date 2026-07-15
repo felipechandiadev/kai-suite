@@ -11,6 +11,7 @@ describe('MercadoPagoCheckoutService', () => {
   const intentService = {
     findById: jest.fn(),
     applyMpOrder: jest.fn(),
+    ensureMpCompatibleExternalReference: jest.fn(async (intent) => intent),
     toPublicDto: jest.fn((intent) => ({
       id: intent.id,
       status: intent.status,
@@ -84,7 +85,11 @@ describe('MercadoPagoCheckoutService', () => {
       installments: 1,
     });
 
-    expect(mpClient.createOrder).toHaveBeenCalled();
+    expect(mpClient.createOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payerEmail: 'test@testuser.com',
+      }),
+    );
     expect(eshopSync.syncOnApprovedPayment).toHaveBeenCalled();
     expect(result.awaitingWallet).toBe(false);
     expect(result.status).toBe('APPROVED');

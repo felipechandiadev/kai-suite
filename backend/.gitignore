@@ -34,5 +34,10 @@ coverage/
 # Runtime uploads (shouldn't be tracked)
 public/uploads/
 
+# OSRM map data (generado por scripts/osrm-bootstrap.sh)
+osrm-data/*.osm.pbf
+osrm-data/*.osrm
+osrm-data/*.osrm.*
+
 # TypeScript incremental build cache
 *.tsbuildinfo

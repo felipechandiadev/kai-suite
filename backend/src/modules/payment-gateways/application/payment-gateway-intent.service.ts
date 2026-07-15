@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import { PaymentGatewayIntent } from '../domain/payment-gateway-intent.entity';
 import {
   buildExternalReference,
+  isMpCompatibleExternalReference,
   mapMpOrderToIntentStatus,
   mapMpPaymentStatus,
   type PaymentGatewayChannel,
@@ -42,6 +43,16 @@ export class PaymentGatewayIntentService {
     externalReference: string,
   ): Promise<PaymentGatewayIntent | null> {
     return this.repo.findOne({ where: { externalReference } });
+  }
+
+  async findLatestByTransactionId(
+    companyId: string,
+    transactionId: string,
+  ): Promise<PaymentGatewayIntent | null> {
+    return this.repo.findOne({
+      where: { companyId, transactionId },
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async createIntent(input: {
@@ -89,6 +100,30 @@ export class PaymentGatewayIntentService {
       ...(intent.metadata ?? {}),
       mpPreferenceId: preferenceId,
     };
+    return this.repo.save(intent);
+  }
+
+  /**
+   * Corrige refs legacy demasiado largas / con `:` antes de llamar a MP.
+   * Si cambia la ref, invalida preferenceId para forzar regeneración.
+   */
+  async ensureMpCompatibleExternalReference(
+    intent: PaymentGatewayIntent,
+  ): Promise<PaymentGatewayIntent> {
+    if (isMpCompatibleExternalReference(intent.externalReference)) {
+      return intent;
+    }
+    intent.externalReference = buildExternalReference(
+      intent.companyId,
+      intent.channel,
+      intent.id,
+    );
+    if (intent.metadata?.mpPreferenceId) {
+      intent.metadata = {
+        ...(intent.metadata ?? {}),
+        mpPreferenceId: null,
+      };
+    }
     return this.repo.save(intent);
   }
 

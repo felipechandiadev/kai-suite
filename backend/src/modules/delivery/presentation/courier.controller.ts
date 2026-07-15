@@ -61,14 +61,7 @@ export class CourierController {
   @Post('repartos')
   async listRepartos(@Body() body: { userId: string; companyId: string; date?: string }) {
     const date = body.date ?? this.todayIsoSantiago();
-    return this.dispatchRepo
-      .createQueryBuilder('d')
-      .innerJoin('delivery_occurrences', 'o', 'o.id = d.occurrence_id')
-      .where('d.company_id = :companyId', { companyId: body.companyId })
-      .andWhere('d.driver_user_id = :userId', { userId: body.userId })
-      .andWhere('o.occurrence_date = :date', { date })
-      .orderBy('d.created_at', 'ASC')
-      .getMany();
+    return this.dispatchService.listForCourier(body.companyId, body.userId, date);
   }
 
   /** Día calendario Chile (evita desfase UTC cerca de medianoche). */
@@ -154,7 +147,7 @@ export class CourierController {
     stop.visitedAt = new Date();
     await this.stopRepo.save(stop);
 
-    await this.deliveryOrderService.updateStatus(
+    await this.deliveryOrderService.completeCourierStop(
       body.companyId,
       stop.deliveryOrderId,
       body.issueNote ? 'ISSUE' : 'DELIVERED',

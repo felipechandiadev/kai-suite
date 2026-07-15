@@ -1177,6 +1177,12 @@ async function bootstrap() {
         .map((c) => c.method)
         .join(', ')}), cotizaciones 10/20 días, cheques ON, crédito interno ON, preventa ON`,
     );
+    const mp = syncedSettings.mercadoPago as
+      | { enabled?: boolean; environment?: string; eshopOnlinePaymentEnabled?: boolean }
+      | undefined;
+    console.log(
+      `✅ Mercado Pago seed: enabled=${mp?.enabled ?? false} env=${mp?.environment ?? '—'} eshopOnline=${mp?.eshopOnlinePaymentEnabled ?? false}`,
+    );
     const publicContact = syncedSettings.publicContact as {
       email?: string;
       phone?: string;

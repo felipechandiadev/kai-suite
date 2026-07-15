@@ -19,6 +19,7 @@ import {
   mergeGuestCartAction,
   revalidateCartAction,
   removeCartItemAction,
+  startFreshCartAfterOrderAction,
   unlockCartAction,
   updateCartQtyAction,
 } from "./actions/cart.action";
@@ -57,6 +58,8 @@ type CartContextValue = {
   setFreeShippingThreshold: (n: number | null) => void;
   setCrossSell: (items: StorefrontProductCard[]) => void;
   clearCart: () => Promise<void>;
+  /** Descarta cookie del carrito convertido y abre uno vacío (post-pedido). */
+  startFreshCartAfterOrder: () => Promise<void>;
   revalidateCart: () => Promise<void>;
   lockForCheckout: () => Promise<void>;
   unlockCart: () => Promise<void>;
@@ -210,9 +213,25 @@ export function EShopCartProvider({
   );
 
   const clearCart = useCallback(async () => {
-    await runMutation(() => clearCartAction());
+    try {
+      await runMutation(() => clearCartAction());
+    } catch {
+      const cart = await startFreshCartAfterOrderAction();
+      apply(cart);
+    }
     clearCartStorage();
-  }, [runMutation]);
+  }, [runMutation, apply]);
+
+  const startFreshCartAfterOrder = useCallback(async () => {
+    setCartUpdating(true);
+    try {
+      const cart = await startFreshCartAfterOrderAction();
+      apply(cart);
+      clearCartStorage();
+    } finally {
+      setCartUpdating(false);
+    }
+  }, [apply]);
 
   const revalidateCart = useCallback(async () => {
     await runMutation(() => revalidateCartAction());
@@ -262,6 +281,7 @@ export function EShopCartProvider({
       setFreeShippingThreshold,
       setCrossSell,
       clearCart,
+      startFreshCartAfterOrder,
       revalidateCart,
       lockForCheckout,
       unlockCart,
@@ -284,6 +304,7 @@ export function EShopCartProvider({
       removeItem,
       setQuantity,
       clearCart,
+      startFreshCartAfterOrder,
       revalidateCart,
       lockForCheckout,
       unlockCart,

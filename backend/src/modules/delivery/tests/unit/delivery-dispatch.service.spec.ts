@@ -27,6 +27,10 @@ describe('DeliveryDispatchService occurrence route actions', () => {
   };
   const deliveryOrderService = {
     assignToDispatch: jest.fn(),
+    updateStatus: jest.fn(async (_c: string, id: string, status: string) => ({
+      id,
+      deliveryStatus: status,
+    })),
   };
   const couriers = {
     assertIsCourier: jest.fn(),
@@ -99,7 +103,7 @@ describe('DeliveryDispatchService occurrence route actions', () => {
       .mockResolvedValueOnce([{ deliveryStatus: 'READY_FOR_DISPATCH' }]) // readiness
       .mockResolvedValueOnce([
         { id: 'o1', deliveryStatus: 'READY_FOR_DISPATCH', deliveryDispatchId: 'd1' },
-      ]); // start()
+      ]); // start() linked orders
     dispatchRepo.findOne.mockResolvedValue({
       id: 'd1',
       companyId: 'c1',
@@ -108,10 +112,16 @@ describe('DeliveryDispatchService occurrence route actions', () => {
       status: 'route_ready',
     });
     stopRepo.count.mockResolvedValue(2);
+    stopRepo.find.mockResolvedValue([{ deliveryOrderId: 'o1' }]);
     deliveryOrderRepo.save.mockImplementation(async (v) => v);
 
     const result = await service.startOccurrenceRoute('c1', 'occ-1');
     expect(result.status).toBe('out');
+    expect(deliveryOrderService.updateStatus).toHaveBeenCalledWith(
+      'c1',
+      'o1',
+      'IN_TRANSIT',
+    );
   });
 
   it('rejects start when driver missing', async () => {

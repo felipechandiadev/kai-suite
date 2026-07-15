@@ -41,6 +41,8 @@ export class MercadoPagoPointService {
       pointOfSaleId: input.pointOfSaleId,
     });
 
+    intent = await this.intentService.ensureMpCompatibleExternalReference(intent);
+
     try {
       const mpRes = await this.mpClient.createPointPaymentIntent({
         accessToken: settings.accessToken,

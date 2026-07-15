@@ -112,6 +112,13 @@ import { EShopDeliveryZone } from '@modules/delivery/domain/e-shop-delivery-zone
     EshopCustomerMeService,
     EshopCustomerGuard,
   ],
-  exports: [EShopService, EShopStoreGuard, EShopCartService, EShopPricingStockService],
+  exports: [
+    EShopService,
+    EShopStoreGuard,
+    EShopCartService,
+    EShopPricingStockService,
+    EShopOrderNotificationService,
+    KaiMailClient,
+  ],
 })
 export class EShopModule {}

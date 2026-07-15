@@ -94,7 +94,7 @@ export function DeliveryDepotSettingsPanel({
         label="OSRM URL"
         value={osrmUrl}
         onChange={(e) => setOsrmUrl(e.target.value)}
-        helperText="Ej: http://localhost:5000"
+        helperText="Ej: http://localhost:5001 (evita conflicto con AirPlay en macOS)"
       />
       <Button type="submit" variant="primary" disabled={busy}>
         Guardar configuración

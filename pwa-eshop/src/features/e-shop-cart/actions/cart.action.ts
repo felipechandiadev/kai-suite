@@ -3,6 +3,7 @@
 import { getEShopStoreSlug } from "@/lib/eshop-store-config";
 import { getCustomerSessionToken } from "@/lib/eshop-customer-session";
 import { getCartToken, setCartToken, clearCartToken } from "@/lib/eshop-cart-session";
+import { EShopApiError } from "@/features/e-shop-storefront/infrastructure/eshop-api-error";
 import { EShopCartRequest } from "../infrastructure/cart.request";
 import type { EShopCartDto } from "../types/cart.types";
 
@@ -39,19 +40,30 @@ export async function addCartItemAction(input: {
 }): Promise<EShopCartDto> {
   const slug = getEShopStoreSlug();
   const session = await getCustomerSessionToken();
-  const cartToken = await getCartToken();
-  const res = await EShopCartRequest.addItem(
-    slug,
-    {
-      productVariantId: input.productVariantId,
-      quantity: input.quantity ?? 1,
-      imageUrl: input.imageUrl,
-    },
-    session,
-    cartToken,
-  );
-  await persistToken(res.cartToken);
-  return res.cart;
+  const body = {
+    productVariantId: input.productVariantId,
+    quantity: input.quantity ?? 1,
+    imageUrl: input.imageUrl,
+  };
+
+  const attempt = async (cartToken: string | null) => {
+    const res = await EShopCartRequest.addItem(slug, body, session, cartToken);
+    await persistToken(res.cartToken);
+    return res.cart;
+  };
+
+  try {
+    return await attempt(await getCartToken());
+  } catch (err) {
+    if (
+      err instanceof EShopApiError &&
+      /convertido/i.test(err.message)
+    ) {
+      await clearCartToken();
+      return attempt(null);
+    }
+    throw err;
+  }
 }
 
 export async function updateCartQtyAction(
@@ -90,7 +102,33 @@ export async function clearCartAction(): Promise<EShopCartDto> {
   const slug = getEShopStoreSlug();
   const session = await getCustomerSessionToken();
   const cartToken = await getCartToken();
-  const res = await EShopCartRequest.clear(slug, session, cartToken);
+  try {
+    const res = await EShopCartRequest.clear(slug, session, cartToken);
+    await persistToken(res.cartToken);
+    return res.cart;
+  } catch (err) {
+    // Carrito convertido / bloqueado: abrir sesión nueva.
+    if (
+      err instanceof EShopApiError &&
+      /convertido|bloqueado/i.test(err.message)
+    ) {
+      await clearCartToken();
+      const res = await EShopCartRequest.get(slug, session, null);
+      await persistToken(res.cartToken);
+      return res.cart;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Descarta el token de carrito (p. ej. tras pedido pagado) y abre uno vacío nuevo.
+ */
+export async function startFreshCartAfterOrderAction(): Promise<EShopCartDto> {
+  await clearCartToken();
+  const slug = getEShopStoreSlug();
+  const session = await getCustomerSessionToken();
+  const res = await EShopCartRequest.get(slug, session, null);
   await persistToken(res.cartToken);
   return res.cart;
 }

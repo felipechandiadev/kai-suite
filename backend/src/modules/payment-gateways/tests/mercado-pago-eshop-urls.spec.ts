@@ -1,5 +1,6 @@
 import {
   buildEshopCheckoutBackUrls,
+  resolveMpPayerEmail,
   resolveMpWebhookNotificationUrl,
 } from '../application/mercado-pago-eshop-urls';
 
@@ -8,6 +9,7 @@ describe('mercado-pago-eshop-urls', () => {
 
   beforeEach(() => {
     process.env = { ...env };
+    delete process.env.MP_SANDBOX_PAYER_EMAIL;
   });
 
   afterAll(() => {
@@ -24,15 +26,27 @@ describe('mercado-pago-eshop-urls', () => {
 
   it('builds checkout back URLs from ESHOP_PUBLIC_SITE_URL', () => {
     process.env.ESHOP_PUBLIC_SITE_URL = 'https://tienda.test';
-    expect(buildEshopCheckoutBackUrls()).toEqual({
-      success: 'https://tienda.test/checkout/confirmacion?paid=1',
-      failure: 'https://tienda.test/checkout?payment=failed',
-      pending: 'https://tienda.test/checkout?payment=pending',
+    expect(buildEshopCheckoutBackUrls('ord-1')).toEqual({
+      success: 'https://tienda.test/checkout/confirmacion?paid=1&orderId=ord-1',
+      failure: 'https://tienda.test/checkout/failure?orderId=ord-1',
+      pending: 'https://tienda.test/checkout/pending?orderId=ord-1',
     });
   });
 
   it('omits back URLs on localhost (MP rejects auto_return)', () => {
     process.env.ESHOP_PUBLIC_SITE_URL = 'http://localhost:5034';
-    expect(buildEshopCheckoutBackUrls()).toBeUndefined();
+    expect(buildEshopCheckoutBackUrls('ord-1')).toBeUndefined();
+  });
+
+  it('forces @testuser.com payer email in sandbox', () => {
+    expect(resolveMpPayerEmail('sandbox', 'cliente@gmail.com')).toBe(
+      'test@testuser.com',
+    );
+  });
+
+  it('keeps real email in production', () => {
+    expect(resolveMpPayerEmail('production', 'cliente@gmail.com')).toBe(
+      'cliente@gmail.com',
+    );
   });
 });

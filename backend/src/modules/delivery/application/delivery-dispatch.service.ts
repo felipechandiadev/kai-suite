@@ -1,13 +1,16 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { EShopDeliveryDispatch } from '../domain/e-shop-delivery-dispatch.entity';
 import { EShopDeliveryStop } from '../domain/e-shop-delivery-stop.entity';
 import { EShopDeliveryOrder } from '../domain/e-shop-delivery-order.entity';
 import { EShopDeliveryOccurrence } from '../domain/e-shop-delivery-occurrence.entity';
 import { DeliveryOrderService } from './delivery-order.service';
 import { ListDeliveryCouriersService } from './list-delivery-couriers.service';
-import type { DeliveryOrderStatus } from '../domain/delivery.types';
+import type {
+  CourierDispatchListItemDto,
+  DeliveryOrderStatus,
+} from '../domain/delivery.types';
 
 @Injectable()
 export class DeliveryDispatchService {
@@ -208,6 +211,170 @@ export class DeliveryDispatchService {
     });
   }
 
+  async listForCourier(
+    companyId: string,
+    userId: string,
+    date: string,
+  ): Promise<CourierDispatchListItemDto[]> {
+    const dispatches = await this.dispatchRepo
+      .createQueryBuilder('d')
+      .innerJoin(
+        EShopDeliveryOccurrence,
+        'o',
+        'o.id = d.occurrenceId AND o.companyId = d.companyId',
+      )
+      .where('d.companyId = :companyId', { companyId })
+      .andWhere('d.driverUserId = :userId', { userId })
+      .andWhere('o.occurrenceDate = :date', { date })
+      .orderBy('o.departureTime', 'ASC')
+      .addOrderBy('d.createdAt', 'ASC')
+      .getMany();
+
+    if (dispatches.length === 0) return [];
+
+    const dispatchIds = dispatches.map((d) => d.id);
+    const occurrenceIds = [...new Set(dispatches.map((d) => d.occurrenceId))];
+
+    const occurrences = await this.occurrenceRepo.find({
+      where: { companyId, id: In(occurrenceIds) },
+    });
+    const occurrenceById = new Map(occurrences.map((o) => [o.id, o]));
+
+    type StopAgg = {
+      dispatchId: string;
+      total: string;
+      visited: string;
+      skipped: string;
+      pending: string;
+    };
+    const stopAggRows: StopAgg[] = await this.stopRepo
+      .createQueryBuilder('s')
+      .select('s.dispatchId', 'dispatchId')
+      .addSelect('COUNT(*)', 'total')
+      .addSelect(`SUM(CASE WHEN s.stopStatus = 'visited' THEN 1 ELSE 0 END)`, 'visited')
+      .addSelect(`SUM(CASE WHEN s.stopStatus = 'skipped' THEN 1 ELSE 0 END)`, 'skipped')
+      .addSelect(`SUM(CASE WHEN s.stopStatus = 'pending' THEN 1 ELSE 0 END)`, 'pending')
+      .where('s.companyId = :companyId', { companyId })
+      .andWhere('s.dispatchId IN (:...dispatchIds)', { dispatchIds })
+      .groupBy('s.dispatchId')
+      .getRawMany();
+
+    const stopAggByDispatch = new Map(
+      stopAggRows.map((row) => [
+        row.dispatchId,
+        {
+          total: Number(row.total) || 0,
+          visited: Number(row.visited) || 0,
+          skipped: Number(row.skipped) || 0,
+          pending: Number(row.pending) || 0,
+        },
+      ]),
+    );
+
+    type OrderAgg = { occurrenceId: string; count: string };
+    const orderAggRows: OrderAgg[] = await this.deliveryOrderRepo
+      .createQueryBuilder('ord')
+      .select('ord.deliveryOccurrenceId', 'occurrenceId')
+      .addSelect('COUNT(*)', 'count')
+      .where('ord.companyId = :companyId', { companyId })
+      .andWhere('ord.deliveryOccurrenceId IN (:...occurrenceIds)', { occurrenceIds })
+      .andWhere(`ord.deliveryStatus <> 'CANCELLED'`)
+      .groupBy('ord.deliveryOccurrenceId')
+      .getRawMany();
+
+    const orderCountByOccurrence = new Map(
+      orderAggRows.map((row) => [row.occurrenceId, Number(row.count) || 0]),
+    );
+
+    type ItemAgg = { dispatch_id: string; item_count: string };
+    const itemAggRows: ItemAgg[] = await this.stopRepo.manager.query(
+      `
+      SELECT d.id AS dispatch_id,
+             COALESCE(SUM(
+               CASE
+                 WHEN tl."productId" IS NOT NULL
+                   AND COALESCE(tl.notes, '') <> 'pos_delivery_shipping'
+                 THEN tl.quantity::numeric
+                 ELSE 0
+               END
+             ), 0)::int AS item_count
+      FROM delivery_dispatches d
+      LEFT JOIN delivery_stops s
+        ON s.dispatch_id = d.id AND s.company_id = d.company_id
+      LEFT JOIN delivery_orders ord ON ord.id = s.delivery_order_id
+      LEFT JOIN transaction_lines tl ON tl."transactionId" = ord.transaction_id
+      WHERE d.company_id = $1 AND d.id = ANY($2::uuid[])
+      GROUP BY d.id
+      `,
+      [companyId, dispatchIds],
+    );
+
+    const itemCountByDispatch = new Map(
+      itemAggRows.map((row) => [row.dispatch_id, Number(row.item_count) || 0]),
+    );
+
+    const dispatchIdsWithoutStops = dispatchIds.filter(
+      (id) => (stopAggByDispatch.get(id)?.total ?? 0) === 0,
+    );
+    if (dispatchIdsWithoutStops.length > 0) {
+      const fallbackItemRows: ItemAgg[] = await this.stopRepo.manager.query(
+        `
+        SELECT d.id AS dispatch_id,
+               COALESCE(SUM(
+                 CASE
+                   WHEN tl."productId" IS NOT NULL
+                     AND COALESCE(tl.notes, '') <> 'pos_delivery_shipping'
+                   THEN tl.quantity::numeric
+                   ELSE 0
+                 END
+               ), 0)::int AS item_count
+        FROM delivery_dispatches d
+        JOIN delivery_orders ord
+          ON ord.delivery_occurrence_id = d.occurrence_id
+         AND ord.company_id = d.company_id
+         AND ord.delivery_status <> 'CANCELLED'
+        LEFT JOIN transaction_lines tl ON tl."transactionId" = ord.transaction_id
+        WHERE d.company_id = $1 AND d.id = ANY($2::uuid[])
+        GROUP BY d.id
+        `,
+        [companyId, dispatchIdsWithoutStops],
+      );
+      for (const row of fallbackItemRows) {
+        itemCountByDispatch.set(row.dispatch_id, Number(row.item_count) || 0);
+      }
+    }
+
+    return dispatches.map((dispatch) => {
+      const occurrence = occurrenceById.get(dispatch.occurrenceId);
+      const stopAgg = stopAggByDispatch.get(dispatch.id);
+      const stopCountFromRoute = stopAgg?.total ?? 0;
+      const orderCount = orderCountByOccurrence.get(dispatch.occurrenceId) ?? 0;
+      const stopCount = stopCountFromRoute > 0 ? stopCountFromRoute : orderCount;
+      const completedStopCount = (stopAgg?.visited ?? 0) + (stopAgg?.skipped ?? 0);
+      const pendingStopCount =
+        stopCountFromRoute > 0
+          ? (stopAgg?.pending ?? 0)
+          : Math.max(stopCount - completedStopCount, 0);
+
+      return {
+        id: dispatch.id,
+        label: dispatch.label,
+        status: dispatch.status,
+        occurrenceId: dispatch.occurrenceId,
+        occurrenceName: occurrence?.name ?? dispatch.label ?? 'Reparto',
+        startedAt: dispatch.startedAt?.toISOString() ?? null,
+        departureTime: occurrence?.departureTime ?? '00:00:00',
+        orderCutoffTime: occurrence?.orderCutoffTime ?? '00:00:00',
+        stopCount,
+        completedStopCount,
+        pendingStopCount,
+        itemCount: itemCountByDispatch.get(dispatch.id) ?? 0,
+        totalDistanceM: dispatch.totalDistanceM,
+        totalDurationS: dispatch.totalDurationS,
+      };
+    });
+  }
+
   async saveOptimizedStops(
     companyId: string,
     dispatchId: string,
@@ -268,12 +435,37 @@ export class DeliveryDispatchService {
     dispatch.startedAt = new Date();
     await this.dispatchRepo.save(dispatch);
 
-    const orders = await this.deliveryOrderRepo.find({
+    if (dispatch.occurrenceId) {
+      const occurrence = await this.occurrenceRepo.findOne({
+        where: { companyId, id: dispatch.occurrenceId },
+      });
+      if (occurrence && occurrence.routeStatus !== 'out') {
+        occurrence.routeStatus = 'out';
+        occurrence.routeStartedAt = occurrence.routeStartedAt ?? new Date();
+        await this.occurrenceRepo.save(occurrence);
+      }
+    }
+
+    const linkedOrders = await this.deliveryOrderRepo.find({
       where: { companyId, deliveryDispatchId: dispatchId },
     });
-    for (const o of orders) {
-      o.deliveryStatus = 'IN_TRANSIT';
-      await this.deliveryOrderRepo.save(o);
+    const stops = await this.stopRepo.find({ where: { companyId, dispatchId } });
+    const orderIds = new Set<string>([
+      ...linkedOrders.map((o) => o.id),
+      ...stops.map((s) => s.deliveryOrderId),
+    ]);
+    for (const orderId of orderIds) {
+      const order =
+        linkedOrders.find((o) => o.id === orderId) ??
+        (await this.deliveryOrderRepo.findOne({ where: { companyId, id: orderId } }));
+      if (!order) continue;
+      if (order.deliveryDispatchId !== dispatchId) {
+        order.deliveryDispatchId = dispatchId;
+        await this.deliveryOrderRepo.save(order);
+      }
+      if (order.deliveryStatus === 'READY_FOR_DISPATCH') {
+        await this.deliveryOrderService.updateStatus(companyId, orderId, 'IN_TRANSIT');
+      }
     }
     return dispatch;
   }

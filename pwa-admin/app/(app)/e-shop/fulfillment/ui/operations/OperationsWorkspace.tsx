@@ -69,6 +69,7 @@ export function OperationsWorkspace({
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const [channelFilter, setChannelFilter] = useState<"ALL" | DeliverySourceChannel>(
     "ALL",
@@ -389,16 +390,23 @@ export function OperationsWorkspace({
               board.occurrence!.id,
             );
             if (!result.success) {
+              setNotice(null);
               setMessage(result.error);
               return;
             }
             setMessage(null);
+            setNotice(
+              typeof result.result?.warning === "string" && result.result.warning.trim()
+                ? result.result.warning
+                : null,
+            );
             router.refresh();
           });
         }}
       />
 
       {message ? <Alert variant="error">{message}</Alert> : null}
+      {notice ? <Alert variant="warning">{notice}</Alert> : null}
 
       {!board.occurrence ? (
         <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 px-6 py-16 text-center">

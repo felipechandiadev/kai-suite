@@ -64,14 +64,30 @@ export class MercadoPagoClient {
     });
     const body = (await res.json().catch(() => ({}))) as T & {
       message?: string;
-      cause?: Array<{ description?: string }>;
+      error?: string;
+      cause?: Array<{ description?: string; code?: string; message?: string }>;
+      errors?: Array<{ message?: string; code?: string; description?: string }>;
     };
     if (!res.ok) {
+      const fromCause =
+        body.cause?.[0]?.description ||
+        body.cause?.[0]?.message ||
+        body.errors?.[0]?.message ||
+        body.errors?.[0]?.description;
       const detail =
-        body.message ??
-        body.cause?.[0]?.description ??
+        (typeof body.message === 'string' && body.message.trim()
+          ? body.message.trim()
+          : null) ||
+        (typeof body.error === 'string' && body.error.trim()
+          ? body.error.trim()
+          : null) ||
+        fromCause ||
         `Mercado Pago HTTP ${res.status}`;
-      throw new BadRequestException(`Mercado Pago: ${detail}`);
+      const extra =
+        body.cause?.length || body.errors?.length
+          ? ` | ${JSON.stringify(body.cause ?? body.errors)}`
+          : '';
+      throw new BadRequestException(`Mercado Pago: ${detail}${extra}`);
     }
     return body;
   }

@@ -16,7 +16,7 @@ export class OsrmHttpClient {
     baseUrl?: string | null,
   ): Promise<OsrmTripResult | null> {
     if (coords.length < 2) return null;
-    const urlBase = (baseUrl || process.env.OSRM_URL || 'http://localhost:5000').replace(/\/$/, '');
+    const urlBase = (baseUrl || process.env.OSRM_URL || 'http://localhost:5001').replace(/\/$/, '');
     const coordStr = coords.map((c) => `${c.lng},${c.lat}`).join(';');
     const url = `${urlBase}/trip/v1/driving/${coordStr}?source=first&roundtrip=false&geometries=geojson&overview=full`;
 

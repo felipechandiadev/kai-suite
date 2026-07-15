@@ -215,4 +215,12 @@ export class EShopPublicController {
       authenticatedCustomerId: session?.customerId,
     });
   }
+
+  @Post('checkout/resume-payment')
+  resumePayment(
+    @EShopStore() store: EShopStoreContext,
+    @Body() body: { orderId?: string },
+  ) {
+    return this.checkoutOrder.resumeOnlinePayment(store, body.orderId ?? '');
+  }
 }

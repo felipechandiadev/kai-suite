@@ -152,7 +152,10 @@ export class BackorderRegistrationService {
           variantName: tl.variantName,
           quantity: saleQty > 0 ? saleQty : baseQty,
           quantityInBase: baseQty,
-          unitOfMeasure: tl.unitOfMeasure,
+          unitOfMeasure:
+            typeof tl.unitOfMeasure === 'string' && tl.unitOfMeasure.trim()
+              ? tl.unitOfMeasure.trim().slice(0, 20)
+              : 'u',
           unitPrice: 0,
           subtotal: 0,
           total: 0,
