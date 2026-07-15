@@ -81,6 +81,7 @@ import { EShopDeliveryZone } from '@modules/delivery/domain/e-shop-delivery-zone
 import { EShopDeliveryOccurrence } from '@modules/delivery/domain/e-shop-delivery-occurrence.entity';
 import { EShopDeliveryOccurrenceZone } from '@modules/delivery/domain/e-shop-delivery-occurrence-zone.entity';
 import { EShopDeliveryOrder } from '@modules/delivery/domain/e-shop-delivery-order.entity';
+import { EShopDeliveryOrderLinePick } from '@modules/delivery/domain/e-shop-delivery-order-line-pick.entity';
 import { EShopDeliveryDispatch } from '@modules/delivery/domain/e-shop-delivery-dispatch.entity';
 import { EShopDeliveryStop } from '@modules/delivery/domain/e-shop-delivery-stop.entity';
 import { EShopDeliverySettings } from '@modules/delivery/domain/e-shop-delivery-settings.entity';
@@ -188,6 +189,7 @@ export const typeOrmConfig = (
       EShopDeliveryOccurrence,
       EShopDeliveryOccurrenceZone,
       EShopDeliveryOrder,
+      EShopDeliveryOrderLinePick,
       EShopDeliveryDispatch,
       EShopDeliveryStop,
       EShopDeliverySettings,

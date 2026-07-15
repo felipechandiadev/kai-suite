@@ -60,7 +60,7 @@ export class CourierController {
 
   @Post('repartos')
   async listRepartos(@Body() body: { userId: string; companyId: string; date?: string }) {
-    const date = body.date ?? new Date().toISOString().slice(0, 10);
+    const date = body.date ?? this.todayIsoSantiago();
     return this.dispatchRepo
       .createQueryBuilder('d')
       .innerJoin('delivery_occurrences', 'o', 'o.id = d.occurrence_id')
@@ -69,6 +69,20 @@ export class CourierController {
       .andWhere('o.occurrence_date = :date', { date })
       .orderBy('d.created_at', 'ASC')
       .getMany();
+  }
+
+  /** Día calendario Chile (evita desfase UTC cerca de medianoche). */
+  private todayIsoSantiago(): string {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Santiago',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+    const y = parts.find((p) => p.type === 'year')?.value ?? '1970';
+    const m = parts.find((p) => p.type === 'month')?.value ?? '01';
+    const d = parts.find((p) => p.type === 'day')?.value ?? '01';
+    return `${y}-${m}-${d}`;
   }
 
   @Post('repartos/:id/stops')
@@ -87,17 +101,28 @@ export class CourierController {
         ? await this.deliveryOrderService.findByIds(body.companyId, orderIds)
         : [];
     const orderMap = new Map(orders.map((o) => [o.id, o]));
-    return stops.map((s) => {
-      const order = orderMap.get(s.deliveryOrderId);
-      return {
-        ...s,
-        customerName: order?.customerName ?? null,
-        customerPhone: order?.customerPhone ?? null,
-        addressLine1: order?.addressLine1 ?? null,
-        commune: order?.commune ?? null,
-        notes: order?.notes ?? null,
-      };
-    });
+    return {
+      dispatch: {
+        id: dispatch.id,
+        label: dispatch.label,
+        status: dispatch.status,
+        startedAt: dispatch.startedAt,
+        routeGeometry: dispatch.routeGeometry ?? null,
+        totalDistanceM: dispatch.totalDistanceM,
+        totalDurationS: dispatch.totalDurationS,
+      },
+      stops: stops.map((s) => {
+        const order = orderMap.get(s.deliveryOrderId);
+        return {
+          ...s,
+          customerName: order?.customerName ?? null,
+          customerPhone: order?.customerPhone ?? null,
+          addressLine1: order?.addressLine1 ?? null,
+          commune: order?.commune ?? null,
+          notes: order?.notes ?? null,
+        };
+      }),
+    };
   }
 
   @Post('repartos/:id/start')

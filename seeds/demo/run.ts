@@ -2588,6 +2588,7 @@ async function bootstrap() {
           documentType: DocumentType.RUT,
           documentNumber: params.documentNumber,
           email: params.email,
+          ...(params.companyId ? { companyId: params.companyId } : { companyId: company.id }),
         });
         const savedPerson = await personRepo.save(personEntity);
 
@@ -2680,15 +2681,41 @@ async function bootstrap() {
       documentNumber: '33333333-3',
     });
 
+    await ensureSeedUser({
+      userName: 'delivery1',
+      password: seedPassword,
+      rol: UserRole.COURIER,
+      companyId: company.id,
+      nonDeletable: false,
+      firstName: 'Repartidor',
+      lastName: 'Uno',
+      email: 'delivery1@kai.local',
+      documentNumber: '44444444-4',
+    });
+
+    await ensureSeedUser({
+      userName: 'delivery2',
+      password: seedPassword,
+      rol: UserRole.COURIER,
+      companyId: company.id,
+      nonDeletable: false,
+      firstName: 'Repartidor',
+      lastName: 'Dos',
+      email: 'delivery2@kai.local',
+      documentNumber: '55555555-5',
+    });
+
     await seedDemoDeliveryCalendar({
       dataSource,
       companyId: company.id,
     });
 
-    console.log('✅ Seed mínimo OK. Tres usuarios listos:');
+    console.log('✅ Seed mínimo OK. Usuarios listos:');
     console.log(`   • superadmin / ${seedPassword}   (SUPER_ADMIN, protegido)`);
     console.log(`   • ${userName} / ${seedPassword}        (ADMIN de la empresa)`);
     console.log(`   • operador / ${seedPassword}    (OPERATOR de la empresa)`);
+    console.log(`   • delivery1 / ${seedPassword}   (COURIER / repartidor)`);
+    console.log(`   • delivery2 / ${seedPassword}   (COURIER / repartidor)`);
     console.log(
       `   • Empresas en BD: «${SEED_DEV_COMPANY.nombreFantasia}» (${SEED_DEV_COMPANY.rut}, eShop demo) + «${SEED_DEV_COMPANY_SECOND.nombreFantasia}» (${SEED_DEV_COMPANY_SECOND.rut}, eShop ${SEED_DEV_COMPANY_SECOND_ESHOP_SLUG})`,
     );

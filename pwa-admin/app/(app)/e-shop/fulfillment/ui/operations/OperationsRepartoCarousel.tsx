@@ -10,12 +10,7 @@ import type {
 } from "@/features/e-shop-delivery/types/delivery.types";
 import { CALENDAR_ROUTE } from "./operations-board-params";
 import { OperationsChip } from "./OperationsChip";
-import {
-  evaluateRepartoStartReadinessFromCounts,
-  isCutoffOpen,
-  totalOrderCount,
-  type RepartoStartReadiness,
-} from "./operations.utils";
+import { isCutoffOpen, totalOrderCount } from "./operations.utils";
 
 const ROUTE_STATUS_LABELS: Record<string, string> = {
   planned: "Planificado",
@@ -35,28 +30,24 @@ type OperationsRepartoCarouselProps = {
   repartos: DeliveryOccurrenceRow[];
   activeOccurrenceId?: string | null;
   activeOccurrence?: DeliveryOperationsOccurrence | null;
-  boardTotals?: Partial<Record<string, number>>;
   drivers: DeliveryDriverRow[];
   pending?: boolean;
   disabled?: boolean;
   onSelect: (occurrenceId: string) => void;
   onDriverChange: (driverUserId: string | null) => void;
   onOptimizeRoute: () => void;
-  onStartRoute: () => void;
 };
 
 export function OperationsRepartoCarousel({
   repartos,
   activeOccurrenceId,
   activeOccurrence,
-  boardTotals,
   drivers,
   pending = false,
   disabled = false,
   onSelect,
   onDriverChange,
   onOptimizeRoute,
-  onStartRoute,
 }: OperationsRepartoCarouselProps) {
   const activeCardRef = useRef<HTMLDivElement | null>(null);
   const activeRepartos = repartos.filter((reparto) => !reparto.isCancelled);
@@ -113,7 +104,6 @@ export function OperationsRepartoCarousel({
         const zones = useRich ? activeOccurrence!.zones : reparto.zones;
         const totalDistanceM = useRich ? activeOccurrence!.totalDistanceM : null;
         const totalDurationS = useRich ? activeOccurrence!.totalDurationS : null;
-        const stopCount = useRich ? activeOccurrence!.stopCount : 0;
 
         const orderTotal = useRich
           ? totalOrderCount(activeOccurrence!.orderCounts)
@@ -125,25 +115,6 @@ export function OperationsRepartoCarousel({
         const visibleZones = zones.slice(0, 3);
         const extraZones = zones.length - visibleZones.length;
         const canOptimize = STARTABLE_ROUTE_STATUSES.includes(routeStatus);
-        const orderCounts =
-          isActive && boardTotals
-            ? boardTotals
-            : useRich
-              ? activeOccurrence!.orderCounts
-              : {};
-        const hasOptimizedRoute =
-          routeStatus === "route_ready" ||
-          totalDistanceM != null ||
-          stopCount > 0;
-        const startReadiness: RepartoStartReadiness =
-          evaluateRepartoStartReadinessFromCounts({
-            orderCounts,
-            stopCount: hasOptimizedRoute ? stopCount || 1 : 0,
-            driverUserId,
-            routeStatus,
-          });
-        const showStartAction =
-          isActive && STARTABLE_ROUTE_STATUSES.includes(routeStatus);
 
         if (isActive) {
           return (
@@ -227,27 +198,8 @@ export function OperationsRepartoCarousel({
                       Optimizar ruta
                     </Button>
                   ) : null}
-                  {showStartAction ? (
-                    <Button
-                      type="button"
-                      variant="primary"
-                      size="sm"
-                      disabled={pending || !startReadiness.canStart}
-                      onClick={onStartRoute}
-                    >
-                      Iniciar reparto
-                    </Button>
-                  ) : null}
                 </div>
               </div>
-
-              {showStartAction &&
-              !startReadiness.canStart &&
-              startReadiness.reason ? (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {startReadiness.reason}
-                </p>
-              ) : null}
 
               {totalDistanceM != null ? (
                 <p className="mt-2 text-xs text-muted-foreground">

@@ -20,6 +20,8 @@ export class DeliveryOrderService {
     transactionId: string;
     fulfillmentType: 'PICKUP' | 'LOCAL_DELIVERY';
     sourceChannel?: 'POS' | 'ESHOP';
+    /** Default SUBMITTED (eShop). POS cobrado debe usar CONFIRMED. */
+    deliveryStatus?: DeliveryOrderStatus;
     deliveryZoneId?: string | null;
     deliveryOccurrenceId?: string | null;
     addressLine1?: string | null;
@@ -49,7 +51,7 @@ export class DeliveryOrderService {
         customerName: input.customerName ?? null,
         customerPhone: input.customerPhone ?? null,
         notes: input.notes ?? null,
-        deliveryStatus: 'SUBMITTED',
+        deliveryStatus: input.deliveryStatus ?? 'SUBMITTED',
       }),
     );
 
@@ -82,6 +84,8 @@ export class DeliveryOrderService {
       ...input,
       fulfillmentType: 'LOCAL_DELIVERY',
       sourceChannel: 'POS',
+      // Venta ya cobrada en caja: entra directo al tablero operativo.
+      deliveryStatus: 'CONFIRMED',
     });
   }
 

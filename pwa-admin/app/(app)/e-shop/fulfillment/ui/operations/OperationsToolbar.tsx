@@ -24,7 +24,6 @@ type OperationsToolbarProps = {
   onRepartoChange: (occurrenceId: string) => void;
   onDriverChange: (driverUserId: string | null) => void;
   onOptimizeRoute: () => void;
-  onStartRoute: () => void;
 };
 
 export function OperationsToolbar({
@@ -39,7 +38,6 @@ export function OperationsToolbar({
   onRepartoChange,
   onDriverChange,
   onOptimizeRoute,
-  onStartRoute,
 }: OperationsToolbarProps) {
   const totalOrders = totalActiveOrders(board);
 
@@ -98,14 +96,12 @@ export function OperationsToolbar({
         repartos={repartos.filter((reparto) => reparto.occurrenceDate === date)}
         activeOccurrenceId={activeOccurrenceId ?? board.occurrence?.id ?? null}
         activeOccurrence={board.occurrence}
-        boardTotals={board.totals}
         drivers={drivers}
         pending={pending}
         disabled={disabled}
         onSelect={onRepartoChange}
         onDriverChange={onDriverChange}
         onOptimizeRoute={onOptimizeRoute}
-        onStartRoute={onStartRoute}
       />
     </div>
   );

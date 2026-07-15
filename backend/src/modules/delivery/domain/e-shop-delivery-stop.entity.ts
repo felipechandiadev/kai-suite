@@ -44,7 +44,7 @@ export class EShopDeliveryStop {
   @Column({ name: 'visited_at', type: 'timestamptz', nullable: true })
   visitedAt!: Date | null;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ name: 'issue_note', type: 'text', nullable: true })
   issueNote!: string | null;
 
   @CreateDateColumn({ name: 'created_at' })

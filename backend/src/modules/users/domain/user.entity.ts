@@ -31,7 +31,7 @@ export enum UserRole {
    */
   OPERATOR = 'OPERATOR',
   /**
-   * Repartidor de pedidos e-shop (app kai-courier).
+   * Repartidor de pedidos de delivery (app kai-delivery).
    */
   COURIER = 'COURIER',
 }

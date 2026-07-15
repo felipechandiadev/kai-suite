@@ -65,8 +65,13 @@ export class DeliveryOperationsBoardService {
       if (!selected) {
         throw new NotFoundException('Reparto no encontrado para operación');
       }
+      // Deep-link / carousel sin date coherente: usar la fecha de la franja.
       if (selected.occurrenceDate !== date) {
-        throw new NotFoundException('El reparto no corresponde a la fecha indicada');
+        return this.getBoard(companyId, {
+          date: selected.occurrenceDate,
+          occurrenceId: selected.id,
+          search: input.search,
+        });
       }
     } else {
       selected = dayOccurrences[0] ?? null;

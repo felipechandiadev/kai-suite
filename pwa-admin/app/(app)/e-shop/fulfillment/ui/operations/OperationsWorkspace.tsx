@@ -13,7 +13,6 @@ import {
   assignDeliveryOccurrenceDriverAction,
   optimizeDeliveryOccurrenceRouteAction,
   pickAllDeliveryOrderLinesAction,
-  startDeliveryOccurrenceRouteAction,
   toggleDeliveryOrderLinePickedAction,
   updateDeliveryOrderStatusAction,
 } from "@/features/e-shop-delivery/actions/delivery.action";
@@ -387,20 +386,6 @@ export function OperationsWorkspace({
           if (!board.occurrence) return;
           startTransition(async () => {
             const result = await optimizeDeliveryOccurrenceRouteAction(
-              board.occurrence!.id,
-            );
-            if (!result.success) {
-              setMessage(result.error);
-              return;
-            }
-            setMessage(null);
-            router.refresh();
-          });
-        }}
-        onStartRoute={() => {
-          if (!board.occurrence) return;
-          startTransition(async () => {
-            const result = await startDeliveryOccurrenceRouteAction(
               board.occurrence!.id,
             );
             if (!result.success) {
