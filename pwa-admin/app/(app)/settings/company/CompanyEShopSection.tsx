@@ -52,13 +52,13 @@ export function CompanyEShopSection({ company }: Props) {
           className="text-primary underline-offset-2 hover:underline"
         >
           Encargos y envíos → Métodos
-        </Link>{" "}
-        y{" "}
+        </Link>
+        . Motor de reparto (bodega, zonas, calendario):{" "}
         <Link
-          href="/e-shop/fulfillment/configuracion"
+          href="/reparto/configuracion"
           className="text-primary underline-offset-2 hover:underline"
         >
-          Configuración
+          Delivery → Configuración
         </Link>
         .
       </p>

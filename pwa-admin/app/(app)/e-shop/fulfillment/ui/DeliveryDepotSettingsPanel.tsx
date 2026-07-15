@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Alert, Button, TextField, LocationPicker } from "@kai/ui";
+import { Alert, Button, Switch, TextField, LocationPicker } from "@kai/ui";
 import { updateDeliverySettingsAction } from "@/features/e-shop-delivery/actions/delivery.action";
 import type { DeliverySettingsRow } from "@/features/e-shop-delivery/types/delivery.types";
 
@@ -17,6 +17,9 @@ export function DeliveryDepotSettingsPanel({
   const [depotLat, setDepotLat] = useState<number | null>(initialSettings.depotLat ?? null);
   const [depotLng, setDepotLng] = useState<number | null>(initialSettings.depotLng ?? null);
   const [osrmUrl, setOsrmUrl] = useState(initialSettings.osrmUrl ?? "");
+  const [localDeliveryEnabled, setLocalDeliveryEnabled] = useState(
+    initialSettings.localDeliveryEnabled === true,
+  );
   const [busy, setBusy] = useState(false);
   const hasCoords =
     typeof depotLat === "number" &&
@@ -35,18 +38,28 @@ export function DeliveryDepotSettingsPanel({
           depotLat,
           depotLng,
           osrmUrl: osrmUrl || null,
+          localDeliveryEnabled,
         })
           .then(() => router.refresh())
           .finally(() => setBusy(false));
       }}
     >
       <h2 className="font-semibold">Bodega y ruteo (Maule)</h2>
+      <Switch
+        label="Motor de reparto local"
+        checked={localDeliveryEnabled}
+        onChange={setLocalDeliveryEnabled}
+      />
+      <p className="text-xs text-muted-foreground">
+        Muestra el menú Delivery en admin y habilita captura en POS. La oferta en checkout eShop se
+        controla aparte en Métodos.
+      </p>
       <Alert variant="info">
-        La habilitación de <strong>Reparto local</strong> en checkout se controla en{" "}
+        Checkout web:{" "}
         <Link href="/e-shop/fulfillment/metodos" className="underline underline-offset-2">
-          Métodos
+          eShop → Métodos
         </Link>
-        . Aquí solo configuras bodega, coordenadas y OSRM.
+        .
       </Alert>
       <TextField
         label="Dirección bodega"

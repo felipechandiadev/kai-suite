@@ -156,7 +156,7 @@ import { PosSyncModule } from './modules/pos-sync/pos-sync.module';
     // analytics dashboard module
     require('./modules/analytics/analytics.module').AnalyticsModule,
     require('./modules/e-shop/e-shop.module').EShopModule,
-    require('./modules/e-shop-delivery/e-shop-delivery.module').EShopDeliveryModule,
+    require('./modules/delivery/delivery.module').DeliveryModule,
     ObservabilityModule,
     CacheModule,
   ],

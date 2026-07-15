@@ -12,7 +12,7 @@ import type {
 function revalidateFulfillmentPaths() {
   revalidatePath("/e-shop/fulfillment");
   revalidatePath("/e-shop/fulfillment/metodos");
-  revalidatePath("/e-shop/fulfillment/reparto");
+  revalidatePath("/reparto/configuracion");
 }
 
 export async function listFulfillmentMethodsAction() {

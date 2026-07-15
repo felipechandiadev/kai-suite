@@ -1,10 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { EShopDeliveryDispatch } from '@modules/e-shop-delivery/domain/e-shop-delivery-dispatch.entity';
-import { EShopDeliveryOrder } from '@modules/e-shop-delivery/domain/e-shop-delivery-order.entity';
-import { EShopDeliverySettings } from '@modules/e-shop-delivery/domain/e-shop-delivery-settings.entity';
-import { DeliveryDispatchService } from '@modules/e-shop-delivery/application/delivery-dispatch.service';
+import { EShopDeliveryDispatch } from '@modules/delivery/domain/e-shop-delivery-dispatch.entity';
+import { EShopDeliveryOrder } from '@modules/delivery/domain/e-shop-delivery-order.entity';
+import { EShopDeliverySettings } from '@modules/delivery/domain/e-shop-delivery-settings.entity';
+import { DeliveryDispatchService } from '@modules/delivery/application/delivery-dispatch.service';
 import { OsrmHttpClient } from './osrm-http.client';
 
 @Injectable()

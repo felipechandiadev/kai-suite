@@ -81,6 +81,12 @@ const nextConfig: NextConfig = {
       { source: '/inventory/categories/:path*', destination: '/catalog/categories/:path*', permanent: true },
       { source: '/inventory/attributes', destination: '/catalog/attributes', permanent: true },
       { source: '/inventory/attributes/:path*', destination: '/catalog/attributes/:path*', permanent: true },
+      { source: '/e-shop/fulfillment/operacion', destination: '/reparto/repartos', permanent: true },
+      { source: '/e-shop/fulfillment/calendario', destination: '/reparto/calendario', permanent: true },
+      { source: '/e-shop/fulfillment/zonas', destination: '/reparto/zonas', permanent: true },
+      { source: '/e-shop/fulfillment/cobertura', destination: '/reparto/cobertura', permanent: true },
+      { source: '/e-shop/fulfillment/configuracion', destination: '/reparto/configuracion', permanent: true },
+      { source: '/e-shop/fulfillment/reparto', destination: '/reparto/configuracion', permanent: true },
     ];
   },
 };

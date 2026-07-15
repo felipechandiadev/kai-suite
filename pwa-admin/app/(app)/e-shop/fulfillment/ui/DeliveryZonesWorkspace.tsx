@@ -242,7 +242,7 @@ export function DeliveryZonesWorkspace({
         {enabledCodes.size === 0 ? (
           <Alert variant="warning">
             Configura primero las comunas habilitadas en{" "}
-            <Link href="/e-shop/fulfillment/cobertura" className="font-medium underline">
+            <Link href="/reparto/cobertura" className="font-medium underline">
               Cobertura
             </Link>{" "}
             antes de definir zonas de reparto.

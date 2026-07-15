@@ -27,10 +27,10 @@ const METHOD_COPY: Record<
       <>
         Usa la sucursal y almacén definidos en{" "}
         <Link
-          href="/e-shop/fulfillment/configuracion"
+          href="/e-shop/fulfillment/metodos#configuracion-tienda"
           className="text-primary underline-offset-2 hover:underline"
         >
-          Configuración
+          Configuración de tienda
         </Link>
         .
       </>
@@ -42,20 +42,20 @@ const METHOD_COPY: Record<
     configHint: (
       <>
         Requiere{" "}
-        <Link href="/e-shop/fulfillment/cobertura" className="text-primary underline-offset-2 hover:underline">
+        <Link href="/reparto/cobertura" className="text-primary underline-offset-2 hover:underline">
           Cobertura
         </Link>
         ,{" "}
-        <Link href="/e-shop/fulfillment/zonas" className="text-primary underline-offset-2 hover:underline">
+        <Link href="/reparto/zonas" className="text-primary underline-offset-2 hover:underline">
           Zonas
         </Link>
         ,{" "}
-        <Link href="/e-shop/fulfillment/calendario" className="text-primary underline-offset-2 hover:underline">
+        <Link href="/reparto/calendario" className="text-primary underline-offset-2 hover:underline">
           Calendario
         </Link>{" "}
         y{" "}
-        <Link href="/e-shop/fulfillment/reparto" className="text-primary underline-offset-2 hover:underline">
-          Reparto
+        <Link href="/reparto/configuracion" className="text-primary underline-offset-2 hover:underline">
+          Configuración de reparto
         </Link>
         .
       </>

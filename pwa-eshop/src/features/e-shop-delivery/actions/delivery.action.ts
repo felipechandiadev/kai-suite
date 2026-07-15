@@ -11,7 +11,7 @@ import type {
 } from "../types/delivery.types";
 
 export async function fetchDeliveryCoverageAction() {
-  return EShopRequest.get<DeliveryCoverageResponse>(getEShopStoreSlug(), "/e-shop/delivery/coverage");
+  return EShopRequest.get<DeliveryCoverageResponse>(getEShopStoreSlug(), "/delivery/public/coverage");
 }
 
 export async function geocodeDeliveryAddressAction(body: {
@@ -21,7 +21,7 @@ export async function geocodeDeliveryAddressAction(body: {
 }) {
   return EShopRequest.post<DeliveryGeocodeResult>(
     getEShopStoreSlug(),
-    "/e-shop/delivery/geocode",
+    "/delivery/public/geocode",
     body,
   );
 }
@@ -34,7 +34,7 @@ export async function resolveDeliveryZoneAction(body: {
 }) {
   return EShopRequest.post<{ zone: ResolvedDeliveryZone | null; covered: boolean }>(
     getEShopStoreSlug(),
-    "/e-shop/delivery/resolve-zone",
+    "/delivery/public/resolve-zone",
     body,
   );
 }
@@ -42,13 +42,13 @@ export async function resolveDeliveryZoneAction(body: {
 export async function fetchDeliveryQuoteAction(zoneId: string, subtotal: number) {
   return EShopRequest.get<DeliveryQuoteResult>(
     getEShopStoreSlug(),
-    `/e-shop/delivery/quote?zoneId=${encodeURIComponent(zoneId)}&subtotal=${encodeURIComponent(String(subtotal))}`,
+    `/delivery/public/quote?zoneId=${encodeURIComponent(zoneId)}&subtotal=${encodeURIComponent(String(subtotal))}`,
   );
 }
 
 export async function fetchDeliveryOccurrencesAction(zoneId: string) {
   return EShopRequest.get<DeliveryOccurrenceOption[]>(
     getEShopStoreSlug(),
-    `/e-shop/delivery/available-occurrences?zoneId=${encodeURIComponent(zoneId)}`,
+    `/delivery/public/available-occurrences?zoneId=${encodeURIComponent(zoneId)}`,
   );
 }

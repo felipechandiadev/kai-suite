@@ -22,6 +22,7 @@ import type {
   DeliveryOccurrenceRow,
   DeliveryOperationsBoard,
   DeliveryOperationsStatus,
+  DeliverySourceChannel,
 } from "@/features/e-shop-delivery/types/delivery.types";
 import { OperationsBatchBar } from "./OperationsBatchBar";
 import { OperationsKanbanBoard } from "./OperationsKanbanBoard";
@@ -70,6 +71,9 @@ export function OperationsWorkspace({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState<string | null>(null);
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+  const [channelFilter, setChannelFilter] = useState<"ALL" | DeliverySourceChannel>(
+    "ALL",
+  );
 
   const [searchInput, setSearchInput] = useState(searchQuery);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -117,11 +121,38 @@ export function OperationsWorkspace({
     pushSearch("");
   }, [pushSearch]);
 
-  const allOrders = Object.values(board.ordersByStatus)
+  const filteredBoard: DeliveryOperationsBoard = (() => {
+    if (channelFilter === "ALL") return board;
+    const ordersByStatus: DeliveryOperationsBoard["ordersByStatus"] = {};
+    const totals: DeliveryOperationsBoard["totals"] = {};
+    for (const [status, orders] of Object.entries(board.ordersByStatus)) {
+      const filtered = (orders ?? []).filter(
+        (order) => (order.sourceChannel ?? "ESHOP") === channelFilter,
+      );
+      if (filtered.length > 0) {
+        ordersByStatus[status] = filtered;
+        totals[status] = filtered.length;
+      }
+    }
+    return { ...board, ordersByStatus, totals };
+  })();
+
+  const allOrders = Object.values(filteredBoard.ordersByStatus)
     .flat()
     .filter((order): order is NonNullable<typeof order> => order != null);
   const selectedOrders = allOrders.filter((order) => selected.has(order.id));
-  const matchedOrdersCount = totalActiveOrders(board);
+  const matchedOrdersCount = totalActiveOrders(filteredBoard);
+
+  const channelCounts = (() => {
+    const all = Object.values(board.ordersByStatus)
+      .flat()
+      .filter((order): order is NonNullable<typeof order> => order != null);
+    return {
+      ALL: all.length,
+      POS: all.filter((o) => (o.sourceChannel ?? "ESHOP") === "POS").length,
+      ESHOP: all.filter((o) => (o.sourceChannel ?? "ESHOP") === "ESHOP").length,
+    };
+  })();
 
   const batchNextStatus: DeliveryOperationsStatus | null = (() => {
     if (selectedOrders.length === 0) return null;
@@ -234,30 +265,60 @@ export function OperationsWorkspace({
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-lg font-semibold tracking-tight text-foreground">
-            Operación
+            Repartos
           </h1>
         </div>
-        <div className="w-full shrink-0 sm:w-72">
-          <TextField
-            label="Buscar"
-            name="operations-search"
-            value={searchInput}
-            onChange={handleSearchChange}
-            placeholder="Buscar"
-            startAdornment={
-              <Search className="h-4 w-4 shrink-0 text-secondary" aria-hidden />
-            }
-            density="compact"
-            disabled={pending}
-            className="w-full"
-            data-test-id="operations-search-input"
-            onKeyDown={(event) => {
-              if (event.key === "Escape" && searchInput) {
-                event.preventDefault();
-                clearSearch();
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
+          <div
+            className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-card p-0.5"
+            role="group"
+            aria-label="Filtrar por canal"
+            data-test-id="repartos-channel-filter"
+          >
+            {(
+              [
+                { id: "ALL", label: "Todos" },
+                { id: "POS", label: "POS" },
+                { id: "ESHOP", label: "eShop" },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setChannelFilter(opt.id)}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  channelFilter === opt.id
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                {opt.label}
+                <span className="ml-1 opacity-70">{channelCounts[opt.id]}</span>
+              </button>
+            ))}
+          </div>
+          <div className="w-full shrink-0 sm:w-72">
+            <TextField
+              label="Buscar"
+              name="operations-search"
+              value={searchInput}
+              onChange={handleSearchChange}
+              placeholder="Buscar"
+              startAdornment={
+                <Search className="h-4 w-4 shrink-0 text-secondary" aria-hidden />
               }
-            }}
-          />
+              density="compact"
+              disabled={pending}
+              className="w-full"
+              data-test-id="operations-search-input"
+              onKeyDown={(event) => {
+                if (event.key === "Escape" && searchInput) {
+                  event.preventDefault();
+                  clearSearch();
+                }
+              }}
+            />
+          </div>
         </div>
       </header>
 
@@ -284,7 +345,7 @@ export function OperationsWorkspace({
       ) : null}
 
       <OperationsToolbar
-        board={board}
+        board={filteredBoard}
         repartos={initialOccurrences.filter(
           (reparto) => (reparto.kind ?? "LOCAL_DELIVERY") === "LOCAL_DELIVERY",
         )}
@@ -366,7 +427,7 @@ export function OperationsWorkspace({
       ) : (
         <>
           <OperationsKanbanBoard
-            board={board}
+            board={filteredBoard}
             selected={selected}
             pending={pending}
             pendingOrderId={pendingOrderId}

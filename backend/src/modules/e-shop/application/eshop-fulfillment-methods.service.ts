@@ -6,9 +6,9 @@ import {
   type EShopFulfillmentMethodType,
 } from '../domain/e-shop-fulfillment-method.entity';
 import type { EShopFulfillmentMethodSnapshot } from '@modules/transactions/domain/transaction-eshop-order.metadata';
-import { DeliveryCoverageService } from '@modules/e-shop-delivery/application/delivery-coverage.service';
-import { DeliveryZoneService } from '@modules/e-shop-delivery/application/delivery-zone.service';
-import { DeliveryOccurrenceService } from '@modules/e-shop-delivery/application/delivery-occurrence.service';
+import { DeliveryCoverageService } from '@modules/delivery/application/delivery-coverage.service';
+import { DeliveryZoneService } from '@modules/delivery/application/delivery-zone.service';
+import { DeliveryOccurrenceService } from '@modules/delivery/application/delivery-occurrence.service';
 
 export const CANONICAL_FULFILLMENT_CODES = ['pickup', 'local-delivery'] as const;
 export type CanonicalFulfillmentCode = (typeof CANONICAL_FULFILLMENT_CODES)[number];

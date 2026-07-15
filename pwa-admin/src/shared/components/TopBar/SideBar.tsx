@@ -32,6 +32,8 @@ export interface SideBarMenuItem {
   requiresChecksEnabled?: boolean;
   /** Solo visible si el módulo eShop está activo en env y `settings.eShopEnabled` es true. */
   requiresEShopEnabled?: boolean;
+  /** Solo visible si el motor de reparto local está activo (`localDeliveryEnabled`). */
+  requiresLocalDeliveryEnabled?: boolean;
   /** Solo visible si el despliegue incluye módulo joyería. */
   requiresJewelryEnabled?: boolean;
   /** Solo visible en despliegues multi-empresa. */
@@ -66,6 +68,7 @@ function filterVisibleMenuItems(
   role: string | null | undefined,
   checksEnabled: boolean,
   eShopEnabled: boolean,
+  localDeliveryEnabled: boolean,
   jewelryEnabled: boolean,
   multiCompanyEnabled: boolean,
 ): SideBarMenuItem[] {
@@ -80,6 +83,9 @@ function filterVisibleMenuItems(
     if (item.requiresEShopEnabled && !eShopEnabled) {
       return [];
     }
+    if (item.requiresLocalDeliveryEnabled && !localDeliveryEnabled) {
+      return [];
+    }
     if (item.requiresJewelryEnabled && !jewelryEnabled) {
       return [];
     }
@@ -92,6 +98,7 @@ function filterVisibleMenuItems(
         role,
         checksEnabled,
         eShopEnabled,
+        localDeliveryEnabled,
         jewelryEnabled,
         multiCompanyEnabled,
       );
@@ -123,7 +130,7 @@ const SideBar: React.FC<SideBarProps> = ({
   onOpenChangePassword,
 }) => {
   const { data: session } = useSession();
-  const { company } = useCompany();
+  const { company, localDeliveryEnabled } = useCompany();
   const checksEnabled = isCompanyChecksEnabledFromSettings(company?.settings);
   const eShopEnabled =
     isEShopModuleEnabled() &&
@@ -318,6 +325,7 @@ const SideBar: React.FC<SideBarProps> = ({
             (session?.user?.role as string | undefined) ?? null,
             checksEnabled,
             eShopEnabled,
+            localDeliveryEnabled,
             jewelryEnabled,
             multiCompanyEnabled,
           ).map((item, idx) => renderMenuItem(item, idx))}

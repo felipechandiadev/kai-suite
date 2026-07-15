@@ -159,11 +159,11 @@ export function DeliveryRepartoCard({
           ) : null}
           {!isPickup ? (
             <Link
-              href={`/e-shop/fulfillment/operacion?date=${encodeURIComponent(occurrence.occurrenceDate)}&occurrenceId=${encodeURIComponent(occurrence.id)}`}
+              href={`/reparto/repartos?date=${encodeURIComponent(occurrence.occurrenceDate)}&occurrenceId=${encodeURIComponent(occurrence.id)}`}
               onClick={(e) => e.stopPropagation()}
               className="rounded px-1.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10"
             >
-              Operación
+              Repartos
             </Link>
           ) : null}
         </div>

@@ -114,11 +114,11 @@ import {
 } from '@modules/fiscal/domain/sale-document-kind';
 import type { FiscalEmissionResult } from '@modules/fiscal/application/fiscal-emission.types';
 import { AppConfigService } from '../../../config/config.service';
-import { DeliveryCoverageService } from '@modules/e-shop-delivery/application/delivery-coverage.service';
-import { ResolveDeliveryZoneService } from '@modules/e-shop-delivery/application/resolve-delivery-zone.service';
-import { DeliveryQuoteService } from '@modules/e-shop-delivery/application/delivery-quote.service';
-import { DeliveryOccurrenceService } from '@modules/e-shop-delivery/application/delivery-occurrence.service';
-import { DeliveryOrderService } from '@modules/e-shop-delivery/application/delivery-order.service';
+import { DeliveryCoverageService } from '@modules/delivery/application/delivery-coverage.service';
+import { ResolveDeliveryZoneService } from '@modules/delivery/application/resolve-delivery-zone.service';
+import { DeliveryQuoteService } from '@modules/delivery/application/delivery-quote.service';
+import { DeliveryOccurrenceService } from '@modules/delivery/application/delivery-occurrence.service';
+import { DeliveryOrderService } from '@modules/delivery/application/delivery-order.service';
 import {
   parsePosDeliveryMetadata,
   type PosDeliveryMetadata,

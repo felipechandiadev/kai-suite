@@ -31,7 +31,7 @@ import { PaymentGatewaysModule } from '@modules/payment-gateways/payment-gateway
 import { PresaleTicketsModule } from '@modules/presale-tickets/presale-tickets.module';
 import { MercadoPagoSalePaymentService } from '@modules/payment-gateways/application/mercado-pago-sale-payment.service';
 import { FiscalModule } from '@modules/fiscal/fiscal.module';
-import { EShopDeliveryModule } from '@modules/e-shop-delivery/e-shop-delivery.module';
+import { DeliveryModule } from '@modules/delivery/delivery.module';
 import { AppConfigModule } from '../../config/config.module';
 
 @Module({
@@ -60,7 +60,7 @@ import { AppConfigModule } from '../../config/config.module';
     PaymentGatewaysModule,
     PresaleTicketsModule,
     FiscalModule,
-    EShopDeliveryModule,
+    DeliveryModule,
     AppConfigModule,
     CqrsModule,
   ],

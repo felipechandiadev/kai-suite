@@ -37,12 +37,12 @@ import { Transaction } from '@modules/transactions/domain/transaction.entity';
 import { EShopPricingStockService } from './eshop-pricing-stock.service';
 import { EShopCartService } from './eshop-cart.service';
 import { randomUUID } from 'crypto';
-import { DeliveryOrderService } from '@modules/e-shop-delivery/application/delivery-order.service';
-import { ResolveDeliveryZoneService } from '@modules/e-shop-delivery/application/resolve-delivery-zone.service';
-import { DeliveryQuoteService } from '@modules/e-shop-delivery/application/delivery-quote.service';
-import { DeliveryOccurrenceService } from '@modules/e-shop-delivery/application/delivery-occurrence.service';
-import { DeliveryCoverageService } from '@modules/e-shop-delivery/application/delivery-coverage.service';
-import { EShopDeliveryZone } from '@modules/e-shop-delivery/domain/e-shop-delivery-zone.entity';
+import { DeliveryOrderService } from '@modules/delivery/application/delivery-order.service';
+import { ResolveDeliveryZoneService } from '@modules/delivery/application/resolve-delivery-zone.service';
+import { DeliveryQuoteService } from '@modules/delivery/application/delivery-quote.service';
+import { DeliveryOccurrenceService } from '@modules/delivery/application/delivery-occurrence.service';
+import { DeliveryCoverageService } from '@modules/delivery/application/delivery-coverage.service';
+import { EShopDeliveryZone } from '@modules/delivery/domain/e-shop-delivery-zone.entity';
 
 export type CheckoutOrderBody = {
   customerName: string;

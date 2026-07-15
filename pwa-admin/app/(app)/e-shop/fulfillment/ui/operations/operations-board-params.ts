@@ -1,5 +1,5 @@
-export const OPERATIONS_ROUTE = "/e-shop/fulfillment/operacion";
-export const CALENDAR_ROUTE = "/e-shop/fulfillment/calendario";
+export const OPERATIONS_ROUTE = "/reparto/repartos";
+export const CALENDAR_ROUTE = "/reparto/calendario";
 
 export type OperationsBoardParams = {
   date?: string;
@@ -42,7 +42,7 @@ export function applyOperationsParams(
   return next;
 }
 
-/** Construye el href completo de la operación con los parámetros aplicados. */
+/** Construye el href completo del tablero de repartos con los parámetros aplicados. */
 export function buildOperationsHref(
   base: URLSearchParams | string,
   params: OperationsBoardParams,
@@ -51,7 +51,7 @@ export function buildOperationsHref(
   return query ? `${OPERATIONS_ROUTE}?${query}` : OPERATIONS_ROUTE;
 }
 
-/** Lee los parámetros de operación desde unos `URLSearchParams`. */
+/** Lee los parámetros del tablero desde unos `URLSearchParams`. */
 export function readOperationsParams(source: URLSearchParams): {
   date: string | null;
   occurrenceId: string | null;

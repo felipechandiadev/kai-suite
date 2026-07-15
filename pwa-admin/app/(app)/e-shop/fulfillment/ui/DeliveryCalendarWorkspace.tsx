@@ -97,7 +97,7 @@ export function DeliveryCalendarWorkspace({
     (start: string) => {
       const params = new URLSearchParams(searchParams.toString());
       params.set("week", start);
-      router.push(`/e-shop/fulfillment/calendario?${params.toString()}`);
+      router.push(`/reparto/calendario?${params.toString()}`);
     },
     [router, searchParams],
   );

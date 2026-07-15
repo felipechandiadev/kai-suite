@@ -7,6 +7,8 @@ export type { CompanyDetails };
 
 type CompanyContextValue = {
   company: CompanyDetails | null;
+  /** Motor de reparto local (`delivery_settings.local_delivery_enabled`). */
+  localDeliveryEnabled: boolean;
 };
 
 const CompanyContext = createContext<CompanyContextValue | null>(null);
@@ -14,12 +16,18 @@ const CompanyContext = createContext<CompanyContextValue | null>(null);
 export function CompanyProvider({
   children,
   initialCompany,
+  localDeliveryEnabled = false,
 }: {
   children: ReactNode;
   initialCompany: CompanyDetails | null;
+  localDeliveryEnabled?: boolean;
 }) {
   return (
-    <CompanyContext.Provider value={{ company: initialCompany }}>{children}</CompanyContext.Provider>
+    <CompanyContext.Provider
+      value={{ company: initialCompany, localDeliveryEnabled }}
+    >
+      {children}
+    </CompanyContext.Provider>
   );
 }
 

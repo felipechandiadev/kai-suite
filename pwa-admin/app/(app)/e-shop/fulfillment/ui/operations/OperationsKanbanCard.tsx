@@ -127,6 +127,16 @@ export function OperationsKanbanCard({
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <div className="flex min-w-0 items-center gap-1">
+                <span
+                  className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                    (order.sourceChannel ?? "ESHOP") === "POS"
+                      ? "bg-amber-100 text-amber-900"
+                      : "bg-sky-100 text-sky-900"
+                  }`}
+                  data-test-id="order-source-channel"
+                >
+                  {(order.sourceChannel ?? "ESHOP") === "POS" ? "POS" : "eShop"}
+                </span>
                 <button
                   type="button"
                   className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"

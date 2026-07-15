@@ -45,7 +45,7 @@ export class PosDeliveryRequest {
     if (!base) return { success: false, message: "BACKEND_API_URL is not set" };
     const auth = await authHeaders();
     if (!auth.ok) return { success: false, message: auth.message };
-    const res = await backendFetch(`${base}/api/e-shop/pos/delivery/coverage`, {
+    const res = await backendFetch(`${base}/api/delivery/pos/coverage`, {
       method: "GET",
       headers: auth.headers,
     });
@@ -72,7 +72,7 @@ export class PosDeliveryRequest {
     if (!base) return { success: false, message: "BACKEND_API_URL is not set" };
     const auth = await authHeaders();
     if (!auth.ok) return { success: false, message: auth.message };
-    const res = await backendFetch(`${base}/api/e-shop/pos/delivery/geocode`, {
+    const res = await backendFetch(`${base}/api/delivery/pos/geocode`, {
       method: "POST",
       headers: auth.headers,
       body: JSON.stringify(body),
@@ -102,7 +102,7 @@ export class PosDeliveryRequest {
     const auth = await authHeaders();
     if (!auth.ok) return { success: false, message: auth.message };
     const res = await backendFetch(
-      `${base}/api/e-shop/pos/delivery/resolve-zone`,
+      `${base}/api/delivery/pos/resolve-zone`,
       {
         method: "POST",
         headers: auth.headers,
@@ -142,7 +142,7 @@ export class PosDeliveryRequest {
       subtotal: String(subtotal),
     });
     const res = await backendFetch(
-      `${base}/api/e-shop/pos/delivery/quote?${qs.toString()}`,
+      `${base}/api/delivery/pos/quote?${qs.toString()}`,
       { method: "GET", headers: auth.headers },
     );
     if (!res) return { success: false, message: BACKEND_CONNECTION_MESSAGE };
@@ -168,7 +168,7 @@ export class PosDeliveryRequest {
     if (!auth.ok) return { success: false, message: auth.message };
     const qs = new URLSearchParams({ zoneId });
     const res = await backendFetch(
-      `${base}/api/e-shop/pos/delivery/available-occurrences?${qs.toString()}`,
+      `${base}/api/delivery/pos/available-occurrences?${qs.toString()}`,
       { method: "GET", headers: auth.headers },
     );
     if (!res) return { success: false, message: BACKEND_CONNECTION_MESSAGE };

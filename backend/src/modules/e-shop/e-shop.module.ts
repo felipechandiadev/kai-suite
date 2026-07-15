@@ -49,8 +49,8 @@ import { EshopCustomerMeService } from './application/eshop-customer-me.service'
 import { EshopCustomerGuard } from './presentation/eshop-customer.guard';
 import { PaymentGatewaysModule } from '@modules/payment-gateways/payment-gateways.module';
 import { KaiMailClient } from '@shared/mail/kai-mail.client';
-import { EShopDeliveryModule } from '@modules/e-shop-delivery/e-shop-delivery.module';
-import { EShopDeliveryZone } from '@modules/e-shop-delivery/domain/e-shop-delivery-zone.entity';
+import { DeliveryModule } from '@modules/delivery/delivery.module';
+import { EShopDeliveryZone } from '@modules/delivery/domain/e-shop-delivery-zone.entity';
 
 @Module({
   imports: [
@@ -84,7 +84,7 @@ import { EShopDeliveryZone } from '@modules/e-shop-delivery/domain/e-shop-delive
     CustomersModule,
     InstallmentsModule,
     forwardRef(() => PaymentGatewaysModule),
-    EShopDeliveryModule,
+    DeliveryModule,
   ],
   controllers: [
     EShopPublicController,

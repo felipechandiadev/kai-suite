@@ -41,7 +41,7 @@ async function readErrorMessage(res: Response, fallback: string): Promise<string
 
 export class DeliveryRequest {
   static async getSettings(): Promise<DeliverySettingsRow> {
-    const res = await fetch(apiUrl("/e-shop/admin/delivery/settings"), {
+    const res = await fetch(apiUrl("/delivery/admin/settings"), {
       headers: await authHeaders(),
       cache: "no-store",
     });
@@ -50,7 +50,7 @@ export class DeliveryRequest {
   }
 
   static async updateSettings(body: Partial<DeliverySettingsRow>) {
-    const res = await fetch(apiUrl("/e-shop/admin/delivery/settings"), {
+    const res = await fetch(apiUrl("/delivery/admin/settings"), {
       method: "PATCH",
       headers: await authHeaders(),
       body: JSON.stringify(body),
@@ -60,7 +60,7 @@ export class DeliveryRequest {
   }
 
   static async listCommunes(): Promise<DeliveryCommuneRow[]> {
-    const res = await fetch(apiUrl("/e-shop/admin/delivery/communes"), {
+    const res = await fetch(apiUrl("/delivery/admin/communes"), {
       headers: await authHeaders(),
       cache: "no-store",
     });
@@ -69,7 +69,7 @@ export class DeliveryRequest {
   }
 
   static async setCommuneEnabled(id: string, isEnabled: boolean) {
-    const res = await fetch(apiUrl(`/e-shop/admin/delivery/communes/${id}`), {
+    const res = await fetch(apiUrl(`/delivery/admin/communes/${id}`), {
       method: "PATCH",
       headers: await authHeaders(),
       body: JSON.stringify({ isEnabled }),
@@ -79,7 +79,7 @@ export class DeliveryRequest {
   }
 
   static async listZones(): Promise<DeliveryZoneRow[]> {
-    const res = await fetch(apiUrl("/e-shop/admin/delivery/zones"), {
+    const res = await fetch(apiUrl("/delivery/admin/zones"), {
       headers: await authHeaders(),
       cache: "no-store",
     });
@@ -95,7 +95,7 @@ export class DeliveryRequest {
     communeCode?: string | null;
     geometry?: GeoJsonPolygon | null;
   }) {
-    const res = await fetch(apiUrl("/e-shop/admin/delivery/zones"), {
+    const res = await fetch(apiUrl("/delivery/admin/zones"), {
       method: "POST",
       headers: await authHeaders(),
       body: JSON.stringify(body),
@@ -108,7 +108,7 @@ export class DeliveryRequest {
     const qs = new URLSearchParams();
     if (from) qs.set("from", from);
     if (to) qs.set("to", to);
-    const res = await fetch(apiUrl(`/e-shop/admin/delivery/calendar/occurrences?${qs}`), {
+    const res = await fetch(apiUrl(`/delivery/admin/calendar/occurrences?${qs}`), {
       headers: await authHeaders(),
       cache: "no-store",
     });
@@ -127,7 +127,7 @@ export class DeliveryRequest {
     driverUserId?: string | null;
     zoneIds?: string[];
   }): Promise<DeliveryOccurrenceRow> {
-    const res = await fetch(apiUrl("/e-shop/admin/delivery/calendar/occurrences"), {
+    const res = await fetch(apiUrl("/delivery/admin/calendar/occurrences"), {
       method: "POST",
       headers: await authHeaders(),
       body: JSON.stringify(body),
@@ -153,7 +153,7 @@ export class DeliveryRequest {
       isCancelled?: boolean;
     },
   ): Promise<DeliveryOccurrenceRow> {
-    const res = await fetch(apiUrl(`/e-shop/admin/delivery/calendar/occurrences/${id}`), {
+    const res = await fetch(apiUrl(`/delivery/admin/calendar/occurrences/${id}`), {
       method: "PATCH",
       headers: await authHeaders(),
       body: JSON.stringify(body),
@@ -165,7 +165,7 @@ export class DeliveryRequest {
   }
 
   static async cancelOccurrence(id: string): Promise<DeliveryOccurrenceRow> {
-    const res = await fetch(apiUrl(`/e-shop/admin/delivery/calendar/occurrences/${id}/cancel`), {
+    const res = await fetch(apiUrl(`/delivery/admin/calendar/occurrences/${id}/cancel`), {
       method: "POST",
       headers: await authHeaders(),
     });
@@ -185,7 +185,7 @@ export class DeliveryRequest {
     if (params?.occurrenceId) qs.set("occurrenceId", params.occurrenceId);
     if (params?.search?.trim()) qs.set("search", params.search.trim());
     const suffix = qs.toString() ? `?${qs}` : "";
-    const res = await fetch(apiUrl(`/e-shop/admin/delivery/operations${suffix}`), {
+    const res = await fetch(apiUrl(`/delivery/admin/operations${suffix}`), {
       headers: await authHeaders(),
       cache: "no-store",
     });
@@ -194,7 +194,7 @@ export class DeliveryRequest {
   }
 
   static async listDrivers(): Promise<DeliveryDriverRow[]> {
-    const res = await fetch(apiUrl("/e-shop/admin/delivery/drivers"), {
+    const res = await fetch(apiUrl("/delivery/admin/drivers"), {
       headers: await authHeaders(),
       cache: "no-store",
     });
@@ -203,7 +203,7 @@ export class DeliveryRequest {
   }
 
   static async updateOrderStatus(id: string, status: string) {
-    const res = await fetch(apiUrl(`/e-shop/admin/delivery/orders/${id}/status`), {
+    const res = await fetch(apiUrl(`/delivery/admin/orders/${id}/status`), {
       method: "PATCH",
       headers: await authHeaders(),
       body: JSON.stringify({ status }),
@@ -214,7 +214,7 @@ export class DeliveryRequest {
 
   static async assignOccurrenceDriver(occurrenceId: string, driverUserId: string | null) {
     const res = await fetch(
-      apiUrl(`/e-shop/admin/delivery/calendar/occurrences/${occurrenceId}/driver`),
+      apiUrl(`/delivery/admin/calendar/occurrences/${occurrenceId}/driver`),
       {
         method: "PATCH",
         headers: await authHeaders(),
@@ -227,7 +227,7 @@ export class DeliveryRequest {
 
   static async optimizeOccurrenceRoute(occurrenceId: string) {
     const res = await fetch(
-      apiUrl(`/e-shop/admin/delivery/calendar/occurrences/${occurrenceId}/optimize-route`),
+      apiUrl(`/delivery/admin/calendar/occurrences/${occurrenceId}/optimize-route`),
       {
         method: "POST",
         headers: await authHeaders(),
@@ -239,7 +239,7 @@ export class DeliveryRequest {
 
   static async startOccurrenceRoute(occurrenceId: string) {
     const res = await fetch(
-      apiUrl(`/e-shop/admin/delivery/calendar/occurrences/${occurrenceId}/start-route`),
+      apiUrl(`/delivery/admin/calendar/occurrences/${occurrenceId}/start-route`),
       {
         method: "POST",
         headers: await authHeaders(),
@@ -251,7 +251,7 @@ export class DeliveryRequest {
 
   static async toggleOrderLinePicked(orderId: string, lineId: string, isPicked: boolean) {
     const res = await fetch(
-      apiUrl(`/e-shop/admin/delivery/orders/${orderId}/lines/${lineId}/picked`),
+      apiUrl(`/delivery/admin/orders/${orderId}/lines/${lineId}/picked`),
       {
         method: "PATCH",
         headers: await authHeaders(),
@@ -264,7 +264,7 @@ export class DeliveryRequest {
 
   static async pickAllOrderLines(orderId: string, advanceTo?: string | null) {
     const res = await fetch(
-      apiUrl(`/e-shop/admin/delivery/orders/${orderId}/pick-all-lines`),
+      apiUrl(`/delivery/admin/orders/${orderId}/pick-all-lines`),
       {
         method: "POST",
         headers: await authHeaders(),
@@ -276,7 +276,7 @@ export class DeliveryRequest {
   }
 
   static async optimizeRoute(dispatchId: string) {
-    const res = await fetch(apiUrl(`/e-shop/admin/delivery/dispatches/${dispatchId}/optimize-route`), {
+    const res = await fetch(apiUrl(`/delivery/admin/dispatches/${dispatchId}/optimize-route`), {
       method: "POST",
       headers: await authHeaders(),
     });
@@ -285,7 +285,7 @@ export class DeliveryRequest {
   }
 
   static async createDispatch(body: { occurrenceId: string; driverUserId?: string | null }) {
-    const res = await fetch(apiUrl("/e-shop/admin/delivery/dispatches"), {
+    const res = await fetch(apiUrl("/delivery/admin/dispatches"), {
       method: "POST",
       headers: await authHeaders(),
       body: JSON.stringify(body),

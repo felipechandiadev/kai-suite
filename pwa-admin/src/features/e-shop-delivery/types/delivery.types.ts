@@ -110,11 +110,14 @@ export type DeliveryOperationsOrderLine = {
   isPicked: boolean;
 };
 
+export type DeliverySourceChannel = "POS" | "ESHOP";
+
 export type DeliveryOperationsOrder = {
   id: string;
   transactionId: string;
   orderNumber: string;
   deliveryStatus: string;
+  sourceChannel?: DeliverySourceChannel;
   customerLabel: string;
   customerPhone: string | null;
   addressShort: string;

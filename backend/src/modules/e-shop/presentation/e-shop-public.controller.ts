@@ -9,7 +9,7 @@ import { EShopCheckoutOrderService } from '../application/eshop-checkout-order.s
 import { EshopCustomerAuthService } from '../application/eshop-customer-auth.service';
 import { CompaniesService } from '@modules/companies/application/companies.service';
 import { isMercadoPagoEshopCheckoutOperational } from '@modules/companies/domain/company-mercado-pago.types';
-import { DeliveryCoverageService } from '@modules/e-shop-delivery/application/delivery-coverage.service';
+import { DeliveryCoverageService } from '@modules/delivery/application/delivery-coverage.service';
 
 @Controller('e-shop')
 @SkipTenant()

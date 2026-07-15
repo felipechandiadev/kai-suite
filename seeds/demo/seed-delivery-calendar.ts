@@ -1,18 +1,18 @@
 import { Between, DataSource, In } from 'typeorm';
-import { EShopDeliveryCoverageCommune } from '@modules/e-shop-delivery/domain/e-shop-delivery-coverage-commune.entity';
-import { EShopDeliveryOccurrence } from '@modules/e-shop-delivery/domain/e-shop-delivery-occurrence.entity';
-import { EShopDeliveryOccurrenceZone } from '@modules/e-shop-delivery/domain/e-shop-delivery-occurrence-zone.entity';
-import { EShopDeliverySettings } from '@modules/e-shop-delivery/domain/e-shop-delivery-settings.entity';
-import { EShopDeliveryZone } from '@modules/e-shop-delivery/domain/e-shop-delivery-zone.entity';
+import { EShopDeliveryCoverageCommune } from '@modules/delivery/domain/e-shop-delivery-coverage-commune.entity';
+import { EShopDeliveryOccurrence } from '@modules/delivery/domain/e-shop-delivery-occurrence.entity';
+import { EShopDeliveryOccurrenceZone } from '@modules/delivery/domain/e-shop-delivery-occurrence-zone.entity';
+import { EShopDeliverySettings } from '@modules/delivery/domain/e-shop-delivery-settings.entity';
+import { EShopDeliveryZone } from '@modules/delivery/domain/e-shop-delivery-zone.entity';
 import {
   MAULE_COMMUNES_SEED,
   MAULE_REGION_CODE,
   type GeoJsonPolygon,
-} from '@modules/e-shop-delivery/domain/delivery.types';
+} from '@modules/delivery/domain/delivery.types';
 import {
   isMissingPostgisError,
   isPostgisInstalled,
-} from '@modules/e-shop-delivery/infrastructure/postgis.support';
+} from '@modules/delivery/infrastructure/postgis.support';
 import {
   SEED_DELIVERY_CALENDAR_MONTHS_2026,
   SEED_DELIVERY_COMMUNE_CODE,
@@ -83,7 +83,7 @@ async function saveZoneGeometrySafe(
       return false;
     }
     await dataSource.query(
-      `UPDATE e_shop_delivery_zones SET geom = ST_SetSRID(ST_GeomFromGeoJSON($1), 4326) WHERE id = $2`,
+      `UPDATE delivery_zones SET geom = ST_SetSRID(ST_GeomFromGeoJSON($1), 4326) WHERE id = $2`,
       [json, zoneId],
     );
     return true;

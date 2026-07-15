@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { DeliveryRequest } from "../infrastructure/delivery.request";
 import type { GeoJsonPolygon } from "../types/delivery.types";
 
-const PATH = "/e-shop/fulfillment";
+const PATH = "/reparto";
 
 export async function getDeliverySettingsAction() {
   try {
@@ -25,6 +25,7 @@ export async function updateDeliverySettingsAction(body: {
   try {
     const settings = await DeliveryRequest.updateSettings(body);
     revalidatePath(PATH);
+    revalidatePath(`${PATH}/configuracion`);
     return { success: true as const, settings };
   } catch (e) {
     return { success: false as const, error: e instanceof Error ? e.message : "Error" };
@@ -106,7 +107,7 @@ export async function saveDeliveryOccurrenceAction(body: {
       : await DeliveryRequest.createOccurrence(body);
     revalidatePath(PATH);
     revalidatePath(`${PATH}/calendario`);
-    revalidatePath(`${PATH}/operacion`);
+    revalidatePath(`${PATH}/repartos`);
     return { success: true as const, row };
   } catch (e) {
     return { success: false as const, error: e instanceof Error ? e.message : "Error" };
@@ -130,7 +131,7 @@ export async function cancelDeliveryOccurrenceAction(id: string) {
     const row = await DeliveryRequest.cancelOccurrence(id);
     revalidatePath(PATH);
     revalidatePath(`${PATH}/calendario`);
-    revalidatePath(`${PATH}/operacion`);
+    revalidatePath(`${PATH}/repartos`);
     return { success: true as const, row };
   } catch (e) {
     return { success: false as const, error: e instanceof Error ? e.message : "Error" };
@@ -171,7 +172,7 @@ export async function updateDeliveryOrderStatusAction(id: string, status: string
   try {
     await DeliveryRequest.updateOrderStatus(id, status);
     revalidatePath(PATH);
-    revalidatePath(`${PATH}/operacion`);
+    revalidatePath(`${PATH}/repartos`);
     return { success: true as const };
   } catch (e) {
     return { success: false as const, error: e instanceof Error ? e.message : "Error" };
@@ -185,7 +186,7 @@ export async function assignDeliveryOccurrenceDriverAction(
   try {
     const result = await DeliveryRequest.assignOccurrenceDriver(occurrenceId, driverUserId);
     revalidatePath(PATH);
-    revalidatePath(`${PATH}/operacion`);
+    revalidatePath(`${PATH}/repartos`);
     revalidatePath(`${PATH}/calendario`);
     return { success: true as const, result };
   } catch (e) {
@@ -197,7 +198,7 @@ export async function optimizeDeliveryOccurrenceRouteAction(occurrenceId: string
   try {
     const result = await DeliveryRequest.optimizeOccurrenceRoute(occurrenceId);
     revalidatePath(PATH);
-    revalidatePath(`${PATH}/operacion`);
+    revalidatePath(`${PATH}/repartos`);
     return { success: true as const, result };
   } catch (e) {
     return { success: false as const, error: e instanceof Error ? e.message : "Error" };
@@ -208,7 +209,7 @@ export async function startDeliveryOccurrenceRouteAction(occurrenceId: string) {
   try {
     const result = await DeliveryRequest.startOccurrenceRoute(occurrenceId);
     revalidatePath(PATH);
-    revalidatePath(`${PATH}/operacion`);
+    revalidatePath(`${PATH}/repartos`);
     return { success: true as const, result };
   } catch (e) {
     return { success: false as const, error: e instanceof Error ? e.message : "Error" };
@@ -222,7 +223,7 @@ export async function toggleDeliveryOrderLinePickedAction(
 ) {
   try {
     const result = await DeliveryRequest.toggleOrderLinePicked(orderId, lineId, isPicked);
-    revalidatePath(`${PATH}/operacion`);
+    revalidatePath(`${PATH}/repartos`);
     return { success: true as const, result };
   } catch (e) {
     return { success: false as const, error: e instanceof Error ? e.message : "Error" };
@@ -235,7 +236,7 @@ export async function pickAllDeliveryOrderLinesAction(
 ) {
   try {
     const result = await DeliveryRequest.pickAllOrderLines(orderId, advanceTo);
-    revalidatePath(`${PATH}/operacion`);
+    revalidatePath(`${PATH}/repartos`);
     return { success: true as const, result };
   } catch (e) {
     return { success: false as const, error: e instanceof Error ? e.message : "Error" };
@@ -249,7 +250,7 @@ export async function createDeliveryDispatchAction(body: {
   try {
     const dispatch = await DeliveryRequest.createDispatch(body);
     revalidatePath(PATH);
-    revalidatePath(`${PATH}/operacion`);
+    revalidatePath(`${PATH}/repartos`);
     return { success: true as const, dispatch };
   } catch (e) {
     return { success: false as const, error: e instanceof Error ? e.message : "Error" };
@@ -260,7 +261,7 @@ export async function optimizeDeliveryRouteAction(dispatchId: string) {
   try {
     const result = await DeliveryRequest.optimizeRoute(dispatchId);
     revalidatePath(PATH);
-    revalidatePath(`${PATH}/operacion`);
+    revalidatePath(`${PATH}/repartos`);
     return { success: true as const, result };
   } catch (e) {
     return { success: false as const, error: e instanceof Error ? e.message : "Error" };

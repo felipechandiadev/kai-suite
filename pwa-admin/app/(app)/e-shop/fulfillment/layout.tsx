@@ -6,7 +6,7 @@ export default function EShopFulfillmentLayout({ children }: { children: ReactNo
   return (
     <TabPageLayout
       title="Encargos y envíos"
-      subtitle="Pedidos web, reparto local Maule, zonas, calendario y operación"
+      subtitle="Pedidos web y métodos de entrega del checkout"
       tabs={<FulfillmentTabs />}
       compact
       data-test-id="e-shop-fulfillment-layout"

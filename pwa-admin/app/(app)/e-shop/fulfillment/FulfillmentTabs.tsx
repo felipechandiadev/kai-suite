@@ -9,15 +9,9 @@ const BASE = "/e-shop/fulfillment";
 const items = [
   { url: BASE, label: "Pedidos web" },
   { url: `${BASE}/metodos`, label: "Métodos" },
-  { url: `${BASE}/cobertura`, label: "Cobertura" },
-  { url: `${BASE}/zonas`, label: "Zonas" },
-  { url: `${BASE}/calendario`, label: "Calendario" },
-  { url: `${BASE}/operacion`, label: "Operación" },
-  { url: `${BASE}/configuracion`, label: "Configuración" },
 ];
 
 function activeTabUrl(pathname: string): string {
-  // Match longest path first so BASE does not stay active for sub-routes.
   const matches = items.filter((tab) => {
     if (tab.url === BASE) {
       return pathname === BASE || pathname === `${BASE}/`;
