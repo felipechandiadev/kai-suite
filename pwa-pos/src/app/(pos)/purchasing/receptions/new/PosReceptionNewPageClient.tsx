@@ -8,7 +8,10 @@ import { createDirectReceptionPosAction } from "@/features/purchasing-reception/
 import { searchPurchaseOrdersForReceptionPosAction } from "@/features/purchasing-reception/actions/search-purchase-orders.action";
 import { getPurchasingTransactionDetailPosAction } from "@/features/purchasing-reception/actions/get-purchase-order-detail.action";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
-import type { CreateDirectReceptionInput } from "@/features/purchasing-reception/types/reception.types";
+import type {
+  CreateDirectReceptionInput,
+  CreateReceptionResult,
+} from "@/features/purchasing-reception/types/reception.types";
 
 type Props = {
   variantSearch: PurchasingVariantSearchResult;
@@ -34,19 +37,24 @@ export default function PosReceptionNewPageClient({
         ? ctx.branchId.trim()
         : input.branchId;
 
-    const result = await createDirectReceptionPosAction({
+    return createDirectReceptionPosAction({
       ...input,
       branchId,
       cashSessionId,
       pointOfSaleId,
     });
+  }, []);
 
-    if (result.success && result.internalDocumentNumber) {
-      router.push(`/pos?receptionSaved=${encodeURIComponent(result.internalDocumentNumber)}`);
-    }
-
-    return result;
-  }, [router]);
+  const onReceptionSaved = useCallback(
+    (result: Extract<CreateReceptionResult, { success: true }>) => {
+      if (result.internalDocumentNumber) {
+        router.push(
+          `/pos?receptionSaved=${encodeURIComponent(result.internalDocumentNumber)}`,
+        );
+      }
+    },
+    [router],
+  );
 
   const emptyVariantSearch = useMemo(
     (): PurchasingVariantSearchResult => ({ items: [], page: 1, pageSize: 10, total: 0 }),
@@ -61,6 +69,7 @@ export default function PosReceptionNewPageClient({
         searchQuery={searchQuery}
         searchPage={searchPage}
         onSaveReception={saveReception}
+        onReceptionSaved={onReceptionSaved}
         fetchPurchaseOrderDetail={getPurchasingTransactionDetailPosAction}
         searchPurchaseOrders={searchPurchaseOrdersForReceptionPosAction}
         paymentCashContext="pos_cash_session"

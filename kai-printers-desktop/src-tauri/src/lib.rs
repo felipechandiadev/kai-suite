@@ -24,6 +24,8 @@ mod pos_cash_session_opening_ticket;
 mod pos_cash_session_opening_ticket_escpos;
 mod pos_cash_hub_movement_ticket;
 mod pos_cash_hub_movement_ticket_escpos;
+mod pos_supplier_payment_ticket;
+mod pos_supplier_payment_ticket_escpos;
 mod pos_bank_account_ticket;
 mod pos_bank_account_ticket_escpos;
 mod pos_payment_in_ticket;

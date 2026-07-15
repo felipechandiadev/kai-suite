@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { QueryHandler, IQueryHandler } from '@nestjs/cqrs';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Transaction, TransactionType } from '../../domain/transaction.entity';
 import { isImmediateSaleReturnRefund } from '@modules/cash-sessions/application/sale-return-transaction-cash-flow.util';
+import { CashHub } from '@modules/cash-hubs/domain/cash-hub.entity';
+import { Supplier } from '@modules/suppliers/domain/supplier.entity';
+import { PersonType } from '@modules/persons/domain/person.entity';
 
 export interface SessionMovement {
   id: string;
@@ -26,6 +29,8 @@ export interface SessionMovement {
   direction: 'IN' | 'OUT' | 'NEUTRAL';
   /** Transacción origen cuando la fila es vuelto derivado de una SALE. */
   relatedTransactionId?: string | null;
+  /** Nombre de proveedor o centro de efectivo (reimpresión / UI). */
+  counterpartyLabel?: string | null;
 }
 
 export class GetMovementsForSessionQuery {
@@ -38,6 +43,8 @@ export class GetMovementsForSessionQueryHandler implements IQueryHandler<GetMove
   constructor(
     @InjectRepository(Transaction)
     private readonly transactionRepository: Repository<Transaction>,
+    @InjectRepository(CashHub)
+    private readonly cashHubRepository: Repository<CashHub>,
   ) {}
 
   async execute(
@@ -45,9 +52,35 @@ export class GetMovementsForSessionQueryHandler implements IQueryHandler<GetMove
   ): Promise<SessionMovement[]> {
     const txs = await this.transactionRepository.find({
       where: { cashSessionId: query.cashSessionId },
-      relations: ['user', 'user.person'],
+      relations: [
+        'user',
+        'user.person',
+        'supplier',
+        'supplier.person',
+      ],
       order: { createdAt: 'DESC' },
     });
+
+    const hubIds = [
+      ...new Set(
+        txs
+          .map((tx) =>
+            typeof tx.cashHubId === 'string' ? tx.cashHubId.trim() : '',
+          )
+          .filter(Boolean),
+      ),
+    ];
+    const hubNameById = new Map<string, string>();
+    if (hubIds.length) {
+      const hubs = await this.cashHubRepository.find({
+        where: { id: In(hubIds) },
+        select: ['id', 'name'],
+      });
+      for (const h of hubs) {
+        const name = typeof h.name === 'string' ? h.name.trim() : '';
+        if (name) hubNameById.set(h.id, name);
+      }
+    }
 
     const movements: SessionMovement[] = [];
 
@@ -56,7 +89,7 @@ export class GetMovementsForSessionQueryHandler implements IQueryHandler<GetMove
       if (tx.transactionType === TransactionType.PAYMENT_IN) {
         continue;
       }
-      movements.push(this.mapTransaction(tx));
+      movements.push(this.mapTransaction(tx, hubNameById));
     }
 
     movements.sort((a, b) => {
@@ -69,11 +102,38 @@ export class GetMovementsForSessionQueryHandler implements IQueryHandler<GetMove
     return movements;
   }
 
-  private mapTransaction(tx: Transaction): SessionMovement {
+  private supplierLabel(supplier: Supplier | null | undefined): string | null {
+    const p = supplier?.person;
+    if (!p) return null;
+    if (p.type === PersonType.COMPANY) {
+      const bn = p.businessName?.trim();
+      if (bn) return bn;
+    }
+    const parts = [p.firstName, p.lastName]
+      .filter((x) => x != null && String(x).trim() !== '')
+      .map((x) => String(x).trim());
+    return parts.length ? parts.join(' ') : null;
+  }
+
+  private mapTransaction(
+    tx: Transaction,
+    hubNameById: Map<string, string>,
+  ): SessionMovement {
     const userFullName = tx.user?.person
       ? `${tx.user.person.firstName} ${tx.user.person.lastName}`
       : null;
     const userUserName = tx.user?.userName || null;
+
+    let counterpartyLabel: string | null = null;
+    if (tx.transactionType === TransactionType.SUPPLIER_PAYMENT) {
+      counterpartyLabel = this.supplierLabel(tx.supplier);
+    } else if (
+      tx.cashHubId &&
+      (tx.transactionType === TransactionType.CASH_SESSION_DEPOSIT ||
+        tx.transactionType === TransactionType.CASH_SESSION_TO_HUB_TRANSFER)
+    ) {
+      counterpartyLabel = hubNameById.get(tx.cashHubId.trim()) ?? null;
+    }
 
     return {
       id: tx.id,
@@ -93,6 +153,7 @@ export class GetMovementsForSessionQueryHandler implements IQueryHandler<GetMove
       metadata: tx.metadata || null,
       direction: this.computeDirection(tx),
       relatedTransactionId: tx.relatedTransactionId ?? null,
+      counterpartyLabel,
     };
   }
 

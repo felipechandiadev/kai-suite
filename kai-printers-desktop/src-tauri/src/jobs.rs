@@ -284,6 +284,7 @@ fn vector_escpos_writer(print_type: &str) -> WriteVectorEscPosFn {
         "pos-cash-count-sheet-ticket" => write_pos_cash_count_sheet_ticket_escpos_from_value,
         "pos-cash-session-opening-ticket" => write_pos_cash_session_opening_ticket_escpos_from_value,
         "pos-cash-hub-movement-ticket" => write_pos_cash_hub_movement_ticket_escpos_from_value,
+        "pos-supplier-payment-ticket" => write_pos_supplier_payment_ticket_escpos_from_value,
         "pos-bank-account-ticket" => write_pos_bank_account_ticket_escpos_from_value,
         "pos-presale-ticket" => write_pos_presale_ticket_escpos_from_value,
         "fiscal-boleta-preview" => write_fiscal_boleta_preview_escpos_from_value,
@@ -740,6 +741,15 @@ pub fn write_pos_cash_hub_movement_ticket_escpos_from_value(
     value: &serde_json::Value,
 ) -> Result<PathBuf> {
     crate::pos_cash_hub_movement_ticket::write_pos_cash_hub_movement_ticket_escpos_from_value(
+        dir, value,
+    )
+}
+
+pub fn write_pos_supplier_payment_ticket_escpos_from_value(
+    dir: &PathBuf,
+    value: &serde_json::Value,
+) -> Result<PathBuf> {
+    crate::pos_supplier_payment_ticket::write_pos_supplier_payment_ticket_escpos_from_value(
         dir, value,
     )
 }

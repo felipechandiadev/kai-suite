@@ -68,7 +68,6 @@ import type { CompanyDetails } from "@/features/company/infrastructure/company.r
 import { SaveAsQuotationDialog } from "@/app/(pos)/pos/ui/SaveAsQuotationDialog";
 import { requestPosProductSearchFocus } from "@/features/pos-products/lib/pos-product-search-focus";
 import { BackorderDepositDialog } from "@/app/(pos)/pos/ui/BackorderDepositDialog";
-import { Package } from "lucide-react";
 import {
   PosSaleReceiptDialog,
   buildPosSaleReceiptSnapshot,
@@ -2659,14 +2658,17 @@ export default function PosPaymentWorkspace({
         }
 
         const pack = saleDteKind === "BOLETA" ? await getStoredFiscalPack(pointOfSaleId) : null;
+        const offlineCartLines = cartLinesForSale.map((l) => ({ ...l, discount: null }));
+        const offlineTotals = computePosSaleTotals(offlineCartLines, 0);
+
         const committed = await commitOfflineSale({
           pointOfSaleId,
           cashSessionId,
           priceListId,
-          cartLines: cartLinesForSale,
+          cartLines: offlineCartLines,
           payments,
           customer,
-          appliedPromotions,
+          appliedPromotions: [],
           appliedTotal,
           overpay,
           saleDocumentKind: saleDteKind,
@@ -2675,7 +2677,7 @@ export default function PosPaymentWorkspace({
           operatorName: posOperatorName,
           loadedQuotation: cart.loadedQuotation,
           loadedPresaleTickets: loadedPresaleTickets.map((t) => ({ id: t.id, code: t.code })),
-          orderDiscount: orderDiscount ?? 0,
+          orderDiscount: 0,
         });
 
         const {
@@ -2702,20 +2704,20 @@ export default function PosPaymentWorkspace({
 
         const snapshot = buildSaleReceiptWithPrintPlan({
           snapshotInput: {
-            lines: cartLinesForSale,
+            lines: offlineCartLines,
             payments,
             customer,
             company: details,
             posContext: posCtx,
-            appliedPromotions,
-            orderDiscount,
-            lineDiscountsTotal,
+            appliedPromotions: [],
+            orderDiscount: 0,
+            lineDiscountsTotal: 0,
             totals: {
-              net: totals.net,
-              gross: totals.gross,
-              taxes,
-              discounts,
-              saleTotal,
+              net: offlineTotals.net,
+              gross: offlineTotals.gross,
+              taxes: offlineTotals.taxes,
+              discounts: 0,
+              saleTotal: offlineTotals.saleTotal,
               appliedTotal,
               overpay,
             },
@@ -2734,13 +2736,13 @@ export default function PosPaymentWorkspace({
           },
           saleDocumentKind: saleDteKind,
           totals: {
-            net: totals.net,
-            gross: totals.gross,
-            taxes,
-            discounts,
-            saleTotal,
-            orderDiscount,
-            lineDiscountsTotal,
+            net: offlineTotals.net,
+            gross: offlineTotals.gross,
+            taxes: offlineTotals.taxes,
+            discounts: 0,
+            saleTotal: offlineTotals.saleTotal,
+            orderDiscount: 0,
+            lineDiscountsTotal: 0,
           },
         });
         setReceiptData(snapshot);
@@ -3159,12 +3161,13 @@ export default function PosPaymentWorkspace({
             ) : (
               <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
                 {quotationsEnabled && !isEncargoMode ? (
-                  <Button
-                    type="button"
+                  <IconButton
+                    icon="File"
                     variant="outlined"
                     size="sm"
                     onClick={openSaveQuotation}
                     disabled={cart.lines.length === 0}
+                    ariaLabel="Cotización"
                     title={
                       cart.lines.length === 0
                         ? "Agregue ítems al carrito"
@@ -3172,16 +3175,15 @@ export default function PosPaymentWorkspace({
                     }
                     data-test-id="pos-payment-save-quotation-btn"
                     className="shrink-0"
-                  >
-                    <span>Cotización</span>
-                  </Button>
+                  />
                 ) : null}
-                <Button
-                  type="button"
-                  variant={encargoModeEnabled ? "outlinedSecondary" : "outlined"}
+                <IconButton
+                  icon="Package"
+                  variant={encargoModeEnabled ? "secondary" : "outlined"}
                   size="sm"
                   onClick={handleToggleEncargoMode}
                   disabled={cart.lines.length === 0 || saleTotal <= 0}
+                  ariaLabel="Encargo"
                   title={
                     encargoModeEnabled
                       ? "Desactivar encargo y volver a venta"
@@ -3190,10 +3192,7 @@ export default function PosPaymentWorkspace({
                   aria-pressed={encargoModeEnabled}
                   data-test-id="pos-payment-encargo-btn"
                   className="shrink-0"
-                >
-                  <Package size={14} className="shrink-0" aria-hidden />
-                  <span>Encargo</span>
-                </Button>
+                />
                 {backorderDeposit && encargoModeEnabled ? (
                   <span
                     className="max-w-[min(100%,10rem)] truncate text-xs font-semibold tabular-nums text-primary"
@@ -3304,7 +3303,7 @@ export default function PosPaymentWorkspace({
                 </div>
                 <div className="flex justify-between gap-4">
                   <span className="flex items-center gap-1 text-muted-foreground">
-                    {discounts > 0 ? (
+                    {!isOffline && discounts > 0 ? (
                       <IconButton
                         icon="Info"
                         variant="action"
@@ -3321,7 +3320,11 @@ export default function PosPaymentWorkspace({
                     className="font-medium tabular-nums text-emerald-700 dark:text-emerald-300"
                     data-test-id="pos-payment-summary-discounts"
                   >
-                    {discounts > 0 ? `-${formatMoney(discounts)}` : formatMoney(discounts)}
+                    {isOffline
+                      ? "No disponible offline"
+                      : discounts > 0
+                        ? `-${formatMoney(discounts)}`
+                        : formatMoney(discounts)}
                   </span>
                 </div>
                 <div className="flex justify-between gap-4 pt-1 text-base font-semibold">

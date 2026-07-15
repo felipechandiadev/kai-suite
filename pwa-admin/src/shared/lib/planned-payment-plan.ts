@@ -2,6 +2,7 @@ import type { ReceptionPlannedPaymentLinePayload } from "@/features/receptions/t
 import type { ReceptionSupplierDocumentPaymentPayload } from "@/features/receptions/types/reception-document-payment.types";
 import type { InvoicePlannedPaymentLineState } from "@/shared/components/PlannedPaymentLines/InvoicePlannedPaymentLines";
 import type { InvoicePlannedPaymentMethodUI } from "@/shared/components/PlannedPaymentLines/InvoicePlannedPaymentLines";
+import type { PlannedPaymentCashSourceMode } from "@/shared/components/PlannedPaymentLines/InvoicePlannedPaymentLines";
 import type { PlannedPaymentMode } from "@/shared/components/PlannedPaymentLines/planned-payment-mode.types";
 import type { CompanyBankAccountItem } from "@/features/settings-branches/infrastructure/company.request";
 import type { Option } from "@kai/ui";
@@ -57,8 +58,10 @@ export function newImmediatePaymentLine(args: {
   companyBankAccounts: CompanyBankAccountItem[];
   payeeBankAccounts: PayeeBankAccount[];
   cashHubOptions: Option[];
+  cashSourceMode?: PlannedPaymentCashSourceMode;
 }): InvoicePlannedPaymentLineState {
   const dm = defaultPayeePaymentMethod(args.companyHasBanks, args.payeeHasBanks);
+  const cashSourceMode = args.cashSourceMode ?? "hub_only";
   const firstHub = args.cashHubOptions[0];
   return {
     id: crypto.randomUUID(),
@@ -74,7 +77,10 @@ export function newImmediatePaymentLine(args: {
         ? bankAccountOptionKey(args.payeeBankAccounts[0], 0)
         : null,
     chequeNumber: "",
-    cashHubId: dm === "CASH" && firstHub ? String(firstHub.id) : null,
+    cashHubId:
+      dm === "CASH" && cashSourceMode === "hub_only" && firstHub
+        ? String(firstHub.id)
+        : null,
   };
 }
 
@@ -82,6 +88,7 @@ export function immediateLineToPayload(
   l: InvoicePlannedPaymentLineState,
 ): PlannedPaymentLinePayload {
   const pm = l.paymentMethod ?? "CASH";
+  const hubId = pm === "CASH" && l.cashHubId?.trim() ? l.cashHubId.trim() : null;
   return {
     dueDate: l.dueDate,
     amount: parseClpAmountInput(l.amountStr),
@@ -90,7 +97,13 @@ export function immediateLineToPayload(
       pm === "TRANSFER" || pm === "CHECK" ? l.companyBankAccountKey : null,
     supplierBankAccountKey: pm === "TRANSFER" ? l.supplierBankAccountKey : null,
     chequeNumber: pm === "CHECK" ? String(l.chequeNumber).trim() || null : null,
-    cashHubId: pm === "CASH" ? (l.cashHubId?.trim() ? l.cashHubId.trim() : null) : null,
+    cashHubId: pm === "CASH" ? hubId : null,
+    cashSessionId:
+      pm === "CASH"
+        ? hubId
+          ? null
+          : l.cashSessionId?.trim() || null
+        : null,
   };
 }
 
@@ -141,7 +154,7 @@ export function buildPlannedPaymentPayload(args: {
   return {
     mode: "PARTIAL",
     partialPaidAmount: partialAmount,
-    paidLines: [],
+    paidLines: paidLines.map(immediateLineToPayload),
     scheduledLines: scheduledLines.map(scheduledLineToPayload),
   };
 }
@@ -162,6 +175,7 @@ export type ValidatePlannedPaymentPlanArgs = {
   /** Si true, valida líquido cero (nómina). Si false, omite validación sin beneficiario/total (compras). */
   strictZeroTotal?: boolean;
   totalLabel?: string;
+  cashSourceMode?: PlannedPaymentCashSourceMode;
 };
 
 function sumLines(lines: InvoicePlannedPaymentLineState[]): number {
@@ -182,6 +196,7 @@ export function validatePlannedPaymentPlanClient(
     payeeSelected,
     strictZeroTotal = false,
     totalLabel = "total",
+    cashSourceMode = "hub_only",
   } = args;
 
   const total = Math.max(0, Math.round(rawTotal || 0));
@@ -207,11 +222,18 @@ export function validatePlannedPaymentPlanClient(
         return `${label}: monto y fecha requeridos.`;
       }
       if (l.paymentMethod === "CASH") {
-        if (!hasCashHubOptions) {
-          return `No hay centros de efectivo configurados (${label}).`;
-        }
-        if (!l.cashHubId?.trim()) {
-          return `Seleccione centro de efectivo (${label}).`;
+        const hubId = l.cashHubId?.trim();
+        if (cashSourceMode === "session_or_hub") {
+          if (hubId && !hasCashHubOptions) {
+            return `No hay centros de efectivo configurados (${label}).`;
+          }
+        } else {
+          if (!hasCashHubOptions) {
+            return `No hay centros de efectivo configurados (${label}).`;
+          }
+          if (!hubId) {
+            return `Seleccione centro de efectivo (${label}).`;
+          }
         }
       }
       if (l.paymentMethod === "TRANSFER") {
@@ -268,6 +290,16 @@ export function validatePlannedPaymentPlanClient(
         : parseClpAmountInput(args.partialAmountStr ?? "0");
     if (part <= 0 || part >= total) {
       return `Indique un monto parcial mayor que 0 y menor que el ${totalLabel}.`;
+    }
+    if (!paidLines.length) {
+      return "Defina la línea de abono.";
+    }
+    if (Math.abs(sumLines(paidLines) - part) > eps) {
+      return "La suma del abono debe coincidir con el monto parcial indicado.";
+    }
+    const paidErr = checkLines(paidLines, "abono");
+    if (paidErr) {
+      return paidErr;
     }
     const rest = total - part;
     if (rest > 0 && scheduledLines.length === 0) {

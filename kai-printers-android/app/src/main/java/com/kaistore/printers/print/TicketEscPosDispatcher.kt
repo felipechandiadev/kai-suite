@@ -27,6 +27,8 @@ object TicketEscPosDispatcher {
                 PosCashSessionOpeningTicketEscPos.fromTicketJson(ticketJson, widthChars, context, logoSettings)
             "pos-cash-hub-movement-ticket" ->
                 PosCashHubMovementTicketEscPos.fromTicketJson(ticketJson, widthChars, context, logoSettings)
+            "pos-supplier-payment-ticket" ->
+                PosSupplierPaymentTicketEscPos.fromTicketJson(ticketJson, widthChars, context, logoSettings)
             "pos-bank-account-ticket" ->
                 PosBankAccountTicketEscPos.fromTicketJson(ticketJson, widthChars, context, logoSettings)
             "pos-presale-ticket" ->

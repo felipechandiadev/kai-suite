@@ -11,7 +11,10 @@ import {
   newImmediatePaymentLine,
   newScheduledPaymentLine,
 } from "@/shared/lib/planned-payment-plan";
-import type { InvoicePlannedPaymentLineState } from "./InvoicePlannedPaymentLines";
+import type {
+  InvoicePlannedPaymentLineState,
+  PlannedPaymentCashSourceMode,
+} from "./InvoicePlannedPaymentLines";
 import type { PlannedPaymentMode } from "./planned-payment-mode.types";
 import {
   resolveFirstScheduledDueDate,
@@ -69,6 +72,7 @@ export type UsePlannedPaymentDefinitionArgs = {
   companyBankAccounts: CompanyBankAccountItem[];
   payeeBankAccounts: PayeeBankAccount[];
   cashHubOptions?: Option[];
+  cashSourceMode?: PlannedPaymentCashSourceMode;
   /** Estado elevado al padre (p. ej. liquidación de sueldo). */
   controlled?: PlannedPaymentDefinitionControlledState;
   /** Pausar sincronización automática (diálogo con borrador). */
@@ -94,6 +98,7 @@ export function usePlannedPaymentDefinition(args: UsePlannedPaymentDefinitionArg
     companyBankAccounts,
     payeeBankAccounts,
     cashHubOptions = [],
+    cashSourceMode = "hub_only",
     controlled,
     syncPaused = false,
   } = args;
@@ -118,6 +123,8 @@ export function usePlannedPaymentDefinition(args: UsePlannedPaymentDefinitionArg
   payeeBankAccountsRef.current = payeeBankAccounts;
   const cashHubOptionsRef = useRef(cashHubOptions);
   cashHubOptionsRef.current = cashHubOptions;
+  const cashSourceModeRef = useRef(cashSourceMode);
+  cashSourceModeRef.current = cashSourceMode;
 
   const setPaymentMode = useCallback((mode: PlannedPaymentMode) => {
     const c = controlledRef.current;
@@ -209,6 +216,7 @@ export function usePlannedPaymentDefinition(args: UsePlannedPaymentDefinitionArg
     const banks = companyBankAccountsRef.current;
     const payeeBanks = payeeBankAccountsRef.current;
     const hubs = cashHubOptionsRef.current;
+    const sourceMode = cashSourceModeRef.current;
 
     if (paymentMode === "COMPLETED") {
       setScheduledLines((prev) => (prev.length === 0 ? prev : []));
@@ -233,6 +241,7 @@ export function usePlannedPaymentDefinition(args: UsePlannedPaymentDefinitionArg
               companyBankAccounts: banks,
               payeeBankAccounts: payeeBanks,
               cashHubOptions: hubs,
+              cashSourceMode: sourceMode,
             }),
           ];
         });
@@ -264,7 +273,36 @@ export function usePlannedPaymentDefinition(args: UsePlannedPaymentDefinitionArg
       return;
     }
     if (paymentMode === "PARTIAL") {
-      setPaidLines((prev) => (prev.length === 0 ? prev : []));
+      if (!manualPaidLockRef.current) {
+        if (!partialAmountDefined) {
+          setPaidLines((prev) => (prev.length === 0 ? prev : []));
+        } else {
+          const amountStr = String(partialAmount);
+          setPaidLines((prev) => {
+            if (manualPaidLockRef.current) return prev;
+            if (prev.length === 1 && prev[0]?.amountStr === amountStr) {
+              return prev;
+            }
+            if (prev.length > 0) {
+              return prev.map((line, index) =>
+                index === 0 ? { ...line, amountStr } : line,
+              );
+            }
+            return [
+              newImmediatePaymentLine({
+                dueDate: paymentDate,
+                amountStr,
+                companyHasBanks,
+                payeeHasBanks,
+                companyBankAccounts: banks,
+                payeeBankAccounts: payeeBanks,
+                cashHubOptions: hubs,
+                cashSourceMode: sourceMode,
+              }),
+            ];
+          });
+        }
+      }
       if (!manualSchedLockRef.current) {
         if (!partialAmountDefined) {
           setScheduledLines((prev) => (prev.length === 0 ? prev : []));
@@ -303,6 +341,7 @@ export function usePlannedPaymentDefinition(args: UsePlannedPaymentDefinitionArg
     companyBankAccounts.length,
     payeeBankAccounts.length,
     cashHubOptions.length,
+    cashSourceMode,
     setPaidLines,
     setScheduledLines,
   ]);
@@ -426,7 +465,10 @@ export function usePlannedPaymentDefinition(args: UsePlannedPaymentDefinitionArg
 
   const disabledInner = disabled || !payeeSelected || total <= 0;
 
-  const showCompletedLines = paymentMode === "COMPLETED" && payeeSelected && total > 0;
+  const showCompletedLines =
+    payeeSelected &&
+    total > 0 &&
+    (paymentMode === "COMPLETED" || (paymentMode === "PARTIAL" && partialAmountDefined));
   const showScheduledLines =
     payeeSelected &&
     total > 0 &&
@@ -455,6 +497,7 @@ export function usePlannedPaymentDefinition(args: UsePlannedPaymentDefinitionArg
     companyBankAccounts,
     payeeBankAccounts,
     cashHubOptions,
+    cashSourceMode,
   };
 }
 

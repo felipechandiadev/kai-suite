@@ -38,6 +38,17 @@ class CashDrawerPolicyTest {
     }
 
     @Test
+    fun supplierPaymentOpensWhenEnabled() {
+        assertTrue(
+            CashDrawerPolicy.shouldOpenDrawer(
+                "pos-supplier-payment-ticket",
+                48,
+                drawerEnabledInMapping = true,
+            ),
+        )
+    }
+
+    @Test
     fun quotationDoesNotOpen() {
         assertFalse(
             CashDrawerPolicy.shouldOpenDrawer(

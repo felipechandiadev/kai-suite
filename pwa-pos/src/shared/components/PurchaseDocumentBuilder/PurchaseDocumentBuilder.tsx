@@ -43,6 +43,7 @@ import {
   formatReceptionPaymentSummary,
   type ReceptionSupplierDocumentPaymentPayload,
 } from "@/features/purchasing-reception/types/reception-document-payment.types";
+import { printSupplierPaymentReceipts } from "@/features/supplier-payment/lib/print-supplier-payment-receipt";
 import { getCompanyDetailsPosAction } from "@/features/purchasing-reception/actions/get-company-details.action";
 import type { CompanyDetails, CompanyBankAccountItem } from "@/features/purchasing-reception/types/company.types";
 import { formatMoney, InlineSepDot, ProductNameWithAttributes } from "./PurchaseDocumentProductPreview";
@@ -104,6 +105,8 @@ export type PurchaseDocumentBuilderProps = {
   onSavePurchaseOrder?: (input: CreatePurchaseOrderInput) => Promise<CreatePurchaseOrderResult>;
   /** Modo recepción: `POST /receptions/direct` con DTE en metadata de la transacción de ingreso. */
   onSaveReception?: (input: CreateDirectReceptionInput) => Promise<CreateReceptionResult>;
+  /** Tras recepción exitosa (p. ej. navegación POS). Se llama después de encolar tickets de caja. */
+  onReceptionSaved?: (result: Extract<CreateReceptionResult, { success: true }>) => void;
   /** Modo devolución: crea `PURCHASE_RETURN` (sin panel de búsqueda de variantes). */
   onSavePurchaseReturn?: (input: CreatePurchaseReturnInput) => Promise<CreatePurchaseReturnResult>;
   fetchReceptionDetail?: (receptionId: string) => Promise<ReceptionFetchResult>;
@@ -370,6 +373,7 @@ export function PurchaseDocumentBuilder({
   backToListHref,
   onSavePurchaseOrder,
   onSaveReception,
+  onReceptionSaved,
   onSavePurchaseReturn,
   fetchReceptionDetail,
   resolveReceptionBySupplierDocument,
@@ -979,6 +983,23 @@ export function PurchaseDocumentBuilder({
           );
           return;
         }
+        if (
+          paymentCashContext === "pos_cash_session" &&
+          result.sessionCashSupplierPayments &&
+          result.sessionCashSupplierPayments.length > 0
+        ) {
+          printSupplierPaymentReceipts({
+            payments: result.sessionCashSupplierPayments,
+            supplierName: selectedSupplierOption?.label?.trim() || "Proveedor",
+            supplierDocument: supplierPrintIdentity.taxIdLine ?? null,
+            receptionDocumentNumber: result.internalDocumentNumber ?? null,
+            supplierDocumentRef: docReference.trim() || null,
+          });
+          // Dar tiempo a encolar en Kai Printers antes de desmontar la página.
+          window.setTimeout(() => onReceptionSaved?.(result), 350);
+        } else {
+          onReceptionSaved?.(result);
+        }
         const href = backToListHref?.trim();
         if (href) router.push(href);
       } else {
@@ -1008,6 +1029,11 @@ export function PurchaseDocumentBuilder({
     supplierFiscalTaxInfo.taxRatePct,
     linkedPurchaseOrderId,
     receptionLinesReadyForInventory,
+    paymentCashContext,
+    selectedSupplierOption,
+    supplierPrintIdentity.taxIdLine,
+    backToListHref,
+    onReceptionSaved,
   ]);
 
   const applyLoadedReception = useCallback((r: ReceptionDetailForReturn) => {

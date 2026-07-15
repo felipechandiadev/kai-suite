@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
 import { listPurchasingReferencePosAction } from "../actions/list-purchasing-reference.action";
+import { listCashHubsForPurchasingPosAction } from "../actions/list-cash-hubs.action";
 import type { TaxListItem } from "../types/tax.types";
 import type { StorageListItem } from "../types/storage.types";
 import type { SupplierGridRow } from "../types/supplier.types";
 import type { CompanyBankAccountItem } from "../types/company.types";
+import type { CashHubRow } from "../types/cash-hub.types";
 
 export type PosPurchaseDocumentReferenceState =
   | { status: "loading" }
@@ -18,7 +20,7 @@ export type PosPurchaseDocumentReferenceState =
       taxes: TaxListItem[];
       branchId: string;
       companyBankAccounts: CompanyBankAccountItem[];
-      cashHubs: [];
+      cashHubs: CashHubRow[];
     };
 
 export function usePosPurchaseDocumentReferenceData(): PosPurchaseDocumentReferenceState {
@@ -31,7 +33,10 @@ export function usePosPurchaseDocumentReferenceData(): PosPurchaseDocumentRefere
 
     void (async () => {
       try {
-        const ref = await listPurchasingReferencePosAction();
+        const [ref, cashHubs] = await Promise.all([
+          listPurchasingReferencePosAction(),
+          listCashHubsForPurchasingPosAction(),
+        ]);
         if (cancelled) return;
         if (!branchId) {
           setState({
@@ -47,7 +52,7 @@ export function usePosPurchaseDocumentReferenceData(): PosPurchaseDocumentRefere
           taxes: ref.taxes,
           branchId,
           companyBankAccounts: ref.companyBankAccounts,
-          cashHubs: [],
+          cashHubs,
         });
       } catch (e) {
         if (cancelled) return;

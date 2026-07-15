@@ -40,7 +40,8 @@ export function PurchaseDocumentReceptionPaymentDialog({
   initialDraft,
   paymentCashContext = "admin_cash_hub",
 }: PurchaseDocumentReceptionPaymentDialogProps) {
-  void paymentCashContext;
+  const cashSourceMode =
+    paymentCashContext === "pos_cash_session" ? "session_or_hub" : "hub_only";
   const [localError, setLocalError] = useState<string | null>(null);
   const [paymentPayload, setPaymentPayload] = useState<ReceptionSupplierDocumentPaymentPayload>({
     mode: "PENDING",
@@ -163,6 +164,7 @@ export function PurchaseDocumentReceptionPaymentDialog({
           payeeBankAccounts={payeeBankAccounts}
           companyBankAccounts={companyBankAccounts}
           cashHubOptions={cashHubOptions}
+          cashSourceMode={cashSourceMode}
           schedule={{ kind: "monthly-chain" }}
           scheduledLinesBehavior="term-chain"
           sectionTitle="Estado de pago del documento"

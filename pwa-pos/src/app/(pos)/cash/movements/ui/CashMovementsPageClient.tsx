@@ -6,6 +6,11 @@ import { CashMovementReprintPreviewDialog } from "@/app/(pos)/cash/movements/ui/
 import { CashMovementSaleDetailDialog } from "@/app/(pos)/cash/movements/ui/CashMovementSaleDetailDialog";
 import { canReprintPosSaleReceipt } from "@/features/pos-print/lib/reprint-sale-receipt";
 import {
+  canReprintCashMovementVoucher,
+  canShowCashMovementReprint,
+  reprintCashMovementVoucher,
+} from "@/features/cash-movements/lib/reprint-cash-movement-voucher";
+import {
   formatSaleDocumentFolio,
   saleDocumentTypeBadgeVariant,
   saleDocumentTypeLabel,
@@ -54,6 +59,7 @@ export default function CashMovementsPageClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [printNotice, setPrintNotice] = useState<string | null>(null);
+  const [printBusyId, setPrintBusyId] = useState<string | null>(null);
   const [detailTxId, setDetailTxId] = useState<string | null>(null);
   const [detailDocNumber, setDetailDocNumber] = useState<string | null>(null);
   const [reprintTxId, setReprintTxId] = useState<string | null>(null);
@@ -126,6 +132,35 @@ export default function CashMovementsPageClient() {
     setDetailTxId(null);
     setDetailDocNumber(null);
   }, []);
+
+  const handleReprintClick = useCallback(
+    async (row: CashSessionMovementRow) => {
+      if (canReprintPosSaleReceipt(row.transactionType)) {
+        openReprintPreview(row);
+        return;
+      }
+      if (!canReprintCashMovementVoucher(row.transactionType)) return;
+
+      setPrintBusyId(row.id);
+      setPrintNotice(null);
+      try {
+        const res = await reprintCashMovementVoucher(row);
+        if (!res.success) {
+          setPrintNotice(res.message);
+          return;
+        }
+        const folio = row.documentNumber?.trim();
+        setPrintNotice(
+          folio
+            ? `Comprobante ${folio} enviado a impresión.`
+            : "Comprobante enviado a impresión.",
+        );
+      } finally {
+        setPrintBusyId(null);
+      }
+    },
+    [openReprintPreview],
+  );
 
   const columns: DataGridColumn[] = useMemo(
     () => [
@@ -230,7 +265,8 @@ export default function CashMovementsPageClient() {
         flex: 1,
         sortable: false,
         filterable: false,
-        valueGetter: ({ value }: { value: string | null }) => (value && String(value).trim() ? String(value) : "—"),
+        valueGetter: ({ value }: { value: string | null }) =>
+          value && String(value).trim() ? String(value) : "—",
       },
       {
         field: "actions",
@@ -244,12 +280,11 @@ export default function CashMovementsPageClient() {
         headerAlign: "center",
         renderCell: ({ row }: { row: CashSessionMovementRow }) => {
           const isSale = row.transactionType === "SALE";
-          const canPrint =
-            row.transactionType !== "CASH_CHANGE" &&
-            canReprintPosSaleReceipt(row.transactionType);
+          const canPrint = canShowCashMovementReprint(row.transactionType);
           if (!isSale && !canPrint) {
             return <span className="text-xs text-muted-foreground">—</span>;
           }
+          const busy = printBusyId === row.id;
           return (
             <div className="flex items-center justify-center gap-1">
               {canPrint ? (
@@ -259,7 +294,8 @@ export default function CashMovementsPageClient() {
                   size="sm"
                   ariaLabel="Reimprimir comprobante"
                   title="Reimprimir comprobante"
-                  onClick={() => openReprintPreview(row)}
+                  disabled={busy}
+                  onClick={() => void handleReprintClick(row)}
                   data-test-id={`cash-movements-reprint-${row.id}`}
                 />
               ) : null}
@@ -279,7 +315,7 @@ export default function CashMovementsPageClient() {
         },
       },
     ],
-    [openReprintPreview, openSaleDetail],
+    [handleReprintClick, openSaleDetail, printBusyId],
   );
 
   return (

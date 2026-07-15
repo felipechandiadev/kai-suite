@@ -18,6 +18,7 @@ import {
 } from "./usePlannedPaymentDefinition";
 import type { PlannedPaymentMode } from "./planned-payment-mode.types";
 import type { PlannedPaymentScheduleConfig } from "./planned-payment-definition.schedule";
+import type { PlannedPaymentCashSourceMode } from "./InvoicePlannedPaymentLines";
 
 export type PlannedPaymentPlanSectionState = {
   payload: PlannedPaymentPayload;
@@ -33,6 +34,7 @@ export type PlannedPaymentPlanSectionProps = {
   payeeBankAccounts: PayeeBankAccount[];
   companyBankAccounts: CompanyBankAccountItem[];
   cashHubOptions?: Option[];
+  cashSourceMode?: PlannedPaymentCashSourceMode;
   schedule: PlannedPaymentScheduleConfig;
   scheduledLinesBehavior: PlannedPaymentScheduledLinesBehavior;
   sectionTitle?: string;
@@ -64,6 +66,7 @@ export function PlannedPaymentPlanSection({
   payeeBankAccounts,
   companyBankAccounts,
   cashHubOptions = [],
+  cashSourceMode = "hub_only",
   schedule,
   scheduledLinesBehavior,
   sectionTitle,
@@ -96,6 +99,7 @@ export function PlannedPaymentPlanSection({
     companyBankAccounts,
     payeeBankAccounts,
     cashHubOptions,
+    cashSourceMode,
     controlled,
     syncPaused: syncPaused || draftSyncPaused,
   });
@@ -181,6 +185,7 @@ export function PlannedPaymentPlanSection({
         payeeSelected,
         strictZeroTotal,
         totalLabel,
+        cashSourceMode,
       }),
     [
       effectiveMode,
@@ -194,6 +199,7 @@ export function PlannedPaymentPlanSection({
       payeeSelected,
       strictZeroTotal,
       totalLabel,
+      cashSourceMode,
     ],
   );
 

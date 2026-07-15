@@ -34,7 +34,7 @@ import {
 } from "@/features/promotions/actions/promotions-pos.action";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/pos-api-failure";
 import { getQuotationsEnabledAction } from "@/features/company/actions/company-quotations.action";
-import { shouldUseBackendApi } from "@/features/pos-offline/infrastructure/connectivity";
+import { shouldUseBackendApi, subscribeConnectivity } from "@/features/pos-offline/infrastructure/connectivity";
 import { hydrateCartLinesFiscalFlags } from "@/features/sale-print-plan";
 
 type PosCartContextValue = {
@@ -684,10 +684,13 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     const ctx = readPosContextFull();
     if (!ctx) {
       setEffectivePromotions([]);
+      setManualSelections([]);
       return;
     }
     if (!shouldUseBackendApi()) {
+      // Política MVP offline: sin snapshot local de promociones → descuentos off.
       setEffectivePromotions([]);
+      setManualSelections([]);
       return;
     }
     try {
@@ -708,6 +711,23 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!ready) return;
     void refreshPromotions();
+  }, [ready, refreshPromotions]);
+
+  // Al pasar a offline, limpia promos ya cargadas (evita descuentos “fantasma”).
+  useEffect(() => {
+    return subscribeConnectivity((state) => {
+      const offline =
+        !state.browserOnline ||
+        (!state.backendReachable && state.lastCheckedAt != null);
+      if (offline) {
+        setEffectivePromotions([]);
+        setManualSelections([]);
+        return;
+      }
+      if (ready) {
+        void refreshPromotions();
+      }
+    });
   }, [ready, refreshPromotions]);
 
   // ── Re-cálculo reactivo del motor de descuentos ────────────────
@@ -736,6 +756,10 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       setPromotionWarnings([]);
       return;
     }
+
+    const promotionsForEngine = shouldUseBackendApi() ? effectivePromotions : [];
+    const selectionsForEngine = shouldUseBackendApi() ? manualSelections : [];
+
     const engineLines: EngineCartLine[] = lines.map((l) => ({
       lineId: l.variantId,
       variantId: l.variantId,
@@ -759,8 +783,8 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
           .filter((x): x is string => !!x),
       },
       ctx: { ...ctx, now: new Date() },
-      promotions: effectivePromotions,
-      manualSelections,
+      promotions: promotionsForEngine,
+      manualSelections: selectionsForEngine,
       customerHistory: [],
     });
 
@@ -788,6 +812,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
   ]);
 
   const togglePromotion = useCallback((promotionId: string) => {
+    if (!shouldUseBackendApi()) return;
     setManualSelections((prev) => {
       const exists = prev.some((m) => m.promotionId === promotionId);
       return exists
@@ -798,6 +823,12 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
 
   const redeemCode = useCallback(
     async (code: string): Promise<{ ok: boolean; message?: string }> => {
+      if (!shouldUseBackendApi()) {
+        return {
+          ok: false,
+          message: "Descuentos y cupones no disponibles en modo offline.",
+        };
+      }
       const ctx = readPosContextFull();
       if (!ctx) return { ok: false, message: "Sin contexto POS" };
       const res = await redeemPromotionCodeAction({

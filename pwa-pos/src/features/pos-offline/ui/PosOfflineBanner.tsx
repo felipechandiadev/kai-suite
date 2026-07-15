@@ -31,6 +31,7 @@ export function PosOfflineBanner() {
         className="shrink-0 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center text-sm text-amber-950 dark:text-amber-100"
       >
         Modo offline — {detail}
+        {" "}Descuentos y promociones deshabilitados.
         {queueHint ? (
           <button
             type="button"

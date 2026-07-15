@@ -9,6 +9,7 @@ pub fn agent_print_type_eligible_for_drawer(agent_type: &str) -> bool {
             | "pos-cash-session-opening-ticket"
             | "pos-cash-count-sheet-ticket"
             | "pos-cash-hub-movement-ticket"
+            | "pos-supplier-payment-ticket"
             | "pos-payment-in-ticket"
             | "test_print"
             | "test_escpos_qa"

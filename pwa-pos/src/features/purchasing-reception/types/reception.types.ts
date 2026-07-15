@@ -49,6 +49,14 @@ export type CreateReceptionResult =
       supplierDocumentError?: string | null;
       /** Error al crear la transacción PURCHASE (stock / PMP no se actualizaron). */
       transactionError?: string | null;
+      /** Pagos SUPPLIER_PAYMENT en efectivo desde sesión de caja (para ticket POS). */
+      sessionCashSupplierPayments?: Array<{
+        documentNumber: string;
+        amount: number;
+        paymentMethod: string;
+        cashSessionId: string;
+        notes: string | null;
+      }>;
     }
   | { success: false; error: string };
 

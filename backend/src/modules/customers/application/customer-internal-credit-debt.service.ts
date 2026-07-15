@@ -66,15 +66,16 @@ export class CustomerInternalCreditDebtService {
     const usedCredit = Math.round(Number(customer.usedCredit) || 0);
     const availableCredit = Math.round(Number(customer.availableCredit) || 0);
 
-    const ar = await this.installmentService.getAccountsReceivable({
-      customerId,
-      includePaid: false,
-      page: 1,
-      pageSize: 200,
-    });
+    let scheduledRows: InternalCreditDebtScheduledRow[] = [];
+    try {
+      const ar = await this.installmentService.getAccountsReceivable({
+        customerId,
+        includePaid: false,
+        page: 1,
+        pageSize: 200,
+      });
 
-    const scheduledRows: InternalCreditDebtScheduledRow[] = (ar.rows ?? []).map(
-      (row) => ({
+      scheduledRows = (ar.rows ?? []).map((row) => ({
         id: row.id,
         transactionId: row.saleTransactionId,
         documentNumber: row.documentNumber,
@@ -84,8 +85,11 @@ export class CustomerInternalCreditDebtService {
         dueDate: row.dueDate,
         status: row.status != null ? String(row.status) : null,
         createdAt: row.createdAt ?? null,
-      }),
-    );
+      }));
+    } catch {
+      // Don't block open-credit ledger if AR query fails for this customer.
+      scheduledRows = [];
+    }
 
     const scheduledTotal = scheduledRows.reduce((a, r) => a + r.amount, 0);
 

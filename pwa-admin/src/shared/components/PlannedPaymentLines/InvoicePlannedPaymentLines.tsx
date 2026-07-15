@@ -34,6 +34,11 @@ const METHOD_OPTIONS = [
   { id: "CASH", label: "Efectivo" },
 ] as const;
 
+const CASH_SOURCE_OPTIONS = [
+  { id: "session", label: "Desde caja" },
+  { id: "hub", label: "Desde centro de efectivo" },
+] as const;
+
 function accountLabel(a: CompanyBankAccountItem | PayeeBankAccount): string {
   return `${a.bankName} · ${a.accountType} · ${a.accountNumber}`;
 }
@@ -41,12 +46,20 @@ function accountLabel(a: CompanyBankAccountItem | PayeeBankAccount): string {
 /** `immediate`: pago al momento (medio de pago requerido). `scheduled`: cuota futura (solo fecha + monto). */
 export type InvoicePlannedPaymentLineKind = "immediate" | "scheduled";
 
+/** Admin: solo centro. POS recepción: caja (sesión) o centro. */
+export type PlannedPaymentCashSourceMode = "hub_only" | "session_or_hub";
+
 export type InvoicePlannedPaymentLinesProps = {
   disabled: boolean;
   companyBankAccounts: CompanyBankAccountItem[];
   supplierBankAccounts: PayeeBankAccount[];
   /** Centros de acopio para pagos en efectivo (compras / recepción). */
   cashHubOptions?: Option[];
+  /**
+   * `hub_only` (default): efectivo exige centro.
+   * `session_or_hub`: el usuario elige origen caja o centro.
+   */
+  cashSourceMode?: PlannedPaymentCashSourceMode;
   /** Si es false, no se muestra el botón «+» (p. ej. pago único completado). */
   allowAddLine?: boolean;
   /** Default `immediate`. */
@@ -77,6 +90,7 @@ export function InvoicePlannedPaymentLines({
   companyBankAccounts,
   supplierBankAccounts,
   cashHubOptions = [],
+  cashSourceMode = "hub_only",
   allowAddLine = true,
   lineKind = "immediate",
   lines,
@@ -229,17 +243,25 @@ export function InvoicePlannedPaymentLines({
                       alwaysShowLabel
                       options={[...METHOD_OPTIONS]}
                       value={line.paymentMethod ?? "CASH"}
-                      onChange={(id) =>
+                      onChange={(id) => {
+                        const nextMethod = (id ?? "CASH") as InvoicePlannedPaymentMethodUI;
+                        const autoHub =
+                          nextMethod === "CASH" &&
+                          cashSourceMode === "hub_only" &&
+                          cashHubOptions[0]
+                            ? String(cashHubOptions[0].id)
+                            : null;
                         onPatchLine(line.id, {
-                          paymentMethod: (id ?? "CASH") as InvoicePlannedPaymentMethodUI,
+                          paymentMethod: nextMethod,
                           cashHubId:
-                            id === "CASH" && cashHubOptions[0]
-                              ? String(cashHubOptions[0].id)
-                              : id !== "CASH"
-                                ? null
-                                : line.cashHubId,
-                        })
-                      }
+                            nextMethod === "CASH"
+                              ? cashSourceMode === "hub_only"
+                                ? autoHub ?? line.cashHubId
+                                : null
+                              : null,
+                          cashSessionId: nextMethod === "CASH" ? null : null,
+                        });
+                      }}
                       disabled={disabled}
                       data-test-id={`invoice-payment-method-${idx}`}
                     />
@@ -278,7 +300,56 @@ export function InvoicePlannedPaymentLines({
                 </div>
               ) : null}
 
-              {!isScheduled && line.paymentMethod === "CASH" && cashHubOptions.length > 0 ? (
+              {!isScheduled && line.paymentMethod === "CASH" && cashSourceMode === "session_or_hub" ? (
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
+                  <div className="min-w-0">
+                    <Select
+                      label="Origen del efectivo"
+                      alwaysShowLabel
+                      options={[...CASH_SOURCE_OPTIONS]}
+                      value={line.cashHubId?.trim() ? "hub" : "session"}
+                      onChange={(id) => {
+                        if (id === "hub") {
+                          onPatchLine(line.id, {
+                            cashHubId: cashHubOptions[0] ? String(cashHubOptions[0].id) : null,
+                            cashSessionId: null,
+                          });
+                          return;
+                        }
+                        onPatchLine(line.id, { cashHubId: null, cashSessionId: null });
+                      }}
+                      disabled={disabled}
+                      data-test-id={`invoice-payment-cash-source-${idx}`}
+                    />
+                  </div>
+                  {line.cashHubId?.trim() ? (
+                    <div className="min-w-0">
+                      <Select
+                        label={cashHubLabel}
+                        alwaysShowLabel
+                        placeholder={
+                          cashHubOptions.length ? "Seleccione…" : "Sin centros configurados"
+                        }
+                        options={cashHubOptions}
+                        value={line.cashHubId ?? null}
+                        onChange={(id) =>
+                          onPatchLine(line.id, {
+                            cashHubId: id != null ? String(id) : null,
+                            cashSessionId: null,
+                          })
+                        }
+                        disabled={disabled || cashHubOptions.length === 0}
+                        data-test-id={`invoice-payment-cash-hub-${idx}`}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {!isScheduled &&
+              line.paymentMethod === "CASH" &&
+              cashSourceMode !== "session_or_hub" &&
+              cashHubOptions.length > 0 ? (
                 <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
                   <div className="min-w-0">
                     <Select

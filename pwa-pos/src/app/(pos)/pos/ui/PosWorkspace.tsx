@@ -12,7 +12,7 @@ import {
   type PosContextV1,
   type PosPriceListSnapshot,
 } from "@/features/session/lib/pos-context-storage";
-import { Alert, Button, Dialog, IconButton } from "@kai/ui";
+import { Alert, Button, Dialog, DotProgress, IconButton } from "@kai/ui";
 import { ShoppingCart } from "lucide-react";
 import { createPresaleTicketAction } from "@/features/presale-tickets/actions/presale-tickets.action";
 import { printPresaleTicketAgentOrBrowser } from "@/features/presale-tickets/lib/presale-ticket-agent";
@@ -345,7 +345,8 @@ export default function PosWorkspace() {
 
   if (!ctx?.priceListId) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center text-sm text-zinc-500">
+      <div className="flex min-h-[40vh] items-center justify-center gap-2 text-sm text-zinc-500">
+        <DotProgress />
         Cargando contexto del punto de venta…
       </div>
     );
@@ -653,6 +654,13 @@ export default function PosWorkspace() {
                     -{formatMoney(discounts)}
                   </span>
                 </div>
+              ) : isOffline ? (
+                <p
+                  className="text-xs text-muted-foreground"
+                  data-test-id="pos-cart-summary-discounts-offline"
+                >
+                  Descuentos deshabilitados (modo offline)
+                </p>
               ) : null}
               <div className="flex items-center justify-between pt-2">
                 <span className="text-xl font-bold text-foreground sm:text-2xl">Total</span>

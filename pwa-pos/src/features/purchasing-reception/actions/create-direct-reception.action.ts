@@ -7,16 +7,31 @@ import type {
   CreateDirectReceptionInput,
   CreateReceptionResult,
 } from "../types/reception.types";
-import type { ReceptionSupplierDocumentPaymentPayload } from "../types/reception-document-payment.types";
+import type {
+  ReceptionPlannedPaymentLinePayload,
+  ReceptionSupplierDocumentPaymentPayload,
+} from "../types/reception-document-payment.types";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const DTE_TYPES = new Set(["invoice", "receipt", "guide", "other"]);
 
-function hasCashPaidLine(payment: ReceptionSupplierDocumentPaymentPayload | null | undefined): boolean {
+function isCashFromSession(line: ReceptionPlannedPaymentLinePayload): boolean {
+  return line.paymentMethod === "CASH" && !(line.cashHubId?.trim());
+}
+
+function isCashFromHub(line: ReceptionPlannedPaymentLinePayload): boolean {
+  return line.paymentMethod === "CASH" && Boolean(line.cashHubId?.trim());
+}
+
+function hasCashFromSessionPaidLine(
+  payment: ReceptionSupplierDocumentPaymentPayload | null | undefined,
+): boolean {
   if (!payment) return false;
-  return payment.paidLines.some((l) => l.paymentMethod === "CASH" && (Number(l.amount) || 0) > 0);
+  return payment.paidLines.some(
+    (l) => isCashFromSession(l) && (Number(l.amount) || 0) > 0,
+  );
 }
 
 export async function createDirectReceptionPosAction(
@@ -51,7 +66,7 @@ export async function createDirectReceptionPosAction(
 
   const cashSessionId = input.cashSessionId?.trim() || null;
   const pointOfSaleId = input.pointOfSaleId?.trim() || null;
-  if (hasCashPaidLine(input.supplierDocumentPayment) && !cashSessionId) {
+  if (hasCashFromSessionPaidLine(input.supplierDocumentPayment) && !cashSessionId) {
     return {
       success: false,
       error: "Abra una sesión de caja en el POS para pagar en efectivo desde el cajón.",
@@ -59,14 +74,26 @@ export async function createDirectReceptionPosAction(
   }
 
   let supplierDocumentPayment = input.supplierDocumentPayment;
-  if (supplierDocumentPayment && cashSessionId) {
+  if (supplierDocumentPayment) {
     supplierDocumentPayment = {
       ...supplierDocumentPayment,
-      paidLines: supplierDocumentPayment.paidLines.map((l) =>
-        l.paymentMethod === "CASH"
-          ? { ...l, cashSessionId: l.cashSessionId?.trim() || cashSessionId, cashHubId: null }
-          : l,
-      ),
+      paidLines: supplierDocumentPayment.paidLines.map((l) => {
+        if (isCashFromSession(l) && cashSessionId) {
+          return {
+            ...l,
+            cashSessionId: l.cashSessionId?.trim() || cashSessionId,
+            cashHubId: null,
+          };
+        }
+        if (isCashFromHub(l)) {
+          return {
+            ...l,
+            cashHubId: l.cashHubId!.trim(),
+            cashSessionId: null,
+          };
+        }
+        return l;
+      }),
     };
   }
 
@@ -101,6 +128,13 @@ export async function createDirectReceptionPosAction(
       reception?: { id?: string; documentNumber?: string | null };
       supplierDocumentError?: string | null;
       transactionError?: string | null;
+      sessionCashSupplierPayments?: Array<{
+        documentNumber?: string;
+        amount?: number;
+        paymentMethod?: string;
+        cashSessionId?: string;
+        notes?: string | null;
+      }>;
     };
     const transactionError =
       json?.transactionError != null && String(json.transactionError).trim()
@@ -119,6 +153,27 @@ export async function createDirectReceptionPosAction(
         : rec?.id != null && String(rec.id).trim()
           ? String(rec.id).trim()
           : null;
+    const sessionCashSupplierPayments = Array.isArray(json?.sessionCashSupplierPayments)
+      ? json.sessionCashSupplierPayments
+          .map((p) => {
+            const documentNumber =
+              p?.documentNumber != null ? String(p.documentNumber).trim() : "";
+            const cashSessionId =
+              p?.cashSessionId != null ? String(p.cashSessionId).trim() : "";
+            const amount = Number(p?.amount) || 0;
+            if (!documentNumber || !cashSessionId || amount <= 0) return null;
+            return {
+              documentNumber,
+              amount,
+              paymentMethod:
+                p?.paymentMethod != null ? String(p.paymentMethod).trim() || "CASH" : "CASH",
+              cashSessionId,
+              notes:
+                p?.notes != null && String(p.notes).trim() ? String(p.notes).trim() : null,
+            };
+          })
+          .filter((p): p is NonNullable<typeof p> => p != null)
+      : [];
     return {
       success: true,
       receptionId: rec?.id != null ? String(rec.id) : undefined,
@@ -128,6 +183,7 @@ export async function createDirectReceptionPosAction(
           ? String(json.supplierDocumentError).trim()
           : null,
       transactionError: null,
+      sessionCashSupplierPayments,
     };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Error al crear la recepción." };

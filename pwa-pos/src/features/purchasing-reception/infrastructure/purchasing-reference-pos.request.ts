@@ -166,6 +166,12 @@ export class PurchasingReferencePosRequest {
       cache: "no-store",
     });
     if (!res.ok) return null;
-    return (await res.json()) as CompanyDetails;
+    const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!json || typeof json !== "object") return null;
+    const idRaw = json.id != null ? String(json.id).trim() : "";
+    return {
+      ...(json as CompanyDetails),
+      id: idRaw || (json as CompanyDetails).id || null,
+    };
   }
 }

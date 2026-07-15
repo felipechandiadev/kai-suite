@@ -8,6 +8,7 @@ export type CompanyBankAccountItem = {
 };
 
 export type CompanyDetails = {
+  id?: string | null;
   tradeName?: string | null;
   businessName?: string | null;
   taxId?: string | null;

@@ -30,6 +30,10 @@ object PosSaleTicketEscPos {
         w.alignCenter(false)
 
         val isBackorder = ticket.jsonStr("documentKind") == "backorder"
+        val hasNcPayout = !ticket.jsonArr("ncPayout").isNullOrEmpty()
+        val hasQuotaCollection = !ticket.jsonArr("quotaCollection").isNullOrEmpty()
+        val hasArCollection = !ticket.jsonArr("arCollection").isNullOrEmpty()
+        val collectionPending = ticket.jsonBool("collectionPending")
         ticket.jsonObj("backorder")?.let { bo ->
             if (isBackorder) {
                 val deposit = bo.jsonNum("depositAmount") ?: 0.0
@@ -54,7 +58,15 @@ object PosSaleTicketEscPos {
         w.divider()
         w.bold(true)
         w.alignCenter(true)
-        w.line(if (isBackorder) "ENCARGO" else "DETALLE")
+        w.line(
+            when {
+                hasNcPayout -> "DEVOLUCION SALDO NC"
+                hasQuotaCollection -> "PAGO DE CUOTAS"
+                hasArCollection -> "COBRO PENDIENTE"
+                isBackorder -> "Detalle de Encargo"
+                else -> "Detalle de Venta"
+            },
+        )
         w.bold(false)
         w.alignCenter(false)
         w.sectionGap()
@@ -140,7 +152,17 @@ object PosSaleTicketEscPos {
             w.alignCenter(false)
         }
         w.alignCenter(true)
-        w.line(if (isBackorder) "Comprobante de abono de encargo" else "Gracias por su compra")
+        val thanks = when {
+            hasNcPayout -> "Comprobante de devolucion de saldo NC"
+            hasQuotaCollection -> "Comprobante de pago de cuotas"
+            hasArCollection -> "Comprobante de cobro"
+            isBackorder -> ""
+            collectionPending -> "Venta registrada - cobro pendiente"
+            else -> "Gracias por su compra"
+        }
+        if (thanks.isNotBlank()) {
+            w.line(thanks)
+        }
         w.alignCenter(false)
         w.line()
 

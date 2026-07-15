@@ -10,6 +10,7 @@ export const CASH_DRAWER_ELIGIBLE_AGENT_TYPES = new Set([
   "pos-cash-session-opening-ticket",
   "pos-cash-count-sheet-ticket",
   "pos-cash-hub-movement-ticket",
+  "pos-supplier-payment-ticket",
   "pos-payment-in-ticket",
   "test_print",
   "test_escpos_qa",

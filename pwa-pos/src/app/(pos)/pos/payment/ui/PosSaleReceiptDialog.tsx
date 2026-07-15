@@ -410,7 +410,7 @@ export function buildPosSaleReceiptHtml(
   const receiptHeading = isNcPayout
     ? "DEVOLUCIÓN SALDO NC"
     : isQuotaCollection
-      ? "COBRO DE CUOTAS"
+      ? "PAGO DE CUOTAS"
       : isArCollection
         ? "COBRO PENDIENTE"
     : isBackorder
@@ -531,8 +531,10 @@ export function buildPosSaleReceiptHtml(
 
   const closingMessage = isNcPayout
     ? "Comprobante de devolución de saldo NC"
-    : isArCollection || isQuotaCollection
-      ? "Comprobante de cobro"
+    : isQuotaCollection
+      ? "Comprobante de pago de cuotas"
+      : isArCollection
+        ? "Comprobante de cobro"
       : isBackorder
         ? ""
         : data.collectionPending

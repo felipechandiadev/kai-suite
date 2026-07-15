@@ -28,6 +28,10 @@ import type {
   PosCashHubMovementTicketPrintExtras,
 } from "./pos-cash-hub-movement-ticket";
 import type {
+  PosSupplierPaymentTicketPayload,
+  PosSupplierPaymentTicketPrintExtras,
+} from "./pos-supplier-payment-ticket";
+import type {
   PosBankAccountTicketPayload,
   PosBankAccountTicketPrintExtras,
 } from "./pos-bank-account-ticket";
@@ -165,6 +169,8 @@ export const AGENT_CAPABILITY_POS_CASH_SESSION_OPENING_TICKET =
   "pos-cash-session-opening-ticket";
 export const AGENT_CAPABILITY_POS_CASH_HUB_MOVEMENT_TICKET =
   "pos-cash-hub-movement-ticket";
+export const AGENT_CAPABILITY_POS_SUPPLIER_PAYMENT_TICKET =
+  "pos-supplier-payment-ticket";
 export const AGENT_CAPABILITY_POS_BANK_ACCOUNT_TICKET = "pos-bank-account-ticket";
 export const AGENT_CAPABILITY_POS_PRESALE_TICKET = "pos-presale-ticket";
 export const AGENT_CAPABILITY_FISCAL_BOLETA_PREVIEW = "fiscal-boleta-preview";
@@ -748,6 +754,19 @@ export class PrintServiceConnection {
     return this.enqueuePosPrint(body);
   }
 
+  /**
+   * Pago a proveedor en efectivo desde caja POS: ESC/POS (`type: "pos-supplier-payment-ticket"`).
+   */
+  enqueuePosSupplierPaymentTicket(
+    ticket: PosSupplierPaymentTicketPayload,
+    extras: PosSupplierPaymentTicketPrintExtras & { purpose?: string; format?: PrintFormat },
+    omitPrinterDisplayLabel = false,
+  ): Promise<unknown> {
+    const body = buildPosTicketEnqueueBody("pos-supplier-payment-ticket", ticket, extras);
+    if (omitPrinterDisplayLabel) return this.enqueuePrint(body);
+    return this.enqueuePosPrint(body);
+  }
+
   /** Cuenta bancaria empresa (transferencia POS): ESC/POS (`type: "pos-bank-account-ticket"`). */
   enqueuePosBankAccountTicket(
     ticket: PosBankAccountTicketPayload,
@@ -1133,6 +1152,16 @@ export function agentSupportsPosCashHubMovementTicket(
   const caps = hello?.agentCapabilities;
   if (Array.isArray(caps) && caps.length > 0) {
     return caps.includes(AGENT_CAPABILITY_POS_CASH_HUB_MOVEMENT_TICKET);
+  }
+  return Boolean(hello?.serviceStatus);
+}
+
+export function agentSupportsPosSupplierPaymentTicket(
+  hello: HelloResponseData | null | undefined,
+): boolean {
+  const caps = hello?.agentCapabilities;
+  if (Array.isArray(caps) && caps.length > 0) {
+    return caps.includes(AGENT_CAPABILITY_POS_SUPPLIER_PAYMENT_TICKET);
   }
   return Boolean(hello?.serviceStatus);
 }

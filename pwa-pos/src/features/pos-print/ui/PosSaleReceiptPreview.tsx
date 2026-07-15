@@ -14,6 +14,7 @@ import {
 import { buildPosSaleDocumentHtml } from "@/features/pos-print/lib/pos-sale-document-print";
 import { buildPosSaleReceiptHtml } from "@/app/(pos)/pos/payment/ui/PosSaleReceiptDialog";
 import { PosPrintDocumentPreview } from "@/features/pos-print/ui/PosPrintDocumentPreview";
+import { PosSalePaymentSummaryStrip } from "@/features/pos-print/ui/PosSalePaymentSummaryStrip";
 
 const FISCAL_BOLETA_PREVIEW_FORMAT: PrintFormat = "ticket_80mm";
 
@@ -98,6 +99,7 @@ export function PosSaleReceiptPreview({
 
   return (
     <div className="grid gap-4 text-sm" data-test-id={dataTestId}>
+      <PosSalePaymentSummaryStrip data={data} />
       {showingDualPreview ? (
         <p className="text-xs text-muted-foreground">
           Venta mixta: comprobante tributario (SII) + ticket interno (ítems no tributarios).

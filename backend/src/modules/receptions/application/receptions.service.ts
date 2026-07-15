@@ -33,6 +33,7 @@ import {
   CashSessionStatus,
 } from '@modules/cash-sessions/domain/cash-session.entity';
 import { CashSessionsService } from '@modules/cash-sessions/application/cash-sessions.service';
+import { resolveCashPaymentSource as resolveCashPaymentSourceUtil } from './reception-cash-payment-source.util';
 
 @Injectable()
 export class ReceptionsService {
@@ -1215,14 +1216,23 @@ export class ReceptionsService {
     }
 
     let supplierDocumentError: string | null = null;
+    let sessionCashSupplierPayments: Array<{
+      documentNumber: string;
+      amount: number;
+      paymentMethod: string;
+      cashSessionId: string;
+      notes: string | null;
+    }> = [];
     if (docTypeNorm === 'invoice' || docTypeNorm === 'receipt') {
       try {
-        supplierDocumentError = await this.tryCreateReceptionSupplierFiscalDocuments({
+        const fiscalResult = await this.tryCreateReceptionSupplierFiscalDocuments({
           data,
           reception: receptionWithLines!,
           docTypeNorm: String(docTypeNorm),
           stockInTransactionId: stockTxId,
         });
+        supplierDocumentError = fiscalResult.error;
+        sessionCashSupplierPayments = fiscalResult.sessionCashSupplierPayments;
         if (!supplierDocumentError) {
           this.applySupplierFiscalTotalsToReception(
             receptionWithLines!,
@@ -1253,6 +1263,7 @@ export class ReceptionsService {
       transaction: stockTxId ? { id: stockTxId } : null,
       transactionError,
       supplierDocumentError,
+      sessionCashSupplierPayments,
     };
   }
 
@@ -1393,6 +1404,18 @@ export class ReceptionsService {
     };
   }
 
+  /**
+   * Origen de efectivo por línea:
+   * - hub explícito (cashHubId sin cashSessionId en línea) → centro, aunque el request traiga sesión POS
+   * - sesión en línea o fallback al request → caja POS
+   */
+  private resolveCashPaymentSource(
+    line: any,
+    posCashSessionId?: string | null,
+  ) {
+    return resolveCashPaymentSourceUtil(line, posCashSessionId);
+  }
+
   private validatePaymentLine(
     l: any,
     label: string,
@@ -1409,22 +1432,10 @@ export class ReceptionsService {
     if (!['CASH', 'TRANSFER', 'CHECK'].includes(pm))
       return `${label}: medio de pago inválido.`;
     if (pm === 'CASH') {
-      const posSessionId = opts?.posCashSessionId?.trim() || '';
-      if (posSessionId) {
-        const hub = typeof l?.cashHubId === 'string' ? l.cashHubId.trim() : '';
-        if (hub) {
-          return `${label}: en POS el efectivo sale de la caja; no use centro de acopio.`;
-        }
-        if (!opts?.isScheduledLine) {
-          const lineSession =
-            typeof l?.cashSessionId === 'string' ? l.cashSessionId.trim() : '';
-          if (!lineSession && !posSessionId) {
-            return `${label}: efectivo en POS requiere sesión de caja.`;
-          }
-        }
-      } else {
-        const hub = typeof l?.cashHubId === 'string' ? l.cashHubId.trim() : '';
-        if (!hub) return `${label}: efectivo requiere centro de acopio (cashHubId).`;
+      const source = this.resolveCashPaymentSource(l, opts?.posCashSessionId);
+      if (source.kind === 'invalid') return `${label}: ${source.error}`;
+      if (source.kind === 'missing') {
+        return `${label}: efectivo requiere centro de acopio (cashHubId) o sesión de caja.`;
       }
     }
     if (pm === 'TRANSFER' || pm === 'CHECK') {
@@ -1451,12 +1462,19 @@ export class ReceptionsService {
     if (opts?.isScheduled && !pm) {
       return { dueDate, amount };
     }
-    const lineSession =
-      pm === 'CASH' && line?.cashSessionId != null
-        ? String(line.cashSessionId).trim()
-        : null;
-    const sessionId =
-      lineSession || (pm === 'CASH' && posCashSessionId ? posCashSessionId.trim() : null);
+    let cashHubId: string | null = null;
+    let cashSessionId: string | null = null;
+    let paymentSource: 'pos_cash_session' | 'cash_hub' | null = null;
+    if (pm === 'CASH') {
+      const source = this.resolveCashPaymentSource(line, posCashSessionId);
+      if (source.kind === 'hub') {
+        cashHubId = source.cashHubId;
+        paymentSource = 'cash_hub';
+      } else if (source.kind === 'session') {
+        cashSessionId = source.cashSessionId;
+        paymentSource = 'pos_cash_session';
+      }
+    }
     return {
       dueDate,
       amount,
@@ -1477,12 +1495,9 @@ export class ReceptionsService {
         pm === 'CHECK' && line?.chequeNumber != null
           ? String(line.chequeNumber).trim()
           : null,
-      cashHubId:
-        pm === 'CASH' && !sessionId && line?.cashHubId != null
-          ? String(line.cashHubId).trim()
-          : null,
-      cashSessionId: sessionId || null,
-      paymentSource: sessionId ? 'pos_cash_session' : pm === 'CASH' ? 'cash_hub' : null,
+      cashHubId,
+      cashSessionId,
+      paymentSource,
     };
   }
 
@@ -1575,7 +1590,13 @@ export class ReceptionsService {
     note: string;
     installmentNumber?: number;
     totalInstallments?: number;
-  }): Promise<void> {
+  }): Promise<{
+    documentNumber: string;
+    amount: number;
+    paymentMethod: string;
+    cashSessionId: string;
+    notes: string | null;
+  } | null> {
     const dto = new CreateTransactionDto();
     dto.transactionType = TransactionType.SUPPLIER_PAYMENT;
     if (opts.asDraft) {
@@ -1603,13 +1624,9 @@ export class ReceptionsService {
       }
       const posSessionId = this.resolvePosCashSessionId(opts.dtoHost);
       if (pm === 'CASH') {
-        const lineSession =
-          typeof opts.line?.cashSessionId === 'string'
-            ? opts.line.cashSessionId.trim()
-            : '';
-        const sessionId = lineSession || posSessionId || '';
-        if (sessionId) {
-          dto.cashSessionId = sessionId;
+        const source = this.resolveCashPaymentSource(opts.line, posSessionId);
+        if (source.kind === 'session') {
+          dto.cashSessionId = source.cashSessionId;
           const posId =
             typeof opts.dtoHost?.pointOfSaleId === 'string'
               ? opts.dtoHost.pointOfSaleId.trim()
@@ -1617,8 +1634,8 @@ export class ReceptionsService {
           if (posId) {
             dto.pointOfSaleId = posId;
           }
-        } else if (opts.line.cashHubId != null) {
-          dto.cashHubId = String(opts.line.cashHubId).trim();
+        } else if (source.kind === 'hub') {
+          dto.cashHubId = source.cashHubId;
         }
       }
     }
@@ -1634,7 +1651,24 @@ export class ReceptionsService {
         { isScheduled: opts.asDraft },
       ),
     };
-    await this.transactionsService.createTransaction(dto);
+    const created = await this.transactionsService.createTransaction(dto);
+    const sessionId =
+      typeof dto.cashSessionId === 'string' ? dto.cashSessionId.trim() : '';
+    if (
+      !opts.asDraft &&
+      sessionId &&
+      pm === 'CASH' &&
+      created?.documentNumber
+    ) {
+      return {
+        documentNumber: String(created.documentNumber).trim(),
+        amount: Number(created.total) || this.roundClp(opts.line.amount),
+        paymentMethod: 'CASH',
+        cashSessionId: sessionId,
+        notes: opts.note?.trim() || null,
+      };
+    }
+    return null;
   }
 
   private async tryCreateReceptionSupplierFiscalDocuments(opts: {
@@ -1642,7 +1676,45 @@ export class ReceptionsService {
     reception: any;
     docTypeNorm: string;
     stockInTransactionId: string | null;
-  }): Promise<string | null> {
+  }): Promise<{
+    error: string | null;
+    sessionCashSupplierPayments: Array<{
+      documentNumber: string;
+      amount: number;
+      paymentMethod: string;
+      cashSessionId: string;
+      notes: string | null;
+    }>;
+  }> {
+    const sessionCashSupplierPayments: Array<{
+      documentNumber: string;
+      amount: number;
+      paymentMethod: string;
+      cashSessionId: string;
+      notes: string | null;
+    }> = [];
+    const err = await this.tryCreateReceptionSupplierFiscalDocumentsInner(
+      opts,
+      sessionCashSupplierPayments,
+    );
+    return { error: err, sessionCashSupplierPayments };
+  }
+
+  private async tryCreateReceptionSupplierFiscalDocumentsInner(
+    opts: {
+      data: any;
+      reception: any;
+      docTypeNorm: string;
+      stockInTransactionId: string | null;
+    },
+    sessionCashSupplierPayments: Array<{
+      documentNumber: string;
+      amount: number;
+      paymentMethod: string;
+      cashSessionId: string;
+      notes: string | null;
+    }>,
+  ): Promise<string | null> {
     const { data, reception, docTypeNorm, stockInTransactionId } = opts;
 
     const fa = data?.supplierFiscalAmounts;
@@ -1790,7 +1862,7 @@ export class ReceptionsService {
 
     if (payment.mode === 'COMPLETED') {
       for (let i = 0; i < paid.length; i++) {
-        await this.createSupplierPaymentLine({
+        const printed = await this.createSupplierPaymentLine({
           dtoHost: data,
           fiscalDocId: fiscalId,
           line: paid[i],
@@ -1799,10 +1871,11 @@ export class ReceptionsService {
           installmentNumber: i + 1,
           totalInstallments: totalPaymentLines || paid.length,
         });
+        if (printed) sessionCashSupplierPayments.push(printed);
       }
     } else if (payment.mode === 'PARTIAL') {
       for (let i = 0; i < paid.length; i++) {
-        await this.createSupplierPaymentLine({
+        const printed = await this.createSupplierPaymentLine({
           dtoHost: data,
           fiscalDocId: fiscalId,
           line: paid[i],
@@ -1811,6 +1884,7 @@ export class ReceptionsService {
           installmentNumber: i + 1,
           totalInstallments: totalPaymentLines,
         });
+        if (printed) sessionCashSupplierPayments.push(printed);
       }
       for (let i = 0; i < sched.length; i++) {
         await this.createSupplierPaymentLine({

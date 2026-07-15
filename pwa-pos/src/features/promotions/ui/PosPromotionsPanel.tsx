@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { usePosCart } from "@/features/pos-cart/PosCartProvider";
+import { usePosOffline } from "@/features/pos-offline/hooks/use-pos-offline";
 import { PromotionActivation } from "../lib/promotion.enums";
 
 function formatMoney(n: number) {
@@ -14,6 +15,7 @@ function formatMoney(n: number) {
 
 export function PosPromotionsPanel() {
   const cart = usePosCart();
+  const { isOffline } = usePosOffline();
   const [code, setCode] = useState("");
   const [redeeming, setRedeeming] = useState(false);
   const [redeemError, setRedeemError] = useState<string | null>(null);
@@ -33,7 +35,7 @@ export function PosPromotionsPanel() {
 
   async function handleRedeem(e: React.FormEvent) {
     e.preventDefault();
-    if (!code.trim() || redeeming) return;
+    if (isOffline || !code.trim() || redeeming) return;
     setRedeeming(true);
     setRedeemError(null);
     const res = await cart.redeemCode(code.trim());
@@ -43,6 +45,19 @@ export function PosPromotionsPanel() {
       setRedeemError(res.message ?? "Cupón inválido");
     }
     setRedeeming(false);
+  }
+
+  if (isOffline) {
+    return (
+      <section
+        className="rounded-xl border border-border bg-surface p-3 shadow-sm"
+        data-test-id="pos-promotions-panel"
+      >
+        <p className="text-sm text-muted-foreground" data-test-id="pos-promotions-offline">
+          Descuentos y cupones deshabilitados en modo offline.
+        </p>
+      </section>
+    );
   }
 
   return (

@@ -49,6 +49,13 @@ export type CreateReceptionResult =
       supplierDocumentError?: string | null;
       /** Error al crear la transacción PURCHASE (stock / PMP no se actualizaron). */
       transactionError?: string | null;
+      sessionCashSupplierPayments?: Array<{
+        documentNumber: string;
+        amount: number;
+        paymentMethod: string;
+        cashSessionId: string;
+        notes: string | null;
+      }>;
     }
   | { success: false; error: string };
 

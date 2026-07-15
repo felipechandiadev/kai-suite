@@ -50,6 +50,17 @@ export function addCalendarDays(d: Date, days: number): Date {
   return x;
 }
 
+/** Suma meses calendario conservando el día cuando es posible (p. ej. 31 ene + 1 mes → 28/29 feb). */
+export function addCalendarMonths(d: Date, months: number): Date {
+  const x = new Date(d.getTime());
+  const day = x.getDate();
+  x.setMonth(x.getMonth() + months);
+  if (x.getDate() !== day) {
+    x.setDate(0);
+  }
+  return x;
+}
+
 /** Reparte `total` en `count` partes enteras que suman exactamente `total`. */
 /** Interpreta monto CLP desde TextField (solo dígitos o texto con separadores). */
 export function parseClpAmountInput(raw: string): number {

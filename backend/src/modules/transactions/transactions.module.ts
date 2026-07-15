@@ -64,6 +64,7 @@ import { SupplierFiscalDocumentCreateService } from './application/services/supp
 import { OperatingExpensePaymentPlanService } from './application/services/operating-expense-payment-plan.service';
 import { ChecksModule } from '@modules/checks/checks.module';
 import { OperationalExpense } from '@modules/operational-expenses/domain/operational-expense.entity';
+import { CashHub } from '@modules/cash-hubs/domain/cash-hub.entity';
 
 // Inventory CQRS
 import { inventoryCommandHandlers } from './application/commands/inventory';
@@ -96,6 +97,7 @@ import { EshopBackorderSyncService } from './application/eshop-backorder-sync.se
       CustomerOrmEntity,
       Tax,
       OperationalExpense,
+      CashHub,
     ]),
     LedgerEntriesModule,
     AccountingPeriodsModule,

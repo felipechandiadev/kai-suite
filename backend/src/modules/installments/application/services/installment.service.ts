@@ -562,10 +562,13 @@ export class InstallmentService {
     }
 
     if (filters?.customerId) {
+      // payeeId is varchar; transaction.customerId is uuid. Reusing the same
+      // bind param makes Postgres type the value as uuid and fail the varchar compare.
       queryBuilder.andWhere(
-        '(transaction.customerId = :customerId OR (installment.payeeType = :customerPayeeType AND installment.payeeId = :customerId))',
+        '(transaction.customerId = :arCustomerId OR (installment.payeeType = :customerPayeeType AND installment.payeeId = :arCustomerIdText))',
         {
-          customerId: filters.customerId,
+          arCustomerId: filters.customerId,
+          arCustomerIdText: String(filters.customerId),
           customerPayeeType: 'CUSTOMER',
         },
       );

@@ -46,6 +46,7 @@ fn is_vector_pos_ticket_type(print_type: &str) -> bool {
             | "pos-cash-count-sheet-ticket"
             | "pos-cash-session-opening-ticket"
             | "pos-cash-hub-movement-ticket"
+            | "pos-supplier-payment-ticket"
             | "pos-bank-account-ticket"
             | "pos-presale-ticket"
             | "fiscal-boleta-preview"
@@ -83,6 +84,11 @@ fn vector_ticket_folio(print_type: &str, ticket: &serde_json::Value) -> String {
             }
         }
         "pos-cash-hub-movement-ticket" => ticket
+            .get("documentNumber")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        "pos-supplier-payment-ticket" => ticket
             .get("documentNumber")
             .and_then(|v| v.as_str())
             .unwrap_or("")
@@ -390,6 +396,7 @@ where
                                     "pos-cash-count-sheet-ticket",
                                     "pos-cash-session-opening-ticket",
                                     "pos-cash-hub-movement-ticket",
+                                    "pos-supplier-payment-ticket",
                                     "pos-bank-account-ticket",
                                     "pos-presale-ticket",
                                     "fiscal-boleta-preview",

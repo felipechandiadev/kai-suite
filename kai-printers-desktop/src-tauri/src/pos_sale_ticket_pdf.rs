@@ -167,7 +167,7 @@ pub fn sale_ticket_section_heading(ticket: &PosSaleTicket) -> &'static str {
         return "DEVOLUCION SALDO NC";
     }
     if !ticket.quota_collection.is_empty() {
-        return "COBRO DE CUOTAS";
+        return "PAGO DE CUOTAS";
     }
     if !ticket.ar_collection.is_empty() {
         return "COBRO PENDIENTE";
@@ -182,7 +182,10 @@ pub fn sale_ticket_thanks_message(ticket: &PosSaleTicket) -> &'static str {
     if !ticket.nc_payout.is_empty() {
         return "Comprobante de devolucion de saldo NC";
     }
-    if !ticket.ar_collection.is_empty() || !ticket.quota_collection.is_empty() {
+    if !ticket.quota_collection.is_empty() {
+        return "Comprobante de pago de cuotas";
+    }
+    if !ticket.ar_collection.is_empty() {
         return "Comprobante de cobro";
     }
     if ticket.document_kind == "backorder" {

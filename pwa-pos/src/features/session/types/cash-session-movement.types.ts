@@ -21,4 +21,6 @@ export type CashSessionMovementRow = {
   reason: string | null;
   metadata: unknown;
   direction: CashSessionMovementDirection;
+  /** Proveedor / centro de efectivo asociado (cuando aplica). */
+  counterpartyLabel?: string | null;
 };

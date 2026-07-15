@@ -56,7 +56,18 @@ export function buildPosSaleDocumentHtml(
   options?: { fiscalTimbreSvg?: string },
 ): string {
   const isBackorder = data.documentKind === "backorder";
-  const documentTitle = isBackorder ? "ENCARGO" : "VENTA";
+  const isQuotaCollection = Boolean(data.quotaCollection?.length);
+  const isArCollection = Boolean(data.arCollection?.length);
+  const isNcPayout = Boolean(data.ncPayout?.length);
+  const documentTitle = isNcPayout
+    ? "DEVOLUCIÓN SALDO NC"
+    : isQuotaCollection
+      ? "PAGO DE CUOTAS"
+      : isArCollection
+        ? "COBRO PENDIENTE"
+        : isBackorder
+          ? "ENCARGO"
+          : "VENTA";
   const folio = data.folio.trim() || "—";
   const fiscalTimbreSvg = options?.fiscalTimbreSvg?.trim() ?? "";
   const barcodeSvg = fiscalTimbreSvg || receiptBarcodeSvgString(folio);
