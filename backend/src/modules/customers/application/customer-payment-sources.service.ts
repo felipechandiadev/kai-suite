@@ -21,6 +21,7 @@ import {
   buildCustomerCreditNoteLinkSummary,
   type CustomerCreditNoteLinkSummary,
 } from '@modules/transactions/application/read-models/customer-credit-note-link.summary';
+import { normalizeCustomerListPage } from './customer-list-pagination.util';
 
 export type CustomerReturnRow = {
   id: string;
@@ -352,35 +353,61 @@ export class CustomerPaymentSourcesService {
   /** Todas las NC del cliente (historial), con estado de uso. */
   async listAllCreditNotesForCustomer(
     customerId: string,
-  ): Promise<CustomerCreditNoteLinkSummary[]> {
+    paging?: { page?: number; pageSize?: number },
+  ): Promise<{
+    success: true;
+    creditNotes: CustomerCreditNoteLinkSummary[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
     const cid = customerId?.trim();
     if (!cid) {
       throw new BadRequestException('customerId es obligatorio');
     }
-    const rows = await this.txRepo.find({
+    const pageOpts = normalizeCustomerListPage(paging);
+    const [rows, total] = await this.txRepo.findAndCount({
       where: {
         customerId: cid,
         transactionType: TransactionType.CUSTOMER_CREDIT_NOTE,
       },
       order: { createdAt: 'DESC' },
-      take: 200,
+      skip: pageOpts.skip,
+      take: pageOpts.pageSize,
     });
-    return rows.map((tx) => buildCustomerCreditNoteLinkSummary(tx));
+    return {
+      success: true,
+      creditNotes: rows.map((tx) => buildCustomerCreditNoteLinkSummary(tx)),
+      total,
+      page: pageOpts.page,
+      pageSize: pageOpts.pageSize,
+    };
   }
 
   /** Devoluciones del cliente con NC vinculada y modo de reembolso. */
-  async listReturnsForCustomer(customerId: string): Promise<CustomerReturnRow[]> {
+  async listReturnsForCustomer(
+    customerId: string,
+    paging?: { page?: number; pageSize?: number },
+  ): Promise<{
+    success: true;
+    returns: CustomerReturnRow[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
     const cid = customerId?.trim();
     if (!cid) {
       throw new BadRequestException('customerId es obligatorio');
     }
-    const returns = await this.txRepo.find({
+    const pageOpts = normalizeCustomerListPage(paging);
+    const [returns, total] = await this.txRepo.findAndCount({
       where: {
         customerId: cid,
         transactionType: TransactionType.SALE_RETURN,
       },
       order: { createdAt: 'DESC' },
-      take: 200,
+      skip: pageOpts.skip,
+      take: pageOpts.pageSize,
     });
 
     const result: CustomerReturnRow[] = [];
@@ -407,6 +434,12 @@ export class CustomerPaymentSourcesService {
           : null,
       });
     }
-    return result;
+    return {
+      success: true,
+      returns: result,
+      total,
+      page: pageOpts.page,
+      pageSize: pageOpts.pageSize,
+    };
   }
 }

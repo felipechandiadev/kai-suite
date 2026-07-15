@@ -49,9 +49,31 @@ export type PosCustomerQuotaRow = {
   id: string;
   transactionId: string | null;
   documentNumber: string | null;
+  installmentNumber: number | null;
+  totalInstallments: number | null;
   amount: number;
   dueDate: string | null;
+  status: string | null;
   createdAt: string | null;
+};
+
+export type PosCustomerOpenCreditRow = {
+  transactionId: string;
+  documentNumber: string | null;
+  saleDate: string | null;
+  creditAmount: number;
+  mode: "CREDIT_LUMP" | "UNKNOWN";
+};
+
+export type PosCustomerInternalCreditDebt = {
+  scheduled: {
+    totalPending: number;
+    rows: PosCustomerQuotaRow[];
+  };
+  openCredit: {
+    totalPending: number;
+    rows: PosCustomerOpenCreditRow[];
+  };
 };
 
 export type PosCustomerPurchaseRow = {
@@ -101,15 +123,24 @@ export type PosCustomerReturnRow = {
   linkedCreditNote: PosCustomerCreditNoteRow | null;
 };
 
+export type PosPagedList<T> = {
+  rows: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
 export type PosCustomerDetailBundle =
   | {
       success: true;
       customer: PosCustomerDetail;
-      payments: PosCustomerPaymentRow[];
+      payments: PosPagedList<PosCustomerPaymentRow>;
+      /** Alias de `internalCreditDebt.scheduled.rows` (compat cobro de cuotas). */
       quotas: PosCustomerQuotaRow[];
-      purchases: PosCustomerPurchaseRow[];
-      backorders: PosCustomerBackorderRow[];
-      returns: PosCustomerReturnRow[];
-      creditNotes: PosCustomerCreditNoteRow[];
+      internalCreditDebt: PosCustomerInternalCreditDebt;
+      purchases: PosPagedList<PosCustomerPurchaseRow>;
+      backorders: PosPagedList<PosCustomerBackorderRow>;
+      returns: PosPagedList<PosCustomerReturnRow>;
+      creditNotes: PosPagedList<PosCustomerCreditNoteRow>;
     }
   | { success: false; message: string };

@@ -36,6 +36,7 @@ import {
 } from './application/ports/customers.repository.port';
 import { CustomersSearchBootstrap } from './infrastructure/customers-search.bootstrap';
 import { CustomerPaymentSourcesService } from './application/customer-payment-sources.service';
+import { CustomerInternalCreditDebtService } from './application/customer-internal-credit-debt.service';
 
 @Module({
   imports: [
@@ -80,6 +81,7 @@ import { CustomerPaymentSourcesService } from './application/customer-payment-so
     // accent-insensitive customer search works out of the box.
     CustomersSearchBootstrap,
     CustomerPaymentSourcesService,
+    CustomerInternalCreditDebtService,
   ],
   exports: [
     CustomersServiceAdapter,

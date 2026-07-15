@@ -23,8 +23,17 @@ export interface CustomersRepositoryPort {
   remove(id: string): Promise<void>;
   getTransactions(customerId: string): Promise<Transaction[]>;
   getPendingPayments(customerId: string): Promise<Transaction[]>;
-  getPurchases(customerId: string, status?: string): Promise<Transaction[]>;
-  getPaymentIns(customerId: string): Promise<Transaction[]>;
+  getPurchases(
+    customerId: string,
+    status?: string,
+    page?: number,
+    pageSize?: number,
+  ): Promise<{ items: Transaction[]; total: number; page: number; pageSize: number }>;
+  getPaymentIns(
+    customerId: string,
+    page?: number,
+    pageSize?: number,
+  ): Promise<{ items: Transaction[]; total: number; page: number; pageSize: number }>;
   calculateAvailableCredit(customerId: string): Promise<{
     creditLimit: number;
     usedCredit: number;

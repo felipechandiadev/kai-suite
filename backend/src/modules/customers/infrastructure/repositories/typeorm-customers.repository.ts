@@ -14,6 +14,7 @@ import {
   CustomersRepositoryPort,
   CUSTOMERS_REPOSITORY,
 } from '../../application/ports/customers.repository.port';
+import { normalizeCustomerListPage } from '../../application/customer-list-pagination.util';
 
 @Injectable()
 export class TypeOrmCustomersRepository implements CustomersRepositoryPort {
@@ -187,7 +188,10 @@ export class TypeOrmCustomersRepository implements CustomersRepositoryPort {
   async getPurchases(
     customerId: string,
     status?: string,
-  ): Promise<Transaction[]> {
+    page?: number,
+    pageSize?: number,
+  ): Promise<{ items: Transaction[]; total: number; page: number; pageSize: number }> {
+    const paging = normalizeCustomerListPage({ page, pageSize });
     const where: Record<string, unknown> = {
       customerId,
       transactionType: In([
@@ -199,15 +203,27 @@ export class TypeOrmCustomersRepository implements CustomersRepositoryPort {
     };
     if (status) where.status = status;
 
-    return this.transactionRepository.find({
+    const [items, total] = await this.transactionRepository.findAndCount({
       where: where as never,
       order: { createdAt: 'DESC' },
-      take: 100,
+      skip: paging.skip,
+      take: paging.pageSize,
     });
+    return {
+      items,
+      total,
+      page: paging.page,
+      pageSize: paging.pageSize,
+    };
   }
 
-  async getPaymentIns(customerId: string): Promise<Transaction[]> {
-    return this.transactionRepository.find({
+  async getPaymentIns(
+    customerId: string,
+    page?: number,
+    pageSize?: number,
+  ): Promise<{ items: Transaction[]; total: number; page: number; pageSize: number }> {
+    const paging = normalizeCustomerListPage({ page, pageSize });
+    const [items, total] = await this.transactionRepository.findAndCount({
       where: {
         customerId,
         transactionType: In([
@@ -216,8 +232,15 @@ export class TypeOrmCustomersRepository implements CustomersRepositoryPort {
         ]),
       },
       order: { createdAt: 'DESC' },
-      take: 100,
+      skip: paging.skip,
+      take: paging.pageSize,
     });
+    return {
+      items,
+      total,
+      page: paging.page,
+      pageSize: paging.pageSize,
+    };
   }
 
   async remove(id: string): Promise<void> {

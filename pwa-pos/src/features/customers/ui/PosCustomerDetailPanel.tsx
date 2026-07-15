@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Alert, Button, Dialog, IconButton } from "@kai/ui";
 import { Badge } from "@kai/ui";
 import { writePosArCollectDraft } from "@/features/session/lib/pos-ar-collect-storage";
@@ -14,12 +14,23 @@ import type {
   PosCustomerBackorderRow,
   PosCustomerDetailBundle,
   PosCustomerCreditNoteRow,
+  PosCustomerInternalCreditDebt,
+  PosCustomerOpenCreditRow,
   PosCustomerPaymentRow,
   PosCustomerPurchaseRow,
   PosCustomerQuotaRow,
   PosCustomerReturnRow,
+  PosPagedList,
 } from "@/features/customers/types/pos-customer-detail.types";
+import {
+  POS_CUSTOMER_DETAIL_LIST_URL_KEYS,
+  parsePosCustomerDetailBundlePaging,
+} from "@/features/customers/lib/pos-customer-detail-url";
 import { PosCustomerBankAccountsSection } from "@/features/customers/ui/PosCustomerBankAccountsSection";
+import {
+  PosSectionPagination,
+  type PosSectionPaginationChange,
+} from "@/features/customers/ui/PosSectionPagination";
 import {
   CREDIT_NOTE_USAGE_LABEL,
   TX_TYPE_LABEL,
@@ -88,14 +99,57 @@ function panelShell(className: string, children: ReactNode, testId?: string) {
   );
 }
 
+/** Accepts PosPagedList, bare arrays, or raw API payloads ({ purchases|data|items }). */
+function normalizePagedList<T>(list: unknown): PosPagedList<T> {
+  if (Array.isArray(list)) {
+    return {
+      rows: list as T[],
+      total: list.length,
+      page: 1,
+      pageSize: list.length > 0 ? list.length : 5,
+    };
+  }
+  if (list && typeof list === "object") {
+    const o = list as Record<string, unknown>;
+    const candidate = o.rows ?? o.purchases ?? o.data ?? o.items ?? o.quotas;
+    if (Array.isArray(candidate)) {
+      return {
+        rows: candidate as T[],
+        total: Number.isFinite(Number(o.total)) ? Number(o.total) : candidate.length,
+        page: Math.max(1, Number(o.page) || 1),
+        pageSize: Math.max(1, Number(o.pageSize ?? o.limit) || 5),
+      };
+    }
+  }
+  return { rows: [], total: 0, page: 1, pageSize: 5 };
+}
+
+function usePatchCustomerDetailListPaging() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const sp = useSearchParams();
+  return useCallback(
+    (pageKey: string, limitKey: string, next: PosSectionPaginationChange) => {
+      const p = new URLSearchParams(sp.toString());
+      p.set(pageKey, String(Math.max(1, next.page)));
+      p.set(limitKey, String(Math.max(1, next.limit)));
+      const qs = p.toString();
+      router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [router, pathname, sp],
+  );
+}
+
 export default function PosCustomerDetailPanel({
   customerId,
   initialBundle,
   invalidId,
   internalCreditEnabled = false,
 }: Props) {
+  const searchParams = useSearchParams();
   const [bundle, setBundle] = useState<PosCustomerDetailBundle | null>(initialBundle);
   const [loading, setLoading] = useState(false);
+  const patchListPaging = usePatchCustomerDetailListPaging();
 
   useEffect(() => {
     const id = customerId?.trim();
@@ -109,14 +163,17 @@ export default function PosCustomerDetailPanel({
       initialBundle?.success === true && initialBundle.customer.customerId === id;
     if (initialMatches) {
       setBundle(initialBundle);
-    } else {
-      setBundle(null);
+      setLoading(false);
+      return;
     }
 
     let cancelled = false;
-    if (!initialMatches) setLoading(true);
+    setLoading(true);
+    const paging = parsePosCustomerDetailBundlePaging(
+      (key) => searchParams.get(key) ?? "",
+    );
 
-    void getCustomerPosDetailBundleAction(id).then((res) => {
+    void getCustomerPosDetailBundleAction(id, paging).then((res) => {
       if (cancelled) return;
       setBundle(res);
       setLoading(false);
@@ -125,7 +182,7 @@ export default function PosCustomerDetailPanel({
     return () => {
       cancelled = true;
     };
-  }, [customerId, invalidId, initialBundle]);
+  }, [customerId, invalidId, initialBundle, searchParams]);
 
   if (invalidId) {
     return panelShell(
@@ -175,8 +232,17 @@ export default function PosCustomerDetailPanel({
   }
 
   const customer = bundle.customer;
-  const { payments, quotas, purchases, returns, creditNotes } = bundle;
-  const backorders = (bundle as any).backorders ?? [];
+  const purchases = normalizePagedList<PosCustomerPurchaseRow>(bundle.purchases);
+  const payments = normalizePagedList<PosCustomerPaymentRow>(bundle.payments);
+  const returns = normalizePagedList<PosCustomerReturnRow>(bundle.returns);
+  const creditNotes = normalizePagedList<PosCustomerCreditNoteRow>(bundle.creditNotes);
+  const backorders = normalizePagedList<PosCustomerBackorderRow>(bundle.backorders);
+  const internalCreditDebt: PosCustomerInternalCreditDebt =
+    bundle.internalCreditDebt ?? {
+      scheduled: { totalPending: 0, rows: bundle.quotas ?? [] },
+      openCredit: { totalPending: 0, rows: [] },
+    };
+  const K = POS_CUSTOMER_DETAIL_LIST_URL_KEYS;
 
   return (
     <article className="w-full min-w-0 space-y-4" data-test-id="pos-customer-detail-panel">
@@ -203,9 +269,12 @@ export default function PosCustomerDetailPanel({
         </SectionCard>
       ) : null}
 
-      <SectionCard title="Cuotas pendientes" testId="pos-customer-detail-quotas">
-        <QuotasSection
-          rows={quotas}
+      <SectionCard
+        title="Por cobrar — crédito interno"
+        testId="pos-customer-detail-internal-credit-debt"
+      >
+        <InternalCreditDebtSection
+          debt={internalCreditDebt}
           customerId={customer.customerId}
           customerDisplayName={customer.displayName}
         />
@@ -213,37 +282,66 @@ export default function PosCustomerDetailPanel({
 
       <SectionCard title="Compras" testId="pos-customer-detail-purchases">
         <PurchasesSection
-          rows={purchases}
+          list={purchases}
           customerId={customer.customerId}
           customerDisplayName={customer.displayName}
+          onPaginationChange={(next) =>
+            patchListPaging(K.purchasesPage, K.purchasesLimit, next)
+          }
         />
       </SectionCard>
 
       <SectionCard title="Encargos" testId="pos-customer-detail-backorders">
-        <BackordersSection rows={backorders} />
+        <BackordersSection
+          list={backorders}
+          onPaginationChange={(next) =>
+            patchListPaging(K.backordersPage, K.backordersLimit, next)
+          }
+        />
       </SectionCard>
 
       <SectionCard title="Pagos y cobros" testId="pos-customer-detail-payments">
-        <PaymentsSection rows={payments} />
+        <PaymentsSection
+          list={payments}
+          onPaginationChange={(next) =>
+            patchListPaging(K.paymentsPage, K.paymentsLimit, next)
+          }
+        />
       </SectionCard>
 
       <SectionCard title="Devoluciones" testId="pos-customer-detail-returns">
-        <ReturnsSection rows={returns} />
+        <ReturnsSection
+          list={returns}
+          onPaginationChange={(next) =>
+            patchListPaging(K.returnsPage, K.returnsLimit, next)
+          }
+        />
       </SectionCard>
 
       <SectionCard title="Notas de crédito" testId="pos-customer-detail-credit-notes">
         <CreditNotesSection
-          rows={creditNotes}
+          list={creditNotes}
           customerId={customer.customerId}
           customerDisplayName={customer.displayName}
+          onPaginationChange={(next) =>
+            patchListPaging(K.creditNotesPage, K.creditNotesLimit, next)
+          }
         />
       </SectionCard>
     </article>
   );
 }
 
-function BackordersSection({ rows }: { rows?: PosCustomerBackorderRow[] }) {
-  const safe = Array.isArray(rows) ? rows : [];
+function BackordersSection({
+  list,
+  onPaginationChange,
+}: {
+  list: PosPagedList<PosCustomerBackorderRow> | PosCustomerBackorderRow[] | null | undefined;
+  onPaginationChange: (next: PosSectionPaginationChange) => void;
+}) {
+  const paged = normalizePagedList<PosCustomerBackorderRow>(list);
+  const safe = Array.isArray(paged.rows) ? paged.rows : [];
+  const { page, pageSize, total } = paged;
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -259,10 +357,6 @@ function BackordersSection({ rows }: { rows?: PosCustomerBackorderRow[] }) {
       unitOfMeasure: string | null;
     }>;
   } | null>(null);
-
-  if (!safe.length) {
-    return <EmptyTableMsg>No hay encargos registrados.</EmptyTableMsg>;
-  }
 
   const openDetail = async (txId: string) => {
     setBusy(true);
@@ -285,41 +379,52 @@ function BackordersSection({ rows }: { rows?: PosCustomerBackorderRow[] }) {
   };
 
   return (
-    <>
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full min-w-[640px] border-collapse text-xs">
-          <thead>
-            <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold uppercase text-muted-foreground">
-              <th className="w-10 px-3 py-2" />
-              <th className="px-3 py-2">Folio</th>
-              <th className="px-3 py-2">Estado</th>
-              <th className="px-3 py-2 text-right">Total</th>
-              <th className="px-3 py-2">Fecha</th>
-            </tr>
-          </thead>
-          <tbody>
-            {safe.map((r) => (
-              <tr key={r.id} className="border-b border-border/80">
-                <td className="px-2 py-2">
-                  <IconButton
-                    icon="MoreHorizontal"
-                    variant="neutral"
-                    size="sm"
-                    ariaLabel="Ver productos del encargo"
-                    title="Ver productos del encargo"
-                    onClick={() => void openDetail(r.id)}
-                    data-test-id={`pos-customer-backorder-detail-${r.id}`}
-                  />
-                </td>
-                <td className="px-3 py-2 font-mono">{r.documentNumber ?? "—"}</td>
-                <td className="px-3 py-2">{r.status ?? "—"}</td>
-                <td className="px-3 py-2 text-right font-mono tabular-nums">{fmtClp(r.total)}</td>
-                <td className="px-3 py-2">{formatCustomerDateTime(r.createdAt)}</td>
+    <div className="space-y-3">
+      {!safe.length ? (
+        <EmptyTableMsg>No hay encargos registrados.</EmptyTableMsg>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full min-w-[640px] border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold uppercase text-muted-foreground">
+                <th className="w-10 px-3 py-2" />
+                <th className="px-3 py-2">Folio</th>
+                <th className="px-3 py-2">Estado</th>
+                <th className="px-3 py-2 text-right">Total</th>
+                <th className="px-3 py-2">Fecha</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {safe.map((r) => (
+                <tr key={r.id} className="border-b border-border/80">
+                  <td className="px-2 py-2">
+                    <IconButton
+                      icon="MoreHorizontal"
+                      variant="neutral"
+                      size="sm"
+                      ariaLabel="Ver productos del encargo"
+                      title="Ver productos del encargo"
+                      onClick={() => void openDetail(r.id)}
+                      data-test-id={`pos-customer-backorder-detail-${r.id}`}
+                    />
+                  </td>
+                  <td className="px-3 py-2 font-mono">{r.documentNumber ?? "—"}</td>
+                  <td className="px-3 py-2">{r.status ?? "—"}</td>
+                  <td className="px-3 py-2 text-right font-mono tabular-nums">{fmtClp(r.total)}</td>
+                  <td className="px-3 py-2">{formatCustomerDateTime(r.createdAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <PosSectionPagination
+        page={page}
+        limit={pageSize}
+        total={total}
+        onChange={onPaginationChange}
+        testId="pos-customer-backorders-pagination"
+      />
 
       <Dialog
         open={open}
@@ -384,7 +489,7 @@ function BackordersSection({ rows }: { rows?: PosCustomerBackorderRow[] }) {
           </div>
         ) : null}
       </Dialog>
-    </>
+    </div>
   );
 }
 
@@ -418,32 +523,127 @@ function SummarySection({ customer }: { customer: PosCustomerDetail }) {
 
 function CreditSection({ customer }: { customer: PosCustomerDetail }) {
   return (
-    <dl className="grid gap-3 sm:grid-cols-2">
-      <DetailField label="Límite de crédito" value={fmtClp(customer.creditLimit)} />
-      <DetailField label="Utilizado" value={fmtClp(customer.usedCredit)} />
-      <DetailField label="Disponible" value={fmtClp(customer.availableCredit)} />
-      <DetailField
-        label="Día de pago"
-        value={
-          customer.paymentDayOfMonth != null && Number.isFinite(customer.paymentDayOfMonth)
-            ? String(customer.paymentDayOfMonth)
-            : ""
-        }
-      />
-    </dl>
+    <div className="space-y-3">
+      <dl className="grid gap-3 sm:grid-cols-2">
+        <DetailField label="Límite de crédito" value={fmtClp(customer.creditLimit)} />
+        <DetailField label="Utilizado" value={fmtClp(customer.usedCredit)} />
+        <DetailField label="Disponible" value={fmtClp(customer.availableCredit)} />
+        <DetailField
+          label="Día de pago"
+          value={
+            customer.paymentDayOfMonth != null && Number.isFinite(customer.paymentDayOfMonth)
+              ? String(customer.paymentDayOfMonth)
+              : ""
+          }
+        />
+      </dl>
+      <p className="text-xs text-muted-foreground">
+        Los saldos de cupo se sincronizarán al habilitar cobros.
+      </p>
+    </div>
+  );
+}
+
+function InternalCreditDebtSection({
+  debt,
+  customerId,
+  customerDisplayName,
+}: {
+  debt: PosCustomerInternalCreditDebt;
+  customerId: string;
+  customerDisplayName: string;
+}) {
+  return (
+    <div className="space-y-6">
+      <div data-test-id="pos-customer-debt-scheduled">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h4 className="text-sm font-semibold text-foreground">Cuotas programadas</h4>
+          <span className="text-xs tabular-nums text-muted-foreground">
+            Pendiente: {fmtClp(debt.scheduled.totalPending)}
+          </span>
+        </div>
+        <QuotasSection
+          rows={debt.scheduled.rows}
+          totalPending={debt.scheduled.totalPending}
+          customerId={customerId}
+          customerDisplayName={customerDisplayName}
+        />
+      </div>
+      <div data-test-id="pos-customer-debt-open-credit">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h4 className="text-sm font-semibold text-foreground">Crédito abierto (sin calendario)</h4>
+          <span className="text-xs tabular-nums text-muted-foreground">
+            Pendiente: {fmtClp(debt.openCredit.totalPending)}
+          </span>
+        </div>
+        <OpenCreditSection rows={debt.openCredit.rows} />
+      </div>
+    </div>
+  );
+}
+
+function OpenCreditSection({ rows }: { rows: PosCustomerOpenCreditRow[] }) {
+  if (rows.length === 0) {
+    return <EmptyTableMsg>Sin crédito abierto pendiente.</EmptyTableMsg>;
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">
+        El abono de este saldo se habilitará en una próxima versión.
+      </p>
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full min-w-[520px] border-collapse text-xs">
+          <thead>
+            <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold uppercase text-muted-foreground">
+              <th className="px-3 py-2">Documento</th>
+              <th className="px-3 py-2">Fecha venta</th>
+              <th className="px-3 py-2">Tipo</th>
+              <th className="px-3 py-2 text-right">Monto</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.transactionId} className="border-b border-border/80">
+                <td className="px-3 py-2 font-mono">
+                  {r.documentNumber ?? r.transactionId}
+                </td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  {formatCustomerDateTime(r.saleDate)}
+                </td>
+                <td className="px-3 py-2">
+                  <Badge variant="secondary-outlined">Sin calendario</Badge>
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums font-medium">
+                  {fmtClp(r.creditAmount)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
 function PurchasesSection({
-  rows,
+  list,
+  rows: rowsProp,
   customerId,
   customerDisplayName,
+  onPaginationChange,
 }: {
-  rows: PosCustomerPurchaseRow[];
+  list?: PosPagedList<PosCustomerPurchaseRow> | PosCustomerPurchaseRow[] | null;
+  /** Compat: callers / HMR that still pass the paged object as `rows`. */
+  rows?: PosPagedList<PosCustomerPurchaseRow> | PosCustomerPurchaseRow[] | null;
   customerId: string;
   customerDisplayName: string;
+  onPaginationChange: (next: PosSectionPaginationChange) => void;
 }) {
   const router = useRouter();
+  const paged = normalizePagedList<PosCustomerPurchaseRow>(list ?? rowsProp);
+  const rows = Array.isArray(paged.rows) ? paged.rows : [];
+  const { page, pageSize, total } = paged;
   const collectible = useMemo(
     () =>
       rows.filter(
@@ -502,102 +702,103 @@ function PurchasesSection({
     router.push("/pos/payment?mode=collect");
   }, [collectible, selectedIds, customerId, customerDisplayName, router]);
 
-  if (rows.length === 0) {
-    return <EmptyTableMsg>No hay ventas ni encargos registrados.</EmptyTableMsg>;
-  }
-
   return (
     <div className="space-y-3">
-      {collectible.length > 0 ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/80 bg-muted/20 px-3 py-2">
-          <label className="flex cursor-pointer items-center gap-2 text-xs text-foreground">
-            <input
-              type="checkbox"
-              className="size-4 rounded border-border"
-              checked={selectedIds.size > 0 && selectedIds.size === collectible.length}
-              onChange={toggleAll}
-              data-test-id="pos-customer-purchases-select-all"
-            />
-            Seleccionar todas ({collectible.length})
-          </label>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-muted-foreground">
-              {selectedIds.size > 0
-                ? `${selectedIds.size} folio(s) · ${fmtClp(selectedTotal)}`
-                : "Selecciona ventas pendientes de cobro"}
-            </span>
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              disabled={selectedIds.size === 0}
-              onClick={handleCollect}
-              data-test-id="pos-customer-collect-selection"
-            >
-              Cobrar selección
-            </Button>
-          </div>
-        </div>
-      ) : null}
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full min-w-[720px] border-collapse text-xs">
-          <thead>
-            <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold uppercase text-muted-foreground">
-              {collectible.length > 0 ? <th className="w-8 px-2 py-2" /> : null}
-              <th className="px-3 py-2">Folio</th>
-              <th className="px-3 py-2">Tipo</th>
-              <th className="px-3 py-2">Estado trans.</th>
-              <th className="px-3 py-2">Estado pago</th>
-              <th className="px-3 py-2 text-right">Total</th>
-              <th className="px-3 py-2 text-right">Saldo</th>
-              <th className="px-3 py-2">Fecha</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const typeKey = r.transactionType ?? "";
-              const isCollectibleRow = collectible.some((c) => c.id === r.id);
-              const payKey = (r.paymentStatus ?? "").toUpperCase();
-              return (
-                <tr key={r.id} className="border-b border-border/80">
-                  {collectible.length > 0 ? (
-                    <td className="px-2 py-2">
-                      {isCollectibleRow ? (
-                        <input
-                          type="checkbox"
-                          className="size-4 rounded border-border"
-                          checked={selectedIds.has(r.id)}
-                          onChange={() => toggleRow(r.id)}
-                          data-test-id={`pos-customer-purchase-select-${r.id}`}
-                        />
-                      ) : null}
-                    </td>
-                  ) : null}
-                  <td className="px-3 py-2 font-mono">{r.documentNumber ?? "—"}</td>
-                  <td className="px-3 py-2">{TX_TYPE_LABEL[typeKey] ?? (typeKey || "—")}</td>
-                  <td className="px-3 py-2">{r.status ?? "—"}</td>
-                  <td className="px-3 py-2">
-                    {r.paymentStatus ? (
-                      <Badge variant={paymentStatusVariant(r.paymentStatus)}>
-                        {PAYMENT_STATUS_LABEL[payKey] ?? r.paymentStatus}
-                      </Badge>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">{fmtClp(r.total)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums font-medium">
-                    {r.balanceDue > 0 ? fmtClp(r.balanceDue) : "—"}
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground">
-                    {formatCustomerDateTime(r.createdAt)}
-                  </td>
+      {rows.length === 0 ? (
+        <EmptyTableMsg>No hay ventas ni encargos registrados.</EmptyTableMsg>
+      ) : (
+        <>
+          {collectible.length > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/80 bg-muted/20 px-3 py-2">
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-foreground">
+                <input
+                  type="checkbox"
+                  className="size-4 rounded border-border"
+                  checked={selectedIds.size > 0 && selectedIds.size === collectible.length}
+                  onChange={toggleAll}
+                  data-test-id="pos-customer-purchases-select-all"
+                />
+                Seleccionar todas ({collectible.length})
+              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {selectedIds.size > 0
+                    ? `${selectedIds.size} venta(s) · ${fmtClp(selectedTotal)}`
+                    : "Selecciona ventas con saldo pendiente"}
+                </span>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  disabled={selectedIds.size === 0}
+                  onClick={handleCollect}
+                  data-test-id="pos-customer-collect-purchases"
+                >
+                  Cobrar
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full min-w-[720px] border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold uppercase text-muted-foreground">
+                  <th className="w-8 px-2 py-2" />
+                  <th className="px-3 py-2">Documento</th>
+                  <th className="px-3 py-2">Tipo</th>
+                  <th className="px-3 py-2">Pago</th>
+                  <th className="px-3 py-2 text-right">Total</th>
+                  <th className="px-3 py-2 text-right">Saldo</th>
+                  <th className="px-3 py-2">Fecha</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const canSelect = collectible.some((c) => c.id === r.id);
+                  return (
+                    <tr key={r.id} className="border-b border-border/80">
+                      <td className="px-2 py-2">
+                        {canSelect ? (
+                          <input
+                            type="checkbox"
+                            className="size-4 rounded border-border"
+                            checked={selectedIds.has(r.id)}
+                            onChange={() => toggleRow(r.id)}
+                            data-test-id={`pos-customer-purchase-select-${r.id}`}
+                          />
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2 font-mono">{r.documentNumber ?? "—"}</td>
+                      <td className="px-3 py-2">
+                        {TX_TYPE_LABEL[r.transactionType ?? ""] ?? r.transactionType ?? "—"}
+                      </td>
+                      <td className="px-3 py-2">
+                        <Badge variant={paymentStatusVariant(r.paymentStatus)}>
+                          {PAYMENT_STATUS_LABEL[r.paymentStatus ?? ""] ?? r.paymentStatus ?? "—"}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmtClp(r.total)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-medium">
+                        {fmtClp(r.balanceDue)}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {formatCustomerDateTime(r.createdAt)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+      <PosSectionPagination
+        page={page}
+        limit={pageSize}
+        total={total}
+        onChange={onPaginationChange}
+        testId="pos-customer-purchases-pagination"
+      />
     </div>
   );
 }
@@ -636,86 +837,129 @@ function formatPaymentReferenceLabel(row: PosCustomerPaymentRow): string {
   return formatRelatedSalesLabel(row.relatedSales);
 }
 
-function PaymentsSection({ rows }: { rows: PosCustomerPaymentRow[] }) {
-  if (rows.length === 0) {
-    return (
-      <EmptyTableMsg>
-        No hay cobros ni devoluciones de saldo NC registrados.
-      </EmptyTableMsg>
-    );
-  }
+function PaymentsSection({
+  list,
+  onPaginationChange,
+}: {
+  list: PosPagedList<PosCustomerPaymentRow> | PosCustomerPaymentRow[] | null | undefined;
+  onPaginationChange: (next: PosSectionPaginationChange) => void;
+}) {
+  const paged = normalizePagedList<PosCustomerPaymentRow>(list);
+  const rows = Array.isArray(paged.rows) ? paged.rows : [];
+  const { page, pageSize, total } = paged;
   return (
-    <DataTable
-      headers={["Folio", "Referencia", "Tipo", "Medio", "Monto", "Fecha"]}
-      rows={rows.map((r) => {
-        const typeKey = r.type ?? "";
-        return [
-          r.documentNumber ?? "—",
-          formatPaymentReferenceLabel(r),
-          TX_TYPE_LABEL[typeKey] ?? (typeKey || "—"),
-          r.paymentMethod ?? "—",
-          fmtClp(r.total),
-          formatCustomerDateTime(r.createdAt),
-        ];
-      })}
-    />
+    <div className="space-y-3">
+      {rows.length === 0 ? (
+        <EmptyTableMsg>
+          No hay cobros ni devoluciones de saldo NC registrados.
+        </EmptyTableMsg>
+      ) : (
+        <DataTable
+          headers={["Folio", "Referencia", "Tipo", "Medio", "Monto", "Fecha"]}
+          rows={rows.map((r) => {
+            const typeKey = r.type ?? "";
+            return [
+              r.documentNumber ?? "—",
+              formatPaymentReferenceLabel(r),
+              TX_TYPE_LABEL[typeKey] ?? (typeKey || "—"),
+              r.paymentMethod ?? "—",
+              fmtClp(r.total),
+              formatCustomerDateTime(r.createdAt),
+            ];
+          })}
+        />
+      )}
+      <PosSectionPagination
+        page={page}
+        limit={pageSize}
+        total={total}
+        onChange={onPaginationChange}
+        testId="pos-customer-payments-pagination"
+      />
+    </div>
   );
 }
 
-function ReturnsSection({ rows }: { rows: PosCustomerReturnRow[] }) {
-  if (rows.length === 0) {
-    return <EmptyTableMsg>No hay devoluciones registradas.</EmptyTableMsg>;
-  }
+function ReturnsSection({
+  list,
+  onPaginationChange,
+}: {
+  list: PosPagedList<PosCustomerReturnRow> | PosCustomerReturnRow[] | null | undefined;
+  onPaginationChange: (next: PosSectionPaginationChange) => void;
+}) {
+  const paged = normalizePagedList<PosCustomerReturnRow>(list);
+  const rows = Array.isArray(paged.rows) ? paged.rows : [];
+  const { page, pageSize, total } = paged;
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full min-w-[640px] border-collapse text-xs">
-        <thead>
-          <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold uppercase text-muted-foreground">
-            <th className="px-3 py-2">Folio</th>
-            <th className="px-3 py-2">Modo</th>
-            <th className="px-3 py-2 text-right">Total</th>
-            <th className="px-3 py-2">NC asociada</th>
-            <th className="px-3 py-2">Estado NC</th>
-            <th className="px-3 py-2">Fecha</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.id} className="border-b border-border/80">
-              <td className="px-3 py-2 font-mono">{r.documentNumber}</td>
-              <td className="px-3 py-2">{refundModeLabel(r.refundMode)}</td>
-              <td className="px-3 py-2 text-right tabular-nums font-medium">{fmtClp(r.total)}</td>
-              <td className="px-3 py-2 font-mono">{r.linkedCreditNote?.documentNumber ?? "—"}</td>
-              <td className="px-3 py-2">
-                {r.linkedCreditNote ? (
-                  <Badge variant={creditNoteUsageVariant(r.linkedCreditNote.usageStatus)}>
-                    {CREDIT_NOTE_USAGE_LABEL[r.linkedCreditNote.usageStatus]}
-                  </Badge>
-                ) : (
-                  "—"
-                )}
-              </td>
-              <td className="px-3 py-2 text-muted-foreground">
-                {formatCustomerDateTime(r.createdAt)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="space-y-3">
+      {rows.length === 0 ? (
+        <EmptyTableMsg>No hay devoluciones registradas.</EmptyTableMsg>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full min-w-[640px] border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold uppercase text-muted-foreground">
+                <th className="px-3 py-2">Folio</th>
+                <th className="px-3 py-2">Modo</th>
+                <th className="px-3 py-2 text-right">Total</th>
+                <th className="px-3 py-2">NC asociada</th>
+                <th className="px-3 py-2">Estado NC</th>
+                <th className="px-3 py-2">Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className="border-b border-border/80">
+                  <td className="px-3 py-2 font-mono">{r.documentNumber}</td>
+                  <td className="px-3 py-2">{refundModeLabel(r.refundMode)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-medium">{fmtClp(r.total)}</td>
+                  <td className="px-3 py-2 font-mono">{r.linkedCreditNote?.documentNumber ?? "—"}</td>
+                  <td className="px-3 py-2">
+                    {r.linkedCreditNote ? (
+                      <Badge variant={creditNoteUsageVariant(r.linkedCreditNote.usageStatus)}>
+                        {CREDIT_NOTE_USAGE_LABEL[r.linkedCreditNote.usageStatus]}
+                      </Badge>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {formatCustomerDateTime(r.createdAt)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <PosSectionPagination
+        page={page}
+        limit={pageSize}
+        total={total}
+        onChange={onPaginationChange}
+        testId="pos-customer-returns-pagination"
+      />
     </div>
   );
 }
 
 function CreditNotesSection({
-  rows,
+  list,
+  rows: rowsProp,
   customerId,
   customerDisplayName,
+  onPaginationChange,
 }: {
-  rows: PosCustomerCreditNoteRow[];
+  list?: PosPagedList<PosCustomerCreditNoteRow> | PosCustomerCreditNoteRow[] | null;
+  rows?: PosPagedList<PosCustomerCreditNoteRow> | PosCustomerCreditNoteRow[] | null;
   customerId: string;
   customerDisplayName: string;
+  onPaginationChange: (next: PosSectionPaginationChange) => void;
 }) {
   const router = useRouter();
+  const paged = normalizePagedList<PosCustomerCreditNoteRow>(list ?? rowsProp);
+  const rows = Array.isArray(paged.rows) ? paged.rows : [];
+  const { page, pageSize, total } = paged;
   const refundable = useMemo(
     () => rows.filter((r) => Math.round(r.availableAmount) >= 1),
     [rows],
@@ -768,108 +1012,118 @@ function CreditNotesSection({
     router.push("/pos/payment?mode=nc-payout");
   }, [refundable, selectedIds, customerId, customerDisplayName, router]);
 
-  if (rows.length === 0) {
-    return <EmptyTableMsg>No hay notas de crédito registradas.</EmptyTableMsg>;
-  }
-
   return (
     <div className="space-y-3">
-      {refundable.length > 0 ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/80 bg-muted/20 px-3 py-2">
-          <label className="flex cursor-pointer items-center gap-2 text-xs text-foreground">
-            <input
-              type="checkbox"
-              className="size-4 rounded border-border"
-              checked={selectedIds.size > 0 && selectedIds.size === refundable.length}
-              onChange={toggleAll}
-              data-test-id="pos-customer-nc-select-all"
-            />
-            Seleccionar todas ({refundable.length})
-          </label>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-muted-foreground">
-              {selectedIds.size > 0
-                ? `${selectedIds.size} NC · ${fmtClp(selectedTotal)} (100 % del disponible)`
-                : "Selecciona notas con saldo a devolver en caja"}
-            </span>
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              disabled={selectedIds.size === 0}
-              onClick={handlePayout}
-              data-test-id="pos-customer-nc-payout-selection"
-            >
-              Devolver saldo
-            </Button>
-          </div>
-        </div>
-      ) : null}
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full min-w-[560px] border-collapse text-xs">
-          <thead>
-            <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold uppercase text-muted-foreground">
-              {refundable.length > 0 ? <th className="w-8 px-2 py-2" /> : null}
-              <th className="px-3 py-2">Folio NC</th>
-              <th className="px-3 py-2">Estado</th>
-              <th className="px-3 py-2 text-right">Total</th>
-              <th className="px-3 py-2 text-right">Utilizado</th>
-              <th className="px-3 py-2 text-right">Disponible</th>
-              <th className="px-3 py-2">Fecha</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => {
-              const isRefundableRow = refundable.some((x) => x.id === r.id);
-              return (
-                <tr key={r.id} className="border-b border-border/80">
-                  {refundable.length > 0 ? (
-                    <td className="px-2 py-2">
-                      {isRefundableRow ? (
-                        <input
-                          type="checkbox"
-                          className="size-4 rounded border-border"
-                          checked={selectedIds.has(r.id)}
-                          onChange={() => toggleRow(r.id)}
-                          data-test-id={`pos-customer-nc-select-${r.id}`}
-                        />
-                      ) : null}
-                    </td>
-                  ) : null}
-                  <td className="px-3 py-2 font-mono">{r.documentNumber}</td>
-                  <td className="px-3 py-2">
-                    <Badge variant={creditNoteUsageVariant(r.usageStatus)}>
-                      {CREDIT_NOTE_USAGE_LABEL[r.usageStatus]}
-                    </Badge>
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">{fmtClp(r.total)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{fmtClp(r.consumedAmount)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums font-medium">
-                    {fmtClp(r.availableAmount)}
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground">
-                    {formatCustomerDateTime(r.createdAt)}
-                  </td>
+      {rows.length === 0 ? (
+        <EmptyTableMsg>No hay notas de crédito registradas.</EmptyTableMsg>
+      ) : (
+        <>
+          {refundable.length > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/80 bg-muted/20 px-3 py-2">
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-foreground">
+                <input
+                  type="checkbox"
+                  className="size-4 rounded border-border"
+                  checked={selectedIds.size > 0 && selectedIds.size === refundable.length}
+                  onChange={toggleAll}
+                  data-test-id="pos-customer-nc-select-all"
+                />
+                Seleccionar todas ({refundable.length})
+              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {selectedIds.size > 0
+                    ? `${selectedIds.size} NC · ${fmtClp(selectedTotal)} (100 % del disponible)`
+                    : "Selecciona notas con saldo a devolver en caja"}
+                </span>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  disabled={selectedIds.size === 0}
+                  onClick={handlePayout}
+                  data-test-id="pos-customer-nc-payout-selection"
+                >
+                  Devolver saldo
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full min-w-[560px] border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold uppercase text-muted-foreground">
+                  {refundable.length > 0 ? <th className="w-8 px-2 py-2" /> : null}
+                  <th className="px-3 py-2">Folio NC</th>
+                  <th className="px-3 py-2">Estado</th>
+                  <th className="px-3 py-2 text-right">Total</th>
+                  <th className="px-3 py-2 text-right">Disponible</th>
+                  <th className="px-3 py-2">Fecha</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const canSelect = refundable.some((c) => c.id === r.id);
+                  return (
+                    <tr key={r.id} className="border-b border-border/80">
+                      {refundable.length > 0 ? (
+                        <td className="px-2 py-2">
+                          {canSelect ? (
+                            <input
+                              type="checkbox"
+                              className="size-4 rounded border-border"
+                              checked={selectedIds.has(r.id)}
+                              onChange={() => toggleRow(r.id)}
+                              data-test-id={`pos-customer-nc-select-${r.id}`}
+                            />
+                          ) : null}
+                        </td>
+                      ) : null}
+                      <td className="px-3 py-2 font-mono">{r.documentNumber}</td>
+                      <td className="px-3 py-2">
+                        <Badge variant={creditNoteUsageVariant(r.usageStatus)}>
+                          {CREDIT_NOTE_USAGE_LABEL[r.usageStatus]}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmtClp(r.total)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-medium">
+                        {fmtClp(r.availableAmount)}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {formatCustomerDateTime(r.createdAt)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+      <PosSectionPagination
+        page={page}
+        limit={pageSize}
+        total={total}
+        onChange={onPaginationChange}
+        testId="pos-customer-credit-notes-pagination"
+      />
     </div>
   );
 }
 
 function QuotasSection({
-  rows,
+  rows: rowsProp,
+  totalPending,
   customerId,
   customerDisplayName,
 }: {
   rows: PosCustomerQuotaRow[];
+  totalPending?: number;
   customerId: string;
   customerDisplayName: string;
 }) {
   const router = useRouter();
+  const rows = Array.isArray(rowsProp) ? rowsProp : [];
   const hasOpenCashSession = Boolean(readPosContextClient()?.cashSessionId?.trim());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -924,6 +1178,9 @@ function QuotasSection({
     return <EmptyTableMsg>Sin cuotas pendientes registradas.</EmptyTableMsg>;
   }
 
+  const pendingLabel =
+    totalPending != null && Number.isFinite(totalPending) ? totalPending : null;
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/80 bg-muted/20 px-3 py-2">
@@ -935,7 +1192,8 @@ function QuotasSection({
             onChange={toggleAll}
             data-test-id="pos-customer-quotas-select-all"
           />
-          Seleccionar todas ({rows.length})
+          Seleccionar todas ({rows.length}
+          {pendingLabel != null ? ` · ${fmtClp(pendingLabel)}` : ""})
         </label>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-muted-foreground">
@@ -958,38 +1216,48 @@ function QuotasSection({
         </div>
       </div>
       <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full min-w-[560px] border-collapse text-xs">
+        <table className="w-full min-w-[620px] border-collapse text-xs">
           <thead>
             <tr className="border-b border-border bg-muted/40 text-left text-[11px] font-semibold uppercase text-muted-foreground">
               <th className="w-8 px-2 py-2" />
               <th className="px-3 py-2">Documento</th>
+              <th className="px-3 py-2">Cuota</th>
               <th className="px-3 py-2">Vencimiento</th>
               <th className="px-3 py-2 text-right">Monto</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((q) => (
-              <tr key={q.id} className="border-b border-border/80">
-                <td className="px-2 py-2">
-                  <input
-                    type="checkbox"
-                    className="size-4 rounded border-border"
-                    checked={selectedIds.has(q.id)}
-                    onChange={() => toggleRow(q.id)}
-                    data-test-id={`pos-customer-quota-select-${q.id}`}
-                  />
-                </td>
-                <td className="px-3 py-2 font-mono">
-                  {q.documentNumber ?? q.transactionId ?? "—"}
-                </td>
-                <td className="px-3 py-2 text-muted-foreground">
-                  {formatCustomerDateTime(q.dueDate)}
-                </td>
-                <td className="px-3 py-2 text-right tabular-nums font-medium">
-                  {fmtClp(q.amount)}
-                </td>
-              </tr>
-            ))}
+            {rows.map((q) => {
+              const cuotaLabel =
+                q.installmentNumber != null && q.totalInstallments != null
+                  ? `${q.installmentNumber}/${q.totalInstallments}`
+                  : q.installmentNumber != null
+                    ? String(q.installmentNumber)
+                    : "—";
+              return (
+                <tr key={q.id} className="border-b border-border/80">
+                  <td className="px-2 py-2">
+                    <input
+                      type="checkbox"
+                      className="size-4 rounded border-border"
+                      checked={selectedIds.has(q.id)}
+                      onChange={() => toggleRow(q.id)}
+                      data-test-id={`pos-customer-quota-select-${q.id}`}
+                    />
+                  </td>
+                  <td className="px-3 py-2 font-mono">
+                    {q.documentNumber ?? q.transactionId ?? "—"}
+                  </td>
+                  <td className="px-3 py-2 tabular-nums text-muted-foreground">{cuotaLabel}</td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {formatCustomerDateTime(q.dueDate)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums font-medium">
+                    {fmtClp(q.amount)}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -14,6 +14,7 @@ import { UpdateCustomerDto } from '../application/dto/update-customer.dto';
 import { SearchCustomersDto } from '../application/dto/search-customers.dto';
 import { InstallmentService } from '@modules/installments/application/services/installment.service';
 import { CustomerPaymentSourcesService } from '../application/customer-payment-sources.service';
+import { CustomerInternalCreditDebtService } from '../application/customer-internal-credit-debt.service';
 
 @Controller('customers')
 export class CustomersController {
@@ -21,6 +22,7 @@ export class CustomersController {
     private readonly customersService: CustomersServiceAdapter,
     private readonly installmentService: InstallmentService,
     private readonly customerPaymentSourcesService: CustomerPaymentSourcesService,
+    private readonly internalCreditDebtService: CustomerInternalCreditDebtService,
   ) {}
 
   @Get('search')
@@ -89,40 +91,87 @@ export class CustomersController {
     return { success: true, quotas };
   }
 
+  @Get(':id/internal-credit-debt')
+  getInternalCreditDebt(@Param('id') id: string) {
+    return this.internalCreditDebtService.getDebt(id);
+  }
+
   @Get(':id/purchases')
-  async getPurchases(@Param('id') id: string) {
-    const purchases = await this.customersService.getPurchases(id);
-    return { success: true, purchases };
+  async getPurchases(
+    @Param('id') id: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.customersService.getPurchases(
+      id,
+      undefined,
+      page ? Number(page) : undefined,
+      pageSize ? Number(pageSize) : limit ? Number(limit) : undefined,
+    );
   }
 
   @Get(':id/purchases/:status')
   async getPurchasesByStatus(
     @Param('id') id: string,
     @Param('status') status: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('pageSize') pageSize?: string,
   ) {
-    const purchases = await this.customersService.getPurchases(id, status);
-    return { success: true, purchases };
+    return this.customersService.getPurchases(
+      id,
+      status,
+      page ? Number(page) : undefined,
+      pageSize ? Number(pageSize) : limit ? Number(limit) : undefined,
+    );
   }
 
   @Get(':id/payments')
-  async getPayments(@Param('id') id: string) {
-    return this.customersService.getPayments(id);
+  async getPayments(
+    @Param('id') id: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.customersService.getPayments(
+      id,
+      page ? Number(page) : undefined,
+      pageSize ? Number(pageSize) : limit ? Number(limit) : undefined,
+    );
   }
 
   @Get(':id/customer-returns')
-  async getCustomerReturns(@Param('id') id: string) {
-    const returns =
-      await this.customerPaymentSourcesService.listReturnsForCustomer(id);
-    return { success: true, returns };
+  async getCustomerReturns(
+    @Param('id') id: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.customerPaymentSourcesService.listReturnsForCustomer(id, {
+      page: page ? Number(page) : undefined,
+      pageSize: pageSize ? Number(pageSize) : limit ? Number(limit) : undefined,
+    });
   }
 
   @Get(':id/customer-credit-notes')
-  async getCustomerCreditNotes(@Param('id') id: string) {
-    const creditNotes =
-      await this.customerPaymentSourcesService.listAllCreditNotesForCustomer(
-        id,
-      );
-    return { success: true, creditNotes };
+  async getCustomerCreditNotes(
+    @Param('id') id: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.customerPaymentSourcesService.listAllCreditNotesForCustomer(
+      id,
+      {
+        page: page ? Number(page) : undefined,
+        pageSize: pageSize
+          ? Number(pageSize)
+          : limit
+            ? Number(limit)
+            : undefined,
+      },
+    );
   }
 
   @Get(':id/pos-payment-sources')

@@ -15,14 +15,16 @@ export class GetCustomerPurchasesHandler implements IQueryHandler<GetCustomerPur
   ) {}
 
   async execute(query: GetCustomerPurchasesQuery) {
-    const { customerId, status } = query;
+    const { customerId, status, page, pageSize } = query;
 
-    const purchases = await this.customerRepository.getPurchases(
+    const result = await this.customerRepository.getPurchases(
       customerId,
       status,
+      page,
+      pageSize,
     );
 
-    return purchases.map((p) => {
+    const purchases = result.items.map((p) => {
       const total = Number(p.total || 0);
       const amountPaid = Number((p as { amountPaid?: number }).amountPaid ?? 0);
       return {
@@ -38,5 +40,13 @@ export class GetCustomerPurchasesHandler implements IQueryHandler<GetCustomerPur
         createdAt: p.createdAt,
       };
     });
+
+    return {
+      success: true,
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+      purchases,
+    };
   }
 }

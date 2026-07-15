@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Button, Dialog, Select, TextField } from "@kai/ui";
+import { Alert, Button, Dialog, NumberStepper, Select, TextField } from "@kai/ui";
 import type { Option } from "@kai/ui";
 import { getCustomerPosDetailBundleAction } from "@/features/customers/actions/customers-pos.action";
 import type { PosCustomerDetail } from "@/features/customers/types/pos-customer-detail.types";
@@ -90,7 +90,7 @@ export function PosInternalCreditPaymentDialog({
   const [mode, setMode] = useState<PosInternalCreditMode>("CREDIT_LUMP");
   const [creditAmountStr, setCreditAmountStr] = useState("");
   const [immediateAmountStr, setImmediateAmountStr] = useState("");
-  const [installmentCountStr, setInstallmentCountStr] = useState("3");
+  const [installmentCount, setInstallmentCount] = useState(3);
   const [firstDueDate, setFirstDueDate] = useState("");
   const [scheduledLines, setScheduledLines] = useState<InvoicePlannedPaymentLineState[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -135,7 +135,7 @@ export function PosInternalCreditPaymentDialog({
         );
         const lines = plan.scheduledLines ?? [];
         if (lines.length > 0) {
-          setInstallmentCountStr(String(lines.length));
+          setInstallmentCount(lines.length);
           setFirstDueDate(lines[0].dueDate);
           setScheduledLines(scheduledToUiLines(lines));
         }
@@ -145,7 +145,7 @@ export function PosInternalCreditPaymentDialog({
         setImmediateAmountStr("");
         const suggested = suggestFirstDueDate(detail?.paymentDayOfMonth);
         setFirstDueDate(suggested);
-        setInstallmentCountStr("3");
+        setInstallmentCount(3);
         setScheduledLines(
           scheduledToUiLines(buildDefaultScheduledLines(defaultCredit, 3, suggested)),
         );
@@ -197,12 +197,12 @@ export function PosInternalCreditPaymentDialog({
       return;
     }
     if (mode === "CREDIT_LUMP" || !hydratedRef.current) return;
-    const count = Math.max(1, Math.trunc(Number(installmentCountStr) || 3));
+    const count = Math.max(1, Math.min(36, Math.trunc(installmentCount) || 3));
     const due = firstDueDate || suggestFirstDueDate(customer?.paymentDayOfMonth);
     regenerateSchedule(count, due, creditAmount);
     // Solo al cambiar modo o parámetros de plantilla; no en cada variación de monto manual.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, mode, installmentCountStr, firstDueDate]);
+  }, [open, mode, installmentCount, firstDueDate]);
 
   const patchSched = useCallback((id: string, patch: Partial<InvoicePlannedPaymentLineState>) => {
     setScheduledLines((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
@@ -402,15 +402,19 @@ export function PosInternalCreditPaymentDialog({
         {showSchedule ? (
           <>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <TextField
+              <NumberStepper
                 label="Nº de cuotas"
-                name="pos-internal-credit-count"
-                type="number"
+                value={installmentCount}
+                onChange={(v) =>
+                  setInstallmentCount(Math.max(1, Math.min(36, Math.trunc(v) || 1)))
+                }
                 min={1}
                 max={36}
-                value={installmentCountStr}
-                onChange={(e) => setInstallmentCountStr(e.target.value)}
+                step={1}
+                allowNegative={false}
+                allowFloat={false}
                 disabled={loading}
+                data-test-id="pos-internal-credit-count"
               />
               <TextField
                 label="Primer vencimiento"

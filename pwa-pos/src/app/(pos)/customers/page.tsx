@@ -10,6 +10,7 @@ import {
 import type { PosCustomerSearchInitial } from "@/features/customers/ui/PosCustomerSearchPanel";
 import { POS_CUSTOMER_URL_KEYS } from "@/features/customers/ui/PosCustomerSearchPanel";
 import type { PosCustomerDetailBundle } from "@/features/customers/types/pos-customer-detail.types";
+import { parsePosCustomerDetailBundlePaging } from "@/features/customers/lib/pos-customer-detail-url";
 import { getInternalCustomerCreditEnabledAction } from "@/features/company/actions/company-internal-customer-credit.action";
 import { Suspense } from "react";
 import { isPosCustomerUuid } from "@/features/customers/lib/pos-customer-url";
@@ -79,9 +80,11 @@ export default async function Page({
   const customerIdParam = parseSp(sp, POS_CUSTOMER_URL_KEYS.selectedId).trim();
   const customerIdValid = !customerIdParam || isPosCustomerUuid(customerIdParam);
 
+  const detailPaging = parsePosCustomerDetailBundlePaging((key) => parseSp(sp, key));
+
   let detailBundle: PosCustomerDetailBundle | null = null;
   if (customerIdParam && customerIdValid) {
-    detailBundle = await getCustomerPosDetailBundleAction(customerIdParam);
+    detailBundle = await getCustomerPosDetailBundleAction(customerIdParam, detailPaging);
   }
 
   const internalCreditEnabled = await getInternalCustomerCreditEnabledAction();

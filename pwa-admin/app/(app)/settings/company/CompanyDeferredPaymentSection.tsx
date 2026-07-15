@@ -1,11 +1,8 @@
 "use client";
-import { LoadingState } from '@kai/ui';
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@kai/ui";
-import { Switch } from "@kai/ui";
-import { Alert } from "@kai/ui";
+import { Alert, IconButton, LoadingState, Switch } from "@kai/ui";
 import type { CompanyDetails } from "@/features/settings-branches/infrastructure/company.request";
 import {
   defaultCompanyDeferredPaymentSettings,
@@ -85,17 +82,15 @@ export function CompanyDeferredPaymentSection({ company }: Props) {
     }
   }
 
-  function reset() {
-    setSettings(initial);
-    setError(null);
-  }
+  const saveDisabled =
+    !companyId || !!loadError || loading || busy || !dirty;
 
   return (
     <section
       className="rounded-xl border border-border bg-card p-4 shadow-sm md:p-6"
       data-test-id="settings-company-deferred-payment-section"
     >
-      <div className="mb-4 flex items-start justify-between gap-3">
+      <div className="mb-4">
         <h2 className="text-lg font-semibold tracking-tight text-foreground">
           Venta sin pago inmediato
         </h2>
@@ -108,7 +103,21 @@ export function CompanyDeferredPaymentSection({ company }: Props) {
       ) : loadError ? (
         <p className="text-sm text-error">{loadError}</p>
       ) : loading ? (
-        <LoadingState className="flex items-center justify-center py-4" />
+        <div className="flex flex-col gap-4">
+          <LoadingState className="flex items-center justify-center py-4" />
+          <div className="flex justify-end">
+            <IconButton
+              icon="Save"
+              variant="primary"
+              size="sm"
+              ariaLabel="Guardar venta sin pago inmediato"
+              title="Guardar"
+              disabled
+              isLoading
+              data-test-id="settings-company-deferred-payment-save"
+            />
+          </div>
+        </div>
       ) : (
         <div className="flex flex-col gap-4">
           {error ? <Alert variant="error">{error}</Alert> : null}
@@ -128,23 +137,18 @@ export function CompanyDeferredPaymentSection({ company }: Props) {
             data-test-id="settings-company-deferred-payment-enabled"
           />
 
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outlinedSecondary"
-              onClick={reset}
-              disabled={busy || !dirty}
-              data-test-id="settings-company-deferred-payment-reset"
-            >
-              Descartar
-            </Button>
-            <Button
+          <div className="flex justify-end">
+            <IconButton
+              icon="Save"
               variant="primary"
+              size="sm"
+              ariaLabel="Guardar venta sin pago inmediato"
+              title="Guardar"
+              disabled={saveDisabled}
+              isLoading={busy}
               onClick={() => void save()}
-              disabled={busy || !dirty}
               data-test-id="settings-company-deferred-payment-save"
-            >
-              {busy ? "Guardando…" : "Guardar"}
-            </Button>
+            />
           </div>
         </div>
       )}

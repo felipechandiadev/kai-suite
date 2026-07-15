@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { signOutToLogin } from "@/lib/auth/sign-out-to-login";
 import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BadgeCheck, Building2, CircleUser, ImageOff, Image as ImageIcon, Store, Wifi, WifiOff } from "lucide-react";
+import { BadgeCheck, Building2, CircleUser, Store, Wifi, WifiOff } from "lucide-react";
 import ChangePasswordDialog from "@/shared/components/Dialog/ChangePasswordDialog";
 import { Button, Dialog, IconButton } from "@kai/ui";
 import {
@@ -12,6 +12,11 @@ import {
   readPosContextClient,
   type PosKind,
 } from "@/features/session/lib/pos-context-storage";
+import {
+  fetchLogoAsDataUrl,
+  readPosLogoCache,
+  writePosLogoCache,
+} from "@/features/company/storage/pos-logo-storage";
 import { StockAlertsDropdown } from "@/features/inventory-stock/ui/StockAlertsDropdown";
 import { OfflineStatusBadge } from "@/features/pos-offline/ui/OfflineStatusBadge";
 import { OfflineCatalogSyncDonut } from "@/features/pos-offline/ui/OfflineCatalogSyncDonut";
@@ -418,12 +423,37 @@ export default function PosTopBar({
   ]);
 
   const imgRef = useRef<HTMLImageElement | null>(null);
+  /** Misma URL en SSR y primer paint del cliente — el cache local solo se aplica post-mount. */
+  const [displayLogoSrc, setDisplayLogoSrc] = useState(logoSrc);
   const [logoLoaded, setLogoLoaded] = useState(false);
   const [logoError, setLogoError] = useState(false);
 
   useEffect(() => {
-    setLogoLoaded(false);
+    let cancelled = false;
     setLogoError(false);
+
+    const cached = readPosLogoCache(logoSrc);
+    if (cached?.dataUrl) {
+      setDisplayLogoSrc(cached.dataUrl);
+      setLogoLoaded(true);
+    } else {
+      setDisplayLogoSrc(logoSrc);
+      setLogoLoaded(false);
+    }
+
+    void (async () => {
+      const dataUrl = await fetchLogoAsDataUrl(logoSrc);
+      if (cancelled || !dataUrl) return;
+      writePosLogoCache(logoSrc, dataUrl);
+      if (!cancelled) {
+        setDisplayLogoSrc(dataUrl);
+        setLogoLoaded(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [logoSrc]);
 
   useEffect(() => {
@@ -431,7 +461,7 @@ export default function PosTopBar({
     if (img && img.complete && img.naturalWidth > 0) {
       setLogoLoaded(true);
     }
-  }, []);
+  }, [displayLogoSrc]);
 
   const showContextColumn = Boolean(effectiveCompany || effectivePosName);
   const showUserColumn = Boolean(effectivePerson || effectiveRole);
@@ -500,45 +530,26 @@ export default function PosTopBar({
         }`}
       >
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          {logoSrc ? (
-            <div
-              className="relative h-10 w-10 shrink-0"
-              data-test-id="top-bar-logo-box"
-              suppressHydrationWarning
-            >
-              {(!logoLoaded || logoError) && (
-                <div
-                  className="absolute inset-0 flex items-center justify-center rounded-lg bg-neutral-300"
-                  data-test-id="top-bar-logo-skeleton"
-                  aria-hidden
-                  suppressHydrationWarning
-                >
-                  {logoError ? <ImageOff className="text-neutral-400" size={20} /> : null}
-                </div>
-              )}
-              {!logoError ? (
-                <img
-                  ref={imgRef}
-                  src={logoSrc}
-                  alt="Logo"
-                  className="relative h-10 w-10 object-contain transition-opacity duration-300"
-                  style={{ opacity: logoLoaded ? 1 : 0 }}
-                  data-test-id="top-bar-logo"
-                  onLoad={() => setLogoLoaded(true)}
-                  onError={() => setLogoError(true)}
-                  suppressHydrationWarning
-                />
-              ) : null}
-            </div>
-          ) : (
-            <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-neutral-300"
-              data-test-id="top-bar-logo-placeholder"
-              aria-hidden
-            >
-              <ImageIcon className="text-neutral-400" size={20} />
-            </div>
-          )}
+          <div
+            className="relative h-10 w-10 shrink-0"
+            data-test-id="top-bar-logo-box"
+          >
+            {!logoError ? (
+              <img
+                ref={imgRef}
+                src={displayLogoSrc}
+                alt="Logo"
+                className="relative h-10 w-10 object-contain transition-opacity duration-300"
+                style={{ opacity: logoLoaded ? 1 : 0 }}
+                data-test-id="top-bar-logo"
+                onLoad={() => setLogoLoaded(true)}
+                onError={() => {
+                  setLogoError(true);
+                  setLogoLoaded(false);
+                }}
+              />
+            ) : null}
+          </div>
 
           <div
             className={

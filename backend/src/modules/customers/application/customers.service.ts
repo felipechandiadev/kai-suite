@@ -457,19 +457,32 @@ export class CustomersService {
     return mapped;
   }
 
-  async getPurchases(customerId: string, status?: string) {
-    const purchases = await this.customersRepository.getPurchases(
+  async getPurchases(
+    customerId: string,
+    status?: string,
+    page?: number,
+    pageSize?: number,
+  ) {
+    const result = await this.customersRepository.getPurchases(
       customerId,
       status,
+      page,
+      pageSize,
     );
 
-    return purchases.map((p) => ({
-      id: p.id,
-      documentNumber: (p as any).documentNumber ?? null,
-      status: p.status,
-      total: Number(p.total || 0),
-      createdAt: p.createdAt,
-    }));
+    return {
+      success: true,
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
+      purchases: result.items.map((p) => ({
+        id: p.id,
+        documentNumber: (p as any).documentNumber ?? null,
+        status: p.status,
+        total: Number(p.total || 0),
+        createdAt: p.createdAt,
+      })),
+    };
   }
 
   private buildDisplayName(person: Person | null): string {

@@ -18,11 +18,15 @@ export class GetCustomerPaymentsHandler implements IQueryHandler<GetCustomerPaym
   ) {}
 
   async execute(query: GetCustomerPaymentsQuery) {
-    const { customerId } = query;
+    const { customerId, page, pageSize } = query;
 
-    const payments = await this.customerRepository.getPaymentIns(customerId);
+    const result = await this.customerRepository.getPaymentIns(
+      customerId,
+      page,
+      pageSize,
+    );
 
-    const mapped = payments.map((p) => {
+    const mapped = result.items.map((p) => {
       const meta =
         p.metadata && typeof p.metadata === 'object'
           ? (p.metadata as Record<string, unknown>)
@@ -54,7 +58,9 @@ export class GetCustomerPaymentsHandler implements IQueryHandler<GetCustomerPaym
 
     return {
       success: true,
-      total: mapped.length,
+      total: result.total,
+      page: result.page,
+      pageSize: result.pageSize,
       payments: mapped,
     };
   }

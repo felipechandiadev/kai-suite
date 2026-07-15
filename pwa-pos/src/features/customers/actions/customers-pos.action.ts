@@ -1,6 +1,7 @@
 "use server";
 
 import type { PosCreateCustomerInput } from "../types/pos-customer-create.types";
+import type { PosCustomerDetailBundlePaging } from "../lib/pos-customer-detail-url";
 import { CustomersPosRequest } from "../infrastructure/customers-pos.request";
 
 export async function searchPosCustomersAction(input: {
@@ -12,8 +13,11 @@ export async function searchPosCustomersAction(input: {
   return CustomersPosRequest.search(input);
 }
 
-export async function getCustomerPosDetailBundleAction(customerId: string) {
-  return CustomersPosRequest.getCustomerDetailBundle(customerId);
+export async function getCustomerPosDetailBundleAction(
+  customerId: string,
+  paging?: PosCustomerDetailBundlePaging,
+) {
+  return CustomersPosRequest.getCustomerDetailBundle(customerId, paging);
 }
 
 export async function getCustomerPosPaymentSourcesAction(customerId: string) {

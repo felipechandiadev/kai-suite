@@ -191,6 +191,15 @@ export default function PosCartLineCard({
     if (!qtyDialogOpen) return;
     setQtyError(null);
     setQtyDraft(String(line.quantity ?? ""));
+    const timer = window.setTimeout(() => {
+      const el = document.querySelector<HTMLInputElement>(
+        '[data-test-id="pos-cart-line-edit-qty-input"]',
+      );
+      if (!el) return;
+      el.focus({ preventScroll: true });
+      el.select();
+    }, 50);
+    return () => window.clearTimeout(timer);
   }, [qtyDialogOpen, line.quantity]);
 
   const quantityLabel = useMemo(() => {
@@ -581,6 +590,8 @@ export default function PosCartLineCard({
             onChange={(e) => setQtyDraft(e.target.value)}
             placeholder="Cantidad"
             alwaysShowLabel
+            selectOnFocus
+            autoFocus
             min={allowDecimals ? 0.001 : 1}
             step={allowDecimals ? 0.001 : 1}
             inputMode={allowDecimals ? "decimal" : "numeric"}

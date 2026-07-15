@@ -7,11 +7,19 @@ import type {
   PosCustomerDetail,
   PosCustomerDetailBundle,
   PosCustomerBackorderRow,
+  PosCustomerInternalCreditDebt,
+  PosCustomerOpenCreditRow,
   PosCustomerPaymentRow,
   PosCustomerPurchaseRow,
   PosCustomerQuotaRow,
   PosCustomerReturnRow,
+  PosPagedList,
 } from "../types/pos-customer-detail.types";
+import type { PosCustomerDetailBundlePaging } from "../lib/pos-customer-detail-url";
+import {
+  emptyPosCustomerDetailBundlePaging,
+  POS_CUSTOMER_DETAIL_LIST_DEFAULT_LIMIT,
+} from "../lib/pos-customer-detail-url";
 import type {
   PosCreateCustomerApiBody,
   PosCreateCustomerResult,
@@ -94,14 +102,95 @@ export class CustomersPosRequest {
     }
   }
 
-  private static parsePaymentsPayload(pData: Record<string, unknown>): PosCustomerPaymentRow[] {
+  private static emptyInternalCreditDebt(): PosCustomerInternalCreditDebt {
+    return {
+      scheduled: { totalPending: 0, rows: [] },
+      openCredit: { totalPending: 0, rows: [] },
+    };
+  }
+
+  private static parseScheduledQuotaRow(row: Record<string, unknown>): PosCustomerQuotaRow {
+    return {
+      id: String(row.id ?? ""),
+      transactionId: row.transactionId != null ? String(row.transactionId) : null,
+      documentNumber: row.documentNumber != null ? String(row.documentNumber) : null,
+      installmentNumber:
+        row.installmentNumber != null && row.installmentNumber !== ""
+          ? Number(row.installmentNumber)
+          : null,
+      totalInstallments:
+        row.totalInstallments != null && row.totalInstallments !== ""
+          ? Number(row.totalInstallments)
+          : null,
+      amount: Number(row.amount ?? 0),
+      dueDate: row.dueDate != null ? String(row.dueDate) : null,
+      status: row.status != null ? String(row.status) : null,
+      createdAt: row.createdAt != null ? String(row.createdAt) : null,
+    };
+  }
+
+  private static parseOpenCreditRow(row: Record<string, unknown>): PosCustomerOpenCreditRow {
+    const modeRaw = String(row.mode ?? "")
+      .trim()
+      .toUpperCase();
+    return {
+      transactionId: String(row.transactionId ?? ""),
+      documentNumber: row.documentNumber != null ? String(row.documentNumber) : null,
+      saleDate: row.saleDate != null ? String(row.saleDate) : null,
+      creditAmount: Number(row.creditAmount ?? 0),
+      mode: modeRaw === "CREDIT_LUMP" ? "CREDIT_LUMP" : "UNKNOWN",
+    };
+  }
+
+  private static parseInternalCreditDebtPayload(
+    data: Record<string, unknown>,
+  ): PosCustomerInternalCreditDebt {
+    const scheduledRaw = data.scheduled;
+    const openRaw = data.openCredit;
+    const scheduledObj =
+      scheduledRaw && typeof scheduledRaw === "object"
+        ? (scheduledRaw as Record<string, unknown>)
+        : {};
+    const openObj =
+      openRaw && typeof openRaw === "object" ? (openRaw as Record<string, unknown>) : {};
+
+    const scheduledRows = Array.isArray(scheduledObj.rows)
+      ? scheduledObj.rows.map((r) =>
+          CustomersPosRequest.parseScheduledQuotaRow(r as Record<string, unknown>),
+        )
+      : [];
+    const openRows = Array.isArray(openObj.rows)
+      ? openObj.rows
+          .map((r) => CustomersPosRequest.parseOpenCreditRow(r as Record<string, unknown>))
+          .filter((r) => r.transactionId)
+      : [];
+
+    const scheduledTotal =
+      scheduledObj.totalPending != null
+        ? Number(scheduledObj.totalPending)
+        : scheduledRows.reduce((a, r) => a + r.amount, 0);
+    const openTotal =
+      openObj.totalPending != null
+        ? Number(openObj.totalPending)
+        : openRows.reduce((a, r) => a + r.creditAmount, 0);
+
+    return {
+      scheduled: { totalPending: scheduledTotal, rows: scheduledRows },
+      openCredit: { totalPending: openTotal, rows: openRows },
+    };
+  }
+
+  private static parsePaymentsPayload(
+    pData: Record<string, unknown>,
+    fallback: { page: number; pageSize: number },
+  ): PosPagedList<PosCustomerPaymentRow> {
     const raw = pData.payments;
     const arr = Array.isArray(raw)
       ? raw
       : raw && typeof raw === "object" && Array.isArray((raw as { payments?: unknown }).payments)
         ? ((raw as { payments: unknown[] }).payments)
         : [];
-    return arr.map((row) => {
+    const rows = arr.map((row) => {
       const p = row as Record<string, unknown>;
       const relatedSales: Array<{
         saleId: string;
@@ -165,11 +254,32 @@ export class CustomersPosRequest {
         relatedCreditNotes,
       };
     });
+    return {
+      rows,
+      total: Number(pData.total ?? rows.length),
+      page: Number(pData.page ?? fallback.page) || fallback.page,
+      pageSize: Number(pData.pageSize ?? fallback.pageSize) || fallback.pageSize,
+    };
   }
 
-  private static parsePurchasesPayload(data: Record<string, unknown>): PosCustomerPurchaseRow[] {
-    const arr = Array.isArray(data.purchases) ? data.purchases : [];
-    return arr.map((row) => {
+  private static parsePurchasesPayload(
+    data: Record<string, unknown>,
+    fallback: { page: number; pageSize: number },
+  ): PosPagedList<PosCustomerPurchaseRow> {
+    const nested =
+      data.purchases &&
+      typeof data.purchases === "object" &&
+      !Array.isArray(data.purchases) &&
+      Array.isArray((data.purchases as { purchases?: unknown }).purchases)
+        ? (data.purchases as Record<string, unknown>)
+        : null;
+    const source = nested ?? data;
+    const arr = Array.isArray(source.purchases)
+      ? source.purchases
+      : Array.isArray(data)
+        ? (data as unknown[])
+        : [];
+    const rows = arr.map((row) => {
       const p = row as Record<string, unknown>;
       const total = Number(p.total ?? 0);
       const amountPaid = Number(p.amountPaid ?? 0);
@@ -190,12 +300,22 @@ export class CustomersPosRequest {
         createdAt: p.createdAt != null ? String(p.createdAt) : "",
       };
     });
+    return {
+      rows,
+      total: Number(source.total ?? data.total ?? rows.length),
+      page: Number(source.page ?? data.page ?? fallback.page) || fallback.page,
+      pageSize:
+        Number(source.pageSize ?? data.pageSize ?? fallback.pageSize) || fallback.pageSize,
+    };
   }
 
-  private static parseBackordersPayload(data: unknown): PosCustomerBackorderRow[] {
+  private static parseBackordersPayload(
+    data: unknown,
+    fallback: { page: number; pageSize: number },
+  ): PosPagedList<PosCustomerBackorderRow> {
     const body = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
     const arr = Array.isArray(body.data) ? body.data : Array.isArray(body.rows) ? body.rows : [];
-    return arr.map((row) => {
+    const rows = arr.map((row) => {
       const r = row as Record<string, unknown>;
       return {
         id: String(r.id ?? ""),
@@ -205,6 +325,12 @@ export class CustomersPosRequest {
         createdAt: r.createdAt != null ? String(r.createdAt) : "",
       };
     });
+    return {
+      rows,
+      total: Number(body.total ?? rows.length),
+      page: Number(body.page ?? fallback.page) || fallback.page,
+      pageSize: Number(body.limit ?? body.pageSize ?? fallback.pageSize) || fallback.pageSize,
+    };
   }
 
   private static parseCreditNoteRow(raw: Record<string, unknown>): PosCustomerCreditNoteRow | null {
@@ -225,9 +351,12 @@ export class CustomersPosRequest {
     };
   }
 
-  private static parseReturnsPayload(data: Record<string, unknown>): PosCustomerReturnRow[] {
+  private static parseReturnsPayload(
+    data: Record<string, unknown>,
+    fallback: { page: number; pageSize: number },
+  ): PosPagedList<PosCustomerReturnRow> {
     const arr = Array.isArray(data.returns) ? data.returns : [];
-    return arr
+    const rows = arr
       .map((row) => {
         const r = row as Record<string, unknown>;
         const id = r.id != null ? String(r.id) : "";
@@ -250,9 +379,47 @@ export class CustomersPosRequest {
         };
       })
       .filter((x): x is PosCustomerReturnRow => x != null);
+    return {
+      rows,
+      total: Number(data.total ?? rows.length),
+      page: Number(data.page ?? fallback.page) || fallback.page,
+      pageSize: Number(data.pageSize ?? fallback.pageSize) || fallback.pageSize,
+    };
   }
 
-  static async getCustomerDetailBundle(customerId: string): Promise<PosCustomerDetailBundle> {
+  private static parseCreditNotesPayload(
+    data: Record<string, unknown>,
+    fallback: { page: number; pageSize: number },
+  ): PosPagedList<PosCustomerCreditNoteRow> {
+    const arr = Array.isArray(data.creditNotes) ? data.creditNotes : [];
+    const rows = arr
+      .map((row) =>
+        CustomersPosRequest.parseCreditNoteRow(row as Record<string, unknown>),
+      )
+      .filter((x): x is PosCustomerCreditNoteRow => x != null);
+    return {
+      rows,
+      total: Number(data.total ?? rows.length),
+      page: Number(data.page ?? fallback.page) || fallback.page,
+      pageSize: Number(data.pageSize ?? fallback.pageSize) || fallback.pageSize,
+    };
+  }
+
+  private static emptyPaged<T>(
+    fallback?: { page: number; pageSize: number },
+  ): PosPagedList<T> {
+    return {
+      rows: [],
+      total: 0,
+      page: fallback?.page ?? 1,
+      pageSize: fallback?.pageSize ?? POS_CUSTOMER_DETAIL_LIST_DEFAULT_LIMIT,
+    };
+  }
+
+  static async getCustomerDetailBundle(
+    customerId: string,
+    pagingInput?: PosCustomerDetailBundlePaging,
+  ): Promise<PosCustomerDetailBundle> {
     const base = process.env.BACKEND_API_URL;
     if (!base) {
       return { success: false, message: "BACKEND_API_URL no está configurada" };
@@ -270,6 +437,8 @@ export class CustomersPosRequest {
       return { success: false, message: "Cliente no especificado" };
     }
 
+    const paging = pagingInput ?? emptyPosCustomerDetailBundlePaging();
+
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
@@ -277,22 +446,46 @@ export class CustomersPosRequest {
     if (activeCompanyId) headers["X-Active-Company-Id"] = activeCompanyId;
 
     const url = (path: string) => `${base}/api${path}`;
+    const qs = (page: number, pageSize: number) =>
+      `page=${encodeURIComponent(String(page))}&pageSize=${encodeURIComponent(String(pageSize))}&limit=${encodeURIComponent(String(pageSize))}`;
 
     try {
-      const [cRes, pRes, qRes, purRes, boRes, retRes, ncRes] = await Promise.all([
+      const [cRes, pRes, debtRes, purRes, boRes, retRes, ncRes] = await Promise.all([
         fetch(url(`/customers/${encodeURIComponent(id)}`), { headers, cache: "no-store" }),
-        fetch(url(`/customers/${encodeURIComponent(id)}/payments`), { headers, cache: "no-store" }),
-        fetch(url(`/customers/${encodeURIComponent(id)}/pending-quotas`), { headers, cache: "no-store" }),
-        fetch(url(`/customers/${encodeURIComponent(id)}/purchases`), { headers, cache: "no-store" }),
-        fetch(url(`/transactions/backorders?customerId=${encodeURIComponent(id)}&limit=50&page=1`), {
+        fetch(
+          url(
+            `/customers/${encodeURIComponent(id)}/payments?${qs(paging.payments.page, paging.payments.pageSize)}`,
+          ),
+          { headers, cache: "no-store" },
+        ),
+        fetch(url(`/customers/${encodeURIComponent(id)}/internal-credit-debt`), {
           headers,
           cache: "no-store",
         }),
-        fetch(url(`/customers/${encodeURIComponent(id)}/customer-returns`), { headers, cache: "no-store" }),
-        fetch(url(`/customers/${encodeURIComponent(id)}/customer-credit-notes`), {
-          headers,
-          cache: "no-store",
-        }),
+        fetch(
+          url(
+            `/customers/${encodeURIComponent(id)}/purchases?${qs(paging.purchases.page, paging.purchases.pageSize)}`,
+          ),
+          { headers, cache: "no-store" },
+        ),
+        fetch(
+          url(
+            `/transactions/backorders?customerId=${encodeURIComponent(id)}&${qs(paging.backorders.page, paging.backorders.pageSize)}`,
+          ),
+          { headers, cache: "no-store" },
+        ),
+        fetch(
+          url(
+            `/customers/${encodeURIComponent(id)}/customer-returns?${qs(paging.returns.page, paging.returns.pageSize)}`,
+          ),
+          { headers, cache: "no-store" },
+        ),
+        fetch(
+          url(
+            `/customers/${encodeURIComponent(id)}/customer-credit-notes?${qs(paging.creditNotes.page, paging.creditNotes.pageSize)}`,
+          ),
+          { headers, cache: "no-store" },
+        ),
       ]);
 
       const cData = (await cRes.json().catch(() => ({}))) as Record<string, unknown>;
@@ -337,41 +530,47 @@ export class CustomersPosRequest {
       };
 
       const pData = (await pRes.json().catch(() => ({}))) as Record<string, unknown>;
-      const payments = pRes.ok ? CustomersPosRequest.parsePaymentsPayload(pData) : [];
+      const payments = pRes.ok
+        ? CustomersPosRequest.parsePaymentsPayload(pData, paging.payments)
+        : CustomersPosRequest.emptyPaged<PosCustomerPaymentRow>(paging.payments);
 
-      const qData = (await qRes.json().catch(() => ({}))) as Record<string, unknown>;
-      const quotasRaw = qRes.ok && Array.isArray(qData?.quotas) ? (qData.quotas as unknown[]) : [];
-      const quotas: PosCustomerQuotaRow[] = quotasRaw.map((row) => {
-        const q = row as Record<string, unknown>;
-        return {
-          id: String(q.id ?? ""),
-          transactionId: q.transactionId != null ? String(q.transactionId) : null,
-          documentNumber: q.documentNumber != null ? String(q.documentNumber) : null,
-          amount: Number(q.amount ?? 0),
-          dueDate: q.dueDate != null ? String(q.dueDate) : null,
-          createdAt: q.createdAt != null ? String(q.createdAt) : null,
-        };
-      });
+      const debtData = (await debtRes.json().catch(() => ({}))) as Record<string, unknown>;
+      const internalCreditDebt = debtRes.ok
+        ? CustomersPosRequest.parseInternalCreditDebtPayload(debtData)
+        : CustomersPosRequest.emptyInternalCreditDebt();
+      const quotas = internalCreditDebt.scheduled.rows;
 
       const purData = (await purRes.json().catch(() => ({}))) as Record<string, unknown>;
-      const purchases = purRes.ok ? CustomersPosRequest.parsePurchasesPayload(purData) : [];
+      const purchases = purRes.ok
+        ? CustomersPosRequest.parsePurchasesPayload(purData, paging.purchases)
+        : CustomersPosRequest.emptyPaged<PosCustomerPurchaseRow>(paging.purchases);
 
       const boData = await boRes.json().catch(() => ({}));
-      const backorders = boRes.ok ? CustomersPosRequest.parseBackordersPayload(boData) : [];
+      const backorders = boRes.ok
+        ? CustomersPosRequest.parseBackordersPayload(boData, paging.backorders)
+        : CustomersPosRequest.emptyPaged<PosCustomerBackorderRow>(paging.backorders);
 
       const retData = (await retRes.json().catch(() => ({}))) as Record<string, unknown>;
-      const returns = retRes.ok ? CustomersPosRequest.parseReturnsPayload(retData) : [];
+      const returns = retRes.ok
+        ? CustomersPosRequest.parseReturnsPayload(retData, paging.returns)
+        : CustomersPosRequest.emptyPaged<PosCustomerReturnRow>(paging.returns);
 
       const ncData = (await ncRes.json().catch(() => ({}))) as Record<string, unknown>;
       const creditNotes = ncRes.ok
-        ? (Array.isArray(ncData.creditNotes) ? ncData.creditNotes : [])
-            .map((row) =>
-              CustomersPosRequest.parseCreditNoteRow(row as Record<string, unknown>),
-            )
-            .filter((x): x is PosCustomerCreditNoteRow => x != null)
-        : [];
+        ? CustomersPosRequest.parseCreditNotesPayload(ncData, paging.creditNotes)
+        : CustomersPosRequest.emptyPaged<PosCustomerCreditNoteRow>(paging.creditNotes);
 
-      return { success: true, customer, payments, quotas, purchases, backorders, returns, creditNotes };
+      return {
+        success: true,
+        customer,
+        payments,
+        quotas,
+        internalCreditDebt,
+        purchases,
+        backorders,
+        returns,
+        creditNotes,
+      };
     } catch (e) {
       const err = e instanceof Error ? e.message : "Error de red";
       return { success: false, message: err };

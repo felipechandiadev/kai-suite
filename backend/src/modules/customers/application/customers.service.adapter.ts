@@ -68,8 +68,12 @@ export class CustomersServiceAdapter {
     return this.customersCore.findOne(id);
   }
 
-  async getPayments(customerId: string) {
-    const query = new GetCustomerPaymentsQuery(customerId);
+  async getPayments(
+    customerId: string,
+    page?: number,
+    pageSize?: number,
+  ) {
+    const query = new GetCustomerPaymentsQuery(customerId, page, pageSize);
     return this.queryBus.execute(query);
   }
 
@@ -86,8 +90,18 @@ export class CustomersServiceAdapter {
     return this.queryBus.execute(query);
   }
 
-  async getPurchases(customerId: string, status?: string) {
-    const query = new GetCustomerPurchasesQuery(customerId, status);
+  async getPurchases(
+    customerId: string,
+    status?: string,
+    page?: number,
+    pageSize?: number,
+  ) {
+    const query = new GetCustomerPurchasesQuery(
+      customerId,
+      status,
+      page,
+      pageSize,
+    );
     return this.queryBus.execute(query);
   }
 }
