@@ -15,10 +15,9 @@ export enum PersonType {
 }
 
 export enum DocumentType {
-  RUN = 'RUN',
   RUT = 'RUT',
   PASSPORT = 'PASSPORT',
-  DNI = 'DNI',
+  OTHER = 'OTHER',
 }
 
 export enum AccountTypeName {
@@ -121,6 +120,10 @@ export class Person {
 
   @Column({ type: 'varchar', length: 8, nullable: true })
   treasuryCode?: string | null;
+
+  /** Contribuyente con inicio de actividades (habilita códigos ACTECO). */
+  @Column({ type: 'boolean', default: false })
+  activityStarted!: boolean;
 
   @Column({ type: 'json', nullable: true })
   economicActivities?: PersonEconomicActivity[] | null;

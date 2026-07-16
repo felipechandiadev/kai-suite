@@ -11,8 +11,9 @@ import { createShareholderAction } from "@/features/settings-shareholders/action
 import { PARTNER_TYPE_OPTIONS } from "@/features/settings-shareholders/lib/partner-type-labels";
 
 const DOC_OPTIONS: Option[] = [
-  { id: "RUN", label: "RUN" },
   { id: "RUT", label: "RUT" },
+  { id: "PASSPORT", label: "Pasaporte" },
+  { id: "OTHER", label: "Otro" },
 ];
 
 type CreatePartnerDialogProps = {
@@ -25,7 +26,7 @@ type CreatePartnerDialogProps = {
 export function CreatePartnerDialog({ open, onClose, companyId, onCreated }: CreatePartnerDialogProps) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [documentType, setDocumentType] = useState<string | null>("RUN");
+  const [documentType, setDocumentType] = useState<string | null>("RUT");
   const [documentNumber, setDocumentNumber] = useState("");
   const [ownership, setOwnership] = useState("");
   const [partnerType, setPartnerType] = useState<string | null>("FOUNDING_PARTNER");
@@ -39,7 +40,7 @@ export function CreatePartnerDialog({ open, onClose, companyId, onCreated }: Cre
     }
     setFirstName("");
     setLastName("");
-    setDocumentType("RUN");
+    setDocumentType("RUT");
     setDocumentNumber("");
     setOwnership("");
     setPartnerType("FOUNDING_PARTNER");

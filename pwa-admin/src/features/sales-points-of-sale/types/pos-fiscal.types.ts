@@ -65,6 +65,7 @@ export const DTE_TYPE_LABELS: Record<number, string> = {
   33: "Factura electrónica",
   39: "Boleta electrónica",
   41: "Boleta exenta electrónica",
+  61: "Nota de crédito electrónica",
 };
 
 export function dteTypeLabel(dteType: number): string {

@@ -230,7 +230,7 @@ export class ReceptionsService {
     return name || null;
   }
 
-  /** DNI / RUN / RUT del proveedor (`person.documentNumber`). */
+  /** DNI / RUT del proveedor (`person.documentNumber`). */
   private getSupplierDni(reception: any): string | null {
     const person = reception?.supplier?.person;
     const doc =

@@ -51,7 +51,11 @@ export async function createPosCustomerAction(input: PosCreateCustomerInput) {
     email: input.email?.trim() || undefined,
     phone: input.phone?.trim() || undefined,
     ...geoPayloadFromChileGeo(chileGeoFromPersonFields(input)),
-    economicActivities: input.economicActivities?.length ? input.economicActivities : undefined,
+    activityStarted: input.activityStarted === true,
+    economicActivities:
+      input.activityStarted && input.economicActivities?.length
+        ? input.economicActivities
+        : undefined,
   };
 
   if (personType === "COMPANY") {
@@ -74,12 +78,6 @@ export async function createPosCustomerAction(input: PosCreateCustomerInput) {
     return { success: false as const, message: "El nombre es obligatorio para una persona." };
   }
   const dt = input.documentType;
-  if (dt === "RUT") {
-    return {
-      success: false as const,
-      message: "Una persona no puede usar RUT; elija empresa u otro documento.",
-    };
-  }
 
   return CustomersPosRequest.create({
     personType: "NATURAL",

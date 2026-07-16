@@ -23,9 +23,9 @@ export function formatCustomerDateTime(iso: string | null | undefined): string {
 
 export function documentTypeLabel(raw: string | null | undefined): string {
   const u = (raw ?? "").trim().toUpperCase();
-  if (u === "RUN" || u === "RUT") return u;
+  if (u === "RUN" || u === "RUT") return "RUT";
   if (u === "PASSPORT") return "Pasaporte";
-  if (u === "DNI") return "DNI";
+  if (u === "DNI" || u === "OTHER") return "Otro";
   return raw?.trim() || "Documento";
 }
 

@@ -18,7 +18,7 @@ export async function replacePosPaymentMethodsAction(
   const res = await PosPaymentMethodsRequest.replace(posId, paymentMethods);
   if (res.success) {
     revalidatePath("/sales/points-of-sale");
-    revalidatePath(`/sales/points-of-sale/${posId}/payment-methods`);
+    revalidatePath(`/sales/points-of-sale/${posId}`);
   }
   return res;
 }

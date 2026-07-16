@@ -12,6 +12,7 @@ export async function replacePosFiscalPolicyAction(posId: string, policy: PosFis
   const res = await PosFiscalRequest.replacePolicy(posId, policy);
   if (res.success) {
     revalidatePath("/sales/points-of-sale");
+    revalidatePath(`/sales/points-of-sale/${posId}`);
   }
   return res;
 }
@@ -27,6 +28,7 @@ export async function replacePosFolioAllocationsAction(
   const res = await PosFiscalRequest.replaceAllocations(posId, allocations);
   if (res.success) {
     revalidatePath("/sales/points-of-sale");
+    revalidatePath(`/sales/points-of-sale/${posId}`);
     revalidatePath("/settings/sii/folios");
   }
   return res;

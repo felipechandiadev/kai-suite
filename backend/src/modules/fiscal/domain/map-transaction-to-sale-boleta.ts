@@ -44,7 +44,8 @@ function personDisplayName(person: Person): string {
 export function resolveReceptorFromPerson(person: Person | null | undefined): SaleBoletaReceptor {
   if (!person) return { ...GENERIC_BOLETA_RECEPTOR };
   const docType = String(person.documentType ?? '').toUpperCase();
-  if (docType !== 'RUN' && docType !== 'RUT') {
+  // Compat: filas legadas pueden aún leerse como RUN hasta migrar.
+  if (docType !== 'RUT' && docType !== 'RUN') {
     return { ...GENERIC_BOLETA_RECEPTOR };
   }
   const formatted = formatChileanRut(person.documentNumber ?? '');

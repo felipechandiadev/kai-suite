@@ -11,6 +11,7 @@ import { IconButton } from "@kai/ui";
 import { ChileRegionCommuneFields } from "@/features/chile-person/ui/ChileRegionCommuneFields";
 import { EconomicActivitiesEditor } from "@/features/chile-person/ui/EconomicActivitiesEditor";
 import {
+  activityStartedFromPerson,
   chileGeoFromPersonFields,
   geoPayloadFromChileGeo,
 } from "@/features/chile-person/lib/person-geo-payload.util";
@@ -18,15 +19,15 @@ import type { ChileGeoValue } from "@/features/chile-person/ui/ChileRegionCommun
 import { updateCustomerAction } from "@/features/sales-customers/actions/customer.action";
 
 const DOC_OPTIONS: Option[] = [
-  { id: "RUN", label: "RUN" },
   { id: "RUT", label: "RUT" },
   { id: "PASSPORT", label: "Pasaporte" },
-  { id: "DNI", label: "DNI" },
+  { id: "OTHER", label: "Otro" },
 ];
 
 function normalizePersonDocumentType(raw: string | null | undefined): string {
   const u = (raw ?? "").trim().toUpperCase();
-  if (u === "OTHER") return "DNI";
+  if (u === "RUN") return "RUT";
+  if (u === "DNI") return "OTHER";
   return u;
 }
 
@@ -39,13 +40,14 @@ type Draft = {
   email: string;
   phone: string;
   geo: ChileGeoValue;
+  activityStarted: boolean;
   economicActivities: PersonEconomicActivity[];
 };
 
 function draftFromDetail(d: CustomerDetailView): Draft {
-  const raw = normalizePersonDocumentType(d.documentType) || "DNI";
-  const allowed = ["RUN", "RUT", "PASSPORT", "DNI"];
-  const valid = allowed.includes(raw) ? raw : "DNI";
+  const raw = normalizePersonDocumentType(d.documentType) || "RUT";
+  const allowed = ["RUT", "PASSPORT", "OTHER"];
+  const valid = allowed.includes(raw) ? raw : "RUT";
   return {
     firstName: d.firstName?.trim() ?? "",
     lastName: d.lastName?.trim() ?? "",
@@ -55,6 +57,7 @@ function draftFromDetail(d: CustomerDetailView): Draft {
     email: d.email?.trim() ?? "",
     phone: d.phone?.trim() ?? "",
     geo: chileGeoFromPersonFields(d),
+    activityStarted: activityStartedFromPerson(d),
     economicActivities: Array.isArray(d.economicActivities) ? [...d.economicActivities] : [],
   };
 }
@@ -72,7 +75,8 @@ function buildPayload(detail: CustomerDetailView, draft: Draft): UpdateCustomerP
     email: draft.email.trim() || undefined,
     phone: draft.phone.trim() || undefined,
     ...geoFields,
-    economicActivities: draft.economicActivities,
+    activityStarted: draft.activityStarted,
+    economicActivities: draft.activityStarted ? draft.economicActivities : [],
   };
   if (isCompanyPerson(detail)) {
     return { ...base, businessName: draft.businessName.trim() || undefined };
@@ -147,6 +151,7 @@ export function CustomerDetailSummarySection({
   const readOnly = !editing;
   const company = isCompanyPerson(detail);
   const viewGeo = chileGeoFromPersonFields(detail);
+  const viewActivityStarted = activityStartedFromPerson(detail);
   const viewActivities = Array.isArray(detail.economicActivities) ? detail.economicActivities : [];
 
   return (
@@ -232,9 +237,9 @@ export function CustomerDetailSummarySection({
           <Select
             label="Tipo de documento"
             options={DOC_OPTIONS}
-            value={draft?.documentType ?? "DNI"}
+            value={draft?.documentType ?? "RUT"}
             onChange={(id) =>
-              setDraft((d) => (d ? { ...d, documentType: id != null ? String(id) : "DNI" } : d))
+              setDraft((d) => (d ? { ...d, documentType: id != null ? String(id) : "RUT" } : d))
             }
             disabled={!editing}
             density="compact"
@@ -287,6 +292,18 @@ export function CustomerDetailSummarySection({
         />
 
         <EconomicActivitiesEditor
+          activityStarted={editing && draft ? draft.activityStarted : viewActivityStarted}
+          onActivityStartedChange={(next) =>
+            setDraft((d) =>
+              d
+                ? {
+                    ...d,
+                    activityStarted: next,
+                    economicActivities: next ? d.economicActivities : [],
+                  }
+                : d,
+            )
+          }
           value={editing && draft ? draft.economicActivities : viewActivities}
           onChange={(next) => setDraft((d) => (d ? { ...d, economicActivities: next } : d))}
           disabled={readOnly || isSaving}

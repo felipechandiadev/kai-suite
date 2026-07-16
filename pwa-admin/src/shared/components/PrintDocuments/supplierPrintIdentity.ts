@@ -10,11 +10,10 @@ export type SupplierIdentityPrintFields = {
 
 function documentKindLabel(documentType: string | null | undefined): string {
   const t = String(documentType ?? "").trim().toUpperCase();
-  if (t === "RUN") return "RUN";
+  if (t === "RUN") return "RUT";
   if (t === "RUT") return "RUT";
   if (t === "PASSPORT") return "Pasaporte";
-  if (t === "DNI") return "DNI";
-  if (t === "OTHER") return "DNI";
+  if (t === "DNI" || t === "OTHER") return "Otro";
   if (t) return String(documentType).trim();
   return "";
 }

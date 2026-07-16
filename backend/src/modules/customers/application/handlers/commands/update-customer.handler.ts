@@ -43,6 +43,7 @@ export class UpdateCustomerHandler implements ICommandHandler<UpdateCustomerComm
       communeCode,
       communeName,
       treasuryCode,
+      activityStarted,
       economicActivities,
       userId,
     } = command;
@@ -137,6 +138,7 @@ export class UpdateCustomerHandler implements ICommandHandler<UpdateCustomerComm
       communeCode !== undefined ||
       communeName !== undefined ||
       treasuryCode !== undefined ||
+      activityStarted !== undefined ||
       economicActivities !== undefined
     ) {
       const geo = sanitizePersonGeoActivityFields({
@@ -145,6 +147,7 @@ export class UpdateCustomerHandler implements ICommandHandler<UpdateCustomerComm
         communeCode,
         communeName,
         treasuryCode,
+        activityStarted,
         economicActivities,
       });
       Object.assign(person, geo);

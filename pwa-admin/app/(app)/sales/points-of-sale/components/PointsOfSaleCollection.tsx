@@ -66,10 +66,6 @@ export function PointsOfSaleCollection({
               <PointOfSaleCard
                 key={p.id}
                 point={p}
-                branches={branches}
-                priceListCatalog={priceListCatalog}
-                storages={storages}
-                activeCompanyId={activeCompanyId}
                 data-test-id={`pos-card-${p.id}`}
               />
             ))

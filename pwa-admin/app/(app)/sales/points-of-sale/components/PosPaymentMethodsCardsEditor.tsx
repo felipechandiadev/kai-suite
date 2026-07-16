@@ -31,6 +31,8 @@ type Props = {
   value: PosPaymentMethodConfig[];
   /** Callback con el payload completo a persistir. */
   onChange: (next: PosPaymentMethodConfig[]) => void;
+  /** Se invoca cuando el estado interno quedó alineado con `value` (listo para persistir). */
+  onReady?: () => void;
   bankAccountOptions?: Array<{ id: string; label: string }>;
   disabled?: boolean;
   "data-test-id"?: string;
@@ -114,6 +116,7 @@ export const PosPaymentMethodsCardsEditor = forwardRef<
     catalog,
     value,
     onChange,
+    onReady,
     bankAccountOptions = [],
     disabled = false,
     "data-test-id": dataTestId,
@@ -139,6 +142,8 @@ export const PosPaymentMethodsCardsEditor = forwardRef<
   usableCatalogRef.current = usableCatalog;
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
 
   const syncPayloadRef = useCallback(
     (nextOrder: string[], nextById: Record<string, PosPaymentMethodConfig>) => {
@@ -159,7 +164,12 @@ export const PosPaymentMethodsCardsEditor = forwardRef<
   useImperativeHandle(
     ref,
     () => ({
-      getPayload: () => latestPayloadRef.current,
+      getPayload: () => {
+        if (latestPayloadRef.current.length > 0) {
+          return latestPayloadRef.current;
+        }
+        return buildPayloadFromState(orderRef.current, byIdRef.current, usableCatalogRef.current);
+      },
     }),
     [],
   );
@@ -223,6 +233,8 @@ export const PosPaymentMethodsCardsEditor = forwardRef<
 
     queueMicrotask(() => {
       skipParentSyncRef.current = false;
+      onChangeRef.current(latestPayloadRef.current);
+      onReadyRef.current?.();
     });
   }, [usableKey, valueKey, value, usableCatalog, syncPayloadRef]);
 

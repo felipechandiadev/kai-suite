@@ -7,6 +7,7 @@ import {
   IsString,
   MaxLength,
   ValidateNested,
+  IsBoolean,
 } from 'class-validator';
 import { DocumentType, PersonType } from '../../domain/person.entity';
 import { PersonBankAccountDto } from './person-bank-account.dto';
@@ -72,6 +73,10 @@ export class CreatePersonDto {
   @IsString()
   @MaxLength(8)
   treasuryCode?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  activityStarted?: boolean;
 
   @IsOptional()
   @IsArray()

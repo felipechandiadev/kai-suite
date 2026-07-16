@@ -22,6 +22,8 @@ import type {
   PosCreateCustomerInput,
   PosCustomerDocumentType,
 } from "@/features/customers/types/pos-customer-create.types";
+import { CompanyRutFieldWithSiiLookup } from "@/features/chile-person/ui/CompanyRutFieldWithSiiLookup";
+import type { SiiCompanyFormDraft } from "@/features/chile-person/types/sii-tax-status.types";
 
 const PERSON_TYPE_OPTIONS: Option[] = [
   { id: "NATURAL", label: "Persona natural" },
@@ -29,9 +31,9 @@ const PERSON_TYPE_OPTIONS: Option[] = [
 ];
 
 const DOC_NATURAL_OPTIONS: Option[] = [
-  { id: "RUN", label: "RUN" },
+  { id: "RUT", label: "RUT" },
   { id: "PASSPORT", label: "Pasaporte" },
-  { id: "DNI", label: "DNI" },
+  { id: "OTHER", label: "Otro" },
 ];
 
 const PAYMENT_DAY_OPTIONS: Option[] = [
@@ -67,11 +69,12 @@ export function PosCreateCustomerDialog({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [businessName, setBusinessName] = useState("");
-  const [documentType, setDocumentType] = useState<PosCustomerDocumentType>("RUN");
+  const [documentType, setDocumentType] = useState<PosCustomerDocumentType>("RUT");
   const [documentNumber, setDocumentNumber] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [geo, setGeo] = useState<ChileGeoValue>(emptyChileGeoValue);
+  const [activityStarted, setActivityStarted] = useState(false);
   const [economicActivities, setEconomicActivities] = useState<PersonEconomicActivity[]>([]);
   const [creditLimitStr, setCreditLimitStr] = useState("0");
   const [paymentDayOfMonth, setPaymentDayOfMonth] = useState<string>("5");
@@ -85,11 +88,12 @@ export function PosCreateCustomerDialog({
       setFirstName("");
       setLastName("");
       setBusinessName("");
-      setDocumentType("RUN");
+      setDocumentType("RUT");
       setDocumentNumber("");
       setEmail("");
       setPhone("");
       setGeo(emptyChileGeoValue());
+      setActivityStarted(false);
       setEconomicActivities([]);
       setCreditLimitStr("0");
       setPaymentDayOfMonth("5");
@@ -104,16 +108,26 @@ export function PosCreateCustomerDialog({
   };
 
   const useDniField =
-    personType === "COMPANY" || (personType === "NATURAL" && (documentType === "RUN" || documentType === "DNI"));
+    personType === "COMPANY" || (personType === "NATURAL" && documentType === "RUT");
 
   const documentNumberLabel =
     personType === "COMPANY"
       ? "RUT"
-      : documentType === "RUN"
-        ? "RUN"
-        : documentType === "DNI"
-          ? "DNI"
+      : documentType === "RUT"
+        ? "RUT"
+        : documentType === "OTHER"
+          ? "Otro"
           : "Número de documento";
+
+  const handleApplySiiData = (draft: SiiCompanyFormDraft) => {
+    setBusinessName(draft.businessName);
+    setDocumentNumber(draft.documentNumber);
+    setActivityStarted(draft.activityStarted);
+    setEconomicActivities(draft.economicActivities);
+  };
+
+  const hasSiiOverwriteData =
+    businessName.trim().length > 0 || economicActivities.length > 0;
 
   const handleSubmit = () => {
     setError(null);
@@ -132,7 +146,9 @@ export function PosCreateCustomerDialog({
       email: email.trim() || undefined,
       phone: phone.trim() || undefined,
       ...geoFields,
-      economicActivities: economicActivities.length > 0 ? economicActivities : undefined,
+      activityStarted,
+      economicActivities:
+        activityStarted && economicActivities.length > 0 ? economicActivities : undefined,
       creditLimit,
       paymentDayOfMonth: internalCreditEnabled
         ? [5, 10, 15, 20, 25, 30].includes(day)
@@ -170,7 +186,7 @@ export function PosCreateCustomerDialog({
     documentNumber.trim().length > 0 &&
     (personType === "COMPANY"
       ? businessName.trim().length > 0
-      : firstName.trim().length > 0 && documentType !== "RUT");
+      : firstName.trim().length > 0);
 
   return (
     <Dialog
@@ -209,8 +225,6 @@ export function PosCreateCustomerDialog({
             setPersonType(next);
             if (next === "COMPANY") {
               setDocumentType("RUT");
-            } else if (documentType === "RUT") {
-              setDocumentType("RUN");
             }
           }}
           required
@@ -253,21 +267,36 @@ export function PosCreateCustomerDialog({
             options={DOC_NATURAL_OPTIONS}
             value={documentType}
             onChange={(v) =>
-              setDocumentType((v != null ? String(v) : "RUN") as PosCustomerDocumentType)
+              setDocumentType((v != null ? String(v) : "RUT") as PosCustomerDocumentType)
             }
             required
           />
         ) : null}
 
-        <TextField
-          label={documentNumberLabel}
-          name="pos-customer-document-number"
-          type={useDniField ? "dni" : "text"}
-          value={documentNumber}
-          onChange={(e) => setDocumentNumber(e.target.value)}
-          placeholder={documentNumberLabel}
-          required
-        />
+        {personType === "COMPANY" ? (
+          <CompanyRutFieldWithSiiLookup
+            label="RUT"
+            name="pos-customer-document-number"
+            value={documentNumber}
+            onChange={(e) => setDocumentNumber(e.target.value)}
+            placeholder="RUT"
+            required
+            disabled={isPending}
+            onApplySiiData={handleApplySiiData}
+            hasExistingData={hasSiiOverwriteData}
+            testIdPrefix="pos-customer-create"
+          />
+        ) : (
+          <TextField
+            label={documentNumberLabel}
+            name="pos-customer-document-number"
+            type={useDniField ? "dni" : "text"}
+            value={documentNumber}
+            onChange={(e) => setDocumentNumber(e.target.value)}
+            placeholder={documentNumberLabel}
+            required
+          />
+        )}
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <TextField label="Email" name="pos-customer-email" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -282,6 +311,8 @@ export function PosCreateCustomerDialog({
         />
 
         <EconomicActivitiesEditor
+          activityStarted={activityStarted}
+          onActivityStartedChange={setActivityStarted}
           value={economicActivities}
           onChange={setEconomicActivities}
           disabled={isPending}

@@ -49,7 +49,7 @@ export type CreateSupplierFormInput = {
   firstName?: string;
   lastName?: string;
   businessName?: string;
-  documentType: "RUN" | "RUT" | "PASSPORT" | "DNI";
+  documentType: "RUT" | "PASSPORT" | "OTHER";
   documentNumber: string;
   email?: string;
   phone?: string;
@@ -63,7 +63,11 @@ export type CreateSupplierResult = { success: true; id: string } | { success: fa
 function personGeoFromInput(input: CreateSupplierFormInput) {
   return {
     ...geoPayloadFromChileGeo(chileGeoFromPersonFields(input)),
-    economicActivities: input.economicActivities?.length ? input.economicActivities : undefined,
+    activityStarted: input.activityStarted === true,
+    economicActivities:
+      input.activityStarted && input.economicActivities?.length
+        ? input.economicActivities
+        : undefined,
   };
 }
 
@@ -109,9 +113,6 @@ export async function createSupplierAction(input: CreateSupplierFormInput): Prom
     return { success: false, error: "El nombre es obligatorio para una persona." };
   }
   const dt = input.documentType;
-  if (dt === "RUT") {
-    return { success: false, error: "Una persona no puede usar RUT; elija empresa o otro documento." };
-  }
 
   const person = {
     type: "NATURAL" as const,

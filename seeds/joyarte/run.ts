@@ -428,7 +428,7 @@ const SEED_SUPPLIERS: readonly {
       type: PersonType.NATURAL,
       firstName: 'María',
       lastName: 'Pérez Soto',
-      documentType: DocumentType.RUN,
+      documentType: DocumentType.RUT,
       documentNumber: '15.876.543-2',
       email: 'maria.perez@servicios.cl',
       phone: '+56 9 9988 7766',
@@ -500,7 +500,7 @@ const SEED_SUPPLIERS: readonly {
       type: PersonType.NATURAL,
       firstName: 'Andrea',
       lastName: 'Rojas',
-      documentType: DocumentType.DNI,
+      documentType: DocumentType.OTHER,
       documentNumber: 'PROV-AR-001',
       phone: '+56 9 4321 1000',
       address: 'Pasaje Las Flores 120, Chillán',
@@ -536,7 +536,7 @@ const SEED_SUPPLIERS: readonly {
       type: PersonType.NATURAL,
       firstName: 'Carlos',
       lastName: 'Gutiérrez',
-      documentType: DocumentType.RUN,
+      documentType: DocumentType.RUT,
       documentNumber: '12.345.678-5',
       email: 'carlos.gutierrez@logistica.cl',
       address: 'Los Aromos 450, Rancagua',
@@ -598,7 +598,7 @@ const SEED_CUSTOMERS: readonly {
       type: PersonType.NATURAL,
       firstName: 'Sebastián',
       lastName: 'Fuentes Vargas',
-      documentType: DocumentType.RUN,
+      documentType: DocumentType.RUT,
       documentNumber: '16.345.789-2',
       email: 'sebastian.fuentes@gmail.com',
       phone: '+56 9 8123 4567',
@@ -616,7 +616,7 @@ const SEED_CUSTOMERS: readonly {
       type: PersonType.NATURAL,
       firstName: 'Camila',
       lastName: 'Ríos Soto',
-      documentType: DocumentType.RUN,
+      documentType: DocumentType.RUT,
       documentNumber: '18.999.111-K',
       email: 'camila.rios@hotmail.com',
       phone: '+56 9 7456 1234',
@@ -670,7 +670,7 @@ const SEED_CUSTOMERS: readonly {
       type: PersonType.NATURAL,
       firstName: 'Patricia',
       lastName: 'Núñez Carrasco',
-      documentType: DocumentType.RUN,
+      documentType: DocumentType.RUT,
       documentNumber: '14.555.222-7',
       email: 'patricia.nunez@correo.cl',
       phone: '+56 9 6321 9988',
@@ -705,7 +705,7 @@ const SEED_CUSTOMERS: readonly {
       type: PersonType.NATURAL,
       firstName: 'Diego',
       lastName: 'Pérez Lagos',
-      documentType: DocumentType.RUN,
+      documentType: DocumentType.RUT,
       documentNumber: '19.876.543-2',
       email: 'diego.perez@protonmail.com',
       phone: '+56 9 5555 3322',
@@ -758,7 +758,7 @@ const SEED_CUSTOMERS: readonly {
       type: PersonType.NATURAL,
       firstName: 'Valentina',
       lastName: 'Sánchez',
-      documentType: DocumentType.DNI,
+      documentType: DocumentType.OTHER,
       documentNumber: 'CUST-VS-001',
       phone: '+56 9 4444 1212',
     },
@@ -766,7 +766,7 @@ const SEED_CUSTOMERS: readonly {
       creditLimit: 100000,
       paymentDayOfMonth: 20,
       isActive: true,
-      notes: 'Documento DNI (validar campo opcional documentType).',
+      notes: 'Documento otro (validar campo opcional documentType).',
     },
   },
 ] as const;
@@ -2266,7 +2266,7 @@ async function bootstrap() {
           type: PersonType.NATURAL,
           firstName: item.person.firstName,
           lastName: item.person.lastName,
-          documentType: DocumentType.RUN,
+          documentType: DocumentType.RUT,
           documentNumber: item.person.documentNumber,
           email: item.person.email,
           phone: item.person.phone,
@@ -2276,7 +2276,7 @@ async function bootstrap() {
         person.type = PersonType.NATURAL;
         person.firstName = item.person.firstName;
         person.lastName = item.person.lastName;
-        person.documentType = DocumentType.RUN;
+        person.documentType = DocumentType.RUT;
         person.email = item.person.email;
         person.phone = item.person.phone;
         person.address = item.person.address;

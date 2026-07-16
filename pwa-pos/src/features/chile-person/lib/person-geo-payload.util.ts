@@ -36,9 +36,19 @@ export type PersonGeoApiPayload = {
   communeCode?: string | null;
   communeName?: string | null;
   treasuryCode?: string | null;
+  activityStarted?: boolean;
   address?: string;
   economicActivities?: PersonEconomicActivity[] | null;
 };
+
+export function activityStartedFromPerson(input: {
+  activityStarted?: boolean | null;
+  economicActivities?: PersonEconomicActivity[] | null;
+}): boolean {
+  if (input.activityStarted === true) return true;
+  if (input.activityStarted === false) return false;
+  return (input.economicActivities?.length ?? 0) > 0;
+}
 
 export function geoPayloadFromChileGeo(geo: ChileGeoValue): Pick<
   PersonGeoApiPayload,

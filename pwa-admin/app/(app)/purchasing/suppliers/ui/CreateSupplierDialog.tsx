@@ -16,6 +16,8 @@ import {
 import type { ChileGeoValue } from "@/features/chile-person/ui/ChileRegionCommuneFields";
 import { createSupplierAction } from "@/features/purchasing-suppliers/actions/supplier.action";
 import type { SupplierDocumentType } from "@/features/purchasing-suppliers/types/supplier.types";
+import { CompanyRutFieldWithSiiLookup } from "@/features/chile-person/ui/CompanyRutFieldWithSiiLookup";
+import type { SiiCompanyFormDraft } from "@/features/chile-person/types/sii-tax-status.types";
 
 const PERSON_TYPE_OPTIONS: Option[] = [
   { id: "NATURAL", label: "Persona natural" },
@@ -23,9 +25,9 @@ const PERSON_TYPE_OPTIONS: Option[] = [
 ];
 
 const DOC_NATURAL_OPTIONS: Option[] = [
-  { id: "RUN", label: "RUN" },
+  { id: "RUT", label: "RUT" },
   { id: "PASSPORT", label: "Pasaporte" },
-  { id: "DNI", label: "DNI" },
+  { id: "OTHER", label: "Otro" },
 ];
 
 const SUPPLIER_TYPE_OPTIONS: Option[] = [
@@ -49,11 +51,12 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [businessName, setBusinessName] = useState("");
-  const [documentType, setDocumentType] = useState<SupplierDocumentType>("RUN");
+  const [documentType, setDocumentType] = useState<SupplierDocumentType>("RUT");
   const [documentNumber, setDocumentNumber] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [geo, setGeo] = useState<ChileGeoValue>(emptyChileGeoValue);
+  const [activityStarted, setActivityStarted] = useState(false);
   const [economicActivities, setEconomicActivities] = useState<PersonEconomicActivity[]>([]);
   const [supplierType, setSupplierType] = useState("DISTRIBUTOR");
   const [defaultPaymentTermDays, setDefaultPaymentTermDays] = useState("0");
@@ -66,11 +69,12 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
       setFirstName("");
       setLastName("");
       setBusinessName("");
-      setDocumentType("RUN");
+      setDocumentType("RUT");
       setDocumentNumber("");
       setEmail("");
       setPhone("");
       setGeo(emptyChileGeoValue());
+      setActivityStarted(false);
       setEconomicActivities([]);
       setSupplierType("DISTRIBUTOR");
       setDefaultPaymentTermDays("0");
@@ -83,11 +87,12 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
     setFirstName("");
     setLastName("");
     setBusinessName("");
-    setDocumentType("RUN");
+    setDocumentType("RUT");
     setDocumentNumber("");
     setEmail("");
     setPhone("");
     setGeo(emptyChileGeoValue());
+    setActivityStarted(false);
     setEconomicActivities([]);
     setSupplierType("DISTRIBUTOR");
     setDefaultPaymentTermDays("0");
@@ -101,16 +106,26 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
   };
 
   const useDniField =
-    personType === "COMPANY" || (personType === "NATURAL" && (documentType === "RUN" || documentType === "DNI"));
+    personType === "COMPANY" || (personType === "NATURAL" && documentType === "RUT");
 
   const documentNumberLabel =
     personType === "COMPANY"
       ? "RUT"
-      : documentType === "RUN"
-        ? "RUN"
-        : documentType === "DNI"
-          ? "DNI"
+      : documentType === "RUT"
+        ? "RUT"
+        : documentType === "OTHER"
+          ? "Otro"
           : "Número de documento";
+
+  const handleApplySiiData = (draft: SiiCompanyFormDraft) => {
+    setBusinessName(draft.businessName);
+    setDocumentNumber(draft.documentNumber);
+    setActivityStarted(draft.activityStarted);
+    setEconomicActivities(draft.economicActivities);
+  };
+
+  const hasSiiOverwriteData =
+    businessName.trim().length > 0 || economicActivities.length > 0;
 
   const handleSubmit = () => {
     setError(null);
@@ -128,7 +143,9 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
           email: email.trim() || undefined,
           phone: phone.trim() || undefined,
           ...geoFields,
-          economicActivities: economicActivities.length > 0 ? economicActivities : undefined,
+          activityStarted,
+          economicActivities:
+            activityStarted && economicActivities.length > 0 ? economicActivities : undefined,
           supplierType,
           defaultPaymentTermDays: term,
         });
@@ -147,7 +164,7 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
     documentNumber.trim().length > 0 &&
     (personType === "COMPANY"
       ? businessName.trim().length > 0
-      : firstName.trim().length > 0 && documentType !== "RUT");
+      : firstName.trim().length > 0);
 
   return (
     <Dialog
@@ -192,8 +209,6 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
             setPersonType(next);
             if (next === "COMPANY") {
               setDocumentType("RUT");
-            } else if (documentType === "RUT") {
-              setDocumentType("RUN");
             }
           }}
           required
@@ -239,22 +254,38 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
             placeholder="Tipo de documento"
             options={DOC_NATURAL_OPTIONS}
             value={documentType}
-            onChange={(v) => setDocumentType((v != null ? String(v) : "RUN") as SupplierDocumentType)}
+            onChange={(v) => setDocumentType((v != null ? String(v) : "RUT") as SupplierDocumentType)}
             required
             data-test-id="supplier-create-doc-type"
           />
         ) : null}
 
-        <TextField
-          label={documentNumberLabel}
-          name="supplier-document-number"
-          type={useDniField ? "dni" : "text"}
-          value={documentNumber}
-          onChange={(e) => setDocumentNumber(e.target.value)}
-          placeholder={documentNumberLabel}
-          required
-          data-test-id="supplier-create-document"
-        />
+        {personType === "COMPANY" ? (
+          <CompanyRutFieldWithSiiLookup
+            label="RUT"
+            name="supplier-document-number"
+            value={documentNumber}
+            onChange={(e) => setDocumentNumber(e.target.value)}
+            placeholder="RUT"
+            required
+            disabled={isPending}
+            onApplySiiData={handleApplySiiData}
+            hasExistingData={hasSiiOverwriteData}
+            data-test-id="supplier-create-document"
+            testIdPrefix="supplier-create"
+          />
+        ) : (
+          <TextField
+            label={documentNumberLabel}
+            name="supplier-document-number"
+            type={useDniField ? "dni" : "text"}
+            value={documentNumber}
+            onChange={(e) => setDocumentNumber(e.target.value)}
+            placeholder={documentNumberLabel}
+            required
+            data-test-id="supplier-create-document"
+          />
+        )}
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <TextField
@@ -284,6 +315,8 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
         />
 
         <EconomicActivitiesEditor
+          activityStarted={activityStarted}
+          onActivityStartedChange={setActivityStarted}
           value={economicActivities}
           onChange={setEconomicActivities}
           disabled={isPending}

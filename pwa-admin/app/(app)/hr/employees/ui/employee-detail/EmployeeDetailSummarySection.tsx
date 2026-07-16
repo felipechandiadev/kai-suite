@@ -7,9 +7,9 @@ import { documentTypeLabel } from "@/features/sales-customers/lib/customer-docum
 import { updateEmployeePersonAction } from "@/features/hr-employees/actions/employee.action";
 
 const DOC_OPTIONS: Option[] = [
-  { id: "RUN", label: "RUN" },
+  { id: "RUT", label: "RUT" },
   { id: "PASSPORT", label: "Pasaporte" },
-  { id: "DNI", label: "DNI" },
+  { id: "OTHER", label: "Otro" },
 ];
 
 type Draft = {
@@ -24,14 +24,16 @@ type Draft = {
 
 function normalizePersonDocType(raw: string | null | undefined): string {
   const u = (raw ?? "").trim().toUpperCase();
-  if (!u) return "DNI";
-  return u === "OTHER" ? "DNI" : u;
+  if (!u) return "RUT";
+  if (u === "RUN") return "RUT";
+  if (u === "DNI") return "OTHER";
+  return u;
 }
 
 function draftFromPerson(p: NonNullable<EmployeeDetailView["person"]>): Draft {
   const raw = normalizePersonDocType(p.documentType);
-  const allowed = ["RUN", "PASSPORT", "DNI"];
-  const valid = allowed.includes(raw) ? raw : "DNI";
+  const allowed = ["RUT", "PASSPORT", "OTHER"];
+  const valid = allowed.includes(raw) ? raw : "RUT";
   return {
     firstName: p.firstName?.trim() ?? "",
     lastName: p.lastName?.trim() ?? "",
@@ -190,9 +192,9 @@ export function EmployeeDetailSummarySection({
           <Select
             label="Tipo de documento"
             options={DOC_OPTIONS}
-            value={draft?.documentType ?? "DNI"}
+            value={draft?.documentType ?? "RUT"}
             onChange={(id) =>
-              setDraft((d) => (d ? { ...d, documentType: id != null ? String(id) : "DNI" } : d))
+              setDraft((d) => (d ? { ...d, documentType: id != null ? String(id) : "RUT" } : d))
             }
             disabled={!editing}
             density="compact"

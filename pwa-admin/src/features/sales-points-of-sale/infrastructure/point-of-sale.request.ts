@@ -65,6 +65,37 @@ export class PointOfSaleRequest {
     }
   }
 
+  static async findById(
+    id: string,
+  ): Promise<
+    { success: true; pointOfSale: PointOfSaleListItem } | { success: false; error: string }
+  > {
+    const headers = await authHeaders();
+    try {
+      const res = await fetch(apiUrl(`points-of-sale/${encodeURIComponent(id)}`), {
+        method: "GET",
+        headers,
+        cache: "no-store",
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        success?: boolean;
+        pointOfSale?: PointOfSaleListItem;
+        message?: string;
+        error?: string;
+      };
+      if (!res.ok || data.success !== true || !data.pointOfSale) {
+        return {
+          success: false,
+          error: data.message || data.error || res.statusText || "Punto de venta no encontrado",
+        };
+      }
+      return { success: true, pointOfSale: data.pointOfSale };
+    } catch (e) {
+      const err = e instanceof Error ? e.message : "Error al cargar el punto de venta";
+      return { success: false, error: err };
+    }
+  }
+
   static async update(
     id: string,
     body: PointOfSaleWriteBody,

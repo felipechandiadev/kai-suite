@@ -107,6 +107,7 @@ export class PersonsService {
       communeCode: data.communeCode,
       communeName: data.communeName,
       treasuryCode: data.treasuryCode,
+      activityStarted: data.activityStarted,
       economicActivities: data.economicActivities as any,
     });
     const person = this.personsRepository.create({
@@ -128,6 +129,7 @@ export class PersonsService {
       communeCode: data.communeCode,
       communeName: data.communeName,
       treasuryCode: data.treasuryCode,
+      activityStarted: data.activityStarted,
       economicActivities: data.economicActivities as any,
     });
 
@@ -143,7 +145,8 @@ export class PersonsService {
   }
 
   /**
-   * Reglas: empresa → RUT; persona natural no puede usar RUT.
+   * Reglas: empresa → RUT (obligatorio).
+   * Persona natural puede usar RUT, pasaporte u otro documento.
    * Empresa: exige razón social; si no hay nombre se usa la razón social como firstName (requerido en BD).
    */
   private applyPersonDocumentRules(data: CreatePersonDto): void {
@@ -162,13 +165,6 @@ export class PersonsService {
       if (!row.firstName?.trim()) {
         row.firstName = bn;
       }
-      return;
-    }
-
-    if (row.documentType === DocumentType.RUT) {
-      throw new BadRequestException(
-        'El RUT corresponde a empresa. Cambie el tipo a empresa o use RUN, pasaporte o DNI.',
-      );
     }
   }
 

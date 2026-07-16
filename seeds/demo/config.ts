@@ -396,7 +396,7 @@ export const SEED_DEV_SHAREHOLDERS = [
   {
     firstName: 'Ana',
     lastName: 'García López',
-    documentType: DocumentType.RUN,
+    documentType: DocumentType.RUT,
     documentNumber: '12.345.678-5',
     ownershipPercentage: 60,
     partnerType: 'FOUNDING_PARTNER',
@@ -405,7 +405,7 @@ export const SEED_DEV_SHAREHOLDERS = [
   {
     firstName: 'Luis',
     lastName: 'Morales Ríos',
-    documentType: DocumentType.RUN,
+    documentType: DocumentType.RUT,
     documentNumber: '15.987.654-3',
     ownershipPercentage: 40,
     partnerType: 'PARTNER',

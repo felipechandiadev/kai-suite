@@ -60,6 +60,7 @@ export class CustomersService {
       communeCode: createCustomerDto.communeCode,
       communeName: createCustomerDto.communeName,
       treasuryCode: createCustomerDto.treasuryCode,
+      activityStarted: createCustomerDto.activityStarted,
       economicActivities: createCustomerDto.economicActivities as any,
     });
 
@@ -319,6 +320,9 @@ export class CustomersService {
       communeCode: p?.communeCode ?? null,
       communeName: p?.communeName ?? null,
       treasuryCode: p?.treasuryCode ?? null,
+      activityStarted:
+        p?.activityStarted === true ||
+        (Array.isArray(p?.economicActivities) && p.economicActivities.length > 0),
       economicActivities: p?.economicActivities ?? null,
       creditLimit: creditInfo.creditLimit,
       usedCredit: creditInfo.usedCredit,

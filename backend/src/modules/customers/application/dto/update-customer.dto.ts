@@ -46,8 +46,8 @@ export class UpdateCustomerDto {
   businessName?: string;
 
   @IsOptional()
-  @IsIn(['RUN', 'RUT', 'PASSPORT', 'DNI'])
-  documentType?: 'RUN' | 'RUT' | 'PASSPORT' | 'DNI';
+  @IsIn(['RUT', 'PASSPORT', 'OTHER'])
+  documentType?: 'RUT' | 'PASSPORT' | 'OTHER';
 
   @IsOptional()
   @IsString()
@@ -92,6 +92,10 @@ export class UpdateCustomerDto {
   @IsString()
   @MaxLength(8)
   treasuryCode?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  activityStarted?: boolean;
 
   @IsOptional()
   @IsArray()

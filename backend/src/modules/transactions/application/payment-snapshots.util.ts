@@ -117,6 +117,36 @@ export function isMultiPayment(snapshots: PaymentSnapshot[]): boolean {
   return snapshots.length > 1;
 }
 
+const BANK_TREASURY_PAYMENT_METHODS = new Set<string>([
+  PaymentMethod.TRANSFER,
+  PaymentMethod.CHECK,
+]);
+
+/**
+ * Cuenta bancaria de empresa asociada a cobros/pagos en snapshots (transferencia/cheque).
+ * Usado para poblar `transactions.bankAccountKey` en tesorería.
+ */
+export function resolveBankAccountKeyFromPaymentSnapshots(
+  snapshots: PaymentSnapshot[],
+  explicitKey?: string | null,
+): string | undefined {
+  const explicit = explicitKey?.trim();
+  if (explicit) return explicit;
+
+  const bankRows = snapshots
+    .filter((s) => {
+      const method = String(s.method ?? '').trim().toUpperCase();
+      const key = s.bankAccountKey?.trim();
+      return (
+        key &&
+        BANK_TREASURY_PAYMENT_METHODS.has(method)
+      );
+    })
+    .sort((a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0));
+
+  return bankRows[0]?.bankAccountKey?.trim() || undefined;
+}
+
 export function getRepresentativePaymentMethod(
   snapshots: PaymentSnapshot[],
   fallback: PaymentMethod | string = PaymentMethod.CASH,
@@ -158,7 +188,11 @@ function normalizePaymentSnapshot(raw: unknown): PaymentSnapshot | null {
     method,
     alias: typeof o.alias === 'string' ? o.alias : null,
     bankAccountKey:
-      typeof o.bankAccountKey === 'string' ? o.bankAccountKey : null,
+      typeof o.bankAccountKey === 'string' && o.bankAccountKey.trim()
+        ? o.bankAccountKey.trim()
+        : typeof o.bankAccountId === 'string' && o.bankAccountId.trim()
+          ? o.bankAccountId.trim()
+          : null,
     amount,
     reference: typeof o.reference === 'string' ? o.reference : null,
     capturedAt:

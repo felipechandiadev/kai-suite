@@ -15,10 +15,9 @@ export enum PersonType {
 }
 
 export enum DocumentType {
-  RUN = 'RUN',
   RUT = 'RUT',
   PASSPORT = 'PASSPORT',
-  DNI = 'DNI',
+  OTHER = 'OTHER',
 }
 
 export interface PersonBankAccount {
@@ -79,6 +78,9 @@ export class PersonOrmEntity {
 
   @Column({ type: 'varchar', length: 8, nullable: true })
   treasuryCode?: string | null;
+
+  @Column({ type: 'boolean', default: false })
+  activityStarted!: boolean;
 
   @Column({ type: 'json', nullable: true })
   economicActivities?: Array<{

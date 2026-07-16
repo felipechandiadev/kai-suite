@@ -9,6 +9,7 @@ import {
   IsArray,
   MaxLength,
   ValidateNested,
+  IsBoolean,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import {
@@ -98,6 +99,10 @@ export class CreateCustomerDto {
   @IsString()
   @MaxLength(8)
   treasuryCode?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  activityStarted?: boolean;
 
   @IsOptional()
   @IsArray()

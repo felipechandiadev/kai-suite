@@ -14,6 +14,7 @@ import { IconButton } from "@kai/ui";
 import { ChileRegionCommuneFields } from "@/features/chile-person/ui/ChileRegionCommuneFields";
 import { EconomicActivitiesEditor } from "@/features/chile-person/ui/EconomicActivitiesEditor";
 import {
+  activityStartedFromPerson,
   chileGeoFromPersonFields,
   geoPayloadFromChileGeo,
 } from "@/features/chile-person/lib/person-geo-payload.util";
@@ -21,16 +22,15 @@ import type { ChileGeoValue } from "@/features/chile-person/ui/ChileRegionCommun
 import { updateSupplierAction } from "@/features/purchasing-suppliers/actions/supplier.action";
 
 const DOC_OPTIONS_NATURAL: Option[] = [
-  { id: "RUN", label: "RUN" },
+  { id: "RUT", label: "RUT" },
   { id: "PASSPORT", label: "Pasaporte" },
-  { id: "DNI", label: "DNI" },
+  { id: "OTHER", label: "Otro" },
 ];
 
 const DOC_OPTIONS_COMPANY: Option[] = [
-  { id: "RUN", label: "RUN" },
   { id: "RUT", label: "RUT" },
   { id: "PASSPORT", label: "Pasaporte" },
-  { id: "DNI", label: "DNI" },
+  { id: "OTHER", label: "Otro" },
 ];
 
 type Draft = {
@@ -42,20 +42,23 @@ type Draft = {
   email: string;
   phone: string;
   geo: ChileGeoValue;
+  activityStarted: boolean;
   economicActivities: PersonEconomicActivity[];
 };
 
 function normalizePersonDocType(raw: string | null | undefined, emptyFallback: string): string {
   const u = (raw ?? "").trim().toUpperCase();
   if (!u) return emptyFallback;
-  return u === "OTHER" ? "DNI" : u;
+  if (u === "RUN") return "RUT";
+  if (u === "DNI") return "OTHER";
+  return u;
 }
 
 function draftFromPerson(p: NonNullable<SupplierDetailView["person"]>): Draft {
-  const raw = normalizePersonDocType(p.documentType, "DNI");
+  const raw = normalizePersonDocType(p.documentType, "RUT");
   const allowed =
-    p.type === "COMPANY" ? ["RUN", "RUT", "PASSPORT", "DNI"] : ["RUN", "PASSPORT", "DNI"];
-  const valid = allowed.includes(raw) ? raw : p.type === "COMPANY" ? "RUT" : "DNI";
+    p.type === "COMPANY" ? ["RUT", "PASSPORT", "OTHER"] : ["RUT", "PASSPORT", "OTHER"];
+  const valid = allowed.includes(raw) ? raw : "RUT";
   return {
     firstName: p.firstName?.trim() ?? "",
     lastName: p.lastName?.trim() ?? "",
@@ -65,6 +68,7 @@ function draftFromPerson(p: NonNullable<SupplierDetailView["person"]>): Draft {
     email: p.email?.trim() ?? "",
     phone: p.phone?.trim() ?? "",
     geo: chileGeoFromPersonFields(p),
+    activityStarted: activityStartedFromPerson(p),
     economicActivities: Array.isArray(p.economicActivities) ? [...p.economicActivities] : [],
   };
 }
@@ -82,7 +86,8 @@ function buildPersonPayload(detail: SupplierDetailView, draft: Draft): UpdateSup
     email: draft.email.trim() || undefined,
     phone: draft.phone.trim() || undefined,
     ...geoFields,
-    economicActivities: draft.economicActivities,
+    activityStarted: draft.activityStarted,
+    economicActivities: draft.activityStarted ? draft.economicActivities : [],
   };
   if (isCompany(detail)) {
     return { ...base, businessName: draft.businessName.trim() || undefined };
@@ -162,6 +167,7 @@ export function SupplierDetailSummarySection({
   const p = detail.person;
   const docOptions = company ? DOC_OPTIONS_COMPANY : DOC_OPTIONS_NATURAL;
   const viewGeo = chileGeoFromPersonFields(p);
+  const viewActivityStarted = activityStartedFromPerson(p);
   const viewActivities = Array.isArray(p.economicActivities) ? p.economicActivities : [];
 
   return (
@@ -247,9 +253,9 @@ export function SupplierDetailSummarySection({
           <Select
             label="Tipo de documento"
             options={docOptions}
-            value={draft?.documentType ?? "DNI"}
+            value={draft?.documentType ?? "RUT"}
             onChange={(id) =>
-              setDraft((d) => (d ? { ...d, documentType: id != null ? String(id) : "DNI" } : d))
+              setDraft((d) => (d ? { ...d, documentType: id != null ? String(id) : "RUT" } : d))
             }
             disabled={!editing}
             density="compact"
@@ -302,6 +308,18 @@ export function SupplierDetailSummarySection({
         />
 
         <EconomicActivitiesEditor
+          activityStarted={editing && draft ? draft.activityStarted : viewActivityStarted}
+          onActivityStartedChange={(next) =>
+            setDraft((d) =>
+              d
+                ? {
+                    ...d,
+                    activityStarted: next,
+                    economicActivities: next ? d.economicActivities : [],
+                  }
+                : d,
+            )
+          }
           value={editing && draft ? draft.economicActivities : viewActivities}
           onChange={(next) => setDraft((d) => (d ? { ...d, economicActivities: next } : d))}
           disabled={readOnly || isSaving}

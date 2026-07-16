@@ -12,15 +12,40 @@ import {
   HttpException,
 } from '@nestjs/common';
 import { PersonsService } from '../application/persons.service';
+import { SiiTaxStatusService } from '../application/sii-tax-status.service';
 import { ListPersonsDto } from '../application/dto/list-persons.dto';
 import { FindPersonDto } from '../application/dto/find-person.dto';
 import { CreatePersonDto } from '../application/dto/create-person.dto';
 import { UpdatePersonDto } from '../application/dto/update-person.dto';
 import { PersonBankAccountDto } from '../application/dto/person-bank-account.dto';
+import { LookupSiiTaxStatusDto } from '../application/dto/lookup-sii-tax-status.dto';
 
 @Controller('persons')
 export class PersonsController {
-  constructor(private readonly personsService: PersonsService) {}
+  constructor(
+    private readonly personsService: PersonsService,
+    private readonly siiTaxStatusService: SiiTaxStatusService,
+  ) {}
+
+  @Get('sii/tax-status')
+  async lookupSiiTaxStatus(@Query() query: LookupSiiTaxStatusDto) {
+    try {
+      const data = await this.siiTaxStatusService.lookup(query.rut);
+      return { success: true, data };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        {
+          success: false,
+          message:
+            error instanceof Error ? error.message : 'Internal server error',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 
   @Get()
   async findAll(@Query() query: ListPersonsDto) {

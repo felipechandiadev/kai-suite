@@ -10,9 +10,9 @@ import { createEmployeeAction } from "@/features/hr-employees/actions/employee.a
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
 
 const DOC_OPTIONS: Option[] = [
-  { id: "RUN", label: "RUN" },
+  { id: "RUT", label: "RUT" },
   { id: "PASSPORT", label: "Pasaporte" },
-  { id: "DNI", label: "DNI" },
+  { id: "OTHER", label: "Otro" },
 ];
 
 const EMPLOYMENT_TYPE_OPTIONS: Option[] = [
@@ -46,7 +46,7 @@ export function CreateEmployeeDialog({
 }: CreateEmployeeDialogProps) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [documentType, setDocumentType] = useState<"RUN" | "PASSPORT" | "DNI">("RUN");
+  const [documentType, setDocumentType] = useState<"RUT" | "PASSPORT" | "OTHER">("RUT");
   const [documentNumber, setDocumentNumber] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -69,7 +69,7 @@ export function CreateEmployeeDialog({
     if (open) {
       setFirstName("");
       setLastName("");
-      setDocumentType("RUN");
+      setDocumentType("RUT");
       setDocumentNumber("");
       setEmail("");
       setPhone("");
@@ -84,7 +84,7 @@ export function CreateEmployeeDialog({
   const reset = () => {
     setFirstName("");
     setLastName("");
-    setDocumentType("RUN");
+    setDocumentType("RUT");
     setDocumentNumber("");
     setEmail("");
     setPhone("");
@@ -130,9 +130,9 @@ export function CreateEmployeeDialog({
   const canSubmit =
     !isPending && firstName.trim().length > 0 && documentNumber.trim().length > 0 && hireDate.trim().length > 0;
 
-  const useDniField = documentType === "RUN" || documentType === "DNI";
+  const useDniField = documentType === "RUT";
   const documentNumberLabel =
-    documentType === "RUN" ? "RUN" : documentType === "DNI" ? "DNI" : "Número de documento";
+    documentType === "RUT" ? "RUT" : documentType === "OTHER" ? "Otro" : "Número de documento";
 
   return (
     <Dialog
@@ -193,7 +193,7 @@ export function CreateEmployeeDialog({
           options={DOC_OPTIONS}
           value={documentType}
           onChange={(v) =>
-            setDocumentType((v != null ? String(v) : "RUN") as "RUN" | "PASSPORT" | "DNI")
+            setDocumentType((v != null ? String(v) : "RUT") as "RUT" | "PASSPORT" | "OTHER")
           }
           required
           data-test-id="employee-create-doc-type"

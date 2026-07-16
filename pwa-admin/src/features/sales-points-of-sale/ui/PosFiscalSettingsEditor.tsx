@@ -25,6 +25,11 @@ type Props = {
 
 const ALL_KINDS: SaleDocumentKind[] = ["TICKET", "BOLETA", "FACTURA"];
 
+/** Tipos visibles en UI pero aún no configurables por POS. */
+const DISABLED_DOCUMENT_KINDS = [
+  { id: "NOTA_CREDITO", label: "Nota de crédito electrónica (61)" },
+] as const;
+
 export function PosFiscalSettingsEditor({
   posId,
   initialPolicy,
@@ -103,18 +108,29 @@ export function PosFiscalSettingsEditor({
                 className="mt-0.5 h-4 w-4 rounded border-border"
                 checked={checked}
                 disabled={disabled || kind === "TICKET" || isFactura}
-                title={isFactura ? "Factura electrónica: próximamente" : undefined}
                 onChange={(e) => toggleKind(kind, e.target.checked)}
               />
               <label htmlFor={`pos-fiscal-kind-${kind}`} className="text-sm">
                 {SALE_DOCUMENT_KIND_LABELS[kind]}
-                {isFactura ? (
-                  <span className="ml-1 text-xs text-muted-foreground">(próximamente)</span>
-                ) : null}
               </label>
             </li>
           );
         })}
+        {DISABLED_DOCUMENT_KINDS.map((item) => (
+          <li key={item.id} className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              id={`pos-fiscal-kind-${item.id}`}
+              className="mt-0.5 h-4 w-4 rounded border-border"
+              checked={false}
+              disabled
+              readOnly
+            />
+            <label htmlFor={`pos-fiscal-kind-${item.id}`} className="text-sm text-muted-foreground">
+              {item.label}
+            </label>
+          </li>
+        ))}
       </ul>
 
       {defaultOptions.length > 1 ? (

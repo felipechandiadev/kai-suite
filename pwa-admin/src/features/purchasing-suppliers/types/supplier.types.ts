@@ -7,6 +7,7 @@ export type PersonGeoFields = {
   communeCode?: string | null;
   communeName?: string | null;
   treasuryCode?: string | null;
+  activityStarted?: boolean;
   economicActivities?: PersonEconomicActivity[] | null;
 };
 
@@ -14,7 +15,7 @@ export type PersonGeoFields = {
 export type SupplierPersonType = "NATURAL" | "COMPANY";
 
 /** Coincide con backend `DocumentType`. */
-export type SupplierDocumentType = "RUN" | "RUT" | "PASSPORT" | "DNI";
+export type SupplierDocumentType = "RUT" | "PASSPORT" | "OTHER";
 
 /** Coincide con backend `SupplierType`. */
 export type SupplierCommercialType =

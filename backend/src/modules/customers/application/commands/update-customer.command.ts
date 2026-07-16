@@ -12,7 +12,7 @@ export class UpdateCustomerCommand extends BaseCommand {
     public readonly firstName?: string,
     public readonly lastName?: string,
     public readonly businessName?: string,
-    public readonly documentType?: 'RUN' | 'RUT' | 'PASSPORT' | 'DNI',
+    public readonly documentType?: 'RUT' | 'PASSPORT' | 'OTHER',
     public readonly documentNumber?: string,
     public readonly email?: string,
     public readonly phone?: string,
@@ -22,6 +22,7 @@ export class UpdateCustomerCommand extends BaseCommand {
     public readonly communeCode?: string | null,
     public readonly communeName?: string | null,
     public readonly treasuryCode?: string | null,
+    public readonly activityStarted?: boolean,
     public readonly economicActivities?: PersonEconomicActivity[] | null,
   ) {
     super();

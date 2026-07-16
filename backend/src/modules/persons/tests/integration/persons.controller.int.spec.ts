@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
 import { PersonsController } from '@modules/persons/presentation/persons.controller';
 import { PersonsService } from '@modules/persons/application/persons.service';
+import { SiiTaxStatusService } from '@modules/persons/application/sii-tax-status.service';
 
 describe('PersonsController (Integration)', () => {
   let app: INestApplication;
@@ -33,6 +34,10 @@ describe('PersonsController (Integration)', () => {
         {
           provide: PersonsService,
           useValue: service,
+        },
+        {
+          provide: SiiTaxStatusService,
+          useValue: { lookup: jest.fn() },
         },
       ],
     }).compile();

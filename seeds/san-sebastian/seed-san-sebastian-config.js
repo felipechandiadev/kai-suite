@@ -67,7 +67,7 @@ exports.SEED_SAN_SEBASTIAN_POS_FISCAL = {
 exports.SEED_SAN_SEBASTIAN_SHAREHOLDER = {
     firstName: 'María Marcela Del Rosario',
     lastName: 'Tapia Cofré',
-    documentType: person_entity_2.DocumentType.RUN,
+    documentType: person_entity_2.DocumentType.RUT,
     documentNumber: '10.708.387-1',
     ownershipPercentage: 100,
     partnerType: 'FOUNDING_PARTNER',

@@ -19,7 +19,19 @@ export class PersonsSchemaBootstrap implements OnModuleInit {
           ADD COLUMN IF NOT EXISTS "communeCode" varchar(8) NULL,
           ADD COLUMN IF NOT EXISTS "communeName" varchar(120) NULL,
           ADD COLUMN IF NOT EXISTS "treasuryCode" varchar(8) NULL,
+          ADD COLUMN IF NOT EXISTS "activityStarted" boolean NOT NULL DEFAULT false,
           ADD COLUMN IF NOT EXISTS "economicActivities" json NULL
+      `);
+      // Migración legada RUN → RUT (idempotente; no elimina etiqueta de enum PG).
+      await this.dataSource.query(`
+        UPDATE persons
+        SET "documentType" = 'RUT'
+        WHERE "documentType"::text = 'RUN'
+      `);
+      await this.dataSource.query(`
+        UPDATE persons
+        SET "documentType" = 'OTHER'
+        WHERE "documentType"::text = 'DNI'
       `);
     } catch (err) {
       this.logger.error(

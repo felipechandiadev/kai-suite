@@ -7,21 +7,13 @@ import { Building2, CreditCard, Cpu, Package, Store, Tags } from "lucide-react";
 import { Card } from "@kai/ui";
 import { DeleteDialog } from "@kai/ui";
 import { Badge } from "@kai/ui";
-import type { PointOfSaleListItem, PosKind } from "@/features/sales-points-of-sale/types/point-of-sale.types";
-import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
-import type { PriceListListItem } from "@/features/sales-price-lists/types/price-list.types";
-import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
+import type { PointOfSaleListItem } from "@/features/sales-points-of-sale/types/point-of-sale.types";
 import { deletePointOfSaleAction } from "@/features/sales-points-of-sale/actions/point-of-sale.action";
 import { getPosPaymentMethodsForCardAction } from "@/features/sales-points-of-sale/actions/pos-payment-methods.action";
-import { UpdatePointOfSaleDialog } from "./UpdatePointOfSaleDialog";
 import type { PosPaymentMethodDisplayBadge } from "@/features/sales-points-of-sale/types/pos-payment-methods.types";
 
 type PointOfSaleCardProps = {
   point: PointOfSaleListItem;
-  branches: BranchListItem[];
-  priceListCatalog: PriceListListItem[];
-  storages: StorageListItem[];
-  activeCompanyId: string | null;
   "data-test-id"?: string;
 };
 
@@ -33,14 +25,9 @@ function maskDeviceId(value: string): string {
 
 export function PointOfSaleCard({
   point,
-  branches,
-  priceListCatalog,
-  storages,
-  activeCompanyId,
   "data-test-id": dataTestId,
 }: PointOfSaleCardProps) {
   const router = useRouter();
-  const [updateOpen, setUpdateOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteErrors, setDeleteErrors] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -254,7 +241,7 @@ export function PointOfSaleCard({
             icon: "Pencil",
             ariaLabel: "Actualizar punto de venta",
             onClick: () => {
-              setUpdateOpen(true);
+              router.push(`/sales/points-of-sale/${point.id}`);
             },
             "data-test-id": "pos-card-update",
           },
@@ -270,19 +257,6 @@ export function PointOfSaleCard({
             "data-test-id": "pos-card-delete",
           },
         ]}
-      />
-      <UpdatePointOfSaleDialog
-        open={updateOpen}
-        onClose={() => setUpdateOpen(false)}
-        point={point}
-        branches={branches}
-        priceListCatalog={priceListCatalog}
-        storages={storages}
-        companyId={point.companyId ?? activeCompanyId}
-        onSuccess={async () => {
-          await reloadPaymentMethods();
-          await router.refresh();
-        }}
       />
       <DeleteDialog
         open={deleteOpen}

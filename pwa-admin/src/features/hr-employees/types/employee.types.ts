@@ -74,7 +74,7 @@ export type EmployeeDetailView = {
 export type UpdateEmployeePersonPayload = {
   firstName?: string;
   lastName?: string;
-  documentType?: "RUN" | "PASSPORT" | "DNI";
+  documentType?: "RUT" | "PASSPORT" | "OTHER";
   documentNumber?: string;
   email?: string;
   phone?: string;

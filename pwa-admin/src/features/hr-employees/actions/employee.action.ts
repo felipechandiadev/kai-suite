@@ -15,7 +15,7 @@ const EMPLOYEES_PATH = "/hr/employees";
 export type CreateEmployeeFormInput = {
   firstName: string;
   lastName?: string;
-  documentType: "RUN" | "PASSPORT" | "DNI";
+  documentType: "RUT" | "PASSPORT" | "OTHER";
   documentNumber: string;
   email?: string;
   phone?: string;

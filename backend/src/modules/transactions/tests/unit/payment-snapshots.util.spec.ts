@@ -4,6 +4,7 @@ import {
   getPaymentSnapshotsFromMetadata,
   getRepresentativePaymentMethod,
   isMultiPayment,
+  resolveBankAccountKeyFromPaymentSnapshots,
 } from '../../application/payment-snapshots.util';
 
 describe('payment-snapshots.util', () => {
@@ -77,5 +78,46 @@ describe('payment-snapshots.util', () => {
     );
     expect(getRepresentativePaymentMethod(snaps)).toBe(PaymentMethod.DEBIT_CARD);
     expect(isMultiPayment(snaps)).toBe(true);
+  });
+
+  it('resolveBankAccountKeyFromPaymentSnapshots prefers explicit key', () => {
+    const snaps = buildPaymentSnapshotsFromSalePayments(
+      [{ paymentMethod: 'TRANSFER', amount: 1000, bankAccountId: 'acc-a' }],
+      [],
+    );
+    expect(
+      resolveBankAccountKeyFromPaymentSnapshots(snaps, 'acc-explicit'),
+    ).toBe('acc-explicit');
+  });
+
+  it('resolveBankAccountKeyFromPaymentSnapshots reads transfer snapshot', () => {
+    const snaps = buildPaymentSnapshotsFromSalePayments(
+      [
+        { paymentMethod: 'CASH', amount: 400 },
+        {
+          paymentMethod: 'TRANSFER',
+          amount: 14268,
+          bankAccountId: 'seed-dev-banco-estado-cc',
+        },
+      ],
+      [],
+    );
+    expect(resolveBankAccountKeyFromPaymentSnapshots(snaps)).toBe(
+      'seed-dev-banco-estado-cc',
+    );
+  });
+
+  it('getPaymentSnapshotsFromMetadata reads bankAccountId legacy field', () => {
+    const snaps = getPaymentSnapshotsFromMetadata({
+      payments: [
+        {
+          method: 'TRANSFER',
+          amount: 14268,
+          bankAccountId: 'seed-dev-banco-estado-cc',
+          capturedAt: '2026-07-16T10:06:40.666Z',
+        },
+      ],
+    });
+    expect(snaps[0].bankAccountKey).toBe('seed-dev-banco-estado-cc');
   });
 });

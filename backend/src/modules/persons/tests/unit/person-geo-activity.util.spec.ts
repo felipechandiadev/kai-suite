@@ -24,6 +24,23 @@ describe('sanitizePersonGeoActivityFields', () => {
     ).toThrow(BadRequestException);
   });
 
+  it('clears activities when inicio de actividades is off', () => {
+    const out = sanitizePersonGeoActivityFields({
+      activityStarted: false,
+      economicActivities: [
+        {
+          code: '471100',
+          name: 'Supermercados',
+          category: 'PRIMERA',
+          ivaAffected: true,
+          isActive: true,
+        },
+      ],
+    });
+    expect(out.activityStarted).toBe(false);
+    expect(out.economicActivities).toBeNull();
+  });
+
   it('keeps a single isActive activity when several are marked active', () => {
     const out = sanitizePersonGeoActivityFields({
       economicActivities: [

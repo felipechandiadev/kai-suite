@@ -41,9 +41,19 @@ describe('map-transaction-to-sale-boleta', () => {
     });
   });
 
-  it('uses customer RUT when document type is RUN', () => {
+  it('uses customer RUT when document type is RUT', () => {
     const person = {
-      documentType: 'RUN',
+      documentType: 'RUT',
+      documentNumber: '78543570-2',
+      firstName: 'Marcela',
+      lastName: 'Tapia',
+    } as Person;
+    expect(resolveReceptorFromPerson(person).rut).toBe('78543570-2');
+  });
+
+  it('still accepts legacy RUN document type for receptor', () => {
+    const person = {
+      documentType: 'RUN' as unknown as Person['documentType'],
       documentNumber: '78543570-2',
       firstName: 'Marcela',
       lastName: 'Tapia',

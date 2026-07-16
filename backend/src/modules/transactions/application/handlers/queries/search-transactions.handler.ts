@@ -84,9 +84,32 @@ export class SearchTransactionsQueryHandler implements IQueryHandler<SearchTrans
     }
 
     if (query.bankAccountKey) {
-      qb.andWhere('tx.bankAccountKey = :bankAccountKey', {
-        bankAccountKey: query.bankAccountKey,
-      });
+      qb.andWhere(
+        new Brackets((sub) => {
+          sub
+            .where('tx.bankAccountKey = :bankAccountKey', {
+              bankAccountKey: query.bankAccountKey,
+            })
+            .orWhere(
+              `(tx.bankAccountKey IS NULL AND tx.transactionType = :payInTreasuryType AND EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements(
+                  COALESCE(
+                    tx.metadata::jsonb->'payments',
+                    tx.metadata::jsonb->'paymentSnapshots',
+                    '[]'::jsonb
+                  )
+                ) AS p
+                WHERE NULLIF(TRIM(COALESCE(p->>'bankAccountKey', p->>'bankAccountId')), '') = :bankAccountKey
+                  AND UPPER(TRIM(COALESCE(p->>'method', ''))) IN ('TRANSFER', 'CHECK')
+              ))`,
+              {
+                bankAccountKey: query.bankAccountKey,
+                payInTreasuryType: TransactionType.PAYMENT_IN,
+              },
+            );
+        }),
+      );
     }
 
     if (query.cashHubId) {

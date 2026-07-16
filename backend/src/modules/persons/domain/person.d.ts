@@ -4,10 +4,9 @@ export declare enum PersonType {
   COMPANY = 'COMPANY',
 }
 export declare enum DocumentType {
-  RUN = 'RUN',
   RUT = 'RUT',
   PASSPORT = 'PASSPORT',
-  DNI = 'DNI',
+  OTHER = 'OTHER',
 }
 export declare enum AccountTypeName {
   CUENTA_CORRIENTE = 'Cuenta Corriente',

@@ -21,7 +21,7 @@ export interface SupplierReadModel {
   firstName?: string;
   lastName?: string;
   businessName?: string;
-  documentType: 'DNI' | 'CUIT' | 'CUIL' | 'PASSPORT' | 'RUN' | 'RUT';
+  documentType: 'OTHER' | 'CUIT' | 'CUIL' | 'PASSPORT' | 'RUT';
   documentNumber: string;
   email?: string;
   phone?: string;

@@ -393,7 +393,7 @@ export const SEED_JOYARTE_SHAREHOLDERS = [
   {
     firstName: 'Valentina',
     lastName: 'Barón Ríos',
-    documentType: DocumentType.RUN,
+    documentType: DocumentType.RUT,
     documentNumber: '12.345.678-5',
     ownershipPercentage: 70,
     partnerType: 'FOUNDING_PARTNER',
@@ -402,7 +402,7 @@ export const SEED_JOYARTE_SHAREHOLDERS = [
   {
     firstName: 'Tomás',
     lastName: 'Barón Silva',
-    documentType: DocumentType.RUN,
+    documentType: DocumentType.RUT,
     documentNumber: '15.987.654-3',
     ownershipPercentage: 30,
     partnerType: 'PARTNER',

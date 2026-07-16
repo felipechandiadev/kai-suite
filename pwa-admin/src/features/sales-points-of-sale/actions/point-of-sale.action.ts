@@ -19,10 +19,28 @@ function revalidatePosRoute() {
   revalidatePath(POS_PATH, "page");
 }
 
+function revalidatePosDetailRoute(id: string) {
+  revalidatePath(`${POS_PATH}/${id}`, "page");
+}
+
 /** Datos iniciales para la página (RSC), mismo patrón que sucursales / usuarios. */
 export async function listPointsOfSaleForPage(): Promise<PointOfSaleListItem[]> {
   const list = await ListPointsOfSaleUseCase.execute();
   return list.success ? list.pointsOfSale : [];
+}
+
+export type GetPointOfSaleForPageResult =
+  | { ok: true; point: PointOfSaleListItem }
+  | { ok: false; error: string };
+
+/** Carga un POS por id para la página de detalle. */
+export async function getPointOfSaleForPage(id: string): Promise<GetPointOfSaleForPageResult> {
+  const { PointOfSaleRequest } = await import("../infrastructure/point-of-sale.request");
+  const res = await PointOfSaleRequest.findById(id);
+  if (!res.success) {
+    return { ok: false, error: res.error };
+  }
+  return { ok: true, point: res.pointOfSale };
 }
 
 export async function createPointOfSaleAction(
@@ -41,6 +59,7 @@ export async function updatePointOfSaleAction(
   const result = await UpdatePointOfSaleUseCase.execute(input);
   if (result.success) {
     revalidatePosRoute();
+    revalidatePosDetailRoute(input.id);
   }
   return result;
 }

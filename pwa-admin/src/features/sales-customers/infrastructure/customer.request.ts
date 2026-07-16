@@ -109,6 +109,7 @@ function mapPersonGeoFields(o: Record<string, unknown>): PersonGeoFields {
     communeCode: o.communeCode != null && String(o.communeCode).trim() ? String(o.communeCode) : null,
     communeName: o.communeName != null && String(o.communeName).trim() ? String(o.communeName) : null,
     treasuryCode: o.treasuryCode != null && String(o.treasuryCode).trim() ? String(o.treasuryCode) : null,
+    activityStarted: o.activityStarted === true || (mapEconomicActivities(o.economicActivities)?.length ?? 0) > 0,
     economicActivities: mapEconomicActivities(o.economicActivities),
   };
 }
@@ -413,7 +414,8 @@ export class CustomerRequest {
         communeCode: body.communeCode,
         communeName: body.communeName,
         treasuryCode: body.treasuryCode,
-        economicActivities: body.economicActivities,
+        activityStarted: body.activityStarted === true,
+        economicActivities: body.activityStarted ? body.economicActivities : null,
         creditLimit: body.creditLimit,
         paymentDayOfMonth: body.paymentDayOfMonth,
         notes: body.notes?.trim() || undefined,

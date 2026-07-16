@@ -1,6 +1,6 @@
 import type { PersonEconomicActivity } from "@kai/chile-catalogs";
 
-export type PosCustomerDocumentType = "RUN" | "RUT" | "PASSPORT" | "DNI";
+export type PosCustomerDocumentType = "RUT" | "PASSPORT" | "OTHER";
 
 export type PosPersonGeoFields = {
   regionCode?: string | null;
@@ -8,6 +8,7 @@ export type PosPersonGeoFields = {
   communeCode?: string | null;
   communeName?: string | null;
   treasuryCode?: string | null;
+  activityStarted?: boolean;
   economicActivities?: PersonEconomicActivity[] | null;
 };
 

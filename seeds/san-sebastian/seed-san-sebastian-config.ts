@@ -86,7 +86,7 @@ export const SEED_SAN_SEBASTIAN_POS_FISCAL: PosFiscalSettings = {
 export const SEED_SAN_SEBASTIAN_SHAREHOLDER = {
   firstName: 'María Marcela Del Rosario',
   lastName: 'Tapia Cofré',
-  documentType: DocumentType.RUN,
+  documentType: DocumentType.RUT,
   documentNumber: '10.708.387-1',
   ownershipPercentage: 100,
   partnerType: 'FOUNDING_PARTNER',

@@ -7,6 +7,7 @@ export type PersonGeoFields = {
   communeCode?: string | null;
   communeName?: string | null;
   treasuryCode?: string | null;
+  activityStarted?: boolean;
   economicActivities?: PersonEconomicActivity[] | null;
 };
 
@@ -76,6 +77,7 @@ export type CustomerDetailView = {
   communeCode?: string | null;
   communeName?: string | null;
   treasuryCode?: string | null;
+  activityStarted?: boolean;
   economicActivities?: PersonEconomicActivity[] | null;
   creditLimit: number;
   usedCredit: number;
@@ -94,14 +96,14 @@ export type UpdateCustomerPayload = {
   firstName?: string;
   lastName?: string;
   businessName?: string;
-  documentType?: "RUN" | "RUT" | "PASSPORT" | "DNI";
+  documentType?: "RUT" | "PASSPORT" | "OTHER";
   documentNumber?: string;
   email?: string;
   phone?: string;
   address?: string;
 } & PersonGeoFields;
 
-export type CustomerDocumentType = "RUN" | "RUT" | "PASSPORT" | "DNI";
+export type CustomerDocumentType = "RUT" | "PASSPORT" | "OTHER";
 
 export type CreateCustomerFormInput = {
   personType: "NATURAL" | "COMPANY";

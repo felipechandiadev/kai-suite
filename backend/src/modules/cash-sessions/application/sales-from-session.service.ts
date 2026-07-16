@@ -103,6 +103,7 @@ import {
   buildPaymentSnapshotsFromSalePayments,
   buildPaymentsMetadataFields,
   getRepresentativePaymentMethod,
+  resolveBankAccountKeyFromPaymentSnapshots,
   type SalePaymentInput,
 } from '@modules/transactions/application/payment-snapshots.util';
 import { assertVoucherPaymentsValid } from './voucher-payment.util';
@@ -733,6 +734,8 @@ export class SalesFromSessionService {
     );
 
     const changeAmount = Math.max(0, paidTotal - balanceTotal);
+    const treasuryBankAccountKey =
+      resolveBankAccountKeyFromPaymentSnapshots(paymentSnapshots);
 
     return this.dataSource.transaction(async (manager) => {
       const paymentInDto = new CreateTransactionDto();
@@ -752,6 +755,7 @@ export class SalesFromSessionService {
         paymentStatus: PaymentStatus.PAID,
         amountPaid: paidTotal,
         changeAmount,
+        bankAccountKey: treasuryBankAccountKey,
         metadata: {
           source: 'pos_ar_collection',
           allocations,
@@ -952,6 +956,8 @@ export class SalesFromSessionService {
     );
 
     const changeAmount = Math.max(0, paidTotal - balanceTotal);
+    const treasuryBankAccountKey =
+      resolveBankAccountKeyFromPaymentSnapshots(paymentSnapshots);
 
     return this.dataSource.transaction(async (manager) => {
       const paymentInDto = new CreateTransactionDto();
@@ -971,6 +977,7 @@ export class SalesFromSessionService {
         paymentStatus: PaymentStatus.PAID,
         amountPaid: paidTotal,
         changeAmount,
+        bankAccountKey: treasuryBankAccountKey,
         metadata: {
           source: 'pos_quota_collection',
           allocations,
@@ -1236,6 +1243,9 @@ export class SalesFromSessionService {
       PaymentMethod.CASH,
     );
 
+    const treasuryBankAccountKey =
+      resolveBankAccountKeyFromPaymentSnapshots(paymentSnapshots);
+
     return this.dataSource.transaction(async () => {
       const payoutDto = new CreateTransactionDto();
       Object.assign(payoutDto, {
@@ -1254,6 +1264,7 @@ export class SalesFromSessionService {
         paymentStatus: PaymentStatus.PAID,
         amountPaid: paidTotal,
         changeAmount: 0,
+        bankAccountKey: treasuryBankAccountKey,
         metadata: {
           allocations,
           ...buildPaymentsMetadataFields(paymentSnapshots),
@@ -2303,6 +2314,16 @@ export class SalesFromSessionService {
           ? String((metadata as any)?.quotation?.documentNumber ?? '').trim()
           : '';
 
+      const treasuryBankAccountKey = resolveBankAccountKeyFromPaymentSnapshots(
+        paymentSnapshots,
+        bankAccountKey,
+      );
+      const posSalePaidTotal =
+        isSale && !isBackorder && paymentsUsed.length > 0
+          ? paymentsUsed.reduce((acc, p) => acc + (Number(p.amount) || 0), 0)
+          : 0;
+      const createsPosPaymentIn = isSale && !isBackorder && posSalePaidTotal > 0;
+
       const dto = new CreateTransactionDto();
       Object.assign(dto, {
         transactionType: config.transactionType,
@@ -2325,7 +2346,9 @@ export class SalesFromSessionService {
         changeAmount: isSaleReturn ? 0 : changeAmount || 0,
         externalReference: externalReference || undefined,
         notes: notes || undefined,
-        bankAccountKey: bankAccountKey || undefined,
+        bankAccountKey: createsPosPaymentIn
+          ? undefined
+          : treasuryBankAccountKey,
         metadata: {
           ...metadata,
           ...(validatedPosDelivery
@@ -2535,6 +2558,7 @@ export class SalesFromSessionService {
             paymentStatus: PaymentStatus.PAID,
             amountPaid: paidTotal,
             changeAmount: changeAmount || 0,
+            bankAccountKey: treasuryBankAccountKey,
             metadata: {
               saleTransactionId: finalTransaction.id,
               ...buildPaymentsMetadataFields(paymentSnapshots),

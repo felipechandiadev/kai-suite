@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AutoComplete, Button, IconButton, Select } from "@kai/ui";
+import { AutoComplete, Button, IconButton, Select, Switch } from "@kai/ui";
 import type { Option } from "@kai/ui";
 import {
   activityRequiresOverrides,
@@ -16,6 +16,8 @@ import {
 type ActivityOption = SiiEconomicActivity & { id: string; label: string };
 
 type Props = {
+  activityStarted: boolean;
+  onActivityStartedChange: (next: boolean) => void;
   value: PersonEconomicActivity[];
   onChange: (next: PersonEconomicActivity[]) => void;
   disabled?: boolean;
@@ -33,6 +35,8 @@ const IVA_OPTIONS: Option[] = [
 ];
 
 export function EconomicActivitiesEditor({
+  activityStarted,
+  onActivityStartedChange,
   value,
   onChange,
   disabled,
@@ -44,13 +48,16 @@ export function EconomicActivitiesEditor({
     useState<PersonEconomicActivityCategory>("PRIMERA");
   const [overrideIva, setOverrideIva] = useState(true);
 
+  const editorDisabled = disabled || !activityStarted;
+
   const options = useMemo((): ActivityOption[] => {
+    if (!activityStarted) return [];
     return searchEconomicActivities(query).map((a) => ({
       ...a,
       id: a.code,
       label: `${a.code} · ${a.name}`,
     }));
-  }, [query]);
+  }, [activityStarted, query]);
 
   const addActivity = (catalog: SiiEconomicActivity) => {
     if (value.some((v) => v.code === catalog.code)) {
@@ -80,7 +87,7 @@ export function EconomicActivitiesEditor({
   };
 
   const onPick = (opt: ActivityOption | null) => {
-    if (!opt) return;
+    if (!opt || !activityStarted) return;
     const catalog = getActivityByCode(opt.code) ?? opt;
     if (activityRequiresOverrides(catalog.code)) {
       setPending(catalog);
@@ -91,11 +98,30 @@ export function EconomicActivitiesEditor({
     addActivity(catalog);
   };
 
+  const onToggleStarted = (next: boolean) => {
+    onActivityStartedChange(next);
+    if (!next) {
+      onChange([]);
+      setPending(null);
+      setQuery("");
+    }
+  };
+
   return (
     <div className="grid gap-3" data-test-id={`${testIdPrefix}-editor`}>
+      <Switch
+        label="Inicio de actividades"
+        checked={activityStarted}
+        onChange={onToggleStarted}
+        disabled={disabled}
+        data-test-id={`${testIdPrefix}-started`}
+      />
+
       <AutoComplete<ActivityOption>
         label="Actividad económica (SII)"
-        placeholder="Buscar por código o glosa…"
+        placeholder={
+          activityStarted ? "Buscar por código o glosa…" : "Active inicio de actividades"
+        }
         options={options}
         value={null}
         onChange={onPick}
@@ -103,11 +129,11 @@ export function EconomicActivitiesEditor({
         getOptionLabel={(o) => o.label}
         getOptionValue={(o) => o.id}
         alwaysShowLabel
-        disabled={disabled}
+        disabled={editorDisabled}
         data-test-id={`${testIdPrefix}-search`}
       />
 
-      {pending ? (
+      {pending && activityStarted ? (
         <div className="rounded-lg border border-border bg-muted/20 p-3 grid gap-2">
           <p className="text-sm text-foreground">
             <span className="font-medium">{pending.code}</span> requiere definir
@@ -143,14 +169,14 @@ export function EconomicActivitiesEditor({
               variant="ghost"
               size="sm"
               onClick={() => setPending(null)}
-              disabled={disabled}
+              disabled={editorDisabled}
             >
               Cancelar
             </Button>
             <Button
               size="sm"
               onClick={() => addActivity(pending)}
-              disabled={disabled}
+              disabled={editorDisabled}
               data-test-id={`${testIdPrefix}-g-confirm`}
             >
               Agregar
@@ -159,7 +185,7 @@ export function EconomicActivitiesEditor({
         </div>
       ) : null}
 
-      {value.length > 0 ? (
+      {activityStarted && value.length > 0 ? (
         <ul className="grid gap-2">
           {value.map((item) => (
             <li
@@ -171,7 +197,7 @@ export function EconomicActivitiesEditor({
                 type="radio"
                 name={`${testIdPrefix}-active`}
                 checked={item.isActive}
-                disabled={disabled}
+                disabled={editorDisabled}
                 onChange={() =>
                   onChange(
                     normalizeActiveEconomicActivities(
@@ -208,7 +234,7 @@ export function EconomicActivitiesEditor({
                 variant="action"
                 size="xs"
                 ariaLabel="Quitar actividad"
-                disabled={disabled}
+                disabled={editorDisabled}
                 onClick={() => {
                   const next = value.filter((x) => x.code !== item.code);
                   onChange(normalizeActiveEconomicActivities(next));
@@ -218,12 +244,12 @@ export function EconomicActivitiesEditor({
             </li>
           ))}
         </ul>
-      ) : (
+      ) : activityStarted ? (
         <p className="text-xs text-muted-foreground">
           Sin actividades. La marcada como activa se usará en documentos
           tributarios.
         </p>
-      )}
+      ) : null}
     </div>
   );
 }

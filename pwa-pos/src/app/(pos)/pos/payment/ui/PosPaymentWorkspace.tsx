@@ -898,47 +898,59 @@ export default function PosPaymentWorkspace({
   const showSaleDteSelectorCompact =
     saleDteLoaded && saleDteSelectOptions.filter((o) => !o.disabled).length > 1;
 
+  const loadEffectivePaymentMethods = useCallback(async () => {
+    const ctx = readPosContextClient();
+    const posId = ctx?.pointOfSaleId?.trim();
+    if (!posId) {
+      setEffectiveLoaded(true);
+      return;
+    }
+    if (!shouldUseBackendApi()) {
+      setEffectiveMethods(OFFLINE_EFFECTIVE_PAYMENT_METHODS);
+      setEffectiveError(null);
+      setEffectiveLoaded(true);
+      return;
+    }
+    try {
+      const res = await getEffectivePosPaymentMethodsAction({
+        pointOfSaleId: posId,
+      });
+      if (res.success) {
+        setEffectiveMethods(res.paymentMethods);
+        setEffectiveError(null);
+      } else {
+        setEffectiveMethods([]);
+        setEffectiveError(res.message);
+      }
+    } catch {
+      setEffectiveMethods(OFFLINE_EFFECTIVE_PAYMENT_METHODS);
+      setEffectiveError(null);
+    }
+    setEffectiveLoaded(true);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const ctx = readPosContextClient();
-      const posId = ctx?.pointOfSaleId?.trim();
-      if (!posId) {
-        if (!cancelled) {
-          setEffectiveLoaded(true);
-        }
-        return;
-      }
-      if (!shouldUseBackendApi()) {
-        if (cancelled) return;
-        setEffectiveMethods(OFFLINE_EFFECTIVE_PAYMENT_METHODS);
-        setEffectiveError(null);
-        setEffectiveLoaded(true);
-        return;
-      }
-      try {
-        const res = await getEffectivePosPaymentMethodsAction({
-          pointOfSaleId: posId,
-        });
-        if (cancelled) return;
-        if (res.success) {
-          setEffectiveMethods(res.paymentMethods);
-          setEffectiveError(null);
-        } else {
-          setEffectiveMethods([]);
-          setEffectiveError(res.message);
-        }
-      } catch {
-        if (cancelled) return;
-        setEffectiveMethods(OFFLINE_EFFECTIVE_PAYMENT_METHODS);
-        setEffectiveError(null);
-      }
-      setEffectiveLoaded(true);
+      await loadEffectivePaymentMethods();
+      if (cancelled) return;
     })();
+    const refresh = () => {
+      void loadEffectivePaymentMethods();
+    };
+    window.addEventListener(POS_CONTEXT_CHANGED_EVENT, refresh);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        refresh();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       cancelled = true;
+      window.removeEventListener(POS_CONTEXT_CHANGED_EVENT, refresh);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, []);
+  }, [loadEffectivePaymentMethods]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1510,7 +1522,13 @@ export default function PosPaymentWorkspace({
     if (!cart.ready || amountToPay <= 0) return;
     if (!effectiveLoaded) return;
     setPayments((prev) => {
-      if (prev.length > 0) return prev;
+      const onlyDefaultFallback =
+        prev.length === 1 &&
+        prev[0].type === "CASH" &&
+        !prev[0].companyPaymentMethodId &&
+        (Number(prev[0].amount) || 0) === 0 &&
+        !prev[0].reference?.trim();
+      if (prev.length > 0 && !onlyDefaultFallback) return prev;
       // Catálogo efectivo: precargar líneas marcadas como `preloadOnPaymentScreen`,
       // ordenadas por `preloadOrder` (el backend ya las devuelve ordenadas).
       const preload = effectiveMethods.filter((m) => {

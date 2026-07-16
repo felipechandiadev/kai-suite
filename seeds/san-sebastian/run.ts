@@ -80,7 +80,7 @@ const SEED_DEMO_CUSTOMERS = [
     person: {
       firstName: 'Cliente',
       lastName: 'Fiado Demo',
-      documentType: DocumentType.RUN,
+      documentType: DocumentType.RUT,
       documentNumber: '15.123.456-7',
       phone: '+56911112222',
     },

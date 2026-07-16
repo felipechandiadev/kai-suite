@@ -49,6 +49,7 @@ export class CustomersServiceAdapter {
       updateData.communeCode,
       updateData.communeName,
       updateData.treasuryCode,
+      updateData.activityStarted,
       updateData.economicActivities,
     );
 

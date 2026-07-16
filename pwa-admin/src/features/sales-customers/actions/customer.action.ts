@@ -172,7 +172,11 @@ export async function createCustomerAction(input: CreateCustomerFormInput): Prom
     email: input.email?.trim() || undefined,
     phone: input.phone?.trim() || undefined,
     ...geoPayloadFromChileGeo(chileGeoFromPersonFields(input)),
-    economicActivities: input.economicActivities?.length ? input.economicActivities : undefined,
+    activityStarted: input.activityStarted === true,
+    economicActivities:
+      input.activityStarted && input.economicActivities?.length
+        ? input.economicActivities
+        : undefined,
   };
 
   if (personType === "COMPANY") {
@@ -200,12 +204,6 @@ export async function createCustomerAction(input: CreateCustomerFormInput): Prom
     return { success: false, error: "El nombre es obligatorio para una persona." };
   }
   const dt = input.documentType;
-  if (dt === "RUT") {
-    return {
-      success: false,
-      error: "Una persona no puede usar RUT; elija empresa o otro documento.",
-    };
-  }
 
   const r = await CustomerRequest.create({
     personType: "NATURAL",

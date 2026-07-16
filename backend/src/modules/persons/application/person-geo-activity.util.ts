@@ -14,6 +14,7 @@ export type PersonGeoActivityInput = {
   communeCode?: string | null;
   communeName?: string | null;
   treasuryCode?: string | null;
+  activityStarted?: boolean;
   economicActivities?: PersonEconomicActivity[] | null;
 };
 
@@ -63,6 +64,14 @@ export function sanitizePersonGeoActivityFields(
       out.communeCode = null;
       out.communeName = null;
       out.treasuryCode = null;
+    }
+  }
+
+  if (input.activityStarted !== undefined) {
+    out.activityStarted = input.activityStarted === true;
+    if (!out.activityStarted) {
+      out.economicActivities = null;
+      return out;
     }
   }
 
@@ -121,6 +130,14 @@ export function sanitizePersonGeoActivityFields(
       );
       out.economicActivities = normalized;
     }
+  }
+
+  if (
+    input.activityStarted === undefined &&
+    out.economicActivities != null &&
+    out.economicActivities.length > 0
+  ) {
+    out.activityStarted = true;
   }
 
   return out;

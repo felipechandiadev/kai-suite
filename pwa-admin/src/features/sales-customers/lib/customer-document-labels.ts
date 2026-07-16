@@ -6,15 +6,14 @@ export function documentTypeLabel(code: string | null | undefined): string {
   const c = String(code).trim().toUpperCase();
   switch (c) {
     case "RUN":
-      return "RUN";
+      return "RUT";
     case "RUT":
       return "RUT";
     case "PASSPORT":
       return "Pasaporte";
     case "DNI":
-      return "DNI";
     case "OTHER":
-      return "DNI";
+      return "Otro";
     default:
       return c;
   }
