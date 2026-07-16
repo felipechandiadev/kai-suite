@@ -142,7 +142,7 @@ export class ReceptionsService {
   }
 
   /**
-   * Folio interno de recepción (CMP-YY-#####). Se asigna al guardar aunque falle el PURCHASE de stock.
+   * Folio interno de recepción (CMPYY#####). Se asigna al guardar aunque falle el PURCHASE de stock.
    */
   private async ensureReceptionStockFolio(
     reception: Reception & { id: string },

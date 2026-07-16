@@ -1,4 +1,5 @@
 import { BaseCommand } from '@shared/cqrs';
+import type { PersonEconomicActivity } from '@modules/persons/domain/person.entity';
 
 export class UpdateCustomerCommand extends BaseCommand {
   constructor(
@@ -16,6 +17,12 @@ export class UpdateCustomerCommand extends BaseCommand {
     public readonly email?: string,
     public readonly phone?: string,
     public readonly address?: string,
+    public readonly regionCode?: string | null,
+    public readonly regionName?: string | null,
+    public readonly communeCode?: string | null,
+    public readonly communeName?: string | null,
+    public readonly treasuryCode?: string | null,
+    public readonly economicActivities?: PersonEconomicActivity[] | null,
   ) {
     super();
   }

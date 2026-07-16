@@ -45,12 +45,14 @@ import {
   Select,
   Switch,
   TextField,
+  Alert,
 } from "@kai/ui";
 import { PosFavoriteQuickPickBar } from "@/features/pos-settings/ui/PosFavoriteQuickPickBar";
 import { findPresaleTicketByCodeAction } from "@/features/presale-tickets/actions/presale-tickets.action";
 import { looksLikePresaleTicketCode } from "@/features/presale-tickets/lib/presale-ticket-code";
 import { buildPresaleTicketMeta } from "@/features/presale-tickets/lib/presale-ticket-lines-to-cart";
 import { usePosCart } from "@/features/pos-cart/PosCartProvider";
+import { CART_SWITCH_PRICE_LIST_BLOCKED_MESSAGE } from "@/features/pos-cart/lib/pos-cart-price-list";
 
 /**
  * Alto del buscador de productos respecto al viewport (`vh`).
@@ -105,6 +107,7 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [draftPageSize, setDraftPageSize] = useState(POS_PRODUCT_SEARCH_DEFAULT_PAGE_SIZE);
   const [draftPriceListId, setDraftPriceListId] = useState(priceListId);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -421,6 +424,7 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
   const openSettings = useCallback(() => {
     setDraftPageSize(pageSize);
     setDraftPriceListId(priceListId);
+    setSettingsError(null);
     void onRefreshPriceListOptions?.();
     setSettingsOpen(true);
   }, [pageSize, priceListId, onRefreshPriceListOptions]);
@@ -430,13 +434,25 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
     writePosProductSearchPageSize(nextSize);
     setPageSize(nextSize);
     if (draftPriceListId && draftPriceListId.trim() && draftPriceListId !== priceListId) {
+      if (cart.lines.length > 0) {
+        setSettingsError(CART_SWITCH_PRICE_LIST_BLOCKED_MESSAGE);
+        setDraftPriceListId(priceListId);
+        return;
+      }
       onPriceListChange(draftPriceListId);
       patchPosContextClient({ priceListId: draftPriceListId });
     }
+    setSettingsError(null);
     setPage(1);
     setSettingsOpen(false);
     requestPosProductSearchFocus();
-  }, [draftPageSize, draftPriceListId, onPriceListChange, priceListId]);
+  }, [
+    draftPageSize,
+    draftPriceListId,
+    onPriceListChange,
+    priceListId,
+    cart.lines.length,
+  ]);
 
   const selectedPriceListName = useMemo(() => {
     const found = priceListOptions.find((p) => String(p.id) === String(priceListId));
@@ -671,12 +687,23 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
         }
       >
         <div className="grid gap-4">
+          {settingsError ? (
+            <Alert
+              variant="error"
+              data-test-id="pos-product-search-price-list-blocked"
+            >
+              {settingsError}
+            </Alert>
+          ) : null}
           <Select
             label="Lista de precios"
             placeholder="Lista de precios"
             density="compact"
             value={draftPriceListId || null}
-            onChange={(id) => setDraftPriceListId(id ? String(id) : "")}
+            onChange={(id) => {
+              setSettingsError(null);
+              setDraftPriceListId(id ? String(id) : "");
+            }}
             options={priceListOptions.map((p) => ({ id: p.id, label: p.name }))}
             disabled={priceListOptions.length === 0}
             alwaysShowLabel

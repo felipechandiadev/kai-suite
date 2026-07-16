@@ -222,6 +222,19 @@ type PosPaymentMethodCardProps = {
     field: keyof NonNullable<PosPaymentLine["checkData"]>,
     value: string,
   ) => void;
+  onUpdateVoucherField: (
+    lineId: string,
+    field: keyof NonNullable<PosPaymentLine["voucherData"]>,
+    value: string,
+  ) => void;
+  voucherKind: {
+    id: string;
+    code: string;
+    name: string;
+    faceValueMode: "FIXED" | "OPEN";
+    defaultFaceValue?: number | null;
+    requireFaceValue: boolean;
+  } | null;
   /** Abono de encargo precargado en liquidar encargo: monto fijo. */
   amountLocked?: boolean;
   /** Subtítulo del plan de crédito interno (cuotas). */
@@ -262,6 +275,8 @@ function PosPaymentMethodCard({
   onUpdateBankAccountKey,
   onUpdateReference,
   onUpdateCheckField,
+  onUpdateVoucherField,
+  voucherKind,
   amountLocked = false,
   planSubtitle = null,
   onEditInternalCredit,
@@ -496,19 +511,107 @@ function PosPaymentMethodCard({
           />
         </div>
       ) : null}
+      {p.type === "VOUCHER" ? (
+        <div
+          className={`grid gap-2 rounded-lg border border-dashed border-zinc-300 p-2 dark:border-zinc-700 ${
+            desktopLayout ? "grid-cols-2" : "grid-cols-1"
+          }`}
+          data-test-id={`pos-payment-voucher-fields-${p.id}`}
+        >
+          {!voucherKind ? (
+            <p className="col-span-full text-xs text-muted-foreground">
+              Este medio no tiene tipo de voucher enlazado. Revisá la config en
+              Admin.
+            </p>
+          ) : (
+            <p className="col-span-full text-xs text-muted-foreground">
+              Tipo:{" "}
+              <span className="font-medium text-foreground">
+                {voucherKind.code} — {voucherKind.name}
+              </span>
+              {voucherKind.faceValueMode === "FIXED" &&
+              voucherKind.defaultFaceValue != null
+                ? ` · Nominal ${Math.round(Number(voucherKind.defaultFaceValue))}`
+                : null}
+            </p>
+          )}
+          <TextField
+            label="Nº de voucher"
+            name={`pos-payment-voucher-ref-${p.id}`}
+            value={p.reference}
+            onChange={(e) => onUpdateReference(p.id, e.target.value)}
+            alwaysShowLabel
+            density="compact"
+            required
+            data-test-id={`pos-payment-voucher-ref-${p.id}`}
+            onKeyDown={(e) => paymentFieldConfirmOnEnter(e, onConfirmEnter)}
+          />
+          {voucherKind?.faceValueMode !== "FIXED" ? (
+            <TextField
+              type="currency"
+              label="Valor nominal"
+              name={`pos-payment-voucher-face-${p.id}`}
+              value={
+                p.voucherData?.faceValue != null
+                  ? String(Math.max(0, Math.round(p.voucherData.faceValue)))
+                  : ""
+              }
+              onChange={(e) => onUpdateVoucherField(p.id, "faceValue", e.target.value)}
+              alwaysShowLabel
+              density="compact"
+              placeholder="Requerido"
+              required
+              data-test-id={`pos-payment-voucher-face-${p.id}`}
+              onKeyDown={(e) => paymentFieldConfirmOnEnter(e, onConfirmEnter)}
+            />
+          ) : null}
+          <TextField
+            label="Emisor"
+            name={`pos-payment-voucher-issuer-${p.id}`}
+            value={p.voucherData?.issuerName ?? ""}
+            onChange={(e) => onUpdateVoucherField(p.id, "issuerName", e.target.value)}
+            alwaysShowLabel
+            density="compact"
+            placeholder="Opcional"
+            data-test-id={`pos-payment-voucher-issuer-${p.id}`}
+            onKeyDown={(e) => paymentFieldConfirmOnEnter(e, onConfirmEnter)}
+          />
+        </div>
+      ) : null}
     </li>
   );
 }
 
-function PaymentCartReadOnlyRow({ line }: { line: PosCartLine }) {
+function PaymentCartReadOnlyRow({
+  line,
+  suggestedDiscount,
+  applied,
+  onToggleDiscount,
+  offline,
+}: {
+  line: PosCartLine;
+  suggestedDiscount: import("@/features/promotions/lib/discount-engine.types").ResolvedLineDiscount | null;
+  applied: boolean;
+  onToggleDiscount?: () => void;
+  offline?: boolean;
+}) {
   const q = Number(line.quantity) || 0;
-  const lineGross = (Number(line.unitPriceWithTax) || 0) * q;
+  const unitGross = Number(line.unitPriceWithTax) || 0;
+  const lineGross = unitGross * q;
+  const discountAmount = applied
+    ? Math.round(Number(line.discount?.discountAmount) || 0)
+    : Math.round(Number(suggestedDiscount?.discountAmount) || 0);
+  const lineNet = Math.max(0, lineGross - (applied ? discountAmount : 0));
+  const showSuggestion = Boolean(suggestedDiscount) && !offline;
+  const promoName =
+    (applied ? line.discount?.promotionName : suggestedDiscount?.promotionName) ??
+    "";
   const exceedsAvailableStock = posCartQuantityExceedsAvailableStock(line);
   const attrBits =
     line.attributes?.map((a: { attributeValue?: string | null }) => String(a.attributeValue ?? "").trim()).filter(Boolean) ?? [];
   const nameWithAttrs = formatReceiptLineDisplayName(line.productName, attrBits);
   const unit = line.unitSymbol?.trim() ? ` ${line.unitSymbol.trim()}` : "";
-  const qtyPrice = `${q} × ${formatMoney(line.unitPriceWithTax)}${unit}`;
+  const qtyPrice = `${q} × ${formatMoney(unitGross)}${unit}`;
   return (
     <li
       className={`flex w-full items-start gap-2 px-3 py-2 text-sm ${
@@ -517,17 +620,63 @@ function PaymentCartReadOnlyRow({ line }: { line: PosCartLine }) {
       data-test-id={`pos-payment-cart-line-${line.variantId}`}
       data-stock-exceeded={exceedsAvailableStock ? "true" : undefined}
     >
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-        <p className="min-w-0 wrap-break-word text-sm text-foreground">
-          <span className="font-medium">{nameWithAttrs}</span>
-          <span className="font-normal text-muted-foreground">
-            {" "}
-            · {qtyPrice}
-          </span>
-        </p>
-        <PosNoDteBadge requiresDte={line.requiresDte} />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <p className="min-w-0 wrap-break-word text-sm text-foreground">
+            <span className="font-medium">{nameWithAttrs}</span>
+            <span className="font-normal text-muted-foreground">
+              {" "}
+              · {qtyPrice}
+            </span>
+          </p>
+          <PosNoDteBadge requiresDte={line.requiresDte} />
+        </div>
+        {showSuggestion ? (
+          <div
+            className={`flex flex-wrap items-center gap-2 text-xs ${
+              applied
+                ? "text-emerald-700 dark:text-emerald-300"
+                : "text-muted-foreground"
+            }`}
+            data-test-id={`pos-payment-cart-line-promo-${line.variantId}`}
+          >
+            {onToggleDiscount ? (
+              <IconButton
+                icon={applied ? "CheckCircle2" : "Circle"}
+                variant="action"
+                size="xs"
+                ariaLabel={
+                  applied
+                    ? "Quitar descuento de la línea"
+                    : "Aplicar descuento a la línea"
+                }
+                title={
+                  applied
+                    ? "Quitar descuento"
+                    : "Aplicar descuento sugerido"
+                }
+                onClick={onToggleDiscount}
+                data-test-id={`pos-payment-line-promo-toggle-${line.variantId}`}
+              />
+            ) : null}
+            <span className={applied ? "font-medium" : ""}>
+              {promoName}
+              {discountAmount > 0 ? ` · −${formatMoney(discountAmount)}` : ""}
+              {!applied ? " (sugerido)" : ""}
+            </span>
+          </div>
+        ) : null}
       </div>
-      <span className="shrink-0 tabular-nums font-semibold text-foreground">{formatMoney(lineGross)}</span>
+      <div className="flex shrink-0 flex-col items-end gap-0.5">
+        {applied && discountAmount > 0 ? (
+          <span className="text-xs tabular-nums text-muted-foreground line-through">
+            {formatMoney(lineGross)}
+          </span>
+        ) : null}
+        <span className="tabular-nums font-semibold text-foreground">
+          {formatMoney(applied && discountAmount > 0 ? lineNet : lineGross)}
+        </span>
+      </div>
     </li>
   );
 }
@@ -570,6 +719,10 @@ export default function PosPaymentWorkspace({
     setSaleCustomer: setCustomer,
     appliedPromotions,
     orderDiscount,
+    suggestedLineDiscounts,
+    suggestedOrderPromotions,
+    togglePromotion,
+    isPromotionSelected,
     loadedQuotation,
     backorderDeposit,
     setBackorderDeposit,
@@ -1369,13 +1522,33 @@ export default function PosPaymentWorkspace({
       });
       const preloadLines: PosPaymentLine[] =
         preload.length > 0
-          ? preload.map((m) => ({
-              id: makePaymentLineId(),
-              type: m.method as PosPaymentMethodId,
-              amount: 0,
-              reference: "",
-              companyPaymentMethodId: m.companyPaymentMethodId,
-            }))
+          ? preload.map((m) => {
+              const line: PosPaymentLine = {
+                id: makePaymentLineId(),
+                type: m.method as PosPaymentMethodId,
+                amount: 0,
+                reference: "",
+                companyPaymentMethodId: m.companyPaymentMethodId,
+              };
+              if (m.method === "VOUCHER") {
+                const kind = m.voucherKind;
+                const face =
+                  kind?.faceValueMode === "FIXED" && kind.defaultFaceValue != null
+                    ? Math.round(Number(kind.defaultFaceValue))
+                    : null;
+                line.voucherData = {
+                  kindId: kind?.id,
+                  kindCode: kind?.code ?? "",
+                  kindName: kind?.name,
+                  issuerName: kind?.defaultIssuerName?.trim() || undefined,
+                  faceValue: face,
+                };
+                if (face != null && face > 0) {
+                  line.amount = face;
+                }
+              }
+              return line;
+            })
           : [
               {
                 id: makePaymentLineId(),
@@ -1454,6 +1627,8 @@ export default function PosPaymentWorkspace({
     }) => {
       if (line.creditNoteTransactionId || line.backorderTransactionId) return false;
       if (isCustomerLinkedPaymentMethod(line.type)) return false;
+      // VOUCHER usa el bloque dedicado (Nº de voucher = reference).
+      if (line.type === "VOUCHER") return false;
       const cfg = line.companyPaymentMethodId ? methodsById.get(line.companyPaymentMethodId) : null;
       if (cfg) {
         if (cfg.requireReference) return true;
@@ -1524,7 +1699,7 @@ export default function PosPaymentWorkspace({
     }
     const auth =
       intent.metadata?.authorizationCode?.trim() ||
-      `MP-${intent.id.slice(0, 8)}`;
+      `MP${intent.id.slice(0, 8)}`;
     const method: PosPaymentMethodId =
       intent.metadata?.paymentType === "debit_card" ? "DEBIT_CARD" : "CREDIT_CARD";
     setPayments((prev) => [
@@ -1638,17 +1813,37 @@ export default function PosPaymentWorkspace({
       setAddAlert("El monto no puede superar el saldo restante.");
       return;
     }
+    const voucherKind = cfg?.voucherKind ?? null;
+    if (enumType === "VOUCHER" && !voucherKind) {
+      setAddAlert("Este medio no tiene tipo de voucher enlazado. Revisá Admin.");
+      return;
+    }
+    const fixedFace =
+      voucherKind?.faceValueMode === "FIXED" && voucherKind.defaultFaceValue != null
+        ? Math.round(Number(voucherKind.defaultFaceValue))
+        : null;
     setPayments((prev) => [
       ...prev,
       {
         id: makePaymentLineId(),
         type: enumType,
-        amount: amt,
+        amount: fixedFace != null && fixedFace > 0 ? fixedFace : amt,
         reference: draftReference.trim(),
         companyPaymentMethodId: cfg?.companyPaymentMethodId ?? null,
         bankAccountKey: enumType === "TRANSFER" ? (bankKey || null) : null,
         creditNoteTransactionId: null,
         backorderTransactionId: null,
+        ...(enumType === "VOUCHER" && voucherKind
+          ? {
+              voucherData: {
+                kindId: voucherKind.id,
+                kindCode: voucherKind.code,
+                kindName: voucherKind.name,
+                issuerName: voucherKind.defaultIssuerName?.trim() || undefined,
+                faceValue: fixedFace,
+              },
+            }
+          : {}),
       },
     ]);
     setAddOpen(false);
@@ -1856,6 +2051,52 @@ export default function PosPaymentWorkspace({
       );
     },
     [setPayments],
+  );
+
+  const updatePaymentLineVoucherField = useCallback(
+    (
+      id: string,
+      field: keyof NonNullable<PosPaymentLine["voucherData"]>,
+      value: string,
+    ) => {
+      setPayments((prev) =>
+        prev.map((p) => {
+          if (p.id !== id) return p;
+          const cfg = p.companyPaymentMethodId
+            ? methodsById.get(p.companyPaymentMethodId)
+            : null;
+          const kind = cfg?.voucherKind;
+          let nextIssuer = p.voucherData?.issuerName;
+          let nextFace = p.voucherData?.faceValue ?? null;
+          let nextExpires = p.voucherData?.expiresAt;
+
+          if (field === "issuerName") {
+            nextIssuer = value;
+          } else if (field === "faceValue") {
+            const digits = value.replace(/\D/g, "");
+            nextFace = digits ? Math.round(Number(digits)) : null;
+          } else if (field === "expiresAt") {
+            nextExpires = value;
+          }
+
+          return {
+            ...p,
+            voucherData: {
+              kindId: kind?.id ?? p.voucherData?.kindId,
+              kindCode: kind?.code ?? p.voucherData?.kindCode ?? "",
+              kindName: kind?.name ?? p.voucherData?.kindName,
+              issuerName: nextIssuer,
+              faceValue:
+                kind?.faceValueMode === "FIXED" && kind.defaultFaceValue != null
+                  ? Math.round(Number(kind.defaultFaceValue))
+                  : nextFace,
+              expiresAt: nextExpires,
+            },
+          };
+        }),
+      );
+    },
+    [methodsById, setPayments],
   );
 
   useEffect(() => {
@@ -2145,6 +2386,30 @@ export default function PosPaymentWorkspace({
             return "Completa N° de cheque y banco para los pagos con cheque.";
           }
         }
+        if (p.type === "VOUCHER") {
+          const cfg = p.companyPaymentMethodId
+            ? methodsById.get(p.companyPaymentMethodId)
+            : null;
+          const kind = cfg?.voucherKind ?? null;
+          if (!kind) {
+            return "Medio Voucher sin tipo enlazado. Revisá Admin.";
+          }
+          if (!p.reference?.trim()) {
+            return "Ingresa el número de voucher.";
+          }
+          const face =
+            kind.faceValueMode === "FIXED" && kind.defaultFaceValue != null
+              ? Math.round(Number(kind.defaultFaceValue))
+              : p.voucherData?.faceValue != null
+                ? Math.round(Number(p.voucherData.faceValue))
+                : null;
+          if (kind.faceValueMode === "OPEN" && kind.requireFaceValue && !(face != null && face > 0)) {
+            return `El tipo ${kind.name} exige valor nominal.`;
+          }
+          if (face != null && face > 0 && Math.round(Number(p.amount) || 0) > face) {
+            return "El monto del voucher no puede superar el valor nominal.";
+          }
+        }
         if (p.type === "TRANSFER" && bankAccountOptions.length > 0) {
           if (!p.bankAccountKey?.trim()) {
             return "Selecciona la cuenta bancaria destino para la transferencia.";
@@ -2183,6 +2448,30 @@ export default function PosPaymentWorkspace({
         const cd = p.checkData;
         if (!cd?.checkNumber?.trim() || !cd?.bankName?.trim()) {
           return "Completa N° de cheque y banco para los pagos con cheque.";
+        }
+      }
+      if (p.type === "VOUCHER") {
+        const cfg = p.companyPaymentMethodId
+          ? methodsById.get(p.companyPaymentMethodId)
+          : null;
+        const kind = cfg?.voucherKind ?? null;
+        if (!kind) {
+          return "Medio Voucher sin tipo enlazado. Revisá Admin.";
+        }
+        if (!p.reference?.trim()) {
+          return "Ingresa el número de voucher.";
+        }
+        const face =
+          kind.faceValueMode === "FIXED" && kind.defaultFaceValue != null
+            ? Math.round(Number(kind.defaultFaceValue))
+            : p.voucherData?.faceValue != null
+              ? Math.round(Number(p.voucherData.faceValue))
+              : null;
+        if (kind.faceValueMode === "OPEN" && kind.requireFaceValue && !(face != null && face > 0)) {
+          return `El tipo ${kind.name} exige valor nominal.`;
+        }
+        if (face != null && face > 0 && Math.round(Number(p.amount) || 0) > face) {
+          return "El monto del voucher no puede superar el valor nominal.";
         }
       }
       if (p.type === "TRANSFER" && bankAccountOptions.length > 0) {
@@ -3362,9 +3651,34 @@ export default function PosPaymentWorkspace({
                     </span>
                   </li>
                 ))
-              : cart.lines.map((line) => (
-                  <PaymentCartReadOnlyRow key={line.variantId} line={line} />
-                ))}
+              : cart.lines.map((line) => {
+                  const suggested = suggestedLineDiscounts[line.variantId] ?? null;
+                  const applied = Boolean(
+                    line.discount &&
+                      suggested &&
+                      line.discount.promotionId === suggested.promotionId &&
+                      isPromotionSelected(suggested.promotionId, line.variantId),
+                  );
+                  const hasAppliedOnly = Boolean(line.discount) && !suggested;
+                  return (
+                    <PaymentCartReadOnlyRow
+                      key={line.variantId}
+                      line={line}
+                      suggestedDiscount={suggested ?? line.discount ?? null}
+                      applied={applied || hasAppliedOnly}
+                      offline={isOffline}
+                      onToggleDiscount={
+                        !isOffline && suggested
+                          ? () =>
+                              togglePromotion(
+                                suggested.promotionId,
+                                line.variantId,
+                              )
+                          : undefined
+                      }
+                    />
+                  );
+                })}
             {deliveryFeeActive > 0 && posDelivery ? (
               <li
                 className="flex items-center justify-between gap-3 border-t border-border/60 px-3 py-2.5 text-sm"
@@ -3425,6 +3739,49 @@ export default function PosPaymentWorkspace({
                         : formatMoney(discounts)}
                   </span>
                 </div>
+                {!isOffline && suggestedOrderPromotions.length > 0
+                  ? suggestedOrderPromotions.map((promo) => {
+                      const selected = isPromotionSelected(promo.promotionId);
+                      return (
+                        <div
+                          key={promo.promotionId}
+                          className={`flex items-center justify-between gap-2 text-xs ${
+                            selected
+                              ? "text-emerald-700 dark:text-emerald-300"
+                              : "text-muted-foreground"
+                          }`}
+                          data-test-id={`pos-payment-order-promo-${promo.promotionId}`}
+                        >
+                          <span className="flex min-w-0 items-center gap-1">
+                            <IconButton
+                              icon={selected ? "CheckCircle2" : "Circle"}
+                              variant="action"
+                              size="xs"
+                              ariaLabel={
+                                selected
+                                  ? "Quitar descuento del total"
+                                  : "Aplicar descuento al total"
+                              }
+                              title={
+                                selected
+                                  ? "Quitar descuento"
+                                  : "Aplicar descuento sugerido al total"
+                              }
+                              onClick={() => togglePromotion(promo.promotionId)}
+                              data-test-id={`pos-payment-order-promo-toggle-${promo.promotionId}`}
+                            />
+                            <span className="truncate">
+                              {promo.promotionName}
+                              {!selected ? " (sugerido)" : ""}
+                            </span>
+                          </span>
+                          <span className="shrink-0 tabular-nums">
+                            −{formatMoney(promo.amountDiscounted)}
+                          </span>
+                        </div>
+                      );
+                    })
+                  : null}
                 <div className="flex justify-between gap-4 pt-1 text-base font-semibold">
                   <span className="text-foreground">Total</span>
                   <span className="tabular-nums text-foreground">{formatMoney(amountToPay)}</span>
@@ -3724,6 +4081,8 @@ export default function PosPaymentWorkspace({
                   onUpdateBankAccountKey={updatePaymentLineBankAccountKey}
                   onUpdateReference={updatePaymentLineReference}
                   onUpdateCheckField={updatePaymentLineCheckField}
+                  onUpdateVoucherField={updatePaymentLineVoucherField}
+                  voucherKind={cfg?.voucherKind ?? null}
                   desktopLayout={!compactLayout}
                   bankAccountPrintLoading={bankAccountPrintLineId === p.id}
                   onPrintBankAccount={

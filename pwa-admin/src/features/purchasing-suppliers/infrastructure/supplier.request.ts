@@ -5,8 +5,10 @@ import type {
   SupplierPersonBankAccount,
   SupplierPersonGrid,
   SupplierDetailView,
+  PersonGeoFields,
   UpdateSupplierPayload,
 } from "../types/supplier.types";
+import type { PersonEconomicActivity } from "@kai/chile-catalogs";
 
 function apiUrl(path: string): string {
   const base = process.env.BACKEND_API_URL;
@@ -28,6 +30,36 @@ async function authHeaders(): Promise<HeadersInit> {
     h["X-Active-Company-Id"] = activeCompanyId;
   }
   return h;
+}
+
+function mapEconomicActivities(raw: unknown): PersonEconomicActivity[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: PersonEconomicActivity[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== "object") continue;
+    const o = row as Record<string, unknown>;
+    const code = o.code != null ? String(o.code).trim() : "";
+    if (!code) continue;
+    out.push({
+      code,
+      name: o.name != null ? String(o.name) : code,
+      category: o.category === "SEGUNDA" ? "SEGUNDA" : "PRIMERA",
+      ivaAffected: o.ivaAffected === true,
+      isActive: o.isActive === true,
+    });
+  }
+  return out.length > 0 ? out : null;
+}
+
+function mapPersonGeoFields(o: Record<string, unknown>): PersonGeoFields {
+  return {
+    regionCode: o.regionCode != null && String(o.regionCode).trim() ? String(o.regionCode) : null,
+    regionName: o.regionName != null && String(o.regionName).trim() ? String(o.regionName) : null,
+    communeCode: o.communeCode != null && String(o.communeCode).trim() ? String(o.communeCode) : null,
+    communeName: o.communeName != null && String(o.communeName).trim() ? String(o.communeName) : null,
+    treasuryCode: o.treasuryCode != null && String(o.treasuryCode).trim() ? String(o.treasuryCode) : null,
+    economicActivities: mapEconomicActivities(o.economicActivities),
+  };
 }
 
 function normalizePersonBankAccounts(raw: unknown): SupplierPersonBankAccount[] {
@@ -80,6 +112,7 @@ function normalizePerson(raw: unknown): SupplierPersonGrid | null {
     phone: p.phone != null && String(p.phone).trim() ? String(p.phone) : null,
     address: p.address != null && String(p.address).trim() ? String(p.address) : null,
     bankAccounts: normalizePersonBankAccounts(p.bankAccounts),
+    ...mapPersonGeoFields(p),
   };
 }
 

@@ -57,7 +57,7 @@ export function DeliveryTopBar({ session }: DeliveryTopBarProps) {
 
       {showSidebar ? (
         <div
-          className="fixed inset-0 z-[60] flex"
+          className="fixed inset-0 z-60 flex"
           data-test-id="delivery-sidebar-shell"
           role="presentation"
         >

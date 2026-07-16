@@ -13,12 +13,7 @@ import { PromotionScopeMode } from './promotion.enums';
 /**
  * Scope por método de pago de la empresa. Permite reglas tipo
  * "10% pagando con tarjeta X". El `companyPaymentMethodId` referencia
- * a `company_payment_methods.id` que vive en el JSON de
- * `Company.settings.paymentMethods` (no es una tabla TypeORM).
- *
- * Se guarda como UUID para mantener consistencia con el resto del
- * sistema, pero NO se aplica FK a nivel SQL — la validación se hace
- * en aplicación (PR 3).
+ * `company_payment_methods.id` (tabla).
  */
 @Entity('promotion_scope_payment_methods')
 @Index('idx_promotion_scope_pm_promotion', ['promotionId'])

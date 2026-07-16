@@ -9,6 +9,7 @@ import { isEShopModuleEnabled } from "@/config/eshop-module.config";
 import { CompanyGeneralSection } from "./CompanyGeneralSection";
 import { CompanyBankAccountsSection } from "./CompanyBankAccountsSection";
 import { CompanyPaymentMethodsSection } from "./CompanyPaymentMethodsSection";
+import { CompanyVoucherKindsSection } from "./CompanyVoucherKindsSection";
 import { CompanyInternalCustomerCreditSection } from "./CompanyInternalCustomerCreditSection";
 import { CompanyDeferredPaymentSection } from "./CompanyDeferredPaymentSection";
 import { CompanyChecksSection } from "./CompanyChecksSection";
@@ -93,7 +94,12 @@ export function CompanySettingsContent({ company, shareholders }: Props) {
         {activeTab === "identidad" ? <CompanyIdentitySection company={company} /> : null}
 
         {activeTab === "bancos" ? <CompanyBankAccountsSection company={company} /> : null}
-        {activeTab === "medios-pago" ? <CompanyPaymentMethodsSection companyId={company.id} /> : null}
+        {activeTab === "medios-pago" ? (
+          <div className="flex flex-col gap-6">
+            <CompanyPaymentMethodsSection companyId={company.id} />
+            <CompanyVoucherKindsSection companyId={company.id} />
+          </div>
+        ) : null}
         {activeTab === "credito-interno" ? (
           <div className="flex flex-col gap-6">
             <CompanyInternalCustomerCreditSection company={company} />

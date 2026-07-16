@@ -1,12 +1,20 @@
 "use client";
-import { LoadingState } from '@kai/ui';
+import { LoadingState } from "@kai/ui";
 
 import { useCallback, useEffect, useState } from "react";
+import type { PersonEconomicActivity } from "@kai/chile-catalogs";
 import type { CustomerDetailView, UpdateCustomerPayload } from "@/features/sales-customers/types/customer.types";
 import { documentTypeLabel } from "@/features/sales-customers/lib/customer-document-labels";
 import { TextField } from "@kai/ui";
 import { Select, type Option } from "@kai/ui";
 import { IconButton } from "@kai/ui";
+import { ChileRegionCommuneFields } from "@/features/chile-person/ui/ChileRegionCommuneFields";
+import { EconomicActivitiesEditor } from "@/features/chile-person/ui/EconomicActivitiesEditor";
+import {
+  chileGeoFromPersonFields,
+  geoPayloadFromChileGeo,
+} from "@/features/chile-person/lib/person-geo-payload.util";
+import type { ChileGeoValue } from "@/features/chile-person/ui/ChileRegionCommuneFields";
 import { updateCustomerAction } from "@/features/sales-customers/actions/customer.action";
 
 const DOC_OPTIONS: Option[] = [
@@ -30,7 +38,8 @@ type Draft = {
   documentNumber: string;
   email: string;
   phone: string;
-  address: string;
+  geo: ChileGeoValue;
+  economicActivities: PersonEconomicActivity[];
 };
 
 function draftFromDetail(d: CustomerDetailView): Draft {
@@ -45,7 +54,8 @@ function draftFromDetail(d: CustomerDetailView): Draft {
     documentNumber: d.documentNumber?.trim() ?? "",
     email: d.email?.trim() ?? "",
     phone: d.phone?.trim() ?? "",
-    address: d.address?.trim() ?? "",
+    geo: chileGeoFromPersonFields(d),
+    economicActivities: Array.isArray(d.economicActivities) ? [...d.economicActivities] : [],
   };
 }
 
@@ -55,12 +65,14 @@ function isCompanyPerson(d: CustomerDetailView | null): boolean {
 
 function buildPayload(detail: CustomerDetailView, draft: Draft): UpdateCustomerPayload {
   const docType = draft.documentType as UpdateCustomerPayload["documentType"];
+  const geoFields = geoPayloadFromChileGeo(draft.geo);
   const base: UpdateCustomerPayload = {
     documentType: docType,
     documentNumber: draft.documentNumber.trim() || undefined,
     email: draft.email.trim() || undefined,
     phone: draft.phone.trim() || undefined,
-    address: draft.address.trim() || undefined,
+    ...geoFields,
+    economicActivities: draft.economicActivities,
   };
   if (isCompanyPerson(detail)) {
     return { ...base, businessName: draft.businessName.trim() || undefined };
@@ -134,6 +146,8 @@ export function CustomerDetailSummarySection({
 
   const readOnly = !editing;
   const company = isCompanyPerson(detail);
+  const viewGeo = chileGeoFromPersonFields(detail);
+  const viewActivities = Array.isArray(detail.economicActivities) ? detail.economicActivities : [];
 
   return (
     <div className="relative max-w-2xl text-sm" data-test-id="customer-detail-summary">
@@ -265,16 +279,18 @@ export function CustomerDetailSummarySection({
           data-test-id="customer-summary-phone"
         />
 
-        <TextField
-          label="Dirección"
-          value={editing && draft ? draft.address : detail.address?.trim() ?? ""}
-          onChange={
-            readOnly ? noopFieldChange : (e) => setDraft((d) => (d ? { ...d, address: e.target.value } : d))
-          }
-          readOnly={readOnly}
-          density="compact"
-          rows={2}
-          data-test-id="customer-summary-address"
+        <ChileRegionCommuneFields
+          value={editing && draft ? draft.geo : viewGeo}
+          onChange={(next) => setDraft((d) => (d ? { ...d, geo: next } : d))}
+          disabled={readOnly || isSaving}
+          testIdPrefix="customer-summary-geo"
+        />
+
+        <EconomicActivitiesEditor
+          value={editing && draft ? draft.economicActivities : viewActivities}
+          onChange={(next) => setDraft((d) => (d ? { ...d, economicActivities: next } : d))}
+          disabled={readOnly || isSaving}
+          testIdPrefix="customer-summary-acteco"
         />
 
         <TextField

@@ -53,7 +53,7 @@ describe('BackorderRegistrationService', () => {
       storageId: 'st-1',
       customerId: 'cu-1',
       userId: 'us-1',
-      backorderTransaction: { id: 'bo-1', documentNumber: 'ENC-001' },
+      backorderTransaction: { id: 'bo-1', documentNumber: 'ECG001' },
       lines: [
         {
           productId: 'p1',
@@ -89,7 +89,7 @@ describe('BackorderRegistrationService', () => {
         storageId: undefined,
         customerId: 'cu-1',
         userId: 'us-1',
-        backorderTransaction: { id: 'bo-1', documentNumber: 'ENC-001' },
+        backorderTransaction: { id: 'bo-1', documentNumber: 'ECG001' },
         lines: [{ productVariantId: 'v1', quantity: 1 } as any],
       }),
     ).rejects.toThrow(/almacén/);

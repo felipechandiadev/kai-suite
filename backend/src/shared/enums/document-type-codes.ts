@@ -1,8 +1,8 @@
 import { TransactionType } from '@modules/transactions/domain/transaction.entity';
 
 /**
- * Siglas cortas para folios correlativos `{CODE}-{YY}-{NNNNN}` por sucursal + tipo + año.
- * Conviven con `DOCUMENT_PREFIXES` (textos largos legibles / legacy).
+ * Siglas cortas para folios correlativos `{CODE}{YY}{NNNNN…}` por sucursal + tipo + año.
+ * Mínimo 5 dígitos en el correlativo; sin guiones. Conviven con `DOCUMENT_PREFIXES` (legacy).
  */
 export const DOCUMENT_TYPE_CODES: Record<TransactionType, string> = {
   [TransactionType.SALE]: 'VTA',

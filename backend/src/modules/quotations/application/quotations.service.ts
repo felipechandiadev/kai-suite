@@ -272,7 +272,7 @@ export class QuotationsService {
   // ============================================================
 
   /**
-   * Crea una cotización: snapshot de líneas + folio COT-YY-#####.
+   * Crea una cotización: snapshot de líneas + folio COTYY#####.
    * Se persiste con `status=CONFIRMED` y vigencia derivada de la
    * configuración de empresa.
    */

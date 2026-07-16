@@ -23,5 +23,5 @@ export async function nextLocalDocumentNumber(): Promise<string> {
   const meta = (await db.meta.get("meta")) ?? { id: "meta" as const, localFolioSeq: 0 };
   const seq = meta.localFolioSeq + 1;
   await db.meta.put({ id: "meta", localFolioSeq: seq });
-  return `OFF-${short}-${String(seq).padStart(5, "0")}`;
+  return `OFF${short}${String(seq).padStart(5, "0")}`;
 }

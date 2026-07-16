@@ -1,13 +1,12 @@
 import { PaymentMethod } from '@modules/transactions/domain/transaction.entity';
 
 /**
- * Catálogo de medios de pago configurado a nivel **empresa**.
- * Vive en `companies.settings.paymentMethods` (JSON).
+ * Catálogo de medios de pago a nivel **empresa**.
+ * Persistido en tabla `company_payment_methods` (antes: JSON en settings).
  *
  * - El `id` es UUID estable; se referencia desde `pos_payment_methods`
- *   y se persiste como snapshot en `transactions.metadata.paymentSnapshot`.
- * - El `method` reusa el enum global `PaymentMethod` para mantener
- *   compatibilidad con asientos contables y reglas existentes.
+ *   y se persiste como snapshot en `transactions.metadata.payments`.
+ * - El `method` reusa el enum global `PaymentMethod`.
  */
 export interface CompanyPaymentMethodConfig {
   id: string;
@@ -18,14 +17,16 @@ export interface CompanyPaymentMethodConfig {
   requireReference: boolean;
   bankAccountKey?: string | null;
   metadata?: Record<string, any> | null;
+  /**
+   * Obligatorio cuando `method === VOUCHER`.
+   * FK a `company_voucher_kinds.id`.
+   */
+  voucherKindId?: string | null;
 }
 
 /**
  * Configuración por **POS** asociada a una entrada del catálogo de empresa.
- * Vive en `points_of_sale.settings.paymentMethods` (JSON).
- *
- * No re-define semántica del medio (alias/banco viven en empresa).
- * Aquí solo controla habilitación local y UX en pwa-pos.
+ * Persistida en tabla `pos_payment_methods`.
  */
 export interface PosPaymentMethodConfig {
   companyPaymentMethodId: string;
@@ -61,6 +62,25 @@ export interface EffectivePaymentMethod {
   preloadOrder: number | null;
   isDefaultForChange: boolean;
   displayOrder: number;
+  /**
+   * Solo en medios `VOUCHER`: tipo enlazado (activo) de la empresa.
+   */
+  voucherKind?: {
+    id: string;
+    code: string;
+    name: string;
+    faceValueMode: 'FIXED' | 'OPEN';
+    defaultFaceValue?: number | null;
+    requireFaceValue: boolean;
+    defaultIssuerName?: string | null;
+  } | null;
+  /** @deprecated Usar `voucherKind`. Se mantiene por compat temporal. */
+  voucherKinds?: Array<{
+    code: string;
+    name: string;
+    requireFaceValue: boolean;
+    defaultIssuerName?: string | null;
+  }>;
 }
 
 /**
@@ -94,6 +114,7 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   [PaymentMethod.INTERNAL_CREDIT]: 'Crédito interno',
   [PaymentMethod.CUSTOMER_CREDIT_NOTE]: 'Nota de crédito cliente',
   [PaymentMethod.ORDER_ADVANCE]: 'Abono por encargo',
+  [PaymentMethod.VOUCHER]: 'Voucher',
   [PaymentMethod.MIXED]: 'Mixto',
 };
 
@@ -101,4 +122,5 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
 export const PAYMENT_METHODS_ALWAYS_REQUIRE_REFERENCE = new Set<PaymentMethod>([
   PaymentMethod.CUSTOMER_CREDIT_NOTE,
   PaymentMethod.ORDER_ADVANCE,
+  PaymentMethod.VOUCHER,
 ]);

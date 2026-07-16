@@ -1,0 +1,2084 @@
+[
+  {
+    "communeCode": "01101",
+    "name": "ARICA",
+    "treasuryCode": "001",
+    "regionCode": "01"
+  },
+  {
+    "communeCode": "01106",
+    "name": "CAMARONES",
+    "treasuryCode": "295",
+    "regionCode": "01"
+  },
+  {
+    "communeCode": "01201",
+    "name": "IQUIQUE",
+    "treasuryCode": "002",
+    "regionCode": "01"
+  },
+  {
+    "communeCode": "01203",
+    "name": "PICA",
+    "treasuryCode": "004",
+    "regionCode": "01"
+  },
+  {
+    "communeCode": "01204",
+    "name": "POZO ALMONTE",
+    "treasuryCode": "005",
+    "regionCode": "01"
+  },
+  {
+    "communeCode": "01206",
+    "name": "HUARA",
+    "treasuryCode": "003",
+    "regionCode": "01"
+  },
+  {
+    "communeCode": "01208",
+    "name": "CAMINA",
+    "treasuryCode": "296",
+    "regionCode": "01"
+  },
+  {
+    "communeCode": "01210",
+    "name": "COLCHANE",
+    "treasuryCode": "297",
+    "regionCode": "01"
+  },
+  {
+    "communeCode": "01211",
+    "name": "ALTO HOSPICIO",
+    "treasuryCode": "347",
+    "regionCode": "01"
+  },
+  {
+    "communeCode": "01301",
+    "name": "PUTRE",
+    "treasuryCode": "294",
+    "regionCode": "01"
+  },
+  {
+    "communeCode": "01302",
+    "name": "GENERAL LAGOS",
+    "treasuryCode": "293",
+    "regionCode": "01"
+  },
+  {
+    "communeCode": "02101",
+    "name": "TOCOPILLA",
+    "treasuryCode": "006",
+    "regionCode": "02"
+  },
+  {
+    "communeCode": "02103",
+    "name": "MARIA ELENA",
+    "treasuryCode": "298",
+    "regionCode": "02"
+  },
+  {
+    "communeCode": "02201",
+    "name": "ANTOFAGASTA",
+    "treasuryCode": "007",
+    "regionCode": "02"
+  },
+  {
+    "communeCode": "02202",
+    "name": "TALTAL",
+    "treasuryCode": "009",
+    "regionCode": "02"
+  },
+  {
+    "communeCode": "02203",
+    "name": "MEJILLONES",
+    "treasuryCode": "008",
+    "regionCode": "02"
+  },
+  {
+    "communeCode": "02206",
+    "name": "SIERRA GORDA",
+    "treasuryCode": "299",
+    "regionCode": "02"
+  },
+  {
+    "communeCode": "02301",
+    "name": "CALAMA",
+    "treasuryCode": "010",
+    "regionCode": "02"
+  },
+  {
+    "communeCode": "02302",
+    "name": "OLLAGUE",
+    "treasuryCode": "300",
+    "regionCode": "02"
+  },
+  {
+    "communeCode": "02303",
+    "name": "SAN PEDRO DE ATACAMA",
+    "treasuryCode": "301",
+    "regionCode": "02"
+  },
+  {
+    "communeCode": "03101",
+    "name": "CHANARAL",
+    "treasuryCode": "011",
+    "regionCode": "03"
+  },
+  {
+    "communeCode": "03102",
+    "name": "DIEGO DE ALMAGRO",
+    "treasuryCode": "012",
+    "regionCode": "03"
+  },
+  {
+    "communeCode": "03201",
+    "name": "COPIAPO",
+    "treasuryCode": "013",
+    "regionCode": "03"
+  },
+  {
+    "communeCode": "03202",
+    "name": "CALDERA",
+    "treasuryCode": "014",
+    "regionCode": "03"
+  },
+  {
+    "communeCode": "03203",
+    "name": "TIERRA AMARILLA",
+    "treasuryCode": "015",
+    "regionCode": "03"
+  },
+  {
+    "communeCode": "03301",
+    "name": "VALLENAR",
+    "treasuryCode": "016",
+    "regionCode": "03"
+  },
+  {
+    "communeCode": "03302",
+    "name": "FREIRINA",
+    "treasuryCode": "017",
+    "regionCode": "03"
+  },
+  {
+    "communeCode": "03303",
+    "name": "HUASCO",
+    "treasuryCode": "018",
+    "regionCode": "03"
+  },
+  {
+    "communeCode": "03304",
+    "name": "ALTO DEL CARMEN",
+    "treasuryCode": "302",
+    "regionCode": "03"
+  },
+  {
+    "communeCode": "04101",
+    "name": "LA SERENA",
+    "treasuryCode": "019",
+    "regionCode": "04"
+  },
+  {
+    "communeCode": "04102",
+    "name": "LA HIGUERA",
+    "treasuryCode": "020",
+    "regionCode": "04"
+  },
+  {
+    "communeCode": "04103",
+    "name": "COQUIMBO",
+    "treasuryCode": "021",
+    "regionCode": "04"
+  },
+  {
+    "communeCode": "04104",
+    "name": "ANDACOLLO",
+    "treasuryCode": "022",
+    "regionCode": "04"
+  },
+  {
+    "communeCode": "04105",
+    "name": "VICUNA",
+    "treasuryCode": "023",
+    "regionCode": "04"
+  },
+  {
+    "communeCode": "04106",
+    "name": "PAIHUANO",
+    "treasuryCode": "024",
+    "regionCode": "04"
+  },
+  {
+    "communeCode": "04201",
+    "name": "OVALLE",
+    "treasuryCode": "025",
+    "regionCode": "04"
+  },
+  {
+    "communeCode": "04203",
+    "name": "MONTE PATRIA",
+    "treasuryCode": "026",
+    "regionCode": "04"
+  },
+  {
+    "communeCode": "04204",
+    "name": "PUNITAQUI",
+    "treasuryCode": "027",
+    "regionCode": "04"
+  },
+  {
+    "communeCode": "04205",
+    "name": "COMBARBALA",
+    "treasuryCode": "029",
+    "regionCode": "04"
+  },
+  {
+    "communeCode": "04206",
+    "name": "RIO HURTADO",
+    "treasuryCode": "028",
+    "regionCode": "04"
+  },
+  {
+    "communeCode": "04301",
+    "name": "ILLAPEL",
+    "treasuryCode": "030",
+    "regionCode": "04"
+  },
+  {
+    "communeCode": "04302",
+    "name": "SALAMANCA",
+    "treasuryCode": "032",
+    "regionCode": "04"
+  },
+  {
+    "communeCode": "04303",
+    "name": "LOS VILOS",
+    "treasuryCode": "033",
+    "regionCode": "04"
+  },
+  {
+    "communeCode": "04304",
+    "name": "CANELA",
+    "treasuryCode": "031",
+    "regionCode": "04"
+  },
+  {
+    "communeCode": "05101",
+    "name": "ISLA DE PASCUA",
+    "treasuryCode": "041",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05201",
+    "name": "LA LIGUA",
+    "treasuryCode": "059",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05202",
+    "name": "PETORCA",
+    "treasuryCode": "055",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05203",
+    "name": "CABILDO",
+    "treasuryCode": "056",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05204",
+    "name": "ZAPALLAR",
+    "treasuryCode": "058",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05205",
+    "name": "PAPUDO",
+    "treasuryCode": "057",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05301",
+    "name": "VALPARAISO",
+    "treasuryCode": "034",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05302",
+    "name": "VINA DEL MAR",
+    "treasuryCode": "037",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05303",
+    "name": "VILLA ALEMANA",
+    "treasuryCode": "039",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05304",
+    "name": "QUILPUE",
+    "treasuryCode": "038",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05305",
+    "name": "CASABLANCA",
+    "treasuryCode": "040",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05306",
+    "name": "QUINTERO",
+    "treasuryCode": "035",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05307",
+    "name": "PUCHUNCAVI",
+    "treasuryCode": "036",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05308",
+    "name": "JUAN FERNANDEZ",
+    "treasuryCode": "321",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05309",
+    "name": "CONCON",
+    "treasuryCode": "340",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05401",
+    "name": "SAN ANTONIO",
+    "treasuryCode": "042",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05402",
+    "name": "SANTO DOMINGO",
+    "treasuryCode": "043",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05403",
+    "name": "CARTAGENA",
+    "treasuryCode": "046",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05404",
+    "name": "EL TABO",
+    "treasuryCode": "047",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05405",
+    "name": "EL QUISCO",
+    "treasuryCode": "045",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05406",
+    "name": "ALGARROBO",
+    "treasuryCode": "044",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05501",
+    "name": "QUILLOTA",
+    "treasuryCode": "048",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05502",
+    "name": "NOGALES",
+    "treasuryCode": "052",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05503",
+    "name": "HIJUELAS",
+    "treasuryCode": "051",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05504",
+    "name": "LA CALERA",
+    "treasuryCode": "050",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05505",
+    "name": "LA CRUZ",
+    "treasuryCode": "049",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05506",
+    "name": "LIMACHE",
+    "treasuryCode": "053",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05507",
+    "name": "OLMUE",
+    "treasuryCode": "054",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05601",
+    "name": "SAN FELIPE",
+    "treasuryCode": "060",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05602",
+    "name": "PANQUEHUE",
+    "treasuryCode": "062",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05603",
+    "name": "CATEMU",
+    "treasuryCode": "063",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05604",
+    "name": "PUTAENDO",
+    "treasuryCode": "061",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05605",
+    "name": "SANTA MARIA",
+    "treasuryCode": "064",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05606",
+    "name": "LLAY-LLAY",
+    "treasuryCode": "065",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05701",
+    "name": "LOS ANDES",
+    "treasuryCode": "066",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05702",
+    "name": "CALLE LARGA",
+    "treasuryCode": "067",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05703",
+    "name": "SAN ESTEBAN",
+    "treasuryCode": "069",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "05704",
+    "name": "RINCONADA",
+    "treasuryCode": "068",
+    "regionCode": "05"
+  },
+  {
+    "communeCode": "06101",
+    "name": "RANCAGUA",
+    "treasuryCode": "105",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06102",
+    "name": "MACHALI",
+    "treasuryCode": "106",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06103",
+    "name": "GRANEROS",
+    "treasuryCode": "107",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06104",
+    "name": "SAN FRANCISCO DE MOSTAZAL",
+    "treasuryCode": "111",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06105",
+    "name": "DONIHUE",
+    "treasuryCode": "112",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06106",
+    "name": "COLTAUCO",
+    "treasuryCode": "113",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06107",
+    "name": "CODEGUA",
+    "treasuryCode": "110",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06108",
+    "name": "PEUMO",
+    "treasuryCode": "115",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06109",
+    "name": "LAS CABRAS",
+    "treasuryCode": "116",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06110",
+    "name": "SAN VICENTE",
+    "treasuryCode": "117",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06111",
+    "name": "PICHIDEGUA",
+    "treasuryCode": "118",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06112",
+    "name": "RENGO",
+    "treasuryCode": "121",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06113",
+    "name": "REQUINOA",
+    "treasuryCode": "119",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06114",
+    "name": "OLIVAR",
+    "treasuryCode": "120",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06115",
+    "name": "MALLOA",
+    "treasuryCode": "122",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06116",
+    "name": "COINCO",
+    "treasuryCode": "114",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06117",
+    "name": "QUINTA DE TILCOCO",
+    "treasuryCode": "123",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06201",
+    "name": "SAN FERNANDO",
+    "treasuryCode": "124",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06202",
+    "name": "CHIMBARONGO",
+    "treasuryCode": "125",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06203",
+    "name": "NANCAGUA",
+    "treasuryCode": "126",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06204",
+    "name": "PLACILLA",
+    "treasuryCode": "127",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06205",
+    "name": "SANTA CRUZ",
+    "treasuryCode": "128",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06206",
+    "name": "LOLOL",
+    "treasuryCode": "129",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06207",
+    "name": "PALMILLA",
+    "treasuryCode": "130",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06208",
+    "name": "PERALILLO",
+    "treasuryCode": "131",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06209",
+    "name": "CHEPICA",
+    "treasuryCode": "132",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06214",
+    "name": "PUMANQUE",
+    "treasuryCode": "135",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06301",
+    "name": "PICHILEMU",
+    "treasuryCode": "137",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06302",
+    "name": "NAVIDAD",
+    "treasuryCode": "138",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06303",
+    "name": "LITUECHE",
+    "treasuryCode": "136",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06304",
+    "name": "LA ESTRELLA",
+    "treasuryCode": "139",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06305",
+    "name": "MARCHIGUE",
+    "treasuryCode": "134",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "06306",
+    "name": "PAREDONES",
+    "treasuryCode": "133",
+    "regionCode": "06"
+  },
+  {
+    "communeCode": "07101",
+    "name": "CURICO",
+    "treasuryCode": "140",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07102",
+    "name": "TENO",
+    "treasuryCode": "142",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07103",
+    "name": "ROMERAL",
+    "treasuryCode": "141",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07104",
+    "name": "RAUCO",
+    "treasuryCode": "143",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07105",
+    "name": "LICANTEN",
+    "treasuryCode": "145",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07106",
+    "name": "VICHUQUEN",
+    "treasuryCode": "146",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07107",
+    "name": "HUALANE",
+    "treasuryCode": "144",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07108",
+    "name": "MOLINA",
+    "treasuryCode": "147",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07109",
+    "name": "SAGRADA FAMILIA",
+    "treasuryCode": "148",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07201",
+    "name": "TALCA",
+    "treasuryCode": "150",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07202",
+    "name": "SAN CLEMENTE",
+    "treasuryCode": "151",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07203",
+    "name": "PELARCO",
+    "treasuryCode": "152",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07204",
+    "name": "RIO CLARO",
+    "treasuryCode": "149",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07205",
+    "name": "PENCAHUE",
+    "treasuryCode": "153",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07206",
+    "name": "MAULE",
+    "treasuryCode": "154",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07207",
+    "name": "CUREPTO",
+    "treasuryCode": "155",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07208",
+    "name": "CONSTITUCION",
+    "treasuryCode": "157",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07209",
+    "name": "EMPEDRADO",
+    "treasuryCode": "158",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07210",
+    "name": "SAN RAFAEL",
+    "treasuryCode": "341",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07301",
+    "name": "LINARES",
+    "treasuryCode": "159",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07302",
+    "name": "YERBAS BUENAS",
+    "treasuryCode": "160",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07303",
+    "name": "COLBUN",
+    "treasuryCode": "161",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07304",
+    "name": "LONGAVI",
+    "treasuryCode": "162",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07305",
+    "name": "PARRAL",
+    "treasuryCode": "164",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07306",
+    "name": "RETIRO",
+    "treasuryCode": "165",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07309",
+    "name": "VILLA ALEGRE",
+    "treasuryCode": "163",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07310",
+    "name": "SAN JAVIER",
+    "treasuryCode": "156",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07401",
+    "name": "CAUQUENES",
+    "treasuryCode": "166",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07402",
+    "name": "PELLUHUE",
+    "treasuryCode": "320",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "07403",
+    "name": "CHANCO",
+    "treasuryCode": "167",
+    "regionCode": "07"
+  },
+  {
+    "communeCode": "08101",
+    "name": "CHILLAN",
+    "treasuryCode": "168",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08102",
+    "name": "PINTO",
+    "treasuryCode": "169",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08103",
+    "name": "COIHUECO",
+    "treasuryCode": "170",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08104",
+    "name": "QUIRIHUE",
+    "treasuryCode": "172",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08105",
+    "name": "NINHUE",
+    "treasuryCode": "174",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08106",
+    "name": "PORTEZUELO",
+    "treasuryCode": "171",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08107",
+    "name": "COBQUECURA",
+    "treasuryCode": "175",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08108",
+    "name": "TREHUACO",
+    "treasuryCode": "173",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08109",
+    "name": "SAN CARLOS",
+    "treasuryCode": "176",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08110",
+    "name": "NIQUEN",
+    "treasuryCode": "177",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08111",
+    "name": "SAN FABIAN",
+    "treasuryCode": "178",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08112",
+    "name": "SAN NICOLAS",
+    "treasuryCode": "179",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08113",
+    "name": "BULNES",
+    "treasuryCode": "180",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08114",
+    "name": "SAN IGNACIO",
+    "treasuryCode": "181",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08115",
+    "name": "QUILLON",
+    "treasuryCode": "182",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08116",
+    "name": "YUNGAY",
+    "treasuryCode": "183",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08117",
+    "name": "PEMUCO",
+    "treasuryCode": "184",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08118",
+    "name": "EL CARMEN",
+    "treasuryCode": "185",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08119",
+    "name": "RANQUIL",
+    "treasuryCode": "187",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08120",
+    "name": "COELEMU",
+    "treasuryCode": "186",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08121",
+    "name": "CHILLAN VIEJO",
+    "treasuryCode": "342",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08201",
+    "name": "CONCEPCION",
+    "treasuryCode": "188",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08202",
+    "name": "PENCO",
+    "treasuryCode": "191",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08203",
+    "name": "HUALQUI",
+    "treasuryCode": "192",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08204",
+    "name": "FLORIDA",
+    "treasuryCode": "193",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08205",
+    "name": "TOME",
+    "treasuryCode": "190",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08206",
+    "name": "TALCAHUANO",
+    "treasuryCode": "189",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08207",
+    "name": "CORONEL",
+    "treasuryCode": "194",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08208",
+    "name": "LOTA",
+    "treasuryCode": "195",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08209",
+    "name": "SANTA JUANA",
+    "treasuryCode": "196",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08210",
+    "name": "SAN PEDRO DE LA PAZ",
+    "treasuryCode": "343",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08211",
+    "name": "CHIGUAYANTE",
+    "treasuryCode": "344",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08212",
+    "name": "HUALPEN",
+    "treasuryCode": "346",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08301",
+    "name": "ARAUCO",
+    "treasuryCode": "198",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08302",
+    "name": "CURANILAHUE",
+    "treasuryCode": "197",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08303",
+    "name": "LEBU",
+    "treasuryCode": "199",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08304",
+    "name": "LOS ALAMOS",
+    "treasuryCode": "200",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08305",
+    "name": "CANETE",
+    "treasuryCode": "201",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08306",
+    "name": "CONTULMO",
+    "treasuryCode": "202",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08307",
+    "name": "TIRUA",
+    "treasuryCode": "203",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08401",
+    "name": "LOS ANGELES",
+    "treasuryCode": "204",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08402",
+    "name": "SANTA BARBARA",
+    "treasuryCode": "205",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08403",
+    "name": "LAJA",
+    "treasuryCode": "210",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08404",
+    "name": "QUILLECO",
+    "treasuryCode": "206",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08405",
+    "name": "NACIMIENTO",
+    "treasuryCode": "212",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08406",
+    "name": "NEGRETE",
+    "treasuryCode": "213",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08407",
+    "name": "MULCHEN",
+    "treasuryCode": "214",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08408",
+    "name": "QUILACO",
+    "treasuryCode": "215",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08409",
+    "name": "YUMBEL",
+    "treasuryCode": "207",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08410",
+    "name": "CABRERO",
+    "treasuryCode": "208",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08411",
+    "name": "SAN ROSENDO",
+    "treasuryCode": "211",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08412",
+    "name": "TUCAPEL",
+    "treasuryCode": "209",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08413",
+    "name": "ANTUCO",
+    "treasuryCode": "303",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "08414",
+    "name": "ALTO BIOBIO",
+    "treasuryCode": "349",
+    "regionCode": "08"
+  },
+  {
+    "communeCode": "09101",
+    "name": "ANGOL",
+    "treasuryCode": "216",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09102",
+    "name": "PUREN",
+    "treasuryCode": "217",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09103",
+    "name": "LOS SAUCES",
+    "treasuryCode": "218",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09104",
+    "name": "RENAICO",
+    "treasuryCode": "219",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09105",
+    "name": "COLLIPULLI",
+    "treasuryCode": "220",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09106",
+    "name": "ERCILLA",
+    "treasuryCode": "221",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09107",
+    "name": "TRAIGUEN",
+    "treasuryCode": "222",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09108",
+    "name": "LUMACO",
+    "treasuryCode": "223",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09109",
+    "name": "VICTORIA",
+    "treasuryCode": "224",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09110",
+    "name": "CURACAUTIN",
+    "treasuryCode": "225",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09111",
+    "name": "LONQUIMAY",
+    "treasuryCode": "226",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09201",
+    "name": "TEMUCO",
+    "treasuryCode": "227",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09202",
+    "name": "VILCUN",
+    "treasuryCode": "228",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09203",
+    "name": "FREIRE",
+    "treasuryCode": "229",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09204",
+    "name": "CUNCO",
+    "treasuryCode": "230",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09205",
+    "name": "LAUTARO",
+    "treasuryCode": "231",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09206",
+    "name": "PERQUENCO",
+    "treasuryCode": "233",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09207",
+    "name": "GALVARINO",
+    "treasuryCode": "232",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09208",
+    "name": "NUEVA IMPERIAL",
+    "treasuryCode": "234",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09209",
+    "name": "CARAHUE",
+    "treasuryCode": "235",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09210",
+    "name": "SAAVEDRA",
+    "treasuryCode": "236",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09211",
+    "name": "PITRUFQUEN",
+    "treasuryCode": "237",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09212",
+    "name": "GORBEA",
+    "treasuryCode": "238",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09213",
+    "name": "TOLTEN",
+    "treasuryCode": "239",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09214",
+    "name": "LONCOCHE",
+    "treasuryCode": "240",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09215",
+    "name": "VILLARRICA",
+    "treasuryCode": "241",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09216",
+    "name": "PUCON",
+    "treasuryCode": "242",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09217",
+    "name": "MELIPEUCO",
+    "treasuryCode": "304",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09218",
+    "name": "CURARREHUE",
+    "treasuryCode": "305",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09219",
+    "name": "TEODORO SCHMIDT",
+    "treasuryCode": "306",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09220",
+    "name": "PADRE LAS CASAS",
+    "treasuryCode": "345",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "09221",
+    "name": "CHOLCHOL",
+    "treasuryCode": "348",
+    "regionCode": "09"
+  },
+  {
+    "communeCode": "10101",
+    "name": "VALDIVIA",
+    "treasuryCode": "243",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10102",
+    "name": "MARIQUINA",
+    "treasuryCode": "245",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10103",
+    "name": "LANCO",
+    "treasuryCode": "249",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10104",
+    "name": "LOS LAGOS",
+    "treasuryCode": "247",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10105",
+    "name": "FUTRONO",
+    "treasuryCode": "248",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10106",
+    "name": "CORRAL",
+    "treasuryCode": "244",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10107",
+    "name": "MAFIL",
+    "treasuryCode": "246",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10108",
+    "name": "PANGUIPULLI",
+    "treasuryCode": "250",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10109",
+    "name": "LA UNION",
+    "treasuryCode": "251",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10110",
+    "name": "PAILLACO",
+    "treasuryCode": "252",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10111",
+    "name": "RIO BUENO",
+    "treasuryCode": "253",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10112",
+    "name": "LAGO RANCO",
+    "treasuryCode": "254",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10201",
+    "name": "OSORNO",
+    "treasuryCode": "255",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10202",
+    "name": "SAN PABLO",
+    "treasuryCode": "257",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10203",
+    "name": "PUERTO OCTAY",
+    "treasuryCode": "258",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10204",
+    "name": "PUYEHUE",
+    "treasuryCode": "256",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10205",
+    "name": "RIO NEGRO",
+    "treasuryCode": "259",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10206",
+    "name": "PURRANQUE",
+    "treasuryCode": "260",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10207",
+    "name": "SAN JUAN DE LA COSTA",
+    "treasuryCode": "307",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10301",
+    "name": "PUERTO MONTT",
+    "treasuryCode": "261",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10302",
+    "name": "COCHAMO",
+    "treasuryCode": "262",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10303",
+    "name": "PUERTO VARAS",
+    "treasuryCode": "266",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10304",
+    "name": "FRESIA",
+    "treasuryCode": "268",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10305",
+    "name": "FRUTILLAR",
+    "treasuryCode": "269",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10306",
+    "name": "LLANQUIHUE",
+    "treasuryCode": "267",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10307",
+    "name": "MAULLIN",
+    "treasuryCode": "263",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10308",
+    "name": "LOS MUERMOS",
+    "treasuryCode": "264",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10309",
+    "name": "CALBUCO",
+    "treasuryCode": "265",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10401",
+    "name": "CASTRO",
+    "treasuryCode": "270",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10402",
+    "name": "CHONCHI",
+    "treasuryCode": "271",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10403",
+    "name": "QUEILEN",
+    "treasuryCode": "272",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10404",
+    "name": "QUELLON",
+    "treasuryCode": "273",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10405",
+    "name": "PUQUELDON",
+    "treasuryCode": "274",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10406",
+    "name": "ANCUD",
+    "treasuryCode": "277",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10407",
+    "name": "QUEMCHI",
+    "treasuryCode": "278",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10408",
+    "name": "DALCAHUE",
+    "treasuryCode": "279",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10410",
+    "name": "CURACO DE VELEZ",
+    "treasuryCode": "276",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10415",
+    "name": "QUINCHAO",
+    "treasuryCode": "275",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10501",
+    "name": "CHAITEN",
+    "treasuryCode": "280",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10502",
+    "name": "HUALAIHUE",
+    "treasuryCode": "308",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10503",
+    "name": "FUTALEUFU",
+    "treasuryCode": "281",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "10504",
+    "name": "PALENA",
+    "treasuryCode": "282",
+    "regionCode": "10"
+  },
+  {
+    "communeCode": "11101",
+    "name": "AYSEN",
+    "treasuryCode": "285",
+    "regionCode": "11"
+  },
+  {
+    "communeCode": "11102",
+    "name": "CISNES",
+    "treasuryCode": "286",
+    "regionCode": "11"
+  },
+  {
+    "communeCode": "11104",
+    "name": "GUAITECAS",
+    "treasuryCode": "309",
+    "regionCode": "11"
+  },
+  {
+    "communeCode": "11201",
+    "name": "CHILE CHICO",
+    "treasuryCode": "287",
+    "regionCode": "11"
+  },
+  {
+    "communeCode": "11203",
+    "name": "RIO IBANEZ",
+    "treasuryCode": "288",
+    "regionCode": "11"
+  },
+  {
+    "communeCode": "11301",
+    "name": "COCHRANE",
+    "treasuryCode": "289",
+    "regionCode": "11"
+  },
+  {
+    "communeCode": "11302",
+    "name": "OHIGGINS",
+    "treasuryCode": "310",
+    "regionCode": "11"
+  },
+  {
+    "communeCode": "11303",
+    "name": "TORTEL",
+    "treasuryCode": "311",
+    "regionCode": "11"
+  },
+  {
+    "communeCode": "11401",
+    "name": "COYHAIQUE",
+    "treasuryCode": "284",
+    "regionCode": "11"
+  },
+  {
+    "communeCode": "11402",
+    "name": "LAGO VERDE",
+    "treasuryCode": "312",
+    "regionCode": "11"
+  },
+  {
+    "communeCode": "12101",
+    "name": "NATALES",
+    "treasuryCode": "291",
+    "regionCode": "12"
+  },
+  {
+    "communeCode": "12103",
+    "name": "TORRES DEL PAINE",
+    "treasuryCode": "313",
+    "regionCode": "12"
+  },
+  {
+    "communeCode": "12202",
+    "name": "RIO VERDE",
+    "treasuryCode": "314",
+    "regionCode": "12"
+  },
+  {
+    "communeCode": "12204",
+    "name": "SAN GREGORIO",
+    "treasuryCode": "315",
+    "regionCode": "12"
+  },
+  {
+    "communeCode": "12205",
+    "name": "PUNTA ARENAS",
+    "treasuryCode": "290",
+    "regionCode": "12"
+  },
+  {
+    "communeCode": "12206",
+    "name": "LAGUNA BLANCA",
+    "treasuryCode": "316",
+    "regionCode": "12"
+  },
+  {
+    "communeCode": "12301",
+    "name": "PORVENIR",
+    "treasuryCode": "292",
+    "regionCode": "12"
+  },
+  {
+    "communeCode": "12302",
+    "name": "PRIMAVERA",
+    "treasuryCode": "317",
+    "regionCode": "12"
+  },
+  {
+    "communeCode": "12304",
+    "name": "TIMAUKEL",
+    "treasuryCode": "318",
+    "regionCode": "12"
+  },
+  {
+    "communeCode": "12401",
+    "name": "CABO DE HORNOS",
+    "treasuryCode": "319",
+    "regionCode": "12"
+  },
+  {
+    "communeCode": "13101",
+    "name": "SANTIAGO",
+    "treasuryCode": "070",
+    "regionCode": "13"
+  },
+  {
+    "communeCode": "13134",
+    "name": "SANTIAGO OESTE",
+    "treasuryCode": "073",
+    "regionCode": "13"
+  },
+  {
+    "communeCode": "13135",
+    "name": "SANTIAGO SUR",
+    "treasuryCode": "084",
+    "regionCode": "13"
+  },
+  {
+    "communeCode": "13159",
+    "name": "RECOLETA",
+    "treasuryCode": "329",
+    "regionCode": "13"
+  },
+  {
+    "communeCode": "13167",
+    "name": "INDEPENDENCIA",
+    "treasuryCode": "330",
+    "regionCode": "13"
+  },
+  {
+    "communeCode": "14107",
+    "name": "QUINTA NORMAL",
+    "treasuryCode": "081",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14109",
+    "name": "MAIPU",
+    "treasuryCode": "094",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14111",
+    "name": "PUDAHUEL",
+    "treasuryCode": "082",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14113",
+    "name": "RENCA",
+    "treasuryCode": "077",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14114",
+    "name": "QUILICURA",
+    "treasuryCode": "079",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14127",
+    "name": "CONCHALI",
+    "treasuryCode": "075",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14155",
+    "name": "LO PRADO",
+    "treasuryCode": "325",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14156",
+    "name": "CERRO NAVIA",
+    "treasuryCode": "324",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14157",
+    "name": "ESTACION CENTRAL",
+    "treasuryCode": "328",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14158",
+    "name": "HUECHURABA",
+    "treasuryCode": "334",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14166",
+    "name": "CERRILLOS",
+    "treasuryCode": "333",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14201",
+    "name": "COLINA",
+    "treasuryCode": "076",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14202",
+    "name": "LAMPA",
+    "treasuryCode": "078",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14203",
+    "name": "TIL-TIL",
+    "treasuryCode": "080",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14501",
+    "name": "TALAGANTE",
+    "treasuryCode": "086",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14502",
+    "name": "ISLA DE MAIPO",
+    "treasuryCode": "087",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14503",
+    "name": "EL MONTE",
+    "treasuryCode": "089",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14504",
+    "name": "PENAFLOR",
+    "treasuryCode": "085",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14505",
+    "name": "PADRE HURTADO",
+    "treasuryCode": "339",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14601",
+    "name": "MELIPILLA",
+    "treasuryCode": "088",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14602",
+    "name": "MARIA PINTO",
+    "treasuryCode": "090",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14603",
+    "name": "CURACAVI",
+    "treasuryCode": "083",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14604",
+    "name": "SAN PEDRO",
+    "treasuryCode": "108",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "14605",
+    "name": "ALHUE",
+    "treasuryCode": "109",
+    "regionCode": "14"
+  },
+  {
+    "communeCode": "15103",
+    "name": "PROVIDENCIA",
+    "treasuryCode": "072",
+    "regionCode": "15"
+  },
+  {
+    "communeCode": "15105",
+    "name": "NUNOA",
+    "treasuryCode": "091",
+    "regionCode": "15"
+  },
+  {
+    "communeCode": "15108",
+    "name": "LAS CONDES",
+    "treasuryCode": "071",
+    "regionCode": "15"
+  },
+  {
+    "communeCode": "15128",
+    "name": "LA FLORIDA",
+    "treasuryCode": "093",
+    "regionCode": "15"
+  },
+  {
+    "communeCode": "15132",
+    "name": "LA REINA",
+    "treasuryCode": "092",
+    "regionCode": "15"
+  },
+  {
+    "communeCode": "15151",
+    "name": "MACUL",
+    "treasuryCode": "323",
+    "regionCode": "15"
+  },
+  {
+    "communeCode": "15152",
+    "name": "PENALOLEN",
+    "treasuryCode": "322",
+    "regionCode": "15"
+  },
+  {
+    "communeCode": "15160",
+    "name": "VITACURA",
+    "treasuryCode": "331",
+    "regionCode": "15"
+  },
+  {
+    "communeCode": "15161",
+    "name": "LO BARNECHEA",
+    "treasuryCode": "332",
+    "regionCode": "15"
+  },
+  {
+    "communeCode": "16106",
+    "name": "SAN MIGUEL",
+    "treasuryCode": "095",
+    "regionCode": "16"
+  },
+  {
+    "communeCode": "16110",
+    "name": "LA CISTERNA",
+    "treasuryCode": "096",
+    "regionCode": "16"
+  },
+  {
+    "communeCode": "16131",
+    "name": "LA GRANJA",
+    "treasuryCode": "097",
+    "regionCode": "16"
+  },
+  {
+    "communeCode": "16153",
+    "name": "SAN RAMON",
+    "treasuryCode": "326",
+    "regionCode": "16"
+  },
+  {
+    "communeCode": "16154",
+    "name": "LA PINTANA",
+    "treasuryCode": "327",
+    "regionCode": "16"
+  },
+  {
+    "communeCode": "16162",
+    "name": "PEDRO AGUIRRE CERDA",
+    "treasuryCode": "336",
+    "regionCode": "16"
+  },
+  {
+    "communeCode": "16163",
+    "name": "SAN JOAQUIN",
+    "treasuryCode": "335",
+    "regionCode": "16"
+  },
+  {
+    "communeCode": "16164",
+    "name": "LO ESPEJO",
+    "treasuryCode": "337",
+    "regionCode": "16"
+  },
+  {
+    "communeCode": "16165",
+    "name": "EL BOSQUE",
+    "treasuryCode": "338",
+    "regionCode": "16"
+  },
+  {
+    "communeCode": "16301",
+    "name": "PUENTE ALTO",
+    "treasuryCode": "100",
+    "regionCode": "16"
+  },
+  {
+    "communeCode": "16302",
+    "name": "PIRQUE",
+    "treasuryCode": "101",
+    "regionCode": "16"
+  },
+  {
+    "communeCode": "16303",
+    "name": "SAN JOSE DE MAIPO",
+    "treasuryCode": "102",
+    "regionCode": "16"
+  },
+  {
+    "communeCode": "16401",
+    "name": "SAN BERNARDO",
+    "treasuryCode": "098",
+    "regionCode": "16"
+  },
+  {
+    "communeCode": "16402",
+    "name": "CALERA DE TANGO",
+    "treasuryCode": "099",
+    "regionCode": "16"
+  },
+  {
+    "communeCode": "16403",
+    "name": "BUIN",
+    "treasuryCode": "103",
+    "regionCode": "16"
+  },
+  {
+    "communeCode": "16404",
+    "name": "PAINE",
+    "treasuryCode": "104",
+    "regionCode": "16"
+  }
+]

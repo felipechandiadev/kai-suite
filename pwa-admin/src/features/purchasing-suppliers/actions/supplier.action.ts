@@ -2,7 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { SupplierRequest } from "../infrastructure/supplier.request";
-import type { SupplierDetailView, SupplierGridRow, UpdateSupplierPayload } from "../types/supplier.types";
+import {
+  chileGeoFromPersonFields,
+  geoPayloadFromChileGeo,
+} from "@/features/chile-person/lib/person-geo-payload.util";
+import type {
+  PersonGeoFields,
+  SupplierDetailView,
+  SupplierGridRow,
+  UpdateSupplierPayload,
+} from "../types/supplier.types";
 
 const SUPPLIERS_PATH = "/purchasing/suppliers";
 
@@ -47,9 +56,16 @@ export type CreateSupplierFormInput = {
   address?: string;
   supplierType: string;
   defaultPaymentTermDays: number;
-};
+} & PersonGeoFields;
 
 export type CreateSupplierResult = { success: true; id: string } | { success: false; error: string };
+
+function personGeoFromInput(input: CreateSupplierFormInput) {
+  return {
+    ...geoPayloadFromChileGeo(chileGeoFromPersonFields(input)),
+    economicActivities: input.economicActivities?.length ? input.economicActivities : undefined,
+  };
+}
 
 export async function listSuppliersForGrid(): Promise<{ rows: SupplierGridRow[]; total: number }> {
   return SupplierRequest.list(500, 0);
@@ -75,7 +91,7 @@ export async function createSupplierAction(input: CreateSupplierFormInput): Prom
       documentNumber: docNum,
       email: input.email?.trim() || undefined,
       phone: input.phone?.trim() || undefined,
-      address: input.address?.trim() || undefined,
+      ...personGeoFromInput(input),
     };
     const r = await SupplierRequest.create({
       person,
@@ -105,7 +121,7 @@ export async function createSupplierAction(input: CreateSupplierFormInput): Prom
     documentNumber: docNum,
     email: input.email?.trim() || undefined,
     phone: input.phone?.trim() || undefined,
-    address: input.address?.trim() || undefined,
+    ...personGeoFromInput(input),
   };
 
   const r = await SupplierRequest.create({

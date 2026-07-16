@@ -38,7 +38,7 @@ describe('CustomerPaymentSourcesService', () => {
       return [
         {
           id: 'bo-1',
-          documentNumber: 'ENC-50',
+          documentNumber: 'ECG50',
           total: 3000,
           metadata: {
             backorder: {

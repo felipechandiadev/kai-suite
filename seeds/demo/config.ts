@@ -176,8 +176,8 @@ export const SEED_POS_NAMES = ['Caja 1', 'Caja 2'] as const;
 export const SEED_PRESALE_POS_NAME = 'Preventa 1';
 
 export const SEED_CASH_HUBS = [
-  { code: 'CEV-00001', name: 'Principal' },
-  { code: 'CEV-00002', name: 'Secundario' },
+  { code: 'CEV00001', name: 'Principal' },
+  { code: 'CEV00002', name: 'Secundario' },
 ] as const;
 
 /** Zona / cobertura demo (Parral) + calendario Jul–Ago 2026. */

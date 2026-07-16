@@ -157,7 +157,7 @@ export function OperationsKanbanCard({
                   type="button"
                   variant="outlined"
                   size="sm"
-                  className="!inline-flex !h-7 !min-h-0 shrink-0 items-center gap-1 rounded-full !px-2 !py-0.5"
+                  className="inline-flex! h-7! min-h-0! shrink-0 items-center gap-1 rounded-full px-2! py-0.5!"
                   disabled={primaryDisabled}
                   loading={isActive}
                   onClick={handlePrimaryAction}

@@ -151,7 +151,7 @@ export class PaymentsService {
 
   private generatePaymentDocumentNumber(saleDocumentNumber: string): string {
     const timestamp = Date.now();
-    return `PAY-${saleDocumentNumber}-${timestamp}`;
+    return `PAY${saleDocumentNumber}${timestamp}`;
   }
 
   private async recomputeCashSessionExpectedAmount(

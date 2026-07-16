@@ -22,7 +22,7 @@ describe("sync-queue recovery", () => {
       createdAt: staleAt,
       updatedAt: staleAt,
       retryCount: 0,
-      localDocumentNumber: "OFF-1",
+      localDocumentNumber: "OFF1",
       serverDocumentNumber: null,
       serverTransactionId: null,
       payload: { cashSessionId: "sess-1" },

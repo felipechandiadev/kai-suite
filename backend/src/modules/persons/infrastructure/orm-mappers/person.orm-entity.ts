@@ -65,6 +65,30 @@ export class PersonOrmEntity {
   @Column({ type: 'text', nullable: true })
   address?: string;
 
+  @Column({ type: 'varchar', length: 8, nullable: true })
+  regionCode?: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  regionName?: string | null;
+
+  @Column({ type: 'varchar', length: 8, nullable: true })
+  communeCode?: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  communeName?: string | null;
+
+  @Column({ type: 'varchar', length: 8, nullable: true })
+  treasuryCode?: string | null;
+
+  @Column({ type: 'json', nullable: true })
+  economicActivities?: Array<{
+    code: string;
+    name: string;
+    category: 'PRIMERA' | 'SEGUNDA';
+    ivaAffected: boolean;
+    isActive: boolean;
+  }> | null;
+
   @Column({ type: 'json', nullable: true })
   bankAccounts?: PersonBankAccount[] | null;
 

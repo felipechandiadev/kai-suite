@@ -1,0 +1,12 @@
+---
+/**
+ * Hero estático: escena de tienda + POS (sin tabs / sin cambio de apps).
+ */
+const { src = '/screenshots/hero-store.jpg', alt = 'KaiStore en una tienda: caja, POS y pago con el cliente' } = Astro.props;
+---
+
+<figure class="mockup-shell hero-visual">
+  <div class="mockup-body hero-visual-body">
+    <img src={src} alt={alt} width="1024" height="571" loading="eager" decoding="async" />
+  </div>
+</figure>

@@ -82,7 +82,7 @@ export function OperationsRepartoCarousel({
 
   return (
     <div
-      className="flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] snap-x snap-mandatory [&::-webkit-scrollbar]:hidden"
+      className="flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] scrollbar-none snap-x snap-mandatory [&::-webkit-scrollbar]:hidden"
       role="tablist"
       aria-label="Repartos del día"
     >
@@ -123,7 +123,7 @@ export function OperationsRepartoCarousel({
               ref={activeCardRef}
               role="tab"
               aria-selected
-              className="min-w-[min(92vw,32rem)] max-w-[36rem] shrink-0 snap-center rounded-xl border-2 border-primary bg-card p-4 text-left shadow-sm"
+              className="min-w-[min(92vw,32rem)] max-w-xl shrink-0 snap-center rounded-xl border-2 border-primary bg-card p-4 text-left shadow-sm"
               data-test-id={`operations-reparto-card-${reparto.id}`}
             >
               <div className="flex items-start justify-between gap-3">
@@ -221,7 +221,7 @@ export function OperationsRepartoCarousel({
             aria-selected={false}
             disabled={disabled}
             onClick={() => onSelect(reparto.id)}
-            className="min-w-[11.5rem] max-w-[14rem] shrink-0 snap-start rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-primary/40 disabled:opacity-50"
+            className="min-w-46 max-w-56 shrink-0 snap-start rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-primary/40 disabled:opacity-50"
             data-test-id={`operations-reparto-card-${reparto.id}`}
           >
             <div className="flex items-start justify-between gap-2">
@@ -264,7 +264,7 @@ export function OperationsRepartoCarousel({
                   {driverLabel}
                 </span>
               ) : null}
-              <OperationsChip variant="default" className="!text-[10px]">
+              <OperationsChip variant="default" className="text-[10px]!">
                 {routeStatusLabel(routeStatus)}
               </OperationsChip>
               {orderTotal > 0 ? (

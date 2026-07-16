@@ -3,6 +3,10 @@
 import type { PosCreateCustomerInput } from "../types/pos-customer-create.types";
 import type { PosCustomerDetailBundlePaging } from "../lib/pos-customer-detail-url";
 import { CustomersPosRequest } from "../infrastructure/customers-pos.request";
+import {
+  chileGeoFromPersonFields,
+  geoPayloadFromChileGeo,
+} from "@/features/chile-person/lib/person-geo-payload.util";
 
 export async function searchPosCustomersAction(input: {
   query?: string;
@@ -46,7 +50,8 @@ export async function createPosCustomerAction(input: PosCreateCustomerInput) {
     notes: input.notes?.trim() || null,
     email: input.email?.trim() || undefined,
     phone: input.phone?.trim() || undefined,
-    address: input.address?.trim() || undefined,
+    ...geoPayloadFromChileGeo(chileGeoFromPersonFields(input)),
+    economicActivities: input.economicActivities?.length ? input.economicActivities : undefined,
   };
 
   if (personType === "COMPANY") {

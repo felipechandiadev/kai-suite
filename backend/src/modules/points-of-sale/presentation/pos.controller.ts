@@ -42,7 +42,13 @@ export class PosController {
     }
     const paymentMethods =
       await this.posService.getEffectivePaymentMethods(pointOfSaleId);
-    return { success: true, paymentMethods };
+    const voucherKinds = paymentMethods.find((m) => m.method === 'VOUCHER')
+      ?.voucherKinds;
+    return {
+      success: true,
+      paymentMethods,
+      ...(voucherKinds ? { voucherKinds } : {}),
+    };
   }
 
   @Get(':id')

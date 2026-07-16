@@ -16,7 +16,8 @@ export type CompanyPaymentMethodId =
   | "CREDIT"
   | "INTERNAL_CREDIT"
   | "CUSTOMER_CREDIT_NOTE"
-  | "ORDER_ADVANCE";
+  | "ORDER_ADVANCE"
+  | "VOUCHER";
 
 export interface CompanyPaymentMethodConfig {
   id: string;
@@ -27,6 +28,8 @@ export interface CompanyPaymentMethodConfig {
   requireReference: boolean;
   bankAccountKey?: string | null;
   metadata?: Record<string, any> | null;
+  /** Obligatorio cuando method === VOUCHER. */
+  voucherKindId?: string | null;
 }
 
 export const COMPANY_PAYMENT_METHOD_LABELS: Record<
@@ -42,6 +45,7 @@ export const COMPANY_PAYMENT_METHOD_LABELS: Record<
   INTERNAL_CREDIT: "Crédito interno",
   CUSTOMER_CREDIT_NOTE: "Nota de crédito cliente",
   ORDER_ADVANCE: "Abono por encargo",
+  VOUCHER: "Voucher",
 };
 
 export function companyPaymentMethodLabel(
@@ -55,6 +59,7 @@ export function companyPaymentMethodLabel(
 export const PAYMENT_METHODS_ALWAYS_REQUIRE_REFERENCE: CompanyPaymentMethodId[] = [
   "CUSTOMER_CREDIT_NOTE",
   "ORDER_ADVANCE",
+  "VOUCHER",
 ];
 
 export function companyPaymentMethodAlwaysRequiresReference(
@@ -76,6 +81,7 @@ export const POS_CONFIGURABLE_METHOD_IDS: CompanyPaymentMethodId[] = [
   "DEBIT_CARD",
   "TRANSFER",
   "CHECK",
+  "VOUCHER",
 ];
 
 /** @deprecated Use POS_CONFIGURABLE_METHOD_IDS */

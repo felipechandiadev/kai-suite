@@ -267,7 +267,7 @@ const SideBar: React.FC<SideBarProps> = ({
                 ref={sideLogoRef}
                 src={logoUrl}
                 alt={`${APP_NAME} Logo`}
-                className="relative mx-auto h-20 w-auto max-w-[5rem] object-contain transition-opacity duration-300"
+                className="relative mx-auto h-20 w-auto max-w-20 object-contain transition-opacity duration-300"
                 style={{ opacity: sideLogoLoaded ? 1 : 0 }}
                 data-test-id="side-bar-logo"
                 onLoad={onSideLogoLoad}
@@ -295,7 +295,7 @@ const SideBar: React.FC<SideBarProps> = ({
                 <User className="mt-0.5 shrink-0 text-muted-foreground" size={24} />
                 <div className="flex min-w-0 flex-1 flex-col">
                   <span
-                    className="line-clamp-2 break-words text-left text-[11px] font-semibold leading-snug text-foreground"
+                    className="line-clamp-2 wrap-break-word text-left text-[11px] font-semibold leading-snug text-foreground"
                     title={displayName}
                   >
                     {displayName}

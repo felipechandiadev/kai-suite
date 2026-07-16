@@ -5,7 +5,7 @@ function hydratedVariant(id: string): ProductVariant {
   return {
     id,
     productId: 'p1',
-    sku: `SKU-${id}`,
+    sku: `SKU${id}`,
     barcode: null,
     trackInventory: false,
     attributeValues: null,

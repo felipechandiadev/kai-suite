@@ -37,7 +37,7 @@ export default function TextFieldPage() {
   const [compactInsetLogoFile, setCompactInsetLogoFile] = useState('logo-tickets.png');
   const [clienteSeleccionado, setClienteSeleccionado] = useState('');
   const [buscadorClienteOpen, setBuscadorClienteOpen] = useState(false);
-  const [enlaceVenta, setEnlaceVenta] = useState('https://kai.app/venta/VTA-26-00016');
+  const [enlaceVenta, setEnlaceVenta] = useState('https://kai.app/venta/VTA2600016');
   const [enlaceCopiado, setEnlaceCopiado] = useState(false);
 
   const clientesDemo = [

@@ -211,7 +211,7 @@ export class VoidTransactionUseCase {
   ): Promise<string> {
     // Generar número único para la anulación
     const timestamp = Date.now();
-    return `VOID-${originalDocumentNumber}-${timestamp}`;
+    return `VOID${originalDocumentNumber}${timestamp}`;
   }
 
   /**

@@ -2,5 +2,7 @@
   "css.lint.unknownAtRules": "ignore",
   "scss.lint.unknownAtRules": "ignore",
   "less.lint.unknownAtRules": "ignore",
-  "java.configuration.updateBuildConfiguration": "automatic"
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "typescript.tsdk": "backend/node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
 }

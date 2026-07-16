@@ -49,7 +49,7 @@ export function DeliveryDateNav({
           variant="text"
           size="sm"
           disabled={disabled || isToday}
-          className="!px-3"
+          className="px-3!"
           onClick={() => onDateChange(today)}
         >
           Hoy

@@ -58,7 +58,7 @@ export type CourierStopsResult = {
 export async function courierLoginAction(body: {
   userName: string;
   password: string;
-  companyId?: string;
+  companyId: string;
 }) {
   return courierPost<CourierLoginResult>("/courier/login", body);
 }

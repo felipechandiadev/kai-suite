@@ -1,0 +1,25 @@
+{
+  "name": "@kai/chile-catalogs",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./src/index.ts": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:data": "node scripts/build-from-sources.mjs",
+    "build:data:fetch": "node scripts/build-from-sources.mjs --fetch-activities",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

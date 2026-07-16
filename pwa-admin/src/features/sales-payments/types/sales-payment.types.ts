@@ -16,7 +16,11 @@ export type SalesPaymentMethod =
   | "TRANSFER"
   | "CHECK"
   | "CREDIT"
-  | "INTERNAL_CREDIT";
+  | "INTERNAL_CREDIT"
+  | "VOUCHER"
+  | "CUSTOMER_CREDIT_NOTE"
+  | "ORDER_ADVANCE"
+  | "MIXED";
 
 export type SalesPaymentRelatedSale = {
   saleId: string;
@@ -80,4 +84,8 @@ export const SALES_PAYMENT_METHOD_LABEL: Record<SalesPaymentMethod, string> = {
   CHECK: "Cheque",
   CREDIT: "Crédito",
   INTERNAL_CREDIT: "Crédito interno",
+  VOUCHER: "Voucher",
+  CUSTOMER_CREDIT_NOTE: "Nota de crédito cliente",
+  ORDER_ADVANCE: "Abono por encargo",
+  MIXED: "Mixto",
 };

@@ -9,16 +9,19 @@ import { IsNull, Repository } from 'typeorm';
 import { PersonBankAccountDto } from '@modules/persons/application/dto/person-bank-account.dto';
 import {
   CompanyPaymentMethodConfig,
-  buildDefaultCompanyCatalog,
   defaultCompanyPaymentMethodId,
-  validateCompanyPaymentMethods,
+  mergeCompanyAndPos,
+  PAYMENT_METHOD_LABELS,
 } from '@modules/payment-methods-config';
+import { PaymentMethod } from '@modules/transactions/domain/transaction.entity';
 import { Company, type CompanyBankAccount } from '../domain/company.entity';
 import {
   CompanyCheckSettings,
   buildDefaultCompanyCheckSettings,
   sanitizeCompanyCheckSettings,
 } from '../domain/company-checks.types';
+import { CompanyVoucherKind } from '../domain/company-voucher-kinds.types';
+import { CompanyPaymentCatalogService } from './company-payment-catalog.service';
 import {
   CompanyMercadoPagoSettings,
   buildDefaultCompanyMercadoPagoSettings,
@@ -83,7 +86,6 @@ import {
   resolveCompanyIdentity,
   sanitizeCompanyIdentity,
 } from '../domain/company-identity.types';
-import { PaymentMethod } from '@modules/transactions/domain/transaction.entity';
 import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
 import { Branch } from '@modules/branches/domain/branch.entity';
 import { Storage } from '@modules/storages/domain/storage.entity';
@@ -128,6 +130,7 @@ export class CompaniesService {
     private readonly storageRepository: Repository<Storage>,
     @InjectRepository(PriceList)
     private readonly priceListRepository: Repository<PriceList>,
+    private readonly paymentCatalog: CompanyPaymentCatalogService,
   ) {}
 
   /**
@@ -313,9 +316,7 @@ export class CompaniesService {
   }
 
   /**
-   * Lee el catálogo de medios de pago de una empresa.
-   * Si no existe en `settings.paymentMethods`, devuelve un set por defecto
-   * (no se persiste hasta que el admin guarde explícitamente).
+   * Lee el catálogo de medios de pago de una empresa (tabla).
    */
   async getPaymentMethods(
     companyId: string,
@@ -324,21 +325,11 @@ export class CompaniesService {
       where: { id: companyId },
     });
     if (!company) throw new NotFoundException('Empresa no encontrada');
-    const raw = company.settings?.paymentMethods;
-    if (!Array.isArray(raw) || raw.length === 0) {
-      return buildDefaultCompanyCatalog();
-    }
-    try {
-      return validateCompanyPaymentMethods(raw);
-    } catch {
-      // Si lo persistido es inválido, no rompemos el GET; devolvemos default.
-      return buildDefaultCompanyCatalog();
-    }
+    return this.paymentCatalog.getPaymentMethods(companyId);
   }
 
   /**
-   * Reemplaza el catálogo de medios de pago de una empresa.
-   * Hace bulk-replace con validación de unicidad (alias por método, ids).
+   * Upsert + soft-delete del catálogo de medios de pago.
    */
   async replacePaymentMethods(
     companyId: string,
@@ -348,35 +339,34 @@ export class CompaniesService {
       where: { id: companyId },
     });
     if (!company) throw new NotFoundException('Empresa no encontrada');
-    let validated: CompanyPaymentMethodConfig[];
-    try {
-      validated = validateCompanyPaymentMethods(list);
-    } catch (e) {
-      throw new BadRequestException(
-        e instanceof Error ? e.message : 'Configuración inválida',
+    const icc = this.readInternalCustomerCreditFromSettings(
+      (company.settings ?? {}) as Record<string, any>,
+    );
+    let incoming = list;
+    if (!icc.enabled && Array.isArray(list)) {
+      incoming = list.map((m: any) =>
+        m?.method === PaymentMethod.INTERNAL_CREDIT
+          ? { ...m, isActive: false }
+          : m,
       );
     }
-    const settings = { ...(company.settings ?? {}) };
-    const icc = this.readInternalCustomerCreditFromSettings(settings);
-    const internalCreditIds = new Set<string>();
-    const finalList = !icc.enabled
-      ? validated.map((m) => {
-          if (m.method === PaymentMethod.INTERNAL_CREDIT) {
-            internalCreditIds.add(m.id);
-            return { ...m, isActive: false };
-          }
-          return m;
-        })
-      : validated;
-    settings.paymentMethods = finalList;
-    company.settings = settings;
-    await this.companyRepository.save(company);
-    if (!icc.enabled && internalCreditIds.size > 0) {
-      await this.applyPaymentMethodToggleOnAllPointsOfSale(
-        companyId,
-        internalCreditIds,
-        false,
+    const finalList = await this.paymentCatalog.replacePaymentMethods(
+      companyId,
+      incoming,
+    );
+    if (!icc.enabled) {
+      const internalCreditIds = new Set(
+        finalList
+          .filter((m) => m.method === PaymentMethod.INTERNAL_CREDIT)
+          .map((m) => m.id),
       );
+      if (internalCreditIds.size > 0) {
+        await this.paymentCatalog.applyPaymentMethodToggleOnAllPointsOfSale(
+          companyId,
+          internalCreditIds,
+          false,
+        );
+      }
     }
     return finalList;
   }
@@ -395,6 +385,95 @@ export class CompaniesService {
       return buildDefaultCompanyCheckSettings();
     }
     return sanitizeCompanyCheckSettings(raw);
+  }
+
+  /**
+   * Catálogo de tipos de voucher (tabla).
+   */
+  async getVoucherKinds(companyId: string): Promise<CompanyVoucherKind[]> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+    return this.paymentCatalog.listVoucherKinds(companyId);
+  }
+
+  /**
+   * Upsert + soft-delete de tipos de voucher.
+   */
+  async replaceVoucherKinds(
+    companyId: string,
+    raw: unknown,
+  ): Promise<CompanyVoucherKind[]> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+    return this.paymentCatalog.replaceVoucherKinds(companyId, raw);
+  }
+
+  async getPosPaymentMethodsViaCatalog(
+    posId: string,
+    companyId: string,
+  ) {
+    return this.paymentCatalog.getPosPaymentMethods(posId, companyId);
+  }
+
+  async replacePosPaymentMethodsViaCatalog(
+    posId: string,
+    companyId: string,
+    list: unknown,
+  ) {
+    return this.paymentCatalog.replacePosPaymentMethods(posId, companyId, list);
+  }
+
+  async getEffectivePaymentMethodsForPos(posId: string, companyId: string) {
+    const catalog = await this.paymentCatalog.getPaymentMethods(companyId);
+    const list = await this.paymentCatalog.getPosPaymentMethods(
+      posId,
+      companyId,
+    );
+    const merged = mergeCompanyAndPos(catalog, list);
+    const kinds = await this.paymentCatalog.listVoucherKinds(companyId);
+    const kindsById = new Map(kinds.map((k) => [k.id, k]));
+    return merged.map((m) => {
+      if (m.method !== PaymentMethod.VOUCHER) return m;
+      const cmp = catalog.find((c) => c.id === m.companyPaymentMethodId);
+      const kind = cmp?.voucherKindId
+        ? kindsById.get(cmp.voucherKindId)
+        : undefined;
+      if (!kind || !kind.isActive) {
+        return { ...m, voucherKind: null, voucherKinds: [] };
+      }
+      const voucherKind = {
+        id: kind.id,
+        code: kind.code,
+        name: kind.name,
+        faceValueMode: kind.faceValueMode,
+        defaultFaceValue: kind.defaultFaceValue ?? null,
+        requireFaceValue:
+          kind.faceValueMode === 'OPEN' ? true : kind.requireFaceValue,
+        defaultIssuerName: kind.defaultIssuerName ?? null,
+      };
+      return {
+        ...m,
+        label:
+          m.alias?.trim() ||
+          kind.name ||
+          PAYMENT_METHOD_LABELS[m.method] ||
+          m.method,
+        voucherKind,
+        voucherKinds: [
+          {
+            code: kind.code,
+            name: kind.name,
+            requireFaceValue:
+              kind.faceValueMode === 'FIXED' || kind.faceValueMode === 'OPEN',
+            defaultIssuerName: kind.defaultIssuerName ?? null,
+          },
+        ],
+      };
+    });
   }
 
   /**
@@ -421,31 +500,18 @@ export class CompaniesService {
 
     const settings = { ...(company.settings ?? {}) };
     settings.checks = validated;
-
-    const checkCompanyMethodIds = new Set<string>();
-
-    if (Array.isArray(settings.paymentMethods)) {
-      try {
-        const list = validateCompanyPaymentMethods(settings.paymentMethods);
-        const next = list.map((m) => {
-          if (m.method === PaymentMethod.CHECK) {
-            checkCompanyMethodIds.add(m.id);
-            return { ...m, isActive: checkActiveForPos };
-          }
-          return m;
-        });
-        settings.paymentMethods = next;
-      } catch {
-        // Si el catálogo es inválido no rompemos la actualización de
-        // settings.checks; queda como estaba.
-      }
-    }
-
     company.settings = settings;
     await this.companyRepository.save(company);
 
+    const checkCompanyMethodIds = new Set(
+      await this.paymentCatalog.setPaymentMethodsActiveByMethod(
+        companyId,
+        PaymentMethod.CHECK,
+        checkActiveForPos,
+      ),
+    );
     if (checkCompanyMethodIds.size > 0) {
-      await this.applyPaymentMethodToggleOnAllPointsOfSale(
+      await this.paymentCatalog.applyPaymentMethodToggleOnAllPointsOfSale(
         companyId,
         checkCompanyMethodIds,
         checkActiveForPos,
@@ -514,40 +580,16 @@ export class CompaniesService {
     return toPublicMercadoPagoSettings(validated);
   }
 
-  /**
-   * Alinea `isEnabled` en `points_of_sale.settings.paymentMethods` para
-   * filas cuyo `companyPaymentMethodId` está en el conjunto dado.
-   */
   private async applyPaymentMethodToggleOnAllPointsOfSale(
     companyId: string,
     companyPaymentMethodIds: Set<string>,
     isEnabled: boolean,
   ): Promise<void> {
-    const poses = await this.posRepository.find({
-      where: { companyId, deletedAt: IsNull() },
-    });
-    for (const pos of poses) {
-      const raw = pos.settings?.paymentMethods;
-      if (!Array.isArray(raw) || raw.length === 0) continue;
-      let changed = false;
-      const next = raw.map((row: Record<string, unknown>) => {
-        const pid =
-          typeof row.companyPaymentMethodId === 'string'
-            ? row.companyPaymentMethodId
-            : '';
-        if (!companyPaymentMethodIds.has(pid)) {
-          return row;
-        }
-        if (row.isEnabled !== isEnabled) {
-          changed = true;
-        }
-        return { ...row, isEnabled };
-      });
-      if (changed) {
-        pos.settings = { ...(pos.settings ?? {}), paymentMethods: next };
-        await this.posRepository.save(pos);
-      }
-    }
+    await this.paymentCatalog.applyPaymentMethodToggleOnAllPointsOfSale(
+      companyId,
+      companyPaymentMethodIds,
+      isEnabled,
+    );
   }
 
   private readInternalCustomerCreditFromSettings(
@@ -606,37 +648,37 @@ export class CompaniesService {
   }
 
   /**
-   * Garantiza una fila `INTERNAL_CREDIT` en el catálogo empresa y devuelve su id.
+   * Garantiza una fila `INTERNAL_CREDIT` en el catálogo empresa (tabla).
    */
-  private syncInternalCreditCatalogEntry(
-    settings: Record<string, any>,
+  private async syncInternalCreditCatalogEntry(
+    companyId: string,
     active: boolean,
-  ): { settings: Record<string, any>; internalCreditCompanyIds: Set<string> } {
+  ): Promise<Set<string>> {
+    const catalog = await this.paymentCatalog.getPaymentMethods(companyId);
+    const existing = catalog.find(
+      (m) => m.method === PaymentMethod.INTERNAL_CREDIT,
+    );
     const internalCreditCompanyIds = new Set<string>();
-    let list: CompanyPaymentMethodConfig[];
-    if (Array.isArray(settings.paymentMethods)) {
-      try {
-        list = validateCompanyPaymentMethods(settings.paymentMethods);
-      } catch {
-        list = buildDefaultCompanyCatalog();
-      }
-    } else {
-      list = buildDefaultCompanyCatalog();
-    }
-
-    const idx = list.findIndex((m) => m.method === PaymentMethod.INTERNAL_CREDIT);
-    if (idx >= 0) {
-      const id = list[idx].id;
-      internalCreditCompanyIds.add(id);
-      list[idx] = { ...list[idx], isActive: active };
-    } else if (active) {
-      const id = defaultCompanyPaymentMethodId(PaymentMethod.INTERNAL_CREDIT);
-      internalCreditCompanyIds.add(id);
-      const maxOrder = list.reduce(
-        (max, m) => Math.max(max, m.displayOrder),
-        -1,
+    if (existing) {
+      internalCreditCompanyIds.add(existing.id);
+      await this.paymentCatalog.setPaymentMethodsActiveByMethod(
+        companyId,
+        PaymentMethod.INTERNAL_CREDIT,
+        active,
       );
-      list.push({
+      return internalCreditCompanyIds;
+    }
+    if (!active) {
+      return internalCreditCompanyIds;
+    }
+    const id = defaultCompanyPaymentMethodId(PaymentMethod.INTERNAL_CREDIT);
+    const maxOrder = catalog.reduce(
+      (max, m) => Math.max(max, m.displayOrder),
+      -1,
+    );
+    await this.paymentCatalog.replacePaymentMethods(companyId, [
+      ...catalog,
+      {
         id,
         method: PaymentMethod.INTERNAL_CREDIT,
         alias: null,
@@ -645,11 +687,11 @@ export class CompaniesService {
         requireReference: false,
         bankAccountKey: null,
         metadata: null,
-      });
-    }
-
-    settings.paymentMethods = list;
-    return { settings, internalCreditCompanyIds };
+        voucherKindId: null,
+      },
+    ]);
+    internalCreditCompanyIds.add(id);
+    return internalCreditCompanyIds;
   }
 
   /**
@@ -670,12 +712,13 @@ export class CompaniesService {
 
     const settings = { ...(company.settings ?? {}) };
     settings.internalCustomerCredit = validated;
-
-    const { settings: nextSettings, internalCreditCompanyIds } =
-      this.syncInternalCreditCatalogEntry(settings, active);
-
-    company.settings = nextSettings;
+    company.settings = settings;
     await this.companyRepository.save(company);
+
+    const internalCreditCompanyIds = await this.syncInternalCreditCatalogEntry(
+      companyId,
+      active,
+    );
 
     if (internalCreditCompanyIds.size > 0) {
       await this.applyPaymentMethodToggleOnAllPointsOfSale(

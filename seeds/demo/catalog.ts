@@ -95,7 +95,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     productBaseUnit: 'UN',
     variants: [
       {
-        sku: 'SEED-DEV-CAFE-250',
+        sku: 'SEEDDEVCAFE250',
         barcode: '7801001002501',
         basePrice: 2790,
         baseCost: 1200,
@@ -106,7 +106,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         uom: { stock: 'UN', sale: 'UN', purchase: 'UN' },
       },
       {
-        sku: 'SEED-DEV-CAFE-500',
+        sku: 'SEEDDEVCAFE500',
         barcode: '7801001005001',
         basePrice: 4990,
         baseCost: 2200,
@@ -117,7 +117,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         uom: { stock: 'UN', sale: 'UN', purchase: 'UN' },
       },
       {
-        sku: 'SEED-DEV-CAFE-1KG',
+        sku: 'SEEDDEVCAFE1KG',
         barcode: '7801001010001',
         basePrice: 8990,
         baseCost: 4000,
@@ -137,7 +137,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     productBaseUnit: 'ML',
     variants: [
       {
-        sku: 'SEED-DEV-ACE-500',
+        sku: 'SEEDDEVACE500',
         barcode: '7801002005002',
         basePrice: 5990,
         baseCost: 3200,
@@ -148,7 +148,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         uom: { stock: 'ML', sale: 'ML', purchase: 'L' },
       },
       {
-        sku: 'SEED-DEV-ACE-1L',
+        sku: 'SEEDDEVACE1L',
         barcode: '7801002010002',
         basePrice: 9990,
         baseCost: 5200,
@@ -168,7 +168,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     productBaseUnit: 'KG',
     variants: [
       {
-        sku: 'SEED-DEV-HAR-5',
+        sku: 'SEEDDEVHAR5',
         barcode: '7801003005001',
         basePrice: 4590,
         baseCost: 2800,
@@ -186,7 +186,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         },
       },
       {
-        sku: 'SEED-DEV-HAR-25',
+        sku: 'SEEDDEVHAR25',
         barcode: '7801003025001',
         basePrice: 18990,
         baseCost: 12000,
@@ -212,7 +212,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     categoryName: 'Alimentos y bebidas',
     variants: [
       {
-        sku: 'SEED-DEV-GAL-400',
+        sku: 'SEEDDEVGAL400',
         basePrice: 1990,
         baseCost: 900,
         trackInventory: true,
@@ -229,7 +229,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     categoryName: 'Alimentos y bebidas',
     variants: [
       {
-        sku: 'SEED-DEV-TE-20',
+        sku: 'SEEDDEVTE20',
         basePrice: 2490,
         baseCost: 1100,
         trackInventory: true,
@@ -246,7 +246,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     categoryName: 'Textil y vestuario',
     variants: [
       {
-        sku: 'SEED-DEV-POL-XS',
+        sku: 'SEEDDEVPOLXS',
         basePrice: 11990,
         baseCost: 5500,
         trackInventory: true,
@@ -256,7 +256,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Talla: 'XS', Color: 'Blanco', Material: 'Algodón' },
       },
       {
-        sku: 'SEED-DEV-POL-S',
+        sku: 'SEEDDEVPOLS',
         basePrice: 12490,
         baseCost: 5800,
         trackInventory: true,
@@ -266,7 +266,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Talla: 'S', Color: 'Blanco', Material: 'Algodón' },
       },
       {
-        sku: 'SEED-DEV-POL-M',
+        sku: 'SEEDDEVPOLM',
         basePrice: 12990,
         baseCost: 6000,
         trackInventory: true,
@@ -276,7 +276,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Talla: 'M', Color: 'Negro', Material: 'Algodón' },
       },
       {
-        sku: 'SEED-DEV-POL-L',
+        sku: 'SEEDDEVPOLL',
         basePrice: 13490,
         baseCost: 6200,
         trackInventory: true,
@@ -286,7 +286,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Talla: 'L', Color: 'Negro', Material: 'Algodón' },
       },
       {
-        sku: 'SEED-DEV-POL-XL',
+        sku: 'SEEDDEVPOLXL',
         basePrice: 13990,
         baseCost: 6500,
         trackInventory: true,
@@ -305,7 +305,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     categoryName: 'Textil y vestuario',
     variants: [
       {
-        sku: 'SEED-DEV-CAL-S-NEG',
+        sku: 'SEEDDEVCALSNEG',
         basePrice: 2990,
         baseCost: 1200,
         trackInventory: true,
@@ -315,7 +315,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Talla: 'S', Color: 'Negro' },
       },
       {
-        sku: 'SEED-DEV-CAL-S-BLA',
+        sku: 'SEEDDEVCALSBLA',
         basePrice: 2990,
         baseCost: 1200,
         trackInventory: true,
@@ -325,7 +325,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Talla: 'S', Color: 'Blanco' },
       },
       {
-        sku: 'SEED-DEV-CAL-S-GRA',
+        sku: 'SEEDDEVCALSGRA',
         basePrice: 2990,
         baseCost: 1200,
         trackInventory: true,
@@ -335,7 +335,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Talla: 'S', Color: 'Gris' },
       },
       {
-        sku: 'SEED-DEV-CAL-S-AZU',
+        sku: 'SEEDDEVCALSAZU',
         basePrice: 3090,
         baseCost: 1250,
         trackInventory: true,
@@ -345,7 +345,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Talla: 'S', Color: 'Azul' },
       },
       {
-        sku: 'SEED-DEV-CAL-M-NEG',
+        sku: 'SEEDDEVCALMNEG',
         basePrice: 2990,
         baseCost: 1200,
         trackInventory: true,
@@ -355,7 +355,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Talla: 'M', Color: 'Negro' },
       },
       {
-        sku: 'SEED-DEV-CAL-M-BLA',
+        sku: 'SEEDDEVCALMBLA',
         basePrice: 2990,
         baseCost: 1200,
         trackInventory: true,
@@ -365,7 +365,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Talla: 'M', Color: 'Blanco' },
       },
       {
-        sku: 'SEED-DEV-CAL-M-GRA',
+        sku: 'SEEDDEVCALMGRA',
         basePrice: 2990,
         baseCost: 1200,
         trackInventory: true,
@@ -375,7 +375,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Talla: 'M', Color: 'Gris' },
       },
       {
-        sku: 'SEED-DEV-CAL-M-AZU',
+        sku: 'SEEDDEVCALMAZU',
         basePrice: 3090,
         baseCost: 1250,
         trackInventory: true,
@@ -385,7 +385,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Talla: 'M', Color: 'Azul' },
       },
       {
-        sku: 'SEED-DEV-CAL-M-ROJ',
+        sku: 'SEEDDEVCALMROJ',
         basePrice: 3190,
         baseCost: 1300,
         trackInventory: true,
@@ -395,7 +395,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Talla: 'M', Color: 'Rojo' },
       },
       {
-        sku: 'SEED-DEV-CAL-L-NEG',
+        sku: 'SEEDDEVCALLNEG',
         basePrice: 3190,
         baseCost: 1300,
         trackInventory: true,
@@ -405,7 +405,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Talla: 'L', Color: 'Negro' },
       },
       {
-        sku: 'SEED-DEV-CAL-L-BLA',
+        sku: 'SEEDDEVCALLBLA',
         basePrice: 3190,
         baseCost: 1300,
         trackInventory: true,
@@ -415,7 +415,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Talla: 'L', Color: 'Blanco' },
       },
       {
-        sku: 'SEED-DEV-CAL-L-GRA',
+        sku: 'SEEDDEVCALLGRA',
         basePrice: 3190,
         baseCost: 1300,
         trackInventory: true,
@@ -425,7 +425,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Talla: 'L', Color: 'Gris' },
       },
       {
-        sku: 'SEED-DEV-CAL-L-AZU',
+        sku: 'SEEDDEVCALLAZU',
         basePrice: 3290,
         baseCost: 1350,
         trackInventory: true,
@@ -435,7 +435,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Talla: 'L', Color: 'Azul' },
       },
       {
-        sku: 'SEED-DEV-CAL-XL-NEG',
+        sku: 'SEEDDEVCALXLNEG',
         basePrice: 3290,
         baseCost: 1350,
         trackInventory: true,
@@ -445,7 +445,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Talla: 'XL', Color: 'Negro' },
       },
       {
-        sku: 'SEED-DEV-CAL-XL-BLA',
+        sku: 'SEEDDEVCALXLBLA',
         basePrice: 3290,
         baseCost: 1350,
         trackInventory: true,
@@ -463,7 +463,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     categoryName: 'Hogar y limpieza',
     variants: [
       {
-        sku: 'SEED-DEV-DET-3L',
+        sku: 'SEEDDEVDET3L',
         basePrice: 5490,
         baseCost: 2900,
         trackInventory: true,
@@ -480,7 +480,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     categoryName: 'Hogar y limpieza',
     variants: [
       {
-        sku: 'SEED-DEV-TOA-BLA',
+        sku: 'SEEDDEVTOABLA',
         basePrice: 8990,
         baseCost: 4500,
         trackInventory: true,
@@ -490,7 +490,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Color: 'Blanco', Material: 'Algodón' },
       },
       {
-        sku: 'SEED-DEV-TOA-GRS',
+        sku: 'SEEDDEVTOAGRS',
         basePrice: 8990,
         baseCost: 4500,
         trackInventory: true,
@@ -500,7 +500,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Color: 'Gris', Material: 'Algodón' },
       },
       {
-        sku: 'SEED-DEV-TOA-AZL',
+        sku: 'SEEDDEVTOAAZL',
         basePrice: 9490,
         baseCost: 4700,
         trackInventory: true,
@@ -518,7 +518,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     categoryName: 'Tecnología y oficina',
     variants: [
       {
-        sku: 'SEED-DEV-MOU-NEG',
+        sku: 'SEEDDEVMOUNEG',
         barcode: '7801004001001',
         basePrice: 12990,
         baseCost: 7000,
@@ -529,7 +529,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Color: 'Negro' },
       },
       {
-        sku: 'SEED-DEV-MOU-GRS',
+        sku: 'SEEDDEVMOUGRS',
         barcode: '7801004001002',
         basePrice: 12990,
         baseCost: 7000,
@@ -540,7 +540,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Color: 'Gris' },
       },
       {
-        sku: 'SEED-DEV-MOU-BLA',
+        sku: 'SEEDDEVMOUBLA',
         barcode: '7801004001003',
         basePrice: 13490,
         baseCost: 7200,
@@ -559,7 +559,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     categoryName: 'Tecnología y oficina',
     variants: [
       {
-        sku: 'SEED-DEV-HDMI-2',
+        sku: 'SEEDDEVHDMI2',
         basePrice: 5990,
         baseCost: 2500,
         trackInventory: true,
@@ -576,7 +576,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     categoryName: 'Tecnología y oficina',
     variants: [
       {
-        sku: 'SEED-DEV-CUA-ROJ',
+        sku: 'SEEDDEVCUAROJ',
         basePrice: 1990,
         baseCost: 800,
         trackInventory: true,
@@ -586,7 +586,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Color: 'Rojo' },
       },
       {
-        sku: 'SEED-DEV-CUA-AZL',
+        sku: 'SEEDDEVCUAAZL',
         basePrice: 1990,
         baseCost: 800,
         trackInventory: true,
@@ -596,7 +596,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Color: 'Azul' },
       },
       {
-        sku: 'SEED-DEV-CUA-NEG',
+        sku: 'SEEDDEVCUANEG',
         basePrice: 1990,
         baseCost: 800,
         trackInventory: true,
@@ -614,7 +614,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     categoryName: 'Tecnología y oficina',
     variants: [
       {
-        sku: 'SEED-DEV-MOC-NEG-NYL',
+        sku: 'SEEDDEVMOCNEGNYL',
         basePrice: 24990,
         baseCost: 12000,
         trackInventory: true,
@@ -624,7 +624,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Color: 'Negro', Material: 'Nylon' },
       },
       {
-        sku: 'SEED-DEV-MOC-GRS-NYL',
+        sku: 'SEEDDEVMOCGRSNYL',
         basePrice: 24990,
         baseCost: 12000,
         trackInventory: true,
@@ -634,7 +634,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         attributeValues: { Color: 'Gris', Material: 'Nylon' },
       },
       {
-        sku: 'SEED-DEV-MOC-AZL-POL',
+        sku: 'SEEDDEVMOCAZLPOL',
         basePrice: 22990,
         baseCost: 11000,
         trackInventory: true,
@@ -652,7 +652,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     categoryName: 'Servicios y digitales',
     variants: [
       {
-        sku: 'SEED-DEV-SRV-ARM',
+        sku: 'SEEDDEVSRVARM',
         basePrice: 3500,
         baseCost: 0,
         trackInventory: false,
@@ -669,7 +669,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     categoryName: 'Servicios y digitales',
     variants: [
       {
-        sku: 'SEED-DEV-DIG-XLS',
+        sku: 'SEEDDEVDIGXLS',
         basePrice: 15000,
         baseCost: 0,
         trackInventory: false,
@@ -682,7 +682,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
 ];
 
 /** Prefijo de SKU generados por el catálogo de desarrollo. */
-export const SEED_DEV_VARIANT_SKU_PREFIX = 'SEED-DEV-';
+export const SEED_DEV_VARIANT_SKU_PREFIX = 'SEEDDEV';
 
 /** Productos visibles y destacados en home eShop (orden = vitrina). */
 export const SEED_DEV_ESHOP_FEATURED_PRODUCT_NAMES = [

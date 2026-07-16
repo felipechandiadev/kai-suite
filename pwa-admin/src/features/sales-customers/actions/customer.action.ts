@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth/auth-options";
 import { revalidatePath } from "next/cache";
 import { CustomerRequest } from "../infrastructure/customer.request";
 import { getCompanyInternalCustomerCreditSettingsAction } from "@/features/companies/actions/companies-internal-customer-credit.action";
+import { geoPayloadFromChileGeo, chileGeoFromPersonFields } from "@/features/chile-person/lib/person-geo-payload.util";
 import type {
   CreateCustomerFormInput,
   CustomerDetailView,
@@ -170,7 +171,8 @@ export async function createCustomerAction(input: CreateCustomerFormInput): Prom
     notes: input.notes?.trim() || undefined,
     email: input.email?.trim() || undefined,
     phone: input.phone?.trim() || undefined,
-    address: input.address?.trim() || undefined,
+    ...geoPayloadFromChileGeo(chileGeoFromPersonFields(input)),
+    economicActivities: input.economicActivities?.length ? input.economicActivities : undefined,
   };
 
   if (personType === "COMPANY") {

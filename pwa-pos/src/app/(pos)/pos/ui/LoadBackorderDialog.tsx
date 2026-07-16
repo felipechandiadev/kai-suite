@@ -141,7 +141,7 @@ export function LoadBackorderDialog({ open, onClose, pointOfSaleId }: Props) {
         <div ref={folioFieldRef}>
           <TextField
             label="Folio interno del encargo"
-            placeholder="Ej. ENC-26-00012"
+            placeholder="Ej. ECG2600012"
             value={folio}
             onChange={(e) =>
               setFolio((e as React.ChangeEvent<HTMLInputElement>).target.value)

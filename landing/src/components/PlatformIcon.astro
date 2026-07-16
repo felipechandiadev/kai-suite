@@ -7,25 +7,56 @@ type Props = {
 };
 
 const { platform, size = 22 } = Astro.props;
-
-/** Assets originales del usuario embebidos en /public/icons/*.svg */
-const ICONS: Record<PlatformId, { src: string }> = {
-  windows: { src: '/icons/windows.svg' },
-  android: { src: '/icons/android.svg' },
-  ios: { src: '/icons/apple.svg' },
-  macos: { src: '/icons/apple.svg' },
-};
-
-const icon = ICONS[platform];
 ---
 
-<img
-  class="platform-icon-img"
-  src={icon.src}
-  width={size}
-  height={size}
-  alt=""
-  aria-hidden="true"
-  loading="lazy"
-  decoding="async"
-/>
+{
+  platform === 'android' && (
+    <svg
+      class="platform-icon-svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        fill="currentColor"
+        d="M17.6 9.48l1.84-3.18a.5.5 0 0 0-.86-.5l-1.88 3.24A7.9 7.9 0 0 0 12 7.5c-1.7 0-3.28.53-4.7 1.54L5.42 5.8a.5.5 0 1 0-.86.5L6.4 9.48C4.35 11.1 3 13.66 3 16.5v.5h18v-.5c0-2.84-1.35-5.4-3.4-7.02zM8.5 14.25a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm7 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2zM7 18.5h10V20a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-1.5z"
+      />
+    </svg>
+  )
+}
+{
+  platform === 'windows' && (
+    <svg
+      class="platform-icon-svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        fill="currentColor"
+        d="M3 5.5 10.5 4.4v7.1H3V5.5zm8.5-.9L21 3v8.5h-9.5V4.6zM3 13.5h7.5v7.1L3 19.5v-6zm8.5 0H21V21l-9.5-1.3v-6.2z"
+      />
+    </svg>
+  )
+}
+{
+  (platform === 'ios' || platform === 'macos') && (
+    <svg
+      class="platform-icon-svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        fill="currentColor"
+        d="M16.37 12.8c.02 2.14 1.88 2.85 1.9 2.86-.02.05-.3 1.02-.98 2.02-.59.86-1.2 1.72-2.16 1.74-.95.02-1.25-.56-2.34-.56s-1.43.54-2.33.58c-.94.04-1.65-.93-2.25-1.79-1.23-1.77-2.17-5-0.91-7.18.63-1.08 1.75-1.76 2.97-1.78.92-.02 1.8.62 2.34.62s1.64-.77 2.77-.66c.47.02 1.8.19 2.65 1.44-.07.04-1.58.93-1.66 2.71zM14.2 6.5c.5-.6.84-1.44.75-2.27-.72.03-1.6.48-2.12 1.08-.47.53-.88 1.38-.77 2.19.81.06 1.64-.41 2.14-1z"
+      />
+    </svg>
+  )
+}

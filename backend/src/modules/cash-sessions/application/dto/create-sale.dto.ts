@@ -94,6 +94,37 @@ export class CheckPaymentDataDto {
   dueDate?: string | null;
 }
 
+/**
+ * Datos de un voucher cuando `paymentMethod === 'VOUCHER'`.
+ * Se persiste en `metadata.payments[].voucherData`.
+ */
+export class VoucherPaymentDataDto {
+  @IsOptional()
+  @IsString()
+  kindId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  kindCode?: string | null;
+
+  @IsOptional()
+  @IsString()
+  kindName?: string | null;
+
+  @IsOptional()
+  @IsString()
+  issuerName?: string | null;
+
+  @IsOptional()
+  @IsNumber()
+  faceValue?: number | null;
+
+  /** Fecha de vencimiento YYYY-MM-DD. */
+  @IsOptional()
+  @IsString()
+  expiresAt?: string | null;
+}
+
 export class PaymentDetailDto {
   @IsString()
   paymentMethod: string;
@@ -144,6 +175,16 @@ export class PaymentDetailDto {
   @ValidateNested()
   @Type(() => CheckPaymentDataDto)
   checkData?: CheckPaymentDataDto;
+
+  /**
+   * Datos del voucher cuando `paymentMethod === 'VOUCHER'`.
+   * Se persiste en `metadata.payments[].voucherData`.
+   */
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => VoucherPaymentDataDto)
+  voucherData?: VoucherPaymentDataDto;
 }
 
 /**

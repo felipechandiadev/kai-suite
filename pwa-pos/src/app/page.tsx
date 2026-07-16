@@ -111,7 +111,7 @@ export default function LoginPage() {
             onClick={() => router.push("/setup")}
             data-test-id="login-configure-button"
           >
-            Configurar POS
+            Configurar empresa
           </Button>
         </div>
       </div>
@@ -222,8 +222,8 @@ export default function LoginPage() {
         size="md"
         className="fixed bottom-4 right-4 z-10 rounded-full border border-border bg-background shadow-sm"
         onClick={() => router.push("/setup")}
-        ariaLabel="Configurar POS"
-        title="Configurar POS"
+        ariaLabel="Configurar empresa"
+        title="Configurar empresa"
         data-test-id="login-setup-button"
         disabled={submitting}
       />

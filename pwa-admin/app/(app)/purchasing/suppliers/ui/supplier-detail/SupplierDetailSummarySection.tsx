@@ -1,7 +1,8 @@
 "use client";
-import { LoadingState } from '@kai/ui';
+import { LoadingState } from "@kai/ui";
 
 import { useCallback, useEffect, useState } from "react";
+import type { PersonEconomicActivity } from "@kai/chile-catalogs";
 import type {
   SupplierDetailView,
   UpdateSupplierPersonPayload,
@@ -10,6 +11,13 @@ import { documentTypeLabel } from "@/features/sales-customers/lib/customer-docum
 import { TextField } from "@kai/ui";
 import { Select, type Option } from "@kai/ui";
 import { IconButton } from "@kai/ui";
+import { ChileRegionCommuneFields } from "@/features/chile-person/ui/ChileRegionCommuneFields";
+import { EconomicActivitiesEditor } from "@/features/chile-person/ui/EconomicActivitiesEditor";
+import {
+  chileGeoFromPersonFields,
+  geoPayloadFromChileGeo,
+} from "@/features/chile-person/lib/person-geo-payload.util";
+import type { ChileGeoValue } from "@/features/chile-person/ui/ChileRegionCommuneFields";
 import { updateSupplierAction } from "@/features/purchasing-suppliers/actions/supplier.action";
 
 const DOC_OPTIONS_NATURAL: Option[] = [
@@ -33,7 +41,8 @@ type Draft = {
   documentNumber: string;
   email: string;
   phone: string;
-  address: string;
+  geo: ChileGeoValue;
+  economicActivities: PersonEconomicActivity[];
 };
 
 function normalizePersonDocType(raw: string | null | undefined, emptyFallback: string): string {
@@ -55,7 +64,8 @@ function draftFromPerson(p: NonNullable<SupplierDetailView["person"]>): Draft {
     documentNumber: p.documentNumber?.trim() ?? "",
     email: p.email?.trim() ?? "",
     phone: p.phone?.trim() ?? "",
-    address: p.address?.trim() ?? "",
+    geo: chileGeoFromPersonFields(p),
+    economicActivities: Array.isArray(p.economicActivities) ? [...p.economicActivities] : [],
   };
 }
 
@@ -65,12 +75,14 @@ function isCompany(detail: SupplierDetailView | null): boolean {
 
 function buildPersonPayload(detail: SupplierDetailView, draft: Draft): UpdateSupplierPersonPayload {
   const docType = draft.documentType;
+  const geoFields = geoPayloadFromChileGeo(draft.geo);
   const base: UpdateSupplierPersonPayload = {
     documentType: docType,
     documentNumber: draft.documentNumber.trim() || undefined,
     email: draft.email.trim() || undefined,
     phone: draft.phone.trim() || undefined,
-    address: draft.address.trim() || undefined,
+    ...geoFields,
+    economicActivities: draft.economicActivities,
   };
   if (isCompany(detail)) {
     return { ...base, businessName: draft.businessName.trim() || undefined };
@@ -149,6 +161,8 @@ export function SupplierDetailSummarySection({
   const company = isCompany(detail);
   const p = detail.person;
   const docOptions = company ? DOC_OPTIONS_COMPANY : DOC_OPTIONS_NATURAL;
+  const viewGeo = chileGeoFromPersonFields(p);
+  const viewActivities = Array.isArray(p.economicActivities) ? p.economicActivities : [];
 
   return (
     <div className="relative max-w-2xl text-sm" data-test-id="supplier-detail-summary">
@@ -280,16 +294,18 @@ export function SupplierDetailSummarySection({
           data-test-id="supplier-summary-phone"
         />
 
-        <TextField
-          label="Dirección"
-          value={editing && draft ? draft.address : p.address?.trim() ?? ""}
-          onChange={
-            readOnly ? noopFieldChange : (e) => setDraft((d) => (d ? { ...d, address: e.target.value } : d))
-          }
-          readOnly={readOnly}
-          density="compact"
-          rows={2}
-          data-test-id="supplier-summary-address"
+        <ChileRegionCommuneFields
+          value={editing && draft ? draft.geo : viewGeo}
+          onChange={(next) => setDraft((d) => (d ? { ...d, geo: next } : d))}
+          disabled={readOnly || isSaving}
+          testIdPrefix="supplier-summary-geo"
+        />
+
+        <EconomicActivitiesEditor
+          value={editing && draft ? draft.economicActivities : viewActivities}
+          onChange={(next) => setDraft((d) => (d ? { ...d, economicActivities: next } : d))}
+          disabled={readOnly || isSaving}
+          testIdPrefix="supplier-summary-acteco"
         />
 
         <TextField

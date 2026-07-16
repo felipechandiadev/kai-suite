@@ -11,6 +11,7 @@
     "generate-favicon": "node scripts/generate-pwa-icons.mjs"
   },
   "dependencies": {
+    "@kai/chile-catalogs": "file:../packages/chile-catalogs",
     "@kai/document-print": "file:../packages/document-print",
     "@kai/print-service-client": "file:../packages/print-service-client",
     "@kai/scale-service-client": "file:../packages/scale-service-client",

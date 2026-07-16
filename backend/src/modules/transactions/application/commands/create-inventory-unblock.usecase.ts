@@ -100,7 +100,7 @@ export class CreateInventoryUnblockUseCase implements ICommandHandler<CreateInve
     // For now, we'll just create the unblock transaction
 
     // Generate document number
-    const documentNumber = `IU-${Date.now()}`;
+    const documentNumber = `IU${Date.now()}`;
 
     // Create inventory unblock transaction
     const transaction = this.transactionRepository.create({

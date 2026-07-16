@@ -15,6 +15,8 @@ import {
   replaceCompanyPaymentMethodsAction,
 } from "@/features/companies/actions/companies-payment-methods.action";
 import { getCompanyInternalCustomerCreditSettingsAction } from "@/features/companies/actions/companies-internal-customer-credit.action";
+import { getCompanyVoucherKindsAction } from "@/features/companies/actions/companies-voucher-kinds.action";
+import type { CompanyVoucherKind } from "@/features/companies/types/company-voucher-kinds.types";
 import { CompanyPaymentMethodDialog } from "./CompanyPaymentMethodDialog";
 
 type Props = {
@@ -106,6 +108,7 @@ export function CompanyPaymentMethodsSection({ companyId }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<CompanyPaymentMethodConfig | null>(null);
   const [internalCreditEnabled, setInternalCreditEnabled] = useState(true);
+  const [voucherKinds, setVoucherKinds] = useState<CompanyVoucherKind[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,8 +117,9 @@ export function CompanyPaymentMethodsSection({ companyId }: Props) {
     Promise.all([
       getCompanyPaymentMethodsAction(companyId),
       getCompanyInternalCustomerCreditSettingsAction(companyId),
+      getCompanyVoucherKindsAction(companyId),
     ])
-      .then(([pm, icc]) => {
+      .then(([pm, icc, vk]) => {
         if (cancelled) return;
         if (pm.success) {
           setItems(pm.paymentMethods);
@@ -124,6 +128,9 @@ export function CompanyPaymentMethodsSection({ companyId }: Props) {
         }
         if (icc.success) {
           setInternalCreditEnabled(icc.internalCustomerCredit.enabled);
+        }
+        if (vk.success) {
+          setVoucherKinds(vk.voucherKinds);
         }
       })
       .catch((e) => {
@@ -260,6 +267,7 @@ export function CompanyPaymentMethodsSection({ companyId }: Props) {
         onConfirm={handleConfirm}
         busy={busy}
         error={error}
+        voucherKinds={voucherKinds}
       />
     </>
   );

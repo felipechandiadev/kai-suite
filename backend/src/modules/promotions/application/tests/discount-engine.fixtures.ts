@@ -3,11 +3,15 @@ import {
   PromotionAuthorization,
   PromotionType,
 } from '../../domain/promotion.enums';
+import { applyPromotions } from '../discount-engine';
 import {
+  ApplyPromotionsArgs,
   EffectivePromotion,
   EffectivePromotionScopes,
   EngineCartLine,
   EngineContext,
+  EngineResult,
+  ManualSelection,
 } from '../discount-engine.types';
 
 /**
@@ -95,4 +99,17 @@ export function promo(overrides: Partial<EffectivePromotion> = {}): EffectivePro
     scopes: emptyScopes(),
     ...overrides,
   };
+}
+
+/** Opt-in automático de promos AUTO para tests de cálculo (no de activación). */
+export function applyPromotionsAutoSelected(
+  args: ApplyPromotionsArgs,
+): EngineResult {
+  const merged: ManualSelection[] = [...args.manualSelections];
+  for (const p of args.promotions) {
+    if (p.activation !== PromotionActivation.AUTO) continue;
+    if (merged.some((m) => m.promotionId === p.id)) continue;
+    merged.push({ promotionId: p.id });
+  }
+  return applyPromotions({ ...args, manualSelections: merged });
 }

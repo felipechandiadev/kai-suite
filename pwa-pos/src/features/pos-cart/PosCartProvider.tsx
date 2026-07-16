@@ -6,6 +6,12 @@ import type { PosCartLine } from "@/app/(pos)/pos/ui/PosCartLineCard";
 import { readPosContextClient, POS_CONTEXT_KEY, POS_CONTEXT_KEY_LEGACY, POS_CONTEXT_CHANGED_EVENT } from "@/features/session/lib/pos-context-storage";
 import { readCartClient, writeCartClient, type LoadedQuotationMeta } from "./cart-storage";
 import {
+  CART_MIXED_PRICE_LIST_MESSAGE,
+  resolveActivePriceListStamp,
+  stampLinesWithPriceList,
+  tryAddItemWithPriceList,
+} from "./lib/pos-cart-price-list";
+import {
   mergePresaleTicketIntoCart,
   subtractPresaleTicketFromCart,
 } from "@/features/presale-tickets/lib/merge-presale-ticket-into-cart";
@@ -21,13 +27,14 @@ import type { PosSaleForReturn } from "@/features/pos-returns/types/pos-sale-for
 import type { PosSaleCustomer } from "@/features/customers/types/pos-customer.types";
 import type { PosPaymentLine } from "./pos-payment.types";
 import type { PosDeliveryConfig } from "@/features/pos-delivery/types/pos-delivery.types";
-import { applyPromotions } from "@/features/promotions/lib/discount-engine";
+import { applyPromotions, previewPromotions } from "@/features/promotions/lib/discount-engine";
 import type {
   AppliedSnapshot,
   EffectivePromotion,
   EngineCartLine,
   EngineWarning,
   ManualSelection,
+  ResolvedLineDiscount,
 } from "@/features/promotions/lib/discount-engine.types";
 import {
   listEffectivePromotionsAction,
@@ -42,7 +49,11 @@ type PosCartContextValue = {
   ready: boolean;
   lines: PosCartLine[];
   itemsCount: number;
-  addItem: (item: PosProductSearchItem, quantity?: number) => void;
+  /** false si se rechazó por lista de precios distinta. */
+  addItem: (item: PosProductSearchItem, quantity?: number) => boolean;
+  /** Último error de carrito (p.ej. mezcla de listas); se limpia al agregar OK o clear. */
+  lastCartError: string | null;
+  clearLastCartError: () => void;
   increment: (variantId: string) => void;
   decrement: (variantId: string) => void;
   remove: (variantId: string) => void;
@@ -106,16 +117,23 @@ type PosCartContextValue = {
   // ── Promociones ───────────────────────────────────────────────────
   /** Promociones efectivas cargadas desde el backend para este POS. */
   effectivePromotions: EffectivePromotion[];
-  /** Promociones MANUAL/CODE_ENTRY que el cajero activó. */
+  /** Promociones MANUAL/CODE_ENTRY/AUTO que el cajero activó (opt-in). */
   manualSelections: ManualSelection[];
   /** Resultado actual del motor — qué promos se están aplicando. */
   appliedPromotions: AppliedSnapshot[];
-  /** Total de descuento a nivel de orden (post-líneas). */
+  /** Preview de descuentos de línea si el cajero aceptara las promos elegibles. */
+  suggestedLineDiscounts: Record<string, ResolvedLineDiscount>;
+  /** Preview de promos a nivel pedido (candidatas). */
+  suggestedOrderPromotions: AppliedSnapshot[];
+  /** Monto de descuento de pedido en preview. */
+  suggestedOrderDiscount: number;
+  /** Total de descuento a nivel de orden (post-líneas) aplicado. */
   orderDiscount: number;
   /** Warnings emitidos por el motor (vence pronto, etc.). */
   promotionWarnings: EngineWarning[];
-  /** Toggle manual de una promoción. */
-  togglePromotion: (promotionId: string) => void;
+  /** Toggle opt-in. Con `lineId`, aplica solo a esa línea (promos de línea). */
+  togglePromotion: (promotionId: string, lineId?: string) => void;
+  isPromotionSelected: (promotionId: string, lineId?: string) => boolean;
   /** Canjea un cupón (CODE_ENTRY). Devuelve éxito o mensaje de error. */
   redeemCode: (code: string) => Promise<{ ok: boolean; message?: string }>;
   /** Refresca la lista de promociones efectivas desde el server. */
@@ -134,12 +152,28 @@ export function usePosCart(): PosCartContextValue {
   return ctx;
 }
 
-function cartScope(): { pointOfSaleId: string; priceListId: string } | null {
+function cartScope(): {
+  pointOfSaleId: string;
+  priceListId: string;
+  priceLists?: Array<{ id: string; name: string }>;
+} | null {
   const pos = readPosContextClient();
   const posId = pos?.pointOfSaleId?.trim();
   const priceListId = pos?.priceListId?.trim();
   if (!posId || !priceListId) return null;
-  return { pointOfSaleId: posId, priceListId };
+  return {
+    pointOfSaleId: posId,
+    priceListId,
+    priceLists: pos?.priceLists,
+  };
+}
+
+function activePriceListStamp() {
+  const pos = readPosContextClient();
+  return resolveActivePriceListStamp({
+    priceListId: pos?.priceListId,
+    priceLists: pos?.priceLists,
+  });
 }
 
 function readPosContextFull(): {
@@ -215,7 +249,12 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     useState<LoadedBackorderMeta | null>(null);
   const [loadedPresaleTickets, setLoadedPresaleTickets] =
     useState<LoadedPresaleTicketMeta[]>([]);
-  const [scope, setScope] = useState<{ pointOfSaleId: string; priceListId: string } | null>(null);
+  const [scope, setScope] = useState<{
+    pointOfSaleId: string;
+    priceListId: string;
+    priceLists?: Array<{ id: string; name: string }>;
+  } | null>(null);
+  const [lastCartError, setLastCartError] = useState<string | null>(null);
   const [quotationsEnabled, setQuotationsEnabled] = useState(false);
 
   // ── Promociones ─────────────────────────────────────────────────
@@ -224,6 +263,13 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
   );
   const [manualSelections, setManualSelections] = useState<ManualSelection[]>([]);
   const [appliedPromotions, setAppliedPromotions] = useState<AppliedSnapshot[]>([]);
+  const [suggestedLineDiscounts, setSuggestedLineDiscounts] = useState<
+    Record<string, ResolvedLineDiscount>
+  >({});
+  const [suggestedOrderPromotions, setSuggestedOrderPromotions] = useState<
+    AppliedSnapshot[]
+  >([]);
+  const [suggestedOrderDiscount, setSuggestedOrderDiscount] = useState(0);
   const [orderDiscount, setOrderDiscount] = useState(0);
   const [promotionWarnings, setPromotionWarnings] = useState<EngineWarning[]>([]);
 
@@ -402,29 +448,41 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
   const itemsCount = useMemo(() => lines.reduce((a, l) => a + (Number(l.quantity) || 0), 0), [lines]);
 
   const addItem = useCallback(
-    (item: PosProductSearchItem, quantity = 1) => {
-      if (cartMode === "return" || cartMode === "fulfill_backorder") return;
-      const q = Math.max(1, Math.round(Number(quantity) || 1));
+    (item: PosProductSearchItem, quantity = 1): boolean => {
+      if (cartMode === "return" || cartMode === "fulfill_backorder") return false;
+      const stamp = activePriceListStamp();
+      if (!stamp) {
+        setLastCartError("No hay lista de precios activa en el POS.");
+        return false;
+      }
+      let rejected = false;
       setLines((prev) => {
-        const i = prev.findIndex((l) => l.variantId === item.variantId);
-        if (i >= 0) {
-          const max = maxQtyForVariant(
-            loadedBackorder,
-            loadedReturnSale,
-            loadedQuotation,
-            item.variantId,
-          );
-          const nextQty = prev[i].quantity + q;
-          const capped = max != null ? Math.min(nextQty, max) : nextQty;
-          const next = [...prev];
-          next[i] = { ...next[i], quantity: capped };
-          return next;
+        const max = maxQtyForVariant(
+          loadedBackorder,
+          loadedReturnSale,
+          loadedQuotation,
+          item.variantId,
+        );
+        const next = tryAddItemWithPriceList(prev, item, stamp, quantity, max);
+        if (!next) {
+          rejected = true;
+          return prev;
         }
-        return [...prev, { ...(item as any), quantity: q } as PosCartLine];
+        return next;
       });
+      if (rejected) {
+        setLastCartError(CART_MIXED_PRICE_LIST_MESSAGE);
+        return false;
+      }
+      setLastCartError(null);
+      return true;
     },
     [cartMode, loadedBackorder, loadedReturnSale, loadedQuotation],
   );
+
+  const clearLastCartError = useCallback(() => {
+    setLastCartError(null);
+  }, []);
 
   const increment = useCallback(
     (variantId: string) => {
@@ -489,9 +547,11 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       setLoadedBackorder(null);
       setLoadedPresaleTickets([]);
       setLoadedQuotation(meta);
-      setLines(nextLines);
+      const stamp = activePriceListStamp();
+      setLines(stamp ? stampLinesWithPriceList(nextLines, stamp) : nextLines);
       setPayments([]);
       setManualSelections([]);
+      setLastCartError(null);
       if (customer !== undefined) {
         setSaleCustomer(customer);
       }
@@ -504,7 +564,9 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     setLoadedReturnSale(null);
     setLoadedBackorder(null);
     setLoadedQuotation(null);
-    setLines(next);
+    const stamp = activePriceListStamp();
+    setLines(stamp ? stampLinesWithPriceList(next, stamp) : next);
+    setLastCartError(null);
   }, []);
 
   const loadReturnFromSale = useCallback(
@@ -533,7 +595,9 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       setEncargoModeEnabled(false);
       setPayments([]);
       setManualSelections([]);
-      setLines(nextLines);
+      const stamp = activePriceListStamp();
+      setLines(stamp ? stampLinesWithPriceList(nextLines, stamp) : nextLines);
+      setLastCartError(null);
       if (sale.customerName) {
         setSaleCustomer({
           customerId: sale.customerId,
@@ -570,7 +634,9 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
         createdAt: backorder.createdAt,
         lineMaxQtyByVariantId,
       });
-      setLines(nextLines);
+      const stamp = activePriceListStamp();
+      setLines(stamp ? stampLinesWithPriceList(nextLines, stamp) : nextLines);
+      setLastCartError(null);
       if (backorder.customerId) {
         setSaleCustomer({
           customerId: backorder.customerId,
@@ -602,6 +668,14 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       });
       if (isDuplicate) return false;
 
+      const stamp = activePriceListStamp();
+      if (!stamp) {
+        setLastCartError("No hay lista de precios activa en el POS.");
+        setLoadedPresaleTickets((prev) => prev.filter((t) => t.id !== meta.id));
+        return false;
+      }
+
+      let rejected = false;
       setCartMode("sale");
       setLoadedReturnSale(null);
       setLoadedBackorder(null);
@@ -611,7 +685,20 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       setEncargoModeEnabled(false);
       setPayments([]);
       setManualSelections([]);
-      setLines((prev) => mergePresaleTicketIntoCart(prev, meta, listPriceItems));
+      setLines((prev) => {
+        const next = mergePresaleTicketIntoCart(prev, meta, listPriceItems, stamp);
+        if (!next) {
+          rejected = true;
+          return prev;
+        }
+        return next;
+      });
+      if (rejected) {
+        setLoadedPresaleTickets((prev) => prev.filter((t) => t.id !== meta.id));
+        setLastCartError(CART_MIXED_PRICE_LIST_MESSAGE);
+        return false;
+      }
+      setLastCartError(null);
       if (customer !== undefined) {
         setSaleCustomer((prev) => prev ?? customer ?? null);
       }
@@ -699,6 +786,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     setAppliedPromotions([]);
     setOrderDiscount(0);
     setPromotionWarnings([]);
+    setLastCartError(null);
   }, []);
 
   // ── Carga inicial de promociones efectivas ─────────────────────
@@ -776,6 +864,9 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       setAppliedPromotions([]);
       setOrderDiscount(0);
       setPromotionWarnings([]);
+      setSuggestedLineDiscounts({});
+      setSuggestedOrderPromotions([]);
+      setSuggestedOrderDiscount(0);
       return;
     }
 
@@ -795,7 +886,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
           : null,
     }));
 
-    const result = applyPromotions({
+    const engineArgs = {
       cart: {
         lines: engineLines,
         customerId: saleCustomer?.customerId ?? null,
@@ -807,8 +898,11 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       ctx: { ...ctx, now: new Date() },
       promotions: promotionsForEngine,
       manualSelections: selectionsForEngine,
-      customerHistory: [],
-    });
+      customerHistory: [] as [],
+    };
+
+    const result = applyPromotions(engineArgs);
+    const preview = previewPromotions(engineArgs);
 
     setLines((prev) =>
       prev.map((l) => {
@@ -821,6 +915,16 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     setOrderDiscount(result.orderDiscountAmount);
     setAppliedPromotions(result.appliedPromotions);
     setPromotionWarnings(result.warnings);
+
+    const suggestedLines: Record<string, ResolvedLineDiscount> = {};
+    for (const r of preview.resolvedLines) {
+      if (r.discount) suggestedLines[r.lineId] = r.discount;
+    }
+    setSuggestedLineDiscounts(suggestedLines);
+    setSuggestedOrderPromotions(
+      preview.appliedPromotions.filter((p) => p.isOrderLevel),
+    );
+    setSuggestedOrderDiscount(preview.orderDiscountAmount);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     ready,
@@ -833,15 +937,64 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     cartMode,
   ]);
 
-  const togglePromotion = useCallback((promotionId: string) => {
-    if (!shouldUseBackendApi()) return;
-    setManualSelections((prev) => {
-      const exists = prev.some((m) => m.promotionId === promotionId);
-      return exists
-        ? prev.filter((m) => m.promotionId !== promotionId)
-        : [...prev, { promotionId }];
-    });
-  }, []);
+  const isPromotionSelected = useCallback(
+    (promotionId: string, lineId?: string) => {
+      const sel = manualSelections.find((m) => m.promotionId === promotionId);
+      if (!sel) return false;
+      if (!lineId) return true;
+      if (!sel.lineIds || sel.lineIds.length === 0) return true;
+      return sel.lineIds.includes(lineId);
+    },
+    [manualSelections],
+  );
+
+  const togglePromotion = useCallback(
+    (promotionId: string, lineId?: string) => {
+      if (!shouldUseBackendApi()) return;
+      setManualSelections((prev) => {
+        const idx = prev.findIndex((m) => m.promotionId === promotionId);
+        const existing = idx >= 0 ? prev[idx] : null;
+
+        if (lineId) {
+          if (!existing) {
+            return [...prev, { promotionId, lineIds: [lineId] }];
+          }
+          const ids = existing.lineIds ?? [];
+          if (ids.length === 0) {
+            // Promo aceptada completa: desmarcar esta línea deja el resto.
+            const others = Object.entries(suggestedLineDiscounts)
+              .filter(([, d]) => d.promotionId === promotionId)
+              .map(([id]) => id)
+              .filter((id) => id !== lineId);
+            if (others.length === 0) {
+              return prev.filter((m) => m.promotionId !== promotionId);
+            }
+            return prev.map((m, i) =>
+              i === idx ? { promotionId, lineIds: others } : m,
+            );
+          }
+          if (ids.includes(lineId)) {
+            const nextIds = ids.filter((id) => id !== lineId);
+            if (nextIds.length === 0) {
+              return prev.filter((m) => m.promotionId !== promotionId);
+            }
+            return prev.map((m, i) =>
+              i === idx ? { ...m, lineIds: nextIds } : m,
+            );
+          }
+          return prev.map((m, i) =>
+            i === idx ? { ...m, lineIds: [...ids, lineId] } : m,
+          );
+        }
+
+        if (existing) {
+          return prev.filter((m) => m.promotionId !== promotionId);
+        }
+        return [...prev, { promotionId }];
+      });
+    },
+    [suggestedLineDiscounts],
+  );
 
   const redeemCode = useCallback(
     async (code: string): Promise<{ ok: boolean; message?: string }> => {
@@ -895,6 +1048,8 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       lines,
       itemsCount,
       addItem,
+      lastCartError,
+      clearLastCartError,
       increment,
       decrement,
       remove,
@@ -932,9 +1087,13 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       effectivePromotions,
       manualSelections,
       appliedPromotions,
+      suggestedLineDiscounts,
+      suggestedOrderPromotions,
+      suggestedOrderDiscount,
       orderDiscount,
       promotionWarnings,
       togglePromotion,
+      isPromotionSelected,
       redeemCode,
       refreshPromotions,
       quotationsEnabled,
@@ -944,6 +1103,8 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       lines,
       itemsCount,
       addItem,
+      lastCartError,
+      clearLastCartError,
       increment,
       decrement,
       remove,
@@ -973,9 +1134,13 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       effectivePromotions,
       manualSelections,
       appliedPromotions,
+      suggestedLineDiscounts,
+      suggestedOrderPromotions,
+      suggestedOrderDiscount,
       orderDiscount,
       promotionWarnings,
       togglePromotion,
+      isPromotionSelected,
       redeemCode,
       refreshPromotions,
       quotationsEnabled,

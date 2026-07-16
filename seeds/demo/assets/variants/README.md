@@ -4,13 +4,13 @@ Una imagen por **variante** (`entityType: product-variant`), opcional. Útil par
 
 ## Convención de nombres
 
-Usar el **SKU seed** del catálogo (`SEED-DEV-*`):
+Usar el **SKU seed** del catálogo (`SEEDDEV*`):
 
 | Archivo sugerido | Variante |
 |------------------|----------|
-| `SEED-DEV-CAL-M-NEG.png` | Calcetines M Negro |
-| `SEED-DEV-CAL-M-BLA.png` | Calcetines M Blanco |
-| `SEED-DEV-POL-M-NEG.png` | Polera M Negro |
+| `SEEDDEVCALMNEG.png` | Calcetines M Negro |
+| `SEEDDEVCALMBLA.png` | Calcetines M Blanco |
+| `SEEDDEVPOLMNEG.png` | Polera M Negro |
 
 Consulta SKUs en `catalog.ts`.
 

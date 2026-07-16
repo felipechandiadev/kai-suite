@@ -68,7 +68,7 @@ export function OperationsToolbar({
               variant="text"
               size="sm"
               disabled={disabled}
-              className="!px-3"
+              className="px-3!"
               onClick={() => onDateChange(getTodayIso())}
             >
               Hoy

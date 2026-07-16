@@ -28,8 +28,13 @@ function listItem(variantId: string): PosProductSearchItem {
     availableStockBase: null,
     attributes: [],
     metadata: null,
+    taxCategory: "AFFECTED",
+    requiresDte: true,
+    taxIds: [],
   };
 }
+
+const stamp = { priceListId: "list-1", priceListName: "Lista 1" };
 
 function ticketMeta(
   id: string,
@@ -50,23 +55,41 @@ describe("mergePresaleTicketIntoCart", () => {
       [],
       ticketMeta("t1", { v1: 2 }),
       [listItem("v1")],
+      stamp,
     );
     expect(next).toHaveLength(1);
-    expect(next[0].variantId).toBe("v1");
-    expect(next[0].quantity).toBe(2);
-    expect(next[0].unitPrice).toBe(1000);
+    expect(next![0].variantId).toBe("v1");
+    expect(next![0].quantity).toBe(2);
+    expect(next![0].unitPrice).toBe(1000);
+    expect(next![0].priceListId).toBe("list-1");
   });
 
   it("sums quantity when variant already exists in cart", () => {
-    const existing: PosCartLine[] = [{ ...listItem("v1"), quantity: 3 } as PosCartLine];
+    const existing: PosCartLine[] = [
+      { ...listItem("v1"), quantity: 3, priceListId: "list-1", priceListName: "Lista 1" },
+    ];
     const next = mergePresaleTicketIntoCart(
       existing,
       ticketMeta("t2", { v1: 1 }),
       [listItem("v1")],
+      stamp,
     );
     expect(next).toHaveLength(1);
-    expect(next[0].quantity).toBe(4);
-    expect(next[0].unitPrice).toBe(1000);
+    expect(next![0].quantity).toBe(4);
+    expect(next![0].unitPrice).toBe(1000);
+  });
+
+  it("rejects when ticket stamp differs from cart list", () => {
+    const existing: PosCartLine[] = [
+      { ...listItem("v1"), quantity: 1, priceListId: "list-other", priceListName: "Otra" },
+    ];
+    const next = mergePresaleTicketIntoCart(
+      existing,
+      ticketMeta("t3", { v2: 1 }),
+      [listItem("v2")],
+      stamp,
+    );
+    expect(next).toBeNull();
   });
 });
 

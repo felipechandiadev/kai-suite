@@ -14,6 +14,7 @@ describe('sale-payment-debits.util', () => {
   it('maps CASH to caja and cards to banco', () => {
     expect(resolveAssetAccountCodeForPaymentMethod('CASH')).toBe('1.1.01');
     expect(resolveAssetAccountCodeForPaymentMethod('DEBIT_CARD')).toBe('1.1.02');
+    expect(resolveAssetAccountCodeForPaymentMethod('VOUCHER')).toBe('1.1.02');
     expect(resolveAssetAccountCodeForPaymentMethod('INTERNAL_CREDIT')).toBe(
       '1.1.03',
     );

@@ -118,7 +118,7 @@ export class CreateInventoryBlockUseCase implements ICommandHandler<CreateInvent
     // For now, we'll assume the block is valid
 
     // Generate document number
-    const documentNumber = `IB-${Date.now()}`;
+    const documentNumber = `IB${Date.now()}`;
 
     // Create inventory block transaction
     const transaction = this.transactionRepository.create({

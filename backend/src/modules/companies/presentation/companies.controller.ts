@@ -185,6 +185,40 @@ export class CompaniesController {
   }
 
   /**
+   * Tipos de voucher de una empresa (`settings.voucherKinds`).
+   */
+  @Get('companies/:id/voucher-kinds')
+  @AdminOnly()
+  @AllowAdminWithoutCompany()
+  async getCompanyVoucherKinds(@Param('id') id: string) {
+    const voucherKinds = await this.companiesService.getVoucherKinds(id);
+    return { success: true, voucherKinds };
+  }
+
+  /**
+   * Reemplaza el catálogo de tipos de voucher.
+   * Body: `{ voucherKinds: CompanyVoucherKind[] }` o el array directo.
+   */
+  @Put('companies/:id/voucher-kinds')
+  @AdminOnly()
+  @AllowAdminWithoutCompany()
+  async replaceCompanyVoucherKinds(
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    const incoming = Array.isArray(body)
+      ? body
+      : Array.isArray((body as any)?.voucherKinds)
+        ? (body as any).voucherKinds
+        : [];
+    const voucherKinds = await this.companiesService.replaceVoucherKinds(
+      id,
+      incoming,
+    );
+    return { success: true, voucherKinds };
+  }
+
+  /**
    * Configuración de cheques de una empresa (solo ADMIN). Si la empresa
    * aún no la tiene definida, devuelve un default todo-desactivado.
    */

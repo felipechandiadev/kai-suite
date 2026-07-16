@@ -229,3 +229,40 @@ aside[data-test-id="side-bar-root"].fs-app-sidebar {
     0 2px 14px rgba(255, 255, 255, 0.8),
     0 1px 5px rgba(0, 0, 0, 0.14);
 }
+
+/* Sales reports — print-first preview (oculta chrome de la app) */
+@media print {
+  body:has(.sales-report-print-root) [data-test-id="top-bar-root"],
+  body:has(.sales-report-print-root) [data-test-id="side-bar-root"],
+  body:has(.sales-report-print-root) [data-test-id="sidebar-shell"],
+  body:has(.sales-report-print-root) [data-test-id="sidebar-overlay"],
+  body:has(.sales-report-print-root) header.fixed,
+  body:has(.sales-report-print-root) .sales-reports-toolbar,
+  body:has(.sales-report-print-root) .sales-reports-config,
+  body:has(.sales-report-print-root) .sales-reports-workspace .print\:hidden {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  body:has(.sales-report-print-root) main {
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  body:has(.sales-report-print-root) .flex.h-screen {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .sales-report-print-root {
+    box-shadow: none !important;
+    border: none !important;
+    position: static !important;
+    width: 100% !important;
+  }
+
+  .sales-report-print-root .fs-chart-surface {
+    break-inside: avoid;
+  }
+}

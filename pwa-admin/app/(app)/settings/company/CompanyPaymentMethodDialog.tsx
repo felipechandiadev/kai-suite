@@ -15,20 +15,18 @@ import {
   type CompanyPaymentMethodConfig,
   type CompanyPaymentMethodId,
 } from "@/features/companies/types/company-payment-methods.types";
+import type { CompanyVoucherKind } from "@/features/companies/types/company-voucher-kinds.types";
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  /** Si false, no se ofrece INTERNAL_CREDIT al crear (sí al editar uno existente). */
   internalCreditEnabled?: boolean;
-  /** Si viene definido, el dialog opera en modo edición. */
   initial: CompanyPaymentMethodConfig | null;
-  /** Llamado cuando el usuario confirma. El padre se encarga de persistir
-   * el array completo de medios. */
   onConfirm: (item: CompanyPaymentMethodConfig) => Promise<void> | void;
-  /** Estado de “guardando” gestionado por el padre. */
   busy?: boolean;
   error?: string | null;
+  /** Tipos activos para enlazar cuando method === VOUCHER. */
+  voucherKinds?: CompanyVoucherKind[];
 };
 
 const METHOD_OPTIONS: { id: CompanyPaymentMethodId; label: string }[] = (
@@ -55,25 +53,36 @@ export function CompanyPaymentMethodDialog({
   onConfirm,
   busy,
   error,
+  voucherKinds = [],
 }: Props) {
   const editing = !!initial;
   const [method, setMethod] = useState<CompanyPaymentMethodId>("CASH");
   const [alias, setAlias] = useState("");
   const [bankAccountKey, setBankAccountKey] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [voucherKindId, setVoucherKindId] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const activeKinds = useMemo(
+    () => voucherKinds.filter((k) => k.isActive),
+    [voucherKinds],
+  );
 
   useEffect(() => {
     if (!open) return;
+    setLocalError(null);
     if (initial) {
       setMethod(initial.method);
       setAlias(initial.alias ?? "");
       setBankAccountKey(initial.bankAccountKey ?? "");
       setIsActive(initial.isActive);
+      setVoucherKindId(initial.voucherKindId ?? null);
     } else {
       setMethod("CASH");
       setAlias("");
       setBankAccountKey("");
       setIsActive(true);
+      setVoucherKindId(null);
     }
   }, [open, initial]);
 
@@ -88,10 +97,7 @@ export function CompanyPaymentMethodDialog({
     );
     const ensureOption = (id: CompanyPaymentMethodId) => {
       if (base.some((o) => o.id === id)) return base;
-      return [
-        ...base,
-        { id, label: companyPaymentMethodLabel(id) },
-      ];
+      return [...base, { id, label: companyPaymentMethodLabel(id) }];
     };
     if (initial?.method === "INTERNAL_CREDIT") {
       return ensureOption("INTERNAL_CREDIT");
@@ -105,18 +111,44 @@ export function CompanyPaymentMethodDialog({
     return base;
   }, [internalCreditEnabled, initial?.method]);
 
+  const kindOptions = useMemo(
+    () =>
+      activeKinds.map((k) => ({
+        id: k.id,
+        label: `${k.code} — ${k.name}`,
+      })),
+    [activeKinds],
+  );
+
   const referenceAlwaysRequired = companyPaymentMethodAlwaysRequiresReference(method);
 
   async function handleSubmit() {
+    setLocalError(null);
+    if (method === "VOUCHER") {
+      if (!voucherKindId?.trim()) {
+        setLocalError("Seleccioná un tipo de voucher.");
+        return;
+      }
+      if (!activeKinds.some((k) => k.id === voucherKindId)) {
+        setLocalError("El tipo de voucher seleccionado no está activo.");
+        return;
+      }
+    }
+    const kind = activeKinds.find((k) => k.id === voucherKindId);
     const item: CompanyPaymentMethodConfig = {
       id: initial?.id ?? newClientId(),
       method,
-      alias: alias.trim() || null,
+      alias:
+        alias.trim() ||
+        (method === "VOUCHER" && kind ? kind.name : null),
       displayOrder: initial?.displayOrder ?? 0,
       isActive,
-      requireReference: referenceAlwaysRequired ? true : (initial?.requireReference ?? false),
+      requireReference: referenceAlwaysRequired
+        ? true
+        : (initial?.requireReference ?? false),
       bankAccountKey: bankAccountKey.trim() || null,
       metadata: initial?.metadata ?? null,
+      voucherKindId: method === "VOUCHER" ? voucherKindId : null,
     };
     await onConfirm(item);
   }
@@ -134,9 +166,9 @@ export function CompanyPaymentMethodDialog({
       data-test-id="company-payment-method-dialog"
     >
       <div className="flex flex-col gap-4 pt-1">
-        {error ? (
+        {error || localError ? (
           <Alert variant="error" data-test-id="company-payment-method-error">
-            {error}
+            {localError || error}
           </Alert>
         ) : null}
         <Select
@@ -145,13 +177,42 @@ export function CompanyPaymentMethodDialog({
           placeholder="Seleccionar"
           options={methodOptions}
           value={method}
-          onChange={(id) =>
-            setMethod((id != null ? String(id) : "CASH") as CompanyPaymentMethodId)
-          }
+          onChange={(id) => {
+            const next = (id != null ? String(id) : "CASH") as CompanyPaymentMethodId;
+            setMethod(next);
+            if (next !== "VOUCHER") setVoucherKindId(null);
+          }}
           alwaysShowLabel
           disabled={busy}
           data-test-id="company-payment-method-select"
         />
+        {method === "VOUCHER" ? (
+          kindOptions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Configurá tipos de voucher en la sección inferior antes de
+              agregar este medio.
+            </p>
+          ) : (
+            <Select
+              label="Tipo de voucher"
+              name="company-payment-method-voucher-kind"
+              placeholder="Seleccionar tipo"
+              options={kindOptions}
+              value={voucherKindId}
+              onChange={(id) => {
+                const vid = id != null ? String(id) : null;
+                setVoucherKindId(vid);
+                const kind = activeKinds.find((k) => k.id === vid);
+                if (kind && !alias.trim()) {
+                  setAlias(kind.name);
+                }
+              }}
+              alwaysShowLabel
+              disabled={busy}
+              data-test-id="company-payment-method-voucher-kind"
+            />
+          )
+        ) : null}
         <TextField
           label="Alias (opcional)"
           name="company-payment-method-alias"
@@ -179,9 +240,11 @@ export function CompanyPaymentMethodDialog({
           data-test-id="company-payment-method-active"
         />
         {referenceAlwaysRequired ? (
-          <p className="text-xs text-muted-foreground" data-test-id="company-payment-method-ref-required-hint">
-            Este medio exige referencia obligatoria (número de nota de crédito o de encargo). No se puede
-            desactivar.
+          <p
+            className="text-xs text-muted-foreground"
+            data-test-id="company-payment-method-ref-required-hint"
+          >
+            Este medio exige referencia obligatoria. No se puede desactivar.
           </p>
         ) : null}
         <div className="mt-2 flex justify-end gap-2">

@@ -29,7 +29,7 @@ Opcional: `cp envs/shared.env.example envs/shared.env` para overrides locales (g
 | `KAI_FEATURE_ESHOP` | `true` / `false` | → `NEXT_PUBLIC_ESHOP_ENABLED` (admin) |
 | `KAI_FEATURE_JEWELRY` | `true` / `false` | → `NEXT_PUBLIC_JEWELRY_ENABLED` (metales, calculadora) |
 | `KAI_FEATURE_MULTI_COMPANY` | `true` / `false` | → menú Empresas (SUPER_ADMIN) |
-| `KAI_DEPLOY_APPS` | `backend,admin,pos,stock,eshop,delivery,mail` | `scripts/dev-apps.sh` levanta solo esas apps |
+| `KAI_DEPLOY_APPS` | `backend,admin,pos,stock,eshop,delivery,mail,landing` | `scripts/dev-apps.sh` levanta solo esas apps (`landing` → http://localhost:5177) |
 
 Perfiles listos en `envs/profiles/*.env.example` (copiar líneas a `shared.env`):
 

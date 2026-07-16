@@ -419,6 +419,7 @@ export class CashSessionsService {
       bankAccountId: p.bankAccountId,
       reference: (p as { reference?: string }).reference,
       checkData: (p as { checkData?: Record<string, unknown> }).checkData,
+      voucherData: (p as { voucherData?: Record<string, unknown> }).voucherData,
     }));
     const paymentSnapshots = buildPaymentSnapshotsFromSalePayments(
       salePaymentInputs,
@@ -769,7 +770,7 @@ export class CashSessionsService {
       }
     }
 
-    return `${type}-${String(nextNumber).padStart(8, '0')}`;
+    return `${type}${String(nextNumber).padStart(8, '0')}`;
   }
 
   async registerOpeningTransaction(dto: any) {

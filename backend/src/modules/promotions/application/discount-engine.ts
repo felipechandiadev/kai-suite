@@ -12,6 +12,7 @@ import {
   EngineContext,
   EngineResult,
   EngineWarning,
+  ManualSelection,
   ResolvedLine,
   ResolvedLineDiscount,
 } from './discount-engine.types';
@@ -48,12 +49,11 @@ export function applyPromotions(args: ApplyPromotionsArgs): EngineResult {
     .filter((p) => isElegibleByGeneralRules(p, ctx, cart, customerHistory, warnings))
     .sort((a, b) => b.priority - a.priority || a.code.localeCompare(b.code));
 
-  // Set de promoIds en `manualSelections` (incluye MANUAL y CODE_ENTRY).
+  // Set de promoIds en `manualSelections` (AUTO, MANUAL y CODE_ENTRY).
+  // Toda promoción requiere confirmación explícita del cajero (opt-in).
   const manualIds = new Set(manualSelections.map((m) => m.promotionId));
 
   const isAllowedByActivation = (p: EffectivePromotion): boolean => {
-    if (p.activation === PromotionActivation.AUTO) return true;
-    // MANUAL / CODE_ENTRY: requieren selección explícita.
     return manualIds.has(p.id);
   };
 
@@ -370,10 +370,10 @@ function isLineEligibleForPromotion(
   promo: EffectivePromotion,
   manualSelections: ApplyPromotionsArgs['manualSelections'],
 ): boolean {
-  // Manual selection con lineIds restringidos
-  if (promo.activation !== PromotionActivation.AUTO) {
-    const sel = manualSelections.find((m) => m.promotionId === promo.id);
-    if (sel?.lineIds && !sel.lineIds.includes(line.lineId)) return false;
+  // Opt-in con lineIds: limita a esas líneas (AUTO, MANUAL y CODE_ENTRY).
+  const sel = manualSelections.find((m) => m.promotionId === promo.id);
+  if (sel?.lineIds && sel.lineIds.length > 0 && !sel.lineIds.includes(line.lineId)) {
+    return false;
   }
 
   if (!matchesScope(promo.scopes.products, 'productId', line.productId)) return false;
@@ -503,4 +503,28 @@ function clamp(value: number, min: number, max: number): number {
  */
 function roundCurrency(value: number): number {
   return Math.round(value);
+}
+
+/**
+ * Preview: simula el resultado si el cajero aceptara todas las promos
+ * AUTO/MANUAL elegibles (CODE_ENTRY solo si ya está en selections).
+ * No muta el carrito real — sirve para mostrar candidatos en UI.
+ */
+export function previewPromotions(args: ApplyPromotionsArgs): EngineResult {
+  const forced: ManualSelection[] = [];
+  const seen = new Set<string>();
+
+  for (const sel of args.manualSelections) {
+    forced.push(sel);
+    seen.add(sel.promotionId);
+  }
+
+  for (const p of args.promotions) {
+    if (seen.has(p.id)) continue;
+    if (p.activation === PromotionActivation.CODE_ENTRY) continue;
+    forced.push({ promotionId: p.id });
+    seen.add(p.id);
+  }
+
+  return applyPromotions({ ...args, manualSelections: forced });
 }

@@ -25,7 +25,7 @@ describe('QuotationsService.toRow / effectiveStatus', () => {
     return {
       id: 't-1',
       companyId: 'co',
-      documentNumber: 'COT-26-00001',
+      documentNumber: 'COT2600001',
       transactionType: TransactionType.QUOTATION,
       status: TransactionStatus.CONFIRMED,
       total: 1000,

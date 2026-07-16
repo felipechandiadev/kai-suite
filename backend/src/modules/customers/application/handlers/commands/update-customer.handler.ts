@@ -10,6 +10,7 @@ import {
 import { CustomerUpdatedEvent } from '@modules/customers/domain/events/customer-updated.event';
 import { CompaniesService } from '@modules/companies/application/companies.service';
 import { Person, PersonType } from '@modules/persons/domain/person.entity';
+import { sanitizePersonGeoActivityFields } from '@modules/persons/application/person-geo-activity.util';
 
 @CommandHandler(UpdateCustomerCommand)
 export class UpdateCustomerHandler implements ICommandHandler<UpdateCustomerCommand> {
@@ -37,6 +38,12 @@ export class UpdateCustomerHandler implements ICommandHandler<UpdateCustomerComm
       email,
       phone,
       address,
+      regionCode,
+      regionName,
+      communeCode,
+      communeName,
+      treasuryCode,
+      economicActivities,
       userId,
     } = command;
 
@@ -121,6 +128,26 @@ export class UpdateCustomerHandler implements ICommandHandler<UpdateCustomerComm
     }
     if (address !== undefined) {
       person.address = address.trim() || undefined;
+      personTouched = true;
+    }
+
+    if (
+      regionCode !== undefined ||
+      regionName !== undefined ||
+      communeCode !== undefined ||
+      communeName !== undefined ||
+      treasuryCode !== undefined ||
+      economicActivities !== undefined
+    ) {
+      const geo = sanitizePersonGeoActivityFields({
+        regionCode,
+        regionName,
+        communeCode,
+        communeName,
+        treasuryCode,
+        economicActivities,
+      });
+      Object.assign(person, geo);
       personTouched = true;
     }
 

@@ -24,6 +24,6 @@
 
 | Archivo | Variante |
 |---------|----------|
-| `SEED-DEV-CAL-S-GRA.png` | Calcetines S · Gris |
-| `SEED-DEV-CAL-M-GRA.png` | Calcetines M · Gris |
-| `SEED-DEV-CAL-L-GRA.png` | Calcetines L · Gris |
+| `SEEDDEVCALSGRA.png` | Calcetines S · Gris |
+| `SEEDDEVCALMGRA.png` | Calcetines M · Gris |
+| `SEEDDEVCALLGRA.png` | Calcetines L · Gris |

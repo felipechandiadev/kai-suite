@@ -15,10 +15,6 @@ import { TenantContext } from '@common/tenant/tenant.context';
 import {
   EffectivePaymentMethod,
   PosPaymentMethodConfig,
-  buildDefaultPosList,
-  mergeCompanyAndPos,
-  syncPosPaymentMethodsWithCatalog,
-  validatePosPaymentMethods,
 } from '@modules/payment-methods-config';
 import {
   readAcceptsPresaleTickets,
@@ -296,24 +292,16 @@ export class PosService {
     return { success: true };
   }
 
-  /** Lee la lista cruda de POS (config local). Si no hay, devuelve default
-   * a partir del catálogo de empresa. */
+  /** Lee la lista cruda de POS (config local). Si no hay, siembra default. */
   async getPaymentMethods(posId: string): Promise<PosPaymentMethodConfig[]> {
     const pos = await this.posRepository.findOne({
       where: { id: posId, deletedAt: IsNull() },
     });
     if (!pos) throw new NotFoundException('Punto de venta no encontrado');
-    const catalog = await this.companiesService.getPaymentMethods(pos.companyId);
-    const raw = pos.settings?.paymentMethods;
-    if (!Array.isArray(raw) || raw.length === 0) {
-      return buildDefaultPosList(catalog);
-    }
-    try {
-      const validated = validatePosPaymentMethods(raw, catalog);
-      return syncPosPaymentMethodsWithCatalog(catalog, validated);
-    } catch {
-      return buildDefaultPosList(catalog);
-    }
+    return this.companiesService.getPosPaymentMethodsViaCatalog(
+      posId,
+      pos.companyId,
+    );
   }
 
   async replacePaymentMethods(
@@ -324,20 +312,11 @@ export class PosService {
       where: { id: posId, deletedAt: IsNull() },
     });
     if (!pos) throw new NotFoundException('Punto de venta no encontrado');
-    const catalog = await this.companiesService.getPaymentMethods(pos.companyId);
-    let validated: PosPaymentMethodConfig[];
-    try {
-      const incoming = Array.isArray(list) ? list : [];
-      const synced = syncPosPaymentMethodsWithCatalog(catalog, incoming);
-      validated = validatePosPaymentMethods(synced, catalog);
-    } catch (e) {
-      throw new BadRequestException(
-        e instanceof Error ? e.message : 'Configuración inválida',
-      );
-    }
-    pos.settings = { ...(pos.settings ?? {}), paymentMethods: validated };
-    await this.posRepository.save(pos);
-    return validated;
+    return this.companiesService.replacePosPaymentMethodsViaCatalog(
+      posId,
+      pos.companyId,
+      list,
+    );
   }
 
   /**
@@ -350,9 +329,10 @@ export class PosService {
       where: { id: posId, deletedAt: IsNull() },
     });
     if (!pos) throw new NotFoundException('Punto de venta no encontrado');
-    const catalog = await this.companiesService.getPaymentMethods(pos.companyId);
-    const list = await this.getPaymentMethods(posId);
-    return mergeCompanyAndPos(catalog, list);
+    return this.companiesService.getEffectivePaymentMethodsForPos(
+      posId,
+      pos.companyId,
+    );
   }
 
   private mapPointOfSale(pos: PointOfSale, companyDeferredEnabled = false) {

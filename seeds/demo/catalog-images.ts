@@ -33,7 +33,7 @@ export const SEED_DEV_PRODUCT_IMAGES: readonly SeedDevProductImageDef[] = [
 
 /** Imagen por variante (calcetines Gris S/M/L). */
 export const SEED_DEV_VARIANT_IMAGES: readonly SeedDevVariantImageDef[] = [
-  { sku: 'SEED-DEV-CAL-S-GRA', imageFile: 'variants/SEED-DEV-CAL-S-GRA.png' },
-  { sku: 'SEED-DEV-CAL-M-GRA', imageFile: 'variants/SEED-DEV-CAL-M-GRA.png' },
-  { sku: 'SEED-DEV-CAL-L-GRA', imageFile: 'variants/SEED-DEV-CAL-L-GRA.png' },
+  { sku: 'SEEDDEVCALSGRA', imageFile: 'variants/SEEDDEVCALSGRA.png' },
+  { sku: 'SEEDDEVCALMGRA', imageFile: 'variants/SEEDDEVCALMGRA.png' },
+  { sku: 'SEEDDEVCALLGRA', imageFile: 'variants/SEEDDEVCALLGRA.png' },
 ] as const;

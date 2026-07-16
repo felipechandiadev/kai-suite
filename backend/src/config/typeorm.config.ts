@@ -6,6 +6,9 @@ import 'reflect-metadata';
 import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
 import { Branch } from '@modules/branches/domain/branch.entity';
 import { Company } from '@modules/companies/domain/company.entity';
+import { CompanyPaymentMethodEntity } from '@modules/companies/domain/company-payment-method.entity';
+import { CompanyVoucherKindEntity } from '@modules/companies/domain/company-voucher-kind.entity';
+import { PosPaymentMethodEntity } from '@modules/companies/domain/pos-payment-method.entity';
 import { PriceList } from '@modules/price-lists/domain/price-list.entity';
 import { User } from '@modules/users/domain/user.entity';
 import { Person } from '@modules/persons/domain/person.entity';
@@ -114,6 +117,9 @@ export const typeOrmConfig = (
       PointOfSale,
       Branch,
       Company,
+      CompanyPaymentMethodEntity,
+      CompanyVoucherKindEntity,
+      PosPaymentMethodEntity,
       PriceList,
       User,
       Person,

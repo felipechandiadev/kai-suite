@@ -20,7 +20,7 @@ import {
 } from "@/features/pos-products/ui/posProductPreview";
 import { PosNoDteBadge } from "@/features/pos-products/ui/PosNoDteBadge";
 import { IconButton } from "@kai/ui";
-import { Alert, Button, Dialog, TextField } from "@kai/ui";
+import { Alert, Badge, Button, Dialog, TextField } from "@kai/ui";
 import { listActivePosInventoryReservationsAction } from "@/features/pos-inventory-reservations/actions/list-active-reservations.action";
 
 /**
@@ -32,6 +32,9 @@ import { listActivePosInventoryReservationsAction } from "@/features/pos-invento
 export type PosCartLine = PosProductSearchItem & {
   quantity: number;
   discount?: ResolvedLineDiscount | null;
+  /** Lista de precios con la que se agregó la línea (invariante: una por carrito). */
+  priceListId?: string;
+  priceListName?: string;
 };
 
 function formatMoney(n: number) {
@@ -320,6 +323,17 @@ export default function PosCartLineCard({
               Stock:{" "}
               <span className="font-semibold text-foreground">{stockLabel}</span>
             </span>
+            {line.priceListName?.trim() || line.priceListId?.trim() ? (
+              <span
+                className="inline-flex max-w-[10rem]"
+                title={line.priceListName?.trim() || line.priceListId || undefined}
+                data-test-id="pos-cart-line-price-list-badge"
+              >
+                <Badge variant="secondary-outlined" className="max-w-full truncate">
+                  {line.priceListName?.trim() || "—"}
+                </Badge>
+              </span>
+            ) : null}
             <PosNoDteBadge requiresDte={line.requiresDte} />
           </div>
           {line.discount ? (

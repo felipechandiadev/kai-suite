@@ -6,7 +6,11 @@ import {
   Min,
   IsIn,
   MaxLength,
+  IsArray,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import { PersonEconomicActivityDto } from '@modules/persons/application/dto/person-economic-activity.dto';
 
 export class UpdateCustomerDto {
   @IsOptional()
@@ -63,4 +67,35 @@ export class UpdateCustomerDto {
   @IsOptional()
   @IsString()
   address?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  regionCode?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  regionName?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  communeCode?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  communeName?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  treasuryCode?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PersonEconomicActivityDto)
+  economicActivities?: PersonEconomicActivityDto[] | null;
 }

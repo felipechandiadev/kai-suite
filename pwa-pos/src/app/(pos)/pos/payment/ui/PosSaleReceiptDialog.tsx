@@ -280,6 +280,17 @@ function paymentDetail(
     ].filter(Boolean);
     if (parts.length) bits.push(parts.join(" · "));
   }
+  if (p.type === "VOUCHER" && p.voucherData) {
+    const vd = p.voucherData;
+    const parts = [
+      vd.kindCode?.trim() ? vd.kindCode.trim() : "",
+      vd.issuerName?.trim() ? vd.issuerName.trim() : "",
+      vd.faceValue != null && Number(vd.faceValue) > 0
+        ? `Nominal: ${Math.round(Number(vd.faceValue))}`
+        : "",
+    ].filter(Boolean);
+    if (parts.length) bits.push(parts.join(" · "));
+  }
   if (p.type === "INTERNAL_CREDIT" && p.internalCreditPlan) {
     bits.push(formatInternalCreditPlanSubtitle(p.internalCreditPlan));
   }
@@ -299,7 +310,7 @@ function priceListLabel(ctx: PosContextV1 | null): string | null {
 }
 
 export function buildPosSaleReceiptSnapshot(input: PosSaleReceiptSnapshotInput): PosSaleReceiptData {
-  const provisionalFolio = `POS-${Date.now().toString(36).toUpperCase()}`;
+  const provisionalFolio = `POS${Date.now().toString(36).toUpperCase()}`;
   const folio = input.saleFolio?.trim() ? input.saleFolio.trim() : provisionalFolio;
   const issuedAtIso = new Date().toISOString();
   const c = input.company;

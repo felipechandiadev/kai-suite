@@ -94,7 +94,7 @@ export class CreateInventoryReservationsUseCase
     }
 
     return this.dataSource.transaction(async (manager) => {
-      const documentNumber = `IR-${Date.now()}`;
+      const documentNumber = `IR${Date.now()}`;
       let companyId: string | undefined;
 
       const txRepo = manager.getRepository(Transaction);

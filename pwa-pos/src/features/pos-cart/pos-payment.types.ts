@@ -4,6 +4,7 @@ export const POS_PAYMENT_METHOD_IDS = [
   "DEBIT_CARD",
   "TRANSFER",
   "CHECK",
+  "VOUCHER",
   "INTERNAL_CREDIT",
   "CUSTOMER_CREDIT_NOTE",
   "ORDER_ADVANCE",
@@ -63,6 +64,16 @@ export type PosCheckPaymentData = {
   dueDate?: string;
 };
 
+/** Datos de un voucher entrante cuando `type === "VOUCHER"`. */
+export type PosVoucherPaymentData = {
+  kindId?: string;
+  kindCode: string;
+  kindName?: string;
+  issuerName?: string;
+  faceValue?: number | null;
+  expiresAt?: string;
+};
+
 /**
  * Línea de pago en POS.
  *
@@ -83,6 +94,8 @@ export type PosPaymentLine = {
   bankAccountKey?: string | null;
   /** Datos del cheque cuando `type === "CHECK"`. */
   checkData?: PosCheckPaymentData;
+  /** Datos del voucher cuando `type === "VOUCHER"`. */
+  voucherData?: PosVoucherPaymentData;
   /** Nota de crédito aplicada (`CUSTOMER_CREDIT_NOTE`). */
   creditNoteTransactionId?: string | null;
   /** Encargo cuyo abono se aplica (`ORDER_ADVANCE`). */

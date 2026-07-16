@@ -147,7 +147,7 @@ export function LoadReturnSaleDialog({ open, onClose }: Props) {
         <div ref={folioFieldRef}>
           <TextField
             label="Folio interno de la venta"
-            placeholder="Ej. VTA-26-00042"
+            placeholder="Ej. VTA2600042"
             value={folio}
             onChange={(e) =>
               setFolio((e as React.ChangeEvent<HTMLInputElement>).target.value)

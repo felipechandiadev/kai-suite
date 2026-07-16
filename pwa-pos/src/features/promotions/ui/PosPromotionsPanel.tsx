@@ -23,7 +23,9 @@ export function PosPromotionsPanel() {
   const manualAvailable = useMemo(
     () =>
       cart.effectivePromotions.filter(
-        (p) => p.activation === PromotionActivation.MANUAL,
+        (p) =>
+          p.activation === PromotionActivation.MANUAL ||
+          p.activation === PromotionActivation.AUTO,
       ),
     [cart.effectivePromotions],
   );
@@ -96,7 +98,7 @@ export function PosPromotionsPanel() {
       {manualAvailable.length > 0 ? (
         <div className="mb-3">
           <p className="mb-1 text-xs text-zinc-600 dark:text-zinc-400">
-            Disponibles para activar manualmente:
+            Disponibles para activar:
           </p>
           <ul className="flex flex-wrap gap-1">
             {manualAvailable.map((p) => {

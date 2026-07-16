@@ -3,6 +3,7 @@ import type { PosPaymentLine } from "@/features/pos-cart/pos-payment.types";
 import type { PosSaleCustomer } from "@/features/customers/types/pos-customer.types";
 import type { AppliedSnapshot } from "@/features/promotions/lib/discount-engine.types";
 import type { LoadedQuotationMeta } from "@/features/pos-cart/cart-storage";
+import { assertCartSinglePriceList } from "@/features/pos-cart/lib/pos-cart-price-list";
 import { extractInstallmentMetadataFromPayments } from "@/features/pos-payment/lib/internal-credit-plan";
 import { buildLineRequiresDteSnapshot } from "@/features/sale-print-plan/build-line-requires-dte-snapshot";
 
@@ -37,6 +38,14 @@ export type CreateSaleApiBody = {
       drawerDocument?: string | null;
       issueDate?: string | null;
       dueDate?: string | null;
+    };
+    voucherData?: {
+      kindId?: string | null;
+      kindCode: string;
+      kindName?: string | null;
+      issuerName?: string | null;
+      faceValue?: number | null;
+      expiresAt?: string | null;
     };
   }>;
   amountPaid?: number;
@@ -118,6 +127,20 @@ export function buildCreateSalePayments(payments: PosPaymentLine[]): SalePayment
           dueDate: cd.dueDate?.trim() || undefined,
         };
       }
+      if (p.type === "VOUCHER" && p.voucherData) {
+        const vd = p.voucherData;
+        row.voucherData = {
+          kindId: vd.kindId?.trim() || undefined,
+          kindCode: vd.kindCode?.trim().toUpperCase() ?? "",
+          kindName: vd.kindName?.trim() || undefined,
+          issuerName: vd.issuerName?.trim() || undefined,
+          faceValue:
+            vd.faceValue != null && Number.isFinite(Number(vd.faceValue))
+              ? Math.round(Number(vd.faceValue))
+              : undefined,
+          expiresAt: vd.expiresAt?.trim() || undefined,
+        };
+      }
       return row;
     });
 }
@@ -170,6 +193,11 @@ export function buildCreateSaleClientPayload(input: {
     notes?: string | null;
   } | null;
 }): CreateSaleClientPayload {
+  const priceListCheck = assertCartSinglePriceList(input.cartLines);
+  if (!priceListCheck.ok) {
+    throw new Error(priceListCheck.message);
+  }
+
   const deferPayment = input.deferPayment === true;
   const paymentLines = deferPayment
     ? []

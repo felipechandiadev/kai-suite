@@ -6,6 +6,14 @@ import { Alert } from "@kai/ui";
 import { Button } from "@kai/ui";
 import { TextField } from "@kai/ui";
 import { Select, type Option } from "@kai/ui";
+import type { PersonEconomicActivity } from "@kai/chile-catalogs";
+import { ChileRegionCommuneFields } from "@/features/chile-person/ui/ChileRegionCommuneFields";
+import { EconomicActivitiesEditor } from "@/features/chile-person/ui/EconomicActivitiesEditor";
+import {
+  emptyChileGeoValue,
+  geoPayloadFromChileGeo,
+} from "@/features/chile-person/lib/person-geo-payload.util";
+import type { ChileGeoValue } from "@/features/chile-person/ui/ChileRegionCommuneFields";
 import { createSupplierAction } from "@/features/purchasing-suppliers/actions/supplier.action";
 import type { SupplierDocumentType } from "@/features/purchasing-suppliers/types/supplier.types";
 
@@ -45,7 +53,8 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
   const [documentNumber, setDocumentNumber] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
+  const [geo, setGeo] = useState<ChileGeoValue>(emptyChileGeoValue);
+  const [economicActivities, setEconomicActivities] = useState<PersonEconomicActivity[]>([]);
   const [supplierType, setSupplierType] = useState("DISTRIBUTOR");
   const [defaultPaymentTermDays, setDefaultPaymentTermDays] = useState("0");
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +70,8 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
       setDocumentNumber("");
       setEmail("");
       setPhone("");
-      setAddress("");
+      setGeo(emptyChileGeoValue());
+      setEconomicActivities([]);
       setSupplierType("DISTRIBUTOR");
       setDefaultPaymentTermDays("0");
       setError(null);
@@ -77,7 +87,8 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
     setDocumentNumber("");
     setEmail("");
     setPhone("");
-    setAddress("");
+    setGeo(emptyChileGeoValue());
+    setEconomicActivities([]);
     setSupplierType("DISTRIBUTOR");
     setDefaultPaymentTermDays("0");
     setError(null);
@@ -106,6 +117,7 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
     const term = Math.max(0, Math.round(Number(defaultPaymentTermDays) || 0));
     startTransition(() => {
       void (async () => {
+        const geoFields = geoPayloadFromChileGeo(geo);
         const r = await createSupplierAction({
           personType,
           firstName: personType === "NATURAL" ? firstName : undefined,
@@ -115,7 +127,8 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
           documentNumber,
           email: email.trim() || undefined,
           phone: phone.trim() || undefined,
-          address: address.trim() || undefined,
+          ...geoFields,
+          economicActivities: economicActivities.length > 0 ? economicActivities : undefined,
           supplierType,
           defaultPaymentTermDays: term,
         });
@@ -263,13 +276,18 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
           />
         </div>
 
-        <TextField
-          label="Dirección (opcional)"
-          name="supplier-address"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          placeholder="Dirección (opcional)"
-          data-test-id="supplier-create-address"
+        <ChileRegionCommuneFields
+          value={geo}
+          onChange={setGeo}
+          disabled={isPending}
+          testIdPrefix="supplier-create-geo"
+        />
+
+        <EconomicActivitiesEditor
+          value={economicActivities}
+          onChange={setEconomicActivities}
+          disabled={isPending}
+          testIdPrefix="supplier-create-acteco"
         />
 
         <div className="flex flex-col gap-3 pt-2">

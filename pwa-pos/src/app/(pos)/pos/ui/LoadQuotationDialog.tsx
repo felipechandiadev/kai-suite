@@ -118,7 +118,7 @@ export function LoadQuotationDialog({ open, onClose, pointOfSaleId }: Props) {
     setPreview(null);
     const folioTrim = folio.trim();
     if (!folioTrim) {
-      setError("Ingrese un folio (ej. COT-26-00001).");
+      setError("Ingrese un folio (ej. COT2600001).");
       return;
     }
     setBusy(true);
@@ -225,7 +225,7 @@ export function LoadQuotationDialog({ open, onClose, pointOfSaleId }: Props) {
         <div ref={folioFieldRef}>
           <TextField
             label="Folio de cotización"
-            placeholder="COT-26-00001"
+            placeholder="COT2600001"
             value={folio}
             onChange={(e) =>
               setFolio((e as React.ChangeEvent<HTMLInputElement>).target.value)

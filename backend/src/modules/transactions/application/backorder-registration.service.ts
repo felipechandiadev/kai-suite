@@ -117,7 +117,7 @@ export class BackorderRegistrationService {
       );
     }
 
-    const documentNumber = `IR-${Date.now()}`;
+    const documentNumber = `IR${Date.now()}`;
     const reservationTx = await manager.getRepository(Transaction).save(
       manager.getRepository(Transaction).create({
         companyId: params.companyId,

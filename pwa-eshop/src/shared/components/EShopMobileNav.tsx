@@ -69,7 +69,7 @@ export function EShopMobileNav({
           />
           <nav
             ref={panelRef}
-            className="absolute right-0 top-0 flex h-full w-[min(100%,20rem)] flex-col gap-1 border-l border-chrome-foreground/10 bg-chrome p-6 pt-16 text-chrome-foreground shadow-xl"
+            className="absolute left-0 top-0 flex h-full w-[min(100%,20rem)] flex-col gap-1 border-r border-chrome-foreground/10 bg-chrome p-6 pt-16 text-chrome-foreground shadow-xl"
             aria-label="Menú principal"
           >
             {links.map((item) => {

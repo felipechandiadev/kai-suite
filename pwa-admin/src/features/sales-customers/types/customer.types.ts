@@ -1,3 +1,15 @@
+import type { PersonEconomicActivity } from "@kai/chile-catalogs";
+
+/** Campos geo Chile + actividades económicas SII en `Person`. */
+export type PersonGeoFields = {
+  regionCode?: string | null;
+  regionName?: string | null;
+  communeCode?: string | null;
+  communeName?: string | null;
+  treasuryCode?: string | null;
+  economicActivities?: PersonEconomicActivity[] | null;
+};
+
 /** Fila devuelta por GET `/customers` (adapter + `CustomersService.search`). */
 export type CustomerListRow = {
   /** Alias para DataGrid (`row.id`). */
@@ -59,6 +71,12 @@ export type CustomerDetailView = {
   email?: string | null;
   phone?: string | null;
   address?: string | null;
+  regionCode?: string | null;
+  regionName?: string | null;
+  communeCode?: string | null;
+  communeName?: string | null;
+  treasuryCode?: string | null;
+  economicActivities?: PersonEconomicActivity[] | null;
   creditLimit: number;
   usedCredit: number;
   availableCredit: number;
@@ -81,7 +99,7 @@ export type UpdateCustomerPayload = {
   email?: string;
   phone?: string;
   address?: string;
-};
+} & PersonGeoFields;
 
 export type CustomerDocumentType = "RUN" | "RUT" | "PASSPORT" | "DNI";
 
@@ -98,4 +116,4 @@ export type CreateCustomerFormInput = {
   creditLimit: number;
   paymentDayOfMonth: 5 | 10 | 15 | 20 | 25 | 30;
   notes?: string | null;
-};
+} & PersonGeoFields;

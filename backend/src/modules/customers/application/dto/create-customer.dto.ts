@@ -6,12 +6,16 @@ import {
   MinLength,
   IsNumber,
   IsIn,
+  IsArray,
+  MaxLength,
+  ValidateNested,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   PersonType,
   DocumentType,
 } from '@modules/persons/domain/person.entity';
+import { PersonEconomicActivityDto } from '@modules/persons/application/dto/person-economic-activity.dto';
 
 export class CreateCustomerDto {
   @IsEnum(PersonType)
@@ -69,6 +73,37 @@ export class CreateCustomerDto {
   )
   @IsString()
   address?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  regionCode?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  regionName?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  communeCode?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  communeName?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  treasuryCode?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PersonEconomicActivityDto)
+  economicActivities?: PersonEconomicActivityDto[] | null;
 
   @IsOptional()
   @IsNumber()

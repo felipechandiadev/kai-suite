@@ -1,9 +1,9 @@
 /** Prefijo: Centro de Efectivo (centro de acopio). */
-export const CASH_HUB_CODE_PREFIX = 'CEV-';
+export const CASH_HUB_CODE_PREFIX = 'CEV';
 
-const CASH_HUB_CODE_PATTERN = /^CEV-(\d+)$/i;
+const CASH_HUB_CODE_PATTERN = /^CEV(\d+)$/i;
 
-/** Extrae el correlativo numérico de un código `CEV-00042`, o null si no aplica. */
+/** Extrae el correlativo numérico de un código `CEV00042`, o null si no aplica. */
 export function parseCashHubCodeSequence(code: string | null | undefined): number | null {
   if (!code?.trim()) {
     return null;
@@ -24,7 +24,7 @@ export function formatCashHubCode(sequence: number, pad = 5): string {
   return `${CASH_HUB_CODE_PREFIX}${String(n).padStart(pad, '0')}`;
 }
 
-/** Siguiente código libre según los existentes con prefijo CEV-. */
+/** Siguiente código libre según los existentes con prefijo CEV. */
 export function nextCashHubCodeFromExisting(
   codes: Array<string | null | undefined>,
 ): string {

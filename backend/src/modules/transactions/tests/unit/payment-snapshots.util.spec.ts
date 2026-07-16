@@ -21,6 +21,37 @@ describe('payment-snapshots.util', () => {
     expect(snaps[1].amount).toBe(900);
   });
 
+  it('persists normalized voucherData on snapshots', () => {
+    const snaps = buildPaymentSnapshotsFromSalePayments(
+      [
+        {
+          paymentMethod: 'VOUCHER',
+          amount: 5000,
+          reference: 'V-99',
+          voucherData: {
+            kindId: 'kind-1',
+            kindCode: 'vk00001',
+            kindName: 'Gas',
+            issuerName: '  Emisor  ',
+            faceValue: 5000.4,
+          },
+        },
+      ],
+      [],
+      '2026-01-01T00:00:00.000Z',
+    );
+    expect(snaps).toHaveLength(1);
+    expect(snaps[0].voucherData).toEqual({
+      kindId: 'kind-1',
+      kindCode: 'VK00001',
+      kindName: 'Gas',
+      issuerName: 'Emisor',
+      faceValue: 5000,
+      expiresAt: null,
+    });
+    expect(snaps[0].reference).toBe('V-99');
+  });
+
   it('reads canonical metadata.payments first', () => {
     const snaps = getPaymentSnapshotsFromMetadata({
       payments: [{ method: 'CASH', amount: 100, capturedAt: 'x' }],

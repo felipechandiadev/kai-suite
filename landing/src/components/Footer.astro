@@ -1,5 +1,5 @@
 ---
-import { CTA, NAV, SITE } from '../content/site';
+import { NAV, SITE } from '../content/site';
 ---
 
 <footer class="site-footer" id="contacto">
@@ -15,12 +15,6 @@ import { CTA, NAV, SITE } from '../content/site';
       {NAV.map((link) => (
         <a href={link.href}>{link.label}</a>
       ))}
-    </div>
-
-    <div class="footer-links">
-      <strong>Contacto</strong>
-      <a href={CTA.primary.href}>{CTA.primary.label}</a>
-      <a href="#intro">KaiStore</a>
     </div>
   </div>
 

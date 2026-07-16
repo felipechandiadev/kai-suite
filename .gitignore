@@ -80,6 +80,10 @@ coverage/
 seeds/san-sebastian/data/fiscal/*.pfx
 seeds/san-sebastian/data/fiscal/*.xml
 
+# Snapshot SII en docs (secretos / CAF XML)
+docs/SII/config-actual/*.pfx
+docs/SII/config-actual/*.xml
+
 # Root markdown (keep README.md)
 /*.md
 !README.md

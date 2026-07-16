@@ -19,7 +19,7 @@ describe('payment-method-config.helpers', () => {
     );
   });
 
-  it('forces requireReference for CUSTOMER_CREDIT_NOTE and ORDER_ADVANCE', () => {
+  it('forces requireReference for CUSTOMER_CREDIT_NOTE, ORDER_ADVANCE and VOUCHER', () => {
     const list = validateCompanyPaymentMethods([
       {
         method: PaymentMethod.CUSTOMER_CREDIT_NOTE,
@@ -29,9 +29,15 @@ describe('payment-method-config.helpers', () => {
         method: PaymentMethod.ORDER_ADVANCE,
         requireReference: false,
       },
+      {
+        method: PaymentMethod.VOUCHER,
+        requireReference: false,
+        voucherKindId: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+      },
     ]);
     expect(list[0].requireReference).toBe(true);
     expect(list[1].requireReference).toBe(true);
+    expect(list[2].requireReference).toBe(true);
   });
 
   it('syncPosPaymentMethodsWithCatalog ignores implicit payment methods', () => {

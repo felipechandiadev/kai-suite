@@ -611,7 +611,7 @@ export class PromotionsService {
 
     const repo = manager.getRepository(Promotion);
     for (let attempt = 0; attempt < 25; attempt++) {
-      const candidate = `${slugBase}-${randSuffix()}`;
+      const candidate = `${slugBase}${randSuffix()}`;
       const taken = await repo
         .createQueryBuilder('p')
         .where('p.companyId = :c AND p.code = :code AND p.deletedAt IS NULL', {

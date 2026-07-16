@@ -13,7 +13,7 @@ const outDir = join(__dirname, '../public/screenshots');
 const APPS = [
   { id: 'admin', label: 'Admin', accent: '#0a7cad', panels: ['Catálogo', 'Compras', 'Tesorería'] },
   { id: 'pos', label: 'POS', accent: '#04c9e6', panels: ['Carrito', 'Cobro', 'Caja'] },
-  { id: 'stock', label: 'Stock', accent: '#65F3FF', panels: ['SKU', 'Conteo', 'Movim.'] },
+  { id: 'stock', label: 'StockControl', accent: '#65F3FF', panels: ['SKU', 'Conteo', 'Movim.'] },
   { id: 'eshop', label: 'eShop', accent: '#18B3D6', panels: ['Catálogo', 'Carrito', 'Pedido'] },
   { id: 'printers', label: 'Kai Printers', accent: '#04c9e6', panels: ['Cola', 'ESC/POS', 'Local'] },
   { id: 'screen', label: 'Kai Screen', accent: '#0a7cad', panels: ['Total', 'Cliente', 'Brand'] },

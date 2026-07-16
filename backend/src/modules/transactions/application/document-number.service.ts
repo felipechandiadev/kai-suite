@@ -16,7 +16,8 @@ export class DocumentNumberService {
   ) {}
 
   /**
-   * Folio correlativo por sucursal + tipo + año calendario: `OC-26-00001`.
+   * Folio correlativo por sucursal + tipo + año calendario: `OC2600001`.
+   * Mínimo 5 dígitos; si el correlativo supera 99999 crece sin tope fijo.
    * Si `manager` viene de una transacción DB externa, reutiliza ese contexto (misma atomicidad).
    */
   async allocateNext(
@@ -37,7 +38,7 @@ export class DocumentNumberService {
         year,
         companyId,
       );
-      return `${code}-${yy}-${String(n).padStart(5, '0')}`;
+      return `${code}${yy}${String(n).padStart(5, '0')}`;
     };
 
     if (manager) {

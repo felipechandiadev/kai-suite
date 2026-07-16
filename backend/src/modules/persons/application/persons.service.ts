@@ -17,7 +17,7 @@ import { CreatePersonDto } from './dto/create-person.dto';
 import { UpdatePersonDto } from './dto/update-person.dto';
 import { PersonBankAccountDto } from './dto/person-bank-account.dto';
 import { ListPersonsDto } from './dto/list-persons.dto';
-
+import { sanitizePersonGeoActivityFields } from './person-geo-activity.util';
 @Injectable()
 export class PersonsService {
   constructor(
@@ -101,7 +101,18 @@ export class PersonsService {
       data.documentNumber,
       data.documentType,
     );
-    const person = this.personsRepository.create(data);
+    const geo = sanitizePersonGeoActivityFields({
+      regionCode: data.regionCode,
+      regionName: data.regionName,
+      communeCode: data.communeCode,
+      communeName: data.communeName,
+      treasuryCode: data.treasuryCode,
+      economicActivities: data.economicActivities as any,
+    });
+    const person = this.personsRepository.create({
+      ...data,
+      ...geo,
+    });
     return await this.personsRepository.save(person);
   }
 
@@ -111,7 +122,16 @@ export class PersonsService {
   async update(id: string, data: UpdatePersonDto) {
     const person = await this.findOne(id);
 
-    Object.assign(person, data);
+    const geo = sanitizePersonGeoActivityFields({
+      regionCode: data.regionCode,
+      regionName: data.regionName,
+      communeCode: data.communeCode,
+      communeName: data.communeName,
+      treasuryCode: data.treasuryCode,
+      economicActivities: data.economicActivities as any,
+    });
+
+    Object.assign(person, data, geo);
     this.applyPersonDocumentRules(person as unknown as CreatePersonDto);
     await this.assertDocumentNumberAvailable(
       person.documentNumber,

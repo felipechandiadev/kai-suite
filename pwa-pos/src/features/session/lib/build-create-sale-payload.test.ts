@@ -101,4 +101,17 @@ describe("buildCreateSaleClientPayload fiscal snapshot", () => {
     });
     expect(payload.metadata?.selectedSaleDocumentKind).toBe("BOLETA");
   });
+
+  it("rechaza carrito con listas de precios mezcladas", () => {
+    expect(() =>
+      buildCreateSaleClientPayload({
+        ...baseInput,
+        cartLines: [
+          { ...cartLine("v1", true), priceListId: "a", priceListName: "A" },
+          { ...cartLine("v2", true), priceListId: "b", priceListName: "B" },
+        ],
+        payments: [{ id: "c1", type: "CASH", amount: 5000, reference: "" }],
+      }),
+    ).toThrow(/mezclar listas/);
+  });
 });

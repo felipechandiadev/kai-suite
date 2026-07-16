@@ -1,5 +1,6 @@
 import { PaymentMethod } from '../domain/transaction.entity';
 import type { PaymentSnapshot } from '../domain/payment-snapshot.types';
+import { normalizeVoucherPaymentData } from './voucher-payment-data.util';
 
 export type SalePaymentInput = {
   paymentMethod: string;
@@ -8,6 +9,7 @@ export type SalePaymentInput = {
   bankAccountId?: string;
   reference?: string;
   checkData?: Record<string, unknown> | null;
+  voucherData?: Record<string, unknown> | null;
 };
 
 export type CompanyPaymentMethodCatalogEntry = {
@@ -29,6 +31,7 @@ export function buildPaymentSnapshotsFromSalePayments(
       const cmpId = p.companyPaymentMethodId?.trim();
       const cmp = cmpId ? catalog.find((c) => c.id === cmpId) : undefined;
       const rawCheckData = p.checkData;
+      const voucherData = normalizeVoucherPaymentData(p.voucherData);
       return {
         companyPaymentMethodId: cmp?.id ?? null,
         method: String(cmp?.method ?? p.paymentMethod ?? '').trim(),
@@ -39,6 +42,7 @@ export function buildPaymentSnapshotsFromSalePayments(
         capturedAt: now,
         checkData:
           rawCheckData && typeof rawCheckData === 'object' ? rawCheckData : null,
+        voucherData,
       };
     });
 }
@@ -85,6 +89,7 @@ export function getPaymentSnapshotsFromMetadata(
           reference: o.reference ?? null,
           capturedAt,
           checkData: o.checkData ?? null,
+          voucherData: o.voucherData ?? null,
         });
       })
       .filter((s): s is PaymentSnapshot => s != null);
@@ -164,5 +169,8 @@ function normalizePaymentSnapshot(raw: unknown): PaymentSnapshot | null {
       o.checkData && typeof o.checkData === 'object'
         ? (o.checkData as Record<string, unknown>)
         : null,
+    voucherData: normalizeVoucherPaymentData(
+      o.voucherData as Record<string, unknown> | null | undefined,
+    ),
   };
 }

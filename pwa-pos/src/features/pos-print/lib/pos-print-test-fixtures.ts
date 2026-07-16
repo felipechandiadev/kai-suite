@@ -70,7 +70,7 @@ export function buildPosPrintTestSaleReceipt(
   const orderDiscount = 0;
   const total = isBackorder ? 50000 : 23970;
   return {
-    folio: isBackorder ? "ENC-PRUEBA-001" : "VTA-PRUEBA-001",
+    folio: isBackorder ? "ENCPRUEBA001" : "VTAPRUEBA001",
     issuedAtIso: TEST_ISSUED_AT,
     documentKind,
     backorder: isBackorder
@@ -172,7 +172,7 @@ export function buildPosPrintTestCreditNoteData(): CustomerCreditNotePrintData {
   return {
     creditNoteFolio: "NC-PRUEBA-001",
     saleReturnFolio: "DV-PRUEBA-001",
-    originalSaleFolio: "VTA-PRUEBA-099",
+    originalSaleFolio: "VTAPRUEBA099",
     issuedAtIso: TEST_ISSUED_AT,
     company: {
       razonSocial: POS_PRINT_TEST_COMPANY.razonSocial,

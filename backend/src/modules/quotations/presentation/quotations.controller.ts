@@ -37,7 +37,7 @@ export class QuotationsController {
   }
 
   /**
-   * Búsqueda por folio para POS / admin (`COT-26-00001`).
+   * Búsqueda por folio para POS / admin (`COT2600001`).
    * Devuelve `success:true, quotation:null` si no existe (en lugar de 404)
    * para que el cliente pueda mostrar feedback amigable.
    */

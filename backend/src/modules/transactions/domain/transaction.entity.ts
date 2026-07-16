@@ -198,6 +198,11 @@ export enum PaymentMethod {
   /** Anticipo de cliente por encargo / pedido especial. */
   ORDER_ADVANCE = 'ORDER_ADVANCE',
   /**
+   * Documento/voucher de tercero (p.ej. vale gas, vale almuerzo).
+   * Monto + referencia (Nº) + `voucherData` (tipo/emisor/valor nominal).
+   */
+  VOUCHER = 'VOUCHER',
+  /**
    * @deprecated Histórico en BD. Pagos múltiples se expresan en `metadata.payments[]`;
    * la columna `paymentMethod` guarda el medio representativo (mayor monto).
    */

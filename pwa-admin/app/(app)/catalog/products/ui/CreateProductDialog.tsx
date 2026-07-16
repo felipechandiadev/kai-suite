@@ -54,14 +54,12 @@ function buildInitialSku(productName: string, productId: string): string {
   const slug =
     productName
       .trim()
-      .replace(/[^\w\s-]/g, "")
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-")
-      .replace(/^-|-$/g, "")
+      .replace(/[^\w\s]/g, "")
+      .replace(/\s+/g, "")
       .slice(0, 48) || "ITEM";
   const idPart = productId.replace(/-/g, "").slice(0, 8);
   const rand = Math.random().toString(36).slice(2, 8);
-  const sku = `${slug}-${idPart}-${rand}`;
+  const sku = `${slug}${idPart}${rand}`;
   return sku.length <= 100 ? sku : sku.slice(0, 100);
 }
 

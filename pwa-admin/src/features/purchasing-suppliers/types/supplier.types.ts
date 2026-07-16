@@ -1,3 +1,15 @@
+import type { PersonEconomicActivity } from "@kai/chile-catalogs";
+
+/** Campos geo Chile + actividades económicas SII en `Person`. */
+export type PersonGeoFields = {
+  regionCode?: string | null;
+  regionName?: string | null;
+  communeCode?: string | null;
+  communeName?: string | null;
+  treasuryCode?: string | null;
+  economicActivities?: PersonEconomicActivity[] | null;
+};
+
 /** Coincide con backend `PersonType`. */
 export type SupplierPersonType = "NATURAL" | "COMPANY";
 
@@ -37,7 +49,7 @@ export type SupplierPersonGrid = {
   phone?: string | null;
   address?: string | null;
   bankAccounts?: SupplierPersonBankAccount[];
-};
+} & PersonGeoFields;
 
 export type SupplierGridRow = {
   id: string;
@@ -65,7 +77,7 @@ export type UpdateSupplierPersonPayload = {
   email?: string;
   phone?: string;
   address?: string;
-};
+} & PersonGeoFields;
 
 export type UpdateSupplierPayload = {
   supplierType?: string;

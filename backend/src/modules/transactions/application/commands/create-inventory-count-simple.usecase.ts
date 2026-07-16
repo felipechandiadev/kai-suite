@@ -34,7 +34,7 @@ export class CreateInventoryCountUseCase implements ICommandHandler<CreateInvent
     const { dto, userId } = command;
 
     // Generate document number
-    const documentNumber = `IC-${Date.now()}`;
+    const documentNumber = `IC${Date.now()}`;
 
     // Create inventory count transaction
     const transaction = this.transactionRepository.create({

@@ -105,6 +105,7 @@ import {
   getRepresentativePaymentMethod,
   type SalePaymentInput,
 } from '@modules/transactions/application/payment-snapshots.util';
+import { assertVoucherPaymentsValid } from './voucher-payment.util';
 import { FiscalBoletaEmissionService } from '@modules/fiscal/application/fiscal-boleta-emission.service';
 import { FiscalEffectiveOptionsService } from '@modules/fiscal/application/fiscal-effective-options.service';
 import {
@@ -674,6 +675,7 @@ export class SalesFromSessionService {
       bankAccountId: p.bankAccountId,
       reference: p.reference,
       checkData: p.checkData as Record<string, unknown> | undefined,
+      voucherData: (p as { voucherData?: Record<string, unknown> }).voucherData,
       creditNoteTransactionId: p.creditNoteTransactionId,
       backorderTransactionId: p.backorderTransactionId,
     }));
@@ -706,6 +708,19 @@ export class SalesFromSessionService {
       }
     } catch {
       catalog = [];
+    }
+
+    if (pointOfSale.companyId) {
+      const voucherKinds = await this.companiesService.getVoucherKinds(
+        pointOfSale.companyId,
+      );
+      assertVoucherPaymentsValid(
+        salePaymentInputs,
+        voucherKinds,
+        await this.companiesService.getPaymentMethods(
+          pointOfSale.companyId,
+        ),
+      );
     }
 
     const paymentSnapshots = buildPaymentSnapshotsFromSalePayments(
@@ -879,6 +894,7 @@ export class SalesFromSessionService {
       bankAccountId: p.bankAccountId,
       reference: p.reference,
       checkData: p.checkData as Record<string, unknown> | undefined,
+      voucherData: (p as { voucherData?: Record<string, unknown> }).voucherData,
       creditNoteTransactionId: p.creditNoteTransactionId,
       backorderTransactionId: p.backorderTransactionId,
     }));
@@ -911,6 +927,19 @@ export class SalesFromSessionService {
       }
     } catch {
       catalog = [];
+    }
+
+    if (pointOfSale.companyId) {
+      const voucherKinds = await this.companiesService.getVoucherKinds(
+        pointOfSale.companyId,
+      );
+      assertVoucherPaymentsValid(
+        salePaymentInputs,
+        voucherKinds,
+        await this.companiesService.getPaymentMethods(
+          pointOfSale.companyId,
+        ),
+      );
     }
 
     const paymentSnapshots = buildPaymentSnapshotsFromSalePayments(
@@ -1184,6 +1213,7 @@ export class SalesFromSessionService {
       bankAccountId: p.bankAccountId,
       reference: p.reference,
       checkData: p.checkData as Record<string, unknown> | undefined,
+      voucherData: (p as { voucherData?: Record<string, unknown> }).voucherData,
     }));
 
     let catalog: Awaited<ReturnType<CompaniesService['getPaymentMethods']>> = [];
@@ -1605,6 +1635,7 @@ export class SalesFromSessionService {
       bankAccountId: p.bankAccountId,
       reference: (p as { reference?: string }).reference,
       checkData: (p as { checkData?: Record<string, unknown> }).checkData,
+      voucherData: (p as { voucherData?: Record<string, unknown> }).voucherData,
       paymentGatewayIntentId: (p as { paymentGatewayIntentId?: string })
         .paymentGatewayIntentId,
     }));
@@ -1843,11 +1874,14 @@ export class SalesFromSessionService {
           .map((p) => (p as any).companyPaymentMethodId as string | undefined)
           .filter((x): x is string => !!x);
 
-        const manualSelections = clientSnapshot
-          .filter(
-            (s) => s.activation === 'MANUAL' || s.activation === 'CODE_ENTRY',
-          )
-          .map((s) => ({ promotionId: s.promotionId }));
+        const manualSelections = clientSnapshot.map((s) => ({
+          promotionId: s.promotionId,
+          ...(s.isOrderLevel
+            ? {}
+            : s.affectedLineIds?.length
+              ? { lineIds: [...s.affectedLineIds] }
+              : {}),
+        }));
 
         let customerHistory: {
           promotionId: string;
@@ -2064,6 +2098,17 @@ export class SalesFromSessionService {
           }
         } catch {
           catalog = [];
+        }
+        if (companyId) {
+          const voucherKinds =
+            await this.companiesService.getVoucherKinds(companyId);
+          assertVoucherPaymentsValid(
+        salePaymentInputs,
+        voucherKinds,
+        await this.companiesService.getPaymentMethods(
+          pointOfSale.companyId,
+        ),
+      );
         }
         paymentSnapshots = buildPaymentSnapshotsFromSalePayments(
           salePaymentInputs,
@@ -2614,7 +2659,7 @@ export class SalesFromSessionService {
   private generateTempDocumentNumber(): string {
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 10000);
-    return `TEMP-${timestamp}-${random}`;
+    return `TEMP${timestamp}${random}`;
   }
 
   private async assertFulfillBackorderMatches(

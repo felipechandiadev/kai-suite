@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   ForbiddenException,
@@ -32,7 +33,11 @@ export class CourierController {
   ) {}
 
   @Post('login')
-  async login(@Body() body: { userName: string; password: string; companyId?: string }) {
+  async login(@Body() body: { userName: string; password: string; companyId: string }) {
+    const companyId = typeof body.companyId === 'string' ? body.companyId.trim() : '';
+    if (!companyId) {
+      throw new BadRequestException('companyId es obligatorio');
+    }
     const user = await this.userRepo.findOne({
       where: { userName: body.userName },
       relations: { person: true },
@@ -40,7 +45,7 @@ export class CourierController {
     if (!user || user.rol !== UserRole.COURIER) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
-    if (body.companyId && user.companyId && body.companyId !== user.companyId) {
+    if (user.companyId && companyId !== user.companyId) {
       throw new ForbiddenException('Usuario no pertenece a esta empresa');
     }
     const valid = user.pass?.startsWith('$2')

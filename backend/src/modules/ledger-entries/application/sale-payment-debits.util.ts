@@ -31,7 +31,8 @@ export function resolveAssetAccountCodeForPaymentMethod(method: string): string 
     m === PaymentMethod.CREDIT_CARD ||
     m === PaymentMethod.DEBIT_CARD ||
     m === PaymentMethod.TRANSFER ||
-    m === PaymentMethod.CHECK
+    m === PaymentMethod.CHECK ||
+    m === PaymentMethod.VOUCHER
   ) {
     return '1.1.02';
   }

@@ -60,6 +60,16 @@ export interface PersonBankAccount {
   currentBalance?: number;
 }
 
+export type PersonEconomicActivityCategory = 'PRIMERA' | 'SEGUNDA';
+
+export interface PersonEconomicActivity {
+  code: string;
+  name: string;
+  category: PersonEconomicActivityCategory;
+  ivaAffected: boolean;
+  isActive: boolean;
+}
+
 @Entity('persons')
 export class Person {
   @PrimaryGeneratedColumn('uuid')
@@ -96,6 +106,24 @@ export class Person {
 
   @Column({ type: 'text', nullable: true })
   address?: string;
+
+  @Column({ type: 'varchar', length: 8, nullable: true })
+  regionCode?: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  regionName?: string | null;
+
+  @Column({ type: 'varchar', length: 8, nullable: true })
+  communeCode?: string | null;
+
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  communeName?: string | null;
+
+  @Column({ type: 'varchar', length: 8, nullable: true })
+  treasuryCode?: string | null;
+
+  @Column({ type: 'json', nullable: true })
+  economicActivities?: PersonEconomicActivity[] | null;
 
   @Column({ type: 'json', nullable: true })
   bankAccounts?: PersonBankAccount[] | null;

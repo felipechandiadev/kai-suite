@@ -9,7 +9,7 @@ import {
 
 /**
  * Contador atómico por sucursal + tipo de transacción + año calendario
- * para folios `SIGLA-YY-00001`.
+ * para folios `SIGLAYY00001` (sin guiones; correlativo mín. 5 dígitos).
  */
 @Entity('document_sequences')
 @Unique('UQ_document_sequences_scope', ['branchId', 'transactionType', 'year'])

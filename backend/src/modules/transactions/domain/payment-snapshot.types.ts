@@ -11,4 +11,5 @@ export type PaymentSnapshot = {
   reference: string | null;
   capturedAt: string;
   checkData?: Record<string, unknown> | null;
+  voucherData?: Record<string, unknown> | null;
 };

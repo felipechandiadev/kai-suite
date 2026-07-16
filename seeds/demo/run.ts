@@ -398,6 +398,45 @@ const SEED_EXPENSE_CATEGORIES: readonly {
   },
 ] as const;
 
+type SeedPersonGeo = {
+  regionCode?: string;
+  regionName?: string;
+  communeCode?: string;
+  communeName?: string;
+  treasuryCode?: string;
+  economicActivities?: Array<{
+    code: string;
+    name: string;
+    category: 'PRIMERA' | 'SEGUNDA';
+    ivaAffected: boolean;
+    isActive: boolean;
+  }>;
+};
+
+const SEED_PARRAL_GEO: SeedPersonGeo = {
+  regionCode: '07',
+  regionName: 'Maule',
+  communeCode: '07305',
+  communeName: 'PARRAL',
+  treasuryCode: '164',
+  economicActivities: [
+    {
+      code: '471100',
+      name: 'VENTA AL POR MENOR EN COMERCIOS DE ALIMENTOS, BEBIDAS O TABACO (SUPERMERCADOS E HIPERMERCADOS)',
+      category: 'PRIMERA',
+      ivaAffected: true,
+      isActive: true,
+    },
+    {
+      code: '472101',
+      name: 'VENTA AL POR MENOR DE ALIMENTOS EN COMERCIOS ESPECIALIZADOS (ALMACENES PEQUEÑOS Y MINIMARKET)',
+      category: 'PRIMERA',
+      ivaAffected: true,
+      isActive: false,
+    },
+  ],
+};
+
 const SEED_SUPPLIERS: readonly {
   person: {
     type: PersonType;
@@ -409,7 +448,7 @@ const SEED_SUPPLIERS: readonly {
     email?: string;
     phone?: string;
     address?: string;
-  };
+  } & SeedPersonGeo;
   supplier: {
     supplierType: SupplierType;
     alias?: string;
@@ -534,16 +573,17 @@ const SEED_SUPPLIERS: readonly {
       firstName: 'Andrea',
       lastName: 'Rojas',
       documentType: DocumentType.DNI,
-      documentNumber: 'PROV-AR-001',
+      documentNumber: 'PROVAR001',
       phone: '+56 9 4321 1000',
-      address: 'Pasaje Las Flores 120, Chillán',
+      address: 'Pasaje Las Flores 120',
+      ...SEED_PARRAL_GEO,
     },
     supplier: {
       supplierType: SupplierType.CONTRACTOR,
       alias: 'A. Rojas',
       defaultPaymentTermDays: 7,
       isActive: true,
-      notes: 'Proveedor sin email para validar campos opcionales.',
+      notes: 'Proveedor demo Parral con geo Chile + ACTECO (una activa).',
     },
   },
   {
@@ -618,7 +658,7 @@ const SEED_CUSTOMERS: readonly {
     email?: string;
     phone?: string;
     address?: string;
-  };
+  } & SeedPersonGeo;
   customer: {
     creditLimit: number;
     paymentDayOfMonth: 5 | 10 | 15 | 20 | 25 | 30;
@@ -792,14 +832,16 @@ const SEED_CUSTOMERS: readonly {
       firstName: 'Valentina',
       lastName: 'Sánchez',
       documentType: DocumentType.DNI,
-      documentNumber: 'CUST-VS-001',
+      documentNumber: 'CUSTVS001',
       phone: '+56 9 4444 1212',
+      address: 'Calle Prat 450',
+      ...SEED_PARRAL_GEO,
     },
     customer: {
       creditLimit: 100000,
       paymentDayOfMonth: 20,
       isActive: true,
-      notes: 'Documento DNI (validar campo opcional documentType).',
+      notes: 'Cliente demo Parral con geo Chile + ACTECO (una activa).',
     },
   },
 ] as const;
@@ -2330,6 +2372,12 @@ async function bootstrap() {
           email: item.person.email,
           phone: item.person.phone,
           address: item.person.address,
+          regionCode: item.person.regionCode,
+          regionName: item.person.regionName,
+          communeCode: item.person.communeCode,
+          communeName: item.person.communeName,
+          treasuryCode: item.person.treasuryCode,
+          economicActivities: item.person.economicActivities as any,
         });
       } else {
         person.type = item.person.type;
@@ -2340,6 +2388,12 @@ async function bootstrap() {
         person.email = item.person.email;
         person.phone = item.person.phone;
         person.address = item.person.address;
+        person.regionCode = item.person.regionCode;
+        person.regionName = item.person.regionName;
+        person.communeCode = item.person.communeCode;
+        person.communeName = item.person.communeName;
+        person.treasuryCode = item.person.treasuryCode;
+        person.economicActivities = item.person.economicActivities as any;
       }
       person = await personRepo.save(person);
 
@@ -2391,6 +2445,12 @@ async function bootstrap() {
           email: item.person.email,
           phone: item.person.phone,
           address: item.person.address,
+          regionCode: item.person.regionCode,
+          regionName: item.person.regionName,
+          communeCode: item.person.communeCode,
+          communeName: item.person.communeName,
+          treasuryCode: item.person.treasuryCode,
+          economicActivities: item.person.economicActivities as any,
         });
       } else {
         person.type = item.person.type;
@@ -2401,6 +2461,12 @@ async function bootstrap() {
         person.email = item.person.email;
         person.phone = item.person.phone;
         person.address = item.person.address;
+        person.regionCode = item.person.regionCode;
+        person.regionName = item.person.regionName;
+        person.communeCode = item.person.communeCode;
+        person.communeName = item.person.communeName;
+        person.treasuryCode = item.person.treasuryCode;
+        person.economicActivities = item.person.economicActivities as any;
       }
       person = await personRepo.save(person);
 

@@ -6,6 +6,7 @@ import {
 } from '../../domain/promotion.enums';
 import { applyPromotions } from '../discount-engine';
 import {
+  applyPromotionsAutoSelected,
   ctxDefault,
   FIXTURE_BRANCH_ID,
   FIXTURE_CATEGORY_ID,
@@ -25,7 +26,7 @@ import {
 
 describe('discount-engine — PromotionType', () => {
   it('PERCENT_ON_LINE descuenta el porcentaje del subtotal de la línea elegible', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [promo({ type: PromotionType.PERCENT_ON_LINE, value: 15 })],
@@ -38,7 +39,7 @@ describe('discount-engine — PromotionType', () => {
   });
 
   it('AMOUNT_ON_LINE descuenta monto fijo cuando hay capacidad', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [promo({ type: PromotionType.AMOUNT_ON_LINE, value: 20_000 })],
@@ -49,7 +50,7 @@ describe('discount-engine — PromotionType', () => {
   });
 
   it('AMOUNT_ON_LINE se trunca al subtotal cuando excede', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing({ unitPrice: 5_000 })], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [promo({ type: PromotionType.AMOUNT_ON_LINE, value: 50_000 })],
@@ -60,7 +61,7 @@ describe('discount-engine — PromotionType', () => {
   });
 
   it('PERCENT_ON_ORDER aplica al subtotal neto post-descuentos de línea', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: {
         lines: [lineRing({ unitPrice: 100_000 })],
         customerId: null,
@@ -91,7 +92,7 @@ describe('discount-engine — PromotionType', () => {
   });
 
   it('AMOUNT_ON_ORDER aplica monto fijo de orden', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [promo({ type: PromotionType.AMOUNT_ON_ORDER, value: 7_000 })],
@@ -102,7 +103,7 @@ describe('discount-engine — PromotionType', () => {
   });
 
   it('PRICE_OVERRIDE fuerza unitPrice y emite descuento equivalente', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: {
         lines: [lineRing({ unitPrice: 100_000, quantity: 3 })],
         customerId: null,
@@ -120,7 +121,7 @@ describe('discount-engine — PromotionType', () => {
   });
 
   it('PRICE_OVERRIDE descarta si el "nuevo precio" es ≥ al actual', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: {
         lines: [lineRing({ unitPrice: 100_000 })],
         customerId: null,
@@ -135,7 +136,7 @@ describe('discount-engine — PromotionType', () => {
   });
 
   it('BUY_X_GET_Y: 2x1 con 4 unidades regala 2', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: {
         lines: [lineRing({ quantity: 4, unitPrice: 10_000 })],
         customerId: null,
@@ -158,7 +159,7 @@ describe('discount-engine — PromotionType', () => {
   });
 
   it('BUY_X_GET_Y: con 3 unidades y 2x1 sólo aplica 1 bloque (regala 1)', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: {
         lines: [lineRing({ quantity: 3, unitPrice: 10_000 })],
         customerId: null,
@@ -180,7 +181,7 @@ describe('discount-engine — PromotionType', () => {
   });
 
   it('BUY_X_GET_Y: con 1 unidad no aplica', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: {
         lines: [lineRing({ quantity: 1, unitPrice: 10_000 })],
         customerId: null,
@@ -204,7 +205,7 @@ describe('discount-engine — PromotionType', () => {
 
 describe('discount-engine — vigencia', () => {
   it('validUntil pasado descarta la promoción', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [promo({ validUntil: new Date('2025-01-01T00:00:00.000Z') })],
@@ -215,7 +216,7 @@ describe('discount-engine — vigencia', () => {
   });
 
   it('validFrom futuro descarta la promoción', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [promo({ validFrom: new Date('2999-01-01T00:00:00.000Z') })],
@@ -226,7 +227,7 @@ describe('discount-engine — vigencia', () => {
   });
 
   it('vencimiento próximo (<= 3 días) genera warning', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [
@@ -243,7 +244,7 @@ describe('discount-engine — vigencia', () => {
 
 describe('discount-engine — stacking y prioridad', () => {
   it('una línea sólo recibe una promoción de línea (gana mayor priority)', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [
@@ -257,7 +258,7 @@ describe('discount-engine — stacking y prioridad', () => {
   });
 
   it('promociones de orden stackable se suman', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [
@@ -272,7 +273,7 @@ describe('discount-engine — stacking y prioridad', () => {
   });
 
   it('promoción de orden no-stackable bloquea otras de orden con menor priority', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [
@@ -303,7 +304,7 @@ describe('discount-engine — stacking y prioridad', () => {
 
 describe('discount-engine — autorización y maxValue', () => {
   it('authorizationLimitPct con CASHIER recorta el porcentaje a tope', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [
@@ -321,7 +322,7 @@ describe('discount-engine — autorización y maxValue', () => {
   });
 
   it('maxValue tope absoluto al monto descontado por línea', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing({ unitPrice: 100_000, quantity: 2 })], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [promo({ value: 50, maxValue: 30_000 })],
@@ -334,7 +335,7 @@ describe('discount-engine — autorización y maxValue', () => {
 
 describe('discount-engine — mínimos', () => {
   it('minSubtotal bloquea cuando no se alcanza', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing({ unitPrice: 10_000 })], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [promo({ minSubtotal: 50_000 })],
@@ -345,7 +346,7 @@ describe('discount-engine — mínimos', () => {
   });
 
   it('minQuantity bloquea cuando no se alcanza', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing({ quantity: 1 })], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [promo({ minQuantity: 5 })],
@@ -358,7 +359,7 @@ describe('discount-engine — mínimos', () => {
 
 describe('discount-engine — ventana horaria y días de la semana', () => {
   it('daysOfWeek que no incluye hoy bloquea', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(), // miércoles = 3
       promotions: [promo({ daysOfWeek: [0, 6] })],
@@ -369,7 +370,7 @@ describe('discount-engine — ventana horaria y días de la semana', () => {
   });
 
   it('hourFrom/hourTo respeta la ventana (14:00 fuera de 09:00-12:00)', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [promo({ hourFrom: '09:00', hourTo: '12:00' })],
@@ -382,7 +383,7 @@ describe('discount-engine — ventana horaria y días de la semana', () => {
 
 describe('discount-engine — scopes INCLUDE/EXCLUDE', () => {
   it('INCLUDE de productos restringe a esos productos', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: {
         lines: [lineRing(), lineNecklace()],
         customerId: null,
@@ -411,7 +412,7 @@ describe('discount-engine — scopes INCLUDE/EXCLUDE', () => {
   });
 
   it('EXCLUDE de productos excluye esos productos', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: {
         lines: [lineRing(), lineNecklace()],
         customerId: null,
@@ -442,7 +443,7 @@ describe('discount-engine — scopes INCLUDE/EXCLUDE', () => {
   });
 
   it('INCLUDE de categoría', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: {
         lines: [lineRing(), lineNecklace()],
         customerId: null,
@@ -473,7 +474,7 @@ describe('discount-engine — scopes INCLUDE/EXCLUDE', () => {
   });
 
   it('INCLUDE de cliente bloquea si no hay cliente seleccionado', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [
@@ -499,7 +500,7 @@ describe('discount-engine — scopes INCLUDE/EXCLUDE', () => {
   });
 
   it('INCLUDE de cliente aplica con cliente correcto', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: FIXTURE_CUSTOMER_ID, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [
@@ -525,7 +526,7 @@ describe('discount-engine — scopes INCLUDE/EXCLUDE', () => {
   });
 
   it('INCLUDE de método de pago bloquea si no se eligió ese método', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [FIXTURE_PAYMENT_METHOD_CASH] },
       ctx: ctxDefault(),
       promotions: [
@@ -551,7 +552,7 @@ describe('discount-engine — scopes INCLUDE/EXCLUDE', () => {
   });
 
   it('INCLUDE de método de pago aplica si coincide', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [FIXTURE_PAYMENT_METHOD_CARD] },
       ctx: ctxDefault(),
       promotions: [
@@ -577,7 +578,7 @@ describe('discount-engine — scopes INCLUDE/EXCLUDE', () => {
   });
 
   it('Branch fuera del INCLUDE bloquea', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [
@@ -603,7 +604,7 @@ describe('discount-engine — scopes INCLUDE/EXCLUDE', () => {
   });
 
   it('POS dentro del INCLUDE aplica', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [
@@ -631,7 +632,7 @@ describe('discount-engine — scopes INCLUDE/EXCLUDE', () => {
 
 describe('discount-engine — límites de uso', () => {
   it('maxUsesTotal alcanzado bloquea y emite warning', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [promo({ maxUsesTotal: 10, usesCount: 10 })],
@@ -643,7 +644,7 @@ describe('discount-engine — límites de uso', () => {
   });
 
   it('maxUsesPerCustomer alcanzado bloquea y emite warning', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: FIXTURE_CUSTOMER_ID, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [promo({ id: 'P', maxUsesPerCustomer: 1 })],
@@ -656,6 +657,28 @@ describe('discount-engine — límites de uso', () => {
 });
 
 describe('discount-engine — activations', () => {
+  it('AUTO no aplica sin opt-in del cajero', () => {
+    const result = applyPromotions({
+      cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [] },
+      ctx: ctxDefault(),
+      promotions: [promo({ activation: PromotionActivation.AUTO })],
+      manualSelections: [],
+      customerHistory: [],
+    });
+    expect(result.appliedPromotions).toHaveLength(0);
+  });
+
+  it('AUTO aplica si el cajero la selecciona', () => {
+    const result = applyPromotions({
+      cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [] },
+      ctx: ctxDefault(),
+      promotions: [promo({ id: 'A', activation: PromotionActivation.AUTO })],
+      manualSelections: [{ promotionId: 'A' }],
+      customerHistory: [],
+    });
+    expect(result.appliedPromotions).toHaveLength(1);
+  });
+
   it('MANUAL no aplica si no se selecciona', () => {
     const result = applyPromotions({
       cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [] },
@@ -697,7 +720,7 @@ describe('discount-engine — activations', () => {
   });
 
   it('selección manual con lineIds limita a esas líneas', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: {
         lines: [lineRing(), lineNecklace()],
         customerId: null,
@@ -711,11 +734,27 @@ describe('discount-engine — activations', () => {
     expect(result.resolvedLines[0].discount).toBeNull();
     expect(result.resolvedLines[1].discount).not.toBeNull();
   });
+
+  it('AUTO con lineIds también limita a esas líneas', () => {
+    const result = applyPromotions({
+      cart: {
+        lines: [lineRing(), lineNecklace()],
+        customerId: null,
+        paymentMethodIds: [],
+      },
+      ctx: ctxDefault(),
+      promotions: [promo({ id: 'A', activation: PromotionActivation.AUTO })],
+      manualSelections: [{ promotionId: 'A', lineIds: ['L-NECK'] }],
+      customerHistory: [],
+    });
+    expect(result.resolvedLines[0].discount).toBeNull();
+    expect(result.resolvedLines[1].discount).not.toBeNull();
+  });
 });
 
 describe('discount-engine — frozen y otros', () => {
   it('frozenDiscount se respeta y no se re-aplica', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: {
         lines: [
           lineRing({
@@ -742,7 +781,7 @@ describe('discount-engine — frozen y otros', () => {
   });
 
   it('subtotal negativo es prevenido — orderDiscount no excede subtotal neto', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing({ unitPrice: 10_000 })], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [promo({ type: PromotionType.AMOUNT_ON_ORDER, value: 999_999 })],
@@ -753,7 +792,7 @@ describe('discount-engine — frozen y otros', () => {
   });
 
   it('contexto sin scopes aplica universalmente', () => {
-    const result = applyPromotions({
+    const result = applyPromotionsAutoSelected({
       cart: { lines: [lineRing()], customerId: null, paymentMethodIds: [] },
       ctx: ctxDefault(),
       promotions: [promo()],

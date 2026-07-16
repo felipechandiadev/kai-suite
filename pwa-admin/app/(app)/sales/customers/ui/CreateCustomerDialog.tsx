@@ -6,6 +6,14 @@ import { Alert } from "@kai/ui";
 import { Button } from "@kai/ui";
 import { TextField } from "@kai/ui";
 import { Select, type Option } from "@kai/ui";
+import type { PersonEconomicActivity } from "@kai/chile-catalogs";
+import { ChileRegionCommuneFields } from "@/features/chile-person/ui/ChileRegionCommuneFields";
+import { EconomicActivitiesEditor } from "@/features/chile-person/ui/EconomicActivitiesEditor";
+import {
+  emptyChileGeoValue,
+  geoPayloadFromChileGeo,
+} from "@/features/chile-person/lib/person-geo-payload.util";
+import type { ChileGeoValue } from "@/features/chile-person/ui/ChileRegionCommuneFields";
 import { createCustomerAction } from "@/features/sales-customers/actions/customer.action";
 import type {
   CreateCustomerFormInput,
@@ -54,7 +62,8 @@ export function CreateCustomerDialog({
   const [documentNumber, setDocumentNumber] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
+  const [geo, setGeo] = useState<ChileGeoValue>(emptyChileGeoValue);
+  const [economicActivities, setEconomicActivities] = useState<PersonEconomicActivity[]>([]);
   const [creditLimitStr, setCreditLimitStr] = useState("0");
   const [paymentDayOfMonth, setPaymentDayOfMonth] = useState<string>("5");
   const [notes, setNotes] = useState("");
@@ -71,7 +80,8 @@ export function CreateCustomerDialog({
       setDocumentNumber("");
       setEmail("");
       setPhone("");
-      setAddress("");
+      setGeo(emptyChileGeoValue());
+      setEconomicActivities([]);
       setCreditLimitStr("0");
       setPaymentDayOfMonth("5");
       setNotes("");
@@ -88,7 +98,8 @@ export function CreateCustomerDialog({
     setDocumentNumber("");
     setEmail("");
     setPhone("");
-    setAddress("");
+    setGeo(emptyChileGeoValue());
+    setEconomicActivities([]);
     setCreditLimitStr("0");
     setPaymentDayOfMonth("5");
     setNotes("");
@@ -119,6 +130,7 @@ export function CreateCustomerDialog({
       ? Math.max(0, Math.round(Number(creditLimitStr.replace(/\D/g, "")) || 0))
       : 0;
     const day = Number(paymentDayOfMonth) as CreateCustomerFormInput["paymentDayOfMonth"];
+    const geoFields = geoPayloadFromChileGeo(geo);
     const input: CreateCustomerFormInput = {
       personType,
       firstName: personType === "NATURAL" ? firstName : undefined,
@@ -128,7 +140,8 @@ export function CreateCustomerDialog({
       documentNumber: documentNumber.trim(),
       email: email.trim() || undefined,
       phone: phone.trim() || undefined,
-      address: address.trim() || undefined,
+      ...geoFields,
+      economicActivities: economicActivities.length > 0 ? economicActivities : undefined,
       creditLimit,
       paymentDayOfMonth: internalCreditEnabled
         ? [5, 10, 15, 20, 25, 30].includes(day)
@@ -285,12 +298,18 @@ export function CreateCustomerDialog({
           />
         </div>
 
-        <TextField
-          label="Dirección (opcional)"
-          name="customer-address"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          data-test-id="customer-create-address"
+        <ChileRegionCommuneFields
+          value={geo}
+          onChange={setGeo}
+          disabled={isPending}
+          testIdPrefix="customer-create-geo"
+        />
+
+        <EconomicActivitiesEditor
+          value={economicActivities}
+          onChange={setEconomicActivities}
+          disabled={isPending}
+          testIdPrefix="customer-create-acteco"
         />
 
         {internalCreditEnabled ? (

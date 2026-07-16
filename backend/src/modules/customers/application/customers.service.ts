@@ -17,6 +17,7 @@ import {
 import { CompaniesService } from '@modules/companies/application/companies.service';
 import { TenantContext } from '@common/tenant';
 import { EshopCustomerAccount } from '@modules/e-shop/domain/eshop-customer-account.entity';
+import { sanitizePersonGeoActivityFields } from '@modules/persons/application/person-geo-activity.util';
 
 enum PersonType {
   NATURAL = 'NATURAL',
@@ -52,6 +53,15 @@ export class CustomersService {
       paymentDayOfMonth,
       notes,
     } = createCustomerDto;
+
+    const geo = sanitizePersonGeoActivityFields({
+      regionCode: createCustomerDto.regionCode,
+      regionName: createCustomerDto.regionName,
+      communeCode: createCustomerDto.communeCode,
+      communeName: createCustomerDto.communeName,
+      treasuryCode: createCustomerDto.treasuryCode,
+      economicActivities: createCustomerDto.economicActivities as any,
+    });
 
     const companyId = TenantContext.getCompanyId();
     if (companyId) {
@@ -101,6 +111,7 @@ export class CustomersService {
           person.email = email || undefined;
           person.phone = phone || undefined;
           person.address = address || undefined;
+          Object.assign(person, geo);
           await this.personRepository.save(person);
 
           const creditInfo = await this.calculateAvailableCredit(
@@ -142,6 +153,7 @@ export class CustomersService {
         email: email || undefined,
         phone: phone || undefined,
         address: address || undefined,
+        ...geo,
       });
       await this.personRepository.save(person);
     } else {
@@ -155,6 +167,7 @@ export class CustomersService {
       person.email = email || undefined;
       person.phone = phone || undefined;
       person.address = address || undefined;
+      Object.assign(person, geo);
       await this.personRepository.save(person);
     }
 
@@ -301,6 +314,12 @@ export class CustomersService {
       email: p?.email || null,
       phone: p?.phone || null,
       address: p?.address || null,
+      regionCode: p?.regionCode ?? null,
+      regionName: p?.regionName ?? null,
+      communeCode: p?.communeCode ?? null,
+      communeName: p?.communeName ?? null,
+      treasuryCode: p?.treasuryCode ?? null,
+      economicActivities: p?.economicActivities ?? null,
       creditLimit: creditInfo.creditLimit,
       usedCredit: creditInfo.usedCredit,
       availableCredit: creditInfo.availableCredit,

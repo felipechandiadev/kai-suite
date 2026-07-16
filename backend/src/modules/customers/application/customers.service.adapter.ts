@@ -44,6 +44,12 @@ export class CustomersServiceAdapter {
       updateData.email,
       updateData.phone,
       updateData.address,
+      updateData.regionCode,
+      updateData.regionName,
+      updateData.communeCode,
+      updateData.communeName,
+      updateData.treasuryCode,
+      updateData.economicActivities,
     );
 
     await this.commandBus.execute(command);

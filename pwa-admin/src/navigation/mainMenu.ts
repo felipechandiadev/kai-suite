@@ -48,6 +48,7 @@ export const mainMenuItems: SideBarMenuItem[] = [
     label: 'Ventas',
     children: [
       { id: 'sales-transactions', label: 'Transacciones', url: '/sales/transactions/sales' },
+      { id: 'sales-reports', label: 'Reportes', url: '/sales/reports' },
       { id: 'sales-promotions', label: 'Promociones', url: '/sales/promotions' },
       { id: 'sales-customers', label: 'Clientes', url: '/sales/customers' },
       { id: 'sales-pos', label: 'Puntos de venta', url: '/sales/points-of-sale' },

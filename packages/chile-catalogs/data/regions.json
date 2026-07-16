@@ -1,0 +1,66 @@
+[
+  {
+    "code": "01",
+    "name": "Arica y Parinacota / Tarapacá"
+  },
+  {
+    "code": "02",
+    "name": "Antofagasta"
+  },
+  {
+    "code": "03",
+    "name": "Atacama"
+  },
+  {
+    "code": "04",
+    "name": "Coquimbo"
+  },
+  {
+    "code": "05",
+    "name": "Valparaíso"
+  },
+  {
+    "code": "06",
+    "name": "O'Higgins"
+  },
+  {
+    "code": "07",
+    "name": "Maule"
+  },
+  {
+    "code": "08",
+    "name": "Biobío / Ñuble"
+  },
+  {
+    "code": "09",
+    "name": "Araucanía"
+  },
+  {
+    "code": "10",
+    "name": "Los Ríos / Los Lagos"
+  },
+  {
+    "code": "11",
+    "name": "Aysén"
+  },
+  {
+    "code": "12",
+    "name": "Magallanes"
+  },
+  {
+    "code": "13",
+    "name": "Metropolitana (centro)"
+  },
+  {
+    "code": "14",
+    "name": "Metropolitana (poniente / norte)"
+  },
+  {
+    "code": "15",
+    "name": "Metropolitana (oriente)"
+  },
+  {
+    "code": "16",
+    "name": "Metropolitana (sur)"
+  }
+]

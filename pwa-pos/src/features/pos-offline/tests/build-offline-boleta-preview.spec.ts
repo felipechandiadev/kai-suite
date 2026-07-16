@@ -66,7 +66,7 @@ describe("build-offline-boleta-preview", () => {
       customer: null,
       fiscalPack,
       folio: 10,
-      localDocumentNumber: "OFF-001",
+      localDocumentNumber: "OFF001",
     });
     expect(preview.lines[0]?.name).toContain("Polera básica");
     expect(preview.lines[0]?.name).toContain("Rojo");
@@ -83,7 +83,7 @@ describe("build-offline-boleta-preview", () => {
       },
       fiscalPack,
       folio: 11,
-      localDocumentNumber: "OFF-002",
+      localDocumentNumber: "OFF002",
     });
     expect(preview.receptor.rut).toBe("12345678-5");
     expect(preview.receptor.name).toBe("Juan Pérez");
@@ -98,7 +98,7 @@ describe("build-offline-boleta-preview", () => {
       customer: null,
       fiscalPack,
       folio: 12,
-      localDocumentNumber: "OFF-003",
+      localDocumentNumber: "OFF003",
     });
     expect(preview.lines).toHaveLength(1);
     expect(preview.lines[0]?.name).toContain("Con DTE");
@@ -113,7 +113,7 @@ describe("build-offline-boleta-preview", () => {
       customer: null,
       fiscalPack,
       folio: 13,
-      localDocumentNumber: "OFF-004",
+      localDocumentNumber: "OFF004",
       orderDiscount: 300,
     });
     expect(preview.totals.mntTotal).toBe(1800);

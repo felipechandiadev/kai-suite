@@ -91,6 +91,12 @@ export function sanitizeCompanyPaymentMethod(
       : r.requireReference === true,
     bankAccountKey: trimOrNull(r.bankAccountKey),
     metadata: r.metadata && typeof r.metadata === 'object' ? (r.metadata as Record<string, any>) : null,
+    voucherKindId:
+      method === PaymentMethod.VOUCHER
+        ? typeof r.voucherKindId === 'string' && r.voucherKindId.trim()
+          ? r.voucherKindId.trim()
+          : null
+        : null,
   };
 }
 
@@ -114,6 +120,12 @@ export function validateCompanyPaymentMethods(
       throw new Error(`Medio de pago duplicado (id ${item.id})`);
     }
     idSet.add(item.id);
+
+    if (item.method === PaymentMethod.VOUCHER && !item.voucherKindId?.trim()) {
+      throw new Error(
+        `Medio de pago VOUCHER (${item.alias ?? item.id}): debe indicar voucherKindId`,
+      );
+    }
 
     const aliasKey = `${item.method}::${(item.alias ?? '').toLowerCase()}`;
     if (aliasKeys.has(aliasKey)) {

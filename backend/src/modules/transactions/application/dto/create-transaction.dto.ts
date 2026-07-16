@@ -140,7 +140,7 @@ export class CreateTransactionDto {
   @IsUUID()
   userId!: string;
 
-  /** Folio preasignado (p. ej. recepción que ya reservó CMP-YY-#####). Si se omite, se asigna correlativo. */
+  /** Folio preasignado (p. ej. recepción que ya reservó CMP2600001). Si se omite, se asigna correlativo. */
   @IsOptional()
   @IsString()
   documentNumber?: string;

@@ -21,7 +21,7 @@ describe('ConvertQuotationUseCase', () => {
     ({
       id: 'q-1',
       companyId: COMPANY_ID,
-      documentNumber: 'COT-26-00001',
+      documentNumber: 'COT2600001',
       transactionType: TransactionType.QUOTATION,
       status: TransactionStatus.CONFIRMED,
       branchId: 'br-1',
@@ -70,7 +70,7 @@ describe('ConvertQuotationUseCase', () => {
     commandBus = {
       execute: jest.fn().mockResolvedValue({
         id: 'sale-1',
-        documentNumber: 'VTA-26-00010',
+        documentNumber: 'VTA2600010',
       } as Partial<Transaction>),
     };
     usecase = new ConvertQuotationUseCase(
@@ -159,14 +159,14 @@ describe('ConvertQuotationUseCase', () => {
     expect(updated.status).toBe(TransactionStatus.COMPLETED);
     expect(updated.metadata.quotation.convertedToTransactionId).toBe('sale-1');
     expect(updated.metadata.quotation.convertedToDocumentNumber).toBe(
-      'VTA-26-00010',
+      'VTA2600010',
     );
 
     expect(result).toEqual(
       expect.objectContaining({
         quotationId: quotation.id,
         targetTransactionId: 'sale-1',
-        targetTransactionDocumentNumber: 'VTA-26-00010',
+        targetTransactionDocumentNumber: 'VTA2600010',
         expiredAtConversion: false,
         pricesRefreshed: false,
       }),

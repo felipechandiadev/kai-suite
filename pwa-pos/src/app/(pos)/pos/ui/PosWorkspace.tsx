@@ -402,6 +402,15 @@ export default function PosWorkspace() {
             {stockWarning}
           </Alert>
         ) : null}
+        {cart.lastCartError ? (
+          <Alert
+            variant="error"
+            className="shrink-0"
+            data-test-id="pos-cart-price-list-error"
+          >
+            {cart.lastCartError}
+          </Alert>
+        ) : null}
         <div className="flex shrink-0 items-start justify-between gap-2">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             {quotationsEnabled && !isPresaleMode && !isOffline ? (
