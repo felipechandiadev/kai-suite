@@ -62,9 +62,9 @@ npm run kai-printers:publish
 
 Verificá localmente:
 
-- http://localhost:5032/settings/local-printing
-- http://localhost:5032/downloads/kai-printers-android.manifest.json
-- http://localhost:5032/downloads/kai-printers-android-{version}.apk
+- http://localhost:5062/settings/local-printing
+- http://localhost:5062/downloads/kai-printers-android.manifest.json
+- http://localhost:5062/downloads/kai-printers-android-{version}.apk
 
 ### 2. Commit y push (solo manifests + metadatos)
 
@@ -113,8 +113,8 @@ Si servís los binarios desde CDN u otro origen:
 
 ```env
 NEXT_PUBLIC_KAI_PRINTERS_ANDROID_URL=https://cdn.tu-dominio.cl/kai-printers-android-1.1.8.apk
-NEXT_PUBLIC_KAI_PRINTERS_WINDOWS_URL=https://cdn.tu-dominio.cl/kai-printers-windows-1.0.2-x64-portable.zip
-NEXT_PUBLIC_KAI_PRINTERS_MACOS_URL=https://cdn.tu-dominio.cl/kai-printers-macos-1.0.2-aarch64.dmg
+NEXT_PUBLIC_KAI_PRINTERS_WINDOWS_URL=https://cdn.tu-dominio.cl/kai-printers-windows-1.0.6-x64-portable.zip
+NEXT_PUBLIC_KAI_PRINTERS_MACOS_URL=https://cdn.tu-dominio.cl/kai-printers-macos-1.0.6-aarch64.dmg
 ```
 
 ---

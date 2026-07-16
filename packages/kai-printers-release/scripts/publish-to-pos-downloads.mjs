@@ -104,7 +104,7 @@ function publishWindows(version) {
   });
 
   console.log(`Windows → ${dest}`);
-  console.log(`URL local: http://localhost:5032/downloads/${destName}`);
+  console.log(`URL local: http://localhost:5062/downloads/${destName}`);
 }
 
 function findDmgInDir(bundleRoot, version) {
@@ -205,7 +205,7 @@ function publishMacos(version) {
   });
 
   console.log(`macOS → ${dest}`);
-  console.log(`URL local: http://localhost:5032/downloads/${destName}`);
+  console.log(`URL local: http://localhost:5062/downloads/${destName}`);
 }
 
 if (!existsSync(printServiceRoot)) {
