@@ -161,7 +161,7 @@ apply_backend_derived() {
   host="$(shared_get "$shared" KAI_DEV_HOST)"
   host="${host:-localhost}"
   backend_port="$(shared_get "$shared" KAI_BACKEND_PORT)"
-  backend_port="${backend_port:-5030}"
+  backend_port="${backend_port:-5060}"
   mail_port="$(shared_get "$shared" KAI_MAIL_PORT)"
   mail_port="${mail_port:-5040}"
   backend_url="$(shared_get "$shared" KAI_BACKEND_URL)"
@@ -315,9 +315,9 @@ fi
 echo ""
 echo "[sync-dev-envs] Matriz: $SHARED"
 if [[ "$FORCE" == true ]]; then
-  echo "[sync-dev-envs] Desarrollo 503x regenerado (forzado)"
+  echo "[sync-dev-envs] Desarrollo 506x regenerado (forzado)"
 else
-  echo "[sync-dev-envs] Desarrollo 503x — solo archivos nuevos"
+  echo "[sync-dev-envs] Desarrollo 506x — solo archivos nuevos"
 fi
 echo "  backend/.env              ← shared + backend.env"
 echo "  pwa-admin/.env.local      ← shared + pwa-admin.env.local"

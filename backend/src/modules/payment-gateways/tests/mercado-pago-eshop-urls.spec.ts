@@ -34,7 +34,7 @@ describe('mercado-pago-eshop-urls', () => {
   });
 
   it('omits back URLs on localhost (MP rejects auto_return)', () => {
-    process.env.ESHOP_PUBLIC_SITE_URL = 'http://localhost:5034';
+    process.env.ESHOP_PUBLIC_SITE_URL = 'http://localhost:5064';
     expect(buildEshopCheckoutBackUrls('ord-1')).toBeUndefined();
   });
 

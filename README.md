@@ -40,11 +40,13 @@ npm run dev:all      # stack completo (+ pos, stock, eshop, mail)
 
 | Servicio | URL |
 |----------|-----|
-| Backend API | http://localhost:5030/api |
-| Admin | http://localhost:5031 |
-| POS | http://localhost:5032 |
-| Stock | http://localhost:5033 |
-| eShop | http://localhost:5034 |
+| Backend API | http://localhost:5060/api |
+| Admin | http://localhost:5061 |
+| POS | http://localhost:5062 |
+| Stock | http://localhost:5063 |
+| eShop | http://localhost:5064 |
+| Delivery | http://localhost:5065 |
+| Landing | http://localhost:5066 |
 
 Login admin (seed): `admin` / `098098`
 
@@ -54,21 +56,21 @@ Login admin (seed): `admin` / `098098`
    ```bash
    cd backend
    npm install
-   npm run start:dev  # Puerto 5030
+   npm run start:dev  # Puerto 5060
    ```
 
 2. **Admin**:
    ```bash
    cd pwa-admin
    npm install
-   npm run dev  # Puerto 5031
+   npm run dev  # Puerto 5061
    ```
 
 3. **KaiStore eShop**:
    ```bash
    cd pwa-eshop
    npm install
-   npm run dev  # Puerto 5034
+   npm run dev  # Puerto 5064
    ```
 
 4. **Seed base de datos** (desde la raíz o `seeds/`):

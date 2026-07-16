@@ -7,7 +7,7 @@ import type { EShopCartUpdatedPayload } from "../types/cart.types";
 function getCartWebSocketUrl(): string {
   const base =
     process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim() ||
-    (process.env.NODE_ENV === "development" ? "http://localhost:5030" : "");
+    (process.env.NODE_ENV === "development" ? "http://localhost:5060" : "");
   if (!base) {
     throw new Error("NEXT_PUBLIC_BACKEND_API_URL no configurada");
   }

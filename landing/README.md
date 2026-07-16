@@ -19,7 +19,7 @@ npm install
 npm run dev
 ```
 
-Abre http://localhost:5177
+Abre http://localhost:5066
 
 ## Capturas de las apps
 

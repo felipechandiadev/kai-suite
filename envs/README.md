@@ -1,6 +1,8 @@
 # Variables de entorno — desarrollo local
 
-Puertos PWAs en rango **503x**; backend y kai-mail en **5030** / **5040**.
+Puertos apps en rango **506x** (demo VPS); backend **5060**; kai-mail **5040**; landing **5066**.
+
+Ver también `deploy/ports.demo.env.example` y `docs/domains-demo.md`.
 
 ## Modelo: matriz + fragmentos
 
@@ -29,7 +31,7 @@ Opcional: `cp envs/shared.env.example envs/shared.env` para overrides locales (g
 | `KAI_FEATURE_ESHOP` | `true` / `false` | → `NEXT_PUBLIC_ESHOP_ENABLED` (admin) |
 | `KAI_FEATURE_JEWELRY` | `true` / `false` | → `NEXT_PUBLIC_JEWELRY_ENABLED` (metales, calculadora) |
 | `KAI_FEATURE_MULTI_COMPANY` | `true` / `false` | → menú Empresas (SUPER_ADMIN) |
-| `KAI_DEPLOY_APPS` | `backend,admin,pos,stock,eshop,delivery,mail,landing` | `scripts/dev-apps.sh` levanta solo esas apps (`landing` → http://localhost:5177) |
+| `KAI_DEPLOY_APPS` | `backend,admin,pos,stock,eshop,delivery,mail,landing` | `scripts/dev-apps.sh` levanta solo esas apps (`landing` → http://localhost:5066) |
 
 Perfiles listos en `envs/profiles/*.env.example` (copiar líneas a `shared.env`):
 
@@ -53,12 +55,13 @@ npm run dev                  # lite; sin sync (npm run env:dev si falta .env)
 
 | App          | Puerto | Fragmento                         | Destino                        |
 |--------------|--------|-----------------------------------|--------------------------------|
-| Backend      | 5030   | `backend.env.example`             | `backend/.env`                 |
-| pwa-admin    | 5031   | `pwa-admin.env.local.example`     | `pwa-admin/.env.local`         |
-| pwa-pos      | 5032   | `pwa-pos.env.local.example`       | `pwa-pos/.env.local`           |
-| pwa-stock    | 5033   | `pwa-stock.env.local.example`     | `pwa-stock/.env.local`         |
-| pwa-eshop    | 5034   | `pwa-eshop.env.local.example`     | `pwa-eshop/.env.local`         |
-| kai-delivery | 5035   | `kai-delivery.env.local.example`  | `kai-delivery/.env.local`      |
+| Backend      | 5060   | `backend.env.example`             | `backend/.env`                 |
+| pwa-admin    | 5061   | `pwa-admin.env.local.example`     | `pwa-admin/.env.local`         |
+| pwa-pos      | 5062   | `pwa-pos.env.local.example`       | `pwa-pos/.env.local`           |
+| pwa-stock    | 5063   | `pwa-stock.env.local.example`     | `pwa-stock/.env.local`         |
+| pwa-eshop    | 5064   | `pwa-eshop.env.local.example`     | `pwa-eshop/.env.local`         |
+| kai-delivery | 5065   | `kai-delivery.env.local.example`  | `kai-delivery/.env.local`      |
+| landing      | 5066   | —                                 | `landing/` (Astro)             |
 | kai-mail     | 5040   | `kai-mail.env.example`            | `services/kai-mail/.env`       |
 
 ## Notas

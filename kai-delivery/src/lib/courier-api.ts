@@ -4,7 +4,7 @@ export function getServerBackendApiBase(): string {
     process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim();
 
   if (base) return base.replace(/\/$/, "");
-  if (process.env.NODE_ENV === "development") return "http://localhost:5030";
+  if (process.env.NODE_ENV === "development") return "http://localhost:5060";
   throw new Error("BACKEND_API_URL no está definida");
 }
 

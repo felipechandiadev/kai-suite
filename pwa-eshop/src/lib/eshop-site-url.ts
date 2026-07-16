@@ -17,7 +17,7 @@ export function getEshopSiteOrigin(): string {
     return window.location.origin;
   }
 
-  return "http://localhost:5034";
+  return "http://localhost:5064";
 }
 
 export function buildProductDetailPath(productId: string, variantId?: string | null): string {

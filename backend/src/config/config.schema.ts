@@ -9,7 +9,7 @@ export const configSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'staging', 'production', 'test')
     .default('development'),
-  PORT: Joi.number().default(5030),
+  PORT: Joi.number().default(5060),
   API_PREFIX: Joi.string().default('api'),
 
   // Database

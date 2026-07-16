@@ -1,14 +1,14 @@
 export function resolveMpWebhookNotificationUrl(): string | undefined {
   const base =
     process.env.MP_WEBHOOK_BASE_URL?.trim() ||
-    `http://localhost:${process.env.PORT?.trim() || '5030'}`;
+    `http://localhost:${process.env.PORT?.trim() || '5060'}`;
   const prefix = (process.env.API_PREFIX ?? 'api').replace(/^\/+|\/+$/g, '');
   return `${base.replace(/\/$/, '')}/${prefix}/webhooks/mercado-pago`;
 }
 
 export function resolveEshopPublicSiteUrl(): string {
   return (
-    process.env.ESHOP_PUBLIC_SITE_URL?.trim() || 'http://localhost:5034'
+    process.env.ESHOP_PUBLIC_SITE_URL?.trim() || 'http://localhost:5064'
   ).replace(/\/$/, '');
 }
 

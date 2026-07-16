@@ -13,7 +13,7 @@ npm run dev   # http://localhost:3033
 
 El login está en **`/`** (igual que POS y admin). Tras iniciar sesión se abre **`/scan`**. El ícono de **configuración** (esquina inferior derecha) abre `/setup` para elegir la empresa del dispositivo. La selección se guarda en `localStorage` (`flowstore-stock-company`).
 
-Backend NestJS en **5030** (`BACKEND_API_URL`).
+Backend NestJS en **5060** (`BACKEND_API_URL`).
 
 ## Rutas (App Router)
 

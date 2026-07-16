@@ -70,7 +70,7 @@ Bloque en `companies.settings.mercadoPago` (seed):
 Verificar checkout:
 
 ```http
-GET http://localhost:5030/api/e-shop/demo/payment-settings
+GET http://localhost:5060/api/e-shop/demo/payment-settings
 ```
 
 ---
@@ -131,8 +131,8 @@ Documentación: [Tarjetas de prueba Chile](https://www.mercadopago.cl/developers
 Variables backend:
 
 ```bash
-MP_WEBHOOK_BASE_URL=http://localhost:5030   # o URL ngrok del API
-ESHOP_PUBLIC_SITE_URL=http://localhost:5034   # local OK; back_urls solo si es dominio público (https)
+MP_WEBHOOK_BASE_URL=http://localhost:5060   # o URL ngrok del API
+ESHOP_PUBLIC_SITE_URL=http://localhost:5064   # local OK; back_urls solo si es dominio público (https)
 ```
 
 > En **localhost**, KaiStore omite `back_urls` / `auto_return` al crear la preferencia (MP los rechaza). El Payment Brick y el polling siguen funcionando. En producción usá `ESHOP_PUBLIC_SITE_URL=https://tu-dominio.cl`.
