@@ -19,6 +19,7 @@ import {
   posFormatStockQuantity,
 } from "@/features/pos-products/ui/posProductPreview";
 import { PosNoDteBadge } from "@/features/pos-products/ui/PosNoDteBadge";
+import { parseClpCurrencyInput } from "@/features/pos-cart/lib/apply-cart-line-unit-gross-price";
 import { IconButton } from "@kai/ui";
 import { Alert, Badge, Button, Dialog, TextField } from "@kai/ui";
 import { listActivePosInventoryReservationsAction } from "@/features/pos-inventory-reservations/actions/list-active-reservations.action";
@@ -48,10 +49,12 @@ export default function PosCartLineCard({
   onDecrement,
   onRemove,
   onSetQuantity,
+  onSetUnitPrice,
   maxQuantity,
   maxQuantityContext,
   isQuotationLine = false,
   readOnly = false,
+  allowPriceEdit = false,
 }: {
   line: PosCartLine;
   pointOfSaleId: string;
@@ -59,6 +62,7 @@ export default function PosCartLineCard({
   onDecrement: () => void;
   onRemove?: () => void;
   onSetQuantity: (nextQuantity: number) => void;
+  onSetUnitPrice?: (unitPriceWithTax: number) => void;
   /** Tope de cantidad (p. ej. liquidación de reserva o devolución). */
   maxQuantity?: number;
   /** Contexto del tope para mensajes en el diálogo de cantidad. */
@@ -75,6 +79,9 @@ export default function PosCartLineCard({
   const [qtyDialogOpen, setQtyDialogOpen] = useState(false);
   const [qtyDraft, setQtyDraft] = useState("");
   const [qtyError, setQtyError] = useState<string | null>(null);
+  const [priceDialogOpen, setPriceDialogOpen] = useState(false);
+  const [priceDraft, setPriceDraft] = useState("");
+  const [priceError, setPriceError] = useState<string | null>(null);
   const [stockDialogOpen, setStockDialogOpen] = useState(false);
   const [stockLoading, setStockLoading] = useState(false);
   const [stockError, setStockError] = useState<string | null>(null);
@@ -205,6 +212,21 @@ export default function PosCartLineCard({
     return () => window.clearTimeout(timer);
   }, [qtyDialogOpen, line.quantity]);
 
+  useEffect(() => {
+    if (!priceDialogOpen) return;
+    setPriceError(null);
+    setPriceDraft(String(Math.round(Number(line.unitPriceWithTax) || 0)));
+    const timer = window.setTimeout(() => {
+      const el = document.querySelector<HTMLInputElement>(
+        '[data-test-id="pos-cart-line-edit-price-input"]',
+      );
+      if (!el) return;
+      el.focus({ preventScroll: true });
+      el.select();
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [priceDialogOpen, line.unitPriceWithTax]);
+
   const quantityLabel = useMemo(() => {
     if (allowDecimals) {
       return new Intl.NumberFormat("es-CL", { maximumFractionDigits: 3 }).format(
@@ -251,6 +273,17 @@ export default function PosCartLineCard({
       maxQuantity != null && Number.isFinite(maxQuantity) ? Math.min(n, maxQuantity) : n;
     onSetQuantity(capped);
     setQtyDialogOpen(false);
+  };
+
+  const savePrice = () => {
+    setPriceError(null);
+    const n = parseClpCurrencyInput(priceDraft);
+    if (n == null) {
+      setPriceError("Ingresa un precio válido mayor a cero.");
+      return;
+    }
+    onSetUnitPrice?.(n);
+    setPriceDialogOpen(false);
   };
 
   const atMaxQty =
@@ -309,6 +342,18 @@ export default function PosCartLineCard({
             ) : null}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-x-1.5">
+            {allowPriceEdit && onSetUnitPrice && !readOnly ? (
+              <IconButton
+                icon="Pencil"
+                variant="action"
+                size="xs"
+                className="shrink-0"
+                ariaLabel="Editar precio de venta"
+                title="Editar precio"
+                onClick={() => setPriceDialogOpen(true)}
+                data-test-id="pos-cart-line-edit-price"
+              />
+            ) : null}
             <span className="font-medium text-foreground">
               {formatMoney(line.unitPriceWithTax)}
             </span>
@@ -625,6 +670,45 @@ export default function PosCartLineCard({
                     : `Máximo: ${allowDecimals ? maxQuantity : Math.round(maxQuantity)}.`}
               </>
             ) : null}
+          </p>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={priceDialogOpen}
+        onClose={() => setPriceDialogOpen(false)}
+        title="Editar precio de venta"
+        size="sm"
+        alertArea={priceError ? <Alert variant="error">{priceError}</Alert> : undefined}
+        actions={
+          <>
+            <Button type="button" variant="outlined" onClick={() => setPriceDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="button" variant="primary" onClick={savePrice}>
+              Guardar
+            </Button>
+          </>
+        }
+        actionsJustify="between"
+        data-test-id="pos-cart-line-edit-price-dialog"
+      >
+        <div className="grid gap-3">
+          <TextField
+            label="Precio unitario (con IVA)"
+            name="pos-cart-edit-price"
+            type="currency"
+            currencySymbol="$"
+            value={priceDraft}
+            onChange={(e) => setPriceDraft(e.target.value)}
+            placeholder="Precio"
+            alwaysShowLabel
+            selectOnFocus
+            autoFocus
+            data-test-id="pos-cart-line-edit-price-input"
+          />
+          <p className="text-xs text-muted-foreground">
+            Aplica solo a esta venta. El impuesto se recalcula según la tasa del producto.
           </p>
         </div>
       </Dialog>

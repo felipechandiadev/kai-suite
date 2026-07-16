@@ -44,6 +44,14 @@ import type {
   CustomerCreditNoteSource,
   CustomerPaymentSources,
 } from "@/features/customers/types/customer-payment-sources.types";
+import {
+  showsPaymentReferenceField,
+  validateConfiguredPaymentReference,
+} from "@/features/pos-payment/lib/payment-reference-field.util";
+import {
+  buildPreloadPaymentLines,
+  shouldReapplyPaymentPreload,
+} from "@/features/pos-payment/lib/build-preload-payment-lines";
 import { tryBuildCreditNotePaymentLine } from "@/features/pos-payment-methods/lib/apply-customer-linked-payment";
 import { paymentMethodLabelEs, paymentAmountFieldLabel } from "@/features/pos-payment-methods/lib/payment-method-label";
 import { getCustomerPosDetailBundleAction, getCustomerPosPaymentSourcesAction } from "@/features/customers/actions/customers-pos.action";
@@ -441,9 +449,9 @@ function PosPaymentMethodCard({
             name={`pos-payment-ref-${p.id}`}
             value={p.reference}
             onChange={(e) => onUpdateReference(p.id, e.target.value)}
-            placeholder="Opcional"
             alwaysShowLabel
             density="compact"
+            required
             onKeyDown={(e) => paymentFieldConfirmOnEnter(e, onConfirmEnter)}
           />
         </div>
@@ -1222,6 +1230,20 @@ export default function PosPaymentWorkspace({
     return paymentAmountFieldLabel(label);
   }, [draftOptionId, methodsById, paymentTypeOptions]);
 
+  const draftShowsRefField = useMemo(() => {
+    const cfg = methodsById.get(draftOptionId);
+    const enumType: PosPaymentMethodId = cfg
+      ? (cfg.method as PosPaymentMethodId)
+      : (draftOptionId as PosPaymentMethodId);
+    return showsPaymentReferenceField(
+      {
+        type: enumType,
+        companyPaymentMethodId: cfg?.companyPaymentMethodId ?? null,
+      },
+      cfg,
+    );
+  }, [draftOptionId, methodsById]);
+
   // Si el medio seleccionado es transferencia y el POS configuró una cuenta destino preferente,
   // precárgala en el diálogo (pero sin pisar una selección manual).
   useEffect(() => {
@@ -1522,86 +1544,21 @@ export default function PosPaymentWorkspace({
     if (!cart.ready || amountToPay <= 0) return;
     if (!effectiveLoaded) return;
     setPayments((prev) => {
-      const onlyDefaultFallback =
-        prev.length === 1 &&
-        prev[0].type === "CASH" &&
-        !prev[0].companyPaymentMethodId &&
-        (Number(prev[0].amount) || 0) === 0 &&
-        !prev[0].reference?.trim();
-      if (prev.length > 0 && !onlyDefaultFallback) return prev;
-      // Catálogo efectivo: precargar líneas marcadas como `preloadOnPaymentScreen`,
-      // ordenadas por `preloadOrder` (el backend ya las devuelve ordenadas).
-      const preload = effectiveMethods.filter((m) => {
-        if (!m.preloadOnPaymentScreen) return false;
-        if (cashOutRefundOnly && !isImmediateReturnRefundAllowedPaymentMethod(m.method)) {
-          return false;
-        }
-        return true;
-      });
-      const preloadLines: PosPaymentLine[] =
-        preload.length > 0
-          ? preload.map((m) => {
-              const line: PosPaymentLine = {
-                id: makePaymentLineId(),
-                type: m.method as PosPaymentMethodId,
-                amount: 0,
-                reference: "",
-                companyPaymentMethodId: m.companyPaymentMethodId,
-              };
-              if (m.method === "VOUCHER") {
-                const kind = m.voucherKind;
-                const face =
-                  kind?.faceValueMode === "FIXED" && kind.defaultFaceValue != null
-                    ? Math.round(Number(kind.defaultFaceValue))
-                    : null;
-                line.voucherData = {
-                  kindId: kind?.id,
-                  kindCode: kind?.code ?? "",
-                  kindName: kind?.name,
-                  issuerName: kind?.defaultIssuerName?.trim() || undefined,
-                  faceValue: face,
-                };
-                if (face != null && face > 0) {
-                  line.amount = face;
-                }
-              }
-              return line;
-            })
-          : [
-              {
-                id: makePaymentLineId(),
-                type: "CASH",
-                amount: 0,
-                reference: "",
-                companyPaymentMethodId: null,
-              },
-            ];
-
-      if (isFulfillBackorderMode && loadedBackorder) {
-        const advance = Math.min(
-          Math.round(loadedBackorder.depositAvailable),
-          Math.round(amountToPay),
-        );
-        if (advance > 0) {
-          return [
-            {
-              id: makePaymentLineId(),
-              type: "ORDER_ADVANCE",
-              amount: advance,
-              reference: loadedBackorder.documentNumber,
-              backorderTransactionId: loadedBackorder.id,
-            },
-            ...preloadLines,
-          ];
-        }
+      if (!shouldReapplyPaymentPreload(prev, effectiveMethods, cashOutRefundOnly)) {
+        return prev;
       }
-
-      return preloadLines;
+      return buildPreloadPaymentLines({
+        effectiveMethods,
+        cashOutRefundOnly,
+        isFulfillBackorderMode,
+        loadedBackorder,
+        amountToPay,
+        makeId: makePaymentLineId,
+      });
     });
   }, [
     cart.ready,
     amountToPay,
-    payments.length,
     setPayments,
     effectiveLoaded,
     effectiveMethods,
@@ -1630,11 +1587,7 @@ export default function PosPaymentWorkspace({
   }, [addOpen, nonCashTotal, amountToPay]);
 
   /**
-   * Decide si una línea debe mostrar el campo "Referencia".
-   * - Si hay catálogo efectivo: se respeta `requireReference` por config; además,
-   *   métodos con tarjeta/transferencia siempre lo muestran como opcional.
-   * - Fallback (sin catálogo): comportamiento previo basado en el enum.
-   * La referencia **nunca** es obligatoria a nivel UI; lo controla la cuenta.
+   * Muestra referencia solo cuando la config efectiva del POS lo exige.
    */
   const showsRefField = useCallback(
     (line: {
@@ -1643,19 +1596,10 @@ export default function PosPaymentWorkspace({
       creditNoteTransactionId?: string | null;
       backorderTransactionId?: string | null;
     }) => {
-      if (line.creditNoteTransactionId || line.backorderTransactionId) return false;
-      if (isCustomerLinkedPaymentMethod(line.type)) return false;
-      // VOUCHER usa el bloque dedicado (Nº de voucher = reference).
-      if (line.type === "VOUCHER") return false;
-      const cfg = line.companyPaymentMethodId ? methodsById.get(line.companyPaymentMethodId) : null;
-      if (cfg) {
-        if (cfg.requireReference) return true;
-      }
-      return (
-        line.type === "CREDIT_CARD" ||
-        line.type === "DEBIT_CARD" ||
-        line.type === "TRANSFER"
-      );
+      const cfg = line.companyPaymentMethodId
+        ? methodsById.get(line.companyPaymentMethodId)
+        : null;
+      return showsPaymentReferenceField(line, cfg);
     },
     [methodsById],
   );
@@ -1834,6 +1778,19 @@ export default function PosPaymentWorkspace({
     const voucherKind = cfg?.voucherKind ?? null;
     if (enumType === "VOUCHER" && !voucherKind) {
       setAddAlert("Este medio no tiene tipo de voucher enlazado. Revisá Admin.");
+      return;
+    }
+    if (
+      showsPaymentReferenceField(
+        {
+          type: enumType,
+          companyPaymentMethodId: cfg?.companyPaymentMethodId ?? null,
+        },
+        cfg,
+      ) &&
+      !draftReference.trim()
+    ) {
+      setAddAlert("Ingresa la referencia del medio de pago.");
       return;
     }
     const fixedFace =
@@ -2433,6 +2390,11 @@ export default function PosPaymentWorkspace({
             return "Selecciona la cuenta bancaria destino para la transferencia.";
           }
         }
+        const refErr = validateConfiguredPaymentReference(
+          p,
+          p.companyPaymentMethodId ? methodsById.get(p.companyPaymentMethodId) : null,
+        );
+        if (refErr) return refErr;
       }
       return "";
     }
@@ -2505,6 +2467,11 @@ export default function PosPaymentWorkspace({
           return "El abono no corresponde al encargo cargado.";
         }
       }
+      const refErr = validateConfiguredPaymentReference(
+        p,
+        p.companyPaymentMethodId ? methodsById.get(p.companyPaymentMethodId) : null,
+      );
+      if (refErr) return refErr;
     }
     if (isFulfillBackorderMode && !loadedBackorder?.id?.trim()) {
       return "Vincula el encargo antes de confirmar.";
@@ -4355,14 +4322,17 @@ export default function PosPaymentWorkspace({
               />
             );
           })()}
-          <TextField
-            label="Referencia"
-            name="payment-ref"
-            value={draftReference}
-            onChange={(e) => setDraftReference(e.target.value)}
-            placeholder="Opcional"
-            alwaysShowLabel
-          />
+          {draftShowsRefField ? (
+            <TextField
+              label="Referencia"
+              name="payment-ref"
+              value={draftReference}
+              onChange={(e) => setDraftReference(e.target.value)}
+              alwaysShowLabel
+              required
+              data-test-id="pos-payment-add-reference"
+            />
+          ) : null}
         </div>
       </Dialog>
 

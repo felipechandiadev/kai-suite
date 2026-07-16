@@ -44,6 +44,7 @@ import { redirectToLoginIfUnauthorized } from "@/lib/auth/pos-api-failure";
 import { getQuotationsEnabledAction } from "@/features/company/actions/company-quotations.action";
 import { shouldUseBackendApi, subscribeConnectivity } from "@/features/pos-offline/infrastructure/connectivity";
 import { hydrateCartLinesFiscalFlags } from "@/features/sale-print-plan";
+import { applyUnitGrossPriceToCartLine } from "./lib/apply-cart-line-unit-gross-price";
 
 type PosCartContextValue = {
   ready: boolean;
@@ -58,6 +59,8 @@ type PosCartContextValue = {
   decrement: (variantId: string) => void;
   remove: (variantId: string) => void;
   setQuantity: (variantId: string, quantity: number) => void;
+  /** Precio unitario con IVA para la venta actual (solo venta normal). */
+  setUnitPrice: (variantId: string, unitPriceWithTax: number) => void;
   /** Reemplaza completamente las líneas (p.ej., cargar cotización). */
   replaceLines: (lines: PosCartLine[]) => void;
   /** Modalidad actual: venta normal o devolución de venta previa. */
@@ -533,6 +536,23 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       );
     },
     [loadedBackorder, loadedReturnSale, loadedQuotation],
+  );
+
+  const setUnitPrice = useCallback(
+    (variantId: string, unitPriceWithTax: number) => {
+      if (cartMode !== "sale") return;
+      if (loadedQuotation || loadedReturnSale || loadedBackorder) return;
+      const gross = Math.round(Number(unitPriceWithTax) || 0);
+      if (!Number.isFinite(gross) || gross <= 0) return;
+      setLines((prev) =>
+        prev.map((l) =>
+          l.variantId === variantId
+            ? applyUnitGrossPriceToCartLine(l, gross)
+            : l,
+        ),
+      );
+    },
+    [cartMode, loadedBackorder, loadedQuotation, loadedReturnSale],
   );
 
   const loadQuotation = useCallback(
@@ -1054,6 +1074,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       decrement,
       remove,
       setQuantity,
+      setUnitPrice,
       replaceLines,
       cartMode,
       isReturnMode: cartMode === "return",
@@ -1109,6 +1130,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       decrement,
       remove,
       setQuantity,
+      setUnitPrice,
       replaceLines,
       cartMode,
       loadedReturnSale,

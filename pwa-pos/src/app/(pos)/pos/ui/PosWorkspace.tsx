@@ -599,6 +599,13 @@ export default function PosWorkspace() {
                   isFulfillBackorderMode ? undefined : () => cart.remove(line.variantId)
                 }
                 onSetQuantity={(q) => cart.setQuantity(line.variantId, q)}
+                onSetUnitPrice={(price) => cart.setUnitPrice(line.variantId, price)}
+                allowPriceEdit={
+                  !isReturnMode &&
+                  !isFulfillBackorderMode &&
+                  !hasLoadedQuotation &&
+                  !isQuotationLine
+                }
                 isQuotationLine={isQuotationLine}
                 maxQuantity={
                   isFulfillBackorderMode

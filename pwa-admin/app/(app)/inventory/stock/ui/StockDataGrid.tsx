@@ -2,7 +2,28 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { DataGridTable as DataGrid, IconButton, Select, Switch, Badge, type Option } from "@kai/ui";
+import {
+  DataGridTable as DataGrid,
+  IconButton,
+  Select,
+  Switch,
+  Badge,
+  type DataGridColumn,
+  type Option,
+} from "@kai/ui";
+import type { StockGridRow, StockStorageBreakdownRow } from "@/features/inventory-stock/types/stock-grid.types";
+import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
+import { useNotificationsRealtime } from "@/features/notifications/realtime/notifications-realtime-context";
+import { EditVariantStockConfigDialog } from "./EditVariantStockConfigDialog";
+import { StockMovementsDialog } from "./StockMovementsDialog";
+import { StockReservationsDialog } from "./StockReservationsDialog";
+import {
+  STOCK_THRESHOLD_ALERT_ROW_CLASS,
+  stockRowHasThresholdAlert,
+} from "@/features/inventory-stock/lib/stock-threshold-alert";
+import { formatStockSlashPair } from "@/features/inventory-stock/lib/stock-unit-display";
+import { StockStorageCardsGrid } from "@/features/inventory-stock/components/StockStorageCardsGrid";
+import { useStockStorageOperations } from "@/features/inventory-stock/components/useStockStorageOperations";
 
 type StockDataGridProps = {
   rows: StockGridRow[];
