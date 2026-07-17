@@ -54,6 +54,7 @@ import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { ReceptionsModule } from './modules/receptions/receptions.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { StockRealtimeModule } from './modules/stock-realtime/stock-realtime.module';
+import { DiningRealtimeModule } from './modules/dining-realtime/dining-realtime.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { InstallmentsModule } from './modules/installments/installments.module';
 import { MultimediaModule } from './modules/multimedia/multimedia.module';
@@ -73,10 +74,14 @@ import { PaymentGatewaysModule } from './modules/payment-gateways/payment-gatewa
 import { PresaleTicketsModule } from './modules/presale-tickets/presale-tickets.module';
 import { FiscalModule } from './modules/fiscal/fiscal.module';
 import { PosSyncModule } from './modules/pos-sync/pos-sync.module';
+import { ProductModeModule } from './shared/product-mode/product-mode.module';
+import { DiningModule } from './modules/dining/dining.module';
+import { ProductionUnitsModule } from './modules/production-units/production-units.module';
 
 @Module({
   imports: [
     AppConfigModule,
+    ProductModeModule,
     TypeOrmModule.forRootAsync({
       imports: [AppConfigModule],
       useFactory: typeOrmConfig,
@@ -87,6 +92,7 @@ import { PosSyncModule } from './modules/pos-sync/pos-sync.module';
     CacheModule,
     TenantModule,
     StockRealtimeModule,
+    DiningRealtimeModule,
     NotificationsModule,
     HealthModule,
     PosModule,
@@ -131,6 +137,8 @@ import { PosSyncModule } from './modules/pos-sync/pos-sync.module';
     AccountBalancesModule,
     CategoriesModule,
     BrandsModule,
+    ProductionUnitsModule,
+    DiningModule,
     ResultCentersModule,
     OrganizationalUnitsModule,
     OperationalExpensesModule,

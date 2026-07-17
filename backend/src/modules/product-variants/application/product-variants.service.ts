@@ -19,7 +19,7 @@ import {
 } from '@modules/price-list-items/application/ports/price-list-items.repository.port';
 import { MultimediaServiceAdapter } from '@modules/multimedia/application/services/multimedia.service.adapter';
 import { AttributesService } from '@modules/attributes/application/attributes.service';
-import { Product } from '@modules/products/domain/product.entity';
+import { Product, ProductType } from '@modules/products/domain/product.entity';
 import { VariantQuantityConversionService } from './variant-quantity-conversion.service';
 import { SearchPurchasingVariantsDto } from './dto/search-purchasing-variants.dto';
 import type { PmpHistoryEntry } from '../domain/pmp-history.types';
@@ -29,6 +29,7 @@ import {
   recordSalePriceHistory,
   type SalePriceSnapshot,
 } from './helpers/sale-price-history';
+import { PURCHASING_SEARCH_EXCLUDED_PRODUCT_TYPES } from './helpers/purchasing-search-excluded-types';
 import { TenantContext } from '@common/tenant';
 import { PriceList } from '@modules/price-lists/domain/price-list.entity';
 import { User } from '@modules/users/domain/user.entity';
@@ -927,7 +928,10 @@ export class ProductVariantsService {
       .leftJoinAndSelect('v.purchaseUnit', 'purchaseUnit')
       .leftJoinAndSelect('v.stockBaseUnit', 'stockBaseUnit')
       .where('v.deletedAt IS NULL')
-      .andWhere('product.deletedAt IS NULL');
+      .andWhere('product.deletedAt IS NULL')
+      .andWhere('product.productType NOT IN (:...excludedProductTypes)', {
+        excludedProductTypes: [...PURCHASING_SEARCH_EXCLUDED_PRODUCT_TYPES],
+      });
 
     if (q) {
       /**

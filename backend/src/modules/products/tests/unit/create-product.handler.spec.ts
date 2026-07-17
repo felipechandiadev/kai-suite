@@ -4,16 +4,22 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { CreateProductCommandHandler } from '../../application/handlers/commands/create-product.handler';
 import { CreateProductCommand } from '../../application/commands/create-product.command';
 import { Product, ProductType } from '../../domain/product.entity';
+import { BrandsService } from '@modules/brands/application/brands.service';
+import { ProductModeService } from '@shared/product-mode/product-mode.service';
 
 describe('CreateProductCommandHandler', () => {
   let handler: CreateProductCommandHandler;
   let productRepoMock: any;
   let eventBus: EventBus;
+  let productModeService: { assertProductTypeAllowed: jest.Mock };
 
   beforeEach(async () => {
     productRepoMock = {
       create: jest.fn(),
       save: jest.fn(),
+    };
+    productModeService = {
+      assertProductTypeAllowed: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -26,6 +32,14 @@ describe('CreateProductCommandHandler', () => {
         {
           provide: EventBus,
           useValue: { publish: jest.fn() },
+        },
+        {
+          provide: BrandsService,
+          useValue: { assertBrandInCurrentCompany: jest.fn() },
+        },
+        {
+          provide: ProductModeService,
+          useValue: productModeService,
         },
       ],
     }).compile();
@@ -73,5 +87,8 @@ describe('CreateProductCommandHandler', () => {
     expect(productRepoMock.create).toHaveBeenCalled();
     expect(productRepoMock.save).toHaveBeenCalled();
     expect(eventBus.publish).toHaveBeenCalled();
+    expect(productModeService.assertProductTypeAllowed).toHaveBeenCalledWith(
+      ProductType.PHYSICAL,
+    );
   });
 });

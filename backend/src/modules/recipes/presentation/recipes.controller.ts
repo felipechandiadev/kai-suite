@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { CurrentCompany } from '@common/tenant';
 import { RecipesService } from '../application/recipes.service';
 import { CreateRecipeDto } from '../application/dto/create-recipe.dto';
 import { UpdateRecipeDto } from '../application/dto/update-recipe.dto';
@@ -8,8 +9,11 @@ export class RecipesController {
   constructor(private readonly recipesService: RecipesService) {}
 
   @Get()
-  async list(@Query('outputVariantId') outputVariantId?: string) {
-    return this.recipesService.list(outputVariantId);
+  async list(
+    @CurrentCompany() companyId: string,
+    @Query('outputVariantId') outputVariantId?: string,
+  ) {
+    return this.recipesService.list(companyId, outputVariantId);
   }
 
   @Get(':id')
@@ -18,13 +22,17 @@ export class RecipesController {
   }
 
   @Post()
-  async create(@Body() dto: CreateRecipeDto) {
-    return this.recipesService.create(dto);
+  async create(@CurrentCompany() companyId: string, @Body() dto: CreateRecipeDto) {
+    return this.recipesService.create(companyId, dto);
   }
 
   @Put(':id')
-  async update(@Param('id') id: string, @Body() dto: UpdateRecipeDto) {
-    return this.recipesService.update(id, dto);
+  async update(
+    @CurrentCompany() companyId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateRecipeDto,
+  ) {
+    return this.recipesService.update(companyId, id, dto);
   }
 }
 

@@ -18,6 +18,14 @@ export class SearchPosProductsDto {
   @IsOptional()
   pointOfSaleId?: string;
 
+  /**
+   * Tipos de producto separados por coma (`PREPARADO,PHYSICAL`).
+   * Si se omite, no filtra por tipo.
+   */
+  @IsString()
+  @IsOptional()
+  productTypes?: string;
+
   @IsInt()
   @Min(1)
   @Transform(({ value }) => (value ? parseInt(value, 10) : 1))

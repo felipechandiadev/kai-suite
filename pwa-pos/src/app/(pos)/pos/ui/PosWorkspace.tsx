@@ -41,6 +41,7 @@ import type { PosProductSearchItem } from "@/features/pos-products/types/pos-pro
 import PosPaymentWorkspace from "@/app/(pos)/pos/payment/ui/PosPaymentWorkspace";
 import { POS_CUSTOMER_SEARCH_DEFAULT_PAGE_SIZE } from "@/features/customers/lib/posCustomerSearchStorage";
 import type { PosCustomerSearchInitial } from "@/features/customers/ui/PosCustomerSearchPanel";
+import { isKaiFoodEnabled } from "@/config/kaifood-module.config";
 
 const emptyCustomerSearch: PosCustomerSearchInitial = {
   query: "",
@@ -83,6 +84,13 @@ export default function PosWorkspace() {
   const quotationsEnabled = cart.quotationsEnabled;
   const isPresaleMode = ctx?.posKind === "PRESALE";
   const cartLocked = isReturnMode || isFulfillBackorderMode;
+  const kaiFoodEnabled = isKaiFoodEnabled();
+  const diningTransferEnabled =
+    kaiFoodEnabled &&
+    !isOffline &&
+    !cartLocked &&
+    !hasLoadedQuotation &&
+    cart.loadedDiningOrder == null;
 
   const refreshPriceListOptions = useCallback(async (posId: string, currentListId?: string) => {
     if (!shouldUseBackendApi()) return;
@@ -628,6 +636,8 @@ export default function PosWorkspace() {
                         : undefined
                 }
                 readOnly={isFulfillBackorderMode}
+                enableDiningTransfer={diningTransferEnabled}
+                branchId={ctx.branchId ?? undefined}
               />
             );
             })}

@@ -3,7 +3,7 @@
   "private": true,
   "description": "KaiStore monorepo — scripts de desarrollo",
   "scripts": {
-    "dev": "bash scripts/dev-all.sh lite",
+    "dev": "bash scripts/dev-all.sh",
     "dev:all": "bash scripts/dev-all.sh all",
     "dev:lite": "bash scripts/dev-all.sh lite",
     "dev:eshop": "bash scripts/dev-all.sh eshop",

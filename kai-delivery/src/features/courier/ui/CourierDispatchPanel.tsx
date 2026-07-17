@@ -60,8 +60,10 @@ export function CourierDispatchPanel({ dispatchId }: { dispatchId: string }) {
   }
 
   const nextStopId = stops.find((stop) => stop.stopStatus === "pending")?.id;
-  const canStart =
+  const showStartSection =
     dispatch?.status === "planned" || dispatch?.status === "route_ready";
+  const canStart = dispatch?.startReadiness?.canStart ?? false;
+  const startBlockReason = dispatch?.startReadiness?.reason ?? null;
   const routeStarted = dispatch?.status === "out" || dispatch?.status === "completed";
 
   return (
@@ -80,7 +82,7 @@ export function CourierDispatchPanel({ dispatchId }: { dispatchId: string }) {
         </h1>
       </div>
 
-      {canStart ? (
+      {showStartSection ? (
         <Button
           variant="primary"
           className="w-full min-h-[44px]"
@@ -95,16 +97,18 @@ export function CourierDispatchPanel({ dispatchId }: { dispatchId: string }) {
               .catch((e) => setError(e instanceof Error ? e.message : "Error"))
               .finally(() => setBusyId(null));
           }}
-          disabled={busyId === "start"}
+          disabled={!canStart || busyId === "start"}
           loading={busyId === "start"}
         >
           Iniciar reparto
         </Button>
       ) : null}
 
-      {canStart ? (
+      {showStartSection ? (
         <p className="text-sm text-muted-foreground">
-          Inicia el reparto para marcar entregas.
+          {canStart
+            ? "Inicia el reparto para marcar entregas."
+            : (startBlockReason ?? "No puedes iniciar el reparto todavía.")}
         </p>
       ) : null}
 

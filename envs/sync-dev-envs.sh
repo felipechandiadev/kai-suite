@@ -171,13 +171,20 @@ apply_backend_derived() {
   set_kv "$file" "BACKEND_API_URL" "$backend_url"
   set_kv "$file" "KAI_MAIL_URL" "http://${host}:${mail_port}"
 
+  local product
+  product="$(shared_get "$shared" KAI_PRODUCT)"
+  product="${product:-kaistore}"
+  set_kv "$file" "KAI_PRODUCT" "$product"
+
   local cors="" port
   for port in \
     "$(shared_get "$shared" KAI_ADMIN_PORT)" \
     "$(shared_get "$shared" KAI_POS_PORT)" \
     "$(shared_get "$shared" KAI_STOCK_PORT)" \
     "$(shared_get "$shared" KAI_ESHOP_PORT)" \
-    "$(shared_get "$shared" KAI_DELIVERY_PORT)"; do
+    "$(shared_get "$shared" KAI_DELIVERY_PORT)" \
+    "$(shared_get "$shared" KAI_WAITER_PORT)" \
+    "$(shared_get "$shared" KAI_KDS_PORT)"; do
     [[ -z "$port" ]] && continue
     [[ -n "$cors" ]] && cors+=","
     cors+="http://${host}:${port},http://127.0.0.1:${port}"
@@ -275,6 +282,17 @@ write_env() {
       [[ -n "$backend_url" ]] && set_kv "$dest" "NEXT_PUBLIC_BACKEND_API_URL" "$backend_url"
       set_kv "$dest" "NODE_ENV" "development"
       ;;
+    waiter|kds)
+      backend_url="$(shared_get "$shared" KAI_BACKEND_URL)"
+      [[ -n "$backend_url" ]] && set_kv "$dest" "BACKEND_API_URL" "$backend_url"
+      [[ -n "$backend_url" ]] && set_kv "$dest" "NEXT_PUBLIC_BACKEND_API_URL" "$backend_url"
+      set_kv "$dest" "NODE_ENV" "development"
+      if [[ "$profile" == "waiter" ]]; then
+        apply_platform_flags "$dest" "$shared" "Waiter"
+      else
+        apply_platform_flags "$dest" "$shared" "KDS"
+      fi
+      ;;
     mail) ;;
   esac
 
@@ -289,6 +307,8 @@ write_env "pwa-pos.env.local" "$ROOT/pwa-pos/.env.local" pos
 write_env "pwa-stock.env.local" "$ROOT/pwa-stock/.env.local" stock
 write_env "pwa-eshop.env.local" "$ROOT/pwa-eshop/.env.local" eshop
 write_env "kai-delivery.env.local" "$ROOT/kai-delivery/.env.local" delivery
+write_env "kai-waiter.env.local" "$ROOT/kai-waiter/.env.local" waiter
+write_env "kai-kds.env.local" "$ROOT/kai-kds/.env.local" kds
 write_env "kai-mail.env" "$ROOT/services/kai-mail/.env" mail
 
 # Claves de shared que pueden faltar en .env generados antes de añadirlas a la matriz
@@ -325,4 +345,6 @@ echo "  pwa-pos/.env.local        ← shared + pwa-pos.env.local"
 echo "  pwa-stock/.env.local      ← shared + pwa-stock.env.local"
 echo "  pwa-eshop/.env.local      ← shared + pwa-eshop.env.local"
 echo "  kai-delivery/.env.local   ← shared + kai-delivery.env.local"
+echo "  kai-waiter/.env.local     ← shared + kai-waiter.env.local"
+echo "  kai-kds/.env.local        ← shared + kai-kds.env.local"
 echo "  services/kai-mail/.env    ← shared + kai-mail.env"

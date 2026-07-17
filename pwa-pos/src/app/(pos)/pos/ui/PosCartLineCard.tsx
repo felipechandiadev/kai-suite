@@ -23,6 +23,7 @@ import { parseClpCurrencyInput } from "@/features/pos-cart/lib/apply-cart-line-u
 import { IconButton } from "@kai/ui";
 import { Alert, Badge, Button, Dialog, TextField } from "@kai/ui";
 import { listActivePosInventoryReservationsAction } from "@/features/pos-inventory-reservations/actions/list-active-reservations.action";
+import { PosDiningTransferLineDialog } from "@/features/dining/ui/PosDiningTransferLineDialog";
 
 /**
  * Línea del carrito en el POS. `discount` es opcional y lo asigna el
@@ -55,6 +56,8 @@ export default function PosCartLineCard({
   isQuotationLine = false,
   readOnly = false,
   allowPriceEdit = false,
+  enableDiningTransfer = false,
+  branchId,
 }: {
   line: PosCartLine;
   pointOfSaleId: string;
@@ -71,6 +74,10 @@ export default function PosCartLineCard({
   isQuotationLine?: boolean;
   /** Bloquea toda edición de cantidad (modo liquidar encargo). */
   readOnly?: boolean;
+  allowPriceEdit?: boolean;
+  /** KaiFood: muestra icono para transferir línea a cuenta salón. */
+  enableDiningTransfer?: boolean;
+  branchId?: string;
 }) {
   const code = line.barcode?.trim() || line.sku?.trim() || "—";
   const saleUnitLabel = posDisplaySaleUnitSymbol(line);
@@ -106,6 +113,8 @@ export default function PosCartLineCard({
       isExpired: boolean;
     }>
   >([]);
+
+  const [transferOpen, setTransferOpen] = useState(false);
 
   useEffect(() => {
     if (!stockDialogOpen) return;
@@ -447,6 +456,17 @@ export default function PosCartLineCard({
                     data-test-id="pos-cart-line-remove"
                   />
                 ) : null}
+                {enableDiningTransfer && branchId?.trim() && !readOnly ? (
+                  <IconButton
+                    icon="UtensilsCrossed"
+                    variant="action"
+                    size="xs"
+                    ariaLabel="Transferir a cuenta salón"
+                    title="Transferir a cuenta"
+                    onClick={() => setTransferOpen(true)}
+                    data-test-id="pos-cart-line-dining-transfer"
+                  />
+                ) : null}
               </div>
             </div>
           </div>
@@ -712,6 +732,16 @@ export default function PosCartLineCard({
           </p>
         </div>
       </Dialog>
+
+      {enableDiningTransfer && branchId?.trim() ? (
+        <PosDiningTransferLineDialog
+          open={transferOpen}
+          onClose={() => setTransferOpen(false)}
+          line={line}
+          branchId={branchId}
+          onSuccess={() => onRemove?.()}
+        />
+      ) : null}
     </article>
   );
 }

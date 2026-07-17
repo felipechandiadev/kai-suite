@@ -61,6 +61,9 @@ import type { PosCustomerSearchRow } from "@/features/customers/types/pos-custom
 import PosCustomerSearchPanel, {
   type PosCustomerSearchInitial,
 } from "@/features/customers/ui/PosCustomerSearchPanel";
+import PosDiningAccountsPanel from "@/features/dining/ui/PosDiningAccountsPanel";
+import { closePosDiningOrderAction } from "@/features/dining/actions/dining-pos.action";
+import { isKaiFoodEnabled } from "@/config/kaifood-module.config";
 import { PosCreateCustomerDialog } from "@/features/customers/ui/PosCreateCustomerDialog";
 import type { EffectivePaymentMethod } from "@/features/pos-payment-methods/types/effective-payment-method.types";
 import { getEffectivePosPaymentMethodsAction } from "@/features/pos-payment-methods/actions/payment-methods-pos.action";
@@ -748,6 +751,8 @@ export default function PosPaymentWorkspace({
     exitReturnMode,
     exitFulfillBackorderMode,
     quotationsEnabled,
+    loadedDiningOrder,
+    clearLoadedDiningOrder,
   } = cart;
 
   const { data: authSession } = useSession();
@@ -786,6 +791,7 @@ export default function PosPaymentWorkspace({
   const [saleSummaryOpen, setSaleSummaryOpen] = useState(false);
   const [discountDetailOpen, setDiscountDetailOpen] = useState(false);
   const [customerPanelOpen, setCustomerPanelOpen] = useState(false);
+  const [diningPanelOpen, setDiningPanelOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [internalCreditDialogOpen, setInternalCreditDialogOpen] = useState(false);
   const [editingInternalCreditLineId, setEditingInternalCreditLineId] = useState<
@@ -1396,6 +1402,13 @@ export default function PosPaymentWorkspace({
         ? "Total a cobrar"
         : "Total a pagar";
   const showReturnRefundUi = !isReturnMode || immediateReturnRefund;
+  const kaiFoodEnabled = isKaiFoodEnabled();
+  const showDiningPanel =
+    kaiFoodEnabled &&
+    !isDebtCollectMode &&
+    !isNcPayoutMode &&
+    !isReturnMode &&
+    !isFulfillBackorderMode;
   const showSaleDteSelector =
     showReturnRefundUi &&
     !isDebtCollectMode &&
@@ -3154,6 +3167,14 @@ export default function PosPaymentWorkspace({
       return;
     }
 
+    if (loadedDiningOrder?.id && !isEncargoMode && confirmRes.success) {
+      void closePosDiningOrderAction({
+        orderId: loadedDiningOrder.id,
+        linkedTransactionId: confirmRes.transactionId,
+      });
+      clearLoadedDiningOrder();
+    }
+
     if (saleCustomerId && !isEncargoMode) {
       void loadPaymentSources(saleCustomerId);
     }
@@ -3433,7 +3454,15 @@ export default function PosPaymentWorkspace({
 
       <div
         className={`grid items-stretch ${
-          compactLayout ? "grid-cols-1 gap-2" : `gap-4 ${showReturnRefundUi ? "grid-cols-3" : "grid-cols-2"}`
+          compactLayout
+            ? "grid-cols-1 gap-2"
+            : `gap-4 ${
+                showReturnRefundUi
+                  ? showDiningPanel
+                    ? "grid-cols-4"
+                    : "grid-cols-3"
+                  : "grid-cols-2"
+              }`
         }`}
       >
         {/* Columna 1 — Carrito */}
@@ -3868,6 +3897,40 @@ export default function PosPaymentWorkspace({
           }
         />
         )}
+
+        {showDiningPanel ? (
+          compactLayout ? (
+            <div className="flex flex-col gap-2" data-test-id="pos-payment-dining-collapsible">
+              <div className="flex items-center gap-1 rounded-xl border border-border bg-background px-3 py-2">
+                <IconButton
+                  icon={diningPanelOpen ? "ChevronDown" : "ChevronRight"}
+                  variant="action"
+                  size="sm"
+                  ariaLabel={
+                    diningPanelOpen ? "Contraer panel de cuentas" : "Expandir panel de cuentas"
+                  }
+                  title={diningPanelOpen ? "Contraer" : "Expandir"}
+                  onClick={() => setDiningPanelOpen((open) => !open)}
+                  data-test-id="pos-payment-dining-toggle"
+                />
+                <h2 className="min-w-0 text-sm font-semibold text-foreground">Cuentas</h2>
+              </div>
+              {diningPanelOpen ? (
+                <PosDiningAccountsPanel
+                  branchId={readPosContextClient()?.branchId?.trim() ?? ""}
+                  heightVh={paymentPanelVh}
+                  disabled={isOffline}
+                />
+              ) : null}
+            </div>
+          ) : (
+            <PosDiningAccountsPanel
+              branchId={readPosContextClient()?.branchId?.trim() ?? ""}
+              heightVh={paymentPanelVh}
+              disabled={isOffline}
+            />
+          )
+        ) : null}
 
         {showReturnRefundUi ? (
         /* Columna 3 — Métodos de pago */

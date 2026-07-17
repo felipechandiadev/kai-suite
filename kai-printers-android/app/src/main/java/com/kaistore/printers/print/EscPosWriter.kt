@@ -108,6 +108,25 @@ class EscPosWriter(widthChars: Int) {
         parts.drop(1).forEach { line(" ".repeat(prefix.length.coerceAtMost(layout.widthChars)) + it) }
     }
 
+    /** Paridad con `append_label_value_wrapped` (Rust): etiqueta + valor a ancho completo. */
+    fun appendLabelValueWrapped(label: String, value: String) {
+        val trimmed = value.trim()
+        if (trimmed.isEmpty()) return
+        val labelCols = label.length
+        val firstMax = (layout.widthChars - labelCols).coerceAtLeast(1)
+        val parts = wrapLines(trimmed, firstMax)
+        if (parts.isEmpty()) return
+        parts.forEachIndexed { i, part ->
+            if (i == 0) {
+                val pad = (firstMax - part.length).coerceAtLeast(0)
+                line(label + part + " ".repeat(pad))
+            } else {
+                val pad = (layout.widthChars - part.length).coerceAtLeast(0)
+                line(part + " ".repeat(pad))
+            }
+        }
+    }
+
     fun formatDateTime(iso: String): String {
         val raw = iso.trim()
         if (raw.isEmpty()) return raw

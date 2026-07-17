@@ -48,6 +48,10 @@ export type CourierStopsDispatch = {
   routeGeometry: Record<string, unknown> | null;
   totalDistanceM: number | null;
   totalDurationS: number | null;
+  startReadiness?: {
+    canStart: boolean;
+    reason: string | null;
+  };
 };
 
 export type CourierStopsResult = {

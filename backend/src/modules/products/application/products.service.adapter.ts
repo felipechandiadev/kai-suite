@@ -7,6 +7,8 @@ import { SearchProductsQuery } from './queries/search-products.query';
 import { GetProductQuery } from './queries/get-product.query';
 import { GetAllProductsQuery } from './queries/get-all-products.query';
 import { MultimediaServiceAdapter } from '@modules/multimedia/application/services/multimedia.service.adapter';
+import { ProductModeService } from '@shared/product-mode/product-mode.service';
+import { ProductType } from '../domain/product.entity';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -15,6 +17,7 @@ export class ProductsServiceAdapter {
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
     private readonly multimediaService: MultimediaServiceAdapter,
+    private readonly productModeService: ProductModeService,
   ) {}
 
   async search(dto: any) {
@@ -44,6 +47,9 @@ export class ProductsServiceAdapter {
 
   async create(data: any) {
     const { multimediaAssetIds, ...payload } = data;
+    this.productModeService.assertProductTypeAllowed(
+      payload.productType ?? ProductType.PHYSICAL,
+    );
     const command = new CreateProductCommand(
       crypto.randomUUID(),
       payload.name,
@@ -62,6 +68,9 @@ export class ProductsServiceAdapter {
 
   async update(id: string, data: any) {
     const { multimediaAssetIds, ...payload } = data;
+    if (payload.productType !== undefined) {
+      this.productModeService.assertProductTypeAllowed(payload.productType);
+    }
     const command = new UpdateProductCommand(
       id,
       'system-user',

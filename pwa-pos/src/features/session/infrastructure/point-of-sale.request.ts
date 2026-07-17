@@ -57,8 +57,25 @@ export class PointOfSaleRequest {
     try {
       const res = await fetch(`${apiUrl("points-of-sale")}${q}`, { method: "GET", headers, cache: "no-store" });
       if (!res.ok) {
-        const t = await res.text();
-        return { success: false, error: t || res.statusText, pointsOfSale: [] };
+        const t = await res.text().catch(() => "");
+        let message = res.statusText || `HTTP ${res.status}`;
+        try {
+          const parsed = t ? (JSON.parse(t) as { message?: string | string[] }) : null;
+          if (parsed) {
+            if (Array.isArray(parsed.message)) message = parsed.message.join(", ");
+            else if (typeof parsed.message === "string" && parsed.message.trim()) {
+              message = parsed.message.trim();
+            }
+          }
+        } catch {
+          if (t.trim()) message = t.trim();
+        }
+        return {
+          success: false,
+          error: message,
+          pointsOfSale: [],
+          statusCode: res.status,
+        };
       }
       const data = (await res.json()) as { pointsOfSale?: any[] };
       return { success: true, pointsOfSale: Array.isArray(data?.pointsOfSale) ? (data.pointsOfSale as any) : [] };

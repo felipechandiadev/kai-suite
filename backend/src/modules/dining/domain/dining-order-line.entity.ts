@@ -1,0 +1,77 @@
+import 'reflect-metadata';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
+import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
+import { DiningOrder } from './dining-order.entity';
+import { KitchenItemStatus, LineSource } from './dining.enums';
+
+@Entity('dining_order_lines')
+@Index('idx_dining_order_lines_order_id', ['diningOrderId'])
+@Index('idx_dining_order_lines_kitchen_queue', ['productionUnitId', 'kitchenStatus'])
+export class DiningOrderLine {
+  @PrimaryGeneratedColumn('uuid')
+  id!: string;
+
+  @Column({ name: 'dining_order_id', type: 'uuid' })
+  diningOrderId!: string;
+
+  @Column({ name: 'product_variant_id', type: 'uuid' })
+  productVariantId!: string;
+
+  @Column({ type: 'decimal', precision: 12, scale: 3, default: 1 })
+  quantity!: number;
+
+  @Column({ type: 'text', nullable: true })
+  notes?: string | null;
+
+  @Column({ name: 'production_unit_id', type: 'uuid', nullable: true })
+  productionUnitId?: string | null;
+
+  @Column({
+    name: 'kitchen_status',
+    type: 'enum',
+    enum: KitchenItemStatus,
+    enumName: 'kitchen_item_status_enum',
+    default: KitchenItemStatus.DRAFT,
+  })
+  kitchenStatus!: KitchenItemStatus;
+
+  @Column({ name: 'line_source', type: 'enum', enum: LineSource, enumName: 'line_source_enum' })
+  lineSource!: LineSource;
+
+  @Column({ name: 'sent_to_kitchen_at', type: 'timestamptz', nullable: true })
+  sentToKitchenAt?: Date | null;
+
+  @Column({ name: 'ready_at', type: 'timestamptz', nullable: true })
+  readyAt?: Date | null;
+
+  @Column({ name: 'served_at', type: 'timestamptz', nullable: true })
+  servedAt?: Date | null;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt!: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt!: Date;
+
+  @ManyToOne(() => DiningOrder, (order) => order.lines, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'dining_order_id' })
+  diningOrder?: DiningOrder;
+
+  @ManyToOne(() => ProductVariant, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'product_variant_id' })
+  productVariant?: ProductVariant;
+
+  @ManyToOne(() => ProductionUnit, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'production_unit_id' })
+  productionUnit?: ProductionUnit | null;
+}

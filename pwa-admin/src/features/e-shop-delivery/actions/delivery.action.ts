@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { DeliveryRequest } from "../infrastructure/delivery.request";
 import type { GeoJsonPolygon } from "../types/delivery.types";
+import { isUnauthorizedSessionError } from "@/lib/auth/unauthorized-session";
 
 const PATH = "/reparto";
 
@@ -11,6 +12,10 @@ export async function getDeliverySettingsAction() {
     const settings = await DeliveryRequest.getSettings();
     return { success: true as const, settings };
   } catch (e) {
+    // Propagar 401 para que el layout / error boundary lleven al login.
+    if (isUnauthorizedSessionError(e)) {
+      throw e;
+    }
     return { success: false as const, error: e instanceof Error ? e.message : "Error" };
   }
 }

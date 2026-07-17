@@ -12,6 +12,27 @@ function apiUrl(path: string): string {
   return `${getServerBackendApiBase()}/api${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+function parseCourierApiError(text: string, status: number): string {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return `Error del servidor (HTTP ${status})`;
+  }
+  try {
+    const json = JSON.parse(trimmed) as { message?: string | string[] };
+    const msg = json.message;
+    if (typeof msg === "string" && msg.trim()) {
+      return msg.trim();
+    }
+    if (Array.isArray(msg)) {
+      const joined = msg.map(String).filter(Boolean).join(", ");
+      if (joined) return joined;
+    }
+  } catch {
+    // Respuesta no JSON: usar texto plano.
+  }
+  return trimmed;
+}
+
 export async function courierPost<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(apiUrl(path), {
     method: "POST",
@@ -21,7 +42,7 @@ export async function courierPost<T>(path: string, body: unknown): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text || `HTTP ${res.status}`);
+    throw new Error(parseCourierApiError(text, res.status));
   }
   return res.json() as Promise<T>;
 }

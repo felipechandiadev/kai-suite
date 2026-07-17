@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/auth-options";
+import { throwIfUnauthorizedStatus, isUnauthorizedSessionError } from "@/lib/auth/unauthorized-session";
 
 function apiUrl(path: string): string {
   const base = process.env.BACKEND_API_URL;
@@ -217,12 +218,19 @@ export class CompanyRequest {
         headers,
         cache: "no-store",
       });
+      if (res.status === 401) {
+        const detail = await errorBodyMessage(res).catch(() => "");
+        throwIfUnauthorizedStatus(401, detail || undefined);
+      }
       if (!res.ok) {
         return null;
       }
       const data = (await res.json()) as CompanyApiResponse;
       return mapCompanyResponse(data);
-    } catch {
+    } catch (e) {
+      if (isUnauthorizedSessionError(e)) {
+        throw e;
+      }
       return null;
     }
   }

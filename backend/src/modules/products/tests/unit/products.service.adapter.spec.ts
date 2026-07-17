@@ -8,6 +8,7 @@ import { SearchProductsQuery } from '@modules/products/application/queries/searc
 import { GetProductQuery } from '@modules/products/application/queries/get-product.query';
 import { GetAllProductsQuery } from '@modules/products/application/queries/get-all-products.query';
 import { MultimediaServiceAdapter } from '@modules/multimedia/application/services/multimedia.service.adapter';
+import { ProductModeService } from '@shared/product-mode/product-mode.service';
 
 describe('ProductsServiceAdapter', () => {
   let service: ProductsServiceAdapter;
@@ -18,6 +19,7 @@ describe('ProductsServiceAdapter', () => {
     unlink: jest.Mock;
     link: jest.Mock;
   };
+  let productModeService: { assertProductTypeAllowed: jest.Mock };
 
   beforeEach(() => {
     commandBus = { execute: jest.fn() };
@@ -27,11 +29,15 @@ describe('ProductsServiceAdapter', () => {
       unlink: jest.fn(),
       link: jest.fn(),
     };
+    productModeService = {
+      assertProductTypeAllowed: jest.fn(),
+    };
 
     service = new ProductsServiceAdapter(
       commandBus as unknown as CommandBus,
       queryBus as unknown as QueryBus,
       multimediaService as unknown as MultimediaServiceAdapter,
+      productModeService as unknown as ProductModeService,
     );
   });
 

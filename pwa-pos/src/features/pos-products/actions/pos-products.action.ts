@@ -7,6 +7,7 @@ export async function searchPosProductsAction(input: {
   priceListId: string;
   branchId?: string | null;
   pointOfSaleId?: string | null;
+  productTypes?: string[];
   page: number;
   pageSize: number;
 }) {

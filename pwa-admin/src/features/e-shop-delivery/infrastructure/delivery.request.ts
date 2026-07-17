@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/auth-options";
+import { throwIfUnauthorizedStatus } from "@/lib/auth/unauthorized-session";
 import type {
   DeliveryCommuneRow,
   DeliveryDriverRow,
@@ -45,6 +46,7 @@ export class DeliveryRequest {
       headers: await authHeaders(),
       cache: "no-store",
     });
+    throwIfUnauthorizedStatus(res.status);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   }

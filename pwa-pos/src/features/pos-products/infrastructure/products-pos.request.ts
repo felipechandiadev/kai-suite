@@ -14,6 +14,7 @@ export class ProductsPosRequest {
     priceListId: string;
     branchId?: string | null;
     pointOfSaleId?: string | null;
+    productTypes?: string[];
     page: number;
     pageSize: number;
   }): Promise<PosProductSearchResponse> {
@@ -34,6 +35,9 @@ export class ProductsPosRequest {
     qs.set("priceListId", input.priceListId);
     if (input.branchId?.trim()) qs.set("branchId", input.branchId.trim());
     if (input.pointOfSaleId?.trim()) qs.set("pointOfSaleId", input.pointOfSaleId.trim());
+    if (input.productTypes?.length) {
+      qs.set("productTypes", input.productTypes.join(","));
+    }
     qs.set("page", String(Math.max(1, input.page)));
     qs.set("pageSize", String(Math.max(1, input.pageSize)));
 

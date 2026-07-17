@@ -26,6 +26,7 @@ import {
   clearPosPrintJobBrowserFallback,
   tryPosPrintJobBrowserFallback,
 } from "@/features/pos-print/lib/pos-print-job-browser-fallback";
+import { isKaiFoodEnabled } from "@/config/kaifood-module.config";
 
 export type PosTopBarProps = {
   pointOfSaleName?: string | null;
@@ -77,6 +78,7 @@ type PosTopBarNavProps = {
   printService: PrintServiceNavProps;
   isPresalePos?: boolean;
   isOffline?: boolean;
+  kaiFoodEnabled?: boolean;
   className?: string;
 };
 
@@ -86,6 +88,7 @@ function PosTopBarNav({
   printService,
   isPresalePos = false,
   isOffline = false,
+  kaiFoodEnabled = false,
   className = "",
 }: PosTopBarNavProps) {
   if (isOffline) {
@@ -203,6 +206,18 @@ function PosTopBarNav({
           aria-current={pathnameMatchesRoute(pathname, "/customers") ? "page" : undefined}
           onClick={() => onNavigate("/customers")}
           data-test-id="pos-topbar-customers"
+        />
+      ) : null}
+      {kaiFoodEnabled && !isPresalePos ? (
+        <IconButton
+          icon="Utensils"
+          variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/accounts"))}
+          size="md"
+          ariaLabel="Cuentas salón"
+          title="Cuentas"
+          aria-current={pathnameMatchesRoute(pathname, "/accounts") ? "page" : undefined}
+          onClick={() => onNavigate("/accounts")}
+          data-test-id="pos-topbar-dining-accounts"
         />
       ) : null}
       <StockAlertsDropdown />
@@ -501,6 +516,7 @@ export default function PosTopBar({
   };
 
   const isPresalePos = posKindFromClient === "PRESALE";
+  const kaiFoodEnabled = isKaiFoodEnabled();
 
   const navProps: PosTopBarNavProps = {
     pathname,
@@ -508,6 +524,7 @@ export default function PosTopBar({
     printService: printServiceNav,
     isPresalePos,
     isOffline,
+    kaiFoodEnabled,
   };
 
   const userName = effectivePerson || "—";

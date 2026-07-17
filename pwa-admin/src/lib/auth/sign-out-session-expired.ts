@@ -1,6 +1,7 @@
 "use client";
 
 import { signOut } from "next-auth/react";
+import { isUnauthorizedErrorMessage } from "@/lib/auth/unauthorized-session";
 
 let inFlight: Promise<void> | null = null;
 
@@ -17,15 +18,18 @@ export function signOutSessionExpired(): void {
   }
   inFlight = (async () => {
     try {
-      await signOut({ callbackUrl: "/", redirect: true });
+      await signOut({ redirect: false });
     } catch {
-      window.location.assign("/");
-    } finally {
-      inFlight = null;
+      // Si falla el endpoint de NextAuth, igual forzamos navegación al login.
     }
-  })();
+    window.location.assign("/");
+  })().finally(() => {
+    inFlight = null;
+  });
 }
 
 export function isUnauthorizedResponse(res: Response): boolean {
   return res.status === 401;
 }
+
+export { isUnauthorizedErrorMessage };

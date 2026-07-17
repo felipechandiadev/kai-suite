@@ -19,6 +19,7 @@ import { PRICE_LIST_ITEMS_REPOSITORY } from '@modules/price-list-items/applicati
 import { TypeOrmPriceListItemsRepository } from '@modules/price-list-items/infrastructure/repositories/typeorm-price-list-items.repository';
 import { MultimediaModule } from '@modules/multimedia/multimedia.module';
 import { BrandsModule } from '@modules/brands/brands.module';
+import { ProductModeModule } from '../../shared/product-mode/product-mode.module';
 
 // Handlers
 import { CreateProductCommandHandler } from './application/handlers/commands/create-product.handler';
@@ -45,6 +46,7 @@ import { ProductEshopVisibilitySyncService } from './application/services/produc
     CqrsModule,
     MultimediaModule,
     BrandsModule,
+    ProductModeModule,
   ],
   controllers: [ProductsController],
   providers: [

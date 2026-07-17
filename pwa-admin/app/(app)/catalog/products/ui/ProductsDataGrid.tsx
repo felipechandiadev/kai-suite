@@ -17,7 +17,7 @@ import { ProductEShopPreviewDialog } from "./ProductEShopPreviewDialog";
 import { MultimediaLightbox } from "@/shared/components/Multimedia";
 import type { MultimediaLightboxItem } from "@/shared/components/Multimedia/types";
 import {
-  CATALOG_PRODUCT_TYPE_SELECT_OPTIONS,
+  getCatalogProductTypeSelectOptions,
   normalizeCatalogProductType,
 } from "./catalog-product-type-options";
 import { isEShopModuleEnabled } from "@/config/eshop-module.config";
@@ -88,7 +88,7 @@ function ProductTypeFilter() {
   const current = searchParams.get("productType") || "";
   const options: Option[] = useMemo(
     () =>
-      CATALOG_PRODUCT_TYPE_SELECT_OPTIONS.map((o) => ({
+      getCatalogProductTypeSelectOptions().map((o) => ({
         id: o.id,
         label: o.label,
       })),
@@ -624,7 +624,7 @@ function ProductExpandPanel({
             <p className="max-w-md text-xs leading-relaxed text-muted-foreground">
               Este producto aún no tiene variantes (SKU, precios e inventario viven en cada variante). Use el botón{" "}
               <span className="font-medium text-foreground">+</span> junto al título «Variantes» para crear la primera.
-              Después podrá definir la <span className="font-medium text-foreground">receta (BOM)</span> en esa variante
+              Después podrá definir la <span className="font-medium text-foreground">receta</span> en esa variante
               (producto físico o servicio).
             </p>
           </div>

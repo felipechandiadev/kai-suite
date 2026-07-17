@@ -65,8 +65,16 @@ export class UpdateStockActionHandler {
       return;
     }
 
-    /** Solo compras valoradas actualizan PMP (no ajustes, transferencias ni devoluciones). */
-    const updatesPmpFromTransaction = type === TransactionType.PURCHASE;
+    /**
+     * PMP se actualiza en:
+     * - PURCHASE valorada
+     * - ADJUSTMENT_IN con origin PRODUCTION_OUTPUT (entrada valorada de producción)
+     */
+    const rawOrigin = tx?.metadata?.origin;
+    const metaOrigin = typeof rawOrigin === 'string' ? rawOrigin : null;
+    const updatesPmpFromTransaction =
+      type === TransactionType.PURCHASE ||
+      (type === TransactionType.ADJUSTMENT_IN && metaOrigin === 'PRODUCTION_OUTPUT');
 
     const stockEmitMap = new Map<string, StockUpdatedPayload>();
     const pendingNotifications: PublishNotificationCommand[] = [];
@@ -298,7 +306,7 @@ export class UpdateStockActionHandler {
             }
           } else if (line.productVariantId && moveQty > 0) {
             this.logger.warn(
-              `PURCHASE ${tx.id}: línea variante ${line.productVariantId} sin costo; PMP no actualizado.`,
+              `${type} ${tx.id}: línea variante ${line.productVariantId} sin costo; PMP no actualizado.`,
             );
           }
         }

@@ -1,13 +1,13 @@
 {
-	"pid": 59067,
-	"port": 5177,
-	"url": "http://localhost:5177",
+	"pid": 75538,
+	"port": 5066,
+	"url": "http://localhost:5066",
 	"urls": {
 		"local": [
-			"http://localhost:5177/"
+			"http://localhost:5066/"
 		],
 		"network": []
 	},
 	"background": false,
-	"startedAt": "2026-07-16T10:32:39.817Z"
+	"startedAt": "2026-07-17T22:59:04.870Z"
 }

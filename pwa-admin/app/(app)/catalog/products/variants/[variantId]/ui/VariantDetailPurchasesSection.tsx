@@ -21,6 +21,7 @@ import {
   rechartsTooltipContentStyle,
   rechartsTooltipWrapperStyle,
 } from "@/shared/charts/recharts-tooltip";
+import { catalogProductTypeIsFinishedGood } from "../../../ui/catalog-product-type-options";
 
 function formatShortDate(iso: string): string {
   try {
@@ -83,13 +84,18 @@ function quantityInStockBase(
 
 type VariantDetailPurchasesSectionProps = {
   variant: ProductVariantGridRow;
+  productType?: string | null;
 };
 
-export function VariantDetailPurchasesSection({ variant }: VariantDetailPurchasesSectionProps) {
+export function VariantDetailPurchasesSection({
+  variant,
+  productType,
+}: VariantDetailPurchasesSectionProps) {
   const { data: session } = useSession();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [insights, setInsights] = useState<VariantPurchaseInsights | null>(null);
+  const isFinishedGood = catalogProductTypeIsFinishedGood(productType);
 
   const load = useCallback(async () => {
     const id = variant.id?.trim();
@@ -153,6 +159,16 @@ export function VariantDetailPurchasesSection({ variant }: VariantDetailPurchase
 
   return (
     <div className="space-y-4" data-test-id="pv-section-compras">
+      {isFinishedGood ? (
+        <p
+          className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-foreground"
+          data-test-id="pv-compras-finished-good-notice"
+        >
+          Este producto se abastece por <strong>producción</strong>, no por compra ni recepción
+          estándar. El stock del terminado aumenta al completar una orden de producción.
+        </p>
+      ) : null}
+
       {loading ? (
         <LoadingState className="flex items-center justify-center py-4" label="Cargando compras" data-test-id="pv-compras-loading" />
       ) : null}

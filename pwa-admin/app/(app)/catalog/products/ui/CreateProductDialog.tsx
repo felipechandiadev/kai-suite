@@ -15,17 +15,18 @@ import { listUnitsForPage } from "@/features/inventory-units/actions/unit.action
 import { pickDefaultUnit } from "@/features/inventory-units/types/unit.types";
 import { listPriceListsForPage } from "@/features/sales-price-lists/actions/price-list.action";
 import { listTaxesForPage } from "@/features/accounting-taxes/actions/tax.action";
-import type { TaxListItem } from "@/features/accounting-taxes/types/tax.types";
 import { deriveBasePriceFromPriceRows, roundMoneyInt } from "@/features/inventory-products/domain/price-tax-math";
 import { createVariantPriceRow } from "./VariantPriceRowsEditor";
-import { EntityMultimediaPanel } from "./EntityMultimediaPanel";
 import { MultimediaField } from "@/shared/components/Multimedia";
 import { revalidateMultimediaCachesAction } from "@/features/multimedia/actions/multimedia.action";
 import { uploadMultimediaFilesForEntity } from "@/features/multimedia/infrastructure/multimedia.client";
 import type { MultimediaEntityType } from "@/features/multimedia/types/multimedia.types";
 import { useSession } from "next-auth/react";
 import type { CatalogProductType } from "@/features/inventory-products/types/product-grid.types";
-import { CATALOG_PRODUCT_TYPE_SELECT_OPTIONS, normalizeCatalogProductType } from "./catalog-product-type-options";
+import {
+  getCatalogProductTypeSelectOptions,
+  normalizeCatalogProductType,
+} from "./catalog-product-type-options";
 import { isEShopModuleEnabled } from "@/config/eshop-module.config";
 
 async function uploadFilesToEntity(
@@ -76,8 +77,7 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
     accessToken: session?.user?.accessToken,
     activeCompanyId: (session?.user as { activeCompanyId?: string | null } | undefined)?.activeCompanyId,
   };
-  const [phase, setPhase] = useState<"form" | "media">("form");
-  const [newProductId, setNewProductId] = useState<string | null>(null);
+  const [createdProductId, setCreatedProductId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [brandId, setBrandId] = useState<string | null>(null);
   const [description, setDescription] = useState("");
@@ -175,8 +175,7 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
     if (!open) {
       return;
     }
-    setPhase("form");
-    setNewProductId(null);
+    setCreatedProductId(null);
     setVariantPrepLoading(false);
     setVariantPrepError(null);
     setStagedProductFiles([]);
@@ -212,8 +211,7 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
   }, [open]);
 
   const handleClose = () => {
-    setPhase("form");
-    setNewProductId(null);
+    setCreatedProductId(null);
     setVariantPrepLoading(false);
     setVariantPrepError(null);
     setStagedProductFiles([]);
@@ -231,7 +229,7 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
   };
 
   const handleSubmit = () => {
-    if (phase !== "form") {
+    if (createdProductId) {
       return;
     }
     setError(null);
@@ -251,10 +249,9 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
           setError(r.error);
           return;
         }
-        setNewProductId(r.id);
+        setCreatedProductId(r.id);
         setVariantPrepError(null);
         setVariantPrepLoading(true);
-        setPhase("media");
 
         try {
           if (stagedProductFiles.length > 0) {
@@ -263,8 +260,12 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
               setPostCreateUploadError(upErr);
             }
           }
-          await runEnsureFirstVariant(r.id, name.trim(), productType);
+          const variantId = await runEnsureFirstVariant(r.id, name.trim(), productType);
           await router.refresh();
+          if (variantId) {
+            await onSuccess?.();
+            handleClose();
+          }
         } finally {
           setVariantPrepLoading(false);
         }
@@ -272,23 +273,14 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
     });
   };
 
-  const handleFinalizeMedia = () => {
-    startTransition(() => {
-      void (async () => {
-        await onSuccess?.();
-        handleClose();
-      })();
-    });
-  };
-
-  const canSubmit = phase === "form" && name.trim().length > 0 && !isPending;
-  const canFinalize = phase === "media" && !isPending && !variantPrepLoading;
+  const canSubmit = !createdProductId && name.trim().length > 0 && !isPending && !variantPrepLoading;
+  const formDisabled = isPending || variantPrepLoading || createdProductId != null;
 
   return (
     <Dialog
       open={open}
       onClose={handleClose}
-      title={phase === "media" ? "Imágenes del producto" : "Crear producto"}
+      title="Crear producto"
       size="lg"
       scroll="paper"
       maxHeight="min(90vh, 720px)"
@@ -300,12 +292,12 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
               {error}
             </Alert>
           ) : null}
-          {phase === "media" && variantPrepError ? (
+          {variantPrepError ? (
             <Alert variant="error" data-test-id="product-create-variant-prep-error">
               {variantPrepError}
             </Alert>
           ) : null}
-          {phase === "media" && postCreateUploadError ? (
+          {postCreateUploadError ? (
             <Alert variant="warning" data-test-id="product-create-upload-warning">
               No se pudieron subir todos los archivos elegidos: {postCreateUploadError}
             </Alert>
@@ -313,55 +305,25 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
         </>
       }
       actions={
-        phase === "media" ? (
-          <>
-            <Button variant="outlined" size="md" onClick={handleClose} disabled={isPending} data-test-id="product-create-cancel">
-              Cerrar
-            </Button>
+        <>
+          <Button variant="outlined" size="md" onClick={handleClose} disabled={isPending || variantPrepLoading} data-test-id="product-create-cancel">
+            {createdProductId ? "Cerrar" : "Cancelar"}
+          </Button>
+          {!createdProductId ? (
             <Button
               variant="primary"
               size="md"
-              onClick={handleFinalizeMedia}
-              disabled={!canFinalize}
-              data-test-id="product-create-finish-media"
-              title={variantPrepLoading ? "Creando la variante inicial…" : undefined}
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              loading={isPending || variantPrepLoading}
+              data-test-id="product-create-submit"
             >
-              Listo
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button variant="outlined" size="md" onClick={handleClose} disabled={isPending} data-test-id="product-create-cancel">
-              Cancelar
-            </Button>
-            <Button variant="primary" size="md" onClick={handleSubmit} disabled={!canSubmit} data-test-id="product-create-submit">
               Crear
             </Button>
-          </>
-        )
+          ) : null}
+        </>
       }
     >
-      {phase === "media" && newProductId ? (
-        <div className="flex w-full min-w-0 flex-col gap-4">
-          <p className="text-sm text-muted-foreground">
-            Producto creado. Los archivos elegidos en el formulario ya se enviaron cuando fue posible. Puede añadir más con el
-            uploader de <span className="font-medium text-foreground">colección</span> abajo. La multimedia por variante se
-            gestiona al crear o editar una variante desde la grilla.
-          </p>
-          <EntityMultimediaPanel
-            entityType="product"
-            entityId={newProductId}
-            title="Imágenes del producto"
-            collectionOnly
-            onChanged={() => router.refresh()}
-          />
-          {variantPrepLoading ? (
-            <p className="text-sm text-muted-foreground" data-test-id="product-create-variant-prep-loading">
-              Creando variante inicial (SKU y precios)…
-            </p>
-          ) : null}
-        </div>
-      ) : (
       <div className="flex w-full min-w-0 flex-col gap-4">
         <TextField
           label="Nombre"
@@ -376,7 +338,7 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
           label="Tipo"
           name="product-create-type"
           placeholder="Seleccione tipo"
-          options={CATALOG_PRODUCT_TYPE_SELECT_OPTIONS}
+          options={getCatalogProductTypeSelectOptions()}
           value={productType}
           onChange={(id) => setProductType(normalizeCatalogProductType(id == null ? "PHYSICAL" : String(id)))}
           data-test-id="product-create-type"
@@ -384,9 +346,9 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
         {productType === "SERVICE" ? (
           <div className="rounded-lg border border-border bg-muted/15 p-3 text-xs text-muted-foreground">
             Este producto es un <span className="font-medium text-foreground">servicio</span>. Si consume insumos, defina
-            la <span className="font-medium text-foreground">receta (BOM)</span> en{" "}
+            la <span className="font-medium text-foreground">receta</span> en{" "}
             <span className="font-medium text-foreground">Inventario → Productos</span>: expanda el producto, elija la
-            variante y use <span className="font-medium text-foreground">Receta (BOM)</span>.
+            variante y use <span className="font-medium text-foreground">Receta</span>.
           </div>
         ) : null}
         <Select
@@ -435,7 +397,7 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
             maxFiles={12}
             maxSizeMb={9}
             allowPrimary
-            disabled={isPending}
+            disabled={formDisabled}
             data-test-id="product-create-form-multimedia-field"
           />
         </div>
@@ -459,7 +421,6 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
           ) : null}
         </div>
       </div>
-      )}
     </Dialog>
   );
 }

@@ -9,6 +9,9 @@ export const configSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'staging', 'production', 'test')
     .default('development'),
+  KAI_PRODUCT: Joi.string()
+    .valid('kaistore', 'kaifood', 'kaiservices')
+    .default('kaistore'),
   PORT: Joi.number().default(5060),
   API_PREFIX: Joi.string().default('api'),
 

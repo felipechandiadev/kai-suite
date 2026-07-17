@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, Inject, BadRequestException } from '@nes
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, IsNull, In, SelectQueryBuilder } from 'typeorm';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
-import { Product } from '@modules/products/domain/product.entity';
+import { Product, ProductType } from '@modules/products/domain/product.entity';
 import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
 import { Storage } from '@modules/storages/domain/storage.entity';
 import { PriceListItem } from '@modules/price-list-items/domain/price-list-item.entity';
@@ -75,8 +75,15 @@ export class ProductsPosService {
    * - Incluye stock disponible por bodega (branch)
    */
   async searchForPos(dto: SearchPosProductsDto) {
-    const { query, priceListId, branchId, page = 1, pageSize = 20, pointOfSaleId } =
-      dto;
+    const {
+      query,
+      priceListId,
+      branchId,
+      page = 1,
+      pageSize = 20,
+      pointOfSaleId,
+      productTypes,
+    } = dto;
 
     if (!priceListId) {
       throw new NotFoundException(
@@ -105,6 +112,18 @@ export class ProductsPosService {
         )`,
         { q: `%${query.trim()}%` },
       );
+    }
+
+    const allowedTypes = (productTypes ?? '')
+      .split(',')
+      .map((t) => t.trim().toUpperCase())
+      .filter((t): t is ProductType =>
+        Object.values(ProductType).includes(t as ProductType),
+      );
+    if (allowedTypes.length > 0) {
+      qb.andWhere('product.productType IN (:...productTypes)', {
+        productTypes: allowedTypes,
+      });
     }
 
     // Paginación

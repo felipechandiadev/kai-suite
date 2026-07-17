@@ -6,6 +6,9 @@ export type RecipeLineDto = {
   qtyPerOutputUnit: number;
   wasteFactor?: number;
   sortOrder?: number;
+  inputProductName?: string | null;
+  inputSku?: string | null;
+  inputStockBaseUnitLabel?: string | null;
 };
 
 export type RecipeDto = {

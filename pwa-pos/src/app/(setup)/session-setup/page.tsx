@@ -12,6 +12,7 @@ export default async function Page() {
       <SessionSetupForm
         pointsOfSale={pointsOfSale}
         initialError={points.success ? "" : points.error}
+        initialStatusCode={points.success ? undefined : points.statusCode}
       />
     </div>
   );

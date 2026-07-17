@@ -45,6 +45,7 @@ import { getQuotationsEnabledAction } from "@/features/company/actions/company-q
 import { shouldUseBackendApi, subscribeConnectivity } from "@/features/pos-offline/infrastructure/connectivity";
 import { hydrateCartLinesFiscalFlags } from "@/features/sale-print-plan";
 import { applyUnitGrossPriceToCartLine } from "./lib/apply-cart-line-unit-gross-price";
+import type { LoadedDiningOrderMeta } from "@/features/dining/types/dining-pos.types";
 
 type PosCartContextValue = {
   ready: boolean;
@@ -143,6 +144,14 @@ type PosCartContextValue = {
   refreshPromotions: () => Promise<void>;
   /** Módulo de cotizaciones habilitado en la empresa activa. */
   quotationsEnabled: boolean;
+  /** Cuenta salón (KaiFood) vinculada al cobro actual. */
+  loadedDiningOrder: LoadedDiningOrderMeta | null;
+  /** Carga líneas de una cuenta salón para cobrar en payment. */
+  loadDiningOrderForPayment: (
+    meta: LoadedDiningOrderMeta,
+    lines: PosCartLine[],
+  ) => void;
+  clearLoadedDiningOrder: () => void;
 };
 
 const PosCartContext = createContext<PosCartContextValue | null>(null);
@@ -252,6 +261,8 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     useState<LoadedBackorderMeta | null>(null);
   const [loadedPresaleTickets, setLoadedPresaleTickets] =
     useState<LoadedPresaleTicketMeta[]>([]);
+  const [loadedDiningOrder, setLoadedDiningOrder] =
+    useState<LoadedDiningOrderMeta | null>(null);
   const [scope, setScope] = useState<{
     pointOfSaleId: string;
     priceListId: string;
@@ -541,7 +552,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
   const setUnitPrice = useCallback(
     (variantId: string, unitPriceWithTax: number) => {
       if (cartMode !== "sale") return;
-      if (loadedQuotation || loadedReturnSale || loadedBackorder) return;
+      if (loadedQuotation || loadedReturnSale || loadedBackorder || loadedDiningOrder) return;
       const gross = Math.round(Number(unitPriceWithTax) || 0);
       if (!Number.isFinite(gross) || gross <= 0) return;
       setLines((prev) =>
@@ -552,8 +563,31 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
         ),
       );
     },
-    [cartMode, loadedBackorder, loadedQuotation, loadedReturnSale],
+    [cartMode, loadedBackorder, loadedDiningOrder, loadedQuotation, loadedReturnSale],
   );
+
+  const loadDiningOrderForPayment = useCallback(
+    (meta: LoadedDiningOrderMeta, nextLines: PosCartLine[]) => {
+      setCartMode("sale");
+      setLoadedReturnSale(null);
+      setLoadedBackorder(null);
+      setLoadedQuotation(null);
+      setLoadedPresaleTickets([]);
+      setBackorderDeposit(null);
+      setPosDelivery(null);
+      setEncargoModeEnabled(false);
+      setLoadedDiningOrder(meta);
+      setLines(nextLines);
+      setPayments([]);
+      setManualSelections([]);
+      setLastCartError(null);
+    },
+    [],
+  );
+
+  const clearLoadedDiningOrder = useCallback(() => {
+    setLoadedDiningOrder(null);
+  }, []);
 
   const loadQuotation = useCallback(
     (
@@ -802,6 +836,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     setLoadedReturnSale(null);
     setLoadedBackorder(null);
     setLoadedPresaleTickets([]);
+    setLoadedDiningOrder(null);
     setManualSelections([]);
     setAppliedPromotions([]);
     setOrderDiscount(0);
@@ -1118,6 +1153,9 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       redeemCode,
       refreshPromotions,
       quotationsEnabled,
+      loadedDiningOrder,
+      loadDiningOrderForPayment,
+      clearLoadedDiningOrder,
     }),
     [
       ready,
@@ -1166,6 +1204,9 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       redeemCode,
       refreshPromotions,
       quotationsEnabled,
+      loadedDiningOrder,
+      loadDiningOrderForPayment,
+      clearLoadedDiningOrder,
     ],
   );
 

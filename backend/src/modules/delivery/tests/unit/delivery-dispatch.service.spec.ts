@@ -76,6 +76,8 @@ describe('DeliveryDispatchService occurrence route actions', () => {
     occurrenceRepo.findOne.mockResolvedValue({
       id: 'occ-1',
       companyId: 'c1',
+      occurrenceDate: '2020-01-01',
+      orderCutoffTime: '13:00:00',
       isCancelled: false,
       routeStatus: 'planned',
       driverUserId: 'driver-1',
@@ -91,10 +93,80 @@ describe('DeliveryDispatchService occurrence route actions', () => {
     expect(readiness.reason).toMatch(/Optimiza la ruta/i);
   });
 
+  it('fails start readiness when no orders', async () => {
+    occurrenceRepo.findOne.mockResolvedValue({
+      id: 'occ-1',
+      companyId: 'c1',
+      occurrenceDate: '2020-01-01',
+      orderCutoffTime: '13:00:00',
+      isCancelled: false,
+      routeStatus: 'route_ready',
+      driverUserId: 'driver-1',
+    });
+    deliveryOrderRepo.find.mockResolvedValue([]);
+    dispatchRepo.findOne.mockResolvedValue({ id: 'd1' });
+    stopRepo.count.mockResolvedValue(2);
+
+    const readiness = await service.evaluateStartReadiness('c1', 'occ-1');
+    expect(readiness.canStart).toBe(false);
+    expect(readiness.reason).toMatch(/no tiene pedidos/i);
+  });
+
+  it('fails start readiness before cutoff', async () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const occurrenceDate = tomorrow.toLocaleDateString('en-CA', {
+      timeZone: 'America/Santiago',
+    });
+
+    occurrenceRepo.findOne.mockResolvedValue({
+      id: 'occ-1',
+      companyId: 'c1',
+      occurrenceDate,
+      orderCutoffTime: '13:00:00',
+      isCancelled: false,
+      routeStatus: 'route_ready',
+      driverUserId: 'driver-1',
+    });
+    deliveryOrderRepo.find.mockResolvedValue([
+      { deliveryStatus: 'READY_FOR_DISPATCH' },
+    ]);
+    dispatchRepo.findOne.mockResolvedValue({ id: 'd1' });
+    stopRepo.count.mockResolvedValue(2);
+
+    const readiness = await service.evaluateStartReadiness('c1', 'occ-1');
+    expect(readiness.canStart).toBe(false);
+    expect(readiness.reason).toMatch(/otra fecha/i);
+  });
+
+  it('fails start readiness when not all orders are ready', async () => {
+    occurrenceRepo.findOne.mockResolvedValue({
+      id: 'occ-1',
+      companyId: 'c1',
+      occurrenceDate: '2020-01-01',
+      orderCutoffTime: '13:00:00',
+      isCancelled: false,
+      routeStatus: 'route_ready',
+      driverUserId: 'driver-1',
+    });
+    deliveryOrderRepo.find.mockResolvedValue([
+      { deliveryStatus: 'READY_FOR_DISPATCH' },
+      { deliveryStatus: 'ISSUE' },
+    ]);
+    dispatchRepo.findOne.mockResolvedValue({ id: 'd1' });
+    stopRepo.count.mockResolvedValue(2);
+
+    const readiness = await service.evaluateStartReadiness('c1', 'occ-1');
+    expect(readiness.canStart).toBe(false);
+    expect(readiness.reason).toMatch(/incidencia/i);
+  });
+
   it('starts route when readiness passes', async () => {
     occurrenceRepo.findOne.mockResolvedValue({
       id: 'occ-1',
       companyId: 'c1',
+      occurrenceDate: '2020-01-01',
+      orderCutoffTime: '13:00:00',
       isCancelled: false,
       routeStatus: 'route_ready',
       driverUserId: 'driver-1',
@@ -128,11 +200,38 @@ describe('DeliveryDispatchService occurrence route actions', () => {
     occurrenceRepo.findOne.mockResolvedValue({
       id: 'occ-1',
       companyId: 'c1',
+      occurrenceDate: '2020-01-01',
+      orderCutoffTime: '13:00:00',
       isCancelled: false,
       routeStatus: 'route_ready',
       driverUserId: null,
     });
     await expect(service.startOccurrenceRoute('c1', 'occ-1')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it('startForCourier enforces readiness', async () => {
+    dispatchRepo.findOne.mockResolvedValue({
+      id: 'd1',
+      companyId: 'c1',
+      occurrenceId: 'occ-1',
+    });
+    occurrenceRepo.findOne.mockResolvedValue({
+      id: 'occ-1',
+      companyId: 'c1',
+      occurrenceDate: '2099-01-01',
+      orderCutoffTime: '13:00:00',
+      isCancelled: false,
+      routeStatus: 'route_ready',
+      driverUserId: 'driver-1',
+    });
+    deliveryOrderRepo.find.mockResolvedValue([
+      { deliveryStatus: 'READY_FOR_DISPATCH' },
+    ]);
+    stopRepo.count.mockResolvedValue(2);
+
+    await expect(service.startForCourier('c1', 'd1')).rejects.toBeInstanceOf(
       BadRequestException,
     );
   });

@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/auth-options";
+import { throwIfUnauthorizedStatus, isUnauthorizedSessionError } from "@/lib/auth/unauthorized-session";
 import type {
   ProductGridRow,
   ProductPriceListItemRow,
@@ -354,6 +355,7 @@ export class ProductRequest {
         cache: "no-store",
       });
       if (!res.ok) {
+        throwIfUnauthorizedStatus(res.status);
         const body = await res.text().catch(() => "");
         console.error(
           `[ProductRequest.searchProducts] ${res.status} ${res.statusText}`,
@@ -374,6 +376,9 @@ export class ProductRequest {
       }
       return list.map(normalizeProduct).filter((x): x is ProductGridRow => x != null);
     } catch (e) {
+      if (isUnauthorizedSessionError(e)) {
+        throw e;
+      }
       console.error("[ProductRequest.searchProducts]", e);
       return [];
     }

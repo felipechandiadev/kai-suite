@@ -8,6 +8,7 @@ import { RecipesService } from '@modules/recipes/application/recipes.service';
 import { TransactionsService } from '@modules/transactions/application/transactions.service';
 import { CreateTransactionDto, CreateTransactionLineDto } from '@modules/transactions/application/dto/create-transaction.dto';
 import { RecipeType } from '@modules/recipes/domain/recipe-type.enum';
+import { recipeInputQuantityForOutput } from '@modules/recipes/application/recipe-consumption.util';
 
 export class CompleteServiceOrderCommand {
   constructor(public readonly serviceOrderId: string) {}
@@ -54,9 +55,11 @@ export class CompleteServiceOrderUseCase implements ICommandHandler<CompleteServ
     const adjLines: CreateTransactionLineDto[] = recipe.lines
       .sort((a, b) => (a.sortOrder ?? 1) - (b.sortOrder ?? 1))
       .map((rl, idx) => {
-        const base = Number(rl.qtyPerOutputUnit ?? 0) || 0;
-        const waste = Number(rl.wasteFactor ?? 0) || 0;
-        const qty = base * serviceQty * (1 + waste);
+        const qty = recipeInputQuantityForOutput(
+          Number(rl.qtyPerOutputUnit ?? 0),
+          Number(rl.wasteFactor ?? 0),
+          serviceQty,
+        );
         return {
           productName: `Input ${rl.inputVariantId}`,
           productVariantId: rl.inputVariantId,

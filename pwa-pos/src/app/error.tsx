@@ -27,6 +27,11 @@ export default function PosRootError({ error, reset }: ErrorBoundaryProps) {
 
   const isUnauthorized = useMemo(() => isUnauthorizedError(error), [error]);
 
+  useEffect(() => {
+    if (!isUnauthorized) return;
+    void signOutToLogin();
+  }, [isUnauthorized]);
+
   if (isUnauthorized) {
     return (
       <div className="flex min-h-[70vh] w-full flex-1 items-center justify-center px-6 py-10">
@@ -38,7 +43,7 @@ export default function PosRootError({ error, reset }: ErrorBoundaryProps) {
               viewBox="0 0 24 24"
               strokeWidth={1.8}
               stroke="currentColor"
-              className="h-6 w-6"
+              className="h-6 w-6 animate-pulse"
               aria-hidden="true"
             >
               <path
@@ -50,7 +55,7 @@ export default function PosRootError({ error, reset }: ErrorBoundaryProps) {
           </div>
           <h2 className="mb-2 text-xl font-semibold text-amber-900">Tu sesión expiró</h2>
           <p className="mb-6 text-sm leading-relaxed text-amber-800">
-            Por seguridad, debes volver a iniciar sesión para continuar usando el POS.
+            Por seguridad debes volver a iniciar sesión. Redirigiendo al login…
           </p>
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
             <Button
@@ -66,7 +71,7 @@ export default function PosRootError({ error, reset }: ErrorBoundaryProps) {
                 }
               }}
             >
-              Volver a iniciar sesión
+              Ir al login
             </Button>
             <Button variant="outlined" onClick={() => reset()} disabled={signingOut}>
               Reintentar

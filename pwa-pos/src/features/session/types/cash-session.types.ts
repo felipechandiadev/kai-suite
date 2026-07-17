@@ -17,5 +17,6 @@ export type ListCashSessionsResponse = {
   total?: number;
   items?: CashSessionListItem[];
   message?: string;
+  statusCode?: number;
 };
 

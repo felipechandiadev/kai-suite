@@ -1,3 +1,4 @@
+import { isKaiFoodEnabled } from "@/config/kaifood-module.config";
 import type { CatalogProductType } from "@/features/inventory-products/types/product-grid.types";
 
 const CATALOG_PRODUCT_TYPE_IDS = new Set<CatalogProductType>([
@@ -23,8 +24,18 @@ export function catalogProductTypeAllowsRecipeBom(raw: string | null | undefined
   return RECIPE_BOM_ALLOWED_TYPES.has(u);
 }
 
-/** Opciones del selector de tipo de producto (crear / editar). */
-export const CATALOG_PRODUCT_TYPE_SELECT_OPTIONS: { id: CatalogProductType; label: string }[] = [
+const FINISHED_GOOD_TYPES = new Set<CatalogProductType>([
+  "MANUFACTURADO",
+  "ELABORADO",
+  "PREPARADO",
+]);
+
+/** Terminados: stock vía producción, no por compra/recepción estándar. */
+export function catalogProductTypeIsFinishedGood(raw: string | null | undefined): boolean {
+  return FINISHED_GOOD_TYPES.has(normalizeCatalogProductType(raw));
+}
+
+const ALL_CATALOG_PRODUCT_TYPE_SELECT_OPTIONS: { id: CatalogProductType; label: string }[] = [
   { id: "PHYSICAL", label: "Producto físico" },
   { id: "MANUFACTURADO", label: "Manufacturado" },
   { id: "ELABORADO", label: "Elaborado" },
@@ -32,3 +43,14 @@ export const CATALOG_PRODUCT_TYPE_SELECT_OPTIONS: { id: CatalogProductType; labe
   { id: "SERVICE", label: "Servicio" },
   { id: "DIGITAL", label: "Digital" },
 ];
+
+/** Opciones del selector de tipo de producto (crear / editar). */
+export function getCatalogProductTypeSelectOptions(): { id: CatalogProductType; label: string }[] {
+  if (isKaiFoodEnabled()) {
+    return ALL_CATALOG_PRODUCT_TYPE_SELECT_OPTIONS;
+  }
+  return ALL_CATALOG_PRODUCT_TYPE_SELECT_OPTIONS.filter((o) => o.id !== "PREPARADO");
+}
+
+/** @deprecated Prefer `getCatalogProductTypeSelectOptions()` for KaiFood gate. */
+export const CATALOG_PRODUCT_TYPE_SELECT_OPTIONS = ALL_CATALOG_PRODUCT_TYPE_SELECT_OPTIONS;

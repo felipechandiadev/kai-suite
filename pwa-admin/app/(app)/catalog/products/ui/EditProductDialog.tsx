@@ -10,7 +10,10 @@ import { Switch } from "@kai/ui";
 import { Select, type Option } from "@kai/ui";
 import { updateProductAction } from "@/features/inventory-products/actions/product.action";
 import type { CatalogProductType, ProductGridRow } from "@/features/inventory-products/types/product-grid.types";
-import { CATALOG_PRODUCT_TYPE_SELECT_OPTIONS, normalizeCatalogProductType } from "./catalog-product-type-options";
+import {
+  getCatalogProductTypeSelectOptions,
+  normalizeCatalogProductType,
+} from "./catalog-product-type-options";
 import { listCategoriesForPage } from "@/features/inventory-categories/actions/category.action";
 import { listBrandsForPage } from "@/features/catalog-brands/actions/brand.action";
 import { MultimediaField } from "@/shared/components/Multimedia";
@@ -153,7 +156,7 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: EditPro
           label="Tipo"
           name="product-edit-type"
           placeholder="Seleccione tipo"
-          options={CATALOG_PRODUCT_TYPE_SELECT_OPTIONS}
+          options={getCatalogProductTypeSelectOptions()}
           value={productType}
           onChange={(id) => setProductType(normalizeCatalogProductType(id == null ? "PHYSICAL" : String(id)))}
           data-test-id="product-edit-type"
@@ -161,9 +164,9 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: EditPro
         {productType === "SERVICE" ? (
           <div className="rounded-lg border border-border bg-muted/15 p-3 text-xs text-muted-foreground">
             Este producto es un <span className="font-medium text-foreground">servicio</span>. Si consume insumos, defina
-            la <span className="font-medium text-foreground">receta (BOM)</span> en{" "}
+            la <span className="font-medium text-foreground">receta</span> en{" "}
             <span className="font-medium text-foreground">Inventario → Productos</span>: expanda el producto, elija la
-            variante y use <span className="font-medium text-foreground">Receta (BOM)</span>.
+            variante y use <span className="font-medium text-foreground">Receta</span>.
           </div>
         ) : null}
         <Select

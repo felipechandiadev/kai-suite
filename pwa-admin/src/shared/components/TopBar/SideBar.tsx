@@ -9,6 +9,7 @@ import { useImageWithPlaceholder } from '@/shared/hooks/useImageWithPlaceholder'
 import { isCompanyChecksEnabledFromSettings } from '@/features/companies/types/company-checks.types';
 import { isEShopModuleEnabled } from '@/config/eshop-module.config';
 import { isJewelryModuleEnabled } from '@/config/jewelry-module.config';
+import { isKaiFoodEnabled } from '@/config/kaifood-module.config';
 import { isMultiCompanyModuleEnabled } from '@/config/multi-company-module.config';
 import { getKaiAdminAppName } from '@/config/product-brand.config';
 import { isEShopEnabledFromSettings } from '@/features/companies/types/company-eshop.types';
@@ -36,6 +37,8 @@ export interface SideBarMenuItem {
   requiresLocalDeliveryEnabled?: boolean;
   /** Solo visible si el despliegue incluye módulo joyería. */
   requiresJewelryEnabled?: boolean;
+  /** Solo visible si el despliegue es KaiFood (`NEXT_PUBLIC_KAI_PRODUCT=kaifood`). */
+  requiresKaiFoodEnabled?: boolean;
   /** Solo visible en despliegues multi-empresa. */
   requiresMultiCompanyEnabled?: boolean;
 }
@@ -70,6 +73,7 @@ function filterVisibleMenuItems(
   eShopEnabled: boolean,
   localDeliveryEnabled: boolean,
   jewelryEnabled: boolean,
+  kaiFoodEnabled: boolean,
   multiCompanyEnabled: boolean,
 ): SideBarMenuItem[] {
   return items.flatMap((item) => {
@@ -89,6 +93,9 @@ function filterVisibleMenuItems(
     if (item.requiresJewelryEnabled && !jewelryEnabled) {
       return [];
     }
+    if (item.requiresKaiFoodEnabled && !kaiFoodEnabled) {
+      return [];
+    }
     if (item.requiresMultiCompanyEnabled && !multiCompanyEnabled) {
       return [];
     }
@@ -100,6 +107,7 @@ function filterVisibleMenuItems(
         eShopEnabled,
         localDeliveryEnabled,
         jewelryEnabled,
+        kaiFoodEnabled,
         multiCompanyEnabled,
       );
       if (visibleChildren.length === 0) return [];
@@ -136,6 +144,7 @@ const SideBar: React.FC<SideBarProps> = ({
     isEShopModuleEnabled() &&
     isEShopEnabledFromSettings(company?.settings as Record<string, unknown> | undefined);
   const jewelryEnabled = isJewelryModuleEnabled();
+  const kaiFoodEnabled = isKaiFoodEnabled();
   const multiCompanyEnabled = isMultiCompanyModuleEnabled();
 
   // Track which parent items are open using their id or label
@@ -327,6 +336,7 @@ const SideBar: React.FC<SideBarProps> = ({
             eShopEnabled,
             localDeliveryEnabled,
             jewelryEnabled,
+            kaiFoodEnabled,
             multiCompanyEnabled,
           ).map((item, idx) => renderMenuItem(item, idx))}
         </ul>

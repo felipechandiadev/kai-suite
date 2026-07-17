@@ -58,6 +58,11 @@ function parseRecipe(raw: unknown): RecipeDto | null {
             wasteFactor:
               typeof l.wasteFactor === "number" ? l.wasteFactor : l.wasteFactor != null ? Number(l.wasteFactor) : 0,
             sortOrder: typeof l.sortOrder === "number" ? l.sortOrder : l.sortOrder != null ? Number(l.sortOrder) : undefined,
+            inputProductName:
+              l.inputProductName != null ? String(l.inputProductName) : undefined,
+            inputSku: l.inputSku != null ? String(l.inputSku) : undefined,
+            inputStockBaseUnitLabel:
+              l.inputStockBaseUnitLabel != null ? String(l.inputStockBaseUnitLabel) : undefined,
           };
         })
         .filter((x): x is RecipeLineDto => x != null)
@@ -141,6 +146,36 @@ export class RecipeRequest {
       return { success: true, id };
     } catch (e) {
       const err = e instanceof Error ? e.message : "Error al crear la receta";
+      return { success: false, error: err };
+    }
+  }
+
+  static async update(
+    recipeId: string,
+    payload: CreateRecipePayload,
+  ): Promise<{ success: true; id: string } | { success: false; error: string }> {
+    const headers = await authHeaders();
+    try {
+      const res = await fetch(apiUrl(`recipes/${recipeId}`), {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(payload),
+        cache: "no-store",
+      });
+      const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!res.ok) {
+        const m = data.message;
+        const msg = Array.isArray(m)
+          ? m.map(String).join("; ")
+          : typeof m === "string" && m.trim()
+            ? m.trim()
+            : res.statusText || "No se pudo actualizar la receta";
+        return { success: false, error: msg };
+      }
+      const id = data.id != null ? String(data.id) : recipeId;
+      return { success: true, id };
+    } catch (e) {
+      const err = e instanceof Error ? e.message : "Error al actualizar la receta";
       return { success: false, error: err };
     }
   }

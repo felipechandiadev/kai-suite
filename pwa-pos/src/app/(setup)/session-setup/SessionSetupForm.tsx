@@ -16,10 +16,12 @@ import { Alert, Button, Dialog, Select, TextField } from "@kai/ui";
 import { fetchPointOfSalePriceListsAction } from "@/features/session/actions/point-of-sale-pos.action";
 import { savePosContextClient, type PosPriceListSnapshot } from "@/features/session/lib/pos-context-storage";
 import { queueCashSessionOpeningPrint } from "@/features/cash-session-opening/lib/pending-cash-session-opening-print";
+import { redirectToLoginIfUnauthorized } from "@/lib/auth/pos-api-failure";
 
 type Props = {
   pointsOfSale: PointOfSaleListItem[];
   initialError?: string;
+  initialStatusCode?: number;
 };
 
 type BranchOption = { id: string; name: string };
@@ -123,6 +125,7 @@ async function bootstrapAndEnterPos(
 export default function SessionSetupForm({
   pointsOfSale,
   initialError = "",
+  initialStatusCode,
 }: Props) {
   const router = useRouter();
   const { data: authSession } = useSession();
@@ -164,13 +167,35 @@ export default function SessionSetupForm({
 
   const [openSessions, setOpenSessions] = useState<CashSessionListItem[]>([]);
   const [loadingOpenSessions, setLoadingOpenSessions] = useState<boolean>(false);
+  const [error, setError] = useState<string>(initialError);
+
+  useEffect(() => {
+    if (!initialError && initialStatusCode !== 401) return;
+    redirectToLoginIfUnauthorized({
+      success: false,
+      message: initialError,
+      statusCode: initialStatusCode,
+    });
+  }, [initialError, initialStatusCode]);
 
   const refreshOpenSessions = async () => {
     setLoadingOpenSessions(true);
     try {
       const res = await listOpenCashSessionsAction();
+      if (
+        !res.success &&
+        redirectToLoginIfUnauthorized({
+          success: false,
+          message: res.error,
+          statusCode: res.statusCode,
+        })
+      ) {
+        return;
+      }
       if (res.success) {
         setOpenSessions(res.items);
+      } else if (res.error) {
+        setError(res.error);
       }
     } finally {
       setLoadingOpenSessions(false);
@@ -178,7 +203,7 @@ export default function SessionSetupForm({
   };
 
   useEffect(() => {
-    refreshOpenSessions();
+    void refreshOpenSessions();
   }, []);
 
   useEffect(() => {
@@ -219,7 +244,6 @@ export default function SessionSetupForm({
   const [cashHubId, setCashHubId] = useState<string | null>(null);
   const [cashHubs, setCashHubs] = useState<CashHubDepositCandidate[]>([]);
   const [loadingCashHubs, setLoadingCashHubs] = useState(false);
-  const [error, setError] = useState<string>(initialError);
   const [bootstrapStatus, setBootstrapStatus] = useState<OfflineBootstrapStatus>({
     fiscal: "idle",
     catalog: "idle",

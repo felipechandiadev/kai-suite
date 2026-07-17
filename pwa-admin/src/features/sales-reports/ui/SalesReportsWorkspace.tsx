@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState, useTransition } from "react";
-import { Button, IconButton, SelectDefault as Select } from "@kai/ui";
+import { Button, SelectDefault as Select } from "@kai/ui";
 import { RefreshCw } from "lucide-react";
 import {
   SALES_REPORT_REGISTRY,
@@ -16,7 +16,6 @@ import {
   validateFormForEntry,
   type ReportFormState,
 } from "@/features/sales-reports/lib/report-form";
-import { printHtmlInHiddenIframe } from "@/features/print/lib/print-html-in-hidden-iframe";
 import { ReportParamsForm } from "./ReportParamsForm";
 import { ReportPreview } from "./ReportPreview";
 
@@ -80,28 +79,6 @@ export function SalesReportsWorkspace({
     });
   }, [entry, form]);
 
-  const onPrint = useCallback(() => {
-    if (!result || typeof window === "undefined") return;
-    const root = document.querySelector(".sales-report-print-root");
-    if (!root) {
-      window.print();
-      return;
-    }
-    // Clonar solo el preview evita que el TopBar/sidebar salgan en el diálogo de impresión.
-    const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
-      .map((el) => el.outerHTML)
-      .join("\n");
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${
-      result.title
-    }</title>${styles}<style>
-      @page { margin: 12mm; }
-      html, body { background: #fff !important; margin: 0; padding: 0; }
-      body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-      .sales-report-print-root { box-shadow: none !important; border: none !important; }
-    </style></head><body>${root.outerHTML}</body></html>`;
-    printHtmlInHiddenIframe(html, result.title);
-  }, [result]);
-
   const onClear = useCallback(() => {
     setForm(emptyReportFormState());
     setResult(null);
@@ -118,16 +95,6 @@ export function SalesReportsWorkspace({
           <Button type="button" variant="outlined" onClick={onClear} disabled={pending}>
             Limpiar
           </Button>
-          <IconButton
-            icon="Printer"
-            variant="secondary"
-            size="md"
-            ariaLabel="Imprimir reporte"
-            title="Imprimir"
-            onClick={onPrint}
-            disabled={!result || pending}
-            data-test-id="sales-reports-print-button"
-          />
           <Button type="button" onClick={onGenerate} loading={pending}>
             <RefreshCw className="mr-1.5 size-4" />
             Generar

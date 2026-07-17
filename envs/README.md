@@ -1,6 +1,6 @@
 # Variables de entorno — desarrollo local
 
-Puertos apps en rango **506x** (demo VPS); backend **5060**; kai-mail **5040**; landing **5066**.
+Puertos frontends en **506x** (demo VPS); **backend local 5030** (Next.js bloquea fetch a `:5060`); en VPS/demo backend **5060**; kai-mail **5040**; landing **5066**.
 
 Ver también `deploy/ports.demo.env.example` y `docs/domains-demo.md`.
 
@@ -31,12 +31,13 @@ Opcional: `cp envs/shared.env.example envs/shared.env` para overrides locales (g
 | `KAI_FEATURE_ESHOP` | `true` / `false` | → `NEXT_PUBLIC_ESHOP_ENABLED` (admin) |
 | `KAI_FEATURE_JEWELRY` | `true` / `false` | → `NEXT_PUBLIC_JEWELRY_ENABLED` (metales, calculadora) |
 | `KAI_FEATURE_MULTI_COMPANY` | `true` / `false` | → menú Empresas (SUPER_ADMIN) |
-| `KAI_DEPLOY_APPS` | `backend,admin,pos,stock,eshop,delivery,mail,landing` | `scripts/dev-apps.sh` levanta solo esas apps (`landing` → http://localhost:5066) |
+| `KAI_DEPLOY_APPS` | `backend,admin,pos,stock,eshop,delivery,waiter,kds,mail,landing` | `scripts/dev-apps.sh` / `npm run dev` |
 
 Perfiles listos en `envs/profiles/*.env.example` (copiar líneas a `shared.env`):
 
 | Perfil | Uso |
 |--------|-----|
+| `profiles/kaifood.env.example` | Salón, KDS, mesero (`waiter`, `kds`) |
 | `profiles/joyarte.env.example` | Joyería + eShop |
 | `profiles/san-sebastian.env.example` | Super, sin eShop ni joyería |
 | `profiles/demo.env.example` | Mi Empresa multi-empresa, sin joyería |
@@ -46,9 +47,8 @@ Desarrollo San Sebastián: `npm run setup:san-sebastian` (seed + `shared.env`) y
 ## Uso rápido
 
 ```bash
-npm run env:dev              # regenera .env de cada app (manual)
-npm run dev:all              # env:dev automático + infra + apps
-npm run dev                  # lite; sin sync (npm run env:dev si falta .env)
+npm run dev                  # infra + apps según envs/shared.env (KAI_DEPLOY_APPS)
+npm run env:dev              # regenera .env de cada app (forzado)
 ```
 
 ## Puertos por app
@@ -56,11 +56,13 @@ npm run dev                  # lite; sin sync (npm run env:dev si falta .env)
 | App          | Puerto | Fragmento                         | Destino                        |
 |--------------|--------|-----------------------------------|--------------------------------|
 | Backend      | 5060   | `backend.env.example`             | `backend/.env`                 |
-| pwa-admin    | 5061   | `pwa-admin.env.local.example`     | `pwa-admin/.env.local`         |
+| pwa-admin    | 5071   | `pwa-admin.env.local.example`     | `pwa-admin/.env.local`         |
 | pwa-pos      | 5062   | `pwa-pos.env.local.example`       | `pwa-pos/.env.local`           |
 | pwa-stock    | 5063   | `pwa-stock.env.local.example`     | `pwa-stock/.env.local`         |
 | pwa-eshop    | 5064   | `pwa-eshop.env.local.example`     | `pwa-eshop/.env.local`         |
 | kai-delivery | 5065   | `kai-delivery.env.local.example`  | `kai-delivery/.env.local`      |
+| kai-waiter   | 5067   | `kai-waiter.env.local.example`    | `kai-waiter/.env.local`        |
+| kai-kds      | 5068   | `kai-kds.env.local.example`       | `kai-kds/.env.local`           |
 | landing      | 5066   | —                                 | `landing/` (Astro)             |
 | kai-mail     | 5040   | `kai-mail.env.example`            | `services/kai-mail/.env`       |
 

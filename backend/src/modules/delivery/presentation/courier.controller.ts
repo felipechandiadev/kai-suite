@@ -42,8 +42,13 @@ export class CourierController {
       where: { userName: body.userName },
       relations: { person: true },
     });
-    if (!user || user.rol !== UserRole.COURIER) {
+    if (!user) {
       throw new UnauthorizedException('Credenciales inválidas');
+    }
+    if (user.rol !== UserRole.COURIER) {
+      throw new ForbiddenException(
+        'Esta cuenta no es de repartidor. Usa un usuario con rol repartidor.',
+      );
     }
     if (user.companyId && companyId !== user.companyId) {
       throw new ForbiddenException('Usuario no pertenece a esta empresa');
@@ -93,6 +98,9 @@ export class CourierController {
     });
     if (!dispatch) throw new ForbiddenException('Despacho no asignado');
     const stops = await this.dispatchService.listStops(body.companyId, id);
+    const startReadiness = dispatch.occurrenceId
+      ? await this.dispatchService.evaluateStartReadiness(body.companyId, dispatch.occurrenceId)
+      : { canStart: false, reason: 'Despacho sin reparto asociado' };
     const orderIds = stops.map((s) => s.deliveryOrderId);
     const orders =
       orderIds.length > 0
@@ -108,6 +116,10 @@ export class CourierController {
         routeGeometry: dispatch.routeGeometry ?? null,
         totalDistanceM: dispatch.totalDistanceM,
         totalDurationS: dispatch.totalDurationS,
+        startReadiness: {
+          canStart: startReadiness.canStart,
+          reason: startReadiness.reason,
+        },
       },
       stops: stops.map((s) => {
         const order = orderMap.get(s.deliveryOrderId);
@@ -132,7 +144,7 @@ export class CourierController {
       where: { id, companyId: body.companyId, driverUserId: body.userId },
     });
     if (!dispatch) throw new ForbiddenException('Despacho no asignado');
-    return this.dispatchService.start(body.companyId, id);
+    return this.dispatchService.startForCourier(body.companyId, id);
   }
 
   @Post('stops/:id/complete')

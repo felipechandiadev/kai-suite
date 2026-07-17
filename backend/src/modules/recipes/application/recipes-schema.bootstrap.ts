@@ -35,6 +35,10 @@ CREATE TABLE IF NOT EXISTS recipes (
 `);
 
       await this.dataSource.query(`
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS company_id uuid;
+`);
+
+      await this.dataSource.query(`
 CREATE INDEX IF NOT EXISTS idx_recipes_output_variant_active
 ON recipes ("outputVariantId", "isActive");
 `);
@@ -48,6 +52,10 @@ CREATE TABLE IF NOT EXISTS recipe_lines (
   "wasteFactor" numeric(8,4) NOT NULL DEFAULT 0,
   "sortOrder" int NOT NULL DEFAULT 1
 );
+`);
+
+      await this.dataSource.query(`
+ALTER TABLE recipe_lines ADD COLUMN IF NOT EXISTS company_id uuid;
 `);
 
       await this.dataSource.query(`

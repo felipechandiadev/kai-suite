@@ -1,16 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { Search } from "lucide-react";
 import { Dialog } from "@kai/ui";
 import { Alert } from "@kai/ui";
 import { Button } from "@kai/ui";
 import { TextField } from "@kai/ui";
 import { IconButton } from "@kai/ui";
+import { NumberStepper } from "@kai/ui";
 import {
   createRecipeAction,
   listRecipesByOutputVariantAction,
   searchRecipeVariantCatalogAction,
+  updateRecipeAction,
 } from "@/features/recipes/actions/recipe.action";
 import type { RecipeDto, RecipeTypeDto } from "@/features/recipes/types/recipe.types";
 import type { PurchasingVariantSearchItem, PurchasingVariantSearchResult } from "@/features/purchasing-document/types/purchasing-document.types";
@@ -23,7 +25,10 @@ export type CreateRecipeDialogProps = {
   outputVariantId: string;
   outputSku: string;
   productName: string;
+  outputAttributeValues?: Record<string, string>;
   productType: CatalogProductType;
+  /** Si viene definida, el diálogo edita esa receta en lugar de crear una nueva. */
+  editRecipe?: RecipeDto | null;
 };
 
 type LineDraft = {
@@ -31,8 +36,9 @@ type LineDraft = {
   variantId: string;
   productName: string;
   sku: string;
-  qtyPerOutputUnit: string;
-  wasteFactor: string;
+  stockBaseUnitLabel: string | null;
+  qtyPerOutputUnit: number;
+  wasteFactor: number;
 };
 
 function recipeTypeForProduct(pt: CreateRecipeDialogProps["productType"]): RecipeTypeDto {
@@ -61,16 +67,19 @@ function formatAttributes(av: Record<string, string>): string {
 }
 
 function parsedLinesValid(lines: LineDraft[]): boolean {
-  if (lines.length === 0) {
-    return false;
-  }
-  for (const l of lines) {
-    const qty = Number(String(l.qtyPerOutputUnit).replace(",", "."));
-    if (!Number.isFinite(qty) || qty <= 0) {
-      return false;
-    }
-  }
-  return true;
+  return lines.length > 0 && lines.every((l) => Number.isFinite(l.qtyPerOutputUnit) && l.qtyPerOutputUnit > 0);
+}
+
+function linesFromRecipe(recipe: RecipeDto): LineDraft[] {
+  return (recipe.lines ?? []).map((line) => ({
+    key: line.id ?? uid(),
+    variantId: line.inputVariantId,
+    productName: line.inputProductName?.trim() || line.inputSku?.trim() || line.inputVariantId,
+    sku: line.inputSku?.trim() || line.inputVariantId,
+    stockBaseUnitLabel: line.inputStockBaseUnitLabel?.trim() || null,
+    qtyPerOutputUnit: Number(line.qtyPerOutputUnit) || 1,
+    wasteFactor: Number(line.wasteFactor ?? 0),
+  }));
 }
 
 const EMPTY_CATALOG: PurchasingVariantSearchResult = {
@@ -87,8 +96,11 @@ export function CreateRecipeDialog({
   outputVariantId,
   outputSku,
   productName,
+  outputAttributeValues,
   productType,
+  editRecipe = null,
 }: CreateRecipeDialogProps) {
+  const isEditMode = Boolean(editRecipe?.id);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [existing, setExisting] = useState<RecipeDto[]>([]);
@@ -102,10 +114,6 @@ export function CreateRecipeDialog({
   const [catalog, setCatalog] = useState<PurchasingVariantSearchResult>(EMPTY_CATALOG);
 
   const recipeKind = recipeTypeForProduct(productType);
-  const subtitle =
-    recipeKind === "SERVICE"
-      ? "Insumos por cada unidad vendida de este SKU."
-      : "Insumos por cada unidad fabricada de este SKU.";
 
   const resetForm = useCallback(() => {
     setError(null);
@@ -135,10 +143,18 @@ export function CreateRecipeDialog({
     }
     let cancelled = false;
     setError(null);
-    setLines([]);
     setDraftSearch("");
     setCommittedSearch("");
     setSearchPage(1);
+
+    if (isEditMode && editRecipe) {
+      setExisting([]);
+      setVersion(Math.max(1, editRecipe.version || 1));
+      setLines(linesFromRecipe(editRecipe));
+      return;
+    }
+
+    setLines([]);
     void listRecipesByOutputVariantAction(outputVariantId).then((list) => {
       if (cancelled) {
         return;
@@ -150,7 +166,7 @@ export function CreateRecipeDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, outputVariantId]);
+  }, [open, outputVariantId, isEditMode, editRecipe]);
 
   useEffect(() => {
     if (!open) {
@@ -176,10 +192,9 @@ export function CreateRecipeDialog({
       setLines((prev) => {
         const existingLine = prev.find((l) => l.variantId === item.id);
         if (existingLine) {
-          const cur = Number(String(existingLine.qtyPerOutputUnit).replace(",", ".")) || 1;
           return prev.map((l) =>
             l.variantId === item.id
-              ? { ...l, qtyPerOutputUnit: String(Math.round((cur + 1) * 1000) / 1000) }
+              ? { ...l, qtyPerOutputUnit: Math.round((l.qtyPerOutputUnit + 1) * 1000) / 1000 }
               : l,
           );
         }
@@ -190,8 +205,9 @@ export function CreateRecipeDialog({
             variantId: item.id,
             productName: item.productName,
             sku: item.sku,
-            qtyPerOutputUnit: "1",
-            wasteFactor: "0",
+            stockBaseUnitLabel: item.stockBaseUnitLabel?.trim() || item.unitLabel?.trim() || null,
+            qtyPerOutputUnit: 1,
+            wasteFactor: 0,
           },
         ];
       });
@@ -209,28 +225,28 @@ export function CreateRecipeDialog({
 
   const handleSubmit = () => {
     setError(null);
-    const parsedLines = lines.map((l) => {
-      const qty = Number(String(l.qtyPerOutputUnit).replace(",", "."));
-      const waste = Number(String(l.wasteFactor).replace(",", "."));
-      return {
-        inputVariantId: l.variantId.trim(),
-        qtyPerOutputUnit: qty,
-        wasteFactor: Number.isFinite(waste) ? waste : 0,
-      };
-    });
+    const parsedLines = lines.map((l) => ({
+      inputVariantId: l.variantId.trim(),
+      qtyPerOutputUnit: l.qtyPerOutputUnit,
+      wasteFactor: Number.isFinite(l.wasteFactor) ? l.wasteFactor : 0,
+    }));
     startTransition(() => {
       void (async () => {
-        const r = await createRecipeAction({
+        const payload = {
           outputVariantId,
           recipeType: recipeKind,
           version,
           lines: parsedLines,
-        });
+        };
+        const r =
+          isEditMode && editRecipe?.id
+            ? await updateRecipeAction({ recipeId: editRecipe.id, ...payload })
+            : await createRecipeAction(payload);
         if (r.success) {
           await onSuccess?.();
           handleClose();
         } else {
-          setError(r.error);
+          setError(r.error ?? "No se pudo guardar la receta");
         }
       })();
     });
@@ -245,19 +261,18 @@ export function CreateRecipeDialog({
     setSearchPage(1);
   }, []);
 
-  const summaryLineCount = lines.length;
-
-  const headerHint = useMemo(
-    () =>
-      "Busque variantes a la izquierda (igual que en recepciones u órdenes de compra) y agréguelas con +. Ajuste cantidades por unidad de salida en la tabla.",
-    [],
-  );
+  const outputAttributesLabel = formatAttributes(outputAttributeValues ?? {});
+  const productLabel = productName.trim() || "Producto";
+  const dialogTitle =
+    outputAttributesLabel !== "—"
+      ? `Receta · ${productLabel} · ${outputAttributesLabel}`
+      : `Receta · ${productLabel}`;
 
   return (
     <Dialog
       open={open}
       onClose={handleClose}
-      title="Receta (BOM)"
+      title={dialogTitle}
       size="xxl"
       scroll="paper"
       maxHeight="min(92vh, 900px)"
@@ -286,6 +301,7 @@ export function CreateRecipeDialog({
             size="md"
             onClick={handleSubmit}
             disabled={!canSubmit}
+            loading={isPending}
             data-test-id="recipe-create-submit"
           >
             Guardar receta
@@ -293,8 +309,6 @@ export function CreateRecipeDialog({
         </>
       }
     >
-      <p className="mb-3 text-xs text-muted-foreground">{headerHint}</p>
-
       <div
         className="flex min-h-0 min-w-0 flex-col gap-3 lg:flex-row lg:items-stretch"
         data-test-id="recipe-create-layout"
@@ -342,8 +356,12 @@ export function CreateRecipeDialog({
                           {formatAttributes(item.attributeValues)}
                         </p>
                         <p className="mt-0.5 text-xs tabular-nums text-foreground">
-                          PMP {formatMoney(item.pmp)}
-                          {item.unitLabel ? <span className="text-muted-foreground"> · {item.unitLabel}</span> : null}
+                          PMP {formatMoney(item.pmp ?? 0)}
+                          {item.stockBaseUnitLabel ? (
+                            <span className="text-muted-foreground"> / {item.stockBaseUnitLabel}</span>
+                          ) : item.unitLabel ? (
+                            <span className="text-muted-foreground"> · {item.unitLabel}</span>
+                          ) : null}
                         </p>
                         {isOutput ? (
                           <p className="mt-1 text-[11px] font-medium text-amber-700 dark:text-amber-400">
@@ -400,73 +418,73 @@ export function CreateRecipeDialog({
           className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 rounded-xl border border-border bg-background p-3 lg:h-[min(58vh,520px)]"
           data-test-id="recipe-detail-panel"
         >
-          <div className="flex flex-wrap items-end gap-3 border-b border-border pb-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Salida (esta receta)</p>
+          <div className="border-b border-border pb-3">
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Variante</p>
               <p className="truncate font-semibold text-foreground" title={productName}>
                 {productName}
               </p>
+              {outputAttributesLabel !== "—" ? (
+                <p className="text-sm text-foreground" data-test-id="recipe-output-attributes">
+                  {outputAttributesLabel}
+                </p>
+              ) : null}
               <p className="font-mono text-xs text-muted-foreground">SKU {outputSku}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
             </div>
-            <TextField
-              label="Versión"
-              name="recipe-version"
-              value={String(version)}
-              onChange={(e) => setVersion(Math.max(1, parseInt(e.target.value, 10) || 1))}
-              className="w-24 shrink-0"
-              data-test-id="recipe-version"
-            />
           </div>
 
-          {existing.length > 0 ? (
+          {existing.length > 0 && !isEditMode ? (
             <Alert variant="info" data-test-id="recipe-existing-info">
-              Ya hay {existing.length} receta(s) registradas para esta variante. Puede guardar una nueva versión distinta.
+              Ya hay {existing.length} receta(s) registradas para esta variante.
             </Alert>
           ) : null}
 
           <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto">
-            <table className="w-full min-w-[560px] border-collapse text-sm" data-test-id="recipe-lines-table">
+            <table className="w-full min-w-[600px] border-collapse text-sm" data-test-id="recipe-lines-table">
               <thead>
                 <tr className="border-b border-border text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <th className="py-2 pr-2">Insumo</th>
-                  <th className="w-28 py-2 pr-2">Cant. / salida</th>
-                  <th className="w-28 py-2 pr-2">Desperdicio</th>
+                  <th className="w-36 py-2 pr-2">Cantidad</th>
+                  <th className="w-36 py-2 pr-2">Desperdicio</th>
                   <th className="w-12 py-2 text-center"> </th>
                 </tr>
               </thead>
               <tbody>
-                {lines.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
-                      Agregue insumos desde el panel izquierdo con el botón + (misma búsqueda que recepciones / órdenes de
-                      compra).
-                    </td>
-                  </tr>
-                ) : (
-                  lines.map((line) => (
-                    <tr key={line.key} className="border-b border-border/70 align-top" data-test-id={`recipe-line-${line.key}`}>
+                {lines.map((line) => (
+                  <tr key={line.key} className="border-b border-border/70 align-top" data-test-id={`recipe-line-${line.key}`}>
                       <td className="py-2 pr-2">
                         <p className="font-medium text-foreground">{line.productName}</p>
                         <p className="font-mono text-xs text-muted-foreground">{line.sku}</p>
                       </td>
                       <td className="py-2 pr-2">
-                        <TextField
-                          label=""
-                          name={`recipe-qty-${line.key}`}
+                        <NumberStepper
                           value={line.qtyPerOutputUnit}
-                          onChange={(e) => updateLine(line.key, { qtyPerOutputUnit: e.target.value })}
-                          placeholder="1"
+                          onChange={(v) =>
+                            updateLine(line.key, {
+                              qtyPerOutputUnit: Math.max(0.001, Math.round(v * 1000) / 1000),
+                            })
+                          }
+                          min={0.001}
+                          step={0.01}
+                          allowFloat
+                          allowNegative={false}
+                          label={line.stockBaseUnitLabel ?? undefined}
                           data-test-id={`recipe-qty-${line.key}`}
                         />
                       </td>
                       <td className="py-2 pr-2">
-                        <TextField
-                          label=""
-                          name={`recipe-waste-${line.key}`}
+                        <NumberStepper
                           value={line.wasteFactor}
-                          onChange={(e) => updateLine(line.key, { wasteFactor: e.target.value })}
-                          placeholder="0"
+                          onChange={(v) =>
+                            updateLine(line.key, {
+                              wasteFactor: Math.max(0, Math.round(v * 1000) / 1000),
+                            })
+                          }
+                          min={0}
+                          step={0.01}
+                          allowFloat
+                          allowNegative={false}
+                          label={line.stockBaseUnitLabel ?? undefined}
                           data-test-id={`recipe-waste-${line.key}`}
                         />
                       </td>
@@ -482,18 +500,10 @@ export function CreateRecipeDialog({
                         />
                       </td>
                     </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
           </div>
-
-          <footer className="mt-auto rounded-lg border border-dashed border-border bg-muted/15 px-3 py-2 text-sm">
-            <div className="flex justify-between gap-4">
-              <span className="text-muted-foreground">Líneas de insumo</span>
-              <span className="tabular-nums font-medium text-foreground">{summaryLineCount}</span>
-            </div>
-          </footer>
         </section>
       </div>
     </Dialog>

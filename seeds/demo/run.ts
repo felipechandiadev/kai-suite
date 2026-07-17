@@ -55,6 +55,10 @@ import {
   StorageType,
 } from '@modules/storages/domain/storage.entity';
 import { StockLevel } from '@modules/stock-levels/domain/stock-level.entity';
+import { Recipe } from '@modules/recipes/domain/recipe.entity';
+import { RecipeLine } from '@modules/recipes/domain/recipe-line.entity';
+import { RecipeType } from '@modules/recipes/domain/recipe-type.enum';
+import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
 import { TenantContext } from '@common/tenant/tenant.context';
 import { AppConfigService } from '../../backend/src/config/config.service';
 import { MultimediaAsset } from '@modules/multimedia/domain/multimedia-asset.entity';
@@ -108,6 +112,10 @@ import {
   collectSeedDevCatalogSkus,
   type SeedDevUnitKey,
 } from './catalog';
+import {
+  SEED_DEV_PRODUCTION_RECIPES,
+  SEED_DEV_PRODUCTION_UNITS,
+} from './food-recipes';
 import { seedDemoDeliveryCalendar } from './seed-delivery-calendar';
 import { runSeedBootstrapGuards } from '../shared/seed-bootstrap.util';
 import {
@@ -191,6 +199,8 @@ async function cleanupOrphanSeedDevCatalog(args: {
   variantRepo: Repository<ProductVariant>;
   priceListItemRepo: Repository<PriceListItem>;
   stockLevelRepo: Repository<StockLevel>;
+  recipeRepo: Repository<Recipe>;
+  recipeLineRepo: Repository<RecipeLine>;
 }): Promise<void> {
   const {
     companyId,
@@ -198,6 +208,8 @@ async function cleanupOrphanSeedDevCatalog(args: {
     variantRepo,
     priceListItemRepo,
     stockLevelRepo,
+    recipeRepo,
+    recipeLineRepo,
   } = args;
   const allowedSkus = collectSeedDevCatalogSkus();
   const allowedProductNames = collectSeedDevCatalogProductNames();
@@ -214,6 +226,15 @@ async function cleanupOrphanSeedDevCatalog(args: {
     if (allowedSkus.has(variant.sku)) {
       continue;
     }
+
+    const recipesOut = await recipeRepo.find({
+      where: { companyId, outputVariantId: variant.id },
+    });
+    for (const recipe of recipesOut) {
+      await recipeLineRepo.delete({ recipeId: recipe.id });
+      await recipeRepo.delete({ id: recipe.id });
+    }
+    await recipeLineRepo.delete({ companyId, inputVariantId: variant.id });
 
     const priceItems = await priceListItemRepo.find({
       where: { productVariantId: variant.id, deletedAt: IsNull() },
@@ -2094,6 +2115,7 @@ async function bootstrap() {
         listaMayoristaId: listaVip.id,
         listaEshopId: listaEshop.id,
         logPrefix: 'Seed dev',
+        defaultStockQty: 100,
       });
 
     console.log(`✅ Catálogo desarrollo: ${devVariantCount} variante(s) en ${SEED_DEV_PRODUCTS.length} producto(s)`);
@@ -2102,12 +2124,17 @@ async function bootstrap() {
     await variantRepo.update({ companyId: company.id }, { visibleInEShop: true });
     console.log('✅ eShop: todos los productos y variantes marcados visibleInEShop=true');
 
+    const recipeRepo = dataSource.getRepository(Recipe);
+    const recipeLineRepo = dataSource.getRepository(RecipeLine);
+
     await cleanupOrphanSeedDevCatalog({
       companyId: company.id,
       productRepo,
       variantRepo,
       priceListItemRepo,
       stockLevelRepo: dataSource.getRepository(StockLevel),
+      recipeRepo,
+      recipeLineRepo,
     });
 
     await variantRepo.update(
@@ -2292,6 +2319,121 @@ async function bootstrap() {
     }
     console.log(
       `✅ Stock «${SEED_STORAGE_NAME}»: ${trackedVariants.length} variante(s) con inventario`,
+    );
+
+    const productionUnitRepo = dataSource.getRepository(ProductionUnit);
+    for (const unitDef of SEED_DEV_PRODUCTION_UNITS) {
+      let unit = await productionUnitRepo.findOne({
+        where: {
+          companyId: company.id,
+          branchId: seedBranch.id,
+          code: unitDef.code,
+        },
+      });
+      if (!unit) {
+        unit = productionUnitRepo.create({
+          companyId: company.id,
+          branchId: seedBranch.id,
+          code: unitDef.code,
+          name: unitDef.name,
+          defaultInputStorageId: seedSalaVenta.id,
+          isActive: true,
+        });
+        await productionUnitRepo.save(unit);
+        console.log(
+          `✅ Unidad de producción creada: «${unitDef.name}» (${unitDef.code}) id=${unit.id}`,
+        );
+      } else {
+        unit.name = unitDef.name;
+        unit.defaultInputStorageId = seedSalaVenta.id;
+        unit.isActive = true;
+        await productionUnitRepo.save(unit);
+        console.log(
+          `✅ Unidad de producción sincronizada: «${unitDef.name}» (${unitDef.code}) id=${unit.id}`,
+        );
+      }
+    }
+
+    const skuToVariantId = new Map<string, string>();
+    const seedVariants = await variantRepo.find({
+      where: { companyId: company.id, deletedAt: IsNull() },
+      select: ['id', 'sku'],
+    });
+    for (const v of seedVariants) {
+      if (v.sku) skuToVariantId.set(v.sku, v.id);
+    }
+
+    let recipesCreated = 0;
+    let recipesUpdated = 0;
+    for (const recipeDef of SEED_DEV_PRODUCTION_RECIPES) {
+      const outputVariantId = skuToVariantId.get(recipeDef.outputSku);
+      if (!outputVariantId) {
+        console.warn(
+          `⚠️ Seed receta: variante salida «${recipeDef.outputSku}» no encontrada; se omite`,
+        );
+        continue;
+      }
+      const linesPayload: {
+        inputVariantId: string;
+        qtyPerOutputUnit: number;
+        wasteFactor: number;
+        sortOrder: number;
+      }[] = [];
+      let lineOk = true;
+      for (let i = 0; i < recipeDef.lines.length; i++) {
+        const line = recipeDef.lines[i];
+        const inputVariantId = skuToVariantId.get(line.inputSku);
+        if (!inputVariantId) {
+          console.warn(
+            `⚠️ Seed receta «${recipeDef.outputSku}»: insumo «${line.inputSku}» no encontrado; se omite receta`,
+          );
+          lineOk = false;
+          break;
+        }
+        linesPayload.push({
+          inputVariantId,
+          qtyPerOutputUnit: line.qtyPerOutputUnit,
+          wasteFactor: line.wasteFactor ?? 0,
+          sortOrder: i + 1,
+        });
+      }
+      if (!lineOk || linesPayload.length === 0) continue;
+
+      const existingRecipes = await recipeRepo.find({
+        where: { companyId: company.id, outputVariantId },
+      });
+      for (const old of existingRecipes) {
+        await recipeLineRepo.delete({ recipeId: old.id });
+        await recipeRepo.delete({ id: old.id });
+      }
+
+      const recipe = await recipeRepo.save(
+        recipeRepo.create({
+          companyId: company.id,
+          outputVariantId,
+          type: RecipeType.PRODUCTION,
+          version: 1,
+          isActive: true,
+          metadata: { seed: 'demo', outputSku: recipeDef.outputSku },
+        }),
+      );
+      await recipeLineRepo.save(
+        linesPayload.map((l) =>
+          recipeLineRepo.create({
+            companyId: company.id,
+            recipeId: recipe.id,
+            inputVariantId: l.inputVariantId,
+            qtyPerOutputUnit: l.qtyPerOutputUnit,
+            wasteFactor: l.wasteFactor,
+            sortOrder: l.sortOrder,
+          }),
+        ),
+      );
+      if (existingRecipes.length > 0) recipesUpdated += 1;
+      else recipesCreated += 1;
+    }
+    console.log(
+      `✅ Recetas PRODUCTION: ${recipesCreated} creada(s), ${recipesUpdated} actualizada(s) (total defs=${SEED_DEV_PRODUCTION_RECIPES.length})`,
     );
 
     const seedBranchRow = await branchRepo.findOne({ where: { id: seedBranch.id } });

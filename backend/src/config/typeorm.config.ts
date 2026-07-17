@@ -98,6 +98,11 @@ import { FiscalCertificationRun } from '@modules/fiscal/domain/fiscal-certificat
 import { FiscalDteEmission } from '@modules/fiscal/domain/fiscal-dte-emission.entity';
 import { PointOfSaleFolioAllocation } from '@modules/fiscal/domain/point-of-sale-folio-allocation.entity';
 import { PosSyncCommand } from '@modules/pos-sync/domain/pos-sync-command.entity';
+import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
+import { DiningRoom } from '@modules/dining/domain/dining-room.entity';
+import { DiningTable } from '@modules/dining/domain/dining-table.entity';
+import { DiningOrder } from '@modules/dining/domain/dining-order.entity';
+import { DiningOrderLine } from '@modules/dining/domain/dining-order-line.entity';
 import { AuditSubscriber } from '../subscribers/AuditSubscriber';
 import { TenantSubscriber } from '../common/tenant/tenant.subscriber';
 
@@ -209,6 +214,11 @@ export const typeOrmConfig = (
       FiscalDteEmission,
       PointOfSaleFolioAllocation,
       PosSyncCommand,
+      ProductionUnit,
+      DiningRoom,
+      DiningTable,
+      DiningOrder,
+      DiningOrderLine,
     ],
 
     // Register subscribers (TypeORM EventSubscribers)

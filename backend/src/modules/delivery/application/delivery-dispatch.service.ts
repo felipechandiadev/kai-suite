@@ -11,6 +11,7 @@ import type {
   CourierDispatchListItemDto,
   DeliveryOrderStatus,
 } from '../domain/delivery.types';
+import { isOrderCutoffOpen, orderCutoffStartBlockReason } from './delivery-cutoff.util';
 
 @Injectable()
 export class DeliveryDispatchService {
@@ -148,13 +149,15 @@ export class DeliveryDispatchService {
     const orders = await this.deliveryOrderRepo.find({
       where: { companyId, deliveryOccurrenceId: occurrenceId },
     });
-    const blockingCount = orders.filter((o) =>
+    const activeOrders = orders.filter((o) => o.deliveryStatus !== 'CANCELLED');
+    const activeOrderCount = activeOrders.length;
+    const blockingCount = activeOrders.filter((o) =>
       ['SUBMITTED', 'CONFIRMED', 'PREPARING'].includes(o.deliveryStatus),
     ).length;
-    const readyCount = orders.filter(
+    const readyCount = activeOrders.filter(
       (o) => o.deliveryStatus === 'READY_FOR_DISPATCH',
     ).length;
-    const issueCount = orders.filter((o) => o.deliveryStatus === 'ISSUE').length;
+    const issueCount = activeOrders.filter((o) => o.deliveryStatus === 'ISSUE').length;
 
     const dispatch = await this.dispatchRepo.findOne({
       where: { companyId, occurrenceId },
@@ -169,13 +172,27 @@ export class DeliveryDispatchService {
       reason = 'El reparto no puede iniciarse en su estado actual';
     } else if (!occurrence.driverUserId) {
       reason = 'Asigna un repartidor antes de iniciar el reparto';
+    } else if (
+      isOrderCutoffOpen(occurrence.occurrenceDate, occurrence.orderCutoffTime)
+    ) {
+      reason = orderCutoffStartBlockReason(
+        occurrence.occurrenceDate,
+        occurrence.orderCutoffTime,
+      );
+    } else if (activeOrderCount === 0) {
+      reason = 'El reparto no tiene pedidos';
     } else if (blockingCount > 0) {
       reason =
         blockingCount === 1
           ? '1 pedido aún en preparación'
           : `${blockingCount} pedidos aún en preparación`;
-    } else if (readyCount === 0) {
-      reason = 'No hay pedidos listos para reparto';
+    } else if (issueCount > 0) {
+      reason =
+        issueCount === 1
+          ? '1 pedido tiene incidencia'
+          : `${issueCount} pedidos tienen incidencia`;
+    } else if (readyCount !== activeOrderCount) {
+      reason = 'No todos los pedidos están listos para reparto';
     } else if (stopCount === 0) {
       reason = 'Optimiza la ruta antes de iniciar el reparto';
     }
@@ -187,7 +204,23 @@ export class DeliveryDispatchService {
       readyCount,
       issueCount,
       stopCount,
+      activeOrderCount,
     };
+  }
+
+  async startForCourier(companyId: string, dispatchId: string) {
+    const dispatch = await this.dispatchRepo.findOne({ where: { companyId, id: dispatchId } });
+    if (!dispatch) throw new BadRequestException('Despacho no encontrado');
+    if (!dispatch.occurrenceId) {
+      throw new BadRequestException('Despacho sin reparto asociado');
+    }
+
+    const readiness = await this.evaluateStartReadiness(companyId, dispatch.occurrenceId);
+    if (!readiness.canStart) {
+      throw new BadRequestException(readiness.reason ?? 'No se puede iniciar el reparto');
+    }
+
+    return this.start(companyId, dispatchId);
   }
 
   async listByOccurrence(companyId: string, occurrenceId: string) {

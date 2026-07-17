@@ -25,11 +25,7 @@ export async function listRecipesByOutputVariantAction(outputVariantId: string):
   if (!id) {
     return [];
   }
-  try {
-    return await RecipeRequest.list(id);
-  } catch {
-    return [];
-  }
+  return RecipeRequest.list(id);
 }
 
 export type CreateRecipeFormInput = {
@@ -45,27 +41,42 @@ export type CreateRecipeFormInput = {
 
 export type CreateRecipeResult = { success: true; id: string } | { success: false; error: string };
 
-export async function createRecipeAction(input: CreateRecipeFormInput): Promise<CreateRecipeResult> {
-  const outputVariantId = input.outputVariantId?.trim() ?? "";
-  if (!outputVariantId) {
-    return { success: false, error: "Variante de salida no válida" };
+function normalizeRecipeLinesInput(
+  lines: CreateRecipeFormInput["lines"],
+): { ok: true; lines: CreateRecipePayload["lines"] } | { ok: false; error: string } {
+  if (!lines?.length) {
+    return { ok: false, error: "Agregue al menos una línea de insumo" };
   }
-  if (!input.lines?.length) {
-    return { success: false, error: "Agregue al menos una línea de insumo" };
-  }
-  const lines = input.lines.map((l, i) => ({
+  const normalized = lines.map((l, i) => ({
     inputVariantId: l.inputVariantId.trim(),
     qtyPerOutputUnit: l.qtyPerOutputUnit,
     wasteFactor: l.wasteFactor ?? 0,
     sortOrder: i + 1,
   }));
-  for (const l of lines) {
+  for (const l of normalized) {
     if (!l.inputVariantId) {
-      return { success: false, error: "Cada línea debe tener un insumo (variante)" };
+      return { ok: false, error: "Cada línea debe tener un insumo (variante)" };
     }
     if (!Number.isFinite(l.qtyPerOutputUnit) || l.qtyPerOutputUnit <= 0) {
-      return { success: false, error: "La cantidad por unidad producida debe ser mayor que cero" };
+      return { ok: false, error: "La cantidad por unidad producida debe ser mayor que cero" };
     }
+  }
+  return { ok: true, lines: normalized };
+}
+
+function revalidateRecipePaths(outputVariantId: string) {
+  revalidatePath(PRODUCTS_PATH, "page");
+  revalidatePath(`/catalog/products/variants/${outputVariantId}`, "page");
+}
+
+export async function createRecipeAction(input: CreateRecipeFormInput): Promise<CreateRecipeResult> {
+  const outputVariantId = input.outputVariantId?.trim() ?? "";
+  if (!outputVariantId) {
+    return { success: false, error: "Variante de salida no válida" };
+  }
+  const normalized = normalizeRecipeLinesInput(input.lines);
+  if (!normalized.ok) {
+    return { success: false, error: normalized.error };
   }
   const version = Math.max(1, Math.floor(Number(input.version) || 1));
   const payload: CreateRecipePayload = {
@@ -73,11 +84,43 @@ export async function createRecipeAction(input: CreateRecipeFormInput): Promise<
     type: input.recipeType,
     version,
     isActive: true,
-    lines,
+    lines: normalized.lines,
   };
   const r = await RecipeRequest.create(payload);
   if (r.success) {
-    revalidatePath(PRODUCTS_PATH, "page");
+    revalidateRecipePaths(outputVariantId);
+  }
+  return r;
+}
+
+export type UpdateRecipeFormInput = CreateRecipeFormInput & {
+  recipeId: string;
+};
+
+export async function updateRecipeAction(input: UpdateRecipeFormInput): Promise<CreateRecipeResult> {
+  const recipeId = input.recipeId?.trim() ?? "";
+  const outputVariantId = input.outputVariantId?.trim() ?? "";
+  if (!recipeId) {
+    return { success: false, error: "Receta no válida" };
+  }
+  if (!outputVariantId) {
+    return { success: false, error: "Variante de salida no válida" };
+  }
+  const normalized = normalizeRecipeLinesInput(input.lines);
+  if (!normalized.ok) {
+    return { success: false, error: normalized.error };
+  }
+  const version = Math.max(1, Math.floor(Number(input.version) || 1));
+  const payload: CreateRecipePayload = {
+    outputVariantId,
+    type: input.recipeType,
+    version,
+    isActive: true,
+    lines: normalized.lines,
+  };
+  const r = await RecipeRequest.update(recipeId, payload);
+  if (r.success) {
+    revalidateRecipePaths(outputVariantId);
   }
   return r;
 }

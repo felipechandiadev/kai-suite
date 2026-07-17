@@ -31,8 +31,12 @@ import { MultimediaAsset } from '@modules/multimedia/domain/multimedia-asset.ent
 import { MultimediaLink } from '@modules/multimedia/domain/multimedia-link.entity';
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
+import { Recipe } from '@modules/recipes/domain/recipe.entity';
+import { RecipeLine } from '@modules/recipes/domain/recipe-line.entity';
+import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
 import { OperationalExpensesModule } from '@modules/operational-expenses/operational-expenses.module';
 import { FiscalModule } from '@modules/fiscal/fiscal.module';
+import { ProductModeModule } from '../../backend/src/shared/product-mode/product-mode.module';
 import { CloudflareR2Adapter } from '@modules/multimedia/infrastructure/adapters/cloudflare-r2.adapter';
 import { LocalStorageAdapter } from '@modules/multimedia/infrastructure/adapters/local-storage.adapter';
 
@@ -43,6 +47,7 @@ import { LocalStorageAdapter } from '@modules/multimedia/infrastructure/adapters
 @Module({
   imports: [
     AppConfigModule,
+    ProductModeModule,
     EventEmitterModule.forRoot(),
     TypeOrmModule.forRootAsync({
       imports: [AppConfigModule],
@@ -77,6 +82,9 @@ import { LocalStorageAdapter } from '@modules/multimedia/infrastructure/adapters
       MultimediaLink,
       EShopHeroSlide,
       EShopTestimonial,
+      Recipe,
+      RecipeLine,
+      ProductionUnit,
     ]),
     OperationalExpensesModule,
     FiscalModule,

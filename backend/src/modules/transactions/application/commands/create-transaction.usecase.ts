@@ -132,6 +132,7 @@ export class CreateTransactionUseCase implements ICommandHandler<CreateTransacti
             TransactionType.SUPPLIER_PAYMENT,
             TransactionType.PAYROLL_PAYMENT,
             TransactionType.EXPENSE_PAYMENT,
+            TransactionType.PRODUCTION_BATCH,
           ].includes(dto.transactionType);
         const initialStatus = draftOnCreate
           ? TransactionStatus.DRAFT

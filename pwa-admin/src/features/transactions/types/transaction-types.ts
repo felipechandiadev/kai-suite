@@ -124,10 +124,10 @@ export const TRANSACTION_TYPE_OPTIONS: TransactionTypeOption[] = [
   },
   {
     id: "PRODUCTION_BATCH",
-    label: "Lote de producción",
+    label: "Orden de producción",
     category: "Producción",
     description:
-      "Lote u orden de producción. Agrupa consumos/salidas y productos terminados según el proceso productivo definido.",
+      "Orden de producción. Agrupa consumos de insumos y entrada del producto terminado al completar la producción.",
   },
 
   // Movimientos de inventario

@@ -12,7 +12,7 @@ export async function listPointsOfSaleForPage(): Promise<PointOfSaleListItem[]> 
 
 export async function listPointsOfSaleForSetup(): Promise<
   | { success: true; pointsOfSale: PointOfSaleListItem[] }
-  | { success: false; error: string; pointsOfSale: [] }
+  | { success: false; error: string; pointsOfSale: []; statusCode?: number }
 > {
   return ListPointsOfSaleUseCase.execute();
 }

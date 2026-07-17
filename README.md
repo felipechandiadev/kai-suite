@@ -41,7 +41,7 @@ npm run dev:all      # stack completo (+ pos, stock, eshop, mail)
 | Servicio | URL |
 |----------|-----|
 | Backend API | http://localhost:5060/api |
-| Admin | http://localhost:5061 |
+| Admin | http://localhost:5071 |
 | POS | http://localhost:5062 |
 | Stock | http://localhost:5063 |
 | eShop | http://localhost:5064 |
@@ -63,7 +63,7 @@ Login admin (seed): `admin` / `098098`
    ```bash
    cd pwa-admin
    npm install
-   npm run dev  # Puerto 5061
+   npm run dev  # Puerto 5071 (5061 bloqueado por Next.js)
    ```
 
 3. **KaiStore eShop**:

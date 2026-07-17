@@ -22,5 +22,5 @@ export type PointOfSaleListItem = {
 
 export type ListPointsOfSaleResult =
   | { success: true; pointsOfSale: PointOfSaleListItem[] }
-  | { success: false; error: string; pointsOfSale: [] };
+  | { success: false; error: string; pointsOfSale: []; statusCode?: number };
 

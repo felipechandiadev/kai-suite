@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { Recipe } from '../domain/recipe.entity';
 import { RecipeLine } from '../domain/recipe-line.entity';
@@ -18,6 +18,16 @@ const RECIPE_ALLOWED_PRODUCT_TYPES = new Set([
   'ELABORADO',
 ]);
 
+export type RecipeLineView = RecipeLine & {
+  inputProductName?: string | null;
+  inputSku?: string | null;
+  inputStockBaseUnitLabel?: string | null;
+};
+
+export type RecipeView = Recipe & {
+  lines: RecipeLineView[];
+};
+
 @Injectable()
 export class RecipesService {
   constructor(
@@ -29,13 +39,17 @@ export class RecipesService {
     private readonly variantRepo: Repository<ProductVariant>,
   ) {}
 
-  async list(outputVariantId?: string) {
-    const qb = this.recipeRepo.createQueryBuilder('r').leftJoinAndSelect('r.lines', 'lines');
+  async list(companyId: string, outputVariantId?: string): Promise<RecipeView[]> {
+    const qb = this.recipeRepo
+      .createQueryBuilder('r')
+      .leftJoinAndSelect('r.lines', 'lines')
+      .where('r.companyId = :companyId', { companyId });
     if (outputVariantId) {
-      qb.where('r.outputVariantId = :outputVariantId', { outputVariantId });
+      qb.andWhere('r.outputVariantId = :outputVariantId', { outputVariantId });
     }
     qb.orderBy('r.updatedAt', 'DESC');
-    return qb.getMany();
+    const recipes = await qb.getMany();
+    return Promise.all(recipes.map((recipe) => this.toRecipeView(recipe)));
   }
 
   async findById(id: string) {
@@ -43,16 +57,16 @@ export class RecipesService {
     if (!recipe) {
       throw new NotFoundException('Recipe not found');
     }
-    return recipe;
+    return this.toRecipeView(recipe);
   }
 
-  async create(dto: CreateRecipeDto) {
+  async create(companyId: string, dto: CreateRecipeDto) {
     const outputId = dto.outputVariantId?.trim();
     if (!outputId) {
       throw new BadRequestException('outputVariantId es obligatorio.');
     }
     const variant = await this.variantRepo.findOne({
-      where: { id: outputId },
+      where: { id: outputId, companyId },
       relations: ['product'],
     });
     if (!variant?.product) {
@@ -65,11 +79,16 @@ export class RecipesService {
       .toUpperCase();
     if (!RECIPE_ALLOWED_PRODUCT_TYPES.has(pt)) {
       throw new BadRequestException(
-        'Solo productos tipo servicio, manufacturado, preparado o elaborado pueden tener receta (BOM).',
+        'Solo productos tipo servicio, manufacturado, preparado o elaborado pueden tener receta.',
       );
     }
 
+    if (!dto.lines?.length) {
+      throw new BadRequestException('Agregue al menos una línea de insumo.');
+    }
+
     const recipe = this.recipeRepo.create({
+      companyId,
       outputVariantId: dto.outputVariantId,
       type: dto.type,
       version: dto.version ?? 1,
@@ -80,6 +99,7 @@ export class RecipesService {
 
     const lines = (dto.lines ?? []).map((l) =>
       this.recipeLineRepo.create({
+        companyId,
         recipeId: saved.id,
         inputVariantId: l.inputVariantId,
         qtyPerOutputUnit: l.qtyPerOutputUnit,
@@ -94,8 +114,14 @@ export class RecipesService {
     return this.findById(saved.id);
   }
 
-  async update(id: string, dto: UpdateRecipeDto) {
-    const current = await this.findById(id);
+  async update(companyId: string, id: string, dto: UpdateRecipeDto) {
+    const current = await this.recipeRepo.findOne({
+      where: { id, companyId },
+      relations: ['lines'],
+    });
+    if (!current) {
+      throw new NotFoundException('Recipe not found');
+    }
 
     if (dto.outputVariantId != null) current.outputVariantId = dto.outputVariantId as any;
     if (dto.type != null) current.type = dto.type as any;
@@ -109,6 +135,7 @@ export class RecipesService {
       await this.recipeLineRepo.delete({ recipeId: id } as any);
       const lines = dto.lines.map((l) =>
         this.recipeLineRepo.create({
+          companyId: current.companyId,
           recipeId: id,
           inputVariantId: (l as any).inputVariantId,
           qtyPerOutputUnit: Number((l as any).qtyPerOutputUnit ?? 0),
@@ -121,5 +148,36 @@ export class RecipesService {
 
     return this.findById(id);
   }
-}
 
+  private async toRecipeView(recipe: Recipe): Promise<RecipeView> {
+    const lines = [...(recipe.lines ?? [])].sort(
+      (a, b) => (a.sortOrder ?? 1) - (b.sortOrder ?? 1),
+    );
+    const enriched = await this.enrichLines(lines);
+    return { ...recipe, lines: enriched };
+  }
+
+  private async enrichLines(lines: RecipeLine[]): Promise<RecipeLineView[]> {
+    if (lines.length === 0) {
+      return [];
+    }
+    const inputIds = [...new Set(lines.map((line) => line.inputVariantId))];
+    const variants = await this.variantRepo.find({
+      where: { id: In(inputIds) },
+      relations: ['product', 'stockBaseUnit'],
+    });
+    const byId = new Map(variants.map((variant) => [variant.id, variant]));
+    return lines.map((line) => {
+      const input = byId.get(line.inputVariantId);
+      const stockBaseUnit = (input as { stockBaseUnit?: { symbol?: string; name?: string } })
+        ?.stockBaseUnit;
+      return {
+        ...line,
+        inputProductName: input?.product?.name ?? null,
+        inputSku: input?.sku ?? null,
+        inputStockBaseUnitLabel:
+          stockBaseUnit?.symbol?.trim() || stockBaseUnit?.name?.trim() || null,
+      };
+    });
+  }
+}

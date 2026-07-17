@@ -7,6 +7,7 @@ import { Repository } from 'typeorm';
 import { Product } from '../../../domain/product.entity';
 import { BrandsService } from '@modules/brands/application/brands.service';
 import { ProductEshopVisibilitySyncService } from '../../services/product-eshop-visibility-sync.service';
+import { ProductModeService } from '@shared/product-mode/product-mode.service';
 
 @CommandHandler(UpdateProductCommand)
 export class UpdateProductCommandHandler implements ICommandHandler<
@@ -21,10 +22,15 @@ export class UpdateProductCommandHandler implements ICommandHandler<
     private readonly eventBus: EventBus,
     private readonly brandsService: BrandsService,
     private readonly eshopVisibilitySync: ProductEshopVisibilitySyncService,
+    private readonly productModeService: ProductModeService,
   ) {}
 
   async execute(command: UpdateProductCommand): Promise<Product> {
     this.logger.debug(`Updating product ${command.productId}`);
+
+    if (command.productType !== undefined) {
+      this.productModeService.assertProductTypeAllowed(command.productType);
+    }
 
     const product = await this.productRepository.findOne({
       where: { id: command.productId },

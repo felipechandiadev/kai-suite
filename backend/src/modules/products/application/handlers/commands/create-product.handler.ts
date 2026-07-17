@@ -6,6 +6,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product, ProductType } from '../../../domain/product.entity';
 import { BrandsService } from '@modules/brands/application/brands.service';
+import { ProductModeService } from '@shared/product-mode/product-mode.service';
 
 @CommandHandler(CreateProductCommand)
 export class CreateProductCommandHandler implements ICommandHandler<
@@ -19,10 +20,14 @@ export class CreateProductCommandHandler implements ICommandHandler<
     private readonly productRepository: Repository<Product>,
     private readonly eventBus: EventBus,
     private readonly brandsService: BrandsService,
+    private readonly productModeService: ProductModeService,
   ) {}
 
   async execute(command: CreateProductCommand): Promise<Product> {
     this.logger.debug(`Creating product: ${command.name}`);
+
+    const productType = command.productType ?? ProductType.PHYSICAL;
+    this.productModeService.assertProductTypeAllowed(productType);
 
     let brandLabel = command.brand;
     let brandId: string | null = command.brandId ?? null;
@@ -41,7 +46,7 @@ export class CreateProductCommandHandler implements ICommandHandler<
       description: command.description,
       isActive: command.isActive,
       visibleInEShop: command.visibleInEShop,
-      productType: command.productType ?? ProductType.PHYSICAL,
+      productType,
     });
 
     const saved = await this.productRepository.save(product);

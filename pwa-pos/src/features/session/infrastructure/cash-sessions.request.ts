@@ -47,7 +47,21 @@ export class CashSessionsRequest {
       return { success: false, message: BACKEND_CONNECTION_MESSAGE };
     }
 
-    return res.json();
+    const data = (await res.json().catch(() => ({}))) as ListCashSessionsResponse;
+    if (!res.ok) {
+      const msg =
+        (typeof data?.message === "string" && data.message.trim()) ||
+        res.statusText ||
+        "Sesión inválida";
+      return { success: false, message: msg, statusCode: res.status };
+    }
+    return {
+      success: data.success !== false,
+      total: data.total,
+      items: data.items ?? [],
+      message: data.message,
+      statusCode: data.statusCode,
+    };
   }
 
   static async open(input: {

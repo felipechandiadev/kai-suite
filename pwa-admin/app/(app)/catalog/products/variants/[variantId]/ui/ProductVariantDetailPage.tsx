@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Badge, IconButton } from "@kai/ui";
 import type { ProductVariantGridRow } from "@/features/inventory-products/types/product-grid.types";
+import type { RecipeDto } from "@/features/recipes/types/recipe.types";
 import { CreateRecipeDialog } from "../../../ui/CreateRecipeDialog";
 import {
   catalogProductTypeAllowsRecipeBom,
@@ -55,6 +56,8 @@ export default function ProductVariantDetailPage({ product, variant: initialVari
   const searchParams = useSearchParams();
   const [variant, setVariant] = useState(initialVariant);
   const [bomOpen, setBomOpen] = useState(false);
+  const [editingRecipe, setEditingRecipe] = useState<RecipeDto | null>(null);
+  const [recipeRefreshKey, setRecipeRefreshKey] = useState(0);
   const [activeSection, setActiveSection] = useState<VariantDetailSectionId>("identidad");
   const [stockRefreshKey, setStockRefreshKey] = useState(0);
 
@@ -169,7 +172,9 @@ export default function ProductVariantDetailPage({ product, variant: initialVari
         {activeSection === "identidad" ? <VariantDetailIdentitySection {...sectionProps} /> : null}
         {activeSection === "precios" ? <VariantDetailPricingSection {...sectionProps} /> : null}
         {activeSection === "sii" ? <VariantDetailSiiSection variant={variant} /> : null}
-        {activeSection === "compras" ? <VariantDetailPurchasesSection variant={variant} /> : null}
+        {activeSection === "compras" ? (
+          <VariantDetailPurchasesSection variant={variant} productType={product.productType} />
+        ) : null}
         {activeSection === "inventario" ? (
           <div className="flex flex-col gap-4">
             <VariantDetailStockValueSection variant={variant} refreshKey={stockRefreshKey} />
@@ -184,19 +189,37 @@ export default function ProductVariantDetailPage({ product, variant: initialVari
         {activeSection === "multimedia" ? <VariantDetailMultimediaSection variant={variant} /> : null}
         {activeSection === "eshop" ? <VariantDetailEShopSection variant={variant} /> : null}
         {activeSection === "receta" && showRecipe ? (
-          <VariantDetailRecipeSection onAddRecipe={() => setBomOpen(true)} />
+          <VariantDetailRecipeSection
+            outputVariantId={variant.id}
+            refreshKey={recipeRefreshKey}
+            onCreateRecipe={() => {
+              setEditingRecipe(null);
+              setBomOpen(true);
+            }}
+            onEditRecipe={(recipe) => {
+              setEditingRecipe(recipe);
+              setBomOpen(true);
+            }}
+          />
         ) : null}
       </div>
 
       <CreateRecipeDialog
         open={bomOpen}
-        onClose={() => setBomOpen(false)}
+        onClose={() => {
+          setBomOpen(false);
+          setEditingRecipe(null);
+        }}
+        editRecipe={editingRecipe}
         outputVariantId={variant.id}
         outputSku={variant.sku}
         productName={product.name}
+        outputAttributeValues={variant.attributeValues}
         productType={normalizeCatalogProductType(product.productType)}
         onSuccess={async () => {
           setBomOpen(false);
+          setEditingRecipe(null);
+          setRecipeRefreshKey((key) => key + 1);
           await router.refresh();
         }}
       />

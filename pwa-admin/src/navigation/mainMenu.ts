@@ -78,6 +78,15 @@ export const mainMenuItems: SideBarMenuItem[] = [
       { id: 'inventory-stock', label: 'Existencias (Stock)', url: '/inventory/stock' },
       { id: 'inventory-units', label: 'Unidades de medida', url: '/inventory/units' },
       { id: 'inventory-storages', label: 'Almacenes', url: '/inventory/storages' },
+      { id: 'inventory-production', label: 'Producción', url: '/inventory/production/orders' },
+    ],
+  },
+  {
+    id: 'nav-kaifood',
+    label: 'KaiFood',
+    requiresKaiFoodEnabled: true,
+    children: [
+      { id: 'kaifood-rooms', label: 'Salones', url: '/kaifood/rooms' },
     ],
   },
   {
