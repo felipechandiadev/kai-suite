@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Badge, Dialog, DotProgress } from "@kai/ui";
-import { listPosDiningRecipesForVariantAction } from "@/features/dining/actions/dining-pos.action";
+import {
+  getPosDiningCtpDetailAction,
+  listPosDiningRecipesForVariantAction,
+} from "@/features/dining/actions/dining-pos.action";
+import { useDiningCtpStockSubscription } from "@/features/dining/lib/use-dining-ctp-stock-subscription";
+import type { PosDiningCtpDetail } from "@/features/dining/infrastructure/dining-ctp.request";
 import type { PosDiningRecipeSummary } from "@/features/dining/types/dining-recipe.types";
 import type { PosProductSearchItem } from "@/features/pos-products/types/pos-product.types";
 import {
@@ -10,12 +15,14 @@ import {
   PosProductNameWithAttributes,
   posDisplaySaleUnitSymbol,
 } from "@/features/pos-products/ui/posProductPreview";
+import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/pos-api-failure";
 
 type Props = {
   open: boolean;
   onClose: () => void;
   item: PosProductSearchItem | null;
+  initialProducibleQty?: number | null;
 };
 
 function formatQty(n: number) {
@@ -25,16 +32,73 @@ function formatQty(n: number) {
   }).format(n);
 }
 
-export function PosDiningMenuVariantInfoDialog({ open, onClose, item }: Props) {
+function ctpReasonMessage(detail: PosDiningCtpDetail): string | null {
+  switch (detail.reason) {
+    case "NO_ROUTING":
+      return "Sin unidad de producción en esta sucursal.";
+    case "NO_RECIPE":
+      return "Sin receta activa.";
+    case "NO_STORAGE":
+      return "La unidad de producción no tiene bodega de insumos.";
+    case "NO_LIMITING_LINES":
+      return "Ningún insumo limita la capacidad.";
+    default:
+      return null;
+  }
+}
+
+export function PosDiningMenuVariantInfoDialog({
+  open,
+  onClose,
+  item,
+  initialProducibleQty = null,
+}: Props) {
   const [recipes, setRecipes] = useState<PosDiningRecipeSummary[]>([]);
   const [loadingRecipe, setLoadingRecipe] = useState(false);
   const [recipeError, setRecipeError] = useState<string | null>(null);
+  const [ctpDetail, setCtpDetail] = useState<PosDiningCtpDetail | null>(null);
+  const [loadingCtp, setLoadingCtp] = useState(false);
+  const [ctpError, setCtpError] = useState<string | null>(null);
+
+  const loadCtpDetail = useCallback(async () => {
+    if (!item?.variantId) {
+      setCtpDetail(null);
+      setCtpError(null);
+      setLoadingCtp(false);
+      return;
+    }
+    const ctx = readPosContextClient();
+    const branchId = ctx?.branchId?.trim() ?? "";
+    if (!branchId) {
+      setCtpDetail(null);
+      setCtpError("Sucursal POS no configurada.");
+      setLoadingCtp(false);
+      return;
+    }
+    setLoadingCtp(true);
+    setCtpError(null);
+    const res = await getPosDiningCtpDetailAction({
+      branchId,
+      variantId: item.variantId,
+    });
+    setLoadingCtp(false);
+    if (!res.success) {
+      if (redirectToLoginIfUnauthorized(res)) return;
+      setCtpError(res.message);
+      setCtpDetail(null);
+      return;
+    }
+    setCtpDetail(res.detail);
+  }, [item?.variantId]);
 
   useEffect(() => {
     if (!open || !item?.variantId) {
       setRecipes([]);
       setRecipeError(null);
       setLoadingRecipe(false);
+      setCtpDetail(null);
+      setCtpError(null);
+      setLoadingCtp(false);
       return;
     }
     let cancelled = false;
@@ -59,10 +123,19 @@ export function PosDiningMenuVariantInfoDialog({ open, onClose, item }: Props) {
       .finally(() => {
         if (!cancelled) setLoadingRecipe(false);
       });
+
+    void loadCtpDetail();
+
     return () => {
       cancelled = true;
     };
-  }, [open, item?.variantId]);
+  }, [open, item?.variantId, loadCtpDetail]);
+
+  useDiningCtpStockSubscription(
+    ctpDetail?.inputStorageId ? [ctpDetail.inputStorageId] : [],
+    loadCtpDetail,
+    { enabled: open && Boolean(ctpDetail?.inputStorageId) },
+  );
 
   const recipe = useMemo(() => {
     if (recipes.length === 0) return null;
@@ -73,6 +146,14 @@ export function PosDiningMenuVariantInfoDialog({ open, onClose, item }: Props) {
       null
     );
   }, [recipes]);
+
+  const limitingLines = useMemo(
+    () => ctpDetail?.lines.filter((l) => l.lineCapacity != null) ?? [],
+    [ctpDetail],
+  );
+
+  const displayQty =
+    ctpDetail?.producibleQty != null ? ctpDetail.producibleQty : initialProducibleQty;
 
   const saleUnit = item ? posDisplaySaleUnitSymbol(item) : null;
   const imageUrl = item?.productImageUrl?.trim() || null;
@@ -147,6 +228,73 @@ export function PosDiningMenuVariantInfoDialog({ open, onClose, item }: Props) {
                   </Badge>
                 ))}
               </div>
+            )}
+          </section>
+
+          <section data-test-id="pos-dining-menu-variant-info-ctp">
+            <h3 className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Capacidad producible
+            </h3>
+            {ctpError ? (
+              <Alert variant="error" className="text-sm">
+                {ctpError}
+              </Alert>
+            ) : loadingCtp && displayQty == null ? (
+              <div className="flex justify-center py-3">
+                <DotProgress />
+              </div>
+            ) : displayQty != null ? (
+              <div className="space-y-2">
+                <p className="text-xl font-semibold tabular-nums text-foreground">
+                  Cap. {displayQty}
+                </p>
+                {ctpDetail?.productionUnitName || ctpDetail?.inputStorageName ? (
+                  <p className="text-xs text-muted-foreground">
+                    {ctpDetail?.productionUnitName ? `UP: ${ctpDetail.productionUnitName}` : null}
+                    {ctpDetail?.productionUnitName && ctpDetail?.inputStorageName ? " · " : null}
+                    {ctpDetail?.inputStorageName ? `Bodega: ${ctpDetail.inputStorageName}` : null}
+                  </p>
+                ) : null}
+                {limitingLines.length > 0 ? (
+                  <ul className="space-y-1.5">
+                    {limitingLines.map((line) => (
+                      <li
+                        key={line.inputVariantId}
+                        className="flex items-start justify-between gap-2 rounded-md border border-border/60 px-2.5 py-1.5 text-sm"
+                        data-test-id={`pos-dining-menu-ctp-line-${line.inputVariantId}`}
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-foreground">
+                            {line.inputProductName?.trim() || "Insumo"}
+                            {line.isBottleneck ? (
+                              <Badge variant="warning-outlined" className="ml-1.5 text-[10px]">
+                                Cuello
+                              </Badge>
+                            ) : null}
+                          </p>
+                          {line.inputSku?.trim() ? (
+                            <p className="font-mono text-[11px] text-muted-foreground">
+                              SKU {line.inputSku.trim()}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div className="shrink-0 text-right text-xs tabular-nums text-foreground">
+                          <p>{formatQty(line.available)} disp.</p>
+                          <p className="text-muted-foreground">
+                            Cap. {line.lineCapacity ?? "—"}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : ctpDetail ? (
+              <p className="text-xs text-muted-foreground">
+                {ctpReasonMessage(ctpDetail) ?? "Capacidad no disponible."}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">Capacidad no disponible.</p>
             )}
           </section>
 

@@ -18,6 +18,7 @@ import { NotificationsRealtimePublisher } from './application/notifications-real
 import { NotificationsController } from './presentation/notifications.controller';
 import { NotificationsGateway } from './presentation/notifications.gateway';
 import { WsNotificationsTenantService } from './presentation/ws-notifications-tenant.service';
+import { NotificationsDomainSchemaBootstrap } from './infrastructure/notifications-domain-schema.bootstrap';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { WsNotificationsTenantService } from './presentation/ws-notifications-te
     NotificationsRealtimePublisher,
     NotificationsGateway,
     WsNotificationsTenantService,
+    NotificationsDomainSchemaBootstrap,
   ],
   exports: [
     NotificationPublisherService,

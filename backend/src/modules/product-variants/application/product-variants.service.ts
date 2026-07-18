@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
   Inject,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, In } from 'typeorm';
@@ -31,6 +33,8 @@ import {
 } from './helpers/sale-price-history';
 import { PURCHASING_SEARCH_EXCLUDED_PRODUCT_TYPES } from './helpers/purchasing-search-excluded-types';
 import { isSellableProductType } from '@modules/products/application/helpers/product-type-policy.util';
+import { CatalogRealtimePublisher } from '@modules/catalog-realtime/catalog-realtime.publisher';
+import { PricingNotificationService } from '@modules/catalog-realtime/pricing-notification.service';
 import { TenantContext } from '@common/tenant';
 import { PriceList } from '@modules/price-lists/domain/price-list.entity';
 import { User } from '@modules/users/domain/user.entity';
@@ -131,6 +135,8 @@ export class ProductVariantsService {
     private readonly branchOrm: Repository<Branch>,
     private readonly conversion: VariantQuantityConversionService,
     private readonly eshopVisibilitySync: ProductEshopVisibilitySyncService,
+    @Optional() private readonly catalogRealtime?: CatalogRealtimePublisher,
+    @Optional() private readonly pricingNotifications?: PricingNotificationService,
   ) {}
 
   private purchasingStockBreakdownForVariant(
@@ -981,6 +987,47 @@ export class ProductVariantsService {
     }
 
     const enriched = await this.findOne(saved.id);
+
+    const pricesChanged =
+      sanitizedData.priceListItems &&
+      Array.isArray(sanitizedData.priceListItems) &&
+      sanitizedData.priceListItems.length > 0;
+
+    try {
+      const kinds: Array<'PRICE' | 'VARIANT'> = ['VARIANT'];
+      if (pricesChanged) kinds.unshift('PRICE');
+      const priceListIds = pricesChanged
+        ? [
+            ...new Set(
+              (sanitizedData.priceListItems as Array<{ priceListId?: string }>)
+                .map((i) => String(i.priceListId ?? '').trim())
+                .filter(Boolean),
+            ),
+          ]
+        : undefined;
+      this.catalogRealtime?.emitInvalidated({
+        companyId,
+        kinds,
+        variantIds: [saved.id],
+        productIds: saved.productId ? [saved.productId] : undefined,
+        priceListIds,
+        at: new Date().toISOString(),
+      });
+      if (pricesChanged) {
+        const productName =
+          (enriched as { product?: { name?: string } } | null)?.product?.name ??
+          null;
+        void this.pricingNotifications?.publishPriceUpdated({
+          companyId,
+          variantId: saved.id,
+          priceListIds,
+          productName,
+          actorUserId: TenantContext.getUserId() ?? null,
+        });
+      }
+    } catch {
+      // fire-and-forget
+    }
 
     return { success: true, variant: enriched };
   }

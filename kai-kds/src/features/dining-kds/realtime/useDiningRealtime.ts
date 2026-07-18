@@ -1,58 +1,117 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
+import type {
+  DiningKitchenItemUpdatedPayload,
+  DiningKitchenSnapshotPayload,
+} from "./dining-realtime.types";
 
 function wsBaseUrl(): string {
   const base = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
   return base.replace(/\/$/, "");
 }
 
+type SubscribeAck = {
+  ok?: boolean;
+  error?: string;
+  joined?: string;
+  queueSize?: number;
+};
+
 type DiningRealtimeOptions = {
   userId: string;
   activeCompanyId: string;
-  salonId?: string | null;
   productionUnitId?: string | null;
-  onSessionUpdated?: (payload: unknown) => void;
-  onKitchenItemUpdated?: (payload: unknown) => void;
-  onKitchenSnapshot?: (payload: unknown) => void;
+  onKitchenItemUpdated?: (payload: DiningKitchenItemUpdatedPayload) => void;
+  onKitchenSnapshot?: (payload: DiningKitchenSnapshotPayload) => void;
 };
+
+const MAX_SUBSCRIBE_ATTEMPTS = 8;
+const SUBSCRIBE_RETRY_MS = 75;
 
 export function useDiningRealtime({
   userId,
   activeCompanyId,
-  salonId,
   productionUnitId,
-  onSessionUpdated,
   onKitchenItemUpdated,
   onKitchenSnapshot,
 }: DiningRealtimeOptions) {
+  /** True solo cuando el socket está auth y (si hay UP) el join al room OK. */
+  const [connected, setConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
+  const authReadyRef = useRef(false);
+  const unitIdRef = useRef(productionUnitId);
+  const subscribeAttemptRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const callbacksRef = useRef({
-    onSessionUpdated,
     onKitchenItemUpdated,
     onKitchenSnapshot,
   });
 
   callbacksRef.current = {
-    onSessionUpdated,
     onKitchenItemUpdated,
     onKitchenSnapshot,
   };
 
+  unitIdRef.current = productionUnitId;
+
+  const clearRetry = useCallback(() => {
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+  }, []);
+
   const refreshSubscribe = useCallback(() => {
     const socket = socketRef.current;
-    if (!socket?.connected) return;
-    if (salonId) {
-      socket.emit("subscribeSalon", { salonId, branchId: null });
+    const unitId = unitIdRef.current;
+    if (!socket?.connected || !authReadyRef.current) return;
+
+    if (!unitId) {
+      setConnected(true);
+      return;
     }
-    if (productionUnitId) {
-      socket.emit("subscribeKitchenUnit", { productionUnitId });
-    }
-  }, [salonId, productionUnitId]);
+
+    clearRetry();
+    const attempt = subscribeAttemptRef.current;
+
+    socket.timeout(5000).emit(
+      "subscribeKitchenUnit",
+      { unitId },
+      (err: Error | null, res: SubscribeAck | undefined) => {
+        if (unitIdRef.current !== unitId) return;
+
+        if (!err && res?.ok) {
+          subscribeAttemptRef.current = 0;
+          setConnected(true);
+          return;
+        }
+
+        setConnected(false);
+        if (attempt + 1 >= MAX_SUBSCRIBE_ATTEMPTS) {
+          console.warn(
+            "[kds-ws] subscribeKitchenUnit falló tras reintentos",
+            err?.message ?? res?.error ?? "unknown",
+          );
+          return;
+        }
+
+        subscribeAttemptRef.current = attempt + 1;
+        retryTimerRef.current = setTimeout(() => {
+          refreshSubscribe();
+        }, SUBSCRIBE_RETRY_MS * (attempt + 1));
+      },
+    );
+  }, [clearRetry]);
 
   useEffect(() => {
     if (!userId || !activeCompanyId) return;
+
+    authReadyRef.current = false;
+    subscribeAttemptRef.current = 0;
+    setConnected(false);
 
     const socket = io(`${wsBaseUrl()}/realtime/dining`, {
       transports: ["websocket"],
@@ -63,24 +122,67 @@ export function useDiningRealtime({
     });
     socketRef.current = socket;
 
-    socket.on("connect", () => refreshSubscribe());
-    socket.on("dining.session.updated", (payload) => {
-      callbacksRef.current.onSessionUpdated?.(payload);
+    const onReady = () => {
+      authReadyRef.current = true;
+      subscribeAttemptRef.current = 0;
+      refreshSubscribe();
+    };
+
+    socket.on("connect", () => {
+      // Preferir dining.ready; si el server aún no lo emite, reintentar tras un beat.
+      setConnected(false);
+      clearRetry();
+      retryTimerRef.current = setTimeout(() => {
+        if (!socket.connected) return;
+        if (!authReadyRef.current) {
+          authReadyRef.current = true;
+        }
+        subscribeAttemptRef.current = 0;
+        refreshSubscribe();
+      }, 120);
     });
-    socket.on("dining.kitchen.item_updated", (payload) => {
+
+    socket.on("dining.ready", onReady);
+
+    socket.on("disconnect", () => {
+      authReadyRef.current = false;
+      subscribeAttemptRef.current = 0;
+      clearRetry();
+      setConnected(false);
+    });
+
+    socket.on("connect_error", (err) => {
+      console.warn("[kds-ws] connect_error", err.message);
+      setConnected(false);
+    });
+
+    socket.on("auth_error", (payload) => {
+      console.warn("[kds-ws] auth_error", payload);
+      setConnected(false);
+    });
+
+    socket.on("dining.kitchen.item_updated", (payload: DiningKitchenItemUpdatedPayload) => {
       callbacksRef.current.onKitchenItemUpdated?.(payload);
     });
-    socket.on("dining.kitchen.snapshot", (payload) => {
+    socket.on("dining.kitchen.snapshot", (payload: DiningKitchenSnapshotPayload) => {
       callbacksRef.current.onKitchenSnapshot?.(payload);
     });
 
     return () => {
+      clearRetry();
+      socket.off("dining.ready", onReady);
       socket.disconnect();
       socketRef.current = null;
+      authReadyRef.current = false;
+      setConnected(false);
     };
-  }, [userId, activeCompanyId, refreshSubscribe]);
+  }, [userId, activeCompanyId, refreshSubscribe, clearRetry]);
 
   useEffect(() => {
+    subscribeAttemptRef.current = 0;
+    setConnected(false);
     refreshSubscribe();
-  }, [refreshSubscribe]);
+  }, [productionUnitId, refreshSubscribe]);
+
+  return { connected };
 }

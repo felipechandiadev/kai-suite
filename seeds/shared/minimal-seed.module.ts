@@ -34,6 +34,7 @@ import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.enti
 import { Recipe } from '@modules/recipes/domain/recipe.entity';
 import { RecipeLine } from '@modules/recipes/domain/recipe-line.entity';
 import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
+import { ProductVariantProductionUnit } from '@modules/product-variants/domain/product-variant-production-unit.entity';
 import { OperationalExpensesModule } from '@modules/operational-expenses/operational-expenses.module';
 import { FiscalModule } from '@modules/fiscal/fiscal.module';
 import { ProductModeModule } from '../../backend/src/shared/product-mode/product-mode.module';
@@ -85,6 +86,7 @@ import { LocalStorageAdapter } from '@modules/multimedia/infrastructure/adapters
       Recipe,
       RecipeLine,
       ProductionUnit,
+      ProductVariantProductionUnit,
     ]),
     OperationalExpensesModule,
     FiscalModule,

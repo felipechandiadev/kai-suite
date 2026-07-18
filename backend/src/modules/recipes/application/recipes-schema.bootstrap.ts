@@ -59,6 +59,11 @@ ALTER TABLE recipe_lines ADD COLUMN IF NOT EXISTS company_id uuid;
 `);
 
       await this.dataSource.query(`
+ALTER TABLE recipe_lines
+ADD COLUMN IF NOT EXISTS "limitsProjectedStock" boolean NOT NULL DEFAULT true;
+`);
+
+      await this.dataSource.query(`
 CREATE INDEX IF NOT EXISTS idx_recipe_lines_recipe_id ON recipe_lines ("recipeId");
 `);
 

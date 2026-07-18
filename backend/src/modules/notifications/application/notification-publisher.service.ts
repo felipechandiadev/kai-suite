@@ -34,10 +34,22 @@ export class NotificationPublisherService {
     return raw === 'true' || raw === '1';
   }
 
+  isPricingNotificationsEnabled(): boolean {
+    const raw = process.env.NOTIFICATIONS_PRICING_ENABLED;
+    if (raw === undefined || raw === '') return true;
+    return raw === 'true' || raw === '1';
+  }
+
   async publish(cmd: PublishNotificationCommand): Promise<NotificationDelivery[]> {
     if (
       cmd.domain === NotificationDomain.STOCK &&
       !this.isStockNotificationsEnabled()
+    ) {
+      return [];
+    }
+    if (
+      cmd.domain === NotificationDomain.CATALOG &&
+      !this.isPricingNotificationsEnabled()
     ) {
       return [];
     }
@@ -79,10 +91,34 @@ export class NotificationPublisherService {
       }
 
       if (notification) {
+        const prevPayload =
+          notification.payload && typeof notification.payload === 'object'
+            ? (notification.payload as Record<string, unknown>)
+            : {};
+        let nextPayload = cmd.payload;
+        if (cmd.domain === NotificationDomain.CATALOG && cmd.kind === 'pricing.updated') {
+          const prevIds = Array.isArray(prevPayload.variantIds)
+            ? prevPayload.variantIds.map((x) => String(x))
+            : [];
+          const nextIds = Array.isArray(cmd.payload.variantIds)
+            ? cmd.payload.variantIds.map((x) => String(x))
+            : [];
+          const mergedIds = [...new Set([...prevIds, ...nextIds])];
+          nextPayload = {
+            ...cmd.payload,
+            variantIds: mergedIds,
+            count: mergedIds.length,
+          };
+          cmd.title = 'Precios actualizados';
+          cmd.body =
+            mergedIds.length > 1
+              ? `Se actualizaron precios de ${mergedIds.length} variantes. El menú POS se refrescará automáticamente.`
+              : cmd.body;
+        }
         notification.title = cmd.title;
         notification.body = cmd.body ?? null;
         notification.severity = cmd.severity;
-        notification.payload = cmd.payload;
+        notification.payload = nextPayload;
         notification.updatedAt = now;
         await notifRepo.save(notification);
       } else {

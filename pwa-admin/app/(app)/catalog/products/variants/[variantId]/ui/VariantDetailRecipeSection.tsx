@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { IconButton } from "@kai/ui";
 import { listRecipesByOutputVariantAction } from "@/features/recipes/actions/recipe.action";
 import type { RecipeDto } from "@/features/recipes/types/recipe.types";
+import { VariantDetailCtpBlock } from "./VariantDetailCtpBlock";
 
 type VariantDetailRecipeSectionProps = {
   outputVariantId: string;
@@ -96,6 +97,8 @@ export function VariantDetailRecipeSection({
         </p>
       ) : null}
 
+      <VariantDetailCtpBlock variantId={outputVariantId} refreshKey={refreshKey} />
+
       {displayRecipe ? (
         <div className="space-y-3" data-test-id="pv-detail-recipe-content">
           <div className="overflow-x-auto rounded-lg border border-border">
@@ -105,6 +108,7 @@ export function VariantDetailRecipeSection({
                   <th className="px-3 py-2">Insumo</th>
                   <th className="w-28 px-3 py-2">Cantidad</th>
                   <th className="w-28 px-3 py-2">Desperdicio</th>
+                  <th className="w-28 px-3 py-2">Limita Cap.</th>
                 </tr>
               </thead>
               <tbody>
@@ -127,6 +131,9 @@ export function VariantDetailRecipeSection({
                       <td className="px-3 py-2 tabular-nums text-foreground">
                         {formatQty(line.wasteFactor ?? 0)}
                         {unit ? <span className="ml-1 text-muted-foreground">{unit}</span> : null}
+                      </td>
+                      <td className="px-3 py-2 text-foreground">
+                        {line.limitsProjectedStock === false ? "No" : "Sí"}
                       </td>
                     </tr>
                   );

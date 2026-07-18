@@ -3,17 +3,18 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProductType } from '@modules/products/domain/product.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
-import { RecipesService } from '@modules/recipes/application/recipes.service';
 import { TransactionsService } from '@modules/transactions/application/transactions.service';
 import {
   CreateTransactionDto,
   CreateTransactionLineDto,
 } from '@modules/transactions/application/dto/create-transaction.dto';
-import { TransactionType } from '@modules/transactions/domain/transaction.entity';
-import { RecipeType } from '@modules/recipes/domain/recipe-type.enum';
-import { recipeInputQuantityForOutput } from '@modules/recipes/application/recipe-consumption.util';
+import {
+  Transaction,
+  TransactionType,
+} from '@modules/transactions/domain/transaction.entity';
 import { DiningOrder } from '../domain/dining-order.entity';
 import { KitchenItemStatus } from '../domain/dining.enums';
+import { DiningMaterialReservationService } from './dining-material-reservation.service';
 
 @Injectable()
 export class DiningBackflushService {
@@ -22,13 +23,15 @@ export class DiningBackflushService {
   constructor(
     @InjectRepository(ProductVariant)
     private readonly variantRepo: Repository<ProductVariant>,
-    private readonly recipesService: RecipesService,
+    @InjectRepository(Transaction)
+    private readonly transactionRepo: Repository<Transaction>,
     private readonly transactionsService: TransactionsService,
+    private readonly materialReservation: DiningMaterialReservationService,
   ) {}
 
   /**
-   * Backflush insumos PREPARADO al cerrar cuenta con venta SALE vinculada.
-   * Idempotente por diningOrderId + saleTransactionId en metadata.
+   * Release reservas + backflush físico PREPARADO al cerrar con SALE.
+   * Idempotente por diningOrderId + saleTransactionId.
    */
   async backflushForClosedOrder(
     order: DiningOrder,
@@ -36,6 +39,30 @@ export class DiningBackflushService {
     userId: string,
   ): Promise<void> {
     if (!saleTransactionId?.trim()) {
+      return;
+    }
+
+    const already = await this.transactionRepo
+      .createQueryBuilder('t')
+      .where('t.companyId = :companyId', { companyId: order.companyId })
+      .andWhere('t.transactionType = :type', {
+        type: TransactionType.ADJUSTMENT_OUT,
+      })
+      .andWhere(`t.metadata ->> 'origin' = :origin`, {
+        origin: 'DINING_BACKFLUSH',
+      })
+      .andWhere(`t.metadata #>> '{links,diningOrderId}' = :orderId`, {
+        orderId: order.id,
+      })
+      .andWhere(`t.metadata #>> '{links,saleTransactionId}' = :saleId`, {
+        saleId: saleTransactionId,
+      })
+      .getCount();
+
+    if (already > 0) {
+      this.logger.log(
+        `Backflush dining ya aplicado order=${order.id} sale=${saleTransactionId}`,
+      );
       return;
     }
 
@@ -55,81 +82,55 @@ export class DiningBackflushService {
     });
     const variantMap = new Map(variants.map((v) => [v.id, v]));
 
-    const adjLines: CreateTransactionLineDto[] = [];
-    const recipeLinks: Array<{
-      variantId: string;
-      recipeId: string;
-      recipeVersion: number;
-      qty: number;
-    }> = [];
+    const preparadoLines = lines.filter((l) => {
+      const v = variantMap.get(l.productVariantId);
+      return v?.product?.productType === ProductType.PREPARADO;
+    });
 
-    for (const line of lines) {
-      const variant = variantMap.get(line.productVariantId);
-      if (!variant?.product) continue;
-      if (variant.product.productType !== ProductType.PREPARADO) continue;
+    // Liberar committed antes de bajar físico (CTP política B).
+    await this.materialReservation.releaseForOrderLines(preparadoLines);
 
-      const recipes = await this.recipesService.list(variant.id);
-      const recipe = recipes.find(
-        (r) => r.isActive && r.type === RecipeType.PRODUCTION,
+    const groups = await this.materialReservation.resolveBackflushGroups(
+      order.companyId,
+      preparadoLines,
+    );
+
+    for (const group of groups) {
+      if (group.adjLines.length === 0) continue;
+
+      const dto = new CreateTransactionDto();
+      dto.transactionType = TransactionType.ADJUSTMENT_OUT;
+      dto.branchId = order.branchId as any;
+      dto.userId = userId as any;
+      dto.storageId = group.storageId as any;
+      dto.subtotal = 0;
+      dto.taxAmount = 0;
+      dto.discountAmount = 0;
+      dto.total = 0;
+      dto.relatedTransactionId = saleTransactionId;
+      dto.lines = group.adjLines.map(
+        (l) =>
+          ({
+            productName: l.productName,
+            productVariantId: l.productVariantId,
+            quantity: l.quantity,
+            unitPrice: 0,
+            subtotal: 0,
+            total: 0,
+            notes: 'Backflush dining PREPARADO',
+          }) as CreateTransactionLineDto,
       );
-      if (!recipe) {
-        this.logger.warn(
-          `Sin receta PRODUCTION activa para variante ${variant.id} en cuenta ${order.id}`,
-        );
-        continue;
-      }
+      dto.metadata = {
+        origin: 'DINING_BACKFLUSH',
+        links: {
+          diningOrderId: order.id,
+          saleTransactionId,
+          recipeLinks: group.recipeLinks,
+          storageId: group.storageId,
+        },
+      } as any;
 
-      const outputQty = Number(line.quantity) || 0;
-      for (const rl of recipe.lines.sort(
-        (a, b) => (a.sortOrder ?? 1) - (b.sortOrder ?? 1),
-      )) {
-        const qty = recipeInputQuantityForOutput(
-          Number(rl.qtyPerOutputUnit ?? 0),
-          Number(rl.wasteFactor ?? 0),
-          outputQty,
-        );
-        if (qty <= 0) continue;
-        adjLines.push({
-          productName: `Input ${rl.inputVariantId}`,
-          productVariantId: rl.inputVariantId,
-          quantity: qty,
-          unitPrice: 0,
-          subtotal: 0,
-          total: 0,
-          notes: 'Backflush dining PREPARADO',
-        } as CreateTransactionLineDto);
-      }
-      recipeLinks.push({
-        variantId: variant.id,
-        recipeId: recipe.id,
-        recipeVersion: recipe.version,
-        qty: outputQty,
-      });
+      await this.transactionsService.createTransaction(dto);
     }
-
-    if (adjLines.length === 0) {
-      return;
-    }
-
-    const dto = new CreateTransactionDto();
-    dto.transactionType = TransactionType.ADJUSTMENT_OUT;
-    dto.branchId = order.branchId as any;
-    dto.userId = userId as any;
-    dto.subtotal = 0;
-    dto.taxAmount = 0;
-    dto.discountAmount = 0;
-    dto.total = 0;
-    dto.lines = adjLines;
-    dto.relatedTransactionId = saleTransactionId;
-    dto.metadata = {
-      origin: 'DINING_BACKFLUSH',
-      links: {
-        diningOrderId: order.id,
-        saleTransactionId,
-        recipeLinks,
-      },
-    } as any;
-
-    await this.transactionsService.createTransaction(dto);
   }
 }

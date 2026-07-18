@@ -52,6 +52,7 @@ import { findPresaleTicketByCodeAction } from "@/features/presale-tickets/action
 import { looksLikePresaleTicketCode } from "@/features/presale-tickets/lib/presale-ticket-code";
 import { buildPresaleTicketMeta } from "@/features/presale-tickets/lib/presale-ticket-lines-to-cart";
 import { usePosCart } from "@/features/pos-cart/PosCartProvider";
+import { useCatalogRealtime } from "@/features/pos-catalog/realtime/catalog-realtime-context";
 import { CART_SWITCH_PRICE_LIST_BLOCKED_MESSAGE } from "@/features/pos-cart/lib/pos-cart-price-list";
 
 /**
@@ -371,6 +372,16 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
   useEffect(() => {
     void load();
   }, [load]);
+
+  const { registerCatalogRefresh } = useCatalogRealtime();
+  useEffect(() => {
+    return registerCatalogRefresh((payload) => {
+      const kinds = new Set(payload.kinds);
+      if (kinds.has("PRICE") || kinds.has("PRODUCT") || kinds.has("VARIANT")) {
+        void load();
+      }
+    });
+  }, [registerCatalogRefresh, load]);
 
   const searchTextPending = draftSearch.trim() !== searchQuery.trim();
 

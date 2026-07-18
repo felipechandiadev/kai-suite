@@ -54,6 +54,7 @@ import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { ReceptionsModule } from './modules/receptions/receptions.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { StockRealtimeModule } from './modules/stock-realtime/stock-realtime.module';
+import { CatalogRealtimeModule } from './modules/catalog-realtime/catalog-realtime.module';
 import { DiningRealtimeModule } from './modules/dining-realtime/dining-realtime.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { InstallmentsModule } from './modules/installments/installments.module';
@@ -92,6 +93,7 @@ import { ProductionUnitsModule } from './modules/production-units/production-uni
     CacheModule,
     TenantModule,
     StockRealtimeModule,
+    CatalogRealtimeModule,
     DiningRealtimeModule,
     NotificationsModule,
     HealthModule,

@@ -12,6 +12,8 @@ export enum NotificationDomain {
   HR = 'HR',
   MESSAGING = 'MESSAGING',
   SYSTEM = 'SYSTEM',
+  /** Cambios de catálogo / precios (POS refresh + alerta TopBar). */
+  CATALOG = 'CATALOG',
 }
 
 export enum NotificationSeverity {
@@ -47,5 +49,12 @@ export const EShopNotificationKind = {
   ORDER_STATUS_CHANGED: 'eshop.order.status_changed',
 } as const;
 
+export const PricingNotificationKind = {
+  UPDATED: 'pricing.updated',
+} as const;
+
 export type StockNotificationKindValue =
   (typeof StockNotificationKind)[keyof typeof StockNotificationKind];
+
+export type PricingNotificationKindValue =
+  (typeof PricingNotificationKind)[keyof typeof PricingNotificationKind];

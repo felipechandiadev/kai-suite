@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Inject } from '@nestjs/common';
 import { Repository, DataSource, In } from 'typeorm';
@@ -24,6 +24,7 @@ import { MultimediaServiceAdapter } from '@modules/multimedia/application/servic
 import { attachProductVariantMultimedia } from './helpers/attach-product-variant-multimedia';
 import { applyProductCatalogTextSearch } from './product-catalog-search.util';
 import { ProductEshopVisibilitySyncService } from './services/product-eshop-visibility-sync.service';
+import { CatalogRealtimePublisher } from '@modules/catalog-realtime/catalog-realtime.publisher';
 
 type MovementDirection = 'IN' | 'OUT';
 
@@ -89,7 +90,12 @@ export class ProductsService {
     private readonly dataSource: DataSource,
     private readonly multimediaService: MultimediaServiceAdapter,
     private readonly eshopVisibilitySync: ProductEshopVisibilitySyncService,
-  ) {}
+    @Optional() private readonly catalogRealtime?: CatalogRealtimePublisher,
+  ) {
+    this.logger = new Logger(ProductsService.name);
+  }
+
+  private readonly logger: Logger;
 
   private resolveDirection(type: TransactionType): MovementDirection | null {
     return MOVEMENT_DIRECTION[type] ?? null;
@@ -243,6 +249,22 @@ export class ProductsService {
     const updated = await this.productRepository.findOne({ where: { id } });
     if (!updated)
       return { success: false, message: 'Product not found', statusCode: 404 };
+    try {
+      if (updated.companyId) {
+        this.catalogRealtime?.emitInvalidated({
+          companyId: updated.companyId,
+          kinds: ['PRODUCT'],
+          productIds: [updated.id],
+          at: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Catalog PRODUCT invalidate failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
     return { success: true, product: updated };
   }
 

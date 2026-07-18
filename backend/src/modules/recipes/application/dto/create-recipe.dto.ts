@@ -18,6 +18,10 @@ export class CreateRecipeLineDto {
   wasteFactor?: number;
 
   @IsOptional()
+  @IsBoolean()
+  limitsProjectedStock?: boolean;
+
+  @IsOptional()
   @IsInt()
   @Min(1)
   sortOrder?: number;

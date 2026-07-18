@@ -1,12 +1,18 @@
 import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { CurrentCompany } from '@common/tenant';
 import { RecipesService } from '../application/recipes.service';
+import { RecipeCtpService } from '../application/recipe-ctp.service';
 import { CreateRecipeDto } from '../application/dto/create-recipe.dto';
 import { UpdateRecipeDto } from '../application/dto/update-recipe.dto';
+import { CtpBatchRequestDto } from '../application/dto/ctp-batch.dto';
+import { CtpDetailQueryDto } from '../application/dto/ctp-detail-query.dto';
 
 @Controller('recipes')
 export class RecipesController {
-  constructor(private readonly recipesService: RecipesService) {}
+  constructor(
+    private readonly recipesService: RecipesService,
+    private readonly recipeCtpService: RecipeCtpService,
+  ) {}
 
   @Get()
   async list(
@@ -14,6 +20,31 @@ export class RecipesController {
     @Query('outputVariantId') outputVariantId?: string,
   ) {
     return this.recipesService.list(companyId, outputVariantId);
+  }
+
+  @Post('ctp/batch')
+  async ctpBatch(
+    @CurrentCompany() companyId: string,
+    @Body() dto: CtpBatchRequestDto,
+  ) {
+    const results = await this.recipeCtpService.computeForVariants(
+      companyId,
+      dto.items ?? [],
+      dto.branchId,
+    );
+    return { results };
+  }
+
+  @Get('ctp/detail')
+  async ctpDetail(
+    @CurrentCompany() companyId: string,
+    @Query() query: CtpDetailQueryDto,
+  ) {
+    return this.recipeCtpService.computeDetailForVariant(
+      companyId,
+      query.variantId,
+      query.branchId,
+    );
   }
 
   @Get(':id')

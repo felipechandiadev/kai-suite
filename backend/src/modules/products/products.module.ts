@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CqrsModule } from '@nestjs/cqrs';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
@@ -21,6 +21,7 @@ import { TypeOrmPriceListItemsRepository } from '@modules/price-list-items/infra
 import { MultimediaModule } from '@modules/multimedia/multimedia.module';
 import { BrandsModule } from '@modules/brands/brands.module';
 import { ProductModeModule } from '../../shared/product-mode/product-mode.module';
+import { CatalogRealtimeModule } from '@modules/catalog-realtime/catalog-realtime.module';
 
 // Handlers
 import { CreateProductCommandHandler } from './application/handlers/commands/create-product.handler';
@@ -49,26 +50,22 @@ import { ProductEshopVisibilitySyncService } from './application/services/produc
     MultimediaModule,
     BrandsModule,
     ProductModeModule,
+    forwardRef(() => CatalogRealtimeModule),
   ],
   controllers: [ProductsController],
   providers: [
     ProductCatalogSearchBootstrap,
-    // Legacy service (kept for internal compatibility)
     ProductsService,
     ProductsPosService,
-    // Adapter that controllers should use
     ProductsServiceAdapter,
-    // Repository binding
     {
       provide: PRODUCTS_REPOSITORY,
       useClass: ProductsRepository,
     },
-    // Price list items repository (port binding)
     {
       provide: PRICE_LIST_ITEMS_REPOSITORY,
       useClass: TypeOrmPriceListItemsRepository,
     },
-    // CQRS handlers
     CreateProductCommandHandler,
     UpdateProductCommandHandler,
     RemoveProductCommandHandler,
@@ -77,6 +74,11 @@ import { ProductEshopVisibilitySyncService } from './application/services/produc
     SearchProductsQueryHandler,
     ProductEshopVisibilitySyncService,
   ],
-  exports: [ProductsServiceAdapter, ProductsService, ProductsPosService, ProductEshopVisibilitySyncService],
+  exports: [
+    ProductsServiceAdapter,
+    ProductsService,
+    ProductsPosService,
+    ProductEshopVisibilitySyncService,
+  ],
 })
 export class ProductsModule {}

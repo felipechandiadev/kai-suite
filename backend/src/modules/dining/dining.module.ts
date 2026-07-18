@@ -12,8 +12,12 @@ import { DiningBranchSettings } from './domain/dining-branch-settings.entity';
 import { DiningOrderSequence } from './domain/dining-order-sequence.entity';
 import { RecipesModule } from '@modules/recipes/recipes.module';
 import { TransactionsModule } from '@modules/transactions/transactions.module';
+import { StockLevelsModule } from '@modules/stock-levels/stock-levels.module';
+import { Transaction } from '@modules/transactions/domain/transaction.entity';
 import { DiningBackflushService } from './application/dining-backflush.service';
+import { DiningMaterialReservationService } from './application/dining-material-reservation.service';
 import { DiningOrderNumberService } from './application/dining-order-number.service';
+import { DiningSchemaBootstrap } from './application/dining-schema.bootstrap';
 import { DiningService } from './application/dining.service';
 import { DiningController } from './presentation/dining.controller';
 import { ProductVariantsModule } from '@modules/product-variants/product-variants.module';
@@ -23,6 +27,7 @@ import { ProductVariantsModule } from '@modules/product-variants/product-variant
     forwardRef(() => DiningRealtimeModule),
     RecipesModule,
     TransactionsModule,
+    StockLevelsModule,
     ProductVariantsModule,
     TypeOrmModule.forFeature([
       DiningRoom,
@@ -34,10 +39,17 @@ import { ProductVariantsModule } from '@modules/product-variants/product-variant
       Branch,
       ProductVariant,
       ProductionUnit,
+      Transaction,
     ]),
   ],
   controllers: [DiningController],
-  providers: [DiningService, DiningBackflushService, DiningOrderNumberService],
+  providers: [
+    DiningService,
+    DiningBackflushService,
+    DiningMaterialReservationService,
+    DiningOrderNumberService,
+    DiningSchemaBootstrap,
+  ],
   exports: [DiningService, DiningOrderNumberService],
 })
 export class DiningModule {}

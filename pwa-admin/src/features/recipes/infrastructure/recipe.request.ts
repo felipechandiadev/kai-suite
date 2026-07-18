@@ -57,6 +57,12 @@ function parseRecipe(raw: unknown): RecipeDto | null {
             qtyPerOutputUnit: qty,
             wasteFactor:
               typeof l.wasteFactor === "number" ? l.wasteFactor : l.wasteFactor != null ? Number(l.wasteFactor) : 0,
+            limitsProjectedStock:
+              typeof l.limitsProjectedStock === "boolean"
+                ? l.limitsProjectedStock
+                : l.limitsProjectedStock == null
+                  ? true
+                  : Boolean(l.limitsProjectedStock),
             sortOrder: typeof l.sortOrder === "number" ? l.sortOrder : l.sortOrder != null ? Number(l.sortOrder) : undefined,
             inputProductName:
               l.inputProductName != null ? String(l.inputProductName) : undefined,
@@ -81,6 +87,7 @@ export type CreateRecipePayload = {
     inputVariantId: string;
     qtyPerOutputUnit: number;
     wasteFactor?: number;
+    limitsProjectedStock?: boolean;
     sortOrder?: number;
   }>;
 };

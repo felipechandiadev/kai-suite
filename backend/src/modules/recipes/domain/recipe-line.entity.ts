@@ -25,6 +25,10 @@ export class RecipeLine {
   @Column({ type: 'decimal', precision: 8, scale: 4, default: 0 })
   wasteFactor!: number;
 
+  /** Si true, la línea limita el CTP (capacidad producible) y se reserva al fire. */
+  @Column({ type: 'boolean', default: true })
+  limitsProjectedStock!: boolean;
+
   @Column({ type: 'int', default: 1 })
   sortOrder!: number;
 

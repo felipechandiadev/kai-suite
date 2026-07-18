@@ -66,6 +66,7 @@ import {
   ProductionUnitInventoryMode,
   ProductionUnitScope,
 } from '@modules/production-units/domain/production-unit.enums';
+import { ProductVariantProductionUnit } from '@modules/product-variants/domain/product-variant-production-unit.entity';
 import { TenantContext } from '@common/tenant/tenant.context';
 import { AppConfigService } from '../../backend/src/config/config.service';
 import { MultimediaAsset } from '@modules/multimedia/domain/multimedia-asset.entity';
@@ -2626,6 +2627,7 @@ async function bootstrap() {
             inputVariantId: l.inputVariantId,
             qtyPerOutputUnit: l.qtyPerOutputUnit,
             wasteFactor: l.wasteFactor,
+            limitsProjectedStock: true,
             sortOrder: l.sortOrder,
           }),
         ),
@@ -2636,6 +2638,131 @@ async function bootstrap() {
     console.log(
       `✅ Recetas PRODUCTION: ${recipesCreated} creada(s), ${recipesUpdated} actualizada(s) (total defs=${SEED_DEV_PRODUCTION_RECIPES.length})`,
     );
+
+    // CTP: routing variante → UP + stock insumos en bodega pastelería
+    const pvPuRepo = dataSource.getRepository(ProductVariantProductionUnit);
+    const allUnits = await productionUnitRepo.find({
+      where: { companyId: company.id },
+    });
+    const cocinaMain = allUnits.find(
+      (u) =>
+        u.code === 'COCINA' &&
+        u.branchId === seedBranch.id &&
+        u.scope === ProductionUnitScope.BRANCH,
+    );
+    const cocinaMall = allUnits.find(
+      (u) =>
+        u.code === 'COCINA' &&
+        u.branchId === seedBranchMall.id &&
+        u.scope === ProductionUnitScope.BRANCH,
+    );
+    const pasteleria = allUnits.find(
+      (u) =>
+        u.code === 'PASTELERIA' && u.scope === ProductionUnitScope.COMPANY,
+    );
+
+    const productsForRouting = await productRepo.find({
+      where: { companyId: company.id, deletedAt: IsNull() },
+      select: ['id', 'productType'],
+    });
+    const typeByProductId = new Map(
+      productsForRouting.map((p) => [p.id, p.productType]),
+    );
+    const allVars = await variantRepo.find({
+      where: { companyId: company.id, deletedAt: IsNull() },
+      select: ['id', 'productId'],
+    });
+
+    let routingCount = 0;
+    for (const v of allVars) {
+      const pt = typeByProductId.get(v.productId ?? '');
+      const targets: Array<{ branchId: string; unitId: string }> = [];
+      if (pt === ProductType.PREPARADO && cocinaMain) {
+        targets.push({ branchId: seedBranch.id, unitId: cocinaMain.id });
+        if (cocinaMall) {
+          targets.push({ branchId: seedBranchMall.id, unitId: cocinaMall.id });
+        }
+      }
+      if (pt === ProductType.ELABORADO && pasteleria) {
+        targets.push({ branchId: seedBranch.id, unitId: pasteleria.id });
+        targets.push({ branchId: seedBranchMall.id, unitId: pasteleria.id });
+      }
+      for (const t of targets) {
+        let row = await pvPuRepo.findOne({
+          where: {
+            companyId: company.id,
+            productVariantId: v.id,
+            branchId: t.branchId,
+            productionUnitId: t.unitId,
+          },
+        });
+        if (!row) {
+          row = pvPuRepo.create({
+            companyId: company.id,
+            productVariantId: v.id,
+            branchId: t.branchId,
+            productionUnitId: t.unitId,
+            isDefault: true,
+          });
+        } else {
+          row.isDefault = true;
+        }
+        await pvPuRepo.save(row);
+        // Clear other defaults for same variant+branch
+        await pvPuRepo
+          .createQueryBuilder()
+          .update()
+          .set({ isDefault: false })
+          .where('company_id = :companyId', { companyId: company.id })
+          .andWhere('product_variant_id = :vid', { vid: v.id })
+          .andWhere('branch_id = :bid', { bid: t.branchId })
+          .andWhere('id != :id', { id: row.id })
+          .execute();
+        routingCount += 1;
+      }
+    }
+    console.log(`✅ Routing CTP variante→UP: ${routingCount} vínculo(s)`);
+
+    // Stock de insumos también en bodega pastelería (CTP elaborados)
+    if (seedPasteleriaInput?.id && seedSalaVenta?.id) {
+      const salaLevels = await stockLevelRepo.find({
+        where: { companyId: company.id, storageId: seedSalaVenta.id },
+      });
+      let copied = 0;
+      for (const sl of salaLevels) {
+        const variant = allVars.find((v) => v.id === sl.productVariantId);
+        if (!variant) continue;
+        const pt = typeByProductId.get(variant.productId ?? '');
+        if (pt !== ProductType.INSUMO && pt !== ProductType.PHYSICAL) continue;
+        let dest = await stockLevelRepo.findOne({
+          where: {
+            productVariantId: sl.productVariantId,
+            storageId: seedPasteleriaInput.id,
+          },
+        });
+        if (!dest) {
+          dest = stockLevelRepo.create({
+            companyId: company.id,
+            productVariantId: sl.productVariantId,
+            storageId: seedPasteleriaInput.id,
+            physicalStock: sl.physicalStock,
+            committedStock: 0,
+            availableStock: sl.availableStock,
+            incomingStock: 0,
+          });
+        } else {
+          dest.physicalStock = sl.physicalStock;
+          dest.committedStock = 0;
+          dest.availableStock = sl.availableStock;
+          dest.incomingStock = 0;
+        }
+        await stockLevelRepo.save(dest);
+        copied += 1;
+      }
+      console.log(
+        `✅ Stock insumos copiado a «${SEED_STORAGE_PASTELERIA_NAME}»: ${copied} nivel(es)`,
+      );
+    }
 
     const seedBranchRow = await branchRepo.findOne({ where: { id: seedBranch.id } });
     const cashHubRows: CashHub[] = [];

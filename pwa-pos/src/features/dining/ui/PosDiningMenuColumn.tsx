@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { DotProgress, IconButton, TextField } from "@kai/ui";
-import { addPosDiningOrderItemsAction } from "@/features/dining/actions/dining-pos.action";
+import { addPosDiningOrderItemsAction, batchPosDiningCtpAction } from "@/features/dining/actions/dining-pos.action";
 import type {
   PosDiningMenuGroup,
   PosDiningOrderSummary,
 } from "@/features/dining/types/dining-pos.types";
+import { useDiningCtpStockSubscription } from "@/features/dining/lib/use-dining-ctp-stock-subscription";
+import { useCatalogRealtime } from "@/features/pos-catalog/realtime/catalog-realtime-context";
 import { PosDiningMenuVariantInfoDialog } from "@/features/dining/ui/PosDiningMenuVariantInfoDialog";
 import { searchPosProductsAction } from "@/features/pos-products/actions/pos-products.action";
 import {
@@ -56,7 +58,38 @@ export function PosDiningMenuColumn({
   const [addingId, setAddingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [infoItem, setInfoItem] = useState<PosProductSearchItem | null>(null);
+  const [ctpByVariantId, setCtpByVariantId] = useState<
+    Record<string, number | null>
+  >({});
+  const [ctpStorageIds, setCtpStorageIds] = useState<string[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const refreshCtp = useCallback(async (products: PosProductSearchItem[]) => {
+    const ctx = readPosContextClient();
+    const branchId = ctx?.branchId?.trim() ?? "";
+    if (!branchId || products.length === 0) {
+      setCtpByVariantId({});
+      setCtpStorageIds([]);
+      return;
+    }
+    const res = await batchPosDiningCtpAction({
+      branchId,
+      variantIds: products.map((p) => p.variantId),
+    });
+    if (!res.success) {
+      setCtpByVariantId({});
+      setCtpStorageIds([]);
+      return;
+    }
+    const next: Record<string, number | null> = {};
+    const storages = new Set<string>();
+    for (const row of res.results) {
+      next[row.variantId] = row.producibleQty;
+      if (row.inputStorageId) storages.add(row.inputStorageId);
+    }
+    setCtpByVariantId(next);
+    setCtpStorageIds([...storages]);
+  }, []);
 
   useEffect(() => {
     setPageSize(readPosProductSearchPageSize());
@@ -114,11 +147,32 @@ export function PosDiningMenuColumn({
     }
     setItems(res.products);
     setTotal(res.pagination.total);
-  }, [group, page, pageSize, searchQuery]);
+    void refreshCtp(res.products);
+  }, [group, page, pageSize, searchQuery, refreshCtp]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const reloadCtpOnly = useCallback(() => {
+    void refreshCtp(items);
+  }, [items, refreshCtp]);
+
+  useDiningCtpStockSubscription(ctpStorageIds, reloadCtpOnly);
+
+  const { registerCatalogRefresh } = useCatalogRealtime();
+  useEffect(() => {
+    return registerCatalogRefresh((payload) => {
+      const kinds = new Set(payload.kinds);
+      if (kinds.has("RECIPE") && !kinds.has("PRICE") && !kinds.has("PRODUCT") && !kinds.has("VARIANT")) {
+        void refreshCtp(items);
+        return;
+      }
+      if (kinds.has("PRICE") || kinds.has("PRODUCT") || kinds.has("VARIANT") || kinds.has("RECIPE")) {
+        void load();
+      }
+    });
+  }, [registerCatalogRefresh, items, refreshCtp, load]);
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / Math.max(1, pageSize))),
@@ -234,6 +288,8 @@ export function PosDiningMenuColumn({
               const busy = addingId === item.variantId;
               const saleUnit = posDisplaySaleUnitSymbol(item);
               const canAdd = Boolean(orderId) && !disabled;
+              const cap = ctpByVariantId[item.variantId];
+              const showCap = cap != null;
               return (
                 <div
                   key={item.variantId}
@@ -256,6 +312,15 @@ export function PosDiningMenuColumn({
                       <span className="font-semibold">{formatMoney(item.unitPriceWithTax)}</span>
                       {saleUnit ? (
                         <span className="text-muted-foreground">· {saleUnit}</span>
+                      ) : null}
+                      {showCap ? (
+                        <span
+                          className="rounded border border-border px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+                          data-test-id={`pos-dining-menu-cap-${item.variantId}`}
+                          title="Capacidad producible (CTP)"
+                        >
+                          Cap. {cap}
+                        </span>
                       ) : null}
                     </div>
                   </div>
@@ -327,6 +392,9 @@ export function PosDiningMenuColumn({
         open={infoItem != null}
         onClose={() => setInfoItem(null)}
         item={infoItem}
+        initialProducibleQty={
+          infoItem != null ? (ctpByVariantId[infoItem.variantId] ?? null) : null
+        }
       />
     </aside>
   );

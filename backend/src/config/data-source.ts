@@ -165,6 +165,8 @@ import { StorageProductionInputsType1757010000000 } from '../migrations/17570100
 import { StorageProductionInputsTypeBackfill1757020000000 } from '../migrations/1757020000000-StorageProductionInputsTypeBackfill';
 import { UserCompanyMemberships1757100000000 } from '../migrations/1757100000000-UserCompanyMemberships';
 import { ProductTypeInsumo1757110000000 } from '../migrations/1757110000000-ProductTypeInsumo';
+import { RecipeCtpAndDiningMaterialReservation1757120000000 } from '../migrations/1757120000000-RecipeCtpAndDiningMaterialReservation';
+import { NotificationDomainCatalog1757130000000 } from '../migrations/1757130000000-NotificationDomainCatalog';
 import { FiscalProfile } from '@modules/fiscal/domain/fiscal-profile.entity';
 import { FiscalCertificate } from '@modules/fiscal/domain/fiscal-certificate.entity';
 import { FiscalCaf } from '@modules/fiscal/domain/fiscal-caf.entity';
@@ -398,6 +400,8 @@ export const AppDataSource = new DataSource({
     StorageProductionInputsTypeBackfill1757020000000,
     UserCompanyMemberships1757100000000,
     ProductTypeInsumo1757110000000,
+    RecipeCtpAndDiningMaterialReservation1757120000000,
+    NotificationDomainCatalog1757130000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

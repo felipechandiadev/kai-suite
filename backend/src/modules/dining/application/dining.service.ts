@@ -44,6 +44,7 @@ import {
   mergeDiningOrderCustomerName,
 } from './dining-order-profile.util';
 import { DiningBackflushService } from './dining-backflush.service';
+import { DiningMaterialReservationService } from './dining-material-reservation.service';
 import { DiningOrderNumberService } from './dining-order-number.service';
 import { UpsertDiningTableDto } from './dto/upsert-dining-tables.dto';
 
@@ -81,6 +82,7 @@ export class DiningService {
     private readonly productModeService: ProductModeService,
     private readonly diningRealtimePublisher: DiningRealtimePublisher,
     private readonly diningBackflushService: DiningBackflushService,
+    private readonly diningMaterialReservation: DiningMaterialReservationService,
     private readonly diningOrderNumberService: DiningOrderNumberService,
   ) {}
 
@@ -251,6 +253,10 @@ export class DiningService {
   }
 
   private toSnapshotLine(line: DiningOrderLine): DiningKitchenSnapshotLinePayload {
+    const variantLabel =
+      line.productVariant?.product?.name?.trim() ||
+      line.productVariant?.sku?.trim() ||
+      null;
     return {
       id: line.id,
       diningOrderId: line.diningOrderId,
@@ -262,6 +268,13 @@ export class DiningService {
       sentToKitchenAt: line.sentToKitchenAt?.toISOString() ?? null,
       displayLabel: line.diningOrder?.displayLabel,
       diningTableId: line.diningOrder?.diningTableId ?? null,
+      diningTableCode: line.diningOrder?.diningTable?.code ?? null,
+      productVariant: variantLabel
+        ? {
+            id: line.productVariant?.id ?? line.productVariantId,
+            name: variantLabel,
+          }
+        : null,
     };
   }
 
@@ -792,10 +805,23 @@ export class DiningService {
 
     order.status = recomputeOrderStatusFromLines(order.status, lines);
     await this.diningOrderRepository.save(order);
+
+    try {
+      const userId = this.requireUserId();
+      await this.diningMaterialReservation.reserveForFiredLines(
+        order,
+        draftLines,
+        userId,
+      );
+    } catch (err) {
+      // Fire no bloqueante: la comanda ya está SENT.
+    }
+
     const updated = await this.getOrderOrThrow(orderId, companyId);
     this.publishSessionUpdated(updated);
     for (const line of draftLines) {
-      this.publishKitchenItemUpdated(updated, line);
+      const refreshed = (updated.lines ?? []).find((l) => l.id === line.id) ?? line;
+      this.publishKitchenItemUpdated(updated, refreshed);
     }
     await this.publishKitchenSnapshotsForUnitIds(
       companyId,
@@ -896,6 +922,12 @@ export class DiningService {
       );
     }
 
+    try {
+      await this.diningMaterialReservation.releaseForLine(line);
+    } catch {
+      // Continuar con cancel operativo.
+    }
+
     line.kitchenStatus = KitchenItemStatus.CANCELLED;
     await this.diningOrderLineRepository.save(line);
 
@@ -905,7 +937,14 @@ export class DiningService {
     );
     await this.diningOrderRepository.save(order);
     const updated = await this.getOrderOrThrow(orderId, companyId);
+    const updatedLine = (updated.lines ?? []).find((l) => l.id === lineId);
     this.publishSessionUpdated(updated);
+    if (updatedLine) {
+      this.publishKitchenItemUpdated(updated, updatedLine);
+      await this.publishKitchenSnapshotsForUnitIds(companyId, [
+        updatedLine.productionUnitId ?? line.productionUnitId,
+      ]);
+    }
     return updated;
   }
 
@@ -1063,6 +1102,7 @@ export class DiningService {
       .leftJoinAndSelect('line.diningOrder', 'order')
       .leftJoinAndSelect('order.diningTable', 'diningTable')
       .leftJoinAndSelect('line.productVariant', 'productVariant')
+      .leftJoinAndSelect('productVariant.product', 'product')
       .where('line.productionUnitId = :productionUnitId', { productionUnitId })
       .andWhere('line.kitchenStatus IN (:...statuses)', {
         statuses: KITCHEN_QUEUE_STATUSES,

@@ -62,6 +62,8 @@ export class DiningRealtimeGateway implements OnGatewayInit {
         });
       client.data.activeCompanyId = activeCompanyId;
       client.data.currentUser = currentUser;
+      // Señala al cliente que ya puede subscribe* (evita race con handleConnection async).
+      client.emit('dining.ready', { companyId: activeCompanyId });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       this.logger.warn(`WS dining rechazado: ${msg}`);
@@ -116,7 +118,7 @@ export class DiningRealtimeGateway implements OnGatewayInit {
   @SubscribeMessage('subscribeKitchenUnit')
   async subscribeKitchenUnit(
     @ConnectedSocket() client: Socket,
-    @MessageBody() body: { unitId?: string },
+    @MessageBody() body: { unitId?: string; productionUnitId?: string },
   ) {
     const companyId = client.data.activeCompanyId as string | undefined;
     const currentUser = client.data.currentUser as
@@ -126,7 +128,8 @@ export class DiningRealtimeGateway implements OnGatewayInit {
       return { ok: false, error: 'unauthorized' };
     }
 
-    const unitId = body?.unitId?.trim();
+    const unitId =
+      body?.unitId?.trim() || body?.productionUnitId?.trim() || '';
     if (!unitId) {
       return { ok: false, error: 'unitId_required' };
     }
@@ -177,11 +180,23 @@ export class DiningRealtimeGateway implements OnGatewayInit {
     kitchenStatus: DiningKitchenSnapshotLinePayload['kitchenStatus'];
     productionUnitId?: string | null;
     sentToKitchenAt?: Date | null;
+    productVariant?: {
+      id?: string;
+      sku?: string;
+      name?: string;
+      product?: { name?: string } | null;
+    } | null;
     diningOrder?: {
       displayLabel?: string;
       diningTableId?: string | null;
+      diningTable?: { code?: string } | null;
     } | null;
   }): DiningKitchenSnapshotLinePayload {
+    const variantLabel =
+      line.productVariant?.product?.name?.trim() ||
+      line.productVariant?.name?.trim() ||
+      line.productVariant?.sku?.trim() ||
+      null;
     return {
       id: line.id,
       diningOrderId: line.diningOrderId,
@@ -193,6 +208,13 @@ export class DiningRealtimeGateway implements OnGatewayInit {
       sentToKitchenAt: line.sentToKitchenAt?.toISOString() ?? null,
       displayLabel: line.diningOrder?.displayLabel,
       diningTableId: line.diningOrder?.diningTableId ?? null,
+      diningTableCode: line.diningOrder?.diningTable?.code ?? null,
+      productVariant: variantLabel
+        ? {
+            id: line.productVariant?.id ?? line.productVariantId,
+            name: variantLabel,
+          }
+        : null,
     };
   }
 }

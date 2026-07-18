@@ -1,11 +1,14 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
+import { CatalogRealtimePublisher } from '@modules/catalog-realtime/catalog-realtime.publisher';
 import { Recipe } from '../domain/recipe.entity';
 import { RecipeLine } from '../domain/recipe-line.entity';
 import { CreateRecipeDto } from './dto/create-recipe.dto';
@@ -30,6 +33,8 @@ export type RecipeView = Recipe & {
 
 @Injectable()
 export class RecipesService {
+  private readonly logger = new Logger(RecipesService.name);
+
   constructor(
     @InjectRepository(Recipe)
     private readonly recipeRepo: Repository<Recipe>,
@@ -37,6 +42,7 @@ export class RecipesService {
     private readonly recipeLineRepo: Repository<RecipeLine>,
     @InjectRepository(ProductVariant)
     private readonly variantRepo: Repository<ProductVariant>,
+    @Optional() private readonly catalogRealtime?: CatalogRealtimePublisher,
   ) {}
 
   async list(companyId: string, outputVariantId?: string): Promise<RecipeView[]> {
@@ -104,6 +110,7 @@ export class RecipesService {
         inputVariantId: l.inputVariantId,
         qtyPerOutputUnit: l.qtyPerOutputUnit,
         wasteFactor: l.wasteFactor ?? 0,
+        limitsProjectedStock: l.limitsProjectedStock !== false,
         sortOrder: l.sortOrder ?? 1,
       }),
     );
@@ -111,6 +118,7 @@ export class RecipesService {
       await this.recipeLineRepo.save(lines);
     }
 
+    this.emitRecipeInvalidation(companyId, saved.id, saved.outputVariantId);
     return this.findById(saved.id);
   }
 
@@ -140,13 +148,37 @@ export class RecipesService {
           inputVariantId: (l as any).inputVariantId,
           qtyPerOutputUnit: Number((l as any).qtyPerOutputUnit ?? 0),
           wasteFactor: Number((l as any).wasteFactor ?? 0),
+          limitsProjectedStock: (l as any).limitsProjectedStock !== false,
           sortOrder: Number((l as any).sortOrder ?? 1),
         }),
       );
       await this.recipeLineRepo.save(lines);
     }
 
+    this.emitRecipeInvalidation(companyId, id, current.outputVariantId);
     return this.findById(id);
+  }
+
+  private emitRecipeInvalidation(
+    companyId: string,
+    recipeId: string,
+    outputVariantId: string,
+  ) {
+    try {
+      this.catalogRealtime?.emitInvalidated({
+        companyId,
+        kinds: ['RECIPE'],
+        recipeId,
+        variantIds: [outputVariantId],
+        at: new Date().toISOString(),
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Catalog RECIPE invalidate failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
   }
 
   private async toRecipeView(recipe: Recipe): Promise<RecipeView> {

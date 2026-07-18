@@ -2,6 +2,7 @@
 
 import { DiningPosRequest } from "../infrastructure/dining-pos.request";
 import { DiningRecipesPosRequest } from "../infrastructure/dining-recipes-pos.request";
+import { DiningCtpPosRequest } from "../infrastructure/dining-ctp.request";
 import type { DiningOrderKind, PosDiningMenuGroup } from "../types/dining-pos.types";
 
 export async function listPosDiningOrdersAction(input: {
@@ -89,4 +90,18 @@ export async function searchPosDiningMenuAction(input: {
 
 export async function listPosDiningRecipesForVariantAction(outputVariantId: string) {
   return DiningRecipesPosRequest.listByOutputVariant(outputVariantId);
+}
+
+export async function batchPosDiningCtpAction(input: {
+  branchId: string;
+  variantIds: string[];
+}) {
+  return DiningCtpPosRequest.batch(input);
+}
+
+export async function getPosDiningCtpDetailAction(input: {
+  branchId: string;
+  variantId: string;
+}) {
+  return DiningCtpPosRequest.detail(input);
 }

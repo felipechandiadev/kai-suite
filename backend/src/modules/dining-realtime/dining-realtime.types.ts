@@ -61,6 +61,8 @@ export type DiningKitchenSnapshotLinePayload = {
   sentToKitchenAt?: string | null;
   displayLabel?: string;
   diningTableId?: string | null;
+  diningTableCode?: string | null;
+  productVariant?: { id: string; name: string } | null;
 };
 
 export type DiningKitchenSnapshotPayload = {

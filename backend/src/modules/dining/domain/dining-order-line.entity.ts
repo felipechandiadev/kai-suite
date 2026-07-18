@@ -51,6 +51,13 @@ export class DiningOrderLine {
   @Column({ name: 'sent_to_kitchen_at', type: 'timestamptz', nullable: true })
   sentToKitchenAt?: Date | null;
 
+  /** Tx `INVENTORY_RESERVATION` de insumos al fire (CTP política B). */
+  @Column({ name: 'material_reservation_transaction_id', type: 'uuid', nullable: true })
+  materialReservationTransactionId?: string | null;
+
+  @Column({ name: 'materials_reserved_at', type: 'timestamptz', nullable: true })
+  materialsReservedAt?: Date | null;
+
   @Column({ name: 'ready_at', type: 'timestamptz', nullable: true })
   readyAt?: Date | null;
 

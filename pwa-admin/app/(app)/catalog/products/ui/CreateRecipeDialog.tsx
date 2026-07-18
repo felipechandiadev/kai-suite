@@ -8,6 +8,7 @@ import { Button } from "@kai/ui";
 import { TextField } from "@kai/ui";
 import { IconButton } from "@kai/ui";
 import { NumberStepper } from "@kai/ui";
+import { Switch } from "@kai/ui";
 import {
   createRecipeAction,
   listRecipesByOutputVariantAction,
@@ -39,6 +40,7 @@ type LineDraft = {
   stockBaseUnitLabel: string | null;
   qtyPerOutputUnit: number;
   wasteFactor: number;
+  limitsProjectedStock: boolean;
 };
 
 function recipeTypeForProduct(pt: CreateRecipeDialogProps["productType"]): RecipeTypeDto {
@@ -79,6 +81,7 @@ function linesFromRecipe(recipe: RecipeDto): LineDraft[] {
     stockBaseUnitLabel: line.inputStockBaseUnitLabel?.trim() || null,
     qtyPerOutputUnit: Number(line.qtyPerOutputUnit) || 1,
     wasteFactor: Number(line.wasteFactor ?? 0),
+    limitsProjectedStock: line.limitsProjectedStock !== false,
   }));
 }
 
@@ -208,6 +211,7 @@ export function CreateRecipeDialog({
             stockBaseUnitLabel: item.stockBaseUnitLabel?.trim() || item.unitLabel?.trim() || null,
             qtyPerOutputUnit: 1,
             wasteFactor: 0,
+            limitsProjectedStock: true,
           },
         ];
       });
@@ -219,9 +223,15 @@ export function CreateRecipeDialog({
     setLines((prev) => prev.filter((l) => l.key !== key));
   }, []);
 
-  const updateLine = useCallback((key: string, patch: Partial<Pick<LineDraft, "qtyPerOutputUnit" | "wasteFactor">>) => {
-    setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
-  }, []);
+  const updateLine = useCallback(
+    (
+      key: string,
+      patch: Partial<Pick<LineDraft, "qtyPerOutputUnit" | "wasteFactor" | "limitsProjectedStock">>,
+    ) => {
+      setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+    },
+    [],
+  );
 
   const handleSubmit = () => {
     setError(null);
@@ -229,6 +239,7 @@ export function CreateRecipeDialog({
       inputVariantId: l.variantId.trim(),
       qtyPerOutputUnit: l.qtyPerOutputUnit,
       wasteFactor: Number.isFinite(l.wasteFactor) ? l.wasteFactor : 0,
+      limitsProjectedStock: l.limitsProjectedStock !== false,
     }));
     startTransition(() => {
       void (async () => {
@@ -446,6 +457,7 @@ export function CreateRecipeDialog({
                   <th className="py-2 pr-2">Insumo</th>
                   <th className="w-36 py-2 pr-2">Cantidad</th>
                   <th className="w-36 py-2 pr-2">Desperdicio</th>
+                  <th className="w-28 py-2 pr-2">Limita Cap.</th>
                   <th className="w-12 py-2 text-center"> </th>
                 </tr>
               </thead>
@@ -488,6 +500,16 @@ export function CreateRecipeDialog({
                           data-test-id={`recipe-waste-${line.key}`}
                         />
                       </td>
+                      <td className="py-2 pr-2">
+                        <Switch
+                          checked={line.limitsProjectedStock}
+                          onChange={(checked) =>
+                            updateLine(line.key, { limitsProjectedStock: checked })
+                          }
+                          aria-label="Limita capacidad"
+                          data-test-id={`recipe-limits-ctp-${line.key}`}
+                        />
+                      </td>
                       <td className="py-2 text-center">
                         <IconButton
                           icon="Trash2"
@@ -499,7 +521,7 @@ export function CreateRecipeDialog({
                           data-test-id={`recipe-remove-${line.key}`}
                         />
                       </td>
-                    </tr>
+                  </tr>
                 ))}
               </tbody>
             </table>

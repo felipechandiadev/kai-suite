@@ -84,7 +84,7 @@ export function StockAlertsDropdown() {
           width: coords.width,
         }}
         role="dialog"
-        aria-label="Alertas de stock"
+        aria-label="Alertas"
         data-test-id="stock-alerts-popover"
       >
         <div
@@ -92,7 +92,7 @@ export function StockAlertsDropdown() {
           style={{ borderColor: "var(--color-border)" }}
         >
           <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" aria-hidden />
-          <span className="text-sm font-semibold tracking-tight">Alertas de stock</span>
+          <span className="text-sm font-semibold tracking-tight">Alertas</span>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
           {notificationRows.length === 0 ? (
@@ -100,12 +100,13 @@ export function StockAlertsDropdown() {
               className="px-3 py-8 text-center text-sm"
               style={{ color: "var(--color-muted-foreground, #737373)" }}
             >
-              Sin alertas recientes. Aparecerán al cargar la página o cuando el inventario cruce los
-              umbrales (tiempo real).
+              Sin alertas recientes. Aparecerán al cruzar umbrales de stock o al actualizar precios.
             </p>
           ) : (
             <ul>
-              {notificationRows.map((evt) => (
+              {notificationRows.map((evt) => {
+                const isPricing = evt.kind.startsWith("pricing.");
+                return (
                 <li
                   key={evt.deliveryId}
                   className="border-b px-3 py-2.5 last:border-b-0"
@@ -114,32 +115,35 @@ export function StockAlertsDropdown() {
                   <p className="text-xs font-medium" style={{ color: "var(--color-muted-foreground, #737373)" }}>
                     {formatReceivedAt(evt.receivedAt)}
                   </p>
-                  <p className="mt-1 text-sm font-semibold text-foreground">{evt.productName}</p>
-                  {evt.attributesLabel ? (
+                  <p className="mt-1 text-sm font-semibold text-foreground">
+                    {isPricing ? evt.title : evt.productName}
+                  </p>
+                  {!isPricing && evt.attributesLabel ? (
                     <p className="mt-0.5 text-xs text-muted-foreground">{evt.attributesLabel}</p>
                   ) : null}
-                  {evt.storageName ? (
+                  {!isPricing && evt.storageName ? (
                     <p className="mt-1 text-xs text-muted-foreground">
                       Almacén: <span className="text-foreground">{evt.storageName}</span>
                     </p>
                   ) : null}
                   {evt.body ? (
                     <p className="mt-1 text-xs text-foreground/90">{evt.body}</p>
-                  ) : (
+                  ) : !isPricing ? (
                     <p className="mt-1 text-xs text-foreground/90">
                       Stock físico <strong>{formatQty(evt.physicalStock)}</strong>
                     </p>
-                  )}
+                  ) : null}
                   <ul className="mt-1.5 space-y-0.5 text-xs text-amber-800 dark:text-amber-200">
                     {evt.alertLabels.map((a) => (
                       <li key={a} className="flex items-center gap-1.5">
                         <AlertTriangle className="h-3 w-3 shrink-0 opacity-80" aria-hidden />
-                        <span>{labelNotificationKind(a)}</span>
+                        <span>{labelNotificationKind(isPricing ? evt.kind : a)}</span>
                       </li>
                     ))}
                   </ul>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </div>
@@ -172,8 +176,8 @@ export function StockAlertsDropdown() {
           icon="Bell"
           variant="text"
           size="md"
-          ariaLabel={`Alertas de stock${stockAlertCount > 0 ? `: ${stockAlertCount} nuevas` : ""}`}
-          title="Alertas de stock"
+          ariaLabel={`Alertas${stockAlertCount > 0 ? `: ${stockAlertCount} nuevas` : ""}`}
+          title="Alertas"
           aria-expanded={open}
           aria-haspopup="true"
           onClick={() => setOpen((v) => !v)}

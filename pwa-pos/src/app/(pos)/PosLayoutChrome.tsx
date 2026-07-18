@@ -10,6 +10,7 @@ import { PosOfflineBanner } from "@/features/pos-offline/ui/PosOfflineBanner";
 import { usePosOffline } from "@/features/pos-offline/hooks/use-pos-offline";
 import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
 import { usePosTabletDensity } from "@/shared/hooks/usePosTabletDensity";
+import { PosCatalogRealtimeProvider } from "@/features/pos-catalog/realtime/catalog-realtime-context";
 
 type Props = {
   children: React.ReactNode;
@@ -49,6 +50,7 @@ export default function PosLayoutChrome({ children, topBar }: Props) {
   }
 
   return (
+    <PosCatalogRealtimeProvider>
     <div className="relative flex h-screen overflow-hidden flex-col">
       <PosAmbientBackground />
       <FiscalBoletaBrowserPrintHost />
@@ -84,5 +86,6 @@ export default function PosLayoutChrome({ children, topBar }: Props) {
         </PosCartProvider>
       </main>
     </div>
+    </PosCatalogRealtimeProvider>
   );
 }

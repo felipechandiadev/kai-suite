@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CqrsModule } from '@nestjs/cqrs';
 import { ProductVariant } from './domain/product-variant.entity';
@@ -19,6 +19,7 @@ import { MultimediaModule } from '@modules/multimedia/multimedia.module';
 import { PriceListItemsModule } from '@modules/price-list-items/price-list-items.module';
 import { AttributesModule } from '@modules/attributes/attributes.module';
 import { ProductsModule } from '@modules/products/products.module';
+import { CatalogRealtimeModule } from '@modules/catalog-realtime/catalog-realtime.module';
 import { VariantQuantityConversionService } from './application/variant-quantity-conversion.service';
 import { ProductVariantShippingSchemaBootstrap } from './application/product-variant-shipping-schema.bootstrap';
 import { StockLevel } from '@modules/stock-levels/domain/stock-level.entity';
@@ -49,6 +50,7 @@ import { Branch } from '@modules/branches/domain/branch.entity';
     PriceListItemsModule,
     AttributesModule,
     ProductsModule,
+    forwardRef(() => CatalogRealtimeModule),
   ],
   providers: [
     ProductVariantShippingSchemaBootstrap,

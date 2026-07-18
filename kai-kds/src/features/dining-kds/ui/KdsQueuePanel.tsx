@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@kai/ui";
 import type { DiningOrderLineDto } from "../infrastructure/dining-kds.request";
 import {
@@ -8,6 +8,16 @@ import {
   markKitchenItemReadyAction,
 } from "../actions/kds.action";
 import { useDiningRealtime } from "../realtime/useDiningRealtime";
+import {
+  KDS_QUEUE_STATUSES,
+  type DiningKitchenItemUpdatedPayload,
+  type DiningKitchenSnapshotLinePayload,
+  type DiningKitchenSnapshotPayload,
+} from "../realtime/dining-realtime.types";
+import {
+  playKdsAlertSound,
+  unlockKdsAlertAudio,
+} from "../lib/play-kds-alert-sound";
 import type { KdsSession } from "@/lib/app-session";
 
 type KdsQueuePanelProps = {
@@ -15,20 +25,67 @@ type KdsQueuePanelProps = {
   productionUnitId: string | null;
 };
 
+function snapshotLineToDto(
+  line: DiningKitchenSnapshotLinePayload,
+): DiningOrderLineDto {
+  return {
+    id: line.id,
+    diningOrderId: line.diningOrderId,
+    productVariantId: line.productVariantId,
+    quantity: line.quantity,
+    notes: line.notes ?? null,
+    productionUnitId: line.productionUnitId ?? null,
+    kitchenStatus: line.kitchenStatus,
+    sentToKitchenAt: line.sentToKitchenAt ?? null,
+    productVariant: line.productVariant
+      ? { name: line.productVariant.name }
+      : undefined,
+    diningOrder: {
+      id: line.diningOrderId,
+      displayLabel: line.displayLabel ?? "Cuenta",
+      kind: "",
+      status: "",
+      diningTable: line.diningTableCode
+        ? { code: line.diningTableCode }
+        : undefined,
+    },
+  };
+}
+
 export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps) {
   const [lines, setLines] = useState<DiningOrderLineDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [markingId, setMarkingId] = useState<string | null>(null);
 
+  const knownIdsRef = useRef<Set<string>>(new Set());
+  /** First queue apply after unit change must not alert. */
+  const skipSoundRef = useRef(true);
+
   const auth = {
     userId: session.userId,
     companyId: session.companyId,
   };
 
+  const applyQueue = useCallback((next: DiningOrderLineDto[]) => {
+    const nextIds = new Set(next.map((l) => l.id));
+    if (!skipSoundRef.current) {
+      for (const id of nextIds) {
+        if (!knownIdsRef.current.has(id)) {
+          playKdsAlertSound();
+          break;
+        }
+      }
+    }
+    knownIdsRef.current = nextIds;
+    skipSoundRef.current = false;
+    setLines(next);
+  }, []);
+
   const refresh = useCallback(async () => {
     if (!productionUnitId) {
       setLines([]);
+      knownIdsRef.current = new Set();
       return;
     }
     setLoading(true);
@@ -38,44 +95,83 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
         ...auth,
         productionUnitId,
       });
-      setLines(queue);
+      applyQueue(queue);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al cargar cola");
     } finally {
       setLoading(false);
     }
-  }, [productionUnitId, session.userId, session.companyId]);
+  }, [productionUnitId, session.userId, session.companyId, applyQueue]);
 
   useEffect(() => {
-    refresh();
-    const timer = setInterval(refresh, 15000);
-    return () => clearInterval(timer);
-  }, [refresh]);
+    skipSoundRef.current = true;
+    knownIdsRef.current = new Set();
+    setLines([]);
+    if (!productionUnitId) return;
+    void refresh();
+    // Bootstrap only when production unit changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
+  }, [productionUnitId]);
 
-  useDiningRealtime({
+  useEffect(() => {
+    const unlock = () => unlockKdsAlertAudio();
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+  }, []);
+
+  const handleSnapshot = useCallback(
+    (payload: DiningKitchenSnapshotPayload) => {
+      if (!productionUnitId || payload.unitId !== productionUnitId) return;
+      applyQueue(payload.queue.map(snapshotLineToDto));
+    },
+    [productionUnitId, applyQueue],
+  );
+
+  const handleItemUpdated = useCallback(
+    (payload: DiningKitchenItemUpdatedPayload) => {
+      if (!productionUnitId || payload.unitId !== productionUnitId) return;
+      if (!KDS_QUEUE_STATUSES.has(payload.kitchenStatus)) {
+        setLines((prev) => {
+          const next = prev.filter((l) => l.id !== payload.lineId);
+          knownIdsRef.current = new Set(next.map((l) => l.id));
+          return next;
+        });
+      }
+    },
+    [productionUnitId],
+  );
+
+  const { connected } = useDiningRealtime({
     userId: session.userId,
     activeCompanyId: session.companyId,
     productionUnitId,
-    onKitchenItemUpdated: () => {
-      void refresh();
-    },
-    onKitchenSnapshot: () => {
-      void refresh();
-    },
+    onKitchenSnapshot: handleSnapshot,
+    onKitchenItemUpdated: handleItemUpdated,
   });
 
   const handleMarkReady = async (line: DiningOrderLineDto) => {
+    unlockKdsAlertAudio();
     setMarkingId(line.id);
     setError(null);
+    setLines((prev) => {
+      const next = prev.filter((l) => l.id !== line.id);
+      knownIdsRef.current = new Set(next.map((l) => l.id));
+      return next;
+    });
     try {
       await markKitchenItemReadyAction({
         ...auth,
         orderId: line.diningOrderId,
         lineId: line.id,
       });
-      await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo marcar listo");
+      skipSoundRef.current = true;
+      await refresh();
     } finally {
       setMarkingId(null);
     }
@@ -92,8 +188,29 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
   return (
     <div data-test-id="kds-queue-panel">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="text-base font-semibold">Cola de cocina</h2>
-        <Button type="button" variant="outlined" size="sm" onClick={refresh} loading={loading}>
+        <div className="flex items-center gap-2">
+          <h2 className="text-base font-semibold">Cola de cocina</h2>
+          <span
+            className={
+              connected
+                ? "rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-600"
+                : "rounded bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground"
+            }
+            data-test-id="kds-ws-status"
+          >
+            {connected ? "En vivo" : "Sin conexión"}
+          </span>
+        </div>
+        <Button
+          type="button"
+          variant="outlined"
+          size="sm"
+          onClick={() => {
+            skipSoundRef.current = true;
+            void refresh();
+          }}
+          loading={loading}
+        >
           Actualizar
         </Button>
       </div>
@@ -140,7 +257,7 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
                   variant="primary"
                   className="mt-auto w-full"
                   loading={markingId === line.id}
-                  onClick={() => handleMarkReady(line)}
+                  onClick={() => void handleMarkReady(line)}
                 >
                   Marcar listo
                 </Button>

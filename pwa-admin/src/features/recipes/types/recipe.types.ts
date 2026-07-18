@@ -5,6 +5,7 @@ export type RecipeLineDto = {
   inputVariantId: string;
   qtyPerOutputUnit: number;
   wasteFactor?: number;
+  limitsProjectedStock?: boolean;
   sortOrder?: number;
   inputProductName?: string | null;
   inputSku?: string | null;

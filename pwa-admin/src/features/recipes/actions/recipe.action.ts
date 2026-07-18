@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { PurchasingVariantSearchRequest } from "@/features/purchasing-document/infrastructure/purchasing-variant-search.request";
 import type { PurchasingVariantSearchResult } from "@/features/purchasing-document/types/purchasing-document.types";
 import { RecipeRequest, type CreateRecipePayload } from "../infrastructure/recipe.request";
+import { RecipeCtpRequest } from "../infrastructure/recipe-ctp.request";
+import type { RecipeCtpDetailResponse } from "../types/recipe-ctp.types";
 import type { RecipeDto, RecipeTypeDto } from "../types/recipe.types";
 
 const PRODUCTS_PATH = "/catalog/products";
@@ -28,6 +30,13 @@ export async function listRecipesByOutputVariantAction(outputVariantId: string):
   return RecipeRequest.list(id);
 }
 
+export async function getRecipeCtpDetailAction(input: {
+  variantId: string;
+  branchId: string;
+}): Promise<RecipeCtpDetailResponse> {
+  return RecipeCtpRequest.detail(input);
+}
+
 export type CreateRecipeFormInput = {
   outputVariantId: string;
   recipeType: RecipeTypeDto;
@@ -36,6 +45,7 @@ export type CreateRecipeFormInput = {
     inputVariantId: string;
     qtyPerOutputUnit: number;
     wasteFactor?: number;
+    limitsProjectedStock?: boolean;
   }>;
 };
 
@@ -51,6 +61,7 @@ function normalizeRecipeLinesInput(
     inputVariantId: l.inputVariantId.trim(),
     qtyPerOutputUnit: l.qtyPerOutputUnit,
     wasteFactor: l.wasteFactor ?? 0,
+    limitsProjectedStock: l.limitsProjectedStock !== false,
     sortOrder: i + 1,
   }));
   for (const l of normalized) {

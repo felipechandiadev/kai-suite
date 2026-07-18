@@ -21,6 +21,10 @@ import {
   type NotificationRow,
 } from "@/features/notifications/lib/inbox-mapper";
 import type { NotificationDeliveryWsPayload } from "@/features/notifications/types/notification.types";
+import {
+  playPosAlertSound,
+  unlockPosAlertAudio,
+} from "@/features/notifications/lib/play-pos-alert-sound";
 
 export type { NotificationRow };
 
@@ -43,6 +47,8 @@ export function useStockRealtime() {
 }
 
 function wsPayloadToRow(payload: NotificationDeliveryWsPayload): NotificationRow | null {
+  const domain = payload.notification?.domain;
+  if (domain !== "STOCK" && domain !== "CATALOG") return null;
   return inboxItemToRow(
     {
       deliveryId: payload.deliveryId,
@@ -51,7 +57,7 @@ function wsPayloadToRow(payload: NotificationDeliveryWsPayload): NotificationRow
       readAt: null,
       notification: payload.notification,
     },
-    "STOCK",
+    domain,
   );
 }
 
@@ -76,18 +82,28 @@ export function PosStockRealtimeProvider({
       return;
     }
     try {
-      const [count, inbox] = await Promise.all([
+      const [stockCount, catalogCount, stockInbox, catalogInbox] = await Promise.all([
         fetchUnreadCount(userId, activeCompanyId, "STOCK"),
+        fetchUnreadCount(userId, activeCompanyId, "CATALOG"),
         fetchInbox(userId, activeCompanyId, {
           domain: "STOCK",
           status: "UNREAD",
           limit: 50,
         }),
+        fetchInbox(userId, activeCompanyId, {
+          domain: "CATALOG",
+          status: "UNREAD",
+          limit: 50,
+        }),
       ]);
-      setStockAlertCount(count);
-      const rows = inbox
-        .map((item) => inboxItemToRow(item, "STOCK"))
-        .filter((x): x is NotificationRow => x != null);
+      setStockAlertCount(stockCount + catalogCount);
+      const rows = [
+        ...stockInbox.map((item) => inboxItemToRow(item, "STOCK")),
+        ...catalogInbox.map((item) => inboxItemToRow(item, "CATALOG")),
+      ]
+        .filter((x): x is NotificationRow => x != null)
+        .sort((a, b) => b.receivedAt - a.receivedAt)
+        .slice(0, 50);
       setNotificationRows(rows);
     } catch {
       setStockAlertCount(0);
@@ -97,7 +113,10 @@ export function PosStockRealtimeProvider({
 
   const clearStockAlerts = useCallback(async () => {
     if (!userId) return;
-    await markAllNotificationsRead(userId, activeCompanyId, "STOCK");
+    await Promise.all([
+      markAllNotificationsRead(userId, activeCompanyId, "STOCK"),
+      markAllNotificationsRead(userId, activeCompanyId, "CATALOG"),
+    ]);
     setStockAlertCount(0);
     setNotificationRows([]);
   }, [userId, activeCompanyId]);
@@ -106,6 +125,18 @@ export function PosStockRealtimeProvider({
     if (!userId) return;
     void refreshStockAlerts();
   }, [userId, activeCompanyId, refreshStockAlerts]);
+
+  /** Desbloquea AudioContext con el primer gesto (click/tecla/touch) en el POS. */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const unlock = () => unlockPosAlertAudio();
+    window.addEventListener("pointerdown", unlock, { once: true, capture: true });
+    window.addEventListener("keydown", unlock, { once: true, capture: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock, true);
+      window.removeEventListener("keydown", unlock, true);
+    };
+  }, []);
 
   useEffect(() => {
     const base = getClientBackendApiBase();
@@ -123,8 +154,13 @@ export function PosStockRealtimeProvider({
     socketRef.current = socket;
 
     const onDelivery = (payload: NotificationDeliveryWsPayload) => {
-      if (payload.notification.domain !== "STOCK") return;
       if (payload.status !== "UNREAD") return;
+
+      // Cualquier alerta que llegue al POS (stock, precios, etc.)
+      playPosAlertSound();
+
+      const domain = payload.notification.domain;
+      if (domain !== "STOCK" && domain !== "CATALOG") return;
 
       const row = wsPayloadToRow(payload);
       if (row) {
