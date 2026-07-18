@@ -48,11 +48,25 @@ export type PosDiningOrderSummary = {
   lines: PosDiningOrderLine[];
 };
 
+export type PosDiningTableSummary = {
+  id: string;
+  code: string;
+  label: string;
+};
+
 export type PosDiningRoomSummary = {
   id: string;
   name: string;
   branchId: string;
   isActive: boolean;
+  tables?: PosDiningTableSummary[];
+};
+
+export type PosDiningBranchSettings = {
+  timezone: string;
+  resetTimeLocal: string;
+  allowWaiterOpenTable: boolean;
+  allowPosOpenTable: boolean;
 };
 
 export type PosDiningOrdersListResponse =

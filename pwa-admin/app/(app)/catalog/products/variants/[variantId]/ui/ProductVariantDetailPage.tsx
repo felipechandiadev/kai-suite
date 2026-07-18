@@ -8,6 +8,7 @@ import type { RecipeDto } from "@/features/recipes/types/recipe.types";
 import { CreateRecipeDialog } from "../../../ui/CreateRecipeDialog";
 import {
   catalogProductTypeAllowsRecipeBom,
+  catalogProductTypeIsFinishedGood,
   normalizeCatalogProductType,
 } from "../../../ui/catalog-product-type-options";
 import {
@@ -20,6 +21,7 @@ import { VariantDetailStockValueSection } from "./VariantDetailStockValueSection
 import { VariantDetailLogisticsSection } from "./VariantDetailLogisticsSection";
 import { VariantDetailMultimediaSection } from "./VariantDetailMultimediaSection";
 import { VariantDetailRecipeSection } from "./VariantDetailRecipeSection";
+import { VariantDetailProductionSection } from "./VariantDetailProductionSection";
 import { VariantDetailEShopSection } from "./VariantDetailEShopSection";
 import { VariantDetailPurchasesSection } from "./VariantDetailPurchasesSection";
 import { VariantDetailSiiSection } from "./VariantDetailSiiSection";
@@ -66,10 +68,16 @@ export default function ProductVariantDetailPage({ product, variant: initialVari
   }, [initialVariant]);
 
   const showRecipe = catalogProductTypeAllowsRecipeBom(product.productType);
+  const showProduction = catalogProductTypeIsFinishedGood(product.productType);
 
   const visibleTabs = useMemo(
-    () => (showRecipe ? VARIANT_DETAIL_TABS : VARIANT_DETAIL_TABS.filter((t) => t.id !== "receta")),
-    [showRecipe],
+    () =>
+      VARIANT_DETAIL_TABS.filter((t) => {
+        if (t.id === "receta") return showRecipe;
+        if (t.id === "produccion") return showProduction;
+        return true;
+      }),
+    [showRecipe, showProduction],
   );
 
   useEffect(() => {
@@ -201,6 +209,9 @@ export default function ProductVariantDetailPage({ product, variant: initialVari
               setBomOpen(true);
             }}
           />
+        ) : null}
+        {activeSection === "produccion" && showProduction ? (
+          <VariantDetailProductionSection variantId={variant.id} />
         ) : null}
       </div>
 

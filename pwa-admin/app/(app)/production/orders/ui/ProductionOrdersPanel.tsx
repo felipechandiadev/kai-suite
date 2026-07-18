@@ -42,7 +42,7 @@ const columns: DataGridColumn[] = [
   { field: "fecha", headerName: "Fecha", minWidth: 140, flex: 1, sortable: false, filterable: false },
   { field: "producto", headerName: "Producto", minWidth: 160, flex: 1.4, sortable: false, filterable: false },
   { field: "cantidad", headerName: "Cantidad", width: 100, sortable: false, filterable: false },
-  { field: "almacen", headerName: "Almacén", minWidth: 120, flex: 1, sortable: false, filterable: false },
+  { field: "almacen", headerName: "Insumos / Salida", minWidth: 160, flex: 1.2, sortable: false, filterable: false },
   {
     field: "status",
     headerName: "Estado",
@@ -62,14 +62,19 @@ export function ProductionOrdersPanel({ rows }: Props) {
     producto: r.outputProductName ?? "—",
     cantidad:
       r.outputQuantity != null && Number.isFinite(r.outputQuantity) ? String(r.outputQuantity) : "—",
-    almacen: r.storageName ?? r.storageId ?? "—",
+    almacen: (() => {
+      const input = r.storageName ?? r.storageId ?? "—";
+      const out = r.outputStorageId;
+      if (!out || out === r.storageId) return input;
+      return `${input} → ${out.slice(0, 8)}…`;
+    })(),
   }));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-4" data-test-id="production-orders-panel">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-lg font-semibold text-foreground">Órdenes de producción</h1>
-        <Link href="/inventory/production/orders/new">
+        <Link href="/production/orders/new">
           <Button variant="primary" data-test-id="production-orders-create">
             Crear producción
           </Button>
@@ -80,7 +85,7 @@ export function ProductionOrdersPanel({ rows }: Props) {
         rows={gridRows}
         onRowClick={(row) => {
           const id = (row as GridRow).id;
-          if (id) router.push(`/inventory/production/orders/${id}`);
+          if (id) router.push(`/production/orders/${id}`);
         }}
         data-test-id="production-orders-grid"
       />

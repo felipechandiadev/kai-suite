@@ -156,8 +156,22 @@ export const SEED_BRANCH_ADDRESS = SEED_DEV_COMPANY.address;
 export const SEED_BRANCH_PHONE = SEED_DEV_COMPANY.phone;
 export const SEED_BRANCH_LOCATION = { lat: -36.143, lng: -71.824 };
 
+/** Segunda sucursal Kai Suite (KaiFood multi-sucursal / unidades de producción). */
+export const SEED_BRANCH_2_NAME = 'Local Mall';
+export const SEED_BRANCH_2_ADDRESS = 'Av. Libertad 1200, Parral';
+export const SEED_BRANCH_2_PHONE = SEED_DEV_COMPANY.phone;
+export const SEED_BRANCH_2_LOCATION = { lat: -36.148, lng: -71.830 };
+
 export const SEED_STORAGE_NAME = 'Bodega principal';
 export const SEED_STORAGE_CODE = 'SEED-BODEGA-01';
+
+/** Sala / bodega de la segunda sucursal (insumos dependientes Cocina Mall). */
+export const SEED_STORAGE_2_NAME = 'Bodega Local Mall';
+export const SEED_STORAGE_2_CODE = 'SEED-BODEGA-02';
+
+/** Insumos exclusivos Pastelería central (unidad COMPANY AUTONOMOUS). */
+export const SEED_STORAGE_PASTELERIA_NAME = 'Pastelería · Insumos';
+export const SEED_STORAGE_PASTELERIA_CODE = 'SEED-BODEGA-PAST';
 
 export const SEED_PRICE_LIST_RETAIL_NAME = 'Minorista';
 /** Segunda lista POS (antes «Mayorista»); tipo VIP en BD demo. */

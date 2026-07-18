@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** Legacy path → tab Unidades under Producción. */
+/** Legacy → /production/units */
 export default function LegacyProductionUnitsRedirect() {
-  redirect("/inventory/production/units");
+  redirect("/production/units");
 }

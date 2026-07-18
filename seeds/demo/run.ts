@@ -59,6 +59,10 @@ import { Recipe } from '@modules/recipes/domain/recipe.entity';
 import { RecipeLine } from '@modules/recipes/domain/recipe-line.entity';
 import { RecipeType } from '@modules/recipes/domain/recipe-type.enum';
 import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
+import {
+  ProductionUnitInventoryMode,
+  ProductionUnitScope,
+} from '@modules/production-units/domain/production-unit.enums';
 import { TenantContext } from '@common/tenant/tenant.context';
 import { AppConfigService } from '../../backend/src/config/config.service';
 import { MultimediaAsset } from '@modules/multimedia/domain/multimedia-asset.entity';
@@ -80,6 +84,10 @@ import {
   SEED_BRANCH_LOCATION,
   SEED_BRANCH_NAME,
   SEED_BRANCH_PHONE,
+  SEED_BRANCH_2_ADDRESS,
+  SEED_BRANCH_2_LOCATION,
+  SEED_BRANCH_2_NAME,
+  SEED_BRANCH_2_PHONE,
   SEED_CASH_HUBS,
   SEED_DEV_COMPANY,
   SEED_DEV_COMPANY_SECOND,
@@ -93,6 +101,10 @@ import {
   SEED_PRICE_LIST_VIP_NAME,
   SEED_STORAGE_CODE,
   SEED_STORAGE_NAME,
+  SEED_STORAGE_2_CODE,
+  SEED_STORAGE_2_NAME,
+  SEED_STORAGE_PASTELERIA_CODE,
+  SEED_STORAGE_PASTELERIA_NAME,
   buildSeedCompanyBankAccounts,
   buildSeedCompanyPaymentCatalog,
   buildSeedCompanySettings,
@@ -1800,7 +1812,41 @@ async function bootstrap() {
     await branchRepo.save(seedBranch);
     console.log(`✅ Sucursal «${SEED_BRANCH_NAME}» marcada como casa matriz (isHeadquarters)`);
 
-    // Almacén ejemplo: sala de venta en sucursal seed (único almacén del seed)
+    let seedBranchMall = await branchRepo.findOne({
+      where: { companyId: company.id, name: SEED_BRANCH_2_NAME },
+      withDeleted: true,
+    });
+    if (!seedBranchMall) {
+      seedBranchMall = branchRepo.create({
+        companyId: company.id,
+        name: SEED_BRANCH_2_NAME,
+        address: SEED_BRANCH_2_ADDRESS,
+        phone: SEED_BRANCH_2_PHONE,
+        location: SEED_BRANCH_2_LOCATION,
+        isActive: true,
+        isHeadquarters: false,
+      });
+      await branchRepo.save(seedBranchMall);
+      console.log(
+        `✅ Segunda sucursal creada: «${SEED_BRANCH_2_NAME}» id=${seedBranchMall.id}`,
+      );
+    } else {
+      if (seedBranchMall.deletedAt) {
+        seedBranchMall = await branchRepo.recover(seedBranchMall);
+      }
+      seedBranchMall.companyId = company.id;
+      seedBranchMall.address = SEED_BRANCH_2_ADDRESS;
+      seedBranchMall.phone = SEED_BRANCH_2_PHONE;
+      seedBranchMall.location = SEED_BRANCH_2_LOCATION;
+      seedBranchMall.isActive = true;
+      seedBranchMall.isHeadquarters = false;
+      await branchRepo.save(seedBranchMall);
+      console.log(
+        `✅ Segunda sucursal «${SEED_BRANCH_2_NAME}» ya existía: id=${seedBranchMall.id} (sincronizado)`,
+      );
+    }
+
+    // Almacenes demo: bodega casa matriz + bodega Local Mall
     const storageRepo = dataSource.getRepository(Storage);
 
     let seedSalaVenta = await storageRepo.findOne({
@@ -1839,7 +1885,83 @@ async function bootstrap() {
       );
     }
 
-    // Único almacén activo de la empresa seed: Sala de venta (predeterminado).
+    let seedStorageMall = await storageRepo.findOne({
+      where: { companyId: company.id, code: SEED_STORAGE_2_CODE },
+      withDeleted: true,
+    });
+    if (!seedStorageMall) {
+      seedStorageMall = storageRepo.create({
+        companyId: company.id,
+        name: SEED_STORAGE_2_NAME,
+        code: SEED_STORAGE_2_CODE,
+        branchId: seedBranchMall.id,
+        type: StorageType.STORE,
+        category: StorageCategory.IN_BRANCH,
+        isDefault: false,
+        isActive: true,
+      });
+      await storageRepo.save(seedStorageMall);
+      console.log(
+        `✅ Almacén segunda sucursal creado: «${SEED_STORAGE_2_NAME}» id=${seedStorageMall.id} branchId=${seedBranchMall.id}`,
+      );
+    } else {
+      if (seedStorageMall.deletedAt) {
+        seedStorageMall = await storageRepo.recover(seedStorageMall);
+      }
+      seedStorageMall.companyId = company.id;
+      seedStorageMall.name = SEED_STORAGE_2_NAME;
+      seedStorageMall.branchId = seedBranchMall.id;
+      seedStorageMall.type = StorageType.STORE;
+      seedStorageMall.category = StorageCategory.IN_BRANCH;
+      seedStorageMall.isDefault = false;
+      seedStorageMall.isActive = true;
+      await storageRepo.save(seedStorageMall);
+      console.log(
+        `✅ Almacén «${SEED_STORAGE_2_NAME}» ya existía: id=${seedStorageMall.id} (sincronizado)`,
+      );
+    }
+
+    const seedStorageKeepIds = new Set([
+      seedSalaVenta.id,
+      seedStorageMall.id,
+    ]);
+
+    let seedPasteleriaInput = await storageRepo.findOne({
+      where: { companyId: company.id, code: SEED_STORAGE_PASTELERIA_CODE },
+      withDeleted: true,
+    });
+    if (!seedPasteleriaInput) {
+      seedPasteleriaInput = storageRepo.create({
+        companyId: company.id,
+        name: SEED_STORAGE_PASTELERIA_NAME,
+        code: SEED_STORAGE_PASTELERIA_CODE,
+        branchId: null,
+        type: StorageType.PRODUCTION_INPUTS,
+        category: StorageCategory.PRODUCTION_INPUT,
+        isDefault: false,
+        isActive: true,
+      });
+      await storageRepo.save(seedPasteleriaInput);
+      console.log(
+        `✅ Almacén insumos pastelería creado: «${SEED_STORAGE_PASTELERIA_NAME}» id=${seedPasteleriaInput.id}`,
+      );
+    } else {
+      if (seedPasteleriaInput.deletedAt) {
+        seedPasteleriaInput = await storageRepo.recover(seedPasteleriaInput);
+      }
+      seedPasteleriaInput.name = SEED_STORAGE_PASTELERIA_NAME;
+      seedPasteleriaInput.branchId = null;
+      seedPasteleriaInput.type = StorageType.PRODUCTION_INPUTS;
+      seedPasteleriaInput.category = StorageCategory.PRODUCTION_INPUT;
+      seedPasteleriaInput.isActive = true;
+      await storageRepo.save(seedPasteleriaInput);
+      console.log(
+        `✅ Almacén «${SEED_STORAGE_PASTELERIA_NAME}» sincronizado id=${seedPasteleriaInput.id}`,
+      );
+    }
+    seedStorageKeepIds.add(seedPasteleriaInput.id);
+
+    // Almacén predeterminado de la empresa: Casa matriz.
     await storageRepo.update({ companyId: company.id }, { isDefault: false });
     await storageRepo.update({ id: seedSalaVenta.id }, { isDefault: true, isActive: true });
 
@@ -1854,7 +1976,7 @@ async function bootstrap() {
     });
     let removedStorageCount = 0;
     for (const st of extraStorages) {
-      if (st.id === seedSalaVenta.id) {
+      if (seedStorageKeepIds.has(st.id)) {
         continue;
       }
       await storageRepo.softRemove(st);
@@ -2322,35 +2444,90 @@ async function bootstrap() {
     );
 
     const productionUnitRepo = dataSource.getRepository(ProductionUnit);
+
     for (const unitDef of SEED_DEV_PRODUCTION_UNITS) {
+      const scope =
+        unitDef.scope === 'COMPANY'
+          ? ProductionUnitScope.COMPANY
+          : ProductionUnitScope.BRANCH;
+      const inventoryMode =
+        unitDef.inventoryMode === 'AUTONOMOUS'
+          ? ProductionUnitInventoryMode.AUTONOMOUS
+          : ProductionUnitInventoryMode.DEPENDENT;
+
+      const branchId =
+        scope === ProductionUnitScope.COMPANY
+          ? null
+          : unitDef.branchKey === 'mall'
+            ? seedBranchMall.id
+            : seedBranch.id;
+
+      const sharedStorage =
+        scope === ProductionUnitScope.COMPANY
+          ? seedSalaVenta
+          : unitDef.branchKey === 'mall'
+            ? seedStorageMall
+            : seedSalaVenta;
+
+      const inputStorage =
+        inventoryMode === ProductionUnitInventoryMode.AUTONOMOUS
+          ? seedPasteleriaInput
+          : sharedStorage;
+      const outputStorage = sharedStorage;
+
       let unit = await productionUnitRepo.findOne({
-        where: {
-          companyId: company.id,
-          branchId: seedBranch.id,
-          code: unitDef.code,
-        },
+        where:
+          scope === ProductionUnitScope.COMPANY
+            ? {
+                companyId: company.id,
+                scope: ProductionUnitScope.COMPANY,
+                code: unitDef.code,
+              }
+            : {
+                companyId: company.id,
+                branchId: branchId!,
+                code: unitDef.code,
+              },
       });
+
+      const unitLabel =
+        scope === ProductionUnitScope.COMPANY
+          ? `${unitDef.name} (empresa)`
+          : `${unitDef.name} (${unitDef.branchKey === 'mall' ? SEED_BRANCH_2_NAME : SEED_BRANCH_NAME})`;
+
       if (!unit) {
         unit = productionUnitRepo.create({
           companyId: company.id,
-          branchId: seedBranch.id,
+          branchId,
+          scope,
+          inventoryMode,
           code: unitDef.code,
           name: unitDef.name,
-          defaultInputStorageId: seedSalaVenta.id,
+          defaultInputStorageId: inputStorage.id,
+          defaultOutputStorageId: outputStorage.id,
           isActive: true,
         });
         await productionUnitRepo.save(unit);
         console.log(
-          `✅ Unidad de producción creada: «${unitDef.name}» (${unitDef.code}) id=${unit.id}`,
+          `✅ Unidad de producción creada: «${unitLabel}» (${unitDef.code}) id=${unit.id}`,
         );
       } else {
         unit.name = unitDef.name;
-        unit.defaultInputStorageId = seedSalaVenta.id;
+        unit.branchId = branchId;
+        unit.scope = scope;
+        unit.inventoryMode = inventoryMode;
+        unit.defaultInputStorageId = inputStorage.id;
+        unit.defaultOutputStorageId = outputStorage.id;
         unit.isActive = true;
         await productionUnitRepo.save(unit);
         console.log(
-          `✅ Unidad de producción sincronizada: «${unitDef.name}» (${unitDef.code}) id=${unit.id}`,
+          `✅ Unidad de producción sincronizada: «${unitLabel}» (${unitDef.code}) id=${unit.id}`,
         );
+      }
+
+      if (inventoryMode === ProductionUnitInventoryMode.AUTONOMOUS) {
+        seedPasteleriaInput.productionUnitId = unit.id;
+        await storageRepo.save(seedPasteleriaInput);
       }
     }
 

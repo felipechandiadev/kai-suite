@@ -15,6 +15,8 @@ import { ListProductVariantsDto } from '../application/dto/list-product-variants
 import { SearchPurchasingVariantsDto } from '../application/dto/search-purchasing-variants.dto';
 import { VariantPurchaseInsightsQueryDto } from '../application/dto/variant-purchase-insights.dto';
 import { VariantSalePriceHistoryQueryDto } from '../application/dto/variant-sale-price-history.dto';
+import { UpsertVariantProductionUnitsDto } from '../application/dto/upsert-variant-production-units.dto';
+import { UpsertVariantBranchAvailabilityDto } from '../application/dto/upsert-variant-branch-availability.dto';
 
 @Controller('product-variants')
 export class ProductVariantsController {
@@ -56,6 +58,42 @@ export class ProductVariantsController {
       limit: query.limit,
     });
     return { success: true, data };
+  }
+
+  @Get(':id/production-units')
+  async listProductionUnits(@Param('id') id: string) {
+    const items = await this.variantsService.listProductionUnitRouting(id);
+    return { items };
+  }
+
+  @Put(':id/production-units')
+  async upsertProductionUnits(
+    @Param('id') id: string,
+    @Body() body: UpsertVariantProductionUnitsDto,
+  ) {
+    const items = await this.variantsService.upsertProductionUnitRouting(
+      id,
+      body.items ?? [],
+    );
+    return { items };
+  }
+
+  @Get(':id/branch-availability')
+  async listBranchAvailability(@Param('id') id: string) {
+    const items = await this.variantsService.listBranchAvailability(id);
+    return { items };
+  }
+
+  @Put(':id/branch-availability')
+  async upsertBranchAvailability(
+    @Param('id') id: string,
+    @Body() body: UpsertVariantBranchAvailabilityDto,
+  ) {
+    const items = await this.variantsService.upsertBranchAvailability(
+      id,
+      body.items ?? [],
+    );
+    return { items };
   }
 
   @Get(':id')

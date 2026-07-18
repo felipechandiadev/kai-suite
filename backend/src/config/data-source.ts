@@ -22,6 +22,8 @@ import { DocumentSequence } from '@modules/transactions/domain/document-sequence
 import { TransactionLine } from '@modules/transaction-lines/domain/transaction-line.entity';
 import { Product } from '@modules/products/domain/product.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
+import { ProductVariantProductionUnit } from '@modules/product-variants/domain/product-variant-production-unit.entity';
+import { ProductVariantBranchAvailability } from '@modules/product-variants/domain/product-variant-branch-availability.entity';
 import { Customer } from '@modules/customers/domain/customer.entity';
 import { Tax } from '@modules/taxes/domain/tax.entity';
 import { Unit } from '@modules/units/domain/unit.entity';
@@ -32,6 +34,8 @@ import { DiningRoom } from '@modules/dining/domain/dining-room.entity';
 import { DiningTable } from '@modules/dining/domain/dining-table.entity';
 import { DiningOrder } from '@modules/dining/domain/dining-order.entity';
 import { DiningOrderLine } from '@modules/dining/domain/dining-order-line.entity';
+import { DiningBranchSettings } from '@modules/dining/domain/dining-branch-settings.entity';
+import { DiningOrderSequence } from '@modules/dining/domain/dining-order-sequence.entity';
 import { Supplier } from '@modules/suppliers/domain/supplier.entity';
 import { TreasuryAccount } from '@modules/treasury-accounts/domain/treasury-account.entity';
 import { Storage } from '@modules/storages/domain/storage.entity';
@@ -148,6 +152,14 @@ import { PersonDocumentTypeDniToOther1756910000000 } from '../migrations/1756910
 import { BackfillPaymentInBankAccountKey1756920000000 } from '../migrations/1756920000000-BackfillPaymentInBankAccountKey';
 import { ProductionUnits1756930000000 } from '../migrations/1756930000000-ProductionUnits';
 import { Dining1756940000000 } from '../migrations/1756940000000-Dining';
+import { DiningOrderNumbering1756950000000 } from '../migrations/1756950000000-DiningOrderNumbering';
+import { DiningOpenTablePolicy1756960000000 } from '../migrations/1756960000000-DiningOpenTablePolicy';
+import { VariantProductionUnitRouting1756970000000 } from '../migrations/1756970000000-VariantProductionUnitRouting';
+import { ProductionUnitScopeAndMode1756980000000 } from '../migrations/1756980000000-ProductionUnitScopeAndMode';
+import { VariantBranchAvailability1756990000000 } from '../migrations/1756990000000-VariantBranchAvailability';
+import { StorageProductionInputCategory1757000000000 } from '../migrations/1757000000000-StorageProductionInputCategory';
+import { StorageProductionInputsType1757010000000 } from '../migrations/1757010000000-StorageProductionInputsType';
+import { StorageProductionInputsTypeBackfill1757020000000 } from '../migrations/1757020000000-StorageProductionInputsTypeBackfill';
 import { FiscalProfile } from '@modules/fiscal/domain/fiscal-profile.entity';
 import { FiscalCertificate } from '@modules/fiscal/domain/fiscal-certificate.entity';
 import { FiscalCaf } from '@modules/fiscal/domain/fiscal-caf.entity';
@@ -207,6 +219,8 @@ export const AppDataSource = new DataSource({
     TransactionLine,
     Product,
     ProductVariant,
+    ProductVariantProductionUnit,
+    ProductVariantBranchAvailability,
     Customer,
     Tax,
     Unit,
@@ -217,6 +231,8 @@ export const AppDataSource = new DataSource({
     DiningTable,
     DiningOrder,
     DiningOrderLine,
+    DiningBranchSettings,
+    DiningOrderSequence,
     Supplier,
     TreasuryAccount,
     Storage,
@@ -364,6 +380,14 @@ export const AppDataSource = new DataSource({
     BackfillPaymentInBankAccountKey1756920000000,
     ProductionUnits1756930000000,
     Dining1756940000000,
+    DiningOrderNumbering1756950000000,
+    DiningOpenTablePolicy1756960000000,
+    VariantProductionUnitRouting1756970000000,
+    ProductionUnitScopeAndMode1756980000000,
+    VariantBranchAvailability1756990000000,
+    StorageProductionInputCategory1757000000000,
+    StorageProductionInputsType1757010000000,
+    StorageProductionInputsTypeBackfill1757020000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

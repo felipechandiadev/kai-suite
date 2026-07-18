@@ -18,6 +18,14 @@ export async function listPosDiningRoomsAction(branchId?: string) {
   return DiningPosRequest.listRooms(branchId);
 }
 
+export async function getPosDiningBranchSettingsAction(branchId: string) {
+  return DiningPosRequest.getBranchSettings(branchId);
+}
+
+export async function openPosTableOrderAction(branchId: string, diningTableId: string) {
+  return DiningPosRequest.openTable(branchId, diningTableId);
+}
+
 export async function openPosCounterOrderAction(branchId: string) {
   return DiningPosRequest.openCounter(branchId);
 }
@@ -49,8 +57,15 @@ export async function updatePosDiningOrderProfileAction(
   return DiningPosRequest.updateOrderProfile(orderId, input);
 }
 
-export async function sendPosDiningOrderToKitchenAction(orderId: string) {
-  return DiningPosRequest.sendToKitchen(orderId);
+export async function sendPosDiningOrderToKitchenAction(
+  orderId: string,
+  lineIds?: string[],
+) {
+  return DiningPosRequest.sendToKitchen(orderId, lineIds);
+}
+
+export async function cancelPosDiningOrderItemAction(orderId: string, lineId: string) {
+  return DiningPosRequest.cancelOrderItem(orderId, lineId);
 }
 
 export async function requestPosDiningBillAction(orderId: string) {

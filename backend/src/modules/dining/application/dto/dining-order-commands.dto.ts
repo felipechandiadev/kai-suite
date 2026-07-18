@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -50,6 +51,11 @@ export class OpenTableDto {
   @IsNotEmpty()
   @IsUUID()
   diningTableId!: string;
+
+  /** Canal que solicita la apertura (política por sucursal). */
+  @IsNotEmpty()
+  @IsIn(['WAITER', 'POS'])
+  openedFrom!: 'WAITER' | 'POS';
 
   @IsOptional()
   profile?: DiningOrderProfileDto;

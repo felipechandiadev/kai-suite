@@ -28,6 +28,7 @@ export class StorageDto {
   location?: GeoPoint | null;
   isDefault: boolean;
   isActive: boolean;
+  productionUnitId?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
   deletedAt?: Date | null;

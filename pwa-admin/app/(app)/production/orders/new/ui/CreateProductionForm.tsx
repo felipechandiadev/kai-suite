@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button, Select, TextField } from "@kai/ui";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
 import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
+import type { ProductionUnitListItem } from "@/features/inventory-production-units/types/production-unit.types";
 import {
   createProductionBatchAction,
   previewRecipeInputsAction,
@@ -14,6 +15,7 @@ import {
 type Props = {
   branches: BranchListItem[];
   storages: StorageListItem[];
+  productionUnits: ProductionUnitListItem[];
 };
 
 type VariantOption = {
@@ -23,10 +25,16 @@ type VariantOption = {
   productType: string;
 };
 
-export function CreateProductionForm({ branches, storages }: Props) {
+export function CreateProductionForm({
+  branches,
+  storages,
+  productionUnits,
+}: Props) {
   const router = useRouter();
   const [branchId, setBranchId] = useState(branches[0]?.id ?? "");
-  const [storageId, setStorageId] = useState(storages[0]?.id ?? "");
+  const [productionUnitId, setProductionUnitId] = useState("");
+  const [storageId, setStorageId] = useState("");
+  const [outputStorageId, setOutputStorageId] = useState("");
   const [query, setQuery] = useState("");
   const [options, setOptions] = useState<VariantOption[]>([]);
   const [selected, setSelected] = useState<VariantOption | null>(null);
@@ -40,17 +48,40 @@ export function CreateProductionForm({ branches, storages }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
 
-  const branchStorages = useMemo(() => {
-    if (!branchId) return storages;
-    const filtered = storages.filter((s) => !s.branchId || s.branchId === branchId);
-    return filtered.length > 0 ? filtered : storages;
-  }, [storages, branchId]);
+  const unitsForBranch = useMemo(() => {
+    if (!branchId) return productionUnits.filter((u) => u.isActive);
+    return productionUnits.filter(
+      (u) =>
+        u.isActive &&
+        (u.scope === "COMPANY" || u.branchId === branchId),
+    );
+  }, [productionUnits, branchId]);
+
+  const storageLabel = (id: string) => {
+    const s = storages.find((x) => x.id === id);
+    return s?.name ?? id;
+  };
 
   useEffect(() => {
-    if (!branchStorages.some((s) => s.id === storageId)) {
-      setStorageId(branchStorages[0]?.id ?? "");
+    if (!unitsForBranch.some((u) => u.id === productionUnitId)) {
+      const first = unitsForBranch[0];
+      setProductionUnitId(first?.id ?? "");
+      if (first) {
+        setStorageId(first.defaultInputStorageId ?? "");
+        setOutputStorageId(first.defaultOutputStorageId ?? "");
+      } else {
+        setStorageId("");
+        setOutputStorageId("");
+      }
     }
-  }, [branchStorages, storageId]);
+  }, [unitsForBranch, productionUnitId]);
+
+  useEffect(() => {
+    const unit = unitsForBranch.find((u) => u.id === productionUnitId);
+    if (!unit) return;
+    setStorageId(unit.defaultInputStorageId ?? "");
+    setOutputStorageId(unit.defaultOutputStorageId ?? "");
+  }, [productionUnitId, unitsForBranch]);
 
   useEffect(() => {
     const q = query.trim();
@@ -104,6 +135,14 @@ export function CreateProductionForm({ branches, storages }: Props) {
       setError("Seleccione un producto terminado");
       return;
     }
+    if (!productionUnitId) {
+      setError("Seleccione una unidad de producción");
+      return;
+    }
+    if (!storageId || !outputStorageId) {
+      setError("La unidad debe tener almacén de insumos y de salida");
+      return;
+    }
     const qty = Number(quantity);
     if (!Number.isFinite(qty) || qty <= 0) {
       setError("Cantidad inválida");
@@ -114,6 +153,8 @@ export function CreateProductionForm({ branches, storages }: Props) {
     const result = await createProductionBatchAction({
       branchId,
       storageId,
+      outputStorageId,
+      productionUnitId,
       productVariantId: selected.variantId,
       productName: `${selected.productName} (${selected.sku})`,
       quantity: qty,
@@ -125,7 +166,7 @@ export function CreateProductionForm({ branches, storages }: Props) {
       setError(result.message);
       return;
     }
-    router.push(`/inventory/production/orders/${result.batch.id}`);
+    router.push(`/production/orders/${result.batch.id}`);
   };
 
   return (
@@ -139,11 +180,27 @@ export function CreateProductionForm({ branches, storages }: Props) {
         options={branches.map((b) => ({ id: b.id, label: b.name }))}
       />
       <Select
-        label="Almacén"
-        value={storageId}
-        onChange={(v) => setStorageId(String(v))}
-        options={branchStorages.map((s) => ({ id: s.id, label: s.name }))}
+        label="Unidad de producción"
+        value={productionUnitId || null}
+        onChange={(v) => setProductionUnitId(v ? String(v) : "")}
+        options={unitsForBranch.map((u) => ({
+          id: u.id,
+          label: `${u.name} (${u.code})`,
+        }))}
+        data-test-id="production-unit-select"
       />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm">
+          <p className="text-muted-foreground">Almacén de insumos</p>
+          <p className="font-medium">{storageId ? storageLabel(storageId) : "—"}</p>
+        </div>
+        <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm">
+          <p className="text-muted-foreground">Almacén de salida</p>
+          <p className="font-medium">
+            {outputStorageId ? storageLabel(outputStorageId) : "—"}
+          </p>
+        </div>
+      </div>
 
       <TextField
         label="Buscar producto terminado"
@@ -221,12 +278,19 @@ export function CreateProductionForm({ branches, storages }: Props) {
       ) : null}
 
       <div className="flex justify-end gap-2">
-        <Button variant="outlined" onClick={() => router.push("/inventory/production/orders")}>
+        <Button variant="outlined" onClick={() => router.push("/production/orders")}>
           Volver
         </Button>
         <Button
           variant="primary"
-          disabled={saving || !selected || !branchId || !storageId}
+          disabled={
+            saving ||
+            !selected ||
+            !branchId ||
+            !productionUnitId ||
+            !storageId ||
+            !outputStorageId
+          }
           onClick={() => void handleCreate()}
           data-test-id="production-create-submit"
         >

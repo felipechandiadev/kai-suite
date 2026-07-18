@@ -2,7 +2,9 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/auth-options";
 import type {
   CreateProductionUnitInput,
+  ProductionUnitInventoryMode,
   ProductionUnitListItem,
+  ProductionUnitScope,
   UpdateProductionUnitInput,
 } from "../types/production-unit.types";
 
@@ -23,21 +25,31 @@ async function authHeaders(): Promise<HeadersInit> {
 }
 
 function mapUnit(raw: Record<string, unknown>): ProductionUnitListItem {
+  const scope: ProductionUnitScope =
+    raw.scope === "COMPANY" ? "COMPANY" : "BRANCH";
+  const inventoryMode: ProductionUnitInventoryMode =
+    raw.inventoryMode === "AUTONOMOUS" ? "AUTONOMOUS" : "DEPENDENT";
   return {
     id: String(raw.id),
-    branchId: String(raw.branchId),
+    branchId: raw.branchId != null ? String(raw.branchId) : null,
+    scope,
+    inventoryMode,
     code: String(raw.code ?? ""),
     name: String(raw.name ?? ""),
     defaultInputStorageId:
       raw.defaultInputStorageId != null ? String(raw.defaultInputStorageId) : null,
+    defaultOutputStorageId:
+      raw.defaultOutputStorageId != null ? String(raw.defaultOutputStorageId) : null,
     isActive: raw.isActive !== false,
   };
 }
 
 export const ProductionUnitRequest = {
   async list(branchId?: string): Promise<ProductionUnitListItem[]> {
-    const qs = branchId ? `?branchId=${encodeURIComponent(branchId)}` : "";
-    const res = await fetch(apiUrl(`/production-units${qs}`), {
+    const qs = new URLSearchParams();
+    if (branchId) qs.set("branchId", branchId);
+    qs.set("includeInactive", "true");
+    const res = await fetch(apiUrl(`/production-units?${qs.toString()}`), {
       headers: await authHeaders(),
       cache: "no-store",
     });
@@ -80,7 +92,21 @@ export const ProductionUnitRequest = {
       headers: await authHeaders(),
       body: JSON.stringify(input),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      let message = `No se pudo actualizar la unidad (HTTP ${res.status})`;
+      try {
+        const json = JSON.parse(text) as { message?: string | string[] };
+        if (typeof json.message === "string" && json.message.trim()) {
+          message = json.message.trim();
+        } else if (Array.isArray(json.message)) {
+          message = json.message.map(String).filter(Boolean).join(", ") || message;
+        }
+      } catch {
+        if (text.trim()) message = text.trim();
+      }
+      throw new Error(message);
+    }
     return mapUnit((await res.json()) as Record<string, unknown>);
   },
 };

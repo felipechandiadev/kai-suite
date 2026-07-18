@@ -1,5 +1,5 @@
 import {
-  STORAGE_CATEGORIES,
+  STORAGE_CATEGORIES_MANUAL,
   STORAGE_TYPES,
   storageCategoryLabel,
   storageTypeLabel,
@@ -10,7 +10,7 @@ export const STORAGE_TYPE_SELECT_OPTIONS = STORAGE_TYPES.map((id) => ({
   label: storageTypeLabel(id),
 }));
 
-export const STORAGE_CATEGORY_SELECT_OPTIONS = STORAGE_CATEGORIES.map((id) => ({
+export const STORAGE_CATEGORY_SELECT_OPTIONS = STORAGE_CATEGORIES_MANUAL.map((id) => ({
   id,
   label: storageCategoryLabel(id),
 }));

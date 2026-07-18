@@ -48,6 +48,13 @@ export class DiningOrder {
   @Column({ name: 'display_label', type: 'varchar', length: 255 })
   displayLabel!: string;
 
+  /** Correlativo del día operativo (barra / para llevar). */
+  @Column({ name: 'sequence_number', type: 'int', nullable: true })
+  sequenceNumber?: number | null;
+
+  @Column({ name: 'sequence_period_key', type: 'varchar', length: 10, nullable: true })
+  sequencePeriodKey?: string | null;
+
   @Column({ name: 'dining_room_id', type: 'uuid', nullable: true })
   diningRoomId?: string | null;
 

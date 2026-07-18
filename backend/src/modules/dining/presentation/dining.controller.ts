@@ -23,6 +23,7 @@ import {
   TransferCartLineDto,
   UpdateDiningOrderProfileDto,
 } from '../application/dto/dining-order-commands.dto';
+import { UpdateDiningNumberingSettingsDto } from '../application/dto/update-dining-numbering-settings.dto';
 import { DiningOrderKind, DiningOrderStatus } from '../domain/dining.enums';
 
 @Controller('dining')
@@ -94,6 +95,24 @@ export class DiningController {
     return this.diningService.upsertTables(id, dto.tables);
   }
 
+  @Get('branches/:branchId/numbering-settings')
+  async getNumberingSettings(@Param('branchId') branchId: string) {
+    return this.diningService.getNumberingSettings(branchId);
+  }
+
+  @Patch('branches/:branchId/numbering-settings')
+  async updateNumberingSettings(
+    @Param('branchId') branchId: string,
+    @Body() dto: UpdateDiningNumberingSettingsDto,
+  ) {
+    return this.diningService.updateNumberingSettings(branchId, {
+      timezone: dto.timezone,
+      resetTimeLocal: dto.resetTimeLocal,
+      allowWaiterOpenTable: dto.allowWaiterOpenTable,
+      allowPosOpenTable: dto.allowPosOpenTable,
+    });
+  }
+
   // ─── F2: Runtime commands ───────────────────────────────────────────
 
   @Post('orders/open-table')
@@ -101,6 +120,7 @@ export class DiningController {
     return this.diningService.openTable({
       branchId: dto.branchId,
       diningTableId: dto.diningTableId,
+      openedFrom: dto.openedFrom,
       profile: dto.profile,
     });
   }

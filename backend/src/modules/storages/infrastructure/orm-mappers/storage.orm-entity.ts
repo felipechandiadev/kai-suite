@@ -16,12 +16,14 @@ export enum StorageType {
   STORE = 'STORE',
   COLD_ROOM = 'COLD_ROOM',
   TRANSIT = 'TRANSIT',
+  PRODUCTION_INPUTS = 'PRODUCTION_INPUTS',
 }
 
 export enum StorageCategory {
   IN_BRANCH = 'IN_BRANCH',
   CENTRAL = 'CENTRAL',
   EXTERNAL = 'EXTERNAL',
+  PRODUCTION_INPUT = 'PRODUCTION_INPUT',
 }
 
 @Entity('storages')
@@ -58,6 +60,9 @@ export class StorageOrmEntity {
 
   @Column({ type: 'boolean', default: true })
   isActive!: boolean;
+
+  @Column({ name: 'production_unit_id', type: 'uuid', nullable: true })
+  productionUnitId?: string | null;
 
   @CreateDateColumn()
   createdAt!: Date;

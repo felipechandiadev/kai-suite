@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CqrsModule } from '@nestjs/cqrs';
 import { ProductVariant } from './domain/product-variant.entity';
+import { ProductVariantProductionUnit } from './domain/product-variant-production-unit.entity';
+import { ProductVariantBranchAvailability } from './domain/product-variant-branch-availability.entity';
 import { Product } from '@modules/products/domain/product.entity';
 import { Unit } from '@modules/units/domain/unit.entity';
 import { Transaction } from '@modules/transactions/domain/transaction.entity';
@@ -21,11 +23,17 @@ import { VariantQuantityConversionService } from './application/variant-quantity
 import { ProductVariantShippingSchemaBootstrap } from './application/product-variant-shipping-schema.bootstrap';
 import { StockLevel } from '@modules/stock-levels/domain/stock-level.entity';
 import { Tax } from '@modules/taxes/domain/tax.entity';
+import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
+import { Branch } from '@modules/branches/domain/branch.entity';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       ProductVariant,
+      ProductVariantProductionUnit,
+      ProductVariantBranchAvailability,
+      ProductionUnit,
+      Branch,
       PriceListItem,
       Unit,
       Product,

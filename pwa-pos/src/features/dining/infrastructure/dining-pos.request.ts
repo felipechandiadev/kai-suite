@@ -174,14 +174,95 @@ export class DiningPosRequest {
       success: true,
       rooms: data.map((row) => {
         const r = row as Record<string, unknown>;
+        const tables = Array.isArray(r.tables)
+          ? r.tables.map((t) => {
+              const table = t as Record<string, unknown>;
+              return {
+                id: String(table.id ?? ""),
+                code: String(table.code ?? ""),
+                label: String(table.label ?? table.code ?? ""),
+              };
+            })
+          : [];
         return {
           id: String(r.id ?? ""),
           name: String(r.name ?? ""),
           branchId: String(r.branchId ?? ""),
           isActive: r.isActive !== false,
+          tables,
         };
       }),
     };
+  }
+
+  static async getBranchSettings(
+    branchId: string,
+  ): Promise<
+    | { success: true; settings: import("../types/dining-pos.types").PosDiningBranchSettings }
+    | { success: false; message: string }
+  > {
+    const base = process.env.BACKEND_API_URL;
+    if (!base) return { success: false, message: "BACKEND_API_URL no está configurada" };
+    const auth = await authHeaders();
+    if (!auth.ok) return { success: false, message: auth.message };
+    const bid = branchId.trim();
+    if (!bid) return { success: false, message: "Sucursal no configurada en el POS" };
+
+    const res = await backendFetch(
+      `${base}/api/dining/branches/${encodeURIComponent(bid)}/numbering-settings`,
+      { method: "GET", headers: auth.headers },
+    );
+    if (!res) return { success: false, message: BACKEND_CONNECTION_MESSAGE };
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { success: false, message: parseMessage(data, `HTTP ${res.status}`) };
+    }
+    if (!data || typeof data !== "object") {
+      return { success: false, message: "Respuesta inválida del servidor" };
+    }
+    const row = data as Record<string, unknown>;
+    return {
+      success: true,
+      settings: {
+        timezone: String(row.timezone ?? "America/Santiago"),
+        resetTimeLocal: String(row.resetTimeLocal ?? "00:00:01"),
+        allowWaiterOpenTable: row.allowWaiterOpenTable !== false,
+        allowPosOpenTable: row.allowPosOpenTable === true,
+      },
+    };
+  }
+
+  static async openTable(
+    branchId: string,
+    diningTableId: string,
+  ): Promise<PosDiningMutationResponse> {
+    const base = process.env.BACKEND_API_URL;
+    if (!base) return { success: false, message: "BACKEND_API_URL no está configurada" };
+    const auth = await authHeaders();
+    if (!auth.ok) return { success: false, message: auth.message };
+    const bid = branchId.trim();
+    const tid = diningTableId.trim();
+    if (!bid) return { success: false, message: "Sucursal no configurada en el POS" };
+    if (!tid) return { success: false, message: "Mesa no indicada" };
+
+    const res = await backendFetch(`${base}/api/dining/orders/open-table`, {
+      method: "POST",
+      headers: auth.headers,
+      body: JSON.stringify({
+        branchId: bid,
+        diningTableId: tid,
+        openedFrom: "POS",
+      }),
+    });
+    if (!res) return { success: false, message: BACKEND_CONNECTION_MESSAGE };
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { success: false, message: parseMessage(data, `HTTP ${res.status}`) };
+    }
+    if (!data || typeof data !== "object") {
+      return { success: false, message: "Respuesta inválida del servidor" };
+    }
+    return { success: true, order: mapOrder(data as Record<string, unknown>) };
   }
 
   static async openCounter(branchId: string): Promise<PosDiningMutationResponse> {
@@ -306,14 +387,49 @@ export class DiningPosRequest {
     return { success: true, order: mapOrder(data as Record<string, unknown>) };
   }
 
-  static async sendToKitchen(orderId: string): Promise<PosDiningMutationResponse> {
+  static async sendToKitchen(
+    orderId: string,
+    lineIds?: string[],
+  ): Promise<PosDiningMutationResponse> {
     const base = process.env.BACKEND_API_URL;
     if (!base) return { success: false, message: "BACKEND_API_URL no está configurada" };
     const auth = await authHeaders();
     if (!auth.ok) return { success: false, message: auth.message };
 
+    const ids = (lineIds ?? []).map((id) => id.trim()).filter(Boolean);
     const res = await backendFetch(
       `${base}/api/dining/orders/${encodeURIComponent(orderId.trim())}/send-to-kitchen`,
+      {
+        method: "POST",
+        headers: auth.headers,
+        body: JSON.stringify(ids.length > 0 ? { lineIds: ids } : {}),
+      },
+    );
+    if (!res) return { success: false, message: BACKEND_CONNECTION_MESSAGE };
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { success: false, message: parseMessage(data, `HTTP ${res.status}`) };
+    }
+    if (!data || typeof data !== "object") {
+      return { success: false, message: "Respuesta inválida del servidor" };
+    }
+    return { success: true, order: mapOrder(data as Record<string, unknown>) };
+  }
+
+  static async cancelOrderItem(
+    orderId: string,
+    lineId: string,
+  ): Promise<PosDiningMutationResponse> {
+    const base = process.env.BACKEND_API_URL;
+    if (!base) return { success: false, message: "BACKEND_API_URL no está configurada" };
+    const auth = await authHeaders();
+    if (!auth.ok) return { success: false, message: auth.message };
+    const oid = orderId.trim();
+    const lid = lineId.trim();
+    if (!oid || !lid) return { success: false, message: "Ítem no indicado" };
+
+    const res = await backendFetch(
+      `${base}/api/dining/orders/${encodeURIComponent(oid)}/items/${encodeURIComponent(lid)}/cancel`,
       { method: "POST", headers: auth.headers },
     );
     if (!res) return { success: false, message: BACKEND_CONNECTION_MESSAGE };

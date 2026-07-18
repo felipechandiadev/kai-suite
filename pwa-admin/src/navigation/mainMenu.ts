@@ -71,6 +71,32 @@ export const mainMenuItems: SideBarMenuItem[] = [
     ],
   },
   {
+    id: 'nav-production',
+    label: 'Producción',
+    children: [
+      {
+        id: 'production-orders',
+        label: 'Órdenes de producción',
+        url: '/production/orders',
+      },
+      {
+        id: 'production-manufacturing',
+        label: 'Manufactura',
+        url: '/production/manufacturing',
+      },
+      {
+        id: 'production-elaboration',
+        label: 'Elaboración',
+        url: '/production/elaboration',
+      },
+      {
+        id: 'production-units',
+        label: 'Unidades de producción',
+        url: '/production/units',
+      },
+    ],
+  },
+  {
     id: 'nav-inventory',
     label: 'Inventario y Catálogo',
     children: [
@@ -78,7 +104,6 @@ export const mainMenuItems: SideBarMenuItem[] = [
       { id: 'inventory-stock', label: 'Existencias (Stock)', url: '/inventory/stock' },
       { id: 'inventory-units', label: 'Unidades de medida', url: '/inventory/units' },
       { id: 'inventory-storages', label: 'Almacenes', url: '/inventory/storages' },
-      { id: 'inventory-production', label: 'Producción', url: '/inventory/production/orders' },
     ],
   },
   {
@@ -87,6 +112,11 @@ export const mainMenuItems: SideBarMenuItem[] = [
     requiresKaiFoodEnabled: true,
     children: [
       { id: 'kaifood-rooms', label: 'Salones', url: '/kaifood/rooms' },
+      {
+        id: 'kaifood-config',
+        label: 'Configuración',
+        url: '/kaifood/configuracion',
+      },
     ],
   },
   {

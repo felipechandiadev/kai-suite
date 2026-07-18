@@ -29,8 +29,14 @@ export class CreateProductionBatchDto {
   @IsUUID()
   userId!: string;
 
+  @IsOptional()
   @IsUUID()
-  storageId!: string;
+  storageId?: string;
+
+  /** Almacén donde entra el producto terminado (obligatorio salvo que la unidad lo defina). */
+  @IsOptional()
+  @IsUUID()
+  outputStorageId?: string;
 
   @IsOptional()
   @IsString()

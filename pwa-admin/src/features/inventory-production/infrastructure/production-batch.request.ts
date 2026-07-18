@@ -29,6 +29,8 @@ function mapListItem(raw: Record<string, unknown>): ProductionBatchListItem {
   const first = (lines[0] ?? null) as Record<string, unknown> | null;
   const branch = raw.branch as Record<string, unknown> | undefined;
   const storage = (raw.storageEntry ?? raw.storage) as Record<string, unknown> | undefined;
+  const meta = (raw.metadata ?? null) as Record<string, unknown> | null;
+  const links = (meta?.links ?? null) as Record<string, unknown> | null;
   return {
     id: String(raw.id),
     documentNumber: raw.documentNumber != null ? String(raw.documentNumber) : null,
@@ -37,6 +39,10 @@ function mapListItem(raw: Record<string, unknown>): ProductionBatchListItem {
     branchName: branch?.name != null ? String(branch.name) : null,
     storageId: raw.storageId != null ? String(raw.storageId) : null,
     storageName: storage?.name != null ? String(storage.name) : null,
+    outputStorageId:
+      links?.outputStorageId != null ? String(links.outputStorageId) : null,
+    productionUnitId:
+      links?.productionUnitId != null ? String(links.productionUnitId) : null,
     createdAt: raw.createdAt != null ? String(raw.createdAt) : null,
     notes: raw.notes != null ? String(raw.notes) : null,
     outputProductName: first?.productName != null ? String(first.productName) : null,
@@ -134,6 +140,7 @@ export const ProductionBatchRequest = {
         branchId: input.branchId,
         userId: input.userId,
         storageId: input.storageId,
+        outputStorageId: input.outputStorageId,
         notes: input.notes,
         recipeId: input.recipeId,
         productionUnitId: input.productionUnitId,

@@ -66,6 +66,14 @@ export async function openTableOrderAction(body: {
   });
 }
 
+export async function getDiningNumberingSettingsAction(body: {
+  userId: string;
+  companyId: string;
+  branchId: string;
+}) {
+  return DiningRequest.getNumberingSettings(ctx(body), body.branchId);
+}
+
 export async function searchWaiterMenuAction(body: {
   userId: string;
   companyId: string;

@@ -10,6 +10,7 @@ import { TenantContext } from '@common/tenant/tenant.context';
 import { Branch } from '@modules/branches/domain/branch.entity';
 import { Product, ProductType } from '@modules/products/domain/product.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
+import { ProductVariantsService } from '@modules/product-variants/application/product-variants.service';
 import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
 import { ProductModeService } from '@shared/product-mode/product-mode.service';
 import { DiningRealtimePublisher } from '@modules/dining-realtime/dining-realtime.publisher';
@@ -43,6 +44,7 @@ import {
   mergeDiningOrderCustomerName,
 } from './dining-order-profile.util';
 import { DiningBackflushService } from './dining-backflush.service';
+import { DiningOrderNumberService } from './dining-order-number.service';
 import { UpsertDiningTableDto } from './dto/upsert-dining-tables.dto';
 
 const ACTIVE_ORDER_STATUSES: DiningOrderStatus[] = [
@@ -75,9 +77,11 @@ export class DiningService {
     private readonly productVariantRepository: Repository<ProductVariant>,
     @InjectRepository(ProductionUnit)
     private readonly productionUnitRepository: Repository<ProductionUnit>,
+    private readonly productVariantsService: ProductVariantsService,
     private readonly productModeService: ProductModeService,
     private readonly diningRealtimePublisher: DiningRealtimePublisher,
     private readonly diningBackflushService: DiningBackflushService,
+    private readonly diningOrderNumberService: DiningOrderNumberService,
   ) {}
 
   private requireCompanyId(): string {
@@ -167,34 +171,31 @@ export class DiningService {
       return null;
     }
 
-    const metadata = variant as ProductVariant & {
-      defaultProductionUnitId?: string | null;
-    };
-    const fromVariant = metadata.defaultProductionUnitId;
-    if (fromVariant) {
-      const unit = await this.productionUnitRepository.findOne({
-        where: {
-          id: fromVariant,
-          companyId,
-          branchId,
-          isActive: true,
-        },
-      });
-      if (unit) {
-        return unit.id;
-      }
-    }
-
-    const fallback = await this.productionUnitRepository.findOne({
-      where: { companyId, branchId, isActive: true },
-      order: { name: 'ASC' },
-    });
-    if (!fallback) {
+    const unitId =
+      await this.productVariantsService.resolveDefaultProductionUnitId(
+        variant.id,
+        branchId,
+        companyId,
+      );
+    if (!unitId) {
       throw new BadRequestException(
-        'No hay unidad de producción activa en la sucursal para enrutar el ítem.',
+        'Falta unidad de producción para esta variante en la sucursal.',
       );
     }
-    return fallback.id;
+
+    const unit = await this.productionUnitRepository.findOne({
+      where: {
+        id: unitId,
+        companyId,
+        isActive: true,
+      },
+    });
+    if (!unit) {
+      throw new BadRequestException(
+        'La unidad de producción asignada a la variante no es válida o está inactiva.',
+      );
+    }
+    return unit.id;
   }
 
   private lineSourceForOrder(kind: DiningOrderKind): LineSource {
@@ -299,20 +300,6 @@ export class DiningService {
         });
       }),
     );
-  }
-
-  private async nextDisplayLabel(
-    branchId: string,
-    companyId: string,
-    kind: DiningOrderKind.COUNTER | DiningOrderKind.TAKEAWAY,
-  ): Promise<string> {
-    const count = await this.diningOrderRepository.count({
-      where: { branchId, companyId, kind },
-    });
-    const next = count + 1;
-    return kind === DiningOrderKind.COUNTER
-      ? `Cuenta barra #${next}`
-      : `Para llevar #${next}`;
   }
 
   private async assertNoActiveTableOrder(
@@ -498,10 +485,26 @@ export class DiningService {
   async openTable(data: {
     branchId: string;
     diningTableId: string;
+    openedFrom: 'WAITER' | 'POS';
     profile?: DiningOrderProfile;
   }): Promise<DiningOrder> {
     const companyId = this.requireCompanyId();
     await this.assertBranchInCompany(data.branchId, companyId);
+
+    const settings = await this.diningOrderNumberService.getOrCreateSettings(
+      data.branchId,
+      companyId,
+    );
+    if (data.openedFrom === 'WAITER' && !settings.allowWaiterOpenTable) {
+      throw new BadRequestException(
+        'Esta sucursal no permite abrir mesas desde el mesero.',
+      );
+    }
+    if (data.openedFrom === 'POS' && !settings.allowPosOpenTable) {
+      throw new BadRequestException(
+        'Esta sucursal no permite abrir mesas desde el POS.',
+      );
+    }
 
     const table = await this.diningTableRepository.findOne({
       where: { id: data.diningTableId },
@@ -544,7 +547,7 @@ export class DiningService {
     const companyId = this.requireCompanyId();
     await this.assertBranchInCompany(data.branchId, companyId);
 
-    const displayLabel = await this.nextDisplayLabel(
+    const allocated = await this.diningOrderNumberService.allocateNext(
       data.branchId,
       companyId,
       DiningOrderKind.COUNTER,
@@ -554,14 +557,18 @@ export class DiningService {
       companyId,
       branchId: data.branchId,
       kind: DiningOrderKind.COUNTER,
-      displayLabel,
+      displayLabel: allocated.displayLabel,
+      sequenceNumber: allocated.sequenceNumber,
+      sequencePeriodKey: allocated.periodKey,
       openedByUserId: TenantContext.getUserId(),
       status: DiningOrderStatus.OPEN,
-      profile: buildDiningOrderProfileOnOpen(displayLabel, data.profile),
+      profile: buildDiningOrderProfileOnOpen(allocated.displayLabel, data.profile),
       openedAt: new Date(),
     });
 
-    return this.diningOrderRepository.save(order);
+    const saved = await this.diningOrderRepository.save(order);
+    this.publishSessionUpdated({ ...saved, lines: [] });
+    return saved;
   }
 
   async openTakeaway(data: {
@@ -571,7 +578,7 @@ export class DiningService {
     const companyId = this.requireCompanyId();
     await this.assertBranchInCompany(data.branchId, companyId);
 
-    const displayLabel = await this.nextDisplayLabel(
+    const allocated = await this.diningOrderNumberService.allocateNext(
       data.branchId,
       companyId,
       DiningOrderKind.TAKEAWAY,
@@ -581,14 +588,66 @@ export class DiningService {
       companyId,
       branchId: data.branchId,
       kind: DiningOrderKind.TAKEAWAY,
-      displayLabel,
+      displayLabel: allocated.displayLabel,
+      sequenceNumber: allocated.sequenceNumber,
+      sequencePeriodKey: allocated.periodKey,
       openedByUserId: TenantContext.getUserId(),
       status: DiningOrderStatus.OPEN,
-      profile: buildDiningOrderProfileOnOpen(displayLabel, data.profile),
+      profile: buildDiningOrderProfileOnOpen(allocated.displayLabel, data.profile),
       openedAt: new Date(),
     });
 
-    return this.diningOrderRepository.save(order);
+    const saved = await this.diningOrderRepository.save(order);
+    this.publishSessionUpdated({ ...saved, lines: [] });
+    return saved;
+  }
+
+  async getNumberingSettings(branchId: string) {
+    const companyId = this.requireCompanyId();
+    await this.assertBranchInCompany(branchId, companyId);
+    const settings = await this.diningOrderNumberService.getOrCreateSettings(
+      branchId,
+      companyId,
+    );
+    return {
+      branchId: settings.branchId,
+      companyId: settings.companyId,
+      timezone: settings.timezone,
+      resetTimeLocal: settings.resetTimeLocal,
+      allowWaiterOpenTable: settings.allowWaiterOpenTable !== false,
+      allowPosOpenTable: settings.allowPosOpenTable === true,
+    };
+  }
+
+  async updateNumberingSettings(
+    branchId: string,
+    patch: {
+      timezone?: string;
+      resetTimeLocal?: string;
+      allowWaiterOpenTable?: boolean;
+      allowPosOpenTable?: boolean;
+    },
+  ) {
+    const companyId = this.requireCompanyId();
+    await this.assertBranchInCompany(branchId, companyId);
+    try {
+      const settings = await this.diningOrderNumberService.updateSettings(
+        branchId,
+        companyId,
+        patch,
+      );
+      return {
+        branchId: settings.branchId,
+        companyId: settings.companyId,
+        timezone: settings.timezone,
+        resetTimeLocal: settings.resetTimeLocal,
+        allowWaiterOpenTable: settings.allowWaiterOpenTable !== false,
+        allowPosOpenTable: settings.allowPosOpenTable === true,
+      };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Configuración inválida';
+      throw new BadRequestException(message);
+    }
   }
 
   async updateOrderProfile(
@@ -658,6 +717,18 @@ export class DiningService {
 
       const productType = variant.product.productType;
       this.assertDiningItemProductType(productType);
+
+      const activeInBranch =
+        await this.productVariantsService.isVariantActiveInBranch(
+          variant.id,
+          order.branchId,
+          companyId,
+        );
+      if (!activeInBranch) {
+        throw new BadRequestException(
+          'La variante no está activa en esta sucursal.',
+        );
+      }
 
       const productionUnitId = await this.resolveProductionUnitId(
         variant,
@@ -833,7 +904,9 @@ export class DiningService {
       order.lines ?? [],
     );
     await this.diningOrderRepository.save(order);
-    return this.getOrderOrThrow(orderId, companyId);
+    const updated = await this.getOrderOrThrow(orderId, companyId);
+    this.publishSessionUpdated(updated);
+    return updated;
   }
 
   async transferCartLine(data: {
@@ -866,6 +939,18 @@ export class DiningService {
     }
 
     this.assertDiningItemProductType(variant.product.productType);
+
+    const activeInBranch =
+      await this.productVariantsService.isVariantActiveInBranch(
+        variant.id,
+        order.branchId,
+        companyId,
+      );
+    if (!activeInBranch) {
+      throw new BadRequestException(
+        'La variante no está activa en esta sucursal.',
+      );
+    }
 
     const productionUnitId = await this.resolveProductionUnitId(
       variant,

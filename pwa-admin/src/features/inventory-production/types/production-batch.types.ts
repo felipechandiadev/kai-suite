@@ -11,8 +11,12 @@ export type ProductionBatchListItem = {
   status: ProductionBatchStatus;
   branchId: string | null;
   branchName: string | null;
+  /** Almacén de insumos (consumo). */
   storageId: string | null;
   storageName: string | null;
+  /** Almacén de salida (terminado). */
+  outputStorageId: string | null;
+  productionUnitId: string | null;
   createdAt: string | null;
   notes: string | null;
   outputProductName: string | null;
@@ -37,6 +41,7 @@ export type ProductionBatchDetail = ProductionBatchListItem & {
 export type CreateProductionBatchInput = {
   branchId: string;
   storageId: string;
+  outputStorageId: string;
   productVariantId: string;
   productName?: string;
   quantity: number;

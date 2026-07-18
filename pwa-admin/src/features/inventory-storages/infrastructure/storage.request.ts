@@ -76,6 +76,10 @@ function normalizeStorage(row: unknown): StorageListItem | null {
     capacity: capacity != null && Number.isFinite(capacity) ? capacity : null,
     isDefault: o.isDefault === true,
     isActive: o.isActive !== false,
+    productionUnitId:
+      o.productionUnitId != null && String(o.productionUnitId)
+        ? String(o.productionUnitId)
+        : null,
     createdAt: o.createdAt != null ? String(o.createdAt) : undefined,
     updatedAt: o.updatedAt != null ? String(o.updatedAt) : undefined,
   };

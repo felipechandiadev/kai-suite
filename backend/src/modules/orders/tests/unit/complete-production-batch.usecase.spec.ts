@@ -5,7 +5,8 @@ import { RecipeType } from '@modules/recipes/domain/recipe-type.enum';
 
 describe('CompleteProductionBatchUseCase', () => {
   const batchId = 'batch-1';
-  const storageId = 'storage-1';
+  const inputStorageId = 'storage-in';
+  const outputStorageId = 'storage-out';
   const outputVariantId = 'out-1';
   const inputVariantId = 'in-1';
 
@@ -24,9 +25,9 @@ describe('CompleteProductionBatchUseCase', () => {
         transactionType: TransactionType.PRODUCTION_BATCH,
         branchId: 'branch-1',
         userId: 'user-1',
-        storageId,
+        storageId: inputStorageId,
         status: 'DRAFT',
-        metadata: { links: {} },
+        metadata: { links: { outputStorageId } },
       }),
       save: jest.fn().mockImplementation(async (row) => row),
     };
@@ -46,7 +47,7 @@ describe('CompleteProductionBatchUseCase', () => {
       find: jest.fn().mockResolvedValue([
         {
           productVariantId: inputVariantId,
-          storageId,
+          storageId: inputStorageId,
           availableStock: 10,
           physicalStock: 10,
         },
@@ -87,7 +88,7 @@ describe('CompleteProductionBatchUseCase', () => {
     );
   });
 
-  it('values output from input PMP and creates consumption + output txs', async () => {
+  it('values output from input PMP and uses distinct input/output storages', async () => {
     const result = await useCase.execute({ productionBatchId: batchId });
 
     expect(result.unitCost).toBe(100);
@@ -96,11 +97,13 @@ describe('CompleteProductionBatchUseCase', () => {
 
     const consumptionDto = transactionsService.createTransaction.mock.calls[0][0];
     expect(consumptionDto.transactionType).toBe(TransactionType.ADJUSTMENT_OUT);
+    expect(consumptionDto.storageId).toBe(inputStorageId);
     expect(consumptionDto.lines[0].unitPrice).toBe(100);
     expect(consumptionDto.lines[0].quantity).toBe(2);
 
     const outputDto = transactionsService.createTransaction.mock.calls[1][0];
     expect(outputDto.transactionType).toBe(TransactionType.ADJUSTMENT_IN);
+    expect(outputDto.storageId).toBe(outputStorageId);
     expect(outputDto.metadata.origin).toBe('PRODUCTION_OUTPUT');
     expect(outputDto.lines[0].unitPrice).toBe(100);
     expect(outputDto.lines[0].total).toBe(200);
@@ -118,7 +121,7 @@ describe('CompleteProductionBatchUseCase', () => {
     stockLevelRepo.find.mockResolvedValue([
       {
         productVariantId: inputVariantId,
-        storageId,
+        storageId: inputStorageId,
         availableStock: 1,
         physicalStock: 1,
       },

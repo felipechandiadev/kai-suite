@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CqrsModule } from '@nestjs/cqrs';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
+import { ProductVariantBranchAvailability } from '@modules/product-variants/domain/product-variant-branch-availability.entity';
 import { Product } from '@modules/products/domain/product.entity';
 import { Tax } from '@modules/taxes/domain/tax.entity';
 import { Attribute } from '@modules/attributes/domain/attribute.entity';
@@ -36,6 +37,7 @@ import { ProductEshopVisibilitySyncService } from './application/services/produc
     TypeOrmModule.forFeature([
       Product,
       ProductVariant,
+      ProductVariantBranchAvailability,
       Tax,
       Attribute,
       PriceListItem,

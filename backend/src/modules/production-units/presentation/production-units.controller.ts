@@ -36,10 +36,13 @@ export class ProductionUnitsController {
   @Post()
   async create(@Body() dto: CreateProductionUnitDto) {
     return this.productionUnitsService.create({
+      scope: dto.scope,
       branchId: dto.branchId,
       code: dto.code,
       name: dto.name,
+      inventoryMode: dto.inventoryMode,
       defaultInputStorageId: dto.defaultInputStorageId ?? null,
+      defaultOutputStorageId: dto.defaultOutputStorageId ?? null,
       isActive: dto.isActive,
     });
   }
@@ -47,10 +50,13 @@ export class ProductionUnitsController {
   @Patch(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateProductionUnitDto) {
     return this.productionUnitsService.update(id, {
+      scope: dto.scope,
       branchId: dto.branchId,
       code: dto.code,
       name: dto.name,
+      inventoryMode: dto.inventoryMode,
       defaultInputStorageId: dto.defaultInputStorageId,
+      defaultOutputStorageId: dto.defaultOutputStorageId,
       isActive: dto.isActive,
     });
   }

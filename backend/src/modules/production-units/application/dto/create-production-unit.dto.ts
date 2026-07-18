@@ -1,16 +1,28 @@
 import {
   IsBoolean,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
+import {
+  ProductionUnitInventoryMode,
+  ProductionUnitScope,
+} from '../../domain/production-unit.enums';
 
 export class CreateProductionUnitDto {
+  @IsOptional()
+  @IsIn([ProductionUnitScope.BRANCH, ProductionUnitScope.COMPANY])
+  scope?: ProductionUnitScope;
+
+  /** Required when scope is BRANCH (default). */
+  @ValidateIf((o) => (o.scope ?? ProductionUnitScope.BRANCH) === ProductionUnitScope.BRANCH)
   @IsNotEmpty()
   @IsUUID()
-  branchId!: string;
+  branchId?: string | null;
 
   /** Si se omite, el backend asigna correlativo `UPR#####`. */
   @IsOptional()
@@ -24,8 +36,21 @@ export class CreateProductionUnitDto {
   name!: string;
 
   @IsOptional()
+  @IsIn([
+    ProductionUnitInventoryMode.AUTONOMOUS,
+    ProductionUnitInventoryMode.DEPENDENT,
+  ])
+  inventoryMode?: ProductionUnitInventoryMode;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v != null && v !== '')
   @IsUUID()
   defaultInputStorageId?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v != null && v !== '')
+  @IsUUID()
+  defaultOutputStorageId?: string | null;
 
   @IsOptional()
   @IsBoolean()

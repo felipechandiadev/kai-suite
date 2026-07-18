@@ -101,7 +101,20 @@ export class DiningRequest {
     ctx: DiningAuthContext,
     body: { branchId: string; diningTableId: string },
   ) {
-    return diningPost<DiningOrderDto>("/dining/orders/open-table", ctx, body);
+    return diningPost<DiningOrderDto>("/dining/orders/open-table", ctx, {
+      ...body,
+      openedFrom: "WAITER",
+    });
+  }
+
+  static getNumberingSettings(ctx: DiningAuthContext, branchId: string) {
+    return diningGet<{
+      allowWaiterOpenTable: boolean;
+      allowPosOpenTable: boolean;
+    }>(
+      `/dining/branches/${encodeURIComponent(branchId)}/numbering-settings`,
+      ctx,
+    );
   }
 
   static addItems(

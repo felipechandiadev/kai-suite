@@ -24,6 +24,7 @@ import { ProductType } from '@modules/products/domain/product.entity';
 import { RecipesService } from '@modules/recipes/application/recipes.service';
 import { RecipeType } from '@modules/recipes/domain/recipe-type.enum';
 import { SearchTransactionsQuery } from '@modules/transactions/application/queries/search-transactions.query';
+import { ProductionUnitsService } from '@modules/production-units/application/production-units.service';
 import { CreateTransactionDto } from '@modules/transactions/application/dto/create-transaction.dto';
 import {
   CreateProductionBatchDto,
@@ -42,6 +43,7 @@ export class ProductionBatchesController {
     private readonly queryBus: QueryBus,
     private readonly transactionsService: TransactionsService,
     private readonly recipesService: RecipesService,
+    private readonly productionUnitsService: ProductionUnitsService,
     @InjectRepository(Transaction)
     private readonly txRepo: Repository<Transaction>,
     @InjectRepository(TransactionLine)
@@ -160,12 +162,40 @@ export class ProductionBatchesController {
       );
     }
 
+    let storageId = body.storageId?.trim() || '';
+    let outputStorageId = body.outputStorageId?.trim() || '';
+    const productionUnitId = body.productionUnitId?.trim() || null;
+
+    if (productionUnitId) {
+      const unit = await this.productionUnitsService.findOne(productionUnitId);
+      if (!unit) {
+        throw new BadRequestException('Unidad de producción no encontrada.');
+      }
+      if (!storageId && unit.defaultInputStorageId) {
+        storageId = unit.defaultInputStorageId;
+      }
+      if (!outputStorageId && unit.defaultOutputStorageId) {
+        outputStorageId = unit.defaultOutputStorageId;
+      }
+    }
+
+    if (!storageId) {
+      throw new BadRequestException(
+        'Se requiere almacén de insumos (storageId) o una unidad de producción con insumos definidos.',
+      );
+    }
+    if (!outputStorageId) {
+      throw new BadRequestException(
+        'Se requiere almacén de salida (outputStorageId) o una unidad de producción con salida definida.',
+      );
+    }
+
     const dto = new CreateTransactionDto();
     dto.transactionType = TransactionType.PRODUCTION_BATCH;
     dto.transactionStatus = TransactionStatus.DRAFT;
     dto.branchId = body.branchId;
     dto.userId = body.userId;
-    dto.storageId = body.storageId;
+    dto.storageId = storageId;
     dto.subtotal = 0;
     dto.taxAmount = 0;
     dto.discountAmount = 0;
@@ -176,7 +206,8 @@ export class ProductionBatchesController {
       links: {
         recipeId: recipe.id,
         recipeVersion: recipe.version,
-        productionUnitId: body.productionUnitId ?? null,
+        productionUnitId,
+        outputStorageId,
       },
     };
     dto.lines = body.lines.map((line) => ({

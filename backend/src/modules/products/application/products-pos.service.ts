@@ -126,6 +126,19 @@ export class ProductsPosService {
       });
     }
 
+    const effectiveBranchId = scope.resolvedBranchId?.trim() || '';
+    if (effectiveBranchId) {
+      qb.andWhere(
+        `NOT EXISTS (
+          SELECT 1 FROM product_variant_branch_availability pva
+          WHERE pva.product_variant_id = v.id
+            AND pva.branch_id = :availBranchId
+            AND pva.is_active = false
+        )`,
+        { availBranchId: effectiveBranchId },
+      );
+    }
+
     // Paginación
     const skip = (page - 1) * pageSize;
     qb.skip(skip).take(pageSize);

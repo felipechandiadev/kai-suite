@@ -29,6 +29,8 @@ type WaiterTableScreenProps = {
   onOpenTable: () => Promise<void>;
   onOrderUpdated: (order: DiningOrderDto) => void;
   opening?: boolean;
+  /** Política de sucursal: mesero puede abrir mesa. */
+  canOpenTable?: boolean;
 };
 
 export function WaiterTableScreen({
@@ -39,6 +41,7 @@ export function WaiterTableScreen({
   onOpenTable,
   onOrderUpdated,
   opening = false,
+  canOpenTable = true,
 }: WaiterTableScreenProps) {
   const [panel, setPanel] = useState<TablePanel>("menu");
   const lineCount = order?.lines?.length ?? 0;
@@ -67,18 +70,27 @@ export function WaiterTableScreen({
           </div>
         </div>
         <div className="rounded-lg border border-dashed border-border bg-surface px-4 py-10 text-center">
-          <p className="mb-4 text-sm text-muted-foreground">
-            Abre una cuenta para cargar productos a esta mesa.
-          </p>
-          <Button
-            type="button"
-            variant="primary"
-            onClick={() => void onOpenTable()}
-            loading={opening}
-            data-test-id="waiter-open-table"
-          >
-            Abrir mesa
-          </Button>
+          {canOpenTable ? (
+            <>
+              <p className="mb-4 text-sm text-muted-foreground">
+                Abre una cuenta para cargar productos a esta mesa.
+              </p>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => void onOpenTable()}
+                loading={opening}
+                data-test-id="waiter-open-table"
+              >
+                Abrir mesa
+              </Button>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground" data-test-id="waiter-open-table-disabled">
+              Esta sucursal no permite abrir mesas desde el mesero. Abrila desde el POS o
+              habilitá el canal en Configuración KaiFood.
+            </p>
+          )}
         </div>
       </div>
     );

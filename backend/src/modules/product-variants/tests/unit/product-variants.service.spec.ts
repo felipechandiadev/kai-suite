@@ -106,7 +106,13 @@ describe('ProductVariantsService', () => {
       attributesService as any,
       variantOrm as any,
       stockLevelOrm as any,
+      { find: jest.fn(), findOne: jest.fn() } as any, // taxRepo
+      { find: jest.fn(), findOne: jest.fn(), manager: { transaction: jest.fn() } } as any, // variantProductionUnitOrm
+      { find: jest.fn(), findOne: jest.fn(), manager: { transaction: jest.fn() } } as any, // variantBranchAvailabilityOrm
+      { findOne: jest.fn() } as any, // productionUnitOrm
+      { findOne: jest.fn() } as any, // branchOrm
       conversion as any,
+      { afterVariantEshopVisibilityChanged: jest.fn() } as any, // eshopVisibilitySync
     );
   });
 

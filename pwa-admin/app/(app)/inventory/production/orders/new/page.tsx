@@ -1,13 +1,6 @@
-import { listBranchesForSettingsPage } from "@/features/settings-branches/actions/branch.action";
-import { listStoragesForPage } from "@/features/inventory-storages/actions/storage.action";
-import { CreateProductionForm } from "./ui/CreateProductionForm";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default async function NewProductionOrderPage() {
-  const [branches, storages] = await Promise.all([
-    listBranchesForSettingsPage(),
-    listStoragesForPage(),
-  ]);
-  return <CreateProductionForm branches={branches} storages={storages} />;
+/** Legacy → /production/orders/new */
+export default function LegacyInventoryProductionOrdersNewPage() {
+  redirect("/production/orders/new");
 }

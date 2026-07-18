@@ -8,6 +8,7 @@ export const VARIANT_DETAIL_SECTION_IDS = [
   "multimedia",
   "eshop",
   "receta",
+  "produccion",
 ] as const;
 
 export type VariantDetailSectionId = (typeof VARIANT_DETAIL_SECTION_IDS)[number];
@@ -27,6 +28,7 @@ export const VARIANT_DETAIL_TABS: VariantDetailTabItem[] = [
   { id: "multimedia", label: "Multimedia" },
   { id: "eshop", label: "eShop" },
   { id: "receta", label: "Receta" },
+  { id: "produccion", label: "Producción" },
 ];
 
 export function isVariantDetailSectionId(value: string): value is VariantDetailSectionId {

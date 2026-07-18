@@ -1,4 +1,10 @@
-export const STORAGE_TYPES = ["WAREHOUSE", "STORE", "COLD_ROOM", "TRANSIT"] as const;
+export const STORAGE_TYPES = [
+  "WAREHOUSE",
+  "STORE",
+  "COLD_ROOM",
+  "TRANSIT",
+  "PRODUCTION_INPUTS",
+] as const;
 export type StorageType = (typeof STORAGE_TYPES)[number];
 
 export const STORAGE_CATEGORIES = ["IN_BRANCH", "CENTRAL", "EXTERNAL"] as const;
@@ -38,13 +44,15 @@ export type DeleteStorageResult = { success: true } | { success: false; error: s
 export function storageTypeLabel(t: StorageType): string {
   switch (t) {
     case "WAREHOUSE":
-      return "Almacén";
+      return "Bodega";
     case "STORE":
       return "Sala de venta";
     case "COLD_ROOM":
       return "Cámara fría";
     case "TRANSIT":
       return "Tránsito";
+    case "PRODUCTION_INPUTS":
+      return "Insumos para producción";
     default:
       return t;
   }

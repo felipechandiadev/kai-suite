@@ -76,12 +76,16 @@ export class CompleteProductionBatchUseCase
       );
     }
 
-    const storageId = batch.storageId;
-    if (!storageId) {
+    const inputStorageId = batch.storageId;
+    if (!inputStorageId) {
       throw new BadRequestException(
-        'PRODUCTION_BATCH must have storageId (almacén de insumos/salida)',
+        'PRODUCTION_BATCH must have storageId (almacén de insumos)',
       );
     }
+    const links = (batch.metadata?.links ?? {}) as Record<string, unknown>;
+    const outputStorageId =
+      (typeof links.outputStorageId === 'string' && links.outputStorageId.trim()) ||
+      inputStorageId;
 
     const recipes = await this.recipesService.list(outputVariantId);
     const recipe = recipes.find((r) => r.isActive && r.type === RecipeType.PRODUCTION);
@@ -104,7 +108,7 @@ export class CompleteProductionBatchUseCase
 
     const stockLevels = await this.stockLevelRepo.find({
       where: {
-        storageId,
+        storageId: inputStorageId,
         productVariantId: In(inputVariantIds),
       },
     });
@@ -188,7 +192,7 @@ export class CompleteProductionBatchUseCase
     inputsDto.transactionType = TransactionType.ADJUSTMENT_OUT;
     inputsDto.branchId = batch.branchId as any;
     inputsDto.userId = batch.userId as any;
-    inputsDto.storageId = batch.storageId as any;
+    inputsDto.storageId = inputStorageId as any;
     inputsDto.subtotal = totalCost;
     inputsDto.taxAmount = 0;
     inputsDto.discountAmount = 0;
@@ -221,7 +225,7 @@ export class CompleteProductionBatchUseCase
     outputDto.transactionType = TransactionType.ADJUSTMENT_IN;
     outputDto.branchId = batch.branchId as any;
     outputDto.userId = batch.userId as any;
-    outputDto.storageId = batch.storageId as any;
+    outputDto.storageId = outputStorageId as any;
     outputDto.subtotal = totalCost;
     outputDto.taxAmount = 0;
     outputDto.discountAmount = 0;

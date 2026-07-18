@@ -1,16 +1,26 @@
 import {
   IsBoolean,
+  IsIn,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
   ValidateIf,
 } from 'class-validator';
+import {
+  ProductionUnitInventoryMode,
+  ProductionUnitScope,
+} from '../../domain/production-unit.enums';
 
 export class UpdateProductionUnitDto {
   @IsOptional()
+  @IsIn([ProductionUnitScope.BRANCH, ProductionUnitScope.COMPANY])
+  scope?: ProductionUnitScope;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v != null && v !== '')
   @IsUUID()
-  branchId?: string;
+  branchId?: string | null;
 
   @IsOptional()
   @IsString()
@@ -23,9 +33,21 @@ export class UpdateProductionUnitDto {
   name?: string;
 
   @IsOptional()
+  @IsIn([
+    ProductionUnitInventoryMode.AUTONOMOUS,
+    ProductionUnitInventoryMode.DEPENDENT,
+  ])
+  inventoryMode?: ProductionUnitInventoryMode;
+
+  @IsOptional()
   @ValidateIf((_, v) => v != null && v !== '')
   @IsUUID()
   defaultInputStorageId?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v != null && v !== '')
+  @IsUUID()
+  defaultOutputStorageId?: string | null;
 
   @IsOptional()
   @IsBoolean()

@@ -8,8 +8,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TenantContext } from '@common/tenant/tenant.context';
 import { Branch } from '@modules/branches/domain/branch.entity';
-import { Storage } from '@modules/storages/domain/storage.entity';
+import {
+  Storage,
+  StorageCategory,
+} from '@modules/storages/domain/storage.entity';
 import { ProductionUnit } from '../domain/production-unit.entity';
+import {
+  ProductionUnitInventoryMode,
+  ProductionUnitScope,
+} from '../domain/production-unit.enums';
 import { nextProductionUnitCodeFromExisting } from './production-unit-code.util';
 
 @Injectable()
@@ -58,25 +65,219 @@ export class ProductionUnitsService {
         'Almacén no válido o no pertenece a la empresa.',
       );
     }
+    if (!storage.isActive) {
+      throw new BadRequestException(
+        `El almacén «${storage.name}» está inactivo.`,
+      );
+    }
     return storage;
+  }
+
+  private normalizeScope(raw?: string | null): ProductionUnitScope {
+    if (raw === ProductionUnitScope.COMPANY) {
+      return ProductionUnitScope.COMPANY;
+    }
+    return ProductionUnitScope.BRANCH;
+  }
+
+  private normalizeInventoryMode(
+    raw?: string | null,
+  ): ProductionUnitInventoryMode {
+    if (raw === ProductionUnitInventoryMode.AUTONOMOUS) {
+      return ProductionUnitInventoryMode.AUTONOMOUS;
+    }
+    return ProductionUnitInventoryMode.DEPENDENT;
+  }
+
+  private assertScopeBranchConsistency(
+    scope: ProductionUnitScope,
+    branchId: string | null | undefined,
+  ): string | null {
+    if (scope === ProductionUnitScope.COMPANY) {
+      return null;
+    }
+    if (!branchId?.trim()) {
+      throw new BadRequestException(
+        'Las unidades de alcance sucursal requieren una sucursal.',
+      );
+    }
+    return branchId.trim();
+  }
+
+  private assertStorageBranchScope(
+    storage: Storage,
+    scope: ProductionUnitScope,
+    branchId: string | null,
+    role: 'insumos' | 'salida',
+  ): void {
+    if (scope === ProductionUnitScope.COMPANY) {
+      if (storage.branchId) {
+        throw new BadRequestException(
+          `El almacén de ${role} de una unidad empresa no puede pertenecer a una sucursal.`,
+        );
+      }
+      return;
+    }
+    if (storage.branchId && storage.branchId !== branchId) {
+      throw new BadRequestException(
+        `El almacén de ${role} debe pertenecer a la misma sucursal de la unidad.`,
+      );
+    }
+  }
+
+  private async assertInventoryStorages(data: {
+    companyId: string;
+    scope: ProductionUnitScope;
+    branchId: string | null;
+    inventoryMode: ProductionUnitInventoryMode;
+    defaultInputStorageId?: string | null;
+    defaultOutputStorageId?: string | null;
+    excludeUnitId?: string;
+  }): Promise<{ input: Storage; output: Storage }> {
+    const inputId = data.defaultInputStorageId?.trim() || null;
+    const outputId = data.defaultOutputStorageId?.trim() || null;
+
+    if (!inputId || !outputId) {
+      throw new BadRequestException(
+        'Toda unidad de producción requiere almacén de insumos y de salida.',
+      );
+    }
+
+    const input = await this.assertStorageInCompany(inputId, data.companyId);
+    const output = await this.assertStorageInCompany(outputId, data.companyId);
+
+    this.assertStorageBranchScope(input, data.scope, data.branchId, 'insumos');
+    this.assertStorageBranchScope(output, data.scope, data.branchId, 'salida');
+
+    if (data.inventoryMode === ProductionUnitInventoryMode.DEPENDENT) {
+      if (input.category === StorageCategory.PRODUCTION_INPUT) {
+        throw new BadRequestException(
+          'Las unidades dependientes no pueden usar un almacén de insumos de producción (reservado a autónomas).',
+        );
+      }
+      return { input, output };
+    }
+
+    // AUTONOMOUS
+    if (input.category !== StorageCategory.PRODUCTION_INPUT) {
+      throw new BadRequestException(
+        'El almacén de insumos de una unidad autónoma debe ser de categoría «Insumos de producción».',
+      );
+    }
+    if (inputId === outputId) {
+      throw new BadRequestException(
+        'En unidades autónomas el almacén de insumos y el de salida deben ser distintos.',
+      );
+    }
+    if (
+      input.productionUnitId &&
+      input.productionUnitId !== data.excludeUnitId
+    ) {
+      throw new BadRequestException(
+        'El almacén de insumos ya está asignado de forma exclusiva a otra unidad de producción.',
+      );
+    }
+
+    const otherOwner = await this.productionUnitRepository.findOne({
+      where: {
+        companyId: data.companyId,
+        inventoryMode: ProductionUnitInventoryMode.AUTONOMOUS,
+        defaultInputStorageId: inputId,
+        isActive: true,
+      },
+    });
+    if (otherOwner && otherOwner.id !== data.excludeUnitId) {
+      throw new BadRequestException(
+        `El almacén de insumos ya es usado en exclusiva por la unidad «${otherOwner.name}».`,
+      );
+    }
+
+    return { input, output };
+  }
+
+  private async syncAutonomousInputOwnership(data: {
+    unitId: string;
+    inventoryMode: ProductionUnitInventoryMode;
+    inputStorageId: string | null;
+    previousInputStorageId?: string | null;
+  }): Promise<void> {
+    const previousId = data.previousInputStorageId ?? null;
+    const nextId = data.inputStorageId;
+
+    if (
+      previousId &&
+      previousId !== nextId
+    ) {
+      const previous = await this.storageRepository.findOne({
+        where: { id: previousId },
+      });
+      if (previous?.productionUnitId === data.unitId) {
+        previous.productionUnitId = null;
+        await this.storageRepository.save(previous);
+      }
+    }
+
+    if (
+      data.inventoryMode === ProductionUnitInventoryMode.AUTONOMOUS &&
+      nextId
+    ) {
+      const next = await this.storageRepository.findOne({
+        where: { id: nextId },
+      });
+      if (next) {
+        next.productionUnitId = data.unitId;
+        await this.storageRepository.save(next);
+      }
+    } else if (
+      data.inventoryMode === ProductionUnitInventoryMode.DEPENDENT &&
+      nextId
+    ) {
+      const next = await this.storageRepository.findOne({
+        where: { id: nextId },
+      });
+      if (next?.productionUnitId === data.unitId) {
+        next.productionUnitId = null;
+        await this.storageRepository.save(next);
+      }
+    }
   }
 
   private async allocateNextCode(
     companyId: string,
-    branchId: string,
+    scope: ProductionUnitScope,
+    branchId: string | null,
   ): Promise<string> {
     const maxAttempts = 5;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const rows = await this.productionUnitRepository.find({
-        where: { companyId, branchId },
-        select: ['code'],
-      });
+      const rows =
+        scope === ProductionUnitScope.COMPANY
+          ? await this.productionUnitRepository.find({
+              where: { companyId, scope: ProductionUnitScope.COMPANY },
+              select: ['code'],
+            })
+          : await this.productionUnitRepository.find({
+              where: { companyId, branchId: branchId as string },
+              select: ['code'],
+            });
       const candidate = nextProductionUnitCodeFromExisting(
         rows.map((r) => r.code),
       );
-      const taken = await this.productionUnitRepository.exist({
-        where: { companyId, branchId, code: candidate },
-      });
+      const taken =
+        scope === ProductionUnitScope.COMPANY
+          ? await this.productionUnitRepository.exist({
+              where: {
+                companyId,
+                scope: ProductionUnitScope.COMPANY,
+                code: candidate,
+              },
+            })
+          : await this.productionUnitRepository.exist({
+              where: {
+                companyId,
+                branchId: branchId as string,
+                code: candidate,
+              },
+            });
       if (!taken) {
         return candidate;
       }
@@ -86,20 +287,66 @@ export class ProductionUnitsService {
     );
   }
 
+  private async assertCodeUnique(data: {
+    companyId: string;
+    scope: ProductionUnitScope;
+    branchId: string | null;
+    code: string;
+    excludeId?: string;
+  }): Promise<void> {
+    const where =
+      data.scope === ProductionUnitScope.COMPANY
+        ? {
+            companyId: data.companyId,
+            scope: ProductionUnitScope.COMPANY,
+            code: data.code,
+          }
+        : {
+            companyId: data.companyId,
+            branchId: data.branchId as string,
+            code: data.code,
+          };
+    const dup = await this.productionUnitRepository.findOne({ where });
+    if (dup && dup.id !== data.excludeId) {
+      const place =
+        data.scope === ProductionUnitScope.COMPANY
+          ? 'en la empresa'
+          : 'en esta sucursal';
+      throw new ConflictException(
+        `Ya existe una unidad de producción con el código «${data.code}» ${place}.`,
+      );
+    }
+  }
+
   async findAll(options?: {
     branchId?: string;
     includeInactive?: boolean;
+    /** When true with branchId, also include COMPANY-scope units. Default true. */
+    includeCompanyWide?: boolean;
   }): Promise<ProductionUnit[]> {
     const companyId = this.requireCompanyId();
     const qb = this.productionUnitRepository
       .createQueryBuilder('pu')
       .leftJoinAndSelect('pu.branch', 'branch')
       .leftJoinAndSelect('pu.defaultInputStorage', 'defaultInputStorage')
+      .leftJoinAndSelect('pu.defaultOutputStorage', 'defaultOutputStorage')
       .where('pu.companyId = :companyId', { companyId })
-      .orderBy('pu.name', 'ASC');
+      .orderBy('pu.scope', 'ASC')
+      .addOrderBy('pu.name', 'ASC');
 
     if (options?.branchId) {
-      qb.andWhere('pu.branchId = :branchId', { branchId: options.branchId });
+      const includeCompany = options.includeCompanyWide !== false;
+      if (includeCompany) {
+        qb.andWhere(
+          '(pu.branchId = :branchId OR pu.scope = :companyScope)',
+          {
+            branchId: options.branchId,
+            companyScope: ProductionUnitScope.COMPANY,
+          },
+        );
+      } else {
+        qb.andWhere('pu.branchId = :branchId', { branchId: options.branchId });
+      }
     }
     if (!options?.includeInactive) {
       qb.andWhere('pu.isActive = :isActive', { isActive: true });
@@ -112,63 +359,86 @@ export class ProductionUnitsService {
     const companyId = this.requireCompanyId();
     return this.productionUnitRepository.findOne({
       where: { id, companyId },
-      relations: ['branch', 'defaultInputStorage'],
+      relations: ['branch', 'defaultInputStorage', 'defaultOutputStorage'],
     });
   }
 
   async create(data: {
-    branchId: string;
+    scope?: ProductionUnitScope | string;
+    branchId?: string | null;
     code?: string;
     name: string;
+    inventoryMode?: ProductionUnitInventoryMode | string;
     defaultInputStorageId?: string | null;
+    defaultOutputStorageId?: string | null;
     isActive?: boolean;
   }): Promise<ProductionUnit> {
     const companyId = this.requireCompanyId();
-    await this.assertBranchInCompany(data.branchId, companyId);
+    const scope = this.normalizeScope(data.scope);
+    const branchId = this.assertScopeBranchConsistency(scope, data.branchId);
+    if (branchId) {
+      await this.assertBranchInCompany(branchId, companyId);
+    }
 
     const name = data.name.trim();
     if (!name) {
       throw new BadRequestException('El nombre de la unidad es obligatorio.');
     }
 
-    if (data.defaultInputStorageId) {
-      await this.assertStorageInCompany(data.defaultInputStorageId, companyId);
-    }
+    const inventoryMode = this.normalizeInventoryMode(data.inventoryMode);
+    await this.assertInventoryStorages({
+      companyId,
+      scope,
+      branchId,
+      inventoryMode,
+      defaultInputStorageId: data.defaultInputStorageId,
+      defaultOutputStorageId: data.defaultOutputStorageId,
+    });
 
     const provided = data.code?.trim();
     let code: string;
     if (provided) {
-      const dup = await this.productionUnitRepository.findOne({
-        where: { companyId, branchId: data.branchId, code: provided },
+      await this.assertCodeUnique({
+        companyId,
+        scope,
+        branchId,
+        code: provided,
       });
-      if (dup) {
-        throw new ConflictException(
-          `Ya existe una unidad de producción con el código «${provided}» en esta sucursal.`,
-        );
-      }
       code = provided;
     } else {
-      code = await this.allocateNextCode(companyId, data.branchId);
+      code = await this.allocateNextCode(companyId, scope, branchId);
     }
 
     const row = this.productionUnitRepository.create({
       companyId,
-      branchId: data.branchId,
+      branchId,
+      scope,
+      inventoryMode,
       code,
       name,
       defaultInputStorageId: data.defaultInputStorageId ?? null,
+      defaultOutputStorageId: data.defaultOutputStorageId ?? null,
       isActive: data.isActive !== false,
     });
-    return this.productionUnitRepository.save(row);
+    const saved = await this.productionUnitRepository.save(row);
+    await this.syncAutonomousInputOwnership({
+      unitId: saved.id,
+      inventoryMode,
+      inputStorageId: saved.defaultInputStorageId ?? null,
+    });
+    return (await this.findOne(saved.id)) ?? saved;
   }
 
   async update(
     id: string,
     data: Partial<{
-      branchId: string;
+      scope: ProductionUnitScope | string;
+      branchId: string | null;
       code: string;
       name: string;
+      inventoryMode: ProductionUnitInventoryMode | string;
       defaultInputStorageId: string | null;
+      defaultOutputStorageId: string | null;
       isActive: boolean;
     }>,
   ): Promise<ProductionUnit> {
@@ -180,32 +450,54 @@ export class ProductionUnitsService {
       throw new NotFoundException('Unidad de producción no encontrada.');
     }
 
-    const branchId = data.branchId ?? existing.branchId;
-    if (data.branchId !== undefined) {
+    const scope =
+      data.scope !== undefined
+        ? this.normalizeScope(data.scope)
+        : existing.scope;
+    const branchIdRaw =
+      data.branchId !== undefined ? data.branchId : existing.branchId;
+    const branchId = this.assertScopeBranchConsistency(scope, branchIdRaw);
+    if (branchId) {
       await this.assertBranchInCompany(branchId, companyId);
-      existing.branchId = branchId;
     }
 
-    if (data.defaultInputStorageId !== undefined) {
-      if (data.defaultInputStorageId) {
-        await this.assertStorageInCompany(data.defaultInputStorageId, companyId);
-      }
-      existing.defaultInputStorageId = data.defaultInputStorageId;
-    }
+    const inventoryMode =
+      data.inventoryMode !== undefined
+        ? this.normalizeInventoryMode(data.inventoryMode)
+        : existing.inventoryMode;
+
+    const inputId =
+      data.defaultInputStorageId !== undefined
+        ? data.defaultInputStorageId
+        : existing.defaultInputStorageId;
+    const outputId =
+      data.defaultOutputStorageId !== undefined
+        ? data.defaultOutputStorageId
+        : existing.defaultOutputStorageId;
+    const previousInputId = existing.defaultInputStorageId ?? null;
+
+    await this.assertInventoryStorages({
+      companyId,
+      scope,
+      branchId,
+      inventoryMode,
+      defaultInputStorageId: inputId,
+      defaultOutputStorageId: outputId,
+      excludeUnitId: id,
+    });
 
     if (data.code !== undefined) {
       const code = data.code.trim();
       if (!code) {
         throw new BadRequestException('El código de la unidad es obligatorio.');
       }
-      const dup = await this.productionUnitRepository.findOne({
-        where: { companyId, branchId, code },
+      await this.assertCodeUnique({
+        companyId,
+        scope,
+        branchId,
+        code,
+        excludeId: id,
       });
-      if (dup && dup.id !== id) {
-        throw new ConflictException(
-          `Ya existe una unidad de producción con el código «${code}» en esta sucursal.`,
-        );
-      }
       existing.code = code;
     }
 
@@ -217,10 +509,23 @@ export class ProductionUnitsService {
       existing.name = name;
     }
 
+    existing.scope = scope;
+    existing.branchId = branchId;
+    existing.inventoryMode = inventoryMode;
+    existing.defaultInputStorageId = inputId ?? null;
+    existing.defaultOutputStorageId = outputId ?? null;
+
     if (data.isActive !== undefined) {
       existing.isActive = data.isActive;
     }
 
-    return this.productionUnitRepository.save(existing);
+    const saved = await this.productionUnitRepository.save(existing);
+    await this.syncAutonomousInputOwnership({
+      unitId: saved.id,
+      inventoryMode,
+      inputStorageId: saved.defaultInputStorageId ?? null,
+      previousInputStorageId: previousInputId,
+    });
+    return (await this.findOne(saved.id)) ?? saved;
   }
 }

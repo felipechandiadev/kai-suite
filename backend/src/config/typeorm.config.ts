@@ -19,6 +19,8 @@ import { DocumentSequence } from '@modules/transactions/domain/document-sequence
 import { TransactionLine } from '@modules/transaction-lines/domain/transaction-line.entity';
 import { Product } from '@modules/products/domain/product.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
+import { ProductVariantProductionUnit } from '@modules/product-variants/domain/product-variant-production-unit.entity';
+import { ProductVariantBranchAvailability } from '@modules/product-variants/domain/product-variant-branch-availability.entity';
 import { Customer } from '@modules/customers/domain/customer.entity';
 import { Tax } from '@modules/taxes/domain/tax.entity';
 import { Unit } from '@modules/units/domain/unit.entity';
@@ -103,6 +105,8 @@ import { DiningRoom } from '@modules/dining/domain/dining-room.entity';
 import { DiningTable } from '@modules/dining/domain/dining-table.entity';
 import { DiningOrder } from '@modules/dining/domain/dining-order.entity';
 import { DiningOrderLine } from '@modules/dining/domain/dining-order-line.entity';
+import { DiningBranchSettings } from '@modules/dining/domain/dining-branch-settings.entity';
+import { DiningOrderSequence } from '@modules/dining/domain/dining-order-sequence.entity';
 import { AuditSubscriber } from '../subscribers/AuditSubscriber';
 import { TenantSubscriber } from '../common/tenant/tenant.subscriber';
 
@@ -135,6 +139,8 @@ export const typeOrmConfig = (
       TransactionLine,
       Product,
       ProductVariant,
+      ProductVariantProductionUnit,
+      ProductVariantBranchAvailability,
       Customer,
       Tax,
       Unit,
@@ -219,6 +225,8 @@ export const typeOrmConfig = (
       DiningTable,
       DiningOrder,
       DiningOrderLine,
+      DiningBranchSettings,
+      DiningOrderSequence,
     ],
 
     // Register subscribers (TypeORM EventSubscribers)

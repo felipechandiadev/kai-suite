@@ -15,22 +15,23 @@ import {
   Button,
   DotProgress,
   IconButton,
-  Select,
 } from "@kai/ui";
 import {
+  getPosDiningBranchSettingsAction,
   getPosDiningOrderAction,
   listPosDiningOrdersAction,
   listPosDiningRoomsAction,
   openPosCounterOrderAction,
+  openPosTableOrderAction,
   openPosTakeawayOrderAction,
   requestPosDiningBillAction,
+  cancelPosDiningOrderItemAction,
   sendPosDiningOrderToKitchenAction,
 } from "@/features/dining/actions/dining-pos.action";
 import { diningAccountTitle } from "@/features/dining/lib/dining-account-title";
 import { diningOrderLinesToCart } from "@/features/dining/lib/dining-order-lines-to-cart";
 import {
   diningOrderStatusLabel,
-  kitchenItemStatusLabel,
 } from "@/features/dining/lib/dining-status-labels";
 import type {
   DiningOrderKind,
@@ -39,6 +40,10 @@ import type {
 } from "@/features/dining/types/dining-pos.types";
 import { PosDiningAddItemDialog } from "@/features/dining/ui/PosDiningAddItemDialog";
 import { PosDiningMenuColumn } from "@/features/dining/ui/PosDiningMenuColumn";
+import {
+  PosDiningOrderLineGroups,
+  type DiningLineProductMeta,
+} from "@/features/dining/ui/PosDiningOrderLineGroups";
 import { PosDiningRenameAccountDialog } from "@/features/dining/ui/PosDiningRenameAccountDialog";
 import { lookupPosVariantsAction } from "@/features/pos-products/actions/pos-products.action";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
@@ -142,8 +147,10 @@ export default function PosDiningAccountsPanel({
   const [actionBusy, setActionBusy] = useState(false);
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<PosDiningOrderSummary | null>(null);
-  const [variantNames, setVariantNames] = useState<Record<string, string>>({});
-  const [variantPrices, setVariantPrices] = useState<Record<string, number>>({});
+  const [allowPosOpenTable, setAllowPosOpenTable] = useState(false);
+  const [productByVariantId, setProductByVariantId] = useState<
+    Record<string, DiningLineProductMeta>
+  >({});
   const refreshRef = useRef(0);
 
   const navigateDining = useCallback(
@@ -221,6 +228,10 @@ export default function PosDiningAccountsPanel({
       if (!res.success) return;
       setRooms(res.rooms.filter((r) => r.isActive));
     });
+    void getPosDiningBranchSettingsAction(branchId.trim()).then((res) => {
+      if (!res.success) return;
+      setAllowPosOpenTable(res.settings.allowPosOpenTable === true);
+    });
   }, [branchId]);
 
   useEffect(() => {
@@ -258,8 +269,7 @@ export default function PosDiningAccountsPanel({
       ),
     ];
     if (variantIds.length === 0) {
-      setVariantNames({});
-      setVariantPrices({});
+      setProductByVariantId({});
       return;
     }
     const ctx = readPosContextClient();
@@ -270,14 +280,15 @@ export default function PosDiningAccountsPanel({
       priceListId: ctx?.priceListId ?? null,
     }).then((res) => {
       if (!res.success) return;
-      const names: Record<string, string> = {};
-      const prices: Record<string, number> = {};
+      const next: Record<string, DiningLineProductMeta> = {};
       for (const p of res.products) {
-        names[p.variantId] = p.productName;
-        prices[p.variantId] = Number(p.unitPriceWithTax) || 0;
+        next[p.variantId] = {
+          name: p.productName,
+          attributes: p.attributes,
+          unitPrice: Number(p.unitPriceWithTax) || 0,
+        };
       }
-      setVariantNames(names);
-      setVariantPrices(prices);
+      setProductByVariantId(next);
     });
   }, [branchId, detail, orders]);
 
@@ -289,16 +300,49 @@ export default function PosDiningAccountsPanel({
     return rows;
   }, [orders, tab, urlRoomId]);
 
+  const mesaCards = useMemo(() => {
+    const orderByTableId = new Map<string, PosDiningOrderSummary>();
+    for (const order of orders) {
+      if (
+        isActiveOrder(order) &&
+        order.kind === "TABLE" &&
+        order.diningTableId
+      ) {
+        orderByTableId.set(order.diningTableId, order);
+      }
+    }
+    const roomList = urlRoomId
+      ? rooms.filter((r) => r.id === urlRoomId)
+      : rooms;
+    return roomList.flatMap((room) => {
+      const tables = [...(room.tables ?? [])].sort((a, b) =>
+        (a.code || a.label).localeCompare(b.code || b.label, "es", {
+          numeric: true,
+        }),
+      );
+      return tables
+        .filter((t) => Boolean(t.id))
+        .map((t) => ({
+          tableId: t.id,
+          code: t.code,
+          label: t.label || t.code,
+          roomId: room.id,
+          roomName: room.name,
+          order: orderByTableId.get(t.id) ?? null,
+        }));
+    });
+  }, [orders, rooms, urlRoomId]);
+
   const estimateOrderTotal = useCallback(
     (order: PosDiningOrderSummary) => {
       return order.lines
         .filter((l) => l.kitchenStatus !== "CANCELLED")
         .reduce((sum, l) => {
-          const unit = variantPrices[l.productVariantId] ?? 0;
+          const unit = productByVariantId[l.productVariantId]?.unitPrice ?? 0;
           return sum + unit * (Number(l.quantity) || 0);
         }, 0);
     },
-    [variantPrices],
+    [productByVariantId],
   );
 
   const estimatedTotal = useMemo(() => {
@@ -316,6 +360,26 @@ export default function PosDiningAccountsPanel({
   );
 
   const canManageCounter = detail?.kind === "COUNTER" || detail?.kind === "TAKEAWAY";
+
+  const handleOpenTable = (diningTableId: string) => {
+    const tid = diningTableId.trim();
+    if (!branchId.trim() || !tid) return;
+    setActionBusy(true);
+    setActionError(null);
+    void openPosTableOrderAction(branchId.trim(), tid).then((res) => {
+      setActionBusy(false);
+      if (!res.success) {
+        if (redirectToLoginIfUnauthorized(res)) return;
+        setActionError(res.message);
+        return;
+      }
+      const params = new URLSearchParams(sp.toString());
+      params.set(POS_DINING_URL_KEYS.tab, "mesas");
+      params.set(POS_DINING_URL_KEYS.orderId, res.order.id);
+      navigateDining(params);
+      refreshList();
+    });
+  };
 
   const handleOpenCounter = () => {
     if (!branchId.trim()) return;
@@ -355,11 +419,11 @@ export default function PosDiningAccountsPanel({
     });
   };
 
-  const handleSendToKitchen = () => {
+  const handleSendToKitchen = (lineIds?: string[]) => {
     if (!detail) return;
     setActionBusy(true);
     setActionError(null);
-    void sendPosDiningOrderToKitchenAction(detail.id).then((res) => {
+    void sendPosDiningOrderToKitchenAction(detail.id, lineIds).then((res) => {
       setActionBusy(false);
       if (!res.success) {
         if (redirectToLoginIfUnauthorized(res)) return;
@@ -369,6 +433,31 @@ export default function PosDiningAccountsPanel({
       setDetail(res.order);
       refreshList();
     });
+  };
+
+  const handleCancelLines = (lineIds: string[]) => {
+    if (!detail || lineIds.length === 0) return;
+    const orderId = detail.id;
+    setActionBusy(true);
+    setActionError(null);
+    void (async () => {
+      let lastOrder = detail;
+      for (const lineId of lineIds) {
+        const res = await cancelPosDiningOrderItemAction(orderId, lineId);
+        if (!res.success) {
+          setActionBusy(false);
+          if (redirectToLoginIfUnauthorized(res)) return;
+          setActionError(res.message);
+          if (lastOrder) setDetail(lastOrder);
+          refreshList();
+          return;
+        }
+        lastOrder = res.order;
+      }
+      setActionBusy(false);
+      setDetail(lastOrder);
+      refreshList();
+    })();
   };
 
   const handleCobrar = async () => {
@@ -437,6 +526,55 @@ export default function PosDiningAccountsPanel({
     refreshList();
   };
 
+  const renderFreeTableCard = (mesa: {
+    tableId: string;
+    code: string;
+    label: string;
+    roomName: string;
+  }) => {
+    const title = mesa.label.startsWith("Mesa ")
+      ? mesa.label
+      : `Mesa ${mesa.code || mesa.label}`;
+    const openDisabled = disabled || actionBusy || !branchId.trim();
+    return (
+      <div
+        key={mesa.tableId}
+        className="block w-full rounded-xl border border-border bg-surface p-3 text-left shadow-sm"
+        data-test-id={`pos-dining-table-free-${mesa.tableId}`}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-foreground">{title}</p>
+            <p className="truncate text-[11px] text-muted-foreground">{mesa.roomName}</p>
+          </div>
+          <div className="flex max-w-[55%] shrink-0 flex-wrap justify-end gap-1">
+            <Badge variant="primary" className="text-[10px]">
+              Libre
+            </Badge>
+            {allowPosOpenTable ? (
+              <button
+                type="button"
+                disabled={openDisabled}
+                aria-label={`Abrir mesa ${title}`}
+                title="Abrir mesa"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenTable(mesa.tableId);
+                }}
+                className="rounded-full disabled:cursor-not-allowed disabled:opacity-50"
+                data-test-id={`pos-dining-open-table-${mesa.tableId}`}
+              >
+                <Badge variant="primary" className="text-[10px]">
+                  Abrir
+                </Badge>
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderOrderButton = (order: PosDiningOrderSummary) => {
     const activeLines = order.lines.filter((l) => l.kitchenStatus !== "CANCELLED");
     const progress = kitchenProgressFromLines(order.lines);
@@ -503,20 +641,46 @@ export default function PosDiningAccountsPanel({
   const accountsListBody = (
     <>
       {tab === "mesas" && rooms.length > 0 ? (
-        <Select
-          label="Salón"
-          placeholder="Todos los salones"
-          density="compact"
-          value={urlRoomId || null}
-          onChange={(id) => setRoomFilter(id ? String(id) : "")}
-          options={[
-            { id: "", label: "Todos los salones" },
-            ...rooms.map((room) => ({ id: room.id, label: room.name })),
-          ]}
-          alwaysShowLabel
-          disabled={disabled}
+        <div
+          className="flex flex-wrap gap-1.5"
+          role="group"
+          aria-label="Filtrar por salón"
           data-test-id="pos-dining-room-filter"
-        />
+        >
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => setRoomFilter("")}
+            className="rounded-full disabled:cursor-not-allowed disabled:opacity-50"
+            aria-pressed={!urlRoomId}
+            data-test-id="pos-dining-room-filter-all"
+          >
+            <Badge variant={!urlRoomId ? "primary" : "secondary-outlined"} className="text-[11px]">
+              Todos
+            </Badge>
+          </button>
+          {rooms.map((room) => {
+            const active = urlRoomId === room.id;
+            return (
+              <button
+                key={room.id}
+                type="button"
+                disabled={disabled}
+                onClick={() => setRoomFilter(room.id)}
+                className="rounded-full disabled:cursor-not-allowed disabled:opacity-50"
+                aria-pressed={active}
+                data-test-id={`pos-dining-room-filter-${room.id}`}
+              >
+                <Badge
+                  variant={active ? "primary" : "secondary-outlined"}
+                  className="text-[11px]"
+                >
+                  {room.name}
+                </Badge>
+              </button>
+            );
+          })}
+        </div>
       ) : null}
 
       {tab === "barra" ? (
@@ -571,10 +735,25 @@ export default function PosDiningAccountsPanel({
           </div>
         ) : (
           <div className="space-y-2">
-            {filteredOrders.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No hay cuentas activas.</p>
-            ) : null}
-            {filteredOrders.map(renderOrderButton)}
+            {tab === "mesas" ? (
+              <>
+                {mesaCards.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No hay mesas en este salón.</p>
+                ) : null}
+                {mesaCards.map((mesa) =>
+                  mesa.order
+                    ? renderOrderButton(mesa.order)
+                    : renderFreeTableCard(mesa),
+                )}
+              </>
+            ) : (
+              <>
+                {filteredOrders.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No hay cuentas activas.</p>
+                ) : null}
+                {filteredOrders.map(renderOrderButton)}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -653,40 +832,14 @@ export default function PosDiningAccountsPanel({
               </div>
             ) : null}
 
-            <ul className="space-y-2" data-test-id="pos-dining-detail-lines">
-              {detail.lines
-                .filter((l) => l.kitchenStatus !== "CANCELLED")
-                .map((line) => (
-                  <li
-                    key={line.id}
-                    className="rounded-lg border border-border bg-surface px-3 py-2 text-sm"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-medium text-foreground">
-                          {variantNames[line.productVariantId] ?? "Producto"}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {kitchenItemStatusLabel(line.kitchenStatus)}
-                        </p>
-                      </div>
-                      <div className="shrink-0 text-right tabular-nums">
-                        <p className="font-semibold">
-                          {new Intl.NumberFormat("es-CL", {
-                            maximumFractionDigits: 3,
-                          }).format(Number(line.quantity) || 0)}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">
-                          {formatMoney(
-                            (variantPrices[line.productVariantId] ?? 0) *
-                              (Number(line.quantity) || 0),
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-            </ul>
+            <PosDiningOrderLineGroups
+              lines={detail.lines}
+              productByVariantId={productByVariantId}
+              disabled={disabled}
+              busy={actionBusy}
+              onSendLines={(lineIds) => handleSendToKitchen(lineIds)}
+              onCancelLines={handleCancelLines}
+            />
           </div>
         ) : null}
       </div>
@@ -737,7 +890,7 @@ export default function PosDiningAccountsPanel({
                   title={`Enviar a cocina (${draftCount})`}
                   disabled={disabled || actionBusy}
                   isLoading={actionBusy}
-                  onClick={handleSendToKitchen}
+                  onClick={() => handleSendToKitchen()}
                   data-test-id="pos-dining-fire-btn"
                 />
               ) : null}

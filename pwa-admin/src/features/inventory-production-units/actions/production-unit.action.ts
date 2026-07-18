@@ -9,7 +9,7 @@ import type {
   UpdateProductionUnitInput,
 } from "../types/production-unit.types";
 
-const PATH = "/inventory/production-units";
+const PATH = "/production/units";
 
 export async function listProductionUnitsForPage(
   branchId?: string,
@@ -36,9 +36,16 @@ export async function createProductionUnitAction(
 export async function updateProductionUnitAction(
   input: UpdateProductionUnitInput,
 ): Promise<ProductionUnitActionResult> {
-  const { id, ...rest } = input;
-  const unit = await ProductionUnitRequest.update(id, rest);
-  if (!unit) return { success: false, message: "No se pudo actualizar la unidad." };
-  revalidatePath(PATH, "page");
-  return { success: true, unit };
+  try {
+    const { id, ...rest } = input;
+    const unit = await ProductionUnitRequest.update(id, rest);
+    if (!unit) return { success: false, message: "No se pudo actualizar la unidad." };
+    revalidatePath(PATH, "page");
+    return { success: true, unit };
+  } catch (e) {
+    return {
+      success: false,
+      message: e instanceof Error ? e.message : "No se pudo actualizar la unidad.",
+    };
+  }
 }

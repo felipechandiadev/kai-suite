@@ -70,6 +70,11 @@ import {
   DEFAULT_VARIANT_TAX_CATEGORY,
   isSpecialVariantTaxCategory,
 } from '../domain/variant-tax-category';
+import { ProductVariantProductionUnit } from '../domain/product-variant-production-unit.entity';
+import { ProductVariantBranchAvailability } from '../domain/product-variant-branch-availability.entity';
+import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
+import { ProductionUnitScope } from '@modules/production-units/domain/production-unit.enums';
+import { Branch } from '@modules/branches/domain/branch.entity';
 
 /** PMP en API: `null` si no hubo primera compra; nunca forzar 0 por defecto. */
 function pmpForApi(value: unknown): number | null {
@@ -115,6 +120,14 @@ export class ProductVariantsService {
     private readonly stockLevelOrm: Repository<StockLevel>,
     @InjectRepository(Tax)
     private readonly taxRepo: Repository<Tax>,
+    @InjectRepository(ProductVariantProductionUnit)
+    private readonly variantProductionUnitOrm: Repository<ProductVariantProductionUnit>,
+    @InjectRepository(ProductVariantBranchAvailability)
+    private readonly variantBranchAvailabilityOrm: Repository<ProductVariantBranchAvailability>,
+    @InjectRepository(ProductionUnit)
+    private readonly productionUnitOrm: Repository<ProductionUnit>,
+    @InjectRepository(Branch)
+    private readonly branchOrm: Repository<Branch>,
     private readonly conversion: VariantQuantityConversionService,
     private readonly eshopVisibilitySync: ProductEshopVisibilitySyncService,
   ) {}
@@ -1476,5 +1489,286 @@ export class ProductVariantsService {
       }
     }
     return user.userName?.trim() || 'Usuario';
+  }
+
+  private requireCompanyId(): string {
+    const companyId = TenantContext.getCompanyId();
+    if (!companyId) {
+      throw new BadRequestException('No hay empresa activa en el contexto.');
+    }
+    return companyId;
+  }
+
+  async listProductionUnitRouting(variantId: string): Promise<
+    Array<{ branchId: string; productionUnitId: string; isDefault: boolean }>
+  > {
+    const companyId = this.requireCompanyId();
+    const variant = await this.variantOrm.findOne({
+      where: { id: variantId, companyId },
+      select: ['id'],
+    });
+    if (!variant) {
+      throw new NotFoundException('Product variant not found');
+    }
+    const rows = await this.variantProductionUnitOrm.find({
+      where: { companyId, productVariantId: variantId },
+      order: { branchId: 'ASC', isDefault: 'DESC' },
+    });
+    return rows.map((r) => ({
+      branchId: r.branchId,
+      productionUnitId: r.productionUnitId,
+      isDefault: r.isDefault === true,
+    }));
+  }
+
+  async upsertProductionUnitRouting(
+    variantId: string,
+    items: Array<{
+      branchId: string;
+      productionUnitId: string;
+      isDefault: boolean;
+    }>,
+  ): Promise<
+    Array<{ branchId: string; productionUnitId: string; isDefault: boolean }>
+  > {
+    const companyId = this.requireCompanyId();
+    const variant = await this.variantOrm.findOne({
+      where: { id: variantId, companyId },
+      select: ['id'],
+    });
+    if (!variant) {
+      throw new NotFoundException('Product variant not found');
+    }
+
+    const defaultsByBranch = new Map<string, number>();
+    const seenPair = new Set<string>();
+    for (const item of items) {
+      const branchId = item.branchId?.trim();
+      const productionUnitId = item.productionUnitId?.trim();
+      if (!branchId || !productionUnitId) {
+        throw new BadRequestException(
+          'Cada ítem requiere branchId y productionUnitId.',
+        );
+      }
+      const pairKey = `${branchId}:${productionUnitId}`;
+      if (seenPair.has(pairKey)) {
+        throw new BadRequestException(
+          'Hay unidades duplicadas para la misma sucursal.',
+        );
+      }
+      seenPair.add(pairKey);
+      if (item.isDefault) {
+        defaultsByBranch.set(
+          branchId,
+          (defaultsByBranch.get(branchId) ?? 0) + 1,
+        );
+      }
+    }
+
+    const branchIds = [...new Set(items.map((i) => i.branchId.trim()))];
+    for (const branchId of branchIds) {
+      const count = defaultsByBranch.get(branchId) ?? 0;
+      if (count !== 1) {
+        throw new BadRequestException(
+          'Cada sucursal con unidades asignadas debe tener exactamente una unidad por defecto.',
+        );
+      }
+      const branch = await this.branchOrm.findOne({
+        where: { id: branchId, companyId },
+        select: ['id'],
+      });
+      if (!branch) {
+        throw new BadRequestException(
+          'Sucursal no válida o no pertenece a la empresa.',
+        );
+      }
+    }
+
+    for (const item of items) {
+      const unit = await this.productionUnitOrm.findOne({
+        where: { id: item.productionUnitId, companyId, isActive: true },
+      });
+      if (!unit) {
+        throw new BadRequestException(
+          'Unidad de producción no válida o inactiva.',
+        );
+      }
+      if (unit.scope === ProductionUnitScope.BRANCH) {
+        if (unit.branchId !== item.branchId) {
+          throw new BadRequestException(
+            'La unidad de producción de sucursal no pertenece a la sucursal indicada.',
+          );
+        }
+      } else if (unit.scope !== ProductionUnitScope.COMPANY) {
+        throw new BadRequestException('Alcance de unidad de producción inválido.');
+      }
+    }
+
+    await this.variantProductionUnitOrm.manager.transaction(async (em) => {
+      await em.delete(ProductVariantProductionUnit, {
+        companyId,
+        productVariantId: variantId,
+      });
+      if (items.length === 0) {
+        return;
+      }
+      const rows = items.map((item) =>
+        em.create(ProductVariantProductionUnit, {
+          companyId,
+          productVariantId: variantId,
+          branchId: item.branchId.trim(),
+          productionUnitId: item.productionUnitId.trim(),
+          isDefault: item.isDefault === true,
+        }),
+      );
+      await em.save(rows);
+    });
+
+    return this.listProductionUnitRouting(variantId);
+  }
+
+  /**
+   * Default production unit for a variant at a branch (dining / KDS routing).
+   * Returns null if no mapping exists.
+   */
+  async resolveDefaultProductionUnitId(
+    variantId: string,
+    branchId: string,
+    companyId?: string,
+  ): Promise<string | null> {
+    const cid = companyId ?? this.requireCompanyId();
+    const row = await this.variantProductionUnitOrm.findOne({
+      where: {
+        companyId: cid,
+        productVariantId: variantId,
+        branchId,
+        isDefault: true,
+      },
+    });
+    return row?.productionUnitId ?? null;
+  }
+
+  async listBranchAvailability(variantId: string): Promise<
+    Array<{ branchId: string; isActive: boolean }>
+  > {
+    const companyId = this.requireCompanyId();
+    const variant = await this.variantOrm.findOne({
+      where: { id: variantId, companyId },
+      select: ['id'],
+    });
+    if (!variant) {
+      throw new NotFoundException('Product variant not found');
+    }
+    const rows = await this.variantBranchAvailabilityOrm.find({
+      where: { companyId, productVariantId: variantId },
+      order: { branchId: 'ASC' },
+    });
+    return rows.map((r) => ({
+      branchId: r.branchId,
+      isActive: r.isActive !== false,
+    }));
+  }
+
+  async upsertBranchAvailability(
+    variantId: string,
+    items: Array<{ branchId: string; isActive: boolean }>,
+  ): Promise<Array<{ branchId: string; isActive: boolean }>> {
+    const companyId = this.requireCompanyId();
+    const variant = await this.variantOrm.findOne({
+      where: { id: variantId, companyId },
+      select: ['id'],
+    });
+    if (!variant) {
+      throw new NotFoundException('Product variant not found');
+    }
+
+    const seen = new Set<string>();
+    for (const item of items) {
+      const branchId = item.branchId?.trim();
+      if (!branchId) {
+        throw new BadRequestException('Cada ítem requiere branchId.');
+      }
+      if (seen.has(branchId)) {
+        throw new BadRequestException('Hay sucursales duplicadas en la lista.');
+      }
+      seen.add(branchId);
+      const branch = await this.branchOrm.findOne({
+        where: { id: branchId, companyId },
+        select: ['id'],
+      });
+      if (!branch) {
+        throw new BadRequestException(
+          'Sucursal no válida o no pertenece a la empresa.',
+        );
+      }
+    }
+
+    await this.variantBranchAvailabilityOrm.manager.transaction(async (em) => {
+      await em.delete(ProductVariantBranchAvailability, {
+        companyId,
+        productVariantId: variantId,
+      });
+      if (items.length === 0) {
+        return;
+      }
+      const rows = items.map((item) =>
+        em.create(ProductVariantBranchAvailability, {
+          companyId,
+          productVariantId: variantId,
+          branchId: item.branchId.trim(),
+          isActive: item.isActive !== false,
+        }),
+      );
+      await em.save(rows);
+    });
+
+    return this.listBranchAvailability(variantId);
+  }
+
+  /**
+   * Global isActive AND (no branch row OR row.isActive).
+   * Missing row = active in that branch (compat).
+   */
+  async isVariantActiveInBranch(
+    variantId: string,
+    branchId: string,
+    companyId?: string,
+  ): Promise<boolean> {
+    const cid = companyId ?? this.requireCompanyId();
+    const variant = await this.variantOrm.findOne({
+      where: { id: variantId, companyId: cid },
+      select: ['id', 'isActive'],
+    });
+    if (!variant || variant.isActive === false) {
+      return false;
+    }
+    const row = await this.variantBranchAvailabilityOrm.findOne({
+      where: {
+        companyId: cid,
+        productVariantId: variantId,
+        branchId,
+      },
+    });
+    if (!row) {
+      return true;
+    }
+    return row.isActive !== false;
+  }
+
+  /** Variant IDs explicitly inactive in a branch (for filtering catalogs). */
+  async listInactiveVariantIdsInBranch(
+    branchId: string,
+    companyId?: string,
+  ): Promise<string[]> {
+    const cid = companyId ?? this.requireCompanyId();
+    const rows = await this.variantBranchAvailabilityOrm.find({
+      where: {
+        companyId: cid,
+        branchId,
+        isActive: false,
+      },
+      select: ['productVariantId'],
+    });
+    return rows.map((r) => r.productVariantId);
   }
 }

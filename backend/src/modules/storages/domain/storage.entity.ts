@@ -11,18 +11,23 @@ import {
   Index,
 } from 'typeorm';
 import { Branch } from '@modules/branches/domain/branch.entity';
+import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
 
 export enum StorageType {
   WAREHOUSE = 'WAREHOUSE',
   STORE = 'STORE',
   COLD_ROOM = 'COLD_ROOM',
   TRANSIT = 'TRANSIT',
+  /** Bodega dedicada a insumos de una unidad de producción. */
+  PRODUCTION_INPUTS = 'PRODUCTION_INPUTS',
 }
 
 export enum StorageCategory {
   IN_BRANCH = 'IN_BRANCH',
   CENTRAL = 'CENTRAL',
   EXTERNAL = 'EXTERNAL',
+  /** Bodega de insumos dedicada a una unidad de producción autónoma. */
+  PRODUCTION_INPUT = 'PRODUCTION_INPUT',
 }
 
 @Entity('storages')
@@ -68,6 +73,10 @@ export class Storage {
   @Column({ type: 'boolean', default: true })
   isActive!: boolean;
 
+  /** Dueño exclusivo cuando category = PRODUCTION_INPUT (unidad autónoma). */
+  @Column({ name: 'production_unit_id', type: 'uuid', nullable: true })
+  productionUnitId?: string | null;
+
   @CreateDateColumn()
   createdAt!: Date;
 
@@ -81,4 +90,8 @@ export class Storage {
   @ManyToOne(() => Branch, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'branchId' })
   branch?: Branch;
+
+  @ManyToOne(() => ProductionUnit, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'production_unit_id' })
+  productionUnit?: ProductionUnit | null;
 }

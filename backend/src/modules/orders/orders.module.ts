@@ -3,6 +3,7 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TransactionsModule } from '@modules/transactions/transactions.module';
 import { RecipesModule } from '@modules/recipes/recipes.module';
+import { ProductionUnitsModule } from '@modules/production-units/production-units.module';
 import { Transaction } from '@modules/transactions/domain/transaction.entity';
 import { TransactionLine } from '@modules/transaction-lines/domain/transaction-line.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
@@ -19,6 +20,7 @@ import { CompleteProductionBatchUseCase } from './application/commands/complete-
     CqrsModule,
     TransactionsModule,
     RecipesModule,
+    ProductionUnitsModule,
     TypeOrmModule.forFeature([Transaction, TransactionLine, ProductVariant, StockLevel]),
   ],
   controllers: [

@@ -65,7 +65,7 @@ export function ProductionOrderDetail({ batch: initial }: Props) {
           </h1>
           <div className="mt-1">{statusBadge(batch.status)}</div>
         </div>
-        <Link href="/inventory/production/orders">
+        <Link href="/production/orders">
           <Button variant="outlined">Volver</Button>
         </Link>
       </div>
@@ -76,8 +76,12 @@ export function ProductionOrderDetail({ batch: initial }: Props) {
           <dd>{batch.branchName ?? batch.branchId ?? "—"}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Almacén</dt>
+          <dt className="text-muted-foreground">Almacén insumos</dt>
           <dd>{batch.storageName ?? batch.storageId ?? "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Almacén salida</dt>
+          <dd>{batch.outputStorageId ?? "—"}</dd>
         </div>
         <div>
           <dt className="text-muted-foreground">Producto</dt>

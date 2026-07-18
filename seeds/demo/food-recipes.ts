@@ -187,7 +187,43 @@ export const SEED_DEV_PRODUCTION_RECIPES: readonly SeedRecipeDef[] = [
   },
 ];
 
-export const SEED_DEV_PRODUCTION_UNITS = [
-  { code: 'COCINA', name: 'Cocina' },
-  { code: 'BARRA', name: 'Barra' },
-] as const;
+export type SeedProductionUnitDef = {
+  code: string;
+  name: string;
+  scope: 'BRANCH' | 'COMPANY';
+  branchKey: 'main' | 'mall' | null;
+  inventoryMode: 'AUTONOMOUS' | 'DEPENDENT';
+};
+
+export const SEED_DEV_PRODUCTION_UNITS: readonly SeedProductionUnitDef[] = [
+  {
+    code: 'COCINA',
+    name: 'Cocina',
+    scope: 'BRANCH',
+    /** Casa matriz */
+    branchKey: 'main',
+    inventoryMode: 'DEPENDENT',
+  },
+  {
+    code: 'BARRA',
+    name: 'Barra',
+    scope: 'BRANCH',
+    branchKey: 'main',
+    inventoryMode: 'DEPENDENT',
+  },
+  {
+    code: 'COCINA',
+    name: 'Cocina',
+    scope: 'BRANCH',
+    /** Local Mall */
+    branchKey: 'mall',
+    inventoryMode: 'DEPENDENT',
+  },
+  {
+    code: 'PASTELERIA',
+    name: 'Pastelería central',
+    scope: 'COMPANY',
+    branchKey: null,
+    inventoryMode: 'AUTONOMOUS',
+  },
+];

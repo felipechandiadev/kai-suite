@@ -158,6 +158,7 @@ export class StoragesService {
       capacity: storage.capacity ?? null,
       isDefault: storage.isDefault,
       isActive: storage.isActive,
+      productionUnitId: storage.productionUnitId ?? null,
       createdAt: storage.createdAt,
       updatedAt: storage.updatedAt,
     };

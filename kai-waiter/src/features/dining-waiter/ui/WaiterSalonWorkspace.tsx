@@ -7,6 +7,7 @@ import type {
   DiningTableDto,
 } from "@/features/dining-waiter/infrastructure/dining.request";
 import {
+  getDiningNumberingSettingsAction,
   getDiningOrderAction,
   getDiningRoomAction,
   listActiveDiningOrdersAction,
@@ -34,6 +35,7 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
   const [selectedOrder, setSelectedOrder] = useState<DiningOrderDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState(false);
+  const [canOpenTable, setCanOpenTable] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const authRef = useRef({ userId: session.userId, companyId: session.companyId });
   authRef.current = { userId: session.userId, companyId: session.companyId };
@@ -56,11 +58,18 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
       const detail = await getDiningRoomAction({ ...auth, roomId });
       setRoom(detail);
       saveWaiterRoomId(roomId);
-      const list = await listActiveDiningOrdersAction({
-        ...auth,
-        branchId: detail.branchId,
-      });
+      const [list, settings] = await Promise.all([
+        listActiveDiningOrdersAction({
+          ...auth,
+          branchId: detail.branchId,
+        }),
+        getDiningNumberingSettingsAction({
+          ...auth,
+          branchId: detail.branchId,
+        }).catch(() => ({ allowWaiterOpenTable: true })),
+      ]);
       setOrders(list);
+      setCanOpenTable(settings.allowWaiterOpenTable !== false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al cargar salón");
     } finally {
@@ -194,6 +203,7 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
           onOpenTable={handleOpenTable}
           onOrderUpdated={handleOrderUpdated}
           opening={opening}
+          canOpenTable={canOpenTable}
         />
       </div>
     );

@@ -7,21 +7,49 @@ import { Button } from "@kai/ui";
 import { TextField } from "@kai/ui";
 import { SelectDefault as Select } from "@kai/ui";
 import { Switch } from "@kai/ui";
-import type { StorageCategory, StorageType } from "@/features/inventory-storages/types/storage.types";
+import type {
+  StorageCategory,
+  StorageListItem,
+  StorageType,
+} from "@/features/inventory-storages/types/storage.types";
+import { storageCategoryLabel } from "@/features/inventory-storages/types/storage.types";
 import { createStorageAction } from "@/features/inventory-storages/actions/storage.action";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
 import { parseBranchLocation } from "@/features/settings-branches/utils/parse-branch-location";
 import LocationPicker from "@/shared/components/LocationPicker/LocationPickerWrapper";
-import { STORAGE_CATEGORY_SELECT_OPTIONS, STORAGE_TYPE_SELECT_OPTIONS } from "./storageFormOptions";
+import {
+  STORAGE_CATEGORY_SELECT_OPTIONS,
+  STORAGE_TYPE_SELECT_OPTIONS,
+} from "./storageFormOptions";
+
+export type CreateStorageDialogPresets = {
+  name?: string;
+  branchId?: string | null;
+  category?: StorageCategory;
+  type?: StorageType;
+  /** Si true, no se puede cambiar la categoría. */
+  lockCategory?: boolean;
+  /** Si true, no se puede cambiar la sucursal. */
+  lockBranch?: boolean;
+  /** Incluye PRODUCTION_INPUT en el select de categoría (p. ej. insumos autónomos). */
+  allowProductionInputCategory?: boolean;
+};
 
 export type CreateStorageDialogProps = {
   open: boolean;
   onClose: () => void;
   branches: BranchListItem[];
-  onSuccess?: () => void | Promise<void>;
+  presets?: CreateStorageDialogPresets | null;
+  onSuccess?: (storage: StorageListItem) => void | Promise<void>;
 };
 
-export function CreateStorageDialog({ open, onClose, branches, onSuccess }: CreateStorageDialogProps) {
+export function CreateStorageDialog({
+  open,
+  onClose,
+  branches,
+  presets,
+  onSuccess,
+}: CreateStorageDialogProps) {
   const [name, setName] = useState("");
   const [branchId, setBranchId] = useState("");
   const [type, setType] = useState<StorageType>("WAREHOUSE");
@@ -38,20 +66,37 @@ export function CreateStorageDialog({ open, onClose, branches, onSuccess }: Crea
     return [{ id: "", label: "Sin sucursal" }, ...sorted.map((b) => ({ id: b.id, label: b.name }))];
   }, [branches]);
 
+  const categoryOptions = useMemo(() => {
+    if (!presets?.allowProductionInputCategory) {
+      return STORAGE_CATEGORY_SELECT_OPTIONS;
+    }
+    return [
+      ...STORAGE_CATEGORY_SELECT_OPTIONS,
+      {
+        id: "PRODUCTION_INPUT" as const,
+        label: storageCategoryLabel("PRODUCTION_INPUT"),
+      },
+    ];
+  }, [presets?.allowProductionInputCategory]);
+
   useEffect(() => {
     if (!open) {
       return;
     }
-    setName("");
-    setBranchId("");
-    setType("WAREHOUSE");
-    setCategory("IN_BRANCH");
+    setName(presets?.name?.trim() ?? "");
+    setBranchId(
+      presets?.branchId != null && presets.branchId !== ""
+        ? String(presets.branchId)
+        : "",
+    );
+    setType(presets?.type ?? "WAREHOUSE");
+    setCategory(presets?.category ?? "IN_BRANCH");
     setAddress("");
     setCoords(null);
     setIsDefault(false);
     setIsActive(true);
     setError(null);
-  }, [open]);
+  }, [open, presets]);
 
   const selectedBranchCoords = useMemo(() => {
     const b = branches.find((x) => x.id === branchId);
@@ -64,19 +109,11 @@ export function CreateStorageDialog({ open, onClose, branches, onSuccess }: Crea
   }, [branches, branchId]);
 
   useEffect(() => {
-    // Si hay sucursal seleccionada, el almacén hereda SIEMPRE su ubicación (si existe).
-    // Si la sucursal no tiene coordenadas, almacenamos null.
     if (branchId) {
       setCoords(selectedBranchCoords);
       setAddress((selectedBranchAddress ?? "").trim());
     }
   }, [branchId, selectedBranchAddress, selectedBranchCoords]);
-
-  useEffect(() => {
-    if (category === "IN_BRANCH") {
-      // No forzamos coordenadas; el mapa puede venir de la sucursal o ser opcional.
-    }
-  }, [category]);
 
   const handleClose = () => {
     setName("");
@@ -107,7 +144,7 @@ export function CreateStorageDialog({ open, onClose, branches, onSuccess }: Crea
           isActive,
         });
         if (r.success) {
-          await onSuccess?.();
+          await onSuccess?.(r.storage);
           handleClose();
         } else {
           setError(r.error);
@@ -136,10 +173,22 @@ export function CreateStorageDialog({ open, onClose, branches, onSuccess }: Crea
       }
       actions={
         <>
-          <Button variant="outlined" size="md" onClick={handleClose} disabled={isPending} data-test-id="storage-create-cancel">
+          <Button
+            variant="outlined"
+            size="md"
+            onClick={handleClose}
+            disabled={isPending}
+            data-test-id="storage-create-cancel"
+          >
             Cancelar
           </Button>
-          <Button variant="primary" size="md" onClick={handleSubmit} disabled={!canSubmit} data-test-id="storage-create-submit">
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            data-test-id="storage-create-submit"
+          >
             Crear
           </Button>
         </>
@@ -162,6 +211,7 @@ export function CreateStorageDialog({ open, onClose, branches, onSuccess }: Crea
           onChange={(id) => setBranchId(id == null ? "" : String(id))}
           options={branchOptions}
           placeholder="Sin sucursal"
+          disabled={Boolean(presets?.lockBranch)}
           data-test-id="storage-create-branch"
         />
         <Select
@@ -178,8 +228,9 @@ export function CreateStorageDialog({ open, onClose, branches, onSuccess }: Crea
           name="storage-create-category"
           value={category}
           onChange={(id) => setCategory(String(id) as StorageCategory)}
-          options={STORAGE_CATEGORY_SELECT_OPTIONS}
+          options={categoryOptions}
           required
+          disabled={Boolean(presets?.lockCategory)}
           data-test-id="storage-create-category"
         />
         <TextField
@@ -193,7 +244,9 @@ export function CreateStorageDialog({ open, onClose, branches, onSuccess }: Crea
           data-test-id="storage-create-address"
         />
         <div className="flex flex-col gap-2" data-test-id="storage-create-location-picker">
-          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ubicación en mapa</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Ubicación en mapa
+          </div>
           <LocationPicker
             key={`storage-create-map-${branchId || "no-branch"}-${selectedBranchCoords?.lat ?? "x"}-${selectedBranchCoords?.lng ?? "y"}`}
             mode={branchId ? "viewer" : "edit"}
@@ -207,7 +260,10 @@ export function CreateStorageDialog({ open, onClose, branches, onSuccess }: Crea
             onChange={(p) => setCoords(p)}
           />
           {branchId ? (
-            <p className="text-xs text-muted-foreground" data-test-id="storage-create-location-inherited">
+            <p
+              className="text-xs text-muted-foreground"
+              data-test-id="storage-create-location-inherited"
+            >
               La ubicación se hereda de la sucursal seleccionada.
             </p>
           ) : null}
