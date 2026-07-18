@@ -43,6 +43,8 @@ export async function listAvailableCompaniesAction() {
   return CompaniesRequest.listAvailable();
 }
 
-export async function switchCompanyAction(companyId: string) {
+export async function switchCompanyAction(
+  companyId: string | { multiCompanyMode: true },
+) {
   return CompaniesRequest.switchCompany(companyId);
 }

@@ -51,6 +51,7 @@ export function SettingsUsersCollection({ initialUsers }: SettingsUsersCollectio
       }
       contentGridColumns={{ default: 1, md: 2, lg: 3 }}
       contentGridGapClassName="gap-4"
+      contentGridItemsAlign="stretch"
       data-test-id="settings-users-collection"
     />
   );

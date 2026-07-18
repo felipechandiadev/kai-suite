@@ -90,6 +90,7 @@ export class UsersController {
   async createUser(
     @Body() data: CreateUserDto,
     @OptionalCurrentCompany() activeCompanyId?: string | null,
+    @CurrentUser() currentUser?: CurrentUserPayload,
   ) {
     return this.usersService.createUser(
       {
@@ -101,8 +102,10 @@ export class UsersController {
         personId: data.personId,
         person: data.person,
         alsoAsEmployee: data.alsoAsEmployee,
+        memberships: data.memberships,
       },
       activeCompanyId,
+      currentUser,
     );
   }
 
@@ -111,8 +114,26 @@ export class UsersController {
   @ApiOperation({ summary: 'Update user' })
   @ApiParam({ name: 'id', description: 'User ID to update' })
   @ApiBody({ type: UpdateUserDto })
-  async updateUser(@Param('id') id: string, @Body() data: UpdateUserDto) {
-    return this.usersService.updateUser(id, data);
+  async updateUser(
+    @Param('id') id: string,
+    @Body() data: UpdateUserDto,
+    @CurrentUser() currentUser: CurrentUserPayload,
+  ) {
+    return this.usersService.updateUser(id, data, currentUser);
+  }
+
+  @Post('transfer-ownership')
+  @AdminOnly()
+  @ApiOperation({ summary: 'Transfer company ownership to another ADMIN' })
+  async transferOwnership(
+    @Body() body: { companyId: string; toUserId: string },
+    @CurrentUser() currentUser: CurrentUserPayload,
+  ) {
+    return this.usersService.transferOwnership(
+      body.companyId,
+      body.toUserId,
+      currentUser,
+    );
   }
 
   @Delete(':id')

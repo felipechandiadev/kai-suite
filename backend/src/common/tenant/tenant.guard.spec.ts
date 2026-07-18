@@ -48,12 +48,47 @@ function buildGuard(opts: {
       return null;
     }),
   };
+  const membershipsService = {
+    ensureMembershipFromLegacy: jest.fn().mockResolvedValue(undefined),
+    getMemberships: jest.fn().mockResolvedValue(
+      opts.user?.companyId
+        ? [
+            {
+              id: 'm1',
+              companyId: opts.user.companyId,
+              roles: [
+                opts.user.rol === UserRole.ADMIN
+                  ? 'ADMIN'
+                  : opts.user.rol === UserRole.OPERATOR
+                    ? 'POS_OPERATOR'
+                    : opts.user.rol,
+              ],
+              isOwner: opts.user.rol === UserRole.ADMIN,
+              isActive: true,
+            },
+          ]
+        : [],
+    ),
+    getMembership: jest.fn().mockImplementation(async (_uid: string, cid: string) => {
+      if (opts.user?.companyId === cid) {
+        return {
+          id: 'm1',
+          companyId: cid,
+          roles: [opts.user.rol === UserRole.OPERATOR ? 'POS_OPERATOR' : opts.user.rol],
+          isOwner: opts.user.rol === UserRole.ADMIN,
+          isActive: true,
+        };
+      }
+      return null;
+    }),
+  };
   const guard = new TenantGuard(
     buildReflector(opts.meta ?? {}),
     userRepo as any,
     companyRepo as any,
+    membershipsService as any,
   );
-  return { guard, userRepo, companyRepo };
+  return { guard, userRepo, companyRepo, membershipsService };
 }
 
 const VALID_UUID = 'b3e0a8e0-8a9b-4f5a-9d4a-0a4c8d3b2f1e';
@@ -94,7 +129,7 @@ describe('TenantGuard', () => {
     await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 
-  it('locks ADMIN to their own company regardless of X-Active-Company-Id header', async () => {
+  it('rejects ADMIN when X-Active-Company-Id is not in memberships', async () => {
     const { guard } = buildGuard({
       user: {
         id: VALID_UUID,
@@ -107,6 +142,24 @@ describe('TenantGuard', () => {
       headers: {
         authorization: `Bearer ${VALID_UUID}`,
         'x-active-company-id': OTHER_UUID,
+      },
+    });
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('allows ADMIN with X-Active-Company-Id matching membership', async () => {
+    const { guard } = buildGuard({
+      user: {
+        id: VALID_UUID,
+        userName: 'a',
+        rol: UserRole.ADMIN,
+        companyId: VALID_UUID,
+      },
+    });
+    const ctx = buildContext({
+      headers: {
+        authorization: `Bearer ${VALID_UUID}`,
+        'x-active-company-id': VALID_UUID,
       },
     });
     await expect(guard.canActivate(ctx)).resolves.toBe(true);

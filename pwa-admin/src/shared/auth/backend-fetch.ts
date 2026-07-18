@@ -9,10 +9,11 @@ import { authOptions } from "@/lib/auth/auth-options";
 export async function getBackendHeaders(): Promise<HeadersInit> {
   const session = await getServerSession(authOptions);
   const token = session?.user?.accessToken;
-  const activeCompanyId = (session?.user as any)?.activeCompanyId as
+  const activeCompanyId = session?.user?.activeCompanyId as
     | string
     | null
     | undefined;
+  const multiCompanyMode = !!session?.user?.multiCompanyMode;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -20,7 +21,9 @@ export async function getBackendHeaders(): Promise<HeadersInit> {
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
-  if (activeCompanyId) {
+  if (multiCompanyMode) {
+    headers["X-Multi-Company-Mode"] = "true";
+  } else if (activeCompanyId) {
     headers["X-Active-Company-Id"] = activeCompanyId;
   }
   return headers;

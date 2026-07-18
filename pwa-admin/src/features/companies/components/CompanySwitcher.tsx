@@ -8,12 +8,7 @@ import { switchCompanyAction } from "../actions/companies.action";
 import type { CompanyOption } from "../types/company.types";
 
 interface CompanySwitcherProps {
-  /** Si se quiere forzar el listado (para testing). Si no, se toma de la session. */
   fallbackCompanies?: CompanyOption[];
-  /**
-   * ADMIN: si la sesión aún no trae `companies` pero el layout resolvió la empresa (RSC),
-   * mostrar este nombre hasta el próximo login con payload completo.
-   */
   fallbackCompanyLabel?: string | null;
 }
 
@@ -28,9 +23,11 @@ const CompanySwitcher: React.FC<CompanySwitcherProps> = ({
   const [pending, startTransition] = useTransition();
   const ref = useRef<HTMLDivElement | null>(null);
 
-  const role = (session?.user as { role?: string | null })?.role ?? null;
-  const activeCompanyId = (session?.user as { activeCompanyId?: string | null })?.activeCompanyId;
-  const sessionCompanies = (session?.user as { companies?: CompanyOption[] | null })?.companies;
+  const role = session?.user?.role ?? null;
+  const activeCompanyId = session?.user?.activeCompanyId;
+  const multiCompanyMode = !!session?.user?.multiCompanyMode;
+  const memberships = session?.user?.memberships ?? [];
+  const sessionCompanies = session?.user?.companies;
 
   const companies = useMemo<CompanyOption[]>(() => {
     if (Array.isArray(sessionCompanies) && sessionCompanies.length > 0) {
@@ -40,6 +37,11 @@ const CompanySwitcher: React.FC<CompanySwitcherProps> = ({
   }, [sessionCompanies, fallbackCompanies]);
 
   const isSuperAdmin = role === "SUPER_ADMIN";
+  const canSwitch =
+    isSuperAdmin ||
+    companies.length > 1 ||
+    (memberships.some((m) => m.roles.includes("ADMIN")) &&
+      companies.length >= 2);
 
   const resolvedCompanies = useMemo<CompanyOption[]>(() => {
     if (companies.length > 0) {
@@ -48,7 +50,10 @@ const CompanySwitcher: React.FC<CompanySwitcherProps> = ({
     if (isSuperAdmin) {
       return [];
     }
-    const fb = typeof fallbackCompanyLabel === "string" ? fallbackCompanyLabel.trim() : "";
+    const fb =
+      typeof fallbackCompanyLabel === "string"
+        ? fallbackCompanyLabel.trim()
+        : "";
     if (!fb || !session?.user) {
       return [];
     }
@@ -56,7 +61,7 @@ const CompanySwitcher: React.FC<CompanySwitcherProps> = ({
       (typeof activeCompanyId === "string" && activeCompanyId.trim() !== ""
         ? activeCompanyId
         : null) ??
-      (session.user as { companyId?: string | null }).companyId ??
+      session.user.companyId ??
       "";
     return [{ id: cid, razonSocial: fb, nombreFantasia: null }];
   }, [companies, isSuperAdmin, fallbackCompanyLabel, session, activeCompanyId]);
@@ -68,6 +73,23 @@ const CompanySwitcher: React.FC<CompanySwitcherProps> = ({
     return resolvedCompanies.find((c) => c.id === activeCompanyId) ?? null;
   }, [resolvedCompanies, activeCompanyId]);
 
+  // Si quedó multiCompanyMode (login antiguo), salir a la 1.ª empresa.
+  useEffect(() => {
+    if (!multiCompanyMode) return;
+    const first = resolvedCompanies[0];
+    if (!first?.id) return;
+    startTransition(async () => {
+      const res = await switchCompanyAction(first.id);
+      if (res.success) {
+        await update({
+          activeCompanyId: res.activeCompanyId,
+          multiCompanyMode: false,
+        });
+        router.refresh();
+      }
+    });
+  }, [multiCompanyMode, resolvedCompanies, update, router]);
+
   useEffect(() => {
     function onClick(e: MouseEvent) {
       if (!ref.current) return;
@@ -77,9 +99,8 @@ const CompanySwitcher: React.FC<CompanySwitcherProps> = ({
     }
     if (open) {
       window.addEventListener("mousedown", onClick);
-      return () => window.removeEventListener("mousedown", onClick);
     }
-    return undefined;
+    return () => window.removeEventListener("mousedown", onClick);
   }, [open]);
 
   if (!session?.user) return null;
@@ -88,11 +109,9 @@ const CompanySwitcher: React.FC<CompanySwitcherProps> = ({
   const label =
     activeCompany?.nombreFantasia?.trim() ||
     activeCompany?.razonSocial?.trim() ||
-    "Sin empresa";
+    (multiCompanyMode ? "Cargando…" : "Sin empresa");
 
-  // Solo SUPER_ADMIN ve el switcher (puede operar varias empresas).
-  // ADMIN/OPERATOR están fijos a una empresa: solo muestran el nombre.
-  if (!isSuperAdmin) {
+  if (!canSwitch) {
     return (
       <div className="flex items-center gap-1.5 text-sm text-foreground">
         <Building2 size={14} className="text-muted-foreground" aria-hidden />
@@ -104,14 +123,17 @@ const CompanySwitcher: React.FC<CompanySwitcherProps> = ({
   }
 
   function handleSelect(companyId: string) {
-    if (companyId === activeCompanyId) {
+    if (companyId === activeCompanyId && !multiCompanyMode) {
       setOpen(false);
       return;
     }
     startTransition(async () => {
       const res = await switchCompanyAction(companyId);
       if (res.success) {
-        await update({ activeCompanyId: res.activeCompanyId });
+        await update({
+          activeCompanyId: res.activeCompanyId,
+          multiCompanyMode: false,
+        });
         setOpen(false);
         router.refresh();
       } else {
@@ -137,24 +159,27 @@ const CompanySwitcher: React.FC<CompanySwitcherProps> = ({
       </button>
       {open ? (
         <div
-          className="absolute right-0 z-50 mt-1 min-w-[14rem] overflow-hidden rounded-md border border-border bg-background shadow-lg"
+          className="absolute right-0 z-50 mt-1 min-w-56 overflow-hidden rounded-md border border-border bg-background shadow-lg"
           role="listbox"
           data-test-id="company-switcher-dropdown"
         >
           <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Cambiar empresa
+            Empresa activa
           </div>
           <ul className="max-h-72 overflow-y-auto py-1">
             {resolvedCompanies.map((c) => {
-              const isActive = c.id === activeCompanyId;
-              const optionLabel = c.nombreFantasia?.trim() || c.razonSocial.trim();
+              const isActive = !multiCompanyMode && c.id === activeCompanyId;
+              const optionLabel =
+                c.nombreFantasia?.trim() || c.razonSocial.trim();
               return (
                 <li key={c.id}>
                   <button
                     type="button"
                     onClick={() => handleSelect(c.id)}
                     className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition hover:bg-muted/10 ${
-                      isActive ? "font-semibold text-foreground" : "text-foreground"
+                      isActive
+                        ? "font-semibold text-foreground"
+                        : "text-foreground"
                     }`}
                   >
                     <span className="min-w-0 truncate">{optionLabel}</span>

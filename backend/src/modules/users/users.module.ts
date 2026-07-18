@@ -2,10 +2,14 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CqrsModule } from '@nestjs/cqrs';
 import { User } from './domain/user.entity';
+import { UserCompanyMembership } from './domain/user-company-membership.entity';
+import { UserCompanyRole } from './domain/user-company-role.entity';
+import { UserCompanyPerson } from './domain/user-company-person.entity';
 import { Person } from '@modules/persons/domain/person.entity';
 import { Employee } from '@modules/employees/domain/employee.entity';
 import { PersonsModule } from '@modules/persons/persons.module';
 import { UsersService } from './application/users.service';
+import { MembershipsService } from './application/memberships.service';
 import { UsersServiceAdapter } from './application/users.service.adapter';
 import { UsersController } from './presentation/users.controller';
 
@@ -22,13 +26,21 @@ import { GetUserQueryHandler } from './application/handlers/queries/get-user.han
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Person, Employee]),
+    TypeOrmModule.forFeature([
+      User,
+      UserCompanyMembership,
+      UserCompanyRole,
+      UserCompanyPerson,
+      Person,
+      Employee,
+    ]),
     CqrsModule,
     PersonsModule,
   ],
   controllers: [UsersController],
   providers: [
     UsersService,
+    MembershipsService,
     UsersServiceAdapter,
     CreateUserCommandHandler,
     UpdateUserCommandHandler,
@@ -44,6 +56,7 @@ import { GetUserQueryHandler } from './application/handlers/queries/get-user.han
   ],
   exports: [
     UsersService,
+    MembershipsService,
     UsersServiceAdapter,
     {
       provide: 'UserRepositoryPort',

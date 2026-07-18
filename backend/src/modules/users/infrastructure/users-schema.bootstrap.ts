@@ -22,9 +22,34 @@ export class UsersSchemaBootstrap implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     await this.ensureSuperAdminEnumValue();
+    await this.ensureExtendedRoleEnumValues();
     await this.migrateLegacyAdmins();
     await this.refreshRoleCompanyCheckConstraint();
     await this.ensureNonDeletableColumn();
+  }
+
+  private async ensureExtendedRoleEnumValues(): Promise<void> {
+    const labels = [
+      'COURIER',
+      'POS_OPERATOR',
+      'SUB_ADMIN',
+      'WAITER',
+      'STOCK_OPERATOR',
+      'KDS_OPERATOR',
+    ];
+    for (const label of labels) {
+      try {
+        await this.dataSource.query(
+          `ALTER TYPE "users_rol_enum" ADD VALUE IF NOT EXISTS '${label}'`,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `No se pudo asegurar ${label} en users_rol_enum: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
   }
 
   private async ensureSuperAdminEnumValue(): Promise<void> {

@@ -6,6 +6,10 @@ import { DataSource, DeepPartial, IsNull, Not, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { MinimalSeedModule } from '../shared/minimal-seed.module';
 import { User, UserRole } from '@modules/users/domain/user.entity';
+import { UserCompanyMembership } from '@modules/users/domain/user-company-membership.entity';
+import { UserCompanyRole } from '@modules/users/domain/user-company-role.entity';
+import { UserCompanyPerson } from '@modules/users/domain/user-company-person.entity';
+import { PlatformRoleCode } from '@modules/users/domain/platform-role.codes';
 import {
   Person,
   PersonType,
@@ -1155,6 +1159,9 @@ async function bootstrap() {
     const automationRuleRepo = dataSource.getRepository(AutomationRule);
     const automationActionRepo = dataSource.getRepository(AutomationAction);
     const userRepo = dataSource.getRepository(User);
+    const membershipRepo = dataSource.getRepository(UserCompanyMembership);
+    const membershipRoleRepo = dataSource.getRepository(UserCompanyRole);
+    const userCompanyPersonRepo = dataSource.getRepository(UserCompanyPerson);
 
     const userName = process.env.SEED_ADMIN_USERNAME || 'admin';
     const password = process.env.SEED_ADMIN_PASSWORD || '098098';
@@ -2958,9 +2965,15 @@ async function bootstrap() {
       }
     }
 
-    // Helper idempotente: asegura un usuario seed.
-    // - SUPER_ADMIN: sin persona (modelo plataforma: persona no obligatoria).
-    // - ADMIN / OPERATOR / COURIER: siempre Persona NATURAL inventada en la empresa.
+    // Helper: usuario seed + membership (tras TRUNCATE no queda legacy OPERATOR).
+    // SUPER_ADMIN: sin persona ni membership. Resto: Person + membership canónico.
+    const membershipRoleFromUserRole = (rol: UserRole): string => {
+      if (rol === UserRole.OPERATOR || rol === UserRole.POS_OPERATOR) {
+        return PlatformRoleCode.POS_OPERATOR;
+      }
+      return rol;
+    };
+
     const ensureSeedUser = async (params: {
       userName: string;
       password: string;
@@ -2968,10 +2981,11 @@ async function bootstrap() {
       companyId: string | null;
       nonDeletable: boolean;
       firstName: string;
-      lastName: string;
+      lastName?: string;
       email: string;
       documentNumber: string;
       phone?: string;
+      preferOwner?: boolean;
     }) => {
       const needsPerson = params.rol !== UserRole.SUPER_ADMIN;
       if (needsPerson && !params.companyId) {
@@ -3001,7 +3015,7 @@ async function bootstrap() {
           person = personRepo.create({
             type: PersonType.NATURAL,
             firstName: params.firstName,
-            lastName: params.lastName,
+            lastName: params.lastName || undefined,
             documentType: DocumentType.RUT,
             documentNumber: params.documentNumber,
             email: params.email,
@@ -3011,7 +3025,7 @@ async function bootstrap() {
         } else {
           person.type = PersonType.NATURAL;
           person.firstName = params.firstName;
-          person.lastName = params.lastName;
+          person.lastName = params.lastName || undefined;
           person.documentType = DocumentType.RUT;
           person.documentNumber = params.documentNumber;
           person.email = params.email;
@@ -3019,6 +3033,77 @@ async function bootstrap() {
           person.companyId = companyIdForPerson;
         }
         return personRepo.save(person);
+      };
+
+      const syncMembership = async (user: User, person?: Person | null) => {
+        if (user.rol === UserRole.SUPER_ADMIN || !user.companyId) return;
+
+        const memRole = membershipRoleFromUserRole(user.rol);
+        let membership = await membershipRepo.findOne({
+          where: { userId: user.id, companyId: user.companyId },
+        });
+
+        const ownerCount = await membershipRepo.count({
+          where: {
+            companyId: user.companyId,
+            isOwner: true,
+            isActive: true,
+          },
+        });
+        const shouldOwn =
+          memRole === PlatformRoleCode.ADMIN &&
+          (params.preferOwner === true ||
+            (params.preferOwner !== false && ownerCount === 0));
+
+        if (!membership) {
+          membership = await membershipRepo.save(
+            membershipRepo.create({
+              userId: user.id,
+              companyId: user.companyId,
+              isOwner: shouldOwn,
+              isActive: true,
+            }),
+          );
+        } else {
+          membership.isActive = true;
+          if (params.preferOwner === false) {
+            membership.isOwner = false;
+          } else if (shouldOwn) {
+            membership.isOwner = true;
+          }
+          await membershipRepo.save(membership);
+        }
+
+        const existingRoles = await membershipRoleRepo.find({
+          where: { membershipId: membership.id },
+        });
+        for (const r of existingRoles) {
+          if (r.role === 'OPERATOR' || r.role !== memRole) {
+            await membershipRoleRepo.delete({ id: r.id });
+          }
+        }
+        const still = await membershipRoleRepo.find({
+          where: { membershipId: membership.id },
+        });
+        if (!still.some((r) => r.role === memRole)) {
+          await membershipRoleRepo.save(
+            membershipRoleRepo.create({
+              membershipId: membership.id,
+              role: memRole,
+            }),
+          );
+        }
+
+        if (person?.id) {
+          await userCompanyPersonRepo.upsert(
+            {
+              userId: user.id,
+              companyId: user.companyId,
+              personId: person.id,
+            },
+            ['userId', 'companyId'],
+          );
+        }
       };
 
       if (!u) {
@@ -3033,10 +3118,11 @@ async function bootstrap() {
           person: person ?? undefined,
         });
         await userRepo.save(u);
+        await syncMembership(u, person ?? null);
         console.log(
           `✅ Usuario seed creado: rol=${params.rol} userName='${params.userName}'` +
             (person
-              ? ` person=${person.firstName} ${person.lastName} doc=${person.documentNumber}`
+              ? ` person=${person.firstName}${person.lastName ? ` ${person.lastName}` : ''} doc=${person.documentNumber}`
               : ' (sin persona)'),
         );
         return;
@@ -3054,17 +3140,116 @@ async function bootstrap() {
       if (needsPerson) {
         u.person = await upsertPerson(u.person ?? null);
       } else {
-        // SUPER_ADMIN: sin persona (desvincular si venía de un seed anterior).
         u.person = null as unknown as undefined;
       }
 
       await userRepo.save(u);
+      await syncMembership(u, u.person ?? null);
 
       console.log(
         `✅ Usuario seed actualizado: rol=${params.rol} userName='${params.userName}'` +
           (u.person
-            ? ` person=${u.person.firstName} ${u.person.lastName} doc=${u.person.documentNumber}`
+            ? ` person=${u.person.firstName}${u.person.lastName ? ` ${u.person.lastName}` : ''} doc=${u.person.documentNumber}`
             : ' (sin persona)'),
+      );
+    };
+
+    /** Membership extra (p. ej. admin en 2.ª empresa → Multiempresa). */
+    const ensureExtraMembership = async (params: {
+      userName: string;
+      companyId: string;
+      role: string;
+      isOwner: boolean;
+      firstName: string;
+      lastName?: string;
+      email: string;
+      documentNumber: string;
+      phone?: string;
+    }) => {
+      const u = await userRepo.findOne({
+        where: { userName: params.userName, deletedAt: null as never },
+      });
+      if (!u) {
+        throw new Error(
+          `ensureExtraMembership: usuario '${params.userName}' no existe`,
+        );
+      }
+
+      let person = await personRepo.findOne({
+        where: {
+          documentNumber: params.documentNumber,
+          companyId: params.companyId,
+          deletedAt: null as never,
+        },
+      });
+      if (!person) {
+        person = personRepo.create({
+          type: PersonType.NATURAL,
+          firstName: params.firstName,
+          lastName: params.lastName || undefined,
+          documentType: DocumentType.RUT,
+          documentNumber: params.documentNumber,
+          email: params.email,
+          phone: params.phone,
+          companyId: params.companyId,
+        });
+      } else {
+        person.firstName = params.firstName;
+        person.lastName = params.lastName || undefined;
+        person.email = params.email;
+        if (params.phone) person.phone = params.phone;
+      }
+      person = await personRepo.save(person);
+
+      let membership = await membershipRepo.findOne({
+        where: { userId: u.id, companyId: params.companyId },
+      });
+      if (!membership) {
+        membership = await membershipRepo.save(
+          membershipRepo.create({
+            userId: u.id,
+            companyId: params.companyId,
+            isOwner: params.isOwner,
+            isActive: true,
+          }),
+        );
+      } else {
+        membership.isActive = true;
+        membership.isOwner = params.isOwner;
+        await membershipRepo.save(membership);
+      }
+
+      const existingRoles = await membershipRoleRepo.find({
+        where: { membershipId: membership.id },
+      });
+      for (const r of existingRoles) {
+        if (r.role !== params.role) {
+          await membershipRoleRepo.delete({ id: r.id });
+        }
+      }
+      const still = await membershipRoleRepo.find({
+        where: { membershipId: membership.id },
+      });
+      if (!still.some((r) => r.role === params.role)) {
+        await membershipRoleRepo.save(
+          membershipRoleRepo.create({
+            membershipId: membership.id,
+            role: params.role,
+          }),
+        );
+      }
+
+      await userCompanyPersonRepo.upsert(
+        {
+          userId: u.id,
+          companyId: params.companyId,
+          personId: person.id,
+        },
+        ['userId', 'companyId'],
+      );
+
+      console.log(
+        `✅ Membership extra: user='${params.userName}' companyId=${params.companyId} role=${params.role} owner=${params.isOwner}`,
       );
     };
 
@@ -3083,26 +3268,62 @@ async function bootstrap() {
     });
 
     await ensureSeedUser({
-      userName: userName, // 'admin' por defecto, configurable via SEED_ADMIN_USERNAME
+      userName: userName,
       password: seedPassword,
       rol: UserRole.ADMIN,
       companyId: company.id,
       nonDeletable: false,
-      firstName: 'Camila',
-      lastName: 'Rojas Muñoz',
+      firstName: 'Administrador',
+      lastName: 'de Empresa',
       email,
-      documentNumber: '16.482.391-K',
+      documentNumber: '10.987.654-3',
       phone: '+56 9 8765 4321',
+      preferOwner: true,
+    });
+
+    // Segunda empresa: misma cuenta admin → habilita modo Multiempresa en login.
+    const secondCompany = await companyRepo.findOne({
+      where: { rut: SEED_DEV_COMPANY_SECOND.rut, deletedAt: null as never },
+    });
+    if (secondCompany) {
+      await ensureExtraMembership({
+        userName,
+        companyId: secondCompany.id,
+        role: PlatformRoleCode.ADMIN,
+        isOwner: true,
+        firstName: 'Administrador',
+        lastName: 'de Empresa',
+        email,
+        documentNumber: '10.987.654-3',
+        phone: '+56 9 8765 4321',
+      });
+    } else {
+      console.warn(
+        `⚠️  Segunda empresa seed (${SEED_DEV_COMPANY_SECOND.rut}) no encontrada; Multiempresa de admin no se configuró`,
+      );
+    }
+
+    await ensureSeedUser({
+      userName: 'admin2',
+      password: seedPassword,
+      rol: UserRole.ADMIN,
+      companyId: company.id,
+      nonDeletable: false,
+      firstName: 'Pedro',
+      lastName: 'Soto Núñez',
+      email: 'admin2@kai.local',
+      documentNumber: '15.333.222-1',
+      phone: '+56 9 1111 2222',
+      preferOwner: false,
     });
 
     await ensureSeedUser({
       userName: 'operador',
       password: seedPassword,
-      rol: UserRole.OPERATOR,
+      rol: UserRole.POS_OPERATOR,
       companyId: company.id,
       nonDeletable: false,
-      firstName: 'Diego',
-      lastName: 'Vargas Soto',
+      firstName: 'Operador de POS',
       email: 'operador@kai.local',
       documentNumber: '17.205.884-3',
       phone: '+56 9 7654 3210',
@@ -3142,10 +3363,13 @@ async function bootstrap() {
     console.log('✅ Seed mínimo OK. Usuarios listos:');
     console.log(`   • superadmin / ${seedPassword}   (SUPER_ADMIN, sin persona, protegido)`);
     console.log(
-      `   • ${userName} / ${seedPassword}        (ADMIN · Camila Rojas Muñoz · 16.482.391-K)`,
+      `   • ${userName} / ${seedPassword}        (ADMIN owner · 2 empresas · Multiempresa OK · 10.987.654-3)`,
     );
     console.log(
-      `   • operador / ${seedPassword}    (OPERATOR · Diego Vargas Soto · 17.205.884-3)`,
+      `   • admin2 / ${seedPassword}         (ADMIN no-owner · Pedro Soto Núñez · 15.333.222-1)`,
+    );
+    console.log(
+      `   • operador / ${seedPassword}    (POS_OPERATOR · Operador de POS · 17.205.884-3)`,
     );
     console.log(
       `   • delivery1 / ${seedPassword}   (COURIER · Matías Fuentes Lagos · 18.103.772-5)`,

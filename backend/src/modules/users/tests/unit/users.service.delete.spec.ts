@@ -35,11 +35,22 @@ function buildService(target: UserMock | null) {
     softDelete: jest.fn().mockResolvedValue({ affected: target ? 1 : 0 }),
   };
   const personRepository = { findOne: jest.fn(), save: jest.fn() };
+  const employeeRepository = { findOne: jest.fn(), save: jest.fn() };
+  const personsService = {};
+  const membershipsService = {
+    getMemberships: jest.fn().mockResolvedValue([]),
+    ensureMembershipFromLegacy: jest.fn(),
+  };
+  const dataSource = { query: jest.fn(), transaction: jest.fn() };
   const service = new UsersService(
     userRepository as any,
     personRepository as any,
+    employeeRepository as any,
+    personsService as any,
+    membershipsService as any,
+    dataSource as any,
   );
-  return { service, userRepository };
+  return { service, userRepository, membershipsService };
 }
 
 describe('UsersService.deleteUser', () => {

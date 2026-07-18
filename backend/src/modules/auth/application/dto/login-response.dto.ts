@@ -56,8 +56,23 @@ export class LoginResponseDto {
   activeCompanyId?: string | null;
 
   @ApiPropertyOptional({
+    description: 'Modo Multiempresa (lectura consolidada; sin empresa activa)',
+  })
+  multiCompanyMode?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Memberships del usuario (roles por empresa)',
+    type: 'array',
+  })
+  memberships?: Array<{
+    companyId: string;
+    roles: string[];
+    isOwner: boolean;
+  }>;
+
+  @ApiPropertyOptional({
     description:
-      'Empresas en contexto: SUPER_ADMIN listado para cambiar de empresa; ADMIN/OPERATOR un único ítem con la empresa del usuario.',
+      'Empresas en contexto: memberships del usuario (SUPER_ADMIN: todas activas).',
     type: 'array',
     items: {
       type: 'object',

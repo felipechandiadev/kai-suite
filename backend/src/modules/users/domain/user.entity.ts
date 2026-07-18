@@ -26,14 +26,26 @@ export enum UserRole {
    */
   ADMIN = 'ADMIN',
   /**
+   * Subadministrador: una sola empresa; nunca modo multiempresa.
+   */
+  SUB_ADMIN = 'SUB_ADMIN',
+  /**
    * Operador (cajero, vendedor) de UNA empresa específica. Acceso al
    * POS y operación día a día, sin permisos de configuración global.
+   * @deprecated Prefer POS_OPERATOR in memberships; kept for dual-read.
    */
   OPERATOR = 'OPERATOR',
+  /**
+   * Operador POS (memberships / nuevo código canónico).
+   */
+  POS_OPERATOR = 'POS_OPERATOR',
   /**
    * Repartidor de pedidos de delivery (app kai-delivery).
    */
   COURIER = 'COURIER',
+  WAITER = 'WAITER',
+  STOCK_OPERATOR = 'STOCK_OPERATOR',
+  KDS_OPERATOR = 'KDS_OPERATOR',
 }
 
 @Entity('users')
@@ -54,18 +66,21 @@ export class User {
   @Column('varchar')
   mail!: string;
 
+  /**
+   * @deprecated Prefer memberships (`user_company_roles`). Kept for dual-read/write.
+   */
   @Column({
     type: 'enum',
     enum: UserRole,
-    default: UserRole.OPERATOR,
+    default: UserRole.POS_OPERATOR,
   })
   rol!: UserRole;
 
   /**
-   * Empresa a la que pertenece el usuario.
-   * - SUPER_ADMIN: NULL (no atado a ninguna empresa, ve todas).
-   * - ADMIN/OPERATOR: NOT NULL (atado a una sola empresa).
-   * Validado por el CHECK constraint `users_role_company_chk`.
+   * Empresa legacy (1:1). Prefer `user_company_memberships`.
+   * - SUPER_ADMIN: NULL.
+   * - Otros: NOT NULL mientras exista dual-write.
+   * @deprecated
    */
   @Index('idx_users_company_id')
   @Column({ name: 'company_id', type: 'uuid', nullable: true })

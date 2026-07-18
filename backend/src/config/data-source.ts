@@ -15,6 +15,9 @@ import { Branch } from '@modules/branches/domain/branch.entity';
 import { Company } from '@modules/companies/domain/company.entity';
 import { PriceList } from '@modules/price-lists/domain/price-list.entity';
 import { User } from '@modules/users/domain/user.entity';
+import { UserCompanyMembership } from '@modules/users/domain/user-company-membership.entity';
+import { UserCompanyRole } from '@modules/users/domain/user-company-role.entity';
+import { UserCompanyPerson } from '@modules/users/domain/user-company-person.entity';
 import { Person } from '@modules/persons/domain/person.entity';
 import { CashSession } from '@modules/cash-sessions/domain/cash-session.entity';
 import { Transaction } from '@modules/transactions/domain/transaction.entity';
@@ -160,6 +163,7 @@ import { VariantBranchAvailability1756990000000 } from '../migrations/1756990000
 import { StorageProductionInputCategory1757000000000 } from '../migrations/1757000000000-StorageProductionInputCategory';
 import { StorageProductionInputsType1757010000000 } from '../migrations/1757010000000-StorageProductionInputsType';
 import { StorageProductionInputsTypeBackfill1757020000000 } from '../migrations/1757020000000-StorageProductionInputsTypeBackfill';
+import { UserCompanyMemberships1757100000000 } from '../migrations/1757100000000-UserCompanyMemberships';
 import { FiscalProfile } from '@modules/fiscal/domain/fiscal-profile.entity';
 import { FiscalCertificate } from '@modules/fiscal/domain/fiscal-certificate.entity';
 import { FiscalCaf } from '@modules/fiscal/domain/fiscal-caf.entity';
@@ -211,8 +215,11 @@ export const AppDataSource = new DataSource({
     Branch,
     Company,
     PriceList,
-    User,
-    Person,
+      User,
+      UserCompanyMembership,
+      UserCompanyRole,
+      UserCompanyPerson,
+      Person,
     CashSession,
     Transaction,
     DocumentSequence,
@@ -388,6 +395,7 @@ export const AppDataSource = new DataSource({
     StorageProductionInputCategory1757000000000,
     StorageProductionInputsType1757010000000,
     StorageProductionInputsTypeBackfill1757020000000,
+    UserCompanyMemberships1757100000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

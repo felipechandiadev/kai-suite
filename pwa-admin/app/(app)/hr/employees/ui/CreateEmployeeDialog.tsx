@@ -63,7 +63,7 @@ export function CreateEmployeeDialog({
   const [userName, setUserName] = useState("");
   const [userMail, setUserMail] = useState("");
   const [userPassword, setUserPassword] = useState("");
-  const [userRol, setUserRol] = useState("OPERATOR");
+  const [userRol, setUserRol] = useState("POS_OPERATOR");
 
   const docLookup = usePersonDocumentLookup({
     documentNumber,
@@ -113,7 +113,7 @@ export function CreateEmployeeDialog({
       setUserName("");
       setUserMail("");
       setUserPassword("");
-      setUserRol("OPERATOR");
+      setUserRol("POS_OPERATOR");
       setError(null);
     }
   }, [open]);
@@ -133,7 +133,7 @@ export function CreateEmployeeDialog({
     setUserName("");
     setUserMail("");
     setUserPassword("");
-    setUserRol("OPERATOR");
+    setUserRol("POS_OPERATOR");
     setError(null);
   };
 
@@ -394,7 +394,7 @@ export function CreateEmployeeDialog({
               name="employee-user-rol"
               options={USER_ROLE_OPTIONS.map((o) => ({ id: o.id, label: o.label }))}
               value={userRol}
-              onChange={(v) => setUserRol(v != null ? String(v) : "OPERATOR")}
+              onChange={(v) => setUserRol(v != null ? String(v) : "POS_OPERATOR")}
               data-test-id="employee-create-user-rol"
             />
           </div>

@@ -16,12 +16,14 @@ export class AuthServiceAdapter {
 
   async login(
     loginDto: LoginDto,
-    options?: { companyHint?: string | null },
+    options?: { companyHint?: string | null; kaiApp?: string | null },
   ): Promise<LoginResponseDto> {
     const command = new LoginCommand(
       loginDto.userName,
       loginDto.password,
       options?.companyHint ?? null,
+      !!loginDto.multiCompanyMode,
+      options?.kaiApp ?? null,
     );
     const result = await this.commandBus.execute(command);
 
@@ -33,6 +35,8 @@ export class AuthServiceAdapter {
       success: result.success,
       user: result.user,
       activeCompanyId: result.activeCompanyId ?? null,
+      multiCompanyMode: result.multiCompanyMode ?? false,
+      memberships: result.memberships ?? [],
       companies: result.companies ?? null,
       message: 'Login successful',
     };

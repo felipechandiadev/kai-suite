@@ -1,5 +1,5 @@
-import { IsString, IsNotEmpty, MinLength } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNotEmpty, MinLength, IsOptional, IsBoolean } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class LoginDto {
   @ApiProperty({
@@ -20,4 +20,11 @@ export class LoginDto {
   @IsNotEmpty({ message: 'La contraseña es requerida' })
   @MinLength(4, { message: 'La contraseña debe tener al menos 4 caracteres' })
   password: string;
+
+  @ApiPropertyOptional({
+    description: 'Solicitar modo Multiempresa (ADMIN/SUPER_ADMIN con ≥2 empresas)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  multiCompanyMode?: boolean;
 }

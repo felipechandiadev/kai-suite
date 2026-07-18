@@ -1,12 +1,13 @@
 import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
 import {
+  BadRequestException,
   ForbiddenException,
   Inject,
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { isUUID } from 'class-validator';
 import { LoginCommand } from '../../commands/login.command';
 import { LoginEvent } from '../../../domain/events/login.event';
@@ -19,11 +20,23 @@ import {
 } from '@modules/auth/application/ports/auth.repository.port';
 import { Company } from '@modules/companies/domain/company.entity';
 import { UserRole } from '@modules/users/domain/user.entity';
+import { MembershipsService } from '@modules/users/application/memberships.service';
+import { PlatformRoleCode } from '@modules/users/domain/platform-role.codes';
+import {
+  assertCanAccessAppOrThrow,
+  parseKaiAppHeader,
+} from '@modules/users/application/app-access.util';
 
 export interface LoginCompanyOption {
   id: string;
   razonSocial: string;
   nombreFantasia: string | null;
+}
+
+export interface LoginMembershipOption {
+  companyId: string;
+  roles: string[];
+  isOwner: boolean;
 }
 
 export interface LoginResult {
@@ -33,7 +46,6 @@ export interface LoginResult {
     userName: string;
     email: string;
     rol: string;
-    /** Empresa fija (ADMIN/OPERATOR). NULL para SUPER_ADMIN. */
     companyId: string | null;
     person?: {
       id: string;
@@ -43,16 +55,9 @@ export interface LoginResult {
       phone: string | null;
     };
   };
-  /** Empresa activa al iniciar sesión.
-   *  - ADMIN/OPERATOR: igual a user.companyId.
-   *  - SUPER_ADMIN: la primera empresa activa (cliente puede cambiar via switch-company).
-   */
   activeCompanyId?: string | null;
-  /**
-   * Empresas en contexto para el cliente.
-   * - SUPER_ADMIN: todas las activas (switcher).
-   * - ADMIN / OPERATOR: la empresa fija del usuario (una entrada), para mostrar nombre en UI sin otro round-trip.
-   */
+  multiCompanyMode?: boolean;
+  memberships?: LoginMembershipOption[];
   companies?: LoginCompanyOption[] | null;
 }
 
@@ -69,6 +74,7 @@ export class LoginCommandHandler implements ICommandHandler<
     private readonly eventBus: EventBus,
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
+    private readonly membershipsService: MembershipsService,
   ) {}
 
   async execute(command: LoginCommand): Promise<LoginResult> {
@@ -80,15 +86,12 @@ export class LoginCommandHandler implements ICommandHandler<
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    // Verify password - support both bcrypt and legacy SHA256
     let isValid = false;
     let passwordWasUpgraded = false;
 
     if (user.pass?.startsWith('$2')) {
-      // bcrypt hash
       isValid = await bcrypt.compare(command.password, user.pass);
     } else if (user.pass) {
-      // Legacy SHA256 hash - upgrade to bcrypt if valid
       const legacyHash = crypto
         .createHash('sha256')
         .update(command.password)
@@ -111,14 +114,14 @@ export class LoginCommandHandler implements ICommandHandler<
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    // Publish login event
+    await this.membershipsService.ensureMembershipFromLegacy(user);
+
     const loginEvent = new LoginEvent(user.id, user.userName, user.rol);
     loginEvent.aggregateId = user.id;
     loginEvent.aggregateVersion = 1;
     loginEvent.correlationId = user.id;
     this.eventBus.publish(loginEvent);
 
-    // Publish password upgraded event if applicable
     if (passwordWasUpgraded) {
       const upgradeEvent = new PasswordUpgradedEvent(user.id);
       upgradeEvent.aggregateId = user.id;
@@ -127,15 +130,26 @@ export class LoginCommandHandler implements ICommandHandler<
       this.eventBus.publish(upgradeEvent);
     }
 
-    // Resolve tenancy context for the response
-    let activeCompanyId: string | null = user.companyId ?? null;
-    let companies: LoginCompanyOption[] | null = null;
+    const isSuper = user.rol === UserRole.SUPER_ADMIN;
+    const memberships = isSuper
+      ? []
+      : await this.membershipsService.getMemberships(user.id);
+
     const hint =
       command.companyHint && isUUID(String(command.companyHint))
         ? String(command.companyHint)
         : null;
+    const wantMulti = !!command.multiCompanyMode;
 
-    if (user.rol === UserRole.SUPER_ADMIN) {
+    const kaiAppEarly = parseKaiAppHeader(command.kaiApp);
+    if (kaiAppEarly === 'pwa-admin' && !wantMulti && !hint) {
+      throw new BadRequestException(
+        'Debes elegir empresa o Multiempresa antes de iniciar sesión',
+      );
+    }
+
+    let companies: LoginCompanyOption[] = [];
+    if (isSuper) {
       const all = await this.companyRepository.find({
         where: { isActive: true },
         order: { createdAt: 'ASC' },
@@ -145,41 +159,76 @@ export class LoginCommandHandler implements ICommandHandler<
         razonSocial: c.razonSocial,
         nombreFantasia: c.nombreFantasia ?? null,
       }));
-      if (hint) {
-        const match = companies.find((c) => c.id === hint);
-        if (!match) {
-          throw new ForbiddenException(
-            'La empresa solicitada por este cliente no está disponible',
-          );
-        }
-        activeCompanyId = match.id;
-      } else {
-        activeCompanyId = companies.length > 0 ? companies[0].id : null;
-      }
-    } else {
-      // ADMIN/OPERATOR: si el cliente declara una empresa, debe coincidir.
-      if (hint && user.companyId && hint !== user.companyId) {
-        throw new ForbiddenException(
-          'Este usuario no pertenece a la empresa solicitada por este punto de venta',
-        );
-      }
-      if (user.companyId) {
-        const tenantCompany = await this.companyRepository.findOne({
-          where: { id: user.companyId },
-        });
-        if (tenantCompany) {
-          companies = [
-            {
-              id: tenantCompany.id,
-              razonSocial: tenantCompany.razonSocial,
-              nombreFantasia: tenantCompany.nombreFantasia ?? null,
-            },
-          ];
-        }
-      }
+    } else if (memberships.length) {
+      const ids = memberships.map((m) => m.companyId);
+      const rows = await this.companyRepository.find({
+        where: { id: In(ids), isActive: true },
+      });
+      const byId = new Map(rows.map((c) => [c.id, c]));
+      companies = memberships
+        .map((m) => byId.get(m.companyId))
+        .filter((c): c is Company => !!c)
+        .map((c) => ({
+          id: c.id,
+          razonSocial: c.razonSocial,
+          nombreFantasia: c.nombreFantasia ?? null,
+        }));
     }
 
-    // Build response
+    const canMulti =
+      isSuper ||
+      (memberships.length >= 2 &&
+        memberships.some((m) => m.roles.includes(PlatformRoleCode.ADMIN)));
+
+    let multiCompanyMode = false;
+    let activeCompanyId: string | null = null;
+
+    if (wantMulti) {
+      if (!canMulti) {
+        throw new ForbiddenException(
+          'Este usuario no puede usar el modo Multiempresa',
+        );
+      }
+      multiCompanyMode = true;
+      activeCompanyId = null;
+    } else if (hint) {
+      const allowed = isSuper || memberships.some((m) => m.companyId === hint);
+      if (!allowed) {
+        throw new ForbiddenException(
+          'Este usuario no pertenece a la empresa solicitada',
+        );
+      }
+      const match = companies.find((c) => c.id === hint);
+      if (!match) {
+        throw new ForbiddenException(
+          'La empresa solicitada no está disponible',
+        );
+      }
+      activeCompanyId = hint;
+    } else if (companies.length === 1) {
+      activeCompanyId = companies[0].id;
+    } else if (companies.length > 1) {
+      // Prefer legacy companyId if still in list; else first.
+      if (user.companyId && companies.some((c) => c.id === user.companyId)) {
+        activeCompanyId = user.companyId;
+      } else {
+        activeCompanyId = companies[0].id;
+      }
+    } else if (isSuper) {
+      activeCompanyId = null;
+    }
+
+    const kaiApp = kaiAppEarly;
+    if (kaiApp) {
+      const rolesForGate = isSuper
+        ? [PlatformRoleCode.SUPER_ADMIN]
+        : activeCompanyId
+          ? (memberships.find((m) => m.companyId === activeCompanyId)?.roles ??
+            [])
+          : [...new Set(memberships.flatMap((m) => m.roles))];
+      assertCanAccessAppOrThrow(kaiApp, rolesForGate, isSuper);
+    }
+
     return {
       success: true,
       user: {
@@ -199,6 +248,12 @@ export class LoginCommandHandler implements ICommandHandler<
           : undefined,
       },
       activeCompanyId,
+      multiCompanyMode,
+      memberships: memberships.map((m) => ({
+        companyId: m.companyId,
+        roles: m.roles,
+        isOwner: m.isOwner,
+      })),
       companies,
     };
   }

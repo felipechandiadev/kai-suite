@@ -12,6 +12,8 @@ import { isUUID } from 'class-validator';
 import { Repository } from 'typeorm';
 import { User, UserRole } from '@modules/users/domain/user.entity';
 import { Company } from '@modules/companies/domain/company.entity';
+import { MembershipsService } from '@modules/users/application/memberships.service';
+import { PlatformRoleCode } from '@modules/users/domain/platform-role.codes';
 import {
   ADMIN_ONLY_KEY,
   ALLOW_ADMIN_WITHOUT_COMPANY_KEY,
@@ -21,17 +23,11 @@ import {
 import type { CurrentUserPayload } from './current-user.decorator';
 
 const ACTIVE_COMPANY_HEADER = 'x-active-company-id';
+const MULTI_COMPANY_HEADER = 'x-multi-company-mode';
 
 /**
- * Resuelve el contexto de tenant para cada request.
- * - Lee Authorization: Bearer <userId> (compatibilidad con el esquema actual de NextAuth → backend).
- * - Carga el usuario.
- * - Determina la activeCompanyId:
- *     ADMIN/OPERATOR → user.companyId (obligatorio, fijo).
- *     SUPER_ADMIN    → header X-Active-Company-Id (validado contra companies).
- * - Inyecta `req.currentUser` y `req.activeCompanyId`.
- *
- * Skips: rutas con @SkipTenant() (p. ej. /auth/login, /health).
+ * Resuelve tenant + roles vía memberships (dual-read legacy).
+ * Multiempresa: activeCompanyId null; mutaciones bloqueadas salvo @AllowAdminWithoutCompany.
  */
 @Injectable()
 export class TenantGuard implements CanActivate {
@@ -43,6 +39,7 @@ export class TenantGuard implements CanActivate {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
+    private readonly membershipsService: MembershipsService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -77,53 +74,39 @@ export class TenantGuard implements CanActivate {
       throw new UnauthorizedException('Sesión inválida');
     }
 
-    const currentUser: CurrentUserPayload = {
-      id: user.id,
-      userName: user.userName,
-      rol: user.rol,
-      companyId: user.companyId ?? null,
-    };
-    req.currentUser = currentUser;
+    await this.membershipsService.ensureMembershipFromLegacy(user);
 
-    const superAdminOnly = this.reflector.getAllAndOverride<boolean>(
-      SUPER_ADMIN_ONLY_KEY,
-      [context.getHandler(), context.getClass()],
-    );
-    if (superAdminOnly && user.rol !== UserRole.SUPER_ADMIN) {
-      throw new ForbiddenException(
-        'Acceso restringido a super-administradores',
-      );
-    }
+    const isSuper = user.rol === UserRole.SUPER_ADMIN;
+    const memberships = isSuper
+      ? []
+      : await this.membershipsService.getMemberships(user.id);
 
-    const adminOnly = this.reflector.getAllAndOverride<boolean>(
-      ADMIN_ONLY_KEY,
-      [context.getHandler(), context.getClass()],
-    );
-    if (
-      adminOnly &&
-      user.rol !== UserRole.ADMIN &&
-      user.rol !== UserRole.SUPER_ADMIN
-    ) {
-      throw new ForbiddenException('Acceso restringido a administradores');
-    }
+    const headerVal = req.headers?.[ACTIVE_COMPANY_HEADER];
+    const headerCompanyId =
+      typeof headerVal === 'string'
+        ? headerVal
+        : Array.isArray(headerVal)
+          ? headerVal[0]
+          : null;
+    const multiHeader = req.headers?.[MULTI_COMPANY_HEADER];
+    const multiHeaderOn =
+      multiHeader === '1' ||
+      multiHeader === 'true' ||
+      (Array.isArray(multiHeader) &&
+        (multiHeader[0] === '1' || multiHeader[0] === 'true'));
 
-    const allowAdminWithoutCompany =
-      this.reflector.getAllAndOverride<boolean>(
-        ALLOW_ADMIN_WITHOUT_COMPANY_KEY,
-        [context.getHandler(), context.getClass()],
-      );
+    const canMulti =
+      isSuper ||
+      (memberships.length >= 2 &&
+        memberships.some((m) => m.roles.includes(PlatformRoleCode.ADMIN)));
 
+    let multiCompanyMode = false;
     let activeCompanyId: string | null = null;
 
-    if (user.rol === UserRole.SUPER_ADMIN) {
-      const headerVal = req.headers?.[ACTIVE_COMPANY_HEADER];
-      const headerCompanyId =
-        typeof headerVal === 'string'
-          ? headerVal
-          : Array.isArray(headerVal)
-            ? headerVal[0]
-            : null;
-
+    if (multiHeaderOn && canMulti) {
+      multiCompanyMode = true;
+      activeCompanyId = null;
+    } else if (isSuper) {
       if (headerCompanyId && isUUID(headerCompanyId)) {
         const exists = await this.companyRepository.findOne({
           where: { id: headerCompanyId },
@@ -136,8 +119,92 @@ export class TenantGuard implements CanActivate {
           throw new ForbiddenException('La empresa activa está inactiva');
         }
         activeCompanyId = headerCompanyId;
-      } else if (!allowAdminWithoutCompany) {
-        // Fallback: usar la primera empresa activa (compat con instalaciones single-company).
+      }
+    } else if (headerCompanyId && isUUID(headerCompanyId)) {
+      const mem = memberships.find((m) => m.companyId === headerCompanyId);
+      if (!mem) {
+        throw new ForbiddenException(
+          'No tienes acceso a la empresa solicitada',
+        );
+      }
+      activeCompanyId = headerCompanyId;
+    } else if (memberships.length === 1) {
+      activeCompanyId = memberships[0].companyId;
+    } else if (user.companyId) {
+      activeCompanyId = user.companyId;
+    }
+
+    const rolesForActive = isSuper
+      ? [PlatformRoleCode.SUPER_ADMIN]
+      : activeCompanyId
+        ? (memberships.find((m) => m.companyId === activeCompanyId)?.roles ??
+          [])
+        : [...new Set(memberships.flatMap((m) => m.roles))];
+
+    const isOwner = activeCompanyId
+      ? !!memberships.find((m) => m.companyId === activeCompanyId)?.isOwner
+      : false;
+
+    const currentUser: CurrentUserPayload = {
+      id: user.id,
+      userName: user.userName,
+      rol: user.rol,
+      companyId: user.companyId ?? null,
+      memberships: memberships.map((m) => ({
+        companyId: m.companyId,
+        roles: m.roles,
+        isOwner: m.isOwner,
+      })),
+      roles: rolesForActive,
+      isOwner,
+      multiCompanyMode,
+    };
+    req.currentUser = currentUser;
+    req.multiCompanyMode = multiCompanyMode;
+
+    const superAdminOnly = this.reflector.getAllAndOverride<boolean>(
+      SUPER_ADMIN_ONLY_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    if (superAdminOnly && !isSuper) {
+      throw new ForbiddenException(
+        'Acceso restringido a super-administradores',
+      );
+    }
+
+    const adminOnly = this.reflector.getAllAndOverride<boolean>(
+      ADMIN_ONLY_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    if (adminOnly) {
+      const ok =
+        isSuper ||
+        rolesForActive.includes(PlatformRoleCode.ADMIN) ||
+        rolesForActive.includes(PlatformRoleCode.SUB_ADMIN) ||
+        user.rol === UserRole.ADMIN ||
+        user.rol === UserRole.SUB_ADMIN;
+      if (!ok) {
+        throw new ForbiddenException('Acceso restringido a administradores');
+      }
+    }
+
+    const allowAdminWithoutCompany =
+      this.reflector.getAllAndOverride<boolean>(
+        ALLOW_ADMIN_WITHOUT_COMPANY_KEY,
+        [context.getHandler(), context.getClass()],
+      );
+
+    const method = String(req.method || 'GET').toUpperCase();
+    const isMutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+
+    if (multiCompanyMode && isMutation && !allowAdminWithoutCompany) {
+      throw new ForbiddenException(
+        'El modo Multiempresa es de solo lectura. Selecciona una empresa para escribir.',
+      );
+    }
+
+    if (!activeCompanyId && !allowAdminWithoutCompany && !multiCompanyMode) {
+      if (isSuper) {
         const fallback = await this.companyRepository.findOne({
           where: { isActive: true },
           order: { createdAt: 'ASC' },
@@ -145,17 +212,9 @@ export class TenantGuard implements CanActivate {
         });
         if (fallback) activeCompanyId = fallback.id;
       }
-    } else {
-      // ADMIN y OPERATOR: empresa fija, tomada del usuario.
-      if (!user.companyId) {
-        throw new ForbiddenException(
-          'Usuario sin empresa asignada. Contacte al administrador.',
-        );
-      }
-      activeCompanyId = user.companyId;
     }
 
-    if (!activeCompanyId && !allowAdminWithoutCompany) {
+    if (!activeCompanyId && !allowAdminWithoutCompany && !multiCompanyMode) {
       throw new ForbiddenException(
         'No hay empresa activa para esta sesión. Selecciona una empresa.',
       );

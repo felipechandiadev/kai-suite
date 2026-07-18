@@ -5,13 +5,13 @@ export class LoginCommand extends BaseCommand {
     public readonly userName: string,
     public readonly password: string,
     /**
-     * Empresa solicitada por el cliente al hacer login.
-     * Se envía típicamente desde el POS (NEXT_PUBLIC_COMPANY_ID) como header
-     * X-Active-Company-Id. Si está presente:
-     *  - OPERATOR: debe coincidir con user.companyId, si no se rechaza.
-     *  - ADMIN: debe ser una empresa activa válida; se usa como activa.
+     * Empresa solicitada por el cliente al hacer login (header X-Active-Company-Id).
      */
     public readonly companyHint?: string | null,
+    /** Pedir modo Multiempresa (solo ADMIN/SUPER_ADMIN con ≥2 empresas). */
+    public readonly multiCompanyMode?: boolean,
+    /** App que inicia sesión (header X-Kai-App) para gate de matriz. */
+    public readonly kaiApp?: string | null,
   ) {
     super();
   }

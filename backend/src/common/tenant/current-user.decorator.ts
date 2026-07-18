@@ -1,10 +1,21 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
+export interface CurrentUserMembership {
+  companyId: string;
+  roles: string[];
+  isOwner: boolean;
+}
+
 export interface CurrentUserPayload {
   id: string;
   userName: string;
-  rol: 'SUPER_ADMIN' | 'ADMIN' | 'OPERATOR' | string;
+  rol: string;
   companyId: string | null;
+  memberships?: CurrentUserMembership[];
+  /** Roles en la empresa activa (o unión en multi). */
+  roles?: string[];
+  isOwner?: boolean;
+  multiCompanyMode?: boolean;
 }
 
 /**

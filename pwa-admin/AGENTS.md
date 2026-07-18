@@ -50,3 +50,13 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - Usuarios de plataforma (ADMIN/OPERATOR/COURIER): obligan persona **NATURAL** + documento. SUPER_ADMIN exento. eShop (`eshop_customer_accounts`) es independiente.
 - Checkbox empleado ↔ usuario en creates compuestos (`alsoAsEmployee` / `alsoAsUser`).
 - Feature UI: `src/features/chile-person/` (`usePersonDocumentLookup`, `PersonDocumentStatusAlert`).
+
+## Usuarios multiempresa / memberships
+
+- Diseño: `docs/users/ROLES-PLATAFORMA-Y-APPS.md`.
+- Acceso por empresa: `user_company_memberships` + `user_company_roles` (+ `isOwner`).
+- Usuario multiempresa: 1 `User` + N memberships + Persons espejo por empresa (`user_company_persons`).
+- Legacy `users.rol` / `users.company_id`: dual-read/dual-write hasta cleanup.
+- Peer-ADMIN: solo el **owner** gestiona otros ADMIN.
+- Modo Multiempresa: lectura; mutaciones exigen empresa activa.
+- Login: header opcional `X-Kai-App` para gate de matriz por app.

@@ -195,27 +195,47 @@ export class CompaniesRequest {
   }
 
   /**
-   * Cambia la empresa activa (solo SUPER_ADMIN).
+   * Cambia la empresa activa (SUPER_ADMIN o usuario con membership).
+   * También puede entrar a Multiempresa: `{ multiCompanyMode: true }`.
    */
-  static async switchCompany(companyId: string): Promise<
-    | { success: true; activeCompanyId: string; company: CompanyOption }
+  static async switchCompany(
+    companyIdOrMulti: string | { multiCompanyMode: true },
+  ): Promise<
+    | {
+        success: true;
+        activeCompanyId: string | null;
+        multiCompanyMode?: boolean;
+        company?: CompanyOption;
+      }
     | { success: false; error: string }
   > {
     try {
+      const body =
+        typeof companyIdOrMulti === "string"
+          ? { companyId: companyIdOrMulti }
+          : companyIdOrMulti;
       const res = await fetch(apiUrl("auth/switch-company"), {
         method: "POST",
         headers: await authHeaders(),
-        body: JSON.stringify({ companyId }),
+        body: JSON.stringify(body),
         cache: "no-store",
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         return { success: false, error: data?.message || res.statusText };
       }
-      if (data?.activeCompanyId && data?.company) {
+      if (data?.multiCompanyMode) {
+        return {
+          success: true,
+          activeCompanyId: null,
+          multiCompanyMode: true,
+        };
+      }
+      if (data?.activeCompanyId) {
         return {
           success: true,
           activeCompanyId: data.activeCompanyId,
+          multiCompanyMode: false,
           company: data.company,
         };
       }

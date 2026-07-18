@@ -47,6 +47,7 @@ export const authOptions: NextAuthOptions = {
         if (companyId) {
           headers["X-Active-Company-Id"] = companyId;
         }
+        headers["X-Kai-App"] = "pwa-pos";
         const res = await fetch(url, {
           method: "POST",
           headers,

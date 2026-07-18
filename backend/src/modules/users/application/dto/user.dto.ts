@@ -11,6 +11,9 @@ import {
   IsEnum,
   ValidateIf,
   MaxLength,
+  IsArray,
+  IsBoolean,
+  ArrayMinSize,
 } from 'class-validator';
 import { DocumentType, PersonType } from '@modules/persons/domain/person.entity';
 import { EmploymentType } from '@modules/employees/domain/employee.entity';
@@ -67,6 +70,20 @@ export class AlsoAsEmployeeDto {
   baseSalary?: string;
 }
 
+export class UserMembershipInputDto {
+  @IsUUID('4')
+  companyId!: string;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  roles!: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  isOwner?: boolean;
+}
+
 export class CreateUserDto {
   @ApiProperty({
     description: 'Username for the user',
@@ -95,9 +112,19 @@ export class CreateUserDto {
   password!: string;
 
   @ApiPropertyOptional({
-    description: 'User role',
+    description: 'User role (legacy). Prefer memberships[].',
     example: 'OPERATOR',
-    enum: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR', 'COURIER'],
+    enum: [
+      'SUPER_ADMIN',
+      'ADMIN',
+      'SUB_ADMIN',
+      'OPERATOR',
+      'POS_OPERATOR',
+      'COURIER',
+      'WAITER',
+      'STOCK_OPERATOR',
+      'KDS_OPERATOR',
+    ],
   })
   @IsOptional()
   @IsString()
@@ -105,13 +132,22 @@ export class CreateUserDto {
 
   @ApiPropertyOptional({
     description:
-      'Empresa a la que pertenece (solo ADMIN/OPERATOR/COURIER). Si se omite, ' +
-      'se toma la empresa activa del contexto.',
+      'Empresa a la que pertenece (legacy). Prefer memberships[].',
     example: 'uuid-empresa',
   })
   @IsOptional()
   @IsString()
   companyId?: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Memberships empresa × roles (multi-empresa / multi-rol)',
+    type: [UserMembershipInputDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UserMembershipInputDto)
+  memberships?: UserMembershipInputDto[];
 
   @ApiPropertyOptional({
     description: 'Existing person ID to link (NATURAL). Required for non-SUPER_ADMIN unless person is sent.',
@@ -173,13 +209,22 @@ export class UpdateUserDto {
   mail?: string;
 
   @ApiPropertyOptional({
-    description: 'New user role',
+    description: 'New user role (legacy). Prefer memberships[].',
     example: 'OPERATOR',
-    enum: ['ADMIN', 'OPERATOR', 'COURIER'],
   })
   @IsOptional()
   @IsString()
   rol?: string;
+
+  @ApiPropertyOptional({
+    description: 'Replace memberships (empresa × roles)',
+    type: [UserMembershipInputDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UserMembershipInputDto)
+  memberships?: UserMembershipInputDto[];
 
   @ApiPropertyOptional({
     description: 'New phone number',

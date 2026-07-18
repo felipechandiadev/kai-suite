@@ -26,6 +26,7 @@ import { LogoutDto } from '../application/dto/logout.dto';
 import { LogoutResponseDto } from '../application/dto/logout-response.dto';
 import { Company } from '@modules/companies/domain/company.entity';
 import { UserRole } from '@modules/users/domain/user.entity';
+import { MembershipsService } from '@modules/users/application/memberships.service';
 import {
   AdminOnly,
   AllowAdminWithoutCompany,
@@ -41,6 +42,7 @@ export class AuthController {
     private readonly authService: AuthServiceAdapter,
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
+    private readonly membershipsService: MembershipsService,
   ) {}
 
   @SkipTenant()
@@ -89,9 +91,11 @@ export class AuthController {
   async login(
     @Body() loginDto: LoginDto,
     @Headers('x-active-company-id') companyHint?: string,
+    @Headers('x-kai-app') kaiApp?: string,
   ): Promise<LoginResponseDto> {
     return this.authService.login(loginDto, {
       companyHint: companyHint && isUUID(companyHint) ? companyHint : null,
+      kaiApp: kaiApp?.trim() || null,
     });
   }
 
@@ -121,8 +125,8 @@ export class AuthController {
   }
 
   /**
-   * Lista las empresas disponibles para el ADMIN actual.
-   * Operadores solo pueden ver su propia empresa.
+   * Lista las empresas disponibles según memberships del usuario.
+   * SUPER_ADMIN: todas las activas.
    */
   @Get('companies')
   @AllowAdminWithoutCompany()
@@ -130,10 +134,10 @@ export class AuthController {
   @ApiOperation({
     summary: 'Empresas disponibles para el usuario',
     description:
-      'ADMIN: todas las empresas activas. OPERATOR: solo su empresa.',
+      'Memberships del usuario. SUPER_ADMIN: todas las empresas activas.',
   })
   async companies(@CurrentUser() user: CurrentUserPayload) {
-    if (user.rol === 'ADMIN') {
+    if (user.rol === UserRole.SUPER_ADMIN) {
       const all = await this.companyRepository.find({
         where: { isActive: true },
         order: { createdAt: 'ASC' },
@@ -147,29 +151,35 @@ export class AuthController {
         })),
       };
     }
-    if (!user.companyId) {
+
+    const memberships =
+      user.memberships?.length
+        ? user.memberships
+        : await this.membershipsService.getMemberships(user.id);
+    if (!memberships.length) {
       return { success: true, companies: [] };
     }
-    const own = await this.companyRepository.findOne({
-      where: { id: user.companyId },
-    });
+    const ids = memberships.map((m) => m.companyId);
+    const rows = await this.companyRepository
+      .createQueryBuilder('c')
+      .where('c.id IN (:...ids)', { ids })
+      .andWhere('c.isActive = true')
+      .orderBy('c.createdAt', 'ASC')
+      .getMany();
     return {
       success: true,
-      companies: own
-        ? [
-            {
-              id: own.id,
-              razonSocial: own.razonSocial,
-              nombreFantasia: own.nombreFantasia ?? null,
-            },
-          ]
-        : [],
+      companies: rows.map((c) => ({
+        id: c.id,
+        razonSocial: c.razonSocial,
+        nombreFantasia: c.nombreFantasia ?? null,
+      })),
+      memberships,
     };
   }
 
   /**
-   * SUPER_ADMIN: cambia la empresa activa. El cliente persiste `activeCompanyId`
-   * y envía `X-Active-Company-Id` en requests subsecuentes.
+   * Cambia la empresa activa (SUPER_ADMIN o usuario con membership).
+   * Body: { companyId } o { multiCompanyMode: true }.
    */
   @Post('switch-company')
   @HttpCode(HttpStatus.OK)
@@ -177,17 +187,28 @@ export class AuthController {
   @AllowAdminWithoutCompany()
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({
-    summary: 'Cambiar empresa activa (solo SUPER_ADMIN)',
+    summary: 'Cambiar empresa activa o entrar a Multiempresa',
   })
   async switchCompany(
-    @Body() body: { companyId: string },
+    @Body() body: { companyId?: string; multiCompanyMode?: boolean },
     @CurrentUser() user: CurrentUserPayload,
   ) {
-    if (user.rol !== UserRole.SUPER_ADMIN) {
-      throw new ForbiddenException(
-        'Solo super-administradores pueden cambiar de empresa',
-      );
+    if (body?.multiCompanyMode) {
+      const can =
+        user.rol === UserRole.SUPER_ADMIN ||
+        (await this.membershipsService.canUseMultiCompanyMode(user.id));
+      if (!can) {
+        throw new ForbiddenException(
+          'Este usuario no puede usar el modo Multiempresa',
+        );
+      }
+      return {
+        success: true,
+        activeCompanyId: null,
+        multiCompanyMode: true,
+      };
     }
+
     const id = String(body?.companyId || '').trim();
     if (!isUUID(id)) {
       throw new BadRequestException('companyId inválido');
@@ -199,9 +220,20 @@ export class AuthController {
     if (!company.isActive) {
       throw new BadRequestException('La empresa está inactiva');
     }
+
+    if (user.rol !== UserRole.SUPER_ADMIN) {
+      const mem = await this.membershipsService.getMembership(user.id, id);
+      if (!mem) {
+        throw new ForbiddenException(
+          'No tienes membership en esa empresa',
+        );
+      }
+    }
+
     return {
       success: true,
       activeCompanyId: company.id,
+      multiCompanyMode: false,
       company: {
         id: company.id,
         razonSocial: company.razonSocial,

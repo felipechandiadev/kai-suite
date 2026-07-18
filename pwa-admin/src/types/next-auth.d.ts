@@ -6,7 +6,22 @@ export interface SessionCompany {
   nombreFantasia: string | null;
 }
 
-export type FlowstoreUserRole = 'SUPER_ADMIN' | 'ADMIN' | 'OPERATOR';
+export interface SessionMembership {
+  companyId: string;
+  roles: string[];
+  isOwner: boolean;
+}
+
+export type FlowstoreUserRole =
+  | 'SUPER_ADMIN'
+  | 'ADMIN'
+  | 'SUB_ADMIN'
+  | 'OPERATOR'
+  | 'POS_OPERATOR'
+  | 'COURIER'
+  | 'WAITER'
+  | 'STOCK_OPERATOR'
+  | 'KDS_OPERATOR';
 
 declare module 'next-auth' {
   interface Session {
@@ -18,6 +33,8 @@ declare module 'next-auth' {
       role?: FlowstoreUserRole | string | null;
       companyId?: string | null;
       activeCompanyId?: string | null;
+      multiCompanyMode?: boolean;
+      memberships?: SessionMembership[];
       companies?: SessionCompany[] | null;
     };
   }
@@ -30,6 +47,8 @@ declare module 'next-auth' {
     role?: FlowstoreUserRole | string | null;
     companyId?: string | null;
     activeCompanyId?: string | null;
+    multiCompanyMode?: boolean;
+    memberships?: SessionMembership[];
     companies?: SessionCompany[] | null;
   }
 }
@@ -40,6 +59,8 @@ declare module 'next-auth/jwt' {
     role?: FlowstoreUserRole | string | null;
     companyId?: string | null;
     activeCompanyId?: string | null;
+    multiCompanyMode?: boolean;
+    memberships?: SessionMembership[];
     companies?: SessionCompany[] | null;
   }
 }

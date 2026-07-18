@@ -52,7 +52,7 @@ export function CreateUserDialog({
   const [userName, setUserName] = useState("");
   const [mail, setMail] = useState("");
   const [password, setPassword] = useState("");
-  const [rol, setRol] = useState<string>("OPERATOR");
+  const [rol, setRol] = useState<string>("POS_OPERATOR");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [documentType, setDocumentType] = useState<"RUT" | "PASSPORT" | "OTHER">("RUT");
@@ -101,7 +101,7 @@ export function CreateUserDialog({
     setUserName("");
     setMail("");
     setPassword("");
-    setRol("OPERATOR");
+    setRol("POS_OPERATOR");
     setFirstName("");
     setLastName("");
     setDocumentType("RUT");
@@ -127,7 +127,16 @@ export function CreateUserDialog({
           userName: userName.trim(),
           mail: mail.trim(),
           password,
-          rol: rol === "ADMIN" || rol === "OPERATOR" || rol === "COURIER" ? rol : "OPERATOR",
+          rol:
+            rol === "ADMIN" ||
+            rol === "POS_OPERATOR" ||
+            rol === "COURIER" ||
+            rol === "SUB_ADMIN" ||
+            rol === "WAITER" ||
+            rol === "STOCK_OPERATOR" ||
+            rol === "KDS_OPERATOR"
+              ? rol
+              : "POS_OPERATOR",
           ...(linkedPersonId
             ? { personId: linkedPersonId }
             : {
@@ -284,7 +293,7 @@ export function CreateUserDialog({
           name="rol"
           options={ROLE_OPTIONS}
           value={rol}
-          onChange={(v) => setRol(v != null ? String(v) : "OPERATOR")}
+          onChange={(v) => setRol(v != null ? String(v) : "POS_OPERATOR")}
           disabled={isPending}
           data-test-id="user-create-rol"
         />

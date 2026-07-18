@@ -11,6 +11,9 @@ import { CompanyVoucherKindEntity } from '@modules/companies/domain/company-vouc
 import { PosPaymentMethodEntity } from '@modules/companies/domain/pos-payment-method.entity';
 import { PriceList } from '@modules/price-lists/domain/price-list.entity';
 import { User } from '@modules/users/domain/user.entity';
+import { UserCompanyMembership } from '@modules/users/domain/user-company-membership.entity';
+import { UserCompanyRole } from '@modules/users/domain/user-company-role.entity';
+import { UserCompanyPerson } from '@modules/users/domain/user-company-person.entity';
 import { Person } from '@modules/persons/domain/person.entity';
 import { CashSession } from '@modules/cash-sessions/domain/cash-session.entity';
 import { CashHub } from '@modules/cash-hubs/domain/cash-hub.entity';
@@ -131,6 +134,9 @@ export const typeOrmConfig = (
       PosPaymentMethodEntity,
       PriceList,
       User,
+      UserCompanyMembership,
+      UserCompanyRole,
+      UserCompanyPerson,
       Person,
       CashSession,
       CashHub,

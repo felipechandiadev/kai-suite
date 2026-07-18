@@ -51,13 +51,43 @@ function toListItem(row: unknown): UserListItem | null {
       lastName: p.lastName != null ? String(p.lastName) : null,
       phone: p.phone != null && String(p.phone).trim() ? String(p.phone) : null,
       documentNumber: doc.trim() ? doc : null,
+      documentType:
+        p.documentType != null && String(p.documentType).trim()
+          ? String(p.documentType)
+          : null,
     };
   }
+
+  const membershipsRaw = o.memberships;
+  let memberships: UserListItem["memberships"];
+  if (Array.isArray(membershipsRaw)) {
+    memberships = membershipsRaw
+      .map((row) => {
+        if (!row || typeof row !== "object") return null;
+        const m = row as Record<string, unknown>;
+        const companyId =
+          m.companyId != null ? String(m.companyId) : "";
+        if (!companyId) return null;
+        const roles = Array.isArray(m.roles)
+          ? m.roles.map((r) => String(r))
+          : [];
+        return {
+          companyId,
+          roles,
+          isOwner: m.isOwner === true,
+        };
+      })
+      .filter((m): m is NonNullable<typeof m> => m != null);
+  }
+
   return {
     id,
     userName,
     mail,
-    rol: o.rol != null ? String(o.rol) : "OPERATOR",
+    rol: o.rol != null ? String(o.rol) : "POS_OPERATOR",
+    companyId: o.companyId != null ? String(o.companyId) : null,
+    isOwner: o.isOwner === true,
+    memberships,
     personId:
       o.personId != null
         ? String(o.personId)
@@ -181,6 +211,7 @@ export class UserRequest {
       userName: string;
       mail: string;
       rol: string;
+      memberships?: Array<{ companyId: string; roles: string[] }>;
       personName: string | null;
       phone: string | null;
       personDni: string | null;
@@ -198,6 +229,12 @@ export class UserRequest {
           userName: body.userName.trim(),
           mail: body.mail.trim(),
           rol: body.rol,
+          memberships: body.memberships?.length
+            ? body.memberships.map((m) => ({
+                companyId: m.companyId,
+                roles: m.roles,
+              }))
+            : undefined,
           personName: body.personName && body.personName.trim() ? body.personName.trim() : undefined,
           phone: body.phone && body.phone.trim() ? body.phone.trim() : undefined,
           personDni: body.personDni && body.personDni.trim() ? body.personDni.trim() : undefined,
