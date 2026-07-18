@@ -8,6 +8,9 @@ import { TextField } from "@kai/ui";
 import { Select, type Option } from "@kai/ui";
 import { createEmployeeAction } from "@/features/hr-employees/actions/employee.action";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
+import { usePersonDocumentLookup } from "@/features/chile-person/ui/usePersonDocumentLookup";
+import { PersonDocumentStatusAlert } from "@/features/chile-person/ui/PersonDocumentStatusAlert";
+import { USER_ROLE_OPTIONS } from "@/features/settings-users/types/user.types";
 
 const DOC_OPTIONS: Option[] = [
   { id: "RUT", label: "RUT" },
@@ -56,6 +59,35 @@ export function CreateEmployeeDialog({
   const [baseSalary, setBaseSalary] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [alsoAsUser, setAlsoAsUser] = useState(false);
+  const [userName, setUserName] = useState("");
+  const [userMail, setUserMail] = useState("");
+  const [userPassword, setUserPassword] = useState("");
+  const [userRol, setUserRol] = useState("OPERATOR");
+
+  const docLookup = usePersonDocumentLookup({
+    documentNumber,
+    documentType,
+    intentRole: "employee",
+    enabled: open,
+  });
+  const personReadOnly = docLookup.kind === "reuse_readonly";
+  const linkedPersonId = docLookup.kind === "reuse_readonly" ? docLookup.person.id : null;
+  const alreadyUser = docLookup.kind === "reuse_readonly" && Boolean(docLookup.roles.user);
+
+  useEffect(() => {
+    if (docLookup.kind !== "reuse_readonly") return;
+    const p = docLookup.person;
+    setFirstName(p.firstName ?? "");
+    setLastName(p.lastName ?? "");
+    setDocumentType((p.documentType as "RUT" | "PASSPORT" | "OTHER") || "RUT");
+    setDocumentNumber(p.documentNumber ?? "");
+    setEmail(p.email ?? "");
+    setPhone(p.phone ?? "");
+    if (docLookup.roles.user) {
+      setAlsoAsUser(false);
+    }
+  }, [docLookup]);
 
   const branchOptions: Option[] = useMemo(
     () =>
@@ -77,6 +109,11 @@ export function CreateEmployeeDialog({
       setEmploymentType("FULL_TIME");
       setHireDate(todayIsoDate());
       setBaseSalary("");
+      setAlsoAsUser(false);
+      setUserName("");
+      setUserMail("");
+      setUserPassword("");
+      setUserRol("OPERATOR");
       setError(null);
     }
   }, [open]);
@@ -92,6 +129,11 @@ export function CreateEmployeeDialog({
     setEmploymentType("FULL_TIME");
     setHireDate(todayIsoDate());
     setBaseSalary("");
+    setAlsoAsUser(false);
+    setUserName("");
+    setUserMail("");
+    setUserPassword("");
+    setUserRol("OPERATOR");
     setError(null);
   };
 
@@ -106,16 +148,29 @@ export function CreateEmployeeDialog({
     startTransition(() => {
       void (async () => {
         const r = await createEmployeeAction({
-          firstName: firstName.trim(),
-          lastName: lastName.trim() || undefined,
-          documentType,
-          documentNumber: documentNumber.trim(),
-          email: email.trim() || undefined,
-          phone: phone.trim() || undefined,
+          ...(linkedPersonId
+            ? { personId: linkedPersonId }
+            : {
+                firstName: firstName.trim(),
+                lastName: lastName.trim() || undefined,
+                documentType,
+                documentNumber: documentNumber.trim(),
+                email: email.trim() || undefined,
+                phone: phone.trim() || undefined,
+              }),
           branchId,
           employmentType,
           hireDate: hireDate.trim(),
           baseSalary: baseSalary.trim() || null,
+          alsoAsUser:
+            alsoAsUser && !alreadyUser
+              ? {
+                  userName: userName.trim(),
+                  mail: userMail.trim(),
+                  password: userPassword,
+                  rol: userRol,
+                }
+              : undefined,
         });
         if (r.success) {
           await onSuccess?.();
@@ -128,7 +183,18 @@ export function CreateEmployeeDialog({
   };
 
   const canSubmit =
-    !isPending && firstName.trim().length > 0 && documentNumber.trim().length > 0 && hireDate.trim().length > 0;
+    !isPending &&
+    docLookup.kind !== "conflict_same_role" &&
+    docLookup.kind !== "loading" &&
+    docLookup.kind !== "error" &&
+    documentNumber.trim().length > 0 &&
+    hireDate.trim().length > 0 &&
+    (personReadOnly || firstName.trim().length > 0) &&
+    (!alsoAsUser ||
+      alreadyUser ||
+      (userName.trim().length >= 3 &&
+        userMail.trim().length > 0 &&
+        userPassword.length >= 6));
 
   const useDniField = documentType === "RUT";
   const documentNumberLabel =
@@ -144,11 +210,14 @@ export function CreateEmployeeDialog({
       maxHeight="min(90vh, 720px)"
       data-test-id="employee-create-dialog"
       alertArea={
-        error ? (
-          <Alert variant="error" data-test-id="employee-create-error">
-            {error}
-          </Alert>
-        ) : null
+        <div className="flex flex-col gap-2">
+          <PersonDocumentStatusAlert status={docLookup} intentRole="employee" />
+          {error ? (
+            <Alert variant="error" data-test-id="employee-create-error">
+              {error}
+            </Alert>
+          ) : null}
+        </div>
       }
       actions={
         <>
@@ -174,6 +243,7 @@ export function CreateEmployeeDialog({
             onChange={(e) => setFirstName(e.target.value)}
             placeholder="Nombre"
             required
+            disabled={personReadOnly || isPending}
             data-test-id="employee-create-first-name"
           />
           <TextField
@@ -182,6 +252,7 @@ export function CreateEmployeeDialog({
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
             placeholder="Apellidos (opcional)"
+            disabled={personReadOnly || isPending}
             data-test-id="employee-create-last-name"
           />
         </div>
@@ -196,6 +267,7 @@ export function CreateEmployeeDialog({
             setDocumentType((v != null ? String(v) : "RUT") as "RUT" | "PASSPORT" | "OTHER")
           }
           required
+          disabled={personReadOnly || isPending}
           data-test-id="employee-create-doc-type"
         />
 
@@ -275,6 +347,58 @@ export function CreateEmployeeDialog({
               onChange={(e) => setBaseSalary(e.target.value)}
               data-test-id="employee-create-base-salary"
             />
+
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={alsoAsUser && !alreadyUser}
+            disabled={alreadyUser || isPending}
+            onChange={(e) => setAlsoAsUser(e.target.checked)}
+            data-test-id="employee-create-also-user"
+          />
+          También crear usuario de plataforma
+        </label>
+        {alreadyUser ? (
+          <p className="text-sm text-muted-foreground">Esta persona ya tiene usuario de plataforma.</p>
+        ) : null}
+        {alsoAsUser && !alreadyUser ? (
+          <div className="flex flex-col gap-3 rounded-md border border-border p-3">
+            <TextField
+              label="Usuario"
+              name="employee-user-name"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+              required
+              data-test-id="employee-create-user-name"
+            />
+            <TextField
+              label="Correo de acceso"
+              name="employee-user-mail"
+              type="email"
+              value={userMail}
+              onChange={(e) => setUserMail(e.target.value)}
+              required
+              data-test-id="employee-create-user-mail"
+            />
+            <TextField
+              label="Contraseña"
+              name="employee-user-password"
+              type="password"
+              value={userPassword}
+              onChange={(e) => setUserPassword(e.target.value)}
+              required
+              data-test-id="employee-create-user-password"
+            />
+            <Select
+              label="Rol"
+              name="employee-user-rol"
+              options={USER_ROLE_OPTIONS.map((o) => ({ id: o.id, label: o.label }))}
+              value={userRol}
+              onChange={(v) => setUserRol(v != null ? String(v) : "OPERATOR")}
+              data-test-id="employee-create-user-rol"
+            />
+          </div>
+        ) : null}
           </div>
         </div>
       </div>

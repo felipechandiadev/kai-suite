@@ -154,12 +154,6 @@ export async function getCustomerPendingQuotasListAction(
 }
 
 export async function createCustomerAction(input: CreateCustomerFormInput): Promise<CreateCustomerResult> {
-  const personType = input.personType === "COMPANY" ? "COMPANY" : "NATURAL";
-  const docNum = input.documentNumber?.trim() ?? "";
-  if (!docNum) {
-    return { success: false, error: "El número de documento es obligatorio." };
-  }
-
   const creditLimit = Math.max(0, Math.round(Number(input.creditLimit) || 0));
   const day = Number(input.paymentDayOfMonth);
   const paymentDayOfMonth = [5, 10, 15, 20, 25, 30].includes(day)
@@ -178,6 +172,24 @@ export async function createCustomerAction(input: CreateCustomerFormInput): Prom
         ? input.economicActivities
         : undefined,
   };
+
+  if (input.personId?.trim()) {
+    const r = await CustomerRequest.create({
+      personId: input.personId.trim(),
+      ...base,
+    } as CreateCustomerFormInput);
+    if (r.success) {
+      revalidatePath(CUSTOMERS_PATH, "page");
+      return { success: true };
+    }
+    return { success: false, error: r.error };
+  }
+
+  const personType = input.personType === "COMPANY" ? "COMPANY" : "NATURAL";
+  const docNum = input.documentNumber?.trim() ?? "";
+  if (!docNum) {
+    return { success: false, error: "El número de documento es obligatorio." };
+  }
 
   if (personType === "COMPANY") {
     const bn = input.businessName?.trim() ?? "";
@@ -203,7 +215,7 @@ export async function createCustomerAction(input: CreateCustomerFormInput): Prom
   if (!fn) {
     return { success: false, error: "El nombre es obligatorio para una persona." };
   }
-  const dt = input.documentType;
+  const dt = input.documentType ?? "RUT";
 
   const r = await CustomerRequest.create({
     personType: "NATURAL",

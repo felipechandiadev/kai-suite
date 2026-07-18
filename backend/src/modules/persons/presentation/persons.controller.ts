@@ -19,6 +19,7 @@ import { CreatePersonDto } from '../application/dto/create-person.dto';
 import { UpdatePersonDto } from '../application/dto/update-person.dto';
 import { PersonBankAccountDto } from '../application/dto/person-bank-account.dto';
 import { LookupSiiTaxStatusDto } from '../application/dto/lookup-sii-tax-status.dto';
+import { LookupPersonByDocumentDto } from '../application/dto/lookup-person-by-document.dto';
 
 @Controller('persons')
 export class PersonsController {
@@ -31,6 +32,30 @@ export class PersonsController {
   async lookupSiiTaxStatus(@Query() query: LookupSiiTaxStatusDto) {
     try {
       const data = await this.siiTaxStatusService.lookup(query.rut);
+      return { success: true, data };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        {
+          success: false,
+          message:
+            error instanceof Error ? error.message : 'Internal server error',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get('by-document')
+  async lookupByDocument(@Query() query: LookupPersonByDocumentDto) {
+    try {
+      const data = await this.personsService.findByDocumentNumber({
+        documentNumber: query.documentNumber,
+        documentType: query.documentType,
+        excludePersonId: query.excludePersonId,
+      });
       return { success: true, data };
     } catch (error) {
       if (error instanceof HttpException) {

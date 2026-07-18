@@ -45,12 +45,13 @@ export async function updateSupplierAction(
 }
 
 export type CreateSupplierFormInput = {
-  personType: "NATURAL" | "COMPANY";
+  personId?: string;
+  personType?: "NATURAL" | "COMPANY";
   firstName?: string;
   lastName?: string;
   businessName?: string;
-  documentType: "RUT" | "PASSPORT" | "OTHER";
-  documentNumber: string;
+  documentType?: "RUT" | "PASSPORT" | "OTHER";
+  documentNumber?: string;
   email?: string;
   phone?: string;
   address?: string;
@@ -76,6 +77,21 @@ export async function listSuppliersForGrid(): Promise<{ rows: SupplierGridRow[];
 }
 
 export async function createSupplierAction(input: CreateSupplierFormInput): Promise<CreateSupplierResult> {
+  const supplierType = input.supplierType?.trim() || "DISTRIBUTOR";
+  const term = Math.max(0, Math.round(Number(input.defaultPaymentTermDays) || 0));
+
+  if (input.personId?.trim()) {
+    const r = await SupplierRequest.create({
+      personId: input.personId.trim(),
+      supplierType,
+      defaultPaymentTermDays: term,
+    });
+    if (r.success) {
+      revalidatePath(SUPPLIERS_PATH, "page");
+    }
+    return r;
+  }
+
   const personType = input.personType === "COMPANY" ? "COMPANY" : "NATURAL";
   const docNum = input.documentNumber?.trim() ?? "";
   if (!docNum) {
@@ -99,8 +115,8 @@ export async function createSupplierAction(input: CreateSupplierFormInput): Prom
     };
     const r = await SupplierRequest.create({
       person,
-      supplierType: input.supplierType?.trim() || "DISTRIBUTOR",
-      defaultPaymentTermDays: Math.max(0, Math.round(Number(input.defaultPaymentTermDays) || 0)),
+      supplierType,
+      defaultPaymentTermDays: term,
     });
     if (r.success) {
       revalidatePath(SUPPLIERS_PATH, "page");
@@ -112,7 +128,7 @@ export async function createSupplierAction(input: CreateSupplierFormInput): Prom
   if (!fn) {
     return { success: false, error: "El nombre es obligatorio para una persona." };
   }
-  const dt = input.documentType;
+  const dt = input.documentType ?? "RUT";
 
   const person = {
     type: "NATURAL" as const,
@@ -127,8 +143,8 @@ export async function createSupplierAction(input: CreateSupplierFormInput): Prom
 
   const r = await SupplierRequest.create({
     person,
-    supplierType: input.supplierType?.trim() || "DISTRIBUTOR",
-    defaultPaymentTermDays: Math.max(0, Math.round(Number(input.defaultPaymentTermDays) || 0)),
+    supplierType,
+    defaultPaymentTermDays: term,
   });
   if (r.success) {
     revalidatePath(SUPPLIERS_PATH, "page");

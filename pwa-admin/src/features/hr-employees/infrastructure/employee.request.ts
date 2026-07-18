@@ -318,6 +318,12 @@ export class EmployeeRequest {
     employmentType: string;
     hireDate: string;
     baseSalary?: string | null;
+    alsoAsUser?: {
+      userName: string;
+      mail: string;
+      password: string;
+      rol?: string;
+    };
   }): Promise<{ success: true; id: string } | { success: false; error: string }> {
     const headers = await authHeaders();
     const res = await fetch(apiUrl("employees"), {
@@ -329,6 +335,7 @@ export class EmployeeRequest {
         employmentType: payload.employmentType,
         hireDate: payload.hireDate,
         baseSalary: payload.baseSalary ?? undefined,
+        alsoAsUser: payload.alsoAsUser,
       }),
       cache: "no-store",
     });

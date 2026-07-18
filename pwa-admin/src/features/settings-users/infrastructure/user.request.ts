@@ -46,6 +46,7 @@ function toListItem(row: unknown): UserListItem | null {
           ? String(p.dni)
           : "";
     person = {
+      id: p.id != null ? String(p.id) : null,
       firstName: p.firstName != null ? String(p.firstName) : null,
       lastName: p.lastName != null ? String(p.lastName) : null,
       phone: p.phone != null && String(p.phone).trim() ? String(p.phone) : null,
@@ -57,6 +58,12 @@ function toListItem(row: unknown): UserListItem | null {
     userName,
     mail,
     rol: o.rol != null ? String(o.rol) : "OPERATOR",
+    personId:
+      o.personId != null
+        ? String(o.personId)
+        : person?.id != null
+          ? String(person.id)
+          : null,
     person,
   };
 }
@@ -110,6 +117,22 @@ export class UserRequest {
     mail: string;
     password: string;
     rol: string;
+    personId?: string;
+    person?: {
+      type?: string;
+      firstName: string;
+      lastName?: string;
+      documentType?: string;
+      documentNumber: string;
+      email?: string;
+      phone?: string;
+    };
+    alsoAsEmployee?: {
+      branchId?: string;
+      employmentType?: string;
+      hireDate: string;
+      baseSalary?: string;
+    };
   }): Promise<
     { success: true; data: UserListItem } | { success: false; error: string }
   > {
@@ -123,6 +146,9 @@ export class UserRequest {
           mail: body.mail.trim(),
           password: body.password,
           rol: body.rol,
+          personId: body.personId,
+          person: body.person,
+          alsoAsEmployee: body.alsoAsEmployee,
         }),
         cache: "no-store",
       });
@@ -158,6 +184,7 @@ export class UserRequest {
       personName: string | null;
       phone: string | null;
       personDni: string | null;
+      personId?: string | null;
     },
   ): Promise<
     { success: true; data: UserListItem } | { success: false; error: string }
@@ -174,6 +201,7 @@ export class UserRequest {
           personName: body.personName && body.personName.trim() ? body.personName.trim() : undefined,
           phone: body.phone && body.phone.trim() ? body.phone.trim() : undefined,
           personDni: body.personDni && body.personDni.trim() ? body.personDni.trim() : undefined,
+          personId: body.personId?.trim() || undefined,
         }),
         cache: "no-store",
       });

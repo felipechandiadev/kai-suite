@@ -2958,9 +2958,9 @@ async function bootstrap() {
       }
     }
 
-    // Helper idempotente: asegura un usuario seed con su persona asociada.
-    // Si existe, actualiza rol/companyId/nonDeletable/email para que el
-    // estado seed siempre coincida con el modelo declarado.
+    // Helper idempotente: asegura un usuario seed.
+    // - SUPER_ADMIN: sin persona (modelo plataforma: persona no obligatoria).
+    // - ADMIN / OPERATOR / COURIER: siempre Persona NATURAL inventada en la empresa.
     const ensureSeedUser = async (params: {
       userName: string;
       password: string;
@@ -2971,24 +2971,58 @@ async function bootstrap() {
       lastName: string;
       email: string;
       documentNumber: string;
+      phone?: string;
     }) => {
+      const needsPerson = params.rol !== UserRole.SUPER_ADMIN;
+      if (needsPerson && !params.companyId) {
+        throw new Error(
+          `Usuario seed ${params.userName} (${params.rol}) requiere companyId para asociar persona.`,
+        );
+      }
+
       let u = await userRepo.findOne({
         where: { userName: params.userName, deletedAt: null as never },
         relations: ['person'],
       });
 
-      if (!u) {
-        const personEntity = personRepo.create({
-          type: PersonType.NATURAL,
-          firstName: params.firstName,
-          lastName: params.lastName,
-          documentType: DocumentType.RUT,
-          documentNumber: params.documentNumber,
-          email: params.email,
-          ...(params.companyId ? { companyId: params.companyId } : { companyId: company.id }),
-        });
-        const savedPerson = await personRepo.save(personEntity);
+      const upsertPerson = async (existing?: Person | null): Promise<Person> => {
+        const companyIdForPerson = params.companyId as string;
+        let person = existing ?? null;
+        if (!person) {
+          person = await personRepo.findOne({
+            where: {
+              documentNumber: params.documentNumber,
+              companyId: companyIdForPerson,
+              deletedAt: null as never,
+            },
+          });
+        }
+        if (!person) {
+          person = personRepo.create({
+            type: PersonType.NATURAL,
+            firstName: params.firstName,
+            lastName: params.lastName,
+            documentType: DocumentType.RUT,
+            documentNumber: params.documentNumber,
+            email: params.email,
+            phone: params.phone,
+            companyId: companyIdForPerson,
+          });
+        } else {
+          person.type = PersonType.NATURAL;
+          person.firstName = params.firstName;
+          person.lastName = params.lastName;
+          person.documentType = DocumentType.RUT;
+          person.documentNumber = params.documentNumber;
+          person.email = params.email;
+          if (params.phone) person.phone = params.phone;
+          person.companyId = companyIdForPerson;
+        }
+        return personRepo.save(person);
+      };
 
+      if (!u) {
+        const person = needsPerson ? await upsertPerson(null) : undefined;
         u = userRepo.create({
           userName: params.userName,
           pass: await bcrypt.hash(params.password, 12),
@@ -2996,12 +3030,14 @@ async function bootstrap() {
           rol: params.rol,
           companyId: params.companyId,
           nonDeletable: params.nonDeletable,
-          person: savedPerson,
+          person: person ?? undefined,
         });
         await userRepo.save(u);
-
         console.log(
-          `✅ Usuario seed creado: rol=${params.rol} userName='${params.userName}' password='${params.password}'`,
+          `✅ Usuario seed creado: rol=${params.rol} userName='${params.userName}'` +
+            (person
+              ? ` person=${person.firstName} ${person.lastName} doc=${person.documentNumber}`
+              : ' (sin persona)'),
         );
         return;
       }
@@ -3015,28 +3051,20 @@ async function bootstrap() {
       u.companyId = params.companyId;
       u.nonDeletable = params.nonDeletable;
 
-      if (!u.person) {
-        const personEntity = personRepo.create({
-          type: PersonType.NATURAL,
-          firstName: params.firstName,
-          lastName: params.lastName,
-          documentType: DocumentType.RUT,
-          documentNumber: params.documentNumber,
-          email: params.email,
-        });
-        u.person = await personRepo.save(personEntity);
+      if (needsPerson) {
+        u.person = await upsertPerson(u.person ?? null);
       } else {
-        u.person.firstName = params.firstName;
-        u.person.lastName = params.lastName;
-        u.person.documentNumber = params.documentNumber;
-        u.person.email = params.email;
-        await personRepo.save(u.person);
+        // SUPER_ADMIN: sin persona (desvincular si venía de un seed anterior).
+        u.person = null as unknown as undefined;
       }
 
       await userRepo.save(u);
 
       console.log(
-        `✅ Usuario seed actualizado: rol=${params.rol} userName='${params.userName}' password='${params.password}'`,
+        `✅ Usuario seed actualizado: rol=${params.rol} userName='${params.userName}'` +
+          (u.person
+            ? ` person=${u.person.firstName} ${u.person.lastName} doc=${u.person.documentNumber}`
+            : ' (sin persona)'),
       );
     };
 
@@ -3060,10 +3088,11 @@ async function bootstrap() {
       rol: UserRole.ADMIN,
       companyId: company.id,
       nonDeletable: false,
-      firstName: 'Administrador',
-      lastName: 'de empresa',
+      firstName: 'Camila',
+      lastName: 'Rojas Muñoz',
       email,
-      documentNumber: '22222222-2',
+      documentNumber: '16.482.391-K',
+      phone: '+56 9 8765 4321',
     });
 
     await ensureSeedUser({
@@ -3072,10 +3101,11 @@ async function bootstrap() {
       rol: UserRole.OPERATOR,
       companyId: company.id,
       nonDeletable: false,
-      firstName: 'Operador',
-      lastName: 'POS',
+      firstName: 'Diego',
+      lastName: 'Vargas Soto',
       email: 'operador@kai.local',
-      documentNumber: '33333333-3',
+      documentNumber: '17.205.884-3',
+      phone: '+56 9 7654 3210',
     });
 
     await ensureSeedUser({
@@ -3084,10 +3114,11 @@ async function bootstrap() {
       rol: UserRole.COURIER,
       companyId: company.id,
       nonDeletable: false,
-      firstName: 'Repartidor',
-      lastName: 'Uno',
+      firstName: 'Matías',
+      lastName: 'Fuentes Lagos',
       email: 'delivery1@kai.local',
-      documentNumber: '44444444-4',
+      documentNumber: '18.103.772-5',
+      phone: '+56 9 6543 2109',
     });
 
     await ensureSeedUser({
@@ -3096,10 +3127,11 @@ async function bootstrap() {
       rol: UserRole.COURIER,
       companyId: company.id,
       nonDeletable: false,
-      firstName: 'Repartidor',
-      lastName: 'Dos',
+      firstName: 'Valentina',
+      lastName: 'Pizarro Núñez',
       email: 'delivery2@kai.local',
-      documentNumber: '55555555-5',
+      documentNumber: '19.884.201-7',
+      phone: '+56 9 5432 1098',
     });
 
     await seedDemoDeliveryCalendar({
@@ -3108,11 +3140,19 @@ async function bootstrap() {
     });
 
     console.log('✅ Seed mínimo OK. Usuarios listos:');
-    console.log(`   • superadmin / ${seedPassword}   (SUPER_ADMIN, protegido)`);
-    console.log(`   • ${userName} / ${seedPassword}        (ADMIN de la empresa)`);
-    console.log(`   • operador / ${seedPassword}    (OPERATOR de la empresa)`);
-    console.log(`   • delivery1 / ${seedPassword}   (COURIER / repartidor)`);
-    console.log(`   • delivery2 / ${seedPassword}   (COURIER / repartidor)`);
+    console.log(`   • superadmin / ${seedPassword}   (SUPER_ADMIN, sin persona, protegido)`);
+    console.log(
+      `   • ${userName} / ${seedPassword}        (ADMIN · Camila Rojas Muñoz · 16.482.391-K)`,
+    );
+    console.log(
+      `   • operador / ${seedPassword}    (OPERATOR · Diego Vargas Soto · 17.205.884-3)`,
+    );
+    console.log(
+      `   • delivery1 / ${seedPassword}   (COURIER · Matías Fuentes Lagos · 18.103.772-5)`,
+    );
+    console.log(
+      `   • delivery2 / ${seedPassword}   (COURIER · Valentina Pizarro Núñez · 19.884.201-7)`,
+    );
     console.log(
       `   • Empresas en BD: «${SEED_DEV_COMPANY.nombreFantasia}» (${SEED_DEV_COMPANY.rut}, eShop demo) + «${SEED_DEV_COMPANY_SECOND.nombreFantasia}» (${SEED_DEV_COMPANY_SECOND.rut}, eShop ${SEED_DEV_COMPANY_SECOND_ESHOP_SLUG})`,
     );

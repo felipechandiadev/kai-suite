@@ -42,3 +42,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **Formularios con `TextField`:** el `placeholder` de cada campo debe ser **el mismo texto que el `label`**; no textos de ejemplo en el placeholder (norma en `webadmin.instruction`).
 - **Indicadores de carga (loading):** cualquier UI de carga reutilizable —`loading.tsx` de segmentos, `Suspense` fallback, `dynamic({ loading: ... })`, bloques mientras se obtienen datos, etc.— debe usar el componente compartido **`DotProgress`** (`@kai/ui`). **No** usar `animate-spin` a mano, “skeletons” de spinner custom ni texto solo «Cargando…» sin `DotProgress`, salvo excepción explícita. El **`loading` integrado de `Button`** (icono de spinner en el propio botón) sigue siendo el patrón de ese control.
 - Ver también `.instructions/webadmin.instruction` e `../docs/legacy/WEBADMIN_INSTRUCTIONS.md` para el resto de reglas del frontend admin.
+
+## Personas multi-rol (cliente / proveedor / empleado / usuario)
+
+- **Person** es la identidad compartida (`documentNumber` único por empresa). Cliente, proveedor, empleado y usuario de plataforma son **roles** sobre la misma persona.
+- Al crear en admin: debounce de documento → `lookupPersonByDocumentAction` (`GET /persons/by-document`). Si ya tiene el rol del diálogo → alert sin CTA y Guardar off. Si existe sin ese rol → campos de persona **read-only** y submit con `personId`.
+- Usuarios de plataforma (ADMIN/OPERATOR/COURIER): obligan persona **NATURAL** + documento. SUPER_ADMIN exento. eShop (`eshop_customer_accounts`) es independiente.
+- Checkbox empleado ↔ usuario en creates compuestos (`alsoAsEmployee` / `alsoAsUser`).
+- Feature UI: `src/features/chile-person/` (`usePersonDocumentLookup`, `PersonDocumentStatusAlert`).

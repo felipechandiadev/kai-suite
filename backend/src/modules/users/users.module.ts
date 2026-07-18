@@ -3,6 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CqrsModule } from '@nestjs/cqrs';
 import { User } from './domain/user.entity';
 import { Person } from '@modules/persons/domain/person.entity';
+import { Employee } from '@modules/employees/domain/employee.entity';
+import { PersonsModule } from '@modules/persons/persons.module';
 import { UsersService } from './application/users.service';
 import { UsersServiceAdapter } from './application/users.service.adapter';
 import { UsersController } from './presentation/users.controller';
@@ -19,19 +21,19 @@ import { GetAllUsersQueryHandler } from './application/handlers/queries/get-all-
 import { GetUserQueryHandler } from './application/handlers/queries/get-user.handler';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Person]), CqrsModule],
+  imports: [
+    TypeOrmModule.forFeature([User, Person, Employee]),
+    CqrsModule,
+    PersonsModule,
+  ],
   controllers: [UsersController],
   providers: [
-    // Legacy service for backward compatibility
     UsersService,
-    // CQRS Service Adapter
     UsersServiceAdapter,
-    // CQRS Command Handlers
     CreateUserCommandHandler,
     UpdateUserCommandHandler,
     RemoveUserCommandHandler,
     ChangeUserPasswordCommandHandler,
-    // CQRS Query Handlers
     GetAllUsersQueryHandler,
     GetUserQueryHandler,
     UsersSchemaBootstrap,

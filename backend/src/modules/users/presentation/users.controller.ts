@@ -100,6 +100,7 @@ export class UsersController {
         companyId: data.companyId ?? null,
         personId: data.personId,
         person: data.person,
+        alsoAsEmployee: data.alsoAsEmployee,
       },
       activeCompanyId,
     );

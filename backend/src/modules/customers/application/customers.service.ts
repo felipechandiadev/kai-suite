@@ -18,6 +18,7 @@ import { CompaniesService } from '@modules/companies/application/companies.servi
 import { TenantContext } from '@common/tenant';
 import { EshopCustomerAccount } from '@modules/e-shop/domain/eshop-customer-account.entity';
 import { sanitizePersonGeoActivityFields } from '@modules/persons/application/person-geo-activity.util';
+import { normalizePersonDocumentNumber } from '@modules/persons/application/person-document.util';
 
 enum PersonType {
   NATURAL = 'NATURAL',
@@ -40,6 +41,7 @@ export class CustomersService {
 
   async create(createCustomerDto: CreateCustomerDto) {
     const {
+      personId: linkPersonId,
       personType,
       firstName,
       lastName,
@@ -53,6 +55,17 @@ export class CustomersService {
       paymentDayOfMonth,
       notes,
     } = createCustomerDto;
+
+    if (linkPersonId && (personType || firstName)) {
+      throw new BadRequestException(
+        'Envíe solo personId o los datos de persona, no ambos.',
+      );
+    }
+    if (!linkPersonId && (!personType || !firstName)) {
+      throw new BadRequestException(
+        'Debe indicar personId o los datos de la persona (personType y firstName).',
+      );
+    }
 
     const geo = sanitizePersonGeoActivityFields({
       regionCode: createCustomerDto.regionCode,
@@ -76,13 +89,87 @@ export class CustomersService {
       }
     }
 
+    if (linkPersonId) {
+      const linked = await this.personRepository.findOne({
+        where: { id: linkPersonId },
+      });
+      if (!linked || linked.deletedAt) {
+        throw new BadRequestException('La persona indicada no existe.');
+      }
+      if (companyId && linked.companyId && linked.companyId !== companyId) {
+        throw new BadRequestException(
+          'La persona no pertenece a la empresa activa.',
+        );
+      }
+
+      const existingForLink = await this.customersRepository.findByPersonId(
+        linked.id,
+      );
+      if (existingForLink && !existingForLink.deletedAt) {
+        throw new ConflictException(
+          'Ya existe un cliente asociado a esta persona.',
+        );
+      }
+
+      let customerFromLink = existingForLink;
+      if (customerFromLink && customerFromLink.deletedAt) {
+        customerFromLink.deletedAt = undefined as any;
+        customerFromLink.isActive = true;
+        customerFromLink.creditLimit = creditLimit || 0;
+        customerFromLink.paymentDayOfMonth = paymentDayOfMonth || 5;
+        customerFromLink.notes = notes || undefined;
+        await this.customersRepository.save(customerFromLink);
+      } else {
+        customerFromLink = (await this.customersRepository.save({
+          personId: linked.id,
+          creditLimit: creditLimit || 0,
+          currentBalance: 0,
+          paymentDayOfMonth: paymentDayOfMonth || 5,
+          isActive: true,
+          notes: notes || undefined,
+        } as any)) as Customer;
+      }
+
+      const creditInfo = await this.calculateAvailableCredit(customerFromLink.id);
+      const displayName = this.buildDisplayName(linked);
+      return {
+        success: true,
+        customer: {
+          customerId: customerFromLink.id,
+          personId: customerFromLink.personId,
+          displayName,
+          documentType: linked.documentType || null,
+          documentNumber: linked.documentNumber || null,
+          email: linked.email || null,
+          phone: linked.phone || null,
+          address: linked.address || null,
+          creditLimit: creditInfo.creditLimit,
+          usedCredit: creditInfo.usedCredit,
+          availableCredit: creditInfo.availableCredit,
+          paymentDayOfMonth: customerFromLink.paymentDayOfMonth,
+          createdAt: customerFromLink.createdAt,
+          updatedAt: customerFromLink.updatedAt,
+        },
+      };
+    }
+
     let person: Person | null = null;
 
     if (documentNumber) {
-      person = await this.personRepository.findOne({
-        where: { documentNumber },
-        withDeleted: true,
-      });
+      const norm = normalizePersonDocumentNumber(documentNumber);
+      if (norm) {
+        const qb = this.personRepository
+          .createQueryBuilder('p')
+          .withDeleted()
+          .where(
+            `regexp_replace(lower(trim(coalesce(p.documentNumber, ''))), '[.[:space:]-]', '', 'g') = :norm`,
+            { norm },
+          );
+        if (companyId) {
+          qb.andWhere('p.company_id = :companyId', { companyId });
+        }
+        person = await qb.getOne();
+      }
 
       if (person) {
         const existingCustomer = await this.customersRepository.findByPersonId(
@@ -105,7 +192,7 @@ export class CustomersService {
 
           person.deletedAt = undefined as any;
           person.type = personType as any;
-          person.firstName = firstName;
+          person.firstName = firstName!;
           person.lastName = lastName || undefined;
           person.businessName = businessName || undefined;
           person.documentType = documentType as any;
@@ -146,7 +233,7 @@ export class CustomersService {
     if (!person) {
       person = this.personRepository.create({
         type: personType as any,
-        firstName,
+        firstName: firstName!,
         lastName: lastName || undefined,
         businessName: businessName || undefined,
         documentType: (documentType as any) || null,
@@ -160,7 +247,7 @@ export class CustomersService {
     } else {
       person.deletedAt = undefined as any;
       person.type = personType as any;
-      person.firstName = firstName;
+      person.firstName = firstName!;
       person.lastName = lastName || undefined;
       person.businessName = businessName || undefined;
       person.documentType = (documentType as any) || null;

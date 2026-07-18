@@ -18,6 +18,8 @@ import { createSupplierAction } from "@/features/purchasing-suppliers/actions/su
 import type { SupplierDocumentType } from "@/features/purchasing-suppliers/types/supplier.types";
 import { CompanyRutFieldWithSiiLookup } from "@/features/chile-person/ui/CompanyRutFieldWithSiiLookup";
 import type { SiiCompanyFormDraft } from "@/features/chile-person/types/sii-tax-status.types";
+import { usePersonDocumentLookup } from "@/features/chile-person/ui/usePersonDocumentLookup";
+import { PersonDocumentStatusAlert } from "@/features/chile-person/ui/PersonDocumentStatusAlert";
 
 const PERSON_TYPE_OPTIONS: Option[] = [
   { id: "NATURAL", label: "Persona natural" },
@@ -62,6 +64,41 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
   const [defaultPaymentTermDays, setDefaultPaymentTermDays] = useState("0");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const docLookup = usePersonDocumentLookup({
+    documentNumber,
+    documentType: personType === "COMPANY" ? "RUT" : documentType,
+    intentRole: "supplier",
+    enabled: open,
+  });
+  const personReadOnly = docLookup.kind === "reuse_readonly";
+  const linkedPersonId = docLookup.kind === "reuse_readonly" ? docLookup.person.id : null;
+
+  useEffect(() => {
+    if (docLookup.kind !== "reuse_readonly") return;
+    const p = docLookup.person;
+    const nextType = p.type === "COMPANY" ? "COMPANY" : "NATURAL";
+    setPersonType(nextType);
+    setFirstName(p.firstName ?? "");
+    setLastName(p.lastName ?? "");
+    setBusinessName(p.businessName ?? "");
+    setDocumentType((p.documentType as SupplierDocumentType) || "RUT");
+    setDocumentNumber(p.documentNumber ?? "");
+    setEmail(p.email ?? "");
+    setPhone(p.phone ?? "");
+    setGeo({
+      regionCode: p.regionCode ?? null,
+      regionName: p.regionName ?? null,
+      communeCode: p.communeCode ?? null,
+      communeName: p.communeName ?? null,
+      treasuryCode: p.treasuryCode ?? null,
+      address: p.address?.trim() ?? "",
+    });
+    setActivityStarted(p.activityStarted === true);
+    setEconomicActivities(
+      Array.isArray(p.economicActivities) ? (p.economicActivities as PersonEconomicActivity[]) : [],
+    );
+  }, [docLookup]);
 
   useEffect(() => {
     if (open) {
@@ -133,22 +170,30 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
     startTransition(() => {
       void (async () => {
         const geoFields = geoPayloadFromChileGeo(geo);
-        const r = await createSupplierAction({
-          personType,
-          firstName: personType === "NATURAL" ? firstName : undefined,
-          lastName: personType === "NATURAL" ? lastName : undefined,
-          businessName: personType === "COMPANY" ? businessName : undefined,
-          documentType: personType === "COMPANY" ? "RUT" : documentType,
-          documentNumber,
-          email: email.trim() || undefined,
-          phone: phone.trim() || undefined,
-          ...geoFields,
-          activityStarted,
-          economicActivities:
-            activityStarted && economicActivities.length > 0 ? economicActivities : undefined,
-          supplierType,
-          defaultPaymentTermDays: term,
-        });
+        const r = await createSupplierAction(
+          linkedPersonId
+            ? {
+                personId: linkedPersonId,
+                supplierType,
+                defaultPaymentTermDays: term,
+              }
+            : {
+                personType,
+                firstName: personType === "NATURAL" ? firstName : undefined,
+                lastName: personType === "NATURAL" ? lastName : undefined,
+                businessName: personType === "COMPANY" ? businessName : undefined,
+                documentType: personType === "COMPANY" ? "RUT" : documentType,
+                documentNumber,
+                email: email.trim() || undefined,
+                phone: phone.trim() || undefined,
+                ...geoFields,
+                activityStarted,
+                economicActivities:
+                  activityStarted && economicActivities.length > 0 ? economicActivities : undefined,
+                supplierType,
+                defaultPaymentTermDays: term,
+              },
+        );
         if (r.success) {
           await onSuccess?.();
           handleClose();
@@ -161,10 +206,14 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
 
   const canSubmit =
     !isPending &&
+    docLookup.kind !== "conflict_same_role" &&
+    docLookup.kind !== "loading" &&
+    docLookup.kind !== "error" &&
     documentNumber.trim().length > 0 &&
-    (personType === "COMPANY"
-      ? businessName.trim().length > 0
-      : firstName.trim().length > 0);
+    (personReadOnly ||
+      (personType === "COMPANY"
+        ? businessName.trim().length > 0
+        : firstName.trim().length > 0));
 
   return (
     <Dialog
@@ -176,11 +225,14 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
       maxHeight="min(90vh, 720px)"
       data-test-id="supplier-create-dialog"
       alertArea={
-        error ? (
-          <Alert variant="error" data-test-id="supplier-create-error">
-            {error}
-          </Alert>
-        ) : null
+        <div className="flex flex-col gap-2">
+          <PersonDocumentStatusAlert status={docLookup} intentRole="supplier" />
+          {error ? (
+            <Alert variant="error" data-test-id="supplier-create-error">
+              {error}
+            </Alert>
+          ) : null}
+        </div>
       }
       actions={
         <>
@@ -212,6 +264,7 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
             }
           }}
           required
+          disabled={personReadOnly || isPending}
           data-test-id="supplier-create-person-type"
         />
 
@@ -223,6 +276,7 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
             onChange={(e) => setBusinessName(e.target.value)}
             placeholder="Razón social"
             required
+            disabled={personReadOnly || isPending}
             data-test-id="supplier-create-business-name"
           />
         ) : (
@@ -234,6 +288,7 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
               onChange={(e) => setFirstName(e.target.value)}
               placeholder="Nombre"
               required
+              disabled={personReadOnly || isPending}
               data-test-id="supplier-create-first-name"
             />
             <TextField
@@ -242,6 +297,7 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
               placeholder="Apellidos (opcional)"
+              disabled={personReadOnly || isPending}
               data-test-id="supplier-create-last-name"
             />
           </div>
@@ -256,6 +312,7 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
             value={documentType}
             onChange={(v) => setDocumentType((v != null ? String(v) : "RUT") as SupplierDocumentType)}
             required
+            disabled={personReadOnly || isPending}
             data-test-id="supplier-create-doc-type"
           />
         ) : null}
@@ -268,7 +325,7 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
             onChange={(e) => setDocumentNumber(e.target.value)}
             placeholder="RUT"
             required
-            disabled={isPending}
+            disabled={personReadOnly || isPending}
             onApplySiiData={handleApplySiiData}
             hasExistingData={hasSiiOverwriteData}
             data-test-id="supplier-create-document"
@@ -283,6 +340,7 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
             onChange={(e) => setDocumentNumber(e.target.value)}
             placeholder={documentNumberLabel}
             required
+            disabled={personReadOnly || isPending}
             data-test-id="supplier-create-document"
           />
         )}
@@ -295,6 +353,7 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Correo (opcional)"
+            disabled={personReadOnly || isPending}
             data-test-id="supplier-create-email"
           />
           <TextField
@@ -303,6 +362,7 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="Teléfono (opcional)"
+            disabled={personReadOnly || isPending}
             data-test-id="supplier-create-phone"
           />
         </div>
@@ -310,7 +370,7 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
         <ChileRegionCommuneFields
           value={geo}
           onChange={setGeo}
-          disabled={isPending}
+          disabled={personReadOnly || isPending}
           testIdPrefix="supplier-create-geo"
         />
 
@@ -319,7 +379,7 @@ export function CreateSupplierDialog({ open, onClose, onSuccess }: CreateSupplie
           onActivityStartedChange={setActivityStarted}
           value={economicActivities}
           onChange={setEconomicActivities}
-          disabled={isPending}
+          disabled={personReadOnly || isPending}
           testIdPrefix="supplier-create-acteco"
         />
 

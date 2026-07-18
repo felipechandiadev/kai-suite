@@ -1,13 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconButton } from "@kai/ui";
 import { CreateUserDialog } from "./CreateUserDialog";
+import { listBranchesForSettingsPage } from "@/features/settings-branches/actions/branch.action";
+import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
 
 export function UsersCollectionAddAction() {
   const [open, setOpen] = useState(false);
+  const [branches, setBranches] = useState<BranchListItem[]>([]);
   const router = useRouter();
+
+  useEffect(() => {
+    void listBranchesForSettingsPage().then(setBranches);
+  }, []);
 
   return (
     <>
@@ -22,6 +29,7 @@ export function UsersCollectionAddAction() {
       <CreateUserDialog
         open={open}
         onClose={() => setOpen(false)}
+        branches={branches}
         onSuccess={async () => {
           await router.refresh();
         }}

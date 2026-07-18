@@ -13,16 +13,23 @@ import type {
 const EMPLOYEES_PATH = "/hr/employees";
 
 export type CreateEmployeeFormInput = {
-  firstName: string;
+  personId?: string;
+  firstName?: string;
   lastName?: string;
-  documentType: "RUT" | "PASSPORT" | "OTHER";
-  documentNumber: string;
+  documentType?: "RUT" | "PASSPORT" | "OTHER";
+  documentNumber?: string;
   email?: string;
   phone?: string;
   branchId?: string | null;
   employmentType: string;
   hireDate: string;
   baseSalary?: string | null;
+  alsoAsUser?: {
+    userName: string;
+    mail: string;
+    password: string;
+    rol?: string;
+  };
 };
 
 export type CreateEmployeeResult = { success: true; id: string } | { success: false; error: string };
@@ -120,14 +127,6 @@ export async function listResultCentersForEmployeeAction(): Promise<ResultCenter
 export async function createEmployeeAction(
   input: CreateEmployeeFormInput,
 ): Promise<CreateEmployeeResult> {
-  const fn = input.firstName?.trim() ?? "";
-  if (!fn) {
-    return { success: false, error: "El nombre es obligatorio." };
-  }
-  const docNum = input.documentNumber?.trim() ?? "";
-  if (!docNum) {
-    return { success: false, error: "El número de documento es obligatorio." };
-  }
   const hireDate = input.hireDate?.trim() ?? "";
   if (!hireDate) {
     return { success: false, error: "La fecha de ingreso es obligatoria." };
@@ -136,16 +135,28 @@ export async function createEmployeeAction(
     return { success: false, error: "La fecha de ingreso debe tener formato AAAA-MM-DD." };
   }
 
-  const personRes = await EmployeeRequest.createPerson({
-    firstName: fn,
-    lastName: input.lastName?.trim() || undefined,
-    documentType: input.documentType,
-    documentNumber: docNum,
-    email: input.email?.trim() || undefined,
-    phone: input.phone?.trim() || undefined,
-  });
-  if (!personRes.success) {
-    return personRes;
+  let personId = input.personId?.trim() ?? "";
+  if (!personId) {
+    const fn = input.firstName?.trim() ?? "";
+    if (!fn) {
+      return { success: false, error: "El nombre es obligatorio." };
+    }
+    const docNum = input.documentNumber?.trim() ?? "";
+    if (!docNum) {
+      return { success: false, error: "El número de documento es obligatorio." };
+    }
+    const personRes = await EmployeeRequest.createPerson({
+      firstName: fn,
+      lastName: input.lastName?.trim() || undefined,
+      documentType: input.documentType ?? "RUT",
+      documentNumber: docNum,
+      email: input.email?.trim() || undefined,
+      phone: input.phone?.trim() || undefined,
+    });
+    if (!personRes.success) {
+      return personRes;
+    }
+    personId = personRes.personId;
   }
 
   let baseSalary: string | null = null;
@@ -157,11 +168,12 @@ export async function createEmployeeAction(
   }
 
   const empRes = await EmployeeRequest.create({
-    personId: personRes.personId,
+    personId,
     branchId: input.branchId?.trim() || null,
     employmentType: input.employmentType?.trim() || "FULL_TIME",
     hireDate,
     baseSalary,
+    alsoAsUser: input.alsoAsUser,
   });
   if (empRes.success) {
     revalidatePath(EMPLOYEES_PATH, "page");

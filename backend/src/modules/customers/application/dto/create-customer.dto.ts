@@ -10,6 +10,9 @@ import {
   MaxLength,
   ValidateNested,
   IsBoolean,
+  IsUUID,
+  ValidateIf,
+  IsNotEmpty,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import {
@@ -18,13 +21,24 @@ import {
 } from '@modules/persons/domain/person.entity';
 import { PersonEconomicActivityDto } from '@modules/persons/application/dto/person-economic-activity.dto';
 
+/**
+ * Crear cliente: `personId` de persona existente, o campos de persona nueva.
+ * No combinar ambos.
+ */
 export class CreateCustomerDto {
-  @IsEnum(PersonType)
-  personType: PersonType;
+  @ValidateIf((o: CreateCustomerDto) => !o.personType && !o.firstName)
+  @IsUUID('4')
+  @IsNotEmpty({ message: 'Indique personId o los datos de la persona' })
+  personId?: string;
 
+  @ValidateIf((o: CreateCustomerDto) => !o.personId)
+  @IsEnum(PersonType)
+  personType?: PersonType;
+
+  @ValidateIf((o: CreateCustomerDto) => !o.personId)
   @IsString()
   @MinLength(1, { message: 'El nombre es obligatorio' })
-  firstName: string;
+  firstName?: string;
 
   @IsOptional()
   @Transform(({ value }) =>

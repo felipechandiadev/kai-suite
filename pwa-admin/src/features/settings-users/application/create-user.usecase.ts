@@ -15,6 +15,26 @@ export class CreateUserUseCase {
       mail: d.mail,
       password: d.password,
       rol: d.rol,
+      personId: d.personId,
+      person: d.person
+        ? {
+            type: "NATURAL",
+            firstName: d.person.firstName,
+            lastName: d.person.lastName,
+            documentType: d.person.documentType,
+            documentNumber: d.person.documentNumber,
+            email: d.person.email || undefined,
+            phone: d.person.phone,
+          }
+        : undefined,
+      alsoAsEmployee: d.alsoAsEmployee
+        ? {
+            branchId: d.alsoAsEmployee.branchId || undefined,
+            employmentType: d.alsoAsEmployee.employmentType,
+            hireDate: d.alsoAsEmployee.hireDate,
+            baseSalary: d.alsoAsEmployee.baseSalary || undefined,
+          }
+        : undefined,
     });
   }
 }

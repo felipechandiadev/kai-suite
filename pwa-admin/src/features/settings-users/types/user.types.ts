@@ -7,11 +7,14 @@ export type UserListItem = {
   userName: string;
   mail: string;
   rol: string;
+  personId?: string | null;
   person?: {
+    id?: string | null;
     firstName?: string | null;
     lastName?: string | null;
     phone?: string | null;
     documentNumber?: string | null;
+    documentType?: string | null;
   } | null;
 };
 

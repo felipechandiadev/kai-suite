@@ -10,16 +10,19 @@ describe('SuppliersServiceAdapter', () => {
   let commandBus: { execute: jest.Mock };
   let queryBus: { execute: jest.Mock };
   let personsService: { create: jest.Mock };
+  let suppliersRepository: { findOne: jest.Mock };
 
   beforeEach(() => {
     commandBus = { execute: jest.fn() };
     queryBus = { execute: jest.fn() };
     personsService = { create: jest.fn() };
+    suppliersRepository = { findOne: jest.fn().mockResolvedValue(null) };
 
     service = new SuppliersServiceAdapter(
       commandBus as unknown as CommandBus,
       queryBus as unknown as QueryBus,
       personsService as any,
+      suppliersRepository as any,
     );
   });
 
@@ -34,6 +37,7 @@ describe('SuppliersServiceAdapter', () => {
       notes: 'notes',
     });
 
+    expect(suppliersRepository.findOne).toHaveBeenCalled();
     expect(commandBus.execute).toHaveBeenCalledTimes(1);
     expect(commandBus.execute.mock.calls[0][0]).toBeInstanceOf(CreateSupplierCommand);
     expect(commandBus.execute.mock.calls[0][0]).toMatchObject({
@@ -44,6 +48,18 @@ describe('SuppliersServiceAdapter', () => {
       alias: 'Main supplier',
       notes: 'notes',
     });
+  });
+
+  it('should reject when person already has a supplier', async () => {
+    suppliersRepository.findOne.mockResolvedValueOnce({ id: 'existing' });
+    await expect(
+      service.create({
+        personId: 'person-1',
+        supplierType: SupplierType.DISTRIBUTOR,
+        defaultPaymentTermDays: 0,
+      }),
+    ).rejects.toMatchObject({ message: expect.stringContaining('proveedor') });
+    expect(commandBus.execute).not.toHaveBeenCalled();
   });
 
   it('should dispatch UpdateSupplierCommand', async () => {

@@ -137,7 +137,7 @@ export function ChileRegionCommuneFields({
       <TextField
         label="Dirección (calle y número)"
         name={`${testIdPrefix}-address`}
-        value={value.address}
+        value={value.address ?? ""}
         onChange={(e) =>
           onChange({ ...value, address: (e.target as HTMLInputElement).value })
         }

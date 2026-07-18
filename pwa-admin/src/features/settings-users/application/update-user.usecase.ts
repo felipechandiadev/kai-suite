@@ -17,6 +17,7 @@ export class UpdateUserUseCase {
       personName: d.personName ?? null,
       phone: d.phone ?? null,
       personDni: d.personDni ?? null,
+      personId: d.personId ?? null,
     });
   }
 }

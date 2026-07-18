@@ -396,30 +396,41 @@ export class CustomerRequest {
     body: CreateCustomerFormInput,
   ): Promise<{ success: true; customer: Record<string, unknown> } | { success: false; error: string }> {
     const headers = await authHeaders();
+    const payload =
+      body.personId?.trim()
+        ? {
+            personId: body.personId.trim(),
+            email: body.email?.trim() || undefined,
+            phone: body.phone?.trim() || undefined,
+            creditLimit: body.creditLimit,
+            paymentDayOfMonth: body.paymentDayOfMonth,
+            notes: body.notes?.trim() || undefined,
+          }
+        : {
+            personType: body.personType,
+            firstName: (body.firstName ?? "").trim(),
+            lastName: body.lastName?.trim() || undefined,
+            businessName: body.businessName?.trim() || undefined,
+            documentType: body.documentType,
+            documentNumber: (body.documentNumber ?? "").trim(),
+            email: body.email?.trim() || undefined,
+            phone: body.phone?.trim() || undefined,
+            address: body.address?.trim() || undefined,
+            regionCode: body.regionCode,
+            regionName: body.regionName,
+            communeCode: body.communeCode,
+            communeName: body.communeName,
+            treasuryCode: body.treasuryCode,
+            activityStarted: body.activityStarted === true,
+            economicActivities: body.activityStarted ? body.economicActivities : null,
+            creditLimit: body.creditLimit,
+            paymentDayOfMonth: body.paymentDayOfMonth,
+            notes: body.notes?.trim() || undefined,
+          };
     const res = await fetch(apiUrl("customers"), {
       method: "POST",
       headers,
-      body: JSON.stringify({
-        personType: body.personType,
-        firstName: body.firstName.trim(),
-        lastName: body.lastName?.trim() || undefined,
-        businessName: body.businessName?.trim() || undefined,
-        documentType: body.documentType,
-        documentNumber: body.documentNumber.trim(),
-        email: body.email?.trim() || undefined,
-        phone: body.phone?.trim() || undefined,
-        address: body.address?.trim() || undefined,
-        regionCode: body.regionCode,
-        regionName: body.regionName,
-        communeCode: body.communeCode,
-        communeName: body.communeName,
-        treasuryCode: body.treasuryCode,
-        activityStarted: body.activityStarted === true,
-        economicActivities: body.activityStarted ? body.economicActivities : null,
-        creditLimit: body.creditLimit,
-        paymentDayOfMonth: body.paymentDayOfMonth,
-        notes: body.notes?.trim() || undefined,
-      }),
+      body: JSON.stringify(payload),
       cache: "no-store",
     });
     const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;

@@ -1,11 +1,71 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsString,
   IsEmail,
   IsOptional,
   IsNotEmpty,
   MinLength,
+  IsUUID,
+  ValidateNested,
+  IsEnum,
+  ValidateIf,
+  MaxLength,
 } from 'class-validator';
+import { DocumentType, PersonType } from '@modules/persons/domain/person.entity';
+import { EmploymentType } from '@modules/employees/domain/employee.entity';
+
+export class CreateUserPersonDto {
+  @IsOptional()
+  @IsEnum(PersonType)
+  type?: PersonType;
+
+  @IsString()
+  @IsNotEmpty()
+  firstName!: string;
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @IsOptional()
+  @IsEnum(DocumentType)
+  documentType?: DocumentType;
+
+  @IsString()
+  @IsNotEmpty()
+  documentNumber!: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string;
+}
+
+export class AlsoAsEmployeeDto {
+  @IsOptional()
+  @IsUUID('4')
+  branchId?: string;
+
+  @IsOptional()
+  @IsEnum(EmploymentType)
+  employmentType?: EmploymentType;
+
+  @IsString()
+  @IsNotEmpty()
+  hireDate!: string;
+
+  @IsOptional()
+  @IsString()
+  baseSalary?: string;
+}
 
 export class CreateUserDto {
   @ApiProperty({
@@ -15,7 +75,7 @@ export class CreateUserDto {
   })
   @IsString()
   @IsNotEmpty()
-  userName: string;
+  userName!: string;
 
   @ApiProperty({
     description: 'User email address',
@@ -23,7 +83,7 @@ export class CreateUserDto {
   })
   @IsEmail()
   @IsNotEmpty()
-  mail: string;
+  mail!: string;
 
   @ApiProperty({
     description: 'User password',
@@ -32,12 +92,12 @@ export class CreateUserDto {
   })
   @IsString()
   @MinLength(6)
-  password: string;
+  password!: string;
 
   @ApiPropertyOptional({
     description: 'User role',
     example: 'OPERATOR',
-    enum: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR'],
+    enum: ['SUPER_ADMIN', 'ADMIN', 'OPERATOR', 'COURIER'],
   })
   @IsOptional()
   @IsString()
@@ -45,7 +105,7 @@ export class CreateUserDto {
 
   @ApiPropertyOptional({
     description:
-      'Empresa a la que pertenece (solo ADMIN/OPERATOR). Si se omite, ' +
+      'Empresa a la que pertenece (solo ADMIN/OPERATOR/COURIER). Si se omite, ' +
       'se toma la empresa activa del contexto.',
     example: 'uuid-empresa',
   })
@@ -54,47 +114,45 @@ export class CreateUserDto {
   companyId?: string | null;
 
   @ApiPropertyOptional({
-    description: 'Existing person ID to link',
-    example: 'uuid-1234-5678',
+    description: 'Existing person ID to link (NATURAL). Required for non-SUPER_ADMIN unless person is sent.',
   })
-  @IsOptional()
-  @IsString()
+  @ValidateIf((o: CreateUserDto) => o.rol !== 'SUPER_ADMIN' && !o.person)
+  @IsUUID('4')
   personId?: string;
 
   @ApiPropertyOptional({
-    description: 'Person information (if creating new person)',
-    type: 'object',
-    properties: {
-      type: { type: 'string', enum: ['NATURAL', 'LEGAL'], example: 'NATURAL' },
-      firstName: { type: 'string', example: 'John' },
-      lastName: { type: 'string', example: 'Doe' },
-      businessName: { type: 'string', example: 'ACME Corp' },
-      documentType: {
-        type: 'string',
-        enum: ['CC', 'NIT', 'PASSPORT'],
-        example: 'CC',
-      },
-      documentNumber: { type: 'string', example: '123456789' },
-      email: {
-        type: 'string',
-        format: 'email',
-        example: 'john.doe@example.com',
-      },
-      phone: { type: 'string', example: '+1234567890' },
-      address: { type: 'string', example: '123 Main St, City, Country' },
-    },
+    description: 'Person NATURAL to create and link (required for non-SUPER_ADMIN unless personId).',
   })
-  person?: {
-    type?: string;
-    firstName: string;
-    lastName?: string;
-    businessName?: string;
-    documentType?: string;
-    documentNumber?: string;
-    email?: string;
-    phone?: string;
-    address?: string;
-  };
+  @ValidateIf((o: CreateUserDto) => o.rol !== 'SUPER_ADMIN' && !o.personId)
+  @ValidateNested()
+  @Type(() => CreateUserPersonDto)
+  person?: CreateUserPersonDto;
+
+  @ApiPropertyOptional({
+    description: 'Also create an employee record for the same person (same transaction).',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AlsoAsEmployeeDto)
+  alsoAsEmployee?: AlsoAsEmployeeDto;
+}
+
+export class AlsoAsUserDto {
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(3)
+  userName!: string;
+
+  @IsEmail()
+  mail!: string;
+
+  @IsString()
+  @MinLength(6)
+  password!: string;
+
+  @IsOptional()
+  @IsString()
+  rol?: string;
 }
 
 export class UpdateUserDto {
@@ -116,8 +174,8 @@ export class UpdateUserDto {
 
   @ApiPropertyOptional({
     description: 'New user role',
-    example: 'MANAGER',
-    enum: ['ADMIN', 'USER', 'MANAGER'],
+    example: 'OPERATOR',
+    enum: ['ADMIN', 'OPERATOR', 'COURIER'],
   })
   @IsOptional()
   @IsString()
@@ -146,6 +204,13 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   personDni?: string;
+
+  @ApiPropertyOptional({
+    description: 'Link an existing person to a legacy user without person',
+  })
+  @IsOptional()
+  @IsUUID('4')
+  personId?: string;
 }
 
 export class ChangePasswordDto {
@@ -156,7 +221,7 @@ export class ChangePasswordDto {
   })
   @IsString()
   @MinLength(6)
-  password: string;
+  password!: string;
 }
 
 export class ChangeOwnPasswordDto {

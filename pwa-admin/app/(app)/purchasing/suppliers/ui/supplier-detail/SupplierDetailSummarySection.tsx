@@ -12,6 +12,7 @@ import { TextField } from "@kai/ui";
 import { Select, type Option } from "@kai/ui";
 import { IconButton } from "@kai/ui";
 import { ChileRegionCommuneFields } from "@/features/chile-person/ui/ChileRegionCommuneFields";
+import { useDocumentEditConflict } from "@/features/chile-person/ui/useDocumentEditConflict";
 import { EconomicActivitiesEditor } from "@/features/chile-person/ui/EconomicActivitiesEditor";
 import {
   activityStartedFromPerson,
@@ -117,6 +118,14 @@ export function SupplierDetailSummarySection({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  const docConflict = useDocumentEditConflict({
+    editing,
+    documentNumber: draft?.documentNumber ?? "",
+    documentType: draft?.documentType,
+    excludePersonId: detail?.personId ?? detail?.person?.id,
+    originalDocumentNumber: detail?.person?.documentNumber,
+  });
+
   const canEdit = Boolean(supplierId?.trim());
 
   useEffect(() => {
@@ -136,6 +145,10 @@ export function SupplierDetailSummarySection({
     if (!detail?.person || !draft || !supplierId.trim()) return;
     if (!isCompany(detail) && !draft.firstName.trim()) {
       setSaveError("El nombre es obligatorio.");
+      return;
+    }
+    if (docConflict.blocked) {
+      setSaveError("El documento coincide con otra persona. Corrija el número antes de guardar.");
       return;
     }
     setSaveError(null);
@@ -191,6 +204,7 @@ export function SupplierDetailSummarySection({
         </div>
       ) : null}
 
+      {docConflict.alert}
       {saveError ? (
         <p className="mb-3 pr-14 text-sm text-error" role="alert">
           {saveError}

@@ -1,17 +1,38 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import { InjectRepository } from '@nestjs/typeorm';
+import { DataSource, DeepPartial, IsNull, Repository } from 'typeorm';
+import * as bcrypt from 'bcryptjs';
 import { CreateEmployeeCommand } from '../commands/create-employee.command';
 import { UpdateEmployeeCommand } from '../commands/update-employee.command';
 import { DeleteEmployeeCommand } from '../commands/delete-employee.command';
 import { GetEmployeeByIdQuery } from '../queries/get-employee-by-id.query';
 import { GetAllEmployeesQuery } from '../queries/get-all-employees.query';
-import { Employee } from '../../domain/employee.entity';
+import {
+  Employee,
+  EmploymentType,
+} from '../../domain/employee.entity';
+import { User, UserRole } from '@modules/users/domain/user.entity';
+import { Person, PersonType } from '@modules/persons/domain/person.entity';
+import { TenantContext } from '@common/tenant';
+import type { AlsoAsUserDto } from '@modules/users/application/dto/user.dto';
 
 @Injectable()
 export class EmployeesServiceAdapter {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
+    @InjectRepository(Employee)
+    private readonly employeesRepository: Repository<Employee>,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
+    @InjectRepository(Person)
+    private readonly personsRepository: Repository<Person>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async getAllEmployees(params?: {
@@ -44,20 +65,115 @@ export class EmployeesServiceAdapter {
     hireDate: string;
     baseSalary?: string;
     metadata?: Record<string, unknown>;
-  }): Promise<Employee> {
-    return this.commandBus.execute(
-      new CreateEmployeeCommand(
-        data.personId,
-        data.companyId,
-        data.branchId,
-        data.resultCenterId,
-        data.organizationalUnitId,
-        data.employmentType,
-        data.hireDate,
-        data.baseSalary,
-        data.metadata,
-      ),
-    );
+    alsoAsUser?: AlsoAsUserDto;
+  }): Promise<{ employee: Employee; user?: { id: string; userName: string } }> {
+    const existing = await this.employeesRepository.findOne({
+      where: { personId: data.personId, deletedAt: IsNull() },
+    });
+    if (existing) {
+      throw new ConflictException(
+        'Ya existe un empleado asociado a esta persona.',
+      );
+    }
+
+    const person = await this.personsRepository.findOne({
+      where: { id: data.personId },
+    });
+    if (!person || person.deletedAt) {
+      throw new BadRequestException('La persona indicada no existe.');
+    }
+
+    if (data.alsoAsUser && person.type !== PersonType.NATURAL) {
+      throw new BadRequestException(
+        'alsoAsUser requiere una persona natural.',
+      );
+    }
+
+    if (!data.alsoAsUser) {
+      const employee = await this.commandBus.execute(
+        new CreateEmployeeCommand(
+          data.personId,
+          data.companyId,
+          data.branchId,
+          data.resultCenterId,
+          data.organizationalUnitId,
+          data.employmentType,
+          data.hireDate,
+          data.baseSalary,
+          data.metadata,
+        ),
+      );
+      return { employee };
+    }
+
+    const companyId =
+      data.companyId ?? TenantContext.getCompanyId() ?? null;
+    if (!companyId) {
+      throw new BadRequestException(
+        'Se requiere empresa activa para crear empleado y usuario.',
+      );
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      const empRepo = manager.getRepository(Employee);
+      const userRepo = manager.getRepository(User);
+
+      const existingEmp = await empRepo.findOne({
+        where: { personId: data.personId, deletedAt: IsNull() },
+      });
+      if (existingEmp) {
+        throw new ConflictException(
+          'Ya existe un empleado asociado a esta persona.',
+        );
+      }
+
+      const existingUser = await userRepo
+        .createQueryBuilder('u')
+        .leftJoin('u.person', 'p')
+        .where('p.id = :personId', { personId: data.personId })
+        .andWhere('u.deletedAt IS NULL')
+        .getOne();
+      if (existingUser) {
+        throw new ConflictException(
+          'Ya existe un usuario de plataforma asociado a esta persona.',
+        );
+      }
+
+      const employee = empRepo.create({
+        personId: data.personId,
+        companyId,
+        branchId: data.branchId ?? null,
+        resultCenterId: data.resultCenterId ?? null,
+        organizationalUnitId: data.organizationalUnitId ?? null,
+        employmentType: (data.employmentType as EmploymentType) || EmploymentType.FULL_TIME,
+        hireDate: data.hireDate,
+        baseSalary: data.baseSalary ?? null,
+        metadata: data.metadata ?? null,
+      });
+      const savedEmp = await empRepo.save(employee);
+
+      const rol = (data.alsoAsUser!.rol as UserRole) || UserRole.OPERATOR;
+      if (rol === UserRole.SUPER_ADMIN) {
+        throw new BadRequestException(
+          'No se puede crear SUPER_ADMIN desde el alta de empleado.',
+        );
+      }
+
+      const user = userRepo.create({
+        userName: data.alsoAsUser!.userName,
+        mail: data.alsoAsUser!.mail,
+        pass: bcrypt.hashSync(data.alsoAsUser!.password, 12),
+        rol,
+        companyId,
+        person: { id: data.personId } as Person,
+      } as DeepPartial<User>);
+      const savedUser = await userRepo.save(user);
+
+      return {
+        employee: savedEmp,
+        user: { id: savedUser.id, userName: savedUser.userName },
+      };
+    });
   }
 
   async updateEmployee(

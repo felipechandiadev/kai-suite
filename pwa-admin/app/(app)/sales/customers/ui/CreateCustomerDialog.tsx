@@ -21,6 +21,8 @@ import type {
 } from "@/features/sales-customers/types/customer.types";
 import { CompanyRutFieldWithSiiLookup } from "@/features/chile-person/ui/CompanyRutFieldWithSiiLookup";
 import type { SiiCompanyFormDraft } from "@/features/chile-person/types/sii-tax-status.types";
+import { usePersonDocumentLookup } from "@/features/chile-person/ui/usePersonDocumentLookup";
+import { PersonDocumentStatusAlert } from "@/features/chile-person/ui/PersonDocumentStatusAlert";
 
 const PERSON_TYPE_OPTIONS: Option[] = [
   { id: "NATURAL", label: "Persona natural" },
@@ -72,6 +74,41 @@ export function CreateCustomerDialog({
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const docLookup = usePersonDocumentLookup({
+    documentNumber,
+    documentType: personType === "COMPANY" ? "RUT" : documentType,
+    intentRole: "customer",
+    enabled: open,
+  });
+  const personReadOnly = docLookup.kind === "reuse_readonly";
+  const linkedPersonId = docLookup.kind === "reuse_readonly" ? docLookup.person.id : null;
+
+  useEffect(() => {
+    if (docLookup.kind !== "reuse_readonly") return;
+    const p = docLookup.person;
+    const nextType = p.type === "COMPANY" ? "COMPANY" : "NATURAL";
+    setPersonType(nextType);
+    setFirstName(p.firstName ?? "");
+    setLastName(p.lastName ?? "");
+    setBusinessName(p.businessName ?? "");
+    setDocumentType((p.documentType as CustomerDocumentType) || "RUT");
+    setDocumentNumber(p.documentNumber ?? "");
+    setEmail(p.email ?? "");
+    setPhone(p.phone ?? "");
+    setGeo({
+      regionCode: p.regionCode ?? null,
+      regionName: p.regionName ?? null,
+      communeCode: p.communeCode ?? null,
+      communeName: p.communeName ?? null,
+      treasuryCode: p.treasuryCode ?? null,
+      address: p.address?.trim() ?? "",
+    });
+    setActivityStarted(p.activityStarted === true);
+    setEconomicActivities(
+      Array.isArray(p.economicActivities) ? (p.economicActivities as PersonEconomicActivity[]) : [],
+    );
+  }, [docLookup]);
 
   useEffect(() => {
     if (open) {
@@ -146,26 +183,34 @@ export function CreateCustomerDialog({
       : 0;
     const day = Number(paymentDayOfMonth) as CreateCustomerFormInput["paymentDayOfMonth"];
     const geoFields = geoPayloadFromChileGeo(geo);
-    const input: CreateCustomerFormInput = {
-      personType,
-      firstName: personType === "NATURAL" ? firstName : undefined,
-      lastName: personType === "NATURAL" ? lastName : undefined,
-      businessName: personType === "COMPANY" ? businessName : undefined,
-      documentType: personType === "COMPANY" ? "RUT" : documentType,
-      documentNumber: documentNumber.trim(),
-      email: email.trim() || undefined,
-      phone: phone.trim() || undefined,
-      ...geoFields,
-      activityStarted,
-      economicActivities: activityStarted && economicActivities.length > 0 ? economicActivities : undefined,
-      creditLimit,
-      paymentDayOfMonth: internalCreditEnabled
-        ? [5, 10, 15, 20, 25, 30].includes(day)
-          ? day
-          : 5
-        : 5,
-      notes: notes.trim() || null,
-    };
+    const paymentDay: CreateCustomerFormInput["paymentDayOfMonth"] = internalCreditEnabled
+      ? ([5, 10, 15, 20, 25, 30].includes(day) ? day : 5)
+      : 5;
+    const input: CreateCustomerFormInput = linkedPersonId
+      ? {
+          personId: linkedPersonId,
+          creditLimit,
+          paymentDayOfMonth: paymentDay,
+          notes: notes.trim() || null,
+          email: email.trim() || undefined,
+          phone: phone.trim() || undefined,
+        }
+      : {
+          personType,
+          firstName: personType === "NATURAL" ? firstName : undefined,
+          lastName: personType === "NATURAL" ? lastName : undefined,
+          businessName: personType === "COMPANY" ? businessName : undefined,
+          documentType: personType === "COMPANY" ? "RUT" : documentType,
+          documentNumber: documentNumber.trim(),
+          email: email.trim() || undefined,
+          phone: phone.trim() || undefined,
+          ...geoFields,
+          activityStarted,
+          economicActivities: activityStarted && economicActivities.length > 0 ? economicActivities : undefined,
+          creditLimit,
+          paymentDayOfMonth: paymentDay,
+          notes: notes.trim() || null,
+        };
 
     startTransition(() => {
       void (async () => {
@@ -182,10 +227,14 @@ export function CreateCustomerDialog({
 
   const canSubmit =
     !isPending &&
+    docLookup.kind !== "conflict_same_role" &&
+    docLookup.kind !== "loading" &&
+    docLookup.kind !== "error" &&
     documentNumber.trim().length > 0 &&
-    (personType === "COMPANY"
-      ? businessName.trim().length > 0
-      : firstName.trim().length > 0);
+    (personReadOnly ||
+      (personType === "COMPANY"
+        ? businessName.trim().length > 0
+        : firstName.trim().length > 0));
 
   return (
     <Dialog
@@ -197,11 +246,14 @@ export function CreateCustomerDialog({
       maxHeight="min(90vh, 720px)"
       data-test-id="customer-create-dialog"
       alertArea={
-        error ? (
-          <Alert variant="error" data-test-id="customer-create-error">
-            {error}
-          </Alert>
-        ) : null
+        <div className="flex flex-col gap-2">
+          <PersonDocumentStatusAlert status={docLookup} intentRole="customer" />
+          {error ? (
+            <Alert variant="error" data-test-id="customer-create-error">
+              {error}
+            </Alert>
+          ) : null}
+        </div>
       }
       actions={
         <>
@@ -233,6 +285,7 @@ export function CreateCustomerDialog({
             }
           }}
           required
+          disabled={personReadOnly || isPending}
           data-test-id="customer-create-person-type"
         />
 
@@ -291,7 +344,7 @@ export function CreateCustomerDialog({
             onChange={(e) => setDocumentNumber(e.target.value)}
             placeholder="RUT"
             required
-            disabled={isPending}
+            disabled={personReadOnly || isPending}
             onApplySiiData={handleApplySiiData}
             hasExistingData={hasSiiOverwriteData}
             data-test-id="customer-create-document"
@@ -331,7 +384,7 @@ export function CreateCustomerDialog({
         <ChileRegionCommuneFields
           value={geo}
           onChange={setGeo}
-          disabled={isPending}
+          disabled={personReadOnly || isPending}
           testIdPrefix="customer-create-geo"
         />
 
@@ -340,7 +393,7 @@ export function CreateCustomerDialog({
           onActivityStartedChange={setActivityStarted}
           value={economicActivities}
           onChange={setEconomicActivities}
-          disabled={isPending}
+          disabled={personReadOnly || isPending}
           testIdPrefix="customer-create-acteco"
         />
 

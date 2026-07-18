@@ -5,6 +5,7 @@ import { IconButton, LoadingState, Select, TextField, type Option } from "@kai/u
 import type { EmployeeDetailView, UpdateEmployeePersonPayload } from "@/features/hr-employees/types/employee.types";
 import { documentTypeLabel } from "@/features/sales-customers/lib/customer-document-labels";
 import { updateEmployeePersonAction } from "@/features/hr-employees/actions/employee.action";
+import { useDocumentEditConflict } from "@/features/chile-person/ui/useDocumentEditConflict";
 
 const DOC_OPTIONS: Option[] = [
   { id: "RUT", label: "RUT" },
@@ -75,6 +76,14 @@ export function EmployeeDetailSummarySection({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  const docConflict = useDocumentEditConflict({
+    editing,
+    documentNumber: draft?.documentNumber ?? "",
+    documentType: draft?.documentType,
+    excludePersonId: detail?.personId,
+    originalDocumentNumber: detail?.person?.documentNumber,
+  });
+
   const canEdit = Boolean(employeeId?.trim() && detail?.personId);
 
   useEffect(() => {
@@ -94,6 +103,10 @@ export function EmployeeDetailSummarySection({
     if (!detail?.person || !draft || !employeeId.trim() || !detail.personId) return;
     if (!draft.firstName.trim()) {
       setSaveError("El nombre es obligatorio.");
+      return;
+    }
+    if (docConflict.blocked) {
+      setSaveError("El documento coincide con otra persona. Corrija el número antes de guardar.");
       return;
     }
     setSaveError(null);
@@ -147,6 +160,7 @@ export function EmployeeDetailSummarySection({
         </div>
       ) : null}
 
+      {docConflict.alert}
       {saveError ? (
         <p className="mb-3 pr-14 text-sm text-error" role="alert">
           {saveError}

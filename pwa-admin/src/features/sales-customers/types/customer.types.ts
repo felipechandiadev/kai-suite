@@ -106,12 +106,14 @@ export type UpdateCustomerPayload = {
 export type CustomerDocumentType = "RUT" | "PASSPORT" | "OTHER";
 
 export type CreateCustomerFormInput = {
-  personType: "NATURAL" | "COMPANY";
+  /** Si se envía, se asocia la persona existente (sin crear otra). */
+  personId?: string;
+  personType?: "NATURAL" | "COMPANY";
   firstName?: string;
   lastName?: string;
   businessName?: string;
-  documentType: CustomerDocumentType;
-  documentNumber: string;
+  documentType?: CustomerDocumentType;
+  documentNumber?: string;
   email?: string;
   phone?: string;
   address?: string;

@@ -1,18 +1,29 @@
 import {
+  BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DeepPartial, Repository } from 'typeorm';
+import { DataSource, DeepPartial, IsNull, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User, UserRole } from '../domain/user.entity';
 import {
-  Person,
   DocumentType,
+  Person,
   PersonType,
 } from '@modules/persons/domain/person.entity';
+import {
+  Employee,
+  EmploymentType,
+} from '@modules/employees/domain/employee.entity';
+import { PersonsService } from '@modules/persons/application/persons.service';
 import type { CurrentUserPayload } from '@common/tenant';
+import type {
+  AlsoAsEmployeeDto,
+  CreateUserPersonDto,
+} from './dto/user.dto';
 
 @Injectable()
 export class UsersService {
@@ -21,6 +32,10 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Person)
     private readonly personRepository: Repository<Person>,
+    @InjectRepository(Employee)
+    private readonly employeeRepository: Repository<Employee>,
+    private readonly personsService: PersonsService,
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -97,41 +112,11 @@ export class UsersService {
       companyId?: string | null;
       nonDeletable?: boolean;
       personId?: string;
-      person?: {
-        type?: PersonType | string;
-        firstName: string;
-        lastName?: string;
-        businessName?: string;
-        documentType?: DocumentType | string;
-        documentNumber?: string;
-        email?: string;
-        phone?: string;
-        address?: string;
-      };
+      person?: CreateUserPersonDto;
+      alsoAsEmployee?: AlsoAsEmployeeDto;
     },
     activeCompanyId?: string | null,
   ) {
-    let person: Person | null = null;
-
-    if (data.personId) {
-      person = await this.personRepository.findOne({
-        where: { id: data.personId },
-      });
-    } else if (data.person) {
-      const createdPerson = this.personRepository.create({
-        type: (data.person.type as PersonType) ?? PersonType.NATURAL,
-        firstName: data.person.firstName,
-        lastName: data.person.lastName ?? undefined,
-        businessName: data.person.businessName ?? undefined,
-        documentType: data.person.documentType as DocumentType,
-        documentNumber: data.person.documentNumber ?? undefined,
-        email: data.person.email ?? undefined,
-        phone: data.person.phone ?? undefined,
-        address: data.person.address ?? undefined,
-      } as DeepPartial<Person>);
-      person = await this.personRepository.save(createdPerson);
-    }
-
     const rol = (data.rol as UserRole) ?? UserRole.OPERATOR;
     let companyId: string | null;
     if (rol === UserRole.SUPER_ADMIN) {
@@ -146,20 +131,142 @@ export class UsersService {
       companyId = resolved;
     }
 
-    const user = this.userRepository.create({
-      userName: data.userName,
-      mail: data.mail,
-      pass: this.hashPassword(data.password),
-      rol,
-      companyId,
-      nonDeletable: rol === UserRole.SUPER_ADMIN ? !!data.nonDeletable : false,
-      person: person ?? undefined,
-    } as DeepPartial<User>);
+    if (rol !== UserRole.SUPER_ADMIN && !data.personId && !data.person) {
+      throw new BadRequestException(
+        'Los usuarios de plataforma deben asociar una persona natural (personId o person).',
+      );
+    }
+    if (data.personId && data.person) {
+      throw new BadRequestException(
+        'Envíe solo personId o los datos de person, no ambos.',
+      );
+    }
 
-    const saved = await this.userRepository.save(user);
-    const created = await this.getUserById(saved.id);
+    let resolvedPersonId: string | null = null;
 
-    return { success: true, user: created };
+    if (data.personId) {
+      const existingPerson = await this.personRepository.findOne({
+        where: { id: data.personId },
+      });
+      if (!existingPerson || existingPerson.deletedAt) {
+        throw new BadRequestException('La persona indicada no existe.');
+      }
+      if (existingPerson.type !== PersonType.NATURAL) {
+        throw new BadRequestException(
+          'El usuario de plataforma solo puede asociarse a una persona natural.',
+        );
+      }
+      if (
+        companyId &&
+        existingPerson.companyId &&
+        existingPerson.companyId !== companyId
+      ) {
+        throw new BadRequestException(
+          'La persona no pertenece a la empresa activa.',
+        );
+      }
+      resolvedPersonId = existingPerson.id;
+    } else if (data.person) {
+      if (!data.person.documentNumber?.trim()) {
+        throw new BadRequestException(
+          'El número de documento es obligatorio para la persona del usuario.',
+        );
+      }
+      const created = await this.personsService.create({
+        type: PersonType.NATURAL,
+        firstName: data.person.firstName,
+        lastName: data.person.lastName,
+        documentType: data.person.documentType ?? DocumentType.RUT,
+        documentNumber: data.person.documentNumber,
+        email: data.person.email,
+        phone: data.person.phone,
+        address: data.person.address,
+      });
+      resolvedPersonId = created.id;
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      const personRepo = manager.getRepository(Person);
+      const userRepo = manager.getRepository(User);
+      const employeeRepo = manager.getRepository(Employee);
+
+      let person: Person | null = null;
+      if (resolvedPersonId) {
+        person = await personRepo.findOne({ where: { id: resolvedPersonId } });
+        if (!person) {
+          throw new BadRequestException('La persona indicada no existe.');
+        }
+
+        const existingUser = await userRepo
+          .createQueryBuilder('u')
+          .leftJoin('u.person', 'p')
+          .where('p.id = :personId', { personId: person.id })
+          .andWhere('u.deletedAt IS NULL')
+          .getOne();
+        if (existingUser) {
+          throw new ConflictException(
+            'Ya existe un usuario de plataforma asociado a esta persona.',
+          );
+        }
+      }
+
+      const user = userRepo.create({
+        userName: data.userName,
+        mail: data.mail,
+        pass: this.hashPassword(data.password),
+        rol,
+        companyId,
+        nonDeletable: rol === UserRole.SUPER_ADMIN ? !!data.nonDeletable : false,
+        person: person ?? undefined,
+      } as DeepPartial<User>);
+
+      const saved = await userRepo.save(user);
+
+      let employee: Employee | null = null;
+      if (data.alsoAsEmployee) {
+        if (!person) {
+          throw new BadRequestException(
+            'alsoAsEmployee requiere una persona asociada al usuario.',
+          );
+        }
+        if (!companyId) {
+          throw new BadRequestException(
+            'alsoAsEmployee no aplica a SUPER_ADMIN.',
+          );
+        }
+        const existingEmp = await employeeRepo.findOne({
+          where: { personId: person.id, deletedAt: IsNull() },
+        });
+        if (existingEmp) {
+          throw new ConflictException(
+            'Ya existe un empleado asociado a esta persona.',
+          );
+        }
+        employee = employeeRepo.create({
+          personId: person.id,
+          companyId,
+          branchId: data.alsoAsEmployee.branchId ?? null,
+          employmentType:
+            data.alsoAsEmployee.employmentType ?? EmploymentType.FULL_TIME,
+          hireDate: data.alsoAsEmployee.hireDate,
+          baseSalary: data.alsoAsEmployee.baseSalary ?? null,
+        });
+        employee = await employeeRepo.save(employee);
+      }
+
+      const created = await userRepo.findOne({
+        where: { id: saved.id },
+        relations: ['person'],
+      });
+
+      return {
+        success: true,
+        user: created ? this.mapUser(created) : null,
+        employee: employee
+          ? { id: employee.id, personId: employee.personId }
+          : undefined,
+      };
+    });
   }
 
   async updateUser(
@@ -171,6 +278,7 @@ export class UsersService {
       phone?: string;
       personName?: string;
       personDni?: string;
+      personId?: string;
     }>,
   ) {
     const user = await this.userRepository.findOne({
@@ -189,6 +297,33 @@ export class UsersService {
     }
     if (data.rol) {
       user.rol = data.rol as UserRole;
+    }
+
+    if (data.personId && !user.person) {
+      const person = await this.personRepository.findOne({
+        where: { id: data.personId },
+      });
+      if (!person || person.deletedAt) {
+        throw new BadRequestException('La persona indicada no existe.');
+      }
+      if (person.type !== PersonType.NATURAL) {
+        throw new BadRequestException(
+          'El usuario de plataforma solo puede asociarse a una persona natural.',
+        );
+      }
+      const existingUser = await this.userRepository
+        .createQueryBuilder('u')
+        .leftJoin('u.person', 'p')
+        .where('p.id = :personId', { personId: person.id })
+        .andWhere('u.deletedAt IS NULL')
+        .andWhere('u.id != :id', { id })
+        .getOne();
+      if (existingUser) {
+        throw new ConflictException(
+          'Ya existe un usuario de plataforma asociado a esta persona.',
+        );
+      }
+      user.person = person;
     }
 
     if (user.person) {
@@ -276,24 +411,19 @@ export class UsersService {
     return this.changePassword(payload.currentUserId, payload.newPassword);
   }
 
-  private mapUser(user: User) {
+  private hashPassword(password: string): string {
+    return bcrypt.hashSync(password, 12);
+  }
+
+  private splitName(value: string) {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return { firstName: '', lastName: undefined as string | undefined };
+    }
+    const [firstName, ...rest] = trimmed.split(' ');
     return {
-      id: user.id,
-      userName: user.userName,
-      mail: user.mail,
-      rol: user.rol,
-      companyId: user.companyId ?? null,
-      nonDeletable: !!user.nonDeletable,
-      person: user.person
-        ? {
-            name: this.buildPersonName(user.person),
-            firstName: user.person.firstName,
-            lastName: user.person.lastName ?? undefined,
-            email: user.person.email ?? undefined,
-            dni: user.person.documentNumber ?? undefined,
-            phone: user.person.phone ?? undefined,
-          }
-        : undefined,
+      firstName,
+      lastName: rest.length > 0 ? rest.join(' ') : undefined,
     };
   }
 
@@ -307,19 +437,29 @@ export class UsersService {
     return person.businessName || person.firstName || 'Sin nombre';
   }
 
-  private splitName(value: string) {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return { firstName: '', lastName: '' };
-    }
-    const [firstName, ...rest] = trimmed.split(' ');
+  private mapUser(user: User) {
     return {
-      firstName,
-      lastName: rest.length > 0 ? rest.join(' ') : undefined,
+      id: user.id,
+      userName: user.userName,
+      mail: user.mail,
+      rol: user.rol,
+      companyId: user.companyId ?? null,
+      nonDeletable: !!user.nonDeletable,
+      personId: user.person?.id ?? null,
+      person: user.person
+        ? {
+            id: user.person.id,
+            name: this.buildPersonName(user.person),
+            firstName: user.person.firstName,
+            lastName: user.person.lastName ?? undefined,
+            email: user.person.email ?? undefined,
+            dni: user.person.documentNumber ?? undefined,
+            documentType: user.person.documentType ?? undefined,
+            documentNumber: user.person.documentNumber ?? undefined,
+            phone: user.person.phone ?? undefined,
+            type: user.person.type,
+          }
+        : undefined,
     };
-  }
-
-  private hashPassword(password: string): string {
-    return bcrypt.hashSync(password, 12);
   }
 }

@@ -98,15 +98,25 @@ export class EmployeesController {
       hireDate: string;
       baseSalary?: string;
       metadata?: Record<string, unknown>;
+      alsoAsUser?: {
+        userName: string;
+        mail: string;
+        password: string;
+        rol?: string;
+      };
     },
   ) {
     try {
-      const employee = await this.employeesService.createEmployee(data);
+      const result = await this.employeesService.createEmployee(data);
       return {
         success: true,
-        data: employee,
+        data: result.employee,
+        user: result.user,
       };
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new HttpException(
         {
           success: false,

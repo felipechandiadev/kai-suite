@@ -5,24 +5,44 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, In } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import {
   Person,
   PersonType,
   PersonBankAccount,
   DocumentType,
 } from '../domain/person.entity';
+import { Customer } from '@modules/customers/domain/customer.entity';
+import { Supplier } from '@modules/suppliers/domain/supplier.entity';
+import { Employee } from '@modules/employees/domain/employee.entity';
+import { User } from '@modules/users/domain/user.entity';
+import { TenantContext } from '@common/tenant';
 import { normalizePersonDocumentNumber } from './person-document.util';
 import { CreatePersonDto } from './dto/create-person.dto';
 import { UpdatePersonDto } from './dto/update-person.dto';
 import { PersonBankAccountDto } from './dto/person-bank-account.dto';
 import { ListPersonsDto } from './dto/list-persons.dto';
 import { sanitizePersonGeoActivityFields } from './person-geo-activity.util';
+import type {
+  PersonDocumentLookupResult,
+  PersonDocumentRoles,
+} from './person-by-document.types';
+
+const DOCUMENT_NORM_SQL = `regexp_replace(lower(trim(coalesce(p.documentNumber, ''))), '[.[:space:]-]', '', 'g')`;
+
 @Injectable()
 export class PersonsService {
   constructor(
     @InjectRepository(Person)
     private readonly personsRepository: Repository<Person>,
+    @InjectRepository(Customer)
+    private readonly customersRepository: Repository<Customer>,
+    @InjectRepository(Supplier)
+    private readonly suppliersRepository: Repository<Supplier>,
+    @InjectRepository(Employee)
+    private readonly employeesRepository: Repository<Employee>,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
   ) {}
 
   /**
@@ -90,6 +110,149 @@ export class PersonsService {
     }
 
     return person;
+  }
+
+  /**
+   * Lookup persona + roles por documentNumber normalizado, scoped a empresa activa.
+   */
+  async findByDocumentNumber(params: {
+    documentNumber: string;
+    documentType?: string;
+    excludePersonId?: string;
+  }): Promise<PersonDocumentLookupResult> {
+    const companyId = TenantContext.getCompanyId();
+    if (!companyId) {
+      throw new BadRequestException(
+        'Se requiere una empresa activa para consultar personas por documento.',
+      );
+    }
+
+    const norm = normalizePersonDocumentNumber(params.documentNumber);
+    if (!norm) {
+      return { found: false };
+    }
+
+    const qb = this.personsRepository
+      .createQueryBuilder('p')
+      .where('p.deletedAt IS NULL')
+      .andWhere('p.company_id = :companyId', { companyId })
+      .andWhere(`${DOCUMENT_NORM_SQL} = :norm`, { norm });
+
+    if (params.excludePersonId) {
+      qb.andWhere('p.id != :excludePersonId', {
+        excludePersonId: params.excludePersonId,
+      });
+    }
+
+    const person = await qb.getOne();
+    if (!person) {
+      return { found: false };
+    }
+
+    const roles = await this.resolveRolesForPerson(person.id, companyId);
+
+    return {
+      found: true,
+      person: {
+        id: person.id,
+        type: person.type,
+        firstName: person.firstName,
+        lastName: person.lastName ?? null,
+        businessName: person.businessName ?? null,
+        documentType: person.documentType ?? null,
+        documentNumber: person.documentNumber ?? null,
+        email: person.email ?? null,
+        phone: person.phone ?? null,
+        address: person.address ?? null,
+        regionCode: person.regionCode ?? null,
+        regionName: person.regionName ?? null,
+        communeCode: person.communeCode ?? null,
+        communeName: person.communeName ?? null,
+        treasuryCode: person.treasuryCode ?? null,
+        activityStarted: person.activityStarted ?? false,
+        economicActivities: person.economicActivities ?? null,
+      },
+      roles,
+    };
+  }
+
+  /**
+   * Find active person by normalized document within company (for create reuse).
+   */
+  async findActiveByNormalizedDocument(
+    documentNumber: string | null | undefined,
+    companyId?: string | null,
+  ): Promise<Person | null> {
+    const norm = normalizePersonDocumentNumber(documentNumber);
+    if (!norm) {
+      return null;
+    }
+    const cid = companyId ?? TenantContext.getCompanyId();
+    if (!cid) {
+      return null;
+    }
+
+    return this.personsRepository
+      .createQueryBuilder('p')
+      .where('p.deletedAt IS NULL')
+      .andWhere('p.company_id = :companyId', { companyId: cid })
+      .andWhere(`${DOCUMENT_NORM_SQL} = :norm`, { norm })
+      .getOne();
+  }
+
+  async resolveRolesForPerson(
+    personId: string,
+    companyId?: string | null,
+  ): Promise<PersonDocumentRoles> {
+    const cid = companyId ?? TenantContext.getCompanyId();
+
+    const [customer, supplier, employee, user] = await Promise.all([
+      this.customersRepository.findOne({
+        where: {
+          personId,
+          ...(cid ? { companyId: cid } : {}),
+          deletedAt: IsNull(),
+        },
+      }),
+      this.suppliersRepository.findOne({
+        where: {
+          personId,
+          ...(cid ? { companyId: cid } : {}),
+          deletedAt: IsNull(),
+        },
+      }),
+      this.employeesRepository.findOne({
+        where: {
+          personId,
+          ...(cid ? { companyId: cid } : {}),
+          deletedAt: IsNull(),
+        },
+      }),
+      this.usersRepository
+        .createQueryBuilder('u')
+        .leftJoinAndSelect('u.person', 'person')
+        .where('person.id = :personId', { personId })
+        .andWhere('u.deletedAt IS NULL')
+        .andWhere(cid ? 'u.company_id = :companyId' : '1=1', {
+          companyId: cid ?? undefined,
+        })
+        .getOne(),
+    ]);
+
+    return {
+      customer: customer
+        ? { id: customer.id, isActive: customer.isActive !== false }
+        : null,
+      supplier: supplier
+        ? { id: supplier.id, isActive: supplier.isActive !== false }
+        : null,
+      employee: employee
+        ? { id: employee.id, status: String(employee.status) }
+        : null,
+      user: user
+        ? { id: user.id, userName: user.userName, rol: String(user.rol) }
+        : null,
+    };
   }
 
   /**
@@ -178,13 +341,15 @@ export class PersonsService {
       return;
     }
 
+    const companyId = TenantContext.getCompanyId();
     const qb = this.personsRepository
       .createQueryBuilder('p')
       .where('p.deletedAt IS NULL')
-      .andWhere(
-        `regexp_replace(lower(trim(coalesce(p.documentNumber, ''))), '[.[:space:]-]', '', 'g') = :norm`,
-        { norm },
-      );
+      .andWhere(`${DOCUMENT_NORM_SQL} = :norm`, { norm });
+
+    if (companyId) {
+      qb.andWhere('p.company_id = :companyId', { companyId });
+    }
 
     if (excludePersonId) {
       qb.andWhere('p.id != :excludePersonId', { excludePersonId });

@@ -1,5 +1,11 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import { InjectRepository } from '@nestjs/typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { PersonsService } from '@modules/persons/application/persons.service';
 import { SuppliersService } from './suppliers.service';
 import { CreateSupplierCommand } from './commands/create-supplier.command';
@@ -7,9 +13,8 @@ import { UpdateSupplierCommand } from './commands/update-supplier.command';
 import { RemoveSupplierCommand } from './commands/remove-supplier.command';
 import { GetAllSuppliersQuery } from './queries/get-all-suppliers.query';
 import { GetSupplierQuery } from './queries/get-supplier.query';
-import { SupplierType } from '../domain/supplier.entity';
+import { Supplier, SupplierType } from '../domain/supplier.entity';
 import type { CreateSupplierDto } from './dto/create-supplier.dto';
-import type { Supplier } from '../domain/supplier.entity';
 
 @Injectable()
 export class SuppliersServiceAdapter extends SuppliersService {
@@ -17,6 +22,8 @@ export class SuppliersServiceAdapter extends SuppliersService {
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
     private readonly personsService: PersonsService,
+    @InjectRepository(Supplier)
+    private readonly suppliersRepository: Repository<Supplier>,
   ) {
     super(null as any);
   }
@@ -52,6 +59,15 @@ export class SuppliersServiceAdapter extends SuppliersService {
     if (dto.person) {
       const person = await this.personsService.create(dto.person);
       personId = person.id;
+    }
+
+    const existing = await this.suppliersRepository.findOne({
+      where: { personId, deletedAt: IsNull() },
+    });
+    if (existing) {
+      throw new ConflictException(
+        'Ya existe un proveedor asociado a esta persona.',
+      );
     }
 
     const command = new CreateSupplierCommand(
