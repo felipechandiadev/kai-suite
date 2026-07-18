@@ -275,8 +275,48 @@ export async function ensureSeedSchemaPatches(dataSource: DataSource): Promise<v
   );
 }
 
+export async function ensureProductTypeInsumoEnum(
+  dataSource: DataSource,
+): Promise<void> {
+  await dataSource.query(`
+    DO $$
+    DECLARE
+      udt text;
+      is_enum boolean;
+    BEGIN
+      SELECT c.udt_name INTO udt
+      FROM information_schema.columns c
+      WHERE c.table_schema = 'public'
+        AND c.table_name = 'products'
+        AND lower(c.column_name) IN ('producttype', 'product_type')
+      LIMIT 1;
+
+      IF udt IS NULL THEN
+        RETURN;
+      END IF;
+
+      SELECT EXISTS (
+        SELECT 1
+        FROM pg_type t
+        JOIN pg_namespace n ON n.oid = t.typnamespace
+        WHERE t.typname = udt
+          AND n.nspname = 'public'
+          AND t.typtype = 'e'
+      ) INTO is_enum;
+
+      IF NOT is_enum THEN
+        RETURN;
+      END IF;
+
+      EXECUTE format('ALTER TYPE public.%I ADD VALUE IF NOT EXISTS %L', udt, 'INSUMO');
+    END $$;
+  `);
+  console.log('✅ Enum products.productType: valor INSUMO verificado.');
+}
+
 export async function runSeedBootstrapGuards(dataSource: DataSource): Promise<void> {
   await ensureSeedSchemaPatches(dataSource);
+  await ensureProductTypeInsumoEnum(dataSource);
   if (process.env.SEED_SKIP_TRUNCATE === 'true') {
     console.log(
       '⚠️  SEED_SKIP_TRUNCATE=true — no se truncan tablas (datos previos se mezclan con el seed).',

@@ -1,7 +1,6 @@
 #!/usr/bin/env ts-node
 /** Seed Supermercado San Sebastián — `npm run seed:san-sebastian`. */
 
-import * as path from 'path';
 import { NestFactory } from '@nestjs/core';
 import { DataSource, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
@@ -33,7 +32,7 @@ import {
 } from '@modules/storages/domain/storage.entity';
 import { TenantContext } from '@common/tenant/tenant.context';
 import { AppConfigService } from '../../backend/src/config/config.service';
-import { cleanBackendPublicFolder } from '../shared/seed-multimedia.util';
+import { cleanSeedMultimediaStorage } from '../shared/seed-multimedia.util';
 import { assertValidChileCompanyRut } from '@shared/utils/chile-company-rut.util';
 import type { CompanyPaymentMethodConfig } from '@modules/payment-methods-config/domain/payment-method-config.types';
 import { runSeedBootstrapGuards } from '../shared/seed-bootstrap.util';
@@ -102,16 +101,7 @@ async function bootstrap() {
     const dataSource = app.get(DataSource);
     const configService = app.get(AppConfigService);
 
-    if (configService.storage.strategy !== 'local') {
-      console.log(
-        '⚠️  STORAGE_STRATEGY≠local — se omite limpieza de public/.',
-      );
-    } else {
-      await cleanBackendPublicFolder(configService.storage.local.path);
-      console.log(
-        `✅ Carpeta public del backend limpiada (${path.dirname(path.resolve(configService.storage.local.path))})`,
-      );
-    }
+    await cleanSeedMultimediaStorage({ app, configService });
 
     await runSeedBootstrapGuards(dataSource);
 

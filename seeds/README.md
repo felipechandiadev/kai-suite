@@ -14,6 +14,7 @@ Desde la raíz del monorepo:
 
 ```bash
 npm run seed:demo --prefix seeds
+npm run seed:demo:no-images --prefix seeds
 npm run seed:joyarte --prefix seeds
 npm run seed:san-sebastian --prefix seeds
 ```
@@ -22,6 +23,7 @@ O desde `seeds/`:
 
 ```bash
 npm run seed:demo
+npm run seed:demo:no-images
 npm run seed:joyarte
 npm run seed:san-sebastian
 ```
@@ -37,11 +39,30 @@ npm run seed:import-san-sebastian --prefix seeds
 
 | Comando | Empresa | Login | eShop slug | Notas |
 |---------|---------|-------|------------|-------|
-| `seed:demo` | Kai Suite | `admin` / `098098` | `demo` | Desarrollo genérico, multimedia local, calendario reparto/retiro jul–ago 2026 |
+| `seed:demo` | Kai Suite | `admin` / `098098` | `demo` | Desarrollo genérico, multimedia, calendario reparto/retiro jul–ago 2026 |
+| `seed:demo:no-images` | Kai Suite | idem | `demo` | Igual que `seed:demo` sin logo/catálogo/hero/testimonials (`SEED_SKIP_IMAGES=true`) |
 | `seed:joyarte` | Joyarte SpA | `admin` / `098098` | `joyarte` | Tema jewelry, catálogo joyería |
 | `seed:san-sebastian` | Supermercado San Sebastián | `admin` / `098098` | — | eShop OFF, catálogo supermercado, **SII producción** |
 
 Credenciales configurables: `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD`, `SEED_ADMIN_EMAIL`.
+
+### Multimedia / storage
+
+Con `STORAGE_STRATEGY=local`, cada seed vacía `backend/public/` antes de cargar datos.
+
+Con `STORAGE_STRATEGY=cloudflare` (R2):
+
+- Por defecto **no** vacía el bucket (pueden quedar objetos huérfanos).
+- Wipe explícito: `SEED_WIPE_R2=true` (solo buckets allowlisted: `kai-demo`, `*-demo`, `demo-*`, o nombres en `SEED_R2_WIPE_ALLOWLIST`).
+- Omitir imágenes: `SEED_SKIP_IMAGES=true` o `npm run seed:demo:no-images`.
+
+```bash
+# Seed rápido sin subir a R2
+npm run seed:demo:no-images
+
+# Vaciar bucket demo y reseedar con imágenes
+SEED_WIPE_R2=true npm run seed:demo
+```
 
 ## San Sebastián — SII producción
 
@@ -77,7 +98,7 @@ Para conservar datos existentes (casos excepcionales):
 SEED_SKIP_TRUNCATE=true npm run seed:demo --prefix seeds
 ```
 
-Con `STORAGE_STRATEGY=local`, demo/joyarte/san-sebastian limpian `backend/public/` antes del seed para evitar archivos huérfanos de otro perfil.
+Con `STORAGE_STRATEGY=local`, demo/joyarte/san-sebastian limpian `backend/public/` antes del seed. Con R2, ver sección Multimedia / storage arriba.
 
 ## Estructura
 

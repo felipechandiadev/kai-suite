@@ -53,6 +53,8 @@ export enum ProductType {
   MANUFACTURADO = 'MANUFACTURADO',
   ELABORADO = 'ELABORADO',
   PREPARADO = 'PREPARADO',
+  /** Materia prima / suministro: compra + inventario; no venta ni eShop. */
+  INSUMO = 'INSUMO',
 }
 
 /**

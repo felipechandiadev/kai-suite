@@ -9,6 +9,7 @@ import { CreateRecipeDialog } from "../../../ui/CreateRecipeDialog";
 import {
   catalogProductTypeAllowsRecipeBom,
   catalogProductTypeIsFinishedGood,
+  catalogProductTypeIsSellable,
   normalizeCatalogProductType,
 } from "../../../ui/catalog-product-type-options";
 import {
@@ -69,15 +70,17 @@ export default function ProductVariantDetailPage({ product, variant: initialVari
 
   const showRecipe = catalogProductTypeAllowsRecipeBom(product.productType);
   const showProduction = catalogProductTypeIsFinishedGood(product.productType);
+  const isSellable = catalogProductTypeIsSellable(product.productType);
 
   const visibleTabs = useMemo(
     () =>
       VARIANT_DETAIL_TABS.filter((t) => {
         if (t.id === "receta") return showRecipe;
         if (t.id === "produccion") return showProduction;
+        if (t.id === "precios" || t.id === "despacho" || t.id === "eshop") return isSellable;
         return true;
       }),
-    [showRecipe, showProduction],
+    [showRecipe, showProduction, isSellable],
   );
 
   useEffect(() => {
@@ -148,7 +151,7 @@ export default function ProductVariantDetailPage({ product, variant: initialVari
               {headerAttributeBadges.map(({ key, value }) => (
                 <Badge
                   key={key}
-                  variant="secondary-outlined"
+                  variant="primary-outlined"
                   className="max-w-full shrink-0 truncate text-xs font-normal sm:text-sm"
                 >
                   {value}

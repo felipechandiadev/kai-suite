@@ -3,6 +3,7 @@ import type { CatalogProductType } from "@/features/inventory-products/types/pro
 
 const CATALOG_PRODUCT_TYPE_IDS = new Set<CatalogProductType>([
   "PHYSICAL",
+  "INSUMO",
   "MANUFACTURADO",
   "ELABORADO",
   "PREPARADO",
@@ -16,7 +17,12 @@ export function normalizeCatalogProductType(raw: string | null | undefined): Cat
   return CATALOG_PRODUCT_TYPE_IDS.has(u) ? u : "PHYSICAL";
 }
 
-const RECIPE_BOM_ALLOWED_TYPES = new Set<CatalogProductType>(["SERVICE", "MANUFACTURADO", "PREPARADO", "ELABORADO"]);
+const RECIPE_BOM_ALLOWED_TYPES = new Set<CatalogProductType>([
+  "SERVICE",
+  "MANUFACTURADO",
+  "PREPARADO",
+  "ELABORADO",
+]);
 
 /** Solo estos tipos pueden tener receta / BOM en catálogo admin. */
 export function catalogProductTypeAllowsRecipeBom(raw: string | null | undefined): boolean {
@@ -35,8 +41,14 @@ export function catalogProductTypeIsFinishedGood(raw: string | null | undefined)
   return FINISHED_GOOD_TYPES.has(normalizeCatalogProductType(raw));
 }
 
+/** Tipos con precio de venta, eShop y despacho. */
+export function catalogProductTypeIsSellable(raw: string | null | undefined): boolean {
+  return normalizeCatalogProductType(raw) !== "INSUMO";
+}
+
 const ALL_CATALOG_PRODUCT_TYPE_SELECT_OPTIONS: { id: CatalogProductType; label: string }[] = [
   { id: "PHYSICAL", label: "Producto físico" },
+  { id: "INSUMO", label: "Insumo" },
   { id: "MANUFACTURADO", label: "Manufacturado" },
   { id: "ELABORADO", label: "Elaborado" },
   { id: "PREPARADO", label: "Preparado" },

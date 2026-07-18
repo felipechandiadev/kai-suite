@@ -1,7 +1,6 @@
 #!/usr/bin/env ts-node
 /** Seed Joyarte — joyería demo (`npm run seed:joyarte`). */
 
-import * as path from 'path';
 import { NestFactory } from '@nestjs/core';
 import { DataSource, IsNull, Not, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
@@ -61,7 +60,7 @@ import { AppConfigService } from '../../backend/src/config/config.service';
 import { MultimediaAsset } from '@modules/multimedia/domain/multimedia-asset.entity';
 import { MultimediaLink } from '@modules/multimedia/domain/multimedia-link.entity';
 import {
-  cleanBackendPublicFolder,
+  cleanSeedMultimediaStorage,
   seedCatalogMultimediaByProductName,
   seedEshopHeroSlidesFromDefs,
   seedEshopTestimonialsFromDefs,
@@ -922,16 +921,7 @@ async function bootstrap() {
     const dataSource = app.get(DataSource);
     const configService = app.get(AppConfigService);
 
-    if (configService.storage.strategy === 'local') {
-      await cleanBackendPublicFolder(configService.storage.local.path);
-      console.log(
-        `✅ Carpeta public del backend limpiada (${path.dirname(path.resolve(configService.storage.local.path))})`,
-      );
-    } else {
-      console.log(
-        `✅ Multimedia seed: subiendo archivos a R2 (${configService.storage.r2.bucketName})`,
-      );
-    }
+    await cleanSeedMultimediaStorage({ app, configService });
 
     // Ensure new tables exist even if DB_SYNCHRONIZE is off.
     await runSeedBootstrapGuards(dataSource);
@@ -1067,27 +1057,32 @@ async function bootstrap() {
       async () => {
 
     const seedStorage = resolveSeedMultimediaStorage(app, configService);
+    if (!seedStorage.seedImages) {
+      console.log('⏭️  SEED_SKIP_IMAGES=true — logo y multimedia omitidos');
+    }
 
-    try {
-      const logoAsset = await seedMultimediaFileLink({
-        assetRepo: dataSource.getRepository(MultimediaAsset),
-        linkRepo: dataSource.getRepository(MultimediaLink),
-        storage: seedStorage.storage,
-        storageProvider: seedStorage.storageProvider,
-        sourceRelativePath: SEED_JOYARTE_COMPANY_LOGO_FILE,
-        entityType: 'company',
-        entityId: company.id,
-        usageType: 'default',
-        isPrimary: true,
-        assetsRoot: SEED_JOYARTE_ASSETS_ROOT,
-      });
-      console.log(
-        `✅ Logo empresa seed enlazado (companyId=${company.id}, url=${logoAsset.publicUrl})`,
-      );
-    } catch (err) {
-      console.warn(
-        `⚠️  Logo empresa seed omitido: ${err instanceof Error ? err.message : String(err)}`,
-      );
+    if (seedStorage.seedImages) {
+      try {
+        const logoAsset = await seedMultimediaFileLink({
+          assetRepo: dataSource.getRepository(MultimediaAsset),
+          linkRepo: dataSource.getRepository(MultimediaLink),
+          storage: seedStorage.storage,
+          storageProvider: seedStorage.storageProvider,
+          sourceRelativePath: SEED_JOYARTE_COMPANY_LOGO_FILE,
+          entityType: 'company',
+          entityId: company.id,
+          usageType: 'default',
+          isPrimary: true,
+          assetsRoot: SEED_JOYARTE_ASSETS_ROOT,
+        });
+        console.log(
+          `✅ Logo empresa seed enlazado (companyId=${company.id}, url=${logoAsset.publicUrl})`,
+        );
+      } catch (err) {
+        console.warn(
+          `⚠️  Logo empresa seed omitido: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
 
     let ivaTax = await taxRepo.findOne({

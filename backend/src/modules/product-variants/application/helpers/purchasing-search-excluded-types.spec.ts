@@ -13,5 +13,6 @@ describe('PURCHASING_SEARCH_EXCLUDED_PRODUCT_TYPES', () => {
       ]),
     );
     expect(PURCHASING_SEARCH_EXCLUDED_PRODUCT_TYPES).not.toContain(ProductType.PHYSICAL);
+    expect(PURCHASING_SEARCH_EXCLUDED_PRODUCT_TYPES).not.toContain(ProductType.INSUMO);
   });
 });

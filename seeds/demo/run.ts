@@ -1,6 +1,5 @@
 #!/usr/bin/env ts-node
 
-import * as path from 'path';
 import { NestFactory } from '@nestjs/core';
 import { DataSource, DeepPartial, IsNull, Not, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
@@ -72,7 +71,7 @@ import { AppConfigService } from '../../backend/src/config/config.service';
 import { MultimediaAsset } from '@modules/multimedia/domain/multimedia-asset.entity';
 import { MultimediaLink } from '@modules/multimedia/domain/multimedia-link.entity';
 import {
-  cleanBackendPublicFolder,
+  cleanSeedMultimediaStorage,
   SEED_COMPANY_LOGO_FILE,
   seedDevCatalogMultimedia,
   seedDevEshopHeroSlides,
@@ -1124,16 +1123,7 @@ async function bootstrap() {
     const dataSource = app.get(DataSource);
     const configService = app.get(AppConfigService);
 
-    if (configService.storage.strategy === 'local') {
-      await cleanBackendPublicFolder(configService.storage.local.path);
-      console.log(
-        `✅ Carpeta public del backend limpiada (${path.dirname(path.resolve(configService.storage.local.path))})`,
-      );
-    } else {
-      console.log(
-        `✅ Multimedia seed: subiendo archivos a R2 (${configService.storage.r2.bucketName})`,
-      );
-    }
+    await cleanSeedMultimediaStorage({ app, configService });
 
     // Ensure new tables exist even if DB_SYNCHRONIZE is off.
     await runSeedBootstrapGuards(dataSource);
@@ -1299,26 +1289,31 @@ async function bootstrap() {
       async () => {
 
     const seedStorage = resolveSeedMultimediaStorage(app, configService);
+    if (!seedStorage.seedImages) {
+      console.log('⏭️  SEED_SKIP_IMAGES=true — logo y multimedia omitidos');
+    }
 
-    try {
-      const logoAsset = await seedMultimediaFileLink({
-        assetRepo: dataSource.getRepository(MultimediaAsset),
-        linkRepo: dataSource.getRepository(MultimediaLink),
-        storage: seedStorage.storage,
-        storageProvider: seedStorage.storageProvider,
-        sourceRelativePath: SEED_COMPANY_LOGO_FILE,
-        entityType: 'company',
-        entityId: company.id,
-        usageType: 'default',
-        isPrimary: true,
-      });
-      console.log(
-        `✅ Logo empresa seed enlazado (companyId=${company.id}, url=${logoAsset.publicUrl})`,
-      );
-    } catch (err) {
-      console.warn(
-        `⚠️  Logo empresa seed omitido: ${err instanceof Error ? err.message : String(err)}`,
-      );
+    if (seedStorage.seedImages) {
+      try {
+        const logoAsset = await seedMultimediaFileLink({
+          assetRepo: dataSource.getRepository(MultimediaAsset),
+          linkRepo: dataSource.getRepository(MultimediaLink),
+          storage: seedStorage.storage,
+          storageProvider: seedStorage.storageProvider,
+          sourceRelativePath: SEED_COMPANY_LOGO_FILE,
+          entityType: 'company',
+          entityId: company.id,
+          usageType: 'default',
+          isPrimary: true,
+        });
+        console.log(
+          `✅ Logo empresa seed enlazado (companyId=${company.id}, url=${logoAsset.publicUrl})`,
+        );
+      } catch (err) {
+        console.warn(
+          `⚠️  Logo empresa seed omitido: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
 
     let ivaTax = await taxRepo.findOne({
@@ -2249,9 +2244,31 @@ async function bootstrap() {
 
     console.log(`✅ Catálogo desarrollo: ${devVariantCount} variante(s) en ${SEED_DEV_PRODUCTS.length} producto(s)`);
 
-    await productRepo.update({ companyId: company.id }, { visibleInEShop: true });
-    await variantRepo.update({ companyId: company.id }, { visibleInEShop: true });
-    console.log('✅ eShop: todos los productos y variantes marcados visibleInEShop=true');
+    await productRepo
+      .createQueryBuilder()
+      .update(Product)
+      .set({ visibleInEShop: true })
+      .where('companyId = :companyId', { companyId: company.id })
+      .andWhere('productType != :insumo', { insumo: ProductType.INSUMO })
+      .execute();
+    const sellableProductIds = (
+      await productRepo.find({
+        where: { companyId: company.id },
+        select: ['id', 'productType'],
+      })
+    )
+      .filter((p) => p.productType !== ProductType.INSUMO)
+      .map((p) => p.id);
+    if (sellableProductIds.length > 0) {
+      await variantRepo
+        .createQueryBuilder()
+        .update()
+        .set({ visibleInEShop: true })
+        .where('companyId = :companyId', { companyId: company.id })
+        .andWhere('productId IN (:...ids)', { ids: sellableProductIds })
+        .execute();
+    }
+    console.log('✅ eShop: productos/variantes vendibles marcados visibleInEShop=true (INSUMO excluido)');
 
     const recipeRepo = dataSource.getRepository(Recipe);
     const recipeLineRepo = dataSource.getRepository(RecipeLine);
@@ -2447,7 +2464,7 @@ async function bootstrap() {
       await stockLevelRepo.save(sl);
     }
     console.log(
-      `✅ Stock «${SEED_STORAGE_NAME}»: ${trackedVariants.length} variante(s) con inventario`,
+      `✅ Stock «${SEED_STORAGE_NAME}»: ${trackedVariants.length} variante(s) (ELABORADO/PREPARADO en 0)`,
     );
 
     const productionUnitRepo = dataSource.getRepository(ProductionUnit);

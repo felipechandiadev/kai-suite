@@ -24,6 +24,7 @@
     "landing:dev": "npm run dev --prefix landing",
     "landing:build": "npm run build --prefix landing",
     "seed:demo": "npm run seed:demo --prefix seeds",
+    "seed:demo:no-images": "npm run seed:demo:no-images --prefix seeds",
     "seed:joyarte": "npm run seed:joyarte --prefix seeds",
     "seed:san-sebastian": "npm run seed:san-sebastian --prefix seeds",
     "import-fiscal-ss-to-demo": "npm run import-fiscal-ss-to-demo --prefix seeds",

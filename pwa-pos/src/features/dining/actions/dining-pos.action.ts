@@ -1,6 +1,7 @@
 "use server";
 
 import { DiningPosRequest } from "../infrastructure/dining-pos.request";
+import { DiningRecipesPosRequest } from "../infrastructure/dining-recipes-pos.request";
 import type { DiningOrderKind, PosDiningMenuGroup } from "../types/dining-pos.types";
 
 export async function listPosDiningOrdersAction(input: {
@@ -84,4 +85,8 @@ export async function searchPosDiningMenuAction(input: {
   group: PosDiningMenuGroup;
 }) {
   return DiningPosRequest.searchMenu(input);
+}
+
+export async function listPosDiningRecipesForVariantAction(outputVariantId: string) {
+  return DiningRecipesPosRequest.listByOutputVariant(outputVariantId);
 }

@@ -217,6 +217,7 @@ export async function seedProductsFromDefinitions(
     let product = await ctx.productRepo.findOne({
       where: { name: def.name, companyId: ctx.companyId },
     });
+    const isInsumo = def.productType === ProductType.INSUMO;
     const productPayload = {
       name: def.name,
       brand: def.brand,
@@ -226,7 +227,7 @@ export async function seedProductsFromDefinitions(
       categoryId: category.id,
       taxIds: [ctx.ivaTax.id],
       isActive: true,
-      visibleInEShop: def.visibleInEShop ?? true,
+      visibleInEShop: isInsumo ? false : (def.visibleInEShop ?? true),
       baseUnitId: ctx.seedUnitId[def.productBaseUnit ?? 'UN'],
     };
     if (!product) {
@@ -237,13 +238,25 @@ export async function seedProductsFromDefinitions(
     product = await ctx.productRepo.save(product);
 
     for (const vd of def.variants) {
-      await upsertSeedVariant(product.id, vd, ctx, upsertPriceListItem, logPrefix);
+      await upsertSeedVariant(
+        product.id,
+        vd,
+        ctx,
+        upsertPriceListItem,
+        logPrefix,
+        def.productType,
+        product.visibleInEShop === true,
+      );
       variantCount += 1;
       const saved = await ctx.variantRepo.findOne({
         where: { sku: vd.sku, companyId: ctx.companyId },
       });
       if (saved && vd.trackInventory) {
-        stockByVariantId.set(saved.id, defaultStock);
+        // ELABORADO / PREPARADO: stock sale de producción/comanda, no del seed.
+        const startsAtZero =
+          def.productType === ProductType.ELABORADO ||
+          def.productType === ProductType.PREPARADO;
+        stockByVariantId.set(saved.id, startsAtZero ? 0 : defaultStock);
       }
     }
 
@@ -267,6 +280,8 @@ async function upsertSeedVariant(
     taxId: string;
   }) => Promise<void>,
   logPrefix: string,
+  productType: ProductType,
+  productVisibleInEShop: boolean,
 ): Promise<void> {
   let variant = await ctx.variantRepo.findOne({
     where: { sku: vd.sku, companyId: ctx.companyId },
@@ -282,11 +297,12 @@ async function upsertSeedVariant(
     logPrefix,
   );
 
+  const isInsumo = productType === ProductType.INSUMO;
   const variantPayload: DeepPartial<ProductVariant> = {
     productId,
     sku: vd.sku,
     barcode: vd.barcode,
-    basePrice: vd.basePrice,
+    basePrice: isInsumo ? 0 : (vd.basePrice ?? 0),
     baseCost: vd.baseCost,
     pmp: null,
     pmpHistory: null,
@@ -299,13 +315,13 @@ async function upsertSeedVariant(
     trackInventory: vd.trackInventory,
     allowNegativeStock: vd.allowNegativeStock ?? false,
     isActive: true,
-    visibleInEShop: true,
+    visibleInEShop: isInsumo ? false : productVisibleInEShop,
     minimumStock: 0,
     maximumStock: 0,
     reorderPoint: 0,
   };
 
-  if (vd.shipping) {
+  if (!isInsumo && vd.shipping) {
     const k = vd.shipping.volumetricDivisorK ?? 5000;
     variantPayload.netWeightKg = vd.shipping.netWeightKg;
     variantPayload.grossWeightKg = vd.shipping.grossWeightKg;
@@ -323,26 +339,43 @@ async function upsertSeedVariant(
 
   const savedVariant = await ctx.variantRepo.save(variant);
 
+  if (isInsumo) {
+    return;
+  }
+
+  const retailNet = vd.retailNet;
+  if (retailNet == null) {
+    throw new Error(
+      `${logPrefix}: variante «${vd.sku}» sin retailNet (requerido para productos vendibles)`,
+    );
+  }
+
   await upsertPriceListItem({
     priceListId: ctx.listaMinoristaId,
     productId,
     productVariantId: savedVariant.id,
-    net: vd.retailNet,
+    net: retailNet,
     taxId: ctx.ivaTax.id,
   });
   await upsertPriceListItem({
     priceListId: ctx.listaEshopId,
     productId,
     productVariantId: savedVariant.id,
-    net: vd.retailNet,
+    net: retailNet,
     taxId: ctx.ivaTax.id,
   });
   if (vd.inBothPriceLists) {
+    const wholesaleNet = vd.wholesaleNet;
+    if (wholesaleNet == null) {
+      throw new Error(
+        `${logPrefix}: variante «${vd.sku}» sin wholesaleNet (inBothPriceLists=true)`,
+      );
+    }
     await upsertPriceListItem({
       priceListId: ctx.listaMayoristaId,
       productId,
       productVariantId: savedVariant.id,
-      net: vd.wholesaleNet,
+      net: wholesaleNet,
       taxId: ctx.ivaTax.id,
     });
   }

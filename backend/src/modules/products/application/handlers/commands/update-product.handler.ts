@@ -8,6 +8,7 @@ import { Product } from '../../../domain/product.entity';
 import { BrandsService } from '@modules/brands/application/brands.service';
 import { ProductEshopVisibilitySyncService } from '../../services/product-eshop-visibility-sync.service';
 import { ProductModeService } from '@shared/product-mode/product-mode.service';
+import { isSellableProductType } from '../../helpers/product-type-policy.util';
 
 @CommandHandler(UpdateProductCommand)
 export class UpdateProductCommandHandler implements ICommandHandler<
@@ -48,10 +49,14 @@ export class UpdateProductCommandHandler implements ICommandHandler<
     if (command.categoryId !== undefined)
       product.categoryId = command.categoryId;
     if (command.isActive !== undefined) product.isActive = command.isActive;
+    if (command.productType !== undefined) product.productType = command.productType;
+
     if (command.visibleInEShop !== undefined) {
       product.visibleInEShop = command.visibleInEShop;
     }
-    if (command.productType !== undefined) product.productType = command.productType;
+    if (!isSellableProductType(product.productType)) {
+      product.visibleInEShop = false;
+    }
 
     if (command.brandId !== undefined) {
       if (command.brandId == null || command.brandId === '') {
@@ -69,7 +74,7 @@ export class UpdateProductCommandHandler implements ICommandHandler<
 
     const updated = await this.productRepository.save(product);
 
-    if (command.visibleInEShop === true) {
+    if (updated.visibleInEShop === true && isSellableProductType(updated.productType)) {
       await this.eshopVisibilitySync.afterProductEshopVisibilitySet(
         updated.id,
         true,

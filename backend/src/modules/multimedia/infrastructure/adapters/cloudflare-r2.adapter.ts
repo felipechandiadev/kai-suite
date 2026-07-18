@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import {
   DeleteObjectCommand,
+  DeleteObjectsCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -66,6 +68,58 @@ export class CloudflareR2Adapter implements StorageProviderPort {
     await this.client.send(
       new DeleteObjectCommand({ Bucket: bucket, Key: storageKey }),
     );
+  }
+
+  /**
+   * Vacía el bucket R2 configurado (todas las keys).
+   * Pensado para seeds de desarrollo; no forma parte del puerto de storage de producción.
+   */
+  async emptyBucket(): Promise<{ deleted: number }> {
+    const bucket = this.configService.storage.r2.bucketName;
+
+    if (!bucket) {
+      throw new Error('R2 bucket name is not configured');
+    }
+
+    let deleted = 0;
+    let continuationToken: string | undefined;
+
+    do {
+      const listed = await this.client.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          ContinuationToken: continuationToken,
+          MaxKeys: 1000,
+        }),
+      );
+
+      const keys = (listed.Contents ?? [])
+        .map((obj) => obj.Key)
+        .filter((key): key is string => Boolean(key));
+
+      for (let i = 0; i < keys.length; i += 1000) {
+        const chunk = keys.slice(i, i + 1000);
+        if (chunk.length === 0) {
+          continue;
+        }
+        await this.client.send(
+          new DeleteObjectsCommand({
+            Bucket: bucket,
+            Delete: {
+              Objects: chunk.map((Key) => ({ Key })),
+              Quiet: true,
+            },
+          }),
+        );
+        deleted += chunk.length;
+      }
+
+      continuationToken = listed.IsTruncated
+        ? listed.NextContinuationToken
+        : undefined;
+    } while (continuationToken);
+
+    return { deleted };
   }
 
   async exists(storageKey: string): Promise<boolean> {

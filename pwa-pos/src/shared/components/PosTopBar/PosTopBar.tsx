@@ -197,17 +197,6 @@ function PosTopBarNav({
         onClick={() => onNavigate("/pos")}
         data-test-id="pos-topbar-pos"
       />
-      {!isPresalePos ? (
-        <IconButton
-          icon="Users"
-          variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/customers"))}
-          size="md"
-          ariaLabel="Clientes"
-          aria-current={pathnameMatchesRoute(pathname, "/customers") ? "page" : undefined}
-          onClick={() => onNavigate("/customers")}
-          data-test-id="pos-topbar-customers"
-        />
-      ) : null}
       {kaiFoodEnabled && !isPresalePos ? (
         <IconButton
           icon="Utensils"
@@ -218,6 +207,17 @@ function PosTopBarNav({
           aria-current={pathnameMatchesRoute(pathname, "/accounts") ? "page" : undefined}
           onClick={() => onNavigate("/accounts")}
           data-test-id="pos-topbar-dining-accounts"
+        />
+      ) : null}
+      {!isPresalePos ? (
+        <IconButton
+          icon="Users"
+          variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/customers"))}
+          size="md"
+          ariaLabel="Clientes"
+          aria-current={pathnameMatchesRoute(pathname, "/customers") ? "page" : undefined}
+          onClick={() => onNavigate("/customers")}
+          data-test-id="pos-topbar-customers"
         />
       ) : null}
       <StockAlertsDropdown />

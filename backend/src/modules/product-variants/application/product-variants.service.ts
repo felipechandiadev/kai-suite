@@ -30,6 +30,7 @@ import {
   type SalePriceSnapshot,
 } from './helpers/sale-price-history';
 import { PURCHASING_SEARCH_EXCLUDED_PRODUCT_TYPES } from './helpers/purchasing-search-excluded-types';
+import { isSellableProductType } from '@modules/products/application/helpers/product-type-policy.util';
 import { TenantContext } from '@common/tenant';
 import { PriceList } from '@modules/price-lists/domain/price-list.entity';
 import { User } from '@modules/users/domain/user.entity';
@@ -542,6 +543,32 @@ export class ProductVariantsService {
     if (!product?.companyId) {
       throw new BadRequestException('Producto no encontrado o sin empresa.');
     }
+    if (!isSellableProductType(product.productType)) {
+      if (
+        Array.isArray(sanitizedData.priceListItems) &&
+        sanitizedData.priceListItems.length > 0
+      ) {
+        throw new BadRequestException(
+          'Los productos tipo INSUMO no admiten precios de venta ni listas de precios.',
+        );
+      }
+      if (
+        sanitizedData.basePrice != null &&
+        Number(sanitizedData.basePrice) !== 0
+      ) {
+        throw new BadRequestException(
+          'Los productos tipo INSUMO no admiten precio de venta.',
+        );
+      }
+      if (sanitizedData.visibleInEShop === true) {
+        throw new BadRequestException(
+          'Los productos tipo INSUMO no pueden publicarse en eShop.',
+        );
+      }
+      sanitizedData.basePrice = 0;
+      sanitizedData.priceListItems = [];
+      sanitizedData.visibleInEShop = false;
+    }
     const companyId = product.companyId;
     const saleId = String(sanitizedData.saleUnitId ?? sanitizedData.unitId ?? '').trim();
     if (!saleId) {
@@ -709,6 +736,40 @@ export class ProductVariantsService {
         ? await (this.variantRepository as any).findById(id)
         : null;
     if (!v) throw new NotFoundException('Product variant not found');
+
+    const parentProductId = String((v as any).productId ?? '').trim();
+    if (parentProductId) {
+      const parentProduct = await this.variantOrm.manager
+        .getRepository(Product)
+        .findOne({ where: { id: parentProductId } });
+      if (parentProduct && !isSellableProductType(parentProduct.productType)) {
+        if (
+          Array.isArray(sanitizedData.priceListItems) &&
+          sanitizedData.priceListItems.length > 0
+        ) {
+          throw new BadRequestException(
+            'Los productos tipo INSUMO no admiten precios de venta ni listas de precios.',
+          );
+        }
+        if (
+          Object.prototype.hasOwnProperty.call(sanitizedData, 'basePrice') &&
+          sanitizedData.basePrice != null &&
+          Number(sanitizedData.basePrice) !== 0
+        ) {
+          throw new BadRequestException(
+            'Los productos tipo INSUMO no admiten precio de venta.',
+          );
+        }
+        if (sanitizedData.visibleInEShop === true) {
+          throw new BadRequestException(
+            'Los productos tipo INSUMO no pueden publicarse en eShop.',
+          );
+        }
+        sanitizedData.basePrice = 0;
+        sanitizedData.priceListItems = [];
+        sanitizedData.visibleInEShop = false;
+      }
+    }
 
     this.assertUniquePriceListIdsInPayload(sanitizedData.priceListItems);
 

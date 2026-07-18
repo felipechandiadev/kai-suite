@@ -18,6 +18,7 @@ import { AttributeOrmEntity } from '@modules/attributes/infrastructure/orm-mappe
 import { posDisplayStockInSaleUnits } from '@modules/product-variants/application/variant-count-bridge.util';
 import { normalizeVariantTaxCategory } from '@modules/product-variants/domain/variant-tax-category';
 import { applyVariantFiscalProfile } from '@modules/product-variants/application/helpers/variant-fiscal-profile';
+import { isSellableProductType } from '@modules/products/application/helpers/product-type-policy.util';
 
 export type PosProductSearchResult = {
   productId: string;
@@ -119,10 +120,15 @@ export class ProductsPosService {
       .map((t) => t.trim().toUpperCase())
       .filter((t): t is ProductType =>
         Object.values(ProductType).includes(t as ProductType),
-      );
+      )
+      .filter((t) => isSellableProductType(t));
     if (allowedTypes.length > 0) {
       qb.andWhere('product.productType IN (:...productTypes)', {
         productTypes: allowedTypes,
+      });
+    } else {
+      qb.andWhere('product.productType != :insumoType', {
+        insumoType: ProductType.INSUMO,
       });
     }
 

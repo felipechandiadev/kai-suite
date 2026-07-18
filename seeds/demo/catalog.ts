@@ -99,14 +99,15 @@ export type SeedDevUnitKey = 'UN' | 'ML' | 'L' | 'G' | 'KG';
 export type SeedDevVariantSeed = {
   sku: string;
   barcode?: string;
-  basePrice: number;
+  /** Omitir para INSUMO. */
+  basePrice?: number;
   baseCost: number;
   trackInventory: boolean;
   allowNegativeStock?: boolean;
-  retailNet: number;
-  wholesaleNet: number;
-  /** Si false, solo lista minorista. Si true, ambas listas. */
-  inBothPriceLists: boolean;
+  retailNet?: number;
+  wholesaleNet?: number;
+  /** Si false, solo lista minorista. Si true, ambas listas. Omitir en INSUMO. */
+  inBothPriceLists?: boolean;
   uom?: { stock: SeedDevUnitKey; sale: SeedDevUnitKey; purchase: SeedDevUnitKey };
   /** Claves = nombre de atributo seed (Talla, Color, Material); valor = opción. */
   attributeValues?: Record<string, string>;
@@ -132,7 +133,7 @@ export type SeedDevProductSeed = {
   variants: SeedDevVariantSeed[];
 };
 
-/** Catálogo desarrollo: PHYSICAL + ELABORADO (pastelería) + PREPARADO (comida rápida) + SERVICE/DIGITAL. */
+/** Catálogo desarrollo: PHYSICAL vendible + INSUMO + ELABORADO + PREPARADO + SERVICE/DIGITAL. */
 export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   {
     name: 'Café molido premium',
@@ -180,30 +181,24 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   {
     name: 'Aceite de oliva extra virgen',
     brand: 'VitalPack',
-    productType: ProductType.PHYSICAL,
-    categoryName: 'Alimentos y bebidas',
+    description: 'Aceite — insumo de cocina / pastelería (no venta).',
+    productType: ProductType.INSUMO,
+    categoryName: 'Insumos cocina',
     productBaseUnit: 'ML',
+    visibleInEShop: false,
     variants: [
       {
         sku: 'SEEDDEVACE500',
         barcode: '7801002005002',
-        basePrice: 5990,
         baseCost: 3200,
         trackInventory: true,
-        retailNet: 5990,
-        wholesaleNet: 5100,
-        inBothPriceLists: true,
         uom: { stock: 'ML', sale: 'ML', purchase: 'L' },
       },
       {
         sku: 'SEEDDEVACE1L',
         barcode: '7801002010002',
-        basePrice: 9990,
         baseCost: 5200,
         trackInventory: true,
-        retailNet: 9990,
-        wholesaleNet: 8500,
-        inBothPriceLists: false,
         uom: { stock: 'ML', sale: 'L', purchase: 'L' },
       },
     ],
@@ -211,45 +206,25 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   {
     name: 'Harina integral',
     brand: 'Casa Norte',
-    productType: ProductType.PHYSICAL,
-    categoryName: 'Alimentos y bebidas',
+    description: 'Harina — insumo de pastelería (no venta).',
+    productType: ProductType.INSUMO,
+    categoryName: 'Insumos cocina',
     productBaseUnit: 'KG',
+    visibleInEShop: false,
     variants: [
       {
         sku: 'SEEDDEVHAR5',
         barcode: '7801003005001',
-        basePrice: 4590,
         baseCost: 2800,
         trackInventory: true,
-        retailNet: 4590,
-        wholesaleNet: 3990,
-        inBothPriceLists: true,
         uom: { stock: 'KG', sale: 'KG', purchase: 'KG' },
-        shipping: {
-          netWeightKg: 5,
-          grossWeightKg: 5.1,
-          packageLengthCm: 38,
-          packageWidthCm: 26,
-          packageHeightCm: 14,
-        },
       },
       {
         sku: 'SEEDDEVHAR25',
         barcode: '7801003025001',
-        basePrice: 18990,
         baseCost: 12000,
         trackInventory: true,
-        retailNet: 18990,
-        wholesaleNet: 16500,
-        inBothPriceLists: false,
         uom: { stock: 'KG', sale: 'KG', purchase: 'KG' },
-        shipping: {
-          netWeightKg: 25,
-          grossWeightKg: 25.5,
-          packageLengthCm: 65,
-          packageWidthCm: 42,
-          packageHeightCm: 18,
-        },
       },
     ],
   },
@@ -693,23 +668,20 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
       },
     ],
   },
-  // ——— PHYSICAL: insumos cocina / pastelería (BOM de recetas) ———
+  // ——— INSUMO: cocina / pastelería (BOM de recetas; no venta) ———
   {
     name: 'Pan hamburguesa',
     brand: 'Rápido Norte',
     description: 'Pan para hamburguesa — insumo.',
-    productType: ProductType.PHYSICAL,
+    productType: ProductType.INSUMO,
     categoryName: 'Insumos cocina',
+    visibleInEShop: false,
     variants: [
       {
         sku: 'SEEDDEVINSPANHAMB',
         barcode: '7804004001001',
-        basePrice: 200,
         baseCost: 120,
         trackInventory: true,
-        retailNet: 200,
-        wholesaleNet: 160,
-        inBothPriceLists: false,
       },
     ],
   },
@@ -717,19 +689,16 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     name: 'Carne molida',
     brand: 'Casa Norte',
     description: 'Carne molida refrigerada — insumo.',
-    productType: ProductType.PHYSICAL,
+    productType: ProductType.INSUMO,
     categoryName: 'Insumos cocina',
     productBaseUnit: 'KG',
+    visibleInEShop: false,
     variants: [
       {
         sku: 'SEEDDEVINSCARNE',
         barcode: '7804004001101',
-        basePrice: 6990,
         baseCost: 5200,
         trackInventory: true,
-        retailNet: 6990,
-        wholesaleNet: 6200,
-        inBothPriceLists: false,
         uom: { stock: 'KG', sale: 'KG', purchase: 'KG' },
       },
     ],
@@ -738,19 +707,16 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     name: 'Papa precortada',
     brand: 'Casa Norte',
     description: 'Papa precortada congelada — insumo.',
-    productType: ProductType.PHYSICAL,
+    productType: ProductType.INSUMO,
     categoryName: 'Insumos cocina',
     productBaseUnit: 'KG',
+    visibleInEShop: false,
     variants: [
       {
         sku: 'SEEDDEVINSPAPA',
         barcode: '7804004001201',
-        basePrice: 2490,
         baseCost: 1600,
         trackInventory: true,
-        retailNet: 2490,
-        wholesaleNet: 2100,
-        inBothPriceLists: false,
         uom: { stock: 'KG', sale: 'KG', purchase: 'KG' },
       },
     ],
@@ -759,18 +725,15 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     name: 'Pan hot dog',
     brand: 'Rápido Norte',
     description: 'Pan para completo — insumo.',
-    productType: ProductType.PHYSICAL,
+    productType: ProductType.INSUMO,
     categoryName: 'Insumos cocina',
+    visibleInEShop: false,
     variants: [
       {
         sku: 'SEEDDEVINSPANHOT',
         barcode: '7804004001301',
-        basePrice: 180,
         baseCost: 100,
         trackInventory: true,
-        retailNet: 180,
-        wholesaleNet: 140,
-        inBothPriceLists: false,
       },
     ],
   },
@@ -778,18 +741,15 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     name: 'Salchicha',
     brand: 'Casa Norte',
     description: 'Salchicha para completo — insumo.',
-    productType: ProductType.PHYSICAL,
+    productType: ProductType.INSUMO,
     categoryName: 'Insumos cocina',
+    visibleInEShop: false,
     variants: [
       {
         sku: 'SEEDDEVINSSALCHI',
         barcode: '7804004001401',
-        basePrice: 350,
         baseCost: 220,
         trackInventory: true,
-        retailNet: 350,
-        wholesaleNet: 280,
-        inBothPriceLists: false,
       },
     ],
   },
@@ -797,18 +757,15 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     name: 'Queso laminado',
     brand: 'Casa Norte',
     description: 'Queso en láminas — insumo.',
-    productType: ProductType.PHYSICAL,
+    productType: ProductType.INSUMO,
     categoryName: 'Insumos cocina',
+    visibleInEShop: false,
     variants: [
       {
         sku: 'SEEDDEVINSQUESO',
         barcode: '7804004001501',
-        basePrice: 250,
         baseCost: 150,
         trackInventory: true,
-        retailNet: 250,
-        wholesaleNet: 200,
-        inBothPriceLists: false,
       },
     ],
   },
@@ -816,19 +773,16 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     name: 'Azúcar granulada',
     brand: 'VitalPack',
     description: 'Azúcar — insumo pastelería.',
-    productType: ProductType.PHYSICAL,
+    productType: ProductType.INSUMO,
     categoryName: 'Insumos cocina',
     productBaseUnit: 'KG',
+    visibleInEShop: false,
     variants: [
       {
         sku: 'SEEDDEVINSAZU',
         barcode: '7804004001601',
-        basePrice: 1290,
         baseCost: 800,
         trackInventory: true,
-        retailNet: 1290,
-        wholesaleNet: 1100,
-        inBothPriceLists: false,
         uom: { stock: 'KG', sale: 'KG', purchase: 'KG' },
       },
     ],
@@ -837,19 +791,16 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     name: 'Mantequilla',
     brand: 'VitalPack',
     description: 'Mantequilla — insumo pastelería.',
-    productType: ProductType.PHYSICAL,
+    productType: ProductType.INSUMO,
     categoryName: 'Insumos cocina',
     productBaseUnit: 'KG',
+    visibleInEShop: false,
     variants: [
       {
         sku: 'SEEDDEVINSMANT',
         barcode: '7804004001701',
-        basePrice: 8990,
         baseCost: 6500,
         trackInventory: true,
-        retailNet: 8990,
-        wholesaleNet: 7800,
-        inBothPriceLists: false,
         uom: { stock: 'KG', sale: 'KG', purchase: 'KG' },
       },
     ],
@@ -858,18 +809,15 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     name: 'Huevo',
     brand: 'Casa Norte',
     description: 'Huevo unidad — insumo.',
-    productType: ProductType.PHYSICAL,
+    productType: ProductType.INSUMO,
     categoryName: 'Insumos cocina',
+    visibleInEShop: false,
     variants: [
       {
         sku: 'SEEDDEVINSHUEVO',
         barcode: '7804004001801',
-        basePrice: 150,
         baseCost: 90,
         trackInventory: true,
-        retailNet: 150,
-        wholesaleNet: 120,
-        inBothPriceLists: false,
       },
     ],
   },
@@ -877,19 +825,16 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     name: 'Chocolate cobertura',
     brand: 'Dulce Horno',
     description: 'Cobertura de chocolate — insumo.',
-    productType: ProductType.PHYSICAL,
+    productType: ProductType.INSUMO,
     categoryName: 'Insumos cocina',
     productBaseUnit: 'KG',
+    visibleInEShop: false,
     variants: [
       {
         sku: 'SEEDDEVINSCHOCO',
         barcode: '7804004001901',
-        basePrice: 12990,
         baseCost: 9000,
         trackInventory: true,
-        retailNet: 12990,
-        wholesaleNet: 11000,
-        inBothPriceLists: false,
         uom: { stock: 'KG', sale: 'KG', purchase: 'KG' },
       },
     ],
@@ -898,18 +843,15 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     name: 'Limón',
     brand: 'Casa Norte',
     description: 'Limón unidad — insumo.',
-    productType: ProductType.PHYSICAL,
+    productType: ProductType.INSUMO,
     categoryName: 'Insumos cocina',
+    visibleInEShop: false,
     variants: [
       {
         sku: 'SEEDDEVINSLIMON',
         barcode: '7804004002001',
-        basePrice: 200,
         baseCost: 80,
         trackInventory: true,
-        retailNet: 200,
-        wholesaleNet: 150,
-        inBothPriceLists: false,
       },
     ],
   },
@@ -917,19 +859,16 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     name: 'Levadura',
     brand: 'VitalPack',
     description: 'Levadura seca — insumo panadería.',
-    productType: ProductType.PHYSICAL,
+    productType: ProductType.INSUMO,
     categoryName: 'Insumos cocina',
     productBaseUnit: 'G',
+    visibleInEShop: false,
     variants: [
       {
         sku: 'SEEDDEVINSLEV',
         barcode: '7804004002101',
-        basePrice: 990,
         baseCost: 500,
         trackInventory: true,
-        retailNet: 990,
-        wholesaleNet: 850,
-        inBothPriceLists: false,
         uom: { stock: 'G', sale: 'G', purchase: 'G' },
       },
     ],

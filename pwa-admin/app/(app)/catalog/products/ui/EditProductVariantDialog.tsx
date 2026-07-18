@@ -20,6 +20,7 @@ import type { TaxListItem } from "@/features/accounting-taxes/types/tax.types";
 import { listAttributesForPage } from "@/features/inventory-attributes/actions/attribute.action";
 import type { AttributeListItem } from "@/features/inventory-attributes/types/attribute.types";
 import type { ProductGridRow, ProductVariantGridRow } from "@/features/inventory-products/types/product-grid.types";
+import { catalogProductTypeIsSellable } from "./catalog-product-type-options";
 import {
   catalogDefaultIvaTaxIds,
   filterSelectableSaleTaxes,
@@ -71,6 +72,7 @@ export function EditProductVariantDialog({
   productType = "PHYSICAL",
   onSuccess,
 }: EditProductVariantDialogProps) {
+  const isSellable = catalogProductTypeIsSellable(productType);
   const router = useRouter();
   const [sku, setSku] = useState("");
   const [barcode, setBarcode] = useState("");
@@ -357,50 +359,60 @@ export function EditProductVariantDialog({
       return;
     }
 
-    const incompleteRow = priceRows.some((r) => !r.priceListId?.trim());
-    if (incompleteRow) {
-      setError("Seleccione una lista de precios en cada fila.");
-      return;
-    }
+    let basePrice = 0;
+    let priceListItems: Array<{
+      priceListId: string;
+      netPrice: number;
+      grossPrice: number;
+      taxIds?: string[];
+    }> = [];
 
-    const filteredRows = priceRows.filter((r) => r.priceListId?.trim());
-    if (filteredRows.length === 0) {
-      setError("Agregue al menos un precio vinculado a una lista de precios.");
-      return;
-    }
-
-    const dup = new Set<string>();
-    for (const r of filteredRows) {
-      const lid = r.priceListId!.trim();
-      if (dup.has(lid)) {
-        setError("No puede repetir la misma lista de precios en más de una fila.");
+    if (isSellable) {
+      const incompleteRow = priceRows.some((r) => !r.priceListId?.trim());
+      if (incompleteRow) {
+        setError("Seleccione una lista de precios en cada fila.");
         return;
       }
-      dup.add(lid);
-    }
-    const derived = deriveBasePriceFromPriceRows(filteredRows);
-    if (derived === null) {
-      setError("No se pudo determinar el precio de referencia a partir de las filas.");
-      return;
-    }
-    const basePrice = derived;
-    if (netEqualsGross) {
-      const mismatch = filteredRows.some((r) => roundMoneyInt(r.net) !== roundMoneyInt(r.gross));
-      if (mismatch) {
-        setError("Para este tratamiento SII el precio neto debe ser igual al precio con impuestos.");
+
+      const filteredRows = priceRows.filter((r) => r.priceListId?.trim());
+      if (filteredRows.length === 0) {
+        setError("Agregue al menos un precio vinculado a una lista de precios.");
         return;
       }
+
+      const dup = new Set<string>();
+      for (const r of filteredRows) {
+        const lid = r.priceListId!.trim();
+        if (dup.has(lid)) {
+          setError("No puede repetir la misma lista de precios en más de una fila.");
+          return;
+        }
+        dup.add(lid);
+      }
+      const derived = deriveBasePriceFromPriceRows(filteredRows);
+      if (derived === null) {
+        setError("No se pudo determinar el precio de referencia a partir de las filas.");
+        return;
+      }
+      basePrice = derived;
+      if (netEqualsGross) {
+        const mismatch = filteredRows.some((r) => roundMoneyInt(r.net) !== roundMoneyInt(r.gross));
+        if (mismatch) {
+          setError("Para este tratamiento SII el precio neto debe ser igual al precio con impuestos.");
+          return;
+        }
+      }
+      priceListItems = filteredRows.map((r) => {
+        const netPrice = roundMoneyInt(r.net);
+        const grossPrice = netEqualsGross ? netPrice : roundMoneyInt(r.gross);
+        return {
+          priceListId: r.priceListId!.trim(),
+          netPrice,
+          grossPrice,
+          taxIds: netEqualsGross ? undefined : r.taxIds.length > 0 ? r.taxIds : undefined,
+        };
+      });
     }
-    const priceListItems = filteredRows.map((r) => {
-      const netPrice = roundMoneyInt(r.net);
-      const grossPrice = netEqualsGross ? netPrice : roundMoneyInt(r.gross);
-      return {
-        priceListId: r.priceListId!.trim(),
-        netPrice,
-        grossPrice,
-        taxIds: netEqualsGross ? undefined : r.taxIds.length > 0 ? r.taxIds : undefined,
-      };
-    });
 
     const attributeValues: Record<string, string> = {};
     for (const a of selectableAttributes) {
@@ -540,9 +552,11 @@ export function EditProductVariantDialog({
     Boolean(purchaseUnitId) &&
     !isPending &&
     !loadError &&
-    !priceRows.some((r) => !r.priceListId?.trim()) &&
-    priceRows.length > 0 &&
-    derivedBasePrice !== null;
+    (isSellable
+      ? !priceRows.some((r) => !r.priceListId?.trim()) &&
+        priceRows.length > 0 &&
+        derivedBasePrice !== null
+      : true);
 
   return (
     <>
@@ -725,18 +739,24 @@ export function EditProductVariantDialog({
             readOnly
             data-test-id="product-variant-edit-pmp-readonly"
           />
-          <VariantPriceRowsEditor
-            priceLists={priceLists}
-            catalogTaxes={catalogTaxes}
-            taxCategory={taxCategory}
-            variantTaxIds={priceRows[0]?.taxIds ?? dialogTaxIds}
-            rows={priceRows}
-            onRowsChange={setPriceRows}
-            defaultIvaTaxIds={defaultIvaTaxIds}
-            taxesEditable
-            onOpenPmpCalculator={(rowKey) => setPmpCalculatorRowKey(rowKey)}
-            onOpenJewelryCalculator={(rowKey) => setJewelryCalculatorRowKey(rowKey)}
-          />
+          {isSellable ? (
+            <VariantPriceRowsEditor
+              priceLists={priceLists}
+              catalogTaxes={catalogTaxes}
+              taxCategory={taxCategory}
+              variantTaxIds={priceRows[0]?.taxIds ?? dialogTaxIds}
+              rows={priceRows}
+              onRowsChange={setPriceRows}
+              defaultIvaTaxIds={defaultIvaTaxIds}
+              taxesEditable
+              onOpenPmpCalculator={(rowKey) => setPmpCalculatorRowKey(rowKey)}
+              onOpenJewelryCalculator={(rowKey) => setJewelryCalculatorRowKey(rowKey)}
+            />
+          ) : (
+            <p className="text-xs text-muted-foreground" data-test-id="product-variant-edit-no-sale-price">
+              Este producto es un insumo: no tiene precio de venta ni listas de precios.
+            </p>
+          )}
           <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-muted/15 p-3 md:grid-cols-2">
             <Switch
               checked={trackInventory}

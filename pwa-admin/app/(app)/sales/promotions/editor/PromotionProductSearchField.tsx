@@ -14,6 +14,7 @@ import {
 
 const PRODUCT_TYPE_LABEL: Record<string, string> = {
   PHYSICAL: "Producto físico",
+  INSUMO: "Insumo",
   MANUFACTURADO: "Manufacturado",
   ELABORADO: "Elaborado",
   PREPARADO: "Preparado",

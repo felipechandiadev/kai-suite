@@ -13,7 +13,7 @@ export type SeedRecipeDef = {
   lines: readonly SeedRecipeLineDef[];
 };
 
-/** Insumos compartidos (SKUs PHYSICAL del seed). */
+/** Insumos compartidos (SKUs INSUMO del seed). */
 const HARINA = 'SEEDDEVHAR5';
 const ACEITE = 'SEEDDEVACE500';
 const AZUCAR = 'SEEDDEVINSAZU';
@@ -170,7 +170,7 @@ export const SEED_DEV_PRODUCTION_RECIPES: readonly SeedRecipeDef[] = [
       { inputSku: SALCHI, qtyPerOutputUnit: 1 },
     ],
   },
-  // PREPARADO — combo (insumos físicos; bebida se vende aparte como PHYSICAL)
+  // PREPARADO — combo (insumos; bebida se vende aparte como PHYSICAL)
   {
     outputSku: 'SEEDDEVPREPCOMREG',
     lines: [

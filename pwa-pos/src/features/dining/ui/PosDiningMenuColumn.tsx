@@ -8,6 +8,7 @@ import type {
   PosDiningMenuGroup,
   PosDiningOrderSummary,
 } from "@/features/dining/types/dining-pos.types";
+import { PosDiningMenuVariantInfoDialog } from "@/features/dining/ui/PosDiningMenuVariantInfoDialog";
 import { searchPosProductsAction } from "@/features/pos-products/actions/pos-products.action";
 import {
   POS_PRODUCT_SEARCH_DEBOUNCE_MS,
@@ -54,6 +55,7 @@ export function PosDiningMenuColumn({
   const [loading, setLoading] = useState(false);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [infoItem, setInfoItem] = useState<PosProductSearchItem | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -228,42 +230,68 @@ export function PosDiningMenuColumn({
           <p className="text-sm text-muted-foreground">Sin productos en este filtro.</p>
         ) : (
           <div className="space-y-2">
-          {items.map((item) => {
-            const busy = addingId === item.variantId;
-            const saleUnit = posDisplaySaleUnitSymbol(item);
-            const canAdd = Boolean(orderId) && !disabled;
-            return (
-              <button
-                key={item.variantId}
-                type="button"
-                disabled={!canAdd || busy || addingId !== null}
-                onClick={() => handleAdd(item)}
-                className="block w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-left text-sm transition-colors hover:border-primary/40 hover:bg-primary/5 disabled:opacity-60"
-                data-test-id={`pos-dining-menu-pick-${item.variantId}`}
-              >
-                <div className="min-w-0 font-medium text-foreground">
-                  <PosProductNameWithAttributes
-                    name={item.productName}
-                    attributes={item.attributes}
-                    className="min-w-0 break-words text-sm font-medium leading-snug text-foreground"
-                  />
-                  {busy ? (
-                    <span className="ml-2 text-xs text-muted-foreground">…</span>
-                  ) : null}
+            {items.map((item) => {
+              const busy = addingId === item.variantId;
+              const saleUnit = posDisplaySaleUnitSymbol(item);
+              const canAdd = Boolean(orderId) && !disabled;
+              return (
+                <div
+                  key={item.variantId}
+                  className="flex w-full items-start gap-2 rounded-lg border border-border bg-surface px-3 py-2.5"
+                  data-test-id={`pos-dining-menu-card-${item.variantId}`}
+                >
+                  <div className="min-w-0 flex-1 text-left text-sm">
+                    <div className="min-w-0 font-medium text-foreground">
+                      <PosProductNameWithAttributes
+                        name={item.productName}
+                        attributes={item.attributes}
+                        className="min-w-0 break-words text-sm font-medium leading-snug text-foreground"
+                      />
+                    </div>
+                    <p className="mt-0.5 break-all font-mono text-[11px] text-muted-foreground">
+                      SKU {item.sku ?? "—"}
+                      {item.barcode?.trim() ? ` · ${item.barcode.trim()}` : ""}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs tabular-nums text-foreground">
+                      <span className="font-semibold">{formatMoney(item.unitPriceWithTax)}</span>
+                      {saleUnit ? (
+                        <span className="text-muted-foreground">· {saleUnit}</span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div
+                    className="flex shrink-0 items-start gap-1"
+                    data-test-id={`pos-dining-menu-card-actions-${item.variantId}`}
+                  >
+                    <IconButton
+                      icon="Info"
+                      variant="outlined"
+                      size="sm"
+                      ariaLabel={`Ver información de ${item.productName}`}
+                      title="Información"
+                      disabled={disabled}
+                      onClick={() => setInfoItem(item)}
+                      data-test-id={`pos-dining-menu-info-${item.variantId}`}
+                    />
+                    <IconButton
+                      icon="Plus"
+                      variant="outlined"
+                      size="sm"
+                      ariaLabel={
+                        canAdd
+                          ? `Agregar ${item.productName} a la cuenta`
+                          : "Seleccioná una cuenta para agregar"
+                      }
+                      title={canAdd ? "Agregar a la cuenta" : "Seleccioná una cuenta"}
+                      disabled={!canAdd || busy || addingId !== null}
+                      isLoading={busy}
+                      onClick={() => handleAdd(item)}
+                      data-test-id={`pos-dining-menu-add-${item.variantId}`}
+                    />
+                  </div>
                 </div>
-                <p className="mt-0.5 break-all font-mono text-[11px] text-muted-foreground">
-                  SKU {item.sku ?? "—"}
-                  {item.barcode?.trim() ? ` · ${item.barcode.trim()}` : ""}
-                </p>
-                <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs tabular-nums text-foreground">
-                  <span className="font-semibold">{formatMoney(item.unitPriceWithTax)}</span>
-                  {saleUnit ? (
-                    <span className="text-muted-foreground">· {saleUnit}</span>
-                  ) : null}
-                </div>
-              </button>
-            );
-          })}
+              );
+            })}
           </div>
         )}
       </div>
@@ -294,6 +322,12 @@ export function PosDiningMenuColumn({
           />
         </div>
       </div>
+
+      <PosDiningMenuVariantInfoDialog
+        open={infoItem != null}
+        onClose={() => setInfoItem(null)}
+        item={infoItem}
+      />
     </aside>
   );
 }

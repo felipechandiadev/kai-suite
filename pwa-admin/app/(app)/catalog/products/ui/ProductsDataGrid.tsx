@@ -17,6 +17,7 @@ import { ProductEShopPreviewDialog } from "./ProductEShopPreviewDialog";
 import { MultimediaLightbox } from "@/shared/components/Multimedia";
 import type { MultimediaLightboxItem } from "@/shared/components/Multimedia/types";
 import {
+  catalogProductTypeIsSellable,
   getCatalogProductTypeSelectOptions,
   normalizeCatalogProductType,
 } from "./catalog-product-type-options";
@@ -32,11 +33,13 @@ function ProductGridFlagSwitch({
   productId,
   field,
   checked,
+  disabled = false,
   "data-test-id": dataTestId,
 }: {
   productId: string;
   field: "isActive" | "visibleInEShop";
   checked: boolean;
+  disabled?: boolean;
   "data-test-id"?: string;
 }) {
   const router = useRouter();
@@ -74,7 +77,7 @@ function ProductGridFlagSwitch({
       <Switch
         checked={value}
         onChange={onChange}
-        disabled={pending}
+        disabled={pending || disabled}
         density="compact"
         aria-label={field === "isActive" ? "Producto activo" : "Visible en eShop"}
       />
@@ -145,6 +148,9 @@ function productTypePresentation(pt: string | null | undefined): { label: string
   }
   if (t === "DIGITAL") {
     return { label: "Digital", variant: "info" };
+  }
+  if (t === "INSUMO") {
+    return { label: "Insumo", variant: "info" };
   }
   if (t === "MANUFACTURADO") {
     return { label: "Manufacturado", variant: "primary" };
@@ -810,11 +816,13 @@ export default function ProductsDataGrid({ rows, total }: ProductsDataGridProps)
         sortable: true,
         renderCell: ({ row }) => {
           const r = row as ProductGridRow;
+          const sellable = catalogProductTypeIsSellable(r.productType);
           return (
             <ProductGridFlagSwitch
               productId={r.id}
               field="visibleInEShop"
-              checked={r.visibleInEShop === true}
+              checked={sellable && r.visibleInEShop === true}
+              disabled={!sellable}
               data-test-id={`products-row-eshop-${r.id}`}
             />
           );

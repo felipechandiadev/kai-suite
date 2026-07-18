@@ -24,6 +24,7 @@ import type { MultimediaEntityType } from "@/features/multimedia/types/multimedi
 import { useSession } from "next-auth/react";
 import type { CatalogProductType } from "@/features/inventory-products/types/product-grid.types";
 import {
+  catalogProductTypeIsSellable,
   getCatalogProductTypeSelectOptions,
   normalizeCatalogProductType,
 } from "./catalog-product-type-options";
@@ -107,10 +108,11 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
     ): Promise<string | null> => {
       setVariantPrepError(null);
       try {
+        const sellable = catalogProductTypeIsSellable(type);
         const [units, priceLists, taxes] = await Promise.all([
           listUnitsForPage(),
-          listPriceListsForPage(),
-          listTaxesForPage(),
+          sellable ? listPriceListsForPage() : Promise.resolve([]),
+          sellable ? listTaxesForPage() : Promise.resolve([]),
         ]);
         const defaultUnit = pickDefaultUnit(units);
         if (!defaultUnit) {
@@ -119,28 +121,38 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
           );
           return null;
         }
-        const activePriceLists = priceLists.filter((p) => p.isActive);
-        const defaultPriceListId =
-          activePriceLists.find((p) => p.isDefault)?.id ?? activePriceLists[0]?.id ?? null;
-        if (!defaultPriceListId) {
-          setVariantPrepError("No hay lista de precios activa.");
-          return null;
+        let basePrice = 0;
+        let priceListItems: Array<{
+          priceListId: string;
+          netPrice: number;
+          grossPrice: number;
+          taxIds?: string[];
+        }> = [];
+        if (sellable) {
+          const activePriceLists = priceLists.filter((p) => p.isActive);
+          const defaultPriceListId =
+            activePriceLists.find((p) => p.isDefault)?.id ?? activePriceLists[0]?.id ?? null;
+          if (!defaultPriceListId) {
+            setVariantPrepError("No hay lista de precios activa.");
+            return null;
+          }
+          const defaultIva = catalogDefaultIvaTaxIds(taxes);
+          const row = createVariantPriceRow(defaultIva, defaultPriceListId);
+          const derived = deriveBasePriceFromPriceRows([row]);
+          if (derived === null || !row.priceListId?.trim()) {
+            setVariantPrepError("No se pudo preparar precios para la variante inicial.");
+            return null;
+          }
+          basePrice = derived;
+          priceListItems = [
+            {
+              priceListId: row.priceListId.trim(),
+              netPrice: roundMoneyInt(row.net),
+              grossPrice: roundMoneyInt(row.gross),
+              taxIds: row.taxIds.length > 0 ? row.taxIds : undefined,
+            },
+          ];
         }
-        const defaultIva = catalogDefaultIvaTaxIds(taxes);
-        const row = createVariantPriceRow(defaultIva, defaultPriceListId);
-        const basePrice = deriveBasePriceFromPriceRows([row]);
-        if (basePrice === null || !row.priceListId?.trim()) {
-          setVariantPrepError("No se pudo preparar precios para la variante inicial.");
-          return null;
-        }
-        const priceListItems = [
-          {
-            priceListId: row.priceListId.trim(),
-            netPrice: roundMoneyInt(row.net),
-            grossPrice: roundMoneyInt(row.gross),
-            taxIds: row.taxIds.length > 0 ? row.taxIds : undefined,
-          },
-        ];
         const sku = buildInitialSku(productName, productId);
         const isService = type === "SERVICE";
         const r = await createProductVariantAction({
@@ -150,7 +162,7 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
           basePrice,
           unitId: defaultUnit.id,
           isActive: true,
-          visibleInEShop,
+          visibleInEShop: sellable ? visibleInEShop : false,
           priceListItems,
           trackInventory: !isService,
           allowNegativeStock: false,
@@ -243,7 +255,10 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
           description: description.trim() || undefined,
           productType,
           isActive,
-          visibleInEShop: eshopModuleOn ? visibleInEShop : false,
+          visibleInEShop:
+            eshopModuleOn && catalogProductTypeIsSellable(productType)
+              ? visibleInEShop
+              : false,
         });
         if (!r.success) {
           setError(r.error);
@@ -410,7 +425,7 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
             labelPosition="right"
             data-test-id="product-create-active"
           />
-          {eshopModuleOn ? (
+          {eshopModuleOn && catalogProductTypeIsSellable(productType) ? (
             <Switch
               checked={visibleInEShop}
               onChange={setVisibleInEShop}

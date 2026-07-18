@@ -152,6 +152,8 @@ export default function PosDiningAccountsPanel({
     Record<string, DiningLineProductMeta>
   >({});
   const refreshRef = useRef(0);
+  /** After first successful load for the current tab, refreshes stay silent (no spinner). */
+  const listHydratedRef = useRef(false);
 
   const navigateDining = useCallback(
     (params: URLSearchParams) => {
@@ -201,25 +203,46 @@ export default function PosDiningAccountsPanel({
     [navigateDining, sp],
   );
 
-  const refreshList = useCallback(() => {
+  const upsertOrderInList = useCallback((order: PosDiningOrderSummary) => {
+    setOrders((prev) => {
+      const rest = prev.filter((o) => o.id !== order.id);
+      return [order, ...rest];
+    });
+  }, []);
+
+  const refreshList = useCallback((opts?: { silent?: boolean }) => {
     if (!branchId.trim()) return;
     const ticket = ++refreshRef.current;
-    setListLoading(true);
+    const silent = opts?.silent === true || listHydratedRef.current;
+    if (!silent) setListLoading(true);
     setListError(null);
     void listPosDiningOrdersAction({
       branchId: branchId.trim(),
       kind: TAB_TO_KIND[tab],
-    }).then((res) => {
-      if (ticket !== refreshRef.current) return;
-      setListLoading(false);
-      if (!res.success) {
-        if (redirectToLoginIfUnauthorized(res)) return;
-        setListError(res.message);
+    })
+      .then((res) => {
+        if (ticket !== refreshRef.current) return;
+        if (!res.success) {
+          if (redirectToLoginIfUnauthorized(res)) return;
+          setListError(res.message);
+          setOrders([]);
+          listHydratedRef.current = false;
+          return;
+        }
+        setOrders(res.orders);
+        listHydratedRef.current = true;
+      })
+      .catch((e) => {
+        if (ticket !== refreshRef.current) return;
+        setListError(e instanceof Error ? e.message : "No se pudieron cargar las cuentas");
         setOrders([]);
-        return;
-      }
-      setOrders(res.orders);
-    });
+        listHydratedRef.current = false;
+      })
+      .finally(() => {
+        if (ticket === refreshRef.current) {
+          setListLoading(false);
+        }
+      });
   }, [branchId, tab]);
 
   useEffect(() => {
@@ -235,6 +258,7 @@ export default function PosDiningAccountsPanel({
   }, [branchId]);
 
   useEffect(() => {
+    listHydratedRef.current = false;
     refreshList();
   }, [refreshList]);
 
@@ -242,20 +266,34 @@ export default function PosDiningAccountsPanel({
     if (!urlOrderId) {
       setDetail(null);
       setDetailError(null);
+      setDetailLoading(false);
       return;
     }
+    let cancelled = false;
     setDetailLoading(true);
     setDetailError(null);
-    void getPosDiningOrderAction(urlOrderId).then((res) => {
-      setDetailLoading(false);
-      if (!res.success) {
-        if (redirectToLoginIfUnauthorized(res)) return;
-        setDetailError(res.message);
+    void getPosDiningOrderAction(urlOrderId)
+      .then((res) => {
+        if (cancelled) return;
+        if (!res.success) {
+          if (redirectToLoginIfUnauthorized(res)) return;
+          setDetailError(res.message);
+          setDetail(null);
+          return;
+        }
+        setDetail(res.order);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setDetailError(e instanceof Error ? e.message : "No se pudo cargar la cuenta");
         setDetail(null);
-        return;
-      }
-      setDetail(res.order);
-    });
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [urlOrderId]);
 
   useEffect(() => {
@@ -373,11 +411,12 @@ export default function PosDiningAccountsPanel({
         setActionError(res.message);
         return;
       }
+      upsertOrderInList(res.order);
       const params = new URLSearchParams(sp.toString());
       params.set(POS_DINING_URL_KEYS.tab, "mesas");
       params.set(POS_DINING_URL_KEYS.orderId, res.order.id);
       navigateDining(params);
-      refreshList();
+      refreshList({ silent: true });
     });
   };
 
@@ -392,11 +431,12 @@ export default function PosDiningAccountsPanel({
         setActionError(res.message);
         return;
       }
+      upsertOrderInList(res.order);
       const params = new URLSearchParams(sp.toString());
       params.set(POS_DINING_URL_KEYS.tab, "barra");
       params.set(POS_DINING_URL_KEYS.orderId, res.order.id);
       navigateDining(params);
-      refreshList();
+      refreshList({ silent: true });
     });
   };
 
@@ -411,11 +451,12 @@ export default function PosDiningAccountsPanel({
         setActionError(res.message);
         return;
       }
+      upsertOrderInList(res.order);
       const params = new URLSearchParams(sp.toString());
       params.set(POS_DINING_URL_KEYS.tab, "takeaway");
       params.set(POS_DINING_URL_KEYS.orderId, res.order.id);
       navigateDining(params);
-      refreshList();
+      refreshList({ silent: true });
     });
   };
 
@@ -431,7 +472,8 @@ export default function PosDiningAccountsPanel({
         return;
       }
       setDetail(res.order);
-      refreshList();
+      upsertOrderInList(res.order);
+      refreshList({ silent: true });
     });
   };
 
@@ -448,15 +490,19 @@ export default function PosDiningAccountsPanel({
           setActionBusy(false);
           if (redirectToLoginIfUnauthorized(res)) return;
           setActionError(res.message);
-          if (lastOrder) setDetail(lastOrder);
-          refreshList();
+          if (lastOrder) {
+            setDetail(lastOrder);
+            upsertOrderInList(lastOrder);
+          }
+          refreshList({ silent: true });
           return;
         }
         lastOrder = res.order;
       }
       setActionBusy(false);
       setDetail(lastOrder);
-      refreshList();
+      upsertOrderInList(lastOrder);
+      refreshList({ silent: true });
     })();
   };
 
@@ -523,7 +569,8 @@ export default function PosDiningAccountsPanel({
 
   const handleMenuOrderUpdated = (order: PosDiningOrderSummary) => {
     setDetail(order);
-    refreshList();
+    upsertOrderInList(order);
+    refreshList({ silent: true });
   };
 
   const renderFreeTableCard = (mesa: {
@@ -918,8 +965,11 @@ export default function PosDiningAccountsPanel({
           orderId={detail.id}
           onAdded={() => {
             void getPosDiningOrderAction(detail.id).then((res) => {
-              if (res.success) setDetail(res.order);
-              refreshList();
+              if (res.success) {
+                setDetail(res.order);
+                upsertOrderInList(res.order);
+              }
+              refreshList({ silent: true });
             });
           }}
         />
@@ -935,10 +985,13 @@ export default function PosDiningAccountsPanel({
         orderId={renameTarget.id}
         initialName={diningAccountTitle(renameTarget)}
         onSaved={() => {
-          refreshList();
+          refreshList({ silent: true });
           if (urlOrderId === renameTarget.id) {
             void getPosDiningOrderAction(renameTarget.id).then((res) => {
-              if (res.success) setDetail(res.order);
+              if (res.success) {
+                setDetail(res.order);
+                upsertOrderInList(res.order);
+              }
             });
           }
         }}

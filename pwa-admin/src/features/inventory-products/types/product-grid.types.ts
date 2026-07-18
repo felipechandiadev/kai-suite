@@ -5,7 +5,8 @@ export type CatalogProductType =
   | "DIGITAL"
   | "MANUFACTURADO"
   | "ELABORADO"
-  | "PREPARADO";
+  | "PREPARADO"
+  | "INSUMO";
 
 import type { VariantTaxCategory } from "./variant-fiscal.types";
 

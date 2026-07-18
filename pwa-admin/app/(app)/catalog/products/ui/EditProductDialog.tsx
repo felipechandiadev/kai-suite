@@ -11,6 +11,7 @@ import { Select, type Option } from "@kai/ui";
 import { updateProductAction } from "@/features/inventory-products/actions/product.action";
 import type { CatalogProductType, ProductGridRow } from "@/features/inventory-products/types/product-grid.types";
 import {
+  catalogProductTypeIsSellable,
   getCatalogProductTypeSelectOptions,
   normalizeCatalogProductType,
 } from "./catalog-product-type-options";
@@ -101,7 +102,10 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: EditPro
           categoryId: categoryId?.trim() || undefined,
           productType,
           isActive,
-          visibleInEShop: eshopModuleOn ? visibleInEShop : false,
+          visibleInEShop:
+            eshopModuleOn && catalogProductTypeIsSellable(productType)
+              ? visibleInEShop
+              : false,
         });
         if (r.success) {
           await onSuccess?.();
@@ -206,7 +210,7 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: EditPro
             labelPosition="right"
             data-test-id="product-edit-active"
           />
-          {eshopModuleOn ? (
+          {eshopModuleOn && catalogProductTypeIsSellable(productType) ? (
             <Switch
               checked={visibleInEShop}
               onChange={setVisibleInEShop}

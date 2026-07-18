@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from '@modules/products/domain/product.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
+import { isSellableProductType } from '../helpers/product-type-policy.util';
 
 /**
  * Reglas eShop catálogo:
@@ -67,9 +68,16 @@ export class ProductEshopVisibilitySyncService {
     productId: string,
     visibleInEShop: boolean,
   ): Promise<void> {
-    if (visibleInEShop === true) {
-      await this.enableAllVariantsWhenProductVisible(productId);
+    if (visibleInEShop !== true) {
+      return;
     }
+    const product = await this.productRepository.findOne({
+      where: { id: productId?.trim() },
+    });
+    if (!product || !isSellableProductType(product.productType)) {
+      return;
+    }
+    await this.enableAllVariantsWhenProductVisible(productId);
   }
 
   async afterVariantEshopVisibilityChanged(productId: string | null | undefined): Promise<void> {

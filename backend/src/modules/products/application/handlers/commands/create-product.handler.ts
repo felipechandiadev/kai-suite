@@ -7,6 +7,7 @@ import { Repository } from 'typeorm';
 import { Product, ProductType } from '../../../domain/product.entity';
 import { BrandsService } from '@modules/brands/application/brands.service';
 import { ProductModeService } from '@shared/product-mode/product-mode.service';
+import { isSellableProductType } from '../../helpers/product-type-policy.util';
 
 @CommandHandler(CreateProductCommand)
 export class CreateProductCommandHandler implements ICommandHandler<
@@ -37,6 +38,9 @@ export class CreateProductCommandHandler implements ICommandHandler<
       brandId = b.id;
     }
 
+    const visibleInEShop =
+      isSellableProductType(productType) && command.visibleInEShop === true;
+
     const product = this.productRepository.create({
       id: command.productId,
       name: command.name,
@@ -45,7 +49,7 @@ export class CreateProductCommandHandler implements ICommandHandler<
       brandId,
       description: command.description,
       isActive: command.isActive,
-      visibleInEShop: command.visibleInEShop,
+      visibleInEShop,
       productType,
     });
 

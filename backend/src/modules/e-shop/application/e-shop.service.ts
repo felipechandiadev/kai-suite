@@ -6,7 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
-import { Product } from '@modules/products/domain/product.entity';
+import { Product, ProductType } from '@modules/products/domain/product.entity';
 import { Attribute } from '@modules/attributes/domain/attribute.entity';
 import {
   buildAttributeOptions,
@@ -170,6 +170,7 @@ export class EShopService {
         .where('p.companyId = :companyId', { companyId })
         .andWhere('p.isActive = true')
         .andWhere('p.visibleInEShop = true')
+        .andWhere('p.productType != :insumoType', { insumoType: ProductType.INSUMO })
         .andWhere('p.deletedAt IS NULL');
 
       if (opts.search?.trim()) {
@@ -244,6 +245,7 @@ export class EShopService {
         .where('p.companyId = :companyId', { companyId })
         .andWhere('p.isActive = true')
         .andWhere('p.visibleInEShop = true')
+        .andWhere('p.productType != :insumoType', { insumoType: ProductType.INSUMO })
         .andWhere('p.deletedAt IS NULL');
       return qb;
     };

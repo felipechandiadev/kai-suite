@@ -37,6 +37,31 @@ export type SeedMultimediaStorageParams = {
   seedImages: boolean;
 };
 
+/** `SEED_SKIP_IMAGES=true` omite logo, catálogo, hero y testimonials. */
+export function shouldSeedImages(): boolean {
+  return process.env.SEED_SKIP_IMAGES !== 'true';
+}
+
+/**
+ * Wipe R2 solo con `SEED_WIPE_R2=true` y bucket en allowlist
+ * (default `kai-demo` / `*-demo` / `demo-*`, más `SEED_R2_WIPE_ALLOWLIST`).
+ */
+export function shouldWipeR2Bucket(): boolean {
+  return process.env.SEED_WIPE_R2 === 'true';
+}
+
+export function isR2WipeBucketAllowed(bucketName: string): boolean {
+  const fromEnv = (process.env.SEED_R2_WIPE_ALLOWLIST ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const allowed = new Set(['kai-demo', ...fromEnv]);
+  if (allowed.has(bucketName)) {
+    return true;
+  }
+  return /(-demo$|^demo-)/i.test(bucketName);
+}
+
 export function resolveSeedMultimediaStorage(
   app: INestApplicationContext,
   configService: AppConfigService,
@@ -50,8 +75,52 @@ export function resolveSeedMultimediaStorage(
   return {
     storage,
     storageProvider,
-    seedImages: true,
+    seedImages: shouldSeedImages(),
   };
+}
+
+/**
+ * Limpia storage antes del seed:
+ * - local: siempre vacía `backend/public` (como antes).
+ * - cloudflare: vacía el bucket solo si `SEED_WIPE_R2=true` y el nombre está allowlisted.
+ */
+export async function cleanSeedMultimediaStorage(params: {
+  app: INestApplicationContext;
+  configService: AppConfigService;
+}): Promise<void> {
+  const { configService, app } = params;
+  const strategy = configService.storage.strategy;
+
+  if (strategy === 'local') {
+    await cleanBackendPublicFolder(configService.storage.local.path);
+    console.log(
+      `✅ Carpeta public del backend limpiada (${path.dirname(path.resolve(configService.storage.local.path))})`,
+    );
+    return;
+  }
+
+  const bucketName = configService.storage.r2.bucketName;
+  if (!bucketName) {
+    throw new Error('R2_BUCKET_NAME no configurado (STORAGE_STRATEGY=cloudflare)');
+  }
+
+  if (!shouldWipeR2Bucket()) {
+    console.log(
+      `ℹ️  Multimedia seed R2 (${bucketName}): sin wipe (SEED_WIPE_R2≠true). Objetos huérfanos pueden acumularse.`,
+    );
+    return;
+  }
+
+  if (!isR2WipeBucketAllowed(bucketName)) {
+    throw new Error(
+      `SEED_WIPE_R2=true rechazado: bucket «${bucketName}» no está en allowlist ` +
+        `(kai-demo / *-demo / demo-* o SEED_R2_WIPE_ALLOWLIST).`,
+    );
+  }
+
+  const r2 = app.get(CloudflareR2Adapter);
+  const { deleted } = await r2.emptyBucket();
+  console.log(`✅ Bucket R2 vaciado (${bucketName}): ${deleted} objeto(s) eliminado(s)`);
 }
 
 /** Raíz de archivos estáticos versionados para el seed demo (`seeds/demo/assets`). */
