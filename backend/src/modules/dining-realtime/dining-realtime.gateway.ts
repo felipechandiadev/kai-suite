@@ -11,14 +11,15 @@ import {
 import { Repository } from 'typeorm';
 import { Server, Socket } from 'socket.io';
 import { TenantContext } from '@common/tenant/tenant.context';
+import { Branch } from '@modules/branches/domain/branch.entity';
 import { DiningRoom } from '@modules/dining/domain/dining-room.entity';
 import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
 import { DiningService } from '@modules/dining/application/dining.service';
 import { DiningRealtimePublisher } from './dining-realtime.publisher';
 import {
+  branchDiningRoom,
   kitchenUnitRoom,
   salonRoom,
-  type DiningKitchenSnapshotLinePayload,
   type DiningKitchenSnapshotPayload,
 } from './dining-realtime.types';
 import { WsDiningTenantService } from './ws-dining-tenant.service';
@@ -42,6 +43,8 @@ export class DiningRealtimeGateway implements OnGatewayInit {
     private readonly diningRoomRepository: Repository<DiningRoom>,
     @InjectRepository(ProductionUnit)
     private readonly productionUnitRepository: Repository<ProductionUnit>,
+    @InjectRepository(Branch)
+    private readonly branchRepository: Repository<Branch>,
   ) {}
 
   afterInit() {
@@ -115,6 +118,46 @@ export class DiningRealtimeGateway implements OnGatewayInit {
     return { ok: true, joined: room };
   }
 
+  @SubscribeMessage('subscribeBranch')
+  async subscribeBranch(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() body: { branchId?: string },
+  ) {
+    const companyId = client.data.activeCompanyId as string | undefined;
+    if (!companyId) {
+      return { ok: false, error: 'unauthorized' };
+    }
+
+    const branchId = body?.branchId?.trim();
+    if (!branchId) {
+      return { ok: false, error: 'branchId_required' };
+    }
+
+    const branch = await this.branchRepository.findOne({
+      where: { id: branchId, companyId },
+      select: { id: true },
+    });
+    if (!branch) {
+      return { ok: false, error: 'branch_not_found' };
+    }
+
+    const diningPrefix = `company:${companyId}:branch:`;
+    const diningSuffix = ':dining';
+    for (const room of [...client.rooms]) {
+      if (
+        room !== client.id &&
+        room.startsWith(diningPrefix) &&
+        room.endsWith(diningSuffix)
+      ) {
+        await client.leave(room);
+      }
+    }
+
+    const room = branchDiningRoom({ companyId, branchId });
+    await client.join(room);
+    return { ok: true, joined: room };
+  }
+
   @SubscribeMessage('subscribeKitchenUnit')
   async subscribeKitchenUnit(
     @ConnectedSocket() client: Socket,
@@ -164,57 +207,10 @@ export class DiningRealtimeGateway implements OnGatewayInit {
     const snapshot: DiningKitchenSnapshotPayload = {
       companyId,
       unitId,
-      queue: queue.map((line) => this.toSnapshotLine(line)),
+      queue,
     };
     client.emit('dining.kitchen.snapshot', snapshot);
 
     return { ok: true, joined: room, queueSize: snapshot.queue.length };
-  }
-
-  private toSnapshotLine(line: {
-    id: string;
-    diningOrderId: string;
-    productVariantId: string;
-    quantity: number | string;
-    notes?: string | null;
-    kitchenStatus: DiningKitchenSnapshotLinePayload['kitchenStatus'];
-    productionUnitId?: string | null;
-    sentToKitchenAt?: Date | null;
-    productVariant?: {
-      id?: string;
-      sku?: string;
-      name?: string;
-      product?: { name?: string } | null;
-    } | null;
-    diningOrder?: {
-      displayLabel?: string;
-      diningTableId?: string | null;
-      diningTable?: { code?: string } | null;
-    } | null;
-  }): DiningKitchenSnapshotLinePayload {
-    const variantLabel =
-      line.productVariant?.product?.name?.trim() ||
-      line.productVariant?.name?.trim() ||
-      line.productVariant?.sku?.trim() ||
-      null;
-    return {
-      id: line.id,
-      diningOrderId: line.diningOrderId,
-      productVariantId: line.productVariantId,
-      quantity: Number(line.quantity),
-      notes: line.notes ?? null,
-      kitchenStatus: line.kitchenStatus,
-      productionUnitId: line.productionUnitId ?? null,
-      sentToKitchenAt: line.sentToKitchenAt?.toISOString() ?? null,
-      displayLabel: line.diningOrder?.displayLabel,
-      diningTableId: line.diningOrder?.diningTableId ?? null,
-      diningTableCode: line.diningOrder?.diningTable?.code ?? null,
-      productVariant: variantLabel
-        ? {
-            id: line.productVariant?.id ?? line.productVariantId,
-            name: variantLabel,
-          }
-        : null,
-    };
   }
 }

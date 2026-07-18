@@ -12,6 +12,14 @@ export function salonRoom(params: {
   return `company:${params.companyId}:branch:${params.branchId}:salon:${params.salonId}`;
 }
 
+/** Room de sucursal para POS / cuentas (mesas, barra, takeaway). */
+export function branchDiningRoom(params: {
+  companyId: string;
+  branchId: string;
+}): string {
+  return `company:${params.companyId}:branch:${params.branchId}:dining`;
+}
+
 export function kitchenUnitRoom(params: {
   companyId: string;
   unitId: string;
@@ -26,6 +34,8 @@ export type DiningSessionLinePayload = {
   notes?: string | null;
   kitchenStatus: KitchenItemStatus;
   productionUnitId?: string | null;
+  kitchenFireId?: string | null;
+  kitchenFireNumber?: number | null;
 };
 
 export type DiningSessionUpdatedPayload = {
@@ -46,6 +56,8 @@ export type DiningKitchenItemUpdatedPayload = {
   orderId: string;
   lineId: string;
   kitchenStatus: KitchenItemStatus;
+  kitchenFireId?: string | null;
+  kitchenFireNumber?: number | null;
   displayLabel?: string;
   diningTableId?: string | null;
 };
@@ -58,11 +70,17 @@ export type DiningKitchenSnapshotLinePayload = {
   notes?: string | null;
   kitchenStatus: KitchenItemStatus;
   productionUnitId?: string | null;
+  kitchenFireId?: string | null;
+  kitchenFireNumber?: number | null;
   sentToKitchenAt?: string | null;
   displayLabel?: string;
   diningTableId?: string | null;
   diningTableCode?: string | null;
-  productVariant?: { id: string; name: string } | null;
+  productVariant?: {
+    id: string;
+    name: string;
+    attributes?: Array<{ attributeValue: string }>;
+  } | null;
 };
 
 export type DiningKitchenSnapshotPayload = {

@@ -248,6 +248,11 @@ export function PosDiningMenuVariantInfoDialog({
                 <p className="text-xl font-semibold tabular-nums text-foreground">
                   Cap. {displayQty}
                 </p>
+                {displayQty === 0 ? (
+                  <Alert variant="warning" className="text-sm" data-test-id="pos-dining-menu-ctp-hard-block">
+                    CTP Hard Block: sin capacidad producible. No se puede agregar ni enviar a cocina.
+                  </Alert>
+                ) : null}
                 {ctpDetail?.productionUnitName || ctpDetail?.inputStorageName ? (
                   <p className="text-xs text-muted-foreground">
                     {ctpDetail?.productionUnitName ? `UP: ${ctpDetail.productionUnitName}` : null}

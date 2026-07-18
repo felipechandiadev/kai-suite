@@ -1,11 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { IconButton } from "@kai/ui";
+import { Badge, IconButton, TextField } from "@kai/ui";
 import {
   canCancelDiningLine,
   canSendDiningLineToKitchen,
+  diningLineGroupAllReady,
+  diningLineGroupKitchenFireNumbers,
+  diningLineGroupStatusLabel,
   groupDiningOrderLines,
+  isKitchenReadyStatus,
   type DiningLineGroup,
 } from "@/features/dining/lib/group-dining-order-lines";
 import { kitchenItemStatusLabel } from "@/features/dining/lib/dining-status-labels";
@@ -40,6 +44,7 @@ type Props = {
   busy?: boolean;
   onSendLines: (lineIds: string[]) => void;
   onCancelLines: (lineIds: string[]) => void;
+  onUpdateNotes: (lineIds: string[], notes: string | null) => void;
 };
 
 export function PosDiningOrderLineGroups({
@@ -49,6 +54,7 @@ export function PosDiningOrderLineGroups({
   busy = false,
   onSendLines,
   onCancelLines,
+  onUpdateNotes,
 }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const groups = useMemo(() => groupDiningOrderLines(lines), [lines]);
@@ -80,6 +86,7 @@ export function PosDiningOrderLineGroups({
           onToggle={() => toggle(group.key)}
           onSendLines={onSendLines}
           onCancelLines={onCancelLines}
+          onUpdateNotes={onUpdateNotes}
         />
       ))}
     </ul>
@@ -96,6 +103,7 @@ function GroupCard({
   onToggle,
   onSendLines,
   onCancelLines,
+  onUpdateNotes,
 }: {
   group: DiningLineGroup;
   product?: DiningLineProductMeta;
@@ -106,18 +114,47 @@ function GroupCard({
   onToggle: () => void;
   onSendLines: (lineIds: string[]) => void;
   onCancelLines: (lineIds: string[]) => void;
+  onUpdateNotes: (lineIds: string[], notes: string | null) => void;
 }) {
   const unitPrice = product?.unitPrice ?? 0;
   const totalPrice = unitPrice * group.quantityTotal;
   const showHeaderActions = !isExpanded || !canExpand;
-  const canSend = canSendDiningLineToKitchen(group.kitchenStatus);
-  const canCancel = canCancelDiningLine(group.kitchenStatus);
+  const draftIds = group.lines
+    .filter((l) => canSendDiningLineToKitchen(l.kitchenStatus))
+    .map((l) => l.id);
+  const cancelIds = group.lines
+    .filter((l) => canCancelDiningLine(l.kitchenStatus))
+    .map((l) => l.id);
+  const canSend = draftIds.length > 0;
+  const canCancel = cancelIds.length > 0;
+  const allReady = diningLineGroupAllReady(group);
   const name = product?.name ?? "Producto";
+  const fireNumbers = diningLineGroupKitchenFireNumbers(group);
+  const canEditNotes = draftIds.length > 0;
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [notesDraft, setNotesDraft] = useState(group.notes ?? "");
+
+  const openNotesEditor = () => {
+    setNotesDraft(group.notes ?? "");
+    setEditingNotes(true);
+  };
+
+  const saveNotes = () => {
+    const next = notesDraft.trim() || null;
+    setEditingNotes(false);
+    if ((group.notes ?? null) === next) return;
+    onUpdateNotes(draftIds, next);
+  };
 
   return (
     <li
-      className="rounded-lg border border-border bg-surface px-2 py-2 text-sm"
+      className={`rounded-lg border px-2 py-2 text-sm ${
+        allReady
+          ? "border-success/40 bg-success/10"
+          : "border-border bg-surface"
+      }`}
       data-test-id={`pos-dining-line-group-${group.key}`}
+      data-all-ready={allReady ? "true" : "false"}
     >
       <div className="flex items-start gap-1">
         {canExpand ? (
@@ -147,7 +184,7 @@ function GroupCard({
                 title="Enviar a cocina"
                 disabled={disabled || busy}
                 isLoading={busy}
-                onClick={() => onSendLines(group.lines.map((l) => l.id))}
+                onClick={() => onSendLines(draftIds)}
                 data-test-id={`pos-dining-line-group-send-${group.key}`}
               />
             ) : null}
@@ -159,7 +196,7 @@ function GroupCard({
                 ariaLabel="Eliminar ítems"
                 title="Eliminar"
                 disabled={disabled || busy}
-                onClick={() => onCancelLines(group.lines.map((l) => l.id))}
+                onClick={() => onCancelLines(cancelIds)}
                 data-test-id={`pos-dining-line-group-cancel-${group.key}`}
               />
             ) : null}
@@ -173,9 +210,70 @@ function GroupCard({
             className="text-sm font-medium leading-snug text-foreground"
           />
           <p className="text-[11px] text-muted-foreground">
-            {kitchenItemStatusLabel(group.kitchenStatus)}
+            {diningLineGroupStatusLabel(group)}
             {group.notes ? ` · ${group.notes}` : ""}
           </p>
+          {fireNumbers.length > 0 ? (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {fireNumbers.map((n) => (
+                <Badge
+                  key={n}
+                  variant="secondary-outlined"
+                  className="text-[10px]"
+                  data-test-id={`pos-dining-line-group-pedido-${group.key}-${n}`}
+                >
+                  {`Pedido #${n}`}
+                </Badge>
+              ))}
+            </div>
+          ) : null}
+          {canEditNotes ? (
+            <div className="mt-1.5">
+              {editingNotes ? (
+                <div className="flex flex-col gap-1.5">
+                  <TextField
+                    label="Nota cocina"
+                    value={notesDraft}
+                    onChange={(e) => setNotesDraft(e.target.value.slice(0, 200))}
+                    disabled={disabled || busy}
+                    data-test-id={`pos-dining-line-group-notes-input-${group.key}`}
+                  />
+                  <div className="flex gap-1">
+                    <IconButton
+                      icon="Check"
+                      variant="action"
+                      size="sm"
+                      ariaLabel="Guardar nota"
+                      title="Guardar"
+                      disabled={disabled || busy}
+                      onClick={saveNotes}
+                      data-test-id={`pos-dining-line-group-notes-save-${group.key}`}
+                    />
+                    <IconButton
+                      icon="X"
+                      variant="action"
+                      size="sm"
+                      ariaLabel="Cancelar nota"
+                      title="Cancelar"
+                      disabled={disabled || busy}
+                      onClick={() => setEditingNotes(false)}
+                      data-test-id={`pos-dining-line-group-notes-cancel-${group.key}`}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="text-left text-[11px] text-primary underline-offset-2 hover:underline disabled:opacity-50"
+                  disabled={disabled || busy}
+                  onClick={openNotesEditor}
+                  data-test-id={`pos-dining-line-group-notes-edit-${group.key}`}
+                >
+                  {group.notes ? "Editar nota cocina" : "Agregar nota cocina"}
+                </button>
+              )}
+            </div>
+          ) : null}
         </div>
 
         <div className="shrink-0 text-right tabular-nums">
@@ -190,11 +288,16 @@ function GroupCard({
             const qty = Number(line.quantity) || 0;
             const lineSend = canSendDiningLineToKitchen(line.kitchenStatus);
             const lineCancel = canCancelDiningLine(line.kitchenStatus);
+            const lineReady = isKitchenReadyStatus(line.kitchenStatus);
+            const fireN = line.kitchenFireNumber;
             return (
               <li
                 key={line.id}
-                className="flex items-start gap-1 rounded-md bg-muted/30 px-2 py-1.5"
+                className={`flex items-start gap-1 rounded-md px-2 py-1.5 ${
+                  lineReady ? "bg-success/15" : "bg-muted/30"
+                }`}
                 data-test-id={`pos-dining-line-item-${line.id}`}
+                data-ready={lineReady ? "true" : "false"}
               >
                 <div className="flex shrink-0 items-center gap-0.5">
                   {lineSend ? (
@@ -228,6 +331,15 @@ function GroupCard({
                     {kitchenItemStatusLabel(line.kitchenStatus)}
                     {line.notes?.trim() ? ` · ${line.notes.trim()}` : ""}
                   </p>
+                  {typeof fireN === "number" && fireN > 0 ? (
+                    <Badge
+                      variant="secondary-outlined"
+                      className="mt-0.5 text-[10px]"
+                      data-test-id={`pos-dining-line-pedido-${line.id}`}
+                    >
+                      {`Pedido #${fireN}`}
+                    </Badge>
+                  ) : null}
                 </div>
                 <div className="shrink-0 text-right text-xs tabular-nums text-muted-foreground">
                   {formatMoney(unitPrice * qty)}

@@ -48,3 +48,8 @@ export function formatDiningSequenceLabel(
   const n = Math.max(1, Math.floor(sequenceNumber));
   return kind === 'COUNTER' ? `Cuenta barra #${n}` : `Para llevar #${n}`;
 }
+
+export function formatKitchenFireLabel(sequenceNumber: number): string {
+  const n = Math.max(1, Math.floor(sequenceNumber));
+  return `Pedido #${n}`;
+}

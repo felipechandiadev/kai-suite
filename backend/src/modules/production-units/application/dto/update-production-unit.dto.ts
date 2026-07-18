@@ -9,6 +9,7 @@ import {
 } from 'class-validator';
 import {
   ProductionUnitInventoryMode,
+  ProductionUnitPurpose,
   ProductionUnitScope,
 } from '../../domain/production-unit.enums';
 
@@ -38,6 +39,10 @@ export class UpdateProductionUnitDto {
     ProductionUnitInventoryMode.DEPENDENT,
   ])
   inventoryMode?: ProductionUnitInventoryMode;
+
+  @IsOptional()
+  @IsIn([ProductionUnitPurpose.KITCHEN, ProductionUnitPurpose.BATCH])
+  purpose?: ProductionUnitPurpose;
 
   @IsOptional()
   @ValidateIf((_, v) => v != null && v !== '')

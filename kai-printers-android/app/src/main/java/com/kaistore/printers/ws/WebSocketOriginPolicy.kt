@@ -5,9 +5,14 @@ import java.net.URI
 /**
  * Valida el header `Origin` del handshake WebSocket (paridad con Kai Printers Tauri).
  *
- * - `allowAllOrigins=true` (default): orígenes loopback o IP privada LAN (POS en otra tablet/PC).
- * - `allowAllOrigins=false`: solo lista explícita en [allowedOrigins].
+ * El `Origin` es el del **sitio del POS** (p. ej. `https://pos.demo.kaisuite.pro`),
+ * no el host del WebSocket (`wss://127.0.0.1:14568`).
+ *
  * - Sin `Origin`: permitido (sondas / herramientas).
+ * - Entradas en [allowedOrigins]: siempre permitidas (dominios custom).
+ * - `allowAllOrigins=true` (default): política producto — loopback, IP privada LAN,
+ *   o dominios de producto `kaisuite.pro` / `*.kaisuite.pro` (no es “cualquier origen”).
+ * - `allowAllOrigins=false`: solo la whitelist [allowedOrigins].
  */
 object WebSocketOriginPolicy {
     fun isAllowed(
@@ -17,9 +22,20 @@ object WebSocketOriginPolicy {
     ): Boolean {
         val raw = origin?.trim().orEmpty()
         if (raw.isEmpty()) return true
-        if (allowAllOrigins) return isLoopbackOrigin(raw) || isPrivateLanOrigin(raw)
-        if (allowedOrigins.isEmpty()) return false
-        return allowedOrigins.any { it.equals(raw, ignoreCase = true) }
+        if (allowedOrigins.any { it.equals(raw, ignoreCase = true) }) return true
+        if (!allowAllOrigins) return false
+        return isLoopbackOrigin(raw) || isPrivateLanOrigin(raw) || isTrustedKaiOrigin(raw)
+    }
+
+    /** Host `kaisuite.pro` o que termina en `.kaisuite.pro`. */
+    fun isTrustedKaiOrigin(origin: String): Boolean {
+        return try {
+            val host = URI(origin).host?.lowercase()?.trim().orEmpty()
+            if (host.isEmpty()) return false
+            host == "kaisuite.pro" || host.endsWith(".kaisuite.pro")
+        } catch (_: Exception) {
+            false
+        }
     }
 
     fun isLoopbackOrigin(origin: String): Boolean {

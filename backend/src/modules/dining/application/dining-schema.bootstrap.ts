@@ -26,7 +26,32 @@ export class DiningSchemaBootstrap implements OnModuleInit {
         ON dining_order_lines (material_reservation_transaction_id)
         WHERE material_reservation_transaction_id IS NOT NULL
       `);
-      this.logger.log('dining_order_lines CTP reservation columns OK');
+      await this.dataSource.query(`
+        ALTER TABLE dining_order_lines
+        ADD COLUMN IF NOT EXISTS kitchen_fire_id uuid NULL
+      `);
+      await this.dataSource.query(`
+        CREATE INDEX IF NOT EXISTS idx_dining_order_lines_kitchen_fire
+        ON dining_order_lines (production_unit_id, kitchen_fire_id, kitchen_status)
+      `);
+      await this.dataSource.query(`
+        ALTER TABLE dining_order_lines
+        ADD COLUMN IF NOT EXISTS kitchen_fire_number int NULL
+      `);
+      await this.dataSource.query(`
+        CREATE TABLE IF NOT EXISTS dining_kitchen_fire_sequences (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          company_id uuid NOT NULL,
+          branch_id uuid NOT NULL,
+          period_key varchar(10) NOT NULL,
+          last_number int NOT NULL DEFAULT 0
+        )
+      `);
+      await this.dataSource.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_dining_kitchen_fire_sequences_scope
+        ON dining_kitchen_fire_sequences (branch_id, period_key)
+      `);
+      this.logger.log('dining_order_lines CTP + kitchen_fire columns OK');
     } catch (err) {
       this.logger.error(
         `Dining schema bootstrap failed: ${err instanceof Error ? err.message : String(err)}`,

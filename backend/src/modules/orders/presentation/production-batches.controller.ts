@@ -25,6 +25,7 @@ import { RecipesService } from '@modules/recipes/application/recipes.service';
 import { RecipeType } from '@modules/recipes/domain/recipe-type.enum';
 import { SearchTransactionsQuery } from '@modules/transactions/application/queries/search-transactions.query';
 import { ProductionUnitsService } from '@modules/production-units/application/production-units.service';
+import { ProductionUnitPurpose } from '@modules/production-units/domain/production-unit.enums';
 import { CreateTransactionDto } from '@modules/transactions/application/dto/create-transaction.dto';
 import {
   CreateProductionBatchDto,
@@ -170,6 +171,11 @@ export class ProductionBatchesController {
       const unit = await this.productionUnitsService.findOne(productionUnitId);
       if (!unit) {
         throw new BadRequestException('Unidad de producción no encontrada.');
+      }
+      if (unit.purpose !== ProductionUnitPurpose.BATCH) {
+        throw new BadRequestException(
+          'La unidad de producción debe ser de tipo lotes (producción planificada).',
+        );
       }
       if (!storageId && unit.defaultInputStorageId) {
         storageId = unit.defaultInputStorageId;

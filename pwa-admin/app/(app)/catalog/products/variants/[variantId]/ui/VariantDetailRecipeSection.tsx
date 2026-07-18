@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { IconButton } from "@kai/ui";
 import { listRecipesByOutputVariantAction } from "@/features/recipes/actions/recipe.action";
 import type { RecipeDto } from "@/features/recipes/types/recipe.types";
-import { VariantDetailCtpBlock } from "./VariantDetailCtpBlock";
 
 type VariantDetailRecipeSectionProps = {
   outputVariantId: string;
@@ -96,8 +95,6 @@ export function VariantDetailRecipeSection({
           Aún no hay receta guardada. Use + para crear una.
         </p>
       ) : null}
-
-      <VariantDetailCtpBlock variantId={outputVariantId} refreshKey={refreshKey} />
 
       {displayRecipe ? (
         <div className="space-y-3" data-test-id="pv-detail-recipe-content">

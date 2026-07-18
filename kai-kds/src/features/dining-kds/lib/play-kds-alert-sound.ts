@@ -4,6 +4,7 @@
  */
 
 let sharedCtx: AudioContext | null = null;
+const stateListeners = new Set<(running: boolean) => void>();
 
 function getAudioContext(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -14,8 +15,43 @@ function getAudioContext(): AudioContext | null {
   if (!AC) return null;
   if (!sharedCtx || sharedCtx.state === "closed") {
     sharedCtx = new AC();
+    sharedCtx.addEventListener("statechange", notifyAudioStateListeners);
   }
   return sharedCtx;
+}
+
+function notifyAudioStateListeners(): void {
+  const running = isKdsAlertAudioRunning();
+  for (const listener of stateListeners) {
+    try {
+      listener(running);
+    } catch {
+      // ignore
+    }
+  }
+}
+
+/** true si el AudioContext está `running` (alertas pueden sonar). */
+export function isKdsAlertAudioRunning(): boolean {
+  if (typeof window === "undefined") return false;
+  const ctx = sharedCtx;
+  return Boolean(ctx && ctx.state === "running");
+}
+
+/**
+ * Suscribe al estado running/suspended del audio KDS.
+ * Devuelve unsubscribe. Emite el estado actual de inmediato.
+ */
+export function subscribeKdsAlertAudioState(
+  listener: (running: boolean) => void,
+): () => void {
+  stateListeners.add(listener);
+  // Ensure context exists so we can observe statechange after unlock.
+  getAudioContext();
+  listener(isKdsAlertAudioRunning());
+  return () => {
+    stateListeners.delete(listener);
+  };
 }
 
 /** Desbloquea audio tras un gesto del usuario (políticas del navegador). */
@@ -23,7 +59,28 @@ export function unlockKdsAlertAudio(): void {
   const ctx = getAudioContext();
   if (!ctx) return;
   if (ctx.state === "suspended") {
-    void ctx.resume().catch(() => {});
+    void ctx.resume().then(() => notifyAudioStateListeners()).catch(() => {});
+  } else {
+    notifyAudioStateListeners();
+  }
+}
+
+/**
+ * Desbloquea audio y reproduce un beep de prueba (gesto de usuario en top bar).
+ */
+export async function unlockAndTestKdsAlertAudio(): Promise<boolean> {
+  const ctx = getAudioContext();
+  if (!ctx) return false;
+  try {
+    if (ctx.state === "suspended") {
+      await ctx.resume();
+    }
+    notifyAudioStateListeners();
+    playKdsAlertSound();
+    return ctx.state === "running";
+  } catch {
+    notifyAudioStateListeners();
+    return false;
   }
 }
 
@@ -82,9 +139,13 @@ export function playKdsAlertSound(): void {
         gain: 0.3,
         type: "triangle",
       });
+      notifyAudioStateListeners();
     };
     if (ctx.state === "suspended") {
-      void ctx.resume().then(run).catch(() => {});
+      void ctx
+        .resume()
+        .then(run)
+        .catch(() => notifyAudioStateListeners());
     } else {
       run();
     }

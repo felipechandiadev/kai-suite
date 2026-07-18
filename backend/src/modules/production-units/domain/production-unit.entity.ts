@@ -13,6 +13,7 @@ import { Branch } from '@modules/branches/domain/branch.entity';
 import { Storage } from '@modules/storages/domain/storage.entity';
 import {
   ProductionUnitInventoryMode,
+  ProductionUnitPurpose,
   ProductionUnitScope,
 } from './production-unit.enums';
 
@@ -47,6 +48,14 @@ export class ProductionUnit {
     default: ProductionUnitInventoryMode.DEPENDENT,
   })
   inventoryMode!: ProductionUnitInventoryMode;
+
+  /** Cocina (KDS / PREPARADO) vs lotes (órdenes de producción). */
+  @Column({
+    type: 'varchar',
+    length: 16,
+    default: ProductionUnitPurpose.KITCHEN,
+  })
+  purpose!: ProductionUnitPurpose;
 
   @Column({ type: 'varchar', length: 50 })
   code!: string;

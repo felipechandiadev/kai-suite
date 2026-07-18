@@ -56,6 +56,12 @@ const ALL_CATALOG_PRODUCT_TYPE_SELECT_OPTIONS: { id: CatalogProductType; label: 
   { id: "DIGITAL", label: "Digital" },
 ];
 
+/** Etiqueta legible del tipo de producto (API / cabeceras). */
+export function catalogProductTypeLabel(raw: string | null | undefined): string {
+  const id = normalizeCatalogProductType(raw);
+  return ALL_CATALOG_PRODUCT_TYPE_SELECT_OPTIONS.find((o) => o.id === id)?.label ?? id;
+}
+
 /** Opciones del selector de tipo de producto (crear / editar). */
 export function getCatalogProductTypeSelectOptions(): { id: CatalogProductType; label: string }[] {
   if (isKaiFoodEnabled()) {

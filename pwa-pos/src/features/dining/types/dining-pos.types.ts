@@ -31,6 +31,8 @@ export type PosDiningOrderLine = {
   quantity: number;
   notes?: string | null;
   kitchenStatus: KitchenItemStatus;
+  kitchenFireId?: string | null;
+  kitchenFireNumber?: number | null;
 };
 
 export type PosDiningOrderSummary = {

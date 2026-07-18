@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "@kai/ui";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Badge, Button, IconButton } from "@kai/ui";
 import type { DiningOrderLineDto } from "../infrastructure/dining-kds.request";
+import { normalizeKitchenQueueLine } from "../infrastructure/dining-kds.request";
 import {
   getKitchenQueueAction,
+  markKitchenFireReadyAction,
   markKitchenItemReadyAction,
 } from "../actions/kds.action";
 import { useDiningRealtime } from "../realtime/useDiningRealtime";
@@ -18,6 +20,17 @@ import {
   playKdsAlertSound,
   unlockKdsAlertAudio,
 } from "../lib/play-kds-alert-sound";
+import {
+  effectiveKitchenFireId,
+  groupKitchenQueueByFire,
+  type KdsPedidoGroup,
+} from "../lib/group-kitchen-queue-by-fire";
+import {
+  groupPedidoLinesByItem,
+  kdsItemGroupTestId,
+  type KdsItemGroup,
+} from "../lib/group-pedido-lines-by-item";
+import { useKdsQueueRefresh } from "../station/kds-queue-refresh-context";
 import type { KdsSession } from "@/lib/app-session";
 
 type KdsQueuePanelProps = {
@@ -28,28 +41,29 @@ type KdsQueuePanelProps = {
 function snapshotLineToDto(
   line: DiningKitchenSnapshotLinePayload,
 ): DiningOrderLineDto {
-  return {
-    id: line.id,
-    diningOrderId: line.diningOrderId,
-    productVariantId: line.productVariantId,
-    quantity: line.quantity,
-    notes: line.notes ?? null,
-    productionUnitId: line.productionUnitId ?? null,
-    kitchenStatus: line.kitchenStatus,
-    sentToKitchenAt: line.sentToKitchenAt ?? null,
-    productVariant: line.productVariant
-      ? { name: line.productVariant.name }
-      : undefined,
-    diningOrder: {
-      id: line.diningOrderId,
-      displayLabel: line.displayLabel ?? "Cuenta",
-      kind: "",
-      status: "",
-      diningTable: line.diningTableCode
-        ? { code: line.diningTableCode }
-        : undefined,
-    },
-  };
+  return normalizeKitchenQueueLine(line);
+}
+
+function formatLineTitle(line: DiningOrderLineDto): string {
+  const name = line.productVariant?.name?.trim() || line.productVariantId;
+  const attrs = (line.productVariant?.attributes ?? [])
+    .map((a) => a.attributeValue.trim())
+    .filter(Boolean);
+  return [name, ...attrs].join(" · ");
+}
+
+/** Hora 24h HH:mm (es-CL). */
+function formatSentAt24h(iso: string | null): string {
+  if (!iso) return "";
+  try {
+    return new Intl.DateTimeFormat("es-CL", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).format(new Date(iso));
+  } catch {
+    return "";
+  }
 }
 
 export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps) {
@@ -57,8 +71,10 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [markingId, setMarkingId] = useState<string | null>(null);
+  const [markingFireId, setMarkingFireId] = useState<string | null>(null);
+  const { setQueueRefreshApi } = useKdsQueueRefresh();
 
-  const knownIdsRef = useRef<Set<string>>(new Set());
+  const knownFireIdsRef = useRef<Set<string>>(new Set());
   /** First queue apply after unit change must not alert. */
   const skipSoundRef = useRef(true);
 
@@ -67,17 +83,19 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
     companyId: session.companyId,
   };
 
+  const pedidos = useMemo(() => groupKitchenQueueByFire(lines), [lines]);
+
   const applyQueue = useCallback((next: DiningOrderLineDto[]) => {
-    const nextIds = new Set(next.map((l) => l.id));
+    const nextFireIds = new Set(next.map((l) => effectiveKitchenFireId(l)));
     if (!skipSoundRef.current) {
-      for (const id of nextIds) {
-        if (!knownIdsRef.current.has(id)) {
+      for (const fireId of nextFireIds) {
+        if (!knownFireIdsRef.current.has(fireId)) {
           playKdsAlertSound();
           break;
         }
       }
     }
-    knownIdsRef.current = nextIds;
+    knownFireIdsRef.current = nextFireIds;
     skipSoundRef.current = false;
     setLines(next);
   }, []);
@@ -85,7 +103,7 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
   const refresh = useCallback(async () => {
     if (!productionUnitId) {
       setLines([]);
-      knownIdsRef.current = new Set();
+      knownFireIdsRef.current = new Set();
       return;
     }
     setLoading(true);
@@ -103,9 +121,65 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
     }
   }, [productionUnitId, session.userId, session.companyId, applyQueue]);
 
+  const refreshFromToolbar = useCallback(async () => {
+    skipSoundRef.current = true;
+    await refresh();
+  }, [refresh]);
+
+  const handleSnapshot = useCallback(
+    (payload: DiningKitchenSnapshotPayload) => {
+      if (!productionUnitId || payload.unitId !== productionUnitId) return;
+      applyQueue(payload.queue.map(snapshotLineToDto));
+    },
+    [productionUnitId, applyQueue],
+  );
+
+  const handleItemUpdated = useCallback(
+    (payload: DiningKitchenItemUpdatedPayload) => {
+      if (!productionUnitId || payload.unitId !== productionUnitId) return;
+      if (!KDS_QUEUE_STATUSES.has(payload.kitchenStatus)) {
+        setLines((prev) => {
+          const next = prev.filter((l) => l.id !== payload.lineId);
+          knownFireIdsRef.current = new Set(
+            next.map((l) => effectiveKitchenFireId(l)),
+          );
+          return next;
+        });
+      }
+    },
+    [productionUnitId],
+  );
+
+  const { connected } = useDiningRealtime({
+    userId: session.userId,
+    activeCompanyId: session.companyId,
+    productionUnitId,
+    onKitchenSnapshot: handleSnapshot,
+    onKitchenItemUpdated: handleItemUpdated,
+  });
+
+  useEffect(() => {
+    if (!productionUnitId) {
+      setQueueRefreshApi(null);
+      return () => setQueueRefreshApi(null);
+    }
+    setQueueRefreshApi({
+      refresh: refreshFromToolbar,
+      loading,
+      connected,
+    });
+    return () => setQueueRefreshApi(null);
+  }, [
+    productionUnitId,
+    refreshFromToolbar,
+    loading,
+    connected,
+    setQueueRefreshApi,
+  ]);
+
   useEffect(() => {
     skipSoundRef.current = true;
-    knownIdsRef.current = new Set();
+    knownFireIdsRef.current = new Set();
     setLines([]);
     if (!productionUnitId) return;
     void refresh();
@@ -123,50 +197,30 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
     };
   }, []);
 
-  const handleSnapshot = useCallback(
-    (payload: DiningKitchenSnapshotPayload) => {
-      if (!productionUnitId || payload.unitId !== productionUnitId) return;
-      applyQueue(payload.queue.map(snapshotLineToDto));
-    },
-    [productionUnitId, applyQueue],
-  );
-
-  const handleItemUpdated = useCallback(
-    (payload: DiningKitchenItemUpdatedPayload) => {
-      if (!productionUnitId || payload.unitId !== productionUnitId) return;
-      if (!KDS_QUEUE_STATUSES.has(payload.kitchenStatus)) {
-        setLines((prev) => {
-          const next = prev.filter((l) => l.id !== payload.lineId);
-          knownIdsRef.current = new Set(next.map((l) => l.id));
-          return next;
+  const handleMarkItemReady = async (group: KdsItemGroup) => {
+    unlockKdsAlertAudio();
+    setMarkingId(group.key);
+    setError(null);
+    const lineIds = new Set(group.lines.map((l) => l.id));
+    const orderId = group.lines[0]?.diningOrderId;
+    if (!orderId || lineIds.size === 0) {
+      setMarkingId(null);
+      return;
+    }
+    try {
+      for (const line of group.lines) {
+        await markKitchenItemReadyAction({
+          ...auth,
+          orderId: line.diningOrderId,
+          lineId: line.id,
         });
       }
-    },
-    [productionUnitId],
-  );
-
-  const { connected } = useDiningRealtime({
-    userId: session.userId,
-    activeCompanyId: session.companyId,
-    productionUnitId,
-    onKitchenSnapshot: handleSnapshot,
-    onKitchenItemUpdated: handleItemUpdated,
-  });
-
-  const handleMarkReady = async (line: DiningOrderLineDto) => {
-    unlockKdsAlertAudio();
-    setMarkingId(line.id);
-    setError(null);
-    setLines((prev) => {
-      const next = prev.filter((l) => l.id !== line.id);
-      knownIdsRef.current = new Set(next.map((l) => l.id));
-      return next;
-    });
-    try {
-      await markKitchenItemReadyAction({
-        ...auth,
-        orderId: line.diningOrderId,
-        lineId: line.id,
+      setLines((prev) => {
+        const next = prev.filter((l) => !lineIds.has(l.id));
+        knownFireIdsRef.current = new Set(
+          next.map((l) => effectiveKitchenFireId(l)),
+        );
+        return next;
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo marcar listo");
@@ -174,6 +228,37 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
       await refresh();
     } finally {
       setMarkingId(null);
+    }
+  };
+
+  const handleMarkPedidoReady = async (pedido: KdsPedidoGroup) => {
+    if (!productionUnitId) return;
+    unlockKdsAlertAudio();
+    setMarkingFireId(pedido.fireId);
+    setError(null);
+    const lineIds = new Set(pedido.lines.map((l) => l.id));
+    setLines((prev) => {
+      const next = prev.filter((l) => !lineIds.has(l.id));
+      knownFireIdsRef.current = new Set(
+        next.map((l) => effectiveKitchenFireId(l)),
+      );
+      return next;
+    });
+    try {
+      await markKitchenFireReadyAction({
+        ...auth,
+        orderId: pedido.diningOrderId,
+        fireId: pedido.fireId,
+        productionUnitId,
+      });
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "No se pudo marcar el pedido listo",
+      );
+      skipSoundRef.current = true;
+      await refresh();
+    } finally {
+      setMarkingFireId(null);
     }
   };
 
@@ -187,79 +272,121 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
 
   return (
     <div data-test-id="kds-queue-panel">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <h2 className="text-base font-semibold">Cola de cocina</h2>
-          <span
-            className={
-              connected
-                ? "rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-600"
-                : "rounded bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground"
-            }
-            data-test-id="kds-ws-status"
-          >
-            {connected ? "En vivo" : "Sin conexión"}
-          </span>
-        </div>
-        <Button
-          type="button"
-          variant="outlined"
-          size="sm"
-          onClick={() => {
-            skipSoundRef.current = true;
-            void refresh();
-          }}
-          loading={loading}
-        >
-          Actualizar
-        </Button>
-      </div>
-
       {error ? <p className="mb-3 text-sm text-red-500">{error}</p> : null}
 
-      {lines.length === 0 && !loading ? (
+      {pedidos.length === 0 && !loading ? (
         <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          Cola vacía — sin ítems pendientes.
+          Cola vacía — sin pedidos pendientes.
         </p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {lines.map((line) => {
-            const order = line.diningOrder;
-            const tableCode = order?.diningTable?.code;
+          {pedidos.map((pedido) => {
+            const timeLabel = formatSentAt24h(pedido.sentToKitchenAt);
+            const busyFire = markingFireId === pedido.fireId;
+            const pedidoLabel =
+              pedido.kitchenFireNumber != null
+                ? `Pedido #${pedido.kitchenFireNumber}`
+                : "Pedido";
             return (
               <article
-                key={line.id}
+                key={pedido.fireId}
                 className="flex flex-col rounded-lg border-2 border-warning/40 bg-surface p-4 shadow-sm"
-                data-test-id={`kds-card-${line.id}`}
+                data-test-id={`kds-pedido-${pedido.fireId}`}
               >
-                <div className="mb-2 flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-bold text-foreground">
-                      {order?.displayLabel ?? "Cuenta"}
-                    </p>
-                    {tableCode ? (
-                      <p className="text-xs text-muted-foreground">Mesa {tableCode}</p>
+                <div className="mb-3 min-w-0">
+                  <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                    <Badge
+                      variant="warning-outlined"
+                      className="text-[10px] tabular-nums"
+                      data-test-id={`kds-pedido-badge-${pedido.fireId}`}
+                    >
+                      {pedidoLabel}
+                      {timeLabel ? (
+                        <span className="ml-1.5 font-medium opacity-90">
+                          {timeLabel}
+                        </span>
+                      ) : null}
+                    </Badge>
+                  </div>
+                  <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                    <span
+                      className="truncate text-[11px] text-muted-foreground"
+                      data-test-id={`kds-pedido-account-${pedido.fireId}`}
+                    >
+                      {pedido.displayLabel}
+                    </span>
+                    {pedido.tableCode ? (
+                      <span
+                        className="truncate text-[11px] text-muted-foreground"
+                        data-test-id={`kds-pedido-table-${pedido.fireId}`}
+                      >
+                        Mesa {pedido.tableCode}
+                      </span>
                     ) : null}
                   </div>
-                  <span className="rounded bg-warning/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-warning">
-                    {line.kitchenStatus}
-                  </span>
                 </div>
-                <p className="mb-1 text-lg font-semibold">
-                  {line.productVariant?.name ?? line.productVariantId}
-                </p>
-                <p className="mb-3 text-sm text-muted-foreground">
-                  Cant: {line.quantity}
-                  {line.notes ? ` · ${line.notes}` : ""}
-                </p>
+
+                <ul className="mb-3 flex flex-1 flex-col gap-2">
+                  {groupPedidoLinesByItem(pedido.lines).map((item) => {
+                    const first = item.lines[0]!;
+                    const testKey = kdsItemGroupTestId(item.key);
+                    const pressed = markingId === item.key;
+                    return (
+                      <li
+                        key={item.key}
+                        className="rounded-md border border-border/80 bg-muted/20 px-2.5 py-2"
+                        data-test-id={`kds-item-group-${testKey}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold leading-snug">
+                              {formatLineTitle(first)}
+                            </p>
+                            <p className="text-xs text-foreground/80">
+                              Cant: {item.quantityTotal}
+                              {item.notes ? (
+                                <span className="font-medium">
+                                  {" "}
+                                  · {item.notes}
+                                </span>
+                              ) : null}
+                            </p>
+                          </div>
+                          <IconButton
+                            icon="Check"
+                            variant="primaryCircle"
+                            size="md"
+                            className={
+                              pressed
+                                ? "shrink-0 !border-emerald-600 !bg-emerald-600 !text-white"
+                                : "shrink-0"
+                            }
+                            iconClassName={
+                              pressed ? "!text-white" : undefined
+                            }
+                            disabled={busyFire || (markingId != null && !pressed)}
+                            onClick={() => void handleMarkItemReady(item)}
+                            ariaLabel="Marcar listo"
+                            title="Listo"
+                            data-test-id={`kds-item-ready-${testKey}`}
+                            data-ready-pressed={pressed ? "true" : "false"}
+                          />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+
                 <Button
                   type="button"
                   variant="primary"
                   className="mt-auto w-full"
-                  loading={markingId === line.id}
-                  onClick={() => void handleMarkReady(line)}
+                  loading={busyFire}
+                  disabled={markingId != null}
+                  onClick={() => void handleMarkPedidoReady(pedido)}
+                  data-test-id={`kds-pedido-ready-${pedido.fireId}`}
                 >
-                  Marcar listo
+                  Marcar pedido listo
                 </Button>
               </article>
             );

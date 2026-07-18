@@ -15,6 +15,7 @@ import {
 import { ProductionUnit } from '../domain/production-unit.entity';
 import {
   ProductionUnitInventoryMode,
+  ProductionUnitPurpose,
   ProductionUnitScope,
 } from '../domain/production-unit.enums';
 import { nextProductionUnitCodeFromExisting } from './production-unit-code.util';
@@ -87,6 +88,13 @@ export class ProductionUnitsService {
       return ProductionUnitInventoryMode.AUTONOMOUS;
     }
     return ProductionUnitInventoryMode.DEPENDENT;
+  }
+
+  private normalizePurpose(raw?: string | null): ProductionUnitPurpose {
+    if (raw === ProductionUnitPurpose.BATCH) {
+      return ProductionUnitPurpose.BATCH;
+    }
+    return ProductionUnitPurpose.KITCHEN;
   }
 
   private assertScopeBranchConsistency(
@@ -323,6 +331,7 @@ export class ProductionUnitsService {
     includeInactive?: boolean;
     /** When true with branchId, also include COMPANY-scope units. Default true. */
     includeCompanyWide?: boolean;
+    purpose?: ProductionUnitPurpose | string;
   }): Promise<ProductionUnit[]> {
     const companyId = this.requireCompanyId();
     const qb = this.productionUnitRepository
@@ -348,6 +357,11 @@ export class ProductionUnitsService {
         qb.andWhere('pu.branchId = :branchId', { branchId: options.branchId });
       }
     }
+    if (options?.purpose) {
+      qb.andWhere('pu.purpose = :purpose', {
+        purpose: this.normalizePurpose(options.purpose),
+      });
+    }
     if (!options?.includeInactive) {
       qb.andWhere('pu.isActive = :isActive', { isActive: true });
     }
@@ -369,6 +383,7 @@ export class ProductionUnitsService {
     code?: string;
     name: string;
     inventoryMode?: ProductionUnitInventoryMode | string;
+    purpose?: ProductionUnitPurpose | string;
     defaultInputStorageId?: string | null;
     defaultOutputStorageId?: string | null;
     isActive?: boolean;
@@ -386,6 +401,7 @@ export class ProductionUnitsService {
     }
 
     const inventoryMode = this.normalizeInventoryMode(data.inventoryMode);
+    const purpose = this.normalizePurpose(data.purpose);
     await this.assertInventoryStorages({
       companyId,
       scope,
@@ -414,6 +430,7 @@ export class ProductionUnitsService {
       branchId,
       scope,
       inventoryMode,
+      purpose,
       code,
       name,
       defaultInputStorageId: data.defaultInputStorageId ?? null,
@@ -437,6 +454,7 @@ export class ProductionUnitsService {
       code: string;
       name: string;
       inventoryMode: ProductionUnitInventoryMode | string;
+      purpose: ProductionUnitPurpose | string;
       defaultInputStorageId: string | null;
       defaultOutputStorageId: string | null;
       isActive: boolean;
@@ -465,6 +483,10 @@ export class ProductionUnitsService {
       data.inventoryMode !== undefined
         ? this.normalizeInventoryMode(data.inventoryMode)
         : existing.inventoryMode;
+    const purpose =
+      data.purpose !== undefined
+        ? this.normalizePurpose(data.purpose)
+        : existing.purpose;
 
     const inputId =
       data.defaultInputStorageId !== undefined
@@ -512,6 +534,7 @@ export class ProductionUnitsService {
     existing.scope = scope;
     existing.branchId = branchId;
     existing.inventoryMode = inventoryMode;
+    existing.purpose = purpose;
     existing.defaultInputStorageId = inputId ?? null;
     existing.defaultOutputStorageId = outputId ?? null;
 

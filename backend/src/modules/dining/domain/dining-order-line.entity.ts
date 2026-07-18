@@ -17,6 +17,11 @@ import { KitchenItemStatus, LineSource } from './dining.enums';
 @Entity('dining_order_lines')
 @Index('idx_dining_order_lines_order_id', ['diningOrderId'])
 @Index('idx_dining_order_lines_kitchen_queue', ['productionUnitId', 'kitchenStatus'])
+@Index('idx_dining_order_lines_kitchen_fire', [
+  'productionUnitId',
+  'kitchenFireId',
+  'kitchenStatus',
+])
 export class DiningOrderLine {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -35,6 +40,14 @@ export class DiningOrderLine {
 
   @Column({ name: 'production_unit_id', type: 'uuid', nullable: true })
   productionUnitId?: string | null;
+
+  /** UUID de la tanda (fire) al enviar a cocina; null = legacy. */
+  @Column({ name: 'kitchen_fire_id', type: 'uuid', nullable: true })
+  kitchenFireId?: string | null;
+
+  /** Correlativo diario de pedido en la sucursal (mismo día operativo que cuentas). */
+  @Column({ name: 'kitchen_fire_number', type: 'int', nullable: true })
+  kitchenFireNumber?: number | null;
 
   @Column({
     name: 'kitchen_status',

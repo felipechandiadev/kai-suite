@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { randomUUID } from 'crypto';
 import { In, Repository } from 'typeorm';
 import { TenantContext } from '@common/tenant/tenant.context';
 import { Branch } from '@modules/branches/domain/branch.entity';
@@ -12,6 +13,7 @@ import { Product, ProductType } from '@modules/products/domain/product.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { ProductVariantsService } from '@modules/product-variants/application/product-variants.service';
 import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
+import { ProductionUnitPurpose } from '@modules/production-units/domain/production-unit.enums';
 import { ProductModeService } from '@shared/product-mode/product-mode.service';
 import { DiningRealtimePublisher } from '@modules/dining-realtime/dining-realtime.publisher';
 import type {
@@ -38,6 +40,7 @@ import {
   canRequestBill,
   reopenFromBilling,
   recomputeOrderStatusFromLines,
+  selectLinesForKitchenFireReady,
 } from './dining-order-status.util';
 import {
   buildDiningOrderProfileOnOpen,
@@ -47,6 +50,11 @@ import { DiningBackflushService } from './dining-backflush.service';
 import { DiningMaterialReservationService } from './dining-material-reservation.service';
 import { DiningOrderNumberService } from './dining-order-number.service';
 import { UpsertDiningTableDto } from './dto/upsert-dining-tables.dto';
+import { RecipeCtpService } from '@modules/recipes/application/recipe-ctp.service';
+import {
+  kitchenVariantLabel,
+  variantAttributesForKitchen,
+} from './dining-kitchen-line.util';
 
 const ACTIVE_ORDER_STATUSES: DiningOrderStatus[] = [
   DiningOrderStatus.OPEN,
@@ -84,6 +92,7 @@ export class DiningService {
     private readonly diningBackflushService: DiningBackflushService,
     private readonly diningMaterialReservation: DiningMaterialReservationService,
     private readonly diningOrderNumberService: DiningOrderNumberService,
+    private readonly recipeCtpService: RecipeCtpService,
   ) {}
 
   private requireCompanyId(): string {
@@ -197,6 +206,11 @@ export class DiningService {
         'La unidad de producción asignada a la variante no es válida o está inactiva.',
       );
     }
+    if (unit.purpose !== ProductionUnitPurpose.KITCHEN) {
+      throw new BadRequestException(
+        'La unidad de producción asignada no es de tipo cocina (comanda / KDS).',
+      );
+    }
     return unit.id;
   }
 
@@ -230,6 +244,8 @@ export class DiningService {
         notes: line.notes ?? null,
         kitchenStatus: line.kitchenStatus,
         productionUnitId: line.productionUnitId ?? null,
+        kitchenFireId: line.kitchenFireId ?? null,
+        kitchenFireNumber: line.kitchenFireNumber ?? null,
       })),
     };
   }
@@ -247,16 +263,16 @@ export class DiningService {
       orderId: order.id,
       lineId: line.id,
       kitchenStatus: line.kitchenStatus,
+      kitchenFireId: line.kitchenFireId ?? null,
+      kitchenFireNumber: line.kitchenFireNumber ?? null,
       displayLabel: order.displayLabel,
       diningTableId: order.diningTableId ?? null,
     };
   }
 
   private toSnapshotLine(line: DiningOrderLine): DiningKitchenSnapshotLinePayload {
-    const variantLabel =
-      line.productVariant?.product?.name?.trim() ||
-      line.productVariant?.sku?.trim() ||
-      null;
+    const variantLabel = kitchenVariantLabel(line.productVariant);
+    const attributes = variantAttributesForKitchen(line.productVariant);
     return {
       id: line.id,
       diningOrderId: line.diningOrderId,
@@ -265,6 +281,8 @@ export class DiningService {
       notes: line.notes ?? null,
       kitchenStatus: line.kitchenStatus,
       productionUnitId: line.productionUnitId ?? null,
+      kitchenFireId: line.kitchenFireId ?? null,
+      kitchenFireNumber: line.kitchenFireNumber ?? null,
       sentToKitchenAt: line.sentToKitchenAt?.toISOString() ?? null,
       displayLabel: line.diningOrder?.displayLabel,
       diningTableId: line.diningOrder?.diningTableId ?? null,
@@ -273,6 +291,7 @@ export class DiningService {
         ? {
             id: line.productVariant?.id ?? line.productVariantId,
             name: variantLabel,
+            attributes,
           }
         : null,
     };
@@ -309,10 +328,46 @@ export class DiningService {
         this.diningRealtimePublisher.emitKitchenSnapshot({
           companyId,
           unitId,
-          queue: queue.map((line) => this.toSnapshotLine(line)),
+          queue,
         });
       }),
     );
+  }
+
+  private async assertCtpHardBlockAllowsFire(
+    companyId: string,
+    branchId: string,
+    draftLines: DiningOrderLine[],
+  ): Promise<void> {
+    const qtyByVariant = new Map<string, number>();
+    for (const line of draftLines) {
+      const qty = Number(line.quantity) || 0;
+      if (qty <= 0) continue;
+      qtyByVariant.set(
+        line.productVariantId,
+        (qtyByVariant.get(line.productVariantId) ?? 0) + qty,
+      );
+    }
+    if (qtyByVariant.size === 0) return;
+
+    const results = await this.recipeCtpService.computeForVariants(
+      companyId,
+      [...qtyByVariant.keys()].map((variantId) => ({ variantId })),
+      branchId,
+    );
+    const capByVariant = new Map(
+      results.map((r) => [r.variantId, r.producibleQty] as const),
+    );
+
+    for (const [variantId, requestedQty] of qtyByVariant) {
+      const cap = capByVariant.get(variantId);
+      if (cap == null) continue;
+      if (cap < requestedQty) {
+        throw new BadRequestException(
+          `CTP Hard Block: capacidad insuficiente para enviar a cocina (variante ${variantId}: Cap. ${cap}, pedido ${requestedQty}).`,
+        );
+      }
+    }
   }
 
   private async assertNoActiveTableOrder(
@@ -796,10 +851,19 @@ export class DiningService {
       );
     }
 
+    await this.assertCtpHardBlockAllowsFire(companyId, order.branchId, draftLines);
+
+    const allocated = await this.diningOrderNumberService.allocateNextKitchenFire(
+      order.branchId,
+      companyId,
+    );
     const now = new Date();
+    const kitchenFireId = randomUUID();
     for (const line of draftLines) {
       line.kitchenStatus = KitchenItemStatus.SENT;
       line.sentToKitchenAt = now;
+      line.kitchenFireId = kitchenFireId;
+      line.kitchenFireNumber = allocated.sequenceNumber;
     }
     await this.diningOrderLineRepository.save(draftLines);
 
@@ -867,6 +931,51 @@ export class DiningService {
     return updated;
   }
 
+  async markKitchenFireReady(
+    orderId: string,
+    fireId: string,
+    productionUnitId: string,
+  ): Promise<DiningOrder> {
+    const companyId = this.requireCompanyId();
+    const unitId = productionUnitId?.trim();
+    if (!unitId) {
+      throw new BadRequestException('productionUnitId es obligatorio.');
+    }
+    const order = await this.getOrderOrThrow(orderId, companyId);
+    const targets = selectLinesForKitchenFireReady(
+      order.lines ?? [],
+      fireId,
+      unitId,
+    );
+    if (targets.length === 0) {
+      throw new BadRequestException(
+        'No hay ítems de este pedido pendientes de listo en la unidad de producción.',
+      );
+    }
+
+    const now = new Date();
+    for (const line of targets) {
+      line.kitchenStatus = KitchenItemStatus.READY;
+      line.readyAt = now;
+    }
+    await this.diningOrderLineRepository.save(targets);
+
+    order.status = recomputeOrderStatusFromLines(
+      order.status,
+      order.lines ?? [],
+    );
+    await this.diningOrderRepository.save(order);
+    const updated = await this.getOrderOrThrow(orderId, companyId);
+    this.publishSessionUpdated(updated);
+    for (const line of targets) {
+      const refreshed =
+        (updated.lines ?? []).find((l) => l.id === line.id) ?? line;
+      this.publishKitchenItemUpdated(updated, refreshed);
+    }
+    await this.publishKitchenSnapshotsForUnitIds(companyId, [unitId]);
+    return updated;
+  }
+
   async markItemServed(
     orderId: string,
     lineId: string,
@@ -901,6 +1010,43 @@ export class DiningService {
 
     order.status = DiningOrderStatus.BILLING;
     await this.diningOrderRepository.save(order);
+    const updated = await this.getOrderOrThrow(orderId, companyId);
+    this.publishSessionUpdated(updated);
+    return updated;
+  }
+
+  async updateOrderLineNotes(
+    orderId: string,
+    lineId: string,
+    data: { notes?: string | null },
+  ): Promise<DiningOrder> {
+    const companyId = this.requireCompanyId();
+    const order = await this.getOrderOrThrow(orderId, companyId);
+
+    if (order.status === DiningOrderStatus.CLOSED) {
+      throw new BadRequestException('La cuenta está cerrada.');
+    }
+    if (!canAddItems(order.status)) {
+      throw new BadRequestException(
+        `No se pueden editar notas en estado ${order.status}.`,
+      );
+    }
+
+    const line = (order.lines ?? []).find((l) => l.id === lineId);
+    if (!line) {
+      throw new NotFoundException('Línea de comanda no encontrada.');
+    }
+    if (line.kitchenStatus !== KitchenItemStatus.DRAFT) {
+      throw new BadRequestException(
+        'Solo se pueden editar notas de ítems en borrador.',
+      );
+    }
+
+    const raw = data.notes;
+    line.notes =
+      raw == null ? null : String(raw).trim() ? String(raw).trim() : null;
+    await this.diningOrderLineRepository.save(line);
+
     const updated = await this.getOrderOrThrow(orderId, companyId);
     this.publishSessionUpdated(updated);
     return updated;
@@ -1087,7 +1233,9 @@ export class DiningService {
     return this.getOrderOrThrow(orderId, companyId);
   }
 
-  async getKitchenQueue(productionUnitId: string): Promise<DiningOrderLine[]> {
+  async getKitchenQueue(
+    productionUnitId: string,
+  ): Promise<DiningKitchenSnapshotLinePayload[]> {
     const companyId = this.requireCompanyId();
 
     const unit = await this.productionUnitRepository.findOne({
@@ -1097,7 +1245,7 @@ export class DiningService {
       throw new NotFoundException('Unidad de producción no encontrada.');
     }
 
-    return this.diningOrderLineRepository
+    const lines = await this.diningOrderLineRepository
       .createQueryBuilder('line')
       .leftJoinAndSelect('line.diningOrder', 'order')
       .leftJoinAndSelect('order.diningTable', 'diningTable')
@@ -1113,5 +1261,7 @@ export class DiningService {
       })
       .orderBy('line.sentToKitchenAt', 'ASC', 'NULLS LAST')
       .getMany();
+
+    return lines.map((line) => this.toSnapshotLine(line));
   }
 }

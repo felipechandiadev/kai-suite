@@ -205,16 +205,24 @@ export class DiningMaterialReservationService {
       );
 
       const lineRepo = manager.getRepository(TransactionLine);
+      let lineNumber = 1;
       for (const m of materials) {
         await lineRepo.save(
           lineRepo.create({
+            companyId: order.companyId,
             transactionId: savedTx.id,
             productId: m.productId,
             productVariantId: m.inputVariantId,
             productName: m.productName,
             variantName: m.sku ?? undefined,
+            lineNumber: lineNumber++,
             quantity: m.qty,
             unitPrice: 0,
+            discountPercentage: 0,
+            discountAmount: 0,
+            taxRate: 0,
+            taxAmount: 0,
+            subtotal: 0,
             total: 0,
             notes: 'Dining material reserve',
           }),

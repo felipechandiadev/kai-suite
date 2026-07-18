@@ -158,6 +158,36 @@ export function canMarkReady(kitchenStatus: KitchenItemStatus): boolean {
   );
 }
 
+/** Fire efectivo: kitchenFireId o, en legacy, el id de la línea. */
+export function effectiveKitchenFireId(line: {
+  id: string;
+  kitchenFireId?: string | null;
+}): string {
+  return line.kitchenFireId?.trim() || line.id;
+}
+
+/**
+ * Líneas de un pedido (tanda) en una UP que pueden marcarse listo.
+ * `fireId` puede ser kitchenFireId o line.id (legacy).
+ */
+export function selectLinesForKitchenFireReady<
+  T extends {
+    id: string;
+    kitchenFireId?: string | null;
+    productionUnitId?: string | null;
+    kitchenStatus: KitchenItemStatus;
+  },
+>(lines: T[], fireId: string, productionUnitId: string): T[] {
+  const target = fireId.trim();
+  const unitId = productionUnitId.trim();
+  if (!target || !unitId) return [];
+  return lines.filter((line) => {
+    if (line.productionUnitId !== unitId) return false;
+    if (effectiveKitchenFireId(line) !== target) return false;
+    return canMarkReady(line.kitchenStatus);
+  });
+}
+
 export function canMarkServed(kitchenStatus: KitchenItemStatus): boolean {
   return kitchenStatus === KitchenItemStatus.READY;
 }

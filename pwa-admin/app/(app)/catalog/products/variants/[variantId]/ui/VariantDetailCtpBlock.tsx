@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { Badge, Select, type Option } from "@kai/ui";
 import { getRecipeCtpDetailAction } from "@/features/recipes/actions/recipe.action";
 import { listBranchesForSettingsPage } from "@/features/settings-branches/actions/branch.action";
@@ -179,14 +178,9 @@ export function VariantDetailCtpBlock({ variantId, refreshKey = 0 }: Props) {
           ) : reason ? (
             <p className="text-sm text-muted-foreground" data-test-id="pv-detail-ctp-reason">
               {reason}
-              {detail.reason === "NO_ROUTING" ? (
-                <>
-                  {" "}
-                  <Link href="#produccion" className="text-primary underline-offset-2 hover:underline">
-                    Ir a Producción
-                  </Link>
-                </>
-              ) : null}
+              {detail.reason === "NO_ROUTING"
+                ? " Asigne una unidad de producción en esta sección."
+                : null}
             </p>
           ) : null}
 

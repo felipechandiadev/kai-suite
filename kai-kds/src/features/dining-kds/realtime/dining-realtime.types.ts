@@ -4,6 +4,8 @@ export type DiningKitchenItemUpdatedPayload = {
   orderId: string;
   lineId: string;
   kitchenStatus: string;
+  kitchenFireId?: string | null;
+  kitchenFireNumber?: number | null;
   displayLabel?: string;
   diningTableId?: string | null;
 };
@@ -16,11 +18,17 @@ export type DiningKitchenSnapshotLinePayload = {
   notes?: string | null;
   kitchenStatus: string;
   productionUnitId?: string | null;
+  kitchenFireId?: string | null;
+  kitchenFireNumber?: number | null;
   sentToKitchenAt?: string | null;
   displayLabel?: string;
   diningTableId?: string | null;
   diningTableCode?: string | null;
-  productVariant?: { id: string; name: string } | null;
+  productVariant?: {
+    id: string;
+    name: string;
+    attributes?: Array<{ attributeValue: string }>;
+  } | null;
 };
 
 export type DiningKitchenSnapshotPayload = {

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { Server } from 'socket.io';
 import {
+  branchDiningRoom,
   kitchenUnitRoom,
   salonRoom,
   type DiningKitchenItemUpdatedPayload,
@@ -24,15 +25,21 @@ export class DiningRealtimePublisher {
       );
       return;
     }
-    if (!payload.salonId) {
-      return;
-    }
-    const room = salonRoom({
+
+    const branchRoom = branchDiningRoom({
       companyId: payload.companyId,
       branchId: payload.branchId,
-      salonId: payload.salonId,
     });
-    this.server.to(room).emit('dining.session.updated', payload);
+    this.server.to(branchRoom).emit('dining.session.updated', payload);
+
+    if (payload.salonId) {
+      const room = salonRoom({
+        companyId: payload.companyId,
+        branchId: payload.branchId,
+        salonId: payload.salonId,
+      });
+      this.server.to(room).emit('dining.session.updated', payload);
+    }
   }
 
   emitKitchenItemUpdated(payload: DiningKitchenItemUpdatedPayload) {

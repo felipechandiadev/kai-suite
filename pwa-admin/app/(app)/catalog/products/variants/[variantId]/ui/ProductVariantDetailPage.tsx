@@ -10,6 +10,7 @@ import {
   catalogProductTypeAllowsRecipeBom,
   catalogProductTypeIsFinishedGood,
   catalogProductTypeIsSellable,
+  catalogProductTypeLabel,
   normalizeCatalogProductType,
 } from "../../../ui/catalog-product-type-options";
 import {
@@ -168,6 +169,9 @@ export default function ProductVariantDetailPage({ product, variant: initialVari
             Código de barras: {variant.barcode.trim()}
           </p>
         ) : null}
+        <p className="mt-1 text-xs text-muted-foreground" data-test-id="product-variant-detail-product-type">
+          Tipo de producto: {catalogProductTypeLabel(product.productType)}
+        </p>
       </header>
 
       <VariantDetailSectionNav tabs={visibleTabs} activeId={activeSection} onSelect={selectSection} />

@@ -27,14 +27,21 @@ import {
   requestPosDiningBillAction,
   cancelPosDiningOrderItemAction,
   sendPosDiningOrderToKitchenAction,
+  updatePosDiningOrderLineNotesAction,
 } from "@/features/dining/actions/dining-pos.action";
 import { diningAccountTitle } from "@/features/dining/lib/dining-account-title";
 import { diningOrderLinesToCart } from "@/features/dining/lib/dining-order-lines-to-cart";
+import { diningOrderAllKitchenReady } from "@/features/dining/lib/group-dining-order-lines";
 import {
   diningOrderStatusLabel,
 } from "@/features/dining/lib/dining-status-labels";
+import {
+  useDiningBranchRealtime,
+  type DiningSessionUpdatedPayload,
+} from "@/features/dining/lib/use-dining-branch-realtime";
 import type {
   DiningOrderKind,
+  PosDiningOrderLine,
   PosDiningOrderSummary,
   PosDiningRoomSummary,
 } from "@/features/dining/types/dining-pos.types";
@@ -83,6 +90,20 @@ function formatMoney(n: number) {
 
 function isActiveOrder(order: PosDiningOrderSummary) {
   return order.status !== "CLOSED" && order.status !== "FREE";
+}
+
+function sessionItemsToLines(
+  items: DiningSessionUpdatedPayload["items"],
+): PosDiningOrderLine[] {
+  return items.map((item) => ({
+    id: item.id,
+    productVariantId: item.productVariantId,
+    quantity: item.quantity,
+    notes: item.notes ?? null,
+    kitchenStatus: item.kitchenStatus,
+    kitchenFireId: item.kitchenFireId ?? null,
+    kitchenFireNumber: item.kitchenFireNumber ?? null,
+  }));
 }
 
 function kitchenProgressFromLines(lines: PosDiningOrderSummary["lines"]) {
@@ -209,6 +230,53 @@ export default function PosDiningAccountsPanel({
       return [order, ...rest];
     });
   }, []);
+
+  const applySessionUpdated = useCallback(
+    (payload: DiningSessionUpdatedPayload) => {
+      if (payload.branchId !== branchId.trim()) return;
+      if (payload.kind !== TAB_TO_KIND[tab]) return;
+
+      const lines = sessionItemsToLines(payload.items);
+      const closed =
+        payload.status === "CLOSED" || payload.status === "FREE";
+
+      setOrders((prev) => {
+        if (closed) {
+          return prev.filter((o) => o.id !== payload.orderId);
+        }
+        const idx = prev.findIndex((o) => o.id === payload.orderId);
+        if (idx < 0) return prev;
+        const existing = prev[idx]!;
+        const next: PosDiningOrderSummary = {
+          ...existing,
+          status: payload.status,
+          displayLabel: payload.displayLabel,
+          diningTableId: payload.diningTableId ?? existing.diningTableId,
+          lines,
+        };
+        const copy = [...prev];
+        copy[idx] = next;
+        return copy;
+      });
+
+      setDetail((prev) => {
+        if (!prev || prev.id !== payload.orderId) return prev;
+        if (closed) return null;
+        return {
+          ...prev,
+          status: payload.status,
+          displayLabel: payload.displayLabel,
+          diningTableId: payload.diningTableId ?? prev.diningTableId,
+          lines,
+        };
+      });
+    },
+    [branchId, tab],
+  );
+
+  useDiningBranchRealtime(branchId, applySessionUpdated, {
+    enabled: Boolean(branchId.trim()) && !disabled,
+  });
 
   const refreshList = useCallback((opts?: { silent?: boolean }) => {
     if (!branchId.trim()) return;
@@ -506,6 +574,39 @@ export default function PosDiningAccountsPanel({
     })();
   };
 
+  const handleUpdateNotes = (lineIds: string[], notes: string | null) => {
+    if (!detail || lineIds.length === 0) return;
+    const orderId = detail.id;
+    setActionBusy(true);
+    setActionError(null);
+    void (async () => {
+      let lastOrder = detail;
+      for (const lineId of lineIds) {
+        const res = await updatePosDiningOrderLineNotesAction(
+          orderId,
+          lineId,
+          notes,
+        );
+        if (!res.success) {
+          setActionBusy(false);
+          if (redirectToLoginIfUnauthorized(res)) return;
+          setActionError(res.message);
+          if (lastOrder) {
+            setDetail(lastOrder);
+            upsertOrderInList(lastOrder);
+          }
+          refreshList({ silent: true });
+          return;
+        }
+        lastOrder = res.order;
+      }
+      setActionBusy(false);
+      setDetail(lastOrder);
+      upsertOrderInList(lastOrder);
+      refreshList({ silent: true });
+    })();
+  };
+
   const handleCobrar = async () => {
     if (!detail) return;
     setActionBusy(true);
@@ -626,6 +727,7 @@ export default function PosDiningAccountsPanel({
     const activeLines = order.lines.filter((l) => l.kitchenStatus !== "CANCELLED");
     const progress = kitchenProgressFromLines(order.lines);
     const selected = order.id === urlOrderId;
+    const allReady = diningOrderAllKitchenReady(order.lines);
     const title = diningAccountTitle(order);
     const estimated = estimateOrderTotal(order);
     return (
@@ -636,32 +738,45 @@ export default function PosDiningAccountsPanel({
         onClick={() => setSelectedOrderId(order.id)}
         className={`block w-full rounded-xl border p-3 text-left shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
           selected
-            ? "border-primary/50 bg-primary/5"
-            : "border-border bg-surface hover:border-primary/40 hover:bg-primary/5"
+            ? allReady
+              ? "border-success/50 bg-success/15"
+              : "border-primary/50 bg-primary/5"
+            : allReady
+              ? "border-success/40 bg-success/10 hover:border-success/50 hover:bg-success/15"
+              : "border-border bg-surface hover:border-primary/40 hover:bg-primary/5"
         }`}
         data-test-id={`pos-dining-pick-${order.id}`}
+        data-all-ready={allReady ? "true" : "false"}
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-foreground">{title}</p>
             <p className="truncate text-[11px] text-muted-foreground">{order.displayLabel}</p>
           </div>
-          {progress.total > 0 ? (
+          {progress.inKitchen > 0 || progress.ready > 0 ? (
             <div className="flex max-w-[55%] shrink-0 flex-wrap justify-end gap-1">
-              <Badge
-                variant="primary-outlined"
-                className="text-[10px]"
-                data-test-id={`pos-dining-pick-badge-in-kitchen-${order.id}`}
-              >
-                En cocina {progress.inKitchen}/{progress.total}
-              </Badge>
-              <Badge
-                variant="primary-outlined"
-                className="text-[10px]"
-                data-test-id={`pos-dining-pick-badge-ready-${order.id}`}
-              >
-                Listos {progress.ready}/{progress.total}
-              </Badge>
+              {progress.inKitchen > 0 ? (
+                <span aria-label={`En cocina ${progress.inKitchen}`}>
+                  <Badge
+                    variant="primary-outlined"
+                    className="text-[10px]"
+                    data-test-id={`pos-dining-pick-badge-in-kitchen-${order.id}`}
+                  >
+                    {`En cocina ${progress.inKitchen}`}
+                  </Badge>
+                </span>
+              ) : null}
+              {progress.ready > 0 ? (
+                <span aria-label={`Listos ${progress.ready}`}>
+                  <Badge
+                    variant="success-outlined"
+                    className="text-[10px]"
+                    data-test-id={`pos-dining-pick-badge-ready-${order.id}`}
+                  >
+                    {`Listos ${progress.ready}`}
+                  </Badge>
+                </span>
+              ) : null}
             </div>
           ) : (
             <Badge variant="secondary-outlined" className="shrink-0 text-[10px]">
@@ -886,6 +1001,7 @@ export default function PosDiningAccountsPanel({
               busy={actionBusy}
               onSendLines={(lineIds) => handleSendToKitchen(lineIds)}
               onCancelLines={handleCancelLines}
+              onUpdateNotes={handleUpdateNotes}
             />
           </div>
         ) : null}
@@ -906,22 +1022,31 @@ export default function PosDiningAccountsPanel({
             </Button>
           ) : null}
           <div className="flex items-center gap-2">
-            {kitchenProgress.total > 0 ? (
+            {kitchenProgress.total > 0 &&
+            (kitchenProgress.inKitchen > 0 || kitchenProgress.ready > 0) ? (
               <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-                <Badge
-                  variant="primary-outlined"
-                  className="text-[10px]"
-                  data-test-id="pos-dining-badge-in-kitchen"
-                >
-                  En cocina {kitchenProgress.inKitchen}/{kitchenProgress.total}
-                </Badge>
-                <Badge
-                  variant="primary-outlined"
-                  className="text-[10px]"
-                  data-test-id="pos-dining-badge-ready"
-                >
-                  Listos {kitchenProgress.ready}/{kitchenProgress.total}
-                </Badge>
+                {kitchenProgress.inKitchen > 0 ? (
+                  <span aria-label={`En cocina ${kitchenProgress.inKitchen}`}>
+                    <Badge
+                      variant="primary-outlined"
+                      className="text-[10px]"
+                      data-test-id="pos-dining-badge-in-kitchen"
+                    >
+                      {`En cocina ${kitchenProgress.inKitchen}`}
+                    </Badge>
+                  </span>
+                ) : null}
+                {kitchenProgress.ready > 0 ? (
+                  <span aria-label={`Listos ${kitchenProgress.ready}`}>
+                    <Badge
+                      variant="success-outlined"
+                      className="text-[10px]"
+                      data-test-id="pos-dining-badge-ready"
+                    >
+                      {`Listos ${kitchenProgress.ready}`}
+                    </Badge>
+                  </span>
+                ) : null}
               </div>
             ) : (
               <div className="min-w-0 flex-1" />

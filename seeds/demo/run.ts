@@ -64,6 +64,7 @@ import { RecipeType } from '@modules/recipes/domain/recipe-type.enum';
 import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
 import {
   ProductionUnitInventoryMode,
+  ProductionUnitPurpose,
   ProductionUnitScope,
 } from '@modules/production-units/domain/production-unit.enums';
 import { ProductVariantProductionUnit } from '@modules/product-variants/domain/product-variant-production-unit.entity';
@@ -2479,6 +2480,10 @@ async function bootstrap() {
         unitDef.inventoryMode === 'AUTONOMOUS'
           ? ProductionUnitInventoryMode.AUTONOMOUS
           : ProductionUnitInventoryMode.DEPENDENT;
+      const purpose =
+        unitDef.purpose === 'BATCH'
+          ? ProductionUnitPurpose.BATCH
+          : ProductionUnitPurpose.KITCHEN;
 
       const branchId =
         scope === ProductionUnitScope.COMPANY
@@ -2526,6 +2531,7 @@ async function bootstrap() {
           branchId,
           scope,
           inventoryMode,
+          purpose,
           code: unitDef.code,
           name: unitDef.name,
           defaultInputStorageId: inputStorage.id,
@@ -2541,6 +2547,7 @@ async function bootstrap() {
         unit.branchId = branchId;
         unit.scope = scope;
         unit.inventoryMode = inventoryMode;
+        unit.purpose = purpose;
         unit.defaultInputStorageId = inputStorage.id;
         unit.defaultOutputStorageId = outputStorage.id;
         unit.isActive = true;

@@ -11,6 +11,7 @@ import {
   IsUUID,
   MaxLength,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 
@@ -91,7 +92,16 @@ export class AddOrderItemDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   notes?: string;
+}
+
+export class UpdateDiningOrderLineDto {
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(200)
+  notes?: string | null;
 }
 
 export class AddOrderItemsDto {
@@ -118,6 +128,7 @@ export class TransferCartLineDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   notes?: string;
 }
 
@@ -134,4 +145,10 @@ export class SendToKitchenDto {
   @ArrayMinSize(1)
   @IsUUID('4', { each: true })
   lineIds?: string[];
+}
+
+export class MarkKitchenFireReadyDto {
+  @IsNotEmpty()
+  @IsUUID()
+  productionUnitId!: string;
 }

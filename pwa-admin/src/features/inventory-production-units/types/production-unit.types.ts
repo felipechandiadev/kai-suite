@@ -1,11 +1,13 @@
 export type ProductionUnitScope = "BRANCH" | "COMPANY";
 export type ProductionUnitInventoryMode = "AUTONOMOUS" | "DEPENDENT";
+export type ProductionUnitPurpose = "KITCHEN" | "BATCH";
 
 export type ProductionUnitListItem = {
   id: string;
   branchId: string | null;
   scope: ProductionUnitScope;
   inventoryMode: ProductionUnitInventoryMode;
+  purpose: ProductionUnitPurpose;
   code: string;
   name: string;
   defaultInputStorageId: string | null;
@@ -20,6 +22,7 @@ export type CreateProductionUnitInput = {
   code?: string;
   name: string;
   inventoryMode?: ProductionUnitInventoryMode;
+  purpose?: ProductionUnitPurpose;
   defaultInputStorageId?: string | null;
   defaultOutputStorageId?: string | null;
   isActive?: boolean;
@@ -32,6 +35,7 @@ export type UpdateProductionUnitInput = {
   code?: string;
   name?: string;
   inventoryMode?: ProductionUnitInventoryMode;
+  purpose?: ProductionUnitPurpose;
   defaultInputStorageId?: string | null;
   defaultOutputStorageId?: string | null;
   isActive?: boolean;

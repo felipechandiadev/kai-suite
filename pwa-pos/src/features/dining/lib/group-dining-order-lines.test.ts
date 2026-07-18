@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   canCancelDiningLine,
   canSendDiningLineToKitchen,
+  diningLineGroupAllReady,
+  diningLineGroupKitchenFireNumbers,
+  diningOrderAllKitchenReady,
   groupDiningOrderLines,
 } from "./group-dining-order-lines";
 import type { PosDiningOrderLine } from "../types/dining-pos.types";
@@ -18,16 +21,15 @@ function line(
 }
 
 describe("groupDiningOrderLines", () => {
-  it("groups same variant+status+notes and sums qty", () => {
+  it("groups same variant+notes across kitchen statuses and sums qty", () => {
     const groups = groupDiningOrderLines([
       line({ id: "1", productVariantId: "v1", quantity: 1 }),
       line({ id: "2", productVariantId: "v1", quantity: 2 }),
       line({ id: "3", productVariantId: "v1", kitchenStatus: "SENT", quantity: 1 }),
     ]);
-    expect(groups).toHaveLength(2);
-    const draft = groups.find((g) => g.kitchenStatus === "DRAFT");
-    expect(draft?.quantityTotal).toBe(3);
-    expect(draft?.lines).toHaveLength(2);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.quantityTotal).toBe(4);
+    expect(groups[0]?.lines).toHaveLength(3);
   });
 
   it("keeps notes as separate groups", () => {
@@ -44,6 +46,69 @@ describe("groupDiningOrderLines", () => {
         line({ id: "1", productVariantId: "v1", kitchenStatus: "CANCELLED" }),
       ]),
     ).toHaveLength(0);
+  });
+
+  it("collects kitchen fire numbers from sent lines", () => {
+    const groups = groupDiningOrderLines([
+      line({
+        id: "1",
+        productVariantId: "v1",
+        kitchenStatus: "SENT",
+        kitchenFireNumber: 3,
+      }),
+      line({
+        id: "2",
+        productVariantId: "v1",
+        kitchenStatus: "READY",
+        kitchenFireNumber: 1,
+      }),
+      line({
+        id: "3",
+        productVariantId: "v1",
+        kitchenStatus: "DRAFT",
+        kitchenFireNumber: 9,
+      }),
+    ]);
+    expect(diningLineGroupKitchenFireNumbers(groups[0]!)).toEqual([1, 3]);
+  });
+});
+
+describe("diningLineGroupAllReady", () => {
+  it("true only when every line is READY or SERVED", () => {
+    const mixed = groupDiningOrderLines([
+      line({ id: "1", productVariantId: "v1", kitchenStatus: "READY" }),
+      line({ id: "2", productVariantId: "v1", kitchenStatus: "SENT" }),
+    ])[0]!;
+    expect(diningLineGroupAllReady(mixed)).toBe(false);
+
+    const ready = groupDiningOrderLines([
+      line({ id: "1", productVariantId: "v1", kitchenStatus: "READY" }),
+      line({ id: "2", productVariantId: "v1", kitchenStatus: "SERVED" }),
+    ])[0]!;
+    expect(diningLineGroupAllReady(ready)).toBe(true);
+  });
+});
+
+describe("diningOrderAllKitchenReady", () => {
+  it("requires all active sent lines ready and no drafts", () => {
+    expect(
+      diningOrderAllKitchenReady([
+        { kitchenStatus: "READY" },
+        { kitchenStatus: "READY" },
+      ]),
+    ).toBe(true);
+    expect(
+      diningOrderAllKitchenReady([
+        { kitchenStatus: "READY" },
+        { kitchenStatus: "DRAFT" },
+      ]),
+    ).toBe(false);
+    expect(
+      diningOrderAllKitchenReady([
+        { kitchenStatus: "READY" },
+        { kitchenStatus: "SENT" },
+      ]),
+    ).toBe(false);
   });
 });
 

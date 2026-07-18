@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { DotProgress } from "@kai/ui";
 import PosDiningAccountsPanel from "@/features/dining/ui/PosDiningAccountsPanel";
 import { isKaiFoodEnabled } from "@/config/kaifood-module.config";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
@@ -10,9 +11,21 @@ import { readPosContextClient } from "@/features/session/lib/pos-context-storage
 const ACCOUNTS_VIEWPORT_CLASS =
   "h-[calc(100dvh-var(--app-topbar-height,3.75rem)-2.5rem)] max-h-[calc(100dvh-var(--app-topbar-height,3.75rem)-2.5rem)] min-h-0";
 
+function AccountsLoading() {
+  return (
+    <div
+      className="flex min-h-[12rem] w-full items-center justify-center"
+      data-test-id="pos-accounts-loading"
+    >
+      <DotProgress />
+    </div>
+  );
+}
+
 function AccountsPageInner() {
   const router = useRouter();
   const [branchId, setBranchId] = useState<string>("");
+  const [contextReady, setContextReady] = useState(false);
 
   useEffect(() => {
     if (!isKaiFoodEnabled()) {
@@ -20,10 +33,15 @@ function AccountsPageInner() {
       return;
     }
     setBranchId(readPosContextClient()?.branchId?.trim() ?? "");
+    setContextReady(true);
   }, [router]);
 
   if (!isKaiFoodEnabled()) {
     return null;
+  }
+
+  if (!contextReady) {
+    return <AccountsLoading />;
   }
 
   if (!branchId) {
@@ -43,9 +61,7 @@ function AccountsPageInner() {
 
 export default function AccountsPage() {
   return (
-    <Suspense
-      fallback={<p className="text-sm text-muted-foreground">Cargando cuentas…</p>}
-    >
+    <Suspense fallback={<AccountsLoading />}>
       <AccountsPageInner />
     </Suspense>
   );

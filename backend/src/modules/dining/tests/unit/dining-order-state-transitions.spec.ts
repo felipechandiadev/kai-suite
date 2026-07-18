@@ -10,8 +10,10 @@ import {
   canMarkServed,
   canRequestBill,
   canSendToKitchen,
+  effectiveKitchenFireId,
   reopenFromBilling,
   recomputeOrderStatusFromLines,
+  selectLinesForKitchenFireReady,
 } from '../../application/dining-order-status.util';
 
 describe('Dining order state transitions', () => {
@@ -155,6 +157,83 @@ describe('Dining order state transitions', () => {
       expect(
         reopenFromBilling([{ kitchenStatus: KitchenItemStatus.SENT }]),
       ).toBe(DiningOrderStatus.SENT);
+    });
+  });
+
+  describe('selectLinesForKitchenFireReady', () => {
+    const fireA = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    const unit1 = '11111111-1111-1111-1111-111111111111';
+    const unit2 = '22222222-2222-2222-2222-222222222222';
+
+    it('selects all ready-able lines of the same fire in the UP', () => {
+      const lines = [
+        {
+          id: 'l1',
+          kitchenFireId: fireA,
+          productionUnitId: unit1,
+          kitchenStatus: KitchenItemStatus.SENT,
+        },
+        {
+          id: 'l2',
+          kitchenFireId: fireA,
+          productionUnitId: unit1,
+          kitchenStatus: KitchenItemStatus.PREPARING,
+        },
+        {
+          id: 'l3',
+          kitchenFireId: fireA,
+          productionUnitId: unit2,
+          kitchenStatus: KitchenItemStatus.SENT,
+        },
+        {
+          id: 'l4',
+          kitchenFireId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+          productionUnitId: unit1,
+          kitchenStatus: KitchenItemStatus.SENT,
+        },
+      ];
+      const selected = selectLinesForKitchenFireReady(lines, fireA, unit1);
+      expect(selected.map((l) => l.id)).toEqual(['l1', 'l2']);
+    });
+
+    it('does not select READY lines or other UP', () => {
+      const lines = [
+        {
+          id: 'l1',
+          kitchenFireId: fireA,
+          productionUnitId: unit1,
+          kitchenStatus: KitchenItemStatus.READY,
+        },
+        {
+          id: 'l2',
+          kitchenFireId: fireA,
+          productionUnitId: unit2,
+          kitchenStatus: KitchenItemStatus.SENT,
+        },
+      ];
+      expect(selectLinesForKitchenFireReady(lines, fireA, unit1)).toEqual([]);
+    });
+
+    it('legacy: fireId equals line.id when kitchenFireId is null', () => {
+      const lineId = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+      const lines = [
+        {
+          id: lineId,
+          kitchenFireId: null,
+          productionUnitId: unit1,
+          kitchenStatus: KitchenItemStatus.SENT,
+        },
+        {
+          id: 'other',
+          kitchenFireId: null,
+          productionUnitId: unit1,
+          kitchenStatus: KitchenItemStatus.SENT,
+        },
+      ];
+      expect(effectiveKitchenFireId(lines[0]!)).toBe(lineId);
+      expect(selectLinesForKitchenFireReady(lines, lineId, unit1).map((l) => l.id)).toEqual([
+        lineId,
+      ]);
     });
   });
 });

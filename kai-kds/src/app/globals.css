@@ -97,3 +97,19 @@ body {
   background-color: color-mix(in srgb, var(--color-neutral) 30%, var(--color-background));
   color: var(--color-foreground);
 }
+
+.kai-kds-app-shell {
+  position: relative;
+  min-height: 100dvh;
+  background-color: color-mix(
+    in srgb,
+    var(--color-shell-chrome) 30%,
+    var(--color-background)
+  );
+  color: var(--color-foreground);
+}
+
+/* Contenido sobre el fondo ambiental; evita doble capa opaca en chrome anidado. */
+.kai-kds-app-shell .kai-kds-app-chrome {
+  background-color: transparent;
+}

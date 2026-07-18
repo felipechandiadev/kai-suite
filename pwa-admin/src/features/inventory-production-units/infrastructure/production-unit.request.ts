@@ -4,6 +4,7 @@ import type {
   CreateProductionUnitInput,
   ProductionUnitInventoryMode,
   ProductionUnitListItem,
+  ProductionUnitPurpose,
   ProductionUnitScope,
   UpdateProductionUnitInput,
 } from "../types/production-unit.types";
@@ -29,11 +30,14 @@ function mapUnit(raw: Record<string, unknown>): ProductionUnitListItem {
     raw.scope === "COMPANY" ? "COMPANY" : "BRANCH";
   const inventoryMode: ProductionUnitInventoryMode =
     raw.inventoryMode === "AUTONOMOUS" ? "AUTONOMOUS" : "DEPENDENT";
+  const purpose: ProductionUnitPurpose =
+    raw.purpose === "BATCH" ? "BATCH" : "KITCHEN";
   return {
     id: String(raw.id),
     branchId: raw.branchId != null ? String(raw.branchId) : null,
     scope,
     inventoryMode,
+    purpose,
     code: String(raw.code ?? ""),
     name: String(raw.name ?? ""),
     defaultInputStorageId:

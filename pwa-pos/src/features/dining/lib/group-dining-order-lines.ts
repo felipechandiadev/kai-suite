@@ -2,12 +2,12 @@ import type {
   KitchenItemStatus,
   PosDiningOrderLine,
 } from "@/features/dining/types/dining-pos.types";
+import { kitchenItemStatusLabel } from "@/features/dining/lib/dining-status-labels";
 
 export type DiningLineGroup = {
-  /** variantId|status|notes */
+  /** variantId|notes */
   key: string;
   productVariantId: string;
-  kitchenStatus: KitchenItemStatus;
   notes: string | null;
   lines: PosDiningOrderLine[];
   quantityTotal: number;
@@ -15,7 +15,7 @@ export type DiningLineGroup = {
 
 export function diningLineGroupKey(line: PosDiningOrderLine): string {
   const notes = (line.notes ?? "").trim();
-  return `${line.productVariantId}|${line.kitchenStatus}|${notes}`;
+  return `${line.productVariantId}|${notes}`;
 }
 
 export function canSendDiningLineToKitchen(status: KitchenItemStatus): boolean {
@@ -26,7 +26,71 @@ export function canCancelDiningLine(status: KitchenItemStatus): boolean {
   return status === "DRAFT" || status === "SENT";
 }
 
-/** Agrupa por variante + estado de cocina + notas (grupos homogéneos para acciones). */
+export function isKitchenReadyStatus(status: KitchenItemStatus): boolean {
+  return status === "READY" || status === "SERVED";
+}
+
+export function diningLineGroupAllReady(group: DiningLineGroup): boolean {
+  return (
+    group.lines.length > 0 &&
+    group.lines.every((l) => isKitchenReadyStatus(l.kitchenStatus))
+  );
+}
+
+/** Resumen de estado de cocina para cabecera de grupo (puede ser mixto). */
+export function diningLineGroupStatusLabel(group: DiningLineGroup): string {
+  if (group.lines.length === 0) return "";
+  const statuses = new Set(group.lines.map((l) => l.kitchenStatus));
+  if (statuses.size === 1) {
+    return kitchenItemStatusLabel(group.lines[0]!.kitchenStatus);
+  }
+  const readyCount = group.lines.filter((l) =>
+    isKitchenReadyStatus(l.kitchenStatus),
+  ).length;
+  if (readyCount > 0 && readyCount < group.lines.length) {
+    return `Parcial listo (${readyCount}/${group.lines.length})`;
+  }
+  return "Estados mixtos";
+}
+
+/**
+ * Cuenta “toda lista”: hay ítems enviados, ninguno en cocina, ninguno en borrador,
+ * y todos los activos no-cancelados están READY/SERVED.
+ */
+export function diningOrderAllKitchenReady(
+  lines: Array<{ kitchenStatus: KitchenItemStatus }>,
+): boolean {
+  const active = lines.filter((l) => l.kitchenStatus !== "CANCELLED");
+  if (active.length === 0) return false;
+  if (active.some((l) => l.kitchenStatus === "DRAFT")) return false;
+  if (
+    active.some(
+      (l) => l.kitchenStatus === "SENT" || l.kitchenStatus === "PREPARING",
+    )
+  ) {
+    return false;
+  }
+  return active.every((l) => isKitchenReadyStatus(l.kitchenStatus));
+}
+
+/** Números de pedido (fire) presentes en líneas ya enviadas del grupo. */
+export function diningLineGroupKitchenFireNumbers(
+  group: DiningLineGroup,
+): number[] {
+  const nums = new Set<number>();
+  for (const line of group.lines) {
+    if (line.kitchenStatus === "DRAFT" || line.kitchenStatus === "CANCELLED") {
+      continue;
+    }
+    const n = line.kitchenFireNumber;
+    if (typeof n === "number" && Number.isFinite(n) && n > 0) {
+      nums.add(n);
+    }
+  }
+  return [...nums].sort((a, b) => a - b);
+}
+
+/** Agrupa por variante + notas (estados de cocina pueden mezclarse en el grupo). */
 export function groupDiningOrderLines(
   lines: PosDiningOrderLine[],
 ): DiningLineGroup[] {
@@ -44,7 +108,6 @@ export function groupDiningOrderLines(
     map.set(key, {
       key,
       productVariantId: line.productVariantId,
-      kitchenStatus: line.kitchenStatus,
       notes: (line.notes ?? "").trim() || null,
       lines: [line],
       quantityTotal: qty,

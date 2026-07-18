@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { DiningBranchSettings } from '../domain/dining-branch-settings.entity';
+import { DiningKitchenFireSequence } from '../domain/dining-kitchen-fire-sequence.entity';
 import { DiningOrderSequence } from '../domain/dining-order-sequence.entity';
 import { DiningOrderKind } from '../domain/dining.enums';
 import {
@@ -9,6 +10,7 @@ import {
   DEFAULT_DINING_TIMEZONE,
   diningBusinessPeriodKey,
   formatDiningSequenceLabel,
+  formatKitchenFireLabel,
   normalizeDiningResetTime,
   normalizeDiningTimezone,
 } from './dining-business-period.util';
@@ -30,6 +32,8 @@ export class DiningOrderNumberService {
     private readonly settingsRepository: Repository<DiningBranchSettings>,
     @InjectRepository(DiningOrderSequence)
     private readonly sequenceRepository: Repository<DiningOrderSequence>,
+    @InjectRepository(DiningKitchenFireSequence)
+    private readonly kitchenFireSequenceRepository: Repository<DiningKitchenFireSequence>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -127,6 +131,41 @@ export class DiningOrderNumberService {
     return this.dataSource.transaction((m) => run(m));
   }
 
+  /** Correlativo diario de pedidos de cocina (mismo día operativo que cuentas). */
+  async allocateNextKitchenFire(
+    branchId: string,
+    companyId: string,
+    manager?: EntityManager,
+  ): Promise<DiningAllocatedNumber> {
+    const settings = await this.getOrCreateSettings(branchId, companyId);
+    const periodKey = diningBusinessPeriodKey(
+      new Date(),
+      settings.timezone,
+      settings.resetTimeLocal,
+    );
+
+    const run = async (m: EntityManager) => {
+      const n = await this.bumpKitchenFireSequence(
+        m,
+        branchId,
+        companyId,
+        periodKey,
+      );
+      return {
+        sequenceNumber: n,
+        periodKey,
+        displayLabel: formatKitchenFireLabel(n),
+        timezone: settings.timezone,
+        resetTimeLocal: settings.resetTimeLocal,
+      };
+    };
+
+    if (manager) {
+      return run(manager);
+    }
+    return this.dataSource.transaction((m) => run(m));
+  }
+
   private async bumpSequence(
     m: EntityManager,
     branchId: string,
@@ -170,6 +209,50 @@ export class DiningOrderNumberService {
 
     throw new Error(
       `No se pudo generar correlativo dining ${kind} sucursal ${branchId} periodo ${periodKey}`,
+    );
+  }
+
+  private async bumpKitchenFireSequence(
+    m: EntityManager,
+    branchId: string,
+    companyId: string,
+    periodKey: string,
+  ): Promise<number> {
+    const r = m.getRepository(DiningKitchenFireSequence);
+
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const existing = await r.findOne({
+        where: { branchId, periodKey },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (existing) {
+        existing.lastNumber += 1;
+        await r.save(existing);
+        return existing.lastNumber;
+      }
+
+      const row = r.create({
+        companyId,
+        branchId,
+        periodKey,
+        lastNumber: 1,
+      });
+      try {
+        await r.insert(row);
+        return 1;
+      } catch (e: any) {
+        if (e?.code === '23505') {
+          this.logger.debug(
+            `dining_kitchen_fire_sequences insert race (attempt ${attempt + 1}), retrying`,
+          );
+          continue;
+        }
+        throw e;
+      }
+    }
+
+    throw new Error(
+      `No se pudo generar correlativo pedido cocina sucursal ${branchId} periodo ${periodKey}`,
     );
   }
 }

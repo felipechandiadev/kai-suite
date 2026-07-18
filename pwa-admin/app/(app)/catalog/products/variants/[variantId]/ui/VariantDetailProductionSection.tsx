@@ -12,6 +12,7 @@ import { listProductionUnitsForPage } from "@/features/inventory-production-unit
 import { listBranchesForSettingsPage } from "@/features/settings-branches/actions/branch.action";
 import type { ProductionUnitListItem } from "@/features/inventory-production-units/types/production-unit.types";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
+import { VariantDetailCtpBlock } from "./VariantDetailCtpBlock";
 
 type BranchRoutingState = {
   unitIds: Set<string>;
@@ -328,6 +329,8 @@ export function VariantDetailProductionSection({ variantId }: Props) {
           </p>
         </div>
       ) : null}
+
+      <VariantDetailCtpBlock variantId={variantId} />
     </section>
   );
 }

@@ -27,6 +27,7 @@ import {
 import type {
   ProductionUnitInventoryMode,
   ProductionUnitListItem,
+  ProductionUnitPurpose,
   ProductionUnitScope,
 } from "@/features/inventory-production-units/types/production-unit.types";
 
@@ -63,6 +64,7 @@ export function ProductionUnitsCollection({
   const [branchId, setBranchId] = useState(branches[0]?.id ?? "");
   const [inventoryMode, setInventoryMode] =
     useState<ProductionUnitInventoryMode>("DEPENDENT");
+  const [purpose, setPurpose] = useState<ProductionUnitPurpose>("KITCHEN");
   const [inputStorageId, setInputStorageId] = useState<string>("");
   const [outputStorageId, setOutputStorageId] = useState<string>("");
   const [name, setName] = useState("");
@@ -204,6 +206,7 @@ export function ProductionUnitsCollection({
     setScope("BRANCH");
     setBranchId(branches[0]?.id ?? "");
     setInventoryMode("DEPENDENT");
+    setPurpose("KITCHEN");
     setName("");
     setIsActive(true);
     setCreateStorageOpen(false);
@@ -216,6 +219,7 @@ export function ProductionUnitsCollection({
     setScope(unit.scope);
     setBranchId(unit.branchId ?? branches[0]?.id ?? "");
     setInventoryMode(unit.inventoryMode);
+    setPurpose(unit.purpose === "BATCH" ? "BATCH" : "KITCHEN");
     setInputStorageId(unit.defaultInputStorageId ?? "");
     setOutputStorageId(unit.defaultOutputStorageId ?? "");
     setName(unit.name);
@@ -342,6 +346,7 @@ export function ProductionUnitsCollection({
       branchId: scope === "COMPANY" ? null : branchId,
       name: name.trim(),
       inventoryMode,
+      purpose,
       defaultInputStorageId: inputStorageId,
       defaultOutputStorageId: outputStorageId,
       isActive,
@@ -410,6 +415,14 @@ export function ProductionUnitsCollection({
                           variant="secondary-outlined"
                           className="text-[10px]"
                         >
+                          {u.purpose === "BATCH"
+                            ? "Producción por lotes"
+                            : "Cocina"}
+                        </Badge>
+                        <Badge
+                          variant="secondary-outlined"
+                          className="text-[10px]"
+                        >
                           {u.inventoryMode === "AUTONOMOUS"
                             ? "Autónoma"
                             : "Dependiente"}
@@ -463,6 +476,18 @@ export function ProductionUnitsCollection({
               options={branches.map((b) => ({ id: b.id, label: b.name }))}
             />
           ) : null}
+          <Select
+            label="Propósito"
+            value={purpose}
+            onChange={(v) =>
+              setPurpose(String(v) === "BATCH" ? "BATCH" : "KITCHEN")
+            }
+            options={[
+              { id: "KITCHEN", label: "Cocina (comanda / KDS)" },
+              { id: "BATCH", label: "Producción por lotes" },
+            ]}
+            data-test-id="production-unit-purpose"
+          />
           <div className="flex flex-col gap-1">
             <Select
               label="Modo de inventario"

@@ -39,6 +39,7 @@ import { DiningOrder } from '@modules/dining/domain/dining-order.entity';
 import { DiningOrderLine } from '@modules/dining/domain/dining-order-line.entity';
 import { DiningBranchSettings } from '@modules/dining/domain/dining-branch-settings.entity';
 import { DiningOrderSequence } from '@modules/dining/domain/dining-order-sequence.entity';
+import { DiningKitchenFireSequence } from '@modules/dining/domain/dining-kitchen-fire-sequence.entity';
 import { Supplier } from '@modules/suppliers/domain/supplier.entity';
 import { TreasuryAccount } from '@modules/treasury-accounts/domain/treasury-account.entity';
 import { Storage } from '@modules/storages/domain/storage.entity';
@@ -167,6 +168,9 @@ import { UserCompanyMemberships1757100000000 } from '../migrations/1757100000000
 import { ProductTypeInsumo1757110000000 } from '../migrations/1757110000000-ProductTypeInsumo';
 import { RecipeCtpAndDiningMaterialReservation1757120000000 } from '../migrations/1757120000000-RecipeCtpAndDiningMaterialReservation';
 import { NotificationDomainCatalog1757130000000 } from '../migrations/1757130000000-NotificationDomainCatalog';
+import { DiningKitchenFireId1757140000000 } from '../migrations/1757140000000-DiningKitchenFireId';
+import { DiningKitchenFireNumber1757150000000 } from '../migrations/1757150000000-DiningKitchenFireNumber';
+import { ProductionUnitPurpose1757160000000 } from '../migrations/1757160000000-ProductionUnitPurpose';
 import { FiscalProfile } from '@modules/fiscal/domain/fiscal-profile.entity';
 import { FiscalCertificate } from '@modules/fiscal/domain/fiscal-certificate.entity';
 import { FiscalCaf } from '@modules/fiscal/domain/fiscal-caf.entity';
@@ -243,6 +247,7 @@ export const AppDataSource = new DataSource({
     DiningOrderLine,
     DiningBranchSettings,
     DiningOrderSequence,
+    DiningKitchenFireSequence,
     Supplier,
     TreasuryAccount,
     Storage,
@@ -402,6 +407,9 @@ export const AppDataSource = new DataSource({
     ProductTypeInsumo1757110000000,
     RecipeCtpAndDiningMaterialReservation1757120000000,
     NotificationDomainCatalog1757130000000,
+    DiningKitchenFireId1757140000000,
+    DiningKitchenFireNumber1757150000000,
+    ProductionUnitPurpose1757160000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

@@ -17,6 +17,7 @@ import {
   POS_PRODUCT_SEARCH_DEFAULT_PAGE_SIZE,
   readPosProductSearchPageSize,
 } from "@/features/pos-products/lib/posProductSearchStorage";
+import { POS_INSUFFICIENT_STOCK_SURFACE_CLASS } from "@/features/pos-products/ui/posProductPreview";
 import type { PosProductSearchItem } from "@/features/pos-products/types/pos-product.types";
 import {
   formatMoney,
@@ -287,14 +288,20 @@ export function PosDiningMenuColumn({
             {items.map((item) => {
               const busy = addingId === item.variantId;
               const saleUnit = posDisplaySaleUnitSymbol(item);
-              const canAdd = Boolean(orderId) && !disabled;
               const cap = ctpByVariantId[item.variantId];
               const showCap = cap != null;
+              const ctpBlocked = cap === 0;
+              const canAdd = Boolean(orderId) && !disabled && !ctpBlocked;
               return (
                 <div
                   key={item.variantId}
-                  className="flex w-full items-start gap-2 rounded-lg border border-border bg-surface px-3 py-2.5"
+                  className={`flex w-full items-start gap-2 rounded-lg border px-3 py-2.5 ${
+                    ctpBlocked
+                      ? POS_INSUFFICIENT_STOCK_SURFACE_CLASS
+                      : "border-border bg-surface"
+                  }`}
                   data-test-id={`pos-dining-menu-card-${item.variantId}`}
+                  data-ctp-blocked={ctpBlocked ? "true" : undefined}
                 >
                   <div className="min-w-0 flex-1 text-left text-sm">
                     <div className="min-w-0 font-medium text-foreground">
@@ -315,9 +322,17 @@ export function PosDiningMenuColumn({
                       ) : null}
                       {showCap ? (
                         <span
-                          className="rounded border border-border px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+                          className={
+                            ctpBlocked
+                              ? "rounded border border-red-300 px-1.5 py-0.5 text-[11px] font-medium text-red-700 dark:border-red-800 dark:text-red-300"
+                              : "rounded border border-border px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+                          }
                           data-test-id={`pos-dining-menu-cap-${item.variantId}`}
-                          title="Capacidad producible (CTP)"
+                          title={
+                            ctpBlocked
+                              ? "CTP Hard Block: sin capacidad producible"
+                              : "Capacidad producible (CTP)"
+                          }
                         >
                           Cap. {cap}
                         </span>
@@ -343,11 +358,19 @@ export function PosDiningMenuColumn({
                       variant="outlined"
                       size="sm"
                       ariaLabel={
-                        canAdd
-                          ? `Agregar ${item.productName} a la cuenta`
-                          : "Seleccioná una cuenta para agregar"
+                        ctpBlocked
+                          ? `Sin capacidad producible: ${item.productName}`
+                          : canAdd
+                            ? `Agregar ${item.productName} a la cuenta`
+                            : "Seleccioná una cuenta para agregar"
                       }
-                      title={canAdd ? "Agregar a la cuenta" : "Seleccioná una cuenta"}
+                      title={
+                        ctpBlocked
+                          ? "Sin capacidad producible"
+                          : canAdd
+                            ? "Agregar a la cuenta"
+                            : "Seleccioná una cuenta"
+                      }
                       disabled={!canAdd || busy || addingId !== null}
                       isLoading={busy}
                       onClick={() => handleAdd(item)}

@@ -14,7 +14,13 @@ Agente local de impresión para KaiStore POS en tablets Android (p. ej. iMin Swa
 - **WS** (HTTP): `ws://HOST:14567`
 - **WSS** (HTTPS): `wss://HOST:14568` — abrir `https://HOST:14568/` en el navegador del cliente y aceptar el certificado autofirmado una vez.
 
-El agente valida el header `Origin` del handshake: por defecto acepta loopback y orígenes en IP privada (10.x, 172.16–31.x, 192.168.x).
+El agente valida el header `Origin` del handshake (origen del **sitio POS**, no del host WS). Por defecto (`allowAllOrigins=true`) acepta:
+
+- loopback (`localhost` / `127.0.0.1` / `::1`)
+- orígenes en IP privada LAN (10.x, 172.16–31.x, 192.168.x)
+- dominios de producto `kaisuite.pro` y `*.kaisuite.pro` (p. ej. `https://pos.demo.kaisuite.pro`)
+
+La whitelist `allowedOrigins` se evalúa primero y siempre permite dominios custom listados. Con `allowAllOrigins=false` solo vale la whitelist.
 
 ## Requisitos
 

@@ -110,6 +110,7 @@ import { DiningOrder } from '@modules/dining/domain/dining-order.entity';
 import { DiningOrderLine } from '@modules/dining/domain/dining-order-line.entity';
 import { DiningBranchSettings } from '@modules/dining/domain/dining-branch-settings.entity';
 import { DiningOrderSequence } from '@modules/dining/domain/dining-order-sequence.entity';
+import { DiningKitchenFireSequence } from '@modules/dining/domain/dining-kitchen-fire-sequence.entity';
 import { AuditSubscriber } from '../subscribers/AuditSubscriber';
 import { TenantSubscriber } from '../common/tenant/tenant.subscriber';
 
@@ -233,6 +234,7 @@ export const typeOrmConfig = (
       DiningOrderLine,
       DiningBranchSettings,
       DiningOrderSequence,
+      DiningKitchenFireSequence,
     ],
 
     // Register subscribers (TypeORM EventSubscribers)

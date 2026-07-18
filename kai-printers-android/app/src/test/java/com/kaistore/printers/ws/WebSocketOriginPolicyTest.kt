@@ -24,6 +24,26 @@ class WebSocketOriginPolicyTest {
     }
 
     @Test
+    fun allowAll_permitsTrustedKaiSuiteOrigins() {
+        assertTrue(
+            WebSocketOriginPolicy.isAllowed(
+                "https://pos.demo.kaisuite.pro",
+                allowAllOrigins = true,
+                allowedOrigins = emptyList(),
+            ),
+        )
+        assertTrue(
+            WebSocketOriginPolicy.isAllowed(
+                "https://pos.joyarte.kaisuite.pro",
+                allowAllOrigins = true,
+                allowedOrigins = emptyList(),
+            ),
+        )
+        assertTrue(WebSocketOriginPolicy.isTrustedKaiOrigin("https://kaisuite.pro"))
+        assertTrue(WebSocketOriginPolicy.isTrustedKaiOrigin("https://pos.demo.kaisuite.pro"))
+    }
+
+    @Test
     fun allowAll_rejectsPublicInternetOrigin() {
         assertFalse(
             WebSocketOriginPolicy.isAllowed(
@@ -35,10 +55,40 @@ class WebSocketOriginPolicyTest {
     }
 
     @Test
+    fun whitelist_permitsPublicHostEvenWhenNotKaiOrLan() {
+        val list = listOf("https://pos.custom-domain.cl")
+        assertTrue(
+            WebSocketOriginPolicy.isAllowed(
+                "https://pos.custom-domain.cl",
+                allowAllOrigins = false,
+                allowedOrigins = list,
+            ),
+        )
+        assertTrue(
+            WebSocketOriginPolicy.isAllowed(
+                "https://pos.custom-domain.cl",
+                allowAllOrigins = true,
+                allowedOrigins = list,
+            ),
+        )
+    }
+
+    @Test
     fun whitelist_onlyListedOrigins() {
         val list = listOf("http://192.168.0.10:4032")
         assertTrue(WebSocketOriginPolicy.isAllowed("http://192.168.0.10:4032", false, list))
         assertFalse(WebSocketOriginPolicy.isAllowed("http://192.168.0.11:4032", false, list))
+    }
+
+    @Test
+    fun strictMode_emptyWhitelist_rejectsKaiOrigins() {
+        assertFalse(
+            WebSocketOriginPolicy.isAllowed(
+                "https://pos.demo.kaisuite.pro",
+                allowAllOrigins = false,
+                allowedOrigins = emptyList(),
+            ),
+        )
     }
 
     @Test

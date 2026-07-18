@@ -193,6 +193,7 @@ export type SeedProductionUnitDef = {
   scope: 'BRANCH' | 'COMPANY';
   branchKey: 'main' | 'mall' | null;
   inventoryMode: 'AUTONOMOUS' | 'DEPENDENT';
+  purpose: 'KITCHEN' | 'BATCH';
 };
 
 export const SEED_DEV_PRODUCTION_UNITS: readonly SeedProductionUnitDef[] = [
@@ -203,6 +204,7 @@ export const SEED_DEV_PRODUCTION_UNITS: readonly SeedProductionUnitDef[] = [
     /** Casa matriz */
     branchKey: 'main',
     inventoryMode: 'DEPENDENT',
+    purpose: 'KITCHEN',
   },
   {
     code: 'BARRA',
@@ -210,6 +212,7 @@ export const SEED_DEV_PRODUCTION_UNITS: readonly SeedProductionUnitDef[] = [
     scope: 'BRANCH',
     branchKey: 'main',
     inventoryMode: 'DEPENDENT',
+    purpose: 'KITCHEN',
   },
   {
     code: 'COCINA',
@@ -218,6 +221,7 @@ export const SEED_DEV_PRODUCTION_UNITS: readonly SeedProductionUnitDef[] = [
     /** Local Mall */
     branchKey: 'mall',
     inventoryMode: 'DEPENDENT',
+    purpose: 'KITCHEN',
   },
   {
     code: 'PASTELERIA',
@@ -225,5 +229,6 @@ export const SEED_DEV_PRODUCTION_UNITS: readonly SeedProductionUnitDef[] = [
     scope: 'COMPANY',
     branchKey: null,
     inventoryMode: 'AUTONOMOUS',
+    purpose: 'BATCH',
   },
 ];

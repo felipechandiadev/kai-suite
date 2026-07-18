@@ -10,6 +10,7 @@ import { DiningOrder } from './domain/dining-order.entity';
 import { DiningOrderLine } from './domain/dining-order-line.entity';
 import { DiningBranchSettings } from './domain/dining-branch-settings.entity';
 import { DiningOrderSequence } from './domain/dining-order-sequence.entity';
+import { DiningKitchenFireSequence } from './domain/dining-kitchen-fire-sequence.entity';
 import { RecipesModule } from '@modules/recipes/recipes.module';
 import { TransactionsModule } from '@modules/transactions/transactions.module';
 import { StockLevelsModule } from '@modules/stock-levels/stock-levels.module';
@@ -36,6 +37,7 @@ import { ProductVariantsModule } from '@modules/product-variants/product-variant
       DiningOrderLine,
       DiningBranchSettings,
       DiningOrderSequence,
+      DiningKitchenFireSequence,
       Branch,
       ProductVariant,
       ProductionUnit,

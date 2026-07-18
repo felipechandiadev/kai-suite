@@ -16,11 +16,13 @@ import { UpsertDiningTablesDto } from '../application/dto/upsert-dining-tables.d
 import {
   AddOrderItemsDto,
   CloseDiningOrderDto,
+  MarkKitchenFireReadyDto,
   OpenCounterOrderDto,
   OpenTableDto,
   OpenTakeawayOrderDto,
   SendToKitchenDto,
   TransferCartLineDto,
+  UpdateDiningOrderLineDto,
   UpdateDiningOrderProfileDto,
 } from '../application/dto/dining-order-commands.dto';
 import { UpdateDiningNumberingSettingsDto } from '../application/dto/update-dining-numbering-settings.dto';
@@ -199,6 +201,17 @@ export class DiningController {
     return this.diningService.addOrderItems(id, dto.items);
   }
 
+  @Patch('orders/:orderId/lines/:lineId')
+  async updateOrderLine(
+    @Param('orderId') orderId: string,
+    @Param('lineId') lineId: string,
+    @Body() dto: UpdateDiningOrderLineDto,
+  ) {
+    return this.diningService.updateOrderLineNotes(orderId, lineId, {
+      notes: dto.notes,
+    });
+  }
+
   @Post('orders/:id/send-to-kitchen')
   async sendToKitchen(
     @Param('id') id: string,
@@ -226,6 +239,19 @@ export class DiningController {
     @Param('lineId') lineId: string,
   ) {
     return this.diningService.markKitchenItemReady(id, lineId);
+  }
+
+  @Post('orders/:id/fires/:fireId/ready')
+  async markFireReady(
+    @Param('id') id: string,
+    @Param('fireId') fireId: string,
+    @Body() dto: MarkKitchenFireReadyDto,
+  ) {
+    return this.diningService.markKitchenFireReady(
+      id,
+      fireId,
+      dto.productionUnitId,
+    );
   }
 
   @Post('orders/:id/items/:lineId/served')

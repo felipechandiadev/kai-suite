@@ -1,31 +1,46 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@kai/ui";
 import { KdsQueuePanel } from "@/features/dining-kds/ui/KdsQueuePanel";
-import { KdsUnitSelector } from "@/features/dining-kds/ui/KdsUnitSelector";
-import {
-  loadKdsProductionUnitId,
-  loadKdsSession,
-  type KdsSession,
-} from "@/lib/app-session";
+import { useKdsStation } from "@/features/dining-kds/station/kds-station-context";
 
 export default function QueuePage() {
-  const [session, setSession] = useState<KdsSession | null>(null);
-  const [unitId, setUnitId] = useState<string | null>(null);
+  const router = useRouter();
+  const { session, productionUnitId, unitsLoading } = useKdsStation();
 
-  useEffect(() => {
-    setSession(loadKdsSession());
-    setUnitId(loadKdsProductionUnitId());
-  }, []);
+  if (unitsLoading && !productionUnitId) {
+    return (
+      <p className="text-sm text-muted-foreground" data-test-id="kds-queue-loading-unit">
+        Cargando estación…
+      </p>
+    );
+  }
 
-  if (!session) {
-    return null;
+  if (!productionUnitId) {
+    return (
+      <div
+        className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border bg-surface px-6 py-16 text-center"
+        data-test-id="kds-queue-no-unit"
+      >
+        <p className="max-w-sm text-sm text-muted-foreground">
+          Esta estación aún no tiene unidad de producción. Configúrala para ver la cola de cocina.
+        </p>
+        <Button
+          type="button"
+          variant="primary"
+          onClick={() => router.push("/settings")}
+          data-test-id="kds-queue-go-settings"
+        >
+          Configurar unidad
+        </Button>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-4" data-test-id="kds-queue-page">
-      <KdsUnitSelector session={session} value={unitId} onChange={setUnitId} />
-      <KdsQueuePanel session={session} productionUnitId={unitId} />
+    <div data-test-id="kds-queue-page">
+      <KdsQueuePanel session={session} productionUnitId={productionUnitId} />
     </div>
   );
 }

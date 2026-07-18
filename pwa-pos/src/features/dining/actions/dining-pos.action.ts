@@ -59,6 +59,14 @@ export async function updatePosDiningOrderProfileAction(
   return DiningPosRequest.updateOrderProfile(orderId, input);
 }
 
+export async function updatePosDiningOrderLineNotesAction(
+  orderId: string,
+  lineId: string,
+  notes: string | null,
+) {
+  return DiningPosRequest.updateOrderLineNotes(orderId, lineId, notes);
+}
+
 export async function sendPosDiningOrderToKitchenAction(
   orderId: string,
   lineIds?: string[],

@@ -1,6 +1,7 @@
 import type { Server } from 'socket.io';
 import { DiningRealtimePublisher } from '../../dining-realtime.publisher';
 import {
+  branchDiningRoom,
   kitchenUnitRoom,
   salonRoom,
   type DiningKitchenItemUpdatedPayload,
@@ -27,7 +28,7 @@ describe('DiningRealtimePublisher', () => {
     publisher.attachServer(server as Server);
   });
 
-  it('salonRoom and kitchenUnitRoom use documented patterns', () => {
+  it('salonRoom, branchDiningRoom and kitchenUnitRoom use documented patterns', () => {
     expect(
       salonRoom({
         companyId: 'c1',
@@ -37,6 +38,13 @@ describe('DiningRealtimePublisher', () => {
     ).toBe('company:c1:branch:b1:salon:s1');
 
     expect(
+      branchDiningRoom({
+        companyId: 'c1',
+        branchId: 'b1',
+      }),
+    ).toBe('company:c1:branch:b1:dining');
+
+    expect(
       kitchenUnitRoom({
         companyId: 'c1',
         unitId: 'u1',
@@ -44,7 +52,7 @@ describe('DiningRealtimePublisher', () => {
     ).toBe('company:c1:unit:u1');
   });
 
-  it('emitSessionUpdated targets salon room', () => {
+  it('emitSessionUpdated targets branch room and salon room when salonId present', () => {
     const payload: DiningSessionUpdatedPayload = {
       companyId: 'c1',
       branchId: 'b1',
@@ -59,12 +67,14 @@ describe('DiningRealtimePublisher', () => {
 
     publisher.emitSessionUpdated(payload);
 
+    expect(to).toHaveBeenCalledWith('company:c1:branch:b1:dining');
     expect(to).toHaveBeenCalledWith('company:c1:branch:b1:salon:salon-1');
     expect(emit).toHaveBeenCalledWith('dining.session.updated', payload);
+    expect(emit).toHaveBeenCalledTimes(2);
   });
 
-  it('emitSessionUpdated skips when salonId is missing', () => {
-    publisher.emitSessionUpdated({
+  it('emitSessionUpdated still targets branch room when salonId is missing', () => {
+    const payload: DiningSessionUpdatedPayload = {
       companyId: 'c1',
       branchId: 'b1',
       salonId: null,
@@ -73,9 +83,13 @@ describe('DiningRealtimePublisher', () => {
       status: DiningOrderStatus.OPEN,
       displayLabel: 'Cuenta barra #1',
       items: [],
-    });
+    };
 
-    expect(to).not.toHaveBeenCalled();
+    publisher.emitSessionUpdated(payload);
+
+    expect(to).toHaveBeenCalledWith('company:c1:branch:b1:dining');
+    expect(to).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledWith('dining.session.updated', payload);
   });
 
   it('emitKitchenItemUpdated targets unit room', () => {

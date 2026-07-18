@@ -11,12 +11,14 @@ export class ProductionUnitsController {
   async list(
     @Query('branchId') branchId?: string,
     @Query('includeInactive') includeInactive?: string,
+    @Query('purpose') purpose?: string,
   ) {
     const include =
       includeInactive === 'true' || includeInactive === '1';
     return this.productionUnitsService.findAll({
       branchId: branchId?.trim() || undefined,
       includeInactive: include,
+      purpose: purpose?.trim() || undefined,
     });
   }
 
@@ -41,6 +43,7 @@ export class ProductionUnitsController {
       code: dto.code,
       name: dto.name,
       inventoryMode: dto.inventoryMode,
+      purpose: dto.purpose,
       defaultInputStorageId: dto.defaultInputStorageId ?? null,
       defaultOutputStorageId: dto.defaultOutputStorageId ?? null,
       isActive: dto.isActive,
@@ -55,6 +58,7 @@ export class ProductionUnitsController {
       code: dto.code,
       name: dto.name,
       inventoryMode: dto.inventoryMode,
+      purpose: dto.purpose,
       defaultInputStorageId: dto.defaultInputStorageId,
       defaultOutputStorageId: dto.defaultOutputStorageId,
       isActive: dto.isActive,
