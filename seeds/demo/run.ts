@@ -122,8 +122,6 @@ import {
   SEED_BRANCH_2_PHONE,
   SEED_CASH_HUBS,
   SEED_DEV_COMPANY,
-  SEED_DEV_COMPANY_SECOND,
-  SEED_DEV_COMPANY_SECOND_ESHOP_SLUG,
   SEED_DEV_SHAREHOLDERS,
   SEED_POS_NAMES,
   SEED_PRESALE_POS_NAME,
@@ -1602,94 +1600,6 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
   },
 };
 
-type SeedDevCompanyDef = {
-  razonSocial: string;
-  nombreFantasia: string;
-  rut: string;
-  mail: string;
-  phone: string;
-  address: string;
-  businessActivity: string;
-  defaultCurrency: string;
-};
-
-/** Empresa activa en BD sin catálogo/sucursales — para probar multi-RUT en admin. */
-async function upsertMinimalSeedCompany(
-  companyRepo: Repository<Company>,
-  def: SeedDevCompanyDef,
-  eShopPublicSlug: string,
-): Promise<Company> {
-  assertValidChileCompanyRut(def.rut, `seed company (${def.rut})`);
-
-  let row = await companyRepo.findOne({
-    where: { rut: def.rut, deletedAt: null as never },
-  });
-
-  if (!row) {
-    row = companyRepo.create({
-      razonSocial: def.razonSocial,
-      nombreFantasia: def.nombreFantasia,
-      businessActivity: def.businessActivity,
-      rut: def.rut,
-      address: def.address,
-      mail: def.mail,
-      phone: def.phone,
-      defaultCurrency: def.defaultCurrency,
-      isActive: true,
-    });
-    await companyRepo.save(row);
-    console.log(
-      `✅ Empresa mínima creada: id=${row.id} razonSocial='${def.razonSocial}' rut='${def.rut}'`,
-    );
-  } else {
-    row.razonSocial = def.razonSocial;
-    row.nombreFantasia = def.nombreFantasia;
-    row.businessActivity = def.businessActivity;
-    row.address = def.address;
-    row.mail = def.mail;
-    row.phone = def.phone;
-    await companyRepo.save(row);
-    console.log(
-      `✅ Empresa mínima ya existía: id=${row.id} rut='${row.rut}' (datos básicos actualizados)`,
-    );
-  }
-
-  const seedBankRows = buildSeedCompanyBankAccounts(row.razonSocial);
-  const byKey = new Map(
-    (row.bankAccounts ?? []).map((a) => [
-      a.accountKey ?? `${String(a.bankName)}_${a.accountNumber}`,
-      a,
-    ] as const),
-  );
-  for (const bankRow of seedBankRows) {
-    byKey.set(bankRow.accountKey!, bankRow);
-  }
-  row.bankAccounts = Array.from(byKey.values());
-
-  const seedCompanyPaymentCatalog = buildSeedCompanyPaymentCatalog();
-  const settings = buildSeedCompanySettings(
-    row.settings as Record<string, unknown> | undefined,
-    seedCompanyPaymentCatalog,
-  );
-  settings.eShopEnabled = true;
-  settings.eShopPublicSlug = eShopPublicSlug;
-  settings.companyIdentity = {
-    tagline: `Tienda ${def.nombreFantasia}`,
-  };
-  settings.publicContact = buildSeedEshopPublicContact(
-    eShopPublicSlug,
-    def.mail,
-    def.phone,
-  );
-  row.settings = settings;
-  await companyRepo.save(row);
-
-  console.log(
-    `✅ Empresa mínima lista: companyId=${row.id} eShop slug='${eShopPublicSlug}'`,
-  );
-  return row;
-}
-
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(SeedOperationalModule, {
     logger: ['error', 'warn', 'log'],
@@ -1842,12 +1752,6 @@ async function bootstrap() {
     };
     console.log(
       `✅ Contacto público eShop: email=${publicContact.email ?? '—'} phone=${publicContact.phone ?? '—'} instagram=${publicContact.instagram ?? '—'} tiktok=${publicContact.tiktok ?? '—'} facebook=${publicContact.facebook ?? '—'}`,
-    );
-
-    await upsertMinimalSeedCompany(
-      companyRepo,
-      SEED_DEV_COMPANY_SECOND,
-      SEED_DEV_COMPANY_SECOND_ESHOP_SLUG,
     );
 
     /**
@@ -4420,104 +4324,6 @@ async function bootstrap() {
       );
     };
 
-    /** Membership extra (p. ej. admin en 2.ª empresa → Multiempresa). */
-    const ensureExtraMembership = async (params: {
-      userName: string;
-      companyId: string;
-      role: string;
-      isOwner: boolean;
-      firstName: string;
-      lastName?: string;
-      email: string;
-      documentNumber: string;
-      phone?: string;
-    }) => {
-      const u = await userRepo.findOne({
-        where: { userName: params.userName, deletedAt: null as never },
-      });
-      if (!u) {
-        throw new Error(
-          `ensureExtraMembership: usuario '${params.userName}' no existe`,
-        );
-      }
-
-      let person = await personRepo.findOne({
-        where: {
-          documentNumber: params.documentNumber,
-          companyId: params.companyId,
-          deletedAt: null as never,
-        },
-      });
-      if (!person) {
-        person = personRepo.create({
-          type: PersonType.NATURAL,
-          firstName: params.firstName,
-          lastName: params.lastName || undefined,
-          documentType: DocumentType.RUT,
-          documentNumber: params.documentNumber,
-          email: params.email,
-          phone: params.phone,
-          companyId: params.companyId,
-        });
-      } else {
-        person.firstName = params.firstName;
-        person.lastName = params.lastName || undefined;
-        person.email = params.email;
-        if (params.phone) person.phone = params.phone;
-      }
-      person = await personRepo.save(person);
-
-      let membership = await membershipRepo.findOne({
-        where: { userId: u.id, companyId: params.companyId },
-      });
-      if (!membership) {
-        membership = await membershipRepo.save(
-          membershipRepo.create({
-            userId: u.id,
-            companyId: params.companyId,
-            isOwner: params.isOwner,
-            isActive: true,
-          }),
-        );
-      } else {
-        membership.isActive = true;
-        membership.isOwner = params.isOwner;
-        await membershipRepo.save(membership);
-      }
-
-      const existingRoles = await membershipRoleRepo.find({
-        where: { membershipId: membership.id },
-      });
-      for (const r of existingRoles) {
-        if (r.role !== params.role) {
-          await membershipRoleRepo.delete({ id: r.id });
-        }
-      }
-      const still = await membershipRoleRepo.find({
-        where: { membershipId: membership.id },
-      });
-      if (!still.some((r) => r.role === params.role)) {
-        await membershipRoleRepo.save(
-          membershipRoleRepo.create({
-            membershipId: membership.id,
-            role: params.role,
-          }),
-        );
-      }
-
-      await userCompanyPersonRepo.upsert(
-        {
-          userId: u.id,
-          companyId: params.companyId,
-          personId: person.id,
-        },
-        ['userId', 'companyId'],
-      );
-
-      console.log(
-        `✅ Membership extra: user='${params.userName}' companyId=${params.companyId} role=${params.role} owner=${params.isOwner}`,
-      );
-    };
 
     const seedPassword = password;
 
@@ -4561,28 +4367,6 @@ async function bootstrap() {
       branchId: seedBranch.id,
       adminUserId: adminUser.id,
     });
-
-    // Segunda empresa: misma cuenta admin → habilita modo Multiempresa en login.
-    const secondCompany = await companyRepo.findOne({
-      where: { rut: SEED_DEV_COMPANY_SECOND.rut, deletedAt: null as never },
-    });
-    if (secondCompany) {
-      await ensureExtraMembership({
-        userName,
-        companyId: secondCompany.id,
-        role: PlatformRoleCode.ADMIN,
-        isOwner: true,
-        firstName: 'Administrador',
-        lastName: 'de Empresa',
-        email,
-        documentNumber: '10.987.654-3',
-        phone: '+56 9 8765 4321',
-      });
-    } else {
-      console.warn(
-        `⚠️  Segunda empresa seed (${SEED_DEV_COMPANY_SECOND.rut}) no encontrada; Multiempresa de admin no se configuró`,
-      );
-    }
 
     await ensureSeedUser({
       userName: 'admin2',
@@ -4683,7 +4467,7 @@ async function bootstrap() {
     console.log('✅ Seed mínimo OK. Usuarios listos:');
     console.log(`   • superadmin / ${seedPassword}   (SUPER_ADMIN, sin persona, protegido)`);
     console.log(
-      `   • ${userName} / ${seedPassword}        (ADMIN owner · 2 empresas · Multiempresa OK · 10.987.654-3)`,
+      `   • ${userName} / ${seedPassword}        (ADMIN owner · Kai Suite · 10.987.654-3)`,
     );
     console.log(
       `   • admin2 / ${seedPassword}         (ADMIN no-owner · Pedro Soto Núñez · 15.333.222-1)`,
@@ -4707,7 +4491,7 @@ async function bootstrap() {
       `   • mesero3 / ${seedPassword}    (WAITER · Javiera Soto · 17.100.011-4 · propinas)`,
     );
     console.log(
-      `   • Empresas en BD: «${SEED_DEV_COMPANY.nombreFantasia}» (${SEED_DEV_COMPANY.rut}, eShop demo) + «${SEED_DEV_COMPANY_SECOND.nombreFantasia}» (${SEED_DEV_COMPANY_SECOND.rut}, eShop ${SEED_DEV_COMPANY_SECOND_ESHOP_SLUG})`,
+      `   • Empresa en BD: «${SEED_DEV_COMPANY.nombreFantasia}» (${SEED_DEV_COMPANY.rut}, eShop demo) — seed mono-empresa`,
     );
     console.log(
       `   • Preventa: ON | POS preventa «${SEED_PRESALE_POS_NAME}» | Cajas aceptan tickets de preventa`,

@@ -65,7 +65,7 @@ export const SEED_DEV_COMPANY = {
   siiResolutionDate: '2014-08-22',
 } as const;
 
-/** Segunda empresa (multi-RUT / CompanySwitcher) — solo datos maestros + settings en seed. */
+/** @deprecated Seed demo es mono-empresa (solo Kai Suite). Conservado por compat. */
 export const SEED_DEV_COMPANY_SECOND = {
   razonSocial: 'Segunda Empresa SpA',
   nombreFantasia: 'Segunda Empresa',

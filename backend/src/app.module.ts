@@ -170,6 +170,8 @@ import { ProductionUnitsModule } from './modules/production-units/production-uni
     // analytics dashboard module
     require('./modules/analytics/analytics.module').AnalyticsModule,
     require('./modules/sales-reports/sales-reports.module').SalesReportsModule,
+    require('./modules/purchasing-reports/purchasing-reports.module').PurchasingReportsModule,
+    require('./modules/inventory-reports/inventory-reports.module').InventoryReportsModule,
     require('./modules/e-shop/e-shop.module').EShopModule,
     require('./modules/delivery/delivery.module').DeliveryModule,
     ObservabilityModule,

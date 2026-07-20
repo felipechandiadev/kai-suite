@@ -20,6 +20,8 @@ export type SupplierDocumentPaymentPayload = {
   scheduledLines: Array<{
     dueDate: string;
     amount: number;
+    paymentMethod?: 'TRANSFER';
+    companyBankAccountKey?: string;
   }>;
 };
 
@@ -94,6 +96,8 @@ export function buildSupplierDocumentPayment(
     scheduledLines: amounts.map((amount, index) => ({
       dueDate: addDaysToIsoDate(occurredOn, gapDays * (index + 1)),
       amount,
+      paymentMethod: 'TRANSFER' as const,
+      companyBankAccountKey: PRIMARY_BANK_ACCOUNT_KEY,
     })),
   };
 }

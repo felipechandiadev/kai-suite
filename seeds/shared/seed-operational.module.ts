@@ -40,6 +40,7 @@ import { FiscalModule } from '@modules/fiscal/fiscal.module';
 import { CapitalContributionsModule } from '@modules/capital-contributions/capital-contributions.module';
 import { BankTransfersModule } from '@modules/bank-transfers/bank-transfers.module';
 import { ReceptionsModule } from '@modules/receptions/receptions.module';
+import { TransactionsModule } from '@modules/transactions/transactions.module';
 import { AutomationModule } from '@modules/automation/automation.module';
 import { ProductModeModule } from '../../backend/src/shared/product-mode/product-mode.module';
 import { CloudflareR2Adapter } from '@modules/multimedia/infrastructure/adapters/cloudflare-r2.adapter';
@@ -96,6 +97,7 @@ import { LocalStorageAdapter } from '@modules/multimedia/infrastructure/adapters
     CapitalContributionsModule,
     BankTransfersModule,
     ReceptionsModule,
+    TransactionsModule,
     AutomationModule,
   ],
   providers: [LocalStorageAdapter, CloudflareR2Adapter],

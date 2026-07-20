@@ -67,6 +67,7 @@ export const mainMenuItems: SideBarMenuItem[] = [
       },
       { id: 'purchasing-suppliers', label: 'Proveedores', url: '/purchasing/suppliers' },
       { id: 'purchasing-dte', label: "DTE's proveedor", url: '/purchasing/dte' },
+      { id: 'purchasing-reports', label: 'Reportes', url: '/purchasing/reports' },
       // { id: 'purchasing-flow', label: 'Flujo del proceso', url: '/purchasing/flow' },
     ],
   },
@@ -76,6 +77,7 @@ export const mainMenuItems: SideBarMenuItem[] = [
     children: [
       { id: 'inventory-catalog', label: 'Catálogo', url: '/catalog' },
       { id: 'inventory-stock', label: 'Existencias (Stock)', url: '/inventory/stock' },
+      { id: 'inventory-reports', label: 'Reportes', url: '/inventory/reports' },
       { id: 'inventory-units', label: 'Unidades de medida', url: '/inventory/units' },
       { id: 'inventory-storages', label: 'Almacenes', url: '/inventory/storages' },
     ],

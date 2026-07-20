@@ -28,6 +28,7 @@ import {
   buildSupplierFiscalAmounts,
   computeLineSubtotalNeto,
 } from './seed-demo-purchase-fiscal.util';
+import { seedDemoSalesHistory } from './seed-demo-sales-history';
 
 const ANA_SHAREHOLDER_DOC = '12.345.678-5';
 const PRINCIPAL_HUB_CODE = 'CEV00001';
@@ -198,6 +199,14 @@ export async function seedDemoOperationalHistory(ctx: {
     `📄 Documentos proveedor: ${fiscalDocCount} facturas, ${transferCount} pagadas por transferencia, ${installmentCount} con cuotas (${supplierPaymentCount} líneas de pago/cuota)`,
   );
 
+  await seedDemoSalesHistory({
+    app,
+    dataSource,
+    companyId,
+    branchId,
+    adminUserId,
+  });
+
   await logOperationalSmokeSummary(dataSource, companyId, variantBySku);
 }
 
@@ -333,6 +342,14 @@ async function logOperationalSmokeSummary(
     })
     .getCount();
 
+  const seedSales = await txRepo
+    .createQueryBuilder('tx')
+    .where('tx.transactionType = :type', { type: TransactionType.SALE })
+    .andWhere(`(tx.metadata::jsonb #>> '{origin}') = :origin`, {
+      origin: 'SEED_DEMO_SALE',
+    })
+    .getCount();
+
   const receptionsWithTax = await receptionRepo
     .createQueryBuilder('r')
     .where('r.reference LIKE :prefix', { prefix: 'F-SEED-%' })
@@ -341,7 +358,7 @@ async function logOperationalSmokeSummary(
 
   console.log('📊 Resumen operativo seed (muestra):');
   console.log(
-    `   • Recepciones F-SEED: ${seedReceptions}, facturas proveedor: ${seedInvoices}, recepciones con IVA: ${receptionsWithTax}`,
+    `   • Recepciones F-SEED: ${seedReceptions}, facturas proveedor: ${seedInvoices}, ventas seed: ${seedSales}, recepciones con IVA: ${receptionsWithTax}`,
   );
 
   for (const sku of sampleSkus) {
