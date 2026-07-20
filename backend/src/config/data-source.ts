@@ -225,6 +225,7 @@ import { HrEmployeeShift } from '@modules/hr-jornada/domain/hr-employee-shift.en
 import { HrAfpFund } from '@modules/employees/domain/hr-afp-fund.entity';
 import { HrIsapre } from '@modules/employees/domain/hr-isapre.entity';
 import { HcmContractWeeklyHoursIsapre1757240000000 } from '../migrations/1757240000000-HcmContractWeeklyHoursIsapre';
+import { FiscalDocumentFamilies1757250000000 } from '../migrations/1757250000000-FiscalDocumentFamilies';
 import { HcmLaborUnitShifts1757250000000 } from '../migrations/1757250000000-HcmLaborUnitShifts';
 import { HcmShiftSystems1757260000000 } from '../migrations/1757260000000-HcmShiftSystems';
 import { HcmShiftInstanceLaborUnitShift1757270000000 } from '../migrations/1757270000000-HcmShiftInstanceLaborUnitShift';
@@ -478,6 +479,7 @@ export const AppDataSource = new DataSource({
     HrLaborUnits1757220000000,
     HrLaborUnitAssociationsMn1757230000000,
     HcmContractWeeklyHoursIsapre1757240000000,
+    FiscalDocumentFamilies1757250000000,
     HcmLaborUnitShifts1757250000000,
     HcmShiftSystems1757260000000,
     HcmShiftInstanceLaborUnitShift1757270000000,

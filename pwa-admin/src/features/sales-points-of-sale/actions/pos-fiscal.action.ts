@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { SII_FOLIOS } from "@/navigation/sii-routes";
 import { PosFiscalRequest } from "../infrastructure/pos-fiscal.request";
 import type { PosFiscalPolicy, UpsertPosFolioAllocationInput } from "../types/pos-fiscal.types";
 
@@ -29,7 +30,7 @@ export async function replacePosFolioAllocationsAction(
   if (res.success) {
     revalidatePath("/sales/points-of-sale");
     revalidatePath(`/sales/points-of-sale/${posId}`);
-    revalidatePath("/settings/sii/folios");
+    revalidatePath(SII_FOLIOS);
   }
   return res;
 }

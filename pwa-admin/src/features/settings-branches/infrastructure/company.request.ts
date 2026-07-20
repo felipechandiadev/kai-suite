@@ -280,6 +280,41 @@ export class CompanyRequest {
     return mapped;
   }
 
+  static async getBankAccountBookBalance(accountKey: string): Promise<{ bookBalance: number }> {
+    const headers = await authHeaders();
+    if (!headers) {
+      throw new Error("Sesión no autenticada");
+    }
+    const res = await fetch(apiUrl(`company/bank-accounts/${encodeURIComponent(accountKey)}/balance`), {
+      method: "GET",
+      headers,
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      throw new Error(await errorBodyMessage(res));
+    }
+    const data = (await res.json()) as { bookBalance: number };
+    return { bookBalance: typeof data.bookBalance === "number" ? data.bookBalance : 0 };
+  }
+
+  static async updateBankAccountBalance(accountKey: string, currentBalance: number): Promise<void> {
+    const headers = await authHeaders();
+    if (!headers) {
+      throw new Error("Sesión no autenticada");
+    }
+    const res = await fetch(
+      apiUrl(`company/bank-accounts/${encodeURIComponent(accountKey)}/balance`),
+      {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ currentBalance }),
+      },
+    );
+    if (!res.ok) {
+      throw new Error(await errorBodyMessage(res));
+    }
+  }
+
   /** Empresa activa (alias reducido para flujos que solo requieren id/nombre). */
   static async getCurrent(): Promise<CurrentCompany | null> {
     const details = await this.getDetails();

@@ -1,3 +1,5 @@
+import type { FiscalDocumentFamilies } from "./fiscal-document-family";
+
 export type SiiEnvironment = "certification" | "production";
 
 export type FiscalProfileStatus =
@@ -22,6 +24,7 @@ export type FiscalProfile = {
   productionEnabled: boolean;
   portalPostulationDone: boolean;
   portalPermissionsDone: boolean;
+  enabledDocumentFamilies: FiscalDocumentFamilies;
   hasCertificate: boolean;
   certificateExpiresAt: string | null;
   activeCaf: {

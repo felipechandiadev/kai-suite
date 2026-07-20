@@ -6,6 +6,10 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { FiscalProfileStatus, SiiEnvironment } from './fiscal.enums';
+import {
+  type FiscalDocumentFamilies,
+  normalizeFiscalDocumentFamilies,
+} from './fiscal-document-family';
 
 @Entity('fiscal_profiles')
 export class FiscalProfile {
@@ -58,6 +62,14 @@ export class FiscalProfile {
 
   @Column({ name: 'portal_permissions_done', type: 'boolean', default: false })
   portalPermissionsDone!: boolean;
+
+  @Column({
+    name: 'enabled_document_families',
+    type: 'jsonb',
+    default: () =>
+      `'{"boleta":true,"factura":false,"notaCredito":false,"guiaDespacho":false}'`,
+  })
+  enabledDocumentFamilies!: FiscalDocumentFamilies;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

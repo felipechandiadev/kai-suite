@@ -13,8 +13,13 @@ import {
   mergeCompanyAndPos,
   PAYMENT_METHOD_LABELS,
 } from '@modules/payment-methods-config';
-import { PaymentMethod } from '@modules/transactions/domain/transaction.entity';
 import { Company, type CompanyBankAccount } from '../domain/company.entity';
+import {
+  Transaction,
+  TransactionStatus,
+  TransactionType,
+  PaymentMethod,
+} from '@modules/transactions/domain/transaction.entity';
 import {
   CompanyCheckSettings,
   buildDefaultCompanyCheckSettings,
@@ -130,8 +135,80 @@ export class CompaniesService {
     private readonly storageRepository: Repository<Storage>,
     @InjectRepository(PriceList)
     private readonly priceListRepository: Repository<PriceList>,
+    @InjectRepository(Transaction)
+    private readonly transactionRepository: Repository<Transaction>,
     private readonly paymentCatalog: CompanyPaymentCatalogService,
   ) {}
+
+  /**
+   * Saldo libro calculado desde transacciones confirmadas para una cuenta bancaria.
+   * Sigue el mismo patrón que CashHubsService.getHubBalance.
+   */
+  async getBankAccountBookBalance(
+    companyId: string,
+    accountKey: string,
+  ): Promise<number> {
+    const branchRows = await this.branchRepository.find({
+      where: { companyId },
+      select: ['id'],
+    });
+    const branchIds = branchRows.map((b) => b.id).filter(Boolean);
+    if (branchIds.length === 0) {
+      return 0;
+    }
+
+    const qb = this.transactionRepository.createQueryBuilder('tx');
+
+    const result = await qb
+      .select(
+        `COALESCE(SUM(CASE
+          WHEN tx.transactionType IN ('${TransactionType.CAPITAL_CONTRIBUTION}','${TransactionType.CASH_DEPOSIT}') THEN tx.total
+          WHEN tx.transactionType = '${TransactionType.PAYMENT_IN}' AND tx.paymentMethod = '${PaymentMethod.TRANSFER}' THEN tx.total
+          WHEN tx.transactionType IN (
+            '${TransactionType.BANK_TO_CASH_TRANSFER}',
+            '${TransactionType.SUPPLIER_PAYMENT}',
+            '${TransactionType.BANK_WITHDRAWAL_TO_SHAREHOLDER}',
+            '${TransactionType.PAYROLL_PAYMENT}',
+            '${TransactionType.EXPENSE_PAYMENT}',
+            '${TransactionType.OPERATING_EXPENSE}'
+          ) THEN -tx.total
+          ELSE 0
+        END), 0)`,
+        'bookBalance',
+      )
+      .where('tx.status = :status', { status: TransactionStatus.CONFIRMED })
+      .andWhere('tx.branchId IN (:...branchIds)', { branchIds })
+      .andWhere('tx.bankAccountKey = :accountKey', { accountKey })
+      .getRawOne<{ bookBalance: string | null }>();
+
+    const n = Number(result?.bookBalance ?? 0);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  /**
+   * Actualiza el saldo cartola (currentBalance) de una cuenta bancaria de la empresa.
+   */
+  async updateBankAccountBalance(
+    companyId: string,
+    accountKey: string,
+    currentBalance: number,
+  ): Promise<CompanyDetail> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) {
+      throw new NotFoundException('Empresa no encontrada');
+    }
+    const accounts = company.bankAccounts ?? [];
+    const idx = accounts.findIndex((a) => a.accountKey === accountKey);
+    if (idx === -1) {
+      throw new NotFoundException(`Cuenta bancaria '${accountKey}' no encontrada`);
+    }
+    accounts[idx] = { ...accounts[idx], currentBalance };
+    company.bankAccounts = accounts;
+    await this.companyRepository.save(company);
+    return this.toDetail(company);
+  }
 
   /**
    * Lista todas las empresas (incluye inactivas opcionalmente).

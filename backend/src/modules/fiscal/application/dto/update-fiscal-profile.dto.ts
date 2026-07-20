@@ -7,6 +7,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { SiiEnvironment } from '../../domain/fiscal.enums';
+import type { FiscalDocumentFamilies } from '../../domain/fiscal-document-family';
 
 export class UpdateFiscalProfileDto {
   @IsOptional()
@@ -59,4 +60,7 @@ export class UpdateFiscalProfileDto {
   @IsOptional()
   @IsBoolean()
   portalPermissionsDone?: boolean;
+
+  @IsOptional()
+  enabledDocumentFamilies?: FiscalDocumentFamilies;
 }

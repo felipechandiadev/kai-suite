@@ -2,6 +2,13 @@
 
 import Link from "next/link";
 import type { FiscalSummary } from "../types/fiscal.types";
+import {
+  SII_CERTIFICACION,
+  SII_CONTRIBUYENTE,
+  SII_CREDENCIALES,
+  SII_DOCUMENTOS,
+  siiFoliosPath,
+} from "@/navigation/sii-routes";
 import { MILESTONE_LABELS } from "../types/fiscal.types";
 
 type Props = { summary: FiscalSummary };
@@ -58,18 +65,27 @@ export function SiiGeneralView({ summary }: Props) {
         </ul>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Link
-          href="/settings/sii/emisor"
+          href={SII_CONTRIBUYENTE}
           className="rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors"
         >
-          <h3 className="font-medium">Emisor</h3>
+          <h3 className="font-medium">Contribuyente</h3>
           <p className="text-sm text-muted-foreground mt-1">
             {summary.rut ? `${summary.rut}` : "Completar datos"}
           </p>
         </Link>
         <Link
-          href="/settings/sii/credenciales"
+          href={SII_DOCUMENTOS}
+          className="rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors"
+        >
+          <h3 className="font-medium">Documentos</h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            Familias DTE habilitadas
+          </p>
+        </Link>
+        <Link
+          href={SII_CREDENCIALES}
           className="rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors"
         >
           <h3 className="font-medium">Credenciales</h3>
@@ -83,12 +99,21 @@ export function SiiGeneralView({ summary }: Props) {
           </p>
         </Link>
         <Link
-          href="/settings/sii/certificacion"
+          href={SII_CERTIFICACION}
           className="rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors"
         >
           <h3 className="font-medium">Certificación</h3>
           <p className="text-sm text-muted-foreground mt-1">
             {summary.activeRun?.status ?? "Sin corrida activa"}
+          </p>
+        </Link>
+        <Link
+          href={siiFoliosPath({ tab: "boleta" })}
+          className="rounded-lg border border-border p-4 hover:bg-muted/50 transition-colors sm:col-span-2 lg:col-span-4"
+        >
+          <h3 className="font-medium">Folios</h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            CAF y asignaciones por tipo de documento
           </p>
         </Link>
       </section>

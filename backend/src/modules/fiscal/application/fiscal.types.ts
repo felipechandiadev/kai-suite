@@ -1,6 +1,7 @@
 import { UpdateFiscalProfileDto } from './dto/update-fiscal-profile.dto';
 import { CompleteCertificationDto } from './dto/complete-certification.dto';
 import { EnableProductionDto } from './dto/enable-production.dto';
+import type { FiscalDocumentFamilies } from '../domain/fiscal-document-family';
 
 export type FiscalProfileResponse = {
   companyId: string;
@@ -17,6 +18,7 @@ export type FiscalProfileResponse = {
   productionEnabled: boolean;
   portalPostulationDone: boolean;
   portalPermissionsDone: boolean;
+  enabledDocumentFamilies: FiscalDocumentFamilies;
   hasCertificate: boolean;
   certificateExpiresAt: string | null;
   activeCaf: {

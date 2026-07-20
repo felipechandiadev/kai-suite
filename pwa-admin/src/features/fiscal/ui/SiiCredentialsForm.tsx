@@ -11,6 +11,7 @@ import {
   testFiscalSiiTokenAction,
   uploadFiscalCertificateAction,
 } from "../actions/fiscal.actions";
+import { siiFoliosPath } from "@/navigation/sii-routes";
 
 type Props = {
   profile: FiscalProfile;
@@ -106,7 +107,7 @@ export function SiiCredentialsForm({ profile }: Props) {
 
       <p className="text-sm text-muted-foreground">
         Los archivos CAF (folios boleta 39) se gestionan en{" "}
-        <Link href="/settings/sii/folios" className="font-medium text-primary underline-offset-2 hover:underline">
+        <Link href={siiFoliosPath({ tab: "boleta" })} className="font-medium text-primary underline-offset-2 hover:underline">
           SII → Folios
         </Link>
         .

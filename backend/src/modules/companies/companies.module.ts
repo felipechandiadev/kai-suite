@@ -9,6 +9,7 @@ import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity
 import { Branch } from '@modules/branches/domain/branch.entity';
 import { Storage } from '@modules/storages/domain/storage.entity';
 import { PriceList } from '@modules/price-lists/domain/price-list.entity';
+import { Transaction } from '@modules/transactions/domain/transaction.entity';
 import { CompaniesService } from './application/companies.service';
 import { CompanyPaymentCatalogService } from './application/company-payment-catalog.service';
 import { CompaniesController } from './presentation/companies.controller';
@@ -24,6 +25,7 @@ import { CompaniesController } from './presentation/companies.controller';
       Branch,
       Storage,
       PriceList,
+      Transaction,
     ]),
     CqrsModule,
   ],

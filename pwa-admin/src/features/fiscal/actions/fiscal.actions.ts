@@ -2,24 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import { FiscalRequest } from "../infrastructure/fiscal.request";
+import { SII_REVALIDATE_PATHS } from "@/navigation/sii-routes";
 import type {
   EmisorFormValues,
   FiscalCafPackageStatus,
   FiscalEmissionsListParams,
   SiiEnvironment,
 } from "../types/fiscal.types";
-
-const SII_PATHS = [
-  "/settings/sii",
-  "/settings/sii/certificacion",
-  "/settings/sii/emisor",
-  "/settings/sii/credenciales",
-  "/settings/sii/folios",
-  "/settings/sii/produccion",
-];
+import type { FiscalDocumentFamilies } from "../types/fiscal-document-family";
 
 function revalidateSii() {
-  for (const p of SII_PATHS) revalidatePath(p);
+  for (const p of SII_REVALIDATE_PATHS) revalidatePath(p);
 }
 
 export async function getFiscalSummaryAction() {
@@ -42,6 +35,14 @@ export async function updateFiscalEmisorAction(values: EmisorFormValues) {
     resolutionDate: values.resolutionDate || undefined,
     portalPostulationDone: values.portalPostulationDone,
     portalPermissionsDone: values.portalPermissionsDone,
+  });
+  if (res.success) revalidateSii();
+  return res;
+}
+
+export async function updateFiscalDocumentFamiliesAction(families: FiscalDocumentFamilies) {
+  const res = await FiscalRequest.updateProfile({
+    enabledDocumentFamilies: families,
   });
   if (res.success) revalidateSii();
   return res;
@@ -90,13 +91,13 @@ export async function listFiscalEmissionsAction(params: FiscalEmissionsListParam
 
 export async function retryFiscalBoletaEmissionAction(transactionId: string) {
   const res = await FiscalRequest.retryBoletaEmission(transactionId);
-  if (res.success) revalidatePath("/settings/sii/folios");
+  if (res.success) revalidatePath("/sii/folios");
   return res;
 }
 
 export async function refreshFiscalEmissionSiiStatusAction(emissionId: string) {
   const res = await FiscalRequest.refreshEmissionSiiStatus(emissionId);
-  if (res.success) revalidatePath("/settings/sii/folios");
+  if (res.success) revalidatePath("/sii/folios");
   return res;
 }
 

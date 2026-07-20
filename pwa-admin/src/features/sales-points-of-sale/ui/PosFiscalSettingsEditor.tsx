@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { siiFoliosPath } from "@/navigation/sii-routes";
 import { SelectDefault as Select } from "@kai/ui";
 import { Button } from "@kai/ui";
 import type {
@@ -156,11 +157,10 @@ export function PosFiscalSettingsEditor({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-medium">Folios boleta asignados</p>
             <Link
-              href={
-                currentBoletaAlloc?.cafId
-                  ? `/settings/sii/folios?package=${encodeURIComponent(currentBoletaAlloc.cafId)}`
-                  : "/settings/sii/folios"
-              }
+              href={siiFoliosPath({
+                tab: "boleta",
+                package: currentBoletaAlloc?.cafId,
+              })}
               className="text-xs text-primary underline-offset-2 hover:underline"
             >
               Gestionar folios
@@ -177,14 +177,14 @@ export function PosFiscalSettingsEditor({
           {!companyCaf39 ? (
             <p className="text-xs text-amber-800 dark:text-amber-200">
               No hay CAF de boleta en producción.{" "}
-              <Link href="/settings/sii/folios" className="underline">
+              <Link href={siiFoliosPath({ tab: "boleta" })} className="underline">
                 Cargar en Folios SII
               </Link>
             </p>
           ) : boletaAllocs.length === 0 ? (
             <p className="text-xs text-muted-foreground">
               Este POS no tiene sub-paquete asignado. Cree uno en{" "}
-              <Link href="/settings/sii/folios" className="underline">
+              <Link href={siiFoliosPath({ tab: "boleta" })} className="underline">
                 Folios SII
               </Link>
               .

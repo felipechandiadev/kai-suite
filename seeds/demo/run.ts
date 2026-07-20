@@ -3,7 +3,8 @@
 import { NestFactory } from '@nestjs/core';
 import { DataSource, DeepPartial, IsNull, Not, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
-import { MinimalSeedModule } from '../shared/minimal-seed.module';
+import { SeedOperationalModule } from '../shared/seed-operational.module';
+import { seedDemoOperationalHistory } from './seed-demo-operational-history';
 import { User, UserRole } from '@modules/users/domain/user.entity';
 import { UserCompanyMembership } from '@modules/users/domain/user-company-membership.entity';
 import { UserCompanyRole } from '@modules/users/domain/user-company-role.entity';
@@ -1690,7 +1691,7 @@ async function upsertMinimalSeedCompany(
 }
 
 async function bootstrap() {
-  const app = await NestFactory.createApplicationContext(MinimalSeedModule, {
+  const app = await NestFactory.createApplicationContext(SeedOperationalModule, {
     logger: ['error', 'warn', 'log'],
   });
 
@@ -2163,6 +2164,15 @@ async function bootstrap() {
         appliesTo: RuleScope.TRANSACTION,
         transactionType: 'CASH_WITHDRAWAL_TO_PETTY_CASH' as any,
         debitAccountId: acc('1101'),
+        creditAccountId: acc('1102'),
+        priority: 5,
+        isActive: true,
+      },
+      {
+        companyId: company.id,
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: 'BANK_TO_CASH_TRANSFER' as any,
+        debitAccountId: acc('1110'),
         creditAccountId: acc('1102'),
         priority: 5,
         isActive: true,
@@ -2814,7 +2824,7 @@ async function bootstrap() {
         listaMayoristaId: listaVip.id,
         listaEshopId: listaEshop.id,
         logPrefix: 'Seed dev',
-        defaultStockQty: 100,
+        defaultStockQty: 0,
       });
 
     console.log(`✅ Catálogo desarrollo: ${devVariantCount} variante(s) en ${SEED_DEV_PRODUCTS.length} producto(s)`);
@@ -2858,11 +2868,6 @@ async function bootstrap() {
       recipeLineRepo,
     });
 
-    await variantRepo.update(
-      { companyId: company.id },
-      { pmp: null, pmpHistory: null },
-    );
-    console.log('✅ PMP e historial en null para todas las variantes de la empresa seed');
 
     const companyForEshop = await companyRepo.findOne({ where: { id: company.id } });
     if (companyForEshop) {
@@ -3016,7 +3021,7 @@ async function bootstrap() {
       select: ['id'],
     });
     for (const v of trackedVariants) {
-      const physicalQty = devStockByVariantId.get(v.id) ?? 12;
+      const physicalQty = devStockByVariantId.get(v.id) ?? 0;
       let sl = await stockLevelRepo.findOne({
         where: { productVariantId: v.id, storageId: seedSalaVenta.id },
       });
@@ -3039,7 +3044,7 @@ async function bootstrap() {
       await stockLevelRepo.save(sl);
     }
     console.log(
-      `✅ Stock «${SEED_STORAGE_NAME}»: ${trackedVariants.length} variante(s) (ELABORADO/PREPARADO en 0)`,
+      `✅ Stock «${SEED_STORAGE_NAME}»: ${trackedVariants.length} variante(s) en 0 (compras seed llenan inventario)`,
     );
 
     const productionUnitRepo = dataSource.getRepository(ProductionUnit);
@@ -4540,6 +4545,21 @@ async function bootstrap() {
       documentNumber: '10.987.654-3',
       phone: '+56 9 8765 4321',
       preferOwner: true,
+    });
+
+    const adminUser = await userRepo.findOne({
+      where: { userName, deletedAt: null as never },
+    });
+    if (!adminUser) {
+      throw new Error(`Usuario admin seed '${userName}' no encontrado tras ensureSeedUser`);
+    }
+
+    await seedDemoOperationalHistory({
+      app,
+      dataSource,
+      companyId: company.id,
+      branchId: seedBranch.id,
+      adminUserId: adminUser.id,
     });
 
     // Segunda empresa: misma cuenta admin → habilita modo Multiempresa en login.

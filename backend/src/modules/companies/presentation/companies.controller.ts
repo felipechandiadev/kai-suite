@@ -150,6 +150,38 @@ export class CompaniesController {
   }
 
   /**
+   * Saldo libro de una cuenta bancaria (calculado desde transacciones).
+   */
+  @Get('company/bank-accounts/:key/balance')
+  async getBankAccountBalance(
+    @Param('key') key: string,
+    @CurrentCompany() activeCompanyId: string,
+  ) {
+    const bookBalance = await this.companiesService.getBankAccountBookBalance(
+      activeCompanyId,
+      key,
+    );
+    return { bookBalance };
+  }
+
+  /**
+   * Actualiza el saldo cartola (currentBalance) de una cuenta bancaria.
+   */
+  @Patch('company/bank-accounts/:key/balance')
+  async updateBankAccountBalance(
+    @Param('key') key: string,
+    @Body() body: { currentBalance: number },
+    @CurrentCompany() activeCompanyId: string,
+  ) {
+    const updated = await this.companiesService.updateBankAccountBalance(
+      activeCompanyId,
+      key,
+      Number(body.currentBalance ?? 0),
+    );
+    return updated;
+  }
+
+  /**
    * Catálogo de medios de pago de una empresa (solo ADMIN).
    * Si la empresa aún no lo tiene definido, devuelve el set por defecto.
    */

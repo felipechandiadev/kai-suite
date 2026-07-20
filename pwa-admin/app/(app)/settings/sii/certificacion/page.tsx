@@ -1,30 +1,11 @@
-import { BasicPageLayout } from "@kai/ui";
-import { getFiscalSummaryAction } from "@/features/fiscal/actions/fiscal.actions";
-import { SiiCertificationWizard } from "@/features/fiscal/ui/SiiCertificationWizard";
-import { SiiNarrowContent } from "@/features/fiscal/ui/SiiNarrowContent";
+import { redirect } from "next/navigation";
+import { siiCertificacionPath } from "@/navigation/sii-routes";
 
-export const dynamic = "force-dynamic";
+type PageProps = {
+  searchParams?: Promise<{ tab?: string }>;
+};
 
-export default async function SiiCertificacionPage() {
-  const res = await getFiscalSummaryAction();
-  if (!res.success) {
-    return (
-      <SiiNarrowContent>
-        <BasicPageLayout title="Certificación SII" subtitle="Set BE y validación portal">
-          <p className="text-sm text-destructive">{res.error}</p>
-        </BasicPageLayout>
-      </SiiNarrowContent>
-    );
-  }
-
-  return (
-    <SiiNarrowContent>
-      <BasicPageLayout
-        title="Certificación SII"
-        subtitle="Set de prueba BE, envío boletas, RCO y consulta Track ID"
-      >
-        <SiiCertificationWizard summary={res.summary} />
-      </BasicPageLayout>
-    </SiiNarrowContent>
-  );
+export default async function LegacySiiCertificacionPage({ searchParams }: PageProps) {
+  const params = (await searchParams) ?? {};
+  redirect(siiCertificacionPath(params.tab));
 }

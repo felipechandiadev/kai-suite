@@ -248,6 +248,7 @@ export function buildSeedCompanyBankAccounts(
       accountType: AccountTypeName.CUENTA_CORRIENTE,
       accountNumber: '12345678901',
       accountHolderName,
+      currentBalance: 0,
       isPrimary: true,
     },
     {
@@ -256,6 +257,7 @@ export function buildSeedCompanyBankAccounts(
       accountType: AccountTypeName.CUENTA_CORRIENTE,
       accountNumber: '98765432109',
       accountHolderName,
+      currentBalance: 0,
       isPrimary: false,
     },
   ];
@@ -287,7 +289,7 @@ const COMPANY_PAYMENT_METHODS: PaymentMethod[] = [
   PaymentMethod.INTERNAL_CREDIT,
 ];
 
-const PRIMARY_BANK_ACCOUNT_KEY = 'seed-dev-banco-estado-cc';
+export const PRIMARY_BANK_ACCOUNT_KEY = 'seed-dev-banco-estado-cc';
 
 export function buildSeedCompanyPaymentCatalog(): CompanyPaymentMethodConfig[] {
   return COMPANY_PAYMENT_METHODS.map((method, displayOrder) => ({

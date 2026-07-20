@@ -6,8 +6,13 @@ import { ShareholderRequest } from "@/features/settings-shareholders/infrastruct
 import { TreasuryBankMovementsRequest } from "@/features/treasury-bank-operations/infrastructure/treasury-bank-movements.request";
 import TreasuryBankTabContent from "./TreasuryBankTabContent";
 import { resolveTreasuryBankAccountSelection } from "./treasury-bank-accounts";
-import { mapApiTxToMovementGridRow, type TreasuryMovementGridRow } from "./treasury-movements-mapper";
-import { LoadingState } from '@kai/ui';
+import {
+  applyRunningSaldo,
+  mapApiTxToMovementGridRow,
+  type TreasuryMovementGridRow,
+} from "./treasury-movements-mapper";
+import type { TreasuryBankMovementApiRow } from "@/features/treasury-bank-operations/infrastructure/treasury-bank-movements.request";
+import { LoadingState } from "@kai/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -32,25 +37,45 @@ export default async function TreasuryBankPage({
 
   let movementRows: TreasuryMovementGridRow[] = [];
   let movementsTotal = 0;
+  let bookBalance: number | null = null;
+  let bookBalanceError: string | null = null;
+  let apiRows: TreasuryBankMovementApiRow[] = [];
+
   if (selectedKey) {
-    try {
-      const r = await TreasuryBankMovementsRequest.listByBankAccountKey({
+    const [movementsResult, bookBalanceResult] = await Promise.allSettled([
+      TreasuryBankMovementsRequest.listByBankAccountKey({
         bankAccountKey: selectedKey,
         page: 1,
         limit: 200,
-      });
-      movementRows = r.rows.map(mapApiTxToMovementGridRow);
-      movementsTotal = r.total;
-    } catch {
-      movementRows = [];
-      movementsTotal = 0;
+      }),
+      CompanyRequest.getBankAccountBookBalance(selectedKey),
+    ]);
+
+    if (movementsResult.status === "fulfilled") {
+      apiRows = movementsResult.value.rows;
+      movementRows = apiRows.map(mapApiTxToMovementGridRow);
+      movementsTotal = movementsResult.value.total;
+    }
+    if (bookBalanceResult.status === "fulfilled") {
+      bookBalance = bookBalanceResult.value.bookBalance;
+    } else {
+      bookBalanceError =
+        bookBalanceResult.reason instanceof Error
+          ? bookBalanceResult.reason.message
+          : "No se pudo calcular el saldo libro";
+    }
+    if (bookBalance !== null) {
+      movementRows = applyRunningSaldo(movementRows, apiRows, bookBalance);
     }
   }
 
   return (
     <Suspense
       fallback={
-        <LoadingState className="flex items-center justify-center p-4 py-4" data-test-id="treasury-bank-page-suspense" />
+        <LoadingState
+          className="flex items-center justify-center p-4 py-4"
+          data-test-id="treasury-bank-page-suspense"
+        />
       }
     >
       <TreasuryBankTabContent
@@ -60,6 +85,8 @@ export default async function TreasuryBankPage({
         selectedBankAccountKey={selectedKey}
         movementRows={movementRows}
         movementsTotal={movementsTotal}
+        bookBalance={bookBalance}
+        bookBalanceError={bookBalanceError}
       />
     </Suspense>
   );

@@ -43,9 +43,10 @@ import {
 } from '../infrastructure/boleta-envio.builder';
 import { buildBoletaPrintPreview, type FiscalBoletaPrintPreview } from '../domain/fiscal-boleta-print-preview';
 import { SET_BE_CASES, buildSetBePreview } from '../domain/set-be.constants';
-import { UpdateFiscalProfileDto } from './dto/update-fiscal-profile.dto';
+import { normalizeFiscalDocumentFamilies } from '../domain/fiscal-document-family';
 import { CompleteCertificationDto } from './dto/complete-certification.dto';
 import { EnableProductionDto } from './dto/enable-production.dto';
+import { UpdateFiscalProfileDto } from './dto/update-fiscal-profile.dto';
 import type {
   FiscalCafListItem,
   FiscalProfileResponse,
@@ -179,6 +180,11 @@ export class FiscalService {
     }
     if (dto.portalPermissionsDone !== undefined) {
       profile.portalPermissionsDone = dto.portalPermissionsDone;
+    }
+    if (dto.enabledDocumentFamilies !== undefined) {
+      profile.enabledDocumentFamilies = normalizeFiscalDocumentFamilies(
+        dto.enabledDocumentFamilies,
+      );
     }
 
     this.refreshProfileStatus(profile, company);
@@ -672,6 +678,9 @@ export class FiscalService {
       productionEnabled: profile.productionEnabled,
       portalPostulationDone: profile.portalPostulationDone,
       portalPermissionsDone: profile.portalPermissionsDone,
+      enabledDocumentFamilies: normalizeFiscalDocumentFamilies(
+        profile.enabledDocumentFamilies,
+      ),
       hasCertificate: !!cert,
       certificateExpiresAt: cert?.notAfter?.toISOString() ?? null,
       activeCaf: caf

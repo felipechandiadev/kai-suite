@@ -18,6 +18,7 @@ type Props = {
   pkg: FiscalCafPackage;
   pointsOfSale: PointOfSaleListItem[];
   highlight?: boolean;
+  allowPosAssignment?: boolean;
 };
 
 function statusBadge(status: string) {
@@ -37,7 +38,12 @@ function envLabel(env: string): string {
   return env === "production" ? "Producción" : "Certificación";
 }
 
-export function FolioPackageCard({ pkg, pointsOfSale, highlight }: Props) {
+export function FolioPackageCard({
+  pkg,
+  pointsOfSale,
+  highlight,
+  allowPosAssignment = true,
+}: Props) {
   const router = useRouter();
   const [assignOpen, setAssignOpen] = useState(false);
   const [ledgerOpen, setLedgerOpen] = useState(false);
@@ -127,7 +133,7 @@ export function FolioPackageCard({ pkg, pointsOfSale, highlight }: Props) {
             <Button variant="secondary" size="sm" onClick={() => void openPackLedger()}>
               Ver folios
             </Button>
-            {pkg.status === "active" ? (
+            {pkg.status === "active" && allowPosAssignment ? (
               <Button size="sm" onClick={() => void openAssign()} disabled={loadingDetail}>
                 Asignar a POS
               </Button>

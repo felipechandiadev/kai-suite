@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@kai/ui";
 import { uploadFiscalCafAction } from "../actions/fiscal.actions";
 
-export function SiiFoliosCafSection() {
+export function SiiFoliosCafSection({ expectedDteType }: { expectedDteType?: number }) {
   const router = useRouter();
   const cafInputRef = useRef<HTMLInputElement>(null);
   const [cafEnv, setCafEnv] = useState<"certification" | "production">("production");
@@ -39,9 +39,12 @@ export function SiiFoliosCafSection() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Cada archivo CAF XML importado crea un paquete con código único. Un XML corresponde a un
-        tipo DTE (39 = boleta electrónica). Al subir un nuevo CAF del mismo tipo y ambiente, el
-        paquete activo anterior pasa a archivado.
+        Cada archivo CAF XML importado crea un paquete con código único.
+        {expectedDteType != null
+          ? ` Para esta pestaña se espera CAF tipo ${expectedDteType}.`
+          : " Un XML corresponde a un tipo DTE (39 = boleta electrónica)."}{" "}
+        Al subir un nuevo CAF del mismo tipo y ambiente, el paquete activo anterior pasa a
+        archivado.
       </p>
       <label className="block text-sm">
         <span className="mb-1 block font-medium">Ambiente del CAF</span>

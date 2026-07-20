@@ -11,6 +11,7 @@ import {
   postCashDepositAction,
   postDividendWithdrawalAction,
   postBankToCashHubTransferAction,
+  updateBankAccountBalanceAction,
 } from "@/features/treasury-bank-operations/actions/treasury-bank-operations.action";
 import TreasuryBankMovementsGrid from "./TreasuryBankMovementsGrid";
 import { treasuryBankAccountKey } from "./treasury-bank-accounts";
@@ -41,9 +42,11 @@ type TreasuryBankTabContentProps = {
   selectedBankAccountKey: string | null;
   movementRows: TreasuryMovementGridRow[];
   movementsTotal: number;
+  bookBalance: number | null;
+  bookBalanceError: string | null;
 };
 
-type DialogKind = "none" | "capital" | "dividend" | "deposit" | "bankToHub";
+type DialogKind = "none" | "capital" | "dividend" | "deposit" | "bankToHub" | "reconcile";
 
 const TREASURY_CARD_PAD = "[&_.fs-card__content]:p-2 [&_.fs-card__content]:pb-2";
 
@@ -95,6 +98,8 @@ export default function TreasuryBankTabContent({
   selectedBankAccountKey,
   movementRows,
   movementsTotal,
+  bookBalance,
+  bookBalanceError,
 }: TreasuryBankTabContentProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -141,6 +146,7 @@ export default function TreasuryBankTabContent({
   const [partnerOpt, setPartnerOpt] = useState<string | null>(null);
   const [amountStr, setAmountStr] = useState("0");
   const [taxStr, setTaxStr] = useState("");
+  const [reconcileAmountStr, setReconcileAmountStr] = useState("");
 
   const preferredBankKey = useMemo(() => {
     if (
@@ -163,6 +169,7 @@ export default function TreasuryBankTabContent({
     setPartnerOpt(partnerOptions[0] != null ? String(partnerOptions[0].id) : null);
     setAmountStr("0");
     setTaxStr("");
+    setReconcileAmountStr("");
     setError(null);
   };
 
@@ -297,6 +304,29 @@ export default function TreasuryBankTabContent({
     });
   };
 
+  const submitReconcile = () => {
+    setError(null);
+    if (!selectedBankAccountKey) {
+      setError("No hay cuenta bancaria seleccionada.");
+      return;
+    }
+    const reconcileAmount = Math.round(Number(reconcileAmountStr) || 0);
+    startTransition(() => {
+      void (async () => {
+        const r = await updateBankAccountBalanceAction({
+          bankAccountKey: selectedBankAccountKey,
+          currentBalance: reconcileAmount,
+        });
+        if (r.success) {
+          closeDialog();
+          router.refresh();
+        } else {
+          setError(r.error);
+        }
+      })();
+    });
+  };
+
   if (!company?.id) {
     return (
       <p className="p-4 text-sm text-muted-foreground" data-test-id="treasury-bank-no-company">
@@ -307,15 +337,29 @@ export default function TreasuryBankTabContent({
 
   return (
     <div className="flex min-h-0 flex-col gap-4 p-2 md:p-4" data-test-id="treasury-bank-tab-root">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-6">
         <StatisticsCard
           compact
-          label="Total en banco"
+          label="Total en banco (cartola)"
           value={fmtMoney(totalBank)}
-          hint="Suma de saldos en cuentas activas"
+          hint="Suma de saldos cartola en cuentas activas"
           tone="primary"
           data-test-id="treasury-bank-total-card"
         />
+        {bookBalance !== null ? (
+          <StatisticsCard
+            compact
+            label="Saldo libro"
+            value={fmtMoney(bookBalance)}
+            hint="Calculado desde movimientos registrados en el sistema"
+            tone={
+              Math.abs(bookBalance - (accounts.find((a) => treasuryBankAccountKey(a) === selectedBankAccountKey)?.currentBalance ?? bookBalance)) > 1
+                ? "warning"
+                : "success"
+            }
+            data-test-id="treasury-bank-book-balance-card"
+          />
+        ) : null}
 
         <TreasuryTransactionCard
           title="Aporte de capital"
@@ -356,7 +400,31 @@ export default function TreasuryBankTabContent({
           disabled={bankOptions.length === 0 || cashHubOptions.length === 0}
           data-test-id="treasury-bank-action-bank-to-hub"
         />
+
+        <TreasuryTransactionCard
+          title="Actualizar saldo cartola"
+          description="Registra el saldo según extracto bancario para conciliar con el saldo libro."
+          icon="BookCheck"
+          ariaLabel="Actualizar saldo según cartola bancaria"
+          onOpen={() => {
+            const currentAccount = accounts.find(
+              (a) => treasuryBankAccountKey(a) === selectedBankAccountKey,
+            );
+            setReconcileAmountStr(
+              String(currentAccount?.currentBalance != null ? currentAccount.currentBalance : ""),
+            );
+            openDialog("reconcile");
+          }}
+          disabled={!selectedBankAccountKey}
+          data-test-id="treasury-bank-action-reconcile"
+        />
       </div>
+
+      {bookBalanceError ? (
+        <Alert variant="warning" data-test-id="treasury-bank-book-balance-error">
+          No fue posible calcular el saldo libro. {bookBalanceError}
+        </Alert>
+      ) : null}
 
       {accounts.length > 0 ? (
         <section className="min-h-0 space-y-3" data-test-id="treasury-bank-accounts-section">
@@ -428,7 +496,9 @@ export default function TreasuryBankTabContent({
                 ? "Depósito de efectivo"
                 : dialog === "bankToHub"
                   ? "Giro para centro de efectivo"
-                  : ""
+                  : dialog === "reconcile"
+                    ? "Actualizar saldo cartola"
+                    : ""
         }
         size="md"
         scroll="paper"
@@ -450,6 +520,8 @@ export default function TreasuryBankTabContent({
                   submitDeposit();
                 } else if (dialog === "bankToHub") {
                   submitBankToHub();
+                } else if (dialog === "reconcile") {
+                  submitReconcile();
                 }
               }}
             >
@@ -506,15 +578,17 @@ export default function TreasuryBankTabContent({
               El efectivo sale del centro de acopio seleccionado y aumenta el saldo de la cuenta bancaria.
             </p>
           ) : null}
-          <TextField
-            label="Monto"
-            type="currency"
-            currencySymbol="$"
-            startSymbol="$"
-            value={amountStr}
-            onChange={(e) => setAmountStr(e.target.value)}
-            required
-          />
+          {dialog !== "reconcile" ? (
+            <TextField
+              label="Monto"
+              type="currency"
+              currencySymbol="$"
+              startSymbol="$"
+              value={amountStr}
+              onChange={(e) => setAmountStr(e.target.value)}
+              required
+            />
+          ) : null}
           {dialog === "dividend" ? (
             <TextField
               label="Retención / impuesto (opcional)"
@@ -522,6 +596,50 @@ export default function TreasuryBankTabContent({
               onChange={(e) => setTaxStr(e.target.value)}
               placeholder="Monto CLP"
             />
+          ) : null}
+
+          {dialog === "reconcile" ? (
+            <>
+              {bookBalance !== null ? (
+                <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">Saldo libro (sistema)</span>
+                    <span className="font-semibold tabular-nums">{fmtMoney(bookBalance)}</span>
+                  </div>
+                </div>
+              ) : null}
+              <TextField
+                label="Saldo según extracto bancario (cartola)"
+                type="currency"
+                currencySymbol="$"
+                startSymbol="$"
+                value={reconcileAmountStr}
+                onChange={(e) => setReconcileAmountStr(e.target.value)}
+                required
+              />
+              {bookBalance !== null && reconcileAmountStr.trim() !== "" ? (
+                <p className="text-xs text-muted-foreground">
+                  Diferencia:{" "}
+                  <span
+                    className={
+                      Math.abs(
+                        Math.round(Number(reconcileAmountStr) || 0) - bookBalance,
+                      ) > 1
+                        ? "font-semibold text-amber-600"
+                        : "font-semibold text-green-600"
+                    }
+                  >
+                    {fmtMoney(
+                      Math.round(Number(reconcileAmountStr) || 0) - bookBalance,
+                    )}
+                  </span>
+                </p>
+              ) : null}
+              <p className="text-xs text-muted-foreground">
+                Esto actualiza solo el saldo cartola registrado en el sistema. No crea transacciones ni
+                asientos contables.
+              </p>
+            </>
           ) : null}
         </div>
       </Dialog>

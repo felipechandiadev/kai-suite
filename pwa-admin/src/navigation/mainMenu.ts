@@ -262,6 +262,18 @@ export const mainMenuItems: SideBarMenuItem[] = [
     ],
   },
   {
+    id: 'nav-sii-admin',
+    label: 'SII',
+    url: '/sii',
+    requiresRole: 'ADMIN',
+  },
+  {
+    id: 'nav-sii-super',
+    label: 'SII',
+    url: '/sii',
+    requiresRole: 'SUPER_ADMIN',
+  },
+  {
     id: 'nav-settings',
     label: 'Configuración',
     children: [
@@ -294,13 +306,6 @@ export const mainMenuItems: SideBarMenuItem[] = [
       { id: 'settings-users', label: 'Usuarios', url: '/settings/users' },
       { id: 'settings-local-printing', label: 'Impresión local', url: '/settings/local-printing' },
       { id: 'settings-integrations', label: 'Integraciones', url: '/settings/integrations' },
-      {
-        id: 'settings-sii-super',
-        label: 'SII',
-        url: '/settings/sii',
-        requiresRole: 'SUPER_ADMIN',
-      },
-      { id: 'settings-sii', label: 'SII', url: '/settings/sii', requiresRole: 'ADMIN' },
       { id: 'settings-scale', label: 'Balanza', url: '/settings/scale' },
       {
         id: 'settings-metal-prices',
