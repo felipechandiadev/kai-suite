@@ -20,3 +20,15 @@ export enum SalesCommissionType {
   PERCENT = 'PERCENT',
   FIXED = 'FIXED',
 }
+
+export enum ExtraHoursMode {
+  PAID_OVERTIME = 'PAID_OVERTIME',
+  COMPENSATORY_REST = 'COMPENSATORY_REST',
+  BOTH = 'BOTH',
+  NONE = 'NONE',
+}
+
+export enum HealthContributionMode {
+  PERCENT = 'PERCENT',
+  FIXED = 'FIXED',
+}

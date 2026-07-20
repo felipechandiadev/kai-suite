@@ -230,6 +230,17 @@ export function evaluateWeeklyCap(
   maxWeeklyMinutes: number | null | undefined,
 ): ScheduleFinding[] {
   if (!maxWeeklyMinutes) return [];
+  return evaluateWeeklyCapPerEmployee(
+    assignments,
+    new Map(assignments.map((a) => [a.employeeId, maxWeeklyMinutes])),
+  );
+}
+
+/** Per-employee weekly cap (e.g. from contract weeklyHours). */
+export function evaluateWeeklyCapPerEmployee(
+  assignments: ScheduleAssignmentSnapshot[],
+  maxByEmployee: Map<string, number | null | undefined>,
+): ScheduleFinding[] {
   const findings: ScheduleFinding[] = [];
   const byEmployee = new Map<string, number>();
   for (const a of assignments) {
@@ -238,15 +249,15 @@ export function evaluateWeeklyCap(
     byEmployee.set(a.employeeId, (byEmployee.get(a.employeeId) ?? 0) + mins);
   }
   for (const [employeeId, mins] of byEmployee) {
-    if (mins > maxWeeklyMinutes) {
-      findings.push({
-        ruleCode: 'WEEKLY_HOURS_CAP',
-        severity: FindingSeverity.WARNING,
-        category: FindingCategory.POLICY,
-        message: `La semana supera el tope interno de ${Math.floor(maxWeeklyMinutes / 60)} horas.`,
-        context: { employeeId, minutes: mins, maxWeeklyMinutes },
-      });
-    }
+    const maxWeeklyMinutes = maxByEmployee.get(employeeId);
+    if (!maxWeeklyMinutes || mins <= maxWeeklyMinutes) continue;
+    findings.push({
+      ruleCode: 'WEEKLY_HOURS_CAP',
+      severity: FindingSeverity.WARNING,
+      category: FindingCategory.POLICY,
+      message: `La semana supera las horas pactadas en contrato (${Math.floor(maxWeeklyMinutes / 60)} h).`,
+      context: { employeeId, minutes: mins, maxWeeklyMinutes },
+    });
   }
   return findings;
 }
@@ -281,7 +292,11 @@ export function evaluateCompensatoryVsOt(
 export function evaluateSchedule(
   assignments: ScheduleAssignmentSnapshot[],
   config: RulesEngineConfig,
+  maxWeeklyByEmployee?: Map<string, number | null | undefined>,
 ): ScheduleFinding[] {
+  const weeklyFindings = maxWeeklyByEmployee
+    ? evaluateWeeklyCapPerEmployee(assignments, maxWeeklyByEmployee)
+    : evaluateWeeklyCap(assignments, config.maxWeeklyMinutes);
   return [
     ...evaluateOverlap(assignments, config.allowShiftOverlap),
     ...evaluateDailyHours(assignments),
@@ -291,7 +306,7 @@ export function evaluateSchedule(
       config.minRestBetweenShiftsMinutes,
     ),
     ...evaluateNightOutgoing(assignments),
-    ...evaluateWeeklyCap(assignments, config.maxWeeklyMinutes),
+    ...weeklyFindings,
     ...evaluateCompensatoryVsOt(assignments),
   ];
 }

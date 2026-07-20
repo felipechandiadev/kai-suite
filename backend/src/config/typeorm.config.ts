@@ -125,8 +125,12 @@ import { PayrollLineSuggestion } from '@modules/remunerations/domain/payroll-lin
 import { EmploymentContract } from '@modules/employees/domain/employment-contract.entity';
 import { HrJobPosition } from '@modules/employees/domain/hr-job-position.entity';
 import { HrAfpFund } from '@modules/employees/domain/hr-afp-fund.entity';
+import { HrIsapre } from '@modules/employees/domain/hr-isapre.entity';
 import { HrEmployeeTimelineEntry } from '@modules/employees/domain/hr-employee-timeline-entry.entity';
 import { HrEmployeeShift } from '@modules/hr-jornada/domain/hr-employee-shift.entity';
+import { HrLaborUnitShift } from '@modules/hr-jornada/domain/hr-labor-unit-shift.entity';
+import { HrLaborUnitShiftMember } from '@modules/hr-jornada/domain/hr-labor-unit-shift-member.entity';
+import { HrShiftSystem } from '@modules/hr-jornada/domain/hr-shift-system.entity';
 import { HrLaborUnit } from '@modules/hr-labor-units/domain/hr-labor-unit.entity';
 import { HrLaborUnitStorage } from '@modules/hr-labor-units/domain/hr-labor-unit-storage.entity';
 import { HrLaborUnitBranch } from '@modules/hr-labor-units/domain/hr-labor-unit-branch.entity';
@@ -271,8 +275,12 @@ export const typeOrmConfig = (
       EmploymentContract,
       HrJobPosition,
       HrAfpFund,
+      HrIsapre,
       HrEmployeeTimelineEntry,
       HrEmployeeShift,
+      HrLaborUnitShift,
+      HrLaborUnitShiftMember,
+      HrShiftSystem,
       HrLaborUnit,
       HrLaborUnitStorage,
       HrLaborUnitBranch,

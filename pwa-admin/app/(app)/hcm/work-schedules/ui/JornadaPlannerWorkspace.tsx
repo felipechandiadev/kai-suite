@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   addDaysIso,
@@ -10,6 +10,7 @@ import {
   Dialog,
   getTodayIso,
   getWeekStart,
+  IconButton,
   TextField,
   Select,
 } from "@kai/ui";
@@ -26,6 +27,10 @@ import type {
 } from "@/features/hr-jornada/types/jornada.types";
 import { EXCEPTION_TYPE_LABELS } from "@/features/hr-jornada/types/jornada.types";
 import { HCM_WORK_SCHEDULES } from "@/navigation/hcm-routes";
+import {
+  defaultExpandedDay,
+  JornadaCoverageMural,
+} from "./JornadaCoverageMural";
 
 type Props = {
   initialPlan: WeekPlanView;
@@ -41,6 +46,9 @@ type DraftCell = {
   isNight: boolean;
   isNightOutgoing: boolean;
   notes: string;
+  laborUnitShiftId?: string | null;
+  laborUnitShiftName?: string | null;
+  employeeDisplayName?: string | null;
 };
 
 function severityBadge(sev: string) {
@@ -50,6 +58,9 @@ function severityBadge(sev: string) {
 }
 
 function planToDrafts(plan: WeekPlanView): DraftCell[] {
+  const nameById = new Map(
+    plan.employees.map((e) => [e.id, e.displayName] as const),
+  );
   const out: DraftCell[] = [];
   for (const inst of plan.instances) {
     for (const a of inst.assignments) {
@@ -62,6 +73,8 @@ function planToDrafts(plan: WeekPlanView): DraftCell[] {
         isNight: inst.isNight,
         isNightOutgoing: inst.isNightOutgoing,
         notes: a.notes ?? "",
+        laborUnitShiftId: inst.laborUnitShiftId ?? null,
+        employeeDisplayName: nameById.get(a.employeeId) ?? null,
       });
     }
   }
@@ -78,6 +91,7 @@ function draftsToAssignments(drafts: DraftCell[]): WeekAssignmentInput[] {
     isNight: d.isNight,
     isNightOutgoing: d.isNightOutgoing,
     notes: d.notes || null,
+    laborUnitShiftId: d.laborUnitShiftId ?? null,
   }));
 }
 
@@ -96,6 +110,7 @@ export function JornadaPlannerWorkspace({
   const [findings, setFindings] = useState<ScheduleFinding[]>(initialPlan.findings);
   const [worst, setWorst] = useState(initialPlan.worstSeverity);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const [editor, setEditor] = useState<DraftCell | null>(null);
@@ -107,11 +122,113 @@ export function JornadaPlannerWorkspace({
   } | null>(null);
   const [exceptionType, setExceptionType] = useState("LATE");
   const [exceptionMinutes, setExceptionMinutes] = useState("30");
+  const [viewMode, setViewMode] = useState<"coverage" | "person">("coverage");
+  const [expandedDay, setExpandedDay] = useState(() =>
+    defaultExpandedDay(
+      Array.from({ length: 7 }, (_, i) => addDaysIso(weekStart, i)),
+    ),
+  );
+  const loadGen = useRef(0);
 
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDaysIso(weekStart, i)),
     [weekStart],
   );
+  const weekEnd = days[6] ?? addDaysIso(weekStart, 6);
+
+  const planSyncKey = useMemo(
+    () =>
+      [
+        weekStart,
+        laborUnitId,
+        initialPlan.employees.map((e) => `${e.id}:${e.displayName}`).join(","),
+        initialPlan.instances
+          .map((i) => `${i.id}:${i.assignments.length}`)
+          .join(","),
+      ].join("|"),
+    [weekStart, laborUnitId, initialPlan.employees, initialPlan.instances],
+  );
+
+  useEffect(() => {
+    if (!days.includes(expandedDay)) {
+      setExpandedDay(defaultExpandedDay(days));
+    }
+  }, [days, expandedDay]);
+
+  /**
+   * Sync server plan; if the week has no saved assignments, auto-load from turnos UL.
+   */
+  useEffect(() => {
+    setPlan(initialPlan);
+    setFindings(initialPlan.findings);
+    setWorst(initialPlan.worstSeverity);
+
+    const saved = planToDrafts(initialPlan);
+    if (saved.length > 0 || !laborUnitId) {
+      setDrafts(saved);
+      setError(null);
+      setNotice(null);
+      return;
+    }
+
+    const gen = ++loadGen.current;
+    setError(null);
+    setNotice(null);
+    startTransition(async () => {
+      const res = await loadJornadaWeekFromShiftsAction({
+        weekStart,
+        laborUnitId,
+      });
+      if (gen !== loadGen.current) return;
+      if (!res.success) {
+        setError(res.message);
+        setDrafts([]);
+        return;
+      }
+      if (res.data.employees?.length) {
+        setPlan((prev) => ({
+          ...prev,
+          employees: res.data.employees,
+          holidays: res.data.holidays ?? prev.holidays,
+        }));
+      }
+      const loaded = res.data.loadedAssignments ?? [];
+      const shiftMeta = res.data.laborUnitShifts ?? [];
+      if (!loaded.length) {
+        setDrafts([]);
+        setError(
+          res.data.message ??
+            "No hay turnos activos para cargar en esta semana.",
+        );
+        return;
+      }
+      setDrafts(
+        loaded.map((a) => {
+          const meta = shiftMeta.find((s) => s.id === a.laborUnitShiftId);
+          const emp = res.data.employees?.find((e) => e.id === a.employeeId);
+          return {
+            employeeId: a.employeeId,
+            workDate: a.workDate,
+            startTime: a.startTime,
+            endTime: a.endTime,
+            plannedOvertimeMinutes: a.plannedOvertimeMinutes ?? 0,
+            isNight: a.isNight ?? false,
+            isNightOutgoing: a.isNightOutgoing ?? false,
+            notes: a.notes ?? "",
+            laborUnitShiftId: a.laborUnitShiftId ?? null,
+            laborUnitShiftName: meta?.name ?? null,
+            employeeDisplayName: emp?.displayName ?? null,
+          };
+        }),
+      );
+      setFindings(res.data.findings ?? []);
+      setWorst(res.data.worstSeverity ?? "OK");
+      setNotice(res.data.message ?? null);
+      setError(null);
+    });
+    // planSyncKey captures week/UL + server roster/instances identity
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional sync key
+  }, [planSyncKey]);
 
   const holidaySet = useMemo(
     () => new Set(plan.holidays.map((h) => h.date)),
@@ -192,83 +309,47 @@ export function JornadaPlannerWorkspace({
 
   return (
     <div className="flex min-h-0 flex-col gap-3" data-test-id="jornada-planner">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="outlined"
-          size="sm"
-          onClick={() => setWeek(addDaysIso(weekStart, -7))}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="min-w-[220px] flex-1 sm:max-w-xs">
+          <Select
+            label="Unidad laboral"
+            value={laborUnitId || null}
+            onChange={(id) => setLaborUnit(id != null ? String(id) : "")}
+            options={[
+              { id: "", label: "Seleccionar…" },
+              ...laborUnits.map((u) => ({
+                id: u.id,
+                label: u.code ? `${u.name} (${u.code})` : u.name,
+              })),
+            ]}
+            alwaysShowLabel
+            data-test-id="jornada-labor-unit-filter"
+          />
+        </div>
+        <div
+          className="flex items-center gap-1 pb-1"
+          data-test-id="jornada-week-nav"
         >
-          Semana ant.
-        </Button>
-        <span className="text-sm text-foreground">
-          {weekStart} → {addDaysIso(weekStart, 6)}
-        </span>
-        <Button
-          variant="outlined"
-          size="sm"
-          onClick={() => setWeek(addDaysIso(weekStart, 7))}
-        >
-          Semana sig.
-        </Button>
-        <Select
-          label="Unidad laboral"
-          value={laborUnitId || null}
-          onChange={(id) => setLaborUnit(id != null ? String(id) : "")}
-          options={[
-            { id: "", label: "Seleccionar…" },
-            ...laborUnits.map((u) => ({
-              id: u.id,
-              label: u.code ? `${u.name} (${u.code})` : u.name,
-            })),
-          ]}
-          alwaysShowLabel
-          data-test-id="jornada-labor-unit-filter"
-        />
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          {severityBadge(worst)}
-          <Button
+          <IconButton
+            icon="ChevronLeft"
             variant="outlined"
             size="sm"
-            disabled={pending || !laborUnitId}
-            onClick={() => {
-              startTransition(async () => {
-                const res = await loadJornadaWeekFromShiftsAction({
-                  weekStart,
-                  laborUnitId: laborUnitId || null,
-                });
-                if (!res.success) {
-                  setError(res.message);
-                  return;
-                }
-                const loaded = res.data.loadedAssignments ?? [];
-                if (!loaded.length) {
-                  setError(
-                    res.data.message ??
-                      "No hay turnos activos para cargar en esta semana.",
-                  );
-                  return;
-                }
-                setDrafts(
-                  loaded.map((a) => ({
-                    employeeId: a.employeeId,
-                    workDate: a.workDate,
-                    startTime: a.startTime,
-                    endTime: a.endTime,
-                    plannedOvertimeMinutes: a.plannedOvertimeMinutes ?? 0,
-                    isNight: a.isNight ?? false,
-                    isNightOutgoing: a.isNightOutgoing ?? false,
-                    notes: a.notes ?? "",
-                  })),
-                );
-                setFindings(res.data.findings ?? []);
-                setWorst(res.data.worstSeverity ?? "OK");
-                if (res.data.message) setError(res.data.message);
-                else setError(null);
-              });
-            }}
-          >
-            Cargar desde turnos
-          </Button>
+            ariaLabel="Semana anterior"
+            onClick={() => setWeek(addDaysIso(weekStart, -7))}
+          />
+          <span className="min-w-46 text-center text-sm tabular-nums text-foreground">
+            {weekStart} → {weekEnd}
+          </span>
+          <IconButton
+            icon="ChevronRight"
+            variant="outlined"
+            size="sm"
+            ariaLabel="Semana siguiente"
+            onClick={() => setWeek(addDaysIso(weekStart, 7))}
+          />
+        </div>
+        <div className="ml-auto flex flex-wrap items-center gap-2 pb-1">
+          {severityBadge(worst)}
           <Button
             variant="outlined"
             size="sm"
@@ -294,6 +375,7 @@ export function JornadaPlannerWorkspace({
       </div>
 
       {error ? <Alert variant="error">{error}</Alert> : null}
+      {notice ? <Alert variant="warning">{notice}</Alert> : null}
 
       {!laborUnitId ? (
         <Alert variant="info" data-test-id="jornada-labor-unit-required">
@@ -301,6 +383,25 @@ export function JornadaPlannerWorkspace({
           empleados sin unidad laboral no aparecen aquí: asígnala en la ficha
           del empleado.
         </Alert>
+      ) : null}
+
+      {laborUnitId ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant={viewMode === "coverage" ? "primary" : "outlined"}
+            size="sm"
+            onClick={() => setViewMode("coverage")}
+          >
+            Cobertura
+          </Button>
+          <Button
+            variant={viewMode === "person" ? "primary" : "outlined"}
+            size="sm"
+            onClick={() => setViewMode("person")}
+          >
+            Por persona
+          </Button>
+        </div>
       ) : null}
 
       {findings.length > 0 ? (
@@ -318,6 +419,18 @@ export function JornadaPlannerWorkspace({
         </div>
       ) : null}
 
+      {laborUnitId && viewMode === "coverage" ? (
+        <JornadaCoverageMural
+          days={days}
+          drafts={drafts}
+          employees={employees}
+          holidaySet={holidaySet}
+          expandedDay={expandedDay}
+          onExpandDay={setExpandedDay}
+        />
+      ) : null}
+
+      {laborUnitId && viewMode === "person" ? (
       <div className="overflow-x-auto rounded-md border border-border">
         <table className="min-w-[960px] w-full border-collapse text-sm">
           <thead>
@@ -408,6 +521,7 @@ export function JornadaPlannerWorkspace({
           </tbody>
         </table>
       </div>
+      ) : null}
 
       <Dialog
         open={!!editor}

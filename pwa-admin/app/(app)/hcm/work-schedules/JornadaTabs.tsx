@@ -7,6 +7,7 @@ import {
   HCM_WORK_SCHEDULES,
   HCM_WORK_SCHEDULES_COMPENSATORY,
   HCM_WORK_SCHEDULES_EXCEPTIONS,
+  HCM_WORK_SCHEDULES_SHIFTS,
   HCM_WORK_SCHEDULES_STATEMENTS,
   HCM_WORK_SCHEDULES_TEMPLATES,
 } from "@/navigation/hcm-routes";
@@ -15,6 +16,7 @@ const BASE = HCM_WORK_SCHEDULES;
 
 const items = [
   { url: BASE, label: "Planificación" },
+  { url: HCM_WORK_SCHEDULES_SHIFTS, label: "Turnos UL" },
   { url: HCM_WORK_SCHEDULES_TEMPLATES, label: "Plantillas" },
   { url: HCM_WORK_SCHEDULES_EXCEPTIONS, label: "Excepciones" },
   { url: HCM_WORK_SCHEDULES_COMPENSATORY, label: "Bolsa descanso" },

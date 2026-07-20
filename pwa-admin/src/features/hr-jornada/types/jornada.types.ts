@@ -34,6 +34,7 @@ export type WeekInstanceView = {
   endTime: string;
   timezone: string;
   templateId: string | null;
+  laborUnitShiftId?: string | null;
   isNight: boolean;
   isNightOutgoing: boolean;
   assignments: WeekAssignmentView[];
@@ -79,6 +80,9 @@ export type JornadaConfigView = {
   defaultMealAllowance?: string;
   defaultTransportAllowance?: string;
   defaultWorkRegime?: string;
+  defaultWeeklyHours?: string | number;
+  defaultExtraHoursMode?: string;
+  defaultShiftSystemId?: string | null;
 };
 
 export type ShiftTemplateView = {
@@ -97,9 +101,17 @@ export type WeekAssignmentInput = {
   endTime: string;
   plannedOvertimeMinutes?: number;
   templateId?: string | null;
+  laborUnitShiftId?: string | null;
   isNight?: boolean;
   isNightOutgoing?: boolean;
   notes?: string | null;
+};
+
+export type LaborUnitShiftMeta = {
+  id: string;
+  code: string;
+  name: string;
+  scheduleJson?: Record<string, { start?: string; end?: string } | null> | null;
 };
 
 export type LedgerEntryView = {

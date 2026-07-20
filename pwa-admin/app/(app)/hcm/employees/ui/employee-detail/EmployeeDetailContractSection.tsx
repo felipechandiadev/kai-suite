@@ -10,9 +10,14 @@ import type { EmploymentContractView } from "@/features/hr-employees/types/contr
 import {
   CONTRACT_KIND_LABELS,
   CONTRACT_STATUS_LABELS,
+  EXTRA_HOURS_MODE_LABELS,
+  FLEXIBLE_MODE_LABELS,
   LABOR_TYPE_LABELS,
   SALES_COMMISSION_LABELS,
+  SHIFT_SYSTEM_TYPE_LABELS,
 } from "@/features/hr-employees/types/contract.types";
+import type { ExtraHoursMode } from "@/features/hr-employees/types/contract.types";
+import { WEEKDAY_LABELS } from "@/features/hr-jornada/types/employee-shift.types";
 import { WORK_REGIME_LABELS } from "@/features/hr-jornada/types/jornada.types";
 import { listJobPositionsAction } from "@/features/hr-job-positions/actions/job-position.action";
 import { EmployeeContractDialog } from "../EmployeeContractDialog";
@@ -124,9 +129,12 @@ export function EmployeeDetailContractSection({
                 contract.kind === "FEE"
                   ? CONTRACT_KIND_LABELS.FEE
                   : `${CONTRACT_KIND_LABELS.LABOR}${
-                      contract.laborType
-                        ? ` · ${LABOR_TYPE_LABELS[contract.laborType] ?? contract.laborType}`
-                        : ""
+                      contract.laborType === "INDEFINITE" ||
+                      contract.laborType === "FIXED_TERM"
+                        ? ` · ${LABOR_TYPE_LABELS[contract.laborType]}`
+                        : contract.laborType
+                          ? ` · ${contract.laborType}`
+                          : ""
                     }`
               }
               onChange={noop}
@@ -158,14 +166,107 @@ export function EmployeeDetailContractSection({
               onChange={noop}
               readOnly
             />
-            <TextField
-              label="Régimen"
-              value={
-                WORK_REGIME_LABELS[contract.workRegime] ?? contract.workRegime
-              }
-              onChange={noop}
-              readOnly
-            />
+            {contract.kind === "LABOR" ? (
+              <>
+                <TextField
+                  label="Tipo de jornada"
+                  value={
+                    contract.workRegime
+                      ? (WORK_REGIME_LABELS[contract.workRegime] ??
+                        contract.workRegime)
+                      : "—"
+                  }
+                  onChange={noop}
+                  readOnly
+                />
+                <TextField
+                  label="Horas semanales"
+                  value={
+                    contract.weeklyHours != null
+                      ? `${contract.weeklyHours} h`
+                      : "—"
+                  }
+                  onChange={noop}
+                  readOnly
+                />
+                <TextField
+                  label="Horas extras / compensación"
+                  value={
+                    contract.extraHoursMode
+                      ? (EXTRA_HOURS_MODE_LABELS[
+                          contract.extraHoursMode as ExtraHoursMode
+                        ] ?? contract.extraHoursMode)
+                      : "—"
+                  }
+                  onChange={noop}
+                  readOnly
+                />
+                <TextField
+                  label="Sistema de jornada"
+                  value={
+                    contract.shiftSystemName
+                      ? `${contract.shiftSystemName}${
+                          contract.shiftSystemType
+                            ? ` · ${
+                                SHIFT_SYSTEM_TYPE_LABELS[
+                                  contract.shiftSystemType as keyof typeof SHIFT_SYSTEM_TYPE_LABELS
+                                ] ?? contract.shiftSystemType
+                              }`
+                            : ""
+                        }`
+                      : "—"
+                  }
+                  onChange={noop}
+                  readOnly
+                />
+                {contract.shiftSystemType === "FIXED" &&
+                contract.fixedScheduleJson ? (
+                  <TextField
+                    label="Horario fijo (contrato)"
+                    className="sm:col-span-2"
+                    value={Object.entries(contract.fixedScheduleJson)
+                      .filter(([, s]) => s?.start && s?.end)
+                      .map(
+                        ([d, s]) =>
+                          `${WEEKDAY_LABELS[Number(d)] ?? d} ${s!.start}–${s!.end}`,
+                      )
+                      .join(", ")}
+                    onChange={noop}
+                    readOnly
+                  />
+                ) : null}
+                {contract.shiftSystemType === "FLEXIBLE" ? (
+                  <TextField
+                    label="Modalidad flexible"
+                    value={
+                      contract.flexibleMode
+                        ? (FLEXIBLE_MODE_LABELS[
+                            contract.flexibleMode as keyof typeof FLEXIBLE_MODE_LABELS
+                          ] ?? contract.flexibleMode)
+                        : "—"
+                    }
+                    onChange={noop}
+                    readOnly
+                  />
+                ) : null}
+                {contract.shiftSystemType === "FREE" ? (
+                  <TextField
+                    label="Art. 22"
+                    value={contract.art22Exempt ? "Exento de control" : "—"}
+                    onChange={noop}
+                    readOnly
+                  />
+                ) : null}
+                {contract.shiftSystemType === "EXCEPTIONAL" ? (
+                  <TextField
+                    label="Resolución DT"
+                    value={contract.exceptionalResolutionRef?.trim() || "—"}
+                    onChange={noop}
+                    readOnly
+                  />
+                ) : null}
+              </>
+            ) : null}
             <TextField
               label="Comisión ventas"
               value={
@@ -186,32 +287,62 @@ export function EmployeeDetailContractSection({
                 />
               </div>
             ) : null}
-            <TextField
-              label="Colación / Movilización"
-              value={`${formatMoneyClp(contract.mealAllowance)} / ${formatMoneyClp(contract.transportAllowance)}`}
-              onChange={noop}
-              readOnly
-            />
-            <TextField
-              label="Propinas"
-              value={contract.tipsEligible ? "Sí" : "No"}
-              onChange={noop}
-              readOnly
-            />
-            <TextField
-              label="AFP / Salud"
-              value={`${
-                contract.afpName?.trim() ||
-                contract.afpCode?.trim() ||
-                "—"
-              }${
-                contract.afpContributionPercent
-                  ? ` (${contract.afpContributionPercent}%)`
-                  : ""
-              } / ${contract.healthSystem?.trim() || "—"}`}
-              onChange={noop}
-              readOnly
-            />
+            {contract.kind === "LABOR" ? (
+              <>
+                <TextField
+                  label="Colación / Movilización"
+                  value={`${formatMoneyClp(contract.mealAllowance)} / ${formatMoneyClp(contract.transportAllowance)}`}
+                  onChange={noop}
+                  readOnly
+                />
+                <TextField
+                  label="Propinas"
+                  value={contract.tipsEligible ? "Sí" : "No"}
+                  onChange={noop}
+                  readOnly
+                />
+                <TextField
+                  label="AFP"
+                  value={`${
+                    contract.afpName?.trim() ||
+                    contract.afpCode?.trim() ||
+                    "—"
+                  }${
+                    contract.afpContributionPercent
+                      ? ` (comisión ${contract.afpContributionPercent}%)`
+                      : ""
+                  }`}
+                  onChange={noop}
+                  readOnly
+                />
+                <TextField
+                  label="Salud"
+                  value={
+                    contract.healthSystem === "ISAPRE"
+                      ? `Isapre · ${contract.isapreName ?? "—"}${
+                          contract.healthContributionValue
+                            ? ` · ${
+                                contract.healthContributionMode === "FIXED"
+                                  ? formatMoneyClp(
+                                      contract.healthContributionValue,
+                                    )
+                                  : `${contract.healthContributionValue}%`
+                              }`
+                            : ""
+                        }`
+                      : contract.healthSystem?.trim() || "—"
+                  }
+                  onChange={noop}
+                  readOnly
+                />
+                <TextField
+                  label="Mutual / ISL"
+                  value={contract.mutualName?.trim() || "—"}
+                  onChange={noop}
+                  readOnly
+                />
+              </>
+            ) : null}
             <div className="sm:col-span-2">
               <Button
                 variant="outlined"

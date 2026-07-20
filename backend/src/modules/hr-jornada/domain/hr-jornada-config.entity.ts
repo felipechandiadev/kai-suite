@@ -72,6 +72,15 @@ export class HrJornadaConfig {
   @Column({ type: 'varchar', length: 32, default: 'ORDINARY' })
   defaultWorkRegime!: string;
 
+  @Column({ type: 'numeric', precision: 4, scale: 1, default: 45 })
+  defaultWeeklyHours!: string;
+
+  @Column({ type: 'varchar', length: 32, default: 'PAID_OVERTIME' })
+  defaultExtraHoursMode!: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  defaultShiftSystemId?: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;
 

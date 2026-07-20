@@ -223,6 +223,14 @@ import { HrLaborUnits1757220000000 } from '../migrations/1757220000000-HrLaborUn
 import { HrLaborUnitAssociationsMn1757230000000 } from '../migrations/1757230000000-HrLaborUnitAssociationsMn';
 import { HrEmployeeShift } from '@modules/hr-jornada/domain/hr-employee-shift.entity';
 import { HrAfpFund } from '@modules/employees/domain/hr-afp-fund.entity';
+import { HrIsapre } from '@modules/employees/domain/hr-isapre.entity';
+import { HcmContractWeeklyHoursIsapre1757240000000 } from '../migrations/1757240000000-HcmContractWeeklyHoursIsapre';
+import { HcmLaborUnitShifts1757250000000 } from '../migrations/1757250000000-HcmLaborUnitShifts';
+import { HcmShiftSystems1757260000000 } from '../migrations/1757260000000-HcmShiftSystems';
+import { HcmShiftInstanceLaborUnitShift1757270000000 } from '../migrations/1757270000000-HcmShiftInstanceLaborUnitShift';
+import { HrLaborUnitShift } from '@modules/hr-jornada/domain/hr-labor-unit-shift.entity';
+import { HrLaborUnitShiftMember } from '@modules/hr-jornada/domain/hr-labor-unit-shift-member.entity';
+import { HrShiftSystem } from '@modules/hr-jornada/domain/hr-shift-system.entity';
 import { HrLaborUnit } from '@modules/hr-labor-units/domain/hr-labor-unit.entity';
 import { HrLaborUnitStorage } from '@modules/hr-labor-units/domain/hr-labor-unit-storage.entity';
 import { HrLaborUnitBranch } from '@modules/hr-labor-units/domain/hr-labor-unit-branch.entity';
@@ -340,6 +348,7 @@ export const AppDataSource = new DataSource({
     EmploymentContract,
     HrJobPosition,
     HrAfpFund,
+    HrIsapre,
     HrLaborUnit,
     HrLaborUnitStorage,
     HrLaborUnitBranch,
@@ -347,6 +356,9 @@ export const AppDataSource = new DataSource({
     HrLaborUnitProductionUnit,
     HrEmployeeTimelineEntry,
     HrEmployeeShift,
+    HrLaborUnitShift,
+    HrLaborUnitShiftMember,
+    HrShiftSystem,
     EShopTestimonial,
     EShopHeroSlide,
     EShopFulfillmentMethod,
@@ -465,6 +477,10 @@ export const AppDataSource = new DataSource({
     HcmTipsAfpFunds1757210000000,
     HrLaborUnits1757220000000,
     HrLaborUnitAssociationsMn1757230000000,
+    HcmContractWeeklyHoursIsapre1757240000000,
+    HcmLaborUnitShifts1757250000000,
+    HcmShiftSystems1757260000000,
+    HcmShiftInstanceLaborUnitShift1757270000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

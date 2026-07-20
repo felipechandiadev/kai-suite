@@ -353,6 +353,12 @@ export class HrJornadaRequest {
       loadedAssignments: WeekAssignmentInput[];
       employeesWithoutShift: string[];
       message: string | null;
+      laborUnitShifts?: Array<{
+        id: string;
+        code: string;
+        name: string;
+        scheduleJson?: Record<string, { start?: string; end?: string } | null> | null;
+      }>;
     };
   }
 }

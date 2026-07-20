@@ -43,4 +43,7 @@ export function nextPrefixedSequenceCodeFromExisting(
 export const HR_JOB_POSITION_CODE_PREFIX = 'JP';
 export const HR_ORG_UNIT_CODE_PREFIX = 'UO';
 export const HR_AFP_FUND_CODE_PREFIX = 'AFP';
+export const HR_ISAPRE_CODE_PREFIX = 'ISA';
 export const HR_LABOR_UNIT_CODE_PREFIX = 'UL';
+export const HR_LABOR_UNIT_SHIFT_CODE_PREFIX = 'ULS';
+export const HR_SHIFT_SYSTEM_CODE_PREFIX = 'SS';

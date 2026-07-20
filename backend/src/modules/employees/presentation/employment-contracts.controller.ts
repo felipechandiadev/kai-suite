@@ -121,7 +121,9 @@ export class EmploymentContractsController {
       branchId?: string | null;
       baseSalary?: string | null;
       feeAmount?: string | null;
-      workRegime?: WorkRegime;
+      workRegime?: WorkRegime | null;
+      weeklyHours?: number | string | null;
+      extraHoursMode?: string | null;
       mealAllowance?: string;
       transportAllowance?: string;
       tipsEligible?: boolean;
@@ -130,6 +132,25 @@ export class EmploymentContractsController {
       afpName?: string | null;
       afpContributionPercent?: string | null;
       healthSystem?: string | null;
+      isapreId?: string | null;
+      healthContributionMode?: string | null;
+      healthContributionValue?: string | null;
+      mutualName?: string | null;
+      shiftSystemId?: string | null;
+      fixedScheduleJson?: Record<string, { start?: string; end?: string } | null> | null;
+      flexibleMode?: string | null;
+      flexibleBandJson?: Record<
+        string,
+        | {
+            earliestStart?: string;
+            latestStart?: string;
+            earliestEnd?: string;
+            latestEnd?: string;
+          }
+        | null
+      > | null;
+      art22Exempt?: boolean | null;
+      exceptionalResolutionRef?: string | null;
       notes?: string | null;
       documentUrl?: string | null;
       jobPositionId?: string | null;

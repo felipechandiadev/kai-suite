@@ -5,10 +5,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EventBus } from '@nestjs/cqrs';
-import { Between, In, Repository } from 'typeorm';
+import { Between, In, IsNull, Repository } from 'typeorm';
 import { createHash } from 'crypto';
 import { TenantContext } from '@common/tenant/tenant.context';
 import { Employee, EmployeeStatus } from '@modules/employees/domain/employee.entity';
+import { EmploymentContract } from '@modules/employees/domain/employment-contract.entity';
+import { EmploymentContractStatus } from '@modules/employees/domain/employment-contract.enums';
 import { HrJornadaConfig } from '../domain/hr-jornada-config.entity';
 import { HrHoliday, HrHolidayOverride } from '../domain/hr-holiday.entity';
 import { HrShiftTemplate } from '../domain/hr-shift-template.entity';
@@ -43,6 +45,20 @@ import {
   ScheduleAssignmentSnapshot,
 } from '../domain/rules/rules-engine';
 import {
+  AttendanceContext,
+  contractWeeklyMinutes,
+  evaluateTimeEntry,
+  shouldEmitOvertime,
+  shouldSettleLateException,
+} from '../domain/rules/attendance-evaluator';
+import { HrLaborUnitShift } from '../domain/hr-labor-unit-shift.entity';
+import {
+  HrLaborUnitShiftMember,
+  LaborUnitShiftMemberStatus,
+} from '../domain/hr-labor-unit-shift-member.entity';
+import { HrShiftSystem } from '../domain/hr-shift-system.entity';
+import { classifyShiftSlot } from '../domain/rules/night-window.util';
+import {
   CompensatoryRestCreditedEvent,
   CompensatoryRestRedeemedEvent,
   OvertimeGeneratedEvent,
@@ -59,6 +75,7 @@ export type WeekAssignmentInput = {
   endTime: string;
   plannedOvertimeMinutes?: number;
   templateId?: string | null;
+  laborUnitShiftId?: string | null;
   isNight?: boolean;
   isNightOutgoing?: boolean;
   notes?: string | null;
@@ -106,9 +123,63 @@ export class HrJornadaService {
     private readonly employeeShiftRepo: Repository<HrEmployeeShift>,
     @InjectRepository(Employee)
     private readonly employeeRepo: Repository<Employee>,
+    @InjectRepository(EmploymentContract)
+    private readonly contractRepo: Repository<EmploymentContract>,
+    @InjectRepository(HrShiftSystem)
+    private readonly shiftSystemRepo: Repository<HrShiftSystem>,
+    @InjectRepository(HrLaborUnitShift)
+    private readonly laborUnitShiftRepo: Repository<HrLaborUnitShift>,
+    @InjectRepository(HrLaborUnitShiftMember)
+    private readonly laborUnitShiftMemberRepo: Repository<HrLaborUnitShiftMember>,
     private readonly eventBus: EventBus,
     private readonly timelineService: HrEmployeeTimelineService,
   ) {}
+
+  private async loadActiveContracts(
+    employeeIds: string[],
+    companyId: string,
+  ): Promise<Map<string, EmploymentContract>> {
+    if (!employeeIds.length) return new Map();
+    const rows = await this.contractRepo.find({
+      where: {
+        companyId,
+        employeeId: In(employeeIds),
+        status: EmploymentContractStatus.ACTIVE,
+      },
+    });
+    return new Map(rows.map((r) => [r.employeeId, r]));
+  }
+
+  private async resolveAttendanceContext(
+    contract: EmploymentContract | undefined,
+    expectedAssignment?: {
+      workDate: string;
+      startTime: string;
+      endTime: string;
+    } | null,
+  ): Promise<AttendanceContext | null> {
+    if (!contract?.shiftSystemType) return null;
+    let generatesLateEvents = true;
+    let overtimeEnabled = true;
+    if (contract.shiftSystemId) {
+      const sys = await this.shiftSystemRepo.findOne({
+        where: { id: contract.shiftSystemId },
+      });
+      if (sys) {
+        generatesLateEvents = sys.generatesLateEvents;
+        overtimeEnabled = sys.overtimeEnabled;
+      }
+    }
+    return {
+      shiftSystemType: contract.shiftSystemType,
+      flexibleMode: contract.flexibleMode,
+      generatesLateEvents,
+      overtimeEnabled,
+      fixedScheduleJson: contract.fixedScheduleJson ?? null,
+      flexibleBandJson: contract.flexibleBandJson ?? null,
+      expectedAssignment: expectedAssignment ?? null,
+    };
+  }
 
   private async appendTimelineSafe(
     input: Parameters<HrEmployeeTimelineService['append']>[0],
@@ -154,6 +225,9 @@ export class HrJornadaService {
       'defaultMealAllowance',
       'defaultTransportAllowance',
       'defaultWorkRegime',
+      'defaultWeeklyHours',
+      'defaultExtraHoursMode',
+      'defaultShiftSystemId',
     ];
     for (const key of allowed) {
       if (patch[key] !== undefined) {
@@ -327,15 +401,30 @@ export class HrJornadaService {
       }
     }
 
-    const findings = evaluateSchedule(assignments, {
-      maxDailyOvertimeMinutes: config.maxDailyOvertimeMinutes,
-      minRestBetweenShiftsMinutes: config.minRestBetweenShiftsMinutes,
-      maxWeeklyMinutes: config.maxWeeklyMinutes,
-      maxMonthlyMinutes: config.maxMonthlyMinutes,
-      allowShiftOverlap: config.allowShiftOverlap,
-      nightStart: config.nightStart,
-      nightEnd: config.nightEnd,
-    });
+    const contracts = await this.loadActiveContracts(employeeIds, companyId);
+    const maxWeeklyByEmployee = new Map<string, number | null | undefined>();
+    for (const id of employeeIds) {
+      const c = contracts.get(id);
+      const fromContract = contractWeeklyMinutes(c?.weeklyHours ?? null);
+      maxWeeklyByEmployee.set(
+        id,
+        fromContract ?? config.maxWeeklyMinutes ?? null,
+      );
+    }
+
+    const findings = evaluateSchedule(
+      assignments,
+      {
+        maxDailyOvertimeMinutes: config.maxDailyOvertimeMinutes,
+        minRestBetweenShiftsMinutes: config.minRestBetweenShiftsMinutes,
+        maxWeeklyMinutes: config.maxWeeklyMinutes,
+        maxMonthlyMinutes: config.maxMonthlyMinutes,
+        allowShiftOverlap: config.allowShiftOverlap,
+        nightStart: config.nightStart,
+        nightEnd: config.nightEnd,
+      },
+      maxWeeklyByEmployee,
+    );
 
     const holidays = await this.listHolidays(weekStart, weekEnd, companyId);
 
@@ -363,6 +452,7 @@ export class HrJornadaService {
         endTime: inst.endTime,
         timezone: inst.timezone,
         templateId: inst.templateId ?? null,
+        laborUnitShiftId: inst.laborUnitShiftId ?? null,
         isNight: inst.isNight,
         isNightOutgoing: inst.isNightOutgoing,
         assignments: (inst.assignments ?? [])
@@ -386,9 +476,20 @@ export class HrJornadaService {
 
   async validateWeek(assignments: WeekAssignmentInput[]) {
     const config = await this.getOrCreateConfig();
-    const balances = await this.getCompensatoryBalances(
-      [...new Set(assignments.map((a) => a.employeeId))],
-    );
+    const companyId = requireCompanyId();
+    const employeeIds = [...new Set(assignments.map((a) => a.employeeId))];
+    const balances = await this.getCompensatoryBalances(employeeIds);
+    const contracts = await this.loadActiveContracts(employeeIds, companyId);
+    const maxWeeklyByEmployee = new Map<string, number | null | undefined>();
+    for (const id of employeeIds) {
+      const c = contracts.get(id);
+      maxWeeklyByEmployee.set(
+        id,
+        contractWeeklyMinutes(c?.weeklyHours ?? null) ??
+          config.maxWeeklyMinutes ??
+          null,
+      );
+    }
     const snapshots: ScheduleAssignmentSnapshot[] = assignments.map((a) => ({
       employeeId: a.employeeId,
       workDate: a.workDate,
@@ -398,15 +499,19 @@ export class HrJornadaService {
       isNightOutgoing: a.isNightOutgoing,
       compensatoryBalanceMinutes: balances.get(a.employeeId) ?? 0,
     }));
-    const findings = evaluateSchedule(snapshots, {
-      maxDailyOvertimeMinutes: config.maxDailyOvertimeMinutes,
-      minRestBetweenShiftsMinutes: config.minRestBetweenShiftsMinutes,
-      maxWeeklyMinutes: config.maxWeeklyMinutes,
-      maxMonthlyMinutes: config.maxMonthlyMinutes,
-      allowShiftOverlap: config.allowShiftOverlap,
-      nightStart: config.nightStart,
-      nightEnd: config.nightEnd,
-    });
+    const findings = evaluateSchedule(
+      snapshots,
+      {
+        maxDailyOvertimeMinutes: config.maxDailyOvertimeMinutes,
+        minRestBetweenShiftsMinutes: config.minRestBetweenShiftsMinutes,
+        maxWeeklyMinutes: config.maxWeeklyMinutes,
+        maxMonthlyMinutes: config.maxMonthlyMinutes,
+        allowShiftOverlap: config.allowShiftOverlap,
+        nightStart: config.nightStart,
+        nightEnd: config.nightEnd,
+      },
+      maxWeeklyByEmployee,
+    );
     return { findings, worstSeverity: worstSeverity(findings) };
   }
 
@@ -456,7 +561,7 @@ export class HrJornadaService {
     const createdInstances: HrShiftInstance[] = [];
     // Group by workDate+start+end+flags to share instances
     const groupKey = (a: WeekAssignmentInput) =>
-      `${a.workDate}|${a.startTime}|${a.endTime}|${a.isNight ? 1 : 0}|${a.isNightOutgoing ? 1 : 0}|${a.templateId ?? ''}`;
+      `${a.workDate}|${a.startTime}|${a.endTime}|${a.isNight ? 1 : 0}|${a.isNightOutgoing ? 1 : 0}|${a.templateId ?? ''}|${a.laborUnitShiftId ?? ''}`;
     const groups = new Map<string, WeekAssignmentInput[]>();
     for (const a of input.assignments) {
       const k = groupKey(a);
@@ -471,6 +576,7 @@ export class HrJornadaService {
         this.instanceRepo.create({
           companyId,
           templateId: first.templateId ?? null,
+          laborUnitShiftId: first.laborUnitShiftId ?? null,
           workDate: first.workDate,
           startTime: first.startTime,
           endTime: first.endTime,
@@ -531,6 +637,19 @@ export class HrJornadaService {
     affectsPayroll?: boolean;
   }) {
     const companyId = requireCompanyId();
+    const contracts = await this.loadActiveContracts([input.employeeId], companyId);
+    const contract = contracts.get(input.employeeId);
+    if (
+      input.type === ShiftExceptionType.LATE ||
+      input.type === ShiftExceptionType.EARLY_LEAVE
+    ) {
+      const ctx = await this.resolveAttendanceContext(contract);
+      if (ctx && !shouldSettleLateException(ctx)) {
+        throw new BadRequestException(
+          'El contrato activo no permite registrar atrasos (jornada sin control o flexible sin banda)',
+        );
+      }
+    }
     const userId = TenantContext.getUserId() ?? null;
     const affects =
       input.affectsPayroll ??
@@ -578,12 +697,32 @@ export class HrJornadaService {
     });
 
     const settled: HrShiftException[] = [];
+    const contractCache = new Map<string, EmploymentContract>();
     for (const ex of pending) {
       if (ex.type === ShiftExceptionType.PAID_LEAVE) {
         ex.settled = true;
         ex.settledAt = new Date();
         await this.exceptionRepo.save(ex);
         continue;
+      }
+      let contract = contractCache.get(ex.employeeId);
+      if (!contract) {
+        const map = await this.loadActiveContracts([ex.employeeId], companyId);
+        contract = map.get(ex.employeeId);
+        if (contract) contractCache.set(ex.employeeId, contract);
+      }
+      if (
+        ex.type === ShiftExceptionType.LATE ||
+        ex.type === ShiftExceptionType.EARLY_LEAVE
+      ) {
+        const ctx = await this.resolveAttendanceContext(contract);
+        if (ctx && !shouldSettleLateException(ctx)) {
+          ex.settled = true;
+          ex.settledAt = new Date();
+          ex.affectsPayroll = false;
+          await this.exceptionRepo.save(ex);
+          continue;
+        }
       }
       const employee = await this.employeeRepo.findOne({
         where: { id: ex.employeeId, companyId },
@@ -650,7 +789,23 @@ export class HrJornadaService {
       .andWhere('a.plannedOvertimeMinutes > 0')
       .getMany();
 
+    let overtimeEmitted = 0;
+    const otContractCache = new Map<string, EmploymentContract>();
     for (const a of assignments) {
+      let contract = otContractCache.get(a.employeeId);
+      if (!contract) {
+        const map = await this.loadActiveContracts([a.employeeId], companyId);
+        contract = map.get(a.employeeId);
+        if (contract) otContractCache.set(a.employeeId, contract);
+      }
+      const ctx = await this.resolveAttendanceContext(contract, {
+        workDate: a.instance!.workDate,
+        startTime: a.instance!.startTime,
+        endTime: a.instance!.endTime,
+      });
+      if (ctx && !shouldEmitOvertime(ctx, contract?.extraHoursMode)) {
+        continue;
+      }
       const employee = await this.employeeRepo.findOne({
         where: { id: a.employeeId, companyId },
       });
@@ -673,12 +828,13 @@ export class HrJornadaService {
         );
         event.userId = TenantContext.getUserId() ?? undefined;
         this.eventBus.publish(event);
+        overtimeEmitted++;
       } catch {
         // ignore
       }
     }
 
-    return { settledCount: settled.length, overtimeEmitted: assignments.length };
+    return { settledCount: settled.length, overtimeEmitted };
   }
 
   // --- Ledger ---
@@ -968,22 +1124,84 @@ export class HrJornadaService {
     idempotencyKey?: string;
   }) {
     const companyId = requireCompanyId();
+    const config = await this.getOrCreateConfig();
     if (input.idempotencyKey) {
       const existing = await this.timeEntryRepo.findOne({
         where: { idempotencyKey: input.idempotencyKey },
       });
       if (existing) return existing;
     }
-    return this.timeEntryRepo.save(
+    const occurredAt = new Date(input.occurredAt);
+    const workDate = input.occurredAt.slice(0, 10);
+
+    const contracts = await this.loadActiveContracts([input.employeeId], companyId);
+    const contract = contracts.get(input.employeeId);
+
+    let expectedAssignment: {
+      workDate: string;
+      startTime: string;
+      endTime: string;
+    } | null = null;
+    const assignment = await this.assignmentRepo
+      .createQueryBuilder('a')
+      .innerJoinAndSelect('a.instance', 'i')
+      .where('a.companyId = :companyId', { companyId })
+      .andWhere('a.employeeId = :employeeId', { employeeId: input.employeeId })
+      .andWhere('i.workDate = :workDate', { workDate })
+      .andWhere('a.deletedAt IS NULL')
+      .orderBy('i.startTime', 'ASC')
+      .getOne();
+    if (assignment?.instance) {
+      expectedAssignment = {
+        workDate: assignment.instance.workDate,
+        startTime: assignment.instance.startTime,
+        endTime: assignment.instance.endTime,
+      };
+    }
+
+    const ctx = await this.resolveAttendanceContext(contract, expectedAssignment);
+    const saved = await this.timeEntryRepo.save(
       this.timeEntryRepo.create({
         companyId,
         employeeId: input.employeeId,
         kind: input.kind,
-        occurredAt: new Date(input.occurredAt),
+        occurredAt,
         deviceId: input.deviceId ?? null,
         idempotencyKey: input.idempotencyKey ?? null,
       }),
     );
+
+    if (ctx && input.kind === 'IN') {
+      const findings = evaluateTimeEntry(
+        { kind: input.kind, occurredAt },
+        ctx,
+        workDate,
+      );
+      if (findings.length > 0) {
+        const f = findings[0]!;
+        const autoCreate =
+          config.enforcementMode !== EnforcementMode.ALERT_ONLY;
+        if (autoCreate) {
+          const ex = await this.exceptionRepo.save(
+            this.exceptionRepo.create({
+              companyId,
+              employeeId: input.employeeId,
+              assignmentId: assignment?.id ?? null,
+              workDate,
+              type: f.type,
+              minutes: f.minutes,
+              notes: f.message,
+              affectsPayroll: true,
+              createdBy: TenantContext.getUserId() ?? null,
+            }),
+          );
+          saved.suggestedExceptionId = ex.id;
+          await this.timeEntryRepo.save(saved);
+        }
+      }
+    }
+
+    return saved;
   }
 
   /** Auto-credit compensatory rest when working on holiday (Art. 38 path). */
@@ -1169,7 +1387,8 @@ export class HrJornadaService {
   }
 
   /**
-   * Expande turnos ACTIVE a assignments de la semana (preview).
+   * Expande turnos UL ACTIVE (+ miembros) a assignments de la semana (preview).
+   * Noche se deriva de hr_jornada_config.nightStart/nightEnd.
    * No persiste; el cliente llama PUT week para guardar.
    */
   async loadWeekFromShifts(input: {
@@ -1179,55 +1398,99 @@ export class HrJornadaService {
     employeeIds?: string[];
   }) {
     const companyId = requireCompanyId();
+    if (!input.laborUnitId) {
+      throw new BadRequestException(
+        'laborUnitId es requerido para cargar desde turnos UL',
+      );
+    }
     const weekStart = input.weekStart;
-    const weekEnd = addDaysIso(weekStart, 6);
+    const config = await this.getOrCreateConfig();
 
     const empWhere: any = {
       companyId,
       status: EmployeeStatus.ACTIVE,
+      laborUnitId: input.laborUnitId,
     };
-    if (input.laborUnitId) empWhere.laborUnitId = input.laborUnitId;
-    else if (input.branchId) empWhere.branchId = input.branchId;
     if (input.employeeIds?.length) {
       empWhere.id = In(input.employeeIds);
     }
 
     const employees = await this.employeeRepo.find({ where: empWhere });
     const employeeIds = employees.map((e) => e.id);
-    const shifts = await this.employeeShiftRepo.find({
+    const employeeSet = new Set(employeeIds);
+
+    const ulShifts = await this.laborUnitShiftRepo.find({
       where: {
         companyId,
-        employeeId: In(employeeIds.length ? employeeIds : ['00000000-0000-0000-0000-000000000000']),
-        status: EmployeeShiftStatus.ACTIVE,
+        laborUnitId: input.laborUnitId,
+        isActive: true,
+        deletedAt: IsNull(),
       },
     });
 
-    const shiftByEmployee = new Map(shifts.map((s) => [s.employeeId, s]));
-    const withoutShift = employees
-      .filter((e) => !shiftByEmployee.has(e.id))
-      .map((e) => e.id);
+    const shiftIds = ulShifts.map((s) => s.id);
+    const allMembers =
+      shiftIds.length > 0
+        ? await this.laborUnitShiftMemberRepo.find({
+            where: {
+              companyId,
+              shiftId: In(shiftIds),
+              status: LaborUnitShiftMemberStatus.ACTIVE,
+            },
+          })
+        : [];
+
+    const membersByShift = new Map<string, string[]>();
+    const employeesWithMembership = new Set<string>();
+    for (const m of allMembers) {
+      if (!employeeSet.has(m.employeeId)) continue;
+      const list = membersByShift.get(m.shiftId) ?? [];
+      list.push(m.employeeId);
+      membersByShift.set(m.shiftId, list);
+      employeesWithMembership.add(m.employeeId);
+    }
+
+    function isShiftEffectiveOn(shift: HrLaborUnitShift, workDate: string) {
+      if (shift.effectiveFrom && workDate < shift.effectiveFrom) return false;
+      if (shift.effectiveTo && workDate > shift.effectiveTo) return false;
+      return true;
+    }
 
     const assignments: WeekAssignmentInput[] = [];
-    for (const emp of employees) {
-      const shift = shiftByEmployee.get(emp.id);
-      if (!shift?.scheduleJson) continue;
+    for (const shift of ulShifts) {
+      const members = membersByShift.get(shift.id) ?? [];
+      if (!members.length || !shift.scheduleJson) continue;
       for (let i = 0; i < 7; i++) {
         const workDate = addDaysIso(weekStart, i);
+        if (!isShiftEffectiveOn(shift, workDate)) continue;
         const slot = shift.scheduleJson[String(i)];
         if (!slot?.start || !slot?.end) continue;
-        assignments.push({
-          employeeId: emp.id,
-          workDate,
-          startTime: slot.start,
-          endTime: slot.end,
-          plannedOvertimeMinutes: 0,
-          isNight: shift.isNight,
-          isNightOutgoing: shift.isNightOutgoing,
-          timezone: shift.timezone,
-          templateId: shift.templateId ?? null,
-        });
+        const night = classifyShiftSlot(
+          slot.start,
+          slot.end,
+          config.nightStart,
+          config.nightEnd,
+        );
+        for (const employeeId of members) {
+          assignments.push({
+            employeeId,
+            workDate,
+            startTime: slot.start,
+            endTime: slot.end,
+            plannedOvertimeMinutes: 0,
+            laborUnitShiftId: shift.id,
+            isNight: night.isNight,
+            isNightOutgoing: night.isNightOutgoing,
+            timezone: shift.timezone,
+            templateId: null,
+          });
+        }
       }
     }
+
+    const withoutShift = employees
+      .filter((e) => !employeesWithMembership.has(e.id))
+      .map((e) => e.id);
 
     const week = await this.getWeek(
       weekStart,
@@ -1237,10 +1500,16 @@ export class HrJornadaService {
     return {
       ...week,
       loadedAssignments: assignments,
+      laborUnitShifts: ulShifts.map((s) => ({
+        id: s.id,
+        code: s.code,
+        name: s.name,
+        scheduleJson: s.scheduleJson ?? null,
+      })),
       employeesWithoutShift: withoutShift,
       message:
         withoutShift.length > 0
-          ? `${withoutShift.length} empleado(s) sin turno activo; no se cargaron.`
+          ? `${withoutShift.length} empleado(s) sin membresía a turno UL; no se cargaron.`
           : null,
     };
   }

@@ -1,18 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Button, LoadingState, TextField } from "@kai/ui";
-import { getActiveEmployeeShiftAction } from "@/features/hr-jornada/actions/jornada.action";
-import type { EmployeeShiftView } from "@/features/hr-jornada/types/employee-shift.types";
+import { getActiveLaborUnitShiftForEmployeeAction } from "@/features/hr-labor-unit-shifts/actions/labor-unit-shift.action";
+import type { LaborUnitShiftView } from "@/features/hr-labor-unit-shifts/types/labor-unit-shift.types";
 import { WEEKDAY_LABELS } from "@/features/hr-jornada/types/employee-shift.types";
-import { TEMPLATE_TYPE_LABELS } from "@/features/hr-jornada/types/jornada.types";
-import { EmployeeShiftDialog } from "../EmployeeShiftDialog";
+import { HCM_WORK_SCHEDULES_SHIFTS } from "@/navigation/hcm-routes";
 import { employeeSectionCardClass } from "./employee-section-card";
 
 const noop = () => {};
 
 function scheduleSummary(
-  schedule: EmployeeShiftView["scheduleJson"],
+  schedule: LaborUnitShiftView["scheduleJson"],
 ): string {
   if (!schedule) return "—";
   const parts: string[] = [];
@@ -31,34 +31,24 @@ type Props = {
   onChanged?: () => void;
 };
 
-export function EmployeeDetailShiftSection({
-  employeeId,
-  employeeName,
-  onChanged,
-}: Props) {
-  const [shift, setShift] = useState<EmployeeShiftView | null>(null);
+export function EmployeeDetailShiftSection({ employeeId }: Props) {
+  const [shift, setShift] = useState<LaborUnitShiftView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
 
-  const load = () => {
+  useEffect(() => {
     const id = employeeId.trim();
     if (!id) return;
     setLoading(true);
     setError(null);
-    void getActiveEmployeeShiftAction(id).then((res) => {
+    void getActiveLaborUnitShiftForEmployeeAction(id).then((res) => {
       setLoading(false);
       if (!res.success) {
         setError(res.message);
         return;
       }
-      setShift(res.data);
+      setShift(res.data?.shift ?? null);
     });
-  };
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employeeId]);
 
   if (loading) {
@@ -66,99 +56,70 @@ export function EmployeeDetailShiftSection({
   }
 
   return (
-    <>
-      <section
-        className={employeeSectionCardClass(false)}
-        data-test-id="employee-detail-shift"
-      >
-        <h2 className="text-sm font-semibold text-foreground">Turno activo</h2>
-        <p className="text-xs text-muted-foreground">
-          Sin turno activo no se pueden cargar celdas en el planificador de
-          Jornada.
+    <section
+      className={employeeSectionCardClass(false)}
+      data-test-id="employee-detail-shift"
+    >
+      <h2 className="text-sm font-semibold text-foreground">Turno (unidad laboral)</h2>
+      <p className="text-xs text-muted-foreground">
+        El horario operativo se define en Turnos UL y el planificador (contratos
+        rotativos/excepcionales) o en el contrato (jornada fija). Aquí solo se
+        consulta la asignación activa.
+      </p>
+
+      {error ? (
+        <p className="text-sm text-error" role="alert">
+          {error}
         </p>
+      ) : null}
 
-        {error ? (
-          <p className="text-sm text-error" role="alert">
-            {error}
+      {!shift ? (
+        <div className="space-y-3 py-2" data-test-id="employee-detail-shift-empty">
+          <p className="text-sm text-muted-foreground">
+            Sin membresía ACTIVE a un turno de unidad laboral.
           </p>
-        ) : null}
-
-        {!shift ? (
-          <div className="space-y-3 py-2" data-test-id="employee-detail-shift-empty">
-            <p className="text-sm text-muted-foreground">
-              Este empleado no tiene turno ACTIVE.
-            </p>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => setDialogOpen(true)}
-              data-test-id="employee-detail-shift-create"
-            >
-              Definir turno
+          <Link
+            href={HCM_WORK_SCHEDULES_SHIFTS}
+            className="inline-flex"
+            data-test-id="employee-detail-shift-goto"
+          >
+            <Button variant="outlined" size="sm" type="button">
+              Ir a Turnos UL
             </Button>
+          </Link>
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <TextField
+            label="Turno"
+            value={`${shift.code} · ${shift.name}`}
+            onChange={noop}
+            readOnly
+          />
+          <TextField
+            label="Zona horaria"
+            value={shift.timezone}
+            onChange={noop}
+            readOnly
+          />
+          <div className="sm:col-span-2">
+            <TextField
+              label="Horario"
+              value={scheduleSummary(shift.scheduleJson)}
+              onChange={noop}
+              readOnly
+              rows={2}
+            />
           </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <TextField
-              label="Nombre"
-              value={shift.name}
-              onChange={noop}
-              readOnly
-            />
-            <TextField
-              label="Tipo"
-              value={TEMPLATE_TYPE_LABELS[shift.type] ?? shift.type}
-              onChange={noop}
-              readOnly
-            />
-            <div className="sm:col-span-2">
-              <TextField
-                label="Horario"
-                value={scheduleSummary(shift.scheduleJson)}
-                onChange={noop}
-                readOnly
-                rows={2}
-              />
-            </div>
-            <TextField
-              label="Noche"
-              value={
-                shift.isNight || shift.isNightOutgoing
-                  ? [
-                      shift.isNight ? "Nocturno" : null,
-                      shift.isNightOutgoing ? "Saliente" : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")
-                  : "No"
-              }
-              onChange={noop}
-              readOnly
-            />
-            <div className="sm:col-span-2">
-              <Button
-                variant="outlined"
-                size="sm"
-                onClick={() => setDialogOpen(true)}
-                data-test-id="employee-detail-shift-edit"
-              >
-                Editar turno
+          <div className="sm:col-span-2">
+            <Link href={HCM_WORK_SCHEDULES_SHIFTS} className="inline-flex">
+              <Button variant="outlined" size="sm" type="button">
+                Ver maestro de turnos
               </Button>
-            </div>
+            </Link>
           </div>
-        )}
-      </section>
-
-      <EmployeeShiftDialog
-        open={dialogOpen}
-        employeeId={employeeId}
-        employeeName={employeeName}
-        onClose={() => setDialogOpen(false)}
-        onSaved={() => {
-          load();
-          onChanged?.();
-        }}
-      />
-    </>
+        </div>
+      )}
+    </section>
   );
 }

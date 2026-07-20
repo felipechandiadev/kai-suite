@@ -11,14 +11,16 @@ import {
   HCM_SETTINGS_JORNADA,
   HCM_SETTINGS_LABOR_UNITS,
   HCM_SETTINGS_ORG_UNITS,
+  HCM_SETTINGS_SHIFTS,
 } from "@/navigation/hcm-routes";
 
 const items = [
   { label: "Jornada", url: HCM_SETTINGS_JORNADA },
   { label: "Contratos", url: HCM_SETTINGS_CONTRACTS },
+  { label: "Sistemas de jornada", url: HCM_SETTINGS_SHIFTS },
   { label: "Cargos", url: HCM_SETTINGS_JOB_POSITIONS },
   { label: "AFP", url: HCM_SETTINGS_AFP },
-  { label: "Unidades org.", url: HCM_SETTINGS_ORG_UNITS },
+  { label: "Unidades organizativas", url: HCM_SETTINGS_ORG_UNITS },
   { label: "Unidades laborales", url: HCM_SETTINGS_LABOR_UNITS },
 ];
 

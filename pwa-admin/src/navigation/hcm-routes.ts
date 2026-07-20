@@ -7,6 +7,7 @@ export const HCM_JOB_POSITIONS = "/hcm/job-positions";
 
 export const HCM_WORK_SCHEDULES_SETTINGS = `${HCM_WORK_SCHEDULES}/settings`;
 export const HCM_WORK_SCHEDULES_TEMPLATES = `${HCM_WORK_SCHEDULES}/templates`;
+export const HCM_WORK_SCHEDULES_SHIFTS = `${HCM_WORK_SCHEDULES}/shifts`;
 export const HCM_WORK_SCHEDULES_EXCEPTIONS = `${HCM_WORK_SCHEDULES}/exceptions`;
 export const HCM_WORK_SCHEDULES_COMPENSATORY = `${HCM_WORK_SCHEDULES}/compensatory`;
 export const HCM_WORK_SCHEDULES_STATEMENTS = `${HCM_WORK_SCHEDULES}/statements`;
@@ -17,6 +18,7 @@ export const HCM_SETTINGS_JORNADA = `${HCM_SETTINGS}/jornada`;
 export const HCM_SETTINGS_CONTRACTS = `${HCM_SETTINGS}/contracts`;
 export const HCM_SETTINGS_JOB_POSITIONS = `${HCM_SETTINGS}/job-positions`;
 export const HCM_SETTINGS_AFP = `${HCM_SETTINGS}/afp`;
+export const HCM_SETTINGS_SHIFTS = `${HCM_SETTINGS}/shifts`;
 export const HCM_SETTINGS_ORG_UNITS = `${HCM_SETTINGS}/organizational-units`;
 export const HCM_SETTINGS_LABOR_UNITS = `${HCM_SETTINGS}/labor-units`;
 

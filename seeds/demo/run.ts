@@ -31,9 +31,31 @@ import {
   Employee,
   EmployeeStatus,
   EmploymentType,
+  WorkRegime,
 } from '@modules/employees/domain/employee.entity';
+import { EmploymentContract } from '@modules/employees/domain/employment-contract.entity';
+import {
+  EmploymentContractKind,
+  EmploymentContractStatus,
+  EmploymentLaborType,
+  ExtraHoursMode,
+  HealthContributionMode,
+  SalesCommissionType,
+} from '@modules/employees/domain/employment-contract.enums';
 import { HrAfpFund } from '@modules/employees/domain/hr-afp-fund.entity';
+import { HrIsapre } from '@modules/employees/domain/hr-isapre.entity';
 import { HrJobPosition } from '@modules/employees/domain/hr-job-position.entity';
+import { HrShiftSystem } from '@modules/hr-jornada/domain/hr-shift-system.entity';
+import {
+  FlexibleMode,
+  ShiftSystemType,
+} from '@modules/hr-jornada/domain/shift-system.enums';
+import { HrJornadaConfig } from '@modules/hr-jornada/domain/hr-jornada-config.entity';
+import { HrLaborUnitShift } from '@modules/hr-jornada/domain/hr-labor-unit-shift.entity';
+import {
+  HrLaborUnitShiftMember,
+  LaborUnitShiftMemberStatus,
+} from '@modules/hr-jornada/domain/hr-labor-unit-shift-member.entity';
 import { HrLaborUnit } from '@modules/hr-labor-units/domain/hr-labor-unit.entity';
 import { HrLaborUnitBranch } from '@modules/hr-labor-units/domain/hr-labor-unit-branch.entity';
 import { Shareholder } from '@modules/shareholders/domain/shareholder.entity';
@@ -1119,6 +1141,349 @@ const SEED_JOB_POSITIONS: readonly {
     sortOrder: 80,
   },
 ] as const;
+
+/** Catálogo base de sistemas de jornada (M3). Códigos alineados con migración HcmShiftSystems. */
+const SEED_SHIFT_SYSTEMS: readonly {
+  code: string;
+  name: string;
+  type: ShiftSystemType;
+  requiresPlannerAssignment: boolean;
+  generatesLateEvents: boolean;
+  overtimeEnabled: boolean;
+  cycleConfigJson?: { daysOn: number; daysOff: number } | null;
+}[] = [
+  {
+    code: 'SS00001',
+    name: 'Jornada fija',
+    type: ShiftSystemType.FIXED,
+    requiresPlannerAssignment: false,
+    generatesLateEvents: true,
+    overtimeEnabled: true,
+  },
+  {
+    code: 'SS00002',
+    name: 'Rotativo',
+    type: ShiftSystemType.ROTATING,
+    requiresPlannerAssignment: true,
+    generatesLateEvents: true,
+    overtimeEnabled: true,
+  },
+  {
+    code: 'SS00003',
+    name: 'Flexible con banda',
+    type: ShiftSystemType.FLEXIBLE,
+    requiresPlannerAssignment: false,
+    generatesLateEvents: true,
+    overtimeEnabled: true,
+  },
+  {
+    code: 'SS00004',
+    name: 'Flexible sin banda',
+    type: ShiftSystemType.FLEXIBLE,
+    requiresPlannerAssignment: false,
+    generatesLateEvents: false,
+    overtimeEnabled: true,
+  },
+  {
+    code: 'SS00005',
+    name: 'Sin control Art. 22',
+    type: ShiftSystemType.FREE,
+    requiresPlannerAssignment: false,
+    generatesLateEvents: false,
+    overtimeEnabled: false,
+  },
+  {
+    code: 'SS00006',
+    name: 'Excepcional DT',
+    type: ShiftSystemType.EXCEPTIONAL,
+    requiresPlannerAssignment: true,
+    generatesLateEvents: true,
+    overtimeEnabled: true,
+    cycleConfigJson: { daysOn: 4, daysOff: 4 },
+  },
+] as const;
+
+/** Catálogo Isapres (M1). Códigos alineados con migración HcmContractWeeklyHoursIsapre. */
+const SEED_ISAPRES: readonly {
+  code: string;
+  externalCode: string;
+  name: string;
+  website: string;
+  phone: string;
+}[] = [
+  {
+    code: 'ISA00001',
+    externalCode: '99',
+    name: 'Banmédica S.A.',
+    website: 'www.banmedica.cl',
+    phone: '600 600 3600',
+  },
+  {
+    code: 'ISA00002',
+    externalCode: '63',
+    name: 'Isalud Ltda.',
+    website: 'https://www.isapredecodelco.cl',
+    phone: '6003 800 331',
+  },
+  {
+    code: 'ISA00003',
+    externalCode: '67',
+    name: 'Colmena Golden Cross S.A.',
+    website: 'www.colmena.cl',
+    phone: '800 633 444',
+  },
+  {
+    code: 'ISA00004',
+    externalCode: '107',
+    name: 'Consalud S.A.',
+    website: 'www.consalud.cl',
+    phone: '600 500 9000',
+  },
+  {
+    code: 'ISA00005',
+    externalCode: '78',
+    name: 'Cruz Blanca S.A.',
+    website: 'www.cruzblanca.cl',
+    phone: '600 818 0000',
+  },
+  {
+    code: 'ISA00006',
+    externalCode: '94',
+    name: 'Cruz del Norte Ltda.',
+    website: 'www.isaprecruzdelnorte.cl',
+    phone: '97 799365',
+  },
+  {
+    code: 'ISA00007',
+    externalCode: '81',
+    name: 'Nueva Masvida S.A.',
+    website: 'www.nuevamasvida.cl',
+    phone: '600 600 262',
+  },
+  {
+    code: 'ISA00008',
+    externalCode: '76',
+    name: 'Fundación Ltda.',
+    website: 'www.isaprefundacion.cl',
+    phone: '22 347 9000',
+  },
+  {
+    code: 'ISA00009',
+    externalCode: '80',
+    name: 'Vida Tres S.A.',
+    website: 'www.vidatres.cl',
+    phone: '600 600 3535',
+  },
+  {
+    code: 'ISA00010',
+    externalCode: '108',
+    name: 'Esencial S.A.',
+    website: 'www.somosesencial.cl',
+    phone: '600 0880 090',
+  },
+] as const;
+
+type SeedWeekSchedule = Record<string, { start: string; end: string } | null>;
+
+function seedWeekdaySchedule(
+  start: string,
+  end: string,
+  days: readonly number[] = [0, 1, 2, 3, 4],
+): SeedWeekSchedule {
+  const schedule: SeedWeekSchedule = {};
+  for (let i = 0; i < 7; i++) {
+    schedule[String(i)] = days.includes(i) ? { start, end } : null;
+  }
+  return schedule;
+}
+
+/** Turnos UL demo (M2) para Sala de ventas. */
+const SEED_LABOR_UNIT_SHIFTS: readonly {
+  code: string;
+  name: string;
+  scheduleJson: SeedWeekSchedule;
+  effectiveFrom: string;
+  memberDocumentNumbers: readonly string[];
+}[] = [
+  {
+    code: 'ULS00001',
+    name: 'Sala mañana',
+    scheduleJson: seedWeekdaySchedule('09:00', '14:00'),
+    effectiveFrom: '2025-01-01',
+    memberDocumentNumbers: [
+      '17.100.001-7',
+      '17.100.002-5',
+      '17.100.004-1',
+      '17.100.006-8',
+    ],
+  },
+  {
+    code: 'ULS00002',
+    name: 'Sala tarde',
+    scheduleJson: seedWeekdaySchedule('14:00', '22:00', [0, 1, 2, 3, 4, 5]),
+    effectiveFrom: '2025-01-01',
+    memberDocumentNumbers: ['17.100.003-3', '17.100.005-K'],
+  },
+] as const;
+
+type SeedEmployeeContractDef =
+  | {
+      kind: EmploymentContractKind.LABOR;
+      laborType: EmploymentLaborType;
+      workRegime: WorkRegime;
+      weeklyHours: string;
+      extraHoursMode: ExtraHoursMode;
+      shiftSystemCode: string;
+      jobPositionCode: string;
+      afpCode: string;
+      healthSystem: 'FONASA' | 'ISAPRE';
+      isapreCode?: string;
+      healthContributionMode?: HealthContributionMode;
+      healthContributionValue?: string;
+      mutualName: string;
+      tipsEligible?: boolean;
+      flexibleMode?: FlexibleMode;
+      fixedScheduleJson?: SeedWeekSchedule;
+      flexibleBandJson?: Record<
+        string,
+        {
+          earliestStart: string;
+          latestStart: string;
+          earliestEnd: string;
+          latestEnd: string;
+        } | null
+      >;
+      art22Exempt?: boolean;
+      exceptionalResolutionRef?: string | null;
+      endDate?: string | null;
+    }
+  | {
+      kind: EmploymentContractKind.FEE;
+      jobPositionCode?: string;
+      notes?: string;
+    };
+
+/** Contratos ACTIVE por RUT (M1 + M3). Idempotente: actualiza el ACTIVE existente. */
+const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
+  '17.100.001-7': {
+    kind: EmploymentContractKind.LABOR,
+    laborType: EmploymentLaborType.INDEFINITE,
+    workRegime: WorkRegime.ORDINARY,
+    weeklyHours: '45',
+    extraHoursMode: ExtraHoursMode.PAID_OVERTIME,
+    shiftSystemCode: 'SS00002',
+    jobPositionCode: 'JP00001',
+    afpCode: 'AFP00004',
+    healthSystem: 'FONASA',
+    mutualName: 'ACHS',
+    tipsEligible: true,
+  },
+  '17.100.002-5': {
+    kind: EmploymentContractKind.LABOR,
+    laborType: EmploymentLaborType.INDEFINITE,
+    workRegime: WorkRegime.ORDINARY,
+    weeklyHours: '45',
+    extraHoursMode: ExtraHoursMode.PAID_OVERTIME,
+    shiftSystemCode: 'SS00001',
+    jobPositionCode: 'JP00002',
+    afpCode: 'AFP00002',
+    healthSystem: 'ISAPRE',
+    isapreCode: 'ISA00001',
+    healthContributionMode: HealthContributionMode.PERCENT,
+    healthContributionValue: '7',
+    mutualName: 'ACHS',
+    tipsEligible: true,
+    fixedScheduleJson: seedWeekdaySchedule('09:00', '18:00'),
+  },
+  '17.100.003-3': {
+    kind: EmploymentContractKind.LABOR,
+    laborType: EmploymentLaborType.INDEFINITE,
+    workRegime: WorkRegime.ORDINARY,
+    weeklyHours: '45',
+    extraHoursMode: ExtraHoursMode.BOTH,
+    shiftSystemCode: 'SS00002',
+    jobPositionCode: 'JP00002',
+    afpCode: 'AFP00001',
+    healthSystem: 'ISAPRE',
+    isapreCode: 'ISA00003',
+    healthContributionMode: HealthContributionMode.PERCENT,
+    healthContributionValue: '7',
+    mutualName: 'Mutual de Seguridad',
+    tipsEligible: true,
+  },
+  '17.100.004-1': {
+    kind: EmploymentContractKind.LABOR,
+    laborType: EmploymentLaborType.PART_TIME,
+    workRegime: WorkRegime.PARTIAL,
+    weeklyHours: '30',
+    extraHoursMode: ExtraHoursMode.PAID_OVERTIME,
+    shiftSystemCode: 'SS00002',
+    jobPositionCode: 'JP00001',
+    afpCode: 'AFP00003',
+    healthSystem: 'FONASA',
+    mutualName: 'ACHS',
+    tipsEligible: true,
+  },
+  '17.100.005-K': {
+    kind: EmploymentContractKind.LABOR,
+    laborType: EmploymentLaborType.INDEFINITE,
+    workRegime: WorkRegime.ORDINARY,
+    weeklyHours: '45',
+    extraHoursMode: ExtraHoursMode.COMPENSATORY_REST,
+    shiftSystemCode: 'SS00003',
+    jobPositionCode: 'JP00003',
+    afpCode: 'AFP00005',
+    healthSystem: 'ISAPRE',
+    isapreCode: 'ISA00005',
+    healthContributionMode: HealthContributionMode.PERCENT,
+    healthContributionValue: '7',
+    mutualName: 'ACHS',
+    flexibleMode: FlexibleMode.BAND,
+    flexibleBandJson: (() => {
+      const band = {
+        earliestStart: '08:00',
+        latestStart: '10:00',
+        earliestEnd: '17:00',
+        latestEnd: '19:00',
+      };
+      const json: Record<string, typeof band | null> = {};
+      for (let i = 0; i < 7; i++) {
+        json[String(i)] = i < 5 ? band : null;
+      }
+      return json;
+    })(),
+  },
+  '17.100.006-8': {
+    kind: EmploymentContractKind.LABOR,
+    laborType: EmploymentLaborType.FIXED_TERM,
+    workRegime: WorkRegime.PARTIAL,
+    weeklyHours: '30',
+    extraHoursMode: ExtraHoursMode.NONE,
+    shiftSystemCode: 'SS00002',
+    jobPositionCode: 'JP00006',
+    afpCode: 'AFP00002',
+    healthSystem: 'FONASA',
+    mutualName: 'ISL',
+    endDate: '2026-12-31',
+  },
+  '17.100.007-6': {
+    kind: EmploymentContractKind.FEE,
+    jobPositionCode: 'JP00006',
+    notes: 'Honorarios demo (sin AFP / Isapre / jornada laboral).',
+  },
+  '17.100.008-4': {
+    kind: EmploymentContractKind.LABOR,
+    laborType: EmploymentLaborType.INDEFINITE,
+    workRegime: WorkRegime.ORDINARY,
+    weeklyHours: '45',
+    extraHoursMode: ExtraHoursMode.PAID_OVERTIME,
+    shiftSystemCode: 'SS00002',
+    jobPositionCode: 'JP00002',
+    afpCode: 'AFP00007',
+    healthSystem: 'FONASA',
+    mutualName: 'ACHS',
+  },
+};
 
 type SeedDevCompanyDef = {
   razonSocial: string;
@@ -3126,6 +3491,7 @@ async function bootstrap() {
     }
 
     const afpFundRepo = dataSource.getRepository(HrAfpFund);
+    const afpByCode = new Map<string, HrAfpFund>();
     for (const item of SEED_AFP_FUNDS) {
       let fund = await afpFundRepo.findOne({
         where: { companyId: company.id, code: item.code },
@@ -3148,12 +3514,48 @@ async function bootstrap() {
         fund.isActive = true;
       }
       fund = await afpFundRepo.save(fund);
+      afpByCode.set(fund.code, fund);
       console.log(
         `✅ AFP «${fund.name}» sincronizada: ${fund.code} comisión=${fund.contributionPercent}%`,
       );
     }
 
+    const isapreRepo = dataSource.getRepository(HrIsapre);
+    const isapreByCode = new Map<string, HrIsapre>();
+    for (const item of SEED_ISAPRES) {
+      let isapre = await isapreRepo.findOne({
+        where: { companyId: company.id, code: item.code },
+        withDeleted: true,
+      });
+      if (!isapre) {
+        isapre = isapreRepo.create({
+          companyId: company.id,
+          code: item.code,
+          externalCode: item.externalCode,
+          name: item.name,
+          website: item.website,
+          phone: item.phone,
+          isActive: true,
+        });
+      } else {
+        if (isapre.deletedAt) {
+          isapre = await isapreRepo.recover(isapre);
+        }
+        isapre.externalCode = item.externalCode;
+        isapre.name = item.name;
+        isapre.website = item.website;
+        isapre.phone = item.phone;
+        isapre.isActive = true;
+      }
+      isapre = await isapreRepo.save(isapre);
+      isapreByCode.set(isapre.code, isapre);
+      console.log(
+        `✅ Isapre «${isapre.name}» sincronizada: ${isapre.code} (ext=${isapre.externalCode})`,
+      );
+    }
+
     const jobPositionRepo = dataSource.getRepository(HrJobPosition);
+    const jobPositionByCode = new Map<string, HrJobPosition>();
     for (const item of SEED_JOB_POSITIONS) {
       let position = await jobPositionRepo.findOne({
         where: { companyId: company.id, code: item.code },
@@ -3180,11 +3582,82 @@ async function bootstrap() {
         position.isActive = true;
       }
       position = await jobPositionRepo.save(position);
+      jobPositionByCode.set(item.code, position);
       console.log(
         `✅ Cargo «${position.name}» sincronizado: ${position.code}`,
       );
     }
 
+    const shiftSystemRepo = dataSource.getRepository(HrShiftSystem);
+    const shiftSystemByCode = new Map<string, HrShiftSystem>();
+    let rotatingShiftSystemId: string | null = null;
+    for (const item of SEED_SHIFT_SYSTEMS) {
+      let system = await shiftSystemRepo.findOne({
+        where: { companyId: company.id, code: item.code },
+        withDeleted: true,
+      });
+      if (!system) {
+        system = shiftSystemRepo.create({
+          companyId: company.id,
+          code: item.code,
+          name: item.name,
+          type: item.type,
+          requiresPlannerAssignment: item.requiresPlannerAssignment,
+          generatesLateEvents: item.generatesLateEvents,
+          overtimeEnabled: item.overtimeEnabled,
+          cycleConfigJson: item.cycleConfigJson ?? null,
+          isActive: true,
+        });
+      } else {
+        if (system.deletedAt) {
+          system = await shiftSystemRepo.recover(system);
+        }
+        system.name = item.name;
+        system.type = item.type;
+        system.requiresPlannerAssignment = item.requiresPlannerAssignment;
+        system.generatesLateEvents = item.generatesLateEvents;
+        system.overtimeEnabled = item.overtimeEnabled;
+        system.cycleConfigJson = item.cycleConfigJson ?? null;
+        system.isActive = true;
+      }
+      system = await shiftSystemRepo.save(system);
+      shiftSystemByCode.set(system.code, system);
+      if (item.code === 'SS00002') rotatingShiftSystemId = system.id;
+      console.log(
+        `✅ Sistema de jornada «${system.name}» sincronizado: ${system.code} (${system.type})`,
+      );
+    }
+
+    if (rotatingShiftSystemId) {
+      const jornadaConfigRepo = dataSource.getRepository(HrJornadaConfig);
+      let jornadaConfig = await jornadaConfigRepo.findOne({
+        where: { companyId: company.id },
+      });
+      if (!jornadaConfig) {
+        jornadaConfig = jornadaConfigRepo.create({
+          companyId: company.id,
+          defaultShiftSystemId: rotatingShiftSystemId,
+          defaultWeeklyHours: '45',
+          defaultExtraHoursMode: ExtraHoursMode.PAID_OVERTIME,
+          nightStart: '21:00',
+          nightEnd: '07:00',
+        });
+      } else {
+        if (!jornadaConfig.defaultShiftSystemId) {
+          jornadaConfig.defaultShiftSystemId = rotatingShiftSystemId;
+        }
+        jornadaConfig.defaultWeeklyHours = '45';
+        jornadaConfig.defaultExtraHoursMode = ExtraHoursMode.PAID_OVERTIME;
+        if (!jornadaConfig.nightStart) jornadaConfig.nightStart = '21:00';
+        if (!jornadaConfig.nightEnd) jornadaConfig.nightEnd = '07:00';
+      }
+      await jornadaConfigRepo.save(jornadaConfig);
+      console.log(
+        `✅ defaultShiftSystemId → Rotativo (${rotatingShiftSystemId}); weeklyHours=45; noche=${jornadaConfig.nightStart}–${jornadaConfig.nightEnd}`,
+      );
+    }
+
+    const employeesByDocument = new Map<string, Employee>();
     for (const item of SEED_EMPLOYEES) {
       let person = await personRepo.findOne({
         where: { documentNumber: item.person.documentNumber, deletedAt: null as never },
@@ -3253,8 +3726,275 @@ async function bootstrap() {
         employee.baseSalary = item.employee.baseSalary;
       }
       employee = await employeeRepo.save(employee);
+      employeesByDocument.set(item.person.documentNumber, employee);
       console.log(
         `✅ Empleado «${displayName}» sincronizado: id=${employee.id} tipo=${employee.employmentType} estado=${employee.status} sueldo=${employee.baseSalary ?? '—'} cuenta=${seedBankRow.accountNumber}`,
+      );
+    }
+
+    const contractRepo = dataSource.getRepository(EmploymentContract);
+    for (const [documentNumber, def] of Object.entries(SEED_EMPLOYEE_CONTRACTS)) {
+      const employee = employeesByDocument.get(documentNumber);
+      if (!employee) {
+        console.warn(`⚠️ Contrato seed: empleado ${documentNumber} no encontrado`);
+        continue;
+      }
+      const person = await personRepo.findOne({
+        where: { id: employee.personId },
+      });
+      const displayName = person
+        ? `${person.firstName} ${person.lastName ?? ''}`.trim()
+        : documentNumber;
+
+      let contract = await contractRepo.findOne({
+        where: {
+          companyId: company.id,
+          employeeId: employee.id,
+          status: EmploymentContractStatus.ACTIVE,
+        },
+      });
+      if (!contract) {
+        contract = contractRepo.create({
+          companyId: company.id,
+          employeeId: employee.id,
+          branchId: seedBranch.id,
+          status: EmploymentContractStatus.ACTIVE,
+          startDate: employee.hireDate ?? '2025-01-01',
+          mealAllowance: '0',
+          transportAllowance: '0',
+          tipsEligible: false,
+          salesCommissionType: SalesCommissionType.NONE,
+        });
+      }
+
+      contract.branchId = seedBranch.id;
+      contract.status = EmploymentContractStatus.ACTIVE;
+      contract.startDate = employee.hireDate ?? contract.startDate;
+
+      if (def.kind === EmploymentContractKind.FEE) {
+        const job =
+          def.jobPositionCode != null
+            ? jobPositionByCode.get(def.jobPositionCode)
+            : undefined;
+        contract.kind = EmploymentContractKind.FEE;
+        contract.laborType = null;
+        contract.workRegime = null;
+        contract.weeklyHours = null;
+        contract.extraHoursMode = null;
+        contract.baseSalary = null;
+        contract.feeAmount = employee.baseSalary ?? '0';
+        contract.tipsEligible = false;
+        contract.afpId = null;
+        contract.afpCode = null;
+        contract.afpName = null;
+        contract.afpContributionPercent = null;
+        contract.healthSystem = null;
+        contract.isapreId = null;
+        contract.isapreCode = null;
+        contract.isapreName = null;
+        contract.healthContributionMode = null;
+        contract.healthContributionValue = null;
+        contract.mutualName = null;
+        contract.shiftSystemId = null;
+        contract.shiftSystemCode = null;
+        contract.shiftSystemName = null;
+        contract.shiftSystemType = null;
+        contract.fixedScheduleJson = null;
+        contract.flexibleMode = null;
+        contract.flexibleBandJson = null;
+        contract.art22Exempt = null;
+        contract.exceptionalResolutionRef = null;
+        contract.endDate = null;
+        contract.jobPositionId = job?.id ?? null;
+        contract.duties = job?.defaultDuties ?? null;
+        contract.notes = def.notes ?? null;
+      } else {
+        const shiftSystem = shiftSystemByCode.get(def.shiftSystemCode);
+        if (!shiftSystem) {
+          console.warn(
+            `⚠️ Contrato seed ${documentNumber}: shift system ${def.shiftSystemCode} no encontrado`,
+          );
+          continue;
+        }
+        const afp = afpByCode.get(def.afpCode);
+        if (!afp) {
+          console.warn(
+            `⚠️ Contrato seed ${documentNumber}: AFP ${def.afpCode} no encontrada`,
+          );
+          continue;
+        }
+        const job = jobPositionByCode.get(def.jobPositionCode);
+        let isapre: HrIsapre | undefined;
+        if (def.healthSystem === 'ISAPRE') {
+          isapre = def.isapreCode
+            ? isapreByCode.get(def.isapreCode)
+            : undefined;
+          if (!isapre) {
+            console.warn(
+              `⚠️ Contrato seed ${documentNumber}: Isapre ${def.isapreCode} no encontrada`,
+            );
+            continue;
+          }
+        }
+
+        contract.kind = EmploymentContractKind.LABOR;
+        contract.laborType = def.laborType;
+        contract.workRegime = def.workRegime;
+        contract.weeklyHours = def.weeklyHours;
+        contract.extraHoursMode = def.extraHoursMode;
+        contract.baseSalary = employee.baseSalary ?? null;
+        contract.feeAmount = null;
+        contract.tipsEligible = def.tipsEligible ?? false;
+        contract.afpId = afp.id;
+        contract.afpCode = afp.code;
+        contract.afpName = afp.name;
+        contract.afpContributionPercent = afp.contributionPercent;
+        contract.healthSystem = def.healthSystem;
+        contract.isapreId = isapre?.id ?? null;
+        contract.isapreCode = isapre?.code ?? null;
+        contract.isapreName = isapre?.name ?? null;
+        contract.healthContributionMode =
+          def.healthContributionMode ?? null;
+        contract.healthContributionValue =
+          def.healthContributionValue ?? null;
+        contract.mutualName = def.mutualName;
+        contract.shiftSystemId = shiftSystem.id;
+        contract.shiftSystemCode = shiftSystem.code;
+        contract.shiftSystemName = shiftSystem.name;
+        contract.shiftSystemType = shiftSystem.type;
+        contract.fixedScheduleJson =
+          shiftSystem.type === ShiftSystemType.FIXED
+            ? (def.fixedScheduleJson ?? null)
+            : null;
+        contract.flexibleMode =
+          shiftSystem.type === ShiftSystemType.FLEXIBLE
+            ? (def.flexibleMode ?? FlexibleMode.OPEN)
+            : null;
+        contract.flexibleBandJson =
+          shiftSystem.type === ShiftSystemType.FLEXIBLE &&
+          def.flexibleMode === FlexibleMode.BAND
+            ? (def.flexibleBandJson ?? null)
+            : null;
+        contract.art22Exempt =
+          shiftSystem.type === ShiftSystemType.FREE
+            ? (def.art22Exempt ?? true)
+            : null;
+        contract.exceptionalResolutionRef =
+          shiftSystem.type === ShiftSystemType.EXCEPTIONAL
+            ? (def.exceptionalResolutionRef ?? null)
+            : null;
+        contract.endDate = def.endDate ?? null;
+        contract.jobPositionId = job?.id ?? null;
+        contract.duties = job?.defaultDuties ?? null;
+        contract.notes = null;
+      }
+
+      contract = await contractRepo.save(contract);
+      console.log(
+        `✅ Contrato ACTIVE «${displayName}»: ${contract.kind}` +
+          (contract.kind === EmploymentContractKind.LABOR
+            ? ` ${contract.weeklyHours}h · ${contract.shiftSystemCode}`
+            : ` honorario=${contract.feeAmount}`),
+      );
+    }
+
+    const laborUnitShiftRepo = dataSource.getRepository(HrLaborUnitShift);
+    const laborUnitShiftMemberRepo = dataSource.getRepository(
+      HrLaborUnitShiftMember,
+    );
+    for (const item of SEED_LABOR_UNIT_SHIFTS) {
+      let shift = await laborUnitShiftRepo.findOne({
+        where: { companyId: company.id, code: item.code },
+        withDeleted: true,
+      });
+      if (!shift) {
+        shift = laborUnitShiftRepo.create({
+          companyId: company.id,
+          laborUnitId: seedLaborUnit.id,
+          code: item.code,
+          name: item.name,
+          scheduleJson: item.scheduleJson,
+          timezone: 'America/Santiago',
+          isActive: true,
+          effectiveFrom: item.effectiveFrom,
+          effectiveTo: null,
+        });
+      } else {
+        if (shift.deletedAt) {
+          shift = await laborUnitShiftRepo.recover(shift);
+        }
+        shift.laborUnitId = seedLaborUnit.id;
+        shift.name = item.name;
+        shift.scheduleJson = item.scheduleJson;
+        shift.timezone = 'America/Santiago';
+        shift.isActive = true;
+        shift.effectiveFrom = item.effectiveFrom;
+        shift.effectiveTo = null;
+      }
+      shift = await laborUnitShiftRepo.save(shift);
+      console.log(
+        `✅ Turno UL «${shift.name}» sincronizado: ${shift.code} (UL=${seedLaborUnit.code})`,
+      );
+
+      const desiredDocs = new Set(item.memberDocumentNumbers);
+      const existingMembers = await laborUnitShiftMemberRepo.find({
+        where: { companyId: company.id, shiftId: shift.id },
+      });
+
+      for (const documentNumber of item.memberDocumentNumbers) {
+        const employee = employeesByDocument.get(documentNumber);
+        if (!employee) {
+          console.warn(
+            `⚠️ Miembro turno ${item.code}: empleado ${documentNumber} no encontrado`,
+          );
+          continue;
+        }
+        if (employee.status !== EmployeeStatus.ACTIVE) {
+          continue;
+        }
+
+        const otherActives = await laborUnitShiftMemberRepo.find({
+          where: {
+            companyId: company.id,
+            employeeId: employee.id,
+            status: LaborUnitShiftMemberStatus.ACTIVE,
+          },
+        });
+        for (const other of otherActives) {
+          if (other.shiftId !== shift.id) {
+            other.status = LaborUnitShiftMemberStatus.INACTIVE;
+            await laborUnitShiftMemberRepo.save(other);
+          }
+        }
+
+        let member = existingMembers.find((m) => m.employeeId === employee.id);
+        if (!member) {
+          member = laborUnitShiftMemberRepo.create({
+            companyId: company.id,
+            shiftId: shift.id,
+            employeeId: employee.id,
+            status: LaborUnitShiftMemberStatus.ACTIVE,
+          });
+        } else {
+          member.status = LaborUnitShiftMemberStatus.ACTIVE;
+        }
+        await laborUnitShiftMemberRepo.save(member);
+      }
+
+      for (const member of existingMembers) {
+        const emp = [...employeesByDocument.entries()].find(
+          ([, e]) => e.id === member.employeeId,
+        );
+        const doc = emp?.[0];
+        if (!doc || !desiredDocs.has(doc)) {
+          if (member.status === LaborUnitShiftMemberStatus.ACTIVE) {
+            member.status = LaborUnitShiftMemberStatus.INACTIVE;
+            await laborUnitShiftMemberRepo.save(member);
+          }
+        }
+      }
+      console.log(
+        `✅ Miembros turno ${shift.code}: ${item.memberDocumentNumbers.length} esperado(s)`,
       );
     }
 

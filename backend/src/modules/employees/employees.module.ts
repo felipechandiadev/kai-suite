@@ -15,17 +15,21 @@ import { Employee } from './domain/employee.entity';
 import { EmploymentContract } from './domain/employment-contract.entity';
 import { HrJobPosition } from './domain/hr-job-position.entity';
 import { HrAfpFund } from './domain/hr-afp-fund.entity';
+import { HrIsapre } from './domain/hr-isapre.entity';
 import { HrEmployeeTimelineEntry } from './domain/hr-employee-timeline-entry.entity';
 import { Company } from '@modules/companies/domain/company.entity';
 import { Person } from '@modules/persons/domain/person.entity';
 import { User } from '@modules/users/domain/user.entity';
 import { HrJornadaConfig } from '@modules/hr-jornada/domain/hr-jornada-config.entity';
+import { HrShiftSystem } from '@modules/hr-jornada/domain/hr-shift-system.entity';
 import { HrLaborUnitsModule } from '@modules/hr-labor-units/hr-labor-units.module';
 import { CreateEmployeeCommandHandler } from './application/handlers/commands/create-employee.handler';
 import { UpdateEmployeeCommandHandler } from './application/handlers/commands/update-employee.handler';
 import { DeleteEmployeeCommandHandler } from './application/handlers/commands/delete-employee.handler';
 import { GetAllEmployeesQueryHandler } from './application/handlers/queries/get-all-employees.handler';
 import { GetEmployeeByIdQueryHandler } from './application/handlers/queries/get-employee-by-id.handler';
+import { IsapresController } from './presentation/isapres.controller';
+import { IsapresService } from './application/isapres.service';
 
 @Module({
   imports: [
@@ -36,11 +40,13 @@ import { GetEmployeeByIdQueryHandler } from './application/handlers/queries/get-
       EmploymentContract,
       HrJobPosition,
       HrAfpFund,
+      HrIsapre,
       HrEmployeeTimelineEntry,
       Company,
       Person,
       User,
       HrJornadaConfig,
+      HrShiftSystem,
     ]),
   ],
   controllers: [
@@ -48,12 +54,14 @@ import { GetEmployeeByIdQueryHandler } from './application/handlers/queries/get-
     EmploymentContractsController,
     JobPositionsController,
     AfpFundsController,
+    IsapresController,
   ],
   providers: [
     EmployeesServiceAdapter,
     EmploymentContractsService,
     JobPositionsService,
     AfpFundsService,
+    IsapresService,
     HrEmployeeTimelineService,
     {
       provide: 'EmployeeRepositoryPort',
@@ -70,6 +78,7 @@ import { GetEmployeeByIdQueryHandler } from './application/handlers/queries/get-
     EmploymentContractsService,
     JobPositionsService,
     AfpFundsService,
+    IsapresService,
     HrEmployeeTimelineService,
   ],
 })

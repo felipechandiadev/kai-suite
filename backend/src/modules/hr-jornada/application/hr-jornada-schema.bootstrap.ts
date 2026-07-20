@@ -108,6 +108,10 @@ export class HrJornadaSchemaBootstrap implements OnModuleInit {
           "deletedAt" timestamptz NULL
         )
       `);
+      await this.dataSource.query(`
+        ALTER TABLE hr_shift_instances
+        ADD COLUMN IF NOT EXISTS "laborUnitShiftId" uuid NULL
+      `);
 
       await this.dataSource.query(`
         CREATE TABLE IF NOT EXISTS hr_shift_assignments (
@@ -240,6 +244,41 @@ export class HrJornadaSchemaBootstrap implements OnModuleInit {
         ALTER TABLE hr_jornada_config
         ADD COLUMN IF NOT EXISTS "defaultWorkRegime" varchar(32) NOT NULL DEFAULT 'ORDINARY'
       `);
+      await this.dataSource.query(`
+        ALTER TABLE hr_jornada_config
+        ADD COLUMN IF NOT EXISTS "defaultWeeklyHours" numeric(4,1) NOT NULL DEFAULT 45
+      `);
+      await this.dataSource.query(`
+        ALTER TABLE hr_jornada_config
+        ADD COLUMN IF NOT EXISTS "defaultExtraHoursMode" varchar(32) NOT NULL DEFAULT 'PAID_OVERTIME'
+      `);
+      await this.dataSource.query(`
+        ALTER TABLE hr_jornada_config
+        ADD COLUMN IF NOT EXISTS "defaultShiftSystemId" uuid NULL
+      `);
+
+      await this.dataSource.query(`
+        CREATE TABLE IF NOT EXISTS hr_shift_systems (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          "companyId" uuid NOT NULL,
+          code varchar(32) NOT NULL,
+          name varchar(120) NOT NULL,
+          type varchar(32) NOT NULL,
+          "requiresPlannerAssignment" boolean NOT NULL DEFAULT false,
+          "generatesLateEvents" boolean NOT NULL DEFAULT true,
+          "overtimeEnabled" boolean NOT NULL DEFAULT true,
+          "cycleConfigJson" jsonb NULL,
+          "isActive" boolean NOT NULL DEFAULT true,
+          "createdAt" timestamptz NOT NULL DEFAULT now(),
+          "updatedAt" timestamptz NOT NULL DEFAULT now(),
+          "deletedAt" timestamptz NULL
+        )
+      `);
+      await this.dataSource.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_hr_shift_systems_company_code
+        ON hr_shift_systems ("companyId", code)
+        WHERE "deletedAt" IS NULL
+      `);
 
       await this.dataSource.query(`
         CREATE TABLE IF NOT EXISTS hr_employment_contracts (
@@ -264,6 +303,42 @@ export class HrJornadaSchemaBootstrap implements OnModuleInit {
           "createdAt" timestamptz NOT NULL DEFAULT now(),
           "updatedAt" timestamptz NOT NULL DEFAULT now()
         )
+      `);
+      await this.dataSource.query(`
+        ALTER TABLE hr_employment_contracts
+        ADD COLUMN IF NOT EXISTS "shiftSystemId" uuid NULL
+      `);
+      await this.dataSource.query(`
+        ALTER TABLE hr_employment_contracts
+        ADD COLUMN IF NOT EXISTS "shiftSystemCode" varchar(32) NULL
+      `);
+      await this.dataSource.query(`
+        ALTER TABLE hr_employment_contracts
+        ADD COLUMN IF NOT EXISTS "shiftSystemName" varchar(120) NULL
+      `);
+      await this.dataSource.query(`
+        ALTER TABLE hr_employment_contracts
+        ADD COLUMN IF NOT EXISTS "shiftSystemType" varchar(32) NULL
+      `);
+      await this.dataSource.query(`
+        ALTER TABLE hr_employment_contracts
+        ADD COLUMN IF NOT EXISTS "fixedScheduleJson" jsonb NULL
+      `);
+      await this.dataSource.query(`
+        ALTER TABLE hr_employment_contracts
+        ADD COLUMN IF NOT EXISTS "flexibleMode" varchar(16) NULL
+      `);
+      await this.dataSource.query(`
+        ALTER TABLE hr_employment_contracts
+        ADD COLUMN IF NOT EXISTS "flexibleBandJson" jsonb NULL
+      `);
+      await this.dataSource.query(`
+        ALTER TABLE hr_employment_contracts
+        ADD COLUMN IF NOT EXISTS "art22Exempt" boolean NULL
+      `);
+      await this.dataSource.query(`
+        ALTER TABLE hr_employment_contracts
+        ADD COLUMN IF NOT EXISTS "exceptionalResolutionRef" varchar(255) NULL
       `);
       await this.dataSource.query(`
         ALTER TABLE hr_employment_contracts

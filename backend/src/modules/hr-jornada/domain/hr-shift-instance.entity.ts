@@ -45,6 +45,10 @@ export class HrShiftInstance {
   @Column({ type: 'boolean', default: false })
   isNightOutgoing!: boolean;
 
+  /** Turno UL origen (opcional); evita fusionar bloques con mismo horario. */
+  @Column({ type: 'uuid', nullable: true })
+  laborUnitShiftId?: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;
 
