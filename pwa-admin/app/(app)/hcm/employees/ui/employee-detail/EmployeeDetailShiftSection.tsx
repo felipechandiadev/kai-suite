@@ -71,13 +71,11 @@ export function EmployeeDetailShiftSection({
         className={employeeSectionCardClass(false)}
         data-test-id="employee-detail-shift"
       >
-        <div className="space-y-1 pr-2">
-          <h2 className="text-sm font-semibold text-foreground">Turno activo</h2>
-          <p className="text-xs text-muted-foreground">
-            Sin turno activo no se pueden cargar celdas en el planificador de
-            Jornada.
-          </p>
-        </div>
+        <h2 className="text-sm font-semibold text-foreground">Turno activo</h2>
+        <p className="text-xs text-muted-foreground">
+          Sin turno activo no se pueden cargar celdas en el planificador de
+          Jornada.
+        </p>
 
         {error ? (
           <p className="text-sm text-error" role="alert">
@@ -100,29 +98,28 @@ export function EmployeeDetailShiftSection({
             </Button>
           </div>
         ) : (
-          <div className="grid max-w-xl gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <TextField
               label="Nombre"
               value={shift.name}
               onChange={noop}
               readOnly
-              density="compact"
             />
             <TextField
               label="Tipo"
               value={TEMPLATE_TYPE_LABELS[shift.type] ?? shift.type}
               onChange={noop}
               readOnly
-              density="compact"
             />
-            <TextField
-              label="Horario"
-              value={scheduleSummary(shift.scheduleJson)}
-              onChange={noop}
-              readOnly
-              density="compact"
-              rows={2}
-            />
+            <div className="sm:col-span-2">
+              <TextField
+                label="Horario"
+                value={scheduleSummary(shift.scheduleJson)}
+                onChange={noop}
+                readOnly
+                rows={2}
+              />
+            </div>
             <TextField
               label="Noche"
               value={
@@ -137,9 +134,8 @@ export function EmployeeDetailShiftSection({
               }
               onChange={noop}
               readOnly
-              density="compact"
             />
-            <div>
+            <div className="sm:col-span-2">
               <Button
                 variant="outlined"
                 size="sm"

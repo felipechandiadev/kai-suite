@@ -18,7 +18,7 @@ export function JornadaSettingsForm({ config }: { config: JornadaConfigView }) {
   }
 
   return (
-    <div className="max-w-xl space-y-4" data-test-id="jornada-settings">
+    <div className="mx-auto w-full max-w-xl space-y-4" data-test-id="jornada-settings">
       {error ? <Alert variant="error">{error}</Alert> : null}
       {ok ? <Alert variant="success">Parámetros guardados</Alert> : null}
       <TextField

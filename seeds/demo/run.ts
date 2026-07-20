@@ -32,6 +32,8 @@ import {
   EmployeeStatus,
   EmploymentType,
 } from '@modules/employees/domain/employee.entity';
+import { HrAfpFund } from '@modules/employees/domain/hr-afp-fund.entity';
+import { HrJobPosition } from '@modules/employees/domain/hr-job-position.entity';
 import { HrLaborUnit } from '@modules/hr-labor-units/domain/hr-labor-unit.entity';
 import { HrLaborUnitBranch } from '@modules/hr-labor-units/domain/hr-labor-unit-branch.entity';
 import { Shareholder } from '@modules/shareholders/domain/shareholder.entity';
@@ -1027,6 +1029,94 @@ const SEED_EMPLOYEES: readonly {
       hireDate: '2019-05-01',
       baseSalary: '880000',
     },
+  },
+] as const;
+
+/** Comisión AFP (puntos %), catálogo Chile seed. */
+const SEED_AFP_FUNDS: readonly {
+  code: string;
+  name: string;
+  contributionPercent: string;
+}[] = [
+  { code: 'AFP00001', name: 'AFP Uno', contributionPercent: '0.46' },
+  { code: 'AFP00002', name: 'AFP Modelo', contributionPercent: '0.58' },
+  { code: 'AFP00003', name: 'AFP PlanVital', contributionPercent: '1.16' },
+  { code: 'AFP00004', name: 'AFP Habitat', contributionPercent: '1.27' },
+  { code: 'AFP00005', name: 'AFP Capital', contributionPercent: '1.44' },
+  { code: 'AFP00006', name: 'AFP Cuprum', contributionPercent: '1.44' },
+  { code: 'AFP00007', name: 'AFP Provida', contributionPercent: '1.45' },
+] as const;
+
+const SEED_JOB_POSITIONS: readonly {
+  code: string;
+  name: string;
+  description: string;
+  defaultDuties: string;
+  sortOrder: number;
+}[] = [
+  {
+    code: 'JP00001',
+    name: 'Cajero',
+    description: 'Atención de caja y cobros en sala de ventas.',
+    defaultDuties:
+      'Cobrar ventas, cuadrar caja, emitir boletas y apoyar cierre de turno.',
+    sortOrder: 10,
+  },
+  {
+    code: 'JP00002',
+    name: 'Vendedor de piso',
+    description: 'Atención y asesoría a clientes en sala.',
+    defaultDuties:
+      'Atender clientes, recomendar productos, reponer góndolas y apoyar inventario.',
+    sortOrder: 20,
+  },
+  {
+    code: 'JP00003',
+    name: 'Supervisor de sala',
+    description: 'Coordinación del equipo de piso y caja.',
+    defaultDuties:
+      'Supervisar turnos, resolver incidencias de sala y apoyar al jefe de local.',
+    sortOrder: 30,
+  },
+  {
+    code: 'JP00004',
+    name: 'Jefe de local',
+    description: 'Responsable operativo de la sucursal.',
+    defaultDuties:
+      'Planificar turnos, metas de venta, control de caja y coordinación con bodega.',
+    sortOrder: 40,
+  },
+  {
+    code: 'JP00005',
+    name: 'Encargado de bodega',
+    description: 'Recepción, almacenamiento y despacho de mercadería.',
+    defaultDuties:
+      'Recibir mercadería, controlar stock, preparar transferencias y conteos cíclicos.',
+    sortOrder: 50,
+  },
+  {
+    code: 'JP00006',
+    name: 'Asistente administrativo',
+    description: 'Apoyo administrativo y documental de la operación.',
+    defaultDuties:
+      'Gestionar documentación, apoyo a RR.HH. y seguimiento de trámites internos.',
+    sortOrder: 60,
+  },
+  {
+    code: 'JP00007',
+    name: 'Contador',
+    description: 'Contabilidad y reportes financieros de la empresa.',
+    defaultDuties:
+      'Llevar contabilidad, liquidaciones y reportes tributarios/financieros.',
+    sortOrder: 70,
+  },
+  {
+    code: 'JP00008',
+    name: 'Gerente general',
+    description: 'Dirección general del negocio.',
+    defaultDuties:
+      'Definir estrategia, supervisión de jefaturas y resultados de la empresa.',
+    sortOrder: 80,
   },
 ] as const;
 
@@ -3033,6 +3123,66 @@ async function bootstrap() {
           }),
         );
       }
+    }
+
+    const afpFundRepo = dataSource.getRepository(HrAfpFund);
+    for (const item of SEED_AFP_FUNDS) {
+      let fund = await afpFundRepo.findOne({
+        where: { companyId: company.id, code: item.code },
+        withDeleted: true,
+      });
+      if (!fund) {
+        fund = afpFundRepo.create({
+          companyId: company.id,
+          code: item.code,
+          name: item.name,
+          contributionPercent: item.contributionPercent,
+          isActive: true,
+        });
+      } else {
+        if (fund.deletedAt) {
+          fund = await afpFundRepo.recover(fund);
+        }
+        fund.name = item.name;
+        fund.contributionPercent = item.contributionPercent;
+        fund.isActive = true;
+      }
+      fund = await afpFundRepo.save(fund);
+      console.log(
+        `✅ AFP «${fund.name}» sincronizada: ${fund.code} comisión=${fund.contributionPercent}%`,
+      );
+    }
+
+    const jobPositionRepo = dataSource.getRepository(HrJobPosition);
+    for (const item of SEED_JOB_POSITIONS) {
+      let position = await jobPositionRepo.findOne({
+        where: { companyId: company.id, code: item.code },
+        withDeleted: true,
+      });
+      if (!position) {
+        position = jobPositionRepo.create({
+          companyId: company.id,
+          code: item.code,
+          name: item.name,
+          description: item.description,
+          defaultDuties: item.defaultDuties,
+          sortOrder: item.sortOrder,
+          isActive: true,
+        });
+      } else {
+        if (position.deletedAt) {
+          position = await jobPositionRepo.recover(position);
+        }
+        position.name = item.name;
+        position.description = item.description;
+        position.defaultDuties = item.defaultDuties;
+        position.sortOrder = item.sortOrder;
+        position.isActive = true;
+      }
+      position = await jobPositionRepo.save(position);
+      console.log(
+        `✅ Cargo «${position.name}» sincronizado: ${position.code}`,
+      );
     }
 
     for (const item of SEED_EMPLOYEES) {

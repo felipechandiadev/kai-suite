@@ -142,15 +142,13 @@ export function EmployeeDetailSummarySection({
 
   return (
     <section
-      className={`${employeeSectionCardClass(editing)} max-w-2xl text-sm`}
+      className={employeeSectionCardClass(editing)}
       data-test-id="employee-detail-summary"
     >
-      <div className="space-y-1 pr-10">
-        <h2 className="text-sm font-semibold text-foreground">Identidad</h2>
-        <p className="text-xs text-muted-foreground">
-          Datos personales. La foto se edita en el encabezado de la ficha.
-        </p>
-      </div>
+      <h2 className="pr-10 text-sm font-semibold text-foreground">Identidad</h2>
+      <p className="pr-10 text-xs text-muted-foreground">
+        Datos personales. La foto se edita en el encabezado de la ficha.
+      </p>
 
       {canEdit ? (
         <div className="absolute right-3 top-3 z-[1]">
@@ -178,7 +176,7 @@ export function EmployeeDetailSummarySection({
         </p>
       ) : null}
 
-      <div className="grid gap-4">
+      <div className="grid gap-3 sm:grid-cols-2">
         <TextField
           label="Nombre"
           value={editing && draft ? draft.firstName : p.firstName?.trim() ?? ""}
@@ -188,7 +186,6 @@ export function EmployeeDetailSummarySection({
               : (e) => setDraft((d) => (d ? { ...d, firstName: e.target.value } : d))
           }
           readOnly={readOnly}
-          density="compact"
           data-test-id="employee-summary-first-name"
         />
         <TextField
@@ -200,7 +197,6 @@ export function EmployeeDetailSummarySection({
               : (e) => setDraft((d) => (d ? { ...d, lastName: e.target.value } : d))
           }
           readOnly={readOnly}
-          density="compact"
           data-test-id="employee-summary-last-name"
         />
 
@@ -210,7 +206,6 @@ export function EmployeeDetailSummarySection({
             value={documentTypeLabel(p.documentType)}
             onChange={noopFieldChange}
             readOnly
-            density="compact"
             data-test-id="employee-summary-doc-type-readonly"
           />
         ) : (
@@ -222,7 +217,6 @@ export function EmployeeDetailSummarySection({
               setDraft((d) => (d ? { ...d, documentType: id != null ? String(id) : "RUT" } : d))
             }
             disabled={!editing}
-            density="compact"
             alwaysShowLabel
             data-test-id="employee-summary-doc-type"
           />
@@ -237,7 +231,6 @@ export function EmployeeDetailSummarySection({
               : (e) => setDraft((d) => (d ? { ...d, documentNumber: e.target.value } : d))
           }
           readOnly={readOnly}
-          density="compact"
           data-test-id="employee-summary-doc-number"
         />
 
@@ -248,7 +241,6 @@ export function EmployeeDetailSummarySection({
             readOnly ? noopFieldChange : (e) => setDraft((d) => (d ? { ...d, email: e.target.value } : d))
           }
           readOnly={readOnly}
-          density="compact"
           type="email"
           data-test-id="employee-summary-email"
         />
@@ -260,21 +252,21 @@ export function EmployeeDetailSummarySection({
             readOnly ? noopFieldChange : (e) => setDraft((d) => (d ? { ...d, phone: e.target.value } : d))
           }
           readOnly={readOnly}
-          density="compact"
           data-test-id="employee-summary-phone"
         />
 
-        <TextField
-          label="Dirección"
-          value={editing && draft ? draft.address : p.address?.trim() ?? ""}
-          onChange={
-            readOnly ? noopFieldChange : (e) => setDraft((d) => (d ? { ...d, address: e.target.value } : d))
-          }
-          readOnly={readOnly}
-          density="compact"
-          rows={2}
-          data-test-id="employee-summary-address"
-        />
+        <div className="sm:col-span-2">
+          <TextField
+            label="Dirección"
+            value={editing && draft ? draft.address : p.address?.trim() ?? ""}
+            onChange={
+              readOnly ? noopFieldChange : (e) => setDraft((d) => (d ? { ...d, address: e.target.value } : d))
+            }
+            readOnly={readOnly}
+            rows={2}
+            data-test-id="employee-summary-address"
+          />
+        </div>
       </div>
     </section>
   );

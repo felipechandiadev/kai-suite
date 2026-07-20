@@ -248,14 +248,12 @@ export default function EmployeeDetailPage({
             className={employeeSectionCardClass(false)}
             data-test-id="employee-detail-remunerations-wrap"
           >
-            <div className="space-y-1">
-              <h2 className="text-sm font-semibold text-foreground">
-                Liquidaciones
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Remuneraciones asociadas a este empleado.
-              </p>
-            </div>
+            <h2 className="text-sm font-semibold text-foreground">
+              Liquidaciones
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Remuneraciones asociadas a este empleado.
+            </p>
             <EmployeeDetailRemunerationsSection employeeId={employeeId} />
           </section>
         ) : null}
@@ -264,14 +262,12 @@ export default function EmployeeDetailPage({
             className={employeeSectionCardClass(false)}
             data-test-id="employee-detail-bank-wrap"
           >
-            <div className="space-y-1">
-              <h2 className="text-sm font-semibold text-foreground">
-                Cuentas bancarias
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Cuentas de la persona asociadas al empleado.
-              </p>
-            </div>
+            <h2 className="text-sm font-semibold text-foreground">
+              Cuentas bancarias
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Cuentas de la persona asociadas al empleado.
+            </p>
             <EmployeeDetailBankAccountsSection
               personId={detail.personId ?? ""}
               loading={false}

@@ -64,12 +64,10 @@ export function EmployeeDetailTimelineSection({ employeeId }: Props) {
       className={employeeSectionCardClass(false)}
       data-test-id="employee-detail-timeline"
     >
-      <div className="space-y-1">
-        <h2 className="text-sm font-semibold text-foreground">Historial</h2>
-        <p className="text-xs text-muted-foreground">
-          Anotaciones y eventos relevantes del funcionario.
-        </p>
-      </div>
+      <h2 className="text-sm font-semibold text-foreground">Historial</h2>
+      <p className="text-xs text-muted-foreground">
+        Anotaciones y eventos relevantes del funcionario.
+      </p>
 
       {error ? <Alert variant="error">{error}</Alert> : null}
 

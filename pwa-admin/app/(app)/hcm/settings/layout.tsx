@@ -9,11 +9,10 @@ export default function HcmSettingsLayout({
 }) {
   return (
     <TabPageLayout
-      compact
-      title="Capital humano"
-      subtitle="Parámetros de jornada, contratos, cargos, unidades organizativas y laborales."
+      title="Configuración Capital Humano"
       tabs={<HcmSettingsNav />}
       className="min-h-0"
+      contentClassName="pt-2"
       data-test-id="hcm-settings-layout"
     >
       {children}

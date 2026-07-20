@@ -90,13 +90,11 @@ export function EmployeeDetailContractSection({
         className={employeeSectionCardClass(false)}
         data-test-id="employee-detail-contract"
       >
-        <div className="space-y-1 pr-2">
-          <h2 className="text-sm font-semibold text-foreground">Contrato activo</h2>
-          <p className="text-xs text-muted-foreground">
-            Los contratos no se editan: cada cambio crea una versión nueva y
-            termina la anterior.
-          </p>
-        </div>
+        <h2 className="text-sm font-semibold text-foreground">Contrato activo</h2>
+        <p className="text-xs text-muted-foreground">
+          Los contratos no se editan: cada cambio crea una versión nueva y
+          termina la anterior.
+        </p>
 
         {error ? (
           <p className="text-sm text-error" role="alert">
@@ -119,7 +117,7 @@ export function EmployeeDetailContractSection({
             </Button>
           </div>
         ) : (
-          <div className="grid max-w-xl gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <TextField
               label="Tipo"
               value={
@@ -133,7 +131,6 @@ export function EmployeeDetailContractSection({
               }
               onChange={noop}
               readOnly
-              density="compact"
             />
             {jobName ? (
               <TextField
@@ -141,7 +138,6 @@ export function EmployeeDetailContractSection({
                 value={jobName}
                 onChange={noop}
                 readOnly
-                density="compact"
               />
             ) : null}
             <TextField
@@ -153,7 +149,6 @@ export function EmployeeDetailContractSection({
               }`}
               onChange={noop}
               readOnly
-              density="compact"
             />
             <TextField
               label={contract.kind === "FEE" ? "Honorario" : "Sueldo base"}
@@ -162,7 +157,6 @@ export function EmployeeDetailContractSection({
               )}
               onChange={noop}
               readOnly
-              density="compact"
             />
             <TextField
               label="Régimen"
@@ -171,7 +165,6 @@ export function EmployeeDetailContractSection({
               }
               onChange={noop}
               readOnly
-              density="compact"
             />
             <TextField
               label="Comisión ventas"
@@ -182,30 +175,28 @@ export function EmployeeDetailContractSection({
               }
               onChange={noop}
               readOnly
-              density="compact"
             />
             {contract.duties?.trim() ? (
-              <TextField
-                label="Funciones"
-                value={contract.duties}
-                onChange={noop}
-                readOnly
-                density="compact"
-              />
+              <div className="sm:col-span-2">
+                <TextField
+                  label="Funciones"
+                  value={contract.duties}
+                  onChange={noop}
+                  readOnly
+                />
+              </div>
             ) : null}
             <TextField
               label="Colación / Movilización"
               value={`${formatMoneyClp(contract.mealAllowance)} / ${formatMoneyClp(contract.transportAllowance)}`}
               onChange={noop}
               readOnly
-              density="compact"
             />
             <TextField
               label="Propinas"
               value={contract.tipsEligible ? "Sí" : "No"}
               onChange={noop}
               readOnly
-              density="compact"
             />
             <TextField
               label="AFP / Salud"
@@ -220,9 +211,8 @@ export function EmployeeDetailContractSection({
               } / ${contract.healthSystem?.trim() || "—"}`}
               onChange={noop}
               readOnly
-              density="compact"
             />
-            <div>
+            <div className="sm:col-span-2">
               <Button
                 variant="outlined"
                 size="sm"

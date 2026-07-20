@@ -204,15 +204,13 @@ export function EmployeeDetailEmploymentSection({
 
   return (
     <section
-      className={`${employeeSectionCardClass(editing)} max-w-xl text-sm`}
+      className={employeeSectionCardClass(editing)}
       data-test-id="employee-detail-employment"
     >
-      <div className="space-y-1 pr-10">
-        <h2 className="text-sm font-semibold text-foreground">Organización</h2>
-        <p className="text-xs text-muted-foreground">
-          Sucursal, estructura y estado. Sueldo y régimen se definen en Contrato.
-        </p>
-      </div>
+      <h2 className="pr-10 text-sm font-semibold text-foreground">Organización</h2>
+      <p className="pr-10 text-xs text-muted-foreground">
+        Sucursal, estructura y estado. Sueldo y régimen se definen en Contrato.
+      </p>
 
       {canEdit ? (
         <div className="absolute right-3 top-3 z-[1]">
@@ -239,13 +237,12 @@ export function EmployeeDetailEmploymentSection({
         </p>
       ) : null}
 
-      <div className="grid gap-4">
+      <div className="grid gap-3 sm:grid-cols-2">
         <TextField
           label="Empresa"
           value={detail.company?.name?.trim() ?? "—"}
           onChange={noopFieldChange}
           readOnly
-          density="compact"
           data-test-id="employee-employment-company"
         />
 
@@ -255,7 +252,6 @@ export function EmployeeDetailEmploymentSection({
             value={detail.branch?.name?.trim() ?? "—"}
             onChange={noopFieldChange}
             readOnly
-            density="compact"
             data-test-id="employee-employment-branch-readonly"
           />
         ) : (
@@ -269,7 +265,6 @@ export function EmployeeDetailEmploymentSection({
               )
             }
             disabled={!editing}
-            density="compact"
             alwaysShowLabel
             data-test-id="employee-employment-branch"
           />
@@ -281,7 +276,6 @@ export function EmployeeDetailEmploymentSection({
             value={detail.resultCenter?.name?.trim() ?? "—"}
             onChange={noopFieldChange}
             readOnly
-            density="compact"
             data-test-id="employee-employment-result-center-readonly"
           />
         ) : (
@@ -297,7 +291,6 @@ export function EmployeeDetailEmploymentSection({
               )
             }
             disabled={!editing}
-            density="compact"
             alwaysShowLabel
             data-test-id="employee-employment-result-center"
           />
@@ -309,7 +302,6 @@ export function EmployeeDetailEmploymentSection({
             value={detail.organizationalUnit?.name?.trim() ?? "—"}
             onChange={noopFieldChange}
             readOnly
-            density="compact"
             data-test-id="employee-employment-org-unit-readonly"
           />
         ) : (
@@ -328,7 +320,6 @@ export function EmployeeDetailEmploymentSection({
               )
             }
             disabled={!editing}
-            density="compact"
             alwaysShowLabel
             data-test-id="employee-employment-org-unit"
           />
@@ -344,7 +335,6 @@ export function EmployeeDetailEmploymentSection({
             }
             onChange={noopFieldChange}
             readOnly
-            density="compact"
             data-test-id="employee-employment-labor-unit-readonly"
           />
         ) : (
@@ -367,7 +357,6 @@ export function EmployeeDetailEmploymentSection({
               )
             }
             disabled={!editing}
-            density="compact"
             alwaysShowLabel
             required
             data-test-id="employee-employment-labor-unit"
@@ -380,7 +369,6 @@ export function EmployeeDetailEmploymentSection({
             value={EMPLOYEE_EMPLOYMENT_LABEL[String(detail.employmentType)] ?? detail.employmentType ?? "—"}
             onChange={noopFieldChange}
             readOnly
-            density="compact"
             data-test-id="employee-employment-type-readonly"
           />
         ) : (
@@ -394,7 +382,6 @@ export function EmployeeDetailEmploymentSection({
               )
             }
             disabled={!editing}
-            density="compact"
             alwaysShowLabel
             data-test-id="employee-employment-type"
           />
@@ -406,7 +393,6 @@ export function EmployeeDetailEmploymentSection({
             value={EMPLOYEE_STATUS_LABEL[String(detail.status)] ?? detail.status ?? "—"}
             onChange={noopFieldChange}
             readOnly
-            density="compact"
             data-test-id="employee-employment-status-readonly"
           />
         ) : (
@@ -418,7 +404,6 @@ export function EmployeeDetailEmploymentSection({
               setDraft((d) => (d ? { ...d, status: id != null ? String(id) : "ACTIVE" } : d))
             }
             disabled={!editing}
-            density="compact"
             alwaysShowLabel
             data-test-id="employee-employment-status"
           />
@@ -429,7 +414,6 @@ export function EmployeeDetailEmploymentSection({
           value={formatDateOnlySlash(detail.hireDate)}
           onChange={noopFieldChange}
           readOnly
-          density="compact"
           data-test-id="employee-employment-hire-date"
         />
 
@@ -448,29 +432,31 @@ export function EmployeeDetailEmploymentSection({
                 : (e) => setDraft((d) => (d ? { ...d, terminationDate: e.target.value } : d))
             }
             readOnly={readOnly}
-            density="compact"
             data-test-id="employee-employment-termination-date"
           />
         ) : null}
 
-        <div className="space-y-2 rounded-md border border-border/80 bg-neutral/30 p-3">
+        <div className="space-y-2 rounded-lg border border-dashed border-border bg-muted/15 p-3 sm:col-span-2">
           <p className="text-xs font-medium text-foreground">Desde contrato activo</p>
-          <TextField
-            label="Régimen laboral"
-            value={WORK_REGIME_LABEL[String(detail.workRegime)] ?? detail.workRegime ?? "Ordinaria"}
-            onChange={noopFieldChange}
-            readOnly
-            density="compact"
-            data-test-id="employee-work-regime-readonly"
-          />
-          <TextField
-            label="Sueldo / honorario"
-            value={formatMoneyClp(detail.baseSalary)}
-            onChange={noopFieldChange}
-            readOnly
-            density="compact"
-            data-test-id="employee-employment-base-salary"
-          />
+          <p className="text-[11px] text-muted-foreground">
+            Sueldo y régimen se editan en la sección Contrato.
+          </p>
+          <div className="mt-2 grid gap-3 sm:grid-cols-2">
+            <TextField
+              label="Régimen laboral"
+              value={WORK_REGIME_LABEL[String(detail.workRegime)] ?? detail.workRegime ?? "Ordinaria"}
+              onChange={noopFieldChange}
+              readOnly
+              data-test-id="employee-work-regime-readonly"
+            />
+            <TextField
+              label="Sueldo / honorario"
+              value={formatMoneyClp(detail.baseSalary)}
+              onChange={noopFieldChange}
+              readOnly
+              data-test-id="employee-employment-base-salary"
+            />
+          </div>
           {onGoToContract ? (
             <button
               type="button"
@@ -484,14 +470,15 @@ export function EmployeeDetailEmploymentSection({
         </div>
 
         {detail.createdAt ? (
-          <TextField
-            label="Registrado"
-            value={formatDateOnlySlash(detail.createdAt)}
-            onChange={noopFieldChange}
-            readOnly
-            density="compact"
-            data-test-id="employee-employment-created-at"
-          />
+          <div className="sm:col-span-2">
+            <TextField
+              label="Registrado"
+              value={formatDateOnlySlash(detail.createdAt)}
+              onChange={noopFieldChange}
+              readOnly
+              data-test-id="employee-employment-created-at"
+            />
+          </div>
         ) : null}
       </div>
     </section>

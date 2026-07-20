@@ -24,7 +24,7 @@ export function ContractDefaultsForm({ config }: { config: JornadaConfigView }) 
   const [pending, startTransition] = useTransition();
 
   return (
-    <div className="max-w-xl space-y-4" data-test-id="contract-defaults-form">
+    <div className="mx-auto w-full max-w-xl space-y-4" data-test-id="contract-defaults-form">
       <p className="text-sm text-muted-foreground">
         Valores por defecto al crear un nuevo contrato laboral.
       </p>
