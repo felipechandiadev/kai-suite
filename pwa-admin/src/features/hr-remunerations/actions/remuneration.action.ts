@@ -9,7 +9,9 @@ import {
   payrollLineCategory,
 } from "../lib/payroll-line-types";
 
-const REMUNERATIONS_PATH = "/hr/remunerations";
+import { HCM_REMUNERATIONS } from "@/navigation/hcm-routes";
+
+const REMUNERATIONS_PATH = HCM_REMUNERATIONS;
 
 function normalizeSettlementPaymentPayload(
   input?: PayrollSettlementPaymentPayload,
@@ -134,4 +136,21 @@ export async function createRemunerationAction(
     revalidatePath(REMUNERATIONS_PATH, "page");
   }
   return res;
+}
+
+export async function listPayrollSuggestionsFromJornadaAction(opts: {
+  employeeId?: string;
+} = {}) {
+  try {
+    const data = await RemunerationRequest.listSuggestions({
+      employeeId: opts.employeeId,
+      status: "PENDING",
+    });
+    return { success: true as const, data };
+  } catch (e) {
+    return {
+      success: false as const,
+      error: e instanceof Error ? e.message : "Error al cargar sugerencias",
+    };
+  }
 }

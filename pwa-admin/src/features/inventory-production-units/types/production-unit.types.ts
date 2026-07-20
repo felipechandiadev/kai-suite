@@ -12,6 +12,7 @@ export type ProductionUnitListItem = {
   name: string;
   defaultInputStorageId: string | null;
   defaultOutputStorageId: string | null;
+  laborUnitIds?: string[];
   isActive: boolean;
 };
 
@@ -25,6 +26,7 @@ export type CreateProductionUnitInput = {
   purpose?: ProductionUnitPurpose;
   defaultInputStorageId?: string | null;
   defaultOutputStorageId?: string | null;
+  laborUnitIds?: string[];
   isActive?: boolean;
 };
 
@@ -38,6 +40,7 @@ export type UpdateProductionUnitInput = {
   purpose?: ProductionUnitPurpose;
   defaultInputStorageId?: string | null;
   defaultOutputStorageId?: string | null;
+  laborUnitIds?: string[];
   isActive?: boolean;
 };
 

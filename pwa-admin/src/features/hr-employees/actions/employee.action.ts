@@ -10,7 +10,9 @@ import type {
   UpdateEmployeePersonPayload,
 } from "../types/employee.types";
 
-const EMPLOYEES_PATH = "/hr/employees";
+import { HCM_EMPLOYEES } from "@/navigation/hcm-routes";
+
+const EMPLOYEES_PATH = HCM_EMPLOYEES;
 
 export type CreateEmployeeFormInput = {
   personId?: string;
@@ -21,6 +23,7 @@ export type CreateEmployeeFormInput = {
   email?: string;
   phone?: string;
   branchId?: string | null;
+  laborUnitId?: string | null;
   employmentType: string;
   hireDate: string;
   baseSalary?: string | null;
@@ -89,7 +92,7 @@ export async function updateEmployeePersonAction(
   if (!detailRes.success) {
     return detailRes;
   }
-  revalidatePath(EMPLOYEES_PATH, "page");
+  revalidatePath(EMPLOYEES_PATH, "layout");
   return {
     success: true,
     employee: {
@@ -115,7 +118,7 @@ export async function updateEmployeeAction(
   }
   const res = await EmployeeRequest.update(id, payload);
   if (res.success) {
-    revalidatePath(EMPLOYEES_PATH, "page");
+    revalidatePath(EMPLOYEES_PATH, "layout");
   }
   return res;
 }
@@ -133,6 +136,10 @@ export async function createEmployeeAction(
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(hireDate)) {
     return { success: false, error: "La fecha de ingreso debe tener formato AAAA-MM-DD." };
+  }
+  const laborUnitId = input.laborUnitId?.trim() ?? "";
+  if (!laborUnitId) {
+    return { success: false, error: "La unidad laboral es obligatoria." };
   }
 
   let personId = input.personId?.trim() ?? "";
@@ -170,13 +177,14 @@ export async function createEmployeeAction(
   const empRes = await EmployeeRequest.create({
     personId,
     branchId: input.branchId?.trim() || null,
+    laborUnitId,
     employmentType: input.employmentType?.trim() || "FULL_TIME",
     hireDate,
     baseSalary,
     alsoAsUser: input.alsoAsUser,
   });
   if (empRes.success) {
-    revalidatePath(EMPLOYEES_PATH, "page");
+    revalidatePath(EMPLOYEES_PATH, "layout");
   }
   return empRes;
 }

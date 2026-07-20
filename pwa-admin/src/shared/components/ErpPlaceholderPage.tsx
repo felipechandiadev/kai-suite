@@ -8,7 +8,7 @@ type ErpPlaceholderPageProps = {
 
 export function ErpPlaceholderPage({ title, description, children }: ErpPlaceholderPageProps) {
   return (
-    <div className="p-6 max-w-4xl">
+    <div className="w-full min-w-0 max-w-4xl">
       <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
       {description ? (
         <p className="mt-2 text-muted-foreground">{description}</p>

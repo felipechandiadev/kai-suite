@@ -19,6 +19,7 @@ export class CreateBranchUseCase {
       companyId: company?.id ?? null,
       location: d.location && typeof d.location.lat === "number" ? d.location : null,
       isActive: d.isActive !== false,
+      laborUnitIds: d.laborUnitIds,
     });
   }
 }

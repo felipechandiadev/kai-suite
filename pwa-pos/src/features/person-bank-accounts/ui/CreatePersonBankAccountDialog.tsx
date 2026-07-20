@@ -34,6 +34,7 @@ export function CreatePersonBankAccountDialog({
   const [accountType, setAccountType] = useState(defaultType);
   const [accountNumber, setAccountNumber] = useState("");
   const [accountHolderName, setAccountHolderName] = useState("");
+  const [accountHolderRut, setAccountHolderRut] = useState("");
   const [isPrimary, setIsPrimary] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +46,7 @@ export function CreatePersonBankAccountDialog({
     setAccountType(defaultType);
     setAccountNumber("");
     setAccountHolderName("");
+    setAccountHolderRut("");
     setIsPrimary(false);
     setError(null);
   }, [defaultBank, defaultType]);
@@ -87,6 +89,7 @@ export function CreatePersonBankAccountDialog({
         accountType,
         accountNumber: num,
         accountHolderName: accountHolderName.trim() || undefined,
+        accountHolderRut: accountHolderRut.trim() || undefined,
         isPrimary,
       });
       if (!r.success) {
@@ -154,6 +157,14 @@ export function CreatePersonBankAccountDialog({
           onChange={(e) => setAccountHolderName(e.target.value)}
           disabled={busy}
           data-test-id="create-person-bank-holder"
+        />
+        <TextField
+          label="RUT del titular (opcional)"
+          value={accountHolderRut}
+          onChange={(e) => setAccountHolderRut(e.target.value)}
+          disabled={busy}
+          placeholder="12.345.678-9"
+          data-test-id="create-person-bank-holder-rut"
         />
         <Switch
           checked={isPrimary}

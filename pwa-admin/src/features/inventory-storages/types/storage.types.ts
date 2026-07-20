@@ -36,6 +36,7 @@ export type StorageListItem = {
   isDefault: boolean;
   isActive: boolean;
   productionUnitId?: string | null;
+  laborUnitIds?: string[];
   createdAt?: string;
   updatedAt?: string;
 };

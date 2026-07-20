@@ -3,12 +3,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { isUUID } from 'class-validator';
 import { DeepPartial, Repository } from 'typeorm';
 import { Branch } from '../domain/branch.entity';
+import { LaborUnitsService } from '@modules/hr-labor-units/application/labor-units.service';
 
 @Injectable()
 export class BranchesService {
   constructor(
     @InjectRepository(Branch)
     private readonly branchRepository: Repository<Branch>,
+    private readonly laborUnitsService: LaborUnitsService,
   ) {}
 
   async getBranchById(id: string, companyId?: string) {
@@ -19,6 +21,9 @@ export class BranchesService {
       return null;
     }
 
+    const laborUnitIds =
+      await this.laborUnitsService.listLaborUnitIdsForBranch(id);
+
     return {
       id: branch.id,
       companyId: branch.companyId ?? null,
@@ -28,6 +33,7 @@ export class BranchesService {
       location: branch.location ?? null,
       isActive: branch.isActive,
       isHeadquarters: branch.isHeadquarters,
+      laborUnitIds,
       createdAt: branch.createdAt,
       updatedAt: branch.updatedAt,
     };
@@ -43,6 +49,9 @@ export class BranchesService {
     }
 
     const branches = await query.orderBy('branch.name', 'ASC').getMany();
+    const luMap = await this.laborUnitsService.mapLaborUnitIdsByBranchIds(
+      branches.map((b) => b.id),
+    );
 
     return branches.map((branch) => ({
       id: branch.id,
@@ -53,6 +62,7 @@ export class BranchesService {
       location: branch.location ?? null,
       isActive: branch.isActive,
       isHeadquarters: branch.isHeadquarters,
+      laborUnitIds: luMap.get(branch.id) ?? [],
       createdAt: branch.createdAt,
       updatedAt: branch.updatedAt,
     }));
@@ -68,6 +78,7 @@ export class BranchesService {
       location: { lat: number; lng: number } | null;
       isActive: boolean;
       isHeadquarters: boolean;
+      laborUnitIds: string[];
     }>,
   ) {
     const branch = await this.branchRepository.findOne({
@@ -77,15 +88,22 @@ export class BranchesService {
       return null;
     }
 
+    const { laborUnitIds, ...rest } = data;
+
     // If setting this branch as headquarters, remove headquarters flag from others (within same company)
-    if (data.isHeadquarters === true) {
+    if (rest.isHeadquarters === true) {
       await this.branchRepository.update(
         { isHeadquarters: true, companyId },
         { isHeadquarters: false },
       );
     }
 
-    await this.branchRepository.update({ id, companyId }, data as any);
+    await this.branchRepository.update({ id, companyId }, rest as any);
+
+    if (laborUnitIds !== undefined) {
+      await this.laborUnitsService.syncBranchLaborUnits(id, laborUnitIds);
+    }
+
     return this.getBranchById(id, companyId);
   }
 
@@ -96,6 +114,7 @@ export class BranchesService {
     companyId: string;
     location?: { lat: number; lng: number } | null;
     isActive?: boolean;
+    laborUnitIds?: string[];
   }) {
     if (!data.name || !String(data.name).trim()) {
       return { success: false, error: 'El nombre es requerido' };
@@ -121,6 +140,14 @@ export class BranchesService {
       isHeadquarters: false,
     } as DeepPartial<Branch>;
     const saved = await this.branchRepository.save(toSave);
+
+    if (data.laborUnitIds !== undefined) {
+      await this.laborUnitsService.syncBranchLaborUnits(
+        saved.id,
+        data.laborUnitIds,
+      );
+    }
+
     const out = await this.getBranchById(saved.id, data.companyId);
     if (!out) {
       return { success: false, error: 'No se pudo crear la sucursal' };

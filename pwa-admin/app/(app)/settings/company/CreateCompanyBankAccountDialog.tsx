@@ -28,6 +28,7 @@ export function CreateCompanyBankAccountDialog({ open, onClose, onSuccess }: Pro
   const [accountType, setAccountType] = useState(defaultType);
   const [accountNumber, setAccountNumber] = useState("");
   const [accountHolderName, setAccountHolderName] = useState("");
+  const [accountHolderRut, setAccountHolderRut] = useState("");
   const [isPrimary, setIsPrimary] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +40,7 @@ export function CreateCompanyBankAccountDialog({ open, onClose, onSuccess }: Pro
     setAccountType(defaultType);
     setAccountNumber("");
     setAccountHolderName("");
+    setAccountHolderRut("");
     setIsPrimary(false);
     setError(null);
   }, [defaultBank, defaultType]);
@@ -78,6 +80,7 @@ export function CreateCompanyBankAccountDialog({ open, onClose, onSuccess }: Pro
         accountType,
         accountNumber: num,
         accountHolderName: accountHolderName.trim() || undefined,
+        accountHolderRut: accountHolderRut.trim() || undefined,
         isPrimary,
       });
       if (!r.success) {
@@ -143,6 +146,15 @@ export function CreateCompanyBankAccountDialog({ open, onClose, onSuccess }: Pro
           onChange={(e) => setAccountHolderName(e.target.value)}
           disabled={busy}
           data-test-id="create-company-bank-holder"
+        />
+        <TextField
+          label="RUT del titular (opcional)"
+          type="dni"
+          value={accountHolderRut}
+          onChange={(e) => setAccountHolderRut(e.target.value)}
+          disabled={busy}
+          placeholder="RUT titular"
+          data-test-id="create-company-bank-holder-rut"
         />
         <Switch
           checked={isPrimary}

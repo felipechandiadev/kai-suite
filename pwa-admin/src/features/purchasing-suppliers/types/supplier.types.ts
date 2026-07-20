@@ -34,6 +34,7 @@ export type SupplierPersonBankAccount = {
   accountType: string;
   accountNumber: string;
   accountHolderName?: string;
+  accountHolderRut?: string;
   isPrimary?: boolean;
   notes?: string;
 };

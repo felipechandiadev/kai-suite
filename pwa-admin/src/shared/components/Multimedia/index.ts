@@ -3,6 +3,13 @@ export { MultimediaCollectionGrid } from "./MultimediaCollectionGrid";
 export { MultimediaPickTrigger } from "./MultimediaPickTrigger";
 export { MultimediaLightbox } from "./MultimediaLightbox";
 export { MultimediaSingleSlot } from "./MultimediaSingleSlot";
+export type {
+  MultimediaSingleSlotProps,
+} from "./MultimediaSingleSlot";
+export type {
+  MultimediaAvatarSize,
+  MultimediaAvatarActionPlacement,
+} from "./types";
 export { MultimediaThumbnailSlot } from "./MultimediaThumbnailSlot";
 export { multimediaDefaultsForEntity } from "./multimedia-field-defaults";
 export {

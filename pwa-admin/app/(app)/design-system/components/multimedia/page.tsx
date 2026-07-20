@@ -282,6 +282,24 @@ export default function MultimediaUiComponentsPage() {
         </div>
 
         <div className="rounded-xl border border-border bg-muted/20 p-6">
+          <h3 className="text-sm font-semibold text-foreground">Avatar — actionPlacement edge</h3>
+          <p className="mb-4 text-xs text-muted-foreground">
+            Botón compacto en el borde del círculo (<code className="rounded bg-muted px-1">actionPlacement=&quot;edge&quot;</code>).
+            Usado en cards de empleados y ficha HR.
+          </p>
+          <MultimediaUpdater
+            currentUrl={null}
+            variant="avatar"
+            avatarSize="sm"
+            actionPlacement="edge"
+            allowDragDrop
+            acceptedTypes={["image/*"]}
+            maxSize={2}
+            onFileChange={() => {}}
+          />
+        </div>
+
+        <div className="rounded-xl border border-border bg-muted/20 p-6">
           <h3 className="text-sm font-semibold text-foreground">Disabled</h3>
           <MultimediaUpdater
             currentUrl={DEMO_IMAGE_URL}

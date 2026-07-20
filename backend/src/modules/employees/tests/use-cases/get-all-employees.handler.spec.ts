@@ -6,6 +6,7 @@ import {
   Employee,
   EmployeeStatus,
   EmploymentType,
+  WorkRegime,
 } from '../../domain/employee.entity';
 
 describe('GetAllEmployeesQueryHandler', () => {
@@ -45,6 +46,7 @@ describe('GetAllEmployeesQueryHandler', () => {
       resultCenterId: null,
       organizationalUnitId: null,
       employmentType: EmploymentType.FULL_TIME,
+      workRegime: WorkRegime.ORDINARY,
       status: EmployeeStatus.ACTIVE,
       hireDate: '2026-04-19',
       terminationDate: null,

@@ -14,7 +14,7 @@ export function TabPageLayoutShowcaseClient() {
     <>
       <TabPageLayout
         title="TabPageLayout"
-        subtitle="En md+ el título ocupa ~30vw a la izquierda y el slot de pestañas se alinea a la derecha; en viewport angosto se apilan."
+        subtitle="En md+ títulos (izquierda) y pestañas (derecha) comparten la misma fila en un grid, a la misma altura; en viewport angosto se apilan."
         tabs={
           <div className="w-full min-w-0 border-b border-border">
             <Tabs items={SHOWCASE_TABS} activeTab="/design-system/components/tab-page-layout" />

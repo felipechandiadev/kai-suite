@@ -25,6 +25,7 @@ export class BranchesController {
       phone?: string | null;
       location?: { lat: number; lng: number } | null;
       isActive?: boolean;
+      laborUnitIds?: string[];
     },
   ) {
     // companyId se auto-setea via TenantSubscriber, pero pasamos explícito
@@ -44,6 +45,7 @@ export class BranchesController {
       location: { lat: number; lng: number } | null;
       isActive: boolean;
       isHeadquarters: boolean;
+      laborUnitIds: string[];
     }>,
   ) {
     const updated = await this.branchesService.updateBranch(id, companyId, data);

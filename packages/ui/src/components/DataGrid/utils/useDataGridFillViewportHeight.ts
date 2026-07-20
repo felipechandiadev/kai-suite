@@ -1,11 +1,11 @@
 "use client";
 
 import { useLayoutEffect, useState, type RefObject } from "react";
+import { DATA_GRID_TAB_LAYOUT_FALLBACK_EXTRA_PX } from "../../layouts/layoutPageTokens";
+
+export { DATA_GRID_TAB_LAYOUT_FALLBACK_EXTRA_PX };
 
 const MIN_GRID_HEIGHT_PX = 200;
-
-/** Reserva para fila de pestañas en fallback CSS (`fillViewportInTabLayout`). */
-export const DATA_GRID_TAB_LAYOUT_FALLBACK_EXTRA_PX = 52;
 
 function collectScrollParents(el: HTMLElement): HTMLElement[] {
   const parents: HTMLElement[] = [];

@@ -26,6 +26,7 @@ export interface PersonBankAccount {
   accountType: string;
   accountNumber: string;
   accountHolderName?: string;
+  accountHolderRut?: string;
   isPrimary?: boolean;
   notes?: string;
   currentBalance?: number;

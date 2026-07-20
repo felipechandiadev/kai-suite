@@ -32,6 +32,15 @@ export function multimediaDefaultsForEntity(
         enableGallery: true,
         pickButton: "icon",
       };
+    case "employee":
+      return {
+        layout: "single",
+        singleVariant: "avatar",
+        allowPrimary: true,
+        allowReorder: false,
+        enableGallery: true,
+        pickButton: "icon",
+      };
     case "brand":
     case "e-shop-hero-slide":
     case "e-shop-testimonial":

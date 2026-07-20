@@ -111,6 +111,27 @@ import { DiningOrderLine } from '@modules/dining/domain/dining-order-line.entity
 import { DiningBranchSettings } from '@modules/dining/domain/dining-branch-settings.entity';
 import { DiningOrderSequence } from '@modules/dining/domain/dining-order-sequence.entity';
 import { DiningKitchenFireSequence } from '@modules/dining/domain/dining-kitchen-fire-sequence.entity';
+import { HrJornadaConfig } from '@modules/hr-jornada/domain/hr-jornada-config.entity';
+import { HrHoliday, HrHolidayOverride } from '@modules/hr-jornada/domain/hr-holiday.entity';
+import { HrShiftTemplate } from '@modules/hr-jornada/domain/hr-shift-template.entity';
+import { HrShiftInstance } from '@modules/hr-jornada/domain/hr-shift-instance.entity';
+import { HrShiftAssignment } from '@modules/hr-jornada/domain/hr-shift-assignment.entity';
+import { HrShiftException } from '@modules/hr-jornada/domain/hr-shift-exception.entity';
+import { HrCompensatoryLedgerEntry } from '@modules/hr-jornada/domain/hr-compensatory-ledger-entry.entity';
+import { HrScheduleFindingAudit } from '@modules/hr-jornada/domain/hr-schedule-finding-audit.entity';
+import { HrEmployeeDocument } from '@modules/hr-jornada/domain/hr-employee-document.entity';
+import { HrTimeEntry } from '@modules/hr-jornada/domain/hr-time-entry.entity';
+import { PayrollLineSuggestion } from '@modules/remunerations/domain/payroll-line-suggestion.entity';
+import { EmploymentContract } from '@modules/employees/domain/employment-contract.entity';
+import { HrJobPosition } from '@modules/employees/domain/hr-job-position.entity';
+import { HrAfpFund } from '@modules/employees/domain/hr-afp-fund.entity';
+import { HrEmployeeTimelineEntry } from '@modules/employees/domain/hr-employee-timeline-entry.entity';
+import { HrEmployeeShift } from '@modules/hr-jornada/domain/hr-employee-shift.entity';
+import { HrLaborUnit } from '@modules/hr-labor-units/domain/hr-labor-unit.entity';
+import { HrLaborUnitStorage } from '@modules/hr-labor-units/domain/hr-labor-unit-storage.entity';
+import { HrLaborUnitBranch } from '@modules/hr-labor-units/domain/hr-labor-unit-branch.entity';
+import { HrLaborUnitOrganizationalUnit } from '@modules/hr-labor-units/domain/hr-labor-unit-organizational-unit.entity';
+import { HrLaborUnitProductionUnit } from '@modules/hr-labor-units/domain/hr-labor-unit-production-unit.entity';
 import { AuditSubscriber } from '../subscribers/AuditSubscriber';
 import { TenantSubscriber } from '../common/tenant/tenant.subscriber';
 
@@ -235,6 +256,28 @@ export const typeOrmConfig = (
       DiningBranchSettings,
       DiningOrderSequence,
       DiningKitchenFireSequence,
+      HrJornadaConfig,
+      HrHoliday,
+      HrHolidayOverride,
+      HrShiftTemplate,
+      HrShiftInstance,
+      HrShiftAssignment,
+      HrShiftException,
+      HrCompensatoryLedgerEntry,
+      HrScheduleFindingAudit,
+      HrEmployeeDocument,
+      HrTimeEntry,
+      PayrollLineSuggestion,
+      EmploymentContract,
+      HrJobPosition,
+      HrAfpFund,
+      HrEmployeeTimelineEntry,
+      HrEmployeeShift,
+      HrLaborUnit,
+      HrLaborUnitStorage,
+      HrLaborUnitBranch,
+      HrLaborUnitOrganizationalUnit,
+      HrLaborUnitProductionUnit,
     ],
 
     // Register subscribers (TypeORM EventSubscribers)

@@ -77,6 +77,8 @@ import { FiscalModule } from './modules/fiscal/fiscal.module';
 import { PosSyncModule } from './modules/pos-sync/pos-sync.module';
 import { ProductModeModule } from './shared/product-mode/product-mode.module';
 import { DiningModule } from './modules/dining/dining.module';
+import { HrJornadaModule } from './modules/hr-jornada/hr-jornada.module';
+import { HrLaborUnitsModule } from './modules/hr-labor-units/hr-labor-units.module';
 import { ProductionUnitsModule } from './modules/production-units/production-units.module';
 
 @Module({
@@ -141,6 +143,8 @@ import { ProductionUnitsModule } from './modules/production-units/production-uni
     BrandsModule,
     ProductionUnitsModule,
     DiningModule,
+    HrJornadaModule,
+    HrLaborUnitsModule,
     ResultCentersModule,
     OrganizationalUnitsModule,
     OperationalExpensesModule,

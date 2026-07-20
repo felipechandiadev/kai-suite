@@ -17,6 +17,7 @@ export type BankAccountTicketPrintInput = {
   accountType: string;
   accountNumber: string;
   accountHolderName?: string | null;
+  accountHolderRut?: string | null;
   notes?: string | null;
   isPrimary?: boolean;
   paymentMethodLabel?: string | null;
@@ -50,6 +51,7 @@ function toTicketPayload(
     accountType: input.accountType.trim(),
     accountNumber: input.accountNumber.trim(),
     accountHolderName: input.accountHolderName?.trim() || null,
+    accountHolderRut: input.accountHolderRut?.trim() || null,
     notes: input.notes?.trim() || null,
     isPrimary: input.isPrimary === true,
     company: {

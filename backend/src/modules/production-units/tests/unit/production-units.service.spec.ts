@@ -28,6 +28,11 @@ describe('ProductionUnitsService inventory storages', () => {
   };
   let branchRepository: { findOne: jest.Mock };
   let storageRepository: { findOne: jest.Mock; save: jest.Mock };
+  let laborUnitsService: {
+    mapLaborUnitIdsByProductionUnitIds: jest.Mock;
+    listLaborUnitIdsForProductionUnit: jest.Mock;
+    syncProductionUnitLaborUnits: jest.Mock;
+  };
   let service: ProductionUnitsService;
 
   const sharedStorage = {
@@ -76,10 +81,18 @@ describe('ProductionUnitsService inventory storages', () => {
       findOne: jest.fn(),
       save: jest.fn(async (row) => row),
     };
+    laborUnitsService = {
+      mapLaborUnitIdsByProductionUnitIds: jest
+        .fn()
+        .mockResolvedValue(new Map()),
+      listLaborUnitIdsForProductionUnit: jest.fn().mockResolvedValue([]),
+      syncProductionUnitLaborUnits: jest.fn().mockResolvedValue(undefined),
+    };
     service = new ProductionUnitsService(
       productionUnitRepository as any,
       branchRepository as any,
       storageRepository as any,
+      laborUnitsService as any,
     );
   });
 

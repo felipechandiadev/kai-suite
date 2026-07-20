@@ -44,6 +44,12 @@ export function PersonBankAccountCard({ account, "data-test-id": dataTestId }: P
             <dd>{account.accountHolderName}</dd>
           </div>
         ) : null}
+        {account.accountHolderRut ? (
+          <div className="flex justify-between gap-2">
+            <dt className="text-muted-foreground">RUT titular</dt>
+            <dd className="font-mono tabular-nums">{account.accountHolderRut}</dd>
+          </div>
+        ) : null}
         {account.currentBalance != null ? (
           <div className="flex justify-between gap-2">
             <dt className="text-muted-foreground">Saldo</dt>

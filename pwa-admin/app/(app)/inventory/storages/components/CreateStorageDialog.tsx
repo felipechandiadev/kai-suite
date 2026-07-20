@@ -21,6 +21,7 @@ import {
   STORAGE_CATEGORY_SELECT_OPTIONS,
   STORAGE_TYPE_SELECT_OPTIONS,
 } from "./storageFormOptions";
+import { LaborUnitAssociationsField } from "@/features/hr-labor-units/ui/LaborUnitAssociationsField";
 
 export type CreateStorageDialogPresets = {
   name?: string;
@@ -39,6 +40,7 @@ export type CreateStorageDialogProps = {
   open: boolean;
   onClose: () => void;
   branches: BranchListItem[];
+  laborUnits?: Array<{ id: string; name: string; code?: string }>;
   presets?: CreateStorageDialogPresets | null;
   onSuccess?: (storage: StorageListItem) => void | Promise<void>;
 };
@@ -47,6 +49,7 @@ export function CreateStorageDialog({
   open,
   onClose,
   branches,
+  laborUnits = [],
   presets,
   onSuccess,
 }: CreateStorageDialogProps) {
@@ -58,6 +61,7 @@ export function CreateStorageDialog({
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isDefault, setIsDefault] = useState(false);
   const [isActive, setIsActive] = useState(true);
+  const [laborUnitIds, setLaborUnitIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -95,6 +99,7 @@ export function CreateStorageDialog({
     setCoords(null);
     setIsDefault(false);
     setIsActive(true);
+    setLaborUnitIds([]);
     setError(null);
   }, [open, presets]);
 
@@ -124,6 +129,7 @@ export function CreateStorageDialog({
     setCoords(null);
     setIsDefault(false);
     setIsActive(true);
+    setLaborUnitIds([]);
     setError(null);
     onClose();
   };
@@ -142,6 +148,7 @@ export function CreateStorageDialog({
           location: coords,
           isDefault,
           isActive,
+          laborUnitIds,
         });
         if (r.success) {
           await onSuccess?.(r.storage);
@@ -213,6 +220,12 @@ export function CreateStorageDialog({
           placeholder="Sin sucursal"
           disabled={Boolean(presets?.lockBranch)}
           data-test-id="storage-create-branch"
+        />
+        <LaborUnitAssociationsField
+          options={laborUnits}
+          value={laborUnitIds}
+          onChange={setLaborUnitIds}
+          helperText="Opcional. Asociá unidades laborales a este almacén."
         />
         <Select
           label="Tipo"

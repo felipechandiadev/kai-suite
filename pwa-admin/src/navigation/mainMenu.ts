@@ -154,12 +154,14 @@ export const mainMenuItems: SideBarMenuItem[] = [
     ],
   },
   {
-    id: 'nav-hr',
-    label: 'RRHH',
+    id: 'nav-hcm',
+    label: 'Capital humano',
     children: [
-      { id: 'hr-employees', label: 'Empleados', url: '/hr/employees' },
-      { id: 'hr-remunerations', label: 'Remuneraciones', url: '/hr/remunerations' },
-      // { id: 'hr-org-units', label: 'Unidades organizativas', url: '/hr/organizational-units' },
+      { id: 'hcm-employees', label: 'Empleados', url: '/hcm/employees' },
+      { id: 'hcm-shifts', label: 'Turnos', url: '/hcm/shifts' },
+      { id: 'hcm-work-schedules', label: 'Jornadas', url: '/hcm/work-schedules' },
+      { id: 'hcm-remunerations', label: 'Remuneraciones', url: '/hcm/remunerations' },
+      { id: 'hcm-settings', label: 'Configuración', url: '/hcm/settings' },
     ],
   },
   {

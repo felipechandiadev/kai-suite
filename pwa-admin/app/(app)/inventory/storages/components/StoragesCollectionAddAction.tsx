@@ -8,9 +8,13 @@ import { CreateStorageDialog } from "./CreateStorageDialog";
 
 type Props = {
   branches: BranchListItem[];
+  laborUnits?: Array<{ id: string; name: string; code?: string }>;
 };
 
-export function StoragesCollectionAddAction({ branches }: Props) {
+export function StoragesCollectionAddAction({
+  branches,
+  laborUnits = [],
+}: Props) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
@@ -28,6 +32,7 @@ export function StoragesCollectionAddAction({ branches }: Props) {
         open={open}
         onClose={() => setOpen(false)}
         branches={branches}
+        laborUnits={laborUnits}
         onSuccess={async () => {
           await router.refresh();
         }}

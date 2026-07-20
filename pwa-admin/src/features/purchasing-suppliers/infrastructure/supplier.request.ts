@@ -85,6 +85,7 @@ function normalizePersonBankAccounts(raw: unknown): SupplierPersonBankAccount[] 
       accountType,
       accountNumber,
       accountHolderName: o.accountHolderName != null ? String(o.accountHolderName) : undefined,
+      accountHolderRut: o.accountHolderRut != null ? String(o.accountHolderRut) : undefined,
       isPrimary: o.isPrimary === true,
       notes: o.notes != null ? String(o.notes) : undefined,
     });

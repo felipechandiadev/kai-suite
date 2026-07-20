@@ -39,6 +39,10 @@ export class PersonBankAccountDto {
   accountHolderName?: string;
 
   @IsOptional()
+  @IsString()
+  accountHolderRut?: string;
+
+  @IsOptional()
   @Transform(toBoolean)
   @IsBoolean()
   isPrimary?: boolean;

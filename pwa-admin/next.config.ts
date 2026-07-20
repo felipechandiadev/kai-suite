@@ -3,6 +3,10 @@ import { fileURLToPath } from "node:url";
 import { loadEnvConfig } from "@next/env";
 import type { NextConfig } from "next";
 import { buildLanAllowedDevOrigins } from "../shared/next-lan-dev-origins";
+import {
+  monorepoNextAuthAliases,
+  monorepoReactAliases,
+} from "../shared/next-monorepo-resolve";
 import packageJson from "./package.json";
 
 const appRoot = path.dirname(fileURLToPath(import.meta.url));
@@ -12,6 +16,7 @@ const packagesRoot = path.join(monorepoRoot, "packages");
 loadEnvConfig(appRoot);
 
 const kaiResolveAlias = {
+  "@kai/chile-catalogs": path.join(packagesRoot, "chile-catalogs", "src", "index.ts"),
   "@kai/document-print": path.join(packagesRoot, "document-print", "src", "index.ts"),
   "@kai/print-service-client": path.join(
     packagesRoot,
@@ -26,8 +31,8 @@ const kaiResolveAlias = {
     "index.ts",
   ),
   "@kai/ui$": path.join(packagesRoot, "ui", "src", "index.ts"),
-  "next-auth": path.join(appRoot, "node_modules/next-auth"),
-  "next-auth/react": path.join(appRoot, "node_modules/next-auth/react"),
+  ...monorepoReactAliases(appRoot),
+  ...monorepoNextAuthAliases(appRoot),
 };
 
 // Dev: root acotado a la app + alias (menos RAM/watchers). Build: root del monorepo.
@@ -35,6 +40,7 @@ const isDev = process.env.NODE_ENV === "development";
 const turbopackRoot = isDev ? appRoot : monorepoRoot;
 
 const nextConfig: NextConfig = {
+  outputFileTracingRoot: monorepoRoot,
   turbopack: {
     root: turbopackRoot,
     ...(isDev ? { resolveAlias: kaiResolveAlias } : {}),
@@ -49,6 +55,7 @@ const nextConfig: NextConfig = {
     },
   },
   transpilePackages: [
+    "@kai/chile-catalogs",
     "@kai/document-print",
     "@kai/print-service-client",
     "@kai/scale-service-client",
@@ -58,8 +65,8 @@ const nextConfig: NextConfig = {
     config.resolve.alias = {
       ...config.resolve.alias,
       "@kai/ui$": path.join(packagesRoot, "ui", "src", "index.ts"),
-      "next-auth": path.join(appRoot, "node_modules/next-auth"),
-      "next-auth/react": path.join(appRoot, "node_modules/next-auth/react"),
+      ...monorepoReactAliases(appRoot),
+      ...monorepoNextAuthAliases(appRoot),
     };
     return config;
   },
@@ -68,7 +75,6 @@ const nextConfig: NextConfig = {
       process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_BACKEND_API_URL || "",
     NEXT_PUBLIC_APP_VERSION: packageJson.version,
   },
-  // experimental: { appDir: true },
   async redirects() {
     return [
       { source: '/ui-components/color-scheme', destination: '/design-system/foundations/colors', permanent: true },
@@ -87,6 +93,29 @@ const nextConfig: NextConfig = {
       { source: '/e-shop/fulfillment/cobertura', destination: '/reparto/cobertura', permanent: true },
       { source: '/e-shop/fulfillment/configuracion', destination: '/reparto/configuracion', permanent: true },
       { source: '/e-shop/fulfillment/reparto', destination: '/reparto/configuracion', permanent: true },
+      { source: '/hr/jornada', destination: '/hcm/work-schedules', permanent: true },
+      { source: '/hr/jornada/:path*', destination: '/hcm/work-schedules/:path*', permanent: true },
+      { source: '/hr/:path*', destination: '/hcm/:path*', permanent: true },
+      {
+        source: '/hcm/work-schedules/settings',
+        destination: '/hcm/settings/jornada',
+        permanent: false,
+      },
+      {
+        source: '/hcm/organizational-units',
+        destination: '/hcm/settings/organizational-units',
+        permanent: true,
+      },
+      {
+        source: '/settings/hcm',
+        destination: '/hcm/settings',
+        permanent: true,
+      },
+      {
+        source: '/settings/hcm/:path*',
+        destination: '/hcm/settings/:path*',
+        permanent: true,
+      },
     ];
   },
 };

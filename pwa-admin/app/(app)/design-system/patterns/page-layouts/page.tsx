@@ -76,6 +76,10 @@ export default function DesignSystemPageLayoutsPage() {
           <li>
             <code className="rounded bg-neutral px-1">adminFillViewportBelowTopBarClassName</code> — alto bajo TopBar
           </li>
+          <li>
+            Sin <code className="rounded bg-neutral px-1">p-*</code>/<code className="rounded bg-neutral px-1">m-*</code> en
+            la raíz: el inset lo pone solo el <code className="rounded bg-neutral px-1">&lt;main&gt;</code> del shell.
+          </li>
         </ul>
       </section>
     </div>

@@ -30,6 +30,65 @@ export class RemunerationsController {
     };
   }
 
+  @Get('suggestions')
+  async getSuggestions(
+    @Query('employeeId') employeeId?: string,
+    @Query('periodStart') periodStart?: string,
+    @Query('periodEnd') periodEnd?: string,
+    @Query('status') status?: string,
+  ) {
+    try {
+      const data = await this.remunerationsService.listPayrollSuggestions({
+        employeeId,
+        periodStart,
+        periodEnd,
+        status,
+      });
+      return { success: true, data };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message:
+            error instanceof Error ? error.message : 'Internal server error',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('suggestions/:id/accept')
+  async acceptSuggestion(@Param('id') id: string) {
+    try {
+      const data = await this.remunerationsService.acceptPayrollSuggestion(id);
+      return { success: true, data };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: error instanceof Error ? error.message : 'Error',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Post('suggestions/:id/dismiss')
+  async dismissSuggestion(@Param('id') id: string) {
+    try {
+      const data = await this.remunerationsService.dismissPayrollSuggestion(id);
+      return { success: true, data };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: error instanceof Error ? error.message : 'Error',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
   @Get()
   async getRemunerations(
     @Query('employeeId') employeeId?: string,

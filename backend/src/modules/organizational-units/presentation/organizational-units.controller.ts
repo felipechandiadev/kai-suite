@@ -93,13 +93,13 @@ export class OrganizationalUnitsController {
     @Body()
     data: {
       companyId?: string;
-      code?: string;
       name: string;
       description?: string | null;
       unitType?: OrganizationalUnitType | string;
       parentId?: string | null;
       branchId?: string | null;
       resultCenterId?: string | null;
+      laborUnitIds?: string[];
       isActive?: boolean;
       metadata?: Record<string, unknown> | null;
     },
@@ -128,13 +128,13 @@ export class OrganizationalUnitsController {
     @Param('id') id: string,
     @Body()
     data: Partial<{
-      code: string;
       name: string;
       description?: string | null;
       unitType?: OrganizationalUnitType | string;
       parentId?: string | null;
       branchId?: string | null;
       resultCenterId?: string | null;
+      laborUnitIds?: string[];
       isActive?: boolean;
       metadata?: Record<string, unknown> | null;
     }>,

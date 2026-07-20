@@ -2,7 +2,7 @@ import { BasicPageLayout } from "@kai/ui";
 
 export default function BasicPageLayoutShowcasePage() {
   return (
-    <div className="p-4 md:p-6">
+    <div className="w-full min-w-0">
       <BasicPageLayout
         title="BasicPageLayout"
         subtitle="Encabezado opcional (título + subtítulo) y cuerpo flexible. Sin «use client»: válido en páginas servidor."

@@ -21,12 +21,14 @@ import { UpdateStorageDialog } from "./UpdateStorageDialog";
 type StorageCardProps = {
   storage: StorageListItem;
   branches: BranchListItem[];
+  laborUnits?: Array<{ id: string; name: string; code?: string }>;
   "data-test-id"?: string;
 };
 
 export function StorageCard({
   storage,
   branches,
+  laborUnits = [],
   "data-test-id": dataTestId,
 }: StorageCardProps) {
   const router = useRouter();
@@ -211,6 +213,7 @@ export function StorageCard({
         onClose={() => setUpdateOpen(false)}
         storage={storage}
         branches={branches}
+        laborUnits={laborUnits}
         onSuccess={async () => {
           await router.refresh();
         }}

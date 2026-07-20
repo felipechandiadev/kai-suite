@@ -55,6 +55,7 @@ export const CreateStorageFormSchema = z.object({
   location: geoPointSchema.nullable().optional(),
   isDefault: z.boolean(),
   isActive: z.boolean(),
+  laborUnitIds: z.array(z.string().uuid()).optional(),
 });
 
 export type CreateStorageFormInput = z.input<typeof CreateStorageFormSchema>;
@@ -76,6 +77,7 @@ export const UpdateStorageFormSchema = z.object({
   location: geoPointSchema.nullable(),
   isDefault: z.boolean(),
   isActive: z.boolean(),
+  laborUnitIds: z.array(z.string().uuid()).optional(),
 });
 
 export type UpdateStorageFormInput = z.input<typeof UpdateStorageFormSchema>;

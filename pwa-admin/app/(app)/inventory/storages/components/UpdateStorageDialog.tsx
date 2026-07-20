@@ -14,12 +14,14 @@ import { parseBranchLocation } from "@/features/settings-branches/utils/parse-br
 import LocationPicker from "@/shared/components/LocationPicker/LocationPickerWrapper";
 import { parseStorageLocation } from "@/features/inventory-storages/utils/parse-storage-location";
 import { STORAGE_CATEGORY_SELECT_OPTIONS, STORAGE_TYPE_SELECT_OPTIONS } from "./storageFormOptions";
+import { LaborUnitAssociationsField } from "@/features/hr-labor-units/ui/LaborUnitAssociationsField";
 
 export type UpdateStorageDialogProps = {
   open: boolean;
   onClose: () => void;
   storage: StorageListItem;
   branches: BranchListItem[];
+  laborUnits?: Array<{ id: string; name: string; code?: string }>;
   onSuccess?: () => void | Promise<void>;
 };
 
@@ -28,6 +30,7 @@ export function UpdateStorageDialog({
   onClose,
   storage,
   branches,
+  laborUnits = [],
   onSuccess,
 }: UpdateStorageDialogProps) {
   const [name, setName] = useState("");
@@ -40,6 +43,7 @@ export function UpdateStorageDialog({
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [isDefault, setIsDefault] = useState(false);
   const [isActive, setIsActive] = useState(true);
+  const [laborUnitIds, setLaborUnitIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -62,6 +66,7 @@ export function UpdateStorageDialog({
     setCoords(parseStorageLocation(storage.location));
     setIsDefault(storage.isDefault);
     setIsActive(storage.isActive);
+    setLaborUnitIds(storage.laborUnitIds ?? []);
     setError(null);
   }, [open, storage]);
 
@@ -105,6 +110,7 @@ export function UpdateStorageDialog({
           location: coords,
           isDefault,
           isActive,
+          laborUnitIds,
         });
         if (r.success) {
           await onSuccess?.();
@@ -173,6 +179,12 @@ export function UpdateStorageDialog({
           options={branchOptions}
           placeholder="Sin sucursal"
           data-test-id="storage-update-branch"
+        />
+        <LaborUnitAssociationsField
+          options={laborUnits}
+          value={laborUnitIds}
+          onChange={setLaborUnitIds}
+          helperText="Opcional. Asociá unidades laborales a este almacén."
         />
         <Select
           label="Tipo"

@@ -81,6 +81,10 @@ export class CreateStorageDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean = true;
+
+  @IsOptional()
+  @IsUUID('4', { each: true })
+  laborUnitIds?: string[];
 }
 
 export class UpdateStorageDto {
@@ -125,4 +129,8 @@ export class UpdateStorageDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsUUID('4', { each: true })
+  laborUnitIds?: string[];
 }

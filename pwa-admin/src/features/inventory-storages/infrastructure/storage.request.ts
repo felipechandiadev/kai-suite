@@ -80,6 +80,9 @@ function normalizeStorage(row: unknown): StorageListItem | null {
       o.productionUnitId != null && String(o.productionUnitId)
         ? String(o.productionUnitId)
         : null,
+    laborUnitIds: Array.isArray(o.laborUnitIds)
+      ? o.laborUnitIds.map((id) => String(id)).filter(Boolean)
+      : [],
     createdAt: o.createdAt != null ? String(o.createdAt) : undefined,
     updatedAt: o.updatedAt != null ? String(o.updatedAt) : undefined,
   };
@@ -162,6 +165,7 @@ export class StorageRequest {
     location?: { lat: number; lng: number } | null;
     isDefault?: boolean;
     isActive?: boolean;
+    laborUnitIds?: string[];
   }): Promise<{ success: true; storage: StorageListItem } | { success: false; error: string }> {
     const headers = await authHeaders();
     const payload: Record<string, unknown> = {
@@ -187,6 +191,9 @@ export class StorageRequest {
     }
     if (body.location != null) {
       payload.location = body.location;
+    }
+    if (body.laborUnitIds !== undefined) {
+      payload.laborUnitIds = body.laborUnitIds;
     }
     try {
       const res = await fetch(apiUrl("storages"), {
@@ -228,6 +235,7 @@ export class StorageRequest {
       location: { lat: number; lng: number } | null;
       isDefault: boolean;
       isActive: boolean;
+      laborUnitIds?: string[];
     },
   ): Promise<{ success: true; storage: StorageListItem } | { success: false; error: string }> {
     const headers = await authHeaders();
@@ -243,6 +251,9 @@ export class StorageRequest {
       isDefault: body.isDefault,
       isActive: body.isActive,
     };
+    if (body.laborUnitIds !== undefined) {
+      payload.laborUnitIds = body.laborUnitIds;
+    }
     try {
       const res = await fetch(apiUrl(`storages/${encodeURIComponent(id)}`), {
         method: "PUT",

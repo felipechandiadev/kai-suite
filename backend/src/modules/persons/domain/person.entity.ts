@@ -54,6 +54,8 @@ export interface PersonBankAccount {
   accountType: AccountTypeName;
   accountNumber: string;
   accountHolderName?: string;
+  /** RUT del titular (puede diferir del RUT de la empresa/persona). */
+  accountHolderRut?: string;
   isPrimary?: boolean;
   notes?: string;
   currentBalance?: number;

@@ -201,6 +201,33 @@ import { NotificationDelivery } from '@modules/notifications/domain/notification
 import { NotificationAudience } from '@modules/notifications/domain/notification-audience.entity';
 import { NotificationPreference } from '@modules/notifications/domain/notification-preference.entity';
 import { NotificationRetentionPolicy } from '@modules/notifications/domain/notification-retention-policy.entity';
+import { HrJornadaConfig } from '@modules/hr-jornada/domain/hr-jornada-config.entity';
+import { HrHoliday, HrHolidayOverride } from '@modules/hr-jornada/domain/hr-holiday.entity';
+import { HrShiftTemplate } from '@modules/hr-jornada/domain/hr-shift-template.entity';
+import { HrShiftInstance } from '@modules/hr-jornada/domain/hr-shift-instance.entity';
+import { HrShiftAssignment } from '@modules/hr-jornada/domain/hr-shift-assignment.entity';
+import { HrShiftException } from '@modules/hr-jornada/domain/hr-shift-exception.entity';
+import { HrCompensatoryLedgerEntry } from '@modules/hr-jornada/domain/hr-compensatory-ledger-entry.entity';
+import { HrScheduleFindingAudit } from '@modules/hr-jornada/domain/hr-schedule-finding-audit.entity';
+import { HrEmployeeDocument } from '@modules/hr-jornada/domain/hr-employee-document.entity';
+import { HrTimeEntry } from '@modules/hr-jornada/domain/hr-time-entry.entity';
+import { PayrollLineSuggestion } from '@modules/remunerations/domain/payroll-line-suggestion.entity';
+import { HrJornada1757170000000 } from '../migrations/1757170000000-HrJornada';
+import { EmploymentContractsAndEmployeeShifts1757180000000 } from '../migrations/1757180000000-EmploymentContractsAndEmployeeShifts';
+import { EmploymentContract } from '@modules/employees/domain/employment-contract.entity';
+import { HrJobPosition } from '@modules/employees/domain/hr-job-position.entity';
+import { HrEmployeeTimelineEntry } from '@modules/employees/domain/hr-employee-timeline-entry.entity';
+import { HcmContractJobTimeline1757200000000 } from '../migrations/1757200000000-HcmContractJobTimeline';
+import { HcmTipsAfpFunds1757210000000 } from '../migrations/1757210000000-HcmTipsAfpFunds';
+import { HrLaborUnits1757220000000 } from '../migrations/1757220000000-HrLaborUnits';
+import { HrLaborUnitAssociationsMn1757230000000 } from '../migrations/1757230000000-HrLaborUnitAssociationsMn';
+import { HrEmployeeShift } from '@modules/hr-jornada/domain/hr-employee-shift.entity';
+import { HrAfpFund } from '@modules/employees/domain/hr-afp-fund.entity';
+import { HrLaborUnit } from '@modules/hr-labor-units/domain/hr-labor-unit.entity';
+import { HrLaborUnitStorage } from '@modules/hr-labor-units/domain/hr-labor-unit-storage.entity';
+import { HrLaborUnitBranch } from '@modules/hr-labor-units/domain/hr-labor-unit-branch.entity';
+import { HrLaborUnitOrganizationalUnit } from '@modules/hr-labor-units/domain/hr-labor-unit-organizational-unit.entity';
+import { HrLaborUnitProductionUnit } from '@modules/hr-labor-units/domain/hr-labor-unit-production-unit.entity';
 
 /**
  * DataSource usado por `typeorm` CLI (`migration:run`, `schema:log`, …).
@@ -298,6 +325,28 @@ export const AppDataSource = new DataSource({
     NotificationAudience,
     NotificationPreference,
     NotificationRetentionPolicy,
+    HrJornadaConfig,
+    HrHoliday,
+    HrHolidayOverride,
+    HrShiftTemplate,
+    HrShiftInstance,
+    HrShiftAssignment,
+    HrShiftException,
+    HrCompensatoryLedgerEntry,
+    HrScheduleFindingAudit,
+    HrEmployeeDocument,
+    HrTimeEntry,
+    PayrollLineSuggestion,
+    EmploymentContract,
+    HrJobPosition,
+    HrAfpFund,
+    HrLaborUnit,
+    HrLaborUnitStorage,
+    HrLaborUnitBranch,
+    HrLaborUnitOrganizationalUnit,
+    HrLaborUnitProductionUnit,
+    HrEmployeeTimelineEntry,
+    HrEmployeeShift,
     EShopTestimonial,
     EShopHeroSlide,
     EShopFulfillmentMethod,
@@ -410,6 +459,12 @@ export const AppDataSource = new DataSource({
     DiningKitchenFireId1757140000000,
     DiningKitchenFireNumber1757150000000,
     ProductionUnitPurpose1757160000000,
+    HrJornada1757170000000,
+    EmploymentContractsAndEmployeeShifts1757180000000,
+    HcmContractJobTimeline1757200000000,
+    HcmTipsAfpFunds1757210000000,
+    HrLaborUnits1757220000000,
+    HrLaborUnitAssociationsMn1757230000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

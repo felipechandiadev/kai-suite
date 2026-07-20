@@ -62,6 +62,14 @@ pub fn build_pos_bank_account_ticket_escpos(t: &PosBankAccountTicket) -> Result<
         append_label_value_wrapped(&mut buf, "Titular:", holder.trim());
     }
 
+    if let Some(holder_rut) = t
+        .account_holder_rut
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+    {
+        append_label_value_wrapped(&mut buf, "RUT titular:", holder_rut.trim());
+    }
+
     if let Some(rut) = t.company.rut.as_deref().filter(|s| !s.trim().is_empty()) {
         append_line(&mut buf, &pad_left("RUT empresa:", rut.trim()));
     }

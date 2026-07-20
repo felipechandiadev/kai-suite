@@ -14,7 +14,7 @@ export default async function CollectionPageLayoutShowcasePage({
   const searchFromUrl = typeof searchRaw === "string" ? searchRaw : "";
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="w-full min-w-0">
       <CollectionPageLayoutShowcaseClient
         contentGridColumns={{ default: 1, md: 2, lg: 2 }}
         contentItems={[

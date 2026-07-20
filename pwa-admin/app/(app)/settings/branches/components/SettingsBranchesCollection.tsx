@@ -4,17 +4,22 @@ import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { CollectionPageLayout } from "@kai/ui";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
+import type { LaborUnitView } from "@/features/hr-labor-units/types/labor-unit.types";
 import { BranchesCollectionAddAction } from "./BranchesCollectionAddAction";
 import { BranchCard } from "./BranchCard";
 
 type SettingsBranchesCollectionProps = {
   initialBranches: BranchListItem[];
+  laborUnits?: LaborUnitView[];
 };
 
 /**
  * Búsqueda y filtrado en cliente (query `?search=`), sobre datos ya resueltos en el servidor.
  */
-export function SettingsBranchesCollection({ initialBranches }: SettingsBranchesCollectionProps) {
+export function SettingsBranchesCollection({
+  initialBranches,
+  laborUnits = [],
+}: SettingsBranchesCollectionProps) {
   const searchParams = useSearchParams();
   const q = (searchParams.get("search") ?? "").trim().toLowerCase();
 
@@ -31,7 +36,7 @@ export function SettingsBranchesCollection({ initialBranches }: SettingsBranches
   return (
     <CollectionPageLayout
       title="Sucursales"
-      addAction={<BranchesCollectionAddAction />}
+      addAction={<BranchesCollectionAddAction laborUnits={laborUnits} />}
       showSearch
       searchParamName="search"
       searchLabel="Buscar"
@@ -40,7 +45,12 @@ export function SettingsBranchesCollection({ initialBranches }: SettingsBranches
       contentItems={
         filtered.length > 0
           ? filtered.map((b) => (
-              <BranchCard key={b.id} branch={b} data-test-id={`branch-card-${b.id}`} />
+              <BranchCard
+                key={b.id}
+                branch={b}
+                laborUnits={laborUnits}
+                data-test-id={`branch-card-${b.id}`}
+              />
             ))
           : []
       }

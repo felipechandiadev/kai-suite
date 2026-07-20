@@ -32,6 +32,10 @@ export class CreateBankAccountDto {
   accountHolderName?: string;
 
   @IsOptional()
+  @IsString()
+  accountHolderRut?: string;
+
+  @IsOptional()
   @IsBoolean()
   isPrimary?: boolean;
 

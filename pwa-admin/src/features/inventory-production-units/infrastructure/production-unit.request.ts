@@ -44,6 +44,9 @@ function mapUnit(raw: Record<string, unknown>): ProductionUnitListItem {
       raw.defaultInputStorageId != null ? String(raw.defaultInputStorageId) : null,
     defaultOutputStorageId:
       raw.defaultOutputStorageId != null ? String(raw.defaultOutputStorageId) : null,
+    laborUnitIds: Array.isArray(raw.laborUnitIds)
+      ? raw.laborUnitIds.map((id) => String(id)).filter(Boolean)
+      : [],
     isActive: raw.isActive !== false,
   };
 }

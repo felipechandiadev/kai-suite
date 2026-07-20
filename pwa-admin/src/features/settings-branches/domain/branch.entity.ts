@@ -14,6 +14,7 @@ export const CreateBranchFormSchema = z.object({
   phone: z.string().max(20).optional().nullable(),
   location: locationSchema,
   isActive: z.boolean().optional().default(true),
+  laborUnitIds: z.array(z.string().uuid()).optional(),
 });
 
 export type CreateBranchFormInput = z.infer<typeof CreateBranchFormSchema>;
@@ -26,6 +27,7 @@ export const UpdateBranchFormSchema = z.object({
   location: locationSchema,
   isActive: z.boolean().optional(),
   isHeadquarters: z.boolean().optional(),
+  laborUnitIds: z.array(z.string().uuid()).optional(),
 });
 
 export type UpdateBranchFormInput = z.infer<typeof UpdateBranchFormSchema>;

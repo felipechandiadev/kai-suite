@@ -30,11 +30,13 @@ import type {
   ProductionUnitPurpose,
   ProductionUnitScope,
 } from "@/features/inventory-production-units/types/production-unit.types";
+import { LaborUnitAssociationsField } from "@/features/hr-labor-units/ui/LaborUnitAssociationsField";
 
 type Props = {
   initialUnits: ProductionUnitListItem[];
   branches: BranchListItem[];
   storages: StorageListItem[];
+  laborUnits?: Array<{ id: string; name: string; code?: string }>;
 };
 
 const CREATE_STORAGE_OPTION_ID = "__create_storage__";
@@ -53,6 +55,7 @@ export function ProductionUnitsCollection({
   initialUnits,
   branches,
   storages: initialStorages,
+  laborUnits = [],
 }: Props) {
   const searchParams = useSearchParams();
   const q = (searchParams.get("search") ?? "").trim().toLowerCase();
@@ -67,6 +70,7 @@ export function ProductionUnitsCollection({
   const [purpose, setPurpose] = useState<ProductionUnitPurpose>("KITCHEN");
   const [inputStorageId, setInputStorageId] = useState<string>("");
   const [outputStorageId, setOutputStorageId] = useState<string>("");
+  const [laborUnitIds, setLaborUnitIds] = useState<string[]>([]);
   const [name, setName] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -209,6 +213,7 @@ export function ProductionUnitsCollection({
     setPurpose("KITCHEN");
     setName("");
     setIsActive(true);
+    setLaborUnitIds([]);
     setCreateStorageOpen(false);
     resetDialogFields("DEPENDENT");
     setOpen(true);
@@ -222,6 +227,7 @@ export function ProductionUnitsCollection({
     setPurpose(unit.purpose === "BATCH" ? "BATCH" : "KITCHEN");
     setInputStorageId(unit.defaultInputStorageId ?? "");
     setOutputStorageId(unit.defaultOutputStorageId ?? "");
+    setLaborUnitIds(unit.laborUnitIds ?? []);
     setName(unit.name);
     setIsActive(unit.isActive);
     setError(null);
@@ -349,6 +355,7 @@ export function ProductionUnitsCollection({
       purpose,
       defaultInputStorageId: inputStorageId,
       defaultOutputStorageId: outputStorageId,
+      laborUnitIds,
       isActive,
     };
     const result = editing
@@ -476,6 +483,12 @@ export function ProductionUnitsCollection({
               options={branches.map((b) => ({ id: b.id, label: b.name }))}
             />
           ) : null}
+          <LaborUnitAssociationsField
+            options={laborUnits}
+            value={laborUnitIds}
+            onChange={setLaborUnitIds}
+            helperText="Opcional. Asociá unidades laborales a esta UP."
+          />
           <Select
             label="Propósito"
             value={purpose}
@@ -584,6 +597,7 @@ export function ProductionUnitsCollection({
         open={createStorageOpen}
         onClose={() => setCreateStorageOpen(false)}
         branches={branches}
+        laborUnits={laborUnits}
         presets={storageCreatePresets}
         onSuccess={handleStorageCreated}
       />

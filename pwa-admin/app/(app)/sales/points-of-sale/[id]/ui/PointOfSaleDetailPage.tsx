@@ -79,7 +79,7 @@ export default function PointOfSaleDetailPage({
   const isSale = kind === "SALE";
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-4 pb-16" data-test-id="pos-detail-root">
+    <div className="mx-auto w-full max-w-4xl space-y-6" data-test-id="pos-detail-root">
       <header className="border-b border-border pb-4" data-test-id="pos-detail-header">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 sm:gap-x-3">
           <IconButton

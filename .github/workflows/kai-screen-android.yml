@@ -5,11 +5,15 @@ on:
     paths:
       - "kai-screen-android/**"
       - "packages/customer-display-client/**"
+      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/kai-screen-android.yml"
   pull_request:
     paths:
       - "kai-screen-android/**"
       - "packages/customer-display-client/**"
+      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/kai-screen-android.yml"
 
 jobs:
@@ -29,6 +33,11 @@ jobs:
       - name: Assemble debug and unit tests
         working-directory: kai-screen-android
         run: ./gradlew :app:assembleDebug :app:testDebugUnitTest --stacktrace
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
       - name: customer-display-client tests
-        working-directory: packages/customer-display-client
-        run: npm ci && npm test
+        run: |
+          npm ci
+          npm test -w @kai/customer-display-client

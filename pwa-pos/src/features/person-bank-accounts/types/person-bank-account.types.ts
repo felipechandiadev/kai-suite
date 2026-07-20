@@ -4,6 +4,7 @@ export type PersonBankAccountItem = {
   accountType: string;
   accountNumber: string;
   accountHolderName?: string;
+  accountHolderRut?: string;
   isPrimary?: boolean;
   notes?: string;
   currentBalance?: number;
@@ -14,6 +15,7 @@ export type AddPersonBankAccountInput = {
   accountType: string;
   accountNumber: string;
   accountHolderName?: string;
+  accountHolderRut?: string;
   isPrimary?: boolean;
   notes?: string;
 };

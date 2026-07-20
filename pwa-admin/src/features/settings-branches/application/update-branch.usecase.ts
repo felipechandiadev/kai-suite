@@ -20,6 +20,7 @@ export class UpdateBranchUseCase {
           : null,
       isActive: d.isActive !== false,
       isHeadquarters: Boolean(d.isHeadquarters),
+      laborUnitIds: d.laborUnitIds,
     });
   }
 }

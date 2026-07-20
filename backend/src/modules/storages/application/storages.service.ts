@@ -7,12 +7,14 @@ import {
   StorageCategory,
   StorageType,
 } from '../domain/storage.entity';
+import { LaborUnitsService } from '@modules/hr-labor-units/application/labor-units.service';
 
 @Injectable()
 export class StoragesService {
   constructor(
     @InjectRepository(Storage)
     private readonly storageRepository: Repository<Storage>,
+    private readonly laborUnitsService: LaborUnitsService,
   ) {}
 
   async getAllStorages(includeInactive: boolean) {
@@ -25,8 +27,13 @@ export class StoragesService {
     }
 
     const storages = await query.orderBy('storage.name', 'ASC').getMany();
+    const luMap = await this.laborUnitsService.mapLaborUnitIdsByStorageIds(
+      storages.map((s) => s.id),
+    );
 
-    return storages.map((storage) => this.mapStorage(storage));
+    return storages.map((storage) =>
+      this.mapStorage(storage, luMap.get(storage.id) ?? []),
+    );
   }
 
   async getStorageById(id: string) {
@@ -39,7 +46,9 @@ export class StoragesService {
       return null;
     }
 
-    return this.mapStorage(storage);
+    const laborUnitIds =
+      await this.laborUnitsService.listLaborUnitIdsForStorage(id);
+    return this.mapStorage(storage, laborUnitIds);
   }
 
   async createStorage(data: {
@@ -53,6 +62,7 @@ export class StoragesService {
     location?: { lat: number; lng: number } | null;
     isDefault?: boolean;
     isActive?: boolean;
+    laborUnitIds?: string[];
   }) {
     const companyId = TenantContext.getCompanyId();
     const wantDefault = !!data.isDefault;
@@ -78,6 +88,13 @@ export class StoragesService {
       return em.save(storage);
     });
 
+    if (data.laborUnitIds !== undefined) {
+      await this.laborUnitsService.syncStorageLaborUnits(
+        saved.id,
+        data.laborUnitIds,
+      );
+    }
+
     const created = await this.getStorageById(saved.id);
 
     return { success: true, storage: created };
@@ -96,6 +113,7 @@ export class StoragesService {
       location: { lat: number; lng: number } | null;
       isDefault: boolean;
       isActive: boolean;
+      laborUnitIds: string[];
     }>,
   ) {
     const existing = await this.storageRepository.findOne({ where: { id } });
@@ -104,7 +122,8 @@ export class StoragesService {
       return { success: false, message: 'Storage not found', statusCode: 404 };
     }
 
-    const patch: Record<string, unknown> = { ...data };
+    const { laborUnitIds, ...rest } = data;
+    const patch: Record<string, unknown> = { ...rest };
 
     if (patch.category) {
       patch.category = patch.category as StorageCategory;
@@ -120,6 +139,10 @@ export class StoragesService {
       }
       await em.save(merged);
     });
+
+    if (laborUnitIds !== undefined) {
+      await this.laborUnitsService.syncStorageLaborUnits(id, laborUnitIds);
+    }
 
     const updated = await this.getStorageById(id);
     if (!updated) {
@@ -139,7 +162,7 @@ export class StoragesService {
     return { success: true };
   }
 
-  private mapStorage(storage: Storage) {
+  private mapStorage(storage: Storage, laborUnitIds: string[] = []) {
     return {
       id: storage.id,
       name: storage.name,
@@ -159,6 +182,7 @@ export class StoragesService {
       isDefault: storage.isDefault,
       isActive: storage.isActive,
       productionUnitId: storage.productionUnitId ?? null,
+      laborUnitIds,
       createdAt: storage.createdAt,
       updatedAt: storage.updatedAt,
     };

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -6,6 +6,11 @@ import {
   OrganizationalUnitType,
 } from '../domain/organizational-unit.entity';
 import { Company } from '../../companies/domain/company.entity';
+import {
+  HR_ORG_UNIT_CODE_PREFIX,
+  nextPrefixedSequenceCodeFromExisting,
+} from '@shared/codes/prefixed-sequence-code.util';
+import { LaborUnitsService } from '@modules/hr-labor-units/application/labor-units.service';
 
 @Injectable()
 export class OrganizationalUnitsService {
@@ -14,6 +19,7 @@ export class OrganizationalUnitsService {
     private readonly organizationalUnitRepository: Repository<OrganizationalUnit>,
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
+    private readonly laborUnitsService: LaborUnitsService,
   ) {}
 
   async getOrganizationalUnitById(id: string) {
@@ -26,7 +32,9 @@ export class OrganizationalUnitsService {
       return null;
     }
 
-    return this.formatOrganizationalUnit(unit);
+    const laborUnitIds =
+      await this.laborUnitsService.listLaborUnitIdsForOrganizationalUnit(id);
+    return this.formatOrganizationalUnit(unit, laborUnitIds);
   }
 
   async getAllOrganizationalUnits(params?: {
@@ -68,19 +76,25 @@ export class OrganizationalUnitsService {
     }
 
     const units = await query.orderBy('ou.code', 'ASC').getMany();
+    const luMap =
+      await this.laborUnitsService.mapLaborUnitIdsByOrganizationalUnitIds(
+        units.map((u) => u.id),
+      );
 
-    return units.map((item) => this.formatOrganizationalUnit(item));
+    return units.map((item) =>
+      this.formatOrganizationalUnit(item, luMap.get(item.id) ?? []),
+    );
   }
 
   async createOrganizationalUnit(data: {
     companyId?: string;
-    code?: string;
     name: string;
     description?: string | null;
     unitType?: OrganizationalUnitType | string;
     parentId?: string | null;
     branchId?: string | null;
     resultCenterId?: string | null;
+    laborUnitIds?: string[];
     isActive?: boolean;
     metadata?: Record<string, unknown> | null;
   }) {
@@ -100,20 +114,11 @@ export class OrganizationalUnitsService {
       companyId = firstCompany.id;
     }
 
-    // If code not provided, auto-generate one
-    let code = data.code;
-    if (!code) {
-      const prefix =
-        data.name
-          .substring(0, 3)
-          .toUpperCase()
-          .replace(/[^A-Z0-9]/g, '') || 'OU';
-      const timestamp = Date.now().toString().slice(-6);
-      code = `${prefix}-${timestamp}`;
-    }
+    const code = await this.allocateNextCode(companyId);
+    const { laborUnitIds, ...rest } = data;
 
     const createData = {
-      ...data,
+      ...rest,
       companyId,
       code,
       description: data.description ?? undefined,
@@ -128,24 +133,34 @@ export class OrganizationalUnitsService {
     );
     await this.organizationalUnitRepository.save(unit);
 
+    if (laborUnitIds !== undefined) {
+      await this.laborUnitsService.syncOrganizationalUnitLaborUnits(
+        unit.id,
+        laborUnitIds,
+      );
+    }
+
     return this.getOrganizationalUnitById(unit.id);
   }
 
   async updateOrganizationalUnit(
     id: string,
     data: Partial<{
-      code: string;
       name: string;
       description?: string | null;
       unitType?: OrganizationalUnitType | string;
       parentId?: string | null;
       branchId?: string | null;
       resultCenterId?: string | null;
+      laborUnitIds?: string[];
       isActive?: boolean;
       metadata?: Record<string, unknown> | null;
     }>,
   ) {
-    const updateData = { ...data };
+    const { laborUnitIds, ...rest } = data;
+    const updateData = { ...rest };
+    // code is immutable — never accept from client
+    delete (updateData as { code?: unknown }).code;
     if (updateData.unitType) {
       (updateData as any).unitType =
         updateData.unitType as OrganizationalUnitType;
@@ -158,7 +173,37 @@ export class OrganizationalUnitsService {
     }
 
     await this.organizationalUnitRepository.update(id, updateData as any);
+
+    if (laborUnitIds !== undefined) {
+      await this.laborUnitsService.syncOrganizationalUnitLaborUnits(
+        id,
+        laborUnitIds,
+      );
+    }
+
     return this.getOrganizationalUnitById(id);
+  }
+
+  private async allocateNextCode(companyId: string): Promise<string> {
+    const maxAttempts = 5;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const rows = await this.organizationalUnitRepository.find({
+        where: { companyId },
+        select: ['code'],
+        withDeleted: true,
+      });
+      const candidate = nextPrefixedSequenceCodeFromExisting(
+        HR_ORG_UNIT_CODE_PREFIX,
+        rows.map((r) => r.code),
+      );
+      const taken = await this.organizationalUnitRepository.exist({
+        where: { companyId, code: candidate },
+      });
+      if (!taken) return candidate;
+    }
+    throw new ConflictException(
+      'No se pudo generar un código único para la unidad. Intente de nuevo.',
+    );
   }
 
   async deleteOrganizationalUnit(id: string) {
@@ -166,7 +211,10 @@ export class OrganizationalUnitsService {
     return { success: true };
   }
 
-  private formatOrganizationalUnit(unit: OrganizationalUnit) {
+  private formatOrganizationalUnit(
+    unit: OrganizationalUnit,
+    laborUnitIds: string[] = [],
+  ) {
     return {
       id: unit.id,
       companyId: unit.companyId,
@@ -177,6 +225,7 @@ export class OrganizationalUnitsService {
       parentId: unit.parentId ?? null,
       branchId: unit.branchId ?? null,
       resultCenterId: unit.resultCenterId ?? null,
+      laborUnitIds,
       isActive: unit.isActive,
       metadata: unit.metadata ?? null,
       createdAt: unit.createdAt,

@@ -58,6 +58,7 @@ export class BranchRequest {
     companyId?: string | null;
     location?: { lat: number; lng: number } | null;
     isActive?: boolean;
+    laborUnitIds?: string[];
   }): Promise<
     { success: true; data: BranchListItem } | { success: false; error: string }
   > {
@@ -78,6 +79,7 @@ export class BranchRequest {
               ? { lat: body.location.lat, lng: body.location.lng }
               : null,
           isActive: body.isActive !== false,
+          laborUnitIds: body.laborUnitIds,
         }),
         cache: "no-store",
       });
@@ -108,6 +110,7 @@ export class BranchRequest {
       location?: { lat: number; lng: number } | null;
       isActive?: boolean;
       isHeadquarters?: boolean;
+      laborUnitIds?: string[];
     },
   ): Promise<
     { success: true; data: BranchListItem } | { success: false; error: string }
@@ -131,6 +134,7 @@ export class BranchRequest {
               : null,
           isActive: body.isActive,
           isHeadquarters: body.isHeadquarters,
+          laborUnitIds: body.laborUnitIds,
         }),
         cache: "no-store",
       });

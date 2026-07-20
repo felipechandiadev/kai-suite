@@ -38,7 +38,7 @@ export default function LocalPrintingSettingsPage() {
   const initialManifests = readKaiPrintersDownloadsManifests();
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 py-6">
+    <div className="mx-auto w-full max-w-3xl space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Impresión local</h1>
       <AdminLocalPrintingSettingsForm initialManifests={initialManifests} />
     </div>

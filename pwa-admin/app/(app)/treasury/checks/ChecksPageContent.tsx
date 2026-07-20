@@ -148,7 +148,7 @@ export function ChecksPageContent({
   }
 
   return (
-    <div className="flex w-full flex-col gap-4 p-4 md:p-6" data-test-id="checks-page-root">
+    <div className="flex w-full min-w-0 flex-col gap-4" data-test-id="checks-page-root">
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           Cartera de cheques

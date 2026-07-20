@@ -41,7 +41,9 @@ export type EmployeeGridRow = {
   branchId?: string | null;
   resultCenterId?: string | null;
   organizationalUnitId?: string | null;
+  laborUnitId?: string | null;
   employmentType?: string;
+  workRegime?: string;
   status?: string;
   hireDate?: string;
   terminationDate?: string | null;
@@ -57,7 +59,9 @@ export type EmployeeDetailView = {
   branchId?: string | null;
   resultCenterId?: string | null;
   organizationalUnitId?: string | null;
+  laborUnitId?: string | null;
   employmentType?: string;
+  workRegime?: string;
   status?: string;
   hireDate?: string;
   terminationDate?: string | null;
@@ -85,7 +89,9 @@ export type UpdateEmployeePayload = {
   branchId?: string | null;
   resultCenterId?: string | null;
   organizationalUnitId?: string | null;
+  laborUnitId?: string | null;
   employmentType?: string;
+  workRegime?: string;
   status?: string;
   terminationDate?: string | null;
   baseSalary?: string | null;

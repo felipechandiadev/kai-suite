@@ -2,7 +2,7 @@ import { TabPageLayoutShowcaseClient } from "./TabPageLayoutShowcaseClient";
 
 export default function TabPageLayoutShowcasePage() {
   return (
-    <div className="p-4 md:p-6">
+    <div className="w-full min-w-0">
       <TabPageLayoutShowcaseClient />
     </div>
   );

@@ -50,6 +50,46 @@ export class RemunerationRequest {
     return json.data as RemunerationGridRow[];
   }
 
+  static async listSuggestions(opts: {
+    employeeId?: string;
+    periodStart?: string;
+    periodEnd?: string;
+    status?: string;
+  } = {}): Promise<
+    Array<{
+      id: string;
+      employeeId: string;
+      typeId: string;
+      amountCents: string;
+      description: string | null;
+      status: string;
+    }>
+  > {
+    const params = new URLSearchParams();
+    if (opts.employeeId) params.set("employeeId", opts.employeeId);
+    if (opts.periodStart) params.set("periodStart", opts.periodStart);
+    if (opts.periodEnd) params.set("periodEnd", opts.periodEnd);
+    if (opts.status) params.set("status", opts.status);
+    const qs = params.toString();
+    const headers = await authHeaders();
+    const res = await fetch(apiUrl(`remunerations/suggestions${qs ? `?${qs}` : ""}`), {
+      method: "GET",
+      headers,
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const json = (await res.json()) as { success?: boolean; data?: unknown };
+    if (!json.success || !Array.isArray(json.data)) return [];
+    return json.data as Array<{
+      id: string;
+      employeeId: string;
+      typeId: string;
+      amountCents: string;
+      description: string | null;
+      status: string;
+    }>;
+  }
+
   static async create(payload: {
     employeeId: string;
     date: string;

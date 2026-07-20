@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { listBranchesForSettingsPage } from "@/features/settings-branches/actions/branch.action";
+import { listLaborUnitsAction } from "@/features/hr-labor-units/actions/labor-unit.action";
 import { SettingsBranchesCollection } from "./components/SettingsBranchesCollection";
 import { LoadingState } from '@kai/ui';
 
@@ -7,7 +8,11 @@ import { LoadingState } from '@kai/ui';
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
-  const branches = await listBranchesForSettingsPage();
+  const [branches, laborUnitsRes] = await Promise.all([
+    listBranchesForSettingsPage(),
+    listLaborUnitsAction({ includeInactive: true }),
+  ]);
+  const laborUnits = laborUnitsRes.success ? laborUnitsRes.data : [];
 
   return (
     <Suspense
@@ -15,7 +20,10 @@ export default async function Page() {
         <LoadingState className="flex items-center justify-center p-4 md:p-6 py-4" data-test-id="branches-page-skeleton" />
       }
     >
-      <SettingsBranchesCollection initialBranches={branches} />
+      <SettingsBranchesCollection
+        initialBranches={branches}
+        laborUnits={laborUnits}
+      />
     </Suspense>
   );
 }

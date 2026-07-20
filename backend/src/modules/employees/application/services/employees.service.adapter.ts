@@ -20,6 +20,7 @@ import { User, UserRole } from '@modules/users/domain/user.entity';
 import { Person, PersonType } from '@modules/persons/domain/person.entity';
 import { TenantContext } from '@common/tenant';
 import type { AlsoAsUserDto } from '@modules/users/application/dto/user.dto';
+import { LaborUnitsService } from '@modules/hr-labor-units/application/labor-units.service';
 
 @Injectable()
 export class EmployeesServiceAdapter {
@@ -33,6 +34,7 @@ export class EmployeesServiceAdapter {
     @InjectRepository(Person)
     private readonly personsRepository: Repository<Person>,
     private readonly dataSource: DataSource,
+    private readonly laborUnitsService: LaborUnitsService,
   ) {}
 
   async getAllEmployees(params?: {
@@ -61,12 +63,19 @@ export class EmployeesServiceAdapter {
     branchId?: string;
     resultCenterId?: string;
     organizationalUnitId?: string;
+    laborUnitId: string;
     employmentType: string;
     hireDate: string;
     baseSalary?: string;
     metadata?: Record<string, unknown>;
     alsoAsUser?: AlsoAsUserDto;
   }): Promise<{ employee: Employee; user?: { id: string; userName: string } }> {
+    const laborUnitId = data.laborUnitId?.trim();
+    if (!laborUnitId) {
+      throw new BadRequestException('La unidad laboral es obligatoria.');
+    }
+    await this.laborUnitsService.get(laborUnitId);
+
     const existing = await this.employeesRepository.findOne({
       where: { personId: data.personId, deletedAt: IsNull() },
     });
@@ -97,6 +106,7 @@ export class EmployeesServiceAdapter {
           data.branchId,
           data.resultCenterId,
           data.organizationalUnitId,
+          laborUnitId,
           data.employmentType,
           data.hireDate,
           data.baseSalary,
@@ -145,6 +155,7 @@ export class EmployeesServiceAdapter {
         branchId: data.branchId ?? null,
         resultCenterId: data.resultCenterId ?? null,
         organizationalUnitId: data.organizationalUnitId ?? null,
+        laborUnitId,
         employmentType: (data.employmentType as EmploymentType) || EmploymentType.FULL_TIME,
         hireDate: data.hireDate,
         baseSalary: data.baseSalary ?? null,
@@ -182,24 +193,36 @@ export class EmployeesServiceAdapter {
       branchId?: string | null;
       resultCenterId?: string | null;
       organizationalUnitId?: string | null;
+      laborUnitId?: string;
       employmentType?: string;
       status?: string;
       terminationDate?: string | null;
       baseSalary?: string | null;
+      workRegime?: string;
       metadata?: Record<string, unknown>;
     }>,
   ): Promise<Employee> {
+    if (data.laborUnitId !== undefined) {
+      const laborUnitId = data.laborUnitId?.trim();
+      if (!laborUnitId) {
+        throw new BadRequestException('La unidad laboral es obligatoria.');
+      }
+      await this.laborUnitsService.get(laborUnitId);
+      data = { ...data, laborUnitId };
+    }
     return this.commandBus.execute(
       new UpdateEmployeeCommand(
         id,
         data.branchId,
         data.resultCenterId,
         data.organizationalUnitId,
+        data.laborUnitId,
         data.employmentType,
         data.status,
         data.terminationDate,
         data.baseSalary,
         data.metadata,
+        data.workRegime,
       ),
     );
   }

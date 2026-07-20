@@ -1,4 +1,3 @@
-"use client";
 import React from "react";
 
 import {
@@ -11,19 +10,19 @@ import {
 } from "./layoutPageTokens";
 
 export type TabPageLayoutProps = {
-  /** Título principal (h1), columna izquierda (~30vw en `md+`). */
+  /** Título principal (h1), en el bloque de títulos (izquierda). */
   title?: React.ReactNode;
-  /** Texto o nodo bajo el título. */
+  /** Texto o nodo bajo el título, en el mismo bloque. */
   subtitle?: React.ReactNode;
   /**
    * Navegación por pestañas (p. ej. `<Tabs items={...} />` desde un Client Component).
-   * Columna derecha; en pantallas chicas va debajo del título.
+   * Misma fila que el bloque de títulos en `md+`, alineada a la derecha.
    */
   tabs?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
   contentClassName?: string;
-  /** Clases extra en el contenedor del encabezado (fila título + tabs). */
+  /** Clases extra en el contenedor del encabezado (grid títulos + tabs). */
   headerClassName?: string;
   /** Menos espacio vertical entre la fila de pestañas y el contenido. */
   compact?: boolean;
@@ -47,8 +46,10 @@ function hasChunk(node: React.ReactNode): boolean {
  * Layout de página con pestañas: comparte tokens de `layoutPageTokens` con {@link CollectionPageLayout}
  * (raíz, título `text-lg`, subtítulo, bloque de contenido).
  *
- * Encabezado en `md+`: a la izquierda ~**30vw** para título (+ subtítulo); a la derecha
- * el slot `tabs` alineado a la **derecha** (p. ej. `Tabs`). En viewport angosto se apilan (título arriba).
+ * Sin `"use client"` — usable en Server y Client Components (el slot `tabs` puede ser un Client Component).
+ *
+ * Encabezado: grid con bloque de títulos (title arriba, subtitle abajo) a la **izquierda**
+ * y `tabs` a la **derecha**, a la misma altura (`items-center`). En viewport angosto se apilan.
  */
 export function TabPageLayout({
   title,
@@ -67,9 +68,9 @@ export function TabPageLayout({
   const showHeading = showTitle || showSubtitle;
   const showTabs = hasChunk(tabs);
 
-  const titleBlock =
-    showTitle || showSubtitle ? (
-      <>
+  const titlesBlock =
+    showHeading ? (
+      <div className="min-w-0" data-test-id="tab-page-layout-titles">
         {showTitle ? (
           <h1 className={layoutPageTitleClassName}>{title}</h1>
         ) : null}
@@ -81,7 +82,7 @@ export function TabPageLayout({
             {subtitle}
           </p>
         ) : null}
-      </>
+      </div>
     ) : null;
 
   return (
@@ -95,16 +96,27 @@ export function TabPageLayout({
           data-test-id="tab-page-layout-header"
         >
           {showHeading && showTabs ? (
-            <div className="flex w-full min-w-0 flex-col gap-3 md:flex-row md:items-end md:gap-4">
-              <div className="min-w-0 w-full md:w-[30vw] md:max-w-[30vw] md:shrink-0">{titleBlock}</div>
-              <div className="flex min-w-0 w-full justify-end md:flex-1 md:overflow-x-auto md:pb-px">
+            <div
+              className="grid w-full min-w-0 grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:gap-4"
+              data-test-id="tab-page-layout-header-row"
+            >
+              {titlesBlock}
+              <div
+                className="flex min-w-0 justify-start overflow-x-auto md:justify-end md:justify-self-end md:pb-px"
+                data-test-id="tab-page-layout-tabs"
+              >
                 {tabs}
               </div>
             </div>
           ) : showHeading ? (
-            <div className="min-w-0">{titleBlock}</div>
+            titlesBlock
           ) : (
-            <div className="flex min-w-0 w-full justify-end overflow-x-auto md:pb-px">{tabs}</div>
+            <div
+              className="flex min-w-0 w-full justify-end overflow-x-auto md:pb-px"
+              data-test-id="tab-page-layout-tabs"
+            >
+              {tabs}
+            </div>
           )}
         </header>
       ) : null}

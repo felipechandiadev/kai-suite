@@ -4,10 +4,14 @@ on:
   push:
     paths:
       - "packages/scale-service-client/**"
+      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/scale-service-client.yml"
   pull_request:
     paths:
       - "packages/scale-service-client/**"
+      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/scale-service-client.yml"
 
 jobs:
@@ -18,6 +22,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: npm
+      - name: Install workspaces
+        run: npm ci
       - name: scale-service-client tests
-        working-directory: packages/scale-service-client
-        run: npm ci && npm test
+        run: npm test -w @kai/scale-service-client

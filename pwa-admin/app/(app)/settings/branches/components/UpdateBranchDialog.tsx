@@ -10,11 +10,13 @@ import LocationPickerWrapper from "@/shared/components/LocationPicker/LocationPi
 import { updateBranchAction } from "@/features/settings-branches/actions/branch.action";
 import { parseBranchLocation } from "@/features/settings-branches/utils/parse-branch-location";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
+import { LaborUnitAssociationsField } from "@/features/hr-labor-units/ui/LaborUnitAssociationsField";
 
 export type UpdateBranchDialogProps = {
   open: boolean;
   onClose: () => void;
   branch: BranchListItem;
+  laborUnits?: Array<{ id: string; name: string; code?: string }>;
   /** Llamar tras guardar correctamente (p. ej. `await router.refresh()`). Puede ser async. */
   onSuccess?: () => void | Promise<void>;
 };
@@ -22,12 +24,19 @@ export type UpdateBranchDialogProps = {
 /**
  * Actualización alineada con el API PUT /branches/:id. Ubicación: modo `update` si ya hay coords, sino `edit`.
  */
-export function UpdateBranchDialog({ open, onClose, branch, onSuccess }: UpdateBranchDialogProps) {
+export function UpdateBranchDialog({
+  open,
+  onClose,
+  branch,
+  laborUnits = [],
+  onSuccess,
+}: UpdateBranchDialogProps) {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [isActive, setIsActive] = useState(true);
+  const [laborUnitIds, setLaborUnitIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -46,6 +55,7 @@ export function UpdateBranchDialog({ open, onClose, branch, onSuccess }: UpdateB
     setPhone(branch.phone ?? "");
     setIsActive(branch.isActive);
     setLocation(parseBranchLocation(branch.location));
+    setLaborUnitIds(branch.laborUnitIds ?? []);
     setError(null);
   }, [open, branch]);
 
@@ -69,6 +79,7 @@ export function UpdateBranchDialog({ open, onClose, branch, onSuccess }: UpdateB
               : null,
           isActive,
           isHeadquarters: branch.isHeadquarters,
+          laborUnitIds,
         });
         if (r.success) {
           await onSuccess?.();
@@ -186,6 +197,12 @@ export function UpdateBranchDialog({ open, onClose, branch, onSuccess }: UpdateB
             data-test-id="branch-update-active"
           />
         </div>
+        <LaborUnitAssociationsField
+          options={laborUnits}
+          value={laborUnitIds}
+          onChange={setLaborUnitIds}
+          helperText="Opcional. Asociá unidades laborales a esta sucursal."
+        />
       </div>
     </Dialog>
   );

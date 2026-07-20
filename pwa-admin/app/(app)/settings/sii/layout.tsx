@@ -14,7 +14,7 @@ export default async function SiiSettingsLayout({ children }: { children: ReactN
 
   return (
     <div
-      className="w-full min-w-0 max-w-none space-y-6 p-4 pb-16"
+      className="w-full min-w-0 max-w-none space-y-6"
       data-test-id="settings-sii-layout"
     >
       <TabPageLayout compact tabs={<SiiSettingsNav />} className="min-h-0" headerClassName="pt-0">

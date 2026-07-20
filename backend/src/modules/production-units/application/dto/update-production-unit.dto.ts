@@ -55,6 +55,10 @@ export class UpdateProductionUnitDto {
   defaultOutputStorageId?: string | null;
 
   @IsOptional()
+  @IsUUID('4', { each: true })
+  laborUnitIds?: string[];
+
+  @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 }

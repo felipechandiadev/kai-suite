@@ -3,6 +3,8 @@ import type { MultimediaAssetListItem, MultimediaEntityType } from "@/features/m
 export type MultimediaFieldMode = "staging" | "persisted";
 export type MultimediaFieldLayout = "collection" | "single";
 export type MultimediaSingleVariant = "banner" | "avatar" | "logo";
+export type MultimediaAvatarSize = "sm" | "md" | "lg";
+export type MultimediaAvatarActionPlacement = "below" | "edge";
 export type MultimediaPickButtonType = "icon" | "normal";
 export type MultimediaAspectRatio = "16:9" | "square" | "auto";
 

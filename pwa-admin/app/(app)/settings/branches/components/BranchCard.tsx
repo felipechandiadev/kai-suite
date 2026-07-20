@@ -2,21 +2,29 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { MapPin, Phone } from "lucide-react";
 import { Card } from "@kai/ui";
 import { DeleteDialog } from "@kai/ui";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
+import type { LaborUnitView } from "@/features/hr-labor-units/types/labor-unit.types";
 import { parseBranchLocation } from "@/features/settings-branches/utils/parse-branch-location";
 import { deleteBranchAction } from "@/features/settings-branches/actions/branch.action";
+import { HCM_SETTINGS_LABOR_UNITS } from "@/navigation/hcm-routes";
 import LocationPicker from "@/shared/components/LocationPicker/LocationPickerWrapper";
 import { UpdateBranchDialog } from "./UpdateBranchDialog";
 
 type BranchCardProps = {
   branch: BranchListItem;
+  laborUnits?: LaborUnitView[];
   "data-test-id"?: string;
 };
 
-export function BranchCard({ branch, "data-test-id": dataTestId }: BranchCardProps) {
+export function BranchCard({
+  branch,
+  laborUnits = [],
+  "data-test-id": dataTestId,
+}: BranchCardProps) {
   const router = useRouter();
   const [updateOpen, setUpdateOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -26,6 +34,9 @@ export function BranchCard({ branch, "data-test-id": dataTestId }: BranchCardPro
   const coords = parseBranchLocation(branch.location);
   const phoneLine = (branch.phone ?? "").trim();
   const addressLine = (branch.address ?? "").trim();
+  const linkedLaborUnits = laborUnits.filter((u) =>
+    (branch.laborUnitIds ?? []).includes(u.id),
+  );
 
   const media = coords ? (
     <LocationPicker
@@ -107,6 +118,38 @@ export function BranchCard({ branch, "data-test-id": dataTestId }: BranchCardPro
               <span className="text-muted-foreground">· Sede</span>
             ) : null}
           </div>
+          <div
+            className="border-t border-border/60 pt-2"
+            data-test-id="branch-card-labor-units"
+          >
+            <p className="mb-1 text-xs font-medium text-muted-foreground">
+              Unidades laborales
+            </p>
+            {linkedLaborUnits.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Ninguna ·{" "}
+                <Link
+                  href={HCM_SETTINGS_LABOR_UNITS}
+                  className="text-primary underline-offset-2 hover:underline"
+                >
+                  Configurar
+                </Link>
+              </p>
+            ) : (
+              <ul className="space-y-0.5 text-xs text-foreground">
+                {linkedLaborUnits.map((u) => (
+                  <li key={u.id}>
+                    <Link
+                      href={HCM_SETTINGS_LABOR_UNITS}
+                      className="text-primary underline-offset-2 hover:underline"
+                    >
+                      {u.code ? `${u.name} (${u.code})` : u.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       }
       actions={[
@@ -136,6 +179,7 @@ export function BranchCard({ branch, "data-test-id": dataTestId }: BranchCardPro
       open={updateOpen}
       onClose={() => setUpdateOpen(false)}
       branch={branch}
+      laborUnits={laborUnits}
       onSuccess={async () => {
         await router.refresh();
       }}

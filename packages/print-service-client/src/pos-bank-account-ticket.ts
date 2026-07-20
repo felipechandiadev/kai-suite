@@ -13,6 +13,7 @@ export type PosBankAccountTicketPayload = {
   accountType: string;
   accountNumber: string;
   accountHolderName?: string | null;
+  accountHolderRut?: string | null;
   notes?: string | null;
   isPrimary?: boolean;
   company: PosSaleTicketCompany;

@@ -10,6 +10,7 @@ export type BranchListItem = {
   location: unknown;
   isActive: boolean;
   isHeadquarters: boolean;
+  laborUnitIds?: string[];
   createdAt?: string;
   updatedAt?: string;
 };

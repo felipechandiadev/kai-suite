@@ -4,7 +4,8 @@ export type MultimediaEntityType =
   | "company"
   | "brand"
   | "e-shop-testimonial"
-  | "e-shop-hero-slide";
+  | "e-shop-hero-slide"
+  | "employee";
 
 export type MultimediaAssetListItem = {
   id: string;

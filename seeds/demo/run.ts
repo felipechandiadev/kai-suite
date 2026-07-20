@@ -32,6 +32,8 @@ import {
   EmployeeStatus,
   EmploymentType,
 } from '@modules/employees/domain/employee.entity';
+import { HrLaborUnit } from '@modules/hr-labor-units/domain/hr-labor-unit.entity';
+import { HrLaborUnitBranch } from '@modules/hr-labor-units/domain/hr-labor-unit-branch.entity';
 import { Shareholder } from '@modules/shareholders/domain/shareholder.entity';
 import { AccountingAccount, AccountType } from '@modules/accounting-accounts/domain/accounting-account.entity';
 import { AccountingRule, RuleScope } from '@modules/accounting-rules/domain/accounting-rule.entity';
@@ -2987,6 +2989,52 @@ async function bootstrap() {
       );
     }
 
+    const laborUnitRepo = dataSource.getRepository(HrLaborUnit);
+    const laborUnitBranchRepo = dataSource.getRepository(HrLaborUnitBranch);
+    let seedLaborUnit = await laborUnitRepo.findOne({
+      where: {
+        companyId: company.id,
+        code: 'UL00001',
+        deletedAt: IsNull(),
+      },
+    });
+    if (!seedLaborUnit) {
+      seedLaborUnit = await laborUnitRepo.save(
+        laborUnitRepo.create({
+          companyId: company.id,
+          code: 'UL00001',
+          name: 'Sala de ventas',
+          description: 'Unidad laboral demo (piso / atención).',
+          isActive: true,
+        }),
+      );
+      console.log(
+        `✅ Unidad laboral demo creada: ${seedLaborUnit.code} «${seedLaborUnit.name}» id=${seedLaborUnit.id}`,
+      );
+    } else {
+      seedLaborUnit.name = 'Sala de ventas';
+      seedLaborUnit.description = 'Unidad laboral demo (piso / atención).';
+      seedLaborUnit.isActive = true;
+      seedLaborUnit = await laborUnitRepo.save(seedLaborUnit);
+      console.log(
+        `✅ Unidad laboral demo sincronizada: ${seedLaborUnit.code} id=${seedLaborUnit.id}`,
+      );
+    }
+    for (const branchId of [seedBranch.id, seedBranchMall.id]) {
+      const existingBridge = await laborUnitBranchRepo.findOne({
+        where: { laborUnitId: seedLaborUnit.id, branchId },
+      });
+      if (!existingBridge) {
+        await laborUnitBranchRepo.save(
+          laborUnitBranchRepo.create({
+            companyId: company.id,
+            laborUnitId: seedLaborUnit.id,
+            branchId,
+          }),
+        );
+      }
+    }
+
     for (const item of SEED_EMPLOYEES) {
       let person = await personRepo.findOne({
         where: { documentNumber: item.person.documentNumber, deletedAt: null as never },
@@ -3035,6 +3083,7 @@ async function bootstrap() {
           companyId: company.id,
           personId: person.id,
           branchId: seedBranch.id,
+          laborUnitId: seedLaborUnit.id,
           employmentType: item.employee.employmentType,
           status: item.employee.status,
           hireDate: item.employee.hireDate,
@@ -3047,6 +3096,7 @@ async function bootstrap() {
         employee.companyId = company.id;
         employee.personId = person.id;
         employee.branchId = seedBranch.id;
+        employee.laborUnitId = seedLaborUnit.id;
         employee.employmentType = item.employee.employmentType;
         employee.status = item.employee.status;
         employee.hireDate = item.employee.hireDate;

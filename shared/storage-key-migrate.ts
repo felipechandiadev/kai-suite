@@ -6,11 +6,11 @@
 export function getMigratedLocalStorageItem(newKey: string, legacyKey: string): string | null {
   if (typeof window === "undefined") return null;
   try {
-    const current = localStorage.getItem(newKey);
+    const current = window.localStorage.getItem(newKey);
     if (current !== null) return current;
-    const legacy = localStorage.getItem(legacyKey);
+    const legacy = window.localStorage.getItem(legacyKey);
     if (legacy !== null) {
-      localStorage.setItem(newKey, legacy);
+      window.localStorage.setItem(newKey, legacy);
       return legacy;
     }
   } catch {
@@ -26,8 +26,8 @@ export function setMigratedLocalStorageItem(
 ): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(newKey, value);
-    localStorage.removeItem(legacyKey);
+    window.localStorage.setItem(newKey, value);
+    window.localStorage.removeItem(legacyKey);
   } catch {
     /* ignore */
   }
@@ -36,8 +36,8 @@ export function setMigratedLocalStorageItem(
 export function removeMigratedLocalStorageKeys(newKey: string, legacyKey: string): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.removeItem(newKey);
-    localStorage.removeItem(legacyKey);
+    window.localStorage.removeItem(newKey);
+    window.localStorage.removeItem(legacyKey);
   } catch {
     /* ignore */
   }

@@ -8,23 +8,31 @@ import { TextField } from "@kai/ui";
 import { Switch } from "@kai/ui";
 import LocationPickerWrapper from "@/shared/components/LocationPicker/LocationPickerWrapper";
 import { createBranchAction } from "@/features/settings-branches/actions/branch.action";
+import { LaborUnitAssociationsField } from "@/features/hr-labor-units/ui/LaborUnitAssociationsField";
 
 export type CreateBranchDialogProps = {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  laborUnits?: Array<{ id: string; name: string; code?: string }>;
 };
 
 /**
  * Diálogo de creación: campos alineados con la entidad. `companyId` lo resuelve el use case (empresa actual / por defecto).
  * Ubicación: LocationPicker. Activa: Switch.
  */
-export function CreateBranchDialog({ open, onClose, onSuccess }: CreateBranchDialogProps) {
+export function CreateBranchDialog({
+  open,
+  onClose,
+  onSuccess,
+  laborUnits = [],
+}: CreateBranchDialogProps) {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [isActive, setIsActive] = useState(true);
+  const [laborUnitIds, setLaborUnitIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -37,6 +45,7 @@ export function CreateBranchDialog({ open, onClose, onSuccess }: CreateBranchDia
     setPhone("");
     setLocation(null);
     setIsActive(true);
+    setLaborUnitIds([]);
     setError(null);
   }, [open]);
 
@@ -46,6 +55,7 @@ export function CreateBranchDialog({ open, onClose, onSuccess }: CreateBranchDia
     setPhone("");
     setLocation(null);
     setIsActive(true);
+    setLaborUnitIds([]);
     setError(null);
     onClose();
   };
@@ -60,6 +70,7 @@ export function CreateBranchDialog({ open, onClose, onSuccess }: CreateBranchDia
           phone: phone.trim() || undefined,
           location: location && typeof location.lat === "number" ? location : null,
           isActive,
+          laborUnitIds,
         });
         if (r.success) {
           onSuccess?.();
@@ -164,6 +175,12 @@ export function CreateBranchDialog({ open, onClose, onSuccess }: CreateBranchDia
             data-test-id="branch-create-active"
           />
         </div>
+        <LaborUnitAssociationsField
+          options={laborUnits}
+          value={laborUnitIds}
+          onChange={setLaborUnitIds}
+          helperText="Opcional. Asociá unidades laborales a esta sucursal."
+        />
       </div>
     </Dialog>
   );

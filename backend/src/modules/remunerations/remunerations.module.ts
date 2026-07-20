@@ -1,20 +1,27 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CqrsModule } from '@nestjs/cqrs';
 import { RemunerationsService } from './application/remunerations.service';
 import { RemunerationsController } from './presentation/remunerations.controller';
 import { Transaction } from '@modules/transactions/domain/transaction.entity';
 import { Employee } from '@modules/employees/domain/employee.entity';
+import { EmployeesModule } from '@modules/employees/employees.module';
 import { ResultCenter } from '@modules/result-centers/domain/result-center.entity';
 import { Branch } from '@modules/branches/domain/branch.entity';
 import { User } from '@modules/users/domain/user.entity';
 import { Remuneration } from './domain/remuneration.entity';
+import { PayrollLineSuggestion } from './domain/payroll-line-suggestion.entity';
 import { TransactionsModule } from '@modules/transactions/transactions.module';
 import { TypeOrmRemunerationRepository } from './infrastructure/repositories/typeorm-remuneration.repository';
+import {
+  OvertimeGeneratedHandler,
+  ShiftExceptionSettledHandler,
+} from './application/handlers/hr-jornada-payroll.handlers';
 
 @Module({
   imports: [
     CqrsModule,
+    forwardRef(() => EmployeesModule),
     TypeOrmModule.forFeature([
       Transaction,
       Employee,
@@ -22,6 +29,7 @@ import { TypeOrmRemunerationRepository } from './infrastructure/repositories/typ
       Branch,
       User,
       Remuneration,
+      PayrollLineSuggestion,
     ]),
     TransactionsModule,
   ],
@@ -32,6 +40,8 @@ import { TypeOrmRemunerationRepository } from './infrastructure/repositories/typ
       provide: 'RemunerationRepositoryPort',
       useClass: TypeOrmRemunerationRepository,
     },
+    ShiftExceptionSettledHandler,
+    OvertimeGeneratedHandler,
   ],
   exports: [RemunerationsService],
 })

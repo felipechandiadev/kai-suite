@@ -13,7 +13,7 @@ export const config = {
     '/catalog/:path*',
     '/accounting/:path*',
     '/treasury/:path*',
-    '/hr/:path*',
+    '/hcm/:path*',
     '/settings/:path*',
   ],
 };

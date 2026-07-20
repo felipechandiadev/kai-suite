@@ -109,7 +109,9 @@ function mapEmployeeDetail(raw: Record<string, unknown>, fallbackId: string): Em
       raw.organizationalUnitId != null
         ? String(raw.organizationalUnitId)
         : organizationalUnit?.id ?? null,
+    laborUnitId: raw.laborUnitId != null ? String(raw.laborUnitId) : null,
     employmentType: raw.employmentType != null ? String(raw.employmentType) : undefined,
+    workRegime: raw.workRegime != null ? String(raw.workRegime) : undefined,
     status: raw.status != null ? String(raw.status) : undefined,
     hireDate: raw.hireDate != null ? String(raw.hireDate) : undefined,
     terminationDate: raw.terminationDate != null ? String(raw.terminationDate) : null,
@@ -315,6 +317,7 @@ export class EmployeeRequest {
   static async create(payload: {
     personId: string;
     branchId?: string | null;
+    laborUnitId?: string | null;
     employmentType: string;
     hireDate: string;
     baseSalary?: string | null;
@@ -332,6 +335,7 @@ export class EmployeeRequest {
       body: JSON.stringify({
         personId: payload.personId,
         branchId: payload.branchId ?? undefined,
+        laborUnitId: payload.laborUnitId ?? undefined,
         employmentType: payload.employmentType,
         hireDate: payload.hireDate,
         baseSalary: payload.baseSalary ?? undefined,

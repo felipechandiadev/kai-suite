@@ -37,6 +37,10 @@ export class UpdateBankAccountDto {
   accountHolderName?: string;
 
   @IsOptional()
+  @IsString()
+  accountHolderRut?: string;
+
+  @IsOptional()
   @IsBoolean()
   isPrimary?: boolean;
 

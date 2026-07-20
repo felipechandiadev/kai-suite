@@ -6,6 +6,7 @@ export interface CreateEmployeePayload {
   branchId?: string | null;
   resultCenterId?: string | null;
   organizationalUnitId?: string | null;
+  laborUnitId: string;
   employmentType: string;
   hireDate: string;
   baseSalary?: string | null;
@@ -17,10 +18,12 @@ export interface UpdateEmployeePayload {
   branchId?: string | null;
   resultCenterId?: string | null;
   organizationalUnitId?: string | null;
+  laborUnitId?: string;
   employmentType?: string;
   status?: string;
   terminationDate?: string | null;
   baseSalary?: string | null;
+  workRegime?: string;
   metadata?: Record<string, unknown> | null;
 }
 

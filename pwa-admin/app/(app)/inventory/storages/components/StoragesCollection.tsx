@@ -12,9 +12,14 @@ import { StorageCard } from "./StorageCard";
 type StoragesCollectionProps = {
   initialStorages: StorageListItem[];
   branches: BranchListItem[];
+  laborUnits?: Array<{ id: string; name: string; code?: string }>;
 };
 
-export function StoragesCollection({ initialStorages, branches }: StoragesCollectionProps) {
+export function StoragesCollection({
+  initialStorages,
+  branches,
+  laborUnits = [],
+}: StoragesCollectionProps) {
   const searchParams = useSearchParams();
   const q = (searchParams.get("search") ?? "").trim().toLowerCase();
 
@@ -42,7 +47,12 @@ export function StoragesCollection({ initialStorages, branches }: StoragesCollec
   return (
     <CollectionPageLayout
       title="Almacenes"
-      addAction={<StoragesCollectionAddAction branches={branches} />}
+      addAction={
+        <StoragesCollectionAddAction
+          branches={branches}
+          laborUnits={laborUnits}
+        />
+      }
       showSearch
       searchParamName="search"
       searchLabel="Buscar"
@@ -55,6 +65,7 @@ export function StoragesCollection({ initialStorages, branches }: StoragesCollec
                 key={s.id}
                 storage={s}
                 branches={branches}
+                laborUnits={laborUnits}
                 data-test-id={`storage-card-${s.id}`}
               />
             ))

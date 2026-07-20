@@ -19,6 +19,8 @@ export default function MultimediaUpdaterCompat({
   className = "",
   logoSize,
   bannerSize,
+  avatarSize,
+  actionPlacement,
 }: MultimediaUpdaterProps) {
   const [url, setUrl] = useState(currentUrl ?? null);
 
@@ -41,6 +43,8 @@ export default function MultimediaUpdaterCompat({
         maxSizeMb={maxSize}
         logoSize={logoSize}
         bannerSize={bannerSize}
+        avatarSize={avatarSize}
+        actionPlacement={actionPlacement}
         onFileChange={(file) => {
           if (file) {
             setUrl(URL.createObjectURL(file));

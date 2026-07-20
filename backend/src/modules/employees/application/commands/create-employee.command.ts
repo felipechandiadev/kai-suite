@@ -7,6 +7,7 @@ export class CreateEmployeeCommand extends BaseCommand {
     readonly branchId: string | undefined,
     readonly resultCenterId: string | undefined,
     readonly organizationalUnitId: string | undefined,
+    readonly laborUnitId: string,
     readonly employmentType: string,
     readonly hireDate: string,
     readonly baseSalary: string | undefined,

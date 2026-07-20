@@ -17,7 +17,7 @@ export default async function SalesReportsPage() {
   }));
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col p-4" data-test-id="sales-reports-page-root">
+    <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col" data-test-id="sales-reports-page-root">
       <SalesReportsWorkspace pointsOfSale={pointsOfSale} cashSessions={cashSessions} />
     </div>
   );

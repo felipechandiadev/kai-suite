@@ -19,6 +19,11 @@ import {
   ProductionUnitScope,
 } from '../domain/production-unit.enums';
 import { nextProductionUnitCodeFromExisting } from './production-unit-code.util';
+import { LaborUnitsService } from '@modules/hr-labor-units/application/labor-units.service';
+
+export type ProductionUnitView = ProductionUnit & {
+  laborUnitIds: string[];
+};
 
 @Injectable()
 export class ProductionUnitsService {
@@ -29,6 +34,7 @@ export class ProductionUnitsService {
     private readonly branchRepository: Repository<Branch>,
     @InjectRepository(Storage)
     private readonly storageRepository: Repository<Storage>,
+    private readonly laborUnitsService: LaborUnitsService,
   ) {}
 
   private requireCompanyId(): string {
@@ -332,7 +338,7 @@ export class ProductionUnitsService {
     /** When true with branchId, also include COMPANY-scope units. Default true. */
     includeCompanyWide?: boolean;
     purpose?: ProductionUnitPurpose | string;
-  }): Promise<ProductionUnit[]> {
+  }): Promise<ProductionUnitView[]> {
     const companyId = this.requireCompanyId();
     const qb = this.productionUnitRepository
       .createQueryBuilder('pu')
@@ -366,15 +372,25 @@ export class ProductionUnitsService {
       qb.andWhere('pu.isActive = :isActive', { isActive: true });
     }
 
-    return qb.getMany();
+    const rows = await qb.getMany();
+    const luMap = await this.laborUnitsService.mapLaborUnitIdsByProductionUnitIds(
+      rows.map((r) => r.id),
+    );
+    return rows.map((r) =>
+      Object.assign(r, { laborUnitIds: luMap.get(r.id) ?? [] }),
+    );
   }
 
-  async findOne(id: string): Promise<ProductionUnit | null> {
+  async findOne(id: string): Promise<ProductionUnitView | null> {
     const companyId = this.requireCompanyId();
-    return this.productionUnitRepository.findOne({
+    const row = await this.productionUnitRepository.findOne({
       where: { id, companyId },
       relations: ['branch', 'defaultInputStorage', 'defaultOutputStorage'],
     });
+    if (!row) return null;
+    const laborUnitIds =
+      await this.laborUnitsService.listLaborUnitIdsForProductionUnit(id);
+    return Object.assign(row, { laborUnitIds });
   }
 
   async create(data: {
@@ -386,8 +402,9 @@ export class ProductionUnitsService {
     purpose?: ProductionUnitPurpose | string;
     defaultInputStorageId?: string | null;
     defaultOutputStorageId?: string | null;
+    laborUnitIds?: string[];
     isActive?: boolean;
-  }): Promise<ProductionUnit> {
+  }): Promise<ProductionUnitView> {
     const companyId = this.requireCompanyId();
     const scope = this.normalizeScope(data.scope);
     const branchId = this.assertScopeBranchConsistency(scope, data.branchId);
@@ -443,7 +460,13 @@ export class ProductionUnitsService {
       inventoryMode,
       inputStorageId: saved.defaultInputStorageId ?? null,
     });
-    return (await this.findOne(saved.id)) ?? saved;
+    if (data.laborUnitIds !== undefined) {
+      await this.laborUnitsService.syncProductionUnitLaborUnits(
+        saved.id,
+        data.laborUnitIds,
+      );
+    }
+    return (await this.findOne(saved.id))!;
   }
 
   async update(
@@ -457,9 +480,10 @@ export class ProductionUnitsService {
       purpose: ProductionUnitPurpose | string;
       defaultInputStorageId: string | null;
       defaultOutputStorageId: string | null;
+      laborUnitIds: string[];
       isActive: boolean;
     }>,
-  ): Promise<ProductionUnit> {
+  ): Promise<ProductionUnitView> {
     const companyId = this.requireCompanyId();
     const existing = await this.productionUnitRepository.findOne({
       where: { id, companyId },
@@ -468,33 +492,35 @@ export class ProductionUnitsService {
       throw new NotFoundException('Unidad de producción no encontrada.');
     }
 
+    const { laborUnitIds, ...rest } = data;
+
     const scope =
-      data.scope !== undefined
-        ? this.normalizeScope(data.scope)
+      rest.scope !== undefined
+        ? this.normalizeScope(rest.scope)
         : existing.scope;
     const branchIdRaw =
-      data.branchId !== undefined ? data.branchId : existing.branchId;
+      rest.branchId !== undefined ? rest.branchId : existing.branchId;
     const branchId = this.assertScopeBranchConsistency(scope, branchIdRaw);
     if (branchId) {
       await this.assertBranchInCompany(branchId, companyId);
     }
 
     const inventoryMode =
-      data.inventoryMode !== undefined
-        ? this.normalizeInventoryMode(data.inventoryMode)
+      rest.inventoryMode !== undefined
+        ? this.normalizeInventoryMode(rest.inventoryMode)
         : existing.inventoryMode;
     const purpose =
-      data.purpose !== undefined
-        ? this.normalizePurpose(data.purpose)
+      rest.purpose !== undefined
+        ? this.normalizePurpose(rest.purpose)
         : existing.purpose;
 
     const inputId =
-      data.defaultInputStorageId !== undefined
-        ? data.defaultInputStorageId
+      rest.defaultInputStorageId !== undefined
+        ? rest.defaultInputStorageId
         : existing.defaultInputStorageId;
     const outputId =
-      data.defaultOutputStorageId !== undefined
-        ? data.defaultOutputStorageId
+      rest.defaultOutputStorageId !== undefined
+        ? rest.defaultOutputStorageId
         : existing.defaultOutputStorageId;
     const previousInputId = existing.defaultInputStorageId ?? null;
 
@@ -508,8 +534,8 @@ export class ProductionUnitsService {
       excludeUnitId: id,
     });
 
-    if (data.code !== undefined) {
-      const code = data.code.trim();
+    if (rest.code !== undefined) {
+      const code = rest.code.trim();
       if (!code) {
         throw new BadRequestException('El código de la unidad es obligatorio.');
       }
@@ -523,8 +549,8 @@ export class ProductionUnitsService {
       existing.code = code;
     }
 
-    if (data.name !== undefined) {
-      const name = data.name.trim();
+    if (rest.name !== undefined) {
+      const name = rest.name.trim();
       if (!name) {
         throw new BadRequestException('El nombre de la unidad es obligatorio.');
       }
@@ -538,8 +564,8 @@ export class ProductionUnitsService {
     existing.defaultInputStorageId = inputId ?? null;
     existing.defaultOutputStorageId = outputId ?? null;
 
-    if (data.isActive !== undefined) {
-      existing.isActive = data.isActive;
+    if (rest.isActive !== undefined) {
+      existing.isActive = rest.isActive;
     }
 
     const saved = await this.productionUnitRepository.save(existing);
@@ -549,6 +575,12 @@ export class ProductionUnitsService {
       inputStorageId: saved.defaultInputStorageId ?? null,
       previousInputStorageId: previousInputId,
     });
-    return (await this.findOne(saved.id)) ?? saved;
+    if (laborUnitIds !== undefined) {
+      await this.laborUnitsService.syncProductionUnitLaborUnits(
+        id,
+        laborUnitIds,
+      );
+    }
+    return (await this.findOne(saved.id))!;
   }
 }

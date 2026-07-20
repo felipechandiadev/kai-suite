@@ -158,6 +158,7 @@ export class EmployeesService {
       branchId: employee.branchId ?? null,
       resultCenterId: employee.resultCenterId ?? null,
       organizationalUnitId: employee.organizationalUnitId ?? null,
+      laborUnitId: employee.laborUnitId ?? null,
       employmentType: employee.employmentType,
       status: employee.status,
       hireDate: employee.hireDate,

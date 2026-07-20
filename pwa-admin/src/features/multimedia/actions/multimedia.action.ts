@@ -3,13 +3,20 @@
 import { revalidatePath } from "next/cache";
 import { MultimediaRequest } from "../infrastructure/multimedia.request";
 import type { MultimediaAssetListItem, MultimediaEntityType } from "../types/multimedia.types";
+import { HCM_EMPLOYEES } from "@/navigation/hcm-routes";
 
 const PRODUCTS_PATH = "/catalog/products";
 const SETTINGS_COMPANY_PATH = "/settings/company";
 const ESHOP_TESTIMONIALS_PATH = "/e-shop/testimonials";
 const ESHOP_HERO_SLIDES_PATH = "/e-shop/hero-slides";
+const HR_EMPLOYEES_PATH = HCM_EMPLOYEES;
 
-const ENTITY_TYPES: MultimediaEntityType[] = ["product", "product-variant", "company"];
+const ENTITY_TYPES: MultimediaEntityType[] = [
+  "product",
+  "product-variant",
+  "company",
+  "employee",
+];
 
 export async function revalidateMultimediaCachesAction(
   entityType: MultimediaEntityType,
@@ -24,6 +31,10 @@ function revalidatePathsForEntityType(
 ) {
   if (entityType === "company") {
     revalidatePath(SETTINGS_COMPANY_PATH, "page");
+    return;
+  }
+  if (entityType === "employee") {
+    revalidatePath(HR_EMPLOYEES_PATH, "page");
     return;
   }
   if (entityType === "e-shop-testimonial") {

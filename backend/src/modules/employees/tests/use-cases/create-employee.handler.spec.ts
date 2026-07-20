@@ -6,6 +6,7 @@ import {
   Employee,
   EmployeeStatus,
   EmploymentType,
+  WorkRegime,
 } from '../../domain/employee.entity';
 
 describe('CreateEmployeeCommandHandler', () => {
@@ -45,6 +46,7 @@ describe('CreateEmployeeCommandHandler', () => {
       resultCenterId: null,
       organizationalUnitId: null,
       employmentType: EmploymentType.FULL_TIME,
+      workRegime: WorkRegime.ORDINARY,
       status: EmployeeStatus.ACTIVE,
       hireDate: '2026-04-19',
       terminationDate: null,
@@ -60,6 +62,7 @@ describe('CreateEmployeeCommandHandler', () => {
     const command = new CreateEmployeeCommand(
       'person-1',
       'comp-1',
+      undefined,
       undefined,
       undefined,
       undefined,

@@ -8,6 +8,7 @@ export type OrganizationalUnitListItem = {
   parentId?: string | null;
   branchId?: string | null;
   resultCenterId?: string | null;
+  laborUnitIds?: string[];
   isActive?: boolean;
   branch?: { id: string; name: string } | null;
   resultCenter?: { id: string; name: string; code?: string } | null;
@@ -19,3 +20,17 @@ export type OrganizationalUnitsListResult = {
   success: boolean;
   data: OrganizationalUnitListItem[];
 };
+
+export type CreateOrganizationalUnitInput = {
+  name: string;
+  description?: string | null;
+  unitType?: string;
+  parentId?: string | null;
+  branchId?: string | null;
+  resultCenterId?: string | null;
+  laborUnitIds?: string[];
+  isActive?: boolean;
+};
+
+export type UpdateOrganizationalUnitInput =
+  Partial<CreateOrganizationalUnitInput>;

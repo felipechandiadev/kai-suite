@@ -94,6 +94,7 @@ export class EmployeesController {
       branchId?: string;
       resultCenterId?: string;
       organizationalUnitId?: string;
+      laborUnitId: string;
       employmentType: string;
       hireDate: string;
       baseSalary?: string;
@@ -136,10 +137,12 @@ export class EmployeesController {
       branchId?: string | null;
       resultCenterId?: string | null;
       organizationalUnitId?: string | null;
+      laborUnitId?: string;
       employmentType: string;
       status: EmployeeStatus;
       terminationDate?: string | null;
       baseSalary?: string | null;
+      workRegime?: string;
       metadata?: Record<string, unknown>;
     }>,
   ) {

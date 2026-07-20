@@ -17,9 +17,14 @@ import {
 import { StorageOrmEntity } from './infrastructure/orm-mappers/storage.orm-entity';
 import { STORAGES_REPOSITORY } from './application/ports/storages.repository.port';
 import { StoragesRepository } from './infrastructure/repositories/storages.repository';
+import { HrLaborUnitsModule } from '@modules/hr-labor-units/hr-labor-units.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Storage, StorageOrmEntity]), CqrsModule],
+  imports: [
+    TypeOrmModule.forFeature([Storage, StorageOrmEntity]),
+    CqrsModule,
+    HrLaborUnitsModule,
+  ],
   controllers: [StoragesController],
   providers: [
     StoragesService,

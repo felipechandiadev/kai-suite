@@ -1,12 +1,17 @@
-import { DATA_GRID_TAB_LAYOUT_FALLBACK_EXTRA_PX } from "../DataGrid/utils/useDataGridFillViewportHeight";
 import {
   typographyPageSubtitleClassName,
   typographyPageTitleClassName,
 } from "./typographyTokens";
 
+/** Reserva para fila de pestañas en fallback CSS (`fillViewportInTabLayout`). */
+export const DATA_GRID_TAB_LAYOUT_FALLBACK_EXTRA_PX = 52;
+
 /**
  * Clases compartidas entre {@link BasicPageLayout}, {@link TabPageLayout} y {@link CollectionPageLayout}
  * para raíz, cabecera, título, subtítulo y contenido principal.
+ *
+ * Sin padding/margen exterior: el inset lo define solo el `<main>` del app shell
+ * (`px-6 pb-6 md:px-10`). Usar `gap-*` entre bloques internos, no `p-*`/`m-*` en la raíz.
  */
 export const layoutPageRootClassName =
   "flex w-full min-w-0 max-w-full flex-col gap-4";
@@ -35,7 +40,8 @@ export const adminFillViewportBelowTopBarClassName =
   "h-[calc(100dvh-var(--app-topbar-height,3.75rem)-2.5rem)] min-h-[calc(100dvh-var(--app-topbar-height,3.75rem)-2.5rem)]";
 
 /** Alias documentado; ver {@link DATA_GRID_TAB_LAYOUT_FALLBACK_EXTRA_PX}. */
-export const LAYOUT_TAB_PAGE_FALLBACK_VIEWPORT_EXTRA_PX = DATA_GRID_TAB_LAYOUT_FALLBACK_EXTRA_PX;
+export const LAYOUT_TAB_PAGE_FALLBACK_VIEWPORT_EXTRA_PX =
+  DATA_GRID_TAB_LAYOUT_FALLBACK_EXTRA_PX;
 
 /** Props recomendadas para `DataGrid` dentro de `TabPageLayout` (ventas, compras, DTE, etc.). */
 export const dataGridFillViewportTabPageProps = {

@@ -10,6 +10,7 @@ import {
   Employee,
   EmploymentType,
   EmployeeStatus,
+  WorkRegime,
 } from '../../domain/employee.entity';
 import { Company } from '@modules/companies/domain/company.entity';
 
@@ -44,6 +45,7 @@ export class TypeOrmEmployeeRepository implements EmployeeRepositoryPort {
       branchId: payload.branchId ?? null,
       resultCenterId: payload.resultCenterId ?? null,
       organizationalUnitId: payload.organizationalUnitId ?? null,
+      laborUnitId: payload.laborUnitId,
       employmentType: (payload.employmentType ||
         EmploymentType.FULL_TIME) as EmploymentType,
       status: EmployeeStatus.ACTIVE,
@@ -76,6 +78,8 @@ export class TypeOrmEmployeeRepository implements EmployeeRepositoryPort {
       updateData.resultCenterId = payload.resultCenterId;
     if (payload.organizationalUnitId !== undefined)
       updateData.organizationalUnitId = payload.organizationalUnitId;
+    if (payload.laborUnitId !== undefined)
+      updateData.laborUnitId = payload.laborUnitId;
     if (payload.employmentType !== undefined)
       updateData.employmentType = payload.employmentType as EmploymentType;
     if (payload.status !== undefined)
@@ -84,6 +88,8 @@ export class TypeOrmEmployeeRepository implements EmployeeRepositoryPort {
       updateData.terminationDate = payload.terminationDate;
     if (payload.baseSalary !== undefined)
       updateData.baseSalary = payload.baseSalary;
+    if (payload.workRegime !== undefined)
+      updateData.workRegime = payload.workRegime as WorkRegime;
     if (payload.metadata !== undefined)
       updateData.metadata = payload.metadata as any;
 
@@ -177,6 +183,7 @@ export class TypeOrmEmployeeRepository implements EmployeeRepositoryPort {
       branchId: orm.branchId ?? null,
       resultCenterId: orm.resultCenterId ?? null,
       organizationalUnitId: orm.organizationalUnitId ?? null,
+      laborUnitId: orm.laborUnitId,
       employmentType: orm.employmentType,
       status: orm.status,
       hireDate: orm.hireDate,

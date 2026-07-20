@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { IconButton } from "@kai/ui";
 import { CreateBranchDialog } from "./CreateBranchDialog";
 
-export function BranchesCollectionAddAction() {
+type Props = {
+  laborUnits?: Array<{ id: string; name: string; code?: string }>;
+};
+
+export function BranchesCollectionAddAction({ laborUnits = [] }: Props) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
@@ -22,6 +26,7 @@ export function BranchesCollectionAddAction() {
       <CreateBranchDialog
         open={open}
         onClose={() => setOpen(false)}
+        laborUnits={laborUnits}
         onSuccess={() => {
           router.refresh();
         }}

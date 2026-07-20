@@ -30,11 +30,13 @@ kai/
 ### Todo el stack (recomendado)
 
 ```bash
-npm install          # raíz — concurrently
+npm install          # raíz — workspaces: PWAs Next + packages/@kai (+ concurrently)
 npm run env:dev      # primera vez: matriz envs/shared.env.example → .env de cada app
 npm run dev          # liviano: infra + backend + admin (recomendado)
 npm run dev:all      # stack completo (+ pos, stock, eshop, mail)
 ```
+
+`npm install` en la raíz instala **todas las PWAs** (`pwa-admin`, `pwa-pos`, `pwa-eshop`, `pwa-stock`, `kai-waiter`, `kai-kds`, `kai-delivery`) y los paquetes `@kai/*`. Backend, landing, seeds y servicios quedan **fuera** del workspace: `cd … && npm install` por carpeta.
 
 `npm run dev` usa el perfil **liviano** (backend + admin). Para todo el ecosistema: `npm run dev:all`.
 
@@ -52,24 +54,23 @@ Login admin (seed): `admin` / `098098`
 
 ### Por app (manual)
 
-1. **Backend**:
+1. **Backend** (fuera del workspace front):
    ```bash
    cd backend
    npm install
    npm run start:dev  # Puerto 5060
    ```
 
-2. **Admin**:
+2. **Admin** (deps ya instaladas con `npm install` en la raíz):
    ```bash
    cd pwa-admin
-   npm install
    npm run dev  # Puerto 5071 (5061 bloqueado por Next.js)
+   # o: npm run dev -w kai-pwa-admin
    ```
 
 3. **KaiStore eShop**:
    ```bash
    cd pwa-eshop
-   npm install
    npm run dev  # Puerto 5064
    ```
 

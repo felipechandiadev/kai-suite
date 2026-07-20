@@ -4,6 +4,7 @@ export type CompanyBankAccountItem = {
   accountType: string;
   accountNumber: string;
   accountHolderName?: string;
+  accountHolderRut?: string;
   isPrimary?: boolean;
 };
 

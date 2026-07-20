@@ -8,8 +8,8 @@ import {
 const SPACING_TOKENS = [
   { token: 'gap-4', usage: 'Default entre cabecera y contenido en layouts (layoutPageRootClassName)' },
   { token: 'gap-2', usage: 'TabPageLayout compact — pestañas pegadas al contenido (DataGrid fill viewport)' },
-  { token: 'px-6 pb-6 md:px-10', usage: 'Padding del shell admin (<main> en AppShellLayoutClient)' },
-  { token: 'p-4 md:p-6', usage: 'Padding interno en showcases y páginas de detalle ligeras' },
+  { token: 'px-6 pb-6 md:px-10', usage: 'Único padding de página: shell admin (<main> en AppShellLayoutClient)' },
+  { token: 'sin p-*/m-* en raíz', usage: 'Páginas y layouts de @kai/ui no añaden padding/margen exterior (evita doble inset)' },
   { token: 'gap-4 (grilla)', usage: 'CollectionPageLayout contentGridGapClassName por defecto' },
 ];
 
@@ -93,6 +93,12 @@ export default function DesignSystemSpacingBordersPage() {
       <section className="space-y-3 rounded-lg border border-dashed border-border bg-neutral/30 p-4 text-sm text-muted-foreground">
         <h2 className="text-base font-semibold text-foreground">Evitar</h2>
         <ul className="list-inside list-disc space-y-1">
+          <li>
+            <code className="rounded bg-neutral px-1">p-*</code> /{" "}
+            <code className="rounded bg-neutral px-1">m-*</code> /{" "}
+            <code className="rounded bg-neutral px-1">pb-16</code> en la raíz de una página o layout
+            (el shell ya delimita el área).
+          </li>
           <li>Márgenes negativos para “alinear a mano” con el TopBar.</li>
           <li>box-shadow grueso en headers de tabla — usar línea sutil con color-mix.</li>
           <li>border-left en columna de acciones del DataGrid (rompe alineación visual).</li>

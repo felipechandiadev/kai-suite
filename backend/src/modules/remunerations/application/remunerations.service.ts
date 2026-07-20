@@ -28,6 +28,13 @@ import {
   type PayrollSettlementPaymentInput,
   type PayrollSettlementPaymentLineInput,
 } from './payroll-settlement-payment.util';
+import {
+  PayrollLineSuggestion,
+  PayrollLineSuggestionStatus,
+} from '../domain/payroll-line-suggestion.entity';
+import { TenantContext } from '@common/tenant/tenant.context';
+import { HrEmployeeTimelineService } from '@modules/employees/application/hr-employee-timeline.service';
+import { HrEmployeeTimelineKind } from '@modules/employees/domain/hr-employee-timeline-entry.entity';
 
 export interface PlannedPaymentLineInput {
   dueDate: string;
@@ -49,10 +56,79 @@ export class RemunerationsService {
     private readonly branchRepository: Repository<Branch>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(PayrollLineSuggestion)
+    private readonly suggestionRepository: Repository<PayrollLineSuggestion>,
+    private readonly timelineService: HrEmployeeTimelineService,
   ) {}
+
+  private async appendTimelineSafe(
+    input: Parameters<HrEmployeeTimelineService['append']>[0],
+  ) {
+    try {
+      await this.timelineService.append(input);
+    } catch {
+      // never fail payroll write because of timeline
+    }
+  }
 
   async getPayrollLineTypeOptions() {
     return listPayrollLineTypeOptions();
+  }
+
+  async listPayrollSuggestions(params?: {
+    employeeId?: string;
+    periodStart?: string;
+    periodEnd?: string;
+    status?: string;
+  }) {
+    const companyId = TenantContext.getCompanyId();
+    const qb = this.suggestionRepository
+      .createQueryBuilder('s')
+      .where('s.companyId = :companyId', { companyId });
+    if (params?.employeeId) {
+      qb.andWhere('s.employeeId = :employeeId', {
+        employeeId: params.employeeId,
+      });
+    }
+    if (params?.periodStart) {
+      qb.andWhere('s.periodStart >= :periodStart', {
+        periodStart: params.periodStart,
+      });
+    }
+    if (params?.periodEnd) {
+      qb.andWhere('s.periodEnd <= :periodEnd', {
+        periodEnd: params.periodEnd,
+      });
+    }
+    if (params?.status) {
+      qb.andWhere('s.status = :status', { status: params.status });
+    } else {
+      qb.andWhere('s.status = :status', {
+        status: PayrollLineSuggestionStatus.PENDING,
+      });
+    }
+    qb.orderBy('s.createdAt', 'DESC');
+    return qb.getMany();
+  }
+
+  async acceptPayrollSuggestion(id: string) {
+    const companyId = TenantContext.getCompanyId();
+    const row = await this.suggestionRepository.findOne({
+      where: { id, companyId: companyId ?? undefined },
+    });
+    if (!row) throw new BadRequestException('Sugerencia no encontrada');
+    row.status = PayrollLineSuggestionStatus.ACCEPTED;
+    return this.suggestionRepository.save(row);
+  }
+
+  async dismissPayrollSuggestion(id: string) {
+    const companyId = TenantContext.getCompanyId();
+    const row = await this.suggestionRepository.findOne({
+      where: { id, companyId: companyId ?? undefined },
+    });
+    if (!row) throw new BadRequestException('Sugerencia no encontrada');
+    row.status = PayrollLineSuggestionStatus.DISMISSED;
+    return this.suggestionRepository.save(row);
   }
 
   async getRemunerationById(id: string) {
@@ -179,6 +255,33 @@ export class RemunerationsService {
 
     const created = await this.transactionsService.createTransaction(dto);
 
+    await this.appendTimelineSafe({
+      employeeId: employee.id,
+      kind: HrEmployeeTimelineKind.PAYROLL_CREATED,
+      title: 'Liquidación creada',
+      body: `Fecha ${data.date}`,
+      actorUserId: TenantContext.getUserId() ?? null,
+      sourceType: 'Transaction',
+      sourceId: created.id,
+      payload: { date: data.date, netPayment },
+    });
+
+    if (
+      paymentPlan.mode === 'COMPLETED' ||
+      paymentPlan.parentPaymentStatus === PaymentStatus.PAID
+    ) {
+      await this.appendTimelineSafe({
+        employeeId: employee.id,
+        kind: HrEmployeeTimelineKind.PAYROLL_PAID,
+        title: 'Liquidación pagada',
+        body: `Fecha ${data.date}`,
+        actorUserId: TenantContext.getUserId() ?? null,
+        sourceType: 'Transaction',
+        sourceId: created.id,
+        payload: { date: data.date, mode: paymentPlan.mode },
+      });
+    }
+
     if (!shouldCreatePayrollPaymentChildren(paymentPlan)) {
       return this.getRemunerationById(created.id);
     }
@@ -303,6 +406,22 @@ export class RemunerationsService {
     }
 
     await this.transactionRepository.update(id, updateData as any);
+
+    if (
+      existing.employeeId &&
+      data.status === TransactionStatus.COMPLETED &&
+      existing.status !== TransactionStatus.COMPLETED
+    ) {
+      await this.appendTimelineSafe({
+        employeeId: existing.employeeId,
+        kind: HrEmployeeTimelineKind.PAYROLL_PAID,
+        title: 'Liquidación pagada',
+        actorUserId: TenantContext.getUserId() ?? null,
+        sourceType: 'Transaction',
+        sourceId: id,
+      });
+    }
+
     return this.getRemunerationById(id);
   }
 

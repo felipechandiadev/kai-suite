@@ -21,6 +21,7 @@ export class CreateStorageUseCase {
       location: d.location,
       isDefault: d.isDefault,
       isActive: d.isActive,
+      laborUnitIds: d.laborUnitIds,
     });
   }
 }

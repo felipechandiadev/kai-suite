@@ -57,6 +57,7 @@ export type CompanyBankAccountItem = {
   accountType: string;
   accountNumber: string;
   accountHolderName?: string;
+  accountHolderRut?: string;
   isPrimary?: boolean;
   notes?: string;
   currentBalance?: number;
@@ -97,6 +98,7 @@ export type AddCompanyBankAccountInput = {
   accountType: string;
   accountNumber: string;
   accountHolderName?: string;
+  accountHolderRut?: string;
   isPrimary?: boolean;
   notes?: string;
 };
@@ -159,6 +161,7 @@ function normalizeBankAccounts(raw: unknown): CompanyBankAccountItem[] {
       accountType,
       accountNumber,
       accountHolderName: o.accountHolderName != null ? String(o.accountHolderName) : undefined,
+      accountHolderRut: o.accountHolderRut != null ? String(o.accountHolderRut) : undefined,
       isPrimary: o.isPrimary === true,
       notes: o.notes != null ? String(o.notes) : undefined,
       currentBalance: typeof o.currentBalance === "number" ? o.currentBalance : undefined,

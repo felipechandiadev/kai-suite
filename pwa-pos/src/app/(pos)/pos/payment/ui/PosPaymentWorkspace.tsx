@@ -2002,6 +2002,7 @@ export default function PosPaymentWorkspace({
           accountType: account.accountType,
           accountNumber: account.accountNumber,
           accountHolderName: account.accountHolderName,
+          accountHolderRut: account.accountHolderRut,
           notes: account.notes,
           isPrimary: account.isPrimary,
           paymentMethodLabel,

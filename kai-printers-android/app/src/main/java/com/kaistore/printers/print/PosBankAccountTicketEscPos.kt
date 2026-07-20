@@ -38,6 +38,9 @@ object PosBankAccountTicketEscPos {
         t.jsonStr("accountHolderName").present()?.let {
             w.labelValueWrapped("Titular:", it)
         }
+        t.jsonStr("accountHolderRut").present()?.let {
+            w.labelValueWrapped("RUT titular:", it)
+        }
         company?.jsonStr("rut").present()?.let {
             w.line(w.padLeft("RUT empresa:", it))
         }

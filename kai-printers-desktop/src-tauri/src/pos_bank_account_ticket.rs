@@ -17,6 +17,7 @@ pub struct PosBankAccountTicket {
     pub account_type: String,
     pub account_number: String,
     pub account_holder_name: Option<String>,
+    pub account_holder_rut: Option<String>,
     pub notes: Option<String>,
     #[serde(default)]
     pub is_primary: bool,

@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { loadEnvConfig } from "@next/env";
 import type { NextConfig } from "next";
 import { buildLanAllowedDevOrigins } from "../shared/next-lan-dev-origins";
+import { monorepoReactAliases } from "../shared/next-monorepo-resolve";
 import packageJson from "./package.json";
 
 const appRoot = path.dirname(fileURLToPath(import.meta.url));
@@ -12,12 +13,14 @@ loadEnvConfig(appRoot);
 
 const kaiResolveAlias = {
   "@kai/ui$": path.join(packagesRoot, "ui", "src", "index.ts"),
+  ...monorepoReactAliases(appRoot),
 };
 
 const isDev = process.env.NODE_ENV === "development";
 const turbopackRoot = isDev ? appRoot : monorepoRoot;
 
 const nextConfig: NextConfig = {
+  outputFileTracingRoot: monorepoRoot,
   turbopack: {
     root: turbopackRoot,
     ...(isDev ? { resolveAlias: kaiResolveAlias } : {}),
@@ -29,6 +32,7 @@ const nextConfig: NextConfig = {
     config.resolve.alias = {
       ...config.resolve.alias,
       "@kai/ui$": path.join(packagesRoot, "ui", "src", "index.ts"),
+      ...monorepoReactAliases(appRoot),
     };
     return config;
   },

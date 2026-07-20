@@ -29,6 +29,12 @@ export enum EmployeeStatus {
   TERMINATED = 'TERMINATED',
 }
 
+export enum WorkRegime {
+  ORDINARY = 'ORDINARY',
+  PARTIAL = 'PARTIAL',
+  EXCEPTIONAL_ART38 = 'EXCEPTIONAL_ART38',
+}
+
 @Entity('employees')
 export class Employee {
   @PrimaryGeneratedColumn('uuid')
@@ -49,6 +55,10 @@ export class Employee {
   @Column({ type: 'uuid', nullable: true })
   organizationalUnitId?: string | null;
 
+  /** Unidad laboral obligatoria (exactamente una). */
+  @Column({ type: 'uuid' })
+  laborUnitId!: string;
+
   @Column({
     type: 'enum',
     enum: EmploymentType,
@@ -62,6 +72,13 @@ export class Employee {
     default: EmployeeStatus.ACTIVE,
   })
   status!: EmployeeStatus;
+
+  @Column({
+    type: 'enum',
+    enum: WorkRegime,
+    default: WorkRegime.ORDINARY,
+  })
+  workRegime!: WorkRegime;
 
   @Column({ type: 'date' })
   hireDate!: string;
