@@ -16,7 +16,6 @@ import {
 } from "@kai/ui";
 import {
   createJornadaExceptionAction,
-  creditJornadaHolidaysAction,
   loadJornadaWeekFromShiftsAction,
   saveJornadaWeekAction,
 } from "@/features/hr-jornada/actions/jornada.action";
@@ -348,29 +347,39 @@ export function JornadaPlannerWorkspace({
             onClick={() => setWeek(addDaysIso(weekStart, 7))}
           />
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2 pb-1">
-          {severityBadge(worst)}
-          <Button
-            variant="outlined"
-            size="sm"
-            disabled={pending}
-            onClick={() => {
-              startTransition(async () => {
-                await creditJornadaHolidaysAction(weekStart);
-                router.refresh();
-              });
-            }}
+        {laborUnitId ? (
+          <div
+            className="flex items-center gap-2 pb-1"
+            data-test-id="jornada-view-mode"
           >
-            Acreditar festivos
-          </Button>
-          <Button
+            <Button
+              variant={viewMode === "coverage" ? "primary" : "outlined"}
+              size="sm"
+              onClick={() => setViewMode("coverage")}
+            >
+              Cobertura
+            </Button>
+            <Button
+              variant={viewMode === "person" ? "primary" : "outlined"}
+              size="sm"
+              onClick={() => setViewMode("person")}
+            >
+              Por persona
+            </Button>
+          </div>
+        ) : null}
+        <div className="ml-auto flex flex-wrap items-center gap-2 pb-1">
+          <IconButton
+            icon="Save"
             variant="primary"
             size="sm"
+            ariaLabel={pending ? "Guardando plan" : "Guardar plan"}
+            title={pending ? "Guardando…" : "Guardar plan"}
             disabled={pending || !laborUnitId}
+            isLoading={pending}
             onClick={onSaveClick}
-          >
-            Guardar plan
-          </Button>
+            data-test-id="jornada-save-plan"
+          />
         </div>
       </div>
 
@@ -385,25 +394,6 @@ export function JornadaPlannerWorkspace({
         </Alert>
       ) : null}
 
-      {laborUnitId ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant={viewMode === "coverage" ? "primary" : "outlined"}
-            size="sm"
-            onClick={() => setViewMode("coverage")}
-          >
-            Cobertura
-          </Button>
-          <Button
-            variant={viewMode === "person" ? "primary" : "outlined"}
-            size="sm"
-            onClick={() => setViewMode("person")}
-          >
-            Por persona
-          </Button>
-        </div>
-      ) : null}
-
       {findings.length > 0 ? (
         <div className="max-h-36 space-y-1 overflow-y-auto rounded-md border border-border bg-neutral/40 p-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -412,7 +402,6 @@ export function JornadaPlannerWorkspace({
           {findings.map((f, i) => (
             <div key={`${f.ruleCode}-${i}`} className="flex items-start gap-2 text-sm">
               {severityBadge(f.severity)}
-              <span className="text-muted-foreground">[{f.category}]</span>
               <span className="text-foreground">{f.message}</span>
             </div>
           ))}

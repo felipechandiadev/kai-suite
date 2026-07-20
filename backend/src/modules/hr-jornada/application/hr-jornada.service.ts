@@ -403,6 +403,15 @@ export class HrJornadaService {
 
     const contracts = await this.loadActiveContracts(employeeIds, companyId);
     const maxWeeklyByEmployee = new Map<string, number | null | undefined>();
+    const employeeNames = new Map<string, string>();
+    for (const e of employees) {
+      employeeNames.set(
+        e.id,
+        e.person
+          ? `${e.person.firstName ?? ''} ${e.person.lastName ?? ''}`.trim()
+          : e.id,
+      );
+    }
     for (const id of employeeIds) {
       const c = contracts.get(id);
       const fromContract = contractWeeklyMinutes(c?.weeklyHours ?? null);
@@ -424,6 +433,7 @@ export class HrJornadaService {
         nightEnd: config.nightEnd,
       },
       maxWeeklyByEmployee,
+      employeeNames,
     );
 
     const holidays = await this.listHolidays(weekStart, weekEnd, companyId);
@@ -480,6 +490,21 @@ export class HrJornadaService {
     const employeeIds = [...new Set(assignments.map((a) => a.employeeId))];
     const balances = await this.getCompensatoryBalances(employeeIds);
     const contracts = await this.loadActiveContracts(employeeIds, companyId);
+    const employees = employeeIds.length
+      ? await this.employeeRepo.find({
+          where: { companyId, id: In(employeeIds) },
+          relations: ['person'],
+        })
+      : [];
+    const employeeNames = new Map<string, string>();
+    for (const e of employees) {
+      employeeNames.set(
+        e.id,
+        e.person
+          ? `${e.person.firstName ?? ''} ${e.person.lastName ?? ''}`.trim()
+          : e.id,
+      );
+    }
     const maxWeeklyByEmployee = new Map<string, number | null | undefined>();
     for (const id of employeeIds) {
       const c = contracts.get(id);
@@ -511,6 +536,7 @@ export class HrJornadaService {
         nightEnd: config.nightEnd,
       },
       maxWeeklyByEmployee,
+      employeeNames,
     );
     return { findings, worstSeverity: worstSeverity(findings) };
   }
@@ -1497,8 +1523,11 @@ export class HrJornadaService {
       input.laborUnitId,
       input.branchId,
     );
+    const validation = await this.validateWeek(assignments);
     return {
       ...week,
+      findings: validation.findings,
+      worstSeverity: validation.worstSeverity,
       loadedAssignments: assignments,
       laborUnitShifts: ulShifts.map((s) => ({
         id: s.id,

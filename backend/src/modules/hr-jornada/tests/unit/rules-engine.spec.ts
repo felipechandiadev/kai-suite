@@ -4,6 +4,7 @@ import {
   evaluateOverlap,
   evaluateRestBetweenShifts,
   evaluateSchedule,
+  evaluateWeeklyCapPerEmployee,
   hourlyRateCents,
   overtimeAmountCents,
 } from '../../domain/rules/rules-engine';
@@ -112,6 +113,63 @@ describe('hr-jornada rules-engine', () => {
     );
   });
 
+  it('weekly cap names the employee and excess hours', () => {
+    const findings = evaluateWeeklyCapPerEmployee(
+      [
+        {
+          employeeId: 'e1',
+          workDate: '2026-07-13',
+          startTime: '09:00',
+          endTime: '18:00',
+          plannedOvertimeMinutes: 0,
+        },
+        {
+          employeeId: 'e1',
+          workDate: '2026-07-14',
+          startTime: '09:00',
+          endTime: '18:00',
+          plannedOvertimeMinutes: 0,
+        },
+        {
+          employeeId: 'e1',
+          workDate: '2026-07-15',
+          startTime: '09:00',
+          endTime: '18:00',
+          plannedOvertimeMinutes: 0,
+        },
+        {
+          employeeId: 'e1',
+          workDate: '2026-07-16',
+          startTime: '09:00',
+          endTime: '18:00',
+          plannedOvertimeMinutes: 0,
+        },
+        {
+          employeeId: 'e1',
+          workDate: '2026-07-17',
+          startTime: '09:00',
+          endTime: '18:00',
+          plannedOvertimeMinutes: 0,
+        },
+        {
+          employeeId: 'e1',
+          workDate: '2026-07-18',
+          startTime: '09:00',
+          endTime: '14:00',
+          plannedOvertimeMinutes: 0,
+        },
+      ],
+      new Map([['e1', 45 * 60]]),
+      new Map([['e1', 'Ana Torres']]),
+    );
+    // 5*9h + 5h = 50h vs 45h → +5h
+    expect(findings).toHaveLength(1);
+    expect(findings[0].message).toContain('Ana Torres');
+    expect(findings[0].message).toContain('50 h');
+    expect(findings[0].message).toContain('45 h');
+    expect(findings[0].message).toContain('+5 h');
+    expect(findings[0].context?.excessMinutes).toBe(5 * 60);
+  });
   it('computes hourly and OT amounts', () => {
     expect(hourlyRateCents('1800000', 180)).toBe(10000);
     expect(overtimeAmountCents('1800000', 180, 60, 1.5)).toBe('15000');

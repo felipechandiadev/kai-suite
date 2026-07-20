@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Button, Dialog, Select, Switch, TextField } from "@kai/ui";
+import { Alert, Badge, Button, Card, Dialog, Select, Switch, TextField } from "@kai/ui";
 import { listLaborUnitsAction } from "@/features/hr-labor-units/actions/labor-unit.action";
 import type { LaborUnitView } from "@/features/hr-labor-units/types/labor-unit.types";
 import { listEmployeesForGridAction } from "@/features/hr-employees/actions/employee.action";
@@ -37,18 +37,18 @@ function hasAnySlot(schedule: Record<string, ScheduleSlot>): boolean {
   return Object.values(schedule).some((s) => s?.start && s?.end);
 }
 
-function scheduleSummary(
+function scheduleLines(
   schedule: LaborUnitShiftView["scheduleJson"],
-): string {
-  if (!schedule) return "Sin horario";
-  const parts: string[] = [];
+): string[] {
+  if (!schedule) return [];
+  const lines: string[] = [];
   for (let i = 0; i < 7; i++) {
     const s = schedule[String(i)];
     if (s?.start && s?.end) {
-      parts.push(`${WEEKDAY_LABELS[i]} ${s.start}–${s.end}`);
+      lines.push(`${WEEKDAY_LABELS[i]} ${s.start}–${s.end}`);
     }
   }
-  return parts.length ? parts.join(", ") : "Sin horario";
+  return lines;
 }
 
 export function LaborUnitShiftsPanel() {
@@ -243,55 +243,77 @@ export function LaborUnitShiftsPanel() {
         </Button>
       </div>
 
-      <ul className="divide-y divide-border rounded-lg border border-border">
-        {shifts.length === 0 ? (
-          <li className="px-4 py-6 text-sm text-muted-foreground">
-            No hay turnos en esta unidad laboral.
-          </li>
-        ) : (
-          shifts.map((s) => (
-            <li
-              key={s.id}
-              className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
-            >
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  {s.code} · {s.name}
-                  {!s.isActive ? (
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      (inactivo)
-                    </span>
-                  ) : null}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {scheduleSummary(s.scheduleJson)}
-                </p>
-                {(s.effectiveFrom || s.effectiveTo) && (
-                  <p className="text-xs text-muted-foreground">
-                    Vigencia: {s.effectiveFrom || "…"} → {s.effectiveTo || "…"}
-                  </p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outlined"
-                  size="sm"
-                  onClick={() => openEdit(s)}
-                >
-                  Editar
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="sm"
-                  onClick={() => openMembers(s)}
-                >
-                  Miembros
-                </Button>
-              </div>
-            </li>
-          ))
-        )}
-      </ul>
+      {shifts.length === 0 ? (
+        <p
+          className="py-12 text-center text-sm text-muted-foreground"
+          data-test-id="labor-unit-shifts-empty"
+        >
+          No hay turnos en esta unidad laboral.
+        </p>
+      ) : (
+        <div
+          className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4"
+          data-test-id="labor-unit-shifts-grid"
+        >
+          {shifts.map((s) => {
+            const lines = scheduleLines(s.scheduleJson);
+            return (
+              <Card
+                key={s.id}
+                fillHeight
+                data-test-id={`labor-unit-shift-card-${s.id}`}
+                title={s.name}
+                subtitle={s.code}
+                headerEnd={
+                  <Badge variant={s.isActive !== false ? "success" : "secondary"}>
+                    {s.isActive !== false ? "Activo" : "Inactivo"}
+                  </Badge>
+                }
+                content={
+                  <div className="space-y-2 text-sm">
+                    {lines.length > 0 ? (
+                      <ul className="space-y-0.5 text-muted-foreground">
+                        {lines.map((line) => (
+                          <li
+                            key={line}
+                            className="tabular-nums"
+                          >
+                            {line}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-muted-foreground">Sin horario</p>
+                    )}
+                    {(s.effectiveFrom || s.effectiveTo) && (
+                      <p className="text-xs text-muted-foreground">
+                        Vigencia: {s.effectiveFrom || "…"} →{" "}
+                        {s.effectiveTo || "…"}
+                      </p>
+                    )}
+                  </div>
+                }
+                actions={[
+                  {
+                    id: "edit",
+                    label: "Editar",
+                    variant: "outlined",
+                    onClick: () => openEdit(s),
+                    "data-test-id": `labor-unit-shift-edit-${s.id}`,
+                  },
+                  {
+                    id: "members",
+                    label: "Miembros",
+                    variant: "outlined",
+                    onClick: () => openMembers(s),
+                    "data-test-id": `labor-unit-shift-members-${s.id}`,
+                  },
+                ]}
+              />
+            );
+          })}
+        </div>
+      )}
 
       <Dialog
         open={dialogOpen}

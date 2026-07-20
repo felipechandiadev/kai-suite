@@ -228,18 +228,28 @@ export function evaluateNightOutgoing(
 export function evaluateWeeklyCap(
   assignments: ScheduleAssignmentSnapshot[],
   maxWeeklyMinutes: number | null | undefined,
+  employeeNames?: Map<string, string>,
 ): ScheduleFinding[] {
   if (!maxWeeklyMinutes) return [];
   return evaluateWeeklyCapPerEmployee(
     assignments,
     new Map(assignments.map((a) => [a.employeeId, maxWeeklyMinutes])),
+    employeeNames,
   );
+}
+
+function formatDurationLabel(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (m === 0) return `${h} h`;
+  return `${h} h ${m} min`;
 }
 
 /** Per-employee weekly cap (e.g. from contract weeklyHours). */
 export function evaluateWeeklyCapPerEmployee(
   assignments: ScheduleAssignmentSnapshot[],
   maxByEmployee: Map<string, number | null | undefined>,
+  employeeNames?: Map<string, string>,
 ): ScheduleFinding[] {
   const findings: ScheduleFinding[] = [];
   const byEmployee = new Map<string, number>();
@@ -251,12 +261,21 @@ export function evaluateWeeklyCapPerEmployee(
   for (const [employeeId, mins] of byEmployee) {
     const maxWeeklyMinutes = maxByEmployee.get(employeeId);
     if (!maxWeeklyMinutes || mins <= maxWeeklyMinutes) continue;
+    const excess = mins - maxWeeklyMinutes;
+    const who =
+      employeeNames?.get(employeeId)?.trim() || 'Un funcionario';
     findings.push({
       ruleCode: 'WEEKLY_HOURS_CAP',
       severity: FindingSeverity.WARNING,
       category: FindingCategory.POLICY,
-      message: `La semana supera las horas pactadas en contrato (${Math.floor(maxWeeklyMinutes / 60)} h).`,
-      context: { employeeId, minutes: mins, maxWeeklyMinutes },
+      message: `${who} supera las horas pactadas: ${formatDurationLabel(mins)} planificadas vs ${formatDurationLabel(maxWeeklyMinutes)} de contrato (+${formatDurationLabel(excess)}).`,
+      context: {
+        employeeId,
+        employeeName: who,
+        minutes: mins,
+        maxWeeklyMinutes,
+        excessMinutes: excess,
+      },
     });
   }
   return findings;
@@ -293,10 +312,19 @@ export function evaluateSchedule(
   assignments: ScheduleAssignmentSnapshot[],
   config: RulesEngineConfig,
   maxWeeklyByEmployee?: Map<string, number | null | undefined>,
+  employeeNames?: Map<string, string>,
 ): ScheduleFinding[] {
   const weeklyFindings = maxWeeklyByEmployee
-    ? evaluateWeeklyCapPerEmployee(assignments, maxWeeklyByEmployee)
-    : evaluateWeeklyCap(assignments, config.maxWeeklyMinutes);
+    ? evaluateWeeklyCapPerEmployee(
+        assignments,
+        maxWeeklyByEmployee,
+        employeeNames,
+      )
+    : evaluateWeeklyCap(
+        assignments,
+        config.maxWeeklyMinutes,
+        employeeNames,
+      );
   return [
     ...evaluateOverlap(assignments, config.allowShiftOverlap),
     ...evaluateDailyHours(assignments),
