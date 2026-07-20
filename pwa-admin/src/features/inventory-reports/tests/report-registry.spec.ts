@@ -9,8 +9,8 @@ import {
 } from "../lib/report-form";
 
 describe("inventory report registry", () => {
-  it("includes 5 MVP reports", () => {
-    expect(INVENTORY_REPORT_REGISTRY).toHaveLength(5);
+  it("includes MVP reports with category and movement trend", () => {
+    expect(INVENTORY_REPORT_REGISTRY.length).toBeGreaterThanOrEqual(7);
     for (const entry of INVENTORY_REPORT_REGISTRY) {
       expect(entry.id).toBeTruthy();
       expect(entry.wave).toBe("mvp");
@@ -19,6 +19,16 @@ describe("inventory report registry", () => {
     expect(getReportEntry("inventory-transfers")?.params.some((p) => p.kind === "dateRange")).toBe(
       true,
     );
+    expect(
+      getReportEntry("stock-by-category")?.params.some(
+        (p) => p.kind === "stockUnitMulti" && p.required,
+      ),
+    ).toBe(true);
+    expect(
+      getReportEntry("stock-movement-trend")?.params.some(
+        (p) => p.kind === "stockUnitMulti" && p.required,
+      ),
+    ).toBe(true);
   });
 
   it("validates required date range for transfers", () => {
@@ -32,19 +42,29 @@ describe("inventory report registry", () => {
     expect(validateFormForEntry(entry, form)).toBeNull();
   });
 
-  it("maps form state to API params", () => {
-    const entry = getReportEntry("inventory-adjustments")!;
+  it("requires stock unit for stock-by-category", () => {
+    const entry = getReportEntry("stock-by-category")!;
+    const form = emptyReportFormState();
+    expect(validateFormForEntry(entry, form)).toMatch(/unidad/i);
+    form.stockUnitIds = ["unit-1"];
+    expect(validateFormForEntry(entry, form)).toBeNull();
+  });
+
+  it("maps form state to API params including stock units", () => {
+    const entry = getReportEntry("stock-movement-trend")!;
     const form = emptyReportFormState();
     form.dateFrom = "2026-01-01";
     form.dateTo = "2026-01-31";
     form.storageIds = ["st-1"];
     form.productId = "p-1";
+    form.stockUnitIds = ["u-kg", "u-un"];
     const params = formStateToParams(entry, form);
     expect(params).toMatchObject({
       dateFrom: "2026-01-01",
       dateTo: "2026-01-31",
       storageIds: ["st-1"],
       productId: "p-1",
+      stockUnitIds: ["u-kg", "u-un"],
     });
   });
 

@@ -22,9 +22,10 @@ import {
   seedHistoricalDateFromDaysAgo,
 } from './seed-demo-historical-dates.util';
 import {
-  SEED_DEMO_SALES_PLAN,
+  buildSeedDemoSalesPlan,
   type SeedSalePaymentMethod,
 } from './seed-demo-sales-plan';
+import type { SeedPurchaseDoc } from './seed-demo-purchase-plan';
 
 function roundClp(n: number): number {
   return Math.round(Number(n) || 0);
@@ -54,8 +55,11 @@ export async function seedDemoSalesHistory(ctx: {
   branchId: string;
   /** userName → userId de operadores POS (operador / operador2 / operador3). */
   operatorUserIds: Record<string, string>;
+  /** Plan de compras ya ejecutado — ancla stock y horizonte de ventas. */
+  purchasePlan: SeedPurchaseDoc[];
 }): Promise<void> {
-  const { app, dataSource, companyId, branchId, operatorUserIds } = ctx;
+  const { app, dataSource, companyId, branchId, operatorUserIds, purchasePlan } =
+    ctx;
   const transactionsService = app.get(TransactionsService);
 
   const ivaTax = await dataSource.getRepository(Tax).findOne({
@@ -98,7 +102,11 @@ export async function seedDemoSalesHistory(ctx: {
     if (doc) customerByDoc.set(doc, c.id);
   }
 
-  const sorted = [...SEED_DEMO_SALES_PLAN].sort((a, b) => b.daysAgo - a.daysAgo);
+  const salesPlan = buildSeedDemoSalesPlan(purchasePlan);
+  const sorted = [...salesPlan].sort((a, b) => b.daysAgo - a.daysAgo);
+  console.log(
+    `🧾 Plan ventas seed: ${sorted.length} (≤90d=${sorted.filter((d) => d.daysAgo <= 90).length}, 91–180=${sorted.filter((d) => d.daysAgo > 90).length})`,
+  );
   let saleCount = 0;
   const paymentCounts: Record<string, number> = {};
   const operatorCounts: Record<string, number> = {};

@@ -1354,3 +1354,25 @@ export function collectSeedDevPhysicalVariants(): Array<{ sku: string; baseCost:
   }
   return rows;
 }
+
+/** PHYSICAL con precio de venta (basePrice) — aptos para plan de ventas demo. */
+export function collectSeedDevPhysicalSellableVariants(): Array<{
+  sku: string;
+  basePrice: number;
+  baseCost: number;
+}> {
+  const rows: Array<{ sku: string; basePrice: number; baseCost: number }> = [];
+  for (const product of SEED_DEV_PRODUCTS) {
+    if (product.productType !== ProductType.PHYSICAL) continue;
+    for (const variant of product.variants) {
+      const basePrice = Number(variant.basePrice) || 0;
+      if (basePrice <= 0) continue;
+      rows.push({
+        sku: variant.sku,
+        basePrice,
+        baseCost: Number(variant.baseCost) || 0,
+      });
+    }
+  }
+  return rows;
+}

@@ -43,7 +43,9 @@ export type InventoryReportRunResult = {
 export type ReportParamField =
   | { kind: "dateRange"; required?: boolean }
   | { kind: "product"; required?: boolean }
-  | { kind: "storageMulti" };
+  | { kind: "storageMulti" }
+  | { kind: "stockUnitMulti"; required?: boolean }
+  | { kind: "categoryMulti" };
 
 export type ReportRegistryEntry = {
   id: string;

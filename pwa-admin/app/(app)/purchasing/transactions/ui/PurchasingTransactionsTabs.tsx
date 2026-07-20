@@ -10,6 +10,7 @@ const items = [
   { url: `${BASE}/receptions`, label: "Recepciones" },
   { url: `${BASE}/orders`, label: "Órdenes de compra" },
   { url: `${BASE}/purchase-returns`, label: "Devoluciones proveedor" },
+  { url: `${BASE}/payments`, label: "Pagos" },
 ];
 
 function activeTabUrl(pathname: string): string {

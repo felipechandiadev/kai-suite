@@ -11,6 +11,8 @@ import {
 import type { ReportFormState } from "@/features/inventory-reports/lib/report-form";
 import { searchProductsForPromotionAction } from "@/features/promotions/actions/search-products-for-promotion.action";
 import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
+import type { UnitListItem } from "@/features/inventory-units/types/unit.types";
+import type { CategoryListItem } from "@/features/inventory-categories/types/category.types";
 
 type ProductOpt = { id: string; label: string };
 
@@ -26,10 +28,26 @@ type Props = {
   value: ReportFormState;
   onChange: (next: ReportFormState) => void;
   storages: StorageListItem[];
+  units: UnitListItem[];
+  categories: CategoryListItem[];
 };
 
-export function ReportParamsForm({ entry, value, onChange, storages }: Props) {
+function toggleId(ids: string[], id: string): string[] {
+  return ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
+}
+
+export function ReportParamsForm({
+  entry,
+  value,
+  onChange,
+  storages,
+  units,
+  categories,
+}: Props) {
   const kinds = useMemo(() => new Set(entry.params.map((p) => p.kind)), [entry]);
+  const stockUnitRequired = entry.params.some(
+    (p) => p.kind === "stockUnitMulti" && p.required,
+  );
   const [productQuery, setProductQuery] = useState("");
   const [productOptions, setProductOptions] = useState<ProductOpt[]>([]);
   const [, startTransition] = useTransition();
@@ -72,6 +90,11 @@ export function ReportParamsForm({ entry, value, onChange, storages }: Props) {
       ? { id: value.productId, label: value.productLabel }
       : null;
 
+  const activeUnits = useMemo(
+    () => units.filter((u) => u.active),
+    [units],
+  );
+
   return (
     <div className="space-y-3" data-test-id="inventory-report-params-form">
       {kinds.has("dateRange") ? (
@@ -99,17 +122,106 @@ export function ReportParamsForm({ entry, value, onChange, storages }: Props) {
               type="date"
               alwaysShowLabel
               value={value.dateFrom}
-              onChange={(e) => patch({ dateFrom: e.target.value || toIsoDate(new Date()) })}
+              onChange={(e) =>
+                patch({ dateFrom: e.target.value || toIsoDate(new Date()) })
+              }
             />
             <TextField
               label="Hasta"
               type="date"
               alwaysShowLabel
               value={value.dateTo}
-              onChange={(e) => patch({ dateTo: e.target.value || toIsoDate(new Date()) })}
+              onChange={(e) =>
+                patch({ dateTo: e.target.value || toIsoDate(new Date()) })
+              }
             />
           </div>
         </div>
+      ) : null}
+
+      {kinds.has("stockUnitMulti") ? (
+        <fieldset
+          className="space-y-1.5"
+          data-test-id="inventory-report-stock-units"
+        >
+          <legend className="text-xs font-medium text-foreground">
+            Unidad de stock
+            {stockUnitRequired ? " *" : " (opcional)"}
+          </legend>
+          <p className="text-[11px] text-muted-foreground">
+            Las cantidades no se mezclan entre unidades (p. ej. Un vs Kg).
+          </p>
+          <div className="flex max-h-36 flex-col gap-1 overflow-y-auto rounded border border-border p-2">
+            {activeUnits.length === 0 ? (
+              <span className="text-xs text-muted-foreground">
+                No hay unidades activas.
+              </span>
+            ) : (
+              activeUnits.map((u) => {
+                const checked = value.stockUnitIds.includes(u.id);
+                return (
+                  <label
+                    key={u.id}
+                    className="flex cursor-pointer items-center gap-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() =>
+                        patch({ stockUnitIds: toggleId(value.stockUnitIds, u.id) })
+                      }
+                      data-test-id={`inventory-report-stock-unit-${u.id}`}
+                    />
+                    <span>
+                      {u.symbol}
+                      {u.name && u.name !== u.symbol ? ` · ${u.name}` : ""}
+                    </span>
+                  </label>
+                );
+              })
+            )}
+          </div>
+        </fieldset>
+      ) : null}
+
+      {kinds.has("categoryMulti") ? (
+        <fieldset
+          className="space-y-1.5"
+          data-test-id="inventory-report-categories"
+        >
+          <legend className="text-xs font-medium text-foreground">
+            Categoría (opcional)
+          </legend>
+          <div className="flex max-h-36 flex-col gap-1 overflow-y-auto rounded border border-border p-2">
+            {categories.length === 0 ? (
+              <span className="text-xs text-muted-foreground">
+                No hay categorías.
+              </span>
+            ) : (
+              categories.map((c) => {
+                const checked = value.categoryIds.includes(c.id);
+                return (
+                  <label
+                    key={c.id}
+                    className="flex cursor-pointer items-center gap-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() =>
+                        patch({
+                          categoryIds: toggleId(value.categoryIds, c.id),
+                        })
+                      }
+                      data-test-id={`inventory-report-category-${c.id}`}
+                    />
+                    <span>{c.name}</span>
+                  </label>
+                );
+              })
+            )}
+          </div>
+        </fieldset>
       ) : null}
 
       {kinds.has("product") ? (

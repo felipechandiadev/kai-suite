@@ -12,7 +12,9 @@ import {
   InventoryAdjustmentsHandler,
   InventoryTransfersHandler,
   StockAlertsHandler,
+  StockByCategoryHandler,
   StockByStorageHandler,
+  StockMovementTrendHandler,
   StockValuationHandler,
 } from './application/handlers/mvp.handlers';
 
@@ -33,6 +35,8 @@ import {
     StockValuationHandler,
     StockAlertsHandler,
     StockByStorageHandler,
+    StockByCategoryHandler,
+    StockMovementTrendHandler,
     InventoryTransfersHandler,
     InventoryAdjustmentsHandler,
   ],

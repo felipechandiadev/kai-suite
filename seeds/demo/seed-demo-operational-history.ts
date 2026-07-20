@@ -228,6 +228,7 @@ export async function seedDemoOperationalHistory(ctx: {
     companyId,
     branchId,
     operatorUserIds,
+    purchasePlan,
   });
 
   await logOperationalSmokeSummary(dataSource, companyId, variantBySku);

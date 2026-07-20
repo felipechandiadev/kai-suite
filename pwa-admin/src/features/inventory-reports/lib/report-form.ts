@@ -7,6 +7,8 @@ export type ReportFormState = {
   productId: string | null;
   productLabel: string | null;
   storageIds: string[];
+  stockUnitIds: string[];
+  categoryIds: string[];
 };
 
 export function emptyReportFormState(): ReportFormState {
@@ -17,6 +19,8 @@ export function emptyReportFormState(): ReportFormState {
     productId: null,
     productLabel: null,
     storageIds: [],
+    stockUnitIds: [],
+    categoryIds: [],
   };
 }
 
@@ -35,6 +39,12 @@ export function formStateToParams(
   if (kinds.has("storageMulti") && state.storageIds.length) {
     params.storageIds = state.storageIds;
   }
+  if (kinds.has("stockUnitMulti") && state.stockUnitIds.length) {
+    params.stockUnitIds = state.stockUnitIds;
+  }
+  if (kinds.has("categoryMulti") && state.categoryIds.length) {
+    params.categoryIds = state.categoryIds;
+  }
   return params;
 }
 
@@ -49,6 +59,13 @@ export function validateFormForEntry(
     }
     if (field.kind === "product" && field.required && !state.productId) {
       return "Seleccioná un producto.";
+    }
+    if (
+      field.kind === "stockUnitMulti" &&
+      field.required &&
+      state.stockUnitIds.length === 0
+    ) {
+      return "Seleccioná al menos una unidad de stock.";
     }
   }
   return null;

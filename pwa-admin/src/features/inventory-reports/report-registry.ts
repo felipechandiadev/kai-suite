@@ -18,9 +18,39 @@ export const INVENTORY_REPORT_REGISTRY: ReportRegistryEntry[] = [
   {
     id: "stock-by-storage",
     title: "Stock por almacén",
-    description: "Cantidades y valoración PMP por bodega.",
+    description:
+      "Cantidades y valoración PMP por bodega × unidad de stock (no se mezclan Un/Kg).",
     wave: "mvp",
-    params: [{ kind: "product" }],
+    params: [
+      { kind: "stockUnitMulti" },
+      { kind: "storageMulti" },
+      { kind: "product" },
+    ],
+  },
+  {
+    id: "stock-by-category",
+    title: "Stock por categoría",
+    description:
+      "Existencias por categoría × unidad de stock. Unidad de stock obligatoria.",
+    wave: "mvp",
+    params: [
+      { kind: "stockUnitMulti", required: true },
+      { kind: "storageMulti" },
+      { kind: "categoryMulti" },
+    ],
+  },
+  {
+    id: "stock-movement-trend",
+    title: "Variabilidad de stock (movimientos)",
+    description:
+      "Neto diario de movimientos de inventario (Δ qty) por unidad de stock.",
+    wave: "mvp",
+    params: [
+      { kind: "dateRange", required: true },
+      { kind: "stockUnitMulti", required: true },
+      { kind: "storageMulti" },
+      { kind: "product" },
+    ],
   },
   {
     id: "inventory-transfers",

@@ -10,6 +10,8 @@ import {
 import { runInventoryReportAction } from "@/features/inventory-reports/actions/inventory-reports.action";
 import type { InventoryReportRunResult } from "@/features/inventory-reports/types/inventory-report.types";
 import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
+import type { UnitListItem } from "@/features/inventory-units/types/unit.types";
+import type { CategoryListItem } from "@/features/inventory-categories/types/category.types";
 import {
   emptyReportFormState,
   formStateToParams,
@@ -21,10 +23,17 @@ import { ReportPreview } from "./ReportPreview";
 
 type Props = {
   storages: StorageListItem[];
+  units: UnitListItem[];
+  categories: CategoryListItem[];
   companyLabel?: string;
 };
 
-export function InventoryReportsWorkspace({ storages, companyLabel }: Props) {
+export function InventoryReportsWorkspace({
+  storages,
+  units,
+  categories,
+  companyLabel,
+}: Props) {
   const [reportId, setReportId] = useState(
     INVENTORY_REPORT_REGISTRY[0]?.id ?? "stock-valuation",
   );
@@ -123,6 +132,8 @@ export function InventoryReportsWorkspace({ storages, companyLabel }: Props) {
               value={form}
               onChange={setForm}
               storages={storages}
+              units={units}
+              categories={categories}
             />
           ) : null}
           {error ? (

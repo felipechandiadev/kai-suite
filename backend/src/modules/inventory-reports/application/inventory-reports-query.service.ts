@@ -16,8 +16,10 @@ import { variantThresholdDefaultsFromRow } from '@modules/stock-realtime/stock-t
 import { INVENTORY_REPORT_MAX_ROWS } from '../domain/inventory-report.types';
 import {
   ADJUSTMENT_TYPES,
+  STOCK_TREND_TYPES,
   TRANSFER_EVENT_TYPES,
   computePmpValue,
+  inventoryMovementFamily,
   inventorySignedDelta,
 } from '../domain/inventory-movement-map';
 
@@ -31,6 +33,8 @@ export type DateRange = { from: Date; to: Date; dateFrom: string; dateTo: string
 export type StockFilterOpts = {
   storageIds?: string[];
   productId?: string;
+  stockUnitIds?: string[];
+  categoryIds?: string[];
 };
 
 @Injectable()
@@ -84,6 +88,14 @@ export class InventoryReportsQueryService {
     throw new BadRequestException(`${key} inválido`);
   }
 
+  requireUuidList(params: Record<string, unknown>, key: string): string[] {
+    const ids = this.optionalUuidList(params, key);
+    if (!ids?.length) {
+      throw new BadRequestException(`${key} es requerido (al menos una unidad de stock)`);
+    }
+    return ids;
+  }
+
   private stockLevelsQb(
     companyId: string,
     opts?: StockFilterOpts,
@@ -92,6 +104,7 @@ export class InventoryReportsQueryService {
       .createQueryBuilder('sl')
       .innerJoinAndSelect('sl.variant', 'variant')
       .leftJoinAndSelect('variant.product', 'product')
+      .leftJoinAndSelect('product.category', 'category')
       .leftJoinAndSelect('variant.stockBaseUnit', 'stockBaseUnit')
       .leftJoinAndSelect('variant.unit', 'unit')
       .leftJoinAndSelect('sl.storage', 'storage')
@@ -105,7 +118,40 @@ export class InventoryReportsQueryService {
     if (opts?.productId) {
       qb.andWhere('variant.productId = :productId', { productId: opts.productId });
     }
+    if (opts?.stockUnitIds?.length) {
+      qb.andWhere('variant.stockBaseUnitId IN (:...stockUnitIds)', {
+        stockUnitIds: opts.stockUnitIds,
+      });
+    }
+    if (opts?.categoryIds?.length) {
+      qb.andWhere('product.categoryId IN (:...categoryIds)', {
+        categoryIds: opts.categoryIds,
+      });
+    }
     return qb;
+  }
+
+  private resolveStockUnitLabel(variant: {
+    stockBaseUnit?: { symbol?: string; name?: string } | null;
+    unit?: { symbol?: string; name?: string } | null;
+  }): string {
+    return (
+      variant.stockBaseUnit?.symbol?.trim() ||
+      variant.stockBaseUnit?.name?.trim() ||
+      variant.unit?.symbol?.trim() ||
+      '—'
+    );
+  }
+
+  private resolveStockUnitId(variant: {
+    stockBaseUnitId?: string | null;
+    unitId?: string | null;
+  }): string {
+    return (
+      (typeof variant.stockBaseUnitId === 'string' && variant.stockBaseUnitId.trim()) ||
+      (typeof variant.unitId === 'string' && variant.unitId.trim()) ||
+      'unknown'
+    );
   }
 
   /**
@@ -196,6 +242,8 @@ export class InventoryReportsQueryService {
     rows: Array<{
       storageId: string;
       storageName: string;
+      stockUnitId: string;
+      stockUnit: string;
       skuCount: number;
       qty: number;
       valorConPmp: number;
@@ -203,10 +251,13 @@ export class InventoryReportsQueryService {
     }>;
   }> {
     const levels = await this.stockLevelsQb(companyId, opts).getMany();
-    const byStorage = new Map<
+    const byKey = new Map<
       string,
       {
+        storageId: string;
         storageName: string;
+        stockUnitId: string;
+        stockUnit: string;
         variantIds: Set<string>;
         qty: number;
         valorConPmp: number;
@@ -215,23 +266,29 @@ export class InventoryReportsQueryService {
     >();
 
     for (const sl of levels) {
-      const sid = sl.storageId;
+      const variant = sl.variant;
+      if (!variant) continue;
+      const stockUnitId = this.resolveStockUnitId(variant);
+      const key = `${sl.storageId}::${stockUnitId}`;
       const qty = Number(sl.physicalStock) || 0;
       const pmp =
-        sl.variant?.pmp != null && Number.isFinite(Number(sl.variant.pmp))
-          ? Number(sl.variant.pmp)
+        variant.pmp != null && Number.isFinite(Number(variant.pmp))
+          ? Number(variant.pmp)
           : null;
       const valor = computePmpValue(qty, pmp);
-      let bucket = byStorage.get(sid);
+      let bucket = byKey.get(key);
       if (!bucket) {
         bucket = {
+          storageId: sl.storageId,
           storageName: sl.storage?.name?.trim() || '—',
+          stockUnitId,
+          stockUnit: this.resolveStockUnitLabel(variant),
           variantIds: new Set(),
           qty: 0,
           valorConPmp: 0,
           lineasSinPmp: 0,
         };
-        byStorage.set(sid, bucket);
+        byKey.set(key, bucket);
       }
       if (sl.productVariantId) bucket.variantIds.add(sl.productVariantId);
       bucket.qty += qty;
@@ -239,16 +296,107 @@ export class InventoryReportsQueryService {
       else if (qty !== 0) bucket.lineasSinPmp += 1;
     }
 
-    const rows = [...byStorage.entries()]
-      .map(([storageId, b]) => ({
-        storageId,
+    const rows = [...byKey.values()]
+      .map((b) => ({
+        storageId: b.storageId,
         storageName: b.storageName,
+        stockUnitId: b.stockUnitId,
+        stockUnit: b.stockUnit,
         skuCount: b.variantIds.size,
         qty: Math.round(b.qty * 1000) / 1000,
         valorConPmp: Math.round(b.valorConPmp * 100) / 100,
         lineasSinPmp: b.lineasSinPmp,
       }))
-      .sort((a, b) => b.valorConPmp - a.valorConPmp || a.storageName.localeCompare(b.storageName));
+      .sort(
+        (a, b) =>
+          a.storageName.localeCompare(b.storageName) ||
+          a.stockUnit.localeCompare(b.stockUnit) ||
+          b.valorConPmp - a.valorConPmp,
+      );
+
+    return { rows };
+  }
+
+  async stockByCategoryRows(
+    companyId: string,
+    opts?: StockFilterOpts,
+  ): Promise<{
+    rows: Array<{
+      categoryId: string | null;
+      categoryName: string;
+      stockUnitId: string;
+      stockUnit: string;
+      skuCount: number;
+      qty: number;
+      valorConPmp: number;
+      lineasSinPmp: number;
+    }>;
+  }> {
+    const levels = await this.stockLevelsQb(companyId, opts).getMany();
+    const byKey = new Map<
+      string,
+      {
+        categoryId: string | null;
+        categoryName: string;
+        stockUnitId: string;
+        stockUnit: string;
+        variantIds: Set<string>;
+        qty: number;
+        valorConPmp: number;
+        lineasSinPmp: number;
+      }
+    >();
+
+    for (const sl of levels) {
+      const variant = sl.variant;
+      if (!variant) continue;
+      const categoryId = variant.product?.categoryId?.trim() || null;
+      const categoryName =
+        variant.product?.category?.name?.trim() || 'Sin categoría';
+      const stockUnitId = this.resolveStockUnitId(variant);
+      const key = `${categoryId ?? 'null'}::${stockUnitId}`;
+      const qty = Number(sl.physicalStock) || 0;
+      const pmp =
+        variant.pmp != null && Number.isFinite(Number(variant.pmp))
+          ? Number(variant.pmp)
+          : null;
+      const valor = computePmpValue(qty, pmp);
+      let bucket = byKey.get(key);
+      if (!bucket) {
+        bucket = {
+          categoryId,
+          categoryName,
+          stockUnitId,
+          stockUnit: this.resolveStockUnitLabel(variant),
+          variantIds: new Set(),
+          qty: 0,
+          valorConPmp: 0,
+          lineasSinPmp: 0,
+        };
+        byKey.set(key, bucket);
+      }
+      if (sl.productVariantId) bucket.variantIds.add(sl.productVariantId);
+      bucket.qty += qty;
+      if (valor != null) bucket.valorConPmp += valor;
+      else if (qty !== 0) bucket.lineasSinPmp += 1;
+    }
+
+    const rows = [...byKey.values()]
+      .map((b) => ({
+        categoryId: b.categoryId,
+        categoryName: b.categoryName,
+        stockUnitId: b.stockUnitId,
+        stockUnit: b.stockUnit,
+        skuCount: b.variantIds.size,
+        qty: Math.round(b.qty * 1000) / 1000,
+        valorConPmp: Math.round(b.valorConPmp * 100) / 100,
+        lineasSinPmp: b.lineasSinPmp,
+      }))
+      .sort(
+        (a, b) =>
+          a.categoryName.localeCompare(b.categoryName) ||
+          a.stockUnit.localeCompare(b.stockUnit),
+      );
 
     return { rows };
   }
@@ -391,6 +539,8 @@ export class InventoryReportsQueryService {
       .innerJoinAndSelect('tl.transaction', 't')
       .leftJoinAndSelect('t.storageEntry', 'storage')
       .leftJoinAndSelect('t.targetStorageEntry', 'targetStorage')
+      .leftJoinAndSelect('tl.productVariant', 'variant')
+      .leftJoinAndSelect('variant.stockBaseUnit', 'stockBaseUnit')
       .where('tl.companyId = :companyId', { companyId })
       .andWhere('t.companyId = :companyId', { companyId })
       .andWhere('t.transactionType IN (:...types)', { types })
@@ -407,7 +557,155 @@ export class InventoryReportsQueryService {
     if (opts?.productId) {
       qb.andWhere('tl.productId = :productId', { productId: opts.productId });
     }
+    if (opts?.stockUnitIds?.length) {
+      qb.andWhere('variant.stockBaseUnitId IN (:...stockUnitIds)', {
+        stockUnitIds: opts.stockUnitIds,
+      });
+    }
+    if (opts?.categoryIds?.length) {
+      qb.leftJoin('variant.product', 'product');
+      qb.andWhere('product.categoryId IN (:...categoryIds)', {
+        categoryIds: opts.categoryIds,
+      });
+    }
     return qb;
+  }
+
+  async stockMovementTrendRows(
+    companyId: string,
+    range: DateRange,
+    opts?: StockFilterOpts,
+  ): Promise<{
+    rows: Array<{
+      day: string;
+      stockUnitId: string;
+      stockUnit: string;
+      qtyNet: number;
+      qtyIn: number;
+      qtyOut: number;
+      lineCount: number;
+    }>;
+    byUnitSeries: Array<{
+      stockUnitId: string;
+      stockUnit: string;
+      points: Array<{ day: string; qtyNet: number }>;
+    }>;
+    familyCounts: Record<string, number>;
+    qtyNetTotalByUnit: Array<{ stockUnitId: string; stockUnit: string; qtyNet: number }>;
+    truncated: boolean;
+  }> {
+    const qb = this.movementLinesQb(companyId, range, [...STOCK_TREND_TYPES], opts)
+      .orderBy('t.createdAt', 'ASC')
+      .addOrderBy('tl.id', 'ASC')
+      .take(INVENTORY_REPORT_MAX_ROWS + 1);
+
+    const lines = await qb.getMany();
+    const truncated = lines.length > INVENTORY_REPORT_MAX_ROWS;
+    const slice = truncated ? lines.slice(0, INVENTORY_REPORT_MAX_ROWS) : lines;
+
+    type Agg = {
+      stockUnitId: string;
+      stockUnit: string;
+      qtyIn: number;
+      qtyOut: number;
+      lineCount: number;
+    };
+    const dayUnit = new Map<string, Agg>();
+    const familyCounts: Record<string, number> = {};
+    const unitLabels = new Map<string, string>();
+
+    for (const tl of slice) {
+      const t = tl.transaction;
+      if (!t?.createdAt) continue;
+      const type = String(t.transactionType);
+      const sign = inventorySignedDelta(type);
+      if (sign === 0) continue;
+      const family = inventoryMovementFamily(type) ?? 'other';
+      familyCounts[family] = (familyCounts[family] ?? 0) + 1;
+
+      const variant = tl.productVariant as
+        | {
+            stockBaseUnitId?: string;
+            unitId?: string;
+            stockBaseUnit?: { symbol?: string; name?: string } | null;
+          }
+        | undefined;
+      const stockUnitId = variant
+        ? this.resolveStockUnitId(variant)
+        : 'unknown';
+      const stockUnit = variant
+        ? this.resolveStockUnitLabel(variant)
+        : '—';
+      unitLabels.set(stockUnitId, stockUnit);
+
+      const day = new Date(t.createdAt).toISOString().slice(0, 10);
+      const key = `${day}::${stockUnitId}`;
+      const qtyAbs = Math.abs(Number(tl.quantity) || 0);
+      let bucket = dayUnit.get(key);
+      if (!bucket) {
+        bucket = { stockUnitId, stockUnit, qtyIn: 0, qtyOut: 0, lineCount: 0 };
+        dayUnit.set(key, bucket);
+      }
+      bucket.lineCount += 1;
+      if (sign > 0) bucket.qtyIn += qtyAbs;
+      else bucket.qtyOut += qtyAbs;
+    }
+
+    const rows = [...dayUnit.entries()]
+      .map(([key, b]) => {
+        const day = key.split('::')[0]!;
+        return {
+          day,
+          stockUnitId: b.stockUnitId,
+          stockUnit: b.stockUnit,
+          qtyIn: Math.round(b.qtyIn * 1000) / 1000,
+          qtyOut: Math.round(b.qtyOut * 1000) / 1000,
+          qtyNet: Math.round((b.qtyIn - b.qtyOut) * 1000) / 1000,
+          lineCount: b.lineCount,
+        };
+      })
+      .sort(
+        (a, b) =>
+          a.day.localeCompare(b.day) || a.stockUnit.localeCompare(b.stockUnit),
+      );
+
+    const byUnitSeries: Array<{
+      stockUnitId: string;
+      stockUnit: string;
+      points: Array<{ day: string; qtyNet: number }>;
+    }> = [];
+    const qtyNetTotalByUnit: Array<{
+      stockUnitId: string;
+      stockUnit: string;
+      qtyNet: number;
+    }> = [];
+
+    for (const [stockUnitId, stockUnit] of unitLabels) {
+      const unitRows = rows.filter((r) => r.stockUnitId === stockUnitId);
+      byUnitSeries.push({
+        stockUnitId,
+        stockUnit,
+        points: unitRows.map((r) => ({ day: r.day, qtyNet: r.qtyNet })),
+      });
+      qtyNetTotalByUnit.push({
+        stockUnitId,
+        stockUnit,
+        qtyNet: Math.round(
+          unitRows.reduce((s, r) => s + r.qtyNet, 0) * 1000,
+        ) / 1000,
+      });
+    }
+
+    byUnitSeries.sort((a, b) => a.stockUnit.localeCompare(b.stockUnit));
+    qtyNetTotalByUnit.sort((a, b) => a.stockUnit.localeCompare(b.stockUnit));
+
+    return {
+      rows,
+      byUnitSeries,
+      familyCounts,
+      qtyNetTotalByUnit,
+      truncated,
+    };
   }
 
   async listTransfers(

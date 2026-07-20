@@ -198,7 +198,8 @@ export class StockAlertsHandler implements InventoryReportHandler {
 export class StockByStorageHandler implements InventoryReportHandler {
   readonly id = 'stock-by-storage';
   readonly title = 'Stock por almacén';
-  readonly description = 'Cantidades y valoración PMP agregadas por bodega.';
+  readonly description =
+    'Cantidades y valoración PMP por bodega × unidad de stock (no se mezclan Un/Kg).';
   readonly wave = 'mvp' as const;
 
   constructor(private readonly q: InventoryReportsQueryService) {}
@@ -206,6 +207,8 @@ export class StockByStorageHandler implements InventoryReportHandler {
   validate(params: Record<string, unknown>) {
     return {
       productId: this.q.optionalUuid(params, 'productId'),
+      stockUnitIds: this.q.optionalUuidList(params, 'stockUnitIds'),
+      storageIds: this.q.optionalUuidList(params, 'storageIds'),
     };
   }
 
@@ -213,11 +216,34 @@ export class StockByStorageHandler implements InventoryReportHandler {
     const params = this.validate(ctx.params);
     const { rows } = await this.q.stockByStorageRows(ctx.companyId, {
       productId: params.productId,
+      stockUnitIds: params.stockUnitIds,
+      storageIds: params.storageIds,
     });
 
-    const qtyTotal = rows.reduce((s, r) => s + r.qty, 0);
     const valorTotal = rows.reduce((s, r) => s + r.valorConPmp, 0);
     const sinPmp = rows.reduce((s, r) => s + r.lineasSinPmp, 0);
+    const storageCount = new Set(rows.map((r) => r.storageId)).size;
+
+    // Valor PMP agregado por almacén (dinero sí se suma entre unidades).
+    const valorByStorage = new Map<string, { name: string; valor: number }>();
+    for (const r of rows) {
+      const b = valorByStorage.get(r.storageId) ?? {
+        name: r.storageName,
+        valor: 0,
+      };
+      b.valor += r.valorConPmp;
+      valorByStorage.set(r.storageId, b);
+    }
+
+    const units = [...new Set(rows.map((r) => r.stockUnit))].sort();
+    const qtySeries = units.map((unit) => ({
+      id: `qty-by-storage-${unit}`,
+      label: `Cantidad por almacén (${unit})`,
+      chart: 'bar' as const,
+      points: rows
+        .filter((r) => r.stockUnit === unit)
+        .map((r) => ({ x: r.storageName, y: qty(r.qty) })),
+    }));
 
     return {
       reportId: this.id,
@@ -225,8 +251,8 @@ export class StockByStorageHandler implements InventoryReportHandler {
       generatedAt: nowIso(),
       params,
       summary: {
-        storageCount: rows.length,
-        qtyTotal: qty(qtyTotal),
+        storageCount,
+        rowCount: rows.length,
         valorConPmp: money(valorTotal),
         lineasSinPmp: sinPmp,
       },
@@ -235,17 +261,16 @@ export class StockByStorageHandler implements InventoryReportHandler {
           id: 'valor-by-storage',
           label: 'Valor PMP por almacén',
           chart: 'bar',
-          points: rows.map((r) => ({ x: r.storageName, y: money(r.valorConPmp) })),
+          points: [...valorByStorage.values()].map((b) => ({
+            x: b.name,
+            y: money(b.valor),
+          })),
         },
-        {
-          id: 'qty-by-storage',
-          label: 'Cantidad por almacén',
-          chart: 'bar',
-          points: rows.map((r) => ({ x: r.storageName, y: qty(r.qty) })),
-        },
+        ...qtySeries,
       ],
       columns: [
         { key: 'storageName', label: 'Almacén' },
+        { key: 'stockUnit', label: 'Unidad' },
         { key: 'skuCount', label: 'SKUs', align: 'right' },
         { key: 'qty', label: 'Cant.', align: 'right' },
         { key: 'valorConPmp', label: 'Valor PMP', align: 'right' },
@@ -253,6 +278,7 @@ export class StockByStorageHandler implements InventoryReportHandler {
       ],
       rows: rows.map((r) => ({
         storageName: r.storageName,
+        stockUnit: r.stockUnit,
         skuCount: r.skuCount,
         qty: qty(r.qty),
         valorConPmp: money(r.valorConPmp),
@@ -260,13 +286,208 @@ export class StockByStorageHandler implements InventoryReportHandler {
       })),
       totals: {
         skuCount: rows.reduce((s, r) => s + r.skuCount, 0),
-        qty: qty(qtyTotal),
         valorConPmp: money(valorTotal),
         lineasSinPmp: sinPmp,
       },
       footnotes: [
         'Valoración a PMP; líneas sin PMP no suman al valor.',
         'Cantidad = stock físico (no disponible ni reservado).',
+        'Las cantidades no se suman entre unidades distintas (filas almacén × unidad).',
+      ],
+    };
+  }
+}
+
+@Injectable()
+export class StockByCategoryHandler implements InventoryReportHandler {
+  readonly id = 'stock-by-category';
+  readonly title = 'Stock por categoría';
+  readonly description =
+    'Existencias agrupadas por categoría × unidad de stock. Unidad de stock obligatoria.';
+  readonly wave = 'mvp' as const;
+
+  constructor(private readonly q: InventoryReportsQueryService) {}
+
+  validate(params: Record<string, unknown>) {
+    return {
+      stockUnitIds: this.q.requireUuidList(params, 'stockUnitIds'),
+      storageIds: this.q.optionalUuidList(params, 'storageIds'),
+      categoryIds: this.q.optionalUuidList(params, 'categoryIds'),
+    };
+  }
+
+  async run(ctx: InventoryReportHandlerContext): Promise<InventoryReportRunResult> {
+    const params = this.validate(ctx.params);
+    const { rows } = await this.q.stockByCategoryRows(ctx.companyId, {
+      stockUnitIds: params.stockUnitIds,
+      storageIds: params.storageIds,
+      categoryIds: params.categoryIds,
+    });
+
+    const valorTotal = rows.reduce((s, r) => s + r.valorConPmp, 0);
+    const sinPmp = rows.reduce((s, r) => s + r.lineasSinPmp, 0);
+    const units = [...new Set(rows.map((r) => r.stockUnit))].sort();
+
+    const qtySeries = units.map((unit) => ({
+      id: `qty-by-category-${unit}`,
+      label: `Cantidad por categoría (${unit})`,
+      chart: 'bar' as const,
+      points: rows
+        .filter((r) => r.stockUnit === unit)
+        .map((r) => ({ x: r.categoryName, y: qty(r.qty) })),
+    }));
+
+    return {
+      reportId: this.id,
+      title: this.title,
+      generatedAt: nowIso(),
+      params,
+      summary: {
+        rowCount: rows.length,
+        categoryCount: new Set(rows.map((r) => r.categoryId ?? 'null')).size,
+        valorConPmp: money(valorTotal),
+        lineasSinPmp: sinPmp,
+      },
+      series: [
+        {
+          id: 'valor-by-category',
+          label: 'Valor PMP por categoría',
+          chart: 'bar',
+          points: (() => {
+            const byCat = new Map<string, number>();
+            for (const r of rows) {
+              byCat.set(
+                r.categoryName,
+                (byCat.get(r.categoryName) ?? 0) + r.valorConPmp,
+              );
+            }
+            return [...byCat.entries()].map(([x, y]) => ({
+              x,
+              y: money(y),
+            }));
+          })(),
+        },
+        ...qtySeries,
+      ],
+      columns: [
+        { key: 'categoryName', label: 'Categoría' },
+        { key: 'stockUnit', label: 'Unidad' },
+        { key: 'skuCount', label: 'SKUs', align: 'right' },
+        { key: 'qty', label: 'Cant.', align: 'right' },
+        { key: 'valorConPmp', label: 'Valor PMP', align: 'right' },
+        { key: 'lineasSinPmp', label: 'Sin PMP', align: 'right' },
+      ],
+      rows: rows.map((r) => ({
+        categoryName: r.categoryName,
+        stockUnit: r.stockUnit,
+        skuCount: r.skuCount,
+        qty: qty(r.qty),
+        valorConPmp: money(r.valorConPmp),
+        lineasSinPmp: r.lineasSinPmp,
+      })),
+      totals: {
+        skuCount: rows.reduce((s, r) => s + r.skuCount, 0),
+        valorConPmp: money(valorTotal),
+        lineasSinPmp: sinPmp,
+      },
+      footnotes: [
+        'Las cantidades no se suman entre unidades distintas.',
+        'Valor PMP sí puede agregarse entre unidades (es dinero).',
+        ...(rows.length === 0 ? ['Sin existencias con los filtros actuales.'] : []),
+      ],
+    };
+  }
+}
+
+@Injectable()
+export class StockMovementTrendHandler implements InventoryReportHandler {
+  readonly id = 'stock-movement-trend';
+  readonly title = 'Variabilidad de stock (movimientos)';
+  readonly description =
+    'Neto diario de movimientos de inventario (Δ qty) por unidad de stock.';
+  readonly wave = 'mvp' as const;
+
+  constructor(private readonly q: InventoryReportsQueryService) {}
+
+  validate(params: Record<string, unknown>) {
+    const range = this.q.parseDateRange(params);
+    return {
+      dateFrom: range.dateFrom,
+      dateTo: range.dateTo,
+      stockUnitIds: this.q.requireUuidList(params, 'stockUnitIds'),
+      storageIds: this.q.optionalUuidList(params, 'storageIds'),
+      productId: this.q.optionalUuid(params, 'productId'),
+    };
+  }
+
+  async run(ctx: InventoryReportHandlerContext): Promise<InventoryReportRunResult> {
+    const params = this.validate(ctx.params);
+    const range = this.q.parseDateRange(params);
+    const data = await this.q.stockMovementTrendRows(ctx.companyId, range, {
+      stockUnitIds: params.stockUnitIds,
+      storageIds: params.storageIds,
+      productId: params.productId,
+    });
+
+    const familyLabel: Record<string, string> = {
+      sale: 'Ventas',
+      purchase: 'Compras',
+      transfer: 'Transferencias',
+      adjustment: 'Ajustes',
+      other: 'Otros',
+    };
+
+    return {
+      reportId: this.id,
+      title: this.title,
+      generatedAt: nowIso(),
+      params,
+      summary: {
+        dayRows: data.rows.length,
+        unitCount: data.byUnitSeries.length,
+        lineEvents: Object.values(data.familyCounts).reduce((s, n) => s + n, 0),
+      },
+      series: [
+        ...data.byUnitSeries.map((u) => ({
+          id: `trend-${u.stockUnit}`,
+          label: `Neto diario (${u.stockUnit})`,
+          chart: 'area' as const,
+          points: u.points.map((p) => ({ x: p.day, y: qty(p.qtyNet) })),
+        })),
+        {
+          id: 'events-by-family',
+          label: 'Eventos por familia',
+          chart: 'pie',
+          points: Object.entries(data.familyCounts).map(([k, y]) => ({
+            x: familyLabel[k] ?? k,
+            y,
+          })),
+        },
+      ],
+      columns: [
+        { key: 'day', label: 'Día' },
+        { key: 'stockUnit', label: 'Unidad' },
+        { key: 'qtyIn', label: 'Entradas', align: 'right' },
+        { key: 'qtyOut', label: 'Salidas', align: 'right' },
+        { key: 'qtyNet', label: 'Neto', align: 'right' },
+        { key: 'lineCount', label: 'Líneas', align: 'right' },
+      ],
+      rows: data.rows.map((r) => ({
+        day: r.day,
+        stockUnit: r.stockUnit,
+        qtyIn: qty(r.qtyIn),
+        qtyOut: qty(r.qtyOut),
+        qtyNet: qty(r.qtyNet),
+        lineCount: r.lineCount,
+      })),
+      footnotes: [
+        'Neto = entradas − salidas del día (no es nivel de stock absoluto).',
+        'Una serie de gráfico por unidad de stock; no se mezclan Un/Kg.',
+        `Tipos: ${['PURCHASE', 'SALE', 'TRANSFER_*', 'ADJUSTMENT_*', 'SALE_RETURN', 'PURCHASE_RETURN'].join(', ')}.`,
+        ...(data.truncated ? ['Resultado truncado a 1000 líneas de movimiento.'] : []),
+        ...(data.rows.length === 0
+          ? ['Sin movimientos en el período / filtros.']
+          : []),
       ],
     };
   }

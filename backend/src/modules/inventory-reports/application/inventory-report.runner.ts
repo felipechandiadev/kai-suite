@@ -8,7 +8,9 @@ import {
   InventoryAdjustmentsHandler,
   InventoryTransfersHandler,
   StockAlertsHandler,
+  StockByCategoryHandler,
   StockByStorageHandler,
+  StockMovementTrendHandler,
   StockValuationHandler,
 } from './handlers/mvp.handlers';
 
@@ -20,6 +22,8 @@ export class InventoryReportRunner {
     stockValuation: StockValuationHandler,
     stockAlerts: StockAlertsHandler,
     stockByStorage: StockByStorageHandler,
+    stockByCategory: StockByCategoryHandler,
+    stockMovementTrend: StockMovementTrendHandler,
     inventoryTransfers: InventoryTransfersHandler,
     inventoryAdjustments: InventoryAdjustmentsHandler,
   ) {
@@ -27,6 +31,8 @@ export class InventoryReportRunner {
       stockValuation,
       stockAlerts,
       stockByStorage,
+      stockByCategory,
+      stockMovementTrend,
       inventoryTransfers,
       inventoryAdjustments,
     ];
