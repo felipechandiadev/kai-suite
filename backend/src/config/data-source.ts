@@ -46,6 +46,9 @@ import { Storage } from '@modules/storages/domain/storage.entity';
 import { ResultCenter } from '@modules/result-centers/domain/result-center.entity';
 import { ExpenseCategory } from '@modules/expense-categories/domain/expense-category.entity';
 import { OperationalExpense } from '@modules/operational-expenses/domain/operational-expense.entity';
+import { RecurringOperationalExpense } from '@modules/operational-expenses/domain/recurring-operational-expense.entity';
+import { RecurringOperationalExpenseRun } from '@modules/operational-expenses/domain/recurring-operational-expense-run.entity';
+import { RecurringOperationalExpenses1757280000000 } from '../migrations/1757280000000-RecurringOperationalExpenses';
 import { AccountingAccount } from '@modules/accounting-accounts/domain/accounting-account.entity';
 import { AccountingRule } from '@modules/accounting-rules/domain/accounting-rule.entity';
 import { AccountingPeriod } from '@modules/accounting-periods/domain/accounting-period.entity';
@@ -290,6 +293,8 @@ export const AppDataSource = new DataSource({
     ResultCenter,
     ExpenseCategory,
     OperationalExpense,
+    RecurringOperationalExpense,
+    RecurringOperationalExpenseRun,
     AccountingAccount,
     AccountingRule,
     AccountingRuleLine,
@@ -483,6 +488,7 @@ export const AppDataSource = new DataSource({
     HcmLaborUnitShifts1757250000000,
     HcmShiftSystems1757260000000,
     HcmShiftInstanceLaborUnitShift1757270000000,
+    RecurringOperationalExpenses1757280000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

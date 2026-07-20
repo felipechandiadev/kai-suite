@@ -35,6 +35,8 @@ import { Storage } from '@modules/storages/domain/storage.entity';
 import { ResultCenter } from '@modules/result-centers/domain/result-center.entity';
 import { ExpenseCategory } from '@modules/expense-categories/domain/expense-category.entity';
 import { OperationalExpense } from '@modules/operational-expenses/domain/operational-expense.entity';
+import { RecurringOperationalExpense } from '@modules/operational-expenses/domain/recurring-operational-expense.entity';
+import { RecurringOperationalExpenseRun } from '@modules/operational-expenses/domain/recurring-operational-expense-run.entity';
 import { AccountingAccount } from '@modules/accounting-accounts/domain/accounting-account.entity';
 import { AccountingRule } from '@modules/accounting-rules/domain/accounting-rule.entity';
 import { AccountingPeriod } from '@modules/accounting-periods/domain/accounting-period.entity';
@@ -184,6 +186,8 @@ export const typeOrmConfig = (
       ResultCenter,
       ExpenseCategory,
       OperationalExpense,
+      RecurringOperationalExpense,
+      RecurringOperationalExpenseRun,
       AccountingAccount,
       AccountingRule,
       AccountingRuleLine,

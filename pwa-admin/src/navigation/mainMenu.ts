@@ -86,8 +86,11 @@ export const mainMenuItems: SideBarMenuItem[] = [
     id: 'nav-treasury',
     label: 'Tesorería',
     children: [
-      { id: 'treasury-expenses', label: 'Gastos operativos', url: '/treasury/expenses' },
-      { id: 'treasury-expense-categories', label: 'Categorías de gasto', url: '/treasury/expense-categories' },
+      {
+        id: 'treasury-operating-expenses',
+        label: 'Gastos de operación',
+        url: '/treasury/operating-expenses',
+      },
       { id: 'treasury-accounts', label: 'Cuentas bancarias y cajas', url: '/treasury/accounts' },
       {
         id: 'treasury-checks',

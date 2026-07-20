@@ -12,7 +12,7 @@ import type {
   UpdateExpenseCategoryResult,
 } from "../types/expense-category.types";
 
-const PATH = "/treasury/expense-categories";
+const PATH = "/treasury/operating-expenses/categories";
 
 function revalidateExpenseCategoriesRoute() {
   revalidatePath(PATH, "page");

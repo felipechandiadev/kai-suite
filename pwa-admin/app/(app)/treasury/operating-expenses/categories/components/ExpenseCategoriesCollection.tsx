@@ -49,7 +49,6 @@ export function ExpenseCategoriesCollection({
 
   return (
     <CollectionPageLayout
-      title="Categorías de gasto operativo"
       addAction={<ExpenseCategoriesCollectionAddAction groupOptions={groupOptions} />}
       showSearch
       searchParamName="search"
