@@ -1103,6 +1103,57 @@ const SEED_EMPLOYEES: readonly {
       laborUnitCode: 'UL00002',
     },
   },
+  {
+    person: {
+      firstName: 'Sofía',
+      lastName: 'Vargas Núñez',
+      documentNumber: '17.205.884-3',
+      email: 'sofia.vargas@empleado.local',
+      phone: '+56 9 7654 3210',
+      address: 'Av. Providencia 1200, Providencia',
+    },
+    employee: {
+      employmentType: EmploymentType.FULL_TIME,
+      status: EmployeeStatus.ACTIVE,
+      hireDate: '2023-04-01',
+      baseSalary: '520000',
+      laborUnitCode: 'UL00001',
+    },
+  },
+  {
+    person: {
+      firstName: 'Nicolás',
+      lastName: 'Bravo Soto',
+      documentNumber: '17.100.012-2',
+      email: 'nicolas.bravo@empleado.local',
+      phone: '+56 9 7000 0012',
+      address: 'Calle Estado 450, Santiago Centro',
+    },
+    employee: {
+      employmentType: EmploymentType.FULL_TIME,
+      status: EmployeeStatus.ACTIVE,
+      hireDate: '2024-01-15',
+      baseSalary: '500000',
+      laborUnitCode: 'UL00001',
+    },
+  },
+  {
+    person: {
+      firstName: 'Fernanda',
+      lastName: 'Lagos Ruiz',
+      documentNumber: '17.100.013-0',
+      email: 'fernanda.lagos@empleado.local',
+      phone: '+56 9 7000 0013',
+      address: 'Av. Vicuña Mackenna 890, Ñuñoa',
+    },
+    employee: {
+      employmentType: EmploymentType.FULL_TIME,
+      status: EmployeeStatus.ACTIVE,
+      hireDate: '2024-09-01',
+      baseSalary: '480000',
+      laborUnitCode: 'UL00001',
+    },
+  },
 ] as const;
 
 /** Comisión AFP (puntos %), catálogo Chile seed. */
@@ -1594,6 +1645,45 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
     shiftSystemCode: 'SS00002',
     jobPositionCode: 'JP00009',
     afpCode: 'AFP00003',
+    healthSystem: 'FONASA',
+    mutualName: 'ACHS',
+    tipsEligible: true,
+  },
+  '17.205.884-3': {
+    kind: EmploymentContractKind.LABOR,
+    laborType: EmploymentLaborType.INDEFINITE,
+    workRegime: WorkRegime.ORDINARY,
+    weeklyHours: '45',
+    extraHoursMode: ExtraHoursMode.PAID_OVERTIME,
+    shiftSystemCode: 'SS00002',
+    jobPositionCode: 'JP00001',
+    afpCode: 'AFP00004',
+    healthSystem: 'FONASA',
+    mutualName: 'ACHS',
+    tipsEligible: true,
+  },
+  '17.100.012-2': {
+    kind: EmploymentContractKind.LABOR,
+    laborType: EmploymentLaborType.INDEFINITE,
+    workRegime: WorkRegime.ORDINARY,
+    weeklyHours: '45',
+    extraHoursMode: ExtraHoursMode.PAID_OVERTIME,
+    shiftSystemCode: 'SS00002',
+    jobPositionCode: 'JP00001',
+    afpCode: 'AFP00002',
+    healthSystem: 'FONASA',
+    mutualName: 'ACHS',
+    tipsEligible: true,
+  },
+  '17.100.013-0': {
+    kind: EmploymentContractKind.LABOR,
+    laborType: EmploymentLaborType.INDEFINITE,
+    workRegime: WorkRegime.ORDINARY,
+    weeklyHours: '45',
+    extraHoursMode: ExtraHoursMode.PAID_OVERTIME,
+    shiftSystemCode: 'SS00001',
+    jobPositionCode: 'JP00001',
+    afpCode: 'AFP00001',
     healthSystem: 'FONASA',
     mutualName: 'ACHS',
     tipsEligible: true,
@@ -3736,6 +3826,7 @@ async function bootstrap() {
           email: item.person.email,
           phone: item.person.phone,
           address: item.person.address,
+          companyId: company.id,
         });
       } else {
         person.type = PersonType.NATURAL;
@@ -3745,6 +3836,7 @@ async function bootstrap() {
         person.email = item.person.email;
         person.phone = item.person.phone;
         person.address = item.person.address;
+        person.companyId = company.id;
       }
       const displayName = `${item.person.firstName} ${item.person.lastName}`.trim();
       const seedBankRow = buildSeedEmployeeBankAccount(
@@ -4360,12 +4452,67 @@ async function bootstrap() {
       throw new Error(`Usuario admin seed '${userName}' no encontrado tras ensureSeedUser`);
     }
 
+    // Operadores POS antes del historial operativo (ventas los usan como userId).
+    await ensureSeedUser({
+      userName: 'operador',
+      password: seedPassword,
+      rol: UserRole.POS_OPERATOR,
+      companyId: company.id,
+      nonDeletable: false,
+      firstName: 'Sofía',
+      lastName: 'Vargas Núñez',
+      email: 'sofia.vargas@empleado.local',
+      documentNumber: '17.205.884-3',
+      phone: '+56 9 7654 3210',
+    });
+
+    await ensureSeedUser({
+      userName: 'operador2',
+      password: seedPassword,
+      rol: UserRole.POS_OPERATOR,
+      companyId: company.id,
+      nonDeletable: false,
+      firstName: 'Nicolás',
+      lastName: 'Bravo Soto',
+      email: 'nicolas.bravo@empleado.local',
+      documentNumber: '17.100.012-2',
+      phone: '+56 9 7000 0012',
+    });
+
+    await ensureSeedUser({
+      userName: 'operador3',
+      password: seedPassword,
+      rol: UserRole.POS_OPERATOR,
+      companyId: company.id,
+      nonDeletable: false,
+      firstName: 'Fernanda',
+      lastName: 'Lagos Ruiz',
+      email: 'fernanda.lagos@empleado.local',
+      documentNumber: '17.100.013-0',
+      phone: '+56 9 7000 0013',
+    });
+
+    const operatorUserNames = ['operador', 'operador2', 'operador3'] as const;
+    const operatorUserIds: Record<string, string> = {};
+    for (const opName of operatorUserNames) {
+      const opUser = await userRepo.findOne({
+        where: { userName: opName, deletedAt: null as never },
+      });
+      if (!opUser) {
+        throw new Error(
+          `Usuario operador seed '${opName}' no encontrado tras ensureSeedUser`,
+        );
+      }
+      operatorUserIds[opName] = opUser.id;
+    }
+
     await seedDemoOperationalHistory({
       app,
       dataSource,
       companyId: company.id,
       branchId: seedBranch.id,
       adminUserId: adminUser.id,
+      operatorUserIds,
     });
 
     await ensureSeedUser({
@@ -4380,18 +4527,6 @@ async function bootstrap() {
       documentNumber: '15.333.222-1',
       phone: '+56 9 1111 2222',
       preferOwner: false,
-    });
-
-    await ensureSeedUser({
-      userName: 'operador',
-      password: seedPassword,
-      rol: UserRole.POS_OPERATOR,
-      companyId: company.id,
-      nonDeletable: false,
-      firstName: 'Operador de POS',
-      email: 'operador@kai.local',
-      documentNumber: '17.205.884-3',
-      phone: '+56 9 7654 3210',
     });
 
     await ensureSeedUser({
@@ -4473,7 +4608,13 @@ async function bootstrap() {
       `   • admin2 / ${seedPassword}         (ADMIN no-owner · Pedro Soto Núñez · 15.333.222-1)`,
     );
     console.log(
-      `   • operador / ${seedPassword}    (POS_OPERATOR · Operador de POS · 17.205.884-3)`,
+      `   • operador / ${seedPassword}    (POS_OPERATOR · Sofía Vargas · 17.205.884-3 · cajero)`,
+    );
+    console.log(
+      `   • operador2 / ${seedPassword}   (POS_OPERATOR · Nicolás Bravo · 17.100.012-2 · cajero)`,
+    );
+    console.log(
+      `   • operador3 / ${seedPassword}   (POS_OPERATOR · Fernanda Lagos · 17.100.013-0 · cajero)`,
     );
     console.log(
       `   • delivery1 / ${seedPassword}   (COURIER · Matías Fuentes Lagos · 18.103.772-5)`,

@@ -14,24 +14,30 @@ export type SeedSaleLine = {
   unitPriceNet: number;
 };
 
+export type SeedSaleOperatorUserName = 'operador' | 'operador2' | 'operador3';
+
 export type SeedSaleDoc = {
   daysAgo: number;
   /** null = venta mostrador sin cliente. */
   customerDoc: string | null;
   posName: 'Caja 1' | 'Caja 2';
+  /** Usuario POS_OPERATOR que registra la venta (no admin). */
+  operatorUserName: SeedSaleOperatorUserName;
   paymentMethod: SeedSalePaymentMethod;
   lines: SeedSaleLine[];
 };
 
 /**
- * Ventas ancladas a SKUs comprados en SEED_DEMO_PURCHASE_PLAN.
+ * Ventas ancladas a SKUs PHYSICAL del catálogo (compras generadas en seed operativo).
  * daysAgo siempre menor que la recepción que abastece el SKU.
+ * Caja 1 ↔ operador / operador2; Caja 2 ↔ operador3 (mix ~parejo).
  */
 export const SEED_DEMO_SALES_PLAN: SeedSaleDoc[] = [
   {
     daysAgo: 80,
     customerDoc: null,
     posName: 'Caja 1',
+    operatorUserName: 'operador',
     paymentMethod: 'CASH',
     lines: [{ sku: 'SEEDDEVCAFE1KG', qty: 2, unitPriceNet: 8990 }],
   },
@@ -39,6 +45,7 @@ export const SEED_DEMO_SALES_PLAN: SeedSaleDoc[] = [
     daysAgo: 78,
     customerDoc: '16.345.789-2',
     posName: 'Caja 1',
+    operatorUserName: 'operador2',
     paymentMethod: 'DEBIT_CARD',
     lines: [
       { sku: 'SEEDDEVGAL400', qty: 3, unitPriceNet: 1990 },
@@ -49,6 +56,7 @@ export const SEED_DEMO_SALES_PLAN: SeedSaleDoc[] = [
     daysAgo: 70,
     customerDoc: '18.999.111-K',
     posName: 'Caja 2',
+    operatorUserName: 'operador3',
     paymentMethod: 'CREDIT_CARD',
     lines: [
       { sku: 'SEEDDEVPOLS', qty: 1, unitPriceNet: 12490 },
@@ -59,6 +67,7 @@ export const SEED_DEMO_SALES_PLAN: SeedSaleDoc[] = [
     daysAgo: 65,
     customerDoc: null,
     posName: 'Caja 1',
+    operatorUserName: 'operador',
     paymentMethod: 'CASH',
     lines: [
       { sku: 'SEEDDEVCUAROJ', qty: 4, unitPriceNet: 1990 },
@@ -69,6 +78,7 @@ export const SEED_DEMO_SALES_PLAN: SeedSaleDoc[] = [
     daysAgo: 55,
     customerDoc: '76.555.222-K',
     posName: 'Caja 1',
+    operatorUserName: 'operador2',
     paymentMethod: 'TRANSFER',
     lines: [{ sku: 'SEEDDEVCAFE500', qty: 10, unitPriceNet: 4990 }],
   },
@@ -76,6 +86,7 @@ export const SEED_DEMO_SALES_PLAN: SeedSaleDoc[] = [
     daysAgo: 50,
     customerDoc: null,
     posName: 'Caja 2',
+    operatorUserName: 'operador3',
     paymentMethod: 'CASH',
     lines: [{ sku: 'SEEDDEVCAFE500', qty: 2, unitPriceNet: 4990 }],
   },
@@ -83,6 +94,7 @@ export const SEED_DEMO_SALES_PLAN: SeedSaleDoc[] = [
     daysAgo: 42,
     customerDoc: '14.555.222-7',
     posName: 'Caja 1',
+    operatorUserName: 'operador',
     paymentMethod: 'DEBIT_CARD',
     lines: [{ sku: 'SEEDDEVCALSNEG', qty: 6, unitPriceNet: 2990 }],
   },
@@ -90,6 +102,7 @@ export const SEED_DEMO_SALES_PLAN: SeedSaleDoc[] = [
     daysAgo: 40,
     customerDoc: null,
     posName: 'Caja 2',
+    operatorUserName: 'operador3',
     paymentMethod: 'CHECK',
     lines: [
       { sku: 'SEEDDEVTE20', qty: 4, unitPriceNet: 2490 },
@@ -100,6 +113,7 @@ export const SEED_DEMO_SALES_PLAN: SeedSaleDoc[] = [
     daysAgo: 35,
     customerDoc: '77.888.123-4',
     posName: 'Caja 1',
+    operatorUserName: 'operador2',
     paymentMethod: 'TRANSFER',
     lines: [
       { sku: 'SEEDDEVTE20', qty: 8, unitPriceNet: 2490 },
@@ -110,6 +124,7 @@ export const SEED_DEMO_SALES_PLAN: SeedSaleDoc[] = [
     daysAgo: 25,
     customerDoc: '16.345.789-2',
     posName: 'Caja 1',
+    operatorUserName: 'operador',
     paymentMethod: 'CREDIT_CARD',
     lines: [{ sku: 'SEEDDEVCAFE1KG', qty: 3, unitPriceNet: 8990 }],
   },
@@ -117,6 +132,7 @@ export const SEED_DEMO_SALES_PLAN: SeedSaleDoc[] = [
     daysAgo: 22,
     customerDoc: null,
     posName: 'Caja 2',
+    operatorUserName: 'operador3',
     paymentMethod: 'CASH',
     lines: [{ sku: 'SEEDDEVCAFE1KG', qty: 1, unitPriceNet: 8990 }],
   },
@@ -124,6 +140,7 @@ export const SEED_DEMO_SALES_PLAN: SeedSaleDoc[] = [
     daysAgo: 18,
     customerDoc: '18.999.111-K',
     posName: 'Caja 1',
+    operatorUserName: 'operador2',
     paymentMethod: 'DEBIT_CARD',
     lines: [{ sku: 'SEEDDEVPOLS', qty: 2, unitPriceNet: 12490 }],
   },
@@ -131,6 +148,7 @@ export const SEED_DEMO_SALES_PLAN: SeedSaleDoc[] = [
     daysAgo: 12,
     customerDoc: null,
     posName: 'Caja 1',
+    operatorUserName: 'operador',
     paymentMethod: 'CASH',
     lines: [
       { sku: 'SEEDDEVCAFE250', qty: 5, unitPriceNet: 2790 },
@@ -141,6 +159,7 @@ export const SEED_DEMO_SALES_PLAN: SeedSaleDoc[] = [
     daysAgo: 10,
     customerDoc: '76.555.222-K',
     posName: 'Caja 2',
+    operatorUserName: 'operador3',
     paymentMethod: 'TRANSFER',
     lines: [{ sku: 'SEEDDEVCAFE250', qty: 12, unitPriceNet: 2790 }],
   },
@@ -148,6 +167,7 @@ export const SEED_DEMO_SALES_PLAN: SeedSaleDoc[] = [
     daysAgo: 6,
     customerDoc: null,
     posName: 'Caja 1',
+    operatorUserName: 'operador2',
     paymentMethod: 'DEBIT_CARD',
     lines: [
       { sku: 'SEEDDEVTOABLA', qty: 2, unitPriceNet: 8990 },
@@ -158,6 +178,7 @@ export const SEED_DEMO_SALES_PLAN: SeedSaleDoc[] = [
     daysAgo: 4,
     customerDoc: '14.555.222-7',
     posName: 'Caja 1',
+    operatorUserName: 'operador',
     paymentMethod: 'CREDIT_CARD',
     lines: [{ sku: 'SEEDDEVTOABLA', qty: 1, unitPriceNet: 8990 }],
   },
@@ -165,6 +186,7 @@ export const SEED_DEMO_SALES_PLAN: SeedSaleDoc[] = [
     daysAgo: 2,
     customerDoc: null,
     posName: 'Caja 2',
+    operatorUserName: 'operador3',
     paymentMethod: 'CASH',
     lines: [
       { sku: 'SEEDDEVCUAROJ', qty: 2, unitPriceNet: 1990 },
@@ -175,6 +197,7 @@ export const SEED_DEMO_SALES_PLAN: SeedSaleDoc[] = [
     daysAgo: 1,
     customerDoc: '16.345.789-2',
     posName: 'Caja 1',
+    operatorUserName: 'operador2',
     paymentMethod: 'TRANSFER',
     lines: [{ sku: 'SEEDDEVHDMI2', qty: 1, unitPriceNet: 5990 }],
   },

@@ -1339,3 +1339,18 @@ export function collectSeedDevCatalogSkus(): Set<string> {
 export function collectSeedDevCatalogProductNames(): Set<string> {
   return new Set(SEED_DEV_PRODUCTS.map((p) => p.name));
 }
+
+/** Variantes PHYSICAL del catálogo seed (sku + baseCost) para planes de compra. */
+export function collectSeedDevPhysicalVariants(): Array<{ sku: string; baseCost: number }> {
+  const rows: Array<{ sku: string; baseCost: number }> = [];
+  for (const product of SEED_DEV_PRODUCTS) {
+    if (product.productType !== ProductType.PHYSICAL) continue;
+    for (const variant of product.variants) {
+      rows.push({
+        sku: variant.sku,
+        baseCost: Number(variant.baseCost) || 0,
+      });
+    }
+  }
+  return rows;
+}

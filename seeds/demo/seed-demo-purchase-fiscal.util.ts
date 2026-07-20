@@ -9,20 +9,23 @@ export type SupplierFiscalAmountsPayload = {
   taxRatePct: number;
 };
 
+export type SupplierPaymentMethod = 'TRANSFER' | 'CHECK';
+
+export type SupplierDocumentPaymentLine = {
+  dueDate: string;
+  amount: number;
+  paymentMethod: SupplierPaymentMethod;
+  companyBankAccountKey: string;
+  chequeNumber?: string;
+};
+
 export type SupplierDocumentPaymentPayload = {
-  mode: 'COMPLETED' | 'PENDING_SCHEDULED';
-  paidLines: Array<{
-    dueDate: string;
-    amount: number;
-    paymentMethod: 'TRANSFER';
-    companyBankAccountKey: string;
-  }>;
-  scheduledLines: Array<{
-    dueDate: string;
-    amount: number;
-    paymentMethod?: 'TRANSFER';
-    companyBankAccountKey?: string;
-  }>;
+  mode: 'COMPLETED' | 'PARTIAL' | 'PENDING_SCHEDULED';
+  partialPaidAmount?: number;
+  paidLines: SupplierDocumentPaymentLine[];
+  scheduledLines: SupplierDocumentPaymentLine[];
+  paidInstallments: number;
+  pendingInstallments: number;
 };
 
 function roundClp(value: number): number {
@@ -66,23 +69,38 @@ function splitInstallments(total: number, count: 2 | 3): number[] {
   return amounts;
 }
 
+function chequeNumberForDoc(doc: SeedPurchaseDoc): string {
+  const digits = doc.reference.replace(/\D/g, '').slice(-6) || '000001';
+  return `SEED-CHQ-${digits}`;
+}
+
+/**
+ * Contado o cuotas con settle-by-today:
+ * vencidas → paidLines (CONFIRMED); futuras → scheduledLines (DRAFT).
+ */
 export function buildSupplierDocumentPayment(
   doc: SeedPurchaseDoc,
   fiscalTotal: number,
   occurredOn: string,
+  todayIso?: string,
 ): SupplierDocumentPaymentPayload {
-  if (doc.paymentStrategy === 'transfer') {
-    return {
-      mode: 'COMPLETED',
-      paidLines: [
-        {
-          dueDate: occurredOn,
-          amount: fiscalTotal,
-          paymentMethod: 'TRANSFER',
-          companyBankAccountKey: PRIMARY_BANK_ACCOUNT_KEY,
-        },
-      ],
+  const today = (todayIso ?? new Date().toISOString().slice(0, 10)).slice(0, 10);
+
+  if (doc.paymentStrategy === 'transfer' || doc.paymentStrategy === 'check') {
+    const isCheck = doc.paymentStrategy === 'check';
+    const paidLine: SupplierDocumentPaymentLine = {
+      dueDate: occurredOn,
+      amount: fiscalTotal,
+      paymentMethod: isCheck ? 'CHECK' : 'TRANSFER',
+      companyBankAccountKey: PRIMARY_BANK_ACCOUNT_KEY,
+      ...(isCheck ? { chequeNumber: chequeNumberForDoc(doc) } : {}),
+    };
+return {
+    mode: 'COMPLETED',
+      paidLines: [paidLine],
       scheduledLines: [],
+      paidInstallments: 1,
+      pendingInstallments: 0,
     };
   }
 
@@ -90,14 +108,41 @@ export function buildSupplierDocumentPayment(
   const gapDays = installmentCount === 2 ? 30 : 15;
   const amounts = splitInstallments(fiscalTotal, installmentCount);
 
-  return {
-    mode: 'PENDING_SCHEDULED',
-    paidLines: [],
-    scheduledLines: amounts.map((amount, index) => ({
-      dueDate: addDaysToIsoDate(occurredOn, gapDays * (index + 1)),
+  const paidLines: SupplierDocumentPaymentLine[] = [];
+  const scheduledLines: SupplierDocumentPaymentLine[] = [];
+
+  amounts.forEach((amount, index) => {
+    const dueDate = addDaysToIsoDate(occurredOn, gapDays * (index + 1));
+    const line: SupplierDocumentPaymentLine = {
+      dueDate,
       amount,
-      paymentMethod: 'TRANSFER' as const,
+      paymentMethod: 'TRANSFER',
       companyBankAccountKey: PRIMARY_BANK_ACCOUNT_KEY,
-    })),
+    };
+    if (dueDate <= today) {
+      paidLines.push(line);
+    } else {
+      scheduledLines.push(line);
+    }
+  });
+
+  let mode: SupplierDocumentPaymentPayload['mode'];
+  if (paidLines.length === 0) {
+    mode = 'PENDING_SCHEDULED';
+  } else if (scheduledLines.length === 0) {
+    mode = 'COMPLETED';
+  } else {
+    mode = 'PARTIAL';
+  }
+
+  const paidSum = paidLines.reduce((s, l) => s + l.amount, 0);
+
+  return {
+    mode,
+    ...(mode === 'PARTIAL' ? { partialPaidAmount: paidSum } : {}),
+    paidLines,
+    scheduledLines,
+    paidInstallments: paidLines.length,
+    pendingInstallments: scheduledLines.length,
   };
 }

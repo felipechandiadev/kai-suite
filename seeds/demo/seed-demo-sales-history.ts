@@ -52,9 +52,10 @@ export async function seedDemoSalesHistory(ctx: {
   dataSource: DataSource;
   companyId: string;
   branchId: string;
-  adminUserId: string;
+  /** userName → userId de operadores POS (operador / operador2 / operador3). */
+  operatorUserIds: Record<string, string>;
 }): Promise<void> {
-  const { app, dataSource, companyId, branchId, adminUserId } = ctx;
+  const { app, dataSource, companyId, branchId, operatorUserIds } = ctx;
   const transactionsService = app.get(TransactionsService);
 
   const ivaTax = await dataSource.getRepository(Tax).findOne({
@@ -100,10 +101,19 @@ export async function seedDemoSalesHistory(ctx: {
   const sorted = [...SEED_DEMO_SALES_PLAN].sort((a, b) => b.daysAgo - a.daysAgo);
   let saleCount = 0;
   const paymentCounts: Record<string, number> = {};
+  const operatorCounts: Record<string, number> = {};
+  const posCounts: Record<string, number> = {};
   let withCustomer = 0;
   let withoutCustomer = 0;
 
   for (const doc of sorted) {
+    const operatorUserId = operatorUserIds[doc.operatorUserName];
+    if (!operatorUserId) {
+      throw new Error(
+        `Operador POS seed no encontrado: ${doc.operatorUserName} (crear usuarios antes del historial de ventas)`,
+      );
+    }
+
     const posId = posByName.get(doc.posName);
     if (!posId) {
       throw new Error(`POS seed no encontrado: ${doc.posName}`);
@@ -165,7 +175,7 @@ export async function seedDemoSalesHistory(ctx: {
     const dto = new CreateTransactionDto();
     dto.transactionType = TransactionType.SALE;
     dto.branchId = branchId;
-    dto.userId = adminUserId;
+    dto.userId = operatorUserId;
     dto.pointOfSaleId = posId;
     dto.storageId = storage.id;
     dto.customerId = customerId;
@@ -195,15 +205,22 @@ export async function seedDemoSalesHistory(ctx: {
       occurredOn,
     });
     saleCount += 1;
+    operatorCounts[doc.operatorUserName] =
+      (operatorCounts[doc.operatorUserName] ?? 0) + 1;
+    posCounts[doc.posName] = (posCounts[doc.posName] ?? 0) + 1;
     console.log(
-      `✅ Venta seed ${created.documentNumber} (${occurredOn}) — $${total.toLocaleString('es-CL')} · ${doc.paymentMethod}${customerId ? ' · con cliente' : ' · mostrador'}`,
+      `✅ Venta seed ${created.documentNumber} (${occurredOn}) — $${total.toLocaleString('es-CL')} · ${doc.posName} · ${doc.operatorUserName} · ${doc.paymentMethod}${customerId ? ' · con cliente' : ' · mostrador'}`,
     );
   }
 
   console.log(
-    `🧾 Ventas seed: ${saleCount} (con cliente ${withCustomer}, mostrador ${withoutCustomer}) · mix ${Object.entries(
-      paymentCounts,
+    `🧾 Ventas seed: ${saleCount} (con cliente ${withCustomer}, mostrador ${withoutCustomer}) · POS ${Object.entries(
+      posCounts,
     )
+      .map(([k, v]) => `${k}=${v}`)
+      .join(', ')} · ops ${Object.entries(operatorCounts)
+      .map(([k, v]) => `${k}=${v}`)
+      .join(', ')} · mix ${Object.entries(paymentCounts)
       .map(([k, v]) => `${k}=${v}`)
       .join(', ')}`,
   );

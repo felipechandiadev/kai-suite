@@ -22,7 +22,8 @@ import {
   patchTransactionHistoricalDate,
   seedHistoricalDateFromDaysAgo,
 } from './seed-demo-historical-dates.util';
-import { SEED_DEMO_PURCHASE_PLAN } from './seed-demo-purchase-plan';
+import { buildSeedDemoPurchasePlan } from './seed-demo-purchase-plan';
+import { collectSeedDevPhysicalVariants } from './catalog';
 import {
   buildSupplierDocumentPayment,
   buildSupplierFiscalAmounts,
@@ -39,8 +40,11 @@ export async function seedDemoOperationalHistory(ctx: {
   companyId: string;
   branchId: string;
   adminUserId: string;
+  /** userName → userId de operadores POS para ventas. */
+  operatorUserIds: Record<string, string>;
 }): Promise<void> {
-  const { app, dataSource, companyId, branchId, adminUserId } = ctx;
+  const { app, dataSource, companyId, branchId, adminUserId, operatorUserIds } =
+    ctx;
 
   const capitalService = app.get(CapitalContributionsService);
   const bankTransferService = app.get(BankTransfersService);
@@ -53,13 +57,13 @@ export async function seedDemoOperationalHistory(ctx: {
   const variantBySku = await loadVariantIds(dataSource, companyId);
   const supplierByAlias = await loadSupplierIds(dataSource, companyId);
 
-  const treasuryDate = seedHistoricalDateFromDaysAgo(90);
+  const treasuryDate = seedHistoricalDateFromDaysAgo(180);
   console.log(`📅 Seed operativo: ancla tesorería ${treasuryDate}`);
 
   const capitalRes = await capitalService.create({
     shareholderId,
     bankAccountKey: PRIMARY_BANK_ACCOUNT_KEY,
-    amount: 10_000_000,
+    amount: 25_000_000,
     occurredOn: treasuryDate,
     notes: 'Aporte de capital seed — Ana García López',
   });
@@ -71,7 +75,7 @@ export async function seedDemoOperationalHistory(ctx: {
     transactionId: capitalRes.data.id,
     occurredOn: treasuryDate,
   });
-  console.log(`✅ Aporte capital $10.000.000 → banco (${treasuryDate})`);
+  console.log(`✅ Aporte capital $25.000.000 → banco (${treasuryDate})`);
 
   const transferRes = await bankTransferService.create({
     bankAccountKey: PRIMARY_BANK_ACCOUNT_KEY,
@@ -91,11 +95,22 @@ export async function seedDemoOperationalHistory(ctx: {
   console.log(`✅ Giro banco→hub Principal $5.000.000 (${treasuryDate})`);
 
   let transferCount = 0;
-  let installmentCount = 0;
+  let checkCount = 0;
+  let installmentCompleted = 0;
+  let installmentPartial = 0;
+  let installmentPending = 0;
   let fiscalDocCount = 0;
   let supplierPaymentCount = 0;
 
-  const sortedPurchases = [...SEED_DEMO_PURCHASE_PLAN].sort((a, b) => b.daysAgo - a.daysAgo);
+  const physicalFromCatalog = collectSeedDevPhysicalVariants().filter((v) =>
+    variantBySku.has(v.sku),
+  );
+  const purchasePlan = buildSeedDemoPurchasePlan(physicalFromCatalog);
+  const sortedPurchases = [...purchasePlan].sort((a, b) => b.daysAgo - a.daysAgo);
+
+  console.log(
+    `🛒 Plan compras seed: ${sortedPurchases.length} recepciones (PHYSICAL cubiertos=${physicalFromCatalog.length})`,
+  );
 
   for (const doc of sortedPurchases) {
     const supplierId = supplierByAlias.get(normalizeAlias(doc.supplierAlias));
@@ -132,8 +147,14 @@ export async function seedDemoOperationalHistory(ctx: {
 
     if (doc.paymentStrategy === 'transfer') {
       transferCount += 1;
+    } else if (doc.paymentStrategy === 'check') {
+      checkCount += 1;
+    } else if (supplierDocumentPayment.mode === 'COMPLETED') {
+      installmentCompleted += 1;
+    } else if (supplierDocumentPayment.mode === 'PARTIAL') {
+      installmentPartial += 1;
     } else {
-      installmentCount += 1;
+      installmentPending += 1;
     }
 
     const res = await receptionsService.createDirect({
@@ -189,14 +210,16 @@ export async function seedDemoOperationalHistory(ctx: {
     const paymentLabel =
       doc.paymentStrategy === 'transfer'
         ? 'transferencia contado'
-        : `${supplierDocumentPayment.scheduledLines.length} cuotas`;
+        : doc.paymentStrategy === 'check'
+          ? 'cheque contado'
+          : `cuotas ${supplierDocumentPayment.mode} (pagadas ${supplierDocumentPayment.paidInstallments}, pendientes ${supplierDocumentPayment.pendingInstallments})`;
     console.log(
       `✅ Recepción ${doc.reference} (${occurredOn}) — neto $${subtotalNeto.toLocaleString('es-CL')} + IVA $${supplierFiscalAmounts.taxAmount.toLocaleString('es-CL')} — ${paymentLabel}`,
     );
   }
 
   console.log(
-    `📄 Documentos proveedor: ${fiscalDocCount} facturas, ${transferCount} pagadas por transferencia, ${installmentCount} con cuotas (${supplierPaymentCount} líneas de pago/cuota)`,
+    `📄 Documentos proveedor: ${fiscalDocCount} facturas · transfer=${transferCount} check=${checkCount} · cuotas completed=${installmentCompleted} partial=${installmentPartial} pending=${installmentPending} · líneas pago=${supplierPaymentCount}`,
   );
 
   await seedDemoSalesHistory({
@@ -204,7 +227,7 @@ export async function seedDemoOperationalHistory(ctx: {
     dataSource,
     companyId,
     branchId,
-    adminUserId,
+    operatorUserIds,
   });
 
   await logOperationalSmokeSummary(dataSource, companyId, variantBySku);

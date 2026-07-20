@@ -1641,6 +1641,10 @@ export class ReceptionsService {
     }
     dto.notes = opts.note;
     const posSessionId = this.resolvePosCashSessionId(opts.dtoHost);
+    const chequeNumber =
+      pm === 'CHECK' && opts.line?.chequeNumber != null
+        ? String(opts.line.chequeNumber).trim()
+        : '';
     dto.metadata = {
       origin: 'RECEPTION_SUPPLIER_PAYMENT',
       installmentNumber: opts.installmentNumber ?? 1,
@@ -1650,6 +1654,17 @@ export class ReceptionsService {
         posSessionId,
         { isScheduled: opts.asDraft },
       ),
+      ...(chequeNumber
+        ? {
+            checkData: {
+              checkNumber: chequeNumber,
+              bankName: 'Banco Estado',
+              bankAccountKey: dto.bankAccountKey ?? null,
+              issueDate: String(opts.line.dueDate || '').trim() || null,
+              dueDate: String(opts.line.dueDate || '').trim() || null,
+            },
+          }
+        : {}),
     };
     const created = await this.transactionsService.createTransaction(dto);
     const sessionId =
