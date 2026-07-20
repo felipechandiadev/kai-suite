@@ -358,7 +358,9 @@ const AutoComplete = <T = Option,>({
     <div className="fs-dropdown-container" ref={containerRef} data-test-id={props["data-test-id"] || "auto-complete-root"} data-has-options={options.length > 0 ? "true" : "false"}>
       <div
         className={`relative w-full min-w-0 fs-text-field__combo-shell rounded-md border border-border focus-within:border-primary ${
-          isCompact ? "flex h-8 min-h-8 max-h-8 items-stretch box-border" : ""
+          isCompact
+            ? "flex h-8 min-h-8 max-h-8 items-stretch box-border"
+            : "flex fs-control-height-md items-stretch"
         } ${disabled ? "fs-text-field__combo-shell--muted cursor-not-allowed opacity-50" : ""}`.trim()}
         onFocusCapture={handleContainerFocusCapture}
         onBlur={handleContainerBlur}

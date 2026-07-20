@@ -71,32 +71,6 @@ export const mainMenuItems: SideBarMenuItem[] = [
     ],
   },
   {
-    id: 'nav-production',
-    label: 'Producción',
-    children: [
-      {
-        id: 'production-orders',
-        label: 'Órdenes de producción',
-        url: '/production/orders',
-      },
-      {
-        id: 'production-manufacturing',
-        label: 'Manufactura',
-        url: '/production/manufacturing',
-      },
-      {
-        id: 'production-elaboration',
-        label: 'Elaboración',
-        url: '/production/elaboration',
-      },
-      {
-        id: 'production-units',
-        label: 'Unidades de producción',
-        url: '/production/units',
-      },
-    ],
-  },
-  {
     id: 'nav-inventory',
     label: 'Inventario y Catálogo',
     children: [
@@ -104,19 +78,6 @@ export const mainMenuItems: SideBarMenuItem[] = [
       { id: 'inventory-stock', label: 'Existencias (Stock)', url: '/inventory/stock' },
       { id: 'inventory-units', label: 'Unidades de medida', url: '/inventory/units' },
       { id: 'inventory-storages', label: 'Almacenes', url: '/inventory/storages' },
-    ],
-  },
-  {
-    id: 'nav-kaifood',
-    label: 'KaiFood',
-    requiresKaiFoodEnabled: true,
-    children: [
-      { id: 'kaifood-rooms', label: 'Salones', url: '/kaifood/rooms' },
-      {
-        id: 'kaifood-config',
-        label: 'Configuración',
-        url: '/kaifood/configuracion',
-      },
     ],
   },
   {
@@ -158,10 +119,35 @@ export const mainMenuItems: SideBarMenuItem[] = [
     label: 'Capital humano',
     children: [
       { id: 'hcm-employees', label: 'Empleados', url: '/hcm/employees' },
-      { id: 'hcm-shifts', label: 'Turnos', url: '/hcm/shifts' },
       { id: 'hcm-work-schedules', label: 'Jornadas', url: '/hcm/work-schedules' },
       { id: 'hcm-remunerations', label: 'Remuneraciones', url: '/hcm/remunerations' },
       { id: 'hcm-settings', label: 'Configuración', url: '/hcm/settings' },
+    ],
+  },
+  {
+    id: 'nav-production',
+    label: 'Producción',
+    children: [
+      {
+        id: 'production-orders',
+        label: 'Órdenes de producción',
+        url: '/production/orders',
+      },
+      {
+        id: 'production-manufacturing',
+        label: 'Manufactura',
+        url: '/production/manufacturing',
+      },
+      {
+        id: 'production-elaboration',
+        label: 'Elaboración',
+        url: '/production/elaboration',
+      },
+      {
+        id: 'production-units',
+        label: 'Unidades de producción',
+        url: '/production/units',
+      },
     ],
   },
   {
@@ -198,6 +184,19 @@ export const mainMenuItems: SideBarMenuItem[] = [
         label: 'Configuración',
         url: '/reparto/configuracion',
         requiresLocalDeliveryEnabled: true,
+      },
+    ],
+  },
+  {
+    id: 'nav-kaifood',
+    label: 'KaiFood',
+    requiresKaiFoodEnabled: true,
+    children: [
+      { id: 'kaifood-rooms', label: 'Salones', url: '/kaifood/rooms' },
+      {
+        id: 'kaifood-config',
+        label: 'Configuración',
+        url: '/kaifood/configuracion',
       },
     ],
   },

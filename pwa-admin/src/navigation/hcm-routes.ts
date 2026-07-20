@@ -1,6 +1,5 @@
 /** Rutas admin de Capital humano (HCM). URLs en inglés; labels del menú en español. */
 export const HCM_EMPLOYEES = "/hcm/employees";
-export const HCM_SHIFTS = "/hcm/shifts";
 export const HCM_WORK_SCHEDULES = "/hcm/work-schedules";
 export const HCM_REMUNERATIONS = "/hcm/remunerations";
 export const HCM_JOB_POSITIONS = "/hcm/job-positions";

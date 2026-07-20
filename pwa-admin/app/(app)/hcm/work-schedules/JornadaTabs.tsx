@@ -14,7 +14,7 @@ import {
 
 const BASE = HCM_WORK_SCHEDULES;
 
-const items = [
+const ALL_ITEMS = [
   { url: BASE, label: "Planificación" },
   { url: HCM_WORK_SCHEDULES_SHIFTS, label: "Turnos UL" },
   { url: HCM_WORK_SCHEDULES_TEMPLATES, label: "Plantillas" },
@@ -23,8 +23,18 @@ const items = [
   { url: HCM_WORK_SCHEDULES_STATEMENTS, label: "Comprobantes" },
 ];
 
+/** Ocultos temporalmente en la UI; las rutas siguen activas. */
+const TEMPORARY_HIDDEN_TAB_URLS = new Set<string>([
+  HCM_WORK_SCHEDULES_TEMPLATES,
+  HCM_WORK_SCHEDULES_EXCEPTIONS,
+  HCM_WORK_SCHEDULES_COMPENSATORY,
+  HCM_WORK_SCHEDULES_STATEMENTS,
+]);
+
+const visibleItems = ALL_ITEMS.filter((tab) => !TEMPORARY_HIDDEN_TAB_URLS.has(tab.url));
+
 function activeTabUrl(pathname: string): string {
-  const matches = items.filter((tab) => {
+  const matches = ALL_ITEMS.filter((tab) => {
     if (tab.url === BASE) {
       return pathname === BASE || pathname === `${BASE}/`;
     }
@@ -40,7 +50,7 @@ export function JornadaTabs() {
 
   return (
     <div className="w-fit max-w-full shrink-0 border-b border-border">
-      <Tabs items={items} activeTab={activeTab} />
+      <Tabs items={visibleItems} activeTab={activeTab} />
     </div>
   );
 }

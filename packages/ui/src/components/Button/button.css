@@ -3,6 +3,7 @@
  */
 .fs-button {
   display: inline-block;
+  box-sizing: border-box;
   font-weight: 500;
   font-size: 0.875rem;
   line-height: 1.25rem;
@@ -29,6 +30,10 @@
 .fs-button:active:not(:disabled) {
   transform: scale(0.9);
   box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.12);
+}
+
+.fs-button--size-md {
+  min-height: var(--control-height-md, 2.25rem);
 }
 
 /* Contained */

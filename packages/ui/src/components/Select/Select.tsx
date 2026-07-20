@@ -155,7 +155,7 @@ const Select: React.FC<SelectProps> = ({
       insetShell
         ? isCompact
           ? "flex h-8 min-h-8 w-full min-w-0 items-stretch box-border"
-          : "flex h-[2.75rem] min-h-[2.75rem] w-full min-w-0 items-stretch box-border"
+          : "flex fs-control-height-md w-full min-w-0 items-stretch"
         : isCompact
           ? "flex h-8 min-h-8 w-full min-w-0 items-stretch box-border"
           : ""
@@ -326,7 +326,7 @@ const Select: React.FC<SelectProps> = ({
             className={`relative w-full cursor-pointer select-none fs-text-field__combo-shell rounded-md border border-border focus-within:border-primary ${
               isCompact
                 ? "flex h-8 min-h-8 max-h-8 min-w-0 items-stretch box-border"
-                : "min-h-[2.75rem]"
+                : "fs-control-min-height-md"
             } ${disabled ? "fs-text-field__combo-shell--muted cursor-not-allowed opacity-50" : ""}`.trim()}
             onFocus={() => !disabled && setFocused(true)}
             onBlur={() => {
@@ -371,7 +371,7 @@ const Select: React.FC<SelectProps> = ({
               className={`flex min-w-0 flex-1 items-center ${
                 isCompact
                   ? "box-border h-full max-h-full min-h-0 px-2.5 py-0 text-[0.8125rem] leading-5"
-                  : "min-h-[2.75rem] px-3 py-2 text-sm"
+                  : "fs-control-min-height-md px-3 py-[var(--control-padding-y-md,0.5rem)] text-sm"
               } ${hasClear ? "pr-12" : "pr-8"}`.trim()}
             >
               <span

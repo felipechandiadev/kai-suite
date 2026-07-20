@@ -4,11 +4,11 @@ import { revalidatePath } from "next/cache";
 import {
   HCM_EMPLOYEES,
   HCM_REMUNERATIONS,
-  HCM_SHIFTS,
   HCM_WORK_SCHEDULES,
   HCM_WORK_SCHEDULES_COMPENSATORY,
   HCM_WORK_SCHEDULES_EXCEPTIONS,
   HCM_WORK_SCHEDULES_SETTINGS,
+  HCM_WORK_SCHEDULES_SHIFTS,
   HCM_WORK_SCHEDULES_STATEMENTS,
   HCM_WORK_SCHEDULES_TEMPLATES,
   SETTINGS_HCM,
@@ -283,7 +283,7 @@ export async function createEmployeeShiftAction(body: Record<string, unknown>) {
   try {
     const data = await HrJornadaRequest.createEmployeeShift(body);
     revalidatePath(HCM_EMPLOYEES, "page");
-    revalidatePath(HCM_SHIFTS, "page");
+    revalidatePath(HCM_WORK_SCHEDULES_SHIFTS, "page");
     revalidatePath(HCM_WORK_SCHEDULES, "layout");
     return ok(data);
   } catch (e) {
@@ -298,7 +298,7 @@ export async function updateEmployeeShiftAction(
   try {
     const data = await HrJornadaRequest.updateEmployeeShift(id, body);
     revalidatePath(HCM_EMPLOYEES, "page");
-    revalidatePath(HCM_SHIFTS, "page");
+    revalidatePath(HCM_WORK_SCHEDULES_SHIFTS, "page");
     return ok(data);
   } catch (e) {
     return fail(e instanceof Error ? e.message : "Error al actualizar turno");
@@ -308,7 +308,7 @@ export async function updateEmployeeShiftAction(
 export async function deleteEmployeeShiftAction(id: string) {
   try {
     await HrJornadaRequest.deleteEmployeeShift(id);
-    revalidatePath(HCM_SHIFTS, "page");
+    revalidatePath(HCM_WORK_SCHEDULES_SHIFTS, "page");
     return ok(true);
   } catch (e) {
     return fail(e instanceof Error ? e.message : "Error al eliminar turno");

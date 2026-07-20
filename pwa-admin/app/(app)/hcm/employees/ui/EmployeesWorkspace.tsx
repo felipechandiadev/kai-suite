@@ -36,12 +36,12 @@ type EmployeesWorkspaceProps = {
 };
 
 function readStoredView(): ViewMode {
-  if (typeof window === "undefined") return "table";
+  if (typeof window === "undefined") return "cards";
   try {
     const v = localStorage.getItem(VIEW_STORAGE_KEY);
-    return v === "cards" ? "cards" : "table";
+    return v === "table" ? "table" : "cards";
   } catch {
-    return "table";
+    return "cards";
   }
 }
 
@@ -54,7 +54,7 @@ export default function EmployeesWorkspace({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [viewMode, setViewMode] = useState<ViewMode>("table");
+  const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [viewReady, setViewReady] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 

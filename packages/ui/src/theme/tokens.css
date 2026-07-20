@@ -64,4 +64,8 @@
   --color-text-info: var(--color-info);
   --color-text-warning: var(--color-warning);
   --color-text-error: var(--color-error);
+
+  /* Controles (TextField, Select, Button md): altura alineada ~36px */
+  --control-height-md: 2.25rem;
+  --control-padding-y-md: 0.5rem;
 }

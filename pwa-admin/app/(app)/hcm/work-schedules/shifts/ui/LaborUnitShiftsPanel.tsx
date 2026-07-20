@@ -296,15 +296,15 @@ export function LaborUnitShiftsPanel() {
                 actions={[
                   {
                     id: "edit",
-                    label: "Editar",
-                    variant: "outlined",
+                    icon: "Pencil",
+                    ariaLabel: "Editar turno",
                     onClick: () => openEdit(s),
                     "data-test-id": `labor-unit-shift-edit-${s.id}`,
                   },
                   {
                     id: "members",
-                    label: "Miembros",
-                    variant: "outlined",
+                    icon: "Users",
+                    ariaLabel: "Miembros del turno",
                     onClick: () => openMembers(s),
                     "data-test-id": `labor-unit-shift-members-${s.id}`,
                   },

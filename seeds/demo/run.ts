@@ -926,6 +926,8 @@ const SEED_EMPLOYEES: readonly {
     status: EmployeeStatus;
     hireDate: string;
     baseSalary?: string;
+    /** UL demo; por defecto UL00001 (Sala de ventas). */
+    laborUnitCode?: string;
   };
 }[] = [
   {
@@ -1052,6 +1054,56 @@ const SEED_EMPLOYEES: readonly {
       baseSalary: '880000',
     },
   },
+  {
+    person: {
+      firstName: 'Camila',
+      lastName: 'Rojas Paredes',
+      documentNumber: '17.100.009-2',
+      email: 'camila.rojas@empleado.local',
+      phone: '+56 9 7000 0009',
+      address: 'Av. Providencia 2100, Providencia',
+    },
+    employee: {
+      employmentType: EmploymentType.FULL_TIME,
+      status: EmployeeStatus.ACTIVE,
+      hireDate: '2024-02-01',
+      baseSalary: '520000',
+      laborUnitCode: 'UL00002',
+    },
+  },
+  {
+    person: {
+      firstName: 'Diego',
+      lastName: 'Muñoz Castillo',
+      documentNumber: '17.100.010-6',
+      email: 'diego.munoz@empleado.local',
+      phone: '+56 9 7000 0010',
+    },
+    employee: {
+      employmentType: EmploymentType.FULL_TIME,
+      status: EmployeeStatus.ACTIVE,
+      hireDate: '2023-07-15',
+      baseSalary: '540000',
+      laborUnitCode: 'UL00002',
+    },
+  },
+  {
+    person: {
+      firstName: 'Javiera',
+      lastName: 'Soto Ibáñez',
+      documentNumber: '17.100.011-4',
+      email: 'javiera.soto@empleado.local',
+      phone: '+56 9 7000 0011',
+      address: 'Calle Merced 88, Santiago Centro',
+    },
+    employee: {
+      employmentType: EmploymentType.PART_TIME,
+      status: EmployeeStatus.ACTIVE,
+      hireDate: '2025-01-20',
+      baseSalary: '380000',
+      laborUnitCode: 'UL00002',
+    },
+  },
 ] as const;
 
 /** Comisión AFP (puntos %), catálogo Chile seed. */
@@ -1139,6 +1191,14 @@ const SEED_JOB_POSITIONS: readonly {
     defaultDuties:
       'Definir estrategia, supervisión de jefaturas y resultados de la empresa.',
     sortOrder: 80,
+  },
+  {
+    code: 'JP00009',
+    name: 'Mesero',
+    description: 'Atención de mesas y servicio en salón restaurante.',
+    defaultDuties:
+      'Atender mesas, tomar pedidos, entregar platos y coordinar con cocina y caja.',
+    sortOrder: 25,
   },
 ] as const;
 
@@ -1297,10 +1357,11 @@ function seedWeekdaySchedule(
   return schedule;
 }
 
-/** Turnos UL demo (M2) para Sala de ventas. */
+/** Turnos UL demo (M2) para Sala de ventas y Salón restaurante. */
 const SEED_LABOR_UNIT_SHIFTS: readonly {
   code: string;
   name: string;
+  laborUnitCode?: string;
   scheduleJson: SeedWeekSchedule;
   effectiveFrom: string;
   memberDocumentNumbers: readonly string[];
@@ -1323,6 +1384,22 @@ const SEED_LABOR_UNIT_SHIFTS: readonly {
     scheduleJson: seedWeekdaySchedule('14:00', '22:00', [0, 1, 2, 3, 4, 5]),
     effectiveFrom: '2025-01-01',
     memberDocumentNumbers: ['17.100.003-3', '17.100.005-K'],
+  },
+  {
+    code: 'ULS00003',
+    name: 'Salón almuerzo',
+    laborUnitCode: 'UL00002',
+    scheduleJson: seedWeekdaySchedule('11:00', '15:00'),
+    effectiveFrom: '2025-01-01',
+    memberDocumentNumbers: ['17.100.009-2', '17.100.010-6'],
+  },
+  {
+    code: 'ULS00004',
+    name: 'Salón cena',
+    laborUnitCode: 'UL00002',
+    scheduleJson: seedWeekdaySchedule('18:00', '23:00', [0, 1, 2, 3, 4, 5]),
+    effectiveFrom: '2025-01-01',
+    memberDocumentNumbers: ['17.100.010-6', '17.100.011-4'],
   },
 ] as const;
 
@@ -1482,6 +1559,45 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
     afpCode: 'AFP00007',
     healthSystem: 'FONASA',
     mutualName: 'ACHS',
+  },
+  '17.100.009-2': {
+    kind: EmploymentContractKind.LABOR,
+    laborType: EmploymentLaborType.INDEFINITE,
+    workRegime: WorkRegime.ORDINARY,
+    weeklyHours: '45',
+    extraHoursMode: ExtraHoursMode.PAID_OVERTIME,
+    shiftSystemCode: 'SS00002',
+    jobPositionCode: 'JP00009',
+    afpCode: 'AFP00004',
+    healthSystem: 'FONASA',
+    mutualName: 'ACHS',
+    tipsEligible: true,
+  },
+  '17.100.010-6': {
+    kind: EmploymentContractKind.LABOR,
+    laborType: EmploymentLaborType.INDEFINITE,
+    workRegime: WorkRegime.ORDINARY,
+    weeklyHours: '45',
+    extraHoursMode: ExtraHoursMode.PAID_OVERTIME,
+    shiftSystemCode: 'SS00002',
+    jobPositionCode: 'JP00009',
+    afpCode: 'AFP00001',
+    healthSystem: 'FONASA',
+    mutualName: 'ACHS',
+    tipsEligible: true,
+  },
+  '17.100.011-4': {
+    kind: EmploymentContractKind.LABOR,
+    laborType: EmploymentLaborType.PART_TIME,
+    workRegime: WorkRegime.PARTIAL,
+    weeklyHours: '30',
+    extraHoursMode: ExtraHoursMode.PAID_OVERTIME,
+    shiftSystemCode: 'SS00002',
+    jobPositionCode: 'JP00009',
+    afpCode: 'AFP00003',
+    healthSystem: 'FONASA',
+    mutualName: 'ACHS',
+    tipsEligible: true,
   },
 };
 
@@ -3475,18 +3591,57 @@ async function bootstrap() {
         `✅ Unidad laboral demo sincronizada: ${seedLaborUnit.code} id=${seedLaborUnit.id}`,
       );
     }
-    for (const branchId of [seedBranch.id, seedBranchMall.id]) {
-      const existingBridge = await laborUnitBranchRepo.findOne({
-        where: { laborUnitId: seedLaborUnit.id, branchId },
-      });
-      if (!existingBridge) {
-        await laborUnitBranchRepo.save(
-          laborUnitBranchRepo.create({
-            companyId: company.id,
-            laborUnitId: seedLaborUnit.id,
-            branchId,
-          }),
-        );
+
+    let seedSalonLaborUnit = await laborUnitRepo.findOne({
+      where: {
+        companyId: company.id,
+        code: 'UL00002',
+        deletedAt: IsNull(),
+      },
+    });
+    if (!seedSalonLaborUnit) {
+      seedSalonLaborUnit = await laborUnitRepo.save(
+        laborUnitRepo.create({
+          companyId: company.id,
+          code: 'UL00002',
+          name: 'Salón restaurante',
+          description: 'Unidad laboral demo (meseros / servicio en mesa).',
+          isActive: true,
+        }),
+      );
+      console.log(
+        `✅ Unidad laboral demo creada: ${seedSalonLaborUnit.code} «${seedSalonLaborUnit.name}» id=${seedSalonLaborUnit.id}`,
+      );
+    } else {
+      seedSalonLaborUnit.name = 'Salón restaurante';
+      seedSalonLaborUnit.description =
+        'Unidad laboral demo (meseros / servicio en mesa).';
+      seedSalonLaborUnit.isActive = true;
+      seedSalonLaborUnit = await laborUnitRepo.save(seedSalonLaborUnit);
+      console.log(
+        `✅ Unidad laboral demo sincronizada: ${seedSalonLaborUnit.code} id=${seedSalonLaborUnit.id}`,
+      );
+    }
+
+    const laborUnitsByCode = new Map<string, HrLaborUnit>([
+      [seedLaborUnit.code, seedLaborUnit],
+      [seedSalonLaborUnit.code, seedSalonLaborUnit],
+    ]);
+
+    for (const laborUnit of laborUnitsByCode.values()) {
+      for (const branchId of [seedBranch.id, seedBranchMall.id]) {
+        const existingBridge = await laborUnitBranchRepo.findOne({
+          where: { laborUnitId: laborUnit.id, branchId },
+        });
+        if (!existingBridge) {
+          await laborUnitBranchRepo.save(
+            laborUnitBranchRepo.create({
+              companyId: company.id,
+              laborUnitId: laborUnit.id,
+              branchId,
+            }),
+          );
+        }
       }
     }
 
@@ -3697,6 +3852,14 @@ async function bootstrap() {
       person.bankAccounts = Array.from(bankByKey.values());
       person = await personRepo.save(person);
 
+      const laborUnitCode = item.employee.laborUnitCode ?? 'UL00001';
+      const assignedLaborUnit = laborUnitsByCode.get(laborUnitCode);
+      if (!assignedLaborUnit) {
+        throw new Error(
+          `Empleado seed ${item.person.documentNumber}: UL desconocida ${laborUnitCode}`,
+        );
+      }
+
       let employee = await employeeRepo.findOne({
         where: { companyId: company.id, personId: person.id },
         withDeleted: true,
@@ -3706,7 +3869,7 @@ async function bootstrap() {
           companyId: company.id,
           personId: person.id,
           branchId: seedBranch.id,
-          laborUnitId: seedLaborUnit.id,
+          laborUnitId: assignedLaborUnit.id,
           employmentType: item.employee.employmentType,
           status: item.employee.status,
           hireDate: item.employee.hireDate,
@@ -3719,7 +3882,7 @@ async function bootstrap() {
         employee.companyId = company.id;
         employee.personId = person.id;
         employee.branchId = seedBranch.id;
-        employee.laborUnitId = seedLaborUnit.id;
+        employee.laborUnitId = assignedLaborUnit.id;
         employee.employmentType = item.employee.employmentType;
         employee.status = item.employee.status;
         employee.hireDate = item.employee.hireDate;
@@ -3903,6 +4066,13 @@ async function bootstrap() {
       HrLaborUnitShiftMember,
     );
     for (const item of SEED_LABOR_UNIT_SHIFTS) {
+      const shiftLaborUnitCode = item.laborUnitCode ?? 'UL00001';
+      const shiftLaborUnit = laborUnitsByCode.get(shiftLaborUnitCode);
+      if (!shiftLaborUnit) {
+        throw new Error(
+          `Turno UL seed ${item.code}: UL desconocida ${shiftLaborUnitCode}`,
+        );
+      }
       let shift = await laborUnitShiftRepo.findOne({
         where: { companyId: company.id, code: item.code },
         withDeleted: true,
@@ -3910,7 +4080,7 @@ async function bootstrap() {
       if (!shift) {
         shift = laborUnitShiftRepo.create({
           companyId: company.id,
-          laborUnitId: seedLaborUnit.id,
+          laborUnitId: shiftLaborUnit.id,
           code: item.code,
           name: item.name,
           scheduleJson: item.scheduleJson,
@@ -3923,7 +4093,7 @@ async function bootstrap() {
         if (shift.deletedAt) {
           shift = await laborUnitShiftRepo.recover(shift);
         }
-        shift.laborUnitId = seedLaborUnit.id;
+        shift.laborUnitId = shiftLaborUnit.id;
         shift.name = item.name;
         shift.scheduleJson = item.scheduleJson;
         shift.timezone = 'America/Santiago';
@@ -3933,7 +4103,7 @@ async function bootstrap() {
       }
       shift = await laborUnitShiftRepo.save(shift);
       console.log(
-        `✅ Turno UL «${shift.name}» sincronizado: ${shift.code} (UL=${seedLaborUnit.code})`,
+        `✅ Turno UL «${shift.name}» sincronizado: ${shift.code} (UL=${shiftLaborUnit.code})`,
       );
 
       const desiredDocs = new Set(item.memberDocumentNumbers);
@@ -4446,6 +4616,45 @@ async function bootstrap() {
       phone: '+56 9 5432 1098',
     });
 
+    await ensureSeedUser({
+      userName: 'mesero1',
+      password: seedPassword,
+      rol: UserRole.WAITER,
+      companyId: company.id,
+      nonDeletable: false,
+      firstName: 'Camila',
+      lastName: 'Rojas Paredes',
+      email: 'camila.rojas@empleado.local',
+      documentNumber: '17.100.009-2',
+      phone: '+56 9 7000 0009',
+    });
+
+    await ensureSeedUser({
+      userName: 'mesero2',
+      password: seedPassword,
+      rol: UserRole.WAITER,
+      companyId: company.id,
+      nonDeletable: false,
+      firstName: 'Diego',
+      lastName: 'Muñoz Castillo',
+      email: 'diego.munoz@empleado.local',
+      documentNumber: '17.100.010-6',
+      phone: '+56 9 7000 0010',
+    });
+
+    await ensureSeedUser({
+      userName: 'mesero3',
+      password: seedPassword,
+      rol: UserRole.WAITER,
+      companyId: company.id,
+      nonDeletable: false,
+      firstName: 'Javiera',
+      lastName: 'Soto Ibáñez',
+      email: 'javiera.soto@empleado.local',
+      documentNumber: '17.100.011-4',
+      phone: '+56 9 7000 0011',
+    });
+
     await seedDemoDeliveryCalendar({
       dataSource,
       companyId: company.id,
@@ -4467,6 +4676,15 @@ async function bootstrap() {
     );
     console.log(
       `   • delivery2 / ${seedPassword}   (COURIER · Valentina Pizarro Núñez · 19.884.201-7)`,
+    );
+    console.log(
+      `   • mesero1 / ${seedPassword}    (WAITER · Camila Rojas · 17.100.009-2 · propinas)`,
+    );
+    console.log(
+      `   • mesero2 / ${seedPassword}    (WAITER · Diego Muñoz · 17.100.010-6 · propinas)`,
+    );
+    console.log(
+      `   • mesero3 / ${seedPassword}    (WAITER · Javiera Soto · 17.100.011-4 · propinas)`,
     );
     console.log(
       `   • Empresas en BD: «${SEED_DEV_COMPANY.nombreFantasia}» (${SEED_DEV_COMPANY.rut}, eShop demo) + «${SEED_DEV_COMPANY_SECOND.nombreFantasia}» (${SEED_DEV_COMPANY_SECOND.rut}, eShop ${SEED_DEV_COMPANY_SECOND_ESHOP_SLUG})`,
