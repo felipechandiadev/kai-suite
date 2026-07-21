@@ -28,6 +28,8 @@ export type PosProductSearchItem = {
   trackInventory: boolean;
   availableStock: number | null;
   availableStockBase: number | null;
+  /** Tipo de producto (PHYSICAL, PREPARADO, …). */
+  productType?: string | null;
   /** Base de stock por 1 unidad de venta (conteo); para recalcular stock en UI. */
   stockBaseQtyPerCountSaleUnit?: number | null;
   attributes: PosProductAttribute[];

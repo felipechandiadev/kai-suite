@@ -2525,6 +2525,7 @@ export default function PosPaymentWorkspace({
           overpay: 0,
           deferPayment: true,
           loadedQuotation: cart.loadedQuotation,
+          diningOrderId: loadedDiningOrder?.id ?? null,
         }),
       );
       if (!deferRes.success) {
@@ -3153,6 +3154,7 @@ export default function PosPaymentWorkspace({
               canUsePosDelivery && posDelivery && !isEncargoMode
                 ? posDelivery
                 : null,
+            diningOrderId: loadedDiningOrder?.id ?? null,
           }),
         );
 

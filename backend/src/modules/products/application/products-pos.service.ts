@@ -38,6 +38,8 @@ export type PosProductSearchResult = {
   trackInventory: boolean;
   availableStock: number | null;
   availableStockBase: number | null;
+  /** Tipo de producto padre (PHYSICAL, PREPARADO, …). */
+  productType: string | null;
   attributes: Array<{
     attributeId: string;
     attributeName: string;
@@ -576,6 +578,9 @@ export class ProductsPosService {
           trackInventory: track,
           availableStock,
           availableStockBase,
+          productType: variant.product?.productType
+            ? String(variant.product.productType)
+            : null,
           attributes,
           saleUnitSymbol,
           stockBaseUnitSymbol,

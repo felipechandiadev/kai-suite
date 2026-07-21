@@ -114,4 +114,21 @@ describe("buildCreateSaleClientPayload fiscal snapshot", () => {
       }),
     ).toThrow(/mezclar listas/);
   });
+
+  it("incluye diningOrderId en metadata cuando se cobra una cuenta de salón", () => {
+    const payload = buildCreateSaleClientPayload({
+      ...baseInput,
+      payments: [{ id: "c1", type: "CASH", amount: 5000, reference: "" }],
+      diningOrderId: "  dining-order-1  ",
+    });
+    expect(payload.metadata?.diningOrderId).toBe("dining-order-1");
+  });
+
+  it("omite diningOrderId en metadata si no viene", () => {
+    const payload = buildCreateSaleClientPayload({
+      ...baseInput,
+      payments: [{ id: "c1", type: "CASH", amount: 5000, reference: "" }],
+    });
+    expect(payload.metadata?.diningOrderId).toBeUndefined();
+  });
 });

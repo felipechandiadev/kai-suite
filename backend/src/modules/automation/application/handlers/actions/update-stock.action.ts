@@ -26,6 +26,10 @@ import {
   getReceptionIdFromTransactionMetadata,
   mapTransactionLineIdToReceptionLineId,
 } from '../../helpers/reception-stock-snapshot.util';
+import {
+  extractDiningOrderIdFromMetadata,
+  shouldSkipFinishedGoodsStockForDiningSale,
+} from '@modules/dining/application/dining-sale-finished-stock.util';
 
 @Injectable()
 export class UpdateStockActionHandler {
@@ -97,6 +101,10 @@ export class UpdateStockActionHandler {
       }
 
       const txMeta = (txFull && (txFull as any).metadata) || (tx as any).metadata || {};
+      const diningOrderId =
+        type === TransactionType.SALE
+          ? extractDiningOrderIdFromMetadata(txMeta)
+          : null;
       const receptionId = getReceptionIdFromTransactionMetadata(txMeta);
       let txLineToReceptionLineId = new Map<string, string>();
       if (receptionId && type === TransactionType.PURCHASE) {
@@ -175,6 +183,14 @@ export class UpdateStockActionHandler {
           where: { id: variantId },
           relations: ['product'],
         });
+        if (
+          shouldSkipFinishedGoodsStockForDiningSale({
+            diningOrderId,
+            productType: variantRow?.product?.productType,
+          })
+        ) {
+          continue;
+        }
         if (variantRow?.companyId) {
           companyIdForStock = variantRow.companyId;
         }

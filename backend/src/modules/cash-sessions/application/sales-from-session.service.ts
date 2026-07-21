@@ -42,6 +42,10 @@ import {
   parseSelectedSaleDocumentKind,
   resolveEffectiveLineRequiresDteMap,
 } from '@modules/fiscal/domain/resolve-effective-line-requires-dte';
+import {
+  extractDiningOrderIdFromMetadata,
+  shouldSkipFinishedGoodsStockForDiningSale,
+} from '@modules/dining/application/dining-sale-finished-stock.util';
 import { CollectPendingSalesDto } from './dto/collect-pending-sales.dto';
 import { CollectPendingQuotasDto } from './dto/collect-pending-quotas.dto';
 import { PayoutCustomerCreditNotesDto } from './dto/payout-customer-credit-notes.dto';
@@ -2175,15 +2179,27 @@ export class SalesFromSessionService {
           qtyNeedByVariant.set(vid, (qtyNeedByVariant.get(vid) ?? 0) + q);
         }
         const variantIdsToCheck = [...qtyNeedByVariant.keys()];
+        const diningOrderId = extractDiningOrderIdFromMetadata(metadata);
         if (effectiveStorageId && variantIdsToCheck.length > 0) {
-          const variantsToCheck = await manager
-            .getRepository(ProductVariant)
-            .find({
-              where: { id: In(variantIdsToCheck) },
-              select: ['id', 'sku', 'trackInventory', 'allowNegativeStock'],
-            });
+          const variantsToCheck = diningOrderId
+            ? await manager.getRepository(ProductVariant).find({
+                where: { id: In(variantIdsToCheck) },
+                relations: ['product'],
+              })
+            : await manager.getRepository(ProductVariant).find({
+                where: { id: In(variantIdsToCheck) },
+                select: ['id', 'sku', 'trackInventory', 'allowNegativeStock'],
+              });
           for (const v of variantsToCheck) {
             if (!v.trackInventory || v.allowNegativeStock) continue;
+            if (
+              shouldSkipFinishedGoodsStockForDiningSale({
+                diningOrderId,
+                productType: v.product?.productType,
+              })
+            ) {
+              continue;
+            }
             const need = qtyNeedByVariant.get(v.id) ?? 0;
             const sl = await manager.getRepository(StockLevel).findOne({
               where: {

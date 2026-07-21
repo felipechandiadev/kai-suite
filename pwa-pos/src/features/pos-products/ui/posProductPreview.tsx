@@ -112,8 +112,18 @@ export const POS_QUOTATION_LINE_SURFACE_CLASS =
 
 /** True si la cantidad del carrito supera el stock efectivo (unidad de venta). */
 export function posCartQuantityExceedsAvailableStock(
-  line: PosStockFields & { quantity: number; metadata?: Record<string, unknown> | null },
+  line: PosStockFields & {
+    quantity: number;
+    productType?: string | null;
+    metadata?: Record<string, unknown> | null;
+  },
 ): boolean {
+  // PREPARADO de cuenta dining: se prepara bajo pedido (CTP en menú/fire), no stock de terminado.
+  const fromDining = line.metadata?.sourceDiningOrder === true;
+  const productType = String(line.productType ?? "").trim().toUpperCase();
+  if (fromDining && productType === "PREPARADO") {
+    return false;
+  }
   if (!line.trackInventory) return false;
   const effective = posResolveEffectiveStockInSaleUnits(line);
   if (effective == null || !Number.isFinite(effective)) return false;

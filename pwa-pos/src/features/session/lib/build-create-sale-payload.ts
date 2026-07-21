@@ -192,6 +192,8 @@ export function buildCreateSaleClientPayload(input: {
     zoneName: string;
     notes?: string | null;
   } | null;
+  /** Cuenta salón cobrada: el backend omite stock de terminado PREPARADO. */
+  diningOrderId?: string | null;
 }): CreateSaleClientPayload {
   const priceListCheck = assertCartSinglePriceList(input.cartLines);
   if (!priceListCheck.ok) {
@@ -230,6 +232,10 @@ export function buildCreateSaleClientPayload(input: {
   }
   if (input.selectedSaleDocumentKind) {
     metadata.selectedSaleDocumentKind = input.selectedSaleDocumentKind;
+  }
+  const diningOrderId = input.diningOrderId?.trim() || "";
+  if (diningOrderId) {
+    metadata.diningOrderId = diningOrderId;
   }
   const delivery = input.posDelivery;
   if (

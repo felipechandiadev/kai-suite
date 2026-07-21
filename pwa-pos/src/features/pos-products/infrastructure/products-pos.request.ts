@@ -128,7 +128,24 @@ export class ProductsPosRequest {
       }
 
       const products = Array.isArray(data.products) ? data.products : [];
-      return { success: true, products: products as PosProductSearchItem[] };
+      const normalized: PosProductSearchItem[] = products
+        .map((row) => {
+          if (!row || typeof row !== "object") return null;
+          const o = row as Record<string, unknown>;
+          const variantId = String(o.variantId ?? "").trim();
+          if (!variantId) return null;
+          const item = row as PosProductSearchItem;
+          const productTypeRaw = o.productType;
+          return {
+            ...item,
+            productType:
+              productTypeRaw != null && String(productTypeRaw).trim()
+                ? String(productTypeRaw).trim().toUpperCase()
+                : item.productType ?? null,
+          };
+        })
+        .filter((p): p is PosProductSearchItem => p != null);
+      return { success: true, products: normalized };
     } catch (e) {
       const err = e instanceof Error ? e.message : "Error de red";
       return { success: false, message: err };
