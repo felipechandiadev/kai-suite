@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Badge, IconButton } from "@kai/ui";
 import { getEmployeeDetailAction } from "@/features/hr-employees/actions/employee.action";
@@ -10,6 +10,7 @@ import type { EmployeeDetailView } from "@/features/hr-employees/types/employee.
 import { employeeDisplayName } from "@/features/hr-employees/types/employee.types";
 import type { EmploymentContractView } from "@/features/hr-employees/types/contract.types";
 import { CONTRACT_KIND_LABELS } from "@/features/hr-employees/types/contract.types";
+import { contractHasSalesCommissionPercent } from "@/features/hr-employees/types/sales-commissions.types";
 import type { EmployeeShiftView } from "@/features/hr-jornada/types/employee-shift.types";
 import { documentTypeLabel } from "@/features/sales-customers/lib/customer-document-labels";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
@@ -25,6 +26,7 @@ import { EmployeeDetailEmploymentSection } from "../../ui/employee-detail/Employ
 import { EmployeeDetailContractSection } from "../../ui/employee-detail/EmployeeDetailContractSection";
 import { EmployeeDetailShiftSection } from "../../ui/employee-detail/EmployeeDetailShiftSection";
 import { EmployeeDetailRemunerationsSection } from "../../ui/employee-detail/EmployeeDetailRemunerationsSection";
+import { EmployeeDetailCommissionsSection } from "../../ui/employee-detail/EmployeeDetailCommissionsSection";
 import { EmployeeDetailBankAccountsSection } from "../../ui/employee-detail/EmployeeDetailBankAccountsSection";
 import { EmployeeDetailTimelineSection } from "../../ui/employee-detail/EmployeeDetailTimelineSection";
 import { employeeSectionCardClass } from "../../ui/employee-detail/employee-section-card";
@@ -85,6 +87,29 @@ export default function EmployeeDetailPage({
     const fromHash = employeeDetailSectionFromHash(window.location.hash);
     if (fromHash) setActiveSection(fromHash);
   }, []);
+
+  const showCommissionsTab = contractHasSalesCommissionPercent(contract);
+  const commissionPercent = Number(contract?.salesCommissionValue) || 0;
+
+  const visibleTabs = useMemo(
+    () =>
+      EMPLOYEE_DETAIL_TABS.filter(
+        (t) => t.id !== "commissions" || showCommissionsTab,
+      ),
+    [showCommissionsTab],
+  );
+
+  useEffect(() => {
+    if (metaLoading) return;
+    if (activeSection === "commissions" && !showCommissionsTab) {
+      setActiveSection("identity");
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}#identity`,
+      );
+    }
+  }, [activeSection, metaLoading, showCommissionsTab]);
 
   const selectSection = useCallback((id: EmployeeDetailSectionId) => {
     setActiveSection(id);
@@ -192,7 +217,7 @@ export default function EmployeeDetailPage({
       </header>
 
       <EmployeeDetailSectionNav
-        tabs={EMPLOYEE_DETAIL_TABS}
+        tabs={visibleTabs}
         activeId={activeSection}
         onSelect={selectSection}
       />
@@ -255,6 +280,23 @@ export default function EmployeeDetailPage({
               Remuneraciones asociadas a este empleado.
             </p>
             <EmployeeDetailRemunerationsSection employeeId={employeeId} />
+          </section>
+        ) : null}
+        {activeSection === "commissions" && showCommissionsTab ? (
+          <section
+            className={employeeSectionCardClass(false)}
+            data-test-id="employee-detail-commissions-wrap"
+          >
+            <h2 className="text-sm font-semibold text-foreground">
+              Comisiones
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Comisión por ventas POS atribuidas a este empleado.
+            </p>
+            <EmployeeDetailCommissionsSection
+              employeeId={employeeId}
+              percent={commissionPercent}
+            />
           </section>
         ) : null}
         {activeSection === "bankAccounts" ? (

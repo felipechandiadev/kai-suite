@@ -15,6 +15,7 @@ import { ChecksController } from './presentation/checks.controller';
 import { TypeOrmCheckRepository } from './infrastructure/repositories/typeorm-check.repository';
 import { CheckFromTransactionHandler } from './application/handlers/check-from-transaction.handler';
 import { CheckLedgerService } from './application/check-ledger.service';
+import { CheckBankCartolaService } from './application/check-bank-cartola.service';
 import { CheckPaymentObligationService } from './application/check-payment-obligation.service';
 
 @Module({
@@ -36,6 +37,7 @@ import { CheckPaymentObligationService } from './application/check-payment-oblig
     ChecksService,
     ChecksReconciliationService,
     CheckLedgerService,
+    CheckBankCartolaService,
     CheckPaymentObligationService,
     CheckFromTransactionHandler,
     {

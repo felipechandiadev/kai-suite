@@ -46,7 +46,7 @@ export class DiningBranchSettings {
   @Column({
     name: 'allow_pos_open_table',
     type: 'boolean',
-    default: false,
+    default: true,
   })
   allowPosOpenTable!: boolean;
 

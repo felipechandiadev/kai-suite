@@ -172,13 +172,22 @@ export class DiningService {
     }
   }
 
+  /**
+   * UP default de la variante en la sucursal (routing).
+   * PREPARADO / ELABORADO / MANUFACTURADO: deben ir a KDS con UP.
+   * PHYSICAL u otros: null (no comanda de cocina).
+   */
   private async resolveProductionUnitId(
     variant: ProductVariant,
     branchId: string,
     companyId: string,
     productType: ProductType,
   ): Promise<string | null> {
-    if (productType !== ProductType.PREPARADO) {
+    const needsKitchenUnit =
+      productType === ProductType.PREPARADO ||
+      productType === ProductType.ELABORADO ||
+      productType === ProductType.MANUFACTURADO;
+    if (!needsKitchenUnit) {
       return null;
     }
 
@@ -206,9 +215,13 @@ export class DiningService {
         'La unidad de producción asignada a la variante no es válida o está inactiva.',
       );
     }
-    if (unit.purpose !== ProductionUnitPurpose.KITCHEN) {
+    // Cocina (KDS) o planta/batch: ambas pueden recibir comanda / cola.
+    if (
+      unit.purpose !== ProductionUnitPurpose.KITCHEN &&
+      unit.purpose !== ProductionUnitPurpose.BATCH
+    ) {
       throw new BadRequestException(
-        'La unidad de producción asignada no es de tipo cocina (comanda / KDS).',
+        'La unidad de producción asignada no es válida para comanda (cocina o batch).',
       );
     }
     return unit.id;

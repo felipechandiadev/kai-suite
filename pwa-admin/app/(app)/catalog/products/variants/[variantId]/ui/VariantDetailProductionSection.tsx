@@ -29,6 +29,7 @@ export function VariantDetailProductionSection({ variantId }: Props) {
   const [branches, setBranches] = useState<BranchListItem[]>([]);
   const [units, setUnits] = useState<ProductionUnitListItem[]>([]);
   const [byBranch, setByBranch] = useState<Record<string, BranchRoutingState>>({});
+  const [companyExpanded, setCompanyExpanded] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,6 +43,14 @@ export function VariantDetailProductionSection({ variantId }: Props) {
     () => units.filter((u) => u.scope === "COMPANY" && u.isActive),
     [units],
   );
+
+  const companyAssignedCount = useMemo(() => {
+    let n = 0;
+    for (const unit of companyUnits) {
+      if (branches.some((b) => byBranch[b.id]?.unitIds.has(unit.id))) n += 1;
+    }
+    return n;
+  }, [companyUnits, branches, byBranch]);
 
   useEffect(() => {
     let cancelled = false;
@@ -174,7 +183,7 @@ export function VariantDetailProductionSection({ variantId }: Props) {
     });
   };
 
-  const renderUnitRow = (branchId: string, unit: ProductionUnitListItem) => {
+  const renderBranchUnitRow = (branchId: string, unit: ProductionUnitListItem) => {
     const state = byBranch[branchId];
     if (!state) return null;
     const checked = state.unitIds.has(unit.id);
@@ -227,8 +236,8 @@ export function VariantDetailProductionSection({ variantId }: Props) {
         <div>
           <h3 className="text-sm font-semibold text-foreground">Producción</h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            Unidades de producción por sucursal (KDS / planta). Una default por sucursal.
-            Las unidades de empresa se asignan dentro de cada sucursal.
+            Unidades por sucursal y, aparte, unidades de empresa (sin sucursal).
+            Una default por sucursal entre todas las unidades asignadas a ella.
           </p>
         </div>
         <IconButton
@@ -260,6 +269,9 @@ export function VariantDetailProductionSection({ variantId }: Props) {
           const state = byBranch[branch.id];
           if (!state) return null;
           const localUnits = branchUnits.filter((u) => u.branchId === branch.id);
+          const localAssigned = [...state.unitIds].filter((id) =>
+            localUnits.some((u) => u.id === id),
+          ).length;
           return (
             <div
               key={branch.id}
@@ -275,7 +287,7 @@ export function VariantDetailProductionSection({ variantId }: Props) {
                 >
                   {state.expanded ? "▾" : "▸"} {branch.name}
                   <span className="ml-2 text-xs font-normal text-muted-foreground">
-                    {state.unitIds.size} unidad(es)
+                    {localAssigned} unidad(es) de sucursal
                   </span>
                 </button>
                 <Switch
@@ -289,31 +301,14 @@ export function VariantDetailProductionSection({ variantId }: Props) {
                 />
               </div>
               {state.expanded ? (
-                <div className="flex flex-col gap-3 border-t border-border px-3 py-3">
-                  <div>
-                    <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Unidades de la sucursal
+                <div className="flex flex-col gap-1.5 border-t border-border px-3 py-3">
+                  {localUnits.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No hay unidades de esta sucursal.
                     </p>
-                    <div className="flex flex-col gap-1.5">
-                      {localUnits.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">
-                          No hay unidades de esta sucursal.
-                        </p>
-                      ) : (
-                        localUnits.map((u) => renderUnitRow(branch.id, u))
-                      )}
-                    </div>
-                  </div>
-                  {companyUnits.length > 0 ? (
-                    <div>
-                      <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Unidades de empresa (sin sucursal)
-                      </p>
-                      <div className="flex flex-col gap-1.5">
-                        {companyUnits.map((u) => renderUnitRow(branch.id, u))}
-                      </div>
-                    </div>
-                  ) : null}
+                  ) : (
+                    localUnits.map((u) => renderBranchUnitRow(branch.id, u))
+                  )}
                 </div>
               ) : null}
             </div>
@@ -322,11 +317,82 @@ export function VariantDetailProductionSection({ variantId }: Props) {
       </div>
 
       {companyUnits.length > 0 ? (
-        <div className="rounded-lg border border-dashed border-border px-3 py-3">
-          <p className="text-xs text-muted-foreground">
-            Unidades sin sucursal ({companyUnits.map((u) => u.name).join(", ")}):
-            asigne dentro de cada sucursal expandida para definir en qué locales se usan.
-          </p>
+        <div
+          className="rounded-lg border border-border bg-muted/10"
+          data-test-id="pv-prod-company-units"
+        >
+          <button
+            type="button"
+            className="flex w-full items-center px-3 py-2 text-left text-sm font-medium text-foreground"
+            onClick={() => setCompanyExpanded((v) => !v)}
+            aria-expanded={companyExpanded}
+          >
+            {companyExpanded ? "▾" : "▸"} Unidades sin sucursal
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              {companyAssignedCount} de {companyUnits.length} asignada(s)
+            </span>
+          </button>
+          {companyExpanded ? (
+            <div className="flex flex-col gap-3 border-t border-border px-3 py-3">
+              <p className="text-xs text-muted-foreground">
+                Indique en qué sucursales se usa cada unidad de empresa y, si
+                aplica, si es la default de esa sucursal.
+              </p>
+              {companyUnits.map((unit) => (
+                <div
+                  key={unit.id}
+                  className="rounded-md border border-border/60 px-2 py-2"
+                  data-test-id={`pv-prod-company-unit-${unit.id}`}
+                >
+                  <p className="mb-2 text-sm font-medium text-foreground">
+                    {unit.name}
+                    <span className="font-normal text-muted-foreground">
+                      {" "}
+                      · {unit.code}
+                    </span>
+                  </p>
+                  <div className="flex flex-col gap-1.5">
+                    {branches.map((branch) => {
+                      const state = byBranch[branch.id];
+                      if (!state) return null;
+                      const checked = state.unitIds.has(unit.id);
+                      const isDefault = state.defaultUnitId === unit.id;
+                      return (
+                        <div
+                          key={branch.id}
+                          className="flex items-center justify-between gap-2 rounded-md bg-background/60 px-2 py-1.5"
+                        >
+                          <label className="flex min-w-0 flex-1 items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleUnit(branch.id, unit.id)}
+                              disabled={pending}
+                              data-test-id={`pv-prod-unit-${branch.id}-${unit.id}`}
+                            />
+                            <span className="truncate">{branch.name}</span>
+                          </label>
+                          {checked ? (
+                            <label className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+                              <input
+                                type="radio"
+                                name={`default-${branch.id}`}
+                                checked={isDefault}
+                                onChange={() => setDefault(branch.id, unit.id)}
+                                disabled={pending}
+                                data-test-id={`pv-prod-default-${branch.id}-${unit.id}`}
+                              />
+                              Default
+                            </label>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
 

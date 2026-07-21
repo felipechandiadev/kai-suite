@@ -14,6 +14,7 @@ import { ProductVariantsModule } from '@modules/product-variants/product-variant
 import { Transaction } from '@modules/transactions/domain/transaction.entity';
 import { CashSessionsModule } from '@modules/cash-sessions/cash-sessions.module';
 import { CashSession } from '@modules/cash-sessions/domain/cash-session.entity';
+import { Supplier } from '@modules/suppliers/domain/supplier.entity';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { CashSession } from '@modules/cash-sessions/domain/cash-session.entity';
       User,
       Transaction,
       CashSession,
+      Supplier,
     ]),
     TransactionsModule,
     ProductVariantsModule,

@@ -11,11 +11,15 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { EmployeesServiceAdapter } from '../application/services/employees.service.adapter';
+import { EmployeeSalesCommissionsService } from '../application/employee-sales-commissions.service';
 import { EmployeeStatus } from '../domain/employee.entity';
 
 @Controller('employees')
 export class EmployeesController {
-  constructor(private readonly employeesService: EmployeesServiceAdapter) {}
+  constructor(
+    private readonly employeesService: EmployeesServiceAdapter,
+    private readonly salesCommissions: EmployeeSalesCommissionsService,
+  ) {}
 
   @Get()
   async getEmployees(
@@ -48,6 +52,53 @@ export class EmployeesController {
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+  }
+
+  @Get(':id/sales-commissions/summary')
+  async getSalesCommissionsSummary(
+    @Param('id') id: string,
+    @Query('months') months?: string,
+  ) {
+    try {
+      const monthsCount = months != null ? Number(months) : 12;
+      const data = await this.salesCommissions.getSummary(
+        id,
+        Number.isFinite(monthsCount) ? monthsCount : 12,
+      );
+      return { success: true, data };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      const msg = error instanceof Error ? error.message : 'Internal server error';
+      const status = msg.toLowerCase().includes('no encontrad')
+        ? HttpStatus.NOT_FOUND
+        : HttpStatus.BAD_REQUEST;
+      throw new HttpException({ success: false, message: msg }, status);
+    }
+  }
+
+  @Get(':id/sales-commissions/sales')
+  async listSalesCommissionsSales(
+    @Param('id') id: string,
+    @Query('yearMonth') yearMonth?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    try {
+      const data = await this.salesCommissions.listSales(
+        id,
+        String(yearMonth || '').trim(),
+        page != null ? Number(page) : 1,
+        limit != null ? Number(limit) : 25,
+      );
+      return { success: true, data };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      const msg = error instanceof Error ? error.message : 'Internal server error';
+      const status = msg.toLowerCase().includes('no encontrad')
+        ? HttpStatus.NOT_FOUND
+        : HttpStatus.BAD_REQUEST;
+      throw new HttpException({ success: false, message: msg }, status);
     }
   }
 

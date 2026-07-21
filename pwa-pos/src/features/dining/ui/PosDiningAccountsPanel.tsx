@@ -32,6 +32,7 @@ import {
 import { diningAccountTitle } from "@/features/dining/lib/dining-account-title";
 import { diningOrderLinesToCart } from "@/features/dining/lib/dining-order-lines-to-cart";
 import { diningOrderAllKitchenReady } from "@/features/dining/lib/group-dining-order-lines";
+import { mergeDiningSessionLines } from "@/features/dining/lib/merge-dining-session-lines";
 import {
   diningOrderStatusLabel,
 } from "@/features/dining/lib/dining-status-labels";
@@ -175,6 +176,7 @@ export default function PosDiningAccountsPanel({
   const refreshRef = useRef(0);
   /** After first successful load for the current tab, refreshes stay silent (no spinner). */
   const listHydratedRef = useRef(false);
+  const refreshListRef = useRef<(opts?: { silent?: boolean }) => void>(() => {});
 
   const navigateDining = useCallback(
     (params: URLSearchParams) => {
@@ -236,23 +238,38 @@ export default function PosDiningAccountsPanel({
       if (payload.branchId !== branchId.trim()) return;
       if (payload.kind !== TAB_TO_KIND[tab]) return;
 
-      const lines = sessionItemsToLines(payload.items);
       const closed =
         payload.status === "CLOSED" || payload.status === "FREE";
+      const items = Array.isArray(payload.items) ? payload.items : [];
+
+      let missingFromList = false;
 
       setOrders((prev) => {
         if (closed) {
           return prev.filter((o) => o.id !== payload.orderId);
         }
         const idx = prev.findIndex((o) => o.id === payload.orderId);
-        if (idx < 0) return prev;
+        if (idx < 0) {
+          missingFromList = true;
+          const stub: PosDiningOrderSummary = {
+            id: payload.orderId,
+            branchId: payload.branchId,
+            kind: payload.kind,
+            displayLabel: payload.displayLabel,
+            status: payload.status,
+            diningTableId: payload.diningTableId ?? null,
+            openedAt: new Date().toISOString(),
+            lines: sessionItemsToLines(items),
+          };
+          return [stub, ...prev];
+        }
         const existing = prev[idx]!;
         const next: PosDiningOrderSummary = {
           ...existing,
           status: payload.status,
           displayLabel: payload.displayLabel,
           diningTableId: payload.diningTableId ?? existing.diningTableId,
-          lines,
+          lines: mergeDiningSessionLines(existing.lines ?? [], items),
         };
         const copy = [...prev];
         copy[idx] = next;
@@ -267,16 +284,24 @@ export default function PosDiningAccountsPanel({
           status: payload.status,
           displayLabel: payload.displayLabel,
           diningTableId: payload.diningTableId ?? prev.diningTableId,
-          lines,
+          lines: mergeDiningSessionLines(prev.lines ?? [], items),
         };
       });
+
+      if (missingFromList && !closed) {
+        refreshListRef.current({ silent: true });
+      }
     },
     [branchId, tab],
   );
 
-  useDiningBranchRealtime(branchId, applySessionUpdated, {
-    enabled: Boolean(branchId.trim()) && !disabled,
-  });
+  const { connected: diningWsConnected } = useDiningBranchRealtime(
+    branchId,
+    applySessionUpdated,
+    {
+      enabled: Boolean(branchId.trim()) && !disabled,
+    },
+  );
 
   const refreshList = useCallback((opts?: { silent?: boolean }) => {
     if (!branchId.trim()) return;
@@ -312,6 +337,8 @@ export default function PosDiningAccountsPanel({
         }
       });
   }, [branchId, tab]);
+
+  refreshListRef.current = refreshList;
 
   useEffect(() => {
     if (!branchId.trim()) return;
@@ -683,11 +710,12 @@ export default function PosDiningAccountsPanel({
     const title = mesa.label.startsWith("Mesa ")
       ? mesa.label
       : `Mesa ${mesa.code || mesa.label}`;
-    const openDisabled = disabled || actionBusy || !branchId.trim();
+    const openDisabled =
+      disabled || actionBusy || !branchId.trim() || !allowPosOpenTable;
     return (
       <div
         key={mesa.tableId}
-        className="block w-full rounded-xl border border-border bg-surface p-3 text-left shadow-sm"
+        className="flex w-full flex-col gap-2 rounded-xl border border-border bg-surface p-3 text-left shadow-sm"
         data-test-id={`pos-dining-table-free-${mesa.tableId}`}
       >
         <div className="flex items-start justify-between gap-2">
@@ -695,30 +723,27 @@ export default function PosDiningAccountsPanel({
             <p className="truncate text-sm font-medium text-foreground">{title}</p>
             <p className="truncate text-[11px] text-muted-foreground">{mesa.roomName}</p>
           </div>
-          <div className="flex max-w-[55%] shrink-0 flex-wrap justify-end gap-1">
-            <Badge variant="primary" className="text-[10px]">
-              Libre
-            </Badge>
-            {allowPosOpenTable ? (
-              <button
-                type="button"
-                disabled={openDisabled}
-                aria-label={`Abrir mesa ${title}`}
-                title="Abrir mesa"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleOpenTable(mesa.tableId);
-                }}
-                className="rounded-full disabled:cursor-not-allowed disabled:opacity-50"
-                data-test-id={`pos-dining-open-table-${mesa.tableId}`}
-              >
-                <Badge variant="primary" className="text-[10px]">
-                  Abrir
-                </Badge>
-              </button>
-            ) : null}
-          </div>
+          <Badge variant="primary" className="shrink-0 text-[10px]">
+            Libre
+          </Badge>
         </div>
+        <Button
+          type="button"
+          variant="outlined"
+          size="sm"
+          className="w-full"
+          disabled={openDisabled}
+          aria-label={`Abrir mesa ${title}`}
+          title={
+            allowPosOpenTable
+              ? "Abrir mesa"
+              : "Habilitá «POS (pantalla Cuentas)» en Configuración KaiFood"
+          }
+          onClick={() => handleOpenTable(mesa.tableId)}
+          data-test-id={`pos-dining-open-table-${mesa.tableId}`}
+        >
+          Abrir mesa
+        </Button>
       </div>
     );
   };
@@ -1155,6 +1180,7 @@ export default function PosDiningAccountsPanel({
         className={`grid w-full grid-cols-3 gap-4 ${shellClass}`}
         style={shellStyle}
         data-test-id="pos-dining-accounts-desktop"
+        data-dining-ws={diningWsConnected ? "connected" : "disconnected"}
       >
         <aside
           className="flex h-full min-h-0 min-w-0 flex-col gap-3 rounded-xl border border-border bg-background p-4"
@@ -1258,6 +1284,7 @@ export default function PosDiningAccountsPanel({
       style={shellStyle}
       aria-label="Cuentas salón"
       data-test-id="pos-dining-accounts-panel"
+      data-dining-ws={diningWsConnected ? "connected" : "disconnected"}
     >
       <div className="shrink-0">
         <h2 className="text-sm font-semibold text-foreground">Cuentas</h2>

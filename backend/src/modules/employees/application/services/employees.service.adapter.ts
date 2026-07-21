@@ -21,6 +21,10 @@ import { Person, PersonType } from '@modules/persons/domain/person.entity';
 import { TenantContext } from '@common/tenant';
 import type { AlsoAsUserDto } from '@modules/users/application/dto/user.dto';
 import { LaborUnitsService } from '@modules/hr-labor-units/application/labor-units.service';
+import { EmploymentContractsService } from '../employment-contracts.service';
+import {
+  SalesCommissionType,
+} from '../../domain/employment-contract.enums';
 
 @Injectable()
 export class EmployeesServiceAdapter {
@@ -35,6 +39,7 @@ export class EmployeesServiceAdapter {
     private readonly personsRepository: Repository<Person>,
     private readonly dataSource: DataSource,
     private readonly laborUnitsService: LaborUnitsService,
+    private readonly employmentContractsService: EmploymentContractsService,
   ) {}
 
   async getAllEmployees(params?: {
@@ -42,8 +47,16 @@ export class EmployeesServiceAdapter {
     status?: string;
     branchId?: string;
     companyId?: string;
-  }): Promise<Employee[]> {
-    return this.queryBus.execute(
+  }): Promise<
+    Array<
+      Employee & {
+        tipsEligible: boolean;
+        salesCommissionType: SalesCommissionType;
+        salesCommissionValue: string | null;
+      }
+    >
+  > {
+    const employees = await this.queryBus.execute(
       new GetAllEmployeesQuery(
         params?.includeTerminated,
         params?.status,
@@ -51,6 +64,19 @@ export class EmployeesServiceAdapter {
         params?.companyId,
       ),
     );
+    const flags =
+      await this.employmentContractsService.findActiveCompFlagsByEmployeeIds(
+        employees.map((e: Employee) => e.id),
+      );
+    return employees.map((employee: Employee) => {
+      const f = flags.get(employee.id);
+      return Object.assign(employee, {
+        tipsEligible: f?.tipsEligible ?? false,
+        salesCommissionType:
+          f?.salesCommissionType ?? SalesCommissionType.NONE,
+        salesCommissionValue: f?.salesCommissionValue ?? null,
+      });
+    });
   }
 
   async getEmployeeById(id: string): Promise<Employee | null> {

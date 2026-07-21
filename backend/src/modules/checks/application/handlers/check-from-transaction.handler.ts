@@ -1,8 +1,11 @@
 import { Logger } from '@nestjs/common';
 import { EventsHandler, IEventHandler } from '@nestjs/cqrs';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { TransactionCreatedEvent } from '@shared/events/transaction-created.event';
 import {
   PaymentMethod,
+  Transaction,
   TransactionType,
 } from '@modules/transactions/domain/transaction.entity';
 import { ChecksService } from '../checks.service';
@@ -56,7 +59,11 @@ export class CheckFromTransactionHandler
 {
   private readonly logger = new Logger(CheckFromTransactionHandler.name);
 
-  constructor(private readonly checks: ChecksService) {}
+  constructor(
+    private readonly checks: ChecksService,
+    @InjectRepository(Transaction)
+    private readonly transactions: Repository<Transaction>,
+  ) {}
 
   async handle(event: TransactionCreatedEvent): Promise<void> {
     try {
@@ -79,6 +86,7 @@ export class CheckFromTransactionHandler
       if (!incoming && !outgoing) return;
 
       const snapshots = getPaymentSnapshots(metadata);
+      const counterparties = await this.resolveCounterparties(tx);
 
       if (incoming) {
         const checkSnaps = snapshots.filter((s) => s?.method === 'CHECK');
@@ -97,7 +105,7 @@ export class CheckFromTransactionHandler
             checkNumber: cd.checkNumber,
             bankName: cd.bankName,
             bankAccountKey: cd.bankAccountKey ?? snap.bankAccountKey ?? null,
-            drawerName: cd.drawerName ?? null,
+            drawerName: cd.drawerName ?? counterparties.drawerName ?? null,
             drawerDocument: cd.drawerDocument ?? null,
             payeeName: cd.payeeName ?? null,
             payeeId: cd.payeeId ?? null,
@@ -134,11 +142,17 @@ export class CheckFromTransactionHandler
         direction: CheckDirection.OUTGOING,
         checkNumber: cd.checkNumber,
         bankName: cd.bankName,
-        bankAccountKey: cd.bankAccountKey ?? tx.bankAccountKey ?? null,
+        bankAccountKey:
+          cd.bankAccountKey ??
+          (typeof metadata.checkBankAccountKey === 'string'
+            ? metadata.checkBankAccountKey
+            : null) ??
+          tx.bankAccountKey ??
+          null,
         drawerName: cd.drawerName ?? null,
         drawerDocument: cd.drawerDocument ?? null,
-        payeeName: cd.payeeName ?? null,
-        payeeId: cd.payeeId ?? null,
+        payeeName: cd.payeeName ?? counterparties.payeeName ?? null,
+        payeeId: cd.payeeId ?? counterparties.payeeId ?? null,
         amount: Number(tx.total ?? 0),
         currency: (tx.currency as string) || 'CLP',
         issueDate: cd.issueDate ?? null,
@@ -152,5 +166,89 @@ export class CheckFromTransactionHandler
         }`,
       );
     }
+  }
+
+  private async resolveCounterparties(tx: {
+    id?: string;
+    supplierId?: string | null;
+    employeeId?: string | null;
+    customerId?: string | null;
+    supplier?: any;
+    employee?: any;
+    customer?: any;
+  }): Promise<{
+    payeeId: string | null;
+    payeeName: string | null;
+    drawerName: string | null;
+  }> {
+    let supplier = tx.supplier;
+    let employee = tx.employee;
+    let customer = tx.customer;
+
+    const needsLoad =
+      (tx.supplierId && !supplier?.person && !supplier?.alias) ||
+      (tx.employeeId && !employee?.person) ||
+      (tx.customerId && !customer?.person);
+
+    if (needsLoad && tx.id) {
+      const full = await this.transactions.findOne({
+        where: { id: tx.id },
+        relations: {
+          supplier: { person: true },
+          employee: { person: true },
+          customer: { person: true },
+        },
+      });
+      if (full) {
+        supplier = full.supplier;
+        employee = full.employee;
+        customer = full.customer;
+      }
+    }
+
+    const supplierName = this.personDisplayName(supplier?.person, supplier?.alias);
+    const employeeName = this.personDisplayName(employee?.person);
+    const customerName = this.personDisplayName(customer?.person);
+
+    if (tx.supplierId && (supplierName || supplier)) {
+      return {
+        payeeId: String(tx.supplierId),
+        payeeName: supplierName,
+        drawerName: null,
+      };
+    }
+    if (tx.employeeId && (employeeName || employee)) {
+      return {
+        payeeId: String(tx.employeeId),
+        payeeName: employeeName,
+        drawerName: null,
+      };
+    }
+    return {
+      payeeId: null,
+      payeeName: null,
+      drawerName: customerName,
+    };
+  }
+
+  private personDisplayName(
+    person: {
+      businessName?: string | null;
+      firstName?: string | null;
+      lastName?: string | null;
+    } | null | undefined,
+    alias?: string | null,
+  ): string | null {
+    const aliasTrim = typeof alias === 'string' ? alias.trim() : '';
+    if (aliasTrim) return aliasTrim;
+    const business =
+      typeof person?.businessName === 'string' ? person.businessName.trim() : '';
+    if (business) return business;
+    const full = [person?.firstName, person?.lastName]
+      .filter((p) => typeof p === 'string' && p.trim())
+      .map((p) => String(p).trim())
+      .join(' ')
+      .trim();
+    return full || null;
   }
 }

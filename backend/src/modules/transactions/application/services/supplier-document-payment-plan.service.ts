@@ -292,11 +292,18 @@ export class SupplierDocumentPaymentPlanService {
     const pm = String(opts.line.paymentMethod || '').toUpperCase();
     if (pm && ['CASH', 'TRANSFER', 'CHECK'].includes(pm)) {
       dto.paymentMethod = this.mapUiPaymentMethod(pm);
-      if (pm === 'TRANSFER' || pm === 'CHECK') {
+      if (pm === 'TRANSFER') {
         dto.bankAccountKey =
           opts.line.companyBankAccountKey != null
             ? String(opts.line.companyBankAccountKey).trim()
             : undefined;
+      }
+      if (pm === 'CHECK' && opts.line.companyBankAccountKey != null) {
+        // Cartola al compensar el cheque, no al emitir.
+        dto.metadata = {
+          ...(dto.metadata ?? {}),
+          checkBankAccountKey: String(opts.line.companyBankAccountKey).trim(),
+        };
       }
       if (pm === 'CASH' && opts.line.cashHubId != null) {
         dto.cashHubId = String(opts.line.cashHubId).trim();
@@ -305,6 +312,7 @@ export class SupplierDocumentPaymentPlanService {
 
     dto.notes = opts.note;
     dto.metadata = {
+      ...(dto.metadata ?? {}),
       origin: opts.paymentOrigin,
       installmentNumber: opts.installmentNumber ?? 1,
       totalInstallments: opts.totalInstallments ?? 1,

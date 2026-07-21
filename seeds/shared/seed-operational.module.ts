@@ -35,6 +35,9 @@ import { Recipe } from '@modules/recipes/domain/recipe.entity';
 import { RecipeLine } from '@modules/recipes/domain/recipe-line.entity';
 import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
 import { ProductVariantProductionUnit } from '@modules/product-variants/domain/product-variant-production-unit.entity';
+import { DiningRoom } from '@modules/dining/domain/dining-room.entity';
+import { DiningTable } from '@modules/dining/domain/dining-table.entity';
+import { DiningBranchSettings } from '@modules/dining/domain/dining-branch-settings.entity';
 import { OperationalExpensesModule } from '@modules/operational-expenses/operational-expenses.module';
 import { FiscalModule } from '@modules/fiscal/fiscal.module';
 import { CapitalContributionsModule } from '@modules/capital-contributions/capital-contributions.module';
@@ -91,6 +94,9 @@ import { LocalStorageAdapter } from '@modules/multimedia/infrastructure/adapters
       RecipeLine,
       ProductionUnit,
       ProductVariantProductionUnit,
+      DiningRoom,
+      DiningTable,
+      DiningBranchSettings,
     ]),
     OperationalExpensesModule,
     FiscalModule,

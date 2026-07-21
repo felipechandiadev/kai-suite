@@ -9,9 +9,13 @@ import type {
   PosDiningOrderSummary,
 } from "@/features/dining/types/dining-pos.types";
 import { useDiningCtpStockSubscription } from "@/features/dining/lib/use-dining-ctp-stock-subscription";
+import { useDiningMenuCtpInvalidateOnSession } from "@/features/dining/lib/use-dining-menu-ctp-invalidate";
 import { useCatalogRealtime } from "@/features/pos-catalog/realtime/catalog-realtime-context";
 import { PosDiningMenuVariantInfoDialog } from "@/features/dining/ui/PosDiningMenuVariantInfoDialog";
-import { searchPosProductsAction } from "@/features/pos-products/actions/pos-products.action";
+import {
+  lookupPosVariantsAction,
+  searchPosProductsAction,
+} from "@/features/pos-products/actions/pos-products.action";
 import {
   POS_PRODUCT_SEARCH_DEBOUNCE_MS,
   POS_PRODUCT_SEARCH_DEFAULT_PAGE_SIZE,
@@ -22,6 +26,8 @@ import type { PosProductSearchItem } from "@/features/pos-products/types/pos-pro
 import {
   formatMoney,
   posDisplaySaleUnitSymbol,
+  posFormatStockQuantity,
+  posResolveAvailableStockInSaleUnits,
   PosProductNameWithAttributes,
 } from "@/features/pos-products/ui/posProductPreview";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
@@ -63,18 +69,22 @@ export function PosDiningMenuColumn({
     Record<string, number | null>
   >({});
   const [ctpStorageIds, setCtpStorageIds] = useState<string[]>([]);
+  const [posStorageId, setPosStorageId] = useState("");
+  const [branchId, setBranchId] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
 
   const refreshCtp = useCallback(async (products: PosProductSearchItem[]) => {
     const ctx = readPosContextClient();
-    const branchId = ctx?.branchId?.trim() ?? "";
-    if (!branchId || products.length === 0) {
+    const bid = ctx?.branchId?.trim() ?? "";
+    if (!bid || products.length === 0) {
       setCtpByVariantId({});
       setCtpStorageIds([]);
       return;
     }
     const res = await batchPosDiningCtpAction({
-      branchId,
+      branchId: bid,
       variantIds: products.map((p) => p.variantId),
     });
     if (!res.success) {
@@ -92,8 +102,59 @@ export function PosDiningMenuColumn({
     setCtpStorageIds([...storages]);
   }, []);
 
+  const refreshStockFields = useCallback(async (products: PosProductSearchItem[]) => {
+    if (products.length === 0) return;
+    const ctx = readPosContextClient();
+    const res = await lookupPosVariantsAction({
+      variantIds: products.map((p) => p.variantId),
+      branchId: ctx?.branchId ?? null,
+      pointOfSaleId: ctx?.pointOfSaleId ?? null,
+      priceListId: ctx?.priceListId ?? null,
+    });
+    if (!res.success) return;
+    const byId = new Map(res.products.map((p) => [p.variantId, p]));
+    setItems((prev) =>
+      prev.map((item) => {
+        const fresh = byId.get(item.variantId);
+        if (!fresh) return item;
+        return {
+          ...item,
+          availableStock: fresh.availableStock,
+          availableStockBase: fresh.availableStockBase,
+          stockBaseQtyPerCountSaleUnit: fresh.stockBaseQtyPerCountSaleUnit,
+          unitPrice: fresh.unitPrice,
+          unitPriceWithTax: fresh.unitPriceWithTax,
+          unitTaxAmount: fresh.unitTaxAmount,
+          unitTaxRate: fresh.unitTaxRate,
+        };
+      }),
+    );
+    setInfoItem((prev) => {
+      if (!prev) return prev;
+      const fresh = byId.get(prev.variantId);
+      if (!fresh) return prev;
+      return {
+        ...prev,
+        availableStock: fresh.availableStock,
+        availableStockBase: fresh.availableStockBase,
+        stockBaseQtyPerCountSaleUnit: fresh.stockBaseQtyPerCountSaleUnit,
+      };
+    });
+  }, []);
+
+  /** CTP + stock físico de las cards visibles (tras WS stock / dining). */
+  const refreshLiveMenuData = useCallback(() => {
+    const products = itemsRef.current;
+    if (products.length === 0) return;
+    void refreshCtp(products);
+    void refreshStockFields(products);
+  }, [refreshCtp, refreshStockFields]);
+
   useEffect(() => {
     setPageSize(readPosProductSearchPageSize());
+    const ctx = readPosContextClient();
+    setPosStorageId(ctx?.storageId?.trim() ?? "");
+    setBranchId(ctx?.branchId?.trim() ?? "");
   }, []);
 
   useEffect(() => {
@@ -120,6 +181,8 @@ export function PosDiningMenuColumn({
 
   const load = useCallback(async () => {
     const ctx = readPosContextClient();
+    setPosStorageId(ctx?.storageId?.trim() ?? "");
+    setBranchId(ctx?.branchId?.trim() ?? "");
     const priceListId = ctx?.priceListId?.trim() ?? "";
     if (!priceListId) {
       setError("Lista de precios no configurada en el POS.");
@@ -155,25 +218,33 @@ export function PosDiningMenuColumn({
     void load();
   }, [load]);
 
-  const reloadCtpOnly = useCallback(() => {
-    void refreshCtp(items);
-  }, [items, refreshCtp]);
+  const stockSubscribeIds = useMemo(() => {
+    const ids = new Set(ctpStorageIds);
+    if (posStorageId) ids.add(posStorageId);
+    return [...ids];
+  }, [ctpStorageIds, posStorageId]);
 
-  useDiningCtpStockSubscription(ctpStorageIds, reloadCtpOnly);
+  useDiningCtpStockSubscription(stockSubscribeIds, refreshLiveMenuData, {
+    enabled: !disabled && stockSubscribeIds.length > 0,
+  });
+
+  useDiningMenuCtpInvalidateOnSession(branchId, refreshLiveMenuData, {
+    enabled: !disabled && Boolean(branchId),
+  });
 
   const { registerCatalogRefresh } = useCatalogRealtime();
   useEffect(() => {
     return registerCatalogRefresh((payload) => {
       const kinds = new Set(payload.kinds);
       if (kinds.has("RECIPE") && !kinds.has("PRICE") && !kinds.has("PRODUCT") && !kinds.has("VARIANT")) {
-        void refreshCtp(items);
+        void refreshCtp(itemsRef.current);
         return;
       }
       if (kinds.has("PRICE") || kinds.has("PRODUCT") || kinds.has("VARIANT") || kinds.has("RECIPE")) {
         void load();
       }
     });
-  }, [registerCatalogRefresh, items, refreshCtp, load]);
+  }, [registerCatalogRefresh, refreshCtp, load]);
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / Math.max(1, pageSize))),
@@ -194,6 +265,7 @@ export function PosDiningMenuColumn({
         return;
       }
       onOrderUpdated(res.order);
+      // Stock/CTP pueden cambiar al agregar (reserva aún no; Cap sigue igual hasta fire).
     });
   };
 
@@ -291,17 +363,28 @@ export function PosDiningMenuColumn({
               const cap = ctpByVariantId[item.variantId];
               const showCap = cap != null;
               const ctpBlocked = cap === 0;
-              const canAdd = Boolean(orderId) && !disabled && !ctpBlocked;
+              const stockLabel = item.trackInventory
+                ? posFormatStockQuantity(item)
+                : null;
+              const stockQty = posResolveAvailableStockInSaleUnits(item);
+              const stockBlocked =
+                !showCap &&
+                item.trackInventory &&
+                stockQty != null &&
+                stockQty <= 0;
+              const blocked = ctpBlocked || stockBlocked;
+              const canAdd = Boolean(orderId) && !disabled && !blocked;
               return (
                 <div
                   key={item.variantId}
                   className={`flex w-full items-start gap-2 rounded-lg border px-3 py-2.5 ${
-                    ctpBlocked
+                    blocked
                       ? POS_INSUFFICIENT_STOCK_SURFACE_CLASS
                       : "border-border bg-surface"
                   }`}
                   data-test-id={`pos-dining-menu-card-${item.variantId}`}
                   data-ctp-blocked={ctpBlocked ? "true" : undefined}
+                  data-stock-blocked={stockBlocked ? "true" : undefined}
                 >
                   <div className="min-w-0 flex-1 text-left text-sm">
                     <div className="min-w-0 font-medium text-foreground">
@@ -315,7 +398,7 @@ export function PosDiningMenuColumn({
                       SKU {item.sku ?? "—"}
                       {item.barcode?.trim() ? ` · ${item.barcode.trim()}` : ""}
                     </p>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs tabular-nums text-foreground">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs tabular-nums text-foreground">
                       <span className="font-semibold">{formatMoney(item.unitPriceWithTax)}</span>
                       {saleUnit ? (
                         <span className="text-muted-foreground">· {saleUnit}</span>
@@ -335,6 +418,20 @@ export function PosDiningMenuColumn({
                           }
                         >
                           Cap. {cap}
+                        </span>
+                      ) : null}
+                      {stockLabel != null ? (
+                        <span
+                          className={
+                            stockBlocked
+                              ? "rounded border border-red-300 px-1.5 py-0.5 text-[11px] font-medium text-red-700 dark:border-red-800 dark:text-red-300"
+                              : "rounded border border-border px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+                          }
+                          data-test-id={`pos-dining-menu-stock-${item.variantId}`}
+                          title="Stock disponible (sala POS)"
+                        >
+                          Stock {stockLabel}
+                          {saleUnit ? ` ${saleUnit}` : ""}
                         </span>
                       ) : null}
                     </div>
@@ -360,16 +457,20 @@ export function PosDiningMenuColumn({
                       ariaLabel={
                         ctpBlocked
                           ? `Sin capacidad producible: ${item.productName}`
-                          : canAdd
-                            ? `Agregar ${item.productName} a la cuenta`
-                            : "Seleccioná una cuenta para agregar"
+                          : stockBlocked
+                            ? `Sin stock: ${item.productName}`
+                            : canAdd
+                              ? `Agregar ${item.productName} a la cuenta`
+                              : "Seleccioná una cuenta para agregar"
                       }
                       title={
                         ctpBlocked
                           ? "Sin capacidad producible"
-                          : canAdd
-                            ? "Agregar a la cuenta"
-                            : "Seleccioná una cuenta"
+                          : stockBlocked
+                            ? "Sin stock"
+                            : canAdd
+                              ? "Agregar a la cuenta"
+                              : "Seleccioná una cuenta"
                       }
                       disabled={!canAdd || busy || addingId !== null}
                       isLoading={busy}

@@ -52,7 +52,7 @@ export class DiningOrderNumberService {
       timezone: DEFAULT_DINING_TIMEZONE,
       resetTimeLocal: DEFAULT_DINING_RESET_TIME,
       allowWaiterOpenTable: true,
-      allowPosOpenTable: false,
+      allowPosOpenTable: true,
     });
     try {
       await this.settingsRepository.insert(row);

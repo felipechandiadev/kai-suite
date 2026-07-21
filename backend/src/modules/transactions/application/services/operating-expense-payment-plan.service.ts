@@ -286,11 +286,18 @@ export class OperatingExpensePaymentPlanService {
     const pm = String(opts.line.paymentMethod || '').toUpperCase();
     if (pm && ['CASH', 'TRANSFER', 'CHECK'].includes(pm)) {
       payDto.paymentMethod = this.mapUiPaymentMethod(pm);
-      if (pm === 'TRANSFER' || pm === 'CHECK') {
+      if (pm === 'TRANSFER') {
         payDto.bankAccountKey =
           opts.line.companyBankAccountKey != null
             ? String(opts.line.companyBankAccountKey).trim()
             : undefined;
+      }
+      if (pm === 'CHECK' && opts.line.companyBankAccountKey != null) {
+        // Cartola al compensar el cheque, no al emitir.
+        payDto.metadata = {
+          ...(payDto.metadata ?? {}),
+          checkBankAccountKey: String(opts.line.companyBankAccountKey).trim(),
+        };
       }
       if (pm === 'CASH' && opts.line.cashHubId != null) {
         payDto.cashHubId = String(opts.line.cashHubId).trim();
@@ -299,6 +306,7 @@ export class OperatingExpensePaymentPlanService {
 
     payDto.notes = opts.note;
     payDto.metadata = {
+      ...(payDto.metadata ?? {}),
       origin: 'EXPENSE_PAYMENT',
       installmentNumber: opts.installmentNumber,
       totalInstallments: opts.totalInstallments,

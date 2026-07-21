@@ -48,6 +48,10 @@ export type EmployeeGridRow = {
   hireDate?: string;
   terminationDate?: string | null;
   baseSalary?: string | null;
+  /** Del contrato ACTIVE. */
+  tipsEligible?: boolean;
+  salesCommissionType?: string | null;
+  salesCommissionValue?: string | null;
   person?: EmployeePersonSummary | null;
   branch?: EmployeeBranchSummary | null;
 };

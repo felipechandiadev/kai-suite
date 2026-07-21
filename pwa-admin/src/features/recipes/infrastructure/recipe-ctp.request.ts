@@ -1,6 +1,9 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/auth-options";
 import type {
+  RecipeCtpByStorage,
+  RecipeCtpByStorageItem,
+  RecipeCtpByStorageResponse,
   RecipeCtpDetail,
   RecipeCtpDetailLine,
   RecipeCtpDetailReason,
@@ -90,6 +93,52 @@ function parseDetail(raw: unknown): RecipeCtpDetail | null {
   };
 }
 
+function parseByStorageItem(raw: unknown): RecipeCtpByStorageItem | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const storageId = String(o.storageId ?? "").trim();
+  if (!storageId) return null;
+  const linesRaw = o.lines;
+  const lines: RecipeCtpDetailLine[] = Array.isArray(linesRaw)
+    ? linesRaw.map(parseLine).filter((l): l is RecipeCtpDetailLine => l != null)
+    : [];
+  const namesRaw = o.productionUnitNames;
+  const productionUnitNames = Array.isArray(namesRaw)
+    ? namesRaw.map((n) => String(n ?? "").trim()).filter(Boolean)
+    : [];
+  return {
+    storageId,
+    storageName: o.storageName != null ? String(o.storageName) : null,
+    productionUnitNames,
+    producibleQty:
+      o.producibleQty == null
+        ? null
+        : Number.isFinite(Number(o.producibleQty))
+          ? Number(o.producibleQty)
+          : null,
+    reason: parseReason(o.reason),
+    lines,
+  };
+}
+
+function parseByStorage(raw: unknown): RecipeCtpByStorage | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const variantId = String(o.variantId ?? "").trim();
+  if (!variantId) return null;
+  const storagesRaw = o.storages;
+  const storages: RecipeCtpByStorageItem[] = Array.isArray(storagesRaw)
+    ? storagesRaw
+        .map(parseByStorageItem)
+        .filter((s): s is RecipeCtpByStorageItem => s != null)
+    : [];
+  return {
+    variantId,
+    reason: parseReason(o.reason),
+    storages,
+  };
+}
+
 export class RecipeCtpRequest {
   static async detail(input: {
     variantId: string;
@@ -123,5 +172,37 @@ export class RecipeCtpRequest {
       return { success: false, message: "Respuesta CTP inválida" };
     }
     return { success: true, detail };
+  }
+
+  static async byStorage(input: {
+    variantId: string;
+  }): Promise<RecipeCtpByStorageResponse> {
+    const variantId = input.variantId.trim();
+    if (!variantId) {
+      return { success: false, message: "Variante es obligatoria" };
+    }
+    let res: Response;
+    try {
+      const qs = new URLSearchParams({ variantId });
+      res = await fetch(`${apiUrl("/recipes/ctp/by-storage")}?${qs.toString()}`, {
+        cache: "no-store",
+        headers: await authHeaders(),
+      });
+    } catch {
+      return { success: false, message: BACKEND_CONNECTION_MESSAGE };
+    }
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      const msg =
+        data && typeof data === "object" && typeof (data as { message?: unknown }).message === "string"
+          ? String((data as { message: string }).message)
+          : `HTTP ${res.status}`;
+      return { success: false, message: msg };
+    }
+    const result = parseByStorage(data);
+    if (!result) {
+      return { success: false, message: "Respuesta CTP por almacén inválida" };
+    }
+    return { success: true, result };
   }
 }

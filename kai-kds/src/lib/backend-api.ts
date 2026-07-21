@@ -13,6 +13,16 @@ export type DiningAuthContext = {
   companyId: string;
 };
 
+export class KdsApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "KdsApiError";
+    this.status = status;
+  }
+}
+
 function apiUrl(path: string): string {
   return `${getServerBackendApiBase()}/api${path.startsWith("/") ? path : `/${path}`}`;
 }
@@ -32,6 +42,10 @@ function parseApiError(text: string, status: number): string {
     // Respuesta no JSON.
   }
   return trimmed;
+}
+
+function throwApiError(text: string, status: number): never {
+  throw new KdsApiError(parseApiError(text, status), status);
 }
 
 export function authHeaders(ctx: DiningAuthContext): Record<string, string> {
@@ -60,7 +74,7 @@ export async function diningGet<T>(
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(parseApiError(text, res.status));
+    throwApiError(text, res.status);
   }
   return res.json() as Promise<T>;
 }
@@ -78,7 +92,7 @@ export async function diningPost<T>(
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(parseApiError(text, res.status));
+    throwApiError(text, res.status);
   }
   return res.json() as Promise<T>;
 }
@@ -108,7 +122,7 @@ export async function diningLogin(body: {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(parseApiError(text, res.status));
+    throwApiError(text, res.status);
   }
   const data = (await res.json()) as {
     user?: {

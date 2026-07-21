@@ -4,6 +4,7 @@ import { ProductType } from '@modules/products/domain/product.entity';
 export const SEED_DEV_CATEGORIES = [
   'Alimentos y bebidas',
   'Insumos cocina',
+  'Insumos textil',
   'Pastelería',
   'Comida rápida',
   'Textil y vestuario',
@@ -22,6 +23,7 @@ export const SEED_DEV_BRANDS = [
   'DemoBrand',
   'Dulce Horno',
   'Rápido Norte',
+  'Taller Norte',
 ] as const;
 
 export const SEED_DEV_ATTRIBUTE_TALLA = {
@@ -133,7 +135,7 @@ export type SeedDevProductSeed = {
   variants: SeedDevVariantSeed[];
 };
 
-/** Catálogo desarrollo: PHYSICAL vendible + INSUMO + ELABORADO + PREPARADO + SERVICE/DIGITAL. */
+/** Catálogo desarrollo: PHYSICAL + INSUMO + MANUFACTURADO + ELABORADO + PREPARADO + SERVICE/DIGITAL. */
 export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   {
     name: 'Café molido premium',
@@ -873,6 +875,179 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
       },
     ],
   },
+  // ——— INSUMO: textil / taller (BOM manufacturados) ———
+  {
+    name: 'Tela algodón',
+    brand: 'Taller Norte',
+    description: 'Tela de algodón por metro — insumo confección.',
+    productType: ProductType.INSUMO,
+    categoryName: 'Insumos textil',
+    productBaseUnit: 'UN',
+    visibleInEShop: false,
+    variants: [
+      {
+        sku: 'SEEDDEVINSTELAALG',
+        barcode: '7805005001001',
+        baseCost: 2800,
+        trackInventory: true,
+        uom: { stock: 'UN', sale: 'UN', purchase: 'UN' },
+      },
+    ],
+  },
+  {
+    name: 'Tela polar',
+    brand: 'Taller Norte',
+    description: 'Tela polar / felpa por metro — insumo polerones.',
+    productType: ProductType.INSUMO,
+    categoryName: 'Insumos textil',
+    productBaseUnit: 'UN',
+    visibleInEShop: false,
+    variants: [
+      {
+        sku: 'SEEDDEVINSTELAPOL',
+        barcode: '7805005001101',
+        baseCost: 4200,
+        trackInventory: true,
+        uom: { stock: 'UN', sale: 'UN', purchase: 'UN' },
+      },
+    ],
+  },
+  {
+    name: 'Hilo industrial',
+    brand: 'Taller Norte',
+    description: 'Bobina de hilo para costura — insumo.',
+    productType: ProductType.INSUMO,
+    categoryName: 'Insumos textil',
+    productBaseUnit: 'UN',
+    visibleInEShop: false,
+    variants: [
+      {
+        sku: 'SEEDDEVINSHILO',
+        barcode: '7805005001201',
+        baseCost: 450,
+        trackInventory: true,
+      },
+    ],
+  },
+  {
+    name: 'Botón',
+    brand: 'Taller Norte',
+    description: 'Botón plástico 15 mm — insumo.',
+    productType: ProductType.INSUMO,
+    categoryName: 'Insumos textil',
+    productBaseUnit: 'UN',
+    visibleInEShop: false,
+    variants: [
+      {
+        sku: 'SEEDDEVINSBOTON',
+        barcode: '7805005001301',
+        baseCost: 80,
+        trackInventory: true,
+      },
+    ],
+  },
+  {
+    name: 'Etiqueta marca',
+    brand: 'Taller Norte',
+    description: 'Etiqueta textil de marca — insumo acabado.',
+    productType: ProductType.INSUMO,
+    categoryName: 'Insumos textil',
+    productBaseUnit: 'UN',
+    visibleInEShop: false,
+    variants: [
+      {
+        sku: 'SEEDDEVINSETIQ',
+        barcode: '7805005001401',
+        baseCost: 120,
+        trackInventory: true,
+      },
+    ],
+  },
+  // ——— MANUFACTURADO: confección textil (stock vía producción) ———
+  {
+    name: 'Camiseta básica manufacturada',
+    brand: 'Taller Norte',
+    description: 'Camiseta confeccionada en taller — stock por producción.',
+    productType: ProductType.MANUFACTURADO,
+    categoryName: 'Textil y vestuario',
+    productBaseUnit: 'UN',
+    variants: [
+      {
+        sku: 'SEEDDEVMANCAMI',
+        barcode: '7806006001001',
+        basePrice: 9990,
+        baseCost: 3500,
+        trackInventory: true,
+        retailNet: 9990,
+        wholesaleNet: 8500,
+        inBothPriceLists: true,
+        attributeValues: { Talla: 'M', Color: 'Negro', Material: 'Algodón' },
+      },
+    ],
+  },
+  {
+    name: 'Pantalón jogger manufacturado',
+    brand: 'Taller Norte',
+    description: 'Pantalón jogger confeccionado en taller.',
+    productType: ProductType.MANUFACTURADO,
+    categoryName: 'Textil y vestuario',
+    productBaseUnit: 'UN',
+    variants: [
+      {
+        sku: 'SEEDDEVMANPANT',
+        barcode: '7806006001101',
+        basePrice: 15990,
+        baseCost: 6200,
+        trackInventory: true,
+        retailNet: 15990,
+        wholesaleNet: 13500,
+        inBothPriceLists: true,
+        attributeValues: { Talla: 'M', Color: 'Gris', Material: 'Algodón' },
+      },
+    ],
+  },
+  {
+    name: 'Polerón manufacturado',
+    brand: 'Taller Norte',
+    description: 'Polerón de polar confeccionado en taller.',
+    productType: ProductType.MANUFACTURADO,
+    categoryName: 'Textil y vestuario',
+    productBaseUnit: 'UN',
+    variants: [
+      {
+        sku: 'SEEDDEVMANPOLE',
+        barcode: '7806006001201',
+        basePrice: 18990,
+        baseCost: 7800,
+        trackInventory: true,
+        retailNet: 18990,
+        wholesaleNet: 16200,
+        inBothPriceLists: true,
+        attributeValues: { Talla: 'L', Color: 'Azul', Material: 'Poliéster' },
+      },
+    ],
+  },
+  {
+    name: 'Short deportivo manufacturado',
+    brand: 'Taller Norte',
+    description: 'Short deportivo confeccionado en taller.',
+    productType: ProductType.MANUFACTURADO,
+    categoryName: 'Textil y vestuario',
+    productBaseUnit: 'UN',
+    variants: [
+      {
+        sku: 'SEEDDEVMANSHOR',
+        barcode: '7806006001301',
+        basePrice: 7990,
+        baseCost: 2800,
+        trackInventory: true,
+        retailNet: 7990,
+        wholesaleNet: 6800,
+        inBothPriceLists: true,
+        attributeValues: { Talla: 'M', Color: 'Negro', Material: 'Algodón' },
+      },
+    ],
+  },
   // ——— ELABORADO: pastelería (stock vía producción) ———
   {
     name: 'Torta cumpleaños',
@@ -1326,6 +1501,7 @@ export const SEED_DEV_VARIANT_SKU_PREFIX = 'SEEDDEV';
 export const SEED_DEV_ESHOP_FEATURED_PRODUCT_NAMES = [
   'Calcetines deportivos',
   'Polera algodón',
+  'Camiseta básica manufacturada',
   'Toalla baño algodón',
   'Café molido premium',
   'Torta cumpleaños',

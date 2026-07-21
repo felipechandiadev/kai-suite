@@ -20,6 +20,8 @@ import { HrEmployeeTimelineEntry } from './domain/hr-employee-timeline-entry.ent
 import { Company } from '@modules/companies/domain/company.entity';
 import { Person } from '@modules/persons/domain/person.entity';
 import { User } from '@modules/users/domain/user.entity';
+import { Transaction } from '@modules/transactions/domain/transaction.entity';
+import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
 import { HrJornadaConfig } from '@modules/hr-jornada/domain/hr-jornada-config.entity';
 import { HrShiftSystem } from '@modules/hr-jornada/domain/hr-shift-system.entity';
 import { HrLaborUnitsModule } from '@modules/hr-labor-units/hr-labor-units.module';
@@ -30,6 +32,7 @@ import { GetAllEmployeesQueryHandler } from './application/handlers/queries/get-
 import { GetEmployeeByIdQueryHandler } from './application/handlers/queries/get-employee-by-id.handler';
 import { IsapresController } from './presentation/isapres.controller';
 import { IsapresService } from './application/isapres.service';
+import { EmployeeSalesCommissionsService } from './application/employee-sales-commissions.service';
 
 @Module({
   imports: [
@@ -45,6 +48,8 @@ import { IsapresService } from './application/isapres.service';
       Company,
       Person,
       User,
+      Transaction,
+      PointOfSale,
       HrJornadaConfig,
       HrShiftSystem,
     ]),
@@ -59,6 +64,7 @@ import { IsapresService } from './application/isapres.service';
   providers: [
     EmployeesServiceAdapter,
     EmploymentContractsService,
+    EmployeeSalesCommissionsService,
     JobPositionsService,
     AfpFundsService,
     IsapresService,
@@ -76,6 +82,7 @@ import { IsapresService } from './application/isapres.service';
   exports: [
     EmployeesServiceAdapter,
     EmploymentContractsService,
+    EmployeeSalesCommissionsService,
     JobPositionsService,
     AfpFundsService,
     IsapresService,

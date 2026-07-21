@@ -10,15 +10,19 @@ type StockUpdatedPayload = {
   productVariantId?: string;
 };
 
+const DEFAULT_DEBOUNCE_MS = 350;
+
 /**
- * Suscribe al namespace `/realtime/stock` para refrescar CTP del menú dining.
+ * Suscribe al namespace `/realtime/stock` para refrescar CTP / stock del menú dining.
+ * Debounce ante ráfagas (varios insumos del mismo fire).
  */
 export function useDiningCtpStockSubscription(
   storageIds: string[],
   onStockUpdated: () => void,
-  options?: { enabled?: boolean },
+  options?: { enabled?: boolean; debounceMs?: number },
 ) {
   const enabled = options?.enabled !== false;
+  const debounceMs = options?.debounceMs ?? DEFAULT_DEBOUNCE_MS;
   const { data: session } = useSession();
   const userId = session?.user?.accessToken ?? null;
   const activeCompanyId =
@@ -26,6 +30,7 @@ export function useDiningCtpStockSubscription(
   const onUpdatedRef = useRef(onStockUpdated);
   onUpdatedRef.current = onStockUpdated;
   const storageKey = storageIds.filter(Boolean).sort().join(",");
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!enabled) {
@@ -46,6 +51,21 @@ export function useDiningCtpStockSubscription(
       },
     });
 
+    const clearTimer = () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+
+    const scheduleRefresh = () => {
+      clearTimer();
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
+        onUpdatedRef.current();
+      }, debounceMs);
+    };
+
     const subscribe = () => {
       socket.emit("subscribeStorages", { storageIds: ids });
     };
@@ -58,15 +78,16 @@ export function useDiningCtpStockSubscription(
     const onUpdated = (payload: StockUpdatedPayload) => {
       const sid = payload.storageId?.trim();
       if (sid && ids.includes(sid)) {
-        onUpdatedRef.current();
+        scheduleRefresh();
       }
     };
     socket.on("stock:updated", onUpdated);
 
     return () => {
+      clearTimer();
       socket.off("stock:updated", onUpdated);
       socket.off("connect", subscribe);
       socket.disconnect();
     };
-  }, [userId, activeCompanyId, storageKey, enabled]);
+  }, [userId, activeCompanyId, storageKey, enabled, debounceMs]);
 }

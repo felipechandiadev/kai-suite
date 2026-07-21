@@ -38,6 +38,29 @@ export function KdsTopBar({ session, productionUnitLabel }: KdsTopBarProps) {
         ? false
         : null;
 
+  const unitLabel = productionUnitLabel ?? "Sin unidad";
+
+  const renderLiveBadge = (testId: string) => {
+    if (live === null) return null;
+    return (
+      <span
+        className={
+          live
+            ? "shrink-0 rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-600"
+            : "shrink-0 rounded bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground"
+        }
+        data-test-id={testId}
+        title={
+          live
+            ? "Conectado al tiempo real de cocina"
+            : "Sin conexión en tiempo real"
+        }
+      >
+        {live ? "En vivo" : "Sin conexión"}
+      </span>
+    );
+  };
+
   return (
     <header
       className="sticky top-0 z-40 w-full border-b border-border/70 bg-background/80 backdrop-blur-md"
@@ -60,27 +83,15 @@ export function KdsTopBar({ session, productionUnitLabel }: KdsTopBarProps) {
         </div>
         <div className="min-w-2 flex-1" aria-hidden />
         <span
-          className="max-w-[12rem] shrink truncate text-sm font-semibold text-foreground sm:max-w-xs"
-          title={productionUnitLabel ?? "Sin unidad"}
+          className="hidden max-w-[12rem] shrink truncate text-sm font-semibold text-foreground md:inline md:max-w-xs"
+          title={unitLabel}
           data-test-id="kds-top-bar-unit"
         >
-          {productionUnitLabel ?? "Sin unidad"}
+          {unitLabel}
         </span>
         {live !== null ? (
-          <span
-            className={
-              live
-                ? "mr-6 shrink-0 rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-600 sm:mr-8"
-                : "mr-6 shrink-0 rounded bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground sm:mr-8"
-            }
-            data-test-id="kds-ws-status"
-            title={
-              live
-                ? "Conectado al tiempo real de cocina"
-                : "Sin conexión en tiempo real"
-            }
-          >
-            {live ? "En vivo" : "Sin conexión"}
+          <span className="mr-6 hidden shrink-0 md:inline-flex sm:mr-8">
+            {renderLiveBadge("kds-ws-status")}
           </span>
         ) : null}
         <span
@@ -145,6 +156,20 @@ export function KdsTopBar({ session, productionUnitLabel }: KdsTopBarProps) {
           ariaLabel="Cerrar sesión"
           data-test-id="kds-logout-button"
         />
+      </div>
+      {/* xs/sm: unidad + estado en vivo en línea inferior */}
+      <div
+        className="mx-auto flex w-full max-w-6xl items-center gap-2 border-t border-border/50 px-3 py-1.5 sm:px-4 md:hidden"
+        data-test-id="kds-top-bar-mobile-meta"
+      >
+        <span
+          className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground"
+          title={unitLabel}
+          data-test-id="kds-top-bar-unit-mobile"
+        >
+          {unitLabel}
+        </span>
+        {renderLiveBadge("kds-ws-status-mobile")}
       </div>
     </header>
   );

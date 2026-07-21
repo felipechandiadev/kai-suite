@@ -16,6 +16,7 @@ import {
   saveKdsProductionUnitId,
   type KdsSession,
 } from "@/lib/app-session";
+import { redirectToLoginIfUnauthorized } from "@/lib/auth/kds-api-failure";
 
 function formatUnitLabel(unit: ProductionUnitDto): string {
   return unit.name;
@@ -55,7 +56,11 @@ export function KdsStationProvider({
         userId: session.userId,
         companyId: session.companyId,
       });
-      const active = list.filter((u) => u.isActive);
+      const active = list.filter((u) => {
+        if (!u.isActive) return false;
+        const purpose = String(u.purpose ?? "KITCHEN").toUpperCase();
+        return purpose === "KITCHEN" || purpose === "BATCH";
+      });
       setUnits(active);
 
       const saved = loadKdsProductionUnitId();
@@ -67,6 +72,7 @@ export function KdsStationProvider({
         setProductionUnitIdState(null);
       }
     } catch (e) {
+      if (redirectToLoginIfUnauthorized(e)) return;
       setUnitsError(e instanceof Error ? e.message : "No se pudieron cargar unidades");
       setUnits([]);
     } finally {

@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { TenantContext } from '@common/tenant/tenant.context';
 import { Employee, WorkRegime } from '../domain/employee.entity';
 import { EmploymentContract } from '../domain/employment-contract.entity';
@@ -374,6 +374,59 @@ export class EmploymentContractsService {
         status: EmploymentContractStatus.ACTIVE,
       },
     });
+  }
+
+  /** Resumen de propinas/comisión del contrato ACTIVE (lista de empleados). */
+  async findActiveCompFlagsByEmployeeIds(
+    employeeIds: string[],
+  ): Promise<
+    Map<
+      string,
+      {
+        tipsEligible: boolean;
+        salesCommissionType: SalesCommissionType;
+        salesCommissionValue: string | null;
+      }
+    >
+  > {
+    const map = new Map<
+      string,
+      {
+        tipsEligible: boolean;
+        salesCommissionType: SalesCommissionType;
+        salesCommissionValue: string | null;
+      }
+    >();
+    const ids = [...new Set(employeeIds.map((id) => id?.trim()).filter(Boolean))];
+    if (ids.length === 0) return map;
+
+    const companyId = TenantContext.getCompanyId();
+    if (!companyId) return map;
+
+    const contracts = await this.contractRepo.find({
+      where: {
+        companyId,
+        employeeId: In(ids),
+        status: EmploymentContractStatus.ACTIVE,
+      },
+      select: [
+        'id',
+        'employeeId',
+        'tipsEligible',
+        'salesCommissionType',
+        'salesCommissionValue',
+      ],
+    });
+
+    for (const c of contracts) {
+      map.set(c.employeeId, {
+        tipsEligible: c.tipsEligible === true,
+        salesCommissionType:
+          c.salesCommissionType ?? SalesCommissionType.NONE,
+        salesCommissionValue: c.salesCommissionValue ?? null,
+      });
+    }
+    return map;
   }
 
   async create(input: CreateContractInput) {

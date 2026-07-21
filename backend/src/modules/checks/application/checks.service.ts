@@ -31,6 +31,7 @@ import {
   TransactionType,
 } from '@modules/transactions/domain/transaction.entity';
 import { CheckLedgerService } from './check-ledger.service';
+import { CheckBankCartolaService } from './check-bank-cartola.service';
 import { CheckPaymentObligationService } from './check-payment-obligation.service';
 
 const TODAY = () => new Date().toISOString().slice(0, 10);
@@ -59,6 +60,7 @@ export class ChecksService {
     private readonly transactions: Repository<Transaction>,
     private readonly dataSource: DataSource,
     private readonly checkLedger: CheckLedgerService,
+    private readonly checkCartola: CheckBankCartolaService,
     private readonly checkPayments: CheckPaymentObligationService,
   ) {}
 
@@ -192,6 +194,15 @@ export class ChecksService {
       body.notes,
     );
     await this.afterOutgoingStatusChange(next, check.status, CheckStatus.CLEARED);
+    try {
+      await this.checkCartola.postCleared(next);
+    } catch (err) {
+      this.logger.error(
+        `Cartola post failed for check ${next.id}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
     return next;
   }
 
@@ -439,6 +450,9 @@ export class ChecksService {
         toStatus === CheckStatus.BOUNCED ||
         toStatus === CheckStatus.VOIDED
       ) {
+        if (fromStatus === CheckStatus.CLEARED) {
+          await this.checkCartola.reverseCleared(check);
+        }
         await this.checkLedger.reverseOutgoingCheck(check, fromStatus);
         await this.checkPayments.reopenLinkedPayment(check, toStatus);
       }

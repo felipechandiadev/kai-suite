@@ -6,6 +6,7 @@ import { CreateRecipeDto } from '../application/dto/create-recipe.dto';
 import { UpdateRecipeDto } from '../application/dto/update-recipe.dto';
 import { CtpBatchRequestDto } from '../application/dto/ctp-batch.dto';
 import { CtpDetailQueryDto } from '../application/dto/ctp-detail-query.dto';
+import { CtpByStorageQueryDto } from '../application/dto/ctp-by-storage-query.dto';
 
 @Controller('recipes')
 export class RecipesController {
@@ -44,6 +45,17 @@ export class RecipesController {
       companyId,
       query.variantId,
       query.branchId,
+    );
+  }
+
+  @Get('ctp/by-storage')
+  async ctpByStorage(
+    @CurrentCompany() companyId: string,
+    @Query() query: CtpByStorageQueryDto,
+  ) {
+    return this.recipeCtpService.computeByStorageForVariant(
+      companyId,
+      query.variantId,
     );
   }
 

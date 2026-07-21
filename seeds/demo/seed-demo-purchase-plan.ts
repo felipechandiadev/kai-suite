@@ -69,6 +69,86 @@ const INSUMO_PASTELERIA_DOCS: SeedPurchaseDoc[] = [
   },
 ];
 
+/** Recepciones de insumos textiles (taller / manufacturados). */
+const INSUMO_TEXTIL_DOCS: SeedPurchaseDoc[] = [
+  {
+    daysAgo: 90,
+    supplierAlias: 'TextilSur',
+    storageCode: SEED_STORAGE_CODE,
+    reference: 'F-SEED-TXT-9001',
+    paymentStrategy: 'transfer',
+    lines: [
+      { sku: 'SEEDDEVINSTELAALG', qty: 80, unitCost: 2800 },
+      { sku: 'SEEDDEVINSTELAPOL', qty: 40, unitCost: 4200 },
+      { sku: 'SEEDDEVINSHILO', qty: 50, unitCost: 450 },
+      { sku: 'SEEDDEVINSBOTON', qty: 200, unitCost: 80 },
+      { sku: 'SEEDDEVINSETIQ', qty: 150, unitCost: 120 },
+    ],
+  },
+  {
+    daysAgo: 28,
+    supplierAlias: 'TextilSur',
+    storageCode: SEED_STORAGE_CODE,
+    reference: 'F-SEED-TXT-2801',
+    paymentStrategy: 'check',
+    lines: [
+      { sku: 'SEEDDEVINSTELAALG', qty: 45, unitCost: 2850 },
+      { sku: 'SEEDDEVINSTELAPOL', qty: 25, unitCost: 4300 },
+      { sku: 'SEEDDEVINSHILO', qty: 30, unitCost: 460 },
+      { sku: 'SEEDDEVINSBOTON', qty: 100, unitCost: 85 },
+      { sku: 'SEEDDEVINSETIQ', qty: 80, unitCost: 125 },
+    ],
+  },
+];
+
+/**
+ * Recepciones de insumos cocina para PREPARADO (hamburguesa, papas, completo, combo).
+ * Bodega principal = input de UP Cocina DEPENDENT.
+ */
+const INSUMO_COCINA_PREPARADO_DOCS: SeedPurchaseDoc[] = [
+  {
+    daysAgo: 100,
+    supplierAlias: 'Mayorista Central',
+    storageCode: SEED_STORAGE_CODE,
+    reference: 'F-SEED-PREP-1001',
+    paymentStrategy: 'transfer',
+    lines: [
+      { sku: 'SEEDDEVINSPANHAMB', qty: 120, unitCost: 120 },
+      { sku: 'SEEDDEVINSCARNE', qty: 25, unitCost: 5200 },
+      { sku: 'SEEDDEVINSPAPA', qty: 40, unitCost: 1600 },
+      { sku: 'SEEDDEVINSQUESO', qty: 200, unitCost: 150 },
+      { sku: 'SEEDDEVACE1L', qty: 12, unitCost: 5200 },
+    ],
+  },
+  {
+    daysAgo: 55,
+    supplierAlias: 'Mayorista Central',
+    storageCode: SEED_STORAGE_CODE,
+    reference: 'F-SEED-PREP-5501',
+    paymentStrategy: 'installments_2',
+    lines: [
+      { sku: 'SEEDDEVINSPANHOT', qty: 100, unitCost: 100 },
+      { sku: 'SEEDDEVINSSALCHI', qty: 100, unitCost: 220 },
+      { sku: 'SEEDDEVINSPANHAMB', qty: 80, unitCost: 125 },
+      { sku: 'SEEDDEVINSCARNE', qty: 18, unitCost: 5300 },
+    ],
+  },
+  {
+    daysAgo: 14,
+    supplierAlias: 'Andes',
+    storageCode: SEED_STORAGE_CODE,
+    reference: 'F-SEED-PREP-1401',
+    paymentStrategy: 'check',
+    lines: [
+      { sku: 'SEEDDEVINSPAPA', qty: 30, unitCost: 1650 },
+      { sku: 'SEEDDEVINSQUESO', qty: 150, unitCost: 155 },
+      { sku: 'SEEDDEVINSSALCHI', qty: 60, unitCost: 230 },
+      { sku: 'SEEDDEVINSPANHOT', qty: 60, unitCost: 105 },
+      { sku: 'SEEDDEVACE500', qty: 20, unitCost: 2800 },
+    ],
+  },
+];
+
 const TARGET_RECENT = 36;
 const TARGET_OLDER = 12;
 const HORIZON_DAYS = 180;
@@ -226,6 +306,16 @@ export function buildSeedDemoPurchasePlan(
 
   // 4) Insumos pastelería (fijos)
   for (const insumo of INSUMO_PASTELERIA_DOCS) {
+    pushDoc({ ...insumo });
+  }
+
+  // 5) Insumos textil / taller (fijos)
+  for (const insumo of INSUMO_TEXTIL_DOCS) {
+    pushDoc({ ...insumo });
+  }
+
+  // 6) Insumos cocina PREPARADO (fijos → bodega principal / Cocina)
+  for (const insumo of INSUMO_COCINA_PREPARADO_DOCS) {
     pushDoc({ ...insumo });
   }
 

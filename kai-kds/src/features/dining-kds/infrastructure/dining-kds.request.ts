@@ -135,7 +135,7 @@ export class DiningKdsRequest {
     return diningGet<ProductionUnitDto[]>("/production-units", ctx, {
       branchId,
       includeInactive: "false",
-      purpose: "KITCHEN",
+      // Cocina + batch (pastelería / taller) pueden recibir cola KDS.
     });
   }
 }

@@ -4,6 +4,7 @@ export const EMPLOYEE_DETAIL_SECTION_IDS = [
   "contract",
   "shift",
   "remunerations",
+  "commissions",
   "bankAccounts",
   "timeline",
 ] as const;
@@ -22,6 +23,7 @@ export const EMPLOYEE_DETAIL_TABS: EmployeeDetailTabItem[] = [
   { id: "contract", label: "Contrato" },
   { id: "shift", label: "Turno" },
   { id: "remunerations", label: "Liquidaciones" },
+  { id: "commissions", label: "Comisiones" },
   { id: "bankAccounts", label: "Cuentas bancarias" },
   { id: "timeline", label: "Historial" },
 ];

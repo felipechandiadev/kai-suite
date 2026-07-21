@@ -28,6 +28,7 @@ describe('ChecksService', () => {
   let transactionsRepo: { findOne: jest.Mock };
   let dataSource: { transaction: jest.Mock };
   let checkLedger: { postOutgoingCleared: jest.Mock; reverseOutgoingCheck: jest.Mock };
+  let checkCartola: { postCleared: jest.Mock; reverseCleared: jest.Mock };
   let checkPayments: { reopenLinkedPayment: jest.Mock };
 
   const COMPANY_ID = '00000000-0000-0000-0000-000000000001';
@@ -60,6 +61,10 @@ describe('ChecksService', () => {
       postOutgoingCleared: jest.fn().mockResolvedValue(undefined),
       reverseOutgoingCheck: jest.fn().mockResolvedValue(undefined),
     };
+    checkCartola = {
+      postCleared: jest.fn().mockResolvedValue(undefined),
+      reverseCleared: jest.fn().mockResolvedValue(undefined),
+    };
     checkPayments = {
       reopenLinkedPayment: jest.fn().mockResolvedValue(undefined),
     };
@@ -85,6 +90,7 @@ describe('ChecksService', () => {
       transactionsRepo as any,
       dataSource as any,
       checkLedger as any,
+      checkCartola as any,
       checkPayments as any,
     );
   });
@@ -163,6 +169,20 @@ describe('ChecksService', () => {
       });
       const out = await service.clear('id', COMPANY_ID, null, {});
       expect(out.status).toBe(CheckStatus.CLEARED);
+      expect(checkLedger.postOutgoingCleared).toHaveBeenCalled();
+      expect(checkCartola.postCleared).toHaveBeenCalled();
+    });
+
+    it('INCOMING CLEARED also posts cartola movement', async () => {
+      const original = baseCheck({ status: CheckStatus.DEPOSITED });
+      checkRepo.findById.mockResolvedValueOnce(original);
+      checkRepo.update.mockResolvedValueOnce({
+        ...original,
+        status: CheckStatus.CLEARED,
+      });
+      await service.clear('id', COMPANY_ID, null, {});
+      expect(checkCartola.postCleared).toHaveBeenCalled();
+      expect(checkLedger.postOutgoingCleared).not.toHaveBeenCalled();
     });
 
     it('rejects clear for INCOMING in PENDING', async () => {

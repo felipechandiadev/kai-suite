@@ -9,10 +9,15 @@ import { TransactionCreatedEvent } from '@shared/events/transaction-created.even
 describe('CheckFromTransactionHandler', () => {
   let handler: CheckFromTransactionHandler;
   let checks: { createFromTransactionPayment: jest.Mock };
+  let transactions: { findOne: jest.Mock };
 
   beforeEach(() => {
     checks = { createFromTransactionPayment: jest.fn().mockResolvedValue({}) };
-    handler = new CheckFromTransactionHandler(checks as any);
+    transactions = { findOne: jest.fn().mockResolvedValue(null) };
+    handler = new CheckFromTransactionHandler(
+      checks as any,
+      transactions as any,
+    );
   });
 
   function tx(overrides: any = {}) {
@@ -121,6 +126,39 @@ describe('CheckFromTransactionHandler', () => {
         checkNumber: '8001',
         bankName: 'Banco Estado',
         amount: 75000,
+        payeeName: 'Proveedor X',
+      }),
+    );
+  });
+
+  it('infers payee from supplier when checkData omits payeeName', async () => {
+    transactions.findOne.mockResolvedValueOnce({
+      id: 'tx-1',
+      supplierId: 'sup-1',
+      supplier: {
+        id: 'sup-1',
+        alias: 'Distribuidora Norte',
+        person: { businessName: 'Dist. Norte SpA' },
+      },
+    });
+    await handler.handle(
+      new TransactionCreatedEvent(
+        tx({
+          transactionType: TransactionType.SUPPLIER_PAYMENT,
+          paymentMethod: PaymentMethod.CHECK,
+          supplierId: 'sup-1',
+          total: 10000,
+          metadata: {
+            checkData: { checkNumber: '9001', bankName: 'BCI' },
+          },
+        }) as any,
+        'co-1',
+      ),
+    );
+    expect(checks.createFromTransactionPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payeeId: 'sup-1',
+        payeeName: 'Distribuidora Norte',
       }),
     );
   });

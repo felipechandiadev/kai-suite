@@ -97,9 +97,18 @@ export async function seedDemoSalesHistory(ctx: {
     relations: ['person'],
   });
   const customerByDoc = new Map<string, string>();
+  const customerNameById = new Map<string, string>();
   for (const c of customers) {
-    const doc = (c.person as Person | undefined)?.documentNumber?.trim();
+    const person = c.person as Person | undefined;
+    const doc = person?.documentNumber?.trim();
     if (doc) customerByDoc.set(doc, c.id);
+    const business = person?.businessName?.trim();
+    const full = [person?.firstName, person?.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    const name = business || full || null;
+    if (name) customerNameById.set(c.id, name);
   }
 
   const salesPlan = buildSeedDemoSalesPlan(purchasePlan);
@@ -180,6 +189,37 @@ export async function seedDemoSalesHistory(ctx: {
     const paymentMethod = mapPaymentMethod(doc.paymentMethod);
     paymentCounts[doc.paymentMethod] = (paymentCounts[doc.paymentMethod] ?? 0) + 1;
 
+    const treasuryBankAccountKey =
+      paymentMethod === PaymentMethod.TRANSFER ||
+      paymentMethod === PaymentMethod.CHECK
+        ? PRIMARY_BANK_ACCOUNT_KEY
+        : undefined;
+
+    const paymentSnapshot: Record<string, unknown> = {
+      method: paymentMethod,
+      amount: total,
+      bankAccountKey: treasuryBankAccountKey ?? null,
+      capturedAt: `${occurredOn}T12:00:00.000Z`,
+    };
+    if (paymentMethod === PaymentMethod.CHECK) {
+      const checkDigits = String(saleCount + 1).padStart(4, '0');
+      const drawerName = customerId
+        ? customerNameById.get(customerId) ?? 'Cliente mostrador'
+        : 'Cliente mostrador';
+      paymentSnapshot.checkData = {
+        checkNumber: `SEED-IN-${checkDigits}`,
+        bankName: 'Banco Estado',
+        bankAccountKey: PRIMARY_BANK_ACCOUNT_KEY,
+        drawerName,
+        issueDate: occurredOn,
+        dueDate: occurredOn,
+      };
+    }
+    const paymentsMeta = {
+      payments: [paymentSnapshot],
+      paymentSnapshots: [paymentSnapshot],
+    };
+
     const dto = new CreateTransactionDto();
     dto.transactionType = TransactionType.SALE;
     dto.branchId = branchId;
@@ -195,16 +235,15 @@ export async function seedDemoSalesHistory(ctx: {
     dto.paymentStatus = PaymentStatus.PAID;
     dto.amountPaid = total;
     dto.changeAmount = 0;
+    dto.bankAccountKey = treasuryBankAccountKey;
     dto.lines = lines;
     dto.notes = `Seed venta demo ${occurredOn}`;
     dto.metadata = {
       origin: 'SEED_DEMO_SALE',
       fulfillment: { deliveryMode: 'IMMEDIATE' },
       occurredOn,
+      ...paymentsMeta,
     };
-    if (paymentMethod === PaymentMethod.TRANSFER || paymentMethod === PaymentMethod.CHECK) {
-      dto.bankAccountKey = PRIMARY_BANK_ACCOUNT_KEY;
-    }
 
     const created = await transactionsService.createTransaction(dto);
     await patchTransactionHistoricalDate(app, dataSource, {
@@ -212,17 +251,52 @@ export async function seedDemoSalesHistory(ctx: {
       transactionId: created.id,
       occurredOn,
     });
+
+    // Cobro explícito (como POS): «Pagos recibidos» lista PAYMENT_IN, no la SALE.
+    const paymentInDto = new CreateTransactionDto();
+    paymentInDto.transactionType = TransactionType.PAYMENT_IN;
+    paymentInDto.branchId = branchId;
+    paymentInDto.userId = operatorUserId;
+    paymentInDto.pointOfSaleId = posId;
+    paymentInDto.customerId = customerId;
+    paymentInDto.relatedTransactionId = created.id;
+    paymentInDto.subtotal = total;
+    paymentInDto.taxAmount = 0;
+    paymentInDto.discountAmount = 0;
+    paymentInDto.total = total;
+    paymentInDto.paymentMethod = paymentMethod;
+    paymentInDto.paymentStatus = PaymentStatus.PAID;
+    paymentInDto.amountPaid = total;
+    paymentInDto.changeAmount = 0;
+    paymentInDto.bankAccountKey = treasuryBankAccountKey;
+    paymentInDto.lines = [];
+    paymentInDto.notes = `Cobro seed de ${created.documentNumber}`;
+    paymentInDto.metadata = {
+      origin: 'SEED_DEMO_PAYMENT_IN',
+      saleTransactionId: created.id,
+      source: 'seed_sale',
+      occurredOn,
+      ...paymentsMeta,
+    };
+
+    const paymentIn = await transactionsService.createTransaction(paymentInDto);
+    await patchTransactionHistoricalDate(app, dataSource, {
+      companyId,
+      transactionId: paymentIn.id,
+      occurredOn,
+    });
+
     saleCount += 1;
     operatorCounts[doc.operatorUserName] =
       (operatorCounts[doc.operatorUserName] ?? 0) + 1;
     posCounts[doc.posName] = (posCounts[doc.posName] ?? 0) + 1;
     console.log(
-      `✅ Venta seed ${created.documentNumber} (${occurredOn}) — $${total.toLocaleString('es-CL')} · ${doc.posName} · ${doc.operatorUserName} · ${doc.paymentMethod}${customerId ? ' · con cliente' : ' · mostrador'}`,
+      `✅ Venta seed ${created.documentNumber} + cobro ${paymentIn.documentNumber} (${occurredOn}) — $${total.toLocaleString('es-CL')} · ${doc.posName} · ${doc.operatorUserName} · ${doc.paymentMethod}${customerId ? ' · con cliente' : ' · mostrador'}`,
     );
   }
 
   console.log(
-    `🧾 Ventas seed: ${saleCount} (con cliente ${withCustomer}, mostrador ${withoutCustomer}) · POS ${Object.entries(
+    `🧾 Ventas seed: ${saleCount} (con cliente ${withCustomer}, mostrador ${withoutCustomer}) · cobros PAYMENT_IN=${saleCount} · POS ${Object.entries(
       posCounts,
     )
       .map(([k, v]) => `${k}=${v}`)

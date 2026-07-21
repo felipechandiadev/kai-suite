@@ -29,6 +29,13 @@ const PAN_HOT = 'SEEDDEVINSPANHOT';
 const SALCHI = 'SEEDDEVINSSALCHI';
 const QUESO = 'SEEDDEVINSQUESO';
 
+/** Insumos textil (taller / manufacturados). */
+const TELA_ALG = 'SEEDDEVINSTELAALG';
+const TELA_POL = 'SEEDDEVINSTELAPOL';
+const HILO = 'SEEDDEVINSHILO';
+const BOTON = 'SEEDDEVINSBOTON';
+const ETIQ = 'SEEDDEVINSETIQ';
+
 function tortaLines(chocolate: boolean, size: 'ind' | 'med' | 'fam'): SeedRecipeLineDef[] {
   const scale = size === 'ind' ? 1 : size === 'med' ? 2.2 : 3.5;
   return [
@@ -185,6 +192,40 @@ export const SEED_DEV_PRODUCTION_RECIPES: readonly SeedRecipeDef[] = [
       ...papasLines('gra'),
     ],
   },
+  // MANUFACTURADO — textil / taller
+  {
+    outputSku: 'SEEDDEVMANCAMI',
+    lines: [
+      { inputSku: TELA_ALG, qtyPerOutputUnit: 0.8 },
+      { inputSku: HILO, qtyPerOutputUnit: 1 },
+      { inputSku: ETIQ, qtyPerOutputUnit: 1 },
+    ],
+  },
+  {
+    outputSku: 'SEEDDEVMANPANT',
+    lines: [
+      { inputSku: TELA_ALG, qtyPerOutputUnit: 1.4 },
+      { inputSku: HILO, qtyPerOutputUnit: 1 },
+      { inputSku: BOTON, qtyPerOutputUnit: 2 },
+      { inputSku: ETIQ, qtyPerOutputUnit: 1 },
+    ],
+  },
+  {
+    outputSku: 'SEEDDEVMANPOLE',
+    lines: [
+      { inputSku: TELA_POL, qtyPerOutputUnit: 1.6 },
+      { inputSku: HILO, qtyPerOutputUnit: 1 },
+      { inputSku: ETIQ, qtyPerOutputUnit: 1 },
+    ],
+  },
+  {
+    outputSku: 'SEEDDEVMANSHOR',
+    lines: [
+      { inputSku: TELA_ALG, qtyPerOutputUnit: 0.6 },
+      { inputSku: HILO, qtyPerOutputUnit: 1 },
+      { inputSku: ETIQ, qtyPerOutputUnit: 1 },
+    ],
+  },
 ];
 
 export type SeedProductionUnitDef = {
@@ -229,6 +270,14 @@ export const SEED_DEV_PRODUCTION_UNITS: readonly SeedProductionUnitDef[] = [
     scope: 'COMPANY',
     branchKey: null,
     inventoryMode: 'AUTONOMOUS',
+    purpose: 'BATCH',
+  },
+  {
+    code: 'TALLER',
+    name: 'Taller textil',
+    scope: 'COMPANY',
+    branchKey: null,
+    inventoryMode: 'DEPENDENT',
     purpose: 'BATCH',
   },
 ];

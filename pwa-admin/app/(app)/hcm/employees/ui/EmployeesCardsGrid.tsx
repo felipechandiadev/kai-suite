@@ -3,6 +3,7 @@
 import { Badge, Card } from "@kai/ui";
 import type { EmployeeGridRow } from "@/features/hr-employees/types/employee.types";
 import { employeeDisplayName } from "@/features/hr-employees/types/employee.types";
+import { contractHasSalesCommissionPercent } from "@/features/hr-employees/types/sales-commissions.types";
 import { WORK_REGIME_LABELS } from "@/features/hr-jornada/types/jornada.types";
 import { EmployeeAvatarField } from "./EmployeeAvatarField";
 import {
@@ -17,6 +18,19 @@ type EmployeesCardsGridProps = {
   onOpen: (employeeId: string) => void;
   onAvatarChanged?: () => void;
 };
+
+function commissionBadgeLabel(row: EmployeeGridRow): string | null {
+  const type = String(row.salesCommissionType ?? "NONE").toUpperCase();
+  if (type === "PERCENT" && contractHasSalesCommissionPercent(row)) {
+    const n = Number(row.salesCommissionValue);
+    const label = Number.isInteger(n) ? String(n) : String(n);
+    return `Comisión ${label}%`;
+  }
+  if (type === "FIXED") {
+    return "Comisión fija";
+  }
+  return null;
+}
 
 export function EmployeesCardsGrid({
   rows,
@@ -46,6 +60,8 @@ export function EmployeesCardsGrid({
           row.workRegime ??
           "—";
         const branch = row.branch?.name?.trim() || "Sin sucursal";
+        const commissionLabel = commissionBadgeLabel(row);
+        const tipsEligible = row.tipsEligible === true;
         return (
           <Card
             key={row.id}
@@ -69,7 +85,7 @@ export function EmployeesCardsGrid({
               </Badge>
             }
             content={
-              <div className="space-y-1 text-sm text-muted-foreground">
+              <div className="space-y-2 text-sm text-muted-foreground">
                 <p>
                   <span className="text-foreground/80">Régimen:</span> {regime}
                 </p>
@@ -77,6 +93,29 @@ export function EmployeesCardsGrid({
                   <span className="text-foreground/80">Sueldo:</span>{" "}
                   {formatMoneyClp(row.baseSalary)}
                 </p>
+                {commissionLabel || tipsEligible ? (
+                  <div
+                    className="flex flex-wrap gap-1.5 pt-0.5"
+                    data-test-id={`employees-card-comp-flags-${row.id}`}
+                  >
+                    {commissionLabel ? (
+                      <Badge
+                        variant="info-outlined"
+                        data-test-id={`employees-card-commission-${row.id}`}
+                      >
+                        {commissionLabel}
+                      </Badge>
+                    ) : null}
+                    {tipsEligible ? (
+                      <Badge
+                        variant="success-outlined"
+                        data-test-id={`employees-card-tips-${row.id}`}
+                      >
+                        Propinas
+                      </Badge>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             }
             actions={[

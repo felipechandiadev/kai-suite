@@ -231,6 +231,45 @@ export function PosDiningMenuVariantInfoDialog({
             )}
           </section>
 
+          <section data-test-id="pos-dining-menu-variant-info-production-unit">
+            <h3 className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Unidad de producción
+            </h3>
+            {ctpError ? (
+              <p className="text-xs text-muted-foreground">No se pudo resolver la unidad.</p>
+            ) : loadingCtp && !ctpDetail ? (
+              <div className="flex justify-center py-2">
+                <DotProgress />
+              </div>
+            ) : ctpDetail?.productionUnitName ? (
+              <div className="space-y-0.5">
+                <p
+                  className="text-sm font-medium text-foreground"
+                  data-test-id="pos-dining-menu-variant-info-up-name"
+                >
+                  {ctpDetail.productionUnitName}
+                </p>
+                {ctpDetail.inputStorageName ? (
+                  <p className="text-xs text-muted-foreground">
+                    Bodega de insumos: {ctpDetail.inputStorageName}
+                  </p>
+                ) : null}
+                <p className="text-[11px] text-muted-foreground">
+                  Destino de cocina según la sucursal del POS.
+                </p>
+              </div>
+            ) : (
+              <p
+                className="text-xs text-muted-foreground"
+                data-test-id="pos-dining-menu-variant-info-up-missing"
+              >
+                {ctpDetail?.reason === "NO_ROUTING"
+                  ? "Sin unidad asignada en esta sucursal."
+                  : "Sin unidad de producción para esta sucursal."}
+              </p>
+            )}
+          </section>
+
           <section data-test-id="pos-dining-menu-variant-info-ctp">
             <h3 className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
               Capacidad producible
@@ -252,13 +291,6 @@ export function PosDiningMenuVariantInfoDialog({
                   <Alert variant="warning" className="text-sm" data-test-id="pos-dining-menu-ctp-hard-block">
                     CTP Hard Block: sin capacidad producible. No se puede agregar ni enviar a cocina.
                   </Alert>
-                ) : null}
-                {ctpDetail?.productionUnitName || ctpDetail?.inputStorageName ? (
-                  <p className="text-xs text-muted-foreground">
-                    {ctpDetail?.productionUnitName ? `UP: ${ctpDetail.productionUnitName}` : null}
-                    {ctpDetail?.productionUnitName && ctpDetail?.inputStorageName ? " · " : null}
-                    {ctpDetail?.inputStorageName ? `Bodega: ${ctpDetail.inputStorageName}` : null}
-                  </p>
                 ) : null}
                 {limitingLines.length > 0 ? (
                   <ul className="space-y-1.5">

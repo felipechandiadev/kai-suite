@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Badge,
-  ButtonGroupToggle,
   DataGridTable as DataGrid,
   IconButton,
   type DataGridColumn,
@@ -63,8 +62,7 @@ export default function EmployeesWorkspace({
     setViewReady(true);
   }, []);
 
-  const setView = useCallback((next: string) => {
-    const mode: ViewMode = next === "cards" ? "cards" : "table";
+  const setView = useCallback((mode: ViewMode) => {
     setViewMode(mode);
     try {
       localStorage.setItem(VIEW_STORAGE_KEY, mode);
@@ -90,17 +88,31 @@ export default function EmployeesWorkspace({
   );
 
   const viewToggle = (
-    <ButtonGroupToggle
+    <div
+      className="flex items-center gap-0.5 rounded-lg border border-border p-0.5"
+      role="group"
       aria-label="Modo de vista"
-      density="compact"
-      value={viewMode}
-      onChange={setView}
-      options={[
-        { id: "table", label: "Lista" },
-        { id: "cards", label: "Tarjetas" },
-      ]}
       data-test-id="employees-view-toggle"
-    />
+    >
+      <IconButton
+        icon="List"
+        variant={viewMode === "table" ? "primary" : "action"}
+        size="sm"
+        ariaLabel="Vista lista"
+        title="Vista lista"
+        onClick={() => setView("table")}
+        data-test-id="employees-view-list"
+      />
+      <IconButton
+        icon="LayoutGrid"
+        variant={viewMode === "cards" ? "primary" : "action"}
+        size="sm"
+        ariaLabel="Vista tarjetas"
+        title="Vista tarjetas"
+        onClick={() => setView("cards")}
+        data-test-id="employees-view-cards"
+      />
+    </div>
   );
 
   const columns: DataGridColumn[] = useMemo(() => {
@@ -239,22 +251,27 @@ export default function EmployeesWorkspace({
   if (viewMode === "cards") {
     return (
       <div className="flex flex-col gap-3" data-test-id="employees-workspace-cards">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-          <div className="flex flex-wrap items-center gap-3">
-            {viewToggle}
-            <h1 className="text-lg font-semibold text-foreground">Empleados</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3 px-1 pb-1">
+          <div
+            className="flex min-w-0 items-center gap-2"
+            data-test-id="employees-cards-add-title"
+          >
+            <IconButton
+              icon="Plus"
+              variant="action"
+              size="md"
+              ariaLabel="Agregar empleado"
+              onClick={() => setCreateOpen(true)}
+              data-test-id="employees-cards-add"
+            />
+            <h1 className="truncate text-lg font-semibold text-foreground">
+              Empleados
+            </h1>
             <span className="text-sm text-muted-foreground tabular-nums">
               {total}
             </span>
           </div>
-          <IconButton
-            icon="Plus"
-            variant="primary"
-            size="sm"
-            ariaLabel="Agregar empleado"
-            onClick={() => setCreateOpen(true)}
-            data-test-id="employees-cards-add"
-          />
+          {viewToggle}
         </div>
         <EmployeesCardsGrid
           rows={rows}

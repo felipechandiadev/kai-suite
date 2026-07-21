@@ -34,3 +34,22 @@ export type RecipeCtpDetail = {
 export type RecipeCtpDetailResponse =
   | { success: true; detail: RecipeCtpDetail }
   | { success: false; message: string };
+
+export type RecipeCtpByStorageItem = {
+  storageId: string;
+  storageName: string | null;
+  productionUnitNames: string[];
+  producibleQty: number | null;
+  reason: RecipeCtpDetailReason | null;
+  lines: RecipeCtpDetailLine[];
+};
+
+export type RecipeCtpByStorage = {
+  variantId: string;
+  reason: RecipeCtpDetailReason | null;
+  storages: RecipeCtpByStorageItem[];
+};
+
+export type RecipeCtpByStorageResponse =
+  | { success: true; result: RecipeCtpByStorage }
+  | { success: false; message: string };

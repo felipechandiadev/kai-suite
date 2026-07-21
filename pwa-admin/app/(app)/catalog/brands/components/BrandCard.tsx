@@ -30,11 +30,19 @@ export function BrandCard({ brand, "data-test-id": dataTestId }: BrandCardProps)
 
   const media = (
     <div
-      className="flex min-h-28 w-full items-center justify-center bg-neutral-100"
+      className="relative flex min-h-[7.5rem] w-full items-center justify-center overflow-hidden bg-gradient-to-br from-primary/[0.12] via-secondary/25 to-accent/15"
       data-test-id="brand-card-media"
     >
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-border">
-        <Tag className="h-8 w-8 text-muted-foreground" strokeWidth={1.5} aria-hidden />
+      <div
+        className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-secondary/30 blur-2xl"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -bottom-8 -left-6 h-32 w-32 rounded-full bg-primary/20 blur-3xl"
+        aria-hidden
+      />
+      <div className="relative flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-2xl border-2 border-secondary bg-white/90 shadow-md backdrop-blur-sm">
+        <Tag className="h-9 w-9 text-primary" strokeWidth={1.75} aria-hidden />
       </div>
     </div>
   );
@@ -56,6 +64,8 @@ export function BrandCard({ brand, "data-test-id": dataTestId }: BrandCardProps)
   return (
     <>
       <Card
+        fillHeight
+        className="h-full overflow-hidden border-border/90 shadow-sm transition-shadow duration-200 hover:shadow-md"
         data-test-id={dataTestId}
         media={media}
         title={brand.name}

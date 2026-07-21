@@ -1,6 +1,6 @@
 {
   "name": "kai-pwa-admin",
-  "version": "0.1.0",
+  "version": "1.3.3",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack -p 5071 -H 0.0.0.0",

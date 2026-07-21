@@ -5,7 +5,10 @@ import { PurchasingVariantSearchRequest } from "@/features/purchasing-document/i
 import type { PurchasingVariantSearchResult } from "@/features/purchasing-document/types/purchasing-document.types";
 import { RecipeRequest, type CreateRecipePayload } from "../infrastructure/recipe.request";
 import { RecipeCtpRequest } from "../infrastructure/recipe-ctp.request";
-import type { RecipeCtpDetailResponse } from "../types/recipe-ctp.types";
+import type {
+  RecipeCtpByStorageResponse,
+  RecipeCtpDetailResponse,
+} from "../types/recipe-ctp.types";
 import type { RecipeDto, RecipeTypeDto } from "../types/recipe.types";
 
 const PRODUCTS_PATH = "/catalog/products";
@@ -35,6 +38,12 @@ export async function getRecipeCtpDetailAction(input: {
   branchId: string;
 }): Promise<RecipeCtpDetailResponse> {
   return RecipeCtpRequest.detail(input);
+}
+
+export async function getRecipeCtpByStorageAction(input: {
+  variantId: string;
+}): Promise<RecipeCtpByStorageResponse> {
+  return RecipeCtpRequest.byStorage(input);
 }
 
 export type CreateRecipeFormInput = {

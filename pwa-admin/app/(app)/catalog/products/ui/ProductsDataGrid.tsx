@@ -759,7 +759,7 @@ export default function ProductsDataGrid({ rows, total }: ProductsDataGridProps)
         field: "productType",
         headerName: "Tipo",
         sortable: true,
-        width: 116,
+        width: 148,
         renderCell: ({ row }) => {
           const r = row as ProductGridRow;
           const p = productTypePresentation(r.productType);
@@ -780,7 +780,7 @@ export default function ProductsDataGrid({ rows, total }: ProductsDataGridProps)
           return <span className="text-foreground">{name ? name : "—"}</span>;
         },
       },
-      { field: "brand", headerName: "Marca", sortable: true, width: 160 },
+      { field: "brand", headerName: "Marca", sortable: true, width: 128 },
       {
         field: "variantCount",
         headerName: "Variantes",

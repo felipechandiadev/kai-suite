@@ -23,5 +23,6 @@ export function getKaiAdminAppName(): string {
   if (fromEnv) {
     return fromEnv;
   }
-  return `${getKaiProductLabel(process.env.NEXT_PUBLIC_KAI_PRODUCT)} Admin`;
+  // Admin PWA se marca siempre como KaiStore (KaiFood es módulo de menú, no el nombre de la app).
+  return 'KaiStore';
 }

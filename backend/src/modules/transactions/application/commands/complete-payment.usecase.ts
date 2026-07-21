@@ -136,7 +136,11 @@ export class CompletePaymentUseCase implements ICommandHandler<CompletePaymentCo
       status: TransactionStatus.CONFIRMED,
       paymentStatus: PaymentStatus.PAID,
       paymentMethod,
-      bankAccountKey: data.bankAccountKey || payment.bankAccountKey,
+      // Cheque: el banco (cartola) se aplica al compensar, no al emitir.
+      bankAccountKey:
+        paymentMethod === PaymentMethod.CHECK
+          ? (null as unknown as undefined)
+          : data.bankAccountKey || payment.bankAccountKey,
       cashHubId: data.cashHubId || payment.cashHubId,
       notes: data.note
         ? `${payment.notes || ''}\n${data.note}`.trim()
@@ -211,7 +215,10 @@ export class CompletePaymentUseCase implements ICommandHandler<CompletePaymentCo
       discountAmount: 0,
       paymentMethod: paymentMethod,
       amountPaid: payment.total, // Ya está pagado
-      bankAccountKey: data.bankAccountKey || payment.bankAccountKey,
+      bankAccountKey:
+        paymentMethod === PaymentMethod.CHECK
+          ? undefined
+          : data.bankAccountKey || payment.bankAccountKey,
       cashHubId: data.cashHubId || payment.cashHubId,
       accountingPeriodId: payment.accountingPeriodId,
       notes: data.note

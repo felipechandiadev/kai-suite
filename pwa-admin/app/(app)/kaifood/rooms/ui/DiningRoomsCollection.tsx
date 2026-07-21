@@ -55,11 +55,8 @@ export function DiningRoomsCollection({ initialRooms, branches }: Props) {
     <>
       <CollectionPageLayout
         title="Salones"
-        addAction={
-          <Button variant="contained" onClick={() => setOpen(true)}>
-            Nuevo salón
-          </Button>
-        }
+        onAddClick={() => setOpen(true)}
+        addButtonAriaLabel="Agregar salón"
         showSearch
         searchParamName="search"
         searchLabel="Buscar"
@@ -75,7 +72,7 @@ export function DiningRoomsCollection({ initialRooms, branches }: Props) {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-medium">{r.name}</span>
-                    <Badge variant={r.isActive ? "success" : "default"}>
+                    <Badge variant={r.isActive ? "success" : "secondary"}>
                       {r.isActive ? "Activo" : "Inactivo"}
                     </Badge>
                   </div>

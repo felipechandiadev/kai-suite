@@ -20,6 +20,7 @@ import {
   playKdsAlertSound,
   unlockKdsAlertAudio,
 } from "../lib/play-kds-alert-sound";
+import { redirectToLoginIfUnauthorized } from "@/lib/auth/kds-api-failure";
 import {
   effectiveKitchenFireId,
   groupKitchenQueueByFire,
@@ -100,13 +101,13 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
     setLines(next);
   }, []);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (opts?: { silent?: boolean }) => {
     if (!productionUnitId) {
       setLines([]);
       knownFireIdsRef.current = new Set();
       return;
     }
-    setLoading(true);
+    if (!opts?.silent) setLoading(true);
     setError(null);
     try {
       const queue = await getKitchenQueueAction({
@@ -115,9 +116,10 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
       });
       applyQueue(queue);
     } catch (e) {
+      if (redirectToLoginIfUnauthorized(e)) return;
       setError(e instanceof Error ? e.message : "Error al cargar cola");
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, [productionUnitId, session.userId, session.companyId, applyQueue]);
 
@@ -145,9 +147,12 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
           );
           return next;
         });
+        return;
       }
+      // SENT / PREPARING: el payload no trae el detalle; refrescar cola en silencio.
+      void refresh({ silent: true });
     },
-    [productionUnitId],
+    [productionUnitId, refresh],
   );
 
   const { connected } = useDiningRealtime({
@@ -223,6 +228,7 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
         return next;
       });
     } catch (e) {
+      if (redirectToLoginIfUnauthorized(e)) return;
       setError(e instanceof Error ? e.message : "No se pudo marcar listo");
       skipSoundRef.current = true;
       await refresh();
@@ -252,6 +258,7 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
         productionUnitId,
       });
     } catch (e) {
+      if (redirectToLoginIfUnauthorized(e)) return;
       setError(
         e instanceof Error ? e.message : "No se pudo marcar el pedido listo",
       );

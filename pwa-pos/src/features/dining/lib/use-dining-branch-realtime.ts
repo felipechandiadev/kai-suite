@@ -39,8 +39,8 @@ type SubscribeAck = {
   joined?: string;
 };
 
-const MAX_SUBSCRIBE_ATTEMPTS = 8;
-const SUBSCRIBE_RETRY_MS = 75;
+const MAX_SUBSCRIBE_ATTEMPTS = 12;
+const SUBSCRIBE_RETRY_MS = 100;
 
 /**
  * Suscribe al namespace `/realtime/dining` room de sucursal para
@@ -108,7 +108,7 @@ export function useDiningBranchRealtime(
         subscribeAttemptRef.current = attempt + 1;
         retryTimerRef.current = setTimeout(() => {
           refreshSubscribe();
-        }, SUBSCRIBE_RETRY_MS * (attempt + 1));
+        }, SUBSCRIBE_RETRY_MS * Math.min(8, attempt + 1));
       },
     );
   }, [clearRetry]);
@@ -143,17 +143,22 @@ export function useDiningBranchRealtime(
     socket.on("connect", () => {
       setConnected(false);
       clearRetry();
+      // Re-auth / re-join tras reconnect (incluye mark ready desde KDS).
       retryTimerRef.current = setTimeout(() => {
         if (!socket.connected) return;
-        if (!authReadyRef.current) {
-          authReadyRef.current = true;
-        }
+        authReadyRef.current = true;
         subscribeAttemptRef.current = 0;
         refreshSubscribe();
       }, 120);
     });
 
     socket.on("dining.ready", onReady);
+
+    socket.io.on("reconnect", () => {
+      authReadyRef.current = true;
+      subscribeAttemptRef.current = 0;
+      refreshSubscribe();
+    });
 
     socket.on("disconnect", () => {
       authReadyRef.current = false;
@@ -179,6 +184,7 @@ export function useDiningBranchRealtime(
     return () => {
       clearRetry();
       socket.off("dining.ready", onReady);
+      socket.io.off("reconnect");
       socket.disconnect();
       socketRef.current = null;
       authReadyRef.current = false;

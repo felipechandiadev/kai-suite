@@ -34,6 +34,7 @@ import {
 } from '@modules/cash-sessions/domain/cash-session.entity';
 import { CashSessionsService } from '@modules/cash-sessions/application/cash-sessions.service';
 import { resolveCashPaymentSource as resolveCashPaymentSourceUtil } from './reception-cash-payment-source.util';
+import { Supplier } from '@modules/suppliers/domain/supplier.entity';
 
 @Injectable()
 export class ReceptionsService {
@@ -56,6 +57,8 @@ export class ReceptionsService {
     private readonly transactionRepo: Repository<Transaction>,
     @InjectRepository(CashSession)
     private readonly cashSessionRepo: Repository<CashSession>,
+    @InjectRepository(Supplier)
+    private readonly supplierRepo: Repository<Supplier>,
     private readonly transactionsService: TransactionsService,
     private readonly documentNumberService: DocumentNumberService,
     private readonly variantsService: ProductVariantsService,
@@ -220,6 +223,48 @@ export class ReceptionsService {
       typeof person?.lastName === 'string' ? person.lastName.trim() : '';
     const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
     return fullName || null;
+  }
+
+  /** Beneficiario del cheque emitido (pago a proveedor). */
+  private async resolveSupplierPayee(
+    supplierId: string | null,
+  ): Promise<{ payeeId: string; payeeName: string } | null> {
+    const id = typeof supplierId === 'string' ? supplierId.trim() : '';
+    if (!id) return null;
+    const supplier = await this.supplierRepo.findOne({
+      where: { id },
+      relations: { person: true },
+    });
+    if (!supplier) return null;
+    const name = this.getSupplierDisplayName({ supplier });
+    if (!name) return null;
+    return { payeeId: supplier.id, payeeName: name };
+  }
+
+  private async resolveCompanyBankName(
+    branchId: string | null,
+    accountKey: string | null,
+  ): Promise<string | null> {
+    const key = typeof accountKey === 'string' ? accountKey.trim() : '';
+    if (!key) return null;
+    let company: Company | null = null;
+    if (branchId) {
+      const branch = await this.branchRepo.findOne({ where: { id: branchId } });
+      if (branch?.companyId) {
+        company = await this.companyRepo.findOne({
+          where: { id: branch.companyId },
+        });
+      }
+    }
+    if (!company) {
+      company = await this.companyRepo.findOne({
+        where: { isActive: true },
+        order: { createdAt: 'ASC' },
+      });
+    }
+    const acc = (company?.bankAccounts ?? []).find((a) => a.accountKey === key);
+    const name = typeof acc?.bankName === 'string' ? acc.bankName.trim() : '';
+    return name || null;
   }
 
   private getStorageDisplayName(reception: any): string | null {
@@ -1645,6 +1690,24 @@ export class ReceptionsService {
       pm === 'CHECK' && opts.line?.chequeNumber != null
         ? String(opts.line.chequeNumber).trim()
         : '';
+    const checkPayee = chequeNumber
+      ? await this.resolveSupplierPayee(
+          typeof opts.dtoHost?.supplierId === 'string'
+            ? opts.dtoHost.supplierId
+            : null,
+        )
+      : null;
+    const checkBankName = chequeNumber
+      ? await this.resolveCompanyBankName(
+          typeof opts.dtoHost?.branchId === 'string'
+            ? opts.dtoHost.branchId
+            : null,
+          dto.bankAccountKey ??
+            (opts.line?.companyBankAccountKey != null
+              ? String(opts.line.companyBankAccountKey).trim()
+              : null),
+        )
+      : null;
     dto.metadata = {
       origin: 'RECEPTION_SUPPLIER_PAYMENT',
       installmentNumber: opts.installmentNumber ?? 1,
@@ -1658,8 +1721,14 @@ export class ReceptionsService {
         ? {
             checkData: {
               checkNumber: chequeNumber,
-              bankName: 'Banco Estado',
-              bankAccountKey: dto.bankAccountKey ?? null,
+              bankName: checkBankName || 'Banco Estado',
+              bankAccountKey:
+                dto.bankAccountKey ??
+                (opts.line?.companyBankAccountKey != null
+                  ? String(opts.line.companyBankAccountKey).trim()
+                  : null),
+              payeeId: checkPayee?.payeeId ?? null,
+              payeeName: checkPayee?.payeeName ?? null,
               issueDate: String(opts.line.dueDate || '').trim() || null,
               dueDate: String(opts.line.dueDate || '').trim() || null,
             },

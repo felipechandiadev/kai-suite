@@ -159,6 +159,10 @@ import {
   SEED_DEV_PRODUCTION_UNITS,
 } from './food-recipes';
 import { seedDemoDeliveryCalendar } from './seed-delivery-calendar';
+import { DiningRoom } from '@modules/dining/domain/dining-room.entity';
+import { DiningTable } from '@modules/dining/domain/dining-table.entity';
+import { DiningBranchSettings } from '@modules/dining/domain/dining-branch-settings.entity';
+import { TableShape } from '@modules/dining/domain/dining.enums';
 import { runSeedBootstrapGuards } from '../shared/seed-bootstrap.util';
 import {
   seedProductsFromDefinitions,
@@ -1483,6 +1487,8 @@ type SeedEmployeeContractDef =
       art22Exempt?: boolean;
       exceptionalResolutionRef?: string | null;
       endDate?: string | null;
+      /** Comisión % sobre ventas brutas POS (solo PERCENT). */
+      salesCommissionPercent?: string;
     }
   | {
       kind: EmploymentContractKind.FEE;
@@ -1649,6 +1655,7 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
     mutualName: 'ACHS',
     tipsEligible: true,
   },
+  /** Sofía / operador — comisión % ventas POS (demo HCM Comisiones). */
   '17.205.884-3': {
     kind: EmploymentContractKind.LABOR,
     laborType: EmploymentLaborType.INDEFINITE,
@@ -1661,7 +1668,9 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
     healthSystem: 'FONASA',
     mutualName: 'ACHS',
     tipsEligible: true,
+    salesCommissionPercent: '3',
   },
+  /** Nicolás / operador2 — comisión % (distinta para QA). */
   '17.100.012-2': {
     kind: EmploymentContractKind.LABOR,
     laborType: EmploymentLaborType.INDEFINITE,
@@ -1674,7 +1683,9 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
     healthSystem: 'FONASA',
     mutualName: 'ACHS',
     tipsEligible: true,
+    salesCommissionPercent: '2.5',
   },
+  /** Fernanda / operador3 — sin comisión (contraste en cards/ficha). */
   '17.100.013-0': {
     kind: EmploymentContractKind.LABOR,
     laborType: EmploymentLaborType.INDEFINITE,
@@ -2425,6 +2436,124 @@ async function bootstrap() {
       console.log(
         `✅ Segunda sucursal «${SEED_BRANCH_2_NAME}» ya existía: id=${seedBranchMall.id} (sincronizado)`,
       );
+    }
+
+    // Salones y mesas demo (casa matriz): 2 salones × 3 mesas
+    const diningRoomRepo = dataSource.getRepository(DiningRoom);
+    const diningTableRepo = dataSource.getRepository(DiningTable);
+    const seedDiningRooms: Array<{
+      name: string;
+      tables: Array<{
+        code: string;
+        label: string;
+        capacity: number;
+        x: number;
+        y: number;
+      }>;
+    }> = [
+      {
+        name: 'Salón principal',
+        tables: [
+          { code: 'M1', label: 'Mesa 1', capacity: 4, x: 40, y: 40 },
+          { code: 'M2', label: 'Mesa 2', capacity: 4, x: 160, y: 40 },
+          { code: 'M3', label: 'Mesa 3', capacity: 6, x: 280, y: 40 },
+        ],
+      },
+      {
+        name: 'Terraza',
+        tables: [
+          { code: 'T1', label: 'Mesa T1', capacity: 2, x: 40, y: 40 },
+          { code: 'T2', label: 'Mesa T2', capacity: 4, x: 160, y: 40 },
+          { code: 'T3', label: 'Mesa T3', capacity: 4, x: 280, y: 40 },
+        ],
+      },
+    ];
+    for (const roomDef of seedDiningRooms) {
+      let room = await diningRoomRepo.findOne({
+        where: {
+          companyId: company.id,
+          branchId: seedBranch.id,
+          name: roomDef.name,
+        },
+      });
+      if (!room) {
+        room = diningRoomRepo.create({
+          companyId: company.id,
+          branchId: seedBranch.id,
+          name: roomDef.name,
+          isActive: true,
+        });
+        await diningRoomRepo.save(room);
+        console.log(
+          `✅ Salón demo creado: «${roomDef.name}» id=${room.id} branchId=${seedBranch.id}`,
+        );
+      } else {
+        room.isActive = true;
+        await diningRoomRepo.save(room);
+        console.log(
+          `✅ Salón demo «${roomDef.name}» ya existía: id=${room.id}`,
+        );
+      }
+      for (const tableDef of roomDef.tables) {
+        let table = await diningTableRepo.findOne({
+          where: { diningRoomId: room.id, code: tableDef.code },
+        });
+        if (!table) {
+          table = diningTableRepo.create({
+            diningRoomId: room.id,
+            code: tableDef.code,
+            label: tableDef.label,
+            capacity: tableDef.capacity,
+            shape: TableShape.RECT,
+            x: tableDef.x,
+            y: tableDef.y,
+            width: 80,
+            height: 80,
+            rotation: 0,
+          });
+          await diningTableRepo.save(table);
+          console.log(
+            `✅ Mesa demo creada: ${tableDef.code} («${tableDef.label}») en «${roomDef.name}»`,
+          );
+        } else {
+          table.label = tableDef.label;
+          table.capacity = tableDef.capacity;
+          table.shape = TableShape.RECT;
+          table.x = tableDef.x;
+          table.y = tableDef.y;
+          table.width = 80;
+          table.height = 80;
+          await diningTableRepo.save(table);
+        }
+      }
+    }
+
+    // Preferencias dining: POS puede abrir mesas (además del mesero)
+    const diningSettingsRepo = dataSource.getRepository(DiningBranchSettings);
+    for (const branch of [seedBranch, seedBranchMall]) {
+      let diningSettings = await diningSettingsRepo.findOne({
+        where: { companyId: company.id, branchId: branch.id },
+      });
+      if (!diningSettings) {
+        diningSettings = diningSettingsRepo.create({
+          companyId: company.id,
+          branchId: branch.id,
+          timezone: 'America/Santiago',
+          resetTimeLocal: '00:00:01',
+          allowWaiterOpenTable: true,
+          allowPosOpenTable: true,
+        });
+        await diningSettingsRepo.save(diningSettings);
+        console.log(
+          `✅ Dining settings creados: branch=${branch.name} allowPosOpenTable=true`,
+        );
+      } else if (!diningSettings.allowPosOpenTable) {
+        diningSettings.allowPosOpenTable = true;
+        await diningSettingsRepo.save(diningSettings);
+        console.log(
+          `✅ Dining settings: allowPosOpenTable=true en «${branch.name}»`,
+        );
+      }
     }
 
     // Almacenes demo: bodega casa matriz + bodega Local Mall
@@ -3239,6 +3368,9 @@ async function bootstrap() {
       (u) =>
         u.code === 'PASTELERIA' && u.scope === ProductionUnitScope.COMPANY,
     );
+    const tallerTextil = allUnits.find(
+      (u) => u.code === 'TALLER' && u.scope === ProductionUnitScope.COMPANY,
+    );
 
     const productsForRouting = await productRepo.find({
       where: { companyId: company.id, deletedAt: IsNull() },
@@ -3265,6 +3397,10 @@ async function bootstrap() {
       if (pt === ProductType.ELABORADO && pasteleria) {
         targets.push({ branchId: seedBranch.id, unitId: pasteleria.id });
         targets.push({ branchId: seedBranchMall.id, unitId: pasteleria.id });
+      }
+      if (pt === ProductType.MANUFACTURADO && tallerTextil) {
+        targets.push({ branchId: seedBranch.id, unitId: tallerTextil.id });
+        targets.push({ branchId: seedBranchMall.id, unitId: tallerTextil.id });
       }
       for (const t of targets) {
         let row = await pvPuRepo.findOne({
@@ -3972,6 +4108,8 @@ async function bootstrap() {
         contract.jobPositionId = job?.id ?? null;
         contract.duties = job?.defaultDuties ?? null;
         contract.notes = def.notes ?? null;
+        contract.salesCommissionType = SalesCommissionType.NONE;
+        contract.salesCommissionValue = null;
       } else {
         const shiftSystem = shiftSystemByCode.get(def.shiftSystemCode);
         if (!shiftSystem) {
@@ -4051,13 +4189,27 @@ async function bootstrap() {
         contract.jobPositionId = job?.id ?? null;
         contract.duties = job?.defaultDuties ?? null;
         contract.notes = null;
+        const pct =
+          typeof def.salesCommissionPercent === 'string'
+            ? def.salesCommissionPercent.trim()
+            : '';
+        if (pct && Number(pct) > 0) {
+          contract.salesCommissionType = SalesCommissionType.PERCENT;
+          contract.salesCommissionValue = pct;
+        } else {
+          contract.salesCommissionType = SalesCommissionType.NONE;
+          contract.salesCommissionValue = null;
+        }
       }
 
       contract = await contractRepo.save(contract);
       console.log(
         `✅ Contrato ACTIVE «${displayName}»: ${contract.kind}` +
           (contract.kind === EmploymentContractKind.LABOR
-            ? ` ${contract.weeklyHours}h · ${contract.shiftSystemCode}`
+            ? ` ${contract.weeklyHours}h · ${contract.shiftSystemCode}` +
+              (contract.salesCommissionType === SalesCommissionType.PERCENT
+                ? ` · comisión ${contract.salesCommissionValue}%`
+                : '')
             : ` honorario=${contract.feeAmount}`),
       );
     }
@@ -4608,13 +4760,13 @@ async function bootstrap() {
       `   • admin2 / ${seedPassword}         (ADMIN no-owner · Pedro Soto Núñez · 15.333.222-1)`,
     );
     console.log(
-      `   • operador / ${seedPassword}    (POS_OPERATOR · Sofía Vargas · 17.205.884-3 · cajero)`,
+      `   • operador / ${seedPassword}    (POS_OPERATOR · Sofía Vargas · 17.205.884-3 · cajero · comisión 3%)`,
     );
     console.log(
-      `   • operador2 / ${seedPassword}   (POS_OPERATOR · Nicolás Bravo · 17.100.012-2 · cajero)`,
+      `   • operador2 / ${seedPassword}   (POS_OPERATOR · Nicolás Bravo · 17.100.012-2 · cajero · comisión 2.5%)`,
     );
     console.log(
-      `   • operador3 / ${seedPassword}   (POS_OPERATOR · Fernanda Lagos · 17.100.013-0 · cajero)`,
+      `   • operador3 / ${seedPassword}   (POS_OPERATOR · Fernanda Lagos · 17.100.013-0 · cajero · sin comisión)`,
     );
     console.log(
       `   • delivery1 / ${seedPassword}   (COURIER · Matías Fuentes Lagos · 18.103.772-5)`,

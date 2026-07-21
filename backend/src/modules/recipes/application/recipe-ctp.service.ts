@@ -39,6 +39,21 @@ export type CtpDetailResult = {
   lines: ReturnType<typeof buildCtpDetailLines>['lines'];
 };
 
+export type CtpByStorageItem = {
+  storageId: string;
+  storageName: string | null;
+  productionUnitNames: string[];
+  producibleQty: number | null;
+  reason: CtpDetailReason | null;
+  lines: ReturnType<typeof buildCtpDetailLines>['lines'];
+};
+
+export type CtpByStorageResult = {
+  variantId: string;
+  reason: CtpDetailReason | null;
+  storages: CtpByStorageItem[];
+};
+
 @Injectable()
 export class RecipeCtpService {
   private readonly logger = new Logger(RecipeCtpService.name);
@@ -213,6 +228,162 @@ export class RecipeCtpService {
       reason,
       lines: detailLines.lines,
     };
+  }
+
+  /**
+   * CTP por almacén de insumos: una fila por `defaultInputStorageId` distinto
+   * entre las unidades de producción asignadas a la variante (cualquier sucursal).
+   */
+  async computeByStorageForVariant(
+    companyId: string,
+    variantId: string,
+  ): Promise<CtpByStorageResult> {
+    const empty: CtpByStorageResult = {
+      variantId,
+      reason: null,
+      storages: [],
+    };
+
+    const variant = await this.variantRepo.findOne({
+      where: { id: variantId, companyId },
+      relations: ['product'],
+    });
+    if (!variant) {
+      return { ...empty, reason: 'NO_RECIPE' };
+    }
+
+    const expectedType = this.expectedRecipeType(variant.product?.productType);
+    const recipe = await this.recipeRepo
+      .createQueryBuilder('r')
+      .leftJoinAndSelect('r.lines', 'lines')
+      .where('r.companyId = :companyId', { companyId })
+      .andWhere('r.outputVariantId = :variantId', { variantId })
+      .andWhere('r.isActive = true')
+      .andWhere('r.type = :type', { type: expectedType })
+      .orderBy('r.updatedAt', 'DESC')
+      .getOne();
+
+    if (!recipe) {
+      return { ...empty, reason: 'NO_RECIPE' };
+    }
+
+    const mappings = await this.variantProductionUnitRepo.find({
+      where: { companyId, productVariantId: variantId },
+    });
+    const unitIds = [
+      ...new Set(mappings.map((m) => m.productionUnitId).filter(Boolean)),
+    ];
+    if (unitIds.length === 0) {
+      return { ...empty, reason: 'NO_ROUTING' };
+    }
+
+    const units = await this.productionUnitRepo.find({
+      where: { id: In(unitIds), companyId },
+    });
+
+    const namesByStorage = new Map<string, Set<string>>();
+    for (const unit of units) {
+      const storageId = unit.defaultInputStorageId?.trim();
+      if (!storageId) continue;
+      const set = namesByStorage.get(storageId) ?? new Set<string>();
+      if (unit.name?.trim()) set.add(unit.name.trim());
+      namesByStorage.set(storageId, set);
+    }
+
+    const storageIds = [...namesByStorage.keys()];
+    if (storageIds.length === 0) {
+      return { ...empty, reason: 'NO_STORAGE' };
+    }
+
+    const sortedLines = [...(recipe.lines ?? [])].sort(
+      (a, b) => (a.sortOrder ?? 1) - (b.sortOrder ?? 1),
+    );
+    const inputIds = [...new Set(sortedLines.map((l) => l.inputVariantId))];
+
+    const [inputVariants, stockRows, storages] = await Promise.all([
+      inputIds.length
+        ? this.variantRepo.find({
+            where: { id: In(inputIds), companyId },
+            relations: ['product', 'stockBaseUnit'],
+          })
+        : Promise.resolve([] as ProductVariant[]),
+      inputIds.length
+        ? this.stockLevelRepo.find({
+            where: {
+              companyId,
+              storageId: In(storageIds),
+              productVariantId: In(inputIds),
+            },
+          })
+        : Promise.resolve([] as StockLevel[]),
+      this.storageRepo.find({
+        where: { id: In(storageIds), companyId },
+      }),
+    ]);
+
+    const inputById = new Map(inputVariants.map((v) => [v.id, v]));
+    const storageById = new Map(storages.map((s) => [s.id, s]));
+    const availableMap = new Map<string, number>();
+    for (const row of stockRows) {
+      availableMap.set(
+        `${row.storageId}:${row.productVariantId}`,
+        Number(row.availableStock ?? 0),
+      );
+    }
+
+    const lineInputs = sortedLines.map((l) => {
+      const input = inputById.get(l.inputVariantId);
+      const stockBaseUnit = (
+        input as { stockBaseUnit?: { symbol?: string; name?: string } }
+      )?.stockBaseUnit;
+      return {
+        inputVariantId: l.inputVariantId,
+        qtyPerOutputUnit: Number(l.qtyPerOutputUnit ?? 0),
+        wasteFactor: Number(l.wasteFactor ?? 0),
+        limitsProjectedStock: l.limitsProjectedStock !== false,
+        trackInventory: input?.trackInventory !== false,
+        inputProductName: input?.product?.name ?? null,
+        inputSku: input?.sku ?? null,
+        inputStockBaseUnitLabel:
+          stockBaseUnit?.symbol?.trim() ||
+          stockBaseUnit?.name?.trim() ||
+          null,
+      };
+    });
+
+    const items: CtpByStorageItem[] = storageIds
+      .map((storageId) => {
+        const availableByInput = new Map<string, number>();
+        for (const id of inputIds) {
+          availableByInput.set(
+            id,
+            availableMap.get(`${storageId}:${id}`) ?? 0,
+          );
+        }
+        const detailLines = buildCtpDetailLines(lineInputs, availableByInput);
+        let reason: CtpDetailReason | null = null;
+        if (detailLines.producibleQty == null) {
+          reason = 'NO_LIMITING_LINES';
+        }
+        return {
+          storageId,
+          storageName: storageById.get(storageId)?.name ?? null,
+          productionUnitNames: [...(namesByStorage.get(storageId) ?? [])].sort(
+            (a, b) => a.localeCompare(b, 'es'),
+          ),
+          producibleQty: detailLines.producibleQty,
+          reason,
+          lines: detailLines.lines,
+        };
+      })
+      .sort((a, b) =>
+        (a.storageName ?? a.storageId).localeCompare(
+          b.storageName ?? b.storageId,
+          'es',
+        ),
+      );
+
+    return { variantId, reason: null, storages: items };
   }
 
   async computeForVariants(
