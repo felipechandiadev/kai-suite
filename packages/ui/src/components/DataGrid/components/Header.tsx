@@ -128,9 +128,19 @@ const Header: React.FC<HeaderProps> = ({
     [headerActions],
   );
 
+  const fullWidthFlags = useMemo(
+    () =>
+      actionItems.map((item) => {
+        if (!React.isValidElement(item)) return false;
+        const props = item.props as Record<string, unknown>;
+        return props["data-header-full-width"] === true;
+      }),
+    [actionItems],
+  );
+
   const actionSlots = useMemo(
-    () => getActionSlotPositions(actionItems.length),
-    [actionItems.length],
+    () => getActionSlotPositions(actionItems.length, fullWidthFlags),
+    [actionItems.length, fullWidthFlags],
   );
 
   const gridRowCount = useMemo(() => {
@@ -254,7 +264,12 @@ const Header: React.FC<HeaderProps> = ({
             <div
               key={index}
               className="flex min-w-0 items-center self-center"
-              style={{ gridRow: slot.row, gridColumn: slot.col }}
+              style={{
+                gridRow: slot.row,
+                gridColumn: slot.colSpan
+                  ? `${slot.col} / span ${slot.colSpan}`
+                  : slot.col,
+              }}
               data-test-id={`header-action-slot-${index}`}
             >
               {item}

@@ -58,7 +58,7 @@ export default async function Page({
   };
 
   const [res, committedRes] = await Promise.all([
-    listChecksAction(filters),
+    listChecksAction({ ...filters, limit: 500 }),
     getCommittedOutgoingChecksAction(),
   ]);
 
@@ -75,7 +75,6 @@ export default async function Page({
         initialItems={res.success ? res.items : []}
         initialTotal={res.success ? res.total : 0}
         loadError={res.success ? null : res.error}
-        initialFilters={filters}
         committedSummary={committedSummary}
       />
     </Suspense>

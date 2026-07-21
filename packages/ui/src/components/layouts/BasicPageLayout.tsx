@@ -1,12 +1,9 @@
-"use client";
 import React from "react";
 
+import { PageLayoutHeader } from "./PageLayoutHeader";
 import {
   layoutPageContentClassName,
-  layoutPageHeaderClassName,
   layoutPageRootClassName,
-  layoutPageSubtitleClassName,
-  layoutPageTitleClassName,
 } from "./layoutPageTokens";
 
 export type BasicPageLayoutProps = {
@@ -14,57 +11,58 @@ export type BasicPageLayoutProps = {
   title?: React.ReactNode;
   /** Texto o nodo bajo el título. */
   subtitle?: React.ReactNode;
+  /**
+   * Botones, toggles u otros controles en la misma fila que el título (`md+`),
+   * alineados a la derecha — mismo layout visual que `tabs` en {@link TabPageLayout}.
+   */
+  headerActions?: React.ReactNode;
+  /**
+   * @deprecated Usa `headerActions`.
+   */
+  headerEnd?: React.ReactNode;
   /** Contenido principal de la página. */
   children: React.ReactNode;
   className?: string;
   /** Clases extra en el contenedor del cuerpo (debajo del encabezado). */
   contentClassName?: string;
+  /** Clases extra en el contenedor del encabezado. */
+  headerClassName?: string;
   "data-test-id"?: string;
 };
 
-function hasHeadingChunk(node: React.ReactNode): boolean {
-  if (node == null || node === false) return false;
-  if (typeof node === "string") return node.trim().length > 0;
-  if (typeof node === "number") return true;
-  return true;
-}
-
 /**
- * Layout mínimo de página: encabezado opcional (título + subtítulo) y área de contenido.
+ * Layout mínimo de página: encabezado opcional (título + subtítulo + acciones) y área de contenido.
  * Sin `"use client"` — usable en Server y Client Components.
  */
 export function BasicPageLayout({
   title,
   subtitle,
+  headerActions,
+  headerEnd,
   children,
   className = "",
   contentClassName = "",
+  headerClassName = "",
   "data-test-id": dataTestId,
 }: BasicPageLayoutProps) {
-  const showTitle = hasHeadingChunk(title);
-  const showSubtitle = hasHeadingChunk(subtitle);
-  const showHeading = showTitle || showSubtitle;
+  const actions = headerActions ?? headerEnd;
 
   return (
     <div
       className={`${layoutPageRootClassName} ${className}`.trim()}
       data-test-id={dataTestId ?? "basic-page-layout"}
     >
-      {showHeading ? (
-        <header className={layoutPageHeaderClassName}>
-          {showTitle ? (
-            <h1 className={layoutPageTitleClassName}>{title}</h1>
-          ) : null}
-          {showSubtitle ? (
-            <p
-              className={layoutPageSubtitleClassName}
-              data-test-id="basic-page-layout-subtitle"
-            >
-              {subtitle}
-            </p>
-          ) : null}
-        </header>
-      ) : null}
+      <PageLayoutHeader
+        title={title}
+        subtitle={subtitle}
+        headerActions={actions}
+        headerClassName={headerClassName}
+        titlesTestId="basic-page-layout-titles"
+        subtitleTestId="basic-page-layout-subtitle"
+        headerTestId="basic-page-layout-header"
+        headerRowTestId="basic-page-layout-header-row"
+        headerActionsTestId="basic-page-layout-header-actions"
+      />
 
       <section
         className={`${layoutPageContentClassName} ${contentClassName}`.trim()}

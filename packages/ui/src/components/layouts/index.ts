@@ -1,6 +1,10 @@
 export { BasicPageLayout, type BasicPageLayoutProps } from "./BasicPageLayout";
 export { TabPageLayout, type TabPageLayoutProps } from "./TabPageLayout";
 export {
+  PageLayoutHeader,
+  type PageLayoutHeaderProps,
+} from "./PageLayoutHeader";
+export {
   adminFillViewportBelowTopBarClassName,
   dataGridFillViewportTabPageProps,
   layoutPageContentClassName,

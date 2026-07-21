@@ -121,6 +121,7 @@ export type { SkeletonProps } from "./components/Skeleton";
 export {
   BasicPageLayout,
   TabPageLayout,
+  PageLayoutHeader,
   buildContentGridClassNames,
   CollectionPageLayout,
   adminFillViewportBelowTopBarClassName,
@@ -196,6 +197,7 @@ export {
 export type {
   BasicPageLayoutProps,
   TabPageLayoutProps,
+  PageLayoutHeaderProps,
   CollectionGridColumnConfig,
   CollectionPageLayoutProps,
 } from "./components/layouts";

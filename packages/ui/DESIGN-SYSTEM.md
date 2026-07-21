@@ -44,7 +44,7 @@ Navegación centralizada: `pwa-admin/src/navigation/designSystemNav.ts`
 
 | Escenario | Layout | Notas |
 |-----------|--------|-------|
-| Detalle / form | `BasicPageLayout` | title opcional |
+| Detalle / form | `BasicPageLayout` | title opcional; `headerActions` para CTAs a la derecha |
 | Módulo con tabs | `TabPageLayout` | tabs slot; `compact` para grids |
 | Catálogo cards + URL search | `CollectionPageLayout` | contentItems, addAction |
 | Tabla densa ERP | `TabPageLayout` + `DataGrid` | `dataGridFillViewportTabPageProps` |

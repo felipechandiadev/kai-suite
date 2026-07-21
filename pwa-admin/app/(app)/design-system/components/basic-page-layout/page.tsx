@@ -1,16 +1,24 @@
-import { BasicPageLayout } from "@kai/ui";
+import { BasicPageLayout, Button } from "@kai/ui";
 
 export default function BasicPageLayoutShowcasePage() {
   return (
     <div className="w-full min-w-0">
       <BasicPageLayout
         title="BasicPageLayout"
-        subtitle="Encabezado opcional (título + subtítulo) y cuerpo flexible. Sin «use client»: válido en páginas servidor."
+        subtitle="Encabezado opcional (título + subtítulo + acciones) y cuerpo flexible. Sin «use client»: válido en páginas servidor."
+        headerActions={
+          <Button variant="primary" size="md" data-test-id="ui-showcase-basic-page-layout-action">
+            Acción
+          </Button>
+        }
         data-test-id="ui-showcase-basic-page-layout-main"
       >
         <div className="rounded-lg border border-border bg-muted/20 p-6 text-sm text-muted-foreground">
           Área de contenido: cualquier hijo se renderiza dentro del contenedor{" "}
           <code className="rounded bg-background px-1 py-0.5 text-xs text-foreground">basic-page-layout-content</code>.
+          El slot{" "}
+          <code className="rounded bg-background px-1 py-0.5 text-xs text-foreground">headerActions</code>{" "}
+          alinea controles a la derecha de la misma fila que el título.
         </div>
       </BasicPageLayout>
 
