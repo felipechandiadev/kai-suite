@@ -10,8 +10,10 @@ import type { Option } from "@kai/ui";
 import { Switch } from "@kai/ui";
 import type {
   ExpenseCategoryOperationalGroupValue,
+  ExpenseCategoryPnlNatureValue,
   OperationalGroupMetaItem,
 } from "@/features/expense-categories/types/expense-category.types";
+import { EXPENSE_CATEGORY_PNL_NATURE_META } from "@/features/expense-categories/types/expense-category.types";
 import { createExpenseCategoryAction } from "@/features/expense-categories/actions/expense-category.action";
 
 export type CreateExpenseCategoryDialogProps = {
@@ -31,6 +33,7 @@ export function CreateExpenseCategoryDialog({
   const [name, setName] = useState("");
   const [operationalExpenseGroup, setOperationalExpenseGroup] =
     useState<ExpenseCategoryOperationalGroupValue>(defaultGroup);
+  const [pnlNature, setPnlNature] = useState<ExpenseCategoryPnlNatureValue>("ADMIN");
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,10 +44,20 @@ export function CreateExpenseCategoryDialog({
     [groupOptions],
   );
 
+  const pnlSelectOptions: Option[] = useMemo(
+    () => EXPENSE_CATEGORY_PNL_NATURE_META.map((g) => ({ id: g.value, label: g.label })),
+    [],
+  );
+
   const groupDescription = useMemo(() => {
     const m = groupOptions.find((g) => g.value === operationalExpenseGroup);
     return m?.description ?? "";
   }, [groupOptions, operationalExpenseGroup]);
+
+  const pnlDescription = useMemo(() => {
+    const m = EXPENSE_CATEGORY_PNL_NATURE_META.find((g) => g.value === pnlNature);
+    return m?.description ?? "";
+  }, [pnlNature]);
 
   useEffect(() => {
     if (!open) {
@@ -52,6 +65,7 @@ export function CreateExpenseCategoryDialog({
     }
     setName("");
     setOperationalExpenseGroup(groupOptions[0]?.value ?? "PERDIDAS_AJUSTES_OPERATIVOS");
+    setPnlNature("ADMIN");
     setDescription("");
     setIsActive(true);
     setError(null);
@@ -69,6 +83,7 @@ export function CreateExpenseCategoryDialog({
         const r = await createExpenseCategoryAction({
           name: name.trim(),
           operationalExpenseGroup,
+          pnlNature,
           description: description.trim() || undefined,
           requiresApproval: false,
           approvalThreshold: 0,
@@ -139,6 +154,20 @@ export function CreateExpenseCategoryDialog({
         {groupDescription ? (
           <p className="text-xs leading-relaxed text-muted-foreground" data-test-id="expense-category-create-group-desc">
             {groupDescription}
+          </p>
+        ) : null}
+        <Select
+          label="Clasificación P&L"
+          name="ec-create-pnl-nature"
+          value={pnlNature}
+          onChange={(id) => setPnlNature(String(id) as ExpenseCategoryPnlNatureValue)}
+          options={pnlSelectOptions}
+          required
+          data-test-id="expense-category-create-pnl-nature"
+        />
+        {pnlDescription ? (
+          <p className="text-xs leading-relaxed text-muted-foreground" data-test-id="expense-category-create-pnl-desc">
+            {pnlDescription}
           </p>
         ) : null}
         <TextField

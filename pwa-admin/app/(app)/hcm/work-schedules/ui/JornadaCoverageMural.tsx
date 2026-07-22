@@ -15,13 +15,20 @@ export type MuralDraft = {
   employeeDisplayName?: string | null;
 };
 
+type ShiftPerson = {
+  id: string;
+  label: string;
+  startTime: string;
+  endTime: string;
+};
+
 type ShiftBlock = {
   key: string;
   laborUnitShiftId: string | null;
   name: string;
   startTime: string;
   endTime: string;
-  people: Array<{ id: string; label: string }>;
+  people: ShiftPerson[];
 };
 
 type Props = {
@@ -38,7 +45,15 @@ const PX_PER_HOUR = 52;
 /** Bottom margin under the mural relative to the viewport. */
 const VIEWPORT_BOTTOM_MARGIN_PX = 24;
 /** Day column header height (approx) reserved above the timeline. */
-const DAY_HEADER_PX = 52;
+const DAY_HEADER_PX = 48;
+/** Collapsed day column width (fits vertical shift label). */
+const COLLAPSED_DAY_WIDTH_PX = 40;
+/** Minimum height for an expanded shift block. */
+const EXPANDED_BLOCK_MIN_HEIGHT_PX = 88;
+/** Left rail with vertical shift label. */
+const SHIFT_LABEL_RAIL_PX = 34;
+/** Minimum person card height inside a shift. */
+const PERSON_CARD_MIN_HEIGHT_PX = 28;
 
 function parseHmToMinutes(hm: string): number {
   const [h, m] = hm.split(":").map((x) => Number(x));
@@ -89,7 +104,9 @@ function groupDayBlocks(
 ): ShiftBlock[] {
   const map = new Map<string, ShiftBlock>();
   for (const d of dayDrafts) {
-    const key = `${d.laborUnitShiftId ?? "adhoc"}|${d.startTime}|${d.endTime}`;
+    const key = d.laborUnitShiftId
+      ? d.laborUnitShiftId
+      : `adhoc|${d.startTime}|${d.endTime}`;
     let block = map.get(key);
     if (!block) {
       block = {
@@ -103,13 +120,46 @@ function groupDayBlocks(
         people: [],
       };
       map.set(key, block);
+    } else if (
+      d.laborUnitShiftName?.trim() &&
+      (!block.name || block.name.startsWith("Turno "))
+    ) {
+      block.name = d.laborUnitShiftName.trim();
     }
     if (!block.people.some((p) => p.id === d.employeeId)) {
       const label =
         d.employeeDisplayName?.trim() ||
         empName.get(d.employeeId) ||
         "Funcionario";
-      block.people.push({ id: d.employeeId, label });
+      block.people.push({
+        id: d.employeeId,
+        label,
+        startTime: d.startTime,
+        endTime: d.endTime,
+      });
+    }
+  }
+  for (const block of map.values()) {
+    block.people.sort((a, b) => a.label.localeCompare(b.label, "es"));
+    if (block.people.length > 0) {
+      let minStart = Infinity;
+      let maxEnd = -Infinity;
+      let startHm = block.people[0]!.startTime;
+      let endHm = block.people[0]!.endTime;
+      for (const p of block.people) {
+        const s = parseHmToMinutes(p.startTime);
+        const e = blockEndMinutes(p.startTime, p.endTime);
+        if (s < minStart) {
+          minStart = s;
+          startHm = p.startTime;
+        }
+        if (e > maxEnd) {
+          maxEnd = e;
+          endHm = p.endTime;
+        }
+      }
+      block.startTime = startHm;
+      block.endTime = endHm;
     }
   }
   return [...map.values()].sort((a, b) =>
@@ -122,16 +172,85 @@ function blockGeometry(
   rangeStart: number,
   rangeEnd: number,
   timelineHeight: number,
+  expanded: boolean,
 ): { top: number; height: number } {
   const range = Math.max(1, rangeEnd - rangeStart);
   const start = parseHmToMinutes(block.startTime);
   const end = blockEndMinutes(block.startTime, block.endTime);
   const top = ((start - rangeStart) / range) * timelineHeight;
   const height = Math.max(
-    28,
+    expanded ? EXPANDED_BLOCK_MIN_HEIGHT_PX : 28,
     ((end - start) / range) * timelineHeight,
   );
   return { top, height };
+}
+
+type LaidOutPerson = ShiftPerson & {
+  top: number;
+  height: number;
+  column: number;
+  columnCount: number;
+};
+
+/** Position people inside a shift block; overlapping assignments share columns. */
+function layoutPeopleInBlock(
+  people: ShiftPerson[],
+  blockStartHm: string,
+  blockEndHm: string,
+  blockHeight: number,
+): LaidOutPerson[] {
+  const blockStart = parseHmToMinutes(blockStartHm);
+  const blockEnd = blockEndMinutes(blockStartHm, blockEndHm);
+  const duration = Math.max(1, blockEnd - blockStart);
+
+  const timed = people
+    .map((p) => {
+      const s = parseHmToMinutes(p.startTime);
+      const e = blockEndMinutes(p.startTime, p.endTime);
+      const clampedS = Math.max(blockStart, Math.min(s, blockEnd));
+      const clampedE = Math.max(clampedS + 1, Math.min(e, blockEnd));
+      return {
+        ...p,
+        startMin: clampedS,
+        endMin: clampedE,
+        top: ((clampedS - blockStart) / duration) * blockHeight,
+        height: Math.max(
+          PERSON_CARD_MIN_HEIGHT_PX,
+          ((clampedE - clampedS) / duration) * blockHeight,
+        ),
+      };
+    })
+    .sort(
+      (a, b) =>
+        a.startMin - b.startMin ||
+        b.endMin - a.endMin ||
+        a.label.localeCompare(b.label, "es"),
+    );
+
+  const columnEnds: number[] = [];
+  const placed: Array<(typeof timed)[number] & { column: number }> = [];
+  for (const p of timed) {
+    let col = columnEnds.findIndex((end) => end <= p.startMin + 0.5);
+    if (col < 0) {
+      col = columnEnds.length;
+      columnEnds.push(p.endMin);
+    } else {
+      columnEnds[col] = p.endMin;
+    }
+    placed.push({ ...p, column: col });
+  }
+
+  const columnCount = Math.max(1, columnEnds.length);
+  return placed.map((p) => ({
+    id: p.id,
+    label: p.label,
+    startTime: p.startTime,
+    endTime: p.endTime,
+    top: p.top,
+    height: p.height,
+    column: p.column,
+    columnCount,
+  }));
 }
 
 function hourMarks(rangeStart: number, rangeEnd: number): number[] {
@@ -147,6 +266,11 @@ function hourMarks(rangeStart: number, rangeEnd: number): number[] {
     marks.push(rangeEnd);
   }
   return marks;
+}
+
+function weekdayShort(idx: number): string {
+  const full = WEEKDAY_LABELS[idx] ?? "";
+  return full.slice(0, 3);
 }
 
 export function JornadaCoverageMural({
@@ -233,7 +357,7 @@ export function JornadaCoverageMural({
   return (
     <div
       ref={rootRef}
-      className="flex gap-2 overflow-x-auto"
+      className="flex gap-1.5 overflow-x-auto"
       style={{ height: panelHeight }}
       data-test-id="jornada-coverage-mural"
     >
@@ -256,26 +380,47 @@ export function JornadaCoverageMural({
               }
             }}
             className={[
-              "flex h-full shrink-0 flex-col overflow-hidden rounded-lg border text-left transition-all",
+              "flex h-full shrink-0 flex-col overflow-hidden rounded-lg border text-left transition-all bg-background",
               expanded
-                ? "min-w-[min(100%,300px)] flex-[2.2] border-foreground/30 bg-muted/20"
-                : "w-[88px] flex-none cursor-pointer border-border bg-background hover:bg-muted/30",
+                ? "min-w-[min(100%,420px)] flex-[3] border-foreground/30"
+                : "flex-none cursor-pointer border-border hover:border-border/80",
               isToday ? "ring-1 ring-foreground/20" : "",
             ].join(" ")}
+            style={
+              expanded
+                ? undefined
+                : { width: COLLAPSED_DAY_WIDTH_PX }
+            }
             data-test-id={`jornada-mural-day-${day}`}
           >
             <div
-              className="shrink-0 border-b border-border/60 px-2 py-2"
+              className={[
+                "shrink-0 border-b border-border/60",
+                expanded
+                  ? "bg-muted/30 px-2 py-2"
+                  : "bg-background px-0.5 py-1.5",
+              ].join(" ")}
               style={{ height: DAY_HEADER_PX }}
             >
-              <p className="text-xs font-semibold text-foreground">
-                {WEEKDAY_LABELS[idx]}
-                {isToday ? " · hoy" : ""}
+              <p
+                className={[
+                  "font-semibold text-foreground",
+                  expanded ? "text-xs" : "text-[10px] leading-tight",
+                ].join(" ")}
+              >
+                {expanded ? WEEKDAY_LABELS[idx] : weekdayShort(idx)}
+                {expanded && isToday ? " · hoy" : ""}
+                {!expanded && isToday ? "·" : ""}
               </p>
-              <p className="text-[11px] text-muted-foreground">
+              <p
+                className={[
+                  "text-muted-foreground",
+                  expanded ? "text-[11px]" : "text-[9px] tabular-nums",
+                ].join(" ")}
+              >
                 {day.slice(5)}
               </p>
-              {isHoliday ? (
+              {isHoliday && expanded ? (
                 <p className="text-[10px] text-warning">Festivo</p>
               ) : null}
             </div>
@@ -285,11 +430,10 @@ export function JornadaCoverageMural({
                 className="relative flex w-full"
                 style={{ height: timelineHeight }}
               >
-                {/* Shift lane */}
                 <div
                   className={[
                     "relative min-w-0 flex-1",
-                    expanded ? "px-2 py-0" : "px-1",
+                    expanded ? "px-2 py-0" : "px-0.5",
                   ].join(" ")}
                 >
                   {hours.map((mark) => {
@@ -307,14 +451,11 @@ export function JornadaCoverageMural({
                   })}
 
                   {blocks.length === 0 ? (
-                    <p
-                      className={[
-                        "absolute left-2 text-muted-foreground",
-                        expanded ? "top-3 text-xs" : "top-2 text-[10px]",
-                      ].join(" ")}
-                    >
-                      {expanded ? "Sin turnos" : "—"}
-                    </p>
+                    expanded ? (
+                      <p className="absolute top-3 left-2 text-xs text-muted-foreground">
+                        Sin turnos
+                      </p>
+                    ) : null
                   ) : (
                     blocks.map((b) => {
                       const { top, height } = blockGeometry(
@@ -322,45 +463,101 @@ export function JornadaCoverageMural({
                         startMin,
                         endMin,
                         timelineHeight,
+                        expanded,
                       );
+                      const laidOut = expanded
+                        ? layoutPeopleInBlock(
+                            b.people,
+                            b.startTime,
+                            b.endTime,
+                            height,
+                          )
+                        : [];
+                      const peopleLabel =
+                        b.people.length === 1
+                          ? "1 persona"
+                          : `${b.people.length} personas`;
                       return (
                         <div
                           key={b.key}
                           className={[
-                            "absolute right-1 left-1 overflow-hidden rounded-md border border-border bg-background shadow-sm",
-                            expanded ? "px-2 py-1.5" : "px-1 py-0.5",
+                            "absolute overflow-hidden rounded-md border border-border bg-background shadow-sm",
+                            expanded
+                              ? "right-1 left-1 flex flex-row"
+                              : "right-0.5 left-0.5",
                           ].join(" ")}
                           style={{ top, height }}
-                          title={`${b.name} ${b.startTime}–${b.endTime}`}
+                          title={`${b.name} ${b.startTime}–${b.endTime} · ${peopleLabel}`}
                         >
                           {expanded ? (
                             <>
-                              <p className="truncate text-sm font-medium text-foreground">
-                                {b.name}
-                              </p>
-                              <p className="text-xs tabular-nums text-muted-foreground">
-                                {b.startTime}–{b.endTime}
-                              </p>
-                              <ul className="mt-1 space-y-0.5 overflow-hidden">
-                                {b.people.map((p) => (
-                                  <li
-                                    key={p.id}
-                                    className="truncate text-xs text-foreground"
-                                  >
-                                    {p.label}
-                                  </li>
-                                ))}
-                              </ul>
+                              <div
+                                className="flex shrink-0 items-stretch justify-center border-r border-border/70 bg-muted/30"
+                                style={{ width: SHIFT_LABEL_RAIL_PX }}
+                                data-test-id="jornada-mural-shift-label"
+                              >
+                                <div
+                                  className="flex max-h-full items-center gap-2 px-0.5 text-[11px] leading-tight text-foreground"
+                                  style={{
+                                    writingMode: "vertical-rl",
+                                    transform: "rotate(180deg)",
+                                  }}
+                                >
+                                  <span className="font-medium">{b.name}</span>
+                                  <span className="tabular-nums text-muted-foreground">
+                                    {b.startTime}–{b.endTime} · {peopleLabel}
+                                  </span>
+                                </div>
+                              </div>
+                              <div
+                                className="relative min-w-0 flex-1"
+                                data-test-id="jornada-mural-shift-people"
+                              >
+                                {laidOut.map((p) => {
+                                  const widthPct = 100 / p.columnCount;
+                                  const leftPct = p.column * widthPct;
+                                  const gapPx = 3;
+                                  return (
+                                    <div
+                                      key={p.id}
+                                      className="absolute overflow-hidden rounded-md border border-border/80 bg-muted/50 px-1.5 py-1 shadow-sm"
+                                      style={{
+                                        top: p.top,
+                                        height: p.height,
+                                        left: `calc(${leftPct}% + ${gapPx / 2}px)`,
+                                        width: `calc(${widthPct}% - ${gapPx}px)`,
+                                      }}
+                                      title={`${p.label} ${p.startTime}–${p.endTime}`}
+                                    >
+                                      <p className="truncate text-xs font-medium text-foreground">
+                                        {p.label}
+                                      </p>
+                                      <p className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">
+                                        {p.startTime}–{p.endTime}
+                                      </p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </>
                           ) : (
-                            <>
-                              <p className="truncate text-[10px] font-medium leading-tight tabular-nums">
-                                {b.startTime}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground">
-                                {b.people.length}
-                              </p>
-                            </>
+                            <div
+                              className="flex h-full w-full items-stretch justify-center bg-muted/20"
+                              data-test-id="jornada-mural-shift-label-collapsed"
+                            >
+                              <div
+                                className="flex max-h-full max-w-full items-center gap-1.5 overflow-hidden px-0.5 text-[9px] leading-tight text-foreground"
+                                style={{
+                                  writingMode: "vertical-rl",
+                                  transform: "rotate(180deg)",
+                                }}
+                              >
+                                <span className="font-medium">{b.name}</span>
+                                <span className="tabular-nums text-muted-foreground">
+                                  {b.startTime}–{b.endTime} · {peopleLabel}
+                                </span>
+                              </div>
+                            </div>
                           )}
                         </div>
                       );
@@ -368,7 +565,6 @@ export function JornadaCoverageMural({
                   )}
                 </div>
 
-                {/* Hour scale — right side of active day; slim ticks when collapsed */}
                 {expanded ? (
                   <div
                     className="relative w-12 shrink-0 border-l border-border/70 bg-background/40"

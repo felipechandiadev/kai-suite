@@ -3,6 +3,7 @@ import {
   NotFoundException,
   Logger,
   BadRequestException,
+  ForbiddenException,
   InternalServerErrorException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
@@ -76,7 +77,7 @@ export class ExpenseCategoriesService {
   async create(dto: CreateExpenseCategoryDto): Promise<ExpenseCategory> {
     this.logger.log(`Creating expense category: ${dto.name}`);
     const code = await this.resolveUniqueCode(dto.code);
-    const data: any = { ...dto, code };
+    const data: any = { ...dto, code, nonDeletable: false };
     if (dto.approvalThreshold !== undefined) {
       data.approvalThreshold = dto.approvalThreshold.toString();
     }
@@ -91,6 +92,7 @@ export class ExpenseCategoriesService {
     this.logger.log(`Updating expense category ${id}`);
     const { code: dtoCode, ...dtoRest } = dto;
     const data: any = { ...dtoRest };
+    delete data.nonDeletable;
 
     if (dtoCode !== undefined) {
       const t = String(dtoCode).trim();
@@ -121,6 +123,11 @@ export class ExpenseCategoriesService {
 
   async remove(id: string): Promise<void> {
     const category = await this.findOne(id);
+    if (category.nonDeletable) {
+      throw new ForbiddenException(
+        `La categoría «${category.name}» es de sistema y no se puede eliminar`,
+      );
+    }
     this.logger.log(`Removing expense category ${id}`);
     await this.repository.remove(id);
   }

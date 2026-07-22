@@ -11,8 +11,10 @@ import { Switch } from "@kai/ui";
 import type {
   ExpenseCategoryListItem,
   ExpenseCategoryOperationalGroupValue,
+  ExpenseCategoryPnlNatureValue,
   OperationalGroupMetaItem,
 } from "@/features/expense-categories/types/expense-category.types";
+import { EXPENSE_CATEGORY_PNL_NATURE_META } from "@/features/expense-categories/types/expense-category.types";
 import { updateExpenseCategoryAction } from "@/features/expense-categories/actions/expense-category.action";
 
 export type UpdateExpenseCategoryDialogProps = {
@@ -34,6 +36,7 @@ export function UpdateExpenseCategoryDialog({
   const [name, setName] = useState("");
   const [operationalExpenseGroup, setOperationalExpenseGroup] =
     useState<ExpenseCategoryOperationalGroupValue>(category.operationalExpenseGroup);
+  const [pnlNature, setPnlNature] = useState<ExpenseCategoryPnlNatureValue>(category.pnlNature);
   const [description, setDescription] = useState("");
   const [requiresApproval, setRequiresApproval] = useState(false);
   const [thresholdStr, setThresholdStr] = useState("0");
@@ -46,10 +49,20 @@ export function UpdateExpenseCategoryDialog({
     [groupOptions],
   );
 
+  const pnlSelectOptions: Option[] = useMemo(
+    () => EXPENSE_CATEGORY_PNL_NATURE_META.map((g) => ({ id: g.value, label: g.label })),
+    [],
+  );
+
   const groupDescription = useMemo(() => {
     const m = groupOptions.find((g) => g.value === operationalExpenseGroup);
     return m?.description ?? "";
   }, [groupOptions, operationalExpenseGroup]);
+
+  const pnlDescription = useMemo(() => {
+    const m = EXPENSE_CATEGORY_PNL_NATURE_META.find((g) => g.value === pnlNature);
+    return m?.description ?? "";
+  }, [pnlNature]);
 
   useEffect(() => {
     if (!open) {
@@ -58,6 +71,7 @@ export function UpdateExpenseCategoryDialog({
     setCode(category.code ?? "");
     setName(category.name);
     setOperationalExpenseGroup(category.operationalExpenseGroup);
+    setPnlNature(category.pnlNature);
     setDescription(category.description ?? "");
     setRequiresApproval(category.requiresApproval);
     setThresholdStr(String(category.approvalThreshold ?? 0));
@@ -80,6 +94,7 @@ export function UpdateExpenseCategoryDialog({
           ...(code.trim() ? { code: code.trim() } : {}),
           name: name.trim(),
           operationalExpenseGroup,
+          pnlNature,
           description,
           requiresApproval,
           approvalThreshold: Number.isFinite(threshold) && threshold >= 0 ? threshold : 0,
@@ -154,6 +169,20 @@ export function UpdateExpenseCategoryDialog({
         {groupDescription ? (
           <p className="text-xs leading-relaxed text-muted-foreground" data-test-id="expense-category-update-group-desc">
             {groupDescription}
+          </p>
+        ) : null}
+        <Select
+          label="Clasificación P&L"
+          name="ec-update-pnl-nature"
+          value={pnlNature}
+          onChange={(id) => setPnlNature(String(id) as ExpenseCategoryPnlNatureValue)}
+          options={pnlSelectOptions}
+          required
+          data-test-id="expense-category-update-pnl-nature"
+        />
+        {pnlDescription ? (
+          <p className="text-xs leading-relaxed text-muted-foreground" data-test-id="expense-category-update-pnl-desc">
+            {pnlDescription}
           </p>
         ) : null}
         <TextField

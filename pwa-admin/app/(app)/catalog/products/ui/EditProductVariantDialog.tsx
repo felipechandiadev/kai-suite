@@ -97,6 +97,7 @@ export function EditProductVariantDialog({
   const [packageWidthCm, setPackageWidthCm] = useState("");
   const [packageHeightCm, setPackageHeightCm] = useState("");
   const [volumetricDivisorK, setVolumetricDivisorK] = useState("");
+  const [laborCostOverride, setLaborCostOverride] = useState("");
   const [units, setUnits] = useState<UnitListItem[]>([]);
   const [priceLists, setPriceLists] = useState<PriceListListItem[]>([]);
   const [taxes, setTaxes] = useState<TaxListItem[]>([]);
@@ -206,6 +207,12 @@ export function EditProductVariantDialog({
         setPriceRows(priceListItemsToVariantRows(variant.priceListItems ?? [], master));
         setSku(variant.sku ?? "");
         setBarcode(variant.barcode?.trim() ?? "");
+        setLaborCostOverride(
+          variant.laborCostOverride != null &&
+            Number.isFinite(Number(variant.laborCostOverride))
+            ? String(variant.laborCostOverride)
+            : "",
+        );
         const saleId =
           (variant as { saleUnitId?: string }).saleUnitId?.trim() ||
           variant.unitId?.trim() ||
@@ -475,6 +482,16 @@ export function EditProductVariantDialog({
       }
       volK = n;
     }
+    const laborRaw = laborCostOverride.trim();
+    let laborOverride: number | null = null;
+    if (laborRaw) {
+      const n = Number(laborRaw.replace(",", "."));
+      if (!Number.isFinite(n) || n < 0) {
+        setError("La MO fija por pieza debe ser un número mayor o igual a 0.");
+        return;
+      }
+      laborOverride = n;
+    }
 
     startTransition(() => {
       void (async () => {
@@ -506,6 +523,7 @@ export function EditProductVariantDialog({
           packageWidthCm: parseOptDecimal(packageWidthCm),
           packageHeightCm: parseOptDecimal(packageHeightCm),
           volumetricDivisorK: volK,
+          laborCostOverride: laborOverride,
         });
         if (r.success) {
           await onSuccess?.();
@@ -760,6 +778,16 @@ export function EditProductVariantDialog({
             onChange={noop}
             readOnly
             data-test-id="product-variant-edit-pmp-readonly"
+          />
+          <TextField
+            label="MO fija / pieza (override)"
+            name="pv-edit-labor-cost-override"
+            type="number"
+            value={laborCostOverride}
+            onChange={(e) => setLaborCostOverride(e.target.value)}
+            placeholder="Vacío = tasa histórica de la celda"
+            helperText="Opcional. Si se fija, reemplaza la MO calculada por historial de la unidad de producción."
+            data-test-id="product-variant-edit-labor-cost-override"
           />
           {isSellable ? (
             <VariantPriceRowsEditor

@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  Badge,
   Button,
   CollectionPageLayout,
   Dialog,
+  IconButton,
   Select,
   TextField,
 } from "@kai/ui";
@@ -31,17 +31,20 @@ import type {
   ProductionUnitScope,
 } from "@/features/inventory-production-units/types/production-unit.types";
 import { LaborUnitAssociationsField } from "@/features/hr-labor-units/ui/LaborUnitAssociationsField";
+import { EmployeeAssociationsField } from "@/features/hr-employees/ui/EmployeeAssociationsField";
+import { ProductionUnitCard } from "./ProductionUnitCard";
 
 type Props = {
   initialUnits: ProductionUnitListItem[];
   branches: BranchListItem[];
   storages: StorageListItem[];
   laborUnits?: Array<{ id: string; name: string; code?: string }>;
+  employees?: Array<{ id: string; label: string }>;
 };
 
 const CREATE_STORAGE_OPTION_ID = "__create_storage__";
 
-type CreateStorageTarget = "input" | "output";
+type CreateStorageTarget = "input";
 
 function formatStorageOptionLabel(s: StorageListItem): string {
   const parts = [s.name];
@@ -56,6 +59,7 @@ export function ProductionUnitsCollection({
   branches,
   storages: initialStorages,
   laborUnits = [],
+  employees = [],
 }: Props) {
   const searchParams = useSearchParams();
   const q = (searchParams.get("search") ?? "").trim().toLowerCase();
@@ -69,8 +73,8 @@ export function ProductionUnitsCollection({
     useState<ProductionUnitInventoryMode>("DEPENDENT");
   const [purpose, setPurpose] = useState<ProductionUnitPurpose>("KITCHEN");
   const [inputStorageId, setInputStorageId] = useState<string>("");
-  const [outputStorageId, setOutputStorageId] = useState<string>("");
   const [laborUnitIds, setLaborUnitIds] = useState<string[]>([]);
+  const [employeeIds, setEmployeeIds] = useState<string[]>([]);
   const [name, setName] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -122,11 +126,6 @@ export function ProductionUnitsCollection({
     });
   }, [storagesForScope, inventoryMode, editing?.id]);
 
-  const outputCandidates = useMemo(
-    () => storagesForScope.filter((s) => s.category !== "PRODUCTION_INPUT"),
-    [storagesForScope],
-  );
-
   const createOption = {
     id: CREATE_STORAGE_OPTION_ID,
     label: "+ Crear almacén…",
@@ -143,20 +142,15 @@ export function ProductionUnitsCollection({
     [inputCandidates],
   );
 
-  const outputOptions = useMemo(
-    () => [
-      ...outputCandidates.map((s) => ({
-        id: s.id,
-        label: formatStorageOptionLabel(s),
-      })),
-      createOption,
-    ],
-    [outputCandidates],
-  );
-
   const defaultSharedStorageId = () => {
-    const preferred = outputCandidates.find((s) => s.isDefault);
-    return preferred?.id ?? outputCandidates[0]?.id ?? "";
+    const preferred = storagesForScope
+      .filter((s) => s.category !== "PRODUCTION_INPUT")
+      .find((s) => s.isDefault);
+    return (
+      preferred?.id ??
+      storagesForScope.find((s) => s.category !== "PRODUCTION_INPUT")?.id ??
+      ""
+    );
   };
 
   const suggestedInputStorageName = (unitName: string) => {
@@ -173,13 +167,7 @@ export function ProductionUnitsCollection({
     ) {
       setInputStorageId("");
     }
-    if (
-      outputStorageId &&
-      !outputCandidates.some((s) => s.id === outputStorageId)
-    ) {
-      setOutputStorageId("");
-    }
-  }, [open, inputCandidates, outputCandidates, inputStorageId, outputStorageId]);
+  }, [open, inputCandidates, inputStorageId]);
 
   const resetDialogFields = (mode: ProductionUnitInventoryMode = "DEPENDENT") => {
     const shared = (() => {
@@ -201,7 +189,6 @@ export function ProductionUnitsCollection({
       return first?.id ?? "";
     })();
     setInputStorageId(mode === "DEPENDENT" ? shared : "");
-    setOutputStorageId(shared);
     setError(null);
   };
 
@@ -214,6 +201,7 @@ export function ProductionUnitsCollection({
     setName("");
     setIsActive(true);
     setLaborUnitIds([]);
+    setEmployeeIds([]);
     setCreateStorageOpen(false);
     resetDialogFields("DEPENDENT");
     setOpen(true);
@@ -226,8 +214,8 @@ export function ProductionUnitsCollection({
     setInventoryMode(unit.inventoryMode);
     setPurpose(unit.purpose === "BATCH" ? "BATCH" : "KITCHEN");
     setInputStorageId(unit.defaultInputStorageId ?? "");
-    setOutputStorageId(unit.defaultOutputStorageId ?? "");
     setLaborUnitIds(unit.laborUnitIds ?? []);
+    setEmployeeIds(unit.employeeIds ?? []);
     setName(unit.name);
     setIsActive(unit.isActive);
     setError(null);
@@ -251,17 +239,11 @@ export function ProductionUnitsCollection({
             : "",
         );
       }
-      if (!outputStorageId) {
-        setOutputStorageId(defaultSharedStorageId());
-      }
     } else {
       const shared = defaultSharedStorageId();
       const current = storages.find((s) => s.id === inputStorageId);
       if (!current || current.category === "PRODUCTION_INPUT") {
         setInputStorageId(shared);
-      }
-      if (!outputStorageId) {
-        setOutputStorageId(shared);
       }
     }
   };
@@ -280,11 +262,7 @@ export function ProductionUnitsCollection({
       openCreateStorage(target);
       return;
     }
-    if (target === "input") {
-      setInputStorageId(id);
-    } else {
-      setOutputStorageId(id);
-    }
+    setInputStorageId(id);
   };
 
   const storageCreatePresets = useMemo((): CreateStorageDialogPresets => {
@@ -314,11 +292,7 @@ export function ProductionUnitsCollection({
       if (prev.some((s) => s.id === storage.id)) return prev;
       return [...prev, storage];
     });
-    if (createStorageTarget === "input") {
-      setInputStorageId(storage.id);
-    } else {
-      setOutputStorageId(storage.id);
-    }
+    setInputStorageId(storage.id);
     setCreateStorageOpen(false);
   };
 
@@ -326,21 +300,12 @@ export function ProductionUnitsCollection({
     inputStorageId &&
       inputCandidates.some((s) => s.id === inputStorageId),
   );
-  const outputStorageOk = Boolean(
-    outputStorageId &&
-      outputCandidates.some((s) => s.id === outputStorageId),
-  );
-  const autonomousDistinctOk =
-    inventoryMode !== "AUTONOMOUS" ||
-    (inputStorageId && outputStorageId && inputStorageId !== outputStorageId);
 
   const saveDisabled =
     saving ||
     !name.trim() ||
     (scope === "BRANCH" && !branchId) ||
-    !inputStorageOk ||
-    !outputStorageOk ||
-    !autonomousDistinctOk;
+    !inputStorageOk;
 
   const handleSave = async () => {
     if (saveDisabled) return;
@@ -354,8 +319,9 @@ export function ProductionUnitsCollection({
       inventoryMode,
       purpose,
       defaultInputStorageId: inputStorageId,
-      defaultOutputStorageId: outputStorageId,
+      defaultOutputStorageId: null,
       laborUnitIds,
+      employeeIds,
       isActive,
     };
     const result = editing
@@ -383,13 +349,14 @@ export function ProductionUnitsCollection({
       <CollectionPageLayout
         title="Unidades de producción"
         addAction={
-          <Button
-            variant="primary"
+          <IconButton
+            icon="Plus"
+            variant="action"
+            size="md"
+            ariaLabel="Crear unidad de producción"
             onClick={openCreate}
             data-test-id="production-units-new"
-          >
-            Nueva unidad
-          </Button>
+          />
         }
         showSearch
         searchParamName="search"
@@ -398,62 +365,22 @@ export function ProductionUnitsCollection({
         contentEmptyMessage="No hay unidades de producción"
         contentItems={
           filtered.length > 0
-            ? filtered.map((u) => {
-                const inName = storageName(u.defaultInputStorageId);
-                const outName = storageName(u.defaultOutputStorageId);
-                return (
-                  <button
-                    key={u.id}
-                    type="button"
-                    className="rounded-lg border border-border bg-card p-4 text-left hover:bg-muted/40 transition-colors"
-                    onClick={() => openEdit(u)}
-                    data-test-id={`production-unit-card-${u.code}`}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="font-medium">{u.name}</span>
-                      <div className="flex flex-wrap gap-1">
-                        <Badge
-                          variant="secondary-outlined"
-                          className="text-[10px]"
-                        >
-                          {u.scope === "COMPANY" ? "Empresa" : "Sucursal"}
-                        </Badge>
-                        <Badge
-                          variant="secondary-outlined"
-                          className="text-[10px]"
-                        >
-                          {u.purpose === "BATCH"
-                            ? "Producción por lotes"
-                            : "Cocina"}
-                        </Badge>
-                        <Badge
-                          variant="secondary-outlined"
-                          className="text-[10px]"
-                        >
-                          {u.inventoryMode === "AUTONOMOUS"
-                            ? "Autónoma"
-                            : "Dependiente"}
-                        </Badge>
-                        <Badge variant={u.isActive ? "success" : "secondary"}>
-                          {u.isActive ? "Activa" : "Inactiva"}
-                        </Badge>
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {u.code} · {branchName(u.branchId)}
-                    </p>
-                    {inName || outName ? (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Insumos: {inName ?? "—"} · Salida: {outName ?? "—"}
-                      </p>
-                    ) : null}
-                  </button>
-                );
-              })
+            ? filtered.map((u) => (
+                <ProductionUnitCard
+                  key={u.id}
+                  unit={u}
+                  branchLabel={branchName(u.branchId)}
+                  inputStorageLabel={storageName(u.defaultInputStorageId)}
+                  onEdit={openEdit}
+                  data-test-id={`production-unit-card-${u.code}`}
+                />
+              ))
             : []
         }
         contentGridColumns={{ default: 1, md: 2, lg: 3 }}
         contentGridGapClassName="gap-4"
+        contentGridItemsAlign="stretch"
+        data-test-id="production-units-collection"
       />
 
       <Dialog
@@ -487,7 +414,13 @@ export function ProductionUnitsCollection({
             options={laborUnits}
             value={laborUnitIds}
             onChange={setLaborUnitIds}
-            helperText="Opcional. Asociá unidades laborales a esta UP."
+            helperText="Opcional. Asociá unidades laborales a esta UP (una UL solo puede estar en una UP)."
+          />
+          <EmployeeAssociationsField
+            options={employees}
+            value={employeeIds}
+            onChange={setEmployeeIds}
+            helperText="Opcional. Empleados individuales además (o en lugar) de una UL."
           />
           <Select
             label="Propósito"
@@ -524,8 +457,8 @@ export function ProductionUnitsCollection({
             />
             <p className="text-xs text-muted-foreground">
               {inventoryMode === "AUTONOMOUS"
-                ? "Insumos: solo almacenes «Insumos de producción» libres. Salida puede ser compartida."
-                : "Insumos y salida obligatorios; pueden ser el mismo almacén compartido del local."}
+                ? "Insumos: solo almacenes «Insumos de producción» libres. El almacén de salida se elige en cada orden."
+                : "Almacén de insumos obligatorio. La salida del terminado se elige en la orden de producción."}
             </p>
           </div>
 
@@ -541,22 +474,21 @@ export function ProductionUnitsCollection({
             data-test-id="production-unit-input-storage"
           />
 
-          <Select
-            label="Almacén de salida"
-            value={outputStorageId || null}
-            onChange={(v) => handleStorageSelect("output", v)}
-            options={outputOptions}
-            data-test-id="production-unit-output-storage"
-          />
-          <p className="text-xs text-muted-foreground -mt-2">
-            Obligatorio. Puede ser sala de venta u otro almacén compartido.
-            {inventoryMode === "AUTONOMOUS" &&
-            inputStorageId &&
-            outputStorageId &&
-            inputStorageId === outputStorageId
-              ? " En modo autónomo insumos y salida deben ser distintos."
-              : ""}
-          </p>
+          {editing ? (
+            <p className="text-xs text-muted-foreground rounded-md bg-muted/20 p-2">
+              Equipo: {editing.employeeCount ?? 0} empleado(s)
+              {editing.monthlyPayrollTotal != null
+                ? ` · nómina ${editing.monthlyPayrollTotal}`
+                : ""}
+              {editing.computedCapacity != null ||
+              editing.monthlyCapacity != null
+                ? ` · ${editing.computedCapacity ?? editing.monthlyCapacity} pzas/30d`
+                : ""}
+              {editing.laborCostPerUnit != null
+                ? ` · MO/pieza ${editing.laborCostPerUnit}`
+                : " · MO/pieza — (pendiente de historial o override en variante)"}
+            </p>
+          ) : null}
 
           <TextField
             label="Nombre"

@@ -180,6 +180,12 @@ import { DiningStationOrders1757310000000 } from '../migrations/1757310000000-Di
 import { PriceListItemMaxDiscountPercent1757320000000 } from '../migrations/1757320000000-PriceListItemMaxDiscountPercent';
 import { CompanyPaymentMethodFeePercent1757330000000 } from '../migrations/1757330000000-CompanyPaymentMethodFeePercent';
 import { VariantProductionAttributes1757340000000 } from '../migrations/1757340000000-VariantProductionAttributes';
+import { ProductionUnitMonthlyCapacity1757350000000 } from '../migrations/1757350000000-ProductionUnitMonthlyCapacity';
+import { VariantLaborCostOverride1757360000000 } from '../migrations/1757360000000-VariantLaborCostOverride';
+import { ProductionUnitEmployees1757370000000 } from '../migrations/1757370000000-ProductionUnitEmployees';
+import { ExpenseCategoryPnlNature1757380000000 } from '../migrations/1757380000000-ExpenseCategoryPnlNature';
+import { ExpenseCategoryNonDeletable1757390000000 } from '../migrations/1757390000000-ExpenseCategoryNonDeletable';
+import { RecurringOeAsTemplates1757400000000 } from '../migrations/1757400000000-RecurringOeAsTemplates';
 import { DiningKitchenFireId1757140000000 } from '../migrations/1757140000000-DiningKitchenFireId';
 import { DiningKitchenFireNumber1757150000000 } from '../migrations/1757150000000-DiningKitchenFireNumber';
 import { ProductionUnitPurpose1757160000000 } from '../migrations/1757160000000-ProductionUnitPurpose';
@@ -509,6 +515,12 @@ export const AppDataSource = new DataSource({
     PriceListItemMaxDiscountPercent1757320000000,
     CompanyPaymentMethodFeePercent1757330000000,
     VariantProductionAttributes1757340000000,
+    ProductionUnitMonthlyCapacity1757350000000,
+    VariantLaborCostOverride1757360000000,
+    ProductionUnitEmployees1757370000000,
+    ExpenseCategoryPnlNature1757380000000,
+    ExpenseCategoryNonDeletable1757390000000,
+    RecurringOeAsTemplates1757400000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

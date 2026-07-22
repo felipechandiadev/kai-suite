@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { RecurringOperationalExpensesService } from '../application/recurring-operational-expenses.service';
 import { CreateRecurringOperationalExpenseDto } from '../application/dto/create-recurring-operational-expense.dto';
+import { CreateRecurringFromOperatingExpenseDto } from '../application/dto/create-recurring-from-operating-expense.dto';
 import { UpdateRecurringOperationalExpenseDto } from '../application/dto/update-recurring-operational-expense.dto';
 import { ListRecurringOperationalExpensesDto } from '../application/dto/list-recurring-operational-expenses.dto';
 
@@ -40,6 +41,13 @@ export class RecurringOperationalExpensesController {
     return this.service.create(dto);
   }
 
+  @Post('from-operating-expense')
+  async createFromOperatingExpense(
+    @Body() dto: CreateRecurringFromOperatingExpenseDto,
+  ) {
+    return this.service.createFromOperatingExpense(dto);
+  }
+
   @Put(':id')
   async update(
     @Param('id') id: string,
@@ -58,6 +66,7 @@ export class RecurringOperationalExpensesController {
     return this.service.resume(id);
   }
 
+  /** @deprecated Prefer creating an OE from the template dialog. */
   @Post(':id/generate')
   async generate(@Param('id') id: string) {
     return this.service.generate(id, { advanceSchedule: true });

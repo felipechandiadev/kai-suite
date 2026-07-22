@@ -5,14 +5,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Not, Repository } from 'typeorm';
 import { TenantContext } from '@common/tenant/tenant.context';
 import { Branch } from '@modules/branches/domain/branch.entity';
 import {
   Storage,
   StorageCategory,
 } from '@modules/storages/domain/storage.entity';
+import { Employee, EmployeeStatus } from '@modules/employees/domain/employee.entity';
 import { ProductionUnit } from '../domain/production-unit.entity';
+import { ProductionUnitEmployee } from '../domain/production-unit-employee.entity';
 import {
   ProductionUnitInventoryMode,
   ProductionUnitPurpose,
@@ -20,9 +22,16 @@ import {
 } from '../domain/production-unit.enums';
 import { nextProductionUnitCodeFromExisting } from './production-unit-code.util';
 import { LaborUnitsService } from '@modules/hr-labor-units/application/labor-units.service';
+import { ProductionUnitCostingService } from './production-unit-costing.service';
 
 export type ProductionUnitView = ProductionUnit & {
   laborUnitIds: string[];
+  employeeIds: string[];
+  employeeCount?: number;
+  monthlyPayrollTotal?: number;
+  laborCostPerUnit?: number | null;
+  /** Piezas completadas en 30 días (capacidad histórica). */
+  computedCapacity?: number | null;
 };
 
 @Injectable()
@@ -30,11 +39,16 @@ export class ProductionUnitsService {
   constructor(
     @InjectRepository(ProductionUnit)
     private readonly productionUnitRepository: Repository<ProductionUnit>,
+    @InjectRepository(ProductionUnitEmployee)
+    private readonly puEmployeeRepository: Repository<ProductionUnitEmployee>,
+    @InjectRepository(Employee)
+    private readonly employeeRepository: Repository<Employee>,
     @InjectRepository(Branch)
     private readonly branchRepository: Repository<Branch>,
     @InjectRepository(Storage)
     private readonly storageRepository: Repository<Storage>,
     private readonly laborUnitsService: LaborUnitsService,
+    private readonly costingService: ProductionUnitCostingService,
   ) {}
 
   private requireCompanyId(): string {
@@ -43,6 +57,243 @@ export class ProductionUnitsService {
       throw new BadRequestException('No hay empresa activa en el contexto.');
     }
     return companyId;
+  }
+
+  async listEmployeeIdsForProductionUnit(
+    productionUnitId: string,
+  ): Promise<string[]> {
+    const companyId = this.requireCompanyId();
+    const rows = await this.puEmployeeRepository.find({
+      where: { companyId, productionUnitId },
+    });
+    return rows.map((r) => r.employeeId);
+  }
+
+  async mapEmployeeIdsByProductionUnitIds(
+    productionUnitIds: string[],
+  ): Promise<Map<string, string[]>> {
+    const companyId = this.requireCompanyId();
+    const out = new Map<string, string[]>();
+    if (productionUnitIds.length === 0) return out;
+    const rows = await this.puEmployeeRepository.find({
+      where: { companyId, productionUnitId: In(productionUnitIds) },
+    });
+    for (const r of rows) {
+      const list = out.get(r.productionUnitId) ?? [];
+      list.push(r.employeeId);
+      out.set(r.productionUnitId, list);
+    }
+    return out;
+  }
+
+  private employeeLabel(emp: Employee): string {
+    const p = emp.person as
+      | { businessName?: string; firstName?: string; lastName?: string }
+      | undefined;
+    if (p?.businessName?.trim()) return p.businessName.trim();
+    const full = [p?.firstName, p?.lastName].filter(Boolean).join(' ').trim();
+    return full || emp.id;
+  }
+
+  /**
+   * Valida que LUs y empleados del equipo no choquen con otras UPs.
+   */
+  private async assertTeamExclusivity(
+    productionUnitId: string,
+    laborUnitIds: string[],
+    employeeIds: string[],
+  ): Promise<void> {
+    const companyId = this.requireCompanyId();
+    const nextLu = [...new Set(laborUnitIds.filter(Boolean))];
+    const nextEmp = [...new Set(employeeIds.filter(Boolean))];
+
+    if (nextEmp.length > 0) {
+      const employees = await this.employeeRepository.find({
+        where: { companyId, id: In(nextEmp) },
+        relations: ['person'],
+      });
+      if (employees.length !== nextEmp.length) {
+        throw new BadRequestException(
+          'Uno o más empleados no existen en la empresa',
+        );
+      }
+      const inactive = employees.filter((e) => e.status !== EmployeeStatus.ACTIVE);
+      if (inactive.length > 0) {
+        throw new BadRequestException(
+          `Solo se pueden asociar empleados activos: ${inactive
+            .map((e) => this.employeeLabel(e))
+            .join(', ')}`,
+        );
+      }
+
+      const directElsewhere = await this.puEmployeeRepository.find({
+        where: {
+          companyId,
+          employeeId: In(nextEmp),
+          productionUnitId: Not(productionUnitId),
+        },
+      });
+      if (directElsewhere.length > 0) {
+        const ids = [...new Set(directElsewhere.map((r) => r.employeeId))];
+        const byId = new Map(employees.map((e) => [e.id, e]));
+        const otherPuIds = [
+          ...new Set(directElsewhere.map((r) => r.productionUnitId)),
+        ];
+        const otherPus = await this.productionUnitRepository.find({
+          where: { companyId, id: In(otherPuIds) },
+        });
+        const puName = new Map(otherPus.map((p) => [p.id, p.name]));
+        const detail = directElsewhere
+          .map((r) => {
+            const emp = byId.get(r.employeeId);
+            const label = emp ? this.employeeLabel(emp) : r.employeeId;
+            return `«${label}» → «${puName.get(r.productionUnitId) ?? r.productionUnitId}»`;
+          })
+          .join('; ');
+        throw new ConflictException(
+          `Empleado(s) ya asignados a otra unidad de producción: ${detail}`,
+        );
+      }
+
+      // Empleado directo cuyo LU ya está en otra UP
+      const theirLuIds = [
+        ...new Set(employees.map((e) => e.laborUnitId).filter(Boolean)),
+      ];
+      if (theirLuIds.length > 0) {
+        const luElsewhere =
+          await this.laborUnitsService.mapLaborUnitIdsByProductionUnitIds(
+            (
+              await this.productionUnitRepository.find({
+                where: { companyId, id: Not(productionUnitId) },
+                select: ['id'],
+              })
+            ).map((p) => p.id),
+          );
+        // Invert: laborUnitId -> other PU ids
+        const luToOtherPu = new Map<string, string[]>();
+        for (const [puId, lus] of luElsewhere) {
+          for (const luId of lus) {
+            const list = luToOtherPu.get(luId) ?? [];
+            list.push(puId);
+            luToOtherPu.set(luId, list);
+          }
+        }
+        const conflicts: string[] = [];
+        for (const emp of employees) {
+          const other = luToOtherPu.get(emp.laborUnitId);
+          if (other?.length) {
+            conflicts.push(
+              `«${this.employeeLabel(emp)}» pertenece a una UL ya asociada a otra UP`,
+            );
+          }
+        }
+        if (conflicts.length > 0) {
+          throw new ConflictException(
+            `No se puede asociar el empleado: ${conflicts.join('; ')}`,
+          );
+        }
+      }
+    }
+
+    if (nextLu.length > 0) {
+      const viaLu = await this.employeeRepository.find({
+        where: {
+          companyId,
+          laborUnitId: In(nextLu),
+          status: EmployeeStatus.ACTIVE,
+        },
+        relations: ['person'],
+      });
+      if (viaLu.length > 0) {
+        const viaIds = viaLu.map((e) => e.id);
+        const directOnOther = await this.puEmployeeRepository.find({
+          where: {
+            companyId,
+            employeeId: In(viaIds),
+            productionUnitId: Not(productionUnitId),
+          },
+        });
+        if (directOnOther.length > 0) {
+          const byId = new Map(viaLu.map((e) => [e.id, e]));
+          const otherPuIds = [
+            ...new Set(directOnOther.map((r) => r.productionUnitId)),
+          ];
+          const otherPus = await this.productionUnitRepository.find({
+            where: { companyId, id: In(otherPuIds) },
+          });
+          const puName = new Map(otherPus.map((p) => [p.id, p.name]));
+          const detail = directOnOther
+            .map((r) => {
+              const emp = byId.get(r.employeeId);
+              const label = emp ? this.employeeLabel(emp) : r.employeeId;
+              return `«${label}» (directo en «${puName.get(r.productionUnitId) ?? r.productionUnitId}»)`;
+            })
+            .join('; ');
+          throw new ConflictException(
+            `La unidad laboral incluye empleados ya asignados a otra UP: ${detail}`,
+          );
+        }
+      }
+    }
+  }
+
+  async syncProductionUnitEmployees(
+    productionUnitId: string,
+    employeeIds: string[],
+  ): Promise<void> {
+    const companyId = this.requireCompanyId();
+    const uniqueIds = [...new Set(employeeIds.filter(Boolean))];
+    if (uniqueIds.length > 0) {
+      const employees = await this.employeeRepository.find({
+        where: { companyId, id: In(uniqueIds) },
+      });
+      if (employees.length !== uniqueIds.length) {
+        throw new BadRequestException(
+          'Uno o más empleados no existen en la empresa',
+        );
+      }
+    }
+    await this.puEmployeeRepository.delete({ companyId, productionUnitId });
+    if (uniqueIds.length === 0) return;
+    await this.puEmployeeRepository.save(
+      uniqueIds.map((employeeId) =>
+        this.puEmployeeRepository.create({
+          companyId,
+          productionUnitId,
+          employeeId,
+        }),
+      ),
+    );
+  }
+
+  private async syncTeamAssociations(
+    productionUnitId: string,
+    opts: { laborUnitIds?: string[]; employeeIds?: string[] },
+  ): Promise<void> {
+    if (opts.laborUnitIds === undefined && opts.employeeIds === undefined) {
+      return;
+    }
+    const currentLu =
+      await this.laborUnitsService.listLaborUnitIdsForProductionUnit(
+        productionUnitId,
+      );
+    const currentEmp =
+      await this.listEmployeeIdsForProductionUnit(productionUnitId);
+    const nextLu = opts.laborUnitIds ?? currentLu;
+    const nextEmp = opts.employeeIds ?? currentEmp;
+    await this.assertTeamExclusivity(productionUnitId, nextLu, nextEmp);
+    if (opts.laborUnitIds !== undefined) {
+      await this.laborUnitsService.syncProductionUnitLaborUnits(
+        productionUnitId,
+        opts.laborUnitIds,
+      );
+    }
+    if (opts.employeeIds !== undefined) {
+      await this.syncProductionUnitEmployees(
+        productionUnitId,
+        opts.employeeIds,
+      );
+    }
   }
 
   private async assertBranchInCompany(
@@ -147,21 +398,24 @@ export class ProductionUnitsService {
     defaultInputStorageId?: string | null;
     defaultOutputStorageId?: string | null;
     excludeUnitId?: string;
-  }): Promise<{ input: Storage; output: Storage }> {
+  }): Promise<{ input: Storage; output: Storage | null }> {
     const inputId = data.defaultInputStorageId?.trim() || null;
     const outputId = data.defaultOutputStorageId?.trim() || null;
 
-    if (!inputId || !outputId) {
+    if (!inputId) {
       throw new BadRequestException(
-        'Toda unidad de producción requiere almacén de insumos y de salida.',
+        'Toda unidad de producción requiere almacén de insumos.',
       );
     }
 
     const input = await this.assertStorageInCompany(inputId, data.companyId);
-    const output = await this.assertStorageInCompany(outputId, data.companyId);
-
     this.assertStorageBranchScope(input, data.scope, data.branchId, 'insumos');
-    this.assertStorageBranchScope(output, data.scope, data.branchId, 'salida');
+
+    let output: Storage | null = null;
+    if (outputId) {
+      output = await this.assertStorageInCompany(outputId, data.companyId);
+      this.assertStorageBranchScope(output, data.scope, data.branchId, 'salida');
+    }
 
     if (data.inventoryMode === ProductionUnitInventoryMode.DEPENDENT) {
       if (input.category === StorageCategory.PRODUCTION_INPUT) {
@@ -178,7 +432,7 @@ export class ProductionUnitsService {
         'El almacén de insumos de una unidad autónoma debe ser de categoría «Insumos de producción».',
       );
     }
-    if (inputId === outputId) {
+    if (outputId && inputId === outputId) {
       throw new BadRequestException(
         'En unidades autónomas el almacén de insumos y el de salida deben ser distintos.',
       );
@@ -373,12 +627,27 @@ export class ProductionUnitsService {
     }
 
     const rows = await qb.getMany();
+    const puIds = rows.map((r) => r.id);
     const luMap = await this.laborUnitsService.mapLaborUnitIdsByProductionUnitIds(
-      rows.map((r) => r.id),
+      puIds,
     );
-    return rows.map((r) =>
-      Object.assign(r, { laborUnitIds: luMap.get(r.id) ?? [] }),
-    );
+    const empMap = await this.mapEmployeeIdsByProductionUnitIds(puIds);
+    const enriched: ProductionUnitView[] = [];
+    for (const r of rows) {
+      const labor = await this.costingService.summarizeLaborCost(r.id);
+      enriched.push(
+        Object.assign(r, {
+          laborUnitIds: luMap.get(r.id) ?? labor.laborUnitIds,
+          employeeIds: empMap.get(r.id) ?? labor.directEmployeeIds ?? [],
+          employeeCount: labor.employeeCount,
+          monthlyPayrollTotal: labor.monthlyPayrollTotal,
+          laborCostPerUnit: labor.laborCostPerUnit,
+          computedCapacity: labor.computedCapacity,
+          monthlyCapacity: labor.computedCapacity,
+        }),
+      );
+    }
+    return enriched;
   }
 
   async findOne(id: string): Promise<ProductionUnitView | null> {
@@ -388,9 +657,19 @@ export class ProductionUnitsService {
       relations: ['branch', 'defaultInputStorage', 'defaultOutputStorage'],
     });
     if (!row) return null;
-    const laborUnitIds =
-      await this.laborUnitsService.listLaborUnitIdsForProductionUnit(id);
-    return Object.assign(row, { laborUnitIds });
+    const labor = await this.costingService.summarizeLaborCost(id, companyId);
+    const employeeIds =
+      labor.directEmployeeIds ??
+      (await this.listEmployeeIdsForProductionUnit(id));
+    return Object.assign(row, {
+      laborUnitIds: labor.laborUnitIds,
+      employeeIds,
+      employeeCount: labor.employeeCount,
+      monthlyPayrollTotal: labor.monthlyPayrollTotal,
+      laborCostPerUnit: labor.laborCostPerUnit,
+      computedCapacity: labor.computedCapacity,
+      monthlyCapacity: labor.computedCapacity,
+    });
   }
 
   async create(data: {
@@ -402,7 +681,9 @@ export class ProductionUnitsService {
     purpose?: ProductionUnitPurpose | string;
     defaultInputStorageId?: string | null;
     defaultOutputStorageId?: string | null;
+    monthlyCapacity?: number | null;
     laborUnitIds?: string[];
+    employeeIds?: string[];
     isActive?: boolean;
   }): Promise<ProductionUnitView> {
     const companyId = this.requireCompanyId();
@@ -442,6 +723,11 @@ export class ProductionUnitsService {
       code = await this.allocateNextCode(companyId, scope, branchId);
     }
 
+    const monthlyCapacity =
+      data.monthlyCapacity == null || !Number.isFinite(Number(data.monthlyCapacity))
+        ? null
+        : Number(data.monthlyCapacity);
+
     const row = this.productionUnitRepository.create({
       companyId,
       branchId,
@@ -452,6 +738,7 @@ export class ProductionUnitsService {
       name,
       defaultInputStorageId: data.defaultInputStorageId ?? null,
       defaultOutputStorageId: data.defaultOutputStorageId ?? null,
+      monthlyCapacity,
       isActive: data.isActive !== false,
     });
     const saved = await this.productionUnitRepository.save(row);
@@ -460,11 +747,11 @@ export class ProductionUnitsService {
       inventoryMode,
       inputStorageId: saved.defaultInputStorageId ?? null,
     });
-    if (data.laborUnitIds !== undefined) {
-      await this.laborUnitsService.syncProductionUnitLaborUnits(
-        saved.id,
-        data.laborUnitIds,
-      );
+    if (data.laborUnitIds !== undefined || data.employeeIds !== undefined) {
+      await this.syncTeamAssociations(saved.id, {
+        laborUnitIds: data.laborUnitIds,
+        employeeIds: data.employeeIds,
+      });
     }
     return (await this.findOne(saved.id))!;
   }
@@ -480,7 +767,9 @@ export class ProductionUnitsService {
       purpose: ProductionUnitPurpose | string;
       defaultInputStorageId: string | null;
       defaultOutputStorageId: string | null;
+      monthlyCapacity: number | null;
       laborUnitIds: string[];
+      employeeIds: string[];
       isActive: boolean;
     }>,
   ): Promise<ProductionUnitView> {
@@ -492,7 +781,7 @@ export class ProductionUnitsService {
       throw new NotFoundException('Unidad de producción no encontrada.');
     }
 
-    const { laborUnitIds, ...rest } = data;
+    const { laborUnitIds, employeeIds, ...rest } = data;
 
     const scope =
       rest.scope !== undefined
@@ -563,6 +852,13 @@ export class ProductionUnitsService {
     existing.purpose = purpose;
     existing.defaultInputStorageId = inputId ?? null;
     existing.defaultOutputStorageId = outputId ?? null;
+    if (rest.monthlyCapacity !== undefined) {
+      existing.monthlyCapacity =
+        rest.monthlyCapacity == null ||
+        !Number.isFinite(Number(rest.monthlyCapacity))
+          ? null
+          : Number(rest.monthlyCapacity);
+    }
 
     if (rest.isActive !== undefined) {
       existing.isActive = rest.isActive;
@@ -575,11 +871,8 @@ export class ProductionUnitsService {
       inputStorageId: saved.defaultInputStorageId ?? null,
       previousInputStorageId: previousInputId,
     });
-    if (laborUnitIds !== undefined) {
-      await this.laborUnitsService.syncProductionUnitLaborUnits(
-        id,
-        laborUnitIds,
-      );
+    if (laborUnitIds !== undefined || employeeIds !== undefined) {
+      await this.syncTeamAssociations(id, { laborUnitIds, employeeIds });
     }
     return (await this.findOne(saved.id))!;
   }

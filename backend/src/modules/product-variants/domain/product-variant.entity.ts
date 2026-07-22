@@ -68,6 +68,19 @@ export class ProductVariant {
   baseCost!: number;
 
   /**
+   * Override de mano de obra por pieza (manufactura). Si está definido,
+   * reemplaza la tasa MO histórica de la unidad de producción.
+   */
+  @Column({
+    name: 'labor_cost_override',
+    type: 'decimal',
+    precision: 15,
+    scale: 6,
+    nullable: true,
+  })
+  laborCostOverride?: number | null;
+
+  /**
    * PMP global de la variante: moneda por **1 unidad base de stock** (alineado con `stock_levels.physicalStock`).
    */
   @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })

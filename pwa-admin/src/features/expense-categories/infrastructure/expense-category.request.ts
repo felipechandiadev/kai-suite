@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth/auth-options";
 import type {
   ExpenseCategoryListItem,
   ExpenseCategoryOperationalGroupValue,
+  ExpenseCategoryPnlNatureValue,
   OperationalGroupMetaItem,
 } from "../types/expense-category.types";
 
@@ -18,6 +19,8 @@ const GROUP_VALUES: readonly ExpenseCategoryOperationalGroupValue[] = [
   "PERDIDAS_AJUSTES_OPERATIVOS",
   "REGULATORIO_CUMPLIMIENTO",
 ];
+
+const PNL_VALUES: readonly ExpenseCategoryPnlNatureValue[] = ["SALES", "ADMIN"];
 
 function apiUrl(path: string): string {
   const base = process.env.BACKEND_API_URL;
@@ -72,6 +75,14 @@ function parseOperationalGroup(raw: unknown): ExpenseCategoryOperationalGroupVal
   return "PERDIDAS_AJUSTES_OPERATIVOS";
 }
 
+function parsePnlNature(raw: unknown): ExpenseCategoryPnlNatureValue {
+  const s = raw != null ? String(raw).trim() : "";
+  if ((PNL_VALUES as readonly string[]).includes(s)) {
+    return s as ExpenseCategoryPnlNatureValue;
+  }
+  return "ADMIN";
+}
+
 function normalizeMetaRow(row: unknown): OperationalGroupMetaItem | null {
   if (!row || typeof row !== "object") {
     return null;
@@ -124,12 +135,14 @@ export function normalizeExpenseCategory(row: unknown): ExpenseCategoryListItem 
     code,
     name,
     operationalExpenseGroup: parseOperationalGroup(o.operationalExpenseGroup),
+    pnlNature: parsePnlNature(o.pnlNature),
     description,
     requiresApproval: o.requiresApproval === true,
     approvalThreshold: parseThreshold(o.approvalThreshold),
     defaultResultCenterId,
     defaultResultCenterName,
     isActive: o.isActive !== false,
+    nonDeletable: o.nonDeletable === true,
     createdAt: o.createdAt != null ? String(o.createdAt) : undefined,
     updatedAt: o.updatedAt != null ? String(o.updatedAt) : undefined,
   };
@@ -190,6 +203,7 @@ export class ExpenseCategoryRequest {
     code?: string | null;
     name: string;
     operationalExpenseGroup: ExpenseCategoryOperationalGroupValue;
+    pnlNature: ExpenseCategoryPnlNatureValue;
     description?: string | null;
     requiresApproval?: boolean;
     approvalThreshold?: number;
@@ -201,6 +215,7 @@ export class ExpenseCategoryRequest {
       companyId: body.companyId,
       name: body.name.trim(),
       operationalExpenseGroup: body.operationalExpenseGroup,
+      pnlNature: body.pnlNature,
       requiresApproval: body.requiresApproval ?? false,
       approvalThreshold: body.approvalThreshold ?? 0,
       isActive: body.isActive !== false,
@@ -247,6 +262,7 @@ export class ExpenseCategoryRequest {
       code?: string;
       name: string;
       operationalExpenseGroup: ExpenseCategoryOperationalGroupValue;
+      pnlNature: ExpenseCategoryPnlNatureValue;
       description: string | null;
       requiresApproval: boolean;
       approvalThreshold: number;
@@ -258,6 +274,7 @@ export class ExpenseCategoryRequest {
     const payload: Record<string, unknown> = {
       name: body.name.trim(),
       operationalExpenseGroup: body.operationalExpenseGroup,
+      pnlNature: body.pnlNature,
       requiresApproval: body.requiresApproval,
       approvalThreshold: body.approvalThreshold,
       isActive: body.isActive,

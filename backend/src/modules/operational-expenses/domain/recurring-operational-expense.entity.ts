@@ -53,24 +53,27 @@ export class RecurringOperationalExpense {
   })
   documentKind!: OperationalExpenseDocumentKind;
 
-  @Column({ type: 'decimal', precision: 15, scale: 2 })
-  amountNet!: string;
+  /** Null on manual templates (amounts filled when creating an OE). */
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  amountNet?: string | null;
 
-  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
-  taxAmount!: string;
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true, default: null })
+  taxAmount?: string | null;
 
-  @Column({ type: 'decimal', precision: 15, scale: 2 })
-  total!: string;
+  @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
+  total?: string | null;
 
   @Column({ type: 'uuid', nullable: true })
   taxId?: string | null;
 
+  /** Null on manual templates (schedule worker disabled). */
   @Column({
     type: 'enum',
     enum: RecurringOperationalExpenseFrequency,
     enumName: 'recurring_operational_expenses_frequency_enum',
+    nullable: true,
   })
-  frequency!: RecurringOperationalExpenseFrequency;
+  frequency?: RecurringOperationalExpenseFrequency | null;
 
   /** 0=Sunday … 6=Saturday (WEEKLY). */
   @Column({ type: 'smallint', nullable: true })
@@ -80,14 +83,18 @@ export class RecurringOperationalExpense {
   @Column({ type: 'smallint', nullable: true })
   dayOfMonth?: number | null;
 
-  @Column({ type: 'timestamptz' })
-  nextRunAt!: Date;
+  @Column({ type: 'timestamptz', nullable: true })
+  nextRunAt?: Date | null;
 
   @Column({ type: 'timestamptz', nullable: true })
   lastRunAt?: Date | null;
 
   @Column({ type: 'boolean', default: true })
   isActive!: boolean;
+
+  /** OE that originated this template (traceability). */
+  @Column({ type: 'uuid', nullable: true })
+  sourceOperationalExpenseId?: string | null;
 
   @Column({ type: 'uuid' })
   createdBy!: string;

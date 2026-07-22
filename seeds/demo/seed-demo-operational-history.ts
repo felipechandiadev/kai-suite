@@ -30,6 +30,7 @@ import {
   computeLineSubtotalNeto,
 } from './seed-demo-purchase-fiscal.util';
 import { seedDemoSalesHistory } from './seed-demo-sales-history';
+import { seedDemoOperationalExpenses } from './seed-demo-operational-expenses';
 
 const ANA_SHAREHOLDER_DOC = '12.345.678-5';
 const PRINCIPAL_HUB_CODE = 'CEV00001';
@@ -93,6 +94,14 @@ export async function seedDemoOperationalHistory(ctx: {
     occurredOn: treasuryDate,
   });
   console.log(`✅ Giro banco→hub Principal $5.000.000 (${treasuryDate})`);
+
+  await seedDemoOperationalExpenses({
+    app,
+    dataSource,
+    companyId,
+    branchId,
+    userId: adminUserId,
+  });
 
   let transferCount = 0;
   let checkCount = 0;

@@ -221,6 +221,12 @@ function normalizeVariant(v: unknown): ProductVariantGridRow | null {
     visibleInEShop: o.visibleInEShop === true,
     basePrice: typeof o.basePrice === "number" ? o.basePrice : o.basePrice != null ? Number(o.basePrice) : undefined,
     baseCost: typeof o.baseCost === "number" ? o.baseCost : o.baseCost != null ? Number(o.baseCost) : undefined,
+    laborCostOverride:
+      o.laborCostOverride != null &&
+      o.laborCostOverride !== "" &&
+      Number.isFinite(Number(o.laborCostOverride))
+        ? Number(o.laborCostOverride)
+        : null,
     pmp:
       typeof o.pmp === "number" && Number.isFinite(o.pmp)
         ? o.pmp
@@ -764,6 +770,7 @@ export class ProductRequest {
       packageWidthCm?: number | null;
       packageHeightCm?: number | null;
       volumetricDivisorK?: number | null;
+      laborCostOverride?: number | null;
     },
   ): Promise<{ success: true } | { success: false; error: string }> {
     const headers = await authHeaders();
@@ -848,6 +855,9 @@ export class ProductRequest {
     }
     if (body.volumetricDivisorK !== undefined) {
       payload.volumetricDivisorK = body.volumetricDivisorK;
+    }
+    if (body.laborCostOverride !== undefined) {
+      payload.laborCostOverride = body.laborCostOverride;
     }
     try {
       const res = await fetch(apiUrl(`product-variants/${encodeURIComponent(id)}`), {

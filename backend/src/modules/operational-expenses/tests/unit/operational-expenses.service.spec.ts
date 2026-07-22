@@ -58,6 +58,9 @@ describe('OperationalExpensesService.create', () => {
     const transactionRepo = {
       findOne: jest.fn(async () => null),
     };
+    const recurringTemplates = {
+      createFromOperatingExpense: jest.fn(async () => ({ id: 'tpl-1' })),
+    };
 
     const service = new OperationalExpensesService(
       ((deps.repository as typeof repository) ?? repository) as any,
@@ -68,6 +71,8 @@ describe('OperationalExpensesService.create', () => {
         operatingExpensePaymentPlan) as any,
       ((deps.branchRepo as typeof branchRepo) ?? branchRepo) as any,
       ((deps.transactionRepo as typeof transactionRepo) ?? transactionRepo) as any,
+      ((deps.recurringTemplates as typeof recurringTemplates) ??
+        recurringTemplates) as any,
     );
 
     return {
@@ -75,6 +80,7 @@ describe('OperationalExpensesService.create', () => {
       repository,
       supplierFiscalDocumentCreate,
       operatingExpensePaymentPlan,
+      recurringTemplates,
     };
   }
 

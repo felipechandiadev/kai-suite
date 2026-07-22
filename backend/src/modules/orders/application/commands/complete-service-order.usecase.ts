@@ -44,7 +44,10 @@ export class CompleteServiceOrderUseCase implements ICommandHandler<CompleteServ
       throw new BadRequestException('SERVICE_ORDER line must have productVariantId');
     }
 
-    const recipes = await this.recipesService.list(outputVariantId);
+    const recipes = await this.recipesService.list(
+      serviceOrder.companyId,
+      outputVariantId,
+    );
     const recipe = recipes.find((r) => r.isActive && r.type === RecipeType.SERVICE);
     if (!recipe) {
       throw new BadRequestException('No active SERVICE recipe for outputVariantId');

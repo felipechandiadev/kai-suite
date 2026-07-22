@@ -9,6 +9,7 @@ import type {
   OperationalExpenseGridRow,
 } from "@/features/treasury-expenses/types/operational-expense.types";
 import {
+  EXPENSE_CATEGORY_PNL_NATURE_LABELS,
   OPERATIONAL_EXPENSE_DOCUMENT_KIND_LABELS,
   OPERATIONAL_EXPENSE_PAYMENT_STATUS_LABELS,
 } from "@/features/treasury-expenses/types/operational-expense.types";
@@ -108,8 +109,18 @@ export default function ExpensesDataGrid({ rows, total, categories }: ExpensesDa
         field: "categoryName",
         headerName: "Categoría",
         sortable: true,
-        minWidth: 220,
+        minWidth: 180,
         flex: 1,
+      },
+      {
+        field: "categoryPnlNature",
+        headerName: "Tipo",
+        sortable: true,
+        width: 140,
+        valueGetter: ({ row }) => {
+          const pnl = (row as OperationalExpenseGridRow).categoryPnlNature;
+          return EXPENSE_CATEGORY_PNL_NATURE_LABELS[pnl] ?? "—";
+        },
       },
       {
         field: "netAmount",

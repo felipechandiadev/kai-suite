@@ -11,11 +11,36 @@ export type ExpenseCategoryOperationalGroupValue =
   | "PERDIDAS_AJUSTES_OPERATIVOS"
   | "REGULATORIO_CUMPLIMIENTO";
 
+/** Valores alineados con `ExpenseCategoryPnlNature` en backend. */
+export type ExpenseCategoryPnlNatureValue = "SALES" | "ADMIN";
+
 export type OperationalGroupMetaItem = {
   value: ExpenseCategoryOperationalGroupValue;
   label: string;
   description: string;
 };
+
+export type PnlNatureMetaItem = {
+  value: ExpenseCategoryPnlNatureValue;
+  label: string;
+  description: string;
+};
+
+/** Catálogo cerrado P&L (espejo de backend `EXPENSE_CATEGORY_PNL_NATURE_META`). */
+export const EXPENSE_CATEGORY_PNL_NATURE_META: readonly PnlNatureMetaItem[] = [
+  {
+    value: "SALES",
+    label: "Gastos de ventas",
+    description:
+      "Egresos para concretar o entregar la venta (comisiones de pasarela, marketing, envíos al cliente, POS en punto de venta, etc.).",
+  },
+  {
+    value: "ADMIN",
+    label: "Gastos de administración",
+    description:
+      "Egresos para mantener la empresa funcionando aunque no haya ventas (arriendo, servicios, software, contabilidad, nómina admin, etc.).",
+  },
+] as const;
 
 export type ExpenseCategoryListItem = {
   id: string;
@@ -24,12 +49,15 @@ export type ExpenseCategoryListItem = {
   code: string | null;
   name: string;
   operationalExpenseGroup: ExpenseCategoryOperationalGroupValue;
+  pnlNature: ExpenseCategoryPnlNatureValue;
   description: string | null;
   requiresApproval: boolean;
   approvalThreshold: number;
   defaultResultCenterId: string | null;
   defaultResultCenterName: string | null;
   isActive: boolean;
+  /** Categorías de sistema (nómina base): no se pueden eliminar. */
+  nonDeletable: boolean;
   createdAt?: string;
   updatedAt?: string;
 };

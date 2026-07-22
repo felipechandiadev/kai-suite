@@ -13,9 +13,9 @@ export default async function NewProductionOrderPage() {
   ]);
   return (
     <CreateProductionForm
-      branches={branches}
       storages={storages}
       productionUnits={productionUnits}
+      fallbackBranchId={branches[0]?.id ?? null}
     />
   );
 }

@@ -1,165 +1,281 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Select, TextField } from "@kai/ui";
-import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
 import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
-import type { ProductionUnitListItem } from "@/features/inventory-production-units/types/production-unit.types";
+import type {
+  ProductionUnitListItem,
+  VariantProductionCostPreview,
+} from "@/features/inventory-production-units/types/production-unit.types";
+import { previewProductionUnitVariantCostAction } from "@/features/inventory-production-units/actions/production-unit.action";
+import type { ProductionAttribute } from "@/features/inventory-products/types/production-attributes.types";
+import type { ManufactureVariantSearchItem } from "@/features/inventory-production/types/production-batch.types";
 import {
   createProductionBatchAction,
-  previewRecipeInputsAction,
-  searchFinishedVariantsAction,
+  listVariantProductionAttributesAction,
 } from "@/features/inventory-production/actions/production-batch.action";
+import { ManufactureVariantSearchPanel } from "./ManufactureVariantSearchPanel";
 
 type Props = {
-  branches: BranchListItem[];
   storages: StorageListItem[];
   productionUnits: ProductionUnitListItem[];
+  /** Fallback si la unidad/almacén no traen branch. */
+  fallbackBranchId?: string | null;
 };
 
-type VariantOption = {
+type LotLine = {
+  lineKey: string;
   variantId: string;
   sku: string;
   productName: string;
-  productType: string;
+  quantity: string;
+  notes: string;
+  attributeSelections: Record<string, string>;
+  attributes: ProductionAttribute[];
+  attrsLoading: boolean;
 };
 
+function newLineKey(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function formatMoney(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n)) return "—";
+  return n.toLocaleString("es-CL", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 4,
+  });
+}
+
 export function CreateProductionForm({
-  branches,
   storages,
   productionUnits,
+  fallbackBranchId = null,
 }: Props) {
   const router = useRouter();
-  const [branchId, setBranchId] = useState(branches[0]?.id ?? "");
-  const [productionUnitId, setProductionUnitId] = useState("");
-  const [storageId, setStorageId] = useState("");
+  const batchUnits = useMemo(
+    () =>
+      productionUnits.filter((u) => u.isActive && u.purpose === "BATCH"),
+    [productionUnits],
+  );
+
+  const [productionUnitId, setProductionUnitId] = useState(
+    () => batchUnits[0]?.id ?? "",
+  );
   const [outputStorageId, setOutputStorageId] = useState("");
-  const [query, setQuery] = useState("");
-  const [options, setOptions] = useState<VariantOption[]>([]);
-  const [selected, setSelected] = useState<VariantOption | null>(null);
-  const [quantity, setQuantity] = useState("1");
-  const [notes, setNotes] = useState("");
-  const [preview, setPreview] = useState<
-    Array<{ inputVariantId: string; requiredQty: number }> | null
-  >(null);
-  const [recipeId, setRecipeId] = useState<string | undefined>();
+  const [capacity, setCapacity] = useState("");
+  const [plannedStartAt, setPlannedStartAt] = useState("");
+  const [plannedDeliveryAt, setPlannedDeliveryAt] = useState("");
+  const [headerNotes, setHeaderNotes] = useState("");
+  const [lots, setLots] = useState<LotLine[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [searching, setSearching] = useState(false);
+  const [costByVariant, setCostByVariant] = useState<
+    Record<string, VariantProductionCostPreview | null>
+  >({});
 
-  const unitsForBranch = useMemo(() => {
-    if (!branchId) return productionUnits.filter((u) => u.isActive);
-    return productionUnits.filter(
-      (u) =>
-        u.isActive &&
-        (u.scope === "COMPANY" || u.branchId === branchId),
-    );
-  }, [productionUnits, branchId]);
+  const selectedUnit = batchUnits.find((u) => u.id === productionUnitId);
 
-  const storageLabel = (id: string) => {
+  const outputStorageOptions = useMemo(
+    () =>
+      storages
+        .filter((s) => s.isActive && s.category !== "PRODUCTION_INPUT")
+        .map((s) => ({
+          id: s.id,
+          label: s.branch?.name ? `${s.name} · ${s.branch.name}` : s.name,
+        })),
+    [storages],
+  );
+
+  const storageLabel = (id: string | null | undefined) => {
+    if (!id) return "—";
     const s = storages.find((x) => x.id === id);
     return s?.name ?? id;
   };
 
-  useEffect(() => {
-    if (!unitsForBranch.some((u) => u.id === productionUnitId)) {
-      const first = unitsForBranch[0];
-      setProductionUnitId(first?.id ?? "");
-      if (first) {
-        setStorageId(first.defaultInputStorageId ?? "");
-        setOutputStorageId(first.defaultOutputStorageId ?? "");
-      } else {
-        setStorageId("");
-        setOutputStorageId("");
-      }
-    }
-  }, [unitsForBranch, productionUnitId]);
+  const resolveBranchId = (): string | null => {
+    if (selectedUnit?.branchId) return selectedUnit.branchId;
+    const fromOut = outputStorageId
+      ? storages.find((s) => s.id === outputStorageId)?.branchId
+      : null;
+    if (fromOut) return fromOut;
+    const inId = selectedUnit?.defaultInputStorageId;
+    const fromIn = inId
+      ? storages.find((s) => s.id === inId)?.branchId
+      : null;
+    if (fromIn) return fromIn;
+    return fallbackBranchId;
+  };
+
+  const lotVariantKey = lots.map((l) => l.variantId).join("|");
 
   useEffect(() => {
-    const unit = unitsForBranch.find((u) => u.id === productionUnitId);
-    if (!unit) return;
-    setStorageId(unit.defaultInputStorageId ?? "");
-    setOutputStorageId(unit.defaultOutputStorageId ?? "");
-  }, [productionUnitId, unitsForBranch]);
+    if (!batchUnits.some((u) => u.id === productionUnitId)) {
+      setProductionUnitId(batchUnits[0]?.id ?? "");
+    }
+  }, [batchUnits, productionUnitId]);
 
   useEffect(() => {
-    const q = query.trim();
-    if (q.length < 2) {
-      setOptions([]);
-      return;
-    }
+    setLots([]);
+    setCostByVariant({});
+    setOutputStorageId(outputStorageOptions[0]?.id ?? "");
+  }, [productionUnitId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!productionUnitId || lots.length === 0) return;
+    const variantIds = [...new Set(lots.map((l) => l.variantId))];
     let cancelled = false;
-    const t = setTimeout(() => {
-      setSearching(true);
-      void searchFinishedVariantsAction(q).then((rows) => {
-        if (!cancelled) {
-          setOptions(rows);
-          setSearching(false);
+    void (async () => {
+      const entries = await Promise.all(
+        variantIds.map(async (variantId) => {
+          const preview = await previewProductionUnitVariantCostAction(
+            productionUnitId,
+            variantId,
+          );
+          return [variantId, preview] as const;
+        }),
+      );
+      if (cancelled) return;
+      setCostByVariant((prev) => {
+        const next = { ...prev };
+        for (const [variantId, preview] of entries) {
+          next[variantId] = preview;
         }
+        return next;
       });
-    }, 250);
+    })();
     return () => {
       cancelled = true;
-      clearTimeout(t);
     };
-  }, [query]);
+  }, [productionUnitId, lotVariantKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const refreshPreview = useCallback(async (variantId: string, qtyRaw: string) => {
-    const qty = Number(qtyRaw);
-    if (!variantId || !Number.isFinite(qty) || qty <= 0) {
-      setPreview(null);
-      setRecipeId(undefined);
-      return;
-    }
-    const r = await previewRecipeInputsAction(variantId, qty);
-    if (!r.success) {
-      setPreview(null);
-      setRecipeId(undefined);
-      setError(r.message);
-      return;
-    }
+  const addLotFromVariant = async (item: ManufactureVariantSearchItem) => {
+    const lineKey = newLineKey();
+    const draft: LotLine = {
+      lineKey,
+      variantId: item.variantId,
+      sku: item.sku,
+      productName: item.productName,
+      quantity: "1",
+      notes: "",
+      attributeSelections: {},
+      attributes: [],
+      attrsLoading: true,
+    };
+    setLots((prev) => [...prev, draft]);
     setError(null);
-    setRecipeId(r.recipeId);
-    setPreview(r.lines.map((l) => ({ inputVariantId: l.inputVariantId, requiredQty: l.requiredQty })));
-  }, []);
 
-  useEffect(() => {
-    if (selected) {
-      void refreshPreview(selected.variantId, quantity);
-    }
-  }, [selected, quantity, refreshPreview]);
+    const attrs = await listVariantProductionAttributesAction(item.variantId);
+    setLots((prev) =>
+      prev.map((l) =>
+        l.lineKey === lineKey
+          ? {
+              ...l,
+              attributes: attrs,
+              attrsLoading: false,
+              attributeSelections: Object.fromEntries(
+                attrs.map((a) => [a.id, a.options[0]?.id ?? ""]),
+              ),
+            }
+          : l,
+      ),
+    );
+  };
+
+  const duplicateLot = (lineKey: string) => {
+    const source = lots.find((l) => l.lineKey === lineKey);
+    if (!source) return;
+    setLots((prev) => [
+      ...prev,
+      {
+        ...source,
+        lineKey: newLineKey(),
+        notes: "",
+        attributeSelections: { ...source.attributeSelections },
+      },
+    ]);
+  };
+
+  const removeLot = (lineKey: string) => {
+    setLots((prev) => prev.filter((l) => l.lineKey !== lineKey));
+  };
+
+  const updateLot = (lineKey: string, patch: Partial<LotLine>) => {
+    setLots((prev) =>
+      prev.map((l) => (l.lineKey === lineKey ? { ...l, ...patch } : l)),
+    );
+  };
 
   const handleCreate = async () => {
-    if (!selected) {
-      setError("Seleccione un producto terminado");
-      return;
-    }
-    if (!productionUnitId) {
+    if (!productionUnitId || !selectedUnit) {
       setError("Seleccione una unidad de producción");
       return;
     }
-    if (!storageId || !outputStorageId) {
-      setError("La unidad debe tener almacén de insumos y de salida");
+    if (!selectedUnit.defaultInputStorageId) {
+      setError("La unidad debe tener almacén de insumos");
       return;
     }
-    const qty = Number(quantity);
-    if (!Number.isFinite(qty) || qty <= 0) {
-      setError("Cantidad inválida");
+    if (!outputStorageId) {
+      setError("Seleccione almacén de salida");
       return;
     }
+    const branchId = resolveBranchId();
+    if (!branchId) {
+      setError("No se pudo resolver la sucursal desde la unidad o sus almacenes");
+      return;
+    }
+    if (lots.length === 0) {
+      setError("Agregue al menos un lote desde el buscador");
+      return;
+    }
+    for (const lot of lots) {
+      const qty = Number(lot.quantity);
+      if (!Number.isFinite(qty) || qty <= 0) {
+        setError(`Cantidad inválida en ${lot.sku}`);
+        return;
+      }
+      if (lot.attrsLoading) {
+        setError("Espere a que carguen los atributos de producción");
+        return;
+      }
+      for (const attr of lot.attributes) {
+        if (attr.options.length > 0 && !lot.attributeSelections[attr.id]) {
+          setError(`Seleccione ${attr.name} en ${lot.sku}`);
+          return;
+        }
+      }
+    }
+
     setSaving(true);
     setError(null);
+    const capacityNum = capacity.trim() === "" ? null : Number(capacity);
     const result = await createProductionBatchAction({
       branchId,
-      storageId,
+      storageId: selectedUnit.defaultInputStorageId,
       outputStorageId,
       productionUnitId,
-      productVariantId: selected.variantId,
-      productName: `${selected.productName} (${selected.sku})`,
-      quantity: qty,
-      notes: notes.trim() || undefined,
-      recipeId,
+      capacity:
+        capacityNum != null && Number.isFinite(capacityNum) ? capacityNum : null,
+      plannedStartAt: plannedStartAt.trim() || null,
+      plannedDeliveryAt: plannedDeliveryAt.trim() || null,
+      notes: headerNotes.trim() || undefined,
+      lots: lots.map((lot) => ({
+        lineKey: lot.lineKey,
+        productVariantId: lot.variantId,
+        productName: `${lot.productName} (${lot.sku})`,
+        quantity: Number(lot.quantity),
+        notes: lot.notes.trim() || undefined,
+        attributes: lot.attributes
+          .filter((a) => lot.attributeSelections[a.id])
+          .map((a) => ({
+            attributeId: a.id,
+            optionId: lot.attributeSelections[a.id],
+          })),
+      })),
     });
     setSaving(false);
     if (!result.success) {
@@ -170,106 +286,31 @@ export function CreateProductionForm({
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4" data-test-id="create-production-form">
-      <h1 className="text-lg font-semibold">Crear producción</h1>
-
-      <Select
-        label="Sucursal"
-        value={branchId}
-        onChange={(v) => setBranchId(String(v))}
-        options={branches.map((b) => ({ id: b.id, label: b.name }))}
-      />
-      <Select
-        label="Unidad de producción"
-        value={productionUnitId || null}
-        onChange={(v) => setProductionUnitId(v ? String(v) : "")}
-        options={unitsForBranch.map((u) => ({
-          id: u.id,
-          label: `${u.name} (${u.code})`,
-        }))}
-        data-test-id="production-unit-select"
-      />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm">
-          <p className="text-muted-foreground">Almacén de insumos</p>
-          <p className="font-medium">{storageId ? storageLabel(storageId) : "—"}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm">
-          <p className="text-muted-foreground">Almacén de salida</p>
-          <p className="font-medium">
-            {outputStorageId ? storageLabel(outputStorageId) : "—"}
-          </p>
+    <div
+      className="flex min-h-0 flex-1 flex-col gap-3 p-4"
+      data-test-id="create-production-form"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-lg font-semibold">Nueva orden de manufactura</h1>
+        <div className="flex gap-2">
+          <Button
+            variant="outlined"
+            onClick={() => router.push("/production/orders")}
+          >
+            Volver
+          </Button>
+          <Button
+            variant="primary"
+            disabled={
+              saving || !productionUnitId || !outputStorageId || lots.length === 0
+            }
+            onClick={() => void handleCreate()}
+            data-test-id="production-create-submit"
+          >
+            Crear orden
+          </Button>
         </div>
       </div>
-
-      <TextField
-        label="Buscar producto terminado"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Nombre o SKU (manufacturado, elaborado, preparado)"
-        helperText={searching ? "Buscando…" : "Mínimo 2 caracteres"}
-        data-test-id="production-variant-search"
-      />
-
-      {options.length > 0 ? (
-        <ul className="max-h-48 overflow-auto rounded-lg border border-border">
-          {options.map((o) => (
-            <li key={o.variantId}>
-              <button
-                type="button"
-                className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-muted/50"
-                onClick={() => {
-                  setSelected(o);
-                  setQuery(`${o.productName} · ${o.sku}`);
-                  setOptions([]);
-                }}
-              >
-                <span className="font-medium">{o.productName}</span>
-                <span className="text-muted-foreground">
-                  {o.sku} · {o.productType}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {selected ? (
-        <p className="text-sm text-foreground">
-          Seleccionado: <strong>{selected.productName}</strong> ({selected.sku})
-        </p>
-      ) : null}
-
-      <TextField
-        label="Cantidad a producir"
-        type="number"
-        value={quantity}
-        onChange={(e) => setQuantity(e.target.value)}
-        data-test-id="production-quantity"
-      />
-
-      {preview ? (
-        <div className="rounded-lg border border-border p-3 text-sm" data-test-id="production-inputs-preview">
-          <p className="mb-2 font-medium">Insumos teóricos</p>
-          {preview.length === 0 ? (
-            <p className="text-muted-foreground">Sin líneas de receta</p>
-          ) : (
-            <ul className="space-y-1">
-              {preview.map((l) => (
-                <li key={l.inputVariantId} className="tabular-nums text-muted-foreground">
-                  {l.inputVariantId.slice(0, 8)}… → {l.requiredQty}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      ) : null}
-
-      <TextField
-        label="Notas"
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-      />
 
       {error ? (
         <p className="text-sm text-destructive" role="alert">
@@ -277,25 +318,214 @@ export function CreateProductionForm({
         </p>
       ) : null}
 
-      <div className="flex justify-end gap-2">
-        <Button variant="outlined" onClick={() => router.push("/production/orders")}>
-          Volver
-        </Button>
-        <Button
-          variant="primary"
-          disabled={
-            saving ||
-            !selected ||
-            !branchId ||
-            !productionUnitId ||
-            !storageId ||
-            !outputStorageId
-          }
-          onClick={() => void handleCreate()}
-          data-test-id="production-create-submit"
-        >
-          Crear producción
-        </Button>
+      <div className="grid w-full min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,7fr)] lg:items-start">
+        <ManufactureVariantSearchPanel
+          productionUnitId={productionUnitId || null}
+          onAddVariant={(item) => void addLotFromVariant(item)}
+        />
+
+        <div className="flex min-w-0 flex-col gap-4">
+          <section className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-background p-3 sm:grid-cols-2">
+            <Select
+              label="Unidad de producción"
+              value={productionUnitId || null}
+              onChange={(v) => setProductionUnitId(v ? String(v) : "")}
+              options={batchUnits.map((u) => ({
+                id: u.id,
+                label: `${u.name} (${u.code})`,
+              }))}
+              data-test-id="production-unit-select"
+            />
+            <Select
+              label="Almacén de salida"
+              value={outputStorageId || null}
+              onChange={(v) => setOutputStorageId(v ? String(v) : "")}
+              options={outputStorageOptions}
+              data-test-id="production-output-storage"
+            />
+            <TextField
+              label="Capacidad planificada (orden)"
+              type="number"
+              value={capacity}
+              onChange={(e) => setCapacity(e.target.value)}
+              placeholder="Opcional"
+              data-test-id="production-capacity"
+            />
+            <TextField
+              label="Fecha de inicio"
+              type="datetime-local"
+              value={plannedStartAt}
+              onChange={(e) => setPlannedStartAt(e.target.value)}
+              data-test-id="production-planned-start"
+            />
+            <TextField
+              label="Fecha de entrega"
+              type="datetime-local"
+              value={plannedDeliveryAt}
+              onChange={(e) => setPlannedDeliveryAt(e.target.value)}
+              data-test-id="production-planned-delivery"
+            />
+            <div className="rounded-md bg-muted/20 p-2 text-sm sm:col-span-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className="text-muted-foreground">Almacén insumos</p>
+                  <p className="font-medium">
+                    {storageLabel(selectedUnit?.defaultInputStorageId)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">MO / pieza (celda)</p>
+                  <p className="font-medium tabular-nums">
+                    {selectedUnit?.laborCostPerUnit != null
+                      ? formatMoney(selectedUnit.laborCostPerUnit)
+                      : "— (historial o override)"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="flex flex-col gap-3" data-test-id="production-lots">
+            <h2 className="text-sm font-medium">
+              Lotes a producir ({lots.length})
+            </h2>
+            {lots.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-border p-6 text-sm text-muted-foreground">
+                Use el buscador de la izquierda para agregar variantes. La misma
+                variante puede agregarse varias veces con distintos atributos.
+              </p>
+            ) : (
+              lots.map((lot) => {
+                const preview = costByVariant[lot.variantId];
+                const qty = Number(lot.quantity);
+                const qtyOk = Number.isFinite(qty) && qty > 0;
+                const matU = preview?.materialsPerUnit ?? null;
+                const moU = preview?.laborPerUnit ?? null;
+                const unitPreview = preview?.unitCostPreview ?? null;
+                return (
+                  <div
+                    key={lot.lineKey}
+                    className="flex flex-col gap-3 rounded-xl border border-border p-3"
+                    data-test-id={`production-lot-${lot.lineKey}`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="font-medium">{lot.productName}</p>
+                        <p className="text-sm text-muted-foreground">{lot.sku}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outlined"
+                          onClick={() => duplicateLot(lot.lineKey)}
+                        >
+                          Duplicar
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outlined"
+                          onClick={() => removeLot(lot.lineKey)}
+                        >
+                          Quitar
+                        </Button>
+                      </div>
+                    </div>
+
+                    <TextField
+                      label="Cantidad del lote"
+                      type="number"
+                      value={lot.quantity}
+                      onChange={(e) =>
+                        updateLot(lot.lineKey, { quantity: e.target.value })
+                      }
+                    />
+
+                    <div
+                      className="rounded-md bg-muted/15 p-2 text-xs tabular-nums"
+                      data-test-id={`production-lot-cost-${lot.lineKey}`}
+                    >
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <p className="text-muted-foreground">Materiales/u</p>
+                          <p className="font-medium">{formatMoney(matU)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">MO/u</p>
+                          <p className="font-medium">{formatMoney(moU)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Costo/u est.</p>
+                          <p className="font-medium">{formatMoney(unitPreview)}</p>
+                        </div>
+                      </div>
+                      {qtyOk && unitPreview != null ? (
+                        <p className="mt-1 text-muted-foreground">
+                          Lote est.: {formatMoney(unitPreview * qty)}
+                          {matU != null || moU != null
+                            ? ` (mat ${formatMoney((matU ?? 0) * qty)} + MO ${formatMoney((moU ?? 0) * qty)})`
+                            : ""}
+                        </p>
+                      ) : null}
+                      {preview?.laborWarning || preview?.materialsWarning ? (
+                        <p className="mt-1 text-amber-700 dark:text-amber-400">
+                          {[preview.laborWarning, preview.materialsWarning]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    {lot.attrsLoading ? (
+                      <p className="text-sm text-muted-foreground">
+                        Cargando atributos…
+                      </p>
+                    ) : lot.attributes.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {lot.attributes.map((attr) => (
+                          <Select
+                            key={attr.id}
+                            label={attr.name}
+                            value={lot.attributeSelections[attr.id] || null}
+                            onChange={(v) =>
+                              updateLot(lot.lineKey, {
+                                attributeSelections: {
+                                  ...lot.attributeSelections,
+                                  [attr.id]: v ? String(v) : "",
+                                },
+                              })
+                            }
+                            options={attr.options.map((o) => ({
+                              id: o.id,
+                              label: o.label,
+                            }))}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Sin atributos de producción
+                      </p>
+                    )}
+
+                    <TextField
+                      label="Notas del lote"
+                      value={lot.notes}
+                      onChange={(e) =>
+                        updateLot(lot.lineKey, { notes: e.target.value })
+                      }
+                    />
+                  </div>
+                );
+              })
+            )}
+          </section>
+
+          <TextField
+            label="Notas de la orden"
+            value={headerNotes}
+            onChange={(e) => setHeaderNotes(e.target.value)}
+          />
+        </div>
       </div>
     </div>
   );

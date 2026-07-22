@@ -9,6 +9,7 @@ import { SelectDefault as Select } from "@kai/ui";
 import type { Option } from "@kai/ui";
 import { AutoComplete } from "@kai/ui";
 import type { Option as AutoOption } from "@kai/ui";
+import { Switch } from "@kai/ui";
 import { createOperationalExpenseAction } from "@/features/treasury-expenses/actions/operational-expense.action";
 import type {
   ExpenseCategoryOption,
@@ -28,11 +29,24 @@ import {
 import { PlannedPaymentPlanSection } from "@/shared/components/PlannedPaymentLines";
 import type { PlannedPaymentPayload } from "@/shared/lib/planned-payment-plan";
 
+export type CreateOperationalExpenseInitialValues = {
+  name?: string;
+  categoryId?: string;
+  supplierId?: string;
+  documentKind?: OperationalExpenseDocumentKind;
+  description?: string | null;
+  taxId?: string | null;
+};
+
 type CreateOperationalExpenseDialogProps = {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void | Promise<void>;
   categoryOptions: ExpenseCategoryOption[];
+  /** Prefill from a plantilla (amounts, folio, payment, date stay empty/today). */
+  initialValues?: CreateOperationalExpenseInitialValues | null;
+  /** When opening from a plantilla, hide "Guardar como plantilla". */
+  hideSaveAsTemplate?: boolean;
 };
 
 function isoDateToday(): string {
@@ -55,6 +69,8 @@ export function CreateOperationalExpenseDialog({
   onClose,
   onSuccess,
   categoryOptions,
+  initialValues = null,
+  hideSaveAsTemplate = false,
 }: CreateOperationalExpenseDialogProps) {
   const reference = usePurchaseDocumentReferenceData(open);
   const suppliers = reference.status === "ready" ? reference.suppliers : EMPTY_SUPPLIERS;
@@ -72,6 +88,7 @@ export function CreateOperationalExpenseDialog({
   const [supplierOpt, setSupplierOpt] = useState<AutoOption | null>(null);
   const [operationDate, setOperationDate] = useState(isoDateToday());
   const [description, setDescription] = useState("");
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -139,13 +156,15 @@ export function CreateOperationalExpenseDialog({
     if (!open) {
       return;
     }
-    setName("");
+    const init = initialValues ?? null;
+    setName(init?.name?.trim() ?? "");
     setReferenceNumber("");
-    setCategoryId(categoryOptions[0]?.id ?? null);
-    setDocumentKind("SUPPLIER_INVOICE");
+    setCategoryId(init?.categoryId ?? categoryOptions[0]?.id ?? null);
+    setDocumentKind(init?.documentKind ?? "SUPPLIER_INVOICE");
     setSupplierOpt(null);
     setOperationDate(isoDateToday());
-    setDescription("");
+    setDescription(init?.description?.trim() ?? "");
+    setSaveAsTemplate(false);
     setError(null);
     setNetStr("0");
     setTotalStr("0");
@@ -153,7 +172,19 @@ export function CreateOperationalExpenseDialog({
     setPaymentPayload({ mode: "PENDING", paidLines: [], scheduledLines: [] });
     setPaymentValid(true);
     setPaymentPlanError(null);
-  }, [open, categoryOptions]);
+  }, [open, categoryOptions, initialValues]);
+
+  useEffect(() => {
+    if (!open || !initialValues?.supplierId || reference.status !== "ready") {
+      return;
+    }
+    const sid = initialValues.supplierId;
+    const s = activeSuppliers.find((row) => row.id === sid);
+    if (!s) {
+      return;
+    }
+    setSupplierOpt({ id: s.id, label: supplierOptionLabel(s) });
+  }, [open, initialValues?.supplierId, reference.status, activeSuppliers]);
 
   const onNetChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -223,7 +254,8 @@ export function CreateOperationalExpenseDialog({
   const net = Math.max(0, Math.round(Number(netStr) || 0));
   const total = Math.max(0, Math.round(Number(totalStr) || 0));
   const taxAmount = total - net;
-  const taxIdForLink = usesHonorarium ? retention.taxId : iva.taxId;
+  const taxIdForLink =
+    initialValues?.taxId ?? (usesHonorarium ? retention.taxId : iva.taxId);
 
   const handleClose = () => {
     if (isPending) {
@@ -278,6 +310,7 @@ export function CreateOperationalExpenseDialog({
             taxId: taxIdForLink ?? null,
           },
           supplierDocumentPayment: paymentPayload,
+          saveAsTemplate: hideSaveAsTemplate ? false : saveAsTemplate,
         });
         if (r.success) {
           await onSuccess?.();
@@ -450,6 +483,16 @@ export function CreateOperationalExpenseDialog({
           placeholder="Descripción (opcional)"
           data-test-id="operational-expense-description"
         />
+
+        {!hideSaveAsTemplate ? (
+          <Switch
+            checked={saveAsTemplate}
+            onChange={setSaveAsTemplate}
+            label="Guardar como plantilla"
+            labelPosition="right"
+            data-test-id="operational-expense-save-as-template"
+          />
+        ) : null}
       </div>
     </Dialog>
   );

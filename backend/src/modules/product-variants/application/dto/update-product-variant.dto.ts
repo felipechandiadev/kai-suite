@@ -11,6 +11,7 @@ import {
   IsUUID,
   Min,
   Max,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { PriceListItemInputDto } from './create-product-variant.dto';
@@ -38,6 +39,14 @@ export class UpdateProductVariantDto {
   @Type(() => Number)
   @IsNumber()
   baseCost?: number;
+
+  /** MO fija por pieza (override). null limpia el override. */
+  @IsOptional()
+  @ValidateIf((_, v) => v != null && v !== '')
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  laborCostOverride?: number | null;
 
   @IsOptional()
   @Type(() => Number)

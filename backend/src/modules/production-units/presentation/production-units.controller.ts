@@ -1,11 +1,15 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ProductionUnitsService } from '../application/production-units.service';
+import { ProductionUnitCostingService } from '../application/production-unit-costing.service';
 import { CreateProductionUnitDto } from '../application/dto/create-production-unit.dto';
 import { UpdateProductionUnitDto } from '../application/dto/update-production-unit.dto';
 
 @Controller('production-units')
 export class ProductionUnitsController {
-  constructor(private readonly productionUnitsService: ProductionUnitsService) {}
+  constructor(
+    private readonly productionUnitsService: ProductionUnitsService,
+    private readonly costingService: ProductionUnitCostingService,
+  ) {}
 
   @Get()
   async list(
@@ -19,6 +23,24 @@ export class ProductionUnitsController {
       branchId: branchId?.trim() || undefined,
       includeInactive: include,
       purpose: purpose?.trim() || undefined,
+    });
+  }
+
+  @Get(':id/cost-preview')
+  async costPreview(
+    @Param('id') id: string,
+    @Query('variantId') variantId?: string,
+  ) {
+    if (!variantId?.trim()) {
+      return {
+        success: false,
+        message: 'variantId es requerido',
+        statusCode: 400,
+      };
+    }
+    return this.costingService.previewVariantUnitCost({
+      productionUnitId: id,
+      variantId: variantId.trim(),
     });
   }
 
@@ -46,6 +68,9 @@ export class ProductionUnitsController {
       purpose: dto.purpose,
       defaultInputStorageId: dto.defaultInputStorageId ?? null,
       defaultOutputStorageId: dto.defaultOutputStorageId ?? null,
+      monthlyCapacity: dto.monthlyCapacity ?? null,
+      laborUnitIds: dto.laborUnitIds,
+      employeeIds: dto.employeeIds,
       isActive: dto.isActive,
     });
   }
@@ -61,6 +86,9 @@ export class ProductionUnitsController {
       purpose: dto.purpose,
       defaultInputStorageId: dto.defaultInputStorageId,
       defaultOutputStorageId: dto.defaultOutputStorageId,
+      monthlyCapacity: dto.monthlyCapacity,
+      laborUnitIds: dto.laborUnitIds,
+      employeeIds: dto.employeeIds,
       isActive: dto.isActive,
     });
   }

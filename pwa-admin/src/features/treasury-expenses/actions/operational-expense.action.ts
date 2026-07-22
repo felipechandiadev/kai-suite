@@ -12,6 +12,7 @@ import type {
   OperationalExpenseStatus,
   SupplierOption,
 } from "../types/operational-expense.types";
+import { EXPENSE_CATEGORY_PNL_NATURE_LABELS } from "../types/operational-expense.types";
 
 const PATH = "/treasury/operating-expenses/expenses";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -46,6 +47,8 @@ export async function listOperationalExpensesForGrid(params?: {
       r.name,
       r.referenceNumber,
       r.categoryName,
+      EXPENSE_CATEGORY_PNL_NATURE_LABELS[r.categoryPnlNature],
+      r.categoryPnlNature,
       r.supplierName,
       r.description ?? "",
       r.status,
@@ -134,10 +137,14 @@ export async function createOperationalExpenseAction(
       taxId: amounts.taxId ?? undefined,
     },
     supplierDocumentPayment: input.supplierDocumentPayment,
+    saveAsTemplate: input.saveAsTemplate === true,
   });
 
   if (result.success) {
     revalidatePath(PATH, "page");
+    if (input.saveAsTemplate) {
+      revalidatePath("/treasury/operating-expenses/recurring", "page");
+    }
   }
   return result;
 }

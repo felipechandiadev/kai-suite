@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/auth-options";
 import type {
   ExpenseCategoryOption,
+  ExpenseCategoryPnlNatureValue,
   OperationalExpenseDocumentKind,
   OperationalExpenseGridRow,
   OperationalExpensePaymentStatus,
@@ -55,10 +56,15 @@ function normalizeExpense(row: unknown): OperationalExpenseGridRow | null {
 
   const categoryRaw = o.category;
   let categoryName = "—";
+  let categoryPnlNature: ExpenseCategoryPnlNatureValue = "ADMIN";
   if (categoryRaw && typeof categoryRaw === "object") {
     const c = categoryRaw as Record<string, unknown>;
     if (c.name != null && String(c.name).trim()) {
       categoryName = String(c.name).trim();
+    }
+    const pnl = c.pnlNature != null ? String(c.pnlNature).trim() : "";
+    if (pnl === "SALES" || pnl === "ADMIN") {
+      categoryPnlNature = pnl;
     }
   }
 
@@ -135,6 +141,7 @@ function normalizeExpense(row: unknown): OperationalExpenseGridRow | null {
     name,
     categoryId,
     categoryName,
+    categoryPnlNature,
     referenceNumber,
     documentNumber,
     operationDate,
@@ -250,6 +257,7 @@ export class OperationalExpenseRequest {
       paidLines: unknown[];
       scheduledLines: unknown[];
     };
+    saveAsTemplate?: boolean;
   }): Promise<{ success: true; id: string } | { success: false; error: string }> {
     const headers = await authHeaders();
     const payload = {
@@ -265,6 +273,7 @@ export class OperationalExpenseRequest {
       fiscalAmounts: body.fiscalAmounts,
       supplierDocumentPayment: body.supplierDocumentPayment,
       ...(body.description?.trim() ? { description: body.description.trim() } : {}),
+      ...(body.saveAsTemplate ? { saveAsTemplate: true } : {}),
     };
     try {
       const res = await fetch(apiUrl("operating-expenses"), {

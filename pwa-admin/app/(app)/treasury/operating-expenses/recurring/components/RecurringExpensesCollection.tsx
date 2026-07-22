@@ -2,11 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CollectionPageLayout, Button } from "@kai/ui";
+import { CollectionPageLayout } from "@kai/ui";
 import type { RecurringExpenseListItem } from "@/features/treasury-recurring-expenses/types/recurring-expense.types";
 import type { ExpenseCategoryOption } from "@/features/treasury-expenses/types/operational-expense.types";
+import { CreateOperationalExpenseDialog } from "../../expenses/ui/CreateOperationalExpenseDialog";
 import { RecurringExpenseCard } from "./RecurringExpenseCard";
-import { RecurringExpenseFormDialog } from "./RecurringExpenseFormDialog";
 
 type Props = {
   initialRows: RecurringExpenseListItem[];
@@ -17,7 +17,8 @@ export function RecurringExpensesCollection({ initialRows, categories }: Props) 
   const router = useRouter();
   const searchParams = useSearchParams();
   const q = (searchParams.get("search") ?? "").trim().toLowerCase();
-  const [createOpen, setCreateOpen] = useState(false);
+  const [templateForCreate, setTemplateForCreate] =
+    useState<RecurringExpenseListItem | null>(null);
 
   const filtered = useMemo(() => {
     if (!q) return initialRows;
@@ -32,28 +33,18 @@ export function RecurringExpensesCollection({ initialRows, categories }: Props) 
   return (
     <>
       <CollectionPageLayout
-        addAction={
-          <Button
-            variant="primary"
-            size="md"
-            onClick={() => setCreateOpen(true)}
-            data-test-id="recurring-expense-add"
-          >
-            Crear
-          </Button>
-        }
         showSearch
         searchParamName="search"
         searchLabel="Buscar"
-        searchPlaceholder="Buscar"
-        contentEmptyMessage="No hay gastos recurrentes"
+        searchPlaceholder="Buscar plantilla"
+        contentEmptyMessage="No hay plantillas. Márcalas al registrar un gasto operativo."
         contentItems={
           filtered.length > 0
             ? filtered.map((item) => (
                 <RecurringExpenseCard
                   key={item.id}
                   item={item}
-                  categoryOptions={categories}
+                  onUseTemplate={setTemplateForCreate}
                 />
               ))
             : []
@@ -63,12 +54,24 @@ export function RecurringExpensesCollection({ initialRows, categories }: Props) 
         contentGridItemsAlign="stretch"
         data-test-id="recurring-expenses-collection"
       />
-      <RecurringExpenseFormDialog
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
+      <CreateOperationalExpenseDialog
+        open={templateForCreate != null}
+        onClose={() => setTemplateForCreate(null)}
         onSuccess={() => router.refresh()}
         categoryOptions={categories}
-        mode="create"
+        hideSaveAsTemplate
+        initialValues={
+          templateForCreate
+            ? {
+                name: templateForCreate.name,
+                categoryId: templateForCreate.categoryId,
+                supplierId: templateForCreate.supplierId,
+                documentKind: templateForCreate.documentKind,
+                description: templateForCreate.description,
+                taxId: templateForCreate.taxId,
+              }
+            : null
+        }
       />
     </>
   );

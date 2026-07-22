@@ -8,6 +8,7 @@ import type {
   ProductionUnitListItem,
   ProductionUnitPurpose,
   UpdateProductionUnitInput,
+  VariantProductionCostPreview,
 } from "../types/production-unit.types";
 
 const PATH = "/production/units";
@@ -50,4 +51,11 @@ export async function updateProductionUnitAction(
       message: e instanceof Error ? e.message : "No se pudo actualizar la unidad.",
     };
   }
+}
+
+export async function previewProductionUnitVariantCostAction(
+  productionUnitId: string,
+  variantId: string,
+): Promise<VariantProductionCostPreview | null> {
+  return ProductionUnitRequest.costPreview(productionUnitId, variantId);
 }

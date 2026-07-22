@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Badge, Button, DataGridTable as DataGrid, type DataGridColumn } from "@kai/ui";
+import { Badge, DataGridTable as DataGrid, type DataGridColumn } from "@kai/ui";
 import type { ProductionBatchListItem } from "@/features/inventory-production/types/production-batch.types";
 
 type Props = {
@@ -61,7 +60,9 @@ export function ProductionOrdersPanel({ rows }: Props) {
     fecha: formatDate(r.createdAt),
     producto: r.outputProductName ?? "—",
     cantidad:
-      r.outputQuantity != null && Number.isFinite(r.outputQuantity) ? String(r.outputQuantity) : "—",
+      r.outputQuantity != null && Number.isFinite(r.outputQuantity)
+        ? String(r.outputQuantity)
+        : "—",
     almacen: (() => {
       const input = r.storageName ?? r.storageId ?? "—";
       const out = r.outputStorageId;
@@ -72,17 +73,11 @@ export function ProductionOrdersPanel({ rows }: Props) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-4" data-test-id="production-orders-panel">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-lg font-semibold text-foreground">Órdenes de producción</h1>
-        <Link href="/production/orders/new">
-          <Button variant="primary" data-test-id="production-orders-create">
-            Crear producción
-          </Button>
-        </Link>
-      </div>
       <DataGrid
+        title="Órdenes de producción"
         columns={columns}
         rows={gridRows}
+        onAddClick={() => router.push("/production/orders/new")}
         onRowClick={(row) => {
           const id = (row as GridRow).id;
           if (id) router.push(`/production/orders/${id}`);

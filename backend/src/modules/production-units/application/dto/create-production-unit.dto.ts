@@ -2,10 +2,12 @@ import {
   IsBoolean,
   IsIn,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
+  Min,
   ValidateIf,
 } from 'class-validator';
 import {
@@ -52,14 +54,24 @@ export class CreateProductionUnitDto {
   @IsUUID()
   defaultInputStorageId?: string | null;
 
+  /** @deprecated Not required; output is selected on the production order. */
   @IsOptional()
   @ValidateIf((_, v) => v != null && v !== '')
   @IsUUID()
   defaultOutputStorageId?: string | null;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  monthlyCapacity?: number | null;
+
+  @IsOptional()
   @IsUUID('4', { each: true })
   laborUnitIds?: string[];
+
+  @IsOptional()
+  @IsUUID('4', { each: true })
+  employeeIds?: string[];
 
   @IsOptional()
   @IsBoolean()

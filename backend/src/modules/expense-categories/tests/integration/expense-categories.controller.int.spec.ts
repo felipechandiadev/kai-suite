@@ -68,6 +68,7 @@ describe('ExpenseCategoriesController (Integration)', () => {
       .send({
         name: 'Updated name',
         operationalExpenseGroup: 'PERSONAL_NOMINA',
+        pnlNature: 'SALES',
         requiresApproval: true,
         examples: ['invoice', 'fuel'],
       })
@@ -76,6 +77,7 @@ describe('ExpenseCategoriesController (Integration)', () => {
     expect(service.update).toHaveBeenCalledWith('ec-1', {
       name: 'Updated name',
       operationalExpenseGroup: 'PERSONAL_NOMINA',
+      pnlNature: 'SALES',
       requiresApproval: true,
       examples: ['invoice', 'fuel'],
     });

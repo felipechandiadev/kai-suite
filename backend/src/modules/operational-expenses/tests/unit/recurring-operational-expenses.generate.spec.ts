@@ -1,91 +1,87 @@
-import { DataSource, Repository } from 'typeorm';
+import { GoneException } from '@nestjs/common';
+import { Repository } from 'typeorm';
 import { RecurringOperationalExpensesService } from '../../application/recurring-operational-expenses.service';
+import { RecurringOperationalExpense } from '../../domain/recurring-operational-expense.entity';
+import { RecurringOperationalExpenseRun } from '../../domain/recurring-operational-expense-run.entity';
 import {
-  RecurringOperationalExpense,
-  RecurringOperationalExpenseFrequency,
-} from '../../domain/recurring-operational-expense.entity';
-import {
-  RecurringOperationalExpenseRun,
-  RecurringOperationalExpenseRunStatus,
-} from '../../domain/recurring-operational-expense-run.entity';
-import { OperationalExpenseDocumentKind } from '../../domain/operational-expense.entity';
-import { OperationalExpensesService } from '../../application/operational-expenses.service';
-import { periodKeyFor } from '../../application/recurring-operational-expense-schedule.util';
+  OperationalExpense,
+  OperationalExpenseDocumentKind,
+} from '../../domain/operational-expense.entity';
 
-describe('RecurringOperationalExpensesService.generate idempotency', () => {
-  const templateId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
-  const companyId = '11111111-2222-3333-4444-555555555555';
-  const at = new Date(Date.UTC(2026, 6, 20));
-  const periodKey = periodKeyFor(
-    at,
-    RecurringOperationalExpenseFrequency.MONTHLY,
+describe('RecurringOperationalExpensesService templates', () => {
+  const templateRepo = {
+    findOne: jest.fn(),
+    save: jest.fn(),
+    create: jest.fn((x) => x),
+    findAndCount: jest.fn(),
+  } as unknown as Repository<RecurringOperationalExpense>;
+
+  const runRepo = {
+    find: jest.fn(),
+  } as unknown as Repository<RecurringOperationalExpenseRun>;
+
+  const oeRepo = {
+    findOne: jest.fn(),
+  } as unknown as Repository<OperationalExpense>;
+
+  const service = new RecurringOperationalExpensesService(
+    templateRepo,
+    runRepo,
+    oeRepo,
   );
 
-  const template = {
-    id: templateId,
-    companyId,
-    branchId: null,
-    name: 'Arriendo',
-    description: null,
-    categoryId: 'cat-1',
-    supplierId: 'sup-1',
-    documentKind: OperationalExpenseDocumentKind.OTHER,
-    amountNet: '100000',
-    taxAmount: '0',
-    total: '100000',
-    taxId: null,
-    frequency: RecurringOperationalExpenseFrequency.MONTHLY,
-    dayOfWeek: null,
-    dayOfMonth: 1,
-    nextRunAt: at,
-    lastRunAt: null,
-    isActive: true,
-    createdBy: 'user-1',
-    createdAt: at,
-    updatedAt: at,
-  } as RecurringOperationalExpense;
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
-  it('skips when SUCCESS run already exists for period', async () => {
-    const existingRun = {
-      id: 'run-1',
-      companyId,
-      recurringExpenseId: templateId,
-      periodKey,
-      operationalExpenseId: 'oe-existing',
-      status: RecurringOperationalExpenseRunStatus.SUCCESS,
-      errorMessage: null,
-      ranAt: at,
-    } as RecurringOperationalExpenseRun;
-
-    const templateRepo = {
-      findOne: jest.fn().mockResolvedValue(template),
-      save: jest.fn(),
-    } as unknown as Repository<RecurringOperationalExpense>;
-
-    const runRepo = {
-      findOne: jest.fn().mockResolvedValue(existingRun),
-      save: jest.fn(),
-      create: jest.fn(),
-    } as unknown as Repository<RecurringOperationalExpenseRun>;
-
-    const operationalExpenses = {
-      create: jest.fn(),
-    } as unknown as OperationalExpensesService;
-
-    const service = new RecurringOperationalExpensesService(
-      templateRepo,
-      runRepo,
-      operationalExpenses,
-      {} as DataSource,
+  it('generate throws GoneException (manual templates)', async () => {
+    await expect(service.generate('any-id')).rejects.toBeInstanceOf(
+      GoneException,
     );
+  });
 
-    const result = await service.generate(templateId, {
-      at,
-      advanceSchedule: true,
+  it('createFromOperatingExpense copies identity fields without amounts', async () => {
+    const oe = {
+      id: 'oe-1',
+      companyId: 'co-1',
+      branchId: 'br-1',
+      name: 'Arriendo local',
+      description: 'Mensual',
+      categoryId: 'cat-1',
+      supplierId: 'sup-1',
+      documentKind: OperationalExpenseDocumentKind.SUPPLIER_INVOICE,
+      metadata: null,
+    } as unknown as OperationalExpense;
+
+    (oeRepo.findOne as jest.Mock).mockResolvedValue(oe);
+    (templateRepo.save as jest.Mock).mockImplementation(async (x) => ({
+      ...x,
+      id: 'tpl-1',
+    }));
+
+    const row = await service.createFromOperatingExpense({
+      companyId: 'co-1',
+      operationalExpenseId: 'oe-1',
+      createdBy: 'user-1',
+      taxId: 'tax-1',
     });
 
-    expect(result.skipped).toBe(true);
-    expect(result.operationalExpenseId).toBe('oe-existing');
-    expect(operationalExpenses.create).not.toHaveBeenCalled();
+    expect(templateRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Arriendo local',
+        categoryId: 'cat-1',
+        supplierId: 'sup-1',
+        documentKind: OperationalExpenseDocumentKind.SUPPLIER_INVOICE,
+        taxId: 'tax-1',
+        amountNet: null,
+        taxAmount: null,
+        total: null,
+        frequency: null,
+        nextRunAt: null,
+        sourceOperationalExpenseId: 'oe-1',
+        isActive: true,
+      }),
+    );
+    expect(row.id).toBe('tpl-1');
   });
 });

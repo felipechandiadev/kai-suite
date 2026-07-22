@@ -11,6 +11,7 @@ import {
 import { CompanyOrmEntity } from '@modules/companies/infrastructure/orm-mappers/company.orm-entity';
 import { ResultCenterOrmEntity } from '@modules/result-centers/infrastructure/orm-mappers/result-center.orm-entity';
 import { ExpenseCategoryOperationalGroup } from '@modules/expense-categories/domain/expense-category-operational-group.enum';
+import { ExpenseCategoryPnlNature } from '@modules/expense-categories/domain/expense-category-pnl-nature.enum';
 
 @Entity('expense_categories')
 export class ExpenseCategoryOrmEntity {
@@ -34,6 +35,15 @@ export class ExpenseCategoryOrmEntity {
   })
   operationalExpenseGroup!: ExpenseCategoryOperationalGroup;
 
+  @Column({
+    name: 'pnl_nature',
+    type: 'enum',
+    enum: ExpenseCategoryPnlNature,
+    enumName: 'expense_categories_pnl_nature_enum',
+    default: ExpenseCategoryPnlNature.ADMIN,
+  })
+  pnlNature!: ExpenseCategoryPnlNature;
+
   @Column({ type: 'text', nullable: true })
   description?: string;
 
@@ -48,6 +58,9 @@ export class ExpenseCategoryOrmEntity {
 
   @Column({ type: 'boolean', default: true })
   isActive!: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  nonDeletable!: boolean;
 
   @Column({ type: 'json', nullable: true })
   examples?: string[] | null;

@@ -1,16 +1,12 @@
 import {
   IsBoolean,
   IsEnum,
-  IsInt,
-  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
-  Max,
   MaxLength,
-  Min,
 } from 'class-validator';
-import { RecurringOperationalExpenseFrequency } from '../../domain/recurring-operational-expense.entity';
+import { OperationalExpenseDocumentKind } from '../../domain/operational-expense.entity';
 
 export class UpdateRecurringOperationalExpenseDto {
   @IsOptional()
@@ -35,39 +31,12 @@ export class UpdateRecurringOperationalExpenseDto {
   supplierId?: string;
 
   @IsOptional()
-  @IsNumber()
-  @Min(0)
-  amountNet?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  taxAmount?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0.01)
-  total?: number;
+  @IsEnum(OperationalExpenseDocumentKind)
+  documentKind?: OperationalExpenseDocumentKind;
 
   @IsOptional()
   @IsUUID()
   taxId?: string | null;
-
-  @IsOptional()
-  @IsEnum(RecurringOperationalExpenseFrequency)
-  frequency?: RecurringOperationalExpenseFrequency;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Max(6)
-  dayOfWeek?: number | null;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(28)
-  dayOfMonth?: number | null;
 
   @IsOptional()
   @IsBoolean()

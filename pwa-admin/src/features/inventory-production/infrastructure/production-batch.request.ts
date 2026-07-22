@@ -3,8 +3,10 @@ import { authOptions } from "@/lib/auth/auth-options";
 import type {
   CreateProductionBatchInput,
   ListProductionBatchesParams,
+  ManufactureVariantSearchItem,
   ProductionBatchDetail,
   ProductionBatchListItem,
+  ProductionOrderMetadata,
 } from "../types/production-batch.types";
 
 function apiUrl(path: string): string {
@@ -24,6 +26,62 @@ async function authHeaders(): Promise<HeadersInit> {
   return h;
 }
 
+function readProductionOrder(
+  meta: Record<string, unknown> | null,
+): ProductionOrderMetadata | null {
+  if (!meta || typeof meta !== "object") return null;
+  const raw = meta.productionOrder;
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const lotsRaw = Array.isArray(o.lots) ? o.lots : [];
+  return {
+    productionUnitId: String(o.productionUnitId ?? ""),
+    capacity:
+      o.capacity == null || o.capacity === ""
+        ? null
+        : Number.isFinite(Number(o.capacity))
+          ? Number(o.capacity)
+          : null,
+    plannedStartAt:
+      typeof o.plannedStartAt === "string" && o.plannedStartAt.trim()
+        ? o.plannedStartAt.trim()
+        : null,
+    plannedDeliveryAt:
+      typeof o.plannedDeliveryAt === "string" && o.plannedDeliveryAt.trim()
+        ? o.plannedDeliveryAt.trim()
+        : null,
+    lots: lotsRaw.map((row) => {
+      const l = (row ?? {}) as Record<string, unknown>;
+      const attrs = Array.isArray(l.attributes) ? l.attributes : [];
+      return {
+        lineKey: String(l.lineKey ?? ""),
+        productVariantId: String(l.productVariantId ?? ""),
+        quantity: Number(l.quantity ?? 0),
+        notes: typeof l.notes === "string" ? l.notes : undefined,
+        attributes: attrs.map((a) => {
+          const x = (a ?? {}) as Record<string, unknown>;
+          return {
+            attributeId: String(x.attributeId ?? ""),
+            optionId: String(x.optionId ?? ""),
+            tagKey:
+              x.tagKey == null || x.tagKey === "" ? null : String(x.tagKey),
+            attributeName: String(x.attributeName ?? ""),
+            optionLabel: String(x.optionLabel ?? ""),
+          };
+        }),
+        lineCost:
+          l.lineCost != null && Number.isFinite(Number(l.lineCost))
+            ? Number(l.lineCost)
+            : undefined,
+        unitCost:
+          l.unitCost != null && Number.isFinite(Number(l.unitCost))
+            ? Number(l.unitCost)
+            : undefined,
+      };
+    }),
+  };
+}
+
 function mapListItem(raw: Record<string, unknown>): ProductionBatchListItem {
   const lines = Array.isArray(raw.lines) ? raw.lines : [];
   const first = (lines[0] ?? null) as Record<string, unknown> | null;
@@ -31,6 +89,20 @@ function mapListItem(raw: Record<string, unknown>): ProductionBatchListItem {
   const storage = (raw.storageEntry ?? raw.storage) as Record<string, unknown> | undefined;
   const meta = (raw.metadata ?? null) as Record<string, unknown> | null;
   const links = (meta?.links ?? null) as Record<string, unknown> | null;
+  const lotCount =
+    raw.lotCount != null && Number.isFinite(Number(raw.lotCount))
+      ? Number(raw.lotCount)
+      : lines.length;
+  const totalQty = lines.reduce((sum, row) => {
+    const l = row as Record<string, unknown>;
+    return sum + (Number(l.quantity ?? 0) || 0);
+  }, 0);
+  const firstName = first?.productName != null ? String(first.productName) : null;
+  const productSummary =
+    lotCount > 1 && firstName
+      ? `${firstName} (+${lotCount - 1})`
+      : firstName;
+
   return {
     id: String(raw.id),
     documentNumber: raw.documentNumber != null ? String(raw.documentNumber) : null,
@@ -45,8 +117,9 @@ function mapListItem(raw: Record<string, unknown>): ProductionBatchListItem {
       links?.productionUnitId != null ? String(links.productionUnitId) : null,
     createdAt: raw.createdAt != null ? String(raw.createdAt) : null,
     notes: raw.notes != null ? String(raw.notes) : null,
-    outputProductName: first?.productName != null ? String(first.productName) : null,
-    outputQuantity: first?.quantity != null ? Number(first.quantity) : null,
+    outputProductName: productSummary,
+    outputQuantity: lotCount > 0 ? totalQty : first?.quantity != null ? Number(first.quantity) : null,
+    lotCount,
   };
 }
 
@@ -59,6 +132,7 @@ function mapDetail(raw: Record<string, unknown>): ProductionBatchDetail {
     ...base,
     userId: raw.userId != null ? String(raw.userId) : null,
     metadata: meta,
+    productionOrder: readProductionOrder(meta),
     lines: lines.map((row) => {
       const l = row as Record<string, unknown>;
       return {
@@ -68,10 +142,14 @@ function mapDetail(raw: Record<string, unknown>): ProductionBatchDetail {
         quantity: Number(l.quantity ?? 0),
         unitPrice: Number(l.unitPrice ?? 0),
         total: Number(l.total ?? 0),
+        notes: l.notes != null ? String(l.notes) : null,
       };
     }),
     unitCost: links?.unitCost != null ? Number(links.unitCost) : null,
     totalCost: links?.totalCost != null ? Number(links.totalCost) : null,
+    materialsCost:
+      links?.materialsCost != null ? Number(links.materialsCost) : null,
+    laborCost: links?.laborCost != null ? Number(links.laborCost) : null,
   };
 }
 
@@ -132,6 +210,35 @@ export const ProductionBatchRequest = {
     return mapDetail((await res.json()) as Record<string, unknown>);
   },
 
+  async searchManufactureVariants(params: {
+    q: string;
+    productionUnitId: string;
+    limit?: number;
+  }): Promise<ManufactureVariantSearchItem[]> {
+    const q = new URLSearchParams();
+    if (params.q.trim()) q.set("q", params.q.trim());
+    q.set("productionUnitId", params.productionUnitId);
+    if (params.limit) q.set("limit", String(params.limit));
+    const res = await fetch(
+      apiUrl(`/production-batches/manufacture-variants?${q.toString()}`),
+      { headers: await authHeaders(), cache: "no-store" },
+    );
+    if (!res.ok) return [];
+    const json = (await res.json()) as { items?: unknown[] };
+    const items = Array.isArray(json.items) ? json.items : [];
+    return items.map((row) => {
+      const r = row as Record<string, unknown>;
+      return {
+        variantId: String(r.variantId ?? ""),
+        sku: String(r.sku ?? ""),
+        productName: String(r.productName ?? ""),
+        productType: String(r.productType ?? "MANUFACTURADO"),
+        hasRecipe: r.hasRecipe === true,
+        attributesCount: Number(r.attributesCount ?? 0) || 0,
+      };
+    });
+  },
+
   async create(input: CreateProductionBatchInput & { userId: string }): Promise<ProductionBatchDetail> {
     const res = await fetch(apiUrl("/production-batches"), {
       method: "POST",
@@ -141,16 +248,19 @@ export const ProductionBatchRequest = {
         userId: input.userId,
         storageId: input.storageId,
         outputStorageId: input.outputStorageId,
-        notes: input.notes,
-        recipeId: input.recipeId,
         productionUnitId: input.productionUnitId,
-        lines: [
-          {
-            productVariantId: input.productVariantId,
-            quantity: input.quantity,
-            productName: input.productName,
-          },
-        ],
+        capacity: input.capacity ?? null,
+        plannedStartAt: input.plannedStartAt ?? null,
+        plannedDeliveryAt: input.plannedDeliveryAt ?? null,
+        notes: input.notes,
+        lines: input.lots.map((lot) => ({
+          lineKey: lot.lineKey,
+          productVariantId: lot.productVariantId,
+          productName: lot.productName,
+          quantity: lot.quantity,
+          notes: lot.notes,
+          attributes: lot.attributes ?? [],
+        })),
       }),
     });
     if (!res.ok) throw new Error(await parseError(res, "No se pudo crear la producción"));

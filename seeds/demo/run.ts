@@ -59,6 +59,7 @@ import {
 } from '@modules/hr-jornada/domain/hr-labor-unit-shift-member.entity';
 import { HrLaborUnit } from '@modules/hr-labor-units/domain/hr-labor-unit.entity';
 import { HrLaborUnitBranch } from '@modules/hr-labor-units/domain/hr-labor-unit-branch.entity';
+import { HrLaborUnitProductionUnit } from '@modules/hr-labor-units/domain/hr-labor-unit-production-unit.entity';
 import { Shareholder } from '@modules/shareholders/domain/shareholder.entity';
 import { AccountingAccount, AccountType } from '@modules/accounting-accounts/domain/accounting-account.entity';
 import { AccountingRule, RuleScope } from '@modules/accounting-rules/domain/accounting-rule.entity';
@@ -74,6 +75,7 @@ import { AutomationActionType } from '@modules/automation/domain/automation-acti
 import {
   ExpenseCategoryOperationalGroup,
 } from '@modules/expense-categories/domain/expense-category-operational-group.enum';
+import { ExpenseCategoryPnlNature } from '@modules/expense-categories/domain/expense-category-pnl-nature.enum';
 import { assertValidChileCompanyRut } from '@shared/utils/chile-company-rut.util';
 import { Product, ProductType } from '@modules/products/domain/product.entity';
 import { Brand } from '@modules/brands/domain/brand.entity';
@@ -389,83 +391,216 @@ const SEED_ACCOUNTING_ACCOUNTS: readonly {
 const SEED_EXPENSE_CATEGORIES: readonly {
   name: string;
   operationalExpenseGroup: ExpenseCategoryOperationalGroup;
+  pnlNature: ExpenseCategoryPnlNature;
+  nonDeletable?: boolean;
 }[] = [
-  { name: 'Sueldos', operationalExpenseGroup: ExpenseCategoryOperationalGroup.PERSONAL_NOMINA },
-  { name: 'Horas extra', operationalExpenseGroup: ExpenseCategoryOperationalGroup.PERSONAL_NOMINA },
-  { name: 'Cargas sociales', operationalExpenseGroup: ExpenseCategoryOperationalGroup.PERSONAL_NOMINA },
-  { name: 'Capacitación operativa', operationalExpenseGroup: ExpenseCategoryOperationalGroup.PERSONAL_NOMINA },
-  { name: 'Arriendo', operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES },
-  { name: 'Gastos comunes', operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES },
-  { name: 'Mantención', operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES },
-  { name: 'Limpieza', operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES },
-  { name: 'Seguridad física', operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES },
-  { name: 'Embalaje', operationalExpenseGroup: ExpenseCategoryOperationalGroup.SUMINISTROS_CONSUMIBLES },
-  { name: 'Útiles', operationalExpenseGroup: ExpenseCategoryOperationalGroup.SUMINISTROS_CONSUMIBLES },
-  { name: 'Materiales no inventariables', operationalExpenseGroup: ExpenseCategoryOperationalGroup.SUMINISTROS_CONSUMIBLES },
+  {
+    name: 'Sueldos',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.PERSONAL_NOMINA,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+    nonDeletable: true,
+  },
+  {
+    name: 'Horas extra',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.PERSONAL_NOMINA,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+    nonDeletable: true,
+  },
+  {
+    name: 'Cargas sociales',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.PERSONAL_NOMINA,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+    nonDeletable: true,
+  },
+  {
+    name: 'Capacitación operativa',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.PERSONAL_NOMINA,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+  },
+  {
+    name: 'Arriendo',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+  },
+  {
+    name: 'Gastos comunes',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+  },
+  {
+    name: 'Mantención',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+  },
+  {
+    name: 'Limpieza',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+  },
+  {
+    name: 'Seguridad física',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+  },
+  {
+    name: 'Electricidad',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+  },
+  {
+    name: 'Agua',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+  },
+  {
+    name: 'Embalaje',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.SUMINISTROS_CONSUMIBLES,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+  },
+  {
+    name: 'Útiles',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.SUMINISTROS_CONSUMIBLES,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+  },
+  {
+    name: 'Materiales no inventariables',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.SUMINISTROS_CONSUMIBLES,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+  },
   {
     name: 'EPP (Elementos de Protección Personal)',
     operationalExpenseGroup: ExpenseCategoryOperationalGroup.SUMINISTROS_CONSUMIBLES,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
   },
-  { name: 'Flete', operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOGISTICA_DISTRIBUCION },
-  { name: 'Courier', operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOGISTICA_DISTRIBUCION },
-  { name: 'Combustible operativo', operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOGISTICA_DISTRIBUCION },
-  { name: 'Peajes', operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOGISTICA_DISTRIBUCION },
-  { name: 'Almacenaje externo', operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOGISTICA_DISTRIBUCION },
-  { name: 'Software recurrente', operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS },
-  { name: 'Hosting', operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS },
-  { name: 'POS (Puntos de Venta)', operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS },
-  { name: 'Soporte', operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS },
-  { name: 'Licencias', operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS },
+  {
+    name: 'Flete',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOGISTICA_DISTRIBUCION,
+    pnlNature: ExpenseCategoryPnlNature.SALES,
+  },
+  {
+    name: 'Courier',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOGISTICA_DISTRIBUCION,
+    pnlNature: ExpenseCategoryPnlNature.SALES,
+  },
+  {
+    name: 'Combustible operativo',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOGISTICA_DISTRIBUCION,
+    pnlNature: ExpenseCategoryPnlNature.SALES,
+  },
+  {
+    name: 'Peajes',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOGISTICA_DISTRIBUCION,
+    pnlNature: ExpenseCategoryPnlNature.SALES,
+  },
+  {
+    name: 'Almacenaje externo',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOGISTICA_DISTRIBUCION,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+  },
+  {
+    name: 'Software recurrente',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+  },
+  {
+    name: 'Hosting',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+  },
+  {
+    name: 'Internet y telecomunicaciones',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+  },
+  {
+    name: 'POS (Puntos de Venta)',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS,
+    pnlNature: ExpenseCategoryPnlNature.SALES,
+  },
+  {
+    name: 'Soporte',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+  },
+  {
+    name: 'Licencias',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+  },
   {
     name: 'Promociones en tienda',
     operationalExpenseGroup: ExpenseCategoryOperationalGroup.COMUNICACION_MARKETING_OPERATIVO,
+    pnlNature: ExpenseCategoryPnlNature.SALES,
   },
   {
     name: 'Señalética',
     operationalExpenseGroup: ExpenseCategoryOperationalGroup.COMUNICACION_MARKETING_OPERATIVO,
+    pnlNature: ExpenseCategoryPnlNature.SALES,
   },
   {
     name: 'Muestras',
     operationalExpenseGroup: ExpenseCategoryOperationalGroup.COMUNICACION_MARKETING_OPERATIVO,
+    pnlNature: ExpenseCategoryPnlNature.SALES,
   },
   {
     name: 'Contabilidad/tributario recurrente',
     operationalExpenseGroup: ExpenseCategoryOperationalGroup.SERVICIOS_EXTERNOS,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
   },
-  { name: 'Retainer legal', operationalExpenseGroup: ExpenseCategoryOperationalGroup.SERVICIOS_EXTERNOS },
-  { name: 'Auditorías', operationalExpenseGroup: ExpenseCategoryOperationalGroup.SERVICIOS_EXTERNOS },
+  {
+    name: 'Retainer legal',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.SERVICIOS_EXTERNOS,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+  },
+  {
+    name: 'Auditorías',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.SERVICIOS_EXTERNOS,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+  },
   {
     name: 'Comisiones bancarias',
     operationalExpenseGroup: ExpenseCategoryOperationalGroup.FINANCIEROS_TESORERIA,
+    pnlNature: ExpenseCategoryPnlNature.SALES,
   },
-  { name: 'Seguros operativos', operationalExpenseGroup: ExpenseCategoryOperationalGroup.FINANCIEROS_TESORERIA },
+  {
+    name: 'Seguros operativos',
+    operationalExpenseGroup: ExpenseCategoryOperationalGroup.FINANCIEROS_TESORERIA,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
+  },
   {
     name: 'Costos de líneas de crédito',
     operationalExpenseGroup: ExpenseCategoryOperationalGroup.FINANCIEROS_TESORERIA,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
   },
   {
     name: 'Mermas autorizadas',
     operationalExpenseGroup: ExpenseCategoryOperationalGroup.PERDIDAS_AJUSTES_OPERATIVOS,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
   },
   {
     name: 'Diferencias de caja menores',
     operationalExpenseGroup: ExpenseCategoryOperationalGroup.PERDIDAS_AJUSTES_OPERATIVOS,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
   },
   {
     name: 'Obsolescencia (gasto operativo)',
     operationalExpenseGroup: ExpenseCategoryOperationalGroup.PERDIDAS_AJUSTES_OPERATIVOS,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
   },
   {
     name: 'Permisos municipales',
     operationalExpenseGroup: ExpenseCategoryOperationalGroup.REGULATORIO_CUMPLIMIENTO,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
   },
   {
     name: 'Fiscalización',
     operationalExpenseGroup: ExpenseCategoryOperationalGroup.REGULATORIO_CUMPLIMIENTO,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
   },
   {
     name: 'Certificaciones obligatorias',
     operationalExpenseGroup: ExpenseCategoryOperationalGroup.REGULATORIO_CUMPLIMIENTO,
+    pnlNature: ExpenseCategoryPnlNature.ADMIN,
   },
 ] as const;
 
@@ -617,6 +752,7 @@ const SEED_SUPPLIERS: readonly {
     },
     supplier: {
       supplierType: SupplierType.MANUFACTURER,
+      alias: 'EnvasesPacifico',
       defaultPaymentTermDays: 15,
       isActive: true,
       notes: 'Especialista en packaging y consumibles.',
@@ -689,6 +825,7 @@ const SEED_SUPPLIERS: readonly {
     },
     supplier: {
       supplierType: SupplierType.LOGISTICS,
+      alias: 'LogisticaCG',
       defaultPaymentTermDays: 21,
       isActive: true,
       notes: 'Distribución regional zona centro sur.',
@@ -1162,6 +1299,58 @@ const SEED_EMPLOYEES: readonly {
       laborUnitCode: 'UL00001',
     },
   },
+  /** Taller textil (UL00003) — exclusivos de producción manufacturada. */
+  {
+    person: {
+      firstName: 'Patricia',
+      lastName: 'Navarro Fuentes',
+      documentNumber: '17.100.014-9',
+      email: 'taller1@textilessur.cl',
+      phone: '+56 9 7100 0001',
+      address: 'Calle Industria 120, Quilicura',
+    },
+    employee: {
+      employmentType: EmploymentType.FULL_TIME,
+      status: EmployeeStatus.ACTIVE,
+      hireDate: '2023-05-01',
+      baseSalary: '650000',
+      laborUnitCode: 'UL00003',
+    },
+  },
+  {
+    person: {
+      firstName: 'Rodrigo',
+      lastName: 'Pizarro Campos',
+      documentNumber: '17.100.015-7',
+      email: 'taller2@textilessur.cl',
+      phone: '+56 9 7100 0002',
+      address: 'Av. Américo Vespucio 4500, Quilicura',
+    },
+    employee: {
+      employmentType: EmploymentType.FULL_TIME,
+      status: EmployeeStatus.ACTIVE,
+      hireDate: '2023-08-15',
+      baseSalary: '620000',
+      laborUnitCode: 'UL00003',
+    },
+  },
+  {
+    person: {
+      firstName: 'Valentina',
+      lastName: 'Cáceres Molina',
+      documentNumber: '17.100.016-5',
+      email: 'taller3@textilessur.cl',
+      phone: '+56 9 7100 0003',
+      address: 'Pasaje Taller 8, Renca',
+    },
+    employee: {
+      employmentType: EmploymentType.FULL_TIME,
+      status: EmployeeStatus.ACTIVE,
+      hireDate: '2022-11-01',
+      baseSalary: '780000',
+      laborUnitCode: 'UL00003',
+    },
+  },
 ] as const;
 
 /** Comisión AFP (puntos %), catálogo Chile seed. */
@@ -1257,6 +1446,30 @@ const SEED_JOB_POSITIONS: readonly {
     defaultDuties:
       'Atender mesas, tomar pedidos, entregar platos y coordinar con cocina y caja.',
     sortOrder: 25,
+  },
+  {
+    code: 'JP00010',
+    name: 'Costurera',
+    description: 'Confección y acabado en taller textil.',
+    defaultDuties:
+      'Coser prendas, remates, control de calidad de costura y apoyo a lotes de producción.',
+    sortOrder: 90,
+  },
+  {
+    code: 'JP00011',
+    name: 'Operario de corte',
+    description: 'Corte de tela e insumos textiles.',
+    defaultDuties:
+      'Cortar tela según patrón, preparar kits de insumos y alimentar línea de confección.',
+    sortOrder: 91,
+  },
+  {
+    code: 'JP00012',
+    name: 'Supervisora de taller',
+    description: 'Coordinación del taller textil y lotes de producción.',
+    defaultDuties:
+      'Planificar lotes, asignar trabajo, controlar avance y calidad del taller.',
+    sortOrder: 92,
   },
 ] as const;
 
@@ -1702,6 +1915,45 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
     healthSystem: 'FONASA',
     mutualName: 'ACHS',
     tipsEligible: true,
+  },
+  /** Patricia / costurera — taller textil. */
+  '17.100.014-9': {
+    kind: EmploymentContractKind.LABOR,
+    laborType: EmploymentLaborType.INDEFINITE,
+    workRegime: WorkRegime.ORDINARY,
+    weeklyHours: '45',
+    extraHoursMode: ExtraHoursMode.PAID_OVERTIME,
+    shiftSystemCode: 'SS00001',
+    jobPositionCode: 'JP00010',
+    afpCode: 'AFP00004',
+    healthSystem: 'FONASA',
+    mutualName: 'ACHS',
+  },
+  /** Rodrigo / operario de corte — taller textil. */
+  '17.100.015-7': {
+    kind: EmploymentContractKind.LABOR,
+    laborType: EmploymentLaborType.INDEFINITE,
+    workRegime: WorkRegime.ORDINARY,
+    weeklyHours: '45',
+    extraHoursMode: ExtraHoursMode.PAID_OVERTIME,
+    shiftSystemCode: 'SS00001',
+    jobPositionCode: 'JP00011',
+    afpCode: 'AFP00002',
+    healthSystem: 'FONASA',
+    mutualName: 'ACHS',
+  },
+  /** Valentina / supervisora de taller — taller textil. */
+  '17.100.016-5': {
+    kind: EmploymentContractKind.LABOR,
+    laborType: EmploymentLaborType.INDEFINITE,
+    workRegime: WorkRegime.ORDINARY,
+    weeklyHours: '45',
+    extraHoursMode: ExtraHoursMode.PAID_OVERTIME,
+    shiftSystemCode: 'SS00001',
+    jobPositionCode: 'JP00012',
+    afpCode: 'AFP00001',
+    healthSystem: 'FONASA',
+    mutualName: 'ACHS',
   },
 };
 
@@ -3262,7 +3514,7 @@ async function bootstrap() {
           code: unitDef.code,
           name: unitDef.name,
           defaultInputStorageId: inputStorage.id,
-          defaultOutputStorageId: outputStorage.id,
+          defaultOutputStorageId: null,
           isActive: true,
         });
         await productionUnitRepo.save(unit);
@@ -3276,7 +3528,7 @@ async function bootstrap() {
         unit.inventoryMode = inventoryMode;
         unit.purpose = purpose;
         unit.defaultInputStorageId = inputStorage.id;
-        unit.defaultOutputStorageId = outputStorage.id;
+        unit.defaultOutputStorageId = null;
         unit.isActive = true;
         await productionUnitRepo.save(unit);
         console.log(
@@ -3635,17 +3887,19 @@ async function bootstrap() {
         code: null,
         name: item.name,
         operationalExpenseGroup: item.operationalExpenseGroup,
+        pnlNature: item.pnlNature,
         description: item.name,
         requiresApproval: false,
         approvalThreshold: '0',
         defaultResultCenterId: null,
         isActive: true,
+        nonDeletable: item.nonDeletable === true,
         examples: null,
         metadata: null,
       });
       await expenseCategoryRepo.save(row);
       console.log(
-        `✅ Categoría de gasto creada: ${row.name} (${row.operationalExpenseGroup}) id=${row.id}`,
+        `✅ Categoría de gasto creada: ${row.name} (${row.operationalExpenseGroup} / ${row.pnlNature}${row.nonDeletable ? ' · sistema' : ''}) id=${row.id}`,
       );
     }
 
@@ -3864,12 +4118,46 @@ async function bootstrap() {
       );
     }
 
+    let seedTallerLaborUnit = await laborUnitRepo.findOne({
+      where: {
+        companyId: company.id,
+        code: 'UL00003',
+        deletedAt: IsNull(),
+      },
+    });
+    if (!seedTallerLaborUnit) {
+      seedTallerLaborUnit = await laborUnitRepo.save(
+        laborUnitRepo.create({
+          companyId: company.id,
+          code: 'UL00003',
+          name: 'Taller textil',
+          description:
+            'Unidad laboral exclusiva del taller de manufactura textil (sin sucursal).',
+          isActive: true,
+        }),
+      );
+      console.log(
+        `✅ Unidad laboral demo creada: ${seedTallerLaborUnit.code} «${seedTallerLaborUnit.name}» id=${seedTallerLaborUnit.id}`,
+      );
+    } else {
+      seedTallerLaborUnit.name = 'Taller textil';
+      seedTallerLaborUnit.description =
+        'Unidad laboral exclusiva del taller de manufactura textil (sin sucursal).';
+      seedTallerLaborUnit.isActive = true;
+      seedTallerLaborUnit = await laborUnitRepo.save(seedTallerLaborUnit);
+      console.log(
+        `✅ Unidad laboral demo sincronizada: ${seedTallerLaborUnit.code} id=${seedTallerLaborUnit.id}`,
+      );
+    }
+
     const laborUnitsByCode = new Map<string, HrLaborUnit>([
       [seedLaborUnit.code, seedLaborUnit],
       [seedSalonLaborUnit.code, seedSalonLaborUnit],
+      [seedTallerLaborUnit.code, seedTallerLaborUnit],
     ]);
 
-    for (const laborUnit of laborUnitsByCode.values()) {
+    /** Solo UL de piso/salón van a sucursales; UL00003 es exclusiva de producción. */
+    for (const laborUnit of [seedLaborUnit, seedSalonLaborUnit]) {
       for (const branchId of [seedBranch.id, seedBranchMall.id]) {
         const existingBridge = await laborUnitBranchRepo.findOne({
           where: { laborUnitId: laborUnit.id, branchId },
@@ -4135,6 +4423,41 @@ async function bootstrap() {
       employeesByDocument.set(item.person.documentNumber, employee);
       console.log(
         `✅ Empleado «${displayName}» sincronizado: id=${employee.id} tipo=${employee.employmentType} estado=${employee.status} sueldo=${employee.baseSalary ?? '—'} cuenta=${seedBankRow.accountNumber}`,
+      );
+    }
+
+    const laborUnitPuRepo = dataSource.getRepository(HrLaborUnitProductionUnit);
+    const tallerForLu =
+      tallerTextil ??
+      (await productionUnitRepo.findOne({
+        where: {
+          companyId: company.id,
+          code: 'TALLER',
+          scope: ProductionUnitScope.COMPANY,
+        },
+      }));
+    if (tallerForLu) {
+      const existingLuPu = await laborUnitPuRepo.findOne({
+        where: {
+          laborUnitId: seedTallerLaborUnit.id,
+          productionUnitId: tallerForLu.id,
+        },
+      });
+      if (!existingLuPu) {
+        await laborUnitPuRepo.save(
+          laborUnitPuRepo.create({
+            companyId: company.id,
+            laborUnitId: seedTallerLaborUnit.id,
+            productionUnitId: tallerForLu.id,
+          }),
+        );
+      }
+      console.log(
+        `✅ UL ${seedTallerLaborUnit.code} ↔ UP TALLER (${tallerForLu.id})`,
+      );
+    } else {
+      console.warn(
+        '⚠️ UP TALLER no encontrada; no se vinculó UL00003 a producción',
       );
     }
 

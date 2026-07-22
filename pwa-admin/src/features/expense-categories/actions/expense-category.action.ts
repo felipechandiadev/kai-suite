@@ -8,6 +8,7 @@ import type {
   DeleteExpenseCategoryResult,
   ExpenseCategoryListItem,
   ExpenseCategoryOperationalGroupValue,
+  ExpenseCategoryPnlNatureValue,
   OperationalGroupMetaItem,
   UpdateExpenseCategoryResult,
 } from "../types/expense-category.types";
@@ -36,6 +37,7 @@ export async function createExpenseCategoryAction(input: {
   code?: string;
   name: string;
   operationalExpenseGroup: ExpenseCategoryOperationalGroupValue;
+  pnlNature: ExpenseCategoryPnlNatureValue;
   description?: string;
   requiresApproval: boolean;
   approvalThreshold: number;
@@ -53,6 +55,7 @@ export async function createExpenseCategoryAction(input: {
     ...(input.code?.trim() ? { code: input.code.trim() } : {}),
     name: input.name,
     operationalExpenseGroup: input.operationalExpenseGroup,
+    pnlNature: input.pnlNature,
     description: input.description?.trim() || undefined,
     requiresApproval: input.requiresApproval,
     approvalThreshold: input.requiresApproval ? input.approvalThreshold : 0,
@@ -69,6 +72,7 @@ export async function updateExpenseCategoryAction(input: {
   code?: string;
   name: string;
   operationalExpenseGroup: ExpenseCategoryOperationalGroupValue;
+  pnlNature: ExpenseCategoryPnlNatureValue;
   description: string;
   requiresApproval: boolean;
   approvalThreshold: number;
@@ -79,6 +83,7 @@ export async function updateExpenseCategoryAction(input: {
     ...(input.code?.trim() ? { code: input.code.trim() } : {}),
     name: input.name,
     operationalExpenseGroup: input.operationalExpenseGroup,
+    pnlNature: input.pnlNature,
     description: input.description.trim() || null,
     requiresApproval: input.requiresApproval,
     approvalThreshold: input.requiresApproval ? input.approvalThreshold : 0,

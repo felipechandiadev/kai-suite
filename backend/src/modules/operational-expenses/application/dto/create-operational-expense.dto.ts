@@ -7,6 +7,7 @@ import {
   IsString,
   MaxLength,
   IsArray,
+  IsBoolean,
   IsObject,
   Validate,
   ValidateNested,
@@ -107,6 +108,11 @@ export class CreateOperationalExpenseDto {
   @IsArray()
   @IsUUID('4', { each: true })
   multimediaAssetIds?: string[];
+
+  /** After a successful create, also store a reusable template (no amounts/schedule). */
+  @IsOptional()
+  @IsBoolean()
+  saveAsTemplate?: boolean;
 
   @IsNotEmpty()
   @IsUUID()

@@ -8,7 +8,6 @@ import { OperationalExpenseRequest } from "@/features/treasury-expenses/infrastr
 import type { ExpenseCategoryOption } from "@/features/treasury-expenses/types/operational-expense.types";
 import { RecurringExpenseRequest } from "../infrastructure/recurring-expense.request";
 import type {
-  RecurringExpenseCreatePayload,
   RecurringExpenseListItem,
   RecurringExpenseRunItem,
   RecurringExpenseUpdatePayload,
@@ -52,46 +51,6 @@ export async function listRecurringExpenseRunsAction(
   return { success: true, rows: r.rows };
 }
 
-export async function createRecurringExpenseAction(
-  input: RecurringExpenseCreatePayload,
-): Promise<{ success: true; id: string } | { success: false; error: string }> {
-  const company = await CompanyRequest.getCurrent();
-  if (!company?.id) {
-    return { success: false, error: "No hay empresa activa configurada." };
-  }
-  const session = await getServerSession(authOptions);
-  const userId = String(session?.user?.id ?? "").trim();
-  if (!UUID_RE.test(userId)) {
-    return {
-      success: false,
-      error: "No se pudo determinar el usuario creador (UUID) desde la sesión.",
-    };
-  }
-  if (!input.name.trim()) return { success: false, error: "El nombre es obligatorio." };
-  if (!UUID_RE.test(input.categoryId)) {
-    return { success: false, error: "Debe seleccionar una categoría válida." };
-  }
-  if (!UUID_RE.test(input.supplierId)) {
-    return { success: false, error: "Debe seleccionar un proveedor válido." };
-  }
-  if (!(input.total >= 0.01)) {
-    return { success: false, error: "El total debe ser mayor a cero." };
-  }
-  if (input.frequency === "WEEKLY" && (input.dayOfWeek == null || input.dayOfWeek < 0 || input.dayOfWeek > 6)) {
-    return { success: false, error: "Seleccione el día de la semana." };
-  }
-  if (
-    (input.frequency === "MONTHLY" || input.frequency === "YEARLY") &&
-    (input.dayOfMonth == null || input.dayOfMonth < 1 || input.dayOfMonth > 28)
-  ) {
-    return { success: false, error: "Seleccione el día del mes (1–28)." };
-  }
-
-  const r = await RecurringExpenseRequest.create(company.id, userId, input);
-  if (r.success) revalidate();
-  return r;
-}
-
 export async function updateRecurringExpenseAction(
   input: RecurringExpenseUpdatePayload,
 ): Promise<{ success: true } | { success: false; error: string }> {
@@ -116,18 +75,6 @@ export async function resumeRecurringExpenseAction(
 ): Promise<{ success: true } | { success: false; error: string }> {
   if (!UUID_RE.test(id)) return { success: false, error: "Id inválido" };
   const r = await RecurringExpenseRequest.resume(id);
-  if (r.success) revalidate();
-  return r;
-}
-
-export async function generateRecurringExpenseAction(
-  id: string,
-): Promise<
-  | { success: true; operationalExpenseId?: string; skipped?: boolean }
-  | { success: false; error: string }
-> {
-  if (!UUID_RE.test(id)) return { success: false, error: "Id inválido" };
-  const r = await RecurringExpenseRequest.generate(id);
   if (r.success) revalidate();
   return r;
 }

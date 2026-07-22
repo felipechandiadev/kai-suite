@@ -7,6 +7,7 @@ import type {
   ExpenseCategoryListItem,
   OperationalGroupMetaItem,
 } from "@/features/expense-categories/types/expense-category.types";
+import { EXPENSE_CATEGORY_PNL_NATURE_META } from "@/features/expense-categories/types/expense-category.types";
 import { ExpenseCategoriesCollectionAddAction } from "./ExpenseCategoriesCollectionAddAction";
 import { ExpenseCategoryCard } from "./ExpenseCategoryCard";
 
@@ -37,12 +38,18 @@ export function ExpenseCategoriesCollection({
     return initialCategories.filter((c) => {
       const meta = metaByValue.get(c.operationalExpenseGroup);
       const groupBlob = meta ? `${meta.label} ${meta.description}`.toLowerCase() : c.operationalExpenseGroup.toLowerCase();
+      const pnlMeta = EXPENSE_CATEGORY_PNL_NATURE_META.find((x) => x.value === c.pnlNature);
+      const pnlBlob = pnlMeta
+        ? `${pnlMeta.label} ${pnlMeta.description}`.toLowerCase()
+        : c.pnlNature.toLowerCase();
       return (
         (c.code ?? "").toLowerCase().includes(q) ||
         c.name.toLowerCase().includes(q) ||
         (c.description ?? "").toLowerCase().includes(q) ||
         groupBlob.includes(q) ||
-        c.operationalExpenseGroup.toLowerCase().includes(q)
+        c.operationalExpenseGroup.toLowerCase().includes(q) ||
+        pnlBlob.includes(q) ||
+        c.pnlNature.toLowerCase().includes(q)
       );
     });
   }, [initialCategories, metaByValue, q]);

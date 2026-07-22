@@ -85,6 +85,8 @@ export type CreateProductVariantFormInput = {
   packageWidthCm?: number | null;
   packageHeightCm?: number | null;
   volumetricDivisorK?: number | null;
+  /** MO fija por pieza (override). null limpia; undefined no envía. */
+  laborCostOverride?: number | null;
 };
 
 export type CreateProductVariantResult = { success: true; id: string } | { success: false; error: string };
@@ -486,6 +488,10 @@ export async function updateProductVariantAction(
     packageWidthCm: input.packageWidthCm,
     packageHeightCm: input.packageHeightCm,
     volumetricDivisorK: input.volumetricDivisorK,
+    laborCostOverride:
+      input.laborCostOverride === undefined
+        ? undefined
+        : input.laborCostOverride,
   });
   if (r.success) {
     revalidatePath(PRODUCTS_PATH, "page");

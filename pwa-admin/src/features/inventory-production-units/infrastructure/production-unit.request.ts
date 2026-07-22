@@ -7,6 +7,7 @@ import type {
   ProductionUnitPurpose,
   ProductionUnitScope,
   UpdateProductionUnitInput,
+  VariantProductionCostPreview,
 } from "../types/production-unit.types";
 
 function apiUrl(path: string): string {
@@ -44,9 +45,40 @@ function mapUnit(raw: Record<string, unknown>): ProductionUnitListItem {
       raw.defaultInputStorageId != null ? String(raw.defaultInputStorageId) : null,
     defaultOutputStorageId:
       raw.defaultOutputStorageId != null ? String(raw.defaultOutputStorageId) : null,
+    monthlyCapacity:
+      raw.monthlyCapacity != null && Number.isFinite(Number(raw.monthlyCapacity))
+        ? Number(raw.monthlyCapacity)
+        : raw.computedCapacity != null &&
+            Number.isFinite(Number(raw.computedCapacity))
+          ? Number(raw.computedCapacity)
+          : null,
+    computedCapacity:
+      raw.computedCapacity != null &&
+      Number.isFinite(Number(raw.computedCapacity))
+        ? Number(raw.computedCapacity)
+        : raw.monthlyCapacity != null &&
+            Number.isFinite(Number(raw.monthlyCapacity))
+          ? Number(raw.monthlyCapacity)
+          : null,
     laborUnitIds: Array.isArray(raw.laborUnitIds)
       ? raw.laborUnitIds.map((id) => String(id)).filter(Boolean)
       : [],
+    employeeIds: Array.isArray(raw.employeeIds)
+      ? raw.employeeIds.map((id) => String(id)).filter(Boolean)
+      : [],
+    employeeCount:
+      raw.employeeCount != null && Number.isFinite(Number(raw.employeeCount))
+        ? Number(raw.employeeCount)
+        : undefined,
+    monthlyPayrollTotal:
+      raw.monthlyPayrollTotal != null &&
+      Number.isFinite(Number(raw.monthlyPayrollTotal))
+        ? Number(raw.monthlyPayrollTotal)
+        : undefined,
+    laborCostPerUnit:
+      raw.laborCostPerUnit != null && Number.isFinite(Number(raw.laborCostPerUnit))
+        ? Number(raw.laborCostPerUnit)
+        : null,
     isActive: raw.isActive !== false,
   };
 }
@@ -119,5 +151,45 @@ export const ProductionUnitRequest = {
       throw new Error(message);
     }
     return mapUnit((await res.json()) as Record<string, unknown>);
+  },
+
+  async costPreview(
+    productionUnitId: string,
+    variantId: string,
+  ): Promise<VariantProductionCostPreview | null> {
+    if (!productionUnitId || !variantId) return null;
+    const qs = new URLSearchParams({ variantId });
+    const res = await fetch(
+      apiUrl(`/production-units/${productionUnitId}/cost-preview?${qs}`),
+      {
+        headers: await authHeaders(),
+        cache: "no-store",
+      },
+    );
+    if (!res.ok) return null;
+    const raw = (await res.json()) as Record<string, unknown>;
+    if (raw.success === false) return null;
+    return {
+      variantId: String(raw.variantId ?? variantId),
+      productionUnitId: String(raw.productionUnitId ?? productionUnitId),
+      materialsPerUnit:
+        raw.materialsPerUnit != null &&
+        Number.isFinite(Number(raw.materialsPerUnit))
+          ? Number(raw.materialsPerUnit)
+          : null,
+      laborPerUnit:
+        raw.laborPerUnit != null && Number.isFinite(Number(raw.laborPerUnit))
+          ? Number(raw.laborPerUnit)
+          : null,
+      unitCostPreview:
+        raw.unitCostPreview != null &&
+        Number.isFinite(Number(raw.unitCostPreview))
+          ? Number(raw.unitCostPreview)
+          : null,
+      materialsWarning:
+        typeof raw.materialsWarning === "string" ? raw.materialsWarning : null,
+      laborWarning:
+        typeof raw.laborWarning === "string" ? raw.laborWarning : null,
+    };
   },
 };

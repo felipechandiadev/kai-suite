@@ -22,14 +22,40 @@ function statusBadge(status: string) {
   return <Badge variant="info">{status || "—"}</Badge>;
 }
 
+function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    return new Intl.DateTimeFormat("es-CL", {
+      dateStyle: "short",
+      timeStyle: "short",
+    }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
+}
+
 export function ProductionOrderDetail({ batch: initial }: Props) {
   const router = useRouter();
   const [batch, setBatch] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canAct =
-    batch.status === "DRAFT" || batch.status === "CONFIRMED";
+  const canAct = batch.status === "DRAFT" || batch.status === "CONFIRMED";
+  const order = batch.productionOrder;
+  const lots = order?.lots?.length
+    ? order.lots
+    : batch.lines.map((l, idx) => ({
+        lineKey: l.id || `line-${idx}`,
+        productVariantId: l.productVariantId ?? "",
+        quantity: l.quantity,
+        notes: l.notes ?? undefined,
+        attributes: [] as Array<{
+          attributeId: string;
+          optionId: string;
+          attributeName: string;
+          optionLabel: string;
+        }>,
+      }));
 
   const onComplete = async () => {
     setBusy(true);
@@ -57,11 +83,14 @@ export function ProductionOrderDetail({ batch: initial }: Props) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4" data-test-id="production-order-detail">
+    <div
+      className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4"
+      data-test-id="production-order-detail"
+    >
       <div className="flex items-start justify-between gap-2">
         <div>
           <h1 className="text-lg font-semibold">
-            {batch.documentNumber ?? "Orden de producción"}
+            {batch.documentNumber ?? "Orden de manufactura"}
           </h1>
           <div className="mt-1">{statusBadge(batch.status)}</div>
         </div>
@@ -76,6 +105,22 @@ export function ProductionOrderDetail({ batch: initial }: Props) {
           <dd>{batch.branchName ?? batch.branchId ?? "—"}</dd>
         </div>
         <div>
+          <dt className="text-muted-foreground">Unidad</dt>
+          <dd>{order?.productionUnitId || batch.productionUnitId || "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Capacidad</dt>
+          <dd className="tabular-nums">{order?.capacity ?? "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Inicio planificado</dt>
+          <dd>{formatDateTime(order?.plannedStartAt)}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Entrega planificada</dt>
+          <dd>{formatDateTime(order?.plannedDeliveryAt)}</dd>
+        </div>
+        <div>
           <dt className="text-muted-foreground">Almacén insumos</dt>
           <dd>{batch.storageName ?? batch.storageId ?? "—"}</dd>
         </div>
@@ -84,16 +129,24 @@ export function ProductionOrderDetail({ batch: initial }: Props) {
           <dd>{batch.outputStorageId ?? "—"}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Producto</dt>
-          <dd>{batch.outputProductName ?? "—"}</dd>
+          <dt className="text-muted-foreground">Lotes</dt>
+          <dd className="tabular-nums">{batch.lotCount || lots.length}</dd>
         </div>
-        <div>
-          <dt className="text-muted-foreground">Cantidad</dt>
-          <dd className="tabular-nums">{batch.outputQuantity ?? "—"}</dd>
-        </div>
+        {batch.materialsCost != null ? (
+          <div>
+            <dt className="text-muted-foreground">Costo materiales</dt>
+            <dd className="tabular-nums">{batch.materialsCost}</dd>
+          </div>
+        ) : null}
+        {batch.laborCost != null ? (
+          <div>
+            <dt className="text-muted-foreground">Costo mano de obra</dt>
+            <dd className="tabular-nums">{batch.laborCost}</dd>
+          </div>
+        ) : null}
         {batch.unitCost != null ? (
           <div>
-            <dt className="text-muted-foreground">Costo unitario</dt>
+            <dt className="text-muted-foreground">Costo unitario (prom.)</dt>
             <dd className="tabular-nums">{batch.unitCost}</dd>
           </div>
         ) : null}
@@ -110,14 +163,43 @@ export function ProductionOrderDetail({ batch: initial }: Props) {
       ) : null}
 
       <div className="rounded-lg border border-border p-3">
-        <p className="mb-2 text-sm font-medium">Líneas</p>
-        <ul className="space-y-1 text-sm">
-          {batch.lines.map((l) => (
-            <li key={l.id} className="flex justify-between gap-2">
-              <span>{l.productName ?? l.productVariantId ?? "—"}</span>
-              <span className="tabular-nums text-muted-foreground">{l.quantity}</span>
-            </li>
-          ))}
+        <p className="mb-3 text-sm font-medium">Lotes</p>
+        <ul className="space-y-3">
+          {lots.map((lot, idx) => {
+            const line = batch.lines[idx];
+            const title = line?.productName || lot.productVariantId || "—";
+            return (
+              <li
+                key={lot.lineKey || idx}
+                className="rounded-md border border-border/60 p-3 text-sm"
+              >
+                <div className="flex justify-between gap-2">
+                  <span className="font-medium">{title}</span>
+                  <span className="tabular-nums text-muted-foreground">
+                    qty {lot.quantity}
+                  </span>
+                </div>
+                {"attributes" in lot && lot.attributes?.length ? (
+                  <ul className="mt-2 space-y-0.5 text-muted-foreground">
+                    {lot.attributes.map((a) => (
+                      <li key={`${a.attributeId}-${a.optionId}`}>
+                        {a.attributeName}: {a.optionLabel}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {lot.notes ? (
+                  <p className="mt-1 text-muted-foreground">Notas: {lot.notes}</p>
+                ) : null}
+                {"lineCost" in lot && lot.lineCost != null ? (
+                  <p className="mt-1 tabular-nums text-muted-foreground">
+                    Costo lote: {lot.lineCost}
+                    {lot.unitCost != null ? ` (unit. ${lot.unitCost})` : ""}
+                  </p>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       </div>
 

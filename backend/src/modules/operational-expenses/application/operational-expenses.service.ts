@@ -3,6 +3,8 @@ import {
   NotFoundException,
   Logger,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
@@ -20,6 +22,7 @@ import { TransactionType, PaymentStatus } from '@modules/transactions/domain/tra
 import { SupplierFiscalDocumentCreateService } from '@modules/transactions/application/services/supplier-fiscal-document-create.service';
 import { OperatingExpensePaymentPlanService } from '@modules/transactions/application/services/operating-expense-payment-plan.service';
 import { Transaction } from '@modules/transactions/domain/transaction.entity';
+import { RecurringOperationalExpensesService } from './recurring-operational-expenses.service';
 
 const FISCAL_KIND_TO_TX: Record<
   Exclude<OperationalExpenseDocumentKind, OperationalExpenseDocumentKind.OTHER>,
@@ -56,6 +59,8 @@ export class OperationalExpensesService {
     private readonly branchRepo: Repository<Branch>,
     @InjectRepository(Transaction)
     private readonly transactionRepo: Repository<Transaction>,
+    @Inject(forwardRef(() => RecurringOperationalExpensesService))
+    private readonly recurringTemplates: RecurringOperationalExpensesService,
   ) {}
 
   async findAll(params?: {
@@ -147,8 +152,13 @@ export class OperationalExpensesService {
       throw new BadRequestException('El total del gasto debe ser mayor a cero.');
     }
 
-    const { multimediaAssetIds, supplierDocumentPayment, fiscalAmounts, ...expenseData } =
-      dto;
+    const {
+      multimediaAssetIds,
+      supplierDocumentPayment,
+      fiscalAmounts,
+      saveAsTemplate,
+      ...expenseData
+    } = dto;
 
     const created = await this.repository.create({
       ...expenseData,
@@ -236,9 +246,28 @@ export class OperationalExpensesService {
       );
     }
 
-    return this.attachMediaAssets(
+    const expense = await this.attachMediaAssets(
       (await this.repository.findOne(created.id)) ?? created,
     );
+
+    if (saveAsTemplate) {
+      try {
+        await this.recurringTemplates.createFromOperatingExpense({
+          companyId: dto.companyId,
+          operationalExpenseId: expense.id,
+          createdBy: dto.createdBy,
+          taxId: fiscalAmounts.taxId ?? null,
+        });
+      } catch (err) {
+        this.logger.warn(
+          `saveAsTemplate failed for OE ${expense.id}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+
+    return expense;
   }
 
   async update(

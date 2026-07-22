@@ -33,6 +33,13 @@ describe('ProductionUnitsService inventory storages', () => {
     listLaborUnitIdsForProductionUnit: jest.Mock;
     syncProductionUnitLaborUnits: jest.Mock;
   };
+  let puEmployeeRepository: {
+    find: jest.Mock;
+    delete: jest.Mock;
+    save: jest.Mock;
+    create: jest.Mock;
+  };
+  let employeeRepository: { find: jest.Mock };
   let service: ProductionUnitsService;
 
   const sharedStorage = {
@@ -88,15 +95,36 @@ describe('ProductionUnitsService inventory storages', () => {
       listLaborUnitIdsForProductionUnit: jest.fn().mockResolvedValue([]),
       syncProductionUnitLaborUnits: jest.fn().mockResolvedValue(undefined),
     };
+    puEmployeeRepository = {
+      find: jest.fn().mockResolvedValue([]),
+      delete: jest.fn().mockResolvedValue(undefined),
+      save: jest.fn().mockResolvedValue([]),
+      create: jest.fn((row) => row),
+    };
+    employeeRepository = { find: jest.fn().mockResolvedValue([]) };
+    const costingService = {
+      summarizeLaborCost: jest.fn().mockResolvedValue({
+        laborUnitIds: [],
+        directEmployeeIds: [],
+        employeeCount: 0,
+        monthlyPayrollTotal: 0,
+        computedCapacity: null,
+        monthlyCapacity: null,
+        laborCostPerUnit: null,
+      }),
+    };
     service = new ProductionUnitsService(
       productionUnitRepository as any,
+      puEmployeeRepository as any,
+      employeeRepository as any,
       branchRepository as any,
       storageRepository as any,
       laborUnitsService as any,
+      costingService as any,
     );
   });
 
-  it('rejects create without input or output storage', async () => {
+  it('rejects create without input storage', async () => {
     await expect(
       service.create({
         name: 'Cocina',
@@ -106,7 +134,7 @@ describe('ProductionUnitsService inventory storages', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('creates DEPENDENT unit with shared storages (input === output)', async () => {
+  it('creates DEPENDENT unit with input storage only', async () => {
     storageRepository.findOne.mockImplementation(async ({ where }: any) => {
       if (where.id === inputId) return { ...sharedStorage };
       return null;
@@ -120,7 +148,7 @@ describe('ProductionUnitsService inventory storages', () => {
       code: 'UPR00001',
       name: 'Cocina',
       defaultInputStorageId: inputId,
-      defaultOutputStorageId: inputId,
+      defaultOutputStorageId: null,
       isActive: true,
     });
 
@@ -129,11 +157,10 @@ describe('ProductionUnitsService inventory storages', () => {
       branchId,
       inventoryMode: ProductionUnitInventoryMode.DEPENDENT,
       defaultInputStorageId: inputId,
-      defaultOutputStorageId: inputId,
     });
 
     expect(unit.defaultInputStorageId).toBe(inputId);
-    expect(unit.defaultOutputStorageId).toBe(inputId);
+    expect(unit.defaultOutputStorageId).toBeNull();
   });
 
   it('rejects DEPENDENT unit using PRODUCTION_INPUT storage', async () => {

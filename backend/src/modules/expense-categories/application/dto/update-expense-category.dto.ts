@@ -10,6 +10,7 @@ import {
   IsEnum,
 } from 'class-validator';
 import { ExpenseCategoryOperationalGroup } from '../../domain/expense-category-operational-group.enum';
+import { ExpenseCategoryPnlNature } from '../../domain/expense-category-pnl-nature.enum';
 
 export class UpdateExpenseCategoryDto {
   @IsOptional()
@@ -29,6 +30,10 @@ export class UpdateExpenseCategoryDto {
   @IsOptional()
   @IsEnum(ExpenseCategoryOperationalGroup)
   operationalExpenseGroup?: ExpenseCategoryOperationalGroup;
+
+  @IsOptional()
+  @IsEnum(ExpenseCategoryPnlNature)
+  pnlNature?: ExpenseCategoryPnlNature;
 
   @IsOptional()
   @IsString()

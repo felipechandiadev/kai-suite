@@ -195,10 +195,14 @@ export function JornadaPlannerWorkspace({
       const shiftMeta = res.data.laborUnitShifts ?? [];
       if (!loaded.length) {
         setDrafts([]);
-        setError(
-          res.data.message ??
-            "No hay turnos activos para cargar en esta semana.",
-        );
+        const msg = res.data.message;
+        // Membership skips are expected; do not surface as a page alert.
+        if (typeof msg === "string" && msg.includes("sin membresía a turno UL")) {
+          setError(null);
+          setNotice(null);
+          return;
+        }
+        setError(msg ?? "No hay turnos activos para cargar en esta semana.");
         return;
       }
       setDrafts(
@@ -222,7 +226,7 @@ export function JornadaPlannerWorkspace({
       );
       setFindings(res.data.findings ?? []);
       setWorst(res.data.worstSeverity ?? "OK");
-      setNotice(res.data.message ?? null);
+      setNotice(null);
       setError(null);
     });
     // planSyncKey captures week/UL + server roster/instances identity

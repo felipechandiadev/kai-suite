@@ -317,6 +317,20 @@ export class ProductVariantsService {
         barcode: variant.barcode,
         basePrice: Number(variant.basePrice),
         baseCost: Number(variant.baseCost),
+        laborCostOverride:
+          (variant as { laborCostOverride?: number | null }).laborCostOverride !=
+            null &&
+          Number.isFinite(
+            Number(
+              (variant as { laborCostOverride?: number | null })
+                .laborCostOverride,
+            ),
+          )
+            ? Number(
+                (variant as { laborCostOverride?: number | null })
+                  .laborCostOverride,
+              )
+            : null,
         pmp: pmpForApi(variant.pmp),
         unitId: variant.unitId,
         stockBaseUnitId: variant.stockBaseUnitId,
@@ -631,6 +645,11 @@ export class ProductVariantsService {
       barcode: sanitizedData.barcode || null,
       basePrice: sanitizedData.basePrice ?? 0,
       baseCost: sanitizedData.baseCost ?? 0,
+      laborCostOverride:
+        sanitizedData.laborCostOverride != null &&
+        Number.isFinite(Number(sanitizedData.laborCostOverride))
+          ? Number(sanitizedData.laborCostOverride)
+          : null,
       pmp: null,
       pmpHistory: null,
       salePriceHistory: null,
@@ -829,6 +848,18 @@ export class ProductVariantsService {
       );
     }
     delete (sanitizedData as { pmp?: unknown }).pmp;
+
+    if (Object.prototype.hasOwnProperty.call(sanitizedData, 'laborCostOverride')) {
+      const raw = (sanitizedData as { laborCostOverride?: unknown })
+        .laborCostOverride;
+      (v as { laborCostOverride?: number | null }).laborCostOverride =
+        raw == null || raw === ''
+          ? null
+          : Number.isFinite(Number(raw)) && Number(raw) >= 0
+            ? Number(raw)
+            : null;
+      delete (sanitizedData as { laborCostOverride?: unknown }).laborCostOverride;
+    }
 
     Object.assign(v, sanitizedData);
     if (normalizedAttrValues !== undefined) {

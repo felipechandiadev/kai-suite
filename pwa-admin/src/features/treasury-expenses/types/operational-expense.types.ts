@@ -18,12 +18,17 @@ export type OperationalExpenseDocumentKind =
   | "SUPPLIER_HONORARIUM_RECEIPT"
   | "OTHER";
 
+/** Alineado con `ExpenseCategoryPnlNature` (SALES = ventas, ADMIN = administración). */
+export type ExpenseCategoryPnlNatureValue = "SALES" | "ADMIN";
+
 export type OperationalExpenseGridRow = {
   id: string;
   companyId: string;
   name: string;
   categoryId: string;
   categoryName: string;
+  /** Tipo P&L de la categoría: ventas vs administración. */
+  categoryPnlNature: ExpenseCategoryPnlNatureValue;
   referenceNumber: string | null;
   documentNumber?: string | null;
   operationDate: string;
@@ -73,6 +78,8 @@ export type OperationalExpenseCreatePayload = {
     paidLines: unknown[];
     scheduledLines: unknown[];
   };
+  /** Persist a reusable template after creating the OE. */
+  saveAsTemplate?: boolean;
 };
 
 /** @deprecated Legacy create shape */
@@ -100,4 +107,13 @@ export const OPERATIONAL_EXPENSE_PAYMENT_STATUS_LABELS: Record<
   OVERDUE: "Vencida",
   PAID: "Pagada",
   VOIDED: "Anulada",
+};
+
+/** Etiquetas cortas para columna «Tipo» en la grilla de gastos. */
+export const EXPENSE_CATEGORY_PNL_NATURE_LABELS: Record<
+  ExpenseCategoryPnlNatureValue,
+  string
+> = {
+  SALES: "Ventas",
+  ADMIN: "Administración",
 };

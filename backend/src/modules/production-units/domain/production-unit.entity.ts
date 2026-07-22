@@ -66,8 +66,19 @@ export class ProductionUnit {
   @Column({ name: 'default_input_storage_id', type: 'uuid', nullable: true })
   defaultInputStorageId?: string | null;
 
+  /** @deprecated Prefer output storage on the production order. Kept for legacy rows. */
   @Column({ name: 'default_output_storage_id', type: 'uuid', nullable: true })
   defaultOutputStorageId?: string | null;
+
+  /** Piezas/mes teóricas para repartir costo de mano de obra. */
+  @Column({
+    name: 'monthly_capacity',
+    type: 'numeric',
+    precision: 18,
+    scale: 4,
+    nullable: true,
+  })
+  monthlyCapacity?: number | null;
 
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean;

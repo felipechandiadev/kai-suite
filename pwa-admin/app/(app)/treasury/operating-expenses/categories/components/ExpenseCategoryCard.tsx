@@ -11,6 +11,7 @@ import type {
   ExpenseCategoryListItem,
   OperationalGroupMetaItem,
 } from "@/features/expense-categories/types/expense-category.types";
+import { EXPENSE_CATEGORY_PNL_NATURE_META } from "@/features/expense-categories/types/expense-category.types";
 import {
   deleteExpenseCategoryAction,
   updateExpenseCategoryActiveAction,
@@ -52,12 +53,22 @@ export function ExpenseCategoryCard({
     return m?.label ?? category.operationalExpenseGroup;
   }, [category.operationalExpenseGroup, groupOptions]);
 
+  const pnlLabel = useMemo(() => {
+    const m = EXPENSE_CATEGORY_PNL_NATURE_META.find((g) => g.value === category.pnlNature);
+    return m?.label ?? category.pnlNature;
+  }, [category.pnlNature]);
+
   useEffect(() => {
     setActive(category.isActive);
   }, [category.isActive, category.id]);
 
   const headerEnd = (
-    <span className="shrink-0" data-test-id="expense-category-card-active-label">
+    <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5" data-test-id="expense-category-card-active-label">
+      {category.nonDeletable ? (
+        <Badge variant="info-outlined" data-test-id="expense-category-card-system-badge">
+          Sistema
+        </Badge>
+      ) : null}
       <Badge variant={category.isActive ? "success" : "secondary-outlined"}>
         {category.isActive ? "Activa" : "Inactiva"}
       </Badge>
@@ -83,6 +94,13 @@ export function ExpenseCategoryCard({
         <p className="mb-1 text-[0.7rem] font-semibold uppercase tracking-wider text-muted-foreground">Grupo operativo</p>
         <p className="text-sm text-foreground" data-test-id="expense-category-card-group">
           {groupLabel}
+        </p>
+      </div>
+
+      <div className="rounded-lg border border-border/60 px-3 py-2.5">
+        <p className="mb-1 text-[0.7rem] font-semibold uppercase tracking-wider text-muted-foreground">Clasificación P&L</p>
+        <p className="text-sm text-foreground" data-test-id="expense-category-card-pnl-nature">
+          {pnlLabel}
         </p>
       </div>
 
@@ -163,17 +181,21 @@ export function ExpenseCategoryCard({
             onClick: () => setUpdateOpen(true),
             "data-test-id": "expense-category-card-update",
           },
-          {
-            id: "delete",
-            icon: "Trash2",
-            ariaLabel: "Eliminar categoría",
-            disabled: isDeleting,
-            onClick: () => {
-              setDeleteErrors([]);
-              setDeleteOpen(true);
-            },
-            "data-test-id": "expense-category-card-delete",
-          },
+          ...(category.nonDeletable
+            ? []
+            : [
+                {
+                  id: "delete",
+                  icon: "Trash2" as const,
+                  ariaLabel: "Eliminar categoría",
+                  disabled: isDeleting,
+                  onClick: () => {
+                    setDeleteErrors([]);
+                    setDeleteOpen(true);
+                  },
+                  "data-test-id": "expense-category-card-delete",
+                },
+              ]),
         ]}
       />
       <UpdateExpenseCategoryDialog
@@ -185,42 +207,44 @@ export function ExpenseCategoryCard({
           await router.refresh();
         }}
       />
-      <DeleteDialog
-        open={deleteOpen}
-        onClose={() => {
-          if (!isDeleting) {
-            setDeleteOpen(false);
-            setDeleteErrors([]);
-          }
-        }}
-        title="Eliminar categoría"
-        message={
-          <>
-            ¿Eliminar la categoría <strong className="font-semibold">«{category.name}»</strong>? Esta acción no se puede
-            deshacer.
-          </>
-        }
-        errors={deleteErrors}
-        isSubmitting={isDeleting}
-        onConfirm={() => {
-          setDeleteErrors([]);
-          setIsDeleting(true);
-          void (async () => {
-            try {
-              const r = await deleteExpenseCategoryAction(category.id);
-              if (r.success) {
-                setDeleteOpen(false);
-                await router.refresh();
-              } else {
-                setDeleteErrors([r.error]);
-              }
-            } finally {
-              setIsDeleting(false);
+      {!category.nonDeletable ? (
+        <DeleteDialog
+          open={deleteOpen}
+          onClose={() => {
+            if (!isDeleting) {
+              setDeleteOpen(false);
+              setDeleteErrors([]);
             }
-          })();
-        }}
-        data-test-id={`${dataTestId ?? "expense-category-card"}-delete-dialog`}
-      />
+          }}
+          title="Eliminar categoría"
+          message={
+            <>
+              ¿Eliminar la categoría <strong className="font-semibold">«{category.name}»</strong>? Esta acción no se puede
+              deshacer.
+            </>
+          }
+          errors={deleteErrors}
+          isSubmitting={isDeleting}
+          onConfirm={() => {
+            setDeleteErrors([]);
+            setIsDeleting(true);
+            void (async () => {
+              try {
+                const r = await deleteExpenseCategoryAction(category.id);
+                if (r.success) {
+                  setDeleteOpen(false);
+                  await router.refresh();
+                } else {
+                  setDeleteErrors([r.error]);
+                }
+              } finally {
+                setIsDeleting(false);
+              }
+            })();
+          }}
+          data-test-id={`${dataTestId ?? "expense-category-card"}-delete-dialog`}
+        />
+      ) : null}
     </>
   );
 }

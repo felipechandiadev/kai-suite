@@ -12,6 +12,7 @@ import {
 import { Company } from '@modules/companies/domain/company.entity';
 import { ResultCenter } from '@modules/result-centers/domain/result-center.entity';
 import { ExpenseCategoryOperationalGroup } from './expense-category-operational-group.enum';
+import { ExpenseCategoryPnlNature } from './expense-category-pnl-nature.enum';
 
 @Entity('expense_categories')
 export class ExpenseCategory {
@@ -36,6 +37,16 @@ export class ExpenseCategory {
   })
   operationalExpenseGroup!: ExpenseCategoryOperationalGroup;
 
+  /** Clasificación P&L: gastos de ventas vs administración. */
+  @Column({
+    name: 'pnl_nature',
+    type: 'enum',
+    enum: ExpenseCategoryPnlNature,
+    enumName: 'expense_categories_pnl_nature_enum',
+    default: ExpenseCategoryPnlNature.ADMIN,
+  })
+  pnlNature!: ExpenseCategoryPnlNature;
+
   @Column({ type: 'text', nullable: true })
   description?: string;
 
@@ -50,6 +61,10 @@ export class ExpenseCategory {
 
   @Column({ type: 'boolean', default: true })
   isActive!: boolean;
+
+  /** Categorías de sistema (nómina base): no se pueden eliminar desde admin/API. */
+  @Column({ type: 'boolean', default: false })
+  nonDeletable!: boolean;
 
   @Column({ type: 'json', nullable: true })
   examples?: string[] | null;

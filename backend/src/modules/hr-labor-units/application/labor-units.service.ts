@@ -240,6 +240,43 @@ export class LaborUnitsService {
       where: { id: productionUnitId, companyId },
     });
     if (!pu) throw new NotFoundException('Unidad productiva no encontrada');
+
+    const uniqueIds = [...new Set(laborUnitIds.filter(Boolean))];
+    if (uniqueIds.length > 0) {
+      const conflicts = await this.puBridgeRepo.find({
+        where: {
+          companyId,
+          laborUnitId: In(uniqueIds),
+        },
+      });
+      const foreign = conflicts.filter(
+        (c) => c.productionUnitId !== productionUnitId,
+      );
+      if (foreign.length > 0) {
+        const conflictLuIds = [...new Set(foreign.map((c) => c.laborUnitId))];
+        const units = await this.repo.find({
+          where: { companyId, id: In(conflictLuIds), deletedAt: IsNull() },
+        });
+        const byId = new Map(units.map((u) => [u.id, u]));
+        const otherPuIds = [...new Set(foreign.map((c) => c.productionUnitId))];
+        const otherPus = await this.puRepo.find({
+          where: { companyId, id: In(otherPuIds) },
+        });
+        const puName = new Map(otherPus.map((p) => [p.id, p.name]));
+        const detail = foreign
+          .map((c) => {
+            const lu = byId.get(c.laborUnitId);
+            const luLabel = lu ? `${lu.code} · ${lu.name}` : c.laborUnitId;
+            const upLabel = puName.get(c.productionUnitId) ?? c.productionUnitId;
+            return `«${luLabel}» → «${upLabel}»`;
+          })
+          .join('; ');
+        throw new ConflictException(
+          `Una o más unidades laborales ya están asociadas a otra unidad de producción: ${detail}`,
+        );
+      }
+    }
+
     await this.replaceOwnerLaborUnits(
       this.puBridgeRepo,
       companyId,

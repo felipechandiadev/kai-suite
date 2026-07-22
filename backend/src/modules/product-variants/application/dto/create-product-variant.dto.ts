@@ -80,6 +80,14 @@ export class CreateProductVariantDto {
   @IsNumber()
   baseCost?: number;
 
+  /** MO fija por pieza (override de tasa histórica de la celda). */
+  @IsOptional()
+  @ValidateIf((_, v) => v != null && v !== '')
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  laborCostOverride?: number | null;
+
   @IsOptional()
   @Type(() => Number)
   @IsNumber()

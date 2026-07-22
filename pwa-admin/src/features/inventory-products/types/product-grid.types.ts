@@ -56,6 +56,8 @@ export type ProductVariantGridRow = {
   visibleInEShop?: boolean;
   basePrice?: number;
   baseCost?: number;
+  /** MO fija por pieza (override de tasa histórica de la celda). */
+  laborCostOverride?: number | null;
   /** Precio medio ponderado (inventario); 0 si no aplica. */
   pmp?: number | null;
   /** Nombre legible derivado de atributos (API). */

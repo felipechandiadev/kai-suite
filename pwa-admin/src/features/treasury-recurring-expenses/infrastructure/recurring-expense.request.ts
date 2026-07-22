@@ -1,5 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/auth-options";
+import type { OperationalExpenseDocumentKind } from "@/features/treasury-expenses/types/operational-expense.types";
 import type {
   RecurringExpenseCreatePayload,
   RecurringExpenseFrequency,
@@ -45,6 +46,13 @@ function supplierLabel(raw: unknown): string {
   return alias || businessName || fullName || "—";
 }
 
+const DOCUMENT_KINDS = new Set([
+  "SUPPLIER_INVOICE",
+  "SUPPLIER_RECEIPT",
+  "SUPPLIER_HONORARIUM_RECEIPT",
+  "OTHER",
+]);
+
 function normalizeRow(row: unknown): RecurringExpenseListItem | null {
   if (!row || typeof row !== "object") return null;
   const o = row as Record<string, unknown>;
@@ -53,9 +61,18 @@ function normalizeRow(row: unknown): RecurringExpenseListItem | null {
   const name = o.name != null ? String(o.name).trim() : "";
   const categoryId = o.categoryId != null ? String(o.categoryId) : "";
   const supplierId = o.supplierId != null ? String(o.supplierId) : "";
-  const frequency = String(o.frequency ?? "") as RecurringExpenseFrequency;
   if (!id || !companyId || !name || !categoryId || !supplierId) return null;
-  if (!["WEEKLY", "MONTHLY", "YEARLY"].includes(frequency)) return null;
+
+  const freqRaw = o.frequency != null ? String(o.frequency) : "";
+  const frequency =
+    freqRaw === "WEEKLY" || freqRaw === "MONTHLY" || freqRaw === "YEARLY"
+      ? (freqRaw as RecurringExpenseFrequency)
+      : null;
+
+  const kindRaw = o.documentKind != null ? String(o.documentKind) : "OTHER";
+  const documentKind = (
+    DOCUMENT_KINDS.has(kindRaw) ? kindRaw : "OTHER"
+  ) as OperationalExpenseDocumentKind;
 
   let categoryName = "—";
   if (o.category && typeof o.category === "object") {
@@ -72,15 +89,21 @@ function normalizeRow(row: unknown): RecurringExpenseListItem | null {
     categoryName,
     supplierId,
     supplierName: supplierLabel(o.supplier),
-    amountNet: Number(o.amountNet) || 0,
-    taxAmount: Number(o.taxAmount) || 0,
-    total: Number(o.total) || 0,
+    documentKind,
+    taxId: o.taxId != null ? String(o.taxId) : null,
+    amountNet: o.amountNet != null ? Number(o.amountNet) : null,
+    taxAmount: o.taxAmount != null ? Number(o.taxAmount) : null,
+    total: o.total != null ? Number(o.total) : null,
     frequency,
     dayOfWeek: o.dayOfWeek != null ? Number(o.dayOfWeek) : null,
     dayOfMonth: o.dayOfMonth != null ? Number(o.dayOfMonth) : null,
-    nextRunAt: o.nextRunAt != null ? String(o.nextRunAt) : "",
+    nextRunAt: o.nextRunAt != null ? String(o.nextRunAt) : null,
     lastRunAt: o.lastRunAt != null ? String(o.lastRunAt) : null,
     isActive: o.isActive !== false,
+    sourceOperationalExpenseId:
+      o.sourceOperationalExpenseId != null
+        ? String(o.sourceOperationalExpenseId)
+        : null,
   };
 }
 
@@ -158,6 +181,7 @@ export class RecurringExpenseRequest {
     }
   }
 
+  /** @deprecated Prefer saveAsTemplate on OE create. */
   static async create(
     companyId: string,
     createdBy: string,
@@ -206,12 +230,7 @@ export class RecurringExpenseRequest {
           description: input.description,
           categoryId: input.categoryId,
           supplierId: input.supplierId,
-          amountNet: input.amountNet,
-          taxAmount: input.taxAmount,
-          total: input.total,
-          frequency: input.frequency,
-          dayOfWeek: input.dayOfWeek,
-          dayOfMonth: input.dayOfMonth,
+          documentKind: input.documentKind,
           isActive: input.isActive,
         }),
       });
@@ -249,39 +268,6 @@ export class RecurringExpenseRequest {
       });
       if (!res.ok) return { success: false, error: await res.text() };
       return { success: true };
-    } catch (e) {
-      return { success: false, error: e instanceof Error ? e.message : String(e) };
-    }
-  }
-
-  static async generate(
-    id: string,
-  ): Promise<
-    | { success: true; operationalExpenseId?: string; skipped?: boolean }
-    | { success: false; error: string }
-  > {
-    try {
-      const res = await fetch(apiUrl(`/recurring-operating-expenses/${id}/generate`), {
-        method: "POST",
-        headers: await authHeaders(),
-      });
-      if (!res.ok) return { success: false, error: await res.text() };
-      const json = (await res.json()) as {
-        skipped?: boolean;
-        operationalExpenseId?: string;
-        run?: { status?: string; errorMessage?: string };
-      };
-      if (json.run?.status === "FAILED") {
-        return {
-          success: false,
-          error: json.run.errorMessage || "La generación falló",
-        };
-      }
-      return {
-        success: true,
-        operationalExpenseId: json.operationalExpenseId,
-        skipped: json.skipped,
-      };
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }

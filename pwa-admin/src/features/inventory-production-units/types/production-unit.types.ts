@@ -11,8 +11,21 @@ export type ProductionUnitListItem = {
   code: string;
   name: string;
   defaultInputStorageId: string | null;
+  /** @deprecated Prefer selecting output on the production order. */
   defaultOutputStorageId: string | null;
+  /**
+   * Capacidad histórica (piezas en 30d). Alias API de `computedCapacity`.
+   * @deprecated No es capacidad teórica editable.
+   */
+  monthlyCapacity: number | null;
+  /** Piezas completadas en los últimos 30 días. */
+  computedCapacity?: number | null;
   laborUnitIds?: string[];
+  /** Empleados asociados directamente a la UP. */
+  employeeIds?: string[];
+  employeeCount?: number;
+  monthlyPayrollTotal?: number;
+  laborCostPerUnit?: number | null;
   isActive: boolean;
 };
 
@@ -26,7 +39,9 @@ export type CreateProductionUnitInput = {
   purpose?: ProductionUnitPurpose;
   defaultInputStorageId?: string | null;
   defaultOutputStorageId?: string | null;
+  monthlyCapacity?: number | null;
   laborUnitIds?: string[];
+  employeeIds?: string[];
   isActive?: boolean;
 };
 
@@ -40,10 +55,22 @@ export type UpdateProductionUnitInput = {
   purpose?: ProductionUnitPurpose;
   defaultInputStorageId?: string | null;
   defaultOutputStorageId?: string | null;
+  monthlyCapacity?: number | null;
   laborUnitIds?: string[];
+  employeeIds?: string[];
   isActive?: boolean;
 };
 
 export type ProductionUnitActionResult =
   | { success: true; unit: ProductionUnitListItem }
   | { success: false; message: string };
+
+export type VariantProductionCostPreview = {
+  variantId: string;
+  productionUnitId: string;
+  materialsPerUnit: number | null;
+  laborPerUnit: number | null;
+  unitCostPreview: number | null;
+  materialsWarning?: string | null;
+  laborWarning?: string | null;
+};

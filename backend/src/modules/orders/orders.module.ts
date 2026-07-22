@@ -7,6 +7,8 @@ import { ProductionUnitsModule } from '@modules/production-units/production-unit
 import { Transaction } from '@modules/transactions/domain/transaction.entity';
 import { TransactionLine } from '@modules/transaction-lines/domain/transaction-line.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
+import { ProductVariantProductionUnit } from '@modules/product-variants/domain/product-variant-production-unit.entity';
+import { ProductVariantProductionAttribute } from '@modules/product-variants/domain/product-variant-production-attribute.entity';
 import { StockLevel } from '@modules/stock-levels/domain/stock-level.entity';
 import { OrdersController } from './presentation/orders.controller';
 import { ServiceOrdersController } from './presentation/service-orders.controller';
@@ -21,7 +23,14 @@ import { CompleteProductionBatchUseCase } from './application/commands/complete-
     TransactionsModule,
     RecipesModule,
     ProductionUnitsModule,
-    TypeOrmModule.forFeature([Transaction, TransactionLine, ProductVariant, StockLevel]),
+    TypeOrmModule.forFeature([
+      Transaction,
+      TransactionLine,
+      ProductVariant,
+      ProductVariantProductionUnit,
+      ProductVariantProductionAttribute,
+      StockLevel,
+    ]),
   ],
   controllers: [
     OrdersController,

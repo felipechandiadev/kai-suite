@@ -3,12 +3,13 @@
 import { getServerSession } from "next-auth/next";
 import { revalidatePath } from "next/cache";
 import { authOptions } from "@/lib/auth/auth-options";
-import { ProductRequest } from "@/features/inventory-products/infrastructure/product.request";
-import { listRecipesByOutputVariantAction } from "@/features/recipes/actions/recipe.action";
+import { VariantProductionRequest } from "@/features/inventory-products/infrastructure/variant-production.request";
+import type { ProductionAttribute } from "@/features/inventory-products/types/production-attributes.types";
 import { ProductionBatchRequest } from "../infrastructure/production-batch.request";
 import type {
   CreateProductionBatchInput,
   ListProductionBatchesParams,
+  ManufactureVariantSearchItem,
   ProductionBatchDetail,
   ProductionBatchListItem,
 } from "../types/production-batch.types";
@@ -43,6 +44,9 @@ export async function createProductionBatchAction(
   const userId = String(session?.user?.accessToken || session?.user?.id || "").trim();
   if (!UUID_RE.test(userId)) {
     return { success: false, message: "Sesión inválida: reinicie sesión" };
+  }
+  if (!input.lots?.length) {
+    return { success: false, message: "Agregue al menos un lote" };
   }
   try {
     const batch = await ProductionBatchRequest.create({ ...input, userId });
@@ -79,82 +83,21 @@ export async function cancelProductionBatchAction(
   }
 }
 
-const FINISHED = new Set(["MANUFACTURADO", "ELABORADO", "PREPARADO"]);
-
-export async function searchFinishedVariantsAction(q: string): Promise<
-  Array<{
-    variantId: string;
-    sku: string;
-    productName: string;
-    productType: string;
-  }>
-> {
-  const trimmed = q.trim();
-  if (!trimmed) return [];
-  const types = ["MANUFACTURADO", "ELABORADO", "PREPARADO"] as const;
-  const results = await Promise.all(
-    types.map((t) => ProductRequest.searchProducts(trimmed, 20, t)),
-  );
-  const out: Array<{
-    variantId: string;
-    sku: string;
-    productName: string;
-    productType: string;
-  }> = [];
-  for (const products of results) {
-    for (const p of products) {
-      const pt = String(p.productType ?? "").toUpperCase();
-      if (!FINISHED.has(pt)) continue;
-      for (const v of p.variants ?? []) {
-        out.push({
-          variantId: v.id,
-          sku: v.sku,
-          productName: p.name,
-          productType: pt,
-        });
-      }
-    }
-  }
-  return out.slice(0, 30);
+export async function searchManufactureVariantsAction(params: {
+  q: string;
+  productionUnitId: string;
+}): Promise<ManufactureVariantSearchItem[]> {
+  if (!params.productionUnitId) return [];
+  return ProductionBatchRequest.searchManufactureVariants({
+    q: params.q.trim(),
+    productionUnitId: params.productionUnitId,
+    limit: 30,
+  });
 }
 
-export async function previewRecipeInputsAction(
-  outputVariantId: string,
-  outputQty: number,
-): Promise<
-  | {
-      success: true;
-      recipeId: string;
-      lines: Array<{
-        inputVariantId: string;
-        qtyPerOutputUnit: number;
-        wasteFactor: number;
-        requiredQty: number;
-      }>;
-    }
-  | { success: false; message: string }
-> {
-  const recipes = await listRecipesByOutputVariantAction(outputVariantId);
-  const recipe = recipes.find((r) => r.isActive && r.type === "PRODUCTION");
-  if (!recipe) {
-    return { success: false, message: "No hay receta PRODUCTION activa" };
-  }
-  const qty = Number(outputQty);
-  if (!Number.isFinite(qty) || qty <= 0) {
-    return { success: false, message: "Cantidad inválida" };
-  }
-  return {
-    success: true,
-    recipeId: recipe.id,
-    lines: (recipe.lines ?? []).map((l) => {
-      const per = Number(l.qtyPerOutputUnit ?? 0);
-      const waste = Number(l.wasteFactor ?? 0);
-      return {
-        inputVariantId: l.inputVariantId,
-        qtyPerOutputUnit: per,
-        wasteFactor: waste,
-        requiredQty: (per + waste) * qty,
-      };
-    }),
-  };
+export async function listVariantProductionAttributesAction(
+  variantId: string,
+): Promise<ProductionAttribute[]> {
+  if (!UUID_RE.test(variantId.trim())) return [];
+  return VariantProductionRequest.listProductionAttributes(variantId.trim());
 }

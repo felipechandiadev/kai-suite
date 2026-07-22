@@ -1,9 +1,10 @@
 import { Suspense } from "react";
-import { getWeekStart, getTodayIso, LoadingState } from "@kai/ui";
+import { redirect } from "next/navigation";
+import { getWeekStart, getTodayIso, LoadingState, Alert } from "@kai/ui";
 import { getJornadaWeekAction } from "@/features/hr-jornada/actions/jornada.action";
 import { listLaborUnitsAction } from "@/features/hr-labor-units/actions/labor-unit.action";
+import { HCM_WORK_SCHEDULES } from "@/navigation/hcm-routes";
 import { JornadaPlannerWorkspace } from "./ui/JornadaPlannerWorkspace";
-import { Alert } from "@kai/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -26,15 +27,7 @@ export default async function JornadaPlanPage({
     parseSp(sp, "week") || getWeekStart(getTodayIso());
   const laborUnitId = parseSp(sp, "laborUnitId") || null;
 
-  const [weekRes, laborUnitsRes] = await Promise.all([
-    getJornadaWeekAction(weekStart, laborUnitId),
-    listLaborUnitsAction(),
-  ]);
-
-  if (!weekRes.success) {
-    return <Alert variant="error">{weekRes.message}</Alert>;
-  }
-
+  const laborUnitsRes = await listLaborUnitsAction();
   const laborUnits = laborUnitsRes.success
     ? laborUnitsRes.data.map((u) => ({
         id: u.id,
@@ -42,6 +35,20 @@ export default async function JornadaPlanPage({
         code: u.code,
       }))
     : [];
+
+  const knownIds = new Set(laborUnits.map((u) => u.id));
+  if ((!laborUnitId || !knownIds.has(laborUnitId)) && laborUnits[0]) {
+    const params = new URLSearchParams();
+    params.set("week", weekStart);
+    params.set("laborUnitId", laborUnits[0].id);
+    redirect(`${HCM_WORK_SCHEDULES}?${params.toString()}`);
+  }
+
+  const weekRes = await getJornadaWeekAction(weekStart, laborUnitId);
+
+  if (!weekRes.success) {
+    return <Alert variant="error">{weekRes.message}</Alert>;
+  }
 
   const plan = laborUnitId
     ? weekRes.data

@@ -37,6 +37,15 @@ export class ProductVariantOrmEntity {
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   baseCost!: number;
 
+  @Column({
+    name: 'labor_cost_override',
+    type: 'decimal',
+    precision: 15,
+    scale: 6,
+    nullable: true,
+  })
+  laborCostOverride?: number | null;
+
   @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
   pmp!: number | null;
 
