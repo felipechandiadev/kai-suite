@@ -7,6 +7,23 @@ import type {
 } from "../types/dining-numbering.types";
 
 function mapSettings(raw: Record<string, unknown>): DiningNumberingSettings {
+  const idsRaw = raw.posAccountsMenuCategoryIds;
+  const posAccountsMenuCategoryIds = Array.isArray(idsRaw)
+    ? idsRaw.map((id) => String(id ?? "").trim()).filter(Boolean)
+    : [];
+  const catsRaw = raw.posAccountsMenuCategories;
+  const posAccountsMenuCategories = Array.isArray(catsRaw)
+    ? catsRaw
+        .map((row) => {
+          if (!row || typeof row !== "object") return null;
+          const o = row as Record<string, unknown>;
+          const id = String(o.id ?? "").trim();
+          const name = String(o.name ?? "").trim();
+          if (!id || !name) return null;
+          return { id, name };
+        })
+        .filter((x): x is { id: string; name: string } => x != null)
+    : [];
   return {
     branchId: String(raw.branchId ?? ""),
     companyId: String(raw.companyId ?? ""),
@@ -14,6 +31,8 @@ function mapSettings(raw: Record<string, unknown>): DiningNumberingSettings {
     resetTimeLocal: String(raw.resetTimeLocal ?? "00:00:01"),
     allowWaiterOpenTable: raw.allowWaiterOpenTable !== false,
     allowPosOpenTable: raw.allowPosOpenTable === true,
+    posAccountsMenuCategoryIds,
+    posAccountsMenuCategories,
   };
 }
 
@@ -55,6 +74,7 @@ export const DiningNumberingRequest = {
       resetTimeLocal?: string;
       allowWaiterOpenTable?: boolean;
       allowPosOpenTable?: boolean;
+      posAccountsMenuCategoryIds?: string[];
     },
   ): Promise<DiningNumberingSettingsResult> {
     const id = branchId.trim();

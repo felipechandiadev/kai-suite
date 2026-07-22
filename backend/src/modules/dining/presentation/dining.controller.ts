@@ -112,6 +112,7 @@ export class DiningController {
       resetTimeLocal: dto.resetTimeLocal,
       allowWaiterOpenTable: dto.allowWaiterOpenTable,
       allowPosOpenTable: dto.allowPosOpenTable,
+      posAccountsMenuCategoryIds: dto.posAccountsMenuCategoryIds,
     });
   }
 

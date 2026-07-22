@@ -69,6 +69,9 @@ export type PosDiningBranchSettings = {
   resetTimeLocal: string;
   allowWaiterOpenTable: boolean;
   allowPosOpenTable: boolean;
+  /** Vacío = universo “todas” (badges = categorías resueltas). */
+  posAccountsMenuCategoryIds: string[];
+  posAccountsMenuCategories: Array<{ id: string; name: string }>;
 };
 
 export type PosDiningOrdersListResponse =
@@ -94,7 +97,7 @@ export type LoadedDiningOrderMeta = {
   kind: DiningOrderKind;
 };
 
-/** Grupo del buscador de menú en pantalla Cuentas (desktop). */
+/** @deprecated Prefer category badges; kept for searchMenu legacy. */
 export type PosDiningMenuGroup = "fisicos" | "preparados";
 
 export type PosDiningMenuVariant = {

@@ -5,6 +5,9 @@ export type DiningNumberingSettings = {
   resetTimeLocal: string;
   allowWaiterOpenTable: boolean;
   allowPosOpenTable: boolean;
+  /** Vacío = todas las categorías en el menú de accounts. */
+  posAccountsMenuCategoryIds: string[];
+  posAccountsMenuCategories: Array<{ id: string; name: string }>;
 };
 
 export type DiningNumberingSettingsResult =

@@ -1,7 +1,9 @@
 import {
+  IsArray,
   IsBoolean,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   MaxLength,
 } from 'class-validator';
@@ -27,4 +29,10 @@ export class UpdateDiningNumberingSettingsDto {
   @IsOptional()
   @IsBoolean()
   allowPosOpenTable?: boolean;
+
+  /** Vacío = todas las categorías en el menú de accounts. */
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  posAccountsMenuCategoryIds?: string[];
 }

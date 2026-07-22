@@ -49,6 +49,7 @@ import { OperationalExpense } from '@modules/operational-expenses/domain/operati
 import { RecurringOperationalExpense } from '@modules/operational-expenses/domain/recurring-operational-expense.entity';
 import { RecurringOperationalExpenseRun } from '@modules/operational-expenses/domain/recurring-operational-expense-run.entity';
 import { RecurringOperationalExpenses1757280000000 } from '../migrations/1757280000000-RecurringOperationalExpenses';
+import { DiningPosAccountsMenuCategories1757290000000 } from '../migrations/1757290000000-DiningPosAccountsMenuCategories';
 import { AccountingAccount } from '@modules/accounting-accounts/domain/accounting-account.entity';
 import { AccountingRule } from '@modules/accounting-rules/domain/accounting-rule.entity';
 import { AccountingPeriod } from '@modules/accounting-periods/domain/accounting-period.entity';
@@ -489,6 +490,7 @@ export const AppDataSource = new DataSource({
     HcmShiftSystems1757260000000,
     HcmShiftInstanceLaborUnitShift1757270000000,
     RecurringOperationalExpenses1757280000000,
+    DiningPosAccountsMenuCategories1757290000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

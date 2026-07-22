@@ -101,7 +101,9 @@ const IconButton: React.FC<IconButtonProps> = ({
 	const effectiveDisabled = disabled || isLoading;
 	const variantClass = resolveVariantClass(variant);
 
-	const IconComponent = Icons[icon] as React.ComponentType<any>;
+	const IconComponent = (
+		isLoading ? Icons.Loader2 : Icons[icon]
+	) as React.ComponentType<any>;
 
 	if (!IconComponent) {
 		console.warn(`Icon "${icon}" not found in lucide-react`);
@@ -131,13 +133,14 @@ const IconButton: React.FC<IconButtonProps> = ({
 			data-test-id="icon-button-root"
 			onClick={onClick}
 			aria-label={ariaLabel}
+			aria-busy={isLoading || undefined}
 			disabled={effectiveDisabled}
 			{...props}
 		>
 			<IconComponent
 				size={iconSize}
 				strokeWidth={strokeWidth}
-				className={`select-none ${isLoading ? 'animate-spin' : ''} ${iconClassName}`.trim()}
+				className={`select-none ${isLoading ? 'fs-icon-button__icon--loading' : ''} ${iconClassName}`.trim()}
 				aria-hidden
 			/>
 		</button>

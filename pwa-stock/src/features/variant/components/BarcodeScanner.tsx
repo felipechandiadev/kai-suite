@@ -1,31 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Button } from "@kai/ui";
 import {
-  getCameraStartConfigs,
+  createBarcodeScanner,
   isCameraSecureContext,
-  isRetryableCameraError,
-  mapCameraStartError,
   prefersCameraUserGesture,
-} from "../lib/barcode-scanner-camera";
+  type BarcodeScannerHandle,
+} from "@kai/barcode-scanner";
 
 type BarcodeScannerProps = {
   onScan: (code: string) => void;
   paused?: boolean;
 };
 
-function isScannerStopError(error: unknown): boolean {
-  const msg = error instanceof Error ? error.message : String(error ?? "");
-  return /not running|not paused/i.test(msg);
-}
+const APP_HINT = "http://localhost:5063";
 
 export default function BarcodeScanner({ onScan, paused = false }: BarcodeScannerProps) {
-  const regionId = useId().replace(/:/g, "");
-  const scannerRef = useRef<{ stop: () => Promise<void> } | null>(null);
-  const runningRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const scannerRef = useRef<BarcodeScannerHandle | null>(null);
   const startGenRef = useRef(0);
-  const lastScanRef = useRef<{ code: string; at: number } | null>(null);
   const onScanRef = useRef(onScan);
   onScanRef.current = onScan;
 
@@ -37,92 +31,60 @@ export default function BarcodeScanner({ onScan, paused = false }: BarcodeScanne
   const stopScanner = useCallback(async () => {
     const s = scannerRef.current;
     scannerRef.current = null;
-    if (!s || !runningRef.current) {
-      runningRef.current = false;
-      return;
-    }
-    runningRef.current = false;
+    if (!s) return;
     try {
       await s.stop();
     } catch (e) {
-      if (!isScannerStopError(e)) {
-        console.warn("[BarcodeScanner] stop:", e);
-      }
+      console.warn("[BarcodeScanner] stop:", e);
     }
   }, []);
 
   const startScanner = useCallback(async () => {
     if (paused) return;
-
     const gen = ++startGenRef.current;
     setCameraError(null);
     setStarting(true);
 
     await stopScanner();
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve());
+    });
+
+    const container = containerRef.current;
+    if (!container || gen !== startGenRef.current) {
+      if (gen === startGenRef.current) setStarting(false);
+      return;
+    }
 
     try {
       if (!isCameraSecureContext()) {
         throw new Error("INSECURE_CONTEXT");
       }
 
-      const { Html5Qrcode } = await import("html5-qrcode");
-      const scanner = new Html5Qrcode(regionId);
-      const cameraConfigs = await getCameraStartConfigs();
-      const scanConfig = { fps: 10, qrbox: { width: 260, height: 160 } };
+      const scanner = createBarcodeScanner({
+        appHint: APP_HINT,
+        onScan: (code) => onScanRef.current(code),
+        onError: (message) => {
+          if (gen === startGenRef.current) setCameraError(message);
+        },
+      });
 
-      const onDecode = (decoded: string) => {
-        const code = decoded.trim();
-        if (!code) return;
-        const now = Date.now();
-        const prev = lastScanRef.current;
-        if (prev && prev.code === code && now - prev.at < 1500) return;
-        lastScanRef.current = { code, at: now };
-        onScanRef.current(code);
-      };
-
-      let lastError: unknown = null;
-      let started = false;
-
-      for (const cameraConfig of cameraConfigs) {
-        if (gen !== startGenRef.current) break;
-        try {
-          await scanner.start(cameraConfig, scanConfig, onDecode, () => {});
-          started = true;
-          break;
-        } catch (e) {
-          lastError = e;
-          if (!isRetryableCameraError(e)) break;
-          try {
-            await scanner.stop();
-          } catch (stopErr) {
-            if (!isScannerStopError(stopErr)) {
-              console.warn("[BarcodeScanner] stop after failed start:", stopErr);
-            }
-          }
-        }
-      }
-
-      if (!started) {
-        throw lastError ?? new Error("No se pudo iniciar la cámara");
-      }
+      await scanner.start(container);
 
       if (gen !== startGenRef.current) {
-        try {
-          await scanner.stop();
-        } catch (e) {
-          if (!isScannerStopError(e)) {
-            console.warn("[BarcodeScanner] stop after stale start:", e);
-          }
-        }
+        await scanner.stop();
         return;
       }
 
       scannerRef.current = scanner;
-      runningRef.current = true;
       setCameraActive(true);
     } catch (e) {
       if (gen === startGenRef.current) {
-        setCameraError(mapCameraStartError(e));
+        const msg =
+          e instanceof Error && e.message
+            ? e.message
+            : "No se pudo acceder a la cámara.";
+        setCameraError(msg);
         setCameraActive(false);
       }
     } finally {
@@ -130,7 +92,7 @@ export default function BarcodeScanner({ onScan, paused = false }: BarcodeScanne
         setStarting(false);
       }
     }
-  }, [paused, regionId, stopScanner]);
+  }, [paused, stopScanner]);
 
   useEffect(() => {
     setMounted(true);
@@ -140,6 +102,7 @@ export default function BarcodeScanner({ onScan, paused = false }: BarcodeScanne
     if (!mounted || paused) {
       startGenRef.current += 1;
       void stopScanner();
+      setCameraActive(false);
       return;
     }
     if (!prefersCameraUserGesture() && isCameraSecureContext()) {
@@ -156,7 +119,7 @@ export default function BarcodeScanner({ onScan, paused = false }: BarcodeScanne
   const hintText = !mounted
     ? "Toca para activar la cámara."
     : !isCameraSecureContext()
-      ? "Safari bloquea la cámara en URLs por IP. Usa localhost:3033 en el simulador o HTTPS en el iPhone."
+      ? "Safari bloquea la cámara en URLs por IP. Usa localhost:5063 en el simulador o HTTPS en el iPhone."
       : prefersCameraUserGesture()
         ? "En iPhone/Safari debes tocar el botón para que el navegador pida permiso de cámara."
         : null;
@@ -189,8 +152,8 @@ export default function BarcodeScanner({ onScan, paused = false }: BarcodeScanne
       ) : null}
 
       <div
-        id={regionId}
-        className={`mx-auto min-h-[220px] w-full overflow-hidden rounded-lg border border-border bg-neutral ${
+        ref={containerRef}
+        className={`relative mx-auto min-h-[220px] w-full overflow-hidden rounded-lg border border-border bg-neutral ${
           cameraActive || starting ? "" : "hidden"
         }`}
         data-test-id="barcode-scanner-region"

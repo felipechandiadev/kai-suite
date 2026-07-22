@@ -27,7 +27,10 @@ export function setMigratedLocalStorageItem(
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(newKey, value);
-    window.localStorage.removeItem(legacyKey);
+    // Solo borrar legacy si es otra clave (si new === legacy, removeItem borraba lo recién guardado).
+    if (legacyKey && legacyKey !== newKey) {
+      window.localStorage.removeItem(legacyKey);
+    }
   } catch {
     /* ignore */
   }

@@ -22,7 +22,7 @@ import {
 import {
   isCameraSecureContext,
   prefersCameraUserGesture,
-} from "@/features/pos-products/lib/barcode-scanner-camera";
+} from "@kai/barcode-scanner/camera";
 import {
   addPosProductSearchFocusListener,
   requestPosProductSearchFocus,

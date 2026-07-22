@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DiningRealtimeModule } from '@modules/dining-realtime/dining-realtime.module';
 import { Branch } from '@modules/branches/domain/branch.entity';
+import { Category } from '@modules/categories/domain/category.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
 import { DiningRoom } from './domain/dining-room.entity';
@@ -39,6 +40,7 @@ import { ProductVariantsModule } from '@modules/product-variants/product-variant
       DiningOrderSequence,
       DiningKitchenFireSequence,
       Branch,
+      Category,
       ProductVariant,
       ProductionUnit,
       Transaction,

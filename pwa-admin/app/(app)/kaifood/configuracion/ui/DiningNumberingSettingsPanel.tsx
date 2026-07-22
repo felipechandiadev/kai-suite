@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Alert, IconButton, Select, Switch, TextField } from "@kai/ui";
+import { Alert, Badge, IconButton, Select, Switch, TextField } from "@kai/ui";
 import {
   getDiningNumberingSettingsAction,
   updateDiningNumberingSettingsAction,
 } from "@/features/kaifood-dining/actions/dining-numbering.action";
+import { listCategoriesForPage } from "@/features/inventory-categories/actions/category.action";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
 
 type Props = {
   branches: BranchListItem[];
 };
+
+type CategoryOption = { id: string; name: string };
 
 export function DiningNumberingSettingsPanel({ branches }: Props) {
   const [branchId, setBranchId] = useState(branches[0]?.id ?? "");
@@ -18,9 +21,22 @@ export function DiningNumberingSettingsPanel({ branches }: Props) {
   const [resetTimeLocal, setResetTimeLocal] = useState("00:00:01");
   const [allowWaiterOpenTable, setAllowWaiterOpenTable] = useState(true);
   const [allowPosOpenTable, setAllowPosOpenTable] = useState(false);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [allCategories, setAllCategories] = useState<CategoryOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    void listCategoriesForPage().then((rows) => {
+      setAllCategories(
+        rows
+          .filter((c) => c.isActive !== false)
+          .map((c) => ({ id: c.id, name: c.name }))
+          .sort((a, b) => a.name.localeCompare(b.name, "es")),
+      );
+    });
+  }, []);
 
   useEffect(() => {
     if (!branchId.trim()) return;
@@ -36,8 +52,15 @@ export function DiningNumberingSettingsPanel({ branches }: Props) {
       setResetTimeLocal(res.settings.resetTimeLocal);
       setAllowWaiterOpenTable(res.settings.allowWaiterOpenTable !== false);
       setAllowPosOpenTable(res.settings.allowPosOpenTable === true);
+      setSelectedCategoryIds(res.settings.posAccountsMenuCategoryIds ?? []);
     });
   }, [branchId]);
+
+  const toggleCategory = (id: string) => {
+    setSelectedCategoryIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
 
   const handleSave = () => {
     if (!branchId.trim()) return;
@@ -52,6 +75,7 @@ export function DiningNumberingSettingsPanel({ branches }: Props) {
         resetTimeLocal: resetTimeLocal.trim(),
         allowWaiterOpenTable,
         allowPosOpenTable,
+        posAccountsMenuCategoryIds: selectedCategoryIds,
       }).then((res) => {
         if (!res.success) {
           setError(res.message);
@@ -61,6 +85,7 @@ export function DiningNumberingSettingsPanel({ branches }: Props) {
         setResetTimeLocal(res.settings.resetTimeLocal);
         setAllowWaiterOpenTable(res.settings.allowWaiterOpenTable !== false);
         setAllowPosOpenTable(res.settings.allowPosOpenTable === true);
+        setSelectedCategoryIds(res.settings.posAccountsMenuCategoryIds ?? []);
       });
     });
   };
@@ -81,7 +106,8 @@ export function DiningNumberingSettingsPanel({ branches }: Props) {
       <div>
         <h1 className="text-xl font-semibold text-foreground">Configuración KaiFood</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Correlativos de barra/para llevar y quién puede abrir cuentas de mesa, por sucursal.
+          Correlativos de barra/para llevar, quién puede abrir mesas y categorías del menú en
+          Cuentas (POS), por sucursal.
         </p>
       </div>
 
@@ -149,6 +175,41 @@ export function DiningNumberingSettingsPanel({ branches }: Props) {
           Debe quedar al menos un canal habilitado. Barra y para llevar siempre se abren desde el
           POS.
         </p>
+      </div>
+
+      <div
+        className="rounded-lg border border-border bg-muted/20 px-3 py-3"
+        data-test-id="kaifood-accounts-menu-categories"
+      >
+        <p className="mb-1 text-sm font-medium text-foreground">
+          Categorías en menú de Cuentas (POS)
+        </p>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Seleccioná las categorías que aparecen como filtros en el panel central. Ninguna = todas.
+        </p>
+        {allCategories.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No hay categorías de catálogo.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {allCategories.map((cat) => {
+              const active = selectedCategoryIds.includes(cat.id);
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  disabled={loading || pending}
+                  onClick={() => toggleCategory(cat.id)}
+                  className="disabled:opacity-50"
+                  data-test-id={`kaifood-accounts-menu-category-${cat.id}`}
+                >
+                  <Badge variant={active ? "secondary" : "secondary-outlined"}>
+                    {cat.name}
+                  </Badge>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="flex justify-end">

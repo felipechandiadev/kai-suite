@@ -30,6 +30,13 @@ import {
   updatePosDiningOrderLineNotesAction,
 } from "@/features/dining/actions/dining-pos.action";
 import { diningAccountTitle } from "@/features/dining/lib/dining-account-title";
+import {
+  readPosDiningMenuColumnCollapsed,
+  readPosDiningTablesView,
+  writePosDiningMenuColumnCollapsed,
+  writePosDiningTablesView,
+  type PosDiningTablesView,
+} from "@/features/dining/lib/dining-menu-column-collapsed-storage";
 import { diningOrderLinesToCart } from "@/features/dining/lib/dining-order-lines-to-cart";
 import { diningOrderAllKitchenReady } from "@/features/dining/lib/group-dining-order-lines";
 import { mergeDiningSessionLines } from "@/features/dining/lib/merge-dining-session-lines";
@@ -170,6 +177,8 @@ export default function PosDiningAccountsPanel({
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<PosDiningOrderSummary | null>(null);
   const [allowPosOpenTable, setAllowPosOpenTable] = useState(false);
+  const [menuColumnCollapsed, setMenuColumnCollapsed] = useState(false);
+  const [tablesView, setTablesView] = useState<PosDiningTablesView>("list");
   const [productByVariantId, setProductByVariantId] = useState<
     Record<string, DiningLineProductMeta>
   >({});
@@ -177,6 +186,21 @@ export default function PosDiningAccountsPanel({
   /** After first successful load for the current tab, refreshes stay silent (no spinner). */
   const listHydratedRef = useRef(false);
   const refreshListRef = useRef<(opts?: { silent?: boolean }) => void>(() => {});
+
+  useEffect(() => {
+    setMenuColumnCollapsed(readPosDiningMenuColumnCollapsed());
+    setTablesView(readPosDiningTablesView());
+  }, []);
+
+  const setMenuCollapsedPersist = useCallback((collapsed: boolean) => {
+    setMenuColumnCollapsed(collapsed);
+    writePosDiningMenuColumnCollapsed(collapsed);
+  }, []);
+
+  const setTablesViewPersist = useCallback((view: PosDiningTablesView) => {
+    setTablesView(view);
+    writePosDiningTablesView(view);
+  }, []);
 
   const navigateDining = useCallback(
     (params: URLSearchParams) => {
@@ -701,22 +725,54 @@ export default function PosDiningAccountsPanel({
     refreshList({ silent: true });
   };
 
-  const renderFreeTableCard = (mesa: {
-    tableId: string;
-    code: string;
-    label: string;
-    roomName: string;
-  }) => {
+  const renderFreeTableCard = (
+    mesa: {
+      tableId: string;
+      code: string;
+      label: string;
+      roomName: string;
+    },
+    layout: "list" | "grid" = "list",
+  ) => {
     const title = mesa.label.startsWith("Mesa ")
       ? mesa.label
       : `Mesa ${mesa.code || mesa.label}`;
+    const shortLabel = mesa.code?.trim() || mesa.label;
     const openDisabled =
       disabled || actionBusy || !branchId.trim() || !allowPosOpenTable;
+    const openTitle = allowPosOpenTable
+      ? "Abrir mesa"
+      : "Habilitá «POS (pantalla Cuentas)» en Configuración KaiFood";
+
+    if (layout === "grid") {
+      return (
+        <button
+          key={mesa.tableId}
+          type="button"
+          disabled={openDisabled}
+          title={openTitle}
+          aria-label={`Abrir mesa ${title}`}
+          onClick={() => handleOpenTable(mesa.tableId)}
+          className="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-lg border border-border bg-surface p-2 text-center shadow-sm transition-colors hover:border-primary/40 hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-60"
+          data-test-id={`pos-dining-table-free-${mesa.tableId}`}
+          data-layout="grid"
+        >
+          <span className="line-clamp-2 text-xs font-semibold leading-tight text-foreground">
+            {shortLabel}
+          </span>
+          <Badge variant="primary" className="text-[9px]">
+            Libre
+          </Badge>
+        </button>
+      );
+    }
+
     return (
       <div
         key={mesa.tableId}
         className="flex w-full flex-col gap-2 rounded-xl border border-border bg-surface p-3 text-left shadow-sm"
         data-test-id={`pos-dining-table-free-${mesa.tableId}`}
+        data-layout="list"
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -734,11 +790,7 @@ export default function PosDiningAccountsPanel({
           className="w-full"
           disabled={openDisabled}
           aria-label={`Abrir mesa ${title}`}
-          title={
-            allowPosOpenTable
-              ? "Abrir mesa"
-              : "Habilitá «POS (pantalla Cuentas)» en Configuración KaiFood"
-          }
+          title={openTitle}
           onClick={() => handleOpenTable(mesa.tableId)}
           data-test-id={`pos-dining-open-table-${mesa.tableId}`}
         >
@@ -748,30 +800,70 @@ export default function PosDiningAccountsPanel({
     );
   };
 
-  const renderOrderButton = (order: PosDiningOrderSummary) => {
+  const renderOrderButton = (
+    order: PosDiningOrderSummary,
+    layout: "list" | "grid" = "list",
+  ) => {
     const activeLines = order.lines.filter((l) => l.kitchenStatus !== "CANCELLED");
     const progress = kitchenProgressFromLines(order.lines);
     const selected = order.id === urlOrderId;
     const allReady = diningOrderAllKitchenReady(order.lines);
     const title = diningAccountTitle(order);
     const estimated = estimateOrderTotal(order);
+    const tone = selected
+      ? allReady
+        ? "border-success/50 bg-success/15"
+        : "border-primary/50 bg-primary/5"
+      : allReady
+        ? "border-success/40 bg-success/10 hover:border-success/50 hover:bg-success/15"
+        : "border-border bg-surface hover:border-primary/40 hover:bg-primary/5";
+
+    if (layout === "grid") {
+      return (
+        <button
+          key={order.id}
+          type="button"
+          disabled={disabled}
+          onClick={() => setSelectedOrderId(order.id)}
+          className={`flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-lg border p-2 text-center shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${tone}`}
+          data-test-id={`pos-dining-pick-${order.id}`}
+          data-all-ready={allReady ? "true" : "false"}
+          data-layout="grid"
+        >
+          <span className="line-clamp-2 text-xs font-semibold leading-tight text-foreground">
+            {title}
+          </span>
+          {progress.inKitchen > 0 || progress.ready > 0 ? (
+            <span className="text-[9px] tabular-nums text-muted-foreground">
+              {progress.inKitchen > 0 ? `Cocina ${progress.inKitchen}` : null}
+              {progress.inKitchen > 0 && progress.ready > 0 ? " · " : null}
+              {progress.ready > 0 ? `Listos ${progress.ready}` : null}
+            </span>
+          ) : (
+            <Badge variant="secondary-outlined" className="text-[9px]">
+              {diningOrderStatusLabel(order.status)}
+            </Badge>
+          )}
+          <span
+            className="text-[11px] font-semibold tabular-nums text-foreground"
+            data-test-id={`pos-dining-pick-estimated-${order.id}`}
+          >
+            {formatMoney(estimated)}
+          </span>
+        </button>
+      );
+    }
+
     return (
       <button
         key={order.id}
         type="button"
         disabled={disabled}
         onClick={() => setSelectedOrderId(order.id)}
-        className={`block w-full rounded-xl border p-3 text-left shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-          selected
-            ? allReady
-              ? "border-success/50 bg-success/15"
-              : "border-primary/50 bg-primary/5"
-            : allReady
-              ? "border-success/40 bg-success/10 hover:border-success/50 hover:bg-success/15"
-              : "border-border bg-surface hover:border-primary/40 hover:bg-primary/5"
-        }`}
+        className={`block w-full rounded-xl border p-3 text-left shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${tone}`}
         data-test-id={`pos-dining-pick-${order.id}`}
         data-all-ready={allReady ? "true" : "false"}
+        data-layout="list"
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -828,45 +920,62 @@ export default function PosDiningAccountsPanel({
   const accountsListBody = (
     <>
       {tab === "mesas" && rooms.length > 0 ? (
-        <div
-          className="flex flex-wrap gap-1.5"
-          role="group"
-          aria-label="Filtrar por salón"
-          data-test-id="pos-dining-room-filter"
-        >
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => setRoomFilter("")}
-            className="rounded-full disabled:cursor-not-allowed disabled:opacity-50"
-            aria-pressed={!urlRoomId}
-            data-test-id="pos-dining-room-filter-all"
+        <div className="flex items-start gap-2">
+          <div
+            className="flex min-w-0 flex-1 flex-wrap gap-1.5"
+            role="group"
+            aria-label="Filtrar por salón"
+            data-test-id="pos-dining-room-filter"
           >
-            <Badge variant={!urlRoomId ? "primary" : "secondary-outlined"} className="text-[11px]">
-              Todos
-            </Badge>
-          </button>
-          {rooms.map((room) => {
-            const active = urlRoomId === room.id;
-            return (
-              <button
-                key={room.id}
-                type="button"
-                disabled={disabled}
-                onClick={() => setRoomFilter(room.id)}
-                className="rounded-full disabled:cursor-not-allowed disabled:opacity-50"
-                aria-pressed={active}
-                data-test-id={`pos-dining-room-filter-${room.id}`}
-              >
-                <Badge
-                  variant={active ? "primary" : "secondary-outlined"}
-                  className="text-[11px]"
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => setRoomFilter("")}
+              className="rounded-full disabled:cursor-not-allowed disabled:opacity-50"
+              aria-pressed={!urlRoomId}
+              data-test-id="pos-dining-room-filter-all"
+            >
+              <Badge variant={!urlRoomId ? "primary" : "secondary-outlined"} className="text-[11px]">
+                Todos
+              </Badge>
+            </button>
+            {rooms.map((room) => {
+              const active = urlRoomId === room.id;
+              return (
+                <button
+                  key={room.id}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => setRoomFilter(room.id)}
+                  className="rounded-full disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-pressed={active}
+                  data-test-id={`pos-dining-room-filter-${room.id}`}
                 >
-                  {room.name}
-                </Badge>
-              </button>
-            );
-          })}
+                  <Badge
+                    variant={active ? "primary" : "secondary-outlined"}
+                    className="text-[11px]"
+                  >
+                    {room.name}
+                  </Badge>
+                </button>
+              );
+            })}
+          </div>
+          <IconButton
+            icon={tablesView === "grid" ? "LayoutList" : "LayoutGrid"}
+            variant="action"
+            size="sm"
+            className="shrink-0"
+            ariaLabel={
+              tablesView === "grid" ? "Vista lista de mesas" : "Vista grilla de mesas"
+            }
+            title={tablesView === "grid" ? "Vista lista" : "Vista grilla"}
+            disabled={disabled}
+            onClick={() =>
+              setTablesViewPersist(tablesView === "grid" ? "list" : "grid")
+            }
+            data-test-id="pos-dining-tables-view-toggle"
+          />
         </div>
       ) : null}
 
@@ -921,16 +1030,27 @@ export default function PosDiningAccountsPanel({
             <DotProgress />
           </div>
         ) : (
-          <div className="space-y-2">
+          <div
+            className={
+              tab === "mesas" && tablesView === "grid"
+                ? menuColumnCollapsed
+                  ? "grid grid-cols-6 gap-2"
+                  : "grid grid-cols-3 gap-2"
+                : "space-y-2"
+            }
+            data-tables-view={tab === "mesas" ? tablesView : undefined}
+          >
             {tab === "mesas" ? (
               <>
                 {mesaCards.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No hay mesas en este salón.</p>
+                  <p className="col-span-full text-sm text-muted-foreground">
+                    No hay mesas en este salón.
+                  </p>
                 ) : null}
                 {mesaCards.map((mesa) =>
                   mesa.order
-                    ? renderOrderButton(mesa.order)
-                    : renderFreeTableCard(mesa),
+                    ? renderOrderButton(mesa.order, tablesView)
+                    : renderFreeTableCard(mesa, tablesView),
                 )}
               </>
             ) : (
@@ -938,7 +1058,7 @@ export default function PosDiningAccountsPanel({
                 {filteredOrders.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No hay cuentas activas.</p>
                 ) : null}
-                {filteredOrders.map(renderOrderButton)}
+                {filteredOrders.map((order) => renderOrderButton(order, "list"))}
               </>
             )}
           </div>
@@ -1177,10 +1297,15 @@ export default function PosDiningAccountsPanel({
   if (pageDesktop) {
     return (
       <div
-        className={`grid w-full grid-cols-3 gap-4 ${shellClass}`}
+        className={`relative grid w-full gap-4 ${shellClass} ${
+          menuColumnCollapsed
+            ? "grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]"
+            : "grid-cols-3"
+        }`}
         style={shellStyle}
         data-test-id="pos-dining-accounts-desktop"
         data-dining-ws={diningWsConnected ? "connected" : "disconnected"}
+        data-menu-collapsed={menuColumnCollapsed ? "1" : "0"}
       >
         <aside
           className="flex h-full min-h-0 min-w-0 flex-col gap-3 rounded-xl border border-border bg-background p-4"
@@ -1191,13 +1316,48 @@ export default function PosDiningAccountsPanel({
           {accountsListBody}
         </aside>
 
-        <PosDiningMenuColumn
-          orderId={urlOrderId || null}
-          disabled={disabled}
-          fillViewport={fillViewport}
-          heightVh={heightVh}
-          onOrderUpdated={handleMenuOrderUpdated}
-        />
+        {menuColumnCollapsed ? (
+          <aside
+            className={`flex w-11 shrink-0 flex-col items-center rounded-xl border border-border bg-background py-3 ${
+              fillViewport ? "h-full min-h-0" : ""
+            }`}
+            style={
+              fillViewport
+                ? undefined
+                : { height: `${heightVh}vh`, minHeight: `${heightVh}vh` }
+            }
+            aria-label="Menú colapsado"
+            data-test-id="pos-dining-menu-column-collapsed"
+          >
+            <IconButton
+              icon="PanelLeftOpen"
+              variant="action"
+              size="sm"
+              ariaLabel="Expandir menú"
+              title="Expandir menú"
+              onClick={() => setMenuCollapsedPersist(false)}
+              data-test-id="pos-dining-menu-expand"
+            />
+          </aside>
+        ) : null}
+        {/* Mantener montado al colapsar para no perder filtros/búsqueda en sesión. */}
+        <div
+          className={
+            menuColumnCollapsed
+              ? "pointer-events-none absolute h-0 w-0 overflow-hidden opacity-0"
+              : "flex min-h-0 min-w-0 flex-col"
+          }
+          aria-hidden={menuColumnCollapsed || undefined}
+        >
+          <PosDiningMenuColumn
+            orderId={urlOrderId || null}
+            disabled={disabled}
+            fillViewport={fillViewport}
+            heightVh={heightVh}
+            onOrderUpdated={handleMenuOrderUpdated}
+            onCollapse={() => setMenuCollapsedPersist(true)}
+          />
+        </div>
 
         <aside
           className="flex h-full min-h-0 min-w-0 flex-col gap-3 rounded-xl border border-border bg-background p-4"

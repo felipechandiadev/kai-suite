@@ -16,6 +16,18 @@ loadEnvConfig(appRoot);
 
 const kaiResolveAlias = {
   "@kai/ui$": path.join(packagesRoot, "ui", "src", "index.ts"),
+  "@kai/barcode-scanner$": path.join(
+    packagesRoot,
+    "barcode-scanner",
+    "src",
+    "index.ts",
+  ),
+  "@kai/barcode-scanner/camera$": path.join(
+    packagesRoot,
+    "barcode-scanner",
+    "src",
+    "camera.ts",
+  ),
   "@kai/chile-catalogs": path.join(packagesRoot, "chile-catalogs", "src", "index.ts"),
   "@kai/customer-display-client": path.join(
     packagesRoot,
@@ -31,6 +43,10 @@ const kaiResolveAlias = {
     "index.ts",
   ),
   "@kai/fiscal-ted": path.join(packagesRoot, "fiscal-ted", "src", "index.ts"),
+  "@undecaf/zbar-wasm$": path.join(
+    monorepoRoot,
+    "node_modules/@undecaf/zbar-wasm/dist/inlined/index.mjs",
+  ),
   ...monorepoReactAliases(appRoot),
   ...monorepoNextAuthAliases(appRoot),
 };
@@ -49,6 +65,7 @@ const nextConfig: NextConfig = {
   },
   allowedDevOrigins: buildLanAllowedDevOrigins(),
   transpilePackages: [
+    "@kai/barcode-scanner",
     "@kai/chile-catalogs",
     "@kai/customer-display-client",
     "@kai/document-print",
@@ -56,12 +73,41 @@ const nextConfig: NextConfig = {
     "@kai/fiscal-ted",
     "@kai/ui",
   ],
-  webpack: (config) => {
+  webpack: (config, { isServer }) => {
     config.resolve.alias = {
       ...config.resolve.alias,
       "@kai/ui$": path.join(packagesRoot, "ui", "src", "index.ts"),
+      "@kai/barcode-scanner$": path.join(
+        packagesRoot,
+        "barcode-scanner",
+        "src",
+        "index.ts",
+      ),
+      "@kai/barcode-scanner/camera$": path.join(
+        packagesRoot,
+        "barcode-scanner",
+        "src",
+        "camera.ts",
+      ),
+      // Browser inlined build — avoids Node `import('module')` in main.mjs
+      "@undecaf/zbar-wasm$": path.join(
+        monorepoRoot,
+        "node_modules/@undecaf/zbar-wasm/dist/inlined/index.mjs",
+      ),
       ...monorepoReactAliases(appRoot),
       ...monorepoNextAuthAliases(appRoot),
+    };
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        module: false,
+        fs: false,
+        path: false,
+      };
+    }
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
     };
     return config;
   },

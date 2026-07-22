@@ -1,0 +1,19 @@
+{
+  "name": "@kai/barcode-scanner",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./camera": "./src/camera.ts"
+  },
+  "dependencies": {
+    "@undecaf/zbar-wasm": "^0.11.0",
+    "@zxing/library": "^0.21.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

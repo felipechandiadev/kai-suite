@@ -13,6 +13,7 @@ export async function updateDiningNumberingSettingsAction(
     resetTimeLocal?: string;
     allowWaiterOpenTable?: boolean;
     allowPosOpenTable?: boolean;
+    posAccountsMenuCategoryIds?: string[];
   },
 ) {
   return DiningNumberingRequest.update(branchId, patch);

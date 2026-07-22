@@ -11,6 +11,7 @@
     "generate-pwa-icons": "node scripts/generate-pwa-icons.mjs"
   },
   "dependencies": {
+    "@kai/barcode-scanner": "*",
     "@kai/chile-catalogs": "*",
     "@kai/customer-display-client": "*",
     "@kai/document-print": "*",
@@ -22,7 +23,6 @@
     "bwip-js": "^4.11.1",
     "dexie": "^4.0.11",
     "html2canvas": "^1.4.1",
-    "html5-qrcode": "^2.3.8",
     "jsbarcode": "^3.11.6",
     "jspdf": "^4.2.1",
     "leaflet": "^1.9.4",

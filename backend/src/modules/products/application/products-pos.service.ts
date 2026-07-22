@@ -86,6 +86,7 @@ export class ProductsPosService {
       pageSize = 20,
       pointOfSaleId,
       productTypes,
+      categoryIds,
     } = dto;
 
     if (!priceListId) {
@@ -131,6 +132,16 @@ export class ProductsPosService {
     } else {
       qb.andWhere('product.productType != :insumoType', {
         insumoType: ProductType.INSUMO,
+      });
+    }
+
+    const categoryIdList = (categoryIds ?? '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+    if (categoryIdList.length > 0) {
+      qb.andWhere('product.categoryId IN (:...categoryIdList)', {
+        categoryIdList,
       });
     }
 

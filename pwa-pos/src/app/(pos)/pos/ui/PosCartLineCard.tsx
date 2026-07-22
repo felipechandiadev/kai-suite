@@ -458,7 +458,7 @@ export default function PosCartLineCard({
                 ) : null}
                 {enableDiningTransfer && branchId?.trim() && !readOnly ? (
                   <IconButton
-                    icon="UtensilsCrossed"
+                    icon="Utensils"
                     variant="action"
                     size="xs"
                     ariaLabel="Transferir a cuenta salón"

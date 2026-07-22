@@ -236,6 +236,23 @@ export class DiningPosRequest {
       return { success: false, message: "Respuesta inválida del servidor" };
     }
     const row = data as Record<string, unknown>;
+    const idsRaw = row.posAccountsMenuCategoryIds;
+    const posAccountsMenuCategoryIds = Array.isArray(idsRaw)
+      ? idsRaw.map((id) => String(id ?? "").trim()).filter(Boolean)
+      : [];
+    const catsRaw = row.posAccountsMenuCategories;
+    const posAccountsMenuCategories = Array.isArray(catsRaw)
+      ? catsRaw
+          .map((item) => {
+            if (!item || typeof item !== "object") return null;
+            const o = item as Record<string, unknown>;
+            const id = String(o.id ?? "").trim();
+            const name = String(o.name ?? "").trim();
+            if (!id || !name) return null;
+            return { id, name };
+          })
+          .filter((x): x is { id: string; name: string } => x != null)
+      : [];
     return {
       success: true,
       settings: {
@@ -243,6 +260,8 @@ export class DiningPosRequest {
         resetTimeLocal: String(row.resetTimeLocal ?? "00:00:01"),
         allowWaiterOpenTable: row.allowWaiterOpenTable !== false,
         allowPosOpenTable: row.allowPosOpenTable === true,
+        posAccountsMenuCategoryIds,
+        posAccountsMenuCategories,
       },
     };
   }

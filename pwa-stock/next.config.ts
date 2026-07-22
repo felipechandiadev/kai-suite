@@ -16,6 +16,22 @@ loadEnvConfig(appRoot);
 
 const kaiResolveAlias = {
   "@kai/ui$": path.join(packagesRoot, "ui", "src", "index.ts"),
+  "@kai/barcode-scanner$": path.join(
+    packagesRoot,
+    "barcode-scanner",
+    "src",
+    "index.ts",
+  ),
+  "@kai/barcode-scanner/camera$": path.join(
+    packagesRoot,
+    "barcode-scanner",
+    "src",
+    "camera.ts",
+  ),
+  "@undecaf/zbar-wasm$": path.join(
+    monorepoRoot,
+    "node_modules/@undecaf/zbar-wasm/dist/inlined/index.mjs",
+  ),
   ...monorepoReactAliases(appRoot),
   ...monorepoNextAuthAliases(appRoot),
 };
@@ -33,13 +49,41 @@ const nextConfig: NextConfig = {
     ...(isDev ? { resolveAlias: kaiResolveAlias } : {}),
   },
   allowedDevOrigins: buildLanAllowedDevOrigins(),
-  transpilePackages: ["@kai/ui"],
-  webpack: (config) => {
+  transpilePackages: ["@kai/barcode-scanner", "@kai/ui"],
+  webpack: (config, { isServer }) => {
     config.resolve.alias = {
       ...config.resolve.alias,
       "@kai/ui$": path.join(packagesRoot, "ui", "src", "index.ts"),
+      "@kai/barcode-scanner$": path.join(
+        packagesRoot,
+        "barcode-scanner",
+        "src",
+        "index.ts",
+      ),
+      "@kai/barcode-scanner/camera$": path.join(
+        packagesRoot,
+        "barcode-scanner",
+        "src",
+        "camera.ts",
+      ),
+      "@undecaf/zbar-wasm$": path.join(
+        monorepoRoot,
+        "node_modules/@undecaf/zbar-wasm/dist/inlined/index.mjs",
+      ),
       ...monorepoReactAliases(appRoot),
       ...monorepoNextAuthAliases(appRoot),
+    };
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        module: false,
+        fs: false,
+        path: false,
+      };
+    }
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
     };
     return config;
   },

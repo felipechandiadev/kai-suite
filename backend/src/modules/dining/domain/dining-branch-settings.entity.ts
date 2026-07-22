@@ -50,6 +50,17 @@ export class DiningBranchSettings {
   })
   allowPosOpenTable!: boolean;
 
+  /**
+   * Categorías visibles en el menú central de /accounts.
+   * Vacío = todas las categorías de la compañía.
+   */
+  @Column({
+    name: 'pos_accounts_menu_category_ids',
+    type: 'jsonb',
+    default: () => "'[]'::jsonb",
+  })
+  posAccountsMenuCategoryIds!: string[];
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto';
 import { In, Repository } from 'typeorm';
 import { TenantContext } from '@common/tenant/tenant.context';
 import { Branch } from '@modules/branches/domain/branch.entity';
+import { Category } from '@modules/categories/domain/category.entity';
 import { Product, ProductType } from '@modules/products/domain/product.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { ProductVariantsService } from '@modules/product-variants/application/product-variants.service';
@@ -82,6 +83,8 @@ export class DiningService {
     private readonly diningOrderLineRepository: Repository<DiningOrderLine>,
     @InjectRepository(Branch)
     private readonly branchRepository: Repository<Branch>,
+    @InjectRepository(Category)
+    private readonly categoryRepository: Repository<Category>,
     @InjectRepository(ProductVariant)
     private readonly productVariantRepository: Repository<ProductVariant>,
     @InjectRepository(ProductionUnit)
@@ -690,14 +693,7 @@ export class DiningService {
       branchId,
       companyId,
     );
-    return {
-      branchId: settings.branchId,
-      companyId: settings.companyId,
-      timezone: settings.timezone,
-      resetTimeLocal: settings.resetTimeLocal,
-      allowWaiterOpenTable: settings.allowWaiterOpenTable !== false,
-      allowPosOpenTable: settings.allowPosOpenTable === true,
-    };
+    return this.mapNumberingSettingsResponse(settings, companyId);
   }
 
   async updateNumberingSettings(
@@ -707,28 +703,100 @@ export class DiningService {
       resetTimeLocal?: string;
       allowWaiterOpenTable?: boolean;
       allowPosOpenTable?: boolean;
+      posAccountsMenuCategoryIds?: string[];
     },
   ) {
     const companyId = this.requireCompanyId();
     await this.assertBranchInCompany(branchId, companyId);
+    if (patch.posAccountsMenuCategoryIds !== undefined) {
+      await this.assertCategoriesInCompany(
+        patch.posAccountsMenuCategoryIds,
+        companyId,
+      );
+    }
     try {
       const settings = await this.diningOrderNumberService.updateSettings(
         branchId,
         companyId,
         patch,
       );
-      return {
-        branchId: settings.branchId,
-        companyId: settings.companyId,
-        timezone: settings.timezone,
-        resetTimeLocal: settings.resetTimeLocal,
-        allowWaiterOpenTable: settings.allowWaiterOpenTable !== false,
-        allowPosOpenTable: settings.allowPosOpenTable === true,
-      };
+      return this.mapNumberingSettingsResponse(settings, companyId);
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Configuración inválida';
       throw new BadRequestException(message);
     }
+  }
+
+  private async assertCategoriesInCompany(
+    categoryIds: string[],
+    companyId: string,
+  ): Promise<void> {
+    const ids = [
+      ...new Set(
+        categoryIds
+          .map((id) => String(id ?? '').trim())
+          .filter((id) => /^[0-9a-f-]{36}$/i.test(id)),
+      ),
+    ];
+    if (ids.length === 0) return;
+    const found = await this.categoryRepository.find({
+      where: { companyId, id: In(ids) },
+      select: ['id'],
+    });
+    if (found.length !== ids.length) {
+      throw new BadRequestException(
+        'Una o más categorías no pertenecen a la empresa.',
+      );
+    }
+  }
+
+  private async mapNumberingSettingsResponse(
+    settings: {
+      branchId: string;
+      companyId: string;
+      timezone: string;
+      resetTimeLocal: string;
+      allowWaiterOpenTable: boolean;
+      allowPosOpenTable: boolean;
+      posAccountsMenuCategoryIds?: string[] | null;
+    },
+    companyId: string,
+  ) {
+    const configuredIds = Array.isArray(settings.posAccountsMenuCategoryIds)
+      ? settings.posAccountsMenuCategoryIds
+          .map((id) => String(id ?? '').trim())
+          .filter((id) => /^[0-9a-f-]{36}$/i.test(id))
+      : [];
+
+    const categoryQb = this.categoryRepository
+      .createQueryBuilder('c')
+      .where('c.companyId = :companyId', { companyId })
+      .andWhere('c.deletedAt IS NULL')
+      .andWhere('c.isActive = true')
+      .orderBy('c.sortOrder', 'ASC')
+      .addOrderBy('c.name', 'ASC')
+      .select(['c.id', 'c.name']);
+
+    if (configuredIds.length > 0) {
+      categoryQb.andWhere('c.id IN (:...configuredIds)', { configuredIds });
+    }
+
+    const categories = await categoryQb.getMany();
+    const posAccountsMenuCategories = categories.map((c) => ({
+      id: c.id,
+      name: c.name,
+    }));
+
+    return {
+      branchId: settings.branchId,
+      companyId: settings.companyId,
+      timezone: settings.timezone,
+      resetTimeLocal: settings.resetTimeLocal,
+      allowWaiterOpenTable: settings.allowWaiterOpenTable !== false,
+      allowPosOpenTable: settings.allowPosOpenTable === true,
+      posAccountsMenuCategoryIds: configuredIds,
+      posAccountsMenuCategories,
+    };
   }
 
   async updateOrderProfile(

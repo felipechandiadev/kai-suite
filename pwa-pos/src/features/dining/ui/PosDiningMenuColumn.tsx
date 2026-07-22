@@ -2,14 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
-import { DotProgress, IconButton, TextField } from "@kai/ui";
-import { addPosDiningOrderItemsAction, batchPosDiningCtpAction } from "@/features/dining/actions/dining-pos.action";
-import type {
-  PosDiningMenuGroup,
-  PosDiningOrderSummary,
-} from "@/features/dining/types/dining-pos.types";
+import { DotProgress, Badge, IconButton, TextField } from "@kai/ui";
+import {
+  addPosDiningOrderItemsAction,
+  batchPosDiningCtpAction,
+  getPosDiningBranchSettingsAction,
+} from "@/features/dining/actions/dining-pos.action";
+import type { PosDiningOrderSummary } from "@/features/dining/types/dining-pos.types";
 import { useDiningCtpStockSubscription } from "@/features/dining/lib/use-dining-ctp-stock-subscription";
 import { useDiningMenuCtpInvalidateOnSession } from "@/features/dining/lib/use-dining-menu-ctp-invalidate";
+import {
+  readPosDiningMenuActiveCategoryIds,
+  writePosDiningMenuActiveCategoryIds,
+} from "@/features/dining/lib/dining-menu-column-collapsed-storage";
 import { useCatalogRealtime } from "@/features/pos-catalog/realtime/catalog-realtime-context";
 import { PosDiningMenuVariantInfoDialog } from "@/features/dining/ui/PosDiningMenuVariantInfoDialog";
 import {
@@ -33,10 +38,7 @@ import {
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/pos-api-failure";
 
-const GROUP_PRODUCT_TYPES: Record<PosDiningMenuGroup, string[]> = {
-  preparados: ["PREPARADO"],
-  fisicos: ["PHYSICAL", "ELABORADO", "MANUFACTURADO"],
-};
+type MenuCategory = { id: string; name: string };
 
 type Props = {
   orderId: string | null;
@@ -44,6 +46,8 @@ type Props = {
   heightVh?: number;
   fillViewport?: boolean;
   onOrderUpdated: (order: PosDiningOrderSummary) => void;
+  /** Desktop accounts: colapsa la columna en horizontal. */
+  onCollapse?: () => void;
 };
 
 export function PosDiningMenuColumn({
@@ -52,8 +56,8 @@ export function PosDiningMenuColumn({
   heightVh = 78,
   fillViewport = false,
   onOrderUpdated,
+  onCollapse,
 }: Props) {
-  const [group, setGroup] = useState<PosDiningMenuGroup>("preparados");
   const [draftSearch, setDraftSearch] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const searchCommittedRef = useRef("");
@@ -71,6 +75,10 @@ export function PosDiningMenuColumn({
   const [ctpStorageIds, setCtpStorageIds] = useState<string[]>([]);
   const [posStorageId, setPosStorageId] = useState("");
   const [branchId, setBranchId] = useState("");
+  const [menuCategories, setMenuCategories] = useState<MenuCategory[]>([]);
+  /** IDs configurados en sucursal; vacío = universo “todas”. */
+  const [configuredCategoryIds, setConfiguredCategoryIds] = useState<string[]>([]);
+  const [activeCategoryIds, setActiveCategoryIds] = useState<string[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const itemsRef = useRef(items);
   itemsRef.current = items;
@@ -177,7 +185,39 @@ export function PosDiningMenuColumn({
 
   useEffect(() => {
     setPage(1);
-  }, [group]);
+  }, [activeCategoryIds]);
+
+  useEffect(() => {
+    const ctx = readPosContextClient();
+    const bid = ctx?.branchId?.trim() ?? "";
+    setBranchId(bid);
+    if (!bid) {
+      setMenuCategories([]);
+      setConfiguredCategoryIds([]);
+      setActiveCategoryIds([]);
+      return;
+    }
+    void getPosDiningBranchSettingsAction(bid).then((res) => {
+      if (!res.success) {
+        if (redirectToLoginIfUnauthorized(res)) return;
+        return;
+      }
+      const cats = res.settings.posAccountsMenuCategories ?? [];
+      const allowed = new Set(cats.map((c) => c.id));
+      const stored = readPosDiningMenuActiveCategoryIds(bid).filter((id) =>
+        allowed.has(id),
+      );
+      setConfiguredCategoryIds(res.settings.posAccountsMenuCategoryIds ?? []);
+      setMenuCategories(cats);
+      setActiveCategoryIds(stored);
+    });
+  }, []);
+
+  const searchCategoryIds = useMemo(() => {
+    if (activeCategoryIds.length > 0) return activeCategoryIds;
+    if (configuredCategoryIds.length > 0) return configuredCategoryIds;
+    return undefined;
+  }, [activeCategoryIds, configuredCategoryIds]);
 
   const load = useCallback(async () => {
     const ctx = readPosContextClient();
@@ -197,7 +237,7 @@ export function PosDiningMenuColumn({
       priceListId,
       branchId: ctx?.branchId ?? null,
       pointOfSaleId: ctx?.pointOfSaleId ?? null,
-      productTypes: GROUP_PRODUCT_TYPES[group],
+      categoryIds: searchCategoryIds,
       page,
       pageSize,
     });
@@ -212,11 +252,23 @@ export function PosDiningMenuColumn({
     setItems(res.products);
     setTotal(res.pagination.total);
     void refreshCtp(res.products);
-  }, [group, page, pageSize, searchQuery, refreshCtp]);
+  }, [page, pageSize, searchQuery, searchCategoryIds, refreshCtp]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const toggleCategory = (id: string) => {
+    setActiveCategoryIds((prev) => {
+      const next = prev.includes(id)
+        ? prev.filter((x) => x !== id)
+        : [...prev, id];
+      const bid =
+        branchId.trim() || readPosContextClient()?.branchId?.trim() || "";
+      if (bid) writePosDiningMenuActiveCategoryIds(bid, next);
+      return next;
+    });
+  };
 
   const stockSubscribeIds = useMemo(() => {
     const ids = new Set(ctpStorageIds);
@@ -282,41 +334,48 @@ export function PosDiningMenuColumn({
       aria-label="Menú"
       data-test-id="pos-dining-menu-column"
     >
-      <div
-        className="flex shrink-0 gap-1 rounded-lg border border-border bg-muted/30 p-1"
-        role="tablist"
-        aria-label="Tipo de producto"
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={group === "preparados"}
-          disabled={disabled}
-          className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
-            group === "preparados"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground"
-          }`}
-          onClick={() => setGroup("preparados")}
-          data-test-id="pos-dining-menu-tab-preparados"
-        >
-          Menú
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={group === "fisicos"}
-          disabled={disabled}
-          className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
-            group === "fisicos"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground"
-          }`}
-          onClick={() => setGroup("fisicos")}
-          data-test-id="pos-dining-menu-tab-fisicos"
-        >
-          Productos
-        </button>
+      <div className="flex shrink-0 items-start gap-1">
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-foreground">Productos</h2>
+            {onCollapse ? (
+              <IconButton
+                icon="PanelLeftClose"
+                variant="action"
+                size="sm"
+                className="shrink-0"
+                ariaLabel="Colapsar menú"
+                title="Colapsar menú"
+                onClick={onCollapse}
+                data-test-id="pos-dining-menu-collapse"
+              />
+            ) : null}
+          </div>
+          {menuCategories.length > 0 ? (
+            <div
+              className="flex flex-wrap gap-1.5"
+              data-test-id="pos-dining-menu-category-badges"
+            >
+              {menuCategories.map((cat) => {
+                const active = activeCategoryIds.includes(cat.id);
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => toggleCategory(cat.id)}
+                    className="disabled:opacity-50"
+                    data-test-id={`pos-dining-menu-category-${cat.id}`}
+                  >
+                    <Badge variant={active ? "secondary" : "secondary-outlined"}>
+                      {cat.name}
+                    </Badge>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <TextField
@@ -360,14 +419,18 @@ export function PosDiningMenuColumn({
             {items.map((item) => {
               const busy = addingId === item.variantId;
               const saleUnit = posDisplaySaleUnitSymbol(item);
+              const isPreparado =
+                String(item.productType ?? "").toUpperCase() === "PREPARADO";
               const cap = ctpByVariantId[item.variantId];
               const showCap = cap != null;
               const ctpBlocked = cap === 0;
-              const stockLabel = item.trackInventory
-                ? posFormatStockQuantity(item)
-                : null;
+              const stockLabel =
+                !isPreparado && item.trackInventory
+                  ? posFormatStockQuantity(item)
+                  : null;
               const stockQty = posResolveAvailableStockInSaleUnits(item);
               const stockBlocked =
+                !isPreparado &&
                 !showCap &&
                 item.trackInventory &&
                 stockQty != null &&

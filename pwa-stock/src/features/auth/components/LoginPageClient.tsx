@@ -155,7 +155,7 @@ export default function LoginPageClient() {
               {error ? <Alert variant="error">{error}</Alert> : null}
               <TextField
                 label="Usuario"
-                placeholder=""
+                placeholder="Ingresá tu usuario"
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
                 autoComplete="username"
@@ -164,7 +164,7 @@ export default function LoginPageClient() {
               />
               <TextField
                 label="Contraseña"
-                placeholder=""
+                placeholder="Ingresá tu contraseña"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

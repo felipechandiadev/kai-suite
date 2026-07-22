@@ -51,6 +51,10 @@ export class DiningSchemaBootstrap implements OnModuleInit {
         CREATE UNIQUE INDEX IF NOT EXISTS uq_dining_kitchen_fire_sequences_scope
         ON dining_kitchen_fire_sequences (branch_id, period_key)
       `);
+      await this.dataSource.query(`
+        ALTER TABLE dining_branch_settings
+        ADD COLUMN IF NOT EXISTS pos_accounts_menu_category_ids jsonb NOT NULL DEFAULT '[]'::jsonb
+      `);
       this.logger.log('dining_order_lines CTP + kitchen_fire columns OK');
     } catch (err) {
       this.logger.error(

@@ -15,6 +15,19 @@ import {
   normalizeDiningTimezone,
 } from './dining-business-period.util';
 
+function normalizeCategoryIdList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of raw) {
+    const id = String(item ?? '').trim();
+    if (!/^[0-9a-f-]{36}$/i.test(id) || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
 export type DiningAllocatedNumber = {
   sequenceNumber: number;
   periodKey: string;
@@ -53,6 +66,7 @@ export class DiningOrderNumberService {
       resetTimeLocal: DEFAULT_DINING_RESET_TIME,
       allowWaiterOpenTable: true,
       allowPosOpenTable: true,
+      posAccountsMenuCategoryIds: [],
     });
     try {
       await this.settingsRepository.insert(row);
@@ -78,6 +92,7 @@ export class DiningOrderNumberService {
       resetTimeLocal?: string;
       allowWaiterOpenTable?: boolean;
       allowPosOpenTable?: boolean;
+      posAccountsMenuCategoryIds?: string[];
     },
   ): Promise<DiningBranchSettings> {
     const settings = await this.getOrCreateSettings(branchId, companyId);
@@ -92,6 +107,11 @@ export class DiningOrderNumberService {
     }
     if (patch.allowPosOpenTable !== undefined) {
       settings.allowPosOpenTable = Boolean(patch.allowPosOpenTable);
+    }
+    if (patch.posAccountsMenuCategoryIds !== undefined) {
+      settings.posAccountsMenuCategoryIds = normalizeCategoryIdList(
+        patch.posAccountsMenuCategoryIds,
+      );
     }
     if (!settings.allowWaiterOpenTable && !settings.allowPosOpenTable) {
       throw new Error(

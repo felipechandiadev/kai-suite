@@ -658,6 +658,8 @@ type DialogProps = {
   open: boolean;
   data: PosSaleReceiptData | null;
   onClose: () => void;
+  /** CTA principal al cerrar el recibo (p.ej. "Volver a cuentas" si el cobro vino de dining). */
+  closeLabel?: string;
 };
 
 function resolveSalePrintMode(data: PosSaleReceiptData): PosDocumentPrintMode {
@@ -753,7 +755,12 @@ async function autoPrintSaleReceipt(snapshot: PosSaleReceiptData): Promise<{
   return { errorMessage: formatSalePrintPlanErrors(result) };
 }
 
-export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
+export function PosSaleReceiptDialog({
+  open,
+  data,
+  onClose,
+  closeLabel = "Volver al POS",
+}: DialogProps) {
   const autoPrintForFolioRef = useRef<string | null>(null);
   const receiptDataRef = useRef(data);
   receiptDataRef.current = data;
@@ -897,7 +904,7 @@ export function PosSaleReceiptDialog({ open, data, onClose }: DialogProps) {
             data-test-id="pos-sale-receipt-reprint-comprobante"
           />
           <Button type="button" variant="primary" onClick={onClose}>
-            Volver al POS
+            {closeLabel}
           </Button>
         </>
       }

@@ -1,37 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "@kai/ui";
 import {
-  getCameraStartConfigs,
+  createBarcodeScanner,
   isCameraSecureContext,
-  isRetryableCameraError,
-  mapCameraStartError,
-} from "@/features/pos-products/lib/barcode-scanner-camera";
+  type BarcodeScannerHandle,
+} from "@kai/barcode-scanner";
 
 type PosBarcodeScannerProps = {
   onScan: (code: string) => void;
   paused?: boolean;
 };
 
-/** Sin `qrbox`: html5-qrcode no aplica el filtro oscuro y escanea todo el frame. */
-function buildBarcodeScanConfig() {
-  return {
-    fps: 10,
-  };
-}
-
-function isScannerStopError(error: unknown): boolean {
-  const msg = error instanceof Error ? error.message : String(error ?? "");
-  return /not running|not paused/i.test(msg);
-}
+const APP_HINT = "http://localhost:5062";
 
 export default function PosBarcodeScanner({ onScan, paused = false }: PosBarcodeScannerProps) {
-  const regionId = useId().replace(/:/g, "");
-  const scannerRef = useRef<{ stop: () => Promise<void> } | null>(null);
-  const runningRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const scannerRef = useRef<BarcodeScannerHandle | null>(null);
   const startGenRef = useRef(0);
-  const lastScanRef = useRef<{ code: string; at: number } | null>(null);
   const onScanRef = useRef(onScan);
 
   useEffect(() => {
@@ -46,92 +33,61 @@ export default function PosBarcodeScanner({ onScan, paused = false }: PosBarcode
   const stopScanner = useCallback(async () => {
     const s = scannerRef.current;
     scannerRef.current = null;
-    if (!s || !runningRef.current) {
-      runningRef.current = false;
-      return;
-    }
-    runningRef.current = false;
+    if (!s) return;
     try {
       await s.stop();
     } catch (e) {
-      if (!isScannerStopError(e)) {
-        console.warn("[PosBarcodeScanner] stop:", e);
-      }
+      console.warn("[PosBarcodeScanner] stop:", e);
     }
   }, []);
 
   const startScanner = useCallback(async () => {
     if (paused) return;
-
     const gen = ++startGenRef.current;
     setCameraError(null);
     setStarting(true);
 
     await stopScanner();
+    // Allow React to unhide the region before attaching the video.
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve());
+    });
+
+    const container = containerRef.current;
+    if (!container || gen !== startGenRef.current) {
+      if (gen === startGenRef.current) setStarting(false);
+      return;
+    }
 
     try {
       if (!isCameraSecureContext()) {
         throw new Error("INSECURE_CONTEXT");
       }
 
-      const { Html5Qrcode } = await import("html5-qrcode");
-      const scanner = new Html5Qrcode(regionId);
-      const cameraConfigs = await getCameraStartConfigs();
-      const scanConfig = buildBarcodeScanConfig();
+      const scanner = createBarcodeScanner({
+        appHint: APP_HINT,
+        onScan: (code) => onScanRef.current(code),
+        onError: (message) => {
+          if (gen === startGenRef.current) setCameraError(message);
+        },
+      });
 
-      const onDecode = (decoded: string) => {
-        const code = decoded.trim();
-        if (!code) return;
-        const now = Date.now();
-        const prev = lastScanRef.current;
-        if (prev && prev.code === code && now - prev.at < 1500) return;
-        lastScanRef.current = { code, at: now };
-        onScanRef.current(code);
-      };
-
-      let lastError: unknown = null;
-      let started = false;
-
-      for (const cameraConfig of cameraConfigs) {
-        if (gen !== startGenRef.current) break;
-        try {
-          await scanner.start(cameraConfig, scanConfig, onDecode, () => {});
-          started = true;
-          break;
-        } catch (e) {
-          lastError = e;
-          if (!isRetryableCameraError(e)) break;
-          try {
-            await scanner.stop();
-          } catch (stopErr) {
-            if (!isScannerStopError(stopErr)) {
-              console.warn("[PosBarcodeScanner] stop after failed start:", stopErr);
-            }
-          }
-        }
-      }
-
-      if (!started) {
-        throw lastError ?? new Error("No se pudo iniciar la cámara");
-      }
+      await scanner.start(container);
 
       if (gen !== startGenRef.current) {
-        try {
-          await scanner.stop();
-        } catch (e) {
-          if (!isScannerStopError(e)) {
-            console.warn("[PosBarcodeScanner] stop after stale start:", e);
-          }
-        }
+        await scanner.stop();
         return;
       }
 
       scannerRef.current = scanner;
-      runningRef.current = true;
       setCameraActive(true);
     } catch (e) {
       if (gen === startGenRef.current) {
-        setCameraError(mapCameraStartError(e));
+        const msg =
+          e instanceof Error && e.message
+            ? e.message
+            : "No se pudo acceder a la cámara.";
+        setCameraError(msg);
         setCameraActive(false);
       }
     } finally {
@@ -139,12 +95,13 @@ export default function PosBarcodeScanner({ onScan, paused = false }: PosBarcode
         setStarting(false);
       }
     }
-  }, [paused, regionId, stopScanner]);
+  }, [paused, stopScanner]);
 
   useEffect(() => {
     if (!mounted || paused) {
       startGenRef.current += 1;
       void stopScanner();
+      setCameraActive(false);
       return;
     }
     if (isCameraSecureContext()) {
@@ -171,10 +128,10 @@ export default function PosBarcodeScanner({ onScan, paused = false }: PosBarcode
         </Alert>
       ) : null}
 
-      <div className="pos-barcode-scanner-view relative w-full [&_#qr-shaded-region]:opacity-0">
+      <div className="pos-barcode-scanner-view relative w-full">
         <div
-          id={regionId}
-          className={`mx-auto aspect-[5/2] w-full max-h-[140px] overflow-hidden rounded-lg border border-border bg-neutral ${
+          ref={containerRef}
+          className={`relative mx-auto aspect-[5/2] w-full max-h-[140px] overflow-hidden rounded-lg border border-border bg-neutral ${
             cameraActive || starting ? "" : "hidden"
           }`}
           data-test-id="pos-barcode-scanner-region"

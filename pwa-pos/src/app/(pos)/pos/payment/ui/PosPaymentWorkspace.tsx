@@ -704,14 +704,6 @@ export default function PosPaymentWorkspace({
   onCloseEmbedded,
 }: Props) {
   const router = useRouter();
-  const goBackToPos = useCallback(() => {
-    if (embedded && onCloseEmbedded) {
-      onCloseEmbedded();
-      return;
-    }
-    router.push("/pos");
-  }, [embedded, onCloseEmbedded, router]);
-
   const searchParams = useSearchParams();
   const isCollectMode = (searchParams.get("mode") ?? "").trim() === "collect";
   const isQuotaMode = (searchParams.get("mode") ?? "").trim() === "quota";
@@ -754,6 +746,50 @@ export default function PosPaymentWorkspace({
     loadedDiningOrder,
     clearLoadedDiningOrder,
   } = cart;
+
+  /** Sticky: sobrevive a clearLoadedDiningOrder tras confirmar el cobro. */
+  const [saleFromDiningAccount, setSaleFromDiningAccount] = useState(
+    () => Boolean(loadedDiningOrder?.id),
+  );
+  useEffect(() => {
+    if (loadedDiningOrder?.id) {
+      setSaleFromDiningAccount(true);
+    }
+  }, [loadedDiningOrder?.id]);
+
+  const paymentExitHref = useMemo(() => {
+    if (!saleFromDiningAccount) return "/pos";
+    const orderId = loadedDiningOrder?.id?.trim();
+    if (!orderId) return "/accounts";
+    const kind = loadedDiningOrder?.kind;
+    const diningTab =
+      kind === "COUNTER" ? "barra" : kind === "TAKEAWAY" ? "takeaway" : "mesas";
+    const params = new URLSearchParams({
+      diningOrderId: orderId,
+      diningTab,
+    });
+    return `/accounts?${params.toString()}`;
+  }, [loadedDiningOrder?.id, loadedDiningOrder?.kind, saleFromDiningAccount]);
+  const paymentExitLabel = saleFromDiningAccount
+    ? "Volver a cuentas"
+    : "Volver al POS";
+
+  const exitPaymentFlow = useCallback(() => {
+    if (embedded && onCloseEmbedded) {
+      onCloseEmbedded();
+      return;
+    }
+    router.push(paymentExitHref);
+  }, [embedded, onCloseEmbedded, paymentExitHref, router]);
+
+  /** Siempre /pos (NC, cotización, etc.). */
+  const goBackToPos = useCallback(() => {
+    if (embedded && onCloseEmbedded) {
+      onCloseEmbedded();
+      return;
+    }
+    router.push("/pos");
+  }, [embedded, onCloseEmbedded, router]);
 
   const { data: authSession } = useSession();
   const { isBackendReachable: backendReachable, isOffline } = usePosOffline();
@@ -1405,6 +1441,7 @@ export default function PosPaymentWorkspace({
   const kaiFoodEnabled = isKaiFoodEnabled();
   const showDiningPanel =
     kaiFoodEnabled &&
+    !saleFromDiningAccount &&
     !isDebtCollectMode &&
     !isNcPayoutMode &&
     !isReturnMode &&
@@ -3330,11 +3367,11 @@ export default function PosPaymentWorkspace({
               icon="ChevronLeft"
               variant="outlined"
               size="md"
-              ariaLabel="Volver al POS"
-              title="Volver al POS"
+              ariaLabel={paymentExitLabel}
+              title={paymentExitLabel}
               onClick={() => {
                 requestPosProductSearchFocus();
-                goBackToPos();
+                exitPaymentFlow();
               }}
               className="shrink-0"
               data-test-id="pos-payment-back"
@@ -4210,11 +4247,11 @@ export default function PosPaymentWorkspace({
                   icon="ChevronLeft"
                   variant="outlined"
                   size="lg"
-                  ariaLabel="Volver al POS"
-                  title="Volver al POS"
+                  ariaLabel={paymentExitLabel}
+                  title={paymentExitLabel}
                   onClick={() => {
                     requestPosProductSearchFocus();
-                    goBackToPos();
+                    exitPaymentFlow();
                   }}
                   className="shrink-0"
                   data-test-id="pos-payment-back-mobile"
@@ -4289,11 +4326,11 @@ export default function PosPaymentWorkspace({
                 icon="ChevronLeft"
                 variant="outlined"
                 size="lg"
-                ariaLabel="Volver al POS"
-                title="Volver al POS"
+                ariaLabel={paymentExitLabel}
+                title={paymentExitLabel}
                 onClick={() => {
                   requestPosProductSearchFocus();
-                  goBackToPos();
+                  exitPaymentFlow();
                 }}
                 className="shrink-0"
                 data-test-id="pos-payment-back-mobile"
@@ -4405,12 +4442,13 @@ export default function PosPaymentWorkspace({
       <PosSaleReceiptDialog
         open={successOpen && receiptData != null}
         data={receiptData}
+        closeLabel={paymentExitLabel}
         onClose={() => {
           setSuccessOpen(false);
           setReceiptData(null);
           cart.clear();
           requestPosProductSearchFocus();
-          goBackToPos();
+          exitPaymentFlow();
         }}
       />
 

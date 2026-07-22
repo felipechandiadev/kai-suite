@@ -20,11 +20,19 @@ export class SearchPosProductsDto {
 
   /**
    * Tipos de producto separados por coma (`PREPARADO,PHYSICAL`).
-   * Si se omite, no filtra por tipo.
+   * Si se omite, no filtra por tipo (excluye INSUMO).
    */
   @IsString()
   @IsOptional()
   productTypes?: string;
+
+  /**
+   * Categorías de producto separadas por coma (UUIDs).
+   * Si se omite, no filtra por categoría.
+   */
+  @IsString()
+  @IsOptional()
+  categoryIds?: string;
 
   @IsInt()
   @Min(1)
