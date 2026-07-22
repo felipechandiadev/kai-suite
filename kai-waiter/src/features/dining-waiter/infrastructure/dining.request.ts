@@ -179,9 +179,13 @@ export class DiningRequest {
   }
 
   static kitchenQueue(ctx: DiningAuthContext, productionUnitId: string) {
-    return diningGet<DiningOrderLineDto[]>("/dining/kitchen-queue", ctx, {
-      productionUnitId,
-    });
+    return diningGet<DiningOrderLineDto[]>(
+      "/dining/production-unit-queue",
+      ctx,
+      {
+        productionUnitId,
+      },
+    );
   }
 
   static markReady(ctx: DiningAuthContext, orderId: string, lineId: string) {

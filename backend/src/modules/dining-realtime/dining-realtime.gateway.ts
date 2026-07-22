@@ -201,7 +201,7 @@ export class DiningRealtimeGateway implements OnGatewayInit {
         activeCompanyId: companyId,
         rol: currentUser.rol,
       },
-      () => this.diningService.getKitchenQueue(unitId),
+      () => this.diningService.getProductionUnitQueue(unitId),
     );
 
     const snapshot: DiningKitchenSnapshotPayload = {

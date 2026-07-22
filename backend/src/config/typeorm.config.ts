@@ -111,6 +111,7 @@ import { DiningRoom } from '@modules/dining/domain/dining-room.entity';
 import { DiningTable } from '@modules/dining/domain/dining-table.entity';
 import { DiningOrder } from '@modules/dining/domain/dining-order.entity';
 import { DiningOrderLine } from '@modules/dining/domain/dining-order-line.entity';
+import { DiningStationOrder } from '@modules/dining/domain/dining-station-order.entity';
 import { DiningBranchSettings } from '@modules/dining/domain/dining-branch-settings.entity';
 import { DiningOrderSequence } from '@modules/dining/domain/dining-order-sequence.entity';
 import { DiningKitchenFireSequence } from '@modules/dining/domain/dining-kitchen-fire-sequence.entity';
@@ -263,6 +264,7 @@ export const typeOrmConfig = (
       DiningTable,
       DiningOrder,
       DiningOrderLine,
+      DiningStationOrder,
       DiningBranchSettings,
       DiningOrderSequence,
       DiningKitchenFireSequence,

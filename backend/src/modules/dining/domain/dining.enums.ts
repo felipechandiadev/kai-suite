@@ -23,6 +23,13 @@ export enum KitchenItemStatus {
   CANCELLED = 'CANCELLED',
 }
 
+/** Pedido / tanda enviada a estación(es) de producción. */
+export enum DiningStationOrderStatus {
+  OPEN = 'OPEN',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+
 export enum TableShape {
   RECT = 'RECT',
   CIRCLE = 'CIRCLE',

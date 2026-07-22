@@ -18,10 +18,9 @@ export function diningLineGroupKey(line: PosDiningOrderLine): string {
   return `${line.productVariantId}|${notes}`;
 }
 
-/** Misma regla que backend `resolveProductionUnitId` (necesita UP / KDS). */
+/** Misma regla que backend: solo PREPARADO va a comanda / KDS. */
 export function diningProductNeedsKitchen(productType?: string | null): boolean {
-  const t = String(productType ?? "").trim().toUpperCase();
-  return t === "PREPARADO" || t === "ELABORADO" || t === "MANUFACTURADO";
+  return String(productType ?? "").trim().toUpperCase() === "PREPARADO";
 }
 
 export function canSendDiningLineToKitchen(
@@ -82,6 +81,22 @@ export function diningOrderAllKitchenReady(
     return false;
   }
   return active.every((l) => isKitchenReadyStatus(l.kitchenStatus));
+}
+
+/**
+ * Receipt / Cobrar: si hay PREPARADO activos, todos READY/SERVED.
+ * Sin PREPARADO → permitido.
+ */
+export function diningOrderCanBillOrCharge(
+  lines: Array<{ productVariantId: string; kitchenStatus: KitchenItemStatus }>,
+  productTypeByVariantId: Record<string, string | null | undefined>,
+): boolean {
+  const preparado = lines.filter((line) => {
+    if (line.kitchenStatus === "CANCELLED") return false;
+    return diningProductNeedsKitchen(productTypeByVariantId[line.productVariantId]);
+  });
+  if (preparado.length === 0) return true;
+  return preparado.every((line) => isKitchenReadyStatus(line.kitchenStatus));
 }
 
 /** Números de pedido (fire) presentes en líneas ya enviadas del grupo. */

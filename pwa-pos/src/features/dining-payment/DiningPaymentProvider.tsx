@@ -62,12 +62,12 @@ export default function DiningPaymentProvider({ children }: { children: React.Re
     setReady(true);
   }, []);
 
+  // Persistir solo cuando hay cobro activo. No limpiar aquí: eso corre
+  // con order/lines vacíos y borra el draft escrito por startDiningPayment
+  // justo antes de navegar a /pos/payment.
   useEffect(() => {
     if (!ready) return;
-    if (!order || lines.length === 0) {
-      clearDiningPaymentDraft();
-      return;
-    }
+    if (!order || lines.length === 0) return;
     writeDiningPaymentDraft({
       order,
       lines,
@@ -82,14 +82,22 @@ export default function DiningPaymentProvider({ children }: { children: React.Re
       lines: PosCartLine[];
       orderDiscount?: number;
     }) => {
+      const discount =
+        typeof input.orderDiscount === "number" && Number.isFinite(input.orderDiscount)
+          ? Math.max(0, Math.round(input.orderDiscount))
+          : 0;
+      // Escribir storage de inmediato para que /pos/payment no rebote a accounts
+      // si React aún no aplicó el setState.
+      writeDiningPaymentDraft({
+        order: input.order,
+        lines: input.lines,
+        payments: [],
+        orderDiscount: discount,
+      });
       setOrder(input.order);
       setLines(input.lines);
       setPayments([]);
-      setOrderDiscount(
-        typeof input.orderDiscount === "number" && Number.isFinite(input.orderDiscount)
-          ? Math.max(0, Math.round(input.orderDiscount))
-          : 0,
-      );
+      setOrderDiscount(discount);
     },
     [],
   );

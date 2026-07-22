@@ -375,20 +375,23 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
                         className="rounded-md border border-border/80 bg-muted/20 px-2.5 py-2"
                         data-test-id={`kds-item-group-${testKey}`}
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold leading-snug">
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className="w-10 shrink-0 text-center text-3xl font-bold leading-none tabular-nums tracking-tight"
+                            data-test-id={`kds-item-qty-${testKey}`}
+                            aria-label={`Cantidad ${item.quantityTotal}`}
+                          >
+                            {item.quantityTotal}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="line-clamp-2 break-words text-sm font-semibold leading-snug">
                               {formatLineTitle(first)}
                             </p>
-                            <p className="text-xs text-foreground/80">
-                              Cant: {item.quantityTotal}
-                              {item.notes ? (
-                                <span className="font-medium">
-                                  {" "}
-                                  · {item.notes}
-                                </span>
-                              ) : null}
-                            </p>
+                            {item.notes ? (
+                              <p className="truncate text-xs font-medium text-muted-foreground">
+                                {item.notes}
+                              </p>
+                            ) : null}
                           </div>
                           <IconButton
                             icon="Check"
@@ -408,7 +411,9 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
                               (markingId != null && !pressed)
                             }
                             onClick={() => void handleMarkItemReady(item)}
-                            ariaLabel={itemReady ? "Ítem listo" : "Marcar listo"}
+                            ariaLabel={
+                              itemReady ? "Ítem listo" : "Marcar listo"
+                            }
                             title={itemReady ? "Listo" : "Listo"}
                             data-test-id={`kds-item-ready-${testKey}`}
                             data-ready-pressed={pressed ? "true" : "false"}

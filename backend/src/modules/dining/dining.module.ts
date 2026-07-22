@@ -12,6 +12,7 @@ import { DiningOrderLine } from './domain/dining-order-line.entity';
 import { DiningBranchSettings } from './domain/dining-branch-settings.entity';
 import { DiningOrderSequence } from './domain/dining-order-sequence.entity';
 import { DiningKitchenFireSequence } from './domain/dining-kitchen-fire-sequence.entity';
+import { DiningStationOrder } from './domain/dining-station-order.entity';
 import { RecipesModule } from '@modules/recipes/recipes.module';
 import { TransactionsModule } from '@modules/transactions/transactions.module';
 import { StockLevelsModule } from '@modules/stock-levels/stock-levels.module';
@@ -42,6 +43,7 @@ import { DiningReadyNotificationService } from './application/dining-ready-notif
       DiningBranchSettings,
       DiningOrderSequence,
       DiningKitchenFireSequence,
+      DiningStationOrder,
       Branch,
       Category,
       ProductVariant,

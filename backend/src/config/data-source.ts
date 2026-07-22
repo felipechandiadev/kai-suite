@@ -37,6 +37,7 @@ import { DiningRoom } from '@modules/dining/domain/dining-room.entity';
 import { DiningTable } from '@modules/dining/domain/dining-table.entity';
 import { DiningOrder } from '@modules/dining/domain/dining-order.entity';
 import { DiningOrderLine } from '@modules/dining/domain/dining-order-line.entity';
+import { DiningStationOrder } from '@modules/dining/domain/dining-station-order.entity';
 import { DiningBranchSettings } from '@modules/dining/domain/dining-branch-settings.entity';
 import { DiningOrderSequence } from '@modules/dining/domain/dining-order-sequence.entity';
 import { DiningKitchenFireSequence } from '@modules/dining/domain/dining-kitchen-fire-sequence.entity';
@@ -173,6 +174,7 @@ import { ProductTypeInsumo1757110000000 } from '../migrations/1757110000000-Prod
 import { RecipeCtpAndDiningMaterialReservation1757120000000 } from '../migrations/1757120000000-RecipeCtpAndDiningMaterialReservation';
 import { NotificationDomainCatalog1757130000000 } from '../migrations/1757130000000-NotificationDomainCatalog';
 import { WebPushSubscriptions1757300000000 } from '../migrations/1757300000000-WebPushSubscriptions';
+import { DiningStationOrders1757310000000 } from '../migrations/1757310000000-DiningStationOrders';
 import { DiningKitchenFireId1757140000000 } from '../migrations/1757140000000-DiningKitchenFireId';
 import { DiningKitchenFireNumber1757150000000 } from '../migrations/1757150000000-DiningKitchenFireNumber';
 import { ProductionUnitPurpose1757160000000 } from '../migrations/1757160000000-ProductionUnitPurpose';
@@ -287,6 +289,7 @@ export const AppDataSource = new DataSource({
     DiningTable,
     DiningOrder,
     DiningOrderLine,
+    DiningStationOrder,
     DiningBranchSettings,
     DiningOrderSequence,
     DiningKitchenFireSequence,
@@ -495,6 +498,7 @@ export const AppDataSource = new DataSource({
     RecurringOperationalExpenses1757280000000,
     DiningPosAccountsMenuCategories1757290000000,
     WebPushSubscriptions1757300000000,
+    DiningStationOrders1757310000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

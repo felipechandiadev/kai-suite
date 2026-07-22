@@ -12,10 +12,12 @@ import {
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
 import { DiningOrder } from './dining-order.entity';
+import { DiningStationOrder } from './dining-station-order.entity';
 import { KitchenItemStatus, LineSource } from './dining.enums';
 
 @Entity('dining_order_lines')
 @Index('idx_dining_order_lines_order_id', ['diningOrderId'])
+@Index('idx_dining_order_lines_station_order', ['stationOrderId'])
 @Index('idx_dining_order_lines_kitchen_queue', ['productionUnitId', 'kitchenStatus'])
 @Index('idx_dining_order_lines_kitchen_fire', [
   'productionUnitId',
@@ -28,6 +30,10 @@ export class DiningOrderLine {
 
   @Column({ name: 'dining_order_id', type: 'uuid' })
   diningOrderId!: string;
+
+  /** Pedido de estación (fire); null = borrador o legacy. */
+  @Column({ name: 'station_order_id', type: 'uuid', nullable: true })
+  stationOrderId?: string | null;
 
   @Column({ name: 'product_variant_id', type: 'uuid' })
   productVariantId!: string;
@@ -86,6 +92,13 @@ export class DiningOrderLine {
   @ManyToOne(() => DiningOrder, (order) => order.lines, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'dining_order_id' })
   diningOrder?: DiningOrder;
+
+  @ManyToOne(() => DiningStationOrder, (so) => so.lines, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
+  @JoinColumn({ name: 'station_order_id' })
+  stationOrder?: DiningStationOrder | null;
 
   @ManyToOne(() => ProductVariant, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'product_variant_id' })

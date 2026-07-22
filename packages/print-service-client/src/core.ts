@@ -36,6 +36,10 @@ import type {
   PosBankAccountTicketPrintExtras,
 } from "./pos-bank-account-ticket";
 import type {
+  PosDiningAccountTicketPayload,
+  PosDiningAccountTicketPrintExtras,
+} from "./pos-dining-account-ticket";
+import type {
   PosPresaleTicketPayload,
   PosPresaleTicketPrintExtras,
 } from "./pos-presale-ticket";
@@ -172,6 +176,7 @@ export const AGENT_CAPABILITY_POS_CASH_HUB_MOVEMENT_TICKET =
 export const AGENT_CAPABILITY_POS_SUPPLIER_PAYMENT_TICKET =
   "pos-supplier-payment-ticket";
 export const AGENT_CAPABILITY_POS_BANK_ACCOUNT_TICKET = "pos-bank-account-ticket";
+export const AGENT_CAPABILITY_POS_DINING_ACCOUNT_TICKET = "pos-dining-account-ticket";
 export const AGENT_CAPABILITY_POS_PRESALE_TICKET = "pos-presale-ticket";
 export const AGENT_CAPABILITY_FISCAL_BOLETA_PREVIEW = "fiscal-boleta-preview";
 export const AGENT_CAPABILITY_VARIANT_BARCODE_LABEL = "variant-barcode-label";
@@ -778,6 +783,17 @@ export class PrintServiceConnection {
     return this.enqueuePosPrint(body);
   }
 
+  /** Pre-cuenta / cuenta dining: ESC/POS (`type: "pos-dining-account-ticket"`). */
+  enqueuePosDiningAccountTicket(
+    ticket: PosDiningAccountTicketPayload,
+    extras: PosDiningAccountTicketPrintExtras & { purpose?: string; format?: PrintFormat },
+    omitPrinterDisplayLabel = false,
+  ): Promise<unknown> {
+    const body = buildPosTicketEnqueueBody("pos-dining-account-ticket", ticket, extras);
+    if (omitPrinterDisplayLabel) return this.enqueuePrint(body);
+    return this.enqueuePosPrint(body);
+  }
+
   /** Ticket de preventa POS: ESC/POS desde JSON (`type: "pos-presale-ticket"`). */
   enqueuePosPresaleTicket(
     ticket: PosPresaleTicketPayload,
@@ -1172,6 +1188,16 @@ export function agentSupportsPosBankAccountTicket(
   const caps = hello?.agentCapabilities;
   if (Array.isArray(caps) && caps.length > 0) {
     return caps.includes(AGENT_CAPABILITY_POS_BANK_ACCOUNT_TICKET);
+  }
+  return Boolean(hello?.serviceStatus);
+}
+
+export function agentSupportsPosDiningAccountTicket(
+  hello: HelloResponseData | null | undefined,
+): boolean {
+  const caps = hello?.agentCapabilities;
+  if (Array.isArray(caps) && caps.length > 0) {
+    return caps.includes(AGENT_CAPABILITY_POS_DINING_ACCOUNT_TICKET);
   }
   return Boolean(hello?.serviceStatus);
 }

@@ -6,11 +6,13 @@ import {
   assertOrderStatusTransition,
   canAddItems,
   canCancelLine,
+  canIssueBillOrCharge,
   canMarkReady,
   canMarkServed,
   canRequestBill,
   canSendToKitchen,
   effectiveKitchenFireId,
+  lineNeedsKitchenComanda,
   reopenFromBilling,
   recomputeOrderStatusFromLines,
   selectLinesForKitchenFireReady,
@@ -147,8 +149,9 @@ describe('Dining order state transitions', () => {
       expect(canCancelLine(KitchenItemStatus.READY)).toBe(false);
     });
 
-    it('canAddItems allows BILLING so the account can reopen', () => {
-      expect(canAddItems(DiningOrderStatus.BILLING)).toBe(true);
+    it('canAddItems rejects BILLING; use reopen instead', () => {
+      expect(canAddItems(DiningOrderStatus.BILLING)).toBe(false);
+      expect(canAddItems(DiningOrderStatus.READY)).toBe(true);
       expect(canAddItems(DiningOrderStatus.CLOSED)).toBe(false);
     });
 
@@ -159,6 +162,82 @@ describe('Dining order state transitions', () => {
       expect(
         reopenFromBilling([{ kitchenStatus: KitchenItemStatus.SENT }]),
       ).toBe(DiningOrderStatus.SENT);
+    });
+
+    it('lineNeedsKitchenComanda only for PREPARADO', () => {
+      expect(lineNeedsKitchenComanda('PREPARADO')).toBe(true);
+      expect(lineNeedsKitchenComanda('ELABORADO')).toBe(false);
+      expect(lineNeedsKitchenComanda('MANUFACTURADO')).toBe(false);
+      expect(lineNeedsKitchenComanda('PHYSICAL')).toBe(false);
+    });
+
+    it('canIssueBillOrCharge skips gate when no PREPARADO', () => {
+      expect(
+        canIssueBillOrCharge(
+          [
+            {
+              productVariantId: 'v1',
+              kitchenStatus: KitchenItemStatus.DRAFT,
+            },
+          ],
+          { v1: 'PHYSICAL' },
+        ),
+      ).toBe(true);
+      expect(
+        canIssueBillOrCharge(
+          [
+            {
+              productVariantId: 'v1',
+              kitchenStatus: KitchenItemStatus.DRAFT,
+            },
+          ],
+          { v1: 'ELABORADO' },
+        ),
+      ).toBe(true);
+    });
+
+    it('canIssueBillOrCharge requires PREPARADO ready', () => {
+      expect(
+        canIssueBillOrCharge(
+          [
+            {
+              productVariantId: 'v1',
+              kitchenStatus: KitchenItemStatus.SENT,
+            },
+          ],
+          { v1: 'PREPARADO' },
+        ),
+      ).toBe(false);
+      expect(
+        canIssueBillOrCharge(
+          [
+            {
+              productVariantId: 'v1',
+              kitchenStatus: KitchenItemStatus.READY,
+            },
+            {
+              productVariantId: 'v2',
+              kitchenStatus: KitchenItemStatus.DRAFT,
+            },
+          ],
+          { v1: 'PREPARADO', v2: 'PHYSICAL' },
+        ),
+      ).toBe(true);
+      expect(
+        canIssueBillOrCharge(
+          [
+            {
+              productVariantId: 'v1',
+              kitchenStatus: KitchenItemStatus.READY,
+            },
+            {
+              productVariantId: 'v2',
+              kitchenStatus: KitchenItemStatus.SENT,
+            },
+          ],
+          { v1: 'PREPARADO', v2: 'PREPARADO' },
+        ),
+      ).toBe(false);
     });
   });
 

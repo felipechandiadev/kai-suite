@@ -155,8 +155,10 @@ export class DiningController {
     });
   }
 
-  @Get('kitchen-queue')
-  async kitchenQueue(@Query('productionUnitId') productionUnitId: string) {
+  @Get('production-unit-queue')
+  async productionUnitQueue(
+    @Query('productionUnitId') productionUnitId: string,
+  ) {
     if (!productionUnitId?.trim()) {
       return {
         success: false,
@@ -164,7 +166,27 @@ export class DiningController {
         statusCode: 400,
       };
     }
-    return this.diningService.getKitchenQueue(productionUnitId.trim());
+    return this.diningService.getProductionUnitQueue(productionUnitId.trim());
+  }
+
+  /** @deprecated Prefer production-unit-queue */
+  @Get('kitchen-queue')
+  async kitchenQueue(@Query('productionUnitId') productionUnitId: string) {
+    return this.productionUnitQueue(productionUnitId);
+  }
+
+  @Get('production-unit-history')
+  async productionUnitHistory(
+    @Query('productionUnitId') productionUnitId: string,
+  ) {
+    if (!productionUnitId?.trim()) {
+      return {
+        success: false,
+        message: 'productionUnitId es obligatorio',
+        statusCode: 400,
+      };
+    }
+    return this.diningService.getProductionUnitHistory(productionUnitId.trim());
   }
 
   @Get('orders')
@@ -225,6 +247,11 @@ export class DiningController {
   @Post('orders/:id/request-bill')
   async requestBill(@Param('id') id: string) {
     return this.diningService.requestBill(id);
+  }
+
+  @Post('orders/:id/reopen')
+  async reopenOrder(@Param('id') id: string) {
+    return this.diningService.reopenOrder(id);
   }
 
   @Post('orders/:id/close')

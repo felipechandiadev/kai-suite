@@ -26,9 +26,11 @@ import { DiningRoom } from '../domain/dining-room.entity';
 import { DiningTable } from '../domain/dining-table.entity';
 import { DiningOrder, DiningOrderProfile } from '../domain/dining-order.entity';
 import { DiningOrderLine } from '../domain/dining-order-line.entity';
+import { DiningStationOrder } from '../domain/dining-station-order.entity';
 import {
   DiningOrderKind,
   DiningOrderStatus,
+  DiningStationOrderStatus,
   KitchenItemStatus,
   LineSource,
   TableShape,
@@ -36,6 +38,7 @@ import {
 import {
   canAddItems,
   canCancelLine,
+  canIssueBillOrCharge,
   canMarkReady,
   canMarkServed,
   canRequestBill,
@@ -46,6 +49,11 @@ import {
   selectReadyLinesForKitchenFire,
   effectiveKitchenFireId,
 } from './dining-order-status.util';
+import {
+  deriveStationOrderStatus,
+  itemPrepDurationMs,
+  stationOrderPrepDurationMsForUnit,
+} from './dining-station-order.util';
 import {
   buildDiningOrderProfileOnOpen,
   mergeDiningOrderCustomerName,
@@ -61,6 +69,7 @@ import {
   kitchenVariantLabel,
   variantAttributesForKitchen,
 } from './dining-kitchen-line.util';
+import { diningBusinessPeriodKey } from './dining-business-period.util';
 
 const ACTIVE_ORDER_STATUSES: DiningOrderStatus[] = [
   DiningOrderStatus.OPEN,
@@ -70,12 +79,41 @@ const ACTIVE_ORDER_STATUSES: DiningOrderStatus[] = [
   DiningOrderStatus.BILLING,
 ];
 
-const KITCHEN_QUEUE_STATUSES: KitchenItemStatus[] = [
+const PRODUCTION_UNIT_QUEUE_STATUSES: KitchenItemStatus[] = [
   KitchenItemStatus.SENT,
   KitchenItemStatus.PREPARING,
   /** Visible en KDS hasta completar el fire (ítems listos con check verde). */
   KitchenItemStatus.READY,
 ];
+
+export type ProductionUnitHistoryItemDto = {
+  id: string;
+  quantity: number;
+  notes: string | null;
+  kitchenStatus: KitchenItemStatus;
+  sentToKitchenAt: string | null;
+  readyAt: string | null;
+  prepDurationMs: number | null;
+  productVariant: {
+    id: string;
+    name: string;
+    attributes: Array<{ attributeValue: string }>;
+  };
+};
+
+export type ProductionUnitHistoryOrderDto = {
+  id: string;
+  sequenceNumber: number;
+  periodKey: string;
+  status: DiningStationOrderStatus;
+  sentAt: string;
+  completedAt: string | null;
+  diningOrderId: string;
+  displayLabel: string;
+  diningTableCode: string | null;
+  prepDurationMs: number | null;
+  items: ProductionUnitHistoryItemDto[];
+};
 
 @Injectable()
 export class DiningService {
@@ -88,6 +126,8 @@ export class DiningService {
     private readonly diningOrderRepository: Repository<DiningOrder>,
     @InjectRepository(DiningOrderLine)
     private readonly diningOrderLineRepository: Repository<DiningOrderLine>,
+    @InjectRepository(DiningStationOrder)
+    private readonly diningStationOrderRepository: Repository<DiningStationOrder>,
     @InjectRepository(Branch)
     private readonly branchRepository: Repository<Branch>,
     @InjectRepository(Category)
@@ -167,6 +207,40 @@ export class DiningService {
     return order;
   }
 
+  private async assertPreparadosReadyForBillOrCharge(
+    order: DiningOrder,
+    companyId: string,
+  ): Promise<void> {
+    const lines = (order.lines ?? []).filter(
+      (l) => l.kitchenStatus !== KitchenItemStatus.CANCELLED,
+    );
+    if (lines.length === 0) return;
+
+    const variantIds = [...new Set(lines.map((l) => l.productVariantId))];
+    const variants = await this.productVariantRepository.find({
+      where: { id: In(variantIds), companyId },
+      relations: ['product'],
+    });
+    const productTypeByVariantId: Record<string, string | null | undefined> = {};
+    for (const v of variants) {
+      productTypeByVariantId[v.id] = v.product?.productType ?? null;
+    }
+
+    if (
+      !canIssueBillOrCharge(
+        lines.map((l) => ({
+          productVariantId: l.productVariantId,
+          kitchenStatus: l.kitchenStatus,
+        })),
+        productTypeByVariantId,
+      )
+    ) {
+      throw new BadRequestException(
+        'Hay productos PREPARADO pendientes de cocina. Espere a que estén listos antes de pedir cuenta o cobrar.',
+      );
+    }
+  }
+
   private assertDiningItemProductType(productType: ProductType): void {
     this.productModeService.assertProductTypeAllowed(productType);
     if (!this.productModeService.isKaiFood()) {
@@ -185,9 +259,9 @@ export class DiningService {
   }
 
   /**
-   * UP default de la variante en la sucursal (routing).
-   * PREPARADO / ELABORADO / MANUFACTURADO: deben ir a KDS con UP.
-   * PHYSICAL u otros: null (no comanda de cocina).
+   * UP default de la variante en la sucursal (routing comanda).
+   * Solo PREPARADO va a KDS y exige UP con purpose KITCHEN.
+   * PHYSICAL / ELABORADO / MANUFACTURADO: null (cuenta sin cola cocina).
    */
   private async resolveProductionUnitId(
     variant: ProductVariant,
@@ -195,11 +269,7 @@ export class DiningService {
     companyId: string,
     productType: ProductType,
   ): Promise<string | null> {
-    const needsKitchenUnit =
-      productType === ProductType.PREPARADO ||
-      productType === ProductType.ELABORADO ||
-      productType === ProductType.MANUFACTURADO;
-    if (!needsKitchenUnit) {
+    if (productType !== ProductType.PREPARADO) {
       return null;
     }
 
@@ -227,13 +297,9 @@ export class DiningService {
         'La unidad de producción asignada a la variante no es válida o está inactiva.',
       );
     }
-    // Cocina (KDS) o planta/batch: ambas pueden recibir comanda / cola.
-    if (
-      unit.purpose !== ProductionUnitPurpose.KITCHEN &&
-      unit.purpose !== ProductionUnitPurpose.BATCH
-    ) {
+    if (unit.purpose !== ProductionUnitPurpose.KITCHEN) {
       throw new BadRequestException(
-        'La unidad de producción asignada no es válida para comanda (cocina o batch).',
+        'La unidad de producción de un PREPARADO debe ser de propósito Cocina (comanda / KDS).',
       );
     }
     return unit.id;
@@ -850,8 +916,6 @@ export class DiningService {
       );
     }
 
-    const wasBilling = order.status === DiningOrderStatus.BILLING;
-
     const variantIds = items.map((item) => item.productVariantId);
     const variants = await this.productVariantRepository.find({
       where: { id: In(variantIds), companyId },
@@ -909,12 +973,7 @@ export class DiningService {
     }
 
     await this.diningOrderLineRepository.save(lines);
-    let updated = await this.getOrderOrThrow(orderId, companyId);
-    if (wasBilling) {
-      updated.status = reopenFromBilling(updated.lines ?? []);
-      await this.diningOrderRepository.save(updated);
-      updated = await this.getOrderOrThrow(orderId, companyId);
-    }
+    const updated = await this.getOrderOrThrow(orderId, companyId);
     this.publishSessionUpdated(updated);
     return updated;
   }
@@ -949,11 +1008,25 @@ export class DiningService {
       companyId,
     );
     const now = new Date();
-    const kitchenFireId = randomUUID();
+    const stationOrderId = randomUUID();
+    const stationOrder = this.diningStationOrderRepository.create({
+      id: stationOrderId,
+      companyId,
+      branchId: order.branchId,
+      diningOrderId: order.id,
+      periodKey: allocated.periodKey,
+      sequenceNumber: allocated.sequenceNumber,
+      status: DiningStationOrderStatus.OPEN,
+      sentAt: now,
+      completedAt: null,
+    });
+    await this.diningStationOrderRepository.save(stationOrder);
+
     for (const line of draftLines) {
       line.kitchenStatus = KitchenItemStatus.SENT;
       line.sentToKitchenAt = now;
-      line.kitchenFireId = kitchenFireId;
+      line.stationOrderId = stationOrderId;
+      line.kitchenFireId = stationOrderId;
       line.kitchenFireNumber = allocated.sequenceNumber;
     }
     await this.diningOrderLineRepository.save(draftLines);
@@ -1090,6 +1163,10 @@ export class DiningService {
     }
     await this.diningOrderLineRepository.save(targets);
 
+    await this.syncStationOrderStatusFromLines(
+      targets[0]?.stationOrderId ?? targets[0]?.kitchenFireId ?? fireId,
+    );
+
     order.status = recomputeOrderStatusFromLines(
       order.status,
       order.lines ?? [],
@@ -1144,6 +1221,12 @@ export class DiningService {
       line.readyAt = now;
     }
     await this.diningOrderLineRepository.save(targets);
+
+    await this.syncStationOrderStatusFromLines(
+      targets[0]?.stationOrderId ??
+        targets[0]?.kitchenFireId ??
+        fireId,
+    );
 
     order.status = recomputeOrderStatusFromLines(
       order.status,
@@ -1275,7 +1358,26 @@ export class DiningService {
       );
     }
 
+    await this.assertPreparadosReadyForBillOrCharge(order, companyId);
+
     order.status = DiningOrderStatus.BILLING;
+    await this.diningOrderRepository.save(order);
+    const updated = await this.getOrderOrThrow(orderId, companyId);
+    this.publishSessionUpdated(updated);
+    return updated;
+  }
+
+  async reopenOrder(orderId: string): Promise<DiningOrder> {
+    const companyId = this.requireCompanyId();
+    const order = await this.getOrderOrThrow(orderId, companyId);
+
+    if (order.status !== DiningOrderStatus.BILLING) {
+      throw new BadRequestException(
+        'Solo se puede reabrir una cuenta en estado Por cobrar.',
+      );
+    }
+
+    order.status = reopenFromBilling(order.lines ?? []);
     await this.diningOrderRepository.save(order);
     const updated = await this.getOrderOrThrow(orderId, companyId);
     this.publishSessionUpdated(updated);
@@ -1344,6 +1446,10 @@ export class DiningService {
     line.kitchenStatus = KitchenItemStatus.CANCELLED;
     await this.diningOrderLineRepository.save(line);
 
+    await this.syncStationOrderStatusFromLines(
+      line.stationOrderId ?? line.kitchenFireId ?? null,
+    );
+
     order.status = recomputeOrderStatusFromLines(
       order.status,
       order.lines ?? [],
@@ -1376,7 +1482,6 @@ export class DiningService {
       );
     }
 
-    const wasBilling = order.status === DiningOrderStatus.BILLING;
     const qty = Number(data.quantity);
     if (!Number.isFinite(qty) || qty <= 0) {
       throw new BadRequestException('Cantidad inválida.');
@@ -1423,12 +1528,7 @@ export class DiningService {
       }),
     );
 
-    let updated = await this.getOrderOrThrow(data.diningOrderId, companyId);
-    if (wasBilling) {
-      updated.status = reopenFromBilling(updated.lines ?? []);
-      await this.diningOrderRepository.save(updated);
-      updated = await this.getOrderOrThrow(data.diningOrderId, companyId);
-    }
+    const updated = await this.getOrderOrThrow(data.diningOrderId, companyId);
     this.publishSessionUpdated(updated);
     return updated;
   }
@@ -1443,6 +1543,8 @@ export class DiningService {
     if (order.status === DiningOrderStatus.CLOSED) {
       throw new BadRequestException('La cuenta ya está cerrada.');
     }
+
+    await this.assertPreparadosReadyForBillOrCharge(order, companyId);
 
     order.status = DiningOrderStatus.CLOSED;
     order.closedAt = new Date();
@@ -1503,6 +1605,12 @@ export class DiningService {
   async getKitchenQueue(
     productionUnitId: string,
   ): Promise<DiningKitchenSnapshotLinePayload[]> {
+    return this.getProductionUnitQueue(productionUnitId);
+  }
+
+  async getProductionUnitQueue(
+    productionUnitId: string,
+  ): Promise<DiningKitchenSnapshotLinePayload[]> {
     const companyId = this.requireCompanyId();
 
     const unit = await this.productionUnitRepository.findOne({
@@ -1520,7 +1628,7 @@ export class DiningService {
       .leftJoinAndSelect('productVariant.product', 'product')
       .where('line.productionUnitId = :productionUnitId', { productionUnitId })
       .andWhere('line.kitchenStatus IN (:...statuses)', {
-        statuses: KITCHEN_QUEUE_STATUSES,
+        statuses: PRODUCTION_UNIT_QUEUE_STATUSES,
       })
       .andWhere('order.companyId = :companyId', { companyId })
       .andWhere('order.status != :closed', {
@@ -1537,7 +1645,7 @@ export class DiningService {
             l.kitchenStatus === KitchenItemStatus.SENT ||
             l.kitchenStatus === KitchenItemStatus.PREPARING,
         )
-        .map((l) => l.kitchenFireId?.trim() || l.id),
+        .map((l) => l.stationOrderId?.trim() || l.kitchenFireId?.trim() || l.id),
     );
     const visible = lines.filter((l) => {
       if (
@@ -1547,11 +1655,160 @@ export class DiningService {
         return true;
       }
       if (l.kitchenStatus === KitchenItemStatus.READY) {
-        return pendingFireIds.has(l.kitchenFireId?.trim() || l.id);
+        return pendingFireIds.has(
+          l.stationOrderId?.trim() || l.kitchenFireId?.trim() || l.id,
+        );
       }
       return false;
     });
 
     return visible.map((line) => this.toSnapshotLine(line));
+  }
+
+  async getProductionUnitHistory(
+    productionUnitId: string,
+  ): Promise<ProductionUnitHistoryOrderDto[]> {
+    const companyId = this.requireCompanyId();
+    const unit = await this.productionUnitRepository.findOne({
+      where: { id: productionUnitId, companyId },
+    });
+    if (!unit) {
+      throw new NotFoundException('Unidad de producción no encontrada.');
+    }
+
+    const branchId = unit.branchId?.trim() || null;
+
+    let periodKey: string | null = null;
+    if (branchId) {
+      const settings =
+        await this.diningOrderNumberService.getOrCreateSettings(
+          branchId,
+          companyId,
+        );
+      periodKey = diningBusinessPeriodKey(
+        new Date(),
+        settings.timezone,
+        settings.resetTimeLocal,
+      );
+    } else {
+      // Fallback: infer branch from a recent line of this UP.
+      const sampleLine = await this.diningOrderLineRepository.findOne({
+        where: { productionUnitId },
+        relations: ['diningOrder'],
+        order: { sentToKitchenAt: 'DESC' },
+      });
+      const inferredBranch = sampleLine?.diningOrder?.branchId?.trim();
+      if (inferredBranch) {
+        const settings =
+          await this.diningOrderNumberService.getOrCreateSettings(
+            inferredBranch,
+            companyId,
+          );
+        periodKey = diningBusinessPeriodKey(
+          new Date(),
+          settings.timezone,
+          settings.resetTimeLocal,
+        );
+      }
+    }
+
+    const qb = this.diningStationOrderRepository
+      .createQueryBuilder('so')
+      .innerJoinAndSelect('so.diningOrder', 'order')
+      .leftJoinAndSelect('order.diningTable', 'diningTable')
+      .innerJoinAndSelect(
+        'so.lines',
+        'line',
+        'line.productionUnitId = :productionUnitId',
+        { productionUnitId },
+      )
+      .leftJoinAndSelect('line.productVariant', 'productVariant')
+      .leftJoinAndSelect('productVariant.product', 'product')
+      .where('so.companyId = :companyId', { companyId })
+      .andWhere('line.kitchenStatus != :draft', {
+        draft: KitchenItemStatus.DRAFT,
+      })
+      .orderBy('so.sentAt', 'DESC');
+
+    if (periodKey) {
+      qb.andWhere('so.periodKey = :periodKey', { periodKey });
+    }
+
+    const stationOrders = await qb.getMany();
+
+    return stationOrders.map((so) => {
+      const unitLines = (so.lines ?? []).filter(
+        (l) => l.productionUnitId === productionUnitId,
+      );
+      const items: ProductionUnitHistoryItemDto[] = unitLines.map((line) => ({
+        id: line.id,
+        quantity: Number(line.quantity),
+        notes: line.notes ?? null,
+        kitchenStatus: line.kitchenStatus,
+        sentToKitchenAt: line.sentToKitchenAt?.toISOString() ?? null,
+        readyAt: line.readyAt?.toISOString() ?? null,
+        prepDurationMs: itemPrepDurationMs({
+          sentToKitchenAt: line.sentToKitchenAt,
+          readyAt: line.readyAt,
+        }),
+        productVariant: {
+          id: line.productVariantId,
+          name:
+            kitchenVariantLabel(line.productVariant) ?? line.productVariantId,
+          attributes: variantAttributesForKitchen(line.productVariant),
+        },
+      }));
+
+      return {
+        id: so.id,
+        sequenceNumber: so.sequenceNumber,
+        periodKey: so.periodKey,
+        status: so.status,
+        sentAt: so.sentAt.toISOString(),
+        completedAt: so.completedAt?.toISOString() ?? null,
+        diningOrderId: so.diningOrderId,
+        displayLabel: so.diningOrder?.displayLabel ?? 'Cuenta',
+        diningTableCode: so.diningOrder?.diningTable?.code ?? null,
+        prepDurationMs: stationOrderPrepDurationMsForUnit(unitLines),
+        items,
+      };
+    });
+  }
+
+  /**
+   * Actualiza status/completedAt del pedido de estación según todas sus líneas.
+   */
+  private async syncStationOrderStatusFromLines(
+    stationOrderId: string | null | undefined,
+  ): Promise<void> {
+    const id = stationOrderId?.trim();
+    if (!id) return;
+
+    const stationOrder = await this.diningStationOrderRepository.findOne({
+      where: { id },
+    });
+    if (!stationOrder) return;
+
+    const lines = await this.diningOrderLineRepository.find({
+      where: [{ stationOrderId: id }, { kitchenFireId: id }],
+    });
+    // Deduplicate by id (OR query may overlap).
+    const byId = new Map(lines.map((l) => [l.id, l]));
+    const unique = [...byId.values()];
+    if (unique.length === 0) return;
+
+    const nextStatus = deriveStationOrderStatus(
+      unique.map((l) => l.kitchenStatus),
+    );
+    stationOrder.status = nextStatus;
+    if (
+      nextStatus === DiningStationOrderStatus.COMPLETED ||
+      nextStatus === DiningStationOrderStatus.CANCELLED
+    ) {
+      stationOrder.completedAt = stationOrder.completedAt ?? new Date();
+    } else {
+      stationOrder.completedAt = null;
+    }
+    await this.diningStationOrderRepository.save(stationOrder);
   }
 }

@@ -63,6 +63,27 @@ export async function fetchInbox(
   }
 }
 
+export async function markNotificationRead(
+  userId: string,
+  activeCompanyId: string | null | undefined,
+  deliveryId: string,
+): Promise<boolean> {
+  const base = getClientBackendApiBase();
+  if (!base || !deliveryId) return false;
+  try {
+    const res = await fetch(
+      `${base}/api/notifications/deliveries/${encodeURIComponent(deliveryId)}/read`,
+      {
+        method: "PATCH",
+        headers: authHeaders(userId, activeCompanyId),
+      },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function markAllNotificationsRead(
   userId: string,
   activeCompanyId: string | null | undefined,

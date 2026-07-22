@@ -16,9 +16,15 @@ function formatQty(n: number): string {
 }
 
 export function StockAlertsDropdown() {
-  const { stockAlertCount, notificationRows, clearStockAlerts, refreshStockAlerts } =
-    useStockRealtime();
+  const {
+    stockAlertCount,
+    notificationRows,
+    clearStockAlerts,
+    markStockAlertRead,
+    refreshStockAlerts,
+  } = useStockRealtime();
   const [open, setOpen] = useState(false);
+  const [markingId, setMarkingId] = useState<string | null>(null);
   const triggerWrapRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -124,47 +130,69 @@ export function StockAlertsDropdown() {
                       : undefined
                   }
                 >
-                  <p className="text-xs font-medium" style={{ color: "var(--color-muted-foreground, #737373)" }}>
-                    {formatReceivedAt(evt.receivedAt)}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-foreground">
-                    {useTitle ? evt.title : evt.productName}
-                  </p>
-                  {!useTitle && evt.attributesLabel ? (
-                    <p className="mt-0.5 text-xs text-muted-foreground">{evt.attributesLabel}</p>
-                  ) : null}
-                  {!useTitle && evt.storageName ? (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Almacén: <span className="text-foreground">{evt.storageName}</span>
-                    </p>
-                  ) : null}
-                  {isDiningReady && diningItems && diningItems.length > 0 ? (
-                    <ul className="mt-1.5 space-y-0.5 text-xs text-foreground/90">
-                      {diningItems.map((it, idx) => (
-                        <li key={`${it.name}-${idx}`}>
-                          {Number.isInteger(it.quantity)
-                            ? it.quantity
-                            : Math.round(it.quantity * 1000) / 1000}
-                          × {it.name}
-                          {it.notes ? ` · ${it.notes}` : ""}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : evt.body ? (
-                    <p className="mt-1 whitespace-pre-line text-xs text-foreground/90">{evt.body}</p>
-                  ) : !useTitle ? (
-                    <p className="mt-1 text-xs text-foreground/90">
-                      Stock físico <strong>{formatQty(evt.physicalStock)}</strong>
-                    </p>
-                  ) : null}
-                  <ul className="mt-1.5 space-y-0.5 text-xs text-amber-800 dark:text-amber-200">
-                    {evt.alertLabels.map((a) => (
-                      <li key={a} className="flex items-center gap-1.5">
-                        <AlertTriangle className="h-3 w-3 shrink-0 opacity-80" aria-hidden />
-                        <span>{labelNotificationKind(useTitle ? evt.kind : a)}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium" style={{ color: "var(--color-muted-foreground, #737373)" }}>
+                        {formatReceivedAt(evt.receivedAt)}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-foreground">
+                        {useTitle ? evt.title : evt.productName}
+                      </p>
+                      {!useTitle && evt.attributesLabel ? (
+                        <p className="mt-0.5 text-xs text-muted-foreground">{evt.attributesLabel}</p>
+                      ) : null}
+                      {!useTitle && evt.storageName ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Almacén: <span className="text-foreground">{evt.storageName}</span>
+                        </p>
+                      ) : null}
+                      {isDiningReady && diningItems && diningItems.length > 0 ? (
+                        <ul className="mt-1.5 space-y-0.5 text-xs text-foreground/90">
+                          {diningItems.map((it, idx) => (
+                            <li key={`${it.name}-${idx}`}>
+                              {Number.isInteger(it.quantity)
+                                ? it.quantity
+                                : Math.round(it.quantity * 1000) / 1000}
+                              × {it.name}
+                              {it.notes ? ` · ${it.notes}` : ""}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : evt.body ? (
+                        <p className="mt-1 whitespace-pre-line text-xs text-foreground/90">{evt.body}</p>
+                      ) : !useTitle ? (
+                        <p className="mt-1 text-xs text-foreground/90">
+                          Stock físico <strong>{formatQty(evt.physicalStock)}</strong>
+                        </p>
+                      ) : null}
+                      <ul className="mt-1.5 space-y-0.5 text-xs text-amber-800 dark:text-amber-200">
+                        {evt.alertLabels.map((a) => (
+                          <li key={a} className="flex items-center gap-1.5">
+                            <AlertTriangle className="h-3 w-3 shrink-0 opacity-80" aria-hidden />
+                            <span>{labelNotificationKind(useTitle ? evt.kind : a)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <IconButton
+                      icon="Check"
+                      variant="text"
+                      size="sm"
+                      className="shrink-0"
+                      disabled={markingId === evt.deliveryId}
+                      ariaLabel="Marcar como leída"
+                      title="Marcar como leída"
+                      data-test-id={`stock-alert-mark-read-${evt.deliveryId}`}
+                      onClick={() => {
+                        setMarkingId(evt.deliveryId);
+                        void markStockAlertRead(evt.deliveryId).finally(() => {
+                          setMarkingId((cur) =>
+                            cur === evt.deliveryId ? null : cur,
+                          );
+                        });
+                      }}
+                    />
+                  </div>
                 </li>
                 );
               })}

@@ -5,6 +5,7 @@ import {
   diningLineGroupAllReady,
   diningLineGroupKitchenFireNumbers,
   diningOrderAllKitchenReady,
+  diningOrderCanBillOrCharge,
   diningProductNeedsKitchen,
   groupDiningOrderLines,
 } from "./group-dining-order-lines";
@@ -114,16 +115,43 @@ describe("diningOrderAllKitchenReady", () => {
 });
 
 describe("diningProductNeedsKitchen", () => {
-  it("true for kitchen product types", () => {
+  it("true only for PREPARADO", () => {
     expect(diningProductNeedsKitchen("PREPARADO")).toBe(true);
-    expect(diningProductNeedsKitchen("elaborado")).toBe(true);
-    expect(diningProductNeedsKitchen("MANUFACTURADO")).toBe(true);
+    expect(diningProductNeedsKitchen("preparado")).toBe(true);
   });
 
-  it("false for physical and unknown", () => {
+  it("false for physical, elaborado, manufacturado and unknown", () => {
     expect(diningProductNeedsKitchen("PHYSICAL")).toBe(false);
+    expect(diningProductNeedsKitchen("ELABORADO")).toBe(false);
+    expect(diningProductNeedsKitchen("MANUFACTURADO")).toBe(false);
     expect(diningProductNeedsKitchen(null)).toBe(false);
     expect(diningProductNeedsKitchen("")).toBe(false);
+  });
+});
+
+describe("diningOrderCanBillOrCharge", () => {
+  it("allows when no PREPARADO", () => {
+    expect(
+      diningOrderCanBillOrCharge(
+        [{ productVariantId: "v1", kitchenStatus: "DRAFT" }],
+        { v1: "PHYSICAL" },
+      ),
+    ).toBe(true);
+  });
+
+  it("requires PREPARADO ready", () => {
+    expect(
+      diningOrderCanBillOrCharge(
+        [{ productVariantId: "v1", kitchenStatus: "SENT" }],
+        { v1: "PREPARADO" },
+      ),
+    ).toBe(false);
+    expect(
+      diningOrderCanBillOrCharge(
+        [{ productVariantId: "v1", kitchenStatus: "READY" }],
+        { v1: "PREPARADO" },
+      ),
+    ).toBe(true);
   });
 });
 

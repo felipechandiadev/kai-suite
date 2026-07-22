@@ -23,10 +23,17 @@ export function diningKindToTab(kind: DiningOrderKind): DiningTab {
   return "mesas";
 }
 
+/** Volver a cuentas manteniendo la cuenta seleccionada (p. ej. cancelar cobro). */
 export function diningPaymentExitHref(order: DiningPaymentOrderMeta): string {
   const params = new URLSearchParams({
     diningOrderId: order.id,
     diningTab: diningKindToTab(order.kind),
   });
+  return `/accounts?${params.toString()}`;
+}
+
+/** Lista de cuentas sin selección (p. ej. tras cobro exitoso). */
+export function diningAccountsListHref(tab: DiningTab = "mesas"): string {
+  const params = new URLSearchParams({ diningTab: tab });
   return `/accounts?${params.toString()}`;
 }

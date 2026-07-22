@@ -25,11 +25,15 @@ import {
   openPosTableOrderAction,
   openPosTakeawayOrderAction,
   requestPosDiningBillAction,
+  reopenPosDiningOrderAction,
   cancelPosDiningOrderItemAction,
   sendPosDiningOrderToKitchenAction,
   updatePosDiningOrderLineNotesAction,
 } from "@/features/dining/actions/dining-pos.action";
 import { diningAccountTitle } from "@/features/dining/lib/dining-account-title";
+import { printDiningAccountTicketAgentOrBrowser } from "@/features/dining/lib/dining-account-ticket-agent";
+import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
+import { lookupPosVariantsAction } from "@/features/pos-products/actions/pos-products.action";
 import {
   readPosDiningMenuColumnCollapsed,
   readPosDiningTablesView,
@@ -38,7 +42,7 @@ import {
   type PosDiningTablesView,
 } from "@/features/dining/lib/dining-menu-column-collapsed-storage";
 import { diningOrderLinesToCart } from "@/features/dining/lib/dining-order-lines-to-cart";
-import { diningOrderAllKitchenReady, diningProductNeedsKitchen } from "@/features/dining/lib/group-dining-order-lines";
+import { diningOrderAllKitchenReady, diningOrderCanBillOrCharge, diningProductNeedsKitchen } from "@/features/dining/lib/group-dining-order-lines";
 import { mergeDiningSessionLines } from "@/features/dining/lib/merge-dining-session-lines";
 import {
   diningOrderStatusLabel,
@@ -60,7 +64,6 @@ import {
   type DiningLineProductMeta,
 } from "@/features/dining/ui/PosDiningOrderLineGroups";
 import { PosDiningRenameAccountDialog } from "@/features/dining/ui/PosDiningRenameAccountDialog";
-import { lookupPosVariantsAction } from "@/features/pos-products/actions/pos-products.action";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/pos-api-failure";
 import { diningKindToTab, useDiningPayment } from "@/features/dining-payment";
@@ -516,6 +519,21 @@ export default function PosDiningAccountsPanel({
     }).length;
   }, [detail, productByVariantId]);
 
+  const productTypeByVariantId = useMemo(() => {
+    const map: Record<string, string | null | undefined> = {};
+    for (const [id, meta] of Object.entries(productByVariantId)) {
+      map[id] = meta.productType ?? null;
+    }
+    return map;
+  }, [productByVariantId]);
+
+  const canBillOrCharge = useMemo(() => {
+    if (!detail) return false;
+    return diningOrderCanBillOrCharge(detail.lines, productTypeByVariantId);
+  }, [detail, productTypeByVariantId]);
+
+  const isBilling = detail?.status === "BILLING";
+
   const kitchenProgress = useMemo(
     () => kitchenProgressFromLines(detail?.lines ?? []),
     [detail],
@@ -668,6 +686,14 @@ export default function PosDiningAccountsPanel({
     setActionBusy(true);
     setActionError(null);
 
+    if (!diningOrderCanBillOrCharge(detail.lines, productTypeByVariantId)) {
+      setActionBusy(false);
+      setActionError(
+        "Hay productos PREPARADO pendientes de cocina. Espere a que estén listos antes de cobrar.",
+      );
+      return;
+    }
+
     let order = detail;
     if (order.status !== "BILLING") {
       const billRes = await requestPosDiningBillAction(order.id);
@@ -726,6 +752,122 @@ export default function PosDiningAccountsPanel({
       diningTab: tab,
     });
     router.push(`/pos/payment?${params.toString()}`);
+  };
+
+  const handleRequestBillAndPrint = async () => {
+    if (!detail) return;
+    setActionBusy(true);
+    setActionError(null);
+
+    if (!diningOrderCanBillOrCharge(detail.lines, productTypeByVariantId)) {
+      setActionBusy(false);
+      setActionError(
+        "Hay productos PREPARADO pendientes de cocina. Espere a que estén listos antes de pedir la cuenta.",
+      );
+      return;
+    }
+
+    let order = detail;
+    if (order.status !== "BILLING") {
+      const billRes = await requestPosDiningBillAction(order.id);
+      if (!billRes.success) {
+        setActionBusy(false);
+        if (redirectToLoginIfUnauthorized(billRes)) return;
+        setActionError(billRes.message);
+        return;
+      }
+      order = billRes.order;
+      setDetail(order);
+      upsertOrderInList(order);
+    }
+
+    const activeLines = order.lines.filter((l) => l.kitchenStatus !== "CANCELLED");
+    if (activeLines.length === 0) {
+      setActionBusy(false);
+      setActionError("La cuenta no tiene ítems para imprimir.");
+      return;
+    }
+
+    let products = productByVariantId;
+    const missing = activeLines.some((l) => !products[l.productVariantId]);
+    if (missing) {
+      const ctx = readPosContextClient();
+      const lookupRes = await lookupPosVariantsAction({
+        variantIds: [...new Set(activeLines.map((l) => l.productVariantId))],
+        pointOfSaleId: ctx?.pointOfSaleId ?? null,
+        branchId: ctx?.branchId ?? branchId,
+        priceListId: ctx?.priceListId ?? null,
+      });
+      if (lookupRes.success) {
+        const next: Record<string, DiningLineProductMeta> = { ...products };
+        for (const p of lookupRes.products) {
+          next[p.variantId] = {
+            name: p.productName,
+            attributes: p.attributes,
+            unitPrice: Number(p.unitPriceWithTax) || 0,
+            productType: p.productType ?? null,
+          };
+        }
+        products = next;
+        setProductByVariantId(next);
+      }
+    }
+
+    const tableCode =
+      order.tableCode?.trim() ||
+      mesaCards.find((m) => m.order?.id === order.id)?.code ||
+      null;
+
+    const lines = activeLines.map((l) => {
+      const meta = products[l.productVariantId];
+      const attrs = (meta?.attributes ?? [])
+        .map((a) => a.attributeValue?.trim())
+        .filter(Boolean) as string[];
+      const baseName = meta?.name?.trim() || l.productVariantId;
+      const name = attrs.length > 0 ? `${baseName} · ${attrs.join(" · ")}` : baseName;
+      return {
+        name,
+        quantity: Number(l.quantity) || 0,
+        unitPrice: meta?.unitPrice ?? 0,
+        notes: l.notes ?? null,
+      };
+    });
+
+    let company = null as Awaited<ReturnType<typeof getCompanyDetailsAction>>;
+    try {
+      company = (await getCompanyDetailsAction()) ?? null;
+    } catch {
+      company = null;
+    }
+
+    await printDiningAccountTicketAgentOrBrowser({
+      orderId: order.id,
+      displayLabel: order.displayLabel,
+      tableCode,
+      kind: order.kind,
+      status: order.status,
+      lines,
+      company,
+    });
+    setActionBusy(false);
+    refreshList({ silent: true });
+  };
+
+  const handleReopenAccount = () => {
+    if (!detail || detail.status !== "BILLING") return;
+    setActionBusy(true);
+    setActionError(null);
+    void reopenPosDiningOrderAction(detail.id).then((res) => {
+      setActionBusy(false);
+      if (!res.success) {
+        if (redirectToLoginIfUnauthorized(res)) return;
+        setActionError(res.message);
+        return;
+      }
+      setDetail(res.order);
+      upsertOrderInList(res.order);
+      refreshList({ silent: true });
+    });
   };
 
   const handleMenuOrderUpdated = (order: PosDiningOrderSummary) => {
@@ -816,16 +958,23 @@ export default function PosDiningAccountsPanel({
     const activeLines = order.lines.filter((l) => l.kitchenStatus !== "CANCELLED");
     const progress = kitchenProgressFromLines(order.lines);
     const selected = order.id === urlOrderId;
-    const allReady = diningOrderAllKitchenReady(order.lines);
+    const isBilling = order.status === "BILLING";
+    const allReady = !isBilling && diningOrderAllKitchenReady(order.lines);
     const title = diningAccountTitle(order);
     const estimated = estimateOrderTotal(order);
-    const tone = selected
-      ? allReady
-        ? "border-success/50 bg-success/15"
-        : "border-primary/50 bg-primary/5"
-      : allReady
-        ? "border-success/40 bg-success/10 hover:border-success/50 hover:bg-success/15"
-        : "border-border bg-surface hover:border-primary/40 hover:bg-primary/5";
+    const showKitchenProgress =
+      !isBilling && (progress.inKitchen > 0 || progress.ready > 0);
+    const tone = isBilling
+      ? selected
+        ? "border-amber-500/50 bg-amber-500/10"
+        : "border-amber-500/40 bg-amber-500/5 hover:border-amber-500/50 hover:bg-amber-500/10"
+      : selected
+        ? allReady
+          ? "border-success/50 bg-success/15"
+          : "border-primary/50 bg-primary/5"
+        : allReady
+          ? "border-success/40 bg-success/10 hover:border-success/50 hover:bg-success/15"
+          : "border-border bg-surface hover:border-primary/40 hover:bg-primary/5";
 
     if (layout === "grid") {
       return (
@@ -837,12 +986,17 @@ export default function PosDiningAccountsPanel({
           className={`flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-lg border p-2 text-center shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${tone}`}
           data-test-id={`pos-dining-pick-${order.id}`}
           data-all-ready={allReady ? "true" : "false"}
+          data-billing={isBilling ? "true" : "false"}
           data-layout="grid"
         >
           <span className="line-clamp-2 text-xs font-semibold leading-tight text-foreground">
             {title}
           </span>
-          {progress.inKitchen > 0 || progress.ready > 0 ? (
+          {isBilling ? (
+            <Badge variant="secondary-outlined" className="text-[9px]">
+              Por cobrar
+            </Badge>
+          ) : showKitchenProgress ? (
             <span className="text-[9px] tabular-nums text-muted-foreground">
               {progress.inKitchen > 0 ? `Cocina ${progress.inKitchen}` : null}
               {progress.inKitchen > 0 && progress.ready > 0 ? " · " : null}
@@ -872,6 +1026,7 @@ export default function PosDiningAccountsPanel({
         className={`block w-full rounded-xl border p-3 text-left shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${tone}`}
         data-test-id={`pos-dining-pick-${order.id}`}
         data-all-ready={allReady ? "true" : "false"}
+        data-billing={isBilling ? "true" : "false"}
         data-layout="list"
       >
         <div className="flex items-start justify-between gap-2">
@@ -879,7 +1034,15 @@ export default function PosDiningAccountsPanel({
             <p className="truncate text-sm font-medium text-foreground">{title}</p>
             <p className="truncate text-[11px] text-muted-foreground">{order.displayLabel}</p>
           </div>
-          {progress.inKitchen > 0 || progress.ready > 0 ? (
+          {isBilling ? (
+            <Badge
+              variant="secondary-outlined"
+              className="shrink-0 text-[10px]"
+              data-test-id={`pos-dining-pick-badge-billing-${order.id}`}
+            >
+              Por cobrar
+            </Badge>
+          ) : showKitchenProgress ? (
             <div className="flex max-w-[55%] shrink-0 flex-wrap justify-end gap-1">
               {progress.inKitchen > 0 ? (
                 <span aria-label={`En cocina ${progress.inKitchen}`}>
@@ -1043,7 +1206,7 @@ export default function PosDiningAccountsPanel({
             className={
               tab === "mesas" && tablesView === "grid"
                 ? menuColumnCollapsed
-                  ? "grid grid-cols-6 gap-2"
+                  ? "grid grid-cols-5 gap-2"
                   : "grid grid-cols-3 gap-2"
                 : "space-y-2"
             }
@@ -1151,7 +1314,7 @@ export default function PosDiningAccountsPanel({
             <PosDiningOrderLineGroups
               lines={detail.lines}
               productByVariantId={productByVariantId}
-              disabled={disabled}
+              disabled={disabled || isBilling}
               busy={actionBusy}
               onSendLines={(lineIds) => handleSendToKitchen(lineIds)}
               onCancelLines={handleCancelLines}
@@ -1169,7 +1332,7 @@ export default function PosDiningAccountsPanel({
               variant="outlined"
               size="sm"
               onClick={() => setAddItemOpen(true)}
-              disabled={disabled || actionBusy}
+              disabled={disabled || actionBusy || isBilling}
               data-test-id="pos-dining-add-item-btn"
             >
               Agregar ítem
@@ -1206,7 +1369,20 @@ export default function PosDiningAccountsPanel({
               <div className="min-w-0 flex-1" />
             )}
             <div className="flex shrink-0 items-center gap-3">
-              {draftCount > 0 ? (
+              {isBilling ? (
+                <Button
+                  variant="outlined"
+                  size="sm"
+                  className="shrink-0"
+                  disabled={disabled || actionBusy}
+                  loading={actionBusy}
+                  onClick={() => handleReopenAccount()}
+                  data-test-id="pos-dining-reopen-btn"
+                >
+                  Reabrir cuenta
+                </Button>
+              ) : null}
+              {draftCount > 0 && !isBilling ? (
                 <IconButton
                   icon="ChefHat"
                   variant="secondary"
@@ -1221,13 +1397,49 @@ export default function PosDiningAccountsPanel({
                 />
               ) : null}
               <IconButton
+                icon="Receipt"
+                variant="outlined"
+                size="lg"
+                className="shrink-0"
+                ariaLabel={
+                  actionBusy ? "Imprimiendo cuenta" : "Cuenta (por cobrar)"
+                }
+                title={
+                  !canBillOrCharge
+                    ? "Espere a que los PREPARADO estén listos"
+                    : actionBusy
+                      ? "Procesando…"
+                      : "Imprimir cuenta (por cobrar)"
+                }
+                disabled={
+                  disabled ||
+                  actionBusy ||
+                  detail.lines.length === 0 ||
+                  !canBillOrCharge
+                }
+                isLoading={actionBusy}
+                onClick={() => void handleRequestBillAndPrint()}
+                data-test-id="pos-dining-account-ticket-btn"
+              />
+              <IconButton
                 icon="CircleDollarSign"
                 variant="outlined"
                 size="lg"
                 className="shrink-0"
                 ariaLabel={actionBusy ? "Procesando cobro" : "Cobrar"}
-                title={actionBusy ? "Procesando…" : "Cobrar"}
-                disabled={disabled || actionBusy || detail.lines.length === 0}
+                title={
+                  !canBillOrCharge
+                    ? "Espere a que los PREPARADO estén listos"
+                    : actionBusy
+                      ? "Procesando…"
+                      : "Cobrar"
+                }
+                disabled={
+                  disabled ||
+                  actionBusy ||
+                  detail.lines.length === 0 ||
+                  !canBillOrCharge
+                }
                 isLoading={actionBusy}
                 onClick={() => void handleCobrar()}
                 data-test-id="pos-dining-cobrar-btn"
@@ -1360,7 +1572,7 @@ export default function PosDiningAccountsPanel({
         >
           <PosDiningMenuColumn
             orderId={urlOrderId || null}
-            disabled={disabled}
+            disabled={disabled || isBilling}
             fillViewport={fillViewport}
             heightVh={heightVh}
             onOrderUpdated={handleMenuOrderUpdated}

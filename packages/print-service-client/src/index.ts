@@ -18,6 +18,7 @@ export * from "./pos-cash-session-opening-ticket";
 export * from "./pos-cash-hub-movement-ticket";
 export * from "./pos-supplier-payment-ticket";
 export * from "./pos-bank-account-ticket";
+export * from "./pos-dining-account-ticket";
 export * from "./variant-barcode-label";
 export * from "./react";
 export * from "./settings-form";

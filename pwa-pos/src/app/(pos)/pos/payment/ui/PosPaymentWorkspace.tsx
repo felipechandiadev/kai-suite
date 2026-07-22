@@ -19,9 +19,12 @@ import {
 } from "@/features/pos-offline/lib/read-deferred-payment-enabled";
 import { usePosCart } from "@/features/pos-cart/PosCartProvider";
 import {
+  diningAccountsListHref,
+  diningKindToTab,
   diningPaymentExitHref,
   useDiningPayment,
 } from "@/features/dining-payment";
+import { readDiningPaymentDraft } from "@/features/dining-payment/dining-payment-storage";
 import { computePosSaleTotals } from "@/features/pos-cart/lib/pos-sale-totals";
 import { amountToPayWithPosDelivery } from "@/features/pos-cart/lib/amount-to-pay-with-delivery";
 import { PosDeliveryDialog } from "@/features/pos-delivery/ui/PosDeliveryDialog";
@@ -1339,14 +1342,29 @@ export default function PosPaymentWorkspace({
     if (!diningPayment.ready) return;
     if (diningPayment.order && diningPayment.lines.length > 0) return;
     if (skipDiningRehydrateRef.current) return;
-    if (diningRehydrateAttemptedRef.current) {
-      router.replace(paymentExitHref);
-      return;
-    }
 
     const orderId = (searchParams.get("diningOrderId") ?? "").trim();
     if (!orderId) {
       diningRehydrateAttemptedRef.current = true;
+      router.replace(paymentExitHref);
+      return;
+    }
+
+    // Draft recién escrito por startDiningPayment (antes del setState).
+    const draft = readDiningPaymentDraft();
+    if (draft && draft.order.id === orderId && draft.lines.length > 0) {
+      diningPayment.startDiningPayment({
+        order: draft.order,
+        lines: draft.lines,
+        orderDiscount: draft.orderDiscount,
+      });
+      if (draft.payments.length > 0) {
+        diningPayment.setPayments(draft.payments);
+      }
+      return;
+    }
+
+    if (diningRehydrateAttemptedRef.current) {
       router.replace(paymentExitHref);
       return;
     }
@@ -4528,11 +4546,19 @@ export default function PosPaymentWorkspace({
           setSuccessOpen(false);
           setReceiptData(null);
           if (isDiningMode) {
+            const tab = diningPayment.order
+              ? diningKindToTab(diningPayment.order.kind)
+              : ((searchParams.get("diningTab") ?? "mesas").trim() || "mesas");
             clearDiningPaymentSession();
-          } else {
-            cart.clear();
-            requestPosProductSearchFocus();
+            if (embedded && onCloseEmbedded) {
+              onCloseEmbedded();
+              return;
+            }
+            router.push(diningAccountsListHref(tab as "mesas" | "barra" | "takeaway"));
+            return;
           }
+          cart.clear();
+          requestPosProductSearchFocus();
           exitPaymentFlow();
         }}
       />

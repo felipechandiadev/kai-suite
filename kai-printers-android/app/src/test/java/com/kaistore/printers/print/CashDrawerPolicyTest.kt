@@ -60,6 +60,17 @@ class CashDrawerPolicyTest {
     }
 
     @Test
+    fun diningAccountTicketDoesNotOpen() {
+        assertFalse(
+            CashDrawerPolicy.shouldOpenDrawer(
+                "pos-dining-account-ticket",
+                48,
+                drawerEnabledInMapping = true,
+            ),
+        )
+    }
+
+    @Test
     fun neverOn58mm() {
         assertFalse(
             CashDrawerPolicy.shouldOpenDrawer("pos-sale-ticket", 32, drawerEnabledInMapping = true),

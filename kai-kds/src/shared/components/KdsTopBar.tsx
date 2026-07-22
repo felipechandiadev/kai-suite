@@ -101,6 +101,15 @@ export function KdsTopBar({ session, productionUnitLabel }: KdsTopBarProps) {
           @{session.userName}
         </span>
         <IconButton
+          icon="ClipboardList"
+          variant="action"
+          size="md"
+          onClick={() => router.push("/history")}
+          ariaLabel="Historial del día"
+          title="Historial del día"
+          data-test-id="kds-history-button"
+        />
+        <IconButton
           icon="Settings"
           variant="action"
           size="md"

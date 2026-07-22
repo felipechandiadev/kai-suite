@@ -5,4 +5,4 @@ export {
   writeDiningPaymentDraft,
 } from "./dining-payment-storage";
 export type { DiningPaymentDraft, DiningPaymentOrderMeta, DiningTab } from "./types";
-export { diningKindToTab, diningPaymentExitHref } from "./types";
+export { diningKindToTab, diningPaymentExitHref, diningAccountsListHref } from "./types";

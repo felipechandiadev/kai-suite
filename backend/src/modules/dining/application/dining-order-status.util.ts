@@ -123,10 +123,32 @@ export function canAddItems(status: DiningOrderStatus): boolean {
     status === DiningOrderStatus.OPEN ||
     status === DiningOrderStatus.SENT ||
     status === DiningOrderStatus.PARTIAL_READY ||
-    status === DiningOrderStatus.READY ||
-    // Pedir cuenta no cierra la comanda: se puede seguir agregando (reabre al agregar).
-    status === DiningOrderStatus.BILLING
+    status === DiningOrderStatus.READY
   );
+}
+
+/** Solo PREPARADO entra a comanda / KDS. */
+export function lineNeedsKitchenComanda(productType?: string | null): boolean {
+  return String(productType ?? '')
+    .trim()
+    .toUpperCase() === 'PREPARADO';
+}
+
+/**
+ * Receipt / cobro: si hay PREPARADO activos, todos deben estar READY/SERVED.
+ * Sin PREPARADO (solo PHYSICAL/ELABORADO/MANUFACTURADO) → permitido.
+ */
+export function canIssueBillOrCharge(
+  lines: Array<{ productVariantId: string; kitchenStatus: KitchenItemStatus }>,
+  productTypeByVariantId: Record<string, string | null | undefined>,
+): boolean {
+  const preparado = lines.filter((line) => {
+    if (line.kitchenStatus === KitchenItemStatus.CANCELLED) return false;
+    const type = productTypeByVariantId[line.productVariantId];
+    return lineNeedsKitchenComanda(type);
+  });
+  if (preparado.length === 0) return true;
+  return preparado.every((line) => READY_KITCHEN_STATUSES.has(line.kitchenStatus));
 }
 
 /** Sale de BILLING y recalcula estado operativo desde las líneas. */

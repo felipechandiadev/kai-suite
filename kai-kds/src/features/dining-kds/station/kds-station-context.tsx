@@ -61,7 +61,7 @@ export function KdsStationProvider({
       const active = list.filter((u) => {
         if (!u.isActive) return false;
         const purpose = String(u.purpose ?? "KITCHEN").toUpperCase();
-        return purpose === "KITCHEN" || purpose === "BATCH";
+        return purpose === "KITCHEN";
       });
       setUnits(active);
 

@@ -13,8 +13,8 @@ import { io, type Socket } from "socket.io-client";
 import { getClientBackendApiBase } from "@/lib/backend-api-url";
 import {
   fetchInbox,
-  fetchUnreadCount,
   markAllNotificationsRead,
+  markNotificationRead,
 } from "@/features/notifications/infrastructure/notifications.request";
 import {
   inboxItemToRow,
@@ -40,6 +40,7 @@ type StockRealtimeContextValue = {
   stockAlertCount: number;
   notificationRows: NotificationRow[];
   clearStockAlerts: () => Promise<void>;
+  markStockAlertRead: (deliveryId: string) => Promise<void>;
   refreshStockAlerts: () => Promise<void>;
 };
 
@@ -47,6 +48,7 @@ const StockRealtimeContext = createContext<StockRealtimeContextValue>({
   stockAlertCount: 0,
   notificationRows: [],
   clearStockAlerts: async () => {},
+  markStockAlertRead: async () => {},
   refreshStockAlerts: async () => {},
 });
 
@@ -90,28 +92,23 @@ export function PosStockRealtimeProvider({
       return;
     }
     try {
-      const [stockCount, catalogCount, salesCount, stockInbox, catalogInbox, salesInbox] =
-        await Promise.all([
-          fetchUnreadCount(userId, activeCompanyId, "STOCK"),
-          fetchUnreadCount(userId, activeCompanyId, "CATALOG"),
-          fetchUnreadCount(userId, activeCompanyId, "SALES"),
-          fetchInbox(userId, activeCompanyId, {
-            domain: "STOCK",
-            status: "UNREAD",
-            limit: 50,
-          }),
-          fetchInbox(userId, activeCompanyId, {
-            domain: "CATALOG",
-            status: "UNREAD",
-            limit: 50,
-          }),
-          fetchInbox(userId, activeCompanyId, {
-            domain: "SALES",
-            status: "UNREAD",
-            limit: 50,
-          }),
-        ]);
-      setStockAlertCount(stockCount + catalogCount + salesCount);
+      const [stockInbox, catalogInbox, salesInbox] = await Promise.all([
+        fetchInbox(userId, activeCompanyId, {
+          domain: "STOCK",
+          status: "UNREAD",
+          limit: 50,
+        }),
+        fetchInbox(userId, activeCompanyId, {
+          domain: "CATALOG",
+          status: "UNREAD",
+          limit: 50,
+        }),
+        fetchInbox(userId, activeCompanyId, {
+          domain: "SALES",
+          status: "UNREAD",
+          limit: 50,
+        }),
+      ]);
       const rows = [
         ...stockInbox.map((item) => inboxItemToRow(item, "STOCK")),
         ...catalogInbox.map((item) => inboxItemToRow(item, "CATALOG")),
@@ -121,6 +118,7 @@ export function PosStockRealtimeProvider({
         .sort((a, b) => b.receivedAt - a.receivedAt)
         .slice(0, 50);
       setNotificationRows(rows);
+      setStockAlertCount(rows.length);
     } catch {
       setStockAlertCount(0);
       setNotificationRows([]);
@@ -137,6 +135,25 @@ export function PosStockRealtimeProvider({
     setStockAlertCount(0);
     setNotificationRows([]);
   }, [userId, activeCompanyId]);
+
+  const markStockAlertRead = useCallback(
+    async (deliveryId: string) => {
+      if (!userId || !deliveryId) return;
+      let snapshot: NotificationRow[] = [];
+      setNotificationRows((prev) => {
+        snapshot = prev;
+        const next = prev.filter((r) => r.deliveryId !== deliveryId);
+        setStockAlertCount(next.length);
+        return next;
+      });
+      const ok = await markNotificationRead(userId, activeCompanyId, deliveryId);
+      if (!ok) {
+        setNotificationRows(snapshot);
+        setStockAlertCount(snapshot.length);
+      }
+    },
+    [userId, activeCompanyId],
+  );
 
   useEffect(() => {
     if (!userId) return;
@@ -201,11 +218,11 @@ export function PosStockRealtimeProvider({
       const row = wsPayloadToRow(payload);
       if (row) {
         setNotificationRows((prev) => {
-          const hadUnread = prev.some((p) => p.deliveryId === row.deliveryId);
-          const next = [row, ...prev.filter((p) => p.deliveryId !== row.deliveryId)].slice(0, 50);
-          if (!hadUnread) {
-            setStockAlertCount((c) => c + 1);
-          }
+          const next = [row, ...prev.filter((p) => p.deliveryId !== row.deliveryId)].slice(
+            0,
+            50,
+          );
+          setStockAlertCount(next.length);
           return next;
         });
       }
@@ -225,9 +242,16 @@ export function PosStockRealtimeProvider({
       stockAlertCount,
       notificationRows,
       clearStockAlerts,
+      markStockAlertRead,
       refreshStockAlerts,
     }),
-    [stockAlertCount, notificationRows, clearStockAlerts, refreshStockAlerts],
+    [
+      stockAlertCount,
+      notificationRows,
+      clearStockAlerts,
+      markStockAlertRead,
+      refreshStockAlerts,
+    ],
   );
 
   return <StockRealtimeContext.Provider value={value}>{children}</StockRealtimeContext.Provider>;

@@ -60,12 +60,22 @@ async function ensureSharedConnection(opts: PrintServiceManagerOptions): Promise
   if (existing?.conn.isConnected()) {
     return existing.conn;
   }
+  // Entrada stale (WS cerrado): no reutilizar; liberar antes de reconectar.
+  if (existing) {
+    existing.conn.disconnect({ ifConnecting: "abandon" });
+    sharedByKey.delete(key);
+  }
 
   if (!connectPromise) {
     connectPromise = (async () => {
       const conn = new PrintServiceConnection(connectionOptions(opts));
       conn.connect();
-      await conn.waitForOpen(15_000);
+      try {
+        await conn.waitForOpen(15_000);
+      } catch (e) {
+        conn.disconnect({ ifConnecting: "abandon" });
+        throw e;
+      }
       try {
         await conn.waitForHello(10_000);
       } catch {

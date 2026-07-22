@@ -61,19 +61,28 @@ export function KdsProductionUnitSettings() {
 
   return (
     <BasicPageLayout
-      title="Configuración"
+      title={
+        productionUnitId ? (
+          <span className="inline-flex items-center gap-1.5">
+            <IconButton
+              icon="ArrowLeft"
+              variant="action"
+              size="sm"
+              onClick={() => router.push("/queue")}
+              ariaLabel="Volver a la cola"
+              title="Volver a la cola"
+              data-test-id="kds-settings-back"
+            />
+            <span>Configuración</span>
+          </span>
+        ) : (
+          "Configuración"
+        )
+      }
       subtitle="Unidad de producción de esta estación"
       data-test-id="kds-settings-page"
     >
       <div className="mb-4 flex items-center gap-2">
-        <IconButton
-          icon="ArrowLeft"
-          variant="action"
-          size="sm"
-          onClick={() => router.push("/queue")}
-          ariaLabel="Volver a la cola"
-          data-test-id="kds-settings-back"
-        />
         <Button
           type="button"
           variant="outlined"

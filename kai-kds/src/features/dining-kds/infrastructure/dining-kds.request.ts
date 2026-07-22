@@ -8,7 +8,7 @@ export type KitchenLineAttribute = {
   attributeValue: string;
 };
 
-/** Shape returned by GET /dining/kitchen-queue (same as WS snapshot line). */
+/** Shape returned by GET /dining/production-unit-queue (same as WS snapshot line). */
 export type DiningKitchenQueueLineDto = {
   id: string;
   diningOrderId: string;
@@ -53,6 +53,35 @@ export type DiningOrderLineDto = {
     status: string;
     diningTable?: { code?: string; label?: string };
   };
+};
+
+export type ProductionUnitHistoryItemDto = {
+  id: string;
+  quantity: number;
+  notes: string | null;
+  kitchenStatus: string;
+  sentToKitchenAt: string | null;
+  readyAt: string | null;
+  prepDurationMs: number | null;
+  productVariant: {
+    id: string;
+    name: string;
+    attributes: KitchenLineAttribute[];
+  };
+};
+
+export type ProductionUnitHistoryOrderDto = {
+  id: string;
+  sequenceNumber: number;
+  periodKey: string;
+  status: string;
+  sentAt: string;
+  completedAt: string | null;
+  diningOrderId: string;
+  displayLabel: string;
+  diningTableCode: string | null;
+  prepDurationMs: number | null;
+  items: ProductionUnitHistoryItemDto[];
 };
 
 export function normalizeKitchenQueueLine(
@@ -102,13 +131,32 @@ export type ProductionUnitDto = {
 };
 
 export class DiningKdsRequest {
-  static async kitchenQueue(ctx: DiningAuthContext, productionUnitId: string) {
+  static async productionUnitQueue(
+    ctx: DiningAuthContext,
+    productionUnitId: string,
+  ) {
     const raw = await diningGet<DiningKitchenQueueLineDto[]>(
-      "/dining/kitchen-queue",
+      "/dining/production-unit-queue",
       ctx,
       { productionUnitId },
     );
     return (raw ?? []).map(normalizeKitchenQueueLine);
+  }
+
+  /** @deprecated Prefer productionUnitQueue */
+  static kitchenQueue(ctx: DiningAuthContext, productionUnitId: string) {
+    return this.productionUnitQueue(ctx, productionUnitId);
+  }
+
+  static productionUnitHistory(
+    ctx: DiningAuthContext,
+    productionUnitId: string,
+  ) {
+    return diningGet<ProductionUnitHistoryOrderDto[]>(
+      "/dining/production-unit-history",
+      ctx,
+      { productionUnitId },
+    );
   }
 
   static markReady(ctx: DiningAuthContext, orderId: string, lineId: string) {

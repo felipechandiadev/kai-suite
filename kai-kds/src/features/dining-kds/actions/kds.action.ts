@@ -36,7 +36,18 @@ export async function getKitchenQueueAction(body: {
   companyId: string;
   productionUnitId: string;
 }) {
-  return DiningKdsRequest.kitchenQueue(ctx(body), body.productionUnitId);
+  return DiningKdsRequest.productionUnitQueue(ctx(body), body.productionUnitId);
+}
+
+export async function getProductionUnitHistoryAction(body: {
+  userId: string;
+  companyId: string;
+  productionUnitId: string;
+}) {
+  return DiningKdsRequest.productionUnitHistory(
+    ctx(body),
+    body.productionUnitId,
+  );
 }
 
 export async function markKitchenItemReadyAction(body: {

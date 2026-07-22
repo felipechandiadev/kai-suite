@@ -28,6 +28,8 @@ mod pos_supplier_payment_ticket;
 mod pos_supplier_payment_ticket_escpos;
 mod pos_bank_account_ticket;
 mod pos_bank_account_ticket_escpos;
+mod pos_dining_account_ticket;
+mod pos_dining_account_ticket_escpos;
 mod pos_payment_in_ticket;
 mod pos_payment_in_ticket_escpos;
 mod pos_presale_ticket;

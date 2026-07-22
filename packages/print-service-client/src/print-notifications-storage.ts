@@ -114,6 +114,10 @@ const PRINT_AGENT_ERROR_MESSAGES_ES: Record<string, string> = {
   stale_print_job_recovered: "Un trabajo de impresión anterior quedó bloqueado y fue cancelado.",
   test_print_failed: "No se pudo imprimir la página de prueba.",
   timeout: "Tiempo de espera agotado al contactar Kai Printers.",
+  agent_no_pos_dining_account_ticket:
+    "Kai Printers no soporta ticket de cuenta dining. Actualice e inicie de nuevo el agente.",
+  agent_no_pos_sale_ticket:
+    "Kai Printers no soporta ticket de venta. Actualice e inicie de nuevo el agente.",
 };
 
 export function humanizePrintAgentError(error: string): string {
@@ -153,6 +157,7 @@ export function isAgentPrintConfigError(error: string): boolean {
     e.includes("closed_before_open") ||
     e.includes("open_timeout") ||
     e.includes("agent_no_pos_sale_ticket") ||
+    e.includes("agent_no_pos_dining_account_ticket") ||
     e.includes("print_job_timeout")
   );
 }
