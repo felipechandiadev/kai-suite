@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import PosAmbientBackground from "@/shared/components/PosAmbientBackground/PosAmbientBackground";
 import PosCartProvider from "@/features/pos-cart/PosCartProvider";
+import { DiningPaymentProvider } from "@/features/dining-payment";
 import { CustomerDisplayPublisher } from "@/features/customer-display/ui/CustomerDisplayPublisher";
 import { FiscalBoletaBrowserPrintHost } from "@/features/fiscal/print/FiscalBoletaBrowserPrintHost";
 import { PosOfflineBanner } from "@/features/pos-offline/ui/PosOfflineBanner";
@@ -41,8 +42,10 @@ export default function PosLayoutChrome({ children, topBar }: Props) {
         <FiscalBoletaBrowserPrintHost />
         <main className="relative z-10 flex flex-1 flex-col overflow-auto">
           <PosCartProvider>
-            <CustomerDisplayPublisher />
-            {children}
+            <DiningPaymentProvider>
+              <CustomerDisplayPublisher />
+              {children}
+            </DiningPaymentProvider>
           </PosCartProvider>
         </main>
       </div>
@@ -81,8 +84,10 @@ export default function PosLayoutChrome({ children, topBar }: Props) {
         }`}
       >
         <PosCartProvider>
-          <CustomerDisplayPublisher />
-          {children}
+          <DiningPaymentProvider>
+            <CustomerDisplayPublisher />
+            {children}
+          </DiningPaymentProvider>
         </PosCartProvider>
       </main>
     </div>

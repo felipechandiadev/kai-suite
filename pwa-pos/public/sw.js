@@ -87,6 +87,13 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
+  // En localhost el SW solo sirve para Web Push: no interceptar App Router/RSC
+  // (networkFirst con timeout de 3s rompe soft navigations lentas en Next.js).
+  const isLocalDev =
+    self.location.hostname === "localhost" ||
+    self.location.hostname === "127.0.0.1";
+  if (isLocalDev) return;
+
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(fetch(req));
     return;
@@ -133,5 +140,71 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(
     caches.match(req).then((cached) => cached || fetch(req)),
+  );
+});
+
+self.addEventListener("push", (event) => {
+  let title = "Kai POS";
+  let body = "";
+  let data = { url: "/pos" };
+  try {
+    const raw = event.data ? event.data.text() : "";
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        if (typeof parsed.title === "string" && parsed.title.trim()) {
+          title = parsed.title.trim();
+        }
+        if (typeof parsed.body === "string") body = parsed.body;
+        if (parsed.data && typeof parsed.data === "object") {
+          data = { ...data, ...parsed.data };
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      data,
+      icon: "/android-chrome-192x192.png",
+      badge: "/favicon-32x32.png",
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const rawUrl =
+    event.notification?.data && typeof event.notification.data.url === "string"
+      ? event.notification.data.url
+      : "/pos";
+  const target = rawUrl.startsWith("/") ? rawUrl : "/pos";
+
+  event.waitUntil(
+    (async () => {
+      const all = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      for (const client of all) {
+        if ("focus" in client) {
+          await client.focus();
+          if ("navigate" in client && typeof client.navigate === "function") {
+            try {
+              await client.navigate(target);
+            } catch {
+              // ignore
+            }
+          }
+          return;
+        }
+      }
+      if (self.clients.openWindow) {
+        await self.clients.openWindow(target);
+      }
+    })(),
   );
 });

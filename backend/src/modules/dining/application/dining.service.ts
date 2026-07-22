@@ -42,6 +42,9 @@ import {
   reopenFromBilling,
   recomputeOrderStatusFromLines,
   selectLinesForKitchenFireReady,
+  countPendingKitchenLines,
+  selectReadyLinesForKitchenFire,
+  effectiveKitchenFireId,
 } from './dining-order-status.util';
 import {
   buildDiningOrderProfileOnOpen,
@@ -50,6 +53,8 @@ import {
 import { DiningBackflushService } from './dining-backflush.service';
 import { DiningMaterialReservationService } from './dining-material-reservation.service';
 import { DiningOrderNumberService } from './dining-order-number.service';
+import { DiningReadyNotificationService } from './dining-ready-notification.service';
+import { WebPushSenderService } from '@modules/notifications/application/web-push-sender.service';
 import { UpsertDiningTableDto } from './dto/upsert-dining-tables.dto';
 import { RecipeCtpService } from '@modules/recipes/application/recipe-ctp.service';
 import {
@@ -68,6 +73,8 @@ const ACTIVE_ORDER_STATUSES: DiningOrderStatus[] = [
 const KITCHEN_QUEUE_STATUSES: KitchenItemStatus[] = [
   KitchenItemStatus.SENT,
   KitchenItemStatus.PREPARING,
+  /** Visible en KDS hasta completar el fire (ítems listos con check verde). */
+  KitchenItemStatus.READY,
 ];
 
 @Injectable()
@@ -96,6 +103,8 @@ export class DiningService {
     private readonly diningMaterialReservation: DiningMaterialReservationService,
     private readonly diningOrderNumberService: DiningOrderNumberService,
     private readonly recipeCtpService: RecipeCtpService,
+    private readonly diningReadyNotification: DiningReadyNotificationService,
+    private readonly webPushSender: WebPushSenderService,
   ) {}
 
   private requireCompanyId(): string {
@@ -920,6 +929,7 @@ export class DiningService {
 
     const draftLines = lines.filter((line) => {
       if (line.kitchenStatus !== KitchenItemStatus.DRAFT) return false;
+      if (!line.productionUnitId) return false;
       if (!lineIds?.length) return true;
       return lineIds.includes(line.id);
     });
@@ -972,6 +982,32 @@ export class DiningService {
       companyId,
       draftLines.map((line) => line.productionUnitId),
     );
+
+    const fireNumber =
+      draftLines.find((l) => typeof l.kitchenFireNumber === 'number')
+        ?.kitchenFireNumber ?? null;
+    const itemCount = draftLines.length;
+    void this.webPushSender
+      .sendToCompanyClient({
+        companyId,
+        clientApp: 'kds',
+        productionUnitIds: draftLines.map((l) => l.productionUnitId),
+        payload: {
+          title: `Nuevo pedido · ${updated.displayLabel}`,
+          body:
+            fireNumber != null
+              ? `Pedido #${fireNumber} · ${itemCount} ítem(s)`
+              : `${itemCount} ítem(s) a preparar`,
+          data: {
+            url: '/queue',
+            kind: 'dining.kitchen.sent',
+            orderId: updated.id,
+            kitchenFireNumber: fireNumber,
+          },
+        },
+      })
+      .catch(() => {});
+
     return updated;
   }
 
@@ -985,15 +1021,74 @@ export class DiningService {
     if (!line) {
       throw new NotFoundException('Línea de comanda no encontrada.');
     }
-    if (!canMarkReady(line.kitchenStatus)) {
+    const unitId = line.productionUnitId?.trim();
+    if (!unitId) {
       throw new BadRequestException(
-        'El ítem no puede marcarse como listo en su estado actual.',
+        'La línea no tiene unidad de producción; no se puede marcar listo.',
       );
     }
+    return this.markKitchenLinesReady(orderId, [lineId], unitId);
+  }
 
-    line.kitchenStatus = KitchenItemStatus.READY;
-    line.readyAt = new Date();
-    await this.diningOrderLineRepository.save(line);
+  /**
+   * Marca varias líneas READY en un gesto y publica **una** notificación:
+   * item_ready si quedan pendientes en el fire+UP; order_ready si era el último.
+   */
+  async markKitchenLinesReady(
+    orderId: string,
+    lineIds: string[],
+    productionUnitId: string,
+  ): Promise<DiningOrder> {
+    const companyId = this.requireCompanyId();
+    const unitId = productionUnitId?.trim();
+    if (!unitId) {
+      throw new BadRequestException('productionUnitId es obligatorio.');
+    }
+    const ids = [
+      ...new Set(
+        (lineIds ?? []).map((id) => String(id).trim()).filter(Boolean),
+      ),
+    ];
+    if (ids.length === 0) {
+      throw new BadRequestException('lineIds es obligatorio.');
+    }
+
+    const order = await this.getOrderOrThrow(orderId, companyId);
+    const targets = (order.lines ?? []).filter((l) => ids.includes(l.id));
+    if (targets.length !== ids.length) {
+      throw new NotFoundException(
+        'Una o más líneas de comanda no pertenecen a esta cuenta.',
+      );
+    }
+    for (const line of targets) {
+      if (line.productionUnitId !== unitId) {
+        throw new BadRequestException(
+          'Todas las líneas deben pertenecer a la misma unidad de producción.',
+        );
+      }
+      if (!canMarkReady(line.kitchenStatus)) {
+        throw new BadRequestException(
+          'Un ítem no puede marcarse como listo en su estado actual.',
+        );
+      }
+    }
+
+    const fireIds = new Set(
+      targets.map((l) => effectiveKitchenFireId(l)),
+    );
+    if (fireIds.size !== 1) {
+      throw new BadRequestException(
+        'Las líneas deben pertenecer al mismo pedido (tanda) de cocina.',
+      );
+    }
+    const fireId = [...fireIds][0]!;
+
+    const now = new Date();
+    for (const line of targets) {
+      line.kitchenStatus = KitchenItemStatus.READY;
+      line.readyAt = now;
+    }
+    await this.diningOrderLineRepository.save(targets);
 
     order.status = recomputeOrderStatusFromLines(
       order.status,
@@ -1001,14 +1096,23 @@ export class DiningService {
     );
     await this.diningOrderRepository.save(order);
     const updated = await this.getOrderOrThrow(orderId, companyId);
-    const updatedLine = (updated.lines ?? []).find((l) => l.id === lineId);
     this.publishSessionUpdated(updated);
-    if (updatedLine) {
-      this.publishKitchenItemUpdated(updated, updatedLine);
-      await this.publishKitchenSnapshotsForUnitIds(companyId, [
-        updatedLine.productionUnitId,
-      ]);
+    for (const line of targets) {
+      const refreshed =
+        (updated.lines ?? []).find((l) => l.id === line.id) ?? line;
+      this.publishKitchenItemUpdated(updated, refreshed);
     }
+    await this.publishKitchenSnapshotsForUnitIds(companyId, [unitId]);
+
+    await this.emitKitchenReadyNotification({
+      companyId,
+      order: updated,
+      productionUnitId: unitId,
+      fireId,
+      markedLineIds: ids,
+      forceOrderReady: false,
+    });
+
     return updated;
   }
 
@@ -1054,7 +1158,89 @@ export class DiningService {
       this.publishKitchenItemUpdated(updated, refreshed);
     }
     await this.publishKitchenSnapshotsForUnitIds(companyId, [unitId]);
+
+    const resolvedFireId = effectiveKitchenFireId(targets[0]!);
+    await this.emitKitchenReadyNotification({
+      companyId,
+      order: updated,
+      productionUnitId: unitId,
+      fireId: resolvedFireId,
+      markedLineIds: targets.map((l) => l.id),
+      forceOrderReady: true,
+    });
     return updated;
+  }
+
+  private async emitKitchenReadyNotification(params: {
+    companyId: string;
+    order: DiningOrder;
+    productionUnitId: string;
+    fireId: string;
+    markedLineIds: string[];
+    forceOrderReady: boolean;
+  }): Promise<void> {
+    const lines = params.order.lines ?? [];
+    const pendingLeft = countPendingKitchenLines(
+      lines,
+      params.fireId,
+      params.productionUnitId,
+    );
+    const asOrder = params.forceOrderReady || pendingLeft === 0;
+
+    const summarySourceLines = asOrder
+      ? selectReadyLinesForKitchenFire(
+          lines,
+          params.fireId,
+          params.productionUnitId,
+        )
+      : lines.filter((l) => params.markedLineIds.includes(l.id));
+
+    const withVariants = await this.loadLinesWithVariants(
+      summarySourceLines.map((l) => l.id),
+    );
+    const items =
+      this.diningReadyNotification.buildKitchenItemSummaries(withVariants);
+    const fireNumber =
+      summarySourceLines.find((l) => typeof l.kitchenFireNumber === 'number')
+        ?.kitchenFireNumber ??
+      lines.find((l) => effectiveKitchenFireId(l) === params.fireId)
+        ?.kitchenFireNumber ??
+      null;
+    const actorUserId = TenantContext.getUserId() ?? null;
+
+    if (asOrder) {
+      await this.diningReadyNotification.publishOrderReady({
+        companyId: params.companyId,
+        order: params.order,
+        productionUnitId: params.productionUnitId,
+        fireId: params.fireId,
+        fireNumber,
+        items,
+        actorUserId,
+      });
+      return;
+    }
+
+    await this.diningReadyNotification.publishItemReady({
+      companyId: params.companyId,
+      order: params.order,
+      productionUnitId: params.productionUnitId,
+      fireId: params.fireId,
+      fireNumber,
+      items,
+      actorUserId,
+    });
+  }
+
+  private async loadLinesWithVariants(
+    lineIds: string[],
+  ): Promise<DiningOrderLine[]> {
+    const ids = [...new Set(lineIds.filter(Boolean))];
+    if (ids.length === 0) return [];
+    return this.diningOrderLineRepository.find({
+      where: { id: In(ids) },
+      relations: ['productVariant', 'productVariant.product'],
+    });
   }
 
   async markItemServed(
@@ -1343,6 +1529,29 @@ export class DiningService {
       .orderBy('line.sentToKitchenAt', 'ASC', 'NULLS LAST')
       .getMany();
 
-    return lines.map((line) => this.toSnapshotLine(line));
+    // READY solo se muestra mientras el fire+UP aún tenga pendientes (SENT/PREPARING).
+    const pendingFireIds = new Set(
+      lines
+        .filter(
+          (l) =>
+            l.kitchenStatus === KitchenItemStatus.SENT ||
+            l.kitchenStatus === KitchenItemStatus.PREPARING,
+        )
+        .map((l) => l.kitchenFireId?.trim() || l.id),
+    );
+    const visible = lines.filter((l) => {
+      if (
+        l.kitchenStatus === KitchenItemStatus.SENT ||
+        l.kitchenStatus === KitchenItemStatus.PREPARING
+      ) {
+        return true;
+      }
+      if (l.kitchenStatus === KitchenItemStatus.READY) {
+        return pendingFireIds.has(l.kitchenFireId?.trim() || l.id);
+      }
+      return false;
+    });
+
+    return visible.map((line) => this.toSnapshotLine(line));
   }
 }

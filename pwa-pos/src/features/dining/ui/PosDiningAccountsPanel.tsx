@@ -38,7 +38,7 @@ import {
   type PosDiningTablesView,
 } from "@/features/dining/lib/dining-menu-column-collapsed-storage";
 import { diningOrderLinesToCart } from "@/features/dining/lib/dining-order-lines-to-cart";
-import { diningOrderAllKitchenReady } from "@/features/dining/lib/group-dining-order-lines";
+import { diningOrderAllKitchenReady, diningProductNeedsKitchen } from "@/features/dining/lib/group-dining-order-lines";
 import { mergeDiningSessionLines } from "@/features/dining/lib/merge-dining-session-lines";
 import {
   diningOrderStatusLabel,
@@ -63,7 +63,7 @@ import { PosDiningRenameAccountDialog } from "@/features/dining/ui/PosDiningRena
 import { lookupPosVariantsAction } from "@/features/pos-products/actions/pos-products.action";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/pos-api-failure";
-import { usePosCart } from "@/features/pos-cart/PosCartProvider";
+import { diningKindToTab, useDiningPayment } from "@/features/dining-payment";
 import { usePosCompactLayout } from "@/shared/hooks/usePosCompactLayout";
 
 export const POS_DINING_URL_KEYS = {
@@ -149,7 +149,7 @@ export default function PosDiningAccountsPanel({
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
-  const cart = usePosCart();
+  const diningPayment = useDiningPayment();
   const compact = usePosCompactLayout();
   const [, startTransition] = useTransition();
 
@@ -443,6 +443,7 @@ export default function PosDiningAccountsPanel({
           name: p.productName,
           attributes: p.attributes,
           unitPrice: Number(p.unitPriceWithTax) || 0,
+          productType: p.productType ?? null,
         };
       }
       setProductByVariantId(next);
@@ -508,8 +509,12 @@ export default function PosDiningAccountsPanel({
   }, [detail, estimateOrderTotal]);
 
   const draftCount = useMemo(() => {
-    return (detail?.lines ?? []).filter((l) => l.kitchenStatus === "DRAFT").length;
-  }, [detail]);
+    return (detail?.lines ?? []).filter((l) => {
+      if (l.kitchenStatus !== "DRAFT") return false;
+      const productType = productByVariantId[l.productVariantId]?.productType;
+      return diningProductNeedsKitchen(productType ?? null);
+    }).length;
+  }, [detail, productByVariantId]);
 
   const kitchenProgress = useMemo(
     () => kitchenProgressFromLines(detail?.lines ?? []),
@@ -705,18 +710,22 @@ export default function PosDiningAccountsPanel({
       return;
     }
 
-    cart.loadDiningOrderForPayment(
-      {
+    diningPayment.startDiningPayment({
+      order: {
         id: order.id,
         displayLabel: order.displayLabel,
         kind: order.kind,
       },
-      cartLines,
-    );
+      lines: cartLines,
+    });
     setActionBusy(false);
-    if (!pathname.startsWith("/pos/payment")) {
-      router.push("/pos/payment");
-    }
+    const tab = diningKindToTab(order.kind);
+    const params = new URLSearchParams({
+      mode: "dining",
+      diningOrderId: order.id,
+      diningTab: tab,
+    });
+    router.push(`/pos/payment?${params.toString()}`);
   };
 
   const handleMenuOrderUpdated = (order: PosDiningOrderSummary) => {

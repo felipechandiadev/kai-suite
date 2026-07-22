@@ -8,6 +8,7 @@ import { NotificationDelivery } from './domain/notification-delivery.entity';
 import { NotificationAudience } from './domain/notification-audience.entity';
 import { NotificationPreference } from './domain/notification-preference.entity';
 import { NotificationRetentionPolicy } from './domain/notification-retention-policy.entity';
+import { WebPushSubscription } from './domain/web-push-subscription.entity';
 import { NotificationPublisherService } from './application/notification-publisher.service';
 import { NotificationInboxService } from './application/notification-inbox.service';
 import { AudienceResolverService } from './application/audience-resolver.service';
@@ -15,6 +16,8 @@ import { StockNotificationEvaluator } from './application/stock-notification.eva
 import { NotificationRetentionService } from './application/notification-retention.service';
 import { StockAlertNotificationService } from './application/stock-alert-notification.service';
 import { NotificationsRealtimePublisher } from './application/notifications-realtime.publisher';
+import { WebPushSubscriptionService } from './application/web-push-subscription.service';
+import { WebPushSenderService } from './application/web-push-sender.service';
 import { NotificationsController } from './presentation/notifications.controller';
 import { NotificationsGateway } from './presentation/notifications.gateway';
 import { WsNotificationsTenantService } from './presentation/ws-notifications-tenant.service';
@@ -28,6 +31,7 @@ import { NotificationsDomainSchemaBootstrap } from './infrastructure/notificatio
       NotificationAudience,
       NotificationPreference,
       NotificationRetentionPolicy,
+      WebPushSubscription,
       User,
       Company,
     ]),
@@ -42,6 +46,8 @@ import { NotificationsDomainSchemaBootstrap } from './infrastructure/notificatio
     NotificationRetentionService,
     StockAlertNotificationService,
     NotificationsRealtimePublisher,
+    WebPushSubscriptionService,
+    WebPushSenderService,
     NotificationsGateway,
     WsNotificationsTenantService,
     NotificationsDomainSchemaBootstrap,
@@ -52,6 +58,7 @@ import { NotificationsDomainSchemaBootstrap } from './infrastructure/notificatio
     StockNotificationEvaluator,
     StockAlertNotificationService,
     NotificationsRealtimePublisher,
+    WebPushSenderService,
   ],
 })
 export class NotificationsModule {}

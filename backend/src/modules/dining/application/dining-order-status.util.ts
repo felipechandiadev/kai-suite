@@ -188,6 +188,39 @@ export function selectLinesForKitchenFireReady<
   });
 }
 
+/** Cantidad de líneas aún pendientes (SENT/PREPARING) en un fire + UP. */
+export function countPendingKitchenLines(
+  lines: Array<{
+    id: string;
+    kitchenFireId?: string | null;
+    productionUnitId?: string | null;
+    kitchenStatus: KitchenItemStatus;
+  }>,
+  fireId: string,
+  productionUnitId: string,
+): number {
+  return selectLinesForKitchenFireReady(lines, fireId, productionUnitId).length;
+}
+
+/** Líneas READY (no servidas/canceladas) de un fire + UP — resumen de pedido listo. */
+export function selectReadyLinesForKitchenFire<
+  T extends {
+    id: string;
+    kitchenFireId?: string | null;
+    productionUnitId?: string | null;
+    kitchenStatus: KitchenItemStatus;
+  },
+>(lines: T[], fireId: string, productionUnitId: string): T[] {
+  const target = fireId.trim();
+  const unitId = productionUnitId.trim();
+  if (!target || !unitId) return [];
+  return lines.filter((line) => {
+    if (line.productionUnitId !== unitId) return false;
+    if (effectiveKitchenFireId(line) !== target) return false;
+    return line.kitchenStatus === KitchenItemStatus.READY;
+  });
+}
+
 export function canMarkServed(kitchenStatus: KitchenItemStatus): boolean {
   return kitchenStatus === KitchenItemStatus.READY;
 }

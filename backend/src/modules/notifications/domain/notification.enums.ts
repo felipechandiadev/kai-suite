@@ -53,8 +53,18 @@ export const PricingNotificationKind = {
   UPDATED: 'pricing.updated',
 } as const;
 
+export const DiningNotificationKind = {
+  /** @deprecated inbox histórico — usar ORDER_READY */
+  KITCHEN_READY: 'dining.kitchen.ready',
+  ITEM_READY: 'dining.kitchen.item_ready',
+  ORDER_READY: 'dining.kitchen.order_ready',
+} as const;
+
 export type StockNotificationKindValue =
   (typeof StockNotificationKind)[keyof typeof StockNotificationKind];
 
 export type PricingNotificationKindValue =
   (typeof PricingNotificationKind)[keyof typeof PricingNotificationKind];
+
+export type DiningNotificationKindValue =
+  (typeof DiningNotificationKind)[keyof typeof DiningNotificationKind];

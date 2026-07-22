@@ -336,21 +336,6 @@ export function PosDiningMenuColumn({
     >
       <div className="flex shrink-0 items-start gap-1">
         <div className="min-w-0 flex-1">
-          <div className="mb-1 flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-foreground">Productos</h2>
-            {onCollapse ? (
-              <IconButton
-                icon="PanelLeftClose"
-                variant="action"
-                size="sm"
-                className="shrink-0"
-                ariaLabel="Colapsar menú"
-                title="Colapsar menú"
-                onClick={onCollapse}
-                data-test-id="pos-dining-menu-collapse"
-              />
-            ) : null}
-          </div>
           {menuCategories.length > 0 ? (
             <div
               className="flex flex-wrap gap-1.5"
@@ -549,10 +534,24 @@ export function PosDiningMenuColumn({
       </div>
 
       <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border pt-2">
-        <span className="truncate text-xs text-muted-foreground">
-          Pág. {page} / {totalPages} ({total} productos)
-          {loading ? " · …" : ""}
-        </span>
+        <div className="flex min-w-0 items-center gap-1">
+          {onCollapse ? (
+            <IconButton
+              icon="PanelLeftClose"
+              variant="action"
+              size="sm"
+              className="shrink-0"
+              ariaLabel="Colapsar menú"
+              title="Colapsar menú"
+              onClick={onCollapse}
+              data-test-id="pos-dining-menu-collapse"
+            />
+          ) : null}
+          <span className="truncate text-xs text-muted-foreground">
+            Pág. {page} / {totalPages} ({total} productos)
+            {loading ? " · …" : ""}
+          </span>
+        </div>
         <div className="flex shrink-0 gap-1">
           <IconButton
             icon="ChevronLeft"

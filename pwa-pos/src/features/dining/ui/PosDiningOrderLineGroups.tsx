@@ -8,6 +8,7 @@ import {
   diningLineGroupAllReady,
   diningLineGroupKitchenFireNumbers,
   diningLineGroupStatusLabel,
+  diningProductNeedsKitchen,
   groupDiningOrderLines,
   isKitchenReadyStatus,
   type DiningLineGroup,
@@ -35,6 +36,7 @@ export type DiningLineProductMeta = {
   name: string;
   attributes?: PosProductAttribute[];
   unitPrice: number;
+  productType?: string | null;
 };
 
 type Props = {
@@ -119,18 +121,24 @@ function GroupCard({
   const unitPrice = product?.unitPrice ?? 0;
   const totalPrice = unitPrice * group.quantityTotal;
   const showHeaderActions = !isExpanded || !canExpand;
+  /** null until lookup: hide kitchen actions (avoid ChefHat flash on PHYSICAL). */
+  const productType = product?.productType ?? null;
+  const needsKitchen = diningProductNeedsKitchen(productType);
   const draftIds = group.lines
-    .filter((l) => canSendDiningLineToKitchen(l.kitchenStatus))
+    .filter((l) => canSendDiningLineToKitchen(l.kitchenStatus, productType))
     .map((l) => l.id);
   const cancelIds = group.lines
     .filter((l) => canCancelDiningLine(l.kitchenStatus))
     .map((l) => l.id);
   const canSend = draftIds.length > 0;
   const canCancel = cancelIds.length > 0;
-  const allReady = diningLineGroupAllReady(group);
+  const allReady = needsKitchen && diningLineGroupAllReady(group);
   const name = product?.name ?? "Producto";
-  const fireNumbers = diningLineGroupKitchenFireNumbers(group);
-  const canEditNotes = draftIds.length > 0;
+  const fireNumbers = needsKitchen ? diningLineGroupKitchenFireNumbers(group) : [];
+  const canEditNotes = needsKitchen && draftIds.length > 0;
+  const statusLabel = needsKitchen
+    ? diningLineGroupStatusLabel(group)
+    : "En cuenta";
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesDraft, setNotesDraft] = useState(group.notes ?? "");
 
@@ -155,6 +163,7 @@ function GroupCard({
       }`}
       data-test-id={`pos-dining-line-group-${group.key}`}
       data-all-ready={allReady ? "true" : "false"}
+      data-needs-kitchen={needsKitchen ? "true" : "false"}
     >
       <div className="flex items-start gap-1">
         {canExpand ? (
@@ -210,7 +219,7 @@ function GroupCard({
             className="text-sm font-medium leading-snug text-foreground"
           />
           <p className="text-[11px] text-muted-foreground">
-            {diningLineGroupStatusLabel(group)}
+            {statusLabel}
             {group.notes ? ` · ${group.notes}` : ""}
           </p>
           {fireNumbers.length > 0 ? (
@@ -286,10 +295,16 @@ function GroupCard({
         <ul className="mt-2 space-y-1.5 border-t border-border pt-2 pl-7">
           {group.lines.map((line) => {
             const qty = Number(line.quantity) || 0;
-            const lineSend = canSendDiningLineToKitchen(line.kitchenStatus);
+            const lineSend = canSendDiningLineToKitchen(
+              line.kitchenStatus,
+              productType,
+            );
             const lineCancel = canCancelDiningLine(line.kitchenStatus);
-            const lineReady = isKitchenReadyStatus(line.kitchenStatus);
-            const fireN = line.kitchenFireNumber;
+            const lineReady = needsKitchen && isKitchenReadyStatus(line.kitchenStatus);
+            const fireN = needsKitchen ? line.kitchenFireNumber : null;
+            const lineStatusLabel = needsKitchen
+              ? kitchenItemStatusLabel(line.kitchenStatus)
+              : "En cuenta";
             return (
               <li
                 key={line.id}
@@ -328,7 +343,7 @@ function GroupCard({
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-muted-foreground">
-                    {kitchenItemStatusLabel(line.kitchenStatus)}
+                    {lineStatusLabel}
                     {line.notes?.trim() ? ` · ${line.notes.trim()}` : ""}
                   </p>
                   {typeof fireN === "number" && fireN > 0 ? (

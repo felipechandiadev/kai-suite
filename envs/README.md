@@ -12,10 +12,12 @@ envs/shared.env.example     ← matriz (deploy + infra + secretos + seed)
 envs/backend.env.example    ← solo lo específico del API
 envs/pwa-*.env.local.example
 envs/kai-delivery.env.local.example
+envs/kai-waiter.env.local.example
+envs/kai-kds.env.local.example
         ↓
 envs/sync-dev-envs.sh       ← merge + proyección
         ↓
-backend/.env, pwa-*/.env.local, kai-delivery/.env.local, services/kai-mail/.env
+backend/.env, pwa-*/.env.local, kai-*/.env.local, services/kai-mail/.env
 ```
 
 **Editar desarrollo:** cambia la matriz (`shared.env.example` o copia local `shared.env`) y regenera con `npm run env:dev`.
@@ -72,3 +74,39 @@ npm run env:dev              # regenera .env de cada app (forzado)
 - Tras `seed:*`, actualiza UUID/slug en la matriz.
 - `CORS_ORIGIN` se genera en sync desde puertos PWA.
 - LAN: cambia `KAI_DEV_HOST` y `npm run env:dev`.
+
+## Service Workers (PWA)
+
+Todas las apps front registran `/sw.js` en **producción**, y en **desarrollo** cuando `NEXT_PUBLIC_SW_DEV=1` (incluido en cada fragmento `envs/*.env.local.example`).
+
+```bash
+npm run env:dev   # regenera .env.local (forzado) — necesario tras cambiar examples
+```
+
+Reiniciá Next tras el sync: las vars `NEXT_PUBLIC_*` se inyectan al arrancar.
+
+| App | SW | Web Push |
+|-----|----|----------|
+| pwa-pos | offline + push | sí (`clientApp=pos`) |
+| kai-kds | shell + push | sí (`clientApp=kds`) |
+| pwa-admin / pwa-stock / pwa-eshop / kai-delivery / kai-waiter | cache/offline | no |
+
+### VAPID (toasts nativos POS/KDS)
+
+En `backend/.env` (ver `envs/backend.env.example`):
+
+```bash
+cd backend && npx web-push generate-vapid-keys
+# pegar VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT
+```
+
+Sin keys el push queda deshabilitado; inbox/WS siguen OK.
+
+### Checklist DevTools
+
+1. Application → Service Workers → `/sw.js` **activated**.
+2. Si no aparece: confirmá `NEXT_PUBLIC_SW_DEV=1` en `.env.local`, reiniciá la app, hard refresh.
+3. POS/KDS: Notifications = granted; Push messaging con suscripción; Network `POST .../push/subscribe` → 200.
+4. Residuos viejos: Application → Clear site data (eshop ya no desregistra en localhost).
+5. POS en localhost: el SW **no** intercepta fetch/RSC (solo push); en prod sí aplica cache offline.
+6. Migración `web_push_subscriptions` aplicada (`cd backend && npm run migration:run`). Sin la tabla el subscribe falla y no hay toast real (el “Test push” de DevTools sí funciona porque es local).

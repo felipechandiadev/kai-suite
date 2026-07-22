@@ -39,7 +39,10 @@ export const viewport: Viewport = {
   themeColor: THEME_COLOR,
 };
 
-const registerServiceWorkerInProduction = process.env.NODE_ENV === "production";
+/** Producción o `NEXT_PUBLIC_SW_DEV=1` en desarrollo. */
+const registerServiceWorker =
+  process.env.NODE_ENV === "production" ||
+  process.env.NEXT_PUBLIC_SW_DEV === "1";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -52,18 +55,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
         <Script id="kaistore-eshop-register-sw" strategy="afterInteractive">
-          {`
-            if ('serviceWorker' in navigator) {
-              var isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-              if (${registerServiceWorkerInProduction}) {
-                navigator.serviceWorker.register('/sw.js');
-              } else if (isLocalhost) {
-                navigator.serviceWorker.getRegistrations().then(function(regs) {
-                  regs.forEach(function(r) { r.unregister(); });
-                });
-              }
-            }
-          `}
+          {`if ('serviceWorker' in navigator && ${registerServiceWorker}) {
+  navigator.serviceWorker.register('/sw.js');
+}`}
         </Script>
       </body>
     </html>

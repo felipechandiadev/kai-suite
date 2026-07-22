@@ -1,9 +1,18 @@
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth/auth-options";
 import { apiFailure } from "@/lib/auth/api-response";
 import { apiUrl, authHeaders } from "@/lib/auth/auth-headers";
 
 type UnitRow = { id: string; active: boolean; isDefault: boolean; symbol: string };
 type PriceListRow = { id: string; isActive: boolean; isDefault: boolean };
-type TaxRow = { id: string; taxType: string; rate: number; isDefault: boolean; isActive: boolean };
+type TaxRow = {
+  id: string;
+  companyId: string;
+  taxType: string;
+  rate: number;
+  isDefault: boolean;
+  isActive: boolean;
+};
 type StorageRow = { id: string; isDefault: boolean; isActive: boolean };
 
 function parseUnits(json: unknown): UnitRow[] {
@@ -59,6 +68,7 @@ function parseTaxes(json: unknown): TaxRow[] {
             : 0;
       return {
         id,
+        companyId: o.companyId != null ? String(o.companyId) : "",
         taxType,
         rate: Number.isFinite(rate) ? rate : 0,
         isDefault: o.isDefault === true,
@@ -74,6 +84,8 @@ export type CatalogDefaults = {
   defaultStorageId: string;
   defaultIvaTaxIds: string[];
   taxes: TaxRow[];
+  /** true cuando hay al menos un IVA activo aplicable */
+  hasActiveIva: boolean;
 };
 
 function parseStorages(json: unknown): StorageRow[] {
@@ -95,12 +107,23 @@ function parseStorages(json: unknown): StorageRow[] {
     .filter((x): x is StorageRow => x != null);
 }
 
+function resolveDefaultIvaTaxIds(taxes: TaxRow[]): string[] {
+  const iva = taxes.filter((t) => t.isActive && t.taxType === "IVA");
+  const defaults = iva.filter((t) => t.isDefault).map((t) => t.id);
+  if (defaults.length > 0) return defaults;
+  return iva[0]?.id ? [iva[0].id] : [];
+}
+
 export class CatalogRequest {
   static async resolveDefaults(): Promise<
     | { success: true; defaults: CatalogDefaults }
     | { success: false; error: string; unauthorized?: boolean }
   > {
     const headers = await authHeaders();
+    const session = await getServerSession(authOptions);
+    const activeCompanyId =
+      (session?.user as { activeCompanyId?: string | null } | undefined)?.activeCompanyId ??
+      null;
     try {
       const [unitsRes, priceListsRes, taxesRes, filtersRes] = await Promise.all([
         fetch(apiUrl("units"), { method: "GET", headers, cache: "no-store" }),
@@ -135,7 +158,10 @@ export class CatalogRequest {
 
       const units = parseUnits(unitsJson);
       const priceLists = parsePriceLists(priceListsJson);
-      const taxes = parseTaxes(taxesJson);
+      const allTaxes = parseTaxes(taxesJson);
+      const taxes = activeCompanyId
+        ? allTaxes.filter((t) => !t.companyId || t.companyId === activeCompanyId)
+        : allTaxes;
       const storages = parseStorages(filtersJson);
 
       const activeUnits = units.filter((u) => u.active);
@@ -158,10 +184,7 @@ export class CatalogRequest {
         return { success: false, error: "No hay lista de precios activa." };
       }
 
-      const iva = taxes.filter((t) => t.isActive && t.taxType === "IVA");
-      const defaultIvaTaxIds = iva.filter((t) => t.isDefault).map((t) => t.id);
-      const taxIds =
-        defaultIvaTaxIds.length > 0 ? defaultIvaTaxIds : iva[0]?.id ? [iva[0].id] : [];
+      const taxIds = resolveDefaultIvaTaxIds(taxes);
 
       const activeStorages = storages.filter((s) => s.isActive);
       const defaultStorageId =
@@ -181,6 +204,7 @@ export class CatalogRequest {
           defaultStorageId,
           defaultIvaTaxIds: taxIds,
           taxes,
+          hasActiveIva: taxIds.length > 0,
         },
       };
     } catch (e) {

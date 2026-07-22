@@ -118,6 +118,19 @@ export class DiningKdsRequest {
     );
   }
 
+  static markLinesReady(
+    ctx: DiningAuthContext,
+    orderId: string,
+    lineIds: string[],
+    productionUnitId: string,
+  ) {
+    return diningPost<unknown>(
+      `/dining/orders/${orderId}/kitchen-ready-lines`,
+      ctx,
+      { lineIds, productionUnitId },
+    );
+  }
+
   static markFireReady(
     ctx: DiningAuthContext,
     orderId: string,

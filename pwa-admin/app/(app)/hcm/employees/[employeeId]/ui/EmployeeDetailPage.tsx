@@ -226,7 +226,7 @@ export default function EmployeeDetailPage({
         id={`employee-section-panel-${activeSection}`}
         role="tabpanel"
         aria-labelledby={`employee-section-tab-${activeSection}`}
-        className="min-h-[16rem]"
+        className="min-h-64"
         data-test-id="employee-detail-section-panel"
         data-active-section={activeSection}
       >

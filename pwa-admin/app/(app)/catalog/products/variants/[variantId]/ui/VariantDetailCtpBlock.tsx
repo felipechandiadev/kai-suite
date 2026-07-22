@@ -81,7 +81,7 @@ function StorageCtpRow({ item }: { item: RecipeCtpByStorageItem }) {
           </button>
           {expanded ? (
             <div className="mt-2 overflow-x-auto rounded-lg border border-border">
-              <table className="w-full min-w-[520px] border-collapse text-sm">
+              <table className="w-full min-w-130 border-collapse text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     <th className="px-3 py-2">Insumo</th>

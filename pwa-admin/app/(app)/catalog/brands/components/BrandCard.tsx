@@ -30,7 +30,7 @@ export function BrandCard({ brand, "data-test-id": dataTestId }: BrandCardProps)
 
   const media = (
     <div
-      className="relative flex min-h-[7.5rem] w-full items-center justify-center overflow-hidden bg-gradient-to-br from-primary/[0.12] via-secondary/25 to-accent/15"
+      className="relative flex min-h-30 w-full items-center justify-center overflow-hidden bg-linear-to-br from-primary/12 via-secondary/25 to-accent/15"
       data-test-id="brand-card-media"
     >
       <div
@@ -41,7 +41,7 @@ export function BrandCard({ brand, "data-test-id": dataTestId }: BrandCardProps)
         className="pointer-events-none absolute -bottom-8 -left-6 h-32 w-32 rounded-full bg-primary/20 blur-3xl"
         aria-hidden
       />
-      <div className="relative flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-2xl border-2 border-secondary bg-white/90 shadow-md backdrop-blur-sm">
+      <div className="relative flex h-18 w-18 items-center justify-center rounded-2xl border-2 border-secondary bg-white/90 shadow-md backdrop-blur-sm">
         <Tag className="h-9 w-9 text-primary" strokeWidth={1.75} aria-hidden />
       </div>
     </div>

@@ -7,7 +7,7 @@ import { normalizeKitchenQueueLine } from "../infrastructure/dining-kds.request"
 import {
   getKitchenQueueAction,
   markKitchenFireReadyAction,
-  markKitchenItemReadyAction,
+  markKitchenLinesReadyAction,
 } from "../actions/kds.action";
 import { useDiningRealtime } from "../realtime/useDiningRealtime";
 import {
@@ -31,6 +31,10 @@ import {
   kdsItemGroupTestId,
   type KdsItemGroup,
 } from "../lib/group-pedido-lines-by-item";
+import {
+  isKitchenItemGroupReady,
+  pruneCompletedKitchenFires,
+} from "../lib/prune-completed-kitchen-fires";
 import { useKdsQueueRefresh } from "../station/kds-queue-refresh-context";
 import type { KdsSession } from "@/lib/app-session";
 
@@ -87,7 +91,8 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
   const pedidos = useMemo(() => groupKitchenQueueByFire(lines), [lines]);
 
   const applyQueue = useCallback((next: DiningOrderLineDto[]) => {
-    const nextFireIds = new Set(next.map((l) => effectiveKitchenFireId(l)));
+    const pruned = pruneCompletedKitchenFires(next);
+    const nextFireIds = new Set(pruned.map((l) => effectiveKitchenFireId(l)));
     if (!skipSoundRef.current) {
       for (const fireId of nextFireIds) {
         if (!knownFireIdsRef.current.has(fireId)) {
@@ -98,7 +103,7 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
     }
     knownFireIdsRef.current = nextFireIds;
     skipSoundRef.current = false;
-    setLines(next);
+    setLines(pruned);
   }, []);
 
   const refresh = useCallback(async (opts?: { silent?: boolean }) => {
@@ -140,8 +145,26 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
     (payload: DiningKitchenItemUpdatedPayload) => {
       if (!productionUnitId || payload.unitId !== productionUnitId) return;
       if (!KDS_QUEUE_STATUSES.has(payload.kitchenStatus)) {
+        // SERVED / CANCELLED / etc.: sacar línea y podar fires completos.
         setLines((prev) => {
-          const next = prev.filter((l) => l.id !== payload.lineId);
+          const next = pruneCompletedKitchenFires(
+            prev.filter((l) => l.id !== payload.lineId),
+          );
+          knownFireIdsRef.current = new Set(
+            next.map((l) => effectiveKitchenFireId(l)),
+          );
+          return next;
+        });
+        return;
+      }
+      if (payload.kitchenStatus === "READY") {
+        setLines((prev) => {
+          const mapped = prev.map((l) =>
+            l.id === payload.lineId
+              ? { ...l, kitchenStatus: "READY" }
+              : l,
+          );
+          const next = pruneCompletedKitchenFires(mapped);
           knownFireIdsRef.current = new Set(
             next.map((l) => effectiveKitchenFireId(l)),
           );
@@ -206,22 +229,29 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
     unlockKdsAlertAudio();
     setMarkingId(group.key);
     setError(null);
-    const lineIds = new Set(group.lines.map((l) => l.id));
+    const lineIds = group.lines.map((l) => l.id);
     const orderId = group.lines[0]?.diningOrderId;
-    if (!orderId || lineIds.size === 0) {
+    const unitId =
+      productionUnitId ??
+      group.lines[0]?.productionUnitId?.trim() ??
+      null;
+    if (!orderId || lineIds.length === 0 || !unitId) {
       setMarkingId(null);
       return;
     }
     try {
-      for (const line of group.lines) {
-        await markKitchenItemReadyAction({
-          ...auth,
-          orderId: line.diningOrderId,
-          lineId: line.id,
-        });
-      }
+      await markKitchenLinesReadyAction({
+        ...auth,
+        orderId,
+        lineIds,
+        productionUnitId: unitId,
+      });
+      const idSet = new Set(lineIds);
       setLines((prev) => {
-        const next = prev.filter((l) => !lineIds.has(l.id));
+        const mapped = prev.map((l) =>
+          idSet.has(l.id) ? { ...l, kitchenStatus: "READY" } : l,
+        );
+        const next = pruneCompletedKitchenFires(mapped);
         knownFireIdsRef.current = new Set(
           next.map((l) => effectiveKitchenFireId(l)),
         );
@@ -337,7 +367,8 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
                   {groupPedidoLinesByItem(pedido.lines).map((item) => {
                     const first = item.lines[0]!;
                     const testKey = kdsItemGroupTestId(item.key);
-                    const pressed = markingId === item.key;
+                    const itemReady = isKitchenItemGroupReady(item.lines);
+                    const pressed = markingId === item.key || itemReady;
                     return (
                       <li
                         key={item.key}
@@ -365,16 +396,20 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
                             size="md"
                             className={
                               pressed
-                                ? "shrink-0 !border-emerald-600 !bg-emerald-600 !text-white"
+                                ? "shrink-0 border-emerald-600! bg-emerald-600! text-white!"
                                 : "shrink-0"
                             }
                             iconClassName={
-                              pressed ? "!text-white" : undefined
+                              pressed ? "text-white!" : undefined
                             }
-                            disabled={busyFire || (markingId != null && !pressed)}
+                            disabled={
+                              itemReady ||
+                              busyFire ||
+                              (markingId != null && !pressed)
+                            }
                             onClick={() => void handleMarkItemReady(item)}
-                            ariaLabel="Marcar listo"
-                            title="Listo"
+                            ariaLabel={itemReady ? "Ítem listo" : "Marcar listo"}
+                            title={itemReady ? "Listo" : "Listo"}
                             data-test-id={`kds-item-ready-${testKey}`}
                             data-ready-pressed={pressed ? "true" : "false"}
                           />

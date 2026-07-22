@@ -48,6 +48,21 @@ export async function markKitchenItemReadyAction(body: {
   return DiningKdsRequest.markReady(ctx(body), body.orderId, body.lineId);
 }
 
+export async function markKitchenLinesReadyAction(body: {
+  userId: string;
+  companyId: string;
+  orderId: string;
+  lineIds: string[];
+  productionUnitId: string;
+}) {
+  return DiningKdsRequest.markLinesReady(
+    ctx(body),
+    body.orderId,
+    body.lineIds,
+    body.productionUnitId,
+  );
+}
+
 export async function markKitchenFireReadyAction(body: {
   userId: string;
   companyId: string;

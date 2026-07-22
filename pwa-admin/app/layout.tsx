@@ -42,8 +42,10 @@ export const viewport: Viewport = {
   themeColor: THEME_COLOR,
 };
 
-/** Solo en build/SSR; no usar `process` dentro del string del `<script>` (en el browser no existe). */
-const registerServiceWorkerInProduction = process.env.NODE_ENV === "production";
+/** Producción o `NEXT_PUBLIC_SW_DEV=1` en desarrollo. */
+const registerServiceWorker =
+  process.env.NODE_ENV === "production" ||
+  process.env.NEXT_PUBLIC_SW_DEV === "1";
 
 export default function RootLayout({
   children,
@@ -70,7 +72,7 @@ export default function RootLayout({
         </div>
         <Script id="flowstore-register-sw" strategy="afterInteractive">
           {`
-            if ('serviceWorker' in navigator && ${registerServiceWorkerInProduction}) {
+            if ('serviceWorker' in navigator && ${registerServiceWorker}) {
               navigator.serviceWorker.register('/sw.js');
             }
           `}

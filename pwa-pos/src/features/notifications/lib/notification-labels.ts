@@ -2,6 +2,16 @@ import { labelStockAlertKind } from "@/features/inventory-stock/lib/stock-alert-
 
 /** Maps notification `kind` (e.g. stock.below_minimum) to display text. */
 export function labelNotificationKind(kind: string): string {
+  if (kind === "dining.kitchen.item_ready") {
+    return "Ítem listo";
+  }
+  if (
+    kind === "dining.kitchen.order_ready" ||
+    kind === "dining.kitchen.ready" ||
+    kind.startsWith("dining.")
+  ) {
+    return "Pedido listo";
+  }
   if (kind === "pricing.updated" || kind.startsWith("pricing.")) {
     return "Precios actualizados";
   }

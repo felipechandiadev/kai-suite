@@ -23,6 +23,8 @@ import { DiningSchemaBootstrap } from './application/dining-schema.bootstrap';
 import { DiningService } from './application/dining.service';
 import { DiningController } from './presentation/dining.controller';
 import { ProductVariantsModule } from '@modules/product-variants/product-variants.module';
+import { NotificationsModule } from '@modules/notifications/notifications.module';
+import { DiningReadyNotificationService } from './application/dining-ready-notification.service';
 
 @Module({
   imports: [
@@ -31,6 +33,7 @@ import { ProductVariantsModule } from '@modules/product-variants/product-variant
     TransactionsModule,
     StockLevelsModule,
     ProductVariantsModule,
+    NotificationsModule,
     TypeOrmModule.forFeature([
       DiningRoom,
       DiningTable,
@@ -53,6 +56,7 @@ import { ProductVariantsModule } from '@modules/product-variants/product-variant
     DiningMaterialReservationService,
     DiningOrderNumberService,
     DiningSchemaBootstrap,
+    DiningReadyNotificationService,
   ],
   exports: [DiningService, DiningOrderNumberService],
 })

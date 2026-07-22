@@ -107,12 +107,13 @@ export default function CreateProductPage({ scannedCode, mode }: CreateProductPa
           readOnly={barcodeLocked}
         />
         <TextField
-          label="Precio de venta"
+          label="Precio de venta (con IVA)"
           type="currency"
-          placeholder="Precio de venta"
+          placeholder="Precio de venta con impuestos"
           value={basePrice}
           onChange={(e) => setBasePrice(e.target.value)}
           disabled={pending}
+          helperText="Se guarda como precio con impuestos. El neto se calcula con el IVA por defecto de la empresa."
         />
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
           <Link

@@ -83,7 +83,7 @@ export function KdsTopBar({ session, productionUnitLabel }: KdsTopBarProps) {
         </div>
         <div className="min-w-2 flex-1" aria-hidden />
         <span
-          className="hidden max-w-[12rem] shrink truncate text-sm font-semibold text-foreground md:inline md:max-w-xs"
+          className="hidden max-w-48 shrink truncate text-sm font-semibold text-foreground md:inline md:max-w-xs"
           title={unitLabel}
           data-test-id="kds-top-bar-unit"
         >
@@ -138,12 +138,12 @@ export function KdsTopBar({ session, productionUnitLabel }: KdsTopBarProps) {
               : "Audio bloqueado (tap para activar)"
           }
           iconClassName={
-            audioRunning ? "!text-emerald-600" : "!text-red-600"
+            audioRunning ? "text-emerald-600!" : "text-red-600!"
           }
           className={
             audioRunning
-              ? "!text-emerald-600 hover:!text-emerald-700"
-              : "!text-red-600 hover:!text-red-700"
+              ? "text-emerald-600! hover:text-emerald-700!"
+              : "text-red-600! hover:text-red-700!"
           }
           data-test-id="kds-audio-button"
           data-audio-running={audioRunning ? "true" : "false"}

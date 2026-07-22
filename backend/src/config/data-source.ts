@@ -172,6 +172,7 @@ import { UserCompanyMemberships1757100000000 } from '../migrations/1757100000000
 import { ProductTypeInsumo1757110000000 } from '../migrations/1757110000000-ProductTypeInsumo';
 import { RecipeCtpAndDiningMaterialReservation1757120000000 } from '../migrations/1757120000000-RecipeCtpAndDiningMaterialReservation';
 import { NotificationDomainCatalog1757130000000 } from '../migrations/1757130000000-NotificationDomainCatalog';
+import { WebPushSubscriptions1757300000000 } from '../migrations/1757300000000-WebPushSubscriptions';
 import { DiningKitchenFireId1757140000000 } from '../migrations/1757140000000-DiningKitchenFireId';
 import { DiningKitchenFireNumber1757150000000 } from '../migrations/1757150000000-DiningKitchenFireNumber';
 import { ProductionUnitPurpose1757160000000 } from '../migrations/1757160000000-ProductionUnitPurpose';
@@ -205,6 +206,7 @@ import { NotificationDelivery } from '@modules/notifications/domain/notification
 import { NotificationAudience } from '@modules/notifications/domain/notification-audience.entity';
 import { NotificationPreference } from '@modules/notifications/domain/notification-preference.entity';
 import { NotificationRetentionPolicy } from '@modules/notifications/domain/notification-retention-policy.entity';
+import { WebPushSubscription } from '@modules/notifications/domain/web-push-subscription.entity';
 import { HrJornadaConfig } from '@modules/hr-jornada/domain/hr-jornada-config.entity';
 import { HrHoliday, HrHolidayOverride } from '@modules/hr-jornada/domain/hr-holiday.entity';
 import { HrShiftTemplate } from '@modules/hr-jornada/domain/hr-shift-template.entity';
@@ -340,6 +342,7 @@ export const AppDataSource = new DataSource({
     NotificationAudience,
     NotificationPreference,
     NotificationRetentionPolicy,
+    WebPushSubscription,
     HrJornadaConfig,
     HrHoliday,
     HrHolidayOverride,
@@ -491,6 +494,7 @@ export const AppDataSource = new DataSource({
     HcmShiftInstanceLaborUnitShift1757270000000,
     RecurringOperationalExpenses1757280000000,
     DiningPosAccountsMenuCategories1757290000000,
+    WebPushSubscriptions1757300000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

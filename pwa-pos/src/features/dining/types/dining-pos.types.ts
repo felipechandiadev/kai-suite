@@ -90,13 +90,6 @@ export type PosDiningMutationResponse =
   | { success: true; order: PosDiningOrderSummary }
   | { success: false; message: string };
 
-/** Cuenta salón cargada en carrito para cobro en POS. */
-export type LoadedDiningOrderMeta = {
-  id: string;
-  displayLabel: string;
-  kind: DiningOrderKind;
-};
-
 /** @deprecated Prefer category badges; kept for searchMenu legacy. */
 export type PosDiningMenuGroup = "fisicos" | "preparados";
 

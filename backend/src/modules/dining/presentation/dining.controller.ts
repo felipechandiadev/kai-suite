@@ -17,6 +17,7 @@ import {
   AddOrderItemsDto,
   CloseDiningOrderDto,
   MarkKitchenFireReadyDto,
+  MarkKitchenLinesReadyDto,
   OpenCounterOrderDto,
   OpenTableDto,
   OpenTakeawayOrderDto,
@@ -240,6 +241,18 @@ export class DiningController {
     @Param('lineId') lineId: string,
   ) {
     return this.diningService.markKitchenItemReady(id, lineId);
+  }
+
+  @Post('orders/:id/kitchen-ready-lines')
+  async markLinesReady(
+    @Param('id') id: string,
+    @Body() dto: MarkKitchenLinesReadyDto,
+  ) {
+    return this.diningService.markKitchenLinesReady(
+      id,
+      dto.lineIds,
+      dto.productionUnitId,
+    );
   }
 
   @Post('orders/:id/fires/:fireId/ready')

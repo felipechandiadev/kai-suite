@@ -111,7 +111,7 @@ function ProductTypeFilter() {
   };
 
   return (
-    <div className="min-w-[12rem] max-w-xs" data-test-id="products-grid-type-filter">
+    <div className="min-w-48 max-w-xs" data-test-id="products-grid-type-filter">
       <Select
         label="Tipo"
         name="products-type-filter"
@@ -299,7 +299,7 @@ function ExpandMediaThumbnails({
           <button
             key={asset.id}
             type="button"
-            className="relative h-8 w-12 shrink-0 cursor-pointer overflow-hidden rounded border border-border bg-background transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
+            className="relative h-8 w-12 shrink-0 cursor-pointer overflow-hidden rounded border border-border bg-background transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
             title={isVideoMediaAsset(asset) ? "Ver video" : "Ver imagen"}
             aria-label={isVideoMediaAsset(asset) ? "Abrir video en visor" : "Abrir imagen en visor"}
             onClick={(e) => openAt(index, e)}
@@ -315,7 +315,7 @@ function ExpandMediaThumbnails({
         {overflow > 0 ? (
           <button
             type="button"
-            className="shrink-0 cursor-pointer rounded px-0.5 text-[10px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
+            className="shrink-0 cursor-pointer rounded px-0.5 text-[10px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
             title={`Ver ${assets.length} archivos`}
             aria-label={`Ver galería completa (${assets.length} archivos)`}
             onClick={(e) => openAt(maxVisible, e)}
@@ -611,7 +611,7 @@ function ProductExpandPanel({
         </div>
       ) : (
         <div
-          className="relative w-full min-w-0 overflow-hidden rounded-xl bg-gradient-to-br from-primary/[0.06] via-background to-neutral/25 px-6 py-10"
+          className="relative w-full min-w-0 overflow-hidden rounded-xl bg-linear-to-br from-primary/6 via-background to-neutral/25 px-6 py-10"
           data-test-id="products-expand-empty-variants"
         >
           <div
@@ -622,8 +622,8 @@ function ProductExpandPanel({
             className="pointer-events-none absolute -bottom-10 -left-8 h-36 w-36 rounded-full bg-primary/10 blur-3xl"
             aria-hidden
           />
-          <div className="relative flex min-h-[9rem] flex-col items-center justify-center gap-3 text-center">
-            <div className="relative flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-2xl border-2 border-secondary bg-white/90 shadow-md backdrop-blur-sm">
+          <div className="relative flex min-h-36 flex-col items-center justify-center gap-3 text-center">
+            <div className="relative flex h-18 w-18 items-center justify-center rounded-2xl border-2 border-secondary bg-white/90 shadow-md backdrop-blur-sm">
               <Barcode className="h-9 w-9 text-primary" strokeWidth={1.75} aria-hidden />
             </div>
             <p className="text-sm font-semibold text-foreground">Sin variantes</p>

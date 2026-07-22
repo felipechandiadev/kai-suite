@@ -54,6 +54,51 @@ export function applyTaxIdsToPriceRows(
   });
 }
 
+/**
+ * Alinea filas de precio con impuestos de venta.
+ * - Sin impuestos (factor 1): neto = bruto.
+ * - Si neto === bruto y hay IVA: interpreta el monto como **bruto** (precio de góndola)
+ *   y deriva el neto (caso creación rápida stock / POS).
+ * - Si ya vienen distintos: bruto = neto × factor (fuente de verdad = neto).
+ */
+export function alignPriceRowsWithSaleTaxes(
+  items: VariantPriceFiscalRow[],
+  taxIds: string[] | null,
+  catalogTaxes: readonly CatalogTaxRateRow[],
+): VariantPriceFiscalRow[] {
+  const ids = Array.isArray(taxIds) ? taxIds.map(String).filter(Boolean) : [];
+  const factor = effectiveGrossFactorFromCatalog(catalogTaxes, ids);
+  return items.map((item) => {
+    const netIn = Math.round(Number(item.netPrice) || 0);
+    const grossIn = Math.round(Number(item.grossPrice) || 0);
+    if (ids.length === 0 || factor <= 1) {
+      const amount = grossIn > 0 ? grossIn : netIn;
+      return {
+        ...item,
+        netPrice: amount,
+        grossPrice: amount,
+        taxIds: null,
+      };
+    }
+    if (netIn === grossIn) {
+      const gross = grossIn;
+      const net = Math.round(gross / factor);
+      return {
+        ...item,
+        netPrice: net,
+        grossPrice: gross,
+        taxIds: [...ids],
+      };
+    }
+    return {
+      ...item,
+      netPrice: netIn,
+      grossPrice: Math.round(netIn * factor),
+      taxIds: [...ids],
+    };
+  });
+}
+
 export type VariantPriceFiscalRow = {
   netPrice: number;
   grossPrice: number;

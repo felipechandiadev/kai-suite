@@ -25,8 +25,16 @@ import {
   playPosAlertSound,
   unlockPosAlertAudio,
 } from "@/features/notifications/lib/play-pos-alert-sound";
+import { ensurePosWebPushSubscription } from "@/features/notifications/lib/web-push-subscribe";
 
 export type { NotificationRow };
+
+const POS_ALERT_DOMAINS = ["STOCK", "CATALOG", "SALES"] as const;
+type PosAlertDomain = (typeof POS_ALERT_DOMAINS)[number];
+
+function isPosAlertDomain(domain: string): domain is PosAlertDomain {
+  return (POS_ALERT_DOMAINS as readonly string[]).includes(domain);
+}
 
 type StockRealtimeContextValue = {
   stockAlertCount: number;
@@ -48,7 +56,7 @@ export function useStockRealtime() {
 
 function wsPayloadToRow(payload: NotificationDeliveryWsPayload): NotificationRow | null {
   const domain = payload.notification?.domain;
-  if (domain !== "STOCK" && domain !== "CATALOG") return null;
+  if (!domain || !isPosAlertDomain(domain)) return null;
   return inboxItemToRow(
     {
       deliveryId: payload.deliveryId,
@@ -82,24 +90,32 @@ export function PosStockRealtimeProvider({
       return;
     }
     try {
-      const [stockCount, catalogCount, stockInbox, catalogInbox] = await Promise.all([
-        fetchUnreadCount(userId, activeCompanyId, "STOCK"),
-        fetchUnreadCount(userId, activeCompanyId, "CATALOG"),
-        fetchInbox(userId, activeCompanyId, {
-          domain: "STOCK",
-          status: "UNREAD",
-          limit: 50,
-        }),
-        fetchInbox(userId, activeCompanyId, {
-          domain: "CATALOG",
-          status: "UNREAD",
-          limit: 50,
-        }),
-      ]);
-      setStockAlertCount(stockCount + catalogCount);
+      const [stockCount, catalogCount, salesCount, stockInbox, catalogInbox, salesInbox] =
+        await Promise.all([
+          fetchUnreadCount(userId, activeCompanyId, "STOCK"),
+          fetchUnreadCount(userId, activeCompanyId, "CATALOG"),
+          fetchUnreadCount(userId, activeCompanyId, "SALES"),
+          fetchInbox(userId, activeCompanyId, {
+            domain: "STOCK",
+            status: "UNREAD",
+            limit: 50,
+          }),
+          fetchInbox(userId, activeCompanyId, {
+            domain: "CATALOG",
+            status: "UNREAD",
+            limit: 50,
+          }),
+          fetchInbox(userId, activeCompanyId, {
+            domain: "SALES",
+            status: "UNREAD",
+            limit: 50,
+          }),
+        ]);
+      setStockAlertCount(stockCount + catalogCount + salesCount);
       const rows = [
         ...stockInbox.map((item) => inboxItemToRow(item, "STOCK")),
         ...catalogInbox.map((item) => inboxItemToRow(item, "CATALOG")),
+        ...salesInbox.map((item) => inboxItemToRow(item, "SALES")),
       ]
         .filter((x): x is NotificationRow => x != null)
         .sort((a, b) => b.receivedAt - a.receivedAt)
@@ -116,6 +132,7 @@ export function PosStockRealtimeProvider({
     await Promise.all([
       markAllNotificationsRead(userId, activeCompanyId, "STOCK"),
       markAllNotificationsRead(userId, activeCompanyId, "CATALOG"),
+      markAllNotificationsRead(userId, activeCompanyId, "SALES"),
     ]);
     setStockAlertCount(0);
     setNotificationRows([]);
@@ -126,17 +143,36 @@ export function PosStockRealtimeProvider({
     void refreshStockAlerts();
   }, [userId, activeCompanyId, refreshStockAlerts]);
 
-  /** Desbloquea AudioContext con el primer gesto (click/tecla/touch) en el POS. */
+  /** Desbloquea AudioContext + intenta Web Push tras el primer gesto. */
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const unlock = () => unlockPosAlertAudio();
+    const unlock = () => {
+      unlockPosAlertAudio();
+      if (userId) {
+        void ensurePosWebPushSubscription({
+          userId,
+          activeCompanyId,
+        });
+      }
+    };
     window.addEventListener("pointerdown", unlock, { once: true, capture: true });
     window.addEventListener("keydown", unlock, { once: true, capture: true });
     return () => {
       window.removeEventListener("pointerdown", unlock, true);
       window.removeEventListener("keydown", unlock, true);
     };
-  }, []);
+  }, [userId, activeCompanyId]);
+
+  /** Web Push al montar (si el permiso ya estaba granted). */
+  useEffect(() => {
+    if (!userId) return;
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      void ensurePosWebPushSubscription({
+        userId,
+        activeCompanyId,
+      });
+    }
+  }, [userId, activeCompanyId]);
 
   useEffect(() => {
     const base = getClientBackendApiBase();
@@ -156,11 +192,11 @@ export function PosStockRealtimeProvider({
     const onDelivery = (payload: NotificationDeliveryWsPayload) => {
       if (payload.status !== "UNREAD") return;
 
-      // Cualquier alerta que llegue al POS (stock, precios, etc.)
+      // Cualquier alerta que llegue al POS (stock, precios, cocina, etc.)
       playPosAlertSound();
 
       const domain = payload.notification.domain;
-      if (domain !== "STOCK" && domain !== "CATALOG") return;
+      if (!isPosAlertDomain(domain)) return;
 
       const row = wsPayloadToRow(payload);
       if (row) {

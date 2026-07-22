@@ -131,7 +131,7 @@ export default function PosBarcodeScanner({ onScan, paused = false }: PosBarcode
       <div className="pos-barcode-scanner-view relative w-full">
         <div
           ref={containerRef}
-          className={`relative mx-auto aspect-[5/2] w-full max-h-[140px] overflow-hidden rounded-lg border border-border bg-neutral ${
+          className={`relative mx-auto aspect-5/2 w-full max-h-35 overflow-hidden rounded-lg border border-border bg-neutral ${
             cameraActive || starting ? "" : "hidden"
           }`}
           data-test-id="pos-barcode-scanner-region"

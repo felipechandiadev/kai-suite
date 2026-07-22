@@ -1,9 +1,13 @@
 /**
- * Sonido de alerta KDS — Web Audio API (sin asset).
- * Timbre corto y agresivo para cocina (distinto al chime del POS).
+ * Sonido de alerta KDS — MP3 en `/public/sounds/kds-new-order.mp3`
+ * (notificación nueva). Requiere gesto de usuario (top bar) por autoplay.
  */
 
+const KDS_ALERT_SOUND_URL = "/sounds/kds-new-order.mp3";
+
 let sharedCtx: AudioContext | null = null;
+let alertAudio: HTMLAudioElement | null = null;
+let htmlAudioUnlocked = false;
 const stateListeners = new Set<(running: boolean) => void>();
 
 function getAudioContext(): AudioContext | null {
@@ -20,6 +24,15 @@ function getAudioContext(): AudioContext | null {
   return sharedCtx;
 }
 
+function getAlertAudio(): HTMLAudioElement | null {
+  if (typeof window === "undefined") return null;
+  if (!alertAudio) {
+    alertAudio = new Audio(KDS_ALERT_SOUND_URL);
+    alertAudio.preload = "auto";
+  }
+  return alertAudio;
+}
+
 function notifyAudioStateListeners(): void {
   const running = isKdsAlertAudioRunning();
   for (const listener of stateListeners) {
@@ -31,9 +44,10 @@ function notifyAudioStateListeners(): void {
   }
 }
 
-/** true si el AudioContext está `running` (alertas pueden sonar). */
+/** true si el audio está desbloqueado y puede sonar en alertas. */
 export function isKdsAlertAudioRunning(): boolean {
   if (typeof window === "undefined") return false;
+  if (htmlAudioUnlocked) return true;
   const ctx = sharedCtx;
   return Boolean(ctx && ctx.state === "running");
 }
@@ -46,8 +60,8 @@ export function subscribeKdsAlertAudioState(
   listener: (running: boolean) => void,
 ): () => void {
   stateListeners.add(listener);
-  // Ensure context exists so we can observe statechange after unlock.
   getAudioContext();
+  getAlertAudio();
   listener(isKdsAlertAudioRunning());
   return () => {
     stateListeners.delete(listener);
@@ -57,6 +71,7 @@ export function subscribeKdsAlertAudioState(
 /** Desbloquea audio tras un gesto del usuario (políticas del navegador). */
 export function unlockKdsAlertAudio(): void {
   const ctx = getAudioContext();
+  getAlertAudio();
   if (!ctx) return;
   if (ctx.state === "suspended") {
     void ctx.resume().then(() => notifyAudioStateListeners()).catch(() => {});
@@ -66,82 +81,47 @@ export function unlockKdsAlertAudio(): void {
 }
 
 /**
- * Desbloquea audio y reproduce un beep de prueba (gesto de usuario en top bar).
+ * Desbloquea audio y reproduce el ding de prueba (gesto de usuario en top bar).
  */
 export async function unlockAndTestKdsAlertAudio(): Promise<boolean> {
   const ctx = getAudioContext();
-  if (!ctx) return false;
+  const audio = getAlertAudio();
+  if (!audio) return false;
   try {
-    if (ctx.state === "suspended") {
+    if (ctx && ctx.state === "suspended") {
       await ctx.resume();
     }
+    audio.currentTime = 0;
+    await audio.play();
+    htmlAudioUnlocked = true;
     notifyAudioStateListeners();
-    playKdsAlertSound();
-    return ctx.state === "running";
+    return true;
   } catch {
     notifyAudioStateListeners();
     return false;
   }
 }
 
-function tone(
-  ctx: AudioContext,
-  opts: {
-    frequency: number;
-    start: number;
-    duration: number;
-    gain?: number;
-    type?: OscillatorType;
-  },
-) {
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = opts.type ?? "square";
-  osc.frequency.setValueAtTime(opts.frequency, opts.start);
-  const peak = opts.gain ?? 0.4;
-  gain.gain.setValueAtTime(0.0001, opts.start);
-  gain.gain.exponentialRampToValueAtTime(peak, opts.start + 0.015);
-  gain.gain.exponentialRampToValueAtTime(0.0001, opts.start + opts.duration);
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(opts.start);
-  osc.stop(opts.start + opts.duration + 0.02);
-}
-
 /**
- * Alerta audible para ítem nuevo en cola (doble beep grave + agudo).
+ * Alerta audible para ítem nuevo en cola.
  * Seguro llamar muchas veces; fallos de audio se ignoran.
  */
 export function playKdsAlertSound(): void {
   try {
+    const audio = getAlertAudio();
+    if (!audio) return;
     const ctx = getAudioContext();
-    if (!ctx) return;
     const run = () => {
-      const t0 = ctx.currentTime + 0.01;
-      tone(ctx, {
-        frequency: 520,
-        start: t0,
-        duration: 0.12,
-        gain: 0.45,
-        type: "square",
-      });
-      tone(ctx, {
-        frequency: 780,
-        start: t0 + 0.14,
-        duration: 0.16,
-        gain: 0.5,
-        type: "square",
-      });
-      tone(ctx, {
-        frequency: 260,
-        start: t0,
-        duration: 0.28,
-        gain: 0.3,
-        type: "triangle",
-      });
-      notifyAudioStateListeners();
+      audio.currentTime = 0;
+      void audio
+        .play()
+        .then(() => {
+          htmlAudioUnlocked = true;
+          notifyAudioStateListeners();
+        })
+        .catch(() => notifyAudioStateListeners());
     };
-    if (ctx.state === "suspended") {
+    if (ctx && ctx.state === "suspended") {
       void ctx
         .resume()
         .then(run)

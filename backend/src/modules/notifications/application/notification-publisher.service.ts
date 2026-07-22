@@ -5,6 +5,7 @@ import { Notification } from '../domain/notification.entity';
 import { NotificationDelivery } from '../domain/notification-delivery.entity';
 import { NotificationAudience } from '../domain/notification-audience.entity';
 import {
+  DiningNotificationKind,
   NotificationDeliveryStatus,
   NotificationDomain,
 } from '../domain/notification.enums';
@@ -13,6 +14,7 @@ import { AudienceResolverService } from './audience-resolver.service';
 import { NotificationsRealtimePublisher } from './notifications-realtime.publisher';
 import type { NotificationDeliveryWsPayload } from './notification-realtime.types';
 import { NotificationRetentionPolicy } from '../domain/notification-retention-policy.entity';
+import { WebPushSenderService } from './web-push-sender.service';
 
 @Injectable()
 export class NotificationPublisherService {
@@ -26,6 +28,7 @@ export class NotificationPublisherService {
     private readonly retentionPolicyRepo: Repository<NotificationRetentionPolicy>,
     private readonly audienceResolver: AudienceResolverService,
     private readonly realtime: NotificationsRealtimePublisher,
+    private readonly webPushSender: WebPushSenderService,
   ) {}
 
   isStockNotificationsEnabled(): boolean {
@@ -186,6 +189,7 @@ export class NotificationPublisherService {
     });
 
     this.emitDeliveries(result.notification, result.deliveries);
+    void this.emitWebPush(result.notification, result.deliveries);
     return result.deliveries;
   }
 
@@ -215,6 +219,60 @@ export class NotificationPublisherService {
       };
       this.realtime.emitDelivery(ws);
     }
+  }
+
+  private async emitWebPush(
+    notification: Notification,
+    deliveries: NotificationDelivery[],
+  ): Promise<void> {
+    if (!this.webPushSender.isEnabled() || deliveries.length === 0) return;
+    const posDomains = new Set<NotificationDomain>([
+      NotificationDomain.STOCK,
+      NotificationDomain.CATALOG,
+      NotificationDomain.SALES,
+    ]);
+    if (!posDomains.has(notification.domain)) return;
+
+    const url =
+      notification.domain === NotificationDomain.SALES &&
+      (notification.kind === DiningNotificationKind.KITCHEN_READY ||
+        notification.kind === DiningNotificationKind.ITEM_READY ||
+        notification.kind === DiningNotificationKind.ORDER_READY)
+        ? '/accounts'
+        : '/pos';
+
+    await Promise.all(
+      deliveries.map((d) =>
+        this.webPushSender
+          .sendToUser({
+            userId: d.userId,
+            companyId: d.companyId,
+            clientApp: 'pos',
+            payload: {
+              title: notification.title,
+              body: notification.body,
+              data: {
+                url,
+                kind: notification.kind,
+                domain: notification.domain,
+                deliveryId: d.id,
+                orderId:
+                  notification.payload &&
+                  typeof notification.payload === 'object'
+                    ? (notification.payload as Record<string, unknown>).orderId
+                    : undefined,
+              },
+            },
+          })
+          .catch((e) => {
+            this.logger.warn(
+              `Web Push POS failed user=${d.userId}: ${
+                e instanceof Error ? e.message : String(e)
+              }`,
+            );
+          }),
+      ),
+    );
   }
 
   private async getDedupWindowMinutes(

@@ -100,35 +100,59 @@ export function StockAlertsDropdown() {
               className="px-3 py-8 text-center text-sm"
               style={{ color: "var(--color-muted-foreground, #737373)" }}
             >
-              Sin alertas recientes. Aparecerán al cruzar umbrales de stock o al actualizar precios.
+              Sin alertas recientes.
             </p>
           ) : (
             <ul>
               {notificationRows.map((evt) => {
                 const isPricing = evt.kind.startsWith("pricing.");
+                const isDiningReady =
+                  evt.kind === "dining.kitchen.ready" ||
+                  evt.kind === "dining.kitchen.item_ready" ||
+                  evt.kind === "dining.kitchen.order_ready" ||
+                  evt.kind.startsWith("dining.");
+                const useTitle = isPricing || isDiningReady;
+                const diningItems = evt.diningItems;
                 return (
                 <li
                   key={evt.deliveryId}
                   className="border-b px-3 py-2.5 last:border-b-0"
                   style={{ borderColor: "var(--color-border)" }}
+                  data-test-id={
+                    isDiningReady
+                      ? `dining-ready-alert-${evt.deliveryId}`
+                      : undefined
+                  }
                 >
                   <p className="text-xs font-medium" style={{ color: "var(--color-muted-foreground, #737373)" }}>
                     {formatReceivedAt(evt.receivedAt)}
                   </p>
                   <p className="mt-1 text-sm font-semibold text-foreground">
-                    {isPricing ? evt.title : evt.productName}
+                    {useTitle ? evt.title : evt.productName}
                   </p>
-                  {!isPricing && evt.attributesLabel ? (
+                  {!useTitle && evt.attributesLabel ? (
                     <p className="mt-0.5 text-xs text-muted-foreground">{evt.attributesLabel}</p>
                   ) : null}
-                  {!isPricing && evt.storageName ? (
+                  {!useTitle && evt.storageName ? (
                     <p className="mt-1 text-xs text-muted-foreground">
                       Almacén: <span className="text-foreground">{evt.storageName}</span>
                     </p>
                   ) : null}
-                  {evt.body ? (
-                    <p className="mt-1 text-xs text-foreground/90">{evt.body}</p>
-                  ) : !isPricing ? (
+                  {isDiningReady && diningItems && diningItems.length > 0 ? (
+                    <ul className="mt-1.5 space-y-0.5 text-xs text-foreground/90">
+                      {diningItems.map((it, idx) => (
+                        <li key={`${it.name}-${idx}`}>
+                          {Number.isInteger(it.quantity)
+                            ? it.quantity
+                            : Math.round(it.quantity * 1000) / 1000}
+                          × {it.name}
+                          {it.notes ? ` · ${it.notes}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : evt.body ? (
+                    <p className="mt-1 whitespace-pre-line text-xs text-foreground/90">{evt.body}</p>
+                  ) : !useTitle ? (
                     <p className="mt-1 text-xs text-foreground/90">
                       Stock físico <strong>{formatQty(evt.physicalStock)}</strong>
                     </p>
@@ -137,7 +161,7 @@ export function StockAlertsDropdown() {
                     {evt.alertLabels.map((a) => (
                       <li key={a} className="flex items-center gap-1.5">
                         <AlertTriangle className="h-3 w-3 shrink-0 opacity-80" aria-hidden />
-                        <span>{labelNotificationKind(isPricing ? evt.kind : a)}</span>
+                        <span>{labelNotificationKind(useTitle ? evt.kind : a)}</span>
                       </li>
                     ))}
                   </ul>
@@ -170,7 +194,7 @@ export function StockAlertsDropdown() {
     ) : null;
 
   return (
-    <div className="relative z-[100] shrink-0" data-test-id="stock-alerts-dropdown-root">
+    <div className="relative z-100 shrink-0" data-test-id="stock-alerts-dropdown-root">
       <div ref={triggerWrapRef} className="relative inline-flex shrink-0">
         <IconButton
           icon="Bell"

@@ -35,9 +35,11 @@ export async function createQuickProductUseCase(
     return { ok: false, error: productRes.error, unauthorized: productRes.unauthorized };
   }
 
+  // Precio de venta ingresado = bruto (con IVA) cuando hay IVA activo.
   const gross = roundMoneyInt(basePrice ?? 0);
   const factor = effectiveIvaFactor(taxes, defaultIvaTaxIds);
   const net = grossToNet(gross, factor);
+  const saleTaxIds = defaultIvaTaxIds.length > 0 ? [...defaultIvaTaxIds] : undefined;
 
   const variantRes = await ProductRequest.createVariant({
     productId: productRes.id,
@@ -45,12 +47,14 @@ export async function createQuickProductUseCase(
     barcode: barcode ?? null,
     basePrice: net,
     unitId,
+    taxCategory: "TAX_STANDARD",
+    taxIds: saleTaxIds,
     priceListItems: [
       {
         priceListId,
         netPrice: net,
         grossPrice: gross,
-        taxIds: defaultIvaTaxIds.length > 0 ? defaultIvaTaxIds : undefined,
+        taxIds: saleTaxIds,
       },
     ],
   });

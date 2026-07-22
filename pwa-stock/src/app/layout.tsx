@@ -35,7 +35,10 @@ export const viewport: Viewport = {
   themeColor: THEME_COLOR,
 };
 
-const registerServiceWorkerInProduction = process.env.NODE_ENV === "production";
+/** Producción o `NEXT_PUBLIC_SW_DEV=1` en desarrollo. */
+const registerServiceWorker =
+  process.env.NODE_ENV === "production" ||
+  process.env.NEXT_PUBLIC_SW_DEV === "1";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -47,7 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <AuthProvider>{children}</AuthProvider>
         <Script id="sw-register" strategy="afterInteractive">
-          {`if ('serviceWorker' in navigator && ${registerServiceWorkerInProduction}) {
+          {`if ('serviceWorker' in navigator && ${registerServiceWorker}) {
   navigator.serviceWorker.register('/sw.js');
 }`}
         </Script>

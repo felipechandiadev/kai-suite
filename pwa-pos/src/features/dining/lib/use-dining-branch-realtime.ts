@@ -127,12 +127,17 @@ export function useDiningBranchRealtime(
 
     const socket: Socket = io(`${base}/realtime/dining`, {
       transports: ["websocket"],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 8000,
       auth: {
         userId,
         activeCompanyId,
       },
     });
     socketRef.current = socket;
+
+    let lastConnectErrorLogAt = 0;
 
     const onReady = () => {
       authReadyRef.current = true;
@@ -168,8 +173,12 @@ export function useDiningBranchRealtime(
     });
 
     socket.on("connect_error", (err) => {
-      console.warn("[pos-dining-ws] connect_error", err.message);
       setConnected(false);
+      const now = Date.now();
+      // Evitar spam en consola mientras el backend reinicia / migra.
+      if (now - lastConnectErrorLogAt < 5000) return;
+      lastConnectErrorLogAt = now;
+      console.warn("[pos-dining-ws] connect_error", err.message);
     });
 
     socket.on("auth_error", (payload) => {

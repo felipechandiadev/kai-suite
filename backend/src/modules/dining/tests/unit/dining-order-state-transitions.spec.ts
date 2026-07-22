@@ -14,6 +14,8 @@ import {
   reopenFromBilling,
   recomputeOrderStatusFromLines,
   selectLinesForKitchenFireReady,
+  countPendingKitchenLines,
+  selectReadyLinesForKitchenFire,
 } from '../../application/dining-order-status.util';
 
 describe('Dining order state transitions', () => {
@@ -233,6 +235,61 @@ describe('Dining order state transitions', () => {
       expect(effectiveKitchenFireId(lines[0]!)).toBe(lineId);
       expect(selectLinesForKitchenFireReady(lines, lineId, unit1).map((l) => l.id)).toEqual([
         lineId,
+      ]);
+    });
+  });
+
+  describe('countPendingKitchenLines / selectReadyLinesForKitchenFire', () => {
+    const fireA = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    const unit1 = '11111111-1111-1111-1111-111111111111';
+
+    it('counts only SENT/PREPARING in fire+UP', () => {
+      const lines = [
+        {
+          id: 'l1',
+          kitchenFireId: fireA,
+          productionUnitId: unit1,
+          kitchenStatus: KitchenItemStatus.SENT,
+        },
+        {
+          id: 'l2',
+          kitchenFireId: fireA,
+          productionUnitId: unit1,
+          kitchenStatus: KitchenItemStatus.READY,
+        },
+        {
+          id: 'l3',
+          kitchenFireId: fireA,
+          productionUnitId: unit1,
+          kitchenStatus: KitchenItemStatus.PREPARING,
+        },
+      ];
+      expect(countPendingKitchenLines(lines, fireA, unit1)).toBe(2);
+    });
+
+    it('selects READY lines of fire+UP for order summary', () => {
+      const lines = [
+        {
+          id: 'l1',
+          kitchenFireId: fireA,
+          productionUnitId: unit1,
+          kitchenStatus: KitchenItemStatus.READY,
+        },
+        {
+          id: 'l2',
+          kitchenFireId: fireA,
+          productionUnitId: unit1,
+          kitchenStatus: KitchenItemStatus.SENT,
+        },
+        {
+          id: 'l3',
+          kitchenFireId: fireA,
+          productionUnitId: unit1,
+          kitchenStatus: KitchenItemStatus.SERVED,
+        },
+      ];
+      expect(selectReadyLinesForKitchenFire(lines, fireA, unit1).map((l) => l.id)).toEqual([
+        'l1',
       ]);
     });
   });

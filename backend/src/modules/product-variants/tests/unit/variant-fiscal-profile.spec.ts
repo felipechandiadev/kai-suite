@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import {
+  alignPriceRowsWithSaleTaxes,
   applyTaxIdsToPriceRows,
   applyVariantFiscalProfile,
   effectiveGrossFactorFromCatalog,
@@ -86,6 +87,28 @@ describe('variant-fiscal-profile', () => {
     );
     expect(rows[0]?.grossPrice).toBe(1290);
     expect(rows[0]?.taxIds).toEqual(['iva', 'ila']);
+  });
+
+  it('alignPriceRowsWithSaleTaxes treats equal net/gross as gross when IVA applies', () => {
+    const rows = alignPriceRowsWithSaleTaxes(
+      [{ netPrice: 1190, grossPrice: 1190 }],
+      ['iva'],
+      [{ id: 'iva', taxType: 'IVA', rate: 19, isActive: true }],
+    );
+    expect(rows[0]?.grossPrice).toBe(1190);
+    expect(rows[0]?.netPrice).toBe(1000);
+    expect(rows[0]?.taxIds).toEqual(['iva']);
+  });
+
+  it('alignPriceRowsWithSaleTaxes keeps net=gross when no sale taxes', () => {
+    const rows = alignPriceRowsWithSaleTaxes(
+      [{ netPrice: 5000, grossPrice: 5000 }],
+      [],
+      [{ id: 'iva', taxType: 'IVA', rate: 19, isActive: true }],
+    );
+    expect(rows[0]?.netPrice).toBe(5000);
+    expect(rows[0]?.grossPrice).toBe(5000);
+    expect(rows[0]?.taxIds).toBeNull();
   });
 
   it('TAX_EXEMPT clears taxIds and keeps requiresDte when requested', () => {

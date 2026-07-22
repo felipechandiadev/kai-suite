@@ -5,6 +5,7 @@ import {
   diningLineGroupAllReady,
   diningLineGroupKitchenFireNumbers,
   diningOrderAllKitchenReady,
+  diningProductNeedsKitchen,
   groupDiningOrderLines,
 } from "./group-dining-order-lines";
 import type { PosDiningOrderLine } from "../types/dining-pos.types";
@@ -112,10 +113,28 @@ describe("diningOrderAllKitchenReady", () => {
   });
 });
 
+describe("diningProductNeedsKitchen", () => {
+  it("true for kitchen product types", () => {
+    expect(diningProductNeedsKitchen("PREPARADO")).toBe(true);
+    expect(diningProductNeedsKitchen("elaborado")).toBe(true);
+    expect(diningProductNeedsKitchen("MANUFACTURADO")).toBe(true);
+  });
+
+  it("false for physical and unknown", () => {
+    expect(diningProductNeedsKitchen("PHYSICAL")).toBe(false);
+    expect(diningProductNeedsKitchen(null)).toBe(false);
+    expect(diningProductNeedsKitchen("")).toBe(false);
+  });
+});
+
 describe("dining line action guards", () => {
   it("send only draft; cancel draft/sent", () => {
     expect(canSendDiningLineToKitchen("DRAFT")).toBe(true);
     expect(canSendDiningLineToKitchen("SENT")).toBe(false);
+    expect(canSendDiningLineToKitchen("DRAFT", "PREPARADO")).toBe(true);
+    expect(canSendDiningLineToKitchen("DRAFT", "PHYSICAL")).toBe(false);
+    expect(canSendDiningLineToKitchen("DRAFT", null)).toBe(false);
+    expect(canSendDiningLineToKitchen("SENT", "PREPARADO")).toBe(false);
     expect(canCancelDiningLine("DRAFT")).toBe(true);
     expect(canCancelDiningLine("SENT")).toBe(true);
     expect(canCancelDiningLine("READY")).toBe(false);

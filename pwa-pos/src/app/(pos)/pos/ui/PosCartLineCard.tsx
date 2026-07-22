@@ -379,7 +379,7 @@ export default function PosCartLineCard({
             </span>
             {line.priceListName?.trim() || line.priceListId?.trim() ? (
               <span
-                className="inline-flex max-w-[10rem]"
+                className="inline-flex max-w-40"
                 title={line.priceListName?.trim() || line.priceListId || undefined}
                 data-test-id="pos-cart-line-price-list-badge"
               >

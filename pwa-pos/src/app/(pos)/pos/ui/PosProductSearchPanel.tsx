@@ -612,7 +612,7 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
                   <PosProductNameWithAttributes
                     name={item.productName}
                     attributes={item.attributes}
-                    className="min-w-0 flex-1 break-words text-sm font-medium leading-snug text-foreground"
+                    className="min-w-0 flex-1 wrap-break-word text-sm font-medium leading-snug text-foreground"
                   />
                   <PosNoDteBadge requiresDte={item.requiresDte} />
                 </div>

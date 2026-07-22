@@ -37,5 +37,7 @@ export type DiningKitchenSnapshotPayload = {
   queue: DiningKitchenSnapshotLinePayload[];
 };
 
-/** Statuses that remain visible on the KDS queue. */
-export const KDS_QUEUE_STATUSES = new Set(["SENT", "PREPARING"]);
+/** Statuses that remain visible on the KDS queue (READY while fire still pending). */
+export const KDS_QUEUE_STATUSES = new Set(["SENT", "PREPARING", "READY"]);
+
+export const KDS_PENDING_STATUSES = new Set(["SENT", "PREPARING"]);

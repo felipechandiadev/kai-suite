@@ -67,12 +67,14 @@ import { ProductEshopVisibilitySyncService } from '@modules/products/application
 import { Tax, TaxType } from '@modules/taxes/domain/tax.entity';
 import {
   applyTaxIdsToPriceRows,
+  alignPriceRowsWithSaleTaxes,
   applyVariantFiscalProfile,
   resolveDefaultIvaTaxIdsFromCatalog,
   type VariantPriceFiscalRow,
 } from './helpers/variant-fiscal-profile';
 import {
   DEFAULT_VARIANT_TAX_CATEGORY,
+  allowsSaleTaxIds,
   isSpecialVariantTaxCategory,
 } from '../domain/variant-tax-category';
 import { ProductVariantProductionUnit } from '../domain/product-variant-production-unit.entity';
@@ -671,7 +673,23 @@ export class ProductVariantsService {
     variant.taxCategory = createFiscal.taxCategory;
     variant.requiresDte = createFiscal.requiresDte;
     variant.taxIds = createFiscal.taxIds;
-    if (createFiscal.priceListItems && sanitizedData.priceListItems?.length) {
+    if (sanitizedData.priceListItems?.length && allowsSaleTaxIds(createFiscal.taxCategory)) {
+      const saleCatalog = await this.loadSaleTaxCatalog(companyId);
+      const aligned = alignPriceRowsWithSaleTaxes(
+        createPriceRows,
+        createFiscal.taxIds,
+        saleCatalog,
+      );
+      sanitizedData.priceListItems = this.mergeFiscalPriceRowsIntoPayload(
+        sanitizedData.priceListItems,
+        aligned,
+      );
+      const firstNet = aligned[0]?.netPrice;
+      if (typeof firstNet === 'number' && Number.isFinite(firstNet)) {
+        sanitizedData.basePrice = firstNet;
+        (variant as any).basePrice = firstNet;
+      }
+    } else if (createFiscal.priceListItems && sanitizedData.priceListItems?.length) {
       sanitizedData.priceListItems = this.mergeFiscalPriceRowsIntoPayload(
         sanitizedData.priceListItems,
         createFiscal.priceListItems,
@@ -1514,10 +1532,25 @@ export class ProductVariantsService {
       }
       return {
         ...item,
+        netPrice: fiscal.netPrice,
         grossPrice: fiscal.grossPrice,
         taxIds: fiscal.taxIds ?? null,
       };
     });
+  }
+
+  private async loadSaleTaxCatalog(companyId: string) {
+    const catalogTaxes = await this.taxRepo.find({
+      where: { companyId, isActive: true },
+    });
+    return catalogTaxes
+      .filter((t) => t.taxType !== TaxType.RETENTION)
+      .map((t) => ({
+        id: t.id,
+        taxType: String(t.taxType),
+        rate: Number(t.rate) || 0,
+        isActive: t.isActive,
+      }));
   }
 
   private async buildFiscalProfileForSave(
@@ -1554,17 +1587,7 @@ export class ProductVariantsService {
     taxIds: string[] | null,
     companyId: string,
   ): Promise<void> {
-    const catalogTaxes = await this.taxRepo.find({
-      where: { companyId, isActive: true },
-    });
-    const saleCatalog = catalogTaxes
-      .filter((t) => t.taxType !== TaxType.RETENTION)
-      .map((t) => ({
-        id: t.id,
-        taxType: String(t.taxType),
-        rate: Number(t.rate) || 0,
-        isActive: t.isActive,
-      }));
+    const saleCatalog = await this.loadSaleTaxCatalog(companyId);
     const fiscalRows = this.mapPriceRowsFromEntities(items);
     const nextRows = applyTaxIdsToPriceRows(fiscalRows, taxIds, saleCatalog);
     for (let i = 0; i < items.length; i += 1) {

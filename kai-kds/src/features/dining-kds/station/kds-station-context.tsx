@@ -17,6 +17,8 @@ import {
   type KdsSession,
 } from "@/lib/app-session";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/kds-api-failure";
+import { ensureKdsWebPushSubscription } from "@/features/dining-kds/lib/web-push-subscribe";
+import { unlockKdsAlertAudio } from "@/features/dining-kds/lib/play-kds-alert-sound";
 
 function formatUnitLabel(unit: ProductionUnitDto): string {
   return unit.name;
@@ -84,6 +86,32 @@ export function KdsStationProvider({
     setProductionUnitIdState(loadKdsProductionUnitId());
     void refreshUnits();
   }, [refreshUnits]);
+
+  useEffect(() => {
+    if (!productionUnitId) return;
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      void ensureKdsWebPushSubscription({
+        userId: session.userId,
+        companyId: session.companyId,
+        productionUnitId,
+      });
+    }
+  }, [session.userId, session.companyId, productionUnitId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onGesture = () => {
+      unlockKdsAlertAudio();
+      if (!productionUnitId) return;
+      void ensureKdsWebPushSubscription({
+        userId: session.userId,
+        companyId: session.companyId,
+        productionUnitId,
+      });
+    };
+    window.addEventListener("pointerdown", onGesture, { once: true, capture: true });
+    return () => window.removeEventListener("pointerdown", onGesture, true);
+  }, [session.userId, session.companyId, productionUnitId]);
 
   const setProductionUnitId = useCallback((unitId: string) => {
     saveKdsProductionUnitId(unitId);

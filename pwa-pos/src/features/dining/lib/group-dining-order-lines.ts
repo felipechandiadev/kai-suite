@@ -18,8 +18,19 @@ export function diningLineGroupKey(line: PosDiningOrderLine): string {
   return `${line.productVariantId}|${notes}`;
 }
 
-export function canSendDiningLineToKitchen(status: KitchenItemStatus): boolean {
-  return status === "DRAFT";
+/** Misma regla que backend `resolveProductionUnitId` (necesita UP / KDS). */
+export function diningProductNeedsKitchen(productType?: string | null): boolean {
+  const t = String(productType ?? "").trim().toUpperCase();
+  return t === "PREPARADO" || t === "ELABORADO" || t === "MANUFACTURADO";
+}
+
+export function canSendDiningLineToKitchen(
+  status: KitchenItemStatus,
+  productType?: string | null,
+): boolean {
+  if (status !== "DRAFT") return false;
+  if (productType === undefined) return true;
+  return diningProductNeedsKitchen(productType);
 }
 
 export function canCancelDiningLine(status: KitchenItemStatus): boolean {

@@ -36,6 +36,8 @@ export class ProductRequest {
     unitId: string;
     /** Omitir para dejar PMP sin definir (0 en backend, sin historial). */
     pmp?: number;
+    taxCategory?: string;
+    taxIds?: string[];
     priceListItems: Array<{
       priceListId: string;
       netPrice: number;
@@ -55,6 +57,8 @@ export class ProductRequest {
       purchaseUnitId: unitId,
       isActive: true,
       trackInventory: true,
+      taxCategory: body.taxCategory ?? "TAX_STANDARD",
+      requiresDte: true,
       priceListItems: body.priceListItems.map((item) => ({
         priceListId: item.priceListId,
         netPrice: Math.round(item.netPrice),
@@ -62,6 +66,9 @@ export class ProductRequest {
         taxIds: item.taxIds?.length ? item.taxIds : undefined,
       })),
     };
+    if (body.taxIds?.length) {
+      payload.taxIds = body.taxIds;
+    }
     if (body.pmp !== undefined && body.pmp !== null) {
       payload.pmp = Math.max(0, Math.round(body.pmp));
     }

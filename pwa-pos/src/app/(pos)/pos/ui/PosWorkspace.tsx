@@ -24,6 +24,7 @@ import PosProductSearchPanel, {
 import PosBarcodeScanner from "@/features/pos-products/ui/PosBarcodeScanner";
 import PosCartLineCard from "./PosCartLineCard";
 import { isQuotationCartVariant, usePosCart } from "@/features/pos-cart/PosCartProvider";
+import { useDiningPayment } from "@/features/dining-payment";
 import { computePosSaleTotals } from "@/features/pos-cart/lib/pos-sale-totals";
 import { PosDiscountDetailDialog } from "@/features/promotions/ui/PosDiscountDetailDialog";
 import { LoadQuotationDialog } from "./LoadQuotationDialog";
@@ -69,6 +70,7 @@ export default function PosWorkspace() {
   const [priceListId, setPriceListId] = useState("");
   const [priceListOptions, setPriceListOptions] = useState<PosPriceListSnapshot[]>([]);
   const cart = usePosCart();
+  const diningPayment = useDiningPayment();
   const { isOffline } = usePosOffline();
   const [loadQuotationOpen, setLoadQuotationOpen] = useState(false);
   const [loadReturnOpen, setLoadReturnOpen] = useState(false);
@@ -90,7 +92,7 @@ export default function PosWorkspace() {
     !isOffline &&
     !cartLocked &&
     !hasLoadedQuotation &&
-    cart.loadedDiningOrder == null;
+    diningPayment.order == null;
 
   const refreshPriceListOptions = useCallback(async (posId: string, currentListId?: string) => {
     if (!shouldUseBackendApi()) return;
@@ -751,7 +753,7 @@ export default function PosWorkspace() {
             type="button"
             role="tab"
             aria-selected={mobilePanel === "products"}
-            className={`flex min-h-[36px] flex-1 items-center justify-center rounded-md px-2 text-xs font-medium transition-colors ${
+            className={`flex min-h-9 flex-1 items-center justify-center rounded-md px-2 text-xs font-medium transition-colors ${
               mobilePanel === "products"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground"
@@ -773,7 +775,7 @@ export default function PosWorkspace() {
                 ? `Carrito, ${cart.itemsCount} ítems`
                 : "Carrito"
             }
-            className={`relative flex min-h-[36px] flex-1 items-center justify-center rounded-md px-2 text-xs font-medium transition-colors ${
+            className={`relative flex min-h-9 flex-1 items-center justify-center rounded-md px-2 text-xs font-medium transition-colors ${
               mobilePanel === "cart"
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground"

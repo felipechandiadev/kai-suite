@@ -15,6 +15,12 @@ export type NotificationRow = {
   storageName: string;
   physicalStock: number;
   alertLabels: string[];
+  /** Resumen cocina (ítem/pedido listo). */
+  diningItems?: Array<{
+    name: string;
+    quantity: number;
+    notes: string | null;
+  }>;
 };
 
 function alertLabelsFromPayload(
@@ -68,12 +74,32 @@ export function inboxItemToRow(item: InboxItem, domainFilter?: string): Notifica
 
   const n = item.notification;
   const p = n.payload ?? {};
+  const displayLabel = String(p.displayLabel ?? "").trim();
   const productName =
-    String(p.productName ?? "").trim() || productNameFromNotificationTitle(n.title);
+    displayLabel ||
+    String(p.productName ?? "").trim() ||
+    productNameFromNotificationTitle(n.title);
   const attributesLabel =
     String(p.variantAttributes ?? "").trim() ||
     formatAttributeValues(p.attributeValues as Record<string, unknown> | undefined);
   const storageName = String(p.storageName ?? "").trim();
+
+  const rawItems = p.items;
+  const diningItems = Array.isArray(rawItems)
+    ? rawItems
+        .map((raw) => {
+          if (!raw || typeof raw !== "object") return null;
+          const it = raw as Record<string, unknown>;
+          const name = String(it.name ?? "").trim();
+          if (!name) return null;
+          return {
+            name,
+            quantity: Number(it.quantity) || 0,
+            notes: (it.notes != null ? String(it.notes).trim() : "") || null,
+          };
+        })
+        .filter((x): x is NonNullable<typeof x> => x != null)
+    : undefined;
 
   return {
     deliveryId: item.deliveryId,
@@ -86,5 +112,6 @@ export function inboxItemToRow(item: InboxItem, domainFilter?: string): Notifica
     storageName,
     physicalStock: Number(p.physicalStock ?? 0),
     alertLabels: alertLabelsFromPayload(p, n.kind),
+    diningItems: diningItems && diningItems.length > 0 ? diningItems : undefined,
   };
 }

@@ -152,3 +152,14 @@ export class MarkKitchenFireReadyDto {
   @IsUUID()
   productionUnitId!: string;
 }
+
+export class MarkKitchenLinesReadyDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
+  lineIds!: string[];
+
+  @IsNotEmpty()
+  @IsUUID()
+  productionUnitId!: string;
+}

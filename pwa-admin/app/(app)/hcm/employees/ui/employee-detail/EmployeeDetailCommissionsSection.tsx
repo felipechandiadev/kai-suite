@@ -204,7 +204,7 @@ export function EmployeeDetailCommissionsSection({
       ) : null}
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] border-collapse text-sm">
+        <table className="w-full min-w-140 border-collapse text-sm">
           <thead>
             <tr className="border-b border-border text-left text-muted-foreground">
               <th className="px-2 py-2 font-medium">Mes</th>
@@ -267,7 +267,7 @@ export function EmployeeDetailCommissionsSection({
             {salesError}
           </p>
         ) : null}
-        <div className="h-[min(55vh,480px)] min-h-[280px]">
+        <div className="h-[min(55vh,480px)] min-h-70">
           <DataGrid
             columns={saleColumns}
             rows={salesRows}

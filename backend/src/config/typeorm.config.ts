@@ -80,6 +80,7 @@ import { NotificationDelivery } from '@modules/notifications/domain/notification
 import { NotificationAudience } from '@modules/notifications/domain/notification-audience.entity';
 import { NotificationPreference } from '@modules/notifications/domain/notification-preference.entity';
 import { NotificationRetentionPolicy } from '@modules/notifications/domain/notification-retention-policy.entity';
+import { WebPushSubscription } from '@modules/notifications/domain/web-push-subscription.entity';
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
 import { EShopFulfillmentMethod } from '@modules/e-shop/domain/e-shop-fulfillment-method.entity';
@@ -231,6 +232,7 @@ export const typeOrmConfig = (
       NotificationAudience,
       NotificationPreference,
       NotificationRetentionPolicy,
+      WebPushSubscription,
       EShopTestimonial,
       EShopHeroSlide,
       EShopFulfillmentMethod,

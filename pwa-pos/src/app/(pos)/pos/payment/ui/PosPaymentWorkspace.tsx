@@ -18,6 +18,10 @@ import {
   readDeferredPaymentEnabledFromOfflineCache,
 } from "@/features/pos-offline/lib/read-deferred-payment-enabled";
 import { usePosCart } from "@/features/pos-cart/PosCartProvider";
+import {
+  diningPaymentExitHref,
+  useDiningPayment,
+} from "@/features/dining-payment";
 import { computePosSaleTotals } from "@/features/pos-cart/lib/pos-sale-totals";
 import { amountToPayWithPosDelivery } from "@/features/pos-cart/lib/amount-to-pay-with-delivery";
 import { PosDeliveryDialog } from "@/features/pos-delivery/ui/PosDeliveryDialog";
@@ -61,9 +65,9 @@ import type { PosCustomerSearchRow } from "@/features/customers/types/pos-custom
 import PosCustomerSearchPanel, {
   type PosCustomerSearchInitial,
 } from "@/features/customers/ui/PosCustomerSearchPanel";
-import PosDiningAccountsPanel from "@/features/dining/ui/PosDiningAccountsPanel";
-import { closePosDiningOrderAction } from "@/features/dining/actions/dining-pos.action";
-import { isKaiFoodEnabled } from "@/config/kaifood-module.config";
+import { closePosDiningOrderAction, getPosDiningOrderAction } from "@/features/dining/actions/dining-pos.action";
+import { diningOrderLinesToCart } from "@/features/dining/lib/dining-order-lines-to-cart";
+import { lookupPosVariantsAction } from "@/features/pos-products/actions/pos-products.action";
 import { PosCreateCustomerDialog } from "@/features/customers/ui/PosCreateCustomerDialog";
 import type { EffectivePaymentMethod } from "@/features/pos-payment-methods/types/effective-payment-method.types";
 import { getEffectivePosPaymentMethodsAction } from "@/features/pos-payment-methods/actions/payment-methods-pos.action";
@@ -709,6 +713,11 @@ export default function PosPaymentWorkspace({
   const isQuotaMode = (searchParams.get("mode") ?? "").trim() === "quota";
   const isDebtCollectMode = isCollectMode || isQuotaMode;
   const isNcPayoutMode = (searchParams.get("mode") ?? "").trim() === "nc-payout";
+  const isDiningMode = (searchParams.get("mode") ?? "").trim() === "dining";
+  const diningPayment = useDiningPayment();
+  const [diningRehydrating, setDiningRehydrating] = useState(false);
+  const diningRehydrateAttemptedRef = useRef(false);
+  const skipDiningRehydrateRef = useRef(false);
   const cart = usePosCart();
   const compactLayout = usePosCompactLayout();
   const isTabletDensity = usePosTabletDensity();
@@ -716,12 +725,12 @@ export default function PosPaymentWorkspace({
     ? POS_PAYMENT_PANEL_HEIGHT_VH_TABLET
     : POS_PAYMENT_PANEL_HEIGHT_VH_DEFAULT;
   const {
-    payments,
-    setPayments,
+    payments: cartPayments,
+    setPayments: setCartPayments,
     saleCustomer: customer,
     setSaleCustomer: setCustomer,
     appliedPromotions,
-    orderDiscount,
+    orderDiscount: cartOrderDiscount,
     suggestedLineDiscounts,
     suggestedOrderPromotions,
     togglePromotion,
@@ -743,44 +752,54 @@ export default function PosPaymentWorkspace({
     exitReturnMode,
     exitFulfillBackorderMode,
     quotationsEnabled,
-    loadedDiningOrder,
-    clearLoadedDiningOrder,
   } = cart;
 
-  /** Sticky: sobrevive a clearLoadedDiningOrder tras confirmar el cobro. */
-  const [saleFromDiningAccount, setSaleFromDiningAccount] = useState(
-    () => Boolean(loadedDiningOrder?.id),
-  );
-  useEffect(() => {
-    if (loadedDiningOrder?.id) {
-      setSaleFromDiningAccount(true);
-    }
-  }, [loadedDiningOrder?.id]);
+  const payments = isDiningMode ? diningPayment.payments : cartPayments;
+  const setPayments = isDiningMode ? diningPayment.setPayments : setCartPayments;
+  const saleLines = isDiningMode ? diningPayment.lines : cart.lines;
+  const orderDiscount = isDiningMode
+    ? diningPayment.orderDiscount
+    : (cartOrderDiscount ?? 0);
+  const activeDiningOrderId = isDiningMode
+    ? (diningPayment.order?.id?.trim() ||
+        (searchParams.get("diningOrderId") ?? "").trim() ||
+        null)
+    : null;
 
   const paymentExitHref = useMemo(() => {
-    if (!saleFromDiningAccount) return "/pos";
-    const orderId = loadedDiningOrder?.id?.trim();
+    if (!isDiningMode) return "/pos";
+    if (diningPayment.order) return diningPaymentExitHref(diningPayment.order);
+    const orderId = (searchParams.get("diningOrderId") ?? "").trim();
+    const diningTab = (searchParams.get("diningTab") ?? "mesas").trim() || "mesas";
     if (!orderId) return "/accounts";
-    const kind = loadedDiningOrder?.kind;
-    const diningTab =
-      kind === "COUNTER" ? "barra" : kind === "TAKEAWAY" ? "takeaway" : "mesas";
-    const params = new URLSearchParams({
-      diningOrderId: orderId,
-      diningTab,
-    });
+    const params = new URLSearchParams({ diningOrderId: orderId, diningTab });
     return `/accounts?${params.toString()}`;
-  }, [loadedDiningOrder?.id, loadedDiningOrder?.kind, saleFromDiningAccount]);
-  const paymentExitLabel = saleFromDiningAccount
-    ? "Volver a cuentas"
-    : "Volver al POS";
+  }, [isDiningMode, diningPayment.order, searchParams]);
+  const paymentExitLabel = isDiningMode ? "Volver a cuentas" : "Volver al POS";
+  const saleAppliedPromotions = isDiningMode ? [] : appliedPromotions;
+
+  const clearDiningPaymentSession = useCallback(() => {
+    skipDiningRehydrateRef.current = true;
+    diningPayment.clearDiningPayment();
+  }, [diningPayment]);
 
   const exitPaymentFlow = useCallback(() => {
+    if (isDiningMode) {
+      clearDiningPaymentSession();
+    }
     if (embedded && onCloseEmbedded) {
       onCloseEmbedded();
       return;
     }
     router.push(paymentExitHref);
-  }, [embedded, onCloseEmbedded, paymentExitHref, router]);
+  }, [
+    clearDiningPaymentSession,
+    embedded,
+    isDiningMode,
+    onCloseEmbedded,
+    paymentExitHref,
+    router,
+  ]);
 
   /** Siempre /pos (NC, cotización, etc.). */
   const goBackToPos = useCallback(() => {
@@ -818,16 +837,15 @@ export default function PosPaymentWorkspace({
     const posId = readPosContextClient()?.pointOfSaleId?.trim();
     if (!posId) return;
     notifyCustomerDisplaySaleCompleted(
-      computeCustomerDisplaySaleTotal(cart.lines, cart.orderDiscount ?? 0),
+      computeCustomerDisplaySaleTotal(saleLines, orderDiscount ?? 0),
       posId,
     );
-  }, [cart.lines, cart.orderDiscount]);
+  }, [saleLines, orderDiscount]);
 
   const saleTitleId = useId();
   const [saleSummaryOpen, setSaleSummaryOpen] = useState(false);
   const [discountDetailOpen, setDiscountDetailOpen] = useState(false);
   const [customerPanelOpen, setCustomerPanelOpen] = useState(false);
-  const [diningPanelOpen, setDiningPanelOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [internalCreditDialogOpen, setInternalCreditDialogOpen] = useState(false);
   const [editingInternalCreditLineId, setEditingInternalCreditLineId] = useState<
@@ -1190,6 +1208,7 @@ export default function PosPaymentWorkspace({
     !isEncargoMode &&
     !isDebtCollectMode &&
     !isNcPayoutMode &&
+    !isDiningMode &&
     localDeliveryEnabled;
   const deliveryFeeActive =
     canUsePosDelivery && posDelivery != null
@@ -1309,11 +1328,93 @@ export default function PosPaymentWorkspace({
 
   useEffect(() => {
     if (!cart.ready) return;
-    if (isDebtCollectMode || isNcPayoutMode) return;
+    if (isDebtCollectMode || isNcPayoutMode || isDiningMode) return;
     if (cart.lines.length === 0) {
       router.replace("/pos");
     }
-  }, [cart.ready, cart.lines.length, router, isDebtCollectMode, isNcPayoutMode]);
+  }, [cart.ready, cart.lines.length, router, isDebtCollectMode, isNcPayoutMode, isDiningMode]);
+
+  useEffect(() => {
+    if (!isDiningMode) return;
+    if (!diningPayment.ready) return;
+    if (diningPayment.order && diningPayment.lines.length > 0) return;
+    if (skipDiningRehydrateRef.current) return;
+    if (diningRehydrateAttemptedRef.current) {
+      router.replace(paymentExitHref);
+      return;
+    }
+
+    const orderId = (searchParams.get("diningOrderId") ?? "").trim();
+    if (!orderId) {
+      diningRehydrateAttemptedRef.current = true;
+      router.replace(paymentExitHref);
+      return;
+    }
+
+    let cancelled = false;
+    diningRehydrateAttemptedRef.current = true;
+    setDiningRehydrating(true);
+
+    void (async () => {
+      try {
+        const orderRes = await getPosDiningOrderAction(orderId);
+        if (cancelled) return;
+        if (!orderRes.success) {
+          router.replace(paymentExitHref);
+          return;
+        }
+        const order = orderRes.order;
+        const activeLines = order.lines.filter((l) => l.kitchenStatus !== "CANCELLED");
+        const variantIds = [...new Set(activeLines.map((l) => l.productVariantId))];
+        if (variantIds.length === 0) {
+          router.replace(paymentExitHref);
+          return;
+        }
+        const ctx = readPosContextClient();
+        const lookupRes = await lookupPosVariantsAction({
+          variantIds,
+          pointOfSaleId: ctx?.pointOfSaleId ?? null,
+          branchId: ctx?.branchId ?? null,
+          priceListId: ctx?.priceListId ?? null,
+        });
+        if (cancelled) return;
+        if (!lookupRes.success) {
+          router.replace(paymentExitHref);
+          return;
+        }
+        const cartLines = diningOrderLinesToCart(activeLines, lookupRes.products);
+        if (cartLines.length === 0) {
+          router.replace(paymentExitHref);
+          return;
+        }
+        diningPayment.startDiningPayment({
+          order: {
+            id: order.id,
+            displayLabel: order.displayLabel,
+            kind: order.kind,
+          },
+          lines: cartLines,
+        });
+      } catch {
+        if (!cancelled) router.replace(paymentExitHref);
+      } finally {
+        if (!cancelled) setDiningRehydrating(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isDiningMode,
+    diningPayment.ready,
+    diningPayment.order,
+    diningPayment.lines.length,
+    diningPayment,
+    paymentExitHref,
+    router,
+    searchParams,
+  ]);
 
   const pickSearchCustomer = useCallback(
     (row: PosCustomerSearchRow) => {
@@ -1336,14 +1437,14 @@ export default function PosPaymentWorkspace({
   }, [setCustomer, customerLocked]);
 
   const saleTotals = useMemo(
-    () => computePosSaleTotals(cart.lines, cart.orderDiscount ?? 0),
-    [cart.lines, cart.orderDiscount],
+    () => computePosSaleTotals(saleLines, orderDiscount ?? 0),
+    [saleLines, orderDiscount],
   );
   const totals = { net: saleTotals.net, gross: saleTotals.gross };
   const { taxes, lineDiscountsTotal, discounts, saleTotal } = saleTotals;
   const hasInsufficientStock = useMemo(
-    () => cart.lines.some((line) => posCartQuantityExceedsAvailableStock(line)),
-    [cart.lines],
+    () => saleLines.some((line) => posCartQuantityExceedsAvailableStock(line)),
+    [saleLines],
   );
   /** Venta normal: no cobrar si alguna línea supera el stock disponible. */
   const stockBlocksSalePayment =
@@ -1383,9 +1484,9 @@ export default function PosPaymentWorkspace({
     encargoDepositAmountRounded !== null && encargoDepositAmountRounded <= 0;
 
   const openBackorderDepositDialog = useCallback(() => {
-    if (cart.lines.length === 0 || saleTotal <= 0) return;
+    if (saleLines.length === 0 || saleTotal <= 0) return;
     setBackorderDepositOpen(true);
-  }, [cart.lines.length, saleTotal]);
+  }, [saleLines.length, saleTotal]);
 
   const handleToggleEncargoMode = useCallback(() => {
     if (encargoModeEnabled) {
@@ -1410,26 +1511,32 @@ export default function PosPaymentWorkspace({
       ? "Cobro de cuotas"
       : isCollectMode
         ? "Cobro pendiente"
-        : isReturnMode
-          ? "Devolución en curso"
-          : isFulfillBackorderMode
-            ? "Liquidar encargo"
-            : isEncargoMode
-              ? "Encargo en curso"
-              : "Venta en curso";
+        : isDiningMode
+          ? diningPayment.order?.displayLabel
+            ? `Cobro: ${diningPayment.order.displayLabel}`
+            : "Cobro de cuenta"
+          : isReturnMode
+            ? "Devolución en curso"
+            : isFulfillBackorderMode
+              ? "Liquidar encargo"
+              : isEncargoMode
+                ? "Encargo en curso"
+                : "Venta en curso";
   const summarySectionLabel = isNcPayoutMode
     ? "Notas de crédito a liquidar"
     : isQuotaMode
       ? "Cuotas a cobrar"
       : isCollectMode
         ? "Ventas a cobrar"
-        : isReturnMode
-          ? "Resumen de devolución"
-          : isFulfillBackorderMode
-            ? "Resumen de liquidación"
-            : isEncargoMode
-              ? "Resumen de encargo"
-              : "Resumen de venta";
+        : isDiningMode
+          ? "Resumen de cuenta"
+          : isReturnMode
+            ? "Resumen de devolución"
+            : isFulfillBackorderMode
+              ? "Resumen de liquidación"
+              : isEncargoMode
+                ? "Resumen de encargo"
+                : "Resumen de venta";
   const amountDueLabel = isReturnMode
     ? "Total a devolver"
     : isNcPayoutMode
@@ -1438,14 +1545,6 @@ export default function PosPaymentWorkspace({
         ? "Total a cobrar"
         : "Total a pagar";
   const showReturnRefundUi = !isReturnMode || immediateReturnRefund;
-  const kaiFoodEnabled = isKaiFoodEnabled();
-  const showDiningPanel =
-    kaiFoodEnabled &&
-    !saleFromDiningAccount &&
-    !isDebtCollectMode &&
-    !isNcPayoutMode &&
-    !isReturnMode &&
-    !isFulfillBackorderMode;
   const showSaleDteSelector =
     showReturnRefundUi &&
     !isDebtCollectMode &&
@@ -2230,7 +2329,7 @@ export default function PosPaymentWorkspace({
     isEncargoMode &&
     hasSaleCustomer &&
     backorderDeposit != null &&
-    cart.lines.length > 0 &&
+    saleLines.length > 0 &&
     saleTotal > 0 &&
     (isEncargoZeroDeposit ? remaining <= 0.01 : canConfirmStandardPayment);
 
@@ -2238,7 +2337,7 @@ export default function PosPaymentWorkspace({
     !isReturnMode &&
     !isDebtCollectMode &&
     !isNcPayoutMode &&
-    cart.lines.length > 0 &&
+    saleLines.length > 0 &&
     !stockBlocksSalePayment &&
     (isEncargoMode
       ? canConfirmEncargo
@@ -2266,13 +2365,14 @@ export default function PosPaymentWorkspace({
     !isOffline &&
     !isDebtCollectMode &&
     !isNcPayoutMode &&
+    !isDiningMode &&
     !isReturnMode &&
     !isFulfillBackorderMode &&
     !isEncargoMode &&
     !posDelivery &&
     !stockBlocksSalePayment &&
     hasSaleCustomer &&
-    cart.lines.length > 0 &&
+    saleLines.length > 0 &&
     saleTotal > 0;
 
   const confirmPaymentTitle = (() => {
@@ -2373,7 +2473,7 @@ export default function PosPaymentWorkspace({
       return "";
     }
 
-    if (cart.lines.length === 0) return "El carrito está vacío.";
+    if (saleLines.length === 0) return isDiningMode ? "La cuenta no tiene ítems." : "El carrito está vacío.";
 
     if (isReturnDocumentMode) {
       if (!loadedReturnSale?.id?.trim()) {
@@ -2554,7 +2654,7 @@ export default function PosPaymentWorkspace({
         buildCreateSaleClientPayload({
           pointOfSaleId,
           cashSessionId,
-          cartLines: cart.lines,
+          cartLines: saleLines,
           payments: [],
           customer,
           appliedPromotions,
@@ -2562,7 +2662,7 @@ export default function PosPaymentWorkspace({
           overpay: 0,
           deferPayment: true,
           loadedQuotation: cart.loadedQuotation,
-          diningOrderId: loadedDiningOrder?.id ?? null,
+          diningOrderId: activeDiningOrderId,
         }),
       );
       if (!deferRes.success) {
@@ -2580,7 +2680,7 @@ export default function PosPaymentWorkspace({
         }
       }
       const snapshot = buildPosSaleReceiptSnapshot({
-        lines: cart.lines,
+        lines: saleLines,
         payments: [],
         customer,
         company: details,
@@ -2985,13 +3085,13 @@ export default function PosPaymentWorkspace({
       !isReturnMode &&
       !isReturnDocumentMode;
 
-    let cartLinesForSale = cart.lines;
+    let cartLinesForSale = saleLines;
     let fiscalBoletaDegradedMessage: string | null = null;
     if (isSimpleSaleMode) {
       const priceListId = posCtx?.priceListId?.trim();
       if (priceListId) {
         cartLinesForSale = await hydrateCartLinesFiscalFlags(
-          cart.lines,
+          saleLines,
           pointOfSaleId,
           priceListId,
         );
@@ -3158,7 +3258,7 @@ export default function PosPaymentWorkspace({
           const backorderPayload = buildCreateBackorderClientPayload({
             pointOfSaleId,
             cashSessionId,
-            cartLines: cart.lines,
+            cartLines: saleLines,
             payments: paymentsForBackorder,
             customer,
             appliedPromotions,
@@ -3176,7 +3276,7 @@ export default function PosPaymentWorkspace({
             cartLines: cartLinesForSale,
             payments,
             customer,
-            appliedPromotions,
+            appliedPromotions: saleAppliedPromotions,
             appliedTotal,
             overpay,
             fulfillBackorderId: isFulfillBackorderMode
@@ -3191,7 +3291,7 @@ export default function PosPaymentWorkspace({
               canUsePosDelivery && posDelivery && !isEncargoMode
                 ? posDelivery
                 : null,
-            diningOrderId: loadedDiningOrder?.id ?? null,
+            diningOrderId: activeDiningOrderId,
           }),
         );
 
@@ -3207,12 +3307,12 @@ export default function PosPaymentWorkspace({
       return;
     }
 
-    if (loadedDiningOrder?.id && !isEncargoMode && confirmRes.success) {
+    if (activeDiningOrderId && !isEncargoMode && confirmRes.success) {
       void closePosDiningOrderAction({
-        orderId: loadedDiningOrder.id,
+        orderId: activeDiningOrderId,
         linkedTransactionId: confirmRes.transactionId,
       });
-      clearLoadedDiningOrder();
+      clearDiningPaymentSession();
     }
 
     if (saleCustomerId && !isEncargoMode) {
@@ -3237,7 +3337,7 @@ export default function PosPaymentWorkspace({
         customer,
         company: details,
         posContext: posCtx,
-        appliedPromotions,
+        appliedPromotions: saleAppliedPromotions,
         orderDiscount,
         lineDiscountsTotal,
         totals: {
@@ -3326,7 +3426,24 @@ export default function PosPaymentWorkspace({
     );
   }
 
-  if (!isDebtCollectMode && !isNcPayoutMode && cart.lines.length === 0) {
+  if (
+    isDiningMode &&
+    !successOpen &&
+    (diningRehydrating || !diningPayment.ready || !diningPayment.order || saleLines.length === 0)
+  ) {
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+        <DotProgress />
+        <span>
+          {diningRehydrating || !diningPayment.ready
+            ? "Cargando cobro de cuenta…"
+            : "Volviendo a cuentas…"}
+        </span>
+      </div>
+    );
+  }
+
+  if (!isDebtCollectMode && !isNcPayoutMode && !isDiningMode && cart.lines.length === 0) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
         <DotProgress />
@@ -3343,7 +3460,7 @@ export default function PosPaymentWorkspace({
     >
       <PaymentDisplayPublisher
         enabled={showReturnRefundUi}
-        lines={cart.lines}
+        lines={saleLines}
         orderDiscount={orderDiscount ?? 0}
         amountDueLabel={amountDueLabel}
         amountToPay={amountToPay}
@@ -3496,13 +3613,7 @@ export default function PosPaymentWorkspace({
         className={`grid items-stretch ${
           compactLayout
             ? "grid-cols-1 gap-2"
-            : `gap-4 ${
-                showReturnRefundUi
-                  ? showDiningPanel
-                    ? "grid-cols-4"
-                    : "grid-cols-3"
-                  : "grid-cols-2"
-              }`
+            : `gap-4 ${showReturnRefundUi ? "grid-cols-3" : "grid-cols-2"}`
         }`}
       >
         {/* Columna 1 — Carrito */}
@@ -3588,16 +3699,16 @@ export default function PosPaymentWorkspace({
               ) : null
             ) : (
               <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-                {quotationsEnabled && !isEncargoMode ? (
+                {quotationsEnabled && !isEncargoMode && !isDiningMode ? (
                   <IconButton
                     icon="File"
                     variant="outlined"
                     size="sm"
                     onClick={openSaveQuotation}
-                    disabled={cart.lines.length === 0}
+                    disabled={saleLines.length === 0}
                     ariaLabel="Cotización"
                     title={
-                      cart.lines.length === 0
+                      saleLines.length === 0
                         ? "Agregue ítems al carrito"
                         : "Guardar como cotización"
                     }
@@ -3605,12 +3716,13 @@ export default function PosPaymentWorkspace({
                     className="shrink-0"
                   />
                 ) : null}
+                {!isDiningMode ? (
                 <IconButton
                   icon="Package"
                   variant={encargoModeEnabled ? "secondary" : "outlined"}
                   size="sm"
                   onClick={handleToggleEncargoMode}
-                  disabled={cart.lines.length === 0 || saleTotal <= 0}
+                  disabled={saleLines.length === 0 || saleTotal <= 0}
                   ariaLabel="Encargo"
                   title={
                     encargoModeEnabled
@@ -3621,6 +3733,7 @@ export default function PosPaymentWorkspace({
                   data-test-id="pos-payment-encargo-btn"
                   className="shrink-0"
                 />
+                ) : null}
                 {backorderDeposit && encargoModeEnabled ? (
                   <span
                     className="max-w-[min(100%,10rem)] truncate text-xs font-semibold tabular-nums text-primary"
@@ -3652,7 +3765,7 @@ export default function PosPaymentWorkspace({
             </Alert>
           ) : null}
           <ul
-            className="min-h-0 flex-1 divide-y divide-border overflow-y-auto rounded-lg border border-border bg-background [scrollbar-gutter:stable]"
+            className="min-h-0 flex-1 divide-y divide-border overflow-y-auto rounded-lg border border-border bg-background scrollbar-gutter-stable"
             data-test-id="pos-payment-cart-lines-readonly"
           >
             {isNcPayoutMode
@@ -3705,8 +3818,10 @@ export default function PosPaymentWorkspace({
                     </span>
                   </li>
                 ))
-              : cart.lines.map((line) => {
-                  const suggested = suggestedLineDiscounts[line.variantId] ?? null;
+              : saleLines.map((line) => {
+                  const suggested = isDiningMode
+                    ? null
+                    : (suggestedLineDiscounts[line.variantId] ?? null);
                   const applied = Boolean(
                     line.discount &&
                       suggested &&
@@ -3722,7 +3837,7 @@ export default function PosPaymentWorkspace({
                       applied={applied || hasAppliedOnly}
                       offline={isOffline}
                       onToggleDiscount={
-                        !isOffline && suggested
+                        !isDiningMode && !isOffline && suggested
                           ? () =>
                               togglePromotion(
                                 suggested.promotionId,
@@ -3937,40 +4052,6 @@ export default function PosPaymentWorkspace({
           }
         />
         )}
-
-        {showDiningPanel ? (
-          compactLayout ? (
-            <div className="flex flex-col gap-2" data-test-id="pos-payment-dining-collapsible">
-              <div className="flex items-center gap-1 rounded-xl border border-border bg-background px-3 py-2">
-                <IconButton
-                  icon={diningPanelOpen ? "ChevronDown" : "ChevronRight"}
-                  variant="action"
-                  size="sm"
-                  ariaLabel={
-                    diningPanelOpen ? "Contraer panel de cuentas" : "Expandir panel de cuentas"
-                  }
-                  title={diningPanelOpen ? "Contraer" : "Expandir"}
-                  onClick={() => setDiningPanelOpen((open) => !open)}
-                  data-test-id="pos-payment-dining-toggle"
-                />
-                <h2 className="min-w-0 text-sm font-semibold text-foreground">Cuentas</h2>
-              </div>
-              {diningPanelOpen ? (
-                <PosDiningAccountsPanel
-                  branchId={readPosContextClient()?.branchId?.trim() ?? ""}
-                  heightVh={paymentPanelVh}
-                  disabled={isOffline}
-                />
-              ) : null}
-            </div>
-          ) : (
-            <PosDiningAccountsPanel
-              branchId={readPosContextClient()?.branchId?.trim() ?? ""}
-              heightVh={paymentPanelVh}
-              disabled={isOffline}
-            />
-          )
-        ) : null}
 
         {showReturnRefundUi ? (
         /* Columna 3 — Métodos de pago */
@@ -4446,8 +4527,12 @@ export default function PosPaymentWorkspace({
         onClose={() => {
           setSuccessOpen(false);
           setReceiptData(null);
-          cart.clear();
-          requestPosProductSearchFocus();
+          if (isDiningMode) {
+            clearDiningPaymentSession();
+          } else {
+            cart.clear();
+            requestPosProductSearchFocus();
+          }
           exitPaymentFlow();
         }}
       />
@@ -4548,7 +4633,7 @@ export default function PosPaymentWorkspace({
         open={discountDetailOpen}
         onClose={() => setDiscountDetailOpen(false)}
         appliedPromotions={appliedPromotions}
-        lines={cart.lines}
+        lines={saleLines}
         totalDiscount={discounts}
         promotions={cart.effectivePromotions}
         warnings={cart.promotionWarnings}
