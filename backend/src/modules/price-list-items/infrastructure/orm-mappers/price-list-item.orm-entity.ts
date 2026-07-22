@@ -42,8 +42,9 @@ export class PriceListItemOrmEntity {
   @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
   minPrice?: number;
 
+  /** Máximo descuento autorizado (%) sobre el precio de lista. */
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
-  discountPercentage?: number;
+  maxDiscountPercent?: number;
 
   @CreateDateColumn()
   createdAt!: Date;

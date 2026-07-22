@@ -25,6 +25,14 @@ export class VariantPricingRequest {
             netPrice: Math.round(Number(item.netPrice)) || 0,
             grossPrice: Math.round(Number(item.grossPrice)) || 0,
             taxIds: Array.isArray(item.taxIds) && item.taxIds.length > 0 ? item.taxIds : undefined,
+            maxDiscountPercent:
+              item.maxDiscountPercent != null && Number.isFinite(Number(item.maxDiscountPercent))
+                ? Number(item.maxDiscountPercent)
+                : null,
+            minPrice:
+              item.minPrice != null && Number.isFinite(Number(item.minPrice))
+                ? Math.round(Number(item.minPrice))
+                : null,
           })),
         }),
         cache: "no-store",

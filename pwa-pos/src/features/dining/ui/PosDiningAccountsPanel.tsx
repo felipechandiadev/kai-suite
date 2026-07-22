@@ -26,6 +26,7 @@ import {
   openPosTakeawayOrderAction,
   requestPosDiningBillAction,
   reopenPosDiningOrderAction,
+  abandonEmptyPosDiningOrderAction,
   cancelPosDiningOrderItemAction,
   sendPosDiningOrderToKitchenAction,
   updatePosDiningOrderLineNotesAction,
@@ -189,6 +190,8 @@ export default function PosDiningAccountsPanel({
   /** After first successful load for the current tab, refreshes stay silent (no spinner). */
   const listHydratedRef = useRef(false);
   const refreshListRef = useRef<(opts?: { silent?: boolean }) => void>(() => {});
+  /** Evita flash de loading cuando ya tenemos el detalle al abrir mesa/barra/takeaway. */
+  const skipDetailFetchForOrderIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     setMenuColumnCollapsed(readPosDiningMenuColumnCollapsed());
@@ -391,6 +394,12 @@ export default function PosDiningAccountsPanel({
       setDetailLoading(false);
       return;
     }
+    if (skipDetailFetchForOrderIdRef.current === urlOrderId) {
+      skipDetailFetchForOrderIdRef.current = null;
+      setDetailLoading(false);
+      setDetailError(null);
+      return;
+    }
     let cancelled = false;
     setDetailLoading(true);
     setDetailError(null);
@@ -541,6 +550,30 @@ export default function PosDiningAccountsPanel({
 
   const canManageCounter = detail?.kind === "COUNTER" || detail?.kind === "TAKEAWAY";
 
+  const isAccountEmpty = useMemo(() => {
+    if (!detail) return false;
+    return !(detail.lines ?? []).some((l) => l.kitchenStatus !== "CANCELLED");
+  }, [detail]);
+
+  const canAbandonEmpty =
+    isAccountEmpty &&
+    detail != null &&
+    (detail.status === "OPEN" || detail.status === "SENT") &&
+    !isBilling;
+
+  const applyOpenedOrder = (order: PosDiningOrderSummary, tab: TabKey) => {
+    setDetailError(null);
+    setDetail(order);
+    setDetailLoading(false);
+    skipDetailFetchForOrderIdRef.current = order.id;
+    upsertOrderInList(order);
+    const params = new URLSearchParams(sp.toString());
+    params.set(POS_DINING_URL_KEYS.tab, tab);
+    params.set(POS_DINING_URL_KEYS.orderId, order.id);
+    navigateDining(params);
+    refreshList({ silent: true });
+  };
+
   const handleOpenTable = (diningTableId: string) => {
     const tid = diningTableId.trim();
     if (!branchId.trim() || !tid) return;
@@ -553,12 +586,7 @@ export default function PosDiningAccountsPanel({
         setActionError(res.message);
         return;
       }
-      upsertOrderInList(res.order);
-      const params = new URLSearchParams(sp.toString());
-      params.set(POS_DINING_URL_KEYS.tab, "mesas");
-      params.set(POS_DINING_URL_KEYS.orderId, res.order.id);
-      navigateDining(params);
-      refreshList({ silent: true });
+      applyOpenedOrder(res.order, "mesas");
     });
   };
 
@@ -573,12 +601,7 @@ export default function PosDiningAccountsPanel({
         setActionError(res.message);
         return;
       }
-      upsertOrderInList(res.order);
-      const params = new URLSearchParams(sp.toString());
-      params.set(POS_DINING_URL_KEYS.tab, "barra");
-      params.set(POS_DINING_URL_KEYS.orderId, res.order.id);
-      navigateDining(params);
-      refreshList({ silent: true });
+      applyOpenedOrder(res.order, "barra");
     });
   };
 
@@ -593,12 +616,7 @@ export default function PosDiningAccountsPanel({
         setActionError(res.message);
         return;
       }
-      upsertOrderInList(res.order);
-      const params = new URLSearchParams(sp.toString());
-      params.set(POS_DINING_URL_KEYS.tab, "takeaway");
-      params.set(POS_DINING_URL_KEYS.orderId, res.order.id);
-      navigateDining(params);
-      refreshList({ silent: true });
+      applyOpenedOrder(res.order, "takeaway");
     });
   };
 
@@ -866,6 +884,26 @@ export default function PosDiningAccountsPanel({
       }
       setDetail(res.order);
       upsertOrderInList(res.order);
+      refreshList({ silent: true });
+    });
+  };
+
+  const handleAbandonEmptyAccount = () => {
+    if (!detail || !canAbandonEmpty) return;
+    const orderId = detail.id;
+    setActionBusy(true);
+    setActionError(null);
+    void abandonEmptyPosDiningOrderAction(orderId).then((res) => {
+      setActionBusy(false);
+      if (!res.success) {
+        if (redirectToLoginIfUnauthorized(res)) return;
+        setActionError(res.message);
+        return;
+      }
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      setDetail(null);
+      setDetailError(null);
+      setSelectedOrderId(null);
       refreshList({ silent: true });
     });
   };
@@ -1369,6 +1407,19 @@ export default function PosDiningAccountsPanel({
               <div className="min-w-0 flex-1" />
             )}
             <div className="flex shrink-0 items-center gap-3">
+              {canAbandonEmpty ? (
+                <Button
+                  variant="outlined"
+                  size="sm"
+                  className="shrink-0"
+                  disabled={disabled || actionBusy}
+                  loading={actionBusy}
+                  onClick={() => handleAbandonEmptyAccount()}
+                  data-test-id="pos-dining-abandon-empty-btn"
+                >
+                  {detail.kind === "TABLE" ? "Cerrar mesa" : "Eliminar cuenta"}
+                </Button>
+              ) : null}
               {isBilling ? (
                 <Button
                   variant="outlined"

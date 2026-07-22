@@ -32,7 +32,11 @@ type Props = {
 const METHOD_OPTIONS: { id: CompanyPaymentMethodId; label: string }[] = (
   Object.keys(COMPANY_PAYMENT_METHOD_LABELS) as CompanyPaymentMethodId[]
 )
-  .filter((id) => !(POS_IMPLICIT_PAYMENT_METHOD_IDS as string[]).includes(id))
+  .filter(
+    (id) =>
+      !(POS_IMPLICIT_PAYMENT_METHOD_IDS as string[]).includes(id) &&
+      id !== "CREDIT",
+  )
   .map((id) => ({ id, label: companyPaymentMethodLabel(id) }));
 
 function newClientId(): string {
@@ -43,6 +47,10 @@ function newClientId(): string {
     return (globalThis as any).crypto.randomUUID();
   }
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function isCardMethod(method: CompanyPaymentMethodId): boolean {
+  return method === "CREDIT_CARD" || method === "DEBIT_CARD";
 }
 
 export function CompanyPaymentMethodDialog({
@@ -58,7 +66,7 @@ export function CompanyPaymentMethodDialog({
   const editing = !!initial;
   const [method, setMethod] = useState<CompanyPaymentMethodId>("CASH");
   const [alias, setAlias] = useState("");
-  const [bankAccountKey, setBankAccountKey] = useState("");
+  const [feePercent, setFeePercent] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [voucherKindId, setVoucherKindId] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -67,6 +75,7 @@ export function CompanyPaymentMethodDialog({
     () => voucherKinds.filter((k) => k.isActive),
     [voucherKinds],
   );
+  const hasActiveKinds = activeKinds.length > 0;
 
   useEffect(() => {
     if (!open) return;
@@ -74,13 +83,17 @@ export function CompanyPaymentMethodDialog({
     if (initial) {
       setMethod(initial.method);
       setAlias(initial.alias ?? "");
-      setBankAccountKey(initial.bankAccountKey ?? "");
+      setFeePercent(
+        initial.feePercent != null && Number.isFinite(initial.feePercent)
+          ? String(initial.feePercent)
+          : "",
+      );
       setIsActive(initial.isActive);
       setVoucherKindId(initial.voucherKindId ?? null);
     } else {
       setMethod("CASH");
       setAlias("");
-      setBankAccountKey("");
+      setFeePercent("");
       setIsActive(true);
       setVoucherKindId(null);
     }
@@ -121,10 +134,19 @@ export function CompanyPaymentMethodDialog({
   );
 
   const referenceAlwaysRequired = companyPaymentMethodAlwaysRequiresReference(method);
+  const voucherBlocked =
+    method === "VOUCHER" && (!hasActiveKinds || !voucherKindId?.trim());
+  const showCardFee = isCardMethod(method);
 
   async function handleSubmit() {
     setLocalError(null);
     if (method === "VOUCHER") {
+      if (!hasActiveKinds) {
+        setLocalError(
+          "Configurá tipos de voucher en la sección inferior antes de agregar este medio.",
+        );
+        return;
+      }
       if (!voucherKindId?.trim()) {
         setLocalError("Seleccioná un tipo de voucher.");
         return;
@@ -134,6 +156,17 @@ export function CompanyPaymentMethodDialog({
         return;
       }
     }
+
+    let fee: number | null = null;
+    if (showCardFee && feePercent.trim()) {
+      const n = Number(feePercent.replace(",", "."));
+      if (!Number.isFinite(n) || n < 0 || n > 100) {
+        setLocalError("La comisión (%) debe estar entre 0 y 100.");
+        return;
+      }
+      fee = Math.round(n * 100) / 100;
+    }
+
     const kind = activeKinds.find((k) => k.id === voucherKindId);
     const item: CompanyPaymentMethodConfig = {
       id: initial?.id ?? newClientId(),
@@ -146,7 +179,8 @@ export function CompanyPaymentMethodDialog({
       requireReference: referenceAlwaysRequired
         ? true
         : (initial?.requireReference ?? false),
-      bankAccountKey: bankAccountKey.trim() || null,
+      bankAccountKey: null,
+      feePercent: showCardFee ? fee : null,
       metadata: initial?.metadata ?? null,
       voucherKindId: method === "VOUCHER" ? voucherKindId : null,
     };
@@ -181,13 +215,14 @@ export function CompanyPaymentMethodDialog({
             const next = (id != null ? String(id) : "CASH") as CompanyPaymentMethodId;
             setMethod(next);
             if (next !== "VOUCHER") setVoucherKindId(null);
+            if (!isCardMethod(next)) setFeePercent("");
           }}
           alwaysShowLabel
           disabled={busy}
           data-test-id="company-payment-method-select"
         />
         {method === "VOUCHER" ? (
-          kindOptions.length === 0 ? (
+          !hasActiveKinds ? (
             <p className="text-sm text-muted-foreground">
               Configurá tipos de voucher en la sección inferior antes de
               agregar este medio.
@@ -218,19 +253,22 @@ export function CompanyPaymentMethodDialog({
           name="company-payment-method-alias"
           value={alias}
           onChange={(e) => setAlias(e.target.value)}
-          placeholder="Ej. Banco Estado"
+          placeholder="Alias (opcional)"
           disabled={busy}
           data-test-id="company-payment-method-alias"
         />
-        <TextField
-          label="Cuenta / banco asociado (opcional)"
-          name="company-payment-method-bank"
-          value={bankAccountKey}
-          onChange={(e) => setBankAccountKey(e.target.value)}
-          placeholder="Clave de tesorería"
-          disabled={busy}
-          data-test-id="company-payment-method-bank"
-        />
+        {showCardFee ? (
+          <TextField
+            label="Comisión (%)"
+            name="company-payment-method-fee"
+            value={feePercent}
+            onChange={(e) => setFeePercent(e.target.value)}
+            placeholder="Comisión (%)"
+            inputMode="decimal"
+            disabled={busy}
+            data-test-id="company-payment-method-fee"
+          />
+        ) : null}
         <Switch
           checked={isActive}
           onChange={setIsActive}
@@ -260,6 +298,7 @@ export function CompanyPaymentMethodDialog({
             variant="primary"
             type="button"
             loading={busy}
+            disabled={busy || voucherBlocked}
             onClick={() => void handleSubmit()}
             data-test-id="company-payment-method-submit"
           >

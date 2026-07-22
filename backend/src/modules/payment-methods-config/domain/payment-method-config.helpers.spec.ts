@@ -101,4 +101,32 @@ describe('payment-method-config.helpers', () => {
     ]);
     expect(effective).toHaveLength(0);
   });
+
+  it('sanitizeFeePercent keeps card fee and clears non-card', () => {
+    const card = sanitizeCompanyPaymentMethod(
+      { method: PaymentMethod.CREDIT_CARD, feePercent: 2.5 },
+      0,
+    );
+    expect(card.feePercent).toBe(2.5);
+    const cash = sanitizeCompanyPaymentMethod(
+      { method: PaymentMethod.CASH, feePercent: 2.5 },
+      0,
+    );
+    expect(cash.feePercent).toBeNull();
+  });
+
+  it('sanitizeFeePercent rejects out of range', () => {
+    expect(() =>
+      sanitizeCompanyPaymentMethod(
+        { method: PaymentMethod.DEBIT_CARD, feePercent: 101 },
+        0,
+      ),
+    ).toThrow(/entre 0 y 100/);
+    expect(() =>
+      sanitizeCompanyPaymentMethod(
+        { method: PaymentMethod.DEBIT_CARD, feePercent: -1 },
+        0,
+      ),
+    ).toThrow(/entre 0 y 100/);
+  });
 });

@@ -56,8 +56,12 @@ export class PriceListItem {
   @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
   minPrice?: number;
 
+  /**
+   * Máximo descuento autorizado (%) sobre el precio de lista.
+   * No es un descuento ya aplicado; es un tope para negociación/POS.
+   */
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
-  discountPercentage?: number;
+  maxDiscountPercent?: number;
 
   @CreateDateColumn()
   createdAt!: Date;

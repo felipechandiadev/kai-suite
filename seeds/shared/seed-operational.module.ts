@@ -45,6 +45,7 @@ import { BankTransfersModule } from '@modules/bank-transfers/bank-transfers.modu
 import { ReceptionsModule } from '@modules/receptions/receptions.module';
 import { TransactionsModule } from '@modules/transactions/transactions.module';
 import { AutomationModule } from '@modules/automation/automation.module';
+import { CompaniesModule } from '@modules/companies/companies.module';
 import { ProductModeModule } from '../../backend/src/shared/product-mode/product-mode.module';
 import { CloudflareR2Adapter } from '@modules/multimedia/infrastructure/adapters/cloudflare-r2.adapter';
 import { LocalStorageAdapter } from '@modules/multimedia/infrastructure/adapters/local-storage.adapter';
@@ -105,6 +106,7 @@ import { LocalStorageAdapter } from '@modules/multimedia/infrastructure/adapters
     ReceptionsModule,
     TransactionsModule,
     AutomationModule,
+    CompaniesModule,
   ],
   providers: [LocalStorageAdapter, CloudflareR2Adapter],
 })

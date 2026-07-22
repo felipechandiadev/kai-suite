@@ -66,19 +66,21 @@ describe('EmployeeSalesCommissionsService', () => {
     expect(out.months).toEqual([]);
   });
 
-  it('aggregates PERCENT commission on SALE.total (bruto)', async () => {
+  it('aggregates PERCENT commission on SALE net (total − taxAmount)', async () => {
     const now = new Date();
     const ym = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
     transactions.find.mockResolvedValueOnce([
       {
         id: 's1',
-        total: 10000,
+        total: 11900,
+        taxAmount: 1900,
         createdAt: new Date(`${ym}-10T12:00:00.000Z`),
         pointOfSaleId: 'pos-1',
       },
       {
         id: 's2',
-        total: 20000,
+        total: 23800,
+        taxAmount: 3800,
         createdAt: new Date(`${ym}-11T12:00:00.000Z`),
         pointOfSaleId: 'pos-1',
       },
@@ -88,10 +90,11 @@ describe('EmployeeSalesCommissionsService', () => {
     expect(out.percent).toBe(3);
     expect(out.linked).toBe(true);
     const month = out.months.find((m) => m.yearMonth === ym);
+    // Netos: 10000 + 20000 = 30000 → comisión 900
     expect(month).toEqual({
       yearMonth: ym,
       salesCount: 2,
-      salesGrossTotal: 30000,
+      salesNetTotal: 30000,
       commissionTotal: 900,
     });
   });
@@ -110,7 +113,7 @@ describe('EmployeeSalesCommissionsService', () => {
     );
   });
 
-  it('listSales returns paginated rows with commission', async () => {
+  it('listSales returns paginated rows with commission on net', async () => {
     const now = new Date();
     const ym = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
     const qb = {
@@ -124,7 +127,8 @@ describe('EmployeeSalesCommissionsService', () => {
         {
           id: 's1',
           documentNumber: 'VTA1',
-          total: 10000,
+          total: 11900,
+          taxAmount: 1900,
           createdAt: new Date(`${ym}-05T12:00:00.000Z`),
           pointOfSaleId: 'pos-1',
           transactionType: TransactionType.SALE,

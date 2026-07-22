@@ -141,7 +141,7 @@ export function EmployeeDetailCommissionsSection({
       },
       {
         field: "total",
-        headerName: "Bruto",
+        headerName: "Neto",
         width: 120,
         align: "right",
         sortable: false,
@@ -191,7 +191,7 @@ export function EmployeeDetailCommissionsSection({
   return (
     <div className="space-y-3" data-test-id="employee-detail-commissions">
       <p className="text-xs text-muted-foreground">
-        Comisión {percent}% sobre ventas brutas POS (últimos 12 meses).
+        Comisión {percent}% sobre ventas netas POS (últimos 12 meses).
       </p>
       {!linked ? (
         <p
@@ -209,7 +209,7 @@ export function EmployeeDetailCommissionsSection({
             <tr className="border-b border-border text-left text-muted-foreground">
               <th className="px-2 py-2 font-medium">Mes</th>
               <th className="px-2 py-2 font-medium text-right">Ventas</th>
-              <th className="px-2 py-2 font-medium text-right">Bruto</th>
+              <th className="px-2 py-2 font-medium text-right">Neto</th>
               <th className="px-2 py-2 font-medium text-right">Comisión</th>
               <th className="w-12 px-2 py-2 font-medium" />
             </tr>
@@ -228,7 +228,7 @@ export function EmployeeDetailCommissionsSection({
                   {row.salesCount}
                 </td>
                 <td className="px-2 py-2 text-right tabular-nums">
-                  {formatMoneyClp(row.salesGrossTotal)}
+                  {formatMoneyClp(row.salesNetTotal)}
                 </td>
                 <td className="px-2 py-2 text-right tabular-nums">
                   {formatMoneyClp(row.commissionTotal)}

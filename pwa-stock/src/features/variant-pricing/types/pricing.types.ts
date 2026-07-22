@@ -5,6 +5,8 @@ export type VariantPriceListItem = {
   netPrice: number;
   grossPrice: number;
   taxIds?: string[];
+  maxDiscountPercent?: number | null;
+  minPrice?: number | null;
 };
 
 export type UpdateVariantPricingInput = {
@@ -15,5 +17,7 @@ export type UpdateVariantPricingInput = {
     netPrice: number;
     grossPrice: number;
     taxIds?: string[];
+    maxDiscountPercent?: number | null;
+    minPrice?: number | null;
   }>;
 };

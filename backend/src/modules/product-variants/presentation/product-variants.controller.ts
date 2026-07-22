@@ -17,10 +17,15 @@ import { VariantPurchaseInsightsQueryDto } from '../application/dto/variant-purc
 import { VariantSalePriceHistoryQueryDto } from '../application/dto/variant-sale-price-history.dto';
 import { UpsertVariantProductionUnitsDto } from '../application/dto/upsert-variant-production-units.dto';
 import { UpsertVariantBranchAvailabilityDto } from '../application/dto/upsert-variant-branch-availability.dto';
+import { UpsertVariantProductionAttributesDto } from '../application/dto/upsert-variant-production-attributes.dto';
+import { VariantProductionAttributesService } from '../application/variant-production-attributes.service';
 
 @Controller('product-variants')
 export class ProductVariantsController {
-  constructor(private readonly variantsService: ProductVariantsService) {}
+  constructor(
+    private readonly variantsService: ProductVariantsService,
+    private readonly productionAttributesService: VariantProductionAttributesService,
+  ) {}
 
   @Get()
   async findAll(@Query() query: ListProductVariantsDto) {
@@ -90,6 +95,24 @@ export class ProductVariantsController {
     @Body() body: UpsertVariantBranchAvailabilityDto,
   ) {
     const items = await this.variantsService.upsertBranchAvailability(
+      id,
+      body.items ?? [],
+    );
+    return { items };
+  }
+
+  @Get(':id/production-attributes')
+  async listProductionAttributes(@Param('id') id: string) {
+    const items = await this.productionAttributesService.list(id);
+    return { items };
+  }
+
+  @Put(':id/production-attributes')
+  async upsertProductionAttributes(
+    @Param('id') id: string,
+    @Body() body: UpsertVariantProductionAttributesDto,
+  ) {
+    const items = await this.productionAttributesService.replace(
       id,
       body.items ?? [],
     );

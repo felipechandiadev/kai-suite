@@ -6,7 +6,9 @@ import { Button } from "@kai/ui";
 import { TextField } from "@kai/ui";
 import type { TaxListItem } from "@/features/accounting-taxes/types/tax.types";
 import {
-  netFromPmpAndUtilityPercent,
+  evaluateMaxDiscountImpact,
+  minPriceFromMaxDiscount,
+  netFromCostAndMargin,
   netToGross,
   resolvePricingGrossFactor,
 } from "@/features/inventory-products/domain/price-tax-math";
@@ -25,7 +27,13 @@ export type VariantPmpPriceCalculatorDialogProps = {
   /** Fila de precio a la que aplica el neto al confirmar (misma que abrió el diálogo). */
   priceRowKey: string | null;
   catalogTaxes: readonly TaxListItem[];
-  onApply: (pmp: number, net: number, priceRowKey: string) => void;
+  onApply: (
+    pmp: number,
+    net: number,
+    maxDiscountPercent: number,
+    minPrice: number | null,
+    priceRowKey: string,
+  ) => void;
 };
 
 function parsePercent(raw: string): number | null {
@@ -50,6 +58,7 @@ export function VariantPmpPriceCalculatorDialog({
   const netEqualsGross = forcesNetEqualsGross(taxCategory);
   const [pmpValue, setPmpValue] = useState(String(Math.max(0, Math.round(initialPmp))));
   const [utilityRaw, setUtilityRaw] = useState("");
+  const [discountRaw, setDiscountRaw] = useState("");
 
   useEffect(() => {
     if (!open) {
@@ -57,6 +66,7 @@ export function VariantPmpPriceCalculatorDialog({
     }
     setPmpValue(String(Math.max(0, Math.round(initialPmp))));
     setUtilityRaw("");
+    setDiscountRaw("");
   }, [open, initialPmp]);
 
   const pmpInt = useMemo(() => {
@@ -69,19 +79,35 @@ export function VariantPmpPriceCalculatorDialog({
   }, [pmpValue]);
 
   const utilityPct = parsePercent(utilityRaw);
+  const discountPct = parsePercent(discountRaw);
+  const marginInvalid = utilityPct != null && utilityPct >= 100;
+  const discountInvalid = discountPct != null && discountPct >= 100;
+  const expectedMargin = utilityPct ?? 0;
+  const maxDiscount = discountPct ?? 0;
   const netSuggested =
-    utilityPct != null ? netFromPmpAndUtilityPercent(pmpInt, utilityPct) : netFromPmpAndUtilityPercent(pmpInt, 0);
+    marginInvalid || discountInvalid ? 0 : netFromCostAndMargin(pmpInt, expectedMargin);
   const factorPreview = resolvePricingGrossFactor(taxCategory, catalogTaxes, taxIdsForPreview);
   const grossPreview = netToGross(netSuggested, factorPreview);
+  const discountImpact = useMemo(
+    () =>
+      evaluateMaxDiscountImpact(pmpInt, netSuggested, expectedMargin, maxDiscount),
+    [pmpInt, netSuggested, expectedMargin, maxDiscount],
+  );
+  const showDiscountWarning =
+    maxDiscount > 0 && !marginInvalid && !discountInvalid && discountImpact.isMarginEroded;
 
   const handleApply = () => {
     if (priceRowKey == null || priceRowKey === "") {
       onClose();
       return;
     }
-    const u = utilityPct ?? 0;
-    const net = netFromPmpAndUtilityPercent(pmpInt, u);
-    onApply(pmpInt, net, priceRowKey);
+    if (marginInvalid || discountInvalid) {
+      return;
+    }
+    const net = netFromCostAndMargin(pmpInt, expectedMargin);
+    const minPrice =
+      maxDiscount > 0 ? minPriceFromMaxDiscount(net, maxDiscount) : null;
+    onApply(pmpInt, net, maxDiscount, minPrice, priceRowKey);
     onClose();
   };
 
@@ -99,7 +125,13 @@ export function VariantPmpPriceCalculatorDialog({
           <Button variant="outlined" size="md" onClick={onClose} data-test-id="variant-pmp-calc-cancel">
             Cancelar
           </Button>
-          <Button variant="primary" size="md" onClick={handleApply} data-test-id="variant-pmp-calc-apply">
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handleApply}
+            disabled={marginInvalid || discountInvalid}
+            data-test-id="variant-pmp-calc-apply"
+          >
             Aplicar precio
           </Button>
         </>
@@ -107,9 +139,11 @@ export function VariantPmpPriceCalculatorDialog({
     >
       <div className="flex flex-col gap-4 text-sm">
         <p className="text-muted-foreground">
-          Indique el <strong className="text-foreground">PMP</strong> (precio de compra medio ponderado) y la{" "}
-          <strong className="text-foreground">utilidad esperada</strong> % sobre ese costo. El precio neto sugerido es{" "}
-          <strong className="text-foreground">PMP × (1 + utilidad%)</strong>.
+          El <strong className="text-foreground">margen de utilidad esperado</strong> es el % de
+          ganancia sobre el precio neto de venta. Fórmula:{" "}
+          <strong className="text-foreground">neto = PMP ÷ (1 − margen)</strong>. El máximo descuento
+          autorizado no modifica el precio: es un tope; si lo aplicás y se pierde el margen, se avisa
+          abajo.
         </p>
         <TextField
           type="currency"
@@ -123,13 +157,37 @@ export function VariantPmpPriceCalculatorDialog({
           data-test-id="variant-pmp-calc-pmp"
         />
         <TextField
-          label="Utilidad esperada (%)"
+          label="Margen de utilidad esperado"
           name="pmp-calc-utility"
           value={utilityRaw}
           onChange={(e) => setUtilityRaw(e.target.value)}
-          placeholder="Ej: 35"
+          placeholder="Margen de utilidad esperado"
           data-test-id="variant-pmp-calc-utility"
         />
+        <TextField
+          label="Máximo descuento autorizado"
+          name="pmp-calc-discount"
+          value={discountRaw}
+          onChange={(e) => setDiscountRaw(e.target.value)}
+          placeholder="Máximo descuento autorizado"
+          data-test-id="variant-pmp-calc-discount"
+        />
+        {marginInvalid || discountInvalid ? (
+          <p className="text-xs text-error" data-test-id="variant-pmp-calc-rate-error">
+            Margen y descuento deben ser menores a 100%.
+          </p>
+        ) : null}
+        {showDiscountWarning ? (
+          <p className="text-sm font-medium text-error" data-test-id="variant-pmp-calc-discount-warn">
+            {discountImpact.isBelowCost
+              ? `Con el máximo descuento autorizado (${maxDiscount}%) el neto quedaría en $${discountImpact.netAfterMaxDiscount.toLocaleString("es-CL")}, por debajo del PMP ($${pmpInt.toLocaleString("es-CL")}). Se pierde el margen.`
+              : `Con el máximo descuento autorizado (${maxDiscount}%) el margen efectivo baja a ${
+                  discountImpact.effectiveMarginPercent != null
+                    ? `${discountImpact.effectiveMarginPercent.toFixed(1)}%`
+                    : "—"
+                } (esperado ${expectedMargin}%). Se pierde el margen de utilidad esperado.`}
+          </p>
+        ) : null}
         <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Vista previa</p>
           {netEqualsGross ? (

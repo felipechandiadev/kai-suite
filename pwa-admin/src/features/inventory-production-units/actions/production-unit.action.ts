@@ -6,6 +6,7 @@ import type {
   CreateProductionUnitInput,
   ProductionUnitActionResult,
   ProductionUnitListItem,
+  ProductionUnitPurpose,
   UpdateProductionUnitInput,
 } from "../types/production-unit.types";
 
@@ -13,8 +14,9 @@ const PATH = "/production/units";
 
 export async function listProductionUnitsForPage(
   branchId?: string,
+  opts?: { purpose?: ProductionUnitPurpose },
 ): Promise<ProductionUnitListItem[]> {
-  return ProductionUnitRequest.list(branchId);
+  return ProductionUnitRequest.list(branchId, opts);
 }
 
 export async function createProductionUnitAction(

@@ -42,6 +42,21 @@ export class CompanyPaymentMethodEntity {
   @Column({ name: 'bank_account_key', type: 'varchar', length: 120, nullable: true })
   bankAccountKey?: string | null;
 
+  /** Comisión de adquirente (%). Solo aplica a CREDIT_CARD / DEBIT_CARD. */
+  @Column({
+    name: 'fee_percent',
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    transformer: {
+      to: (v?: number | null) => v,
+      from: (v: string | number | null) =>
+        v == null || v === '' ? null : Number(v),
+    },
+  })
+  feePercent?: number | null;
+
   @Column({ type: 'jsonb', nullable: true })
   metadata?: Record<string, unknown> | null;
 

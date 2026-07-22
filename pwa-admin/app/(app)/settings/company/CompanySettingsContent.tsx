@@ -71,52 +71,54 @@ export function CompanySettingsContent({ company, shareholders }: Props) {
   }
 
   return (
-    <TabPageLayout
-      compact
-      className="min-w-0 w-full max-w-none"
-      contentClassName="min-w-0 w-full max-w-full pt-4"
-      tabs={
-        <CompanySettingsSectionNav tabs={visibleTabs} activeId={activeTab} onSelect={selectTab} />
-      }
-      data-test-id="settings-company-layout"
-    >
-      <div
-        role="tabpanel"
-        id={`company-settings-panel-${activeTab}`}
-        aria-labelledby={`company-settings-tab-${activeTab}`}
+    <div className="mx-auto w-full max-w-4xl space-y-6" data-test-id="settings-company-centered">
+      <TabPageLayout
+        compact
         className="min-w-0 w-full"
-        data-test-id={`settings-company-panel-${activeTab}`}
+        contentClassName="min-w-0 w-full pt-4"
+        tabs={
+          <CompanySettingsSectionNav tabs={visibleTabs} activeId={activeTab} onSelect={selectTab} />
+        }
+        data-test-id="settings-company-layout"
       >
-        {activeTab === "general" ? (
-          <CompanyGeneralSection company={company} onSaved={onSaved} />
-        ) : null}
+        <div
+          role="tabpanel"
+          id={`company-settings-panel-${activeTab}`}
+          aria-labelledby={`company-settings-tab-${activeTab}`}
+          className="min-w-0 w-full"
+          data-test-id={`settings-company-panel-${activeTab}`}
+        >
+          {activeTab === "general" ? (
+            <CompanyGeneralSection company={company} onSaved={onSaved} />
+          ) : null}
 
-        {activeTab === "identidad" ? <CompanyIdentitySection company={company} /> : null}
+          {activeTab === "identidad" ? <CompanyIdentitySection company={company} /> : null}
 
-        {activeTab === "bancos" ? <CompanyBankAccountsSection company={company} /> : null}
-        {activeTab === "medios-pago" ? (
-          <div className="flex flex-col gap-6">
-            <CompanyPaymentMethodsSection companyId={company.id} />
-            <CompanyVoucherKindsSection companyId={company.id} />
-          </div>
-        ) : null}
-        {activeTab === "credito-interno" ? (
-          <div className="flex flex-col gap-6">
-            <CompanyInternalCustomerCreditSection company={company} />
-            <CompanyDeferredPaymentSection company={company} />
-          </div>
-        ) : null}
-        {activeTab === "cheques" ? <CompanyChecksSection company={company} /> : null}
-        {activeTab === "cotizaciones" ? <CompanyQuotationsSection company={company} /> : null}
-        {activeTab === "preventa" ? <CompanyPresalesSection company={company} /> : null}
-        {activeTab === "contacto" ? <CompanyPublicContactSection company={company} /> : null}
-        {activeTab === "eshop" && isEShopModuleEnabled() ? (
-          <CompanyEShopSection company={company} />
-        ) : null}
-        {activeTab === "socios" ? (
-          <CompanyPartnersSection companyId={company.id} shareholders={shareholders} />
-        ) : null}
-      </div>
-    </TabPageLayout>
+          {activeTab === "bancos" ? <CompanyBankAccountsSection company={company} /> : null}
+          {activeTab === "medios-pago" ? (
+            <div className="flex flex-col gap-6">
+              <CompanyPaymentMethodsSection companyId={company.id} />
+              <CompanyVoucherKindsSection companyId={company.id} />
+            </div>
+          ) : null}
+          {activeTab === "credito-interno" ? (
+            <div className="flex flex-col gap-6">
+              <CompanyInternalCustomerCreditSection company={company} />
+              <CompanyDeferredPaymentSection company={company} />
+            </div>
+          ) : null}
+          {activeTab === "cheques" ? <CompanyChecksSection company={company} /> : null}
+          {activeTab === "cotizaciones" ? <CompanyQuotationsSection company={company} /> : null}
+          {activeTab === "preventa" ? <CompanyPresalesSection company={company} /> : null}
+          {activeTab === "contacto" ? <CompanyPublicContactSection company={company} /> : null}
+          {activeTab === "eshop" && isEShopModuleEnabled() ? (
+            <CompanyEShopSection company={company} />
+          ) : null}
+          {activeTab === "socios" ? (
+            <CompanyPartnersSection companyId={company.id} shareholders={shareholders} />
+          ) : null}
+        </div>
+      </TabPageLayout>
+    </div>
   );
 }

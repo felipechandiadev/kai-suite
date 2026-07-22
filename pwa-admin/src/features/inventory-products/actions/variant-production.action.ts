@@ -5,6 +5,7 @@ import {
   VariantProductionRequest,
   type VariantBranchAvailabilityItem,
   type VariantProductionUnitRoutingItem,
+  type ProductionAttributeDto,
 } from "../infrastructure/variant-production.request";
 
 export async function getVariantProductionRoutingAction(variantId: string) {
@@ -31,6 +32,24 @@ export async function saveVariantBranchAvailabilityAction(
   items: VariantBranchAvailabilityItem[],
 ) {
   const result = await VariantProductionRequest.upsertAvailability(variantId, items);
+  if (result.success) {
+    revalidatePath(`/catalog/products/variants/${variantId}`, "page");
+  }
+  return result;
+}
+
+export async function getVariantProductionAttributesAction(variantId: string) {
+  return VariantProductionRequest.listProductionAttributes(variantId);
+}
+
+export async function saveVariantProductionAttributesAction(
+  variantId: string,
+  items: ProductionAttributeDto[],
+) {
+  const result = await VariantProductionRequest.upsertProductionAttributes(
+    variantId,
+    items,
+  );
   if (result.success) {
     revalidatePath(`/catalog/products/variants/${variantId}`, "page");
   }

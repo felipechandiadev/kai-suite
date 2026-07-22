@@ -4,6 +4,8 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { ProductVariant } from './domain/product-variant.entity';
 import { ProductVariantProductionUnit } from './domain/product-variant-production-unit.entity';
 import { ProductVariantBranchAvailability } from './domain/product-variant-branch-availability.entity';
+import { ProductVariantProductionAttribute } from './domain/product-variant-production-attribute.entity';
+import { ProductVariantProductionAttributeOption } from './domain/product-variant-production-attribute-option.entity';
 import { Product } from '@modules/products/domain/product.entity';
 import { Unit } from '@modules/units/domain/unit.entity';
 import { Transaction } from '@modules/transactions/domain/transaction.entity';
@@ -12,6 +14,7 @@ import { Supplier } from '@modules/suppliers/domain/supplier.entity';
 import { Storage } from '@modules/storages/domain/storage.entity';
 import { PriceListItem } from '@modules/price-list-items/domain/price-list-item.entity';
 import { ProductVariantsService } from './application/product-variants.service';
+import { VariantProductionAttributesService } from './application/variant-production-attributes.service';
 import { ProductVariantsController } from './presentation/product-variants.controller';
 import { TypeOrmProductVariantsRepository } from './infrastructure/repositories/typeorm-product-variants.repository';
 import { PRODUCT_VARIANTS_REPOSITORY } from './application/ports/product-variants.repository.port';
@@ -33,6 +36,8 @@ import { Branch } from '@modules/branches/domain/branch.entity';
       ProductVariant,
       ProductVariantProductionUnit,
       ProductVariantBranchAvailability,
+      ProductVariantProductionAttribute,
+      ProductVariantProductionAttributeOption,
       ProductionUnit,
       Branch,
       PriceListItem,
@@ -55,6 +60,7 @@ import { Branch } from '@modules/branches/domain/branch.entity';
   providers: [
     ProductVariantShippingSchemaBootstrap,
     ProductVariantsService,
+    VariantProductionAttributesService,
     VariantQuantityConversionService,
     {
       provide: PRODUCT_VARIANTS_REPOSITORY,
@@ -62,6 +68,10 @@ import { Branch } from '@modules/branches/domain/branch.entity';
     },
   ],
   controllers: [ProductVariantsController],
-  exports: [ProductVariantsService, VariantQuantityConversionService],
+  exports: [
+    ProductVariantsService,
+    VariantProductionAttributesService,
+    VariantQuantityConversionService,
+  ],
 })
 export class ProductVariantsModule {}

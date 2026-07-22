@@ -254,6 +254,11 @@ export class DiningController {
     return this.diningService.reopenOrder(id);
   }
 
+  @Post('orders/:id/abandon-empty')
+  async abandonEmptyOrder(@Param('id') id: string) {
+    return this.diningService.abandonEmptyOrder(id);
+  }
+
   @Post('orders/:id/close')
   async closeOrder(
     @Param('id') id: string,

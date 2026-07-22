@@ -822,6 +822,8 @@ export function VariantDetailPricingSection({ productId, variant }: SectionProps
         netPrice,
         grossPrice,
         taxIds: netEqualsGross ? undefined : masterTaxIds.length > 0 ? [...masterTaxIds] : undefined,
+        maxDiscountPercent: r.maxDiscountPercent,
+        minPrice: r.minPrice,
       };
     });
 
@@ -874,7 +876,13 @@ export function VariantDetailPricingSection({ productId, variant }: SectionProps
     });
   };
 
-  const handlePmpCalculatorApply = (_pmp: number, net: number, priceRowKey: string) => {
+  const handlePmpCalculatorApply = (
+    _pmp: number,
+    net: number,
+    maxDiscountPercent: number,
+    minPrice: number | null,
+    priceRowKey: string,
+  ) => {
     setPriceRows((prev) =>
       prev.map((r) => {
         if (r.key !== priceRowKey) {
@@ -883,13 +891,25 @@ export function VariantDetailPricingSection({ productId, variant }: SectionProps
         const f = resolvePricingGrossFactor(taxCategory, catalogTaxes, masterTaxIds);
         const n = roundMoneyInt(net);
         const g = netEqualsGross ? n : netToGross(n, f);
-        return { ...r, net: n, gross: g, lastEdited: "net" as const };
+        return {
+          ...r,
+          net: n,
+          gross: g,
+          maxDiscountPercent: maxDiscountPercent > 0 ? maxDiscountPercent : null,
+          minPrice,
+          lastEdited: "net" as const,
+        };
       }),
     );
   };
 
-  const handleJewelryCalculatorApply = (net: number, priceRowKey: string) => {
-    handlePmpCalculatorApply(0, net, priceRowKey);
+  const handleJewelryCalculatorApply = (
+    net: number,
+    maxDiscountPercent: number,
+    minPrice: number | null,
+    priceRowKey: string,
+  ) => {
+    handlePmpCalculatorApply(0, net, maxDiscountPercent, minPrice, priceRowKey);
   };
 
   const syncWeightFromGrams = (grams: number) => {

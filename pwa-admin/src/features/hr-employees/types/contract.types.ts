@@ -100,7 +100,7 @@ export const MUTUAL_OPTIONS = [
 
 export const SALES_COMMISSION_LABELS: Record<SalesCommissionType, string> = {
   NONE: "Sin comisión",
-  PERCENT: "Porcentaje sobre ventas",
+  PERCENT: "Porcentaje sobre ventas netas",
   FIXED: "Monto fijo",
 };
 

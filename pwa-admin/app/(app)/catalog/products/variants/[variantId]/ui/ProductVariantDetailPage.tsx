@@ -218,7 +218,10 @@ export default function ProductVariantDetailPage({ product, variant: initialVari
           />
         ) : null}
         {activeSection === "produccion" && showProduction ? (
-          <VariantDetailProductionSection variantId={variant.id} />
+          <VariantDetailProductionSection
+            variantId={variant.id}
+            productType={product.productType}
+          />
         ) : null}
       </div>
 

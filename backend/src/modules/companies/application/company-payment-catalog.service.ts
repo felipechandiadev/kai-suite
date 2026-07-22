@@ -264,6 +264,7 @@ export class CompanyPaymentCatalogService {
           ? true
           : m.requireReference;
         row.bankAccountKey = m.bankAccountKey ?? null;
+        row.feePercent = m.feePercent ?? null;
         row.metadata = m.metadata ?? null;
         row.voucherKindId = voucherKindId;
         await this.paymentMethodRepo.save(row);
@@ -282,6 +283,7 @@ export class CompanyPaymentCatalogService {
             ? true
             : m.requireReference,
           bankAccountKey: m.bankAccountKey ?? null,
+          feePercent: m.feePercent ?? null,
           metadata: m.metadata ?? null,
           voucherKindId,
         });
@@ -328,6 +330,7 @@ export class CompanyPaymentCatalogService {
       isActive: row.isActive,
       requireReference: row.requireReference,
       bankAccountKey: row.bankAccountKey ?? null,
+      feePercent: row.feePercent ?? null,
       metadata: (row.metadata as Record<string, any> | null) ?? null,
       voucherKindId: row.voucherKindId ?? null,
     };
@@ -347,6 +350,7 @@ export class CompanyPaymentCatalogService {
         isActive: m.isActive,
         requireReference: m.requireReference,
         bankAccountKey: m.bankAccountKey ?? null,
+        feePercent: null,
         metadata: null,
         voucherKindId: null,
       }),

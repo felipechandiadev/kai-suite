@@ -28,7 +28,7 @@ Opcional: `cp envs/shared.env.example envs/shared.env` para overrides locales (g
 
 | Variable | Ejemplo | Efecto |
 |----------|---------|--------|
-| `KAI_PRODUCT` | `kaistore` \| `kaifood` \| `kaiservices` | Marca / `NEXT_PUBLIC_APP_NAME` |
+| `KAI_PRODUCT` | `kaistore` \| `kaifood` \| `kaiservices` \| `kaisuite` | Marca / `NEXT_PUBLIC_APP_NAME`; `kaisuite` habilita food + retail |
 | `KAI_DEPLOY_PROFILE` | `lite` \| `eshop` \| `retail-full` | Fallback si `KAI_DEPLOY_APPS` vacío |
 | `KAI_FEATURE_ESHOP` | `true` / `false` | → `NEXT_PUBLIC_ESHOP_ENABLED` (admin) |
 | `KAI_FEATURE_JEWELRY` | `true` / `false` | → `NEXT_PUBLIC_JEWELRY_ENABLED` (metales, calculadora) |
@@ -39,6 +39,7 @@ Perfiles listos en `envs/profiles/*.env.example` (copiar líneas a `shared.env`)
 
 | Perfil | Uso |
 |--------|-----|
+| `profiles/kaisuite.env.example` | Plataforma completa (retail + food + joyería + eShop + waiter/kds) |
 | `profiles/kaifood.env.example` | Salón, KDS, mesero (`waiter`, `kds`) |
 | `profiles/joyarte.env.example` | Joyería + eShop |
 | `profiles/san-sebastian.env.example` | Super, sin eShop ni joyería |

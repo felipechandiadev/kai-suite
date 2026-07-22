@@ -136,6 +136,15 @@ export class SearchProductsQueryHandler implements IQueryHandler<
         netPrice: Number(item.netPrice),
         grossPrice: Number(item.grossPrice),
         taxIds: item.taxIds || [],
+        maxDiscountPercent:
+          item.maxDiscountPercent != null &&
+          Number.isFinite(Number(item.maxDiscountPercent))
+            ? Number(item.maxDiscountPercent)
+            : null,
+        minPrice:
+          item.minPrice != null && Number.isFinite(Number(item.minPrice))
+            ? Math.round(Number(item.minPrice))
+            : null,
       }));
       variantsByProduct[v.productId || ''].push({
         ...v,

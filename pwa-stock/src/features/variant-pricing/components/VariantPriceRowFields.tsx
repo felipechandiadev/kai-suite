@@ -5,6 +5,7 @@ import type { TaxListItem } from "../types/tax.types";
 import {
   effectiveIvaFactor,
   grossToNet,
+  minPriceFromMaxDiscount,
   netToGross,
   roundMoneyInt,
 } from "../lib/price-tax-math";
@@ -21,13 +22,28 @@ export function VariantPriceRowFields({ row, ivaTaxes, disabled = false, onChang
   const setNetAndGross = (net: number) => {
     const n = roundMoneyInt(net);
     const f = effectiveIvaFactor(ivaTaxes, row.taxIds);
-    onChange({ ...row, net: n, gross: netToGross(n, f), lastEdited: "net" });
+    const maxD = row.maxDiscountPercent;
+    onChange({
+      ...row,
+      net: n,
+      gross: netToGross(n, f),
+      lastEdited: "net",
+      minPrice: maxD != null && maxD > 0 ? minPriceFromMaxDiscount(n, maxD) : row.minPrice,
+    });
   };
 
   const setGrossAndNet = (gross: number) => {
     const g = roundMoneyInt(gross);
     const f = effectiveIvaFactor(ivaTaxes, row.taxIds);
-    onChange({ ...row, gross: g, net: grossToNet(g, f), lastEdited: "gross" });
+    const n = grossToNet(g, f);
+    const maxD = row.maxDiscountPercent;
+    onChange({
+      ...row,
+      gross: g,
+      net: n,
+      lastEdited: "gross",
+      minPrice: maxD != null && maxD > 0 ? minPriceFromMaxDiscount(n, maxD) : row.minPrice,
+    });
   };
 
   const toggleTax = (taxId: string, on: boolean) => {
@@ -83,6 +99,42 @@ export function VariantPriceRowFields({ row, ivaTaxes, disabled = false, onChang
             setGrossAndNet(v);
           }
         }}
+      />
+      <TextField
+        label="Máximo descuento autorizado"
+        name={`price-max-discount-${row.priceListId}`}
+        value={row.maxDiscountPercent != null ? String(row.maxDiscountPercent) : ""}
+        placeholder="Máximo descuento autorizado"
+        disabled={disabled}
+        onChange={(e) => {
+          const t = e.target.value.trim().replace(",", ".");
+          if (t === "") {
+            onChange({ ...row, maxDiscountPercent: null, minPrice: null });
+            return;
+          }
+          const n = Number(t);
+          if (!Number.isFinite(n) || n < 0) {
+            return;
+          }
+          const clamped = Math.min(99.99, n);
+          onChange({
+            ...row,
+            maxDiscountPercent: clamped,
+            minPrice: clamped > 0 ? minPriceFromMaxDiscount(row.net, clamped) : null,
+          });
+        }}
+      />
+      <TextField
+        type="currency"
+        currencySymbol="$"
+        allowDecimalComma={false}
+        label="Precio mínimo (neto)"
+        name={`price-min-${row.priceListId}`}
+        value={row.minPrice != null ? String(row.minPrice) : ""}
+        placeholder="$ 0"
+        readOnly
+        disabled={disabled}
+        title="Derivado del máximo descuento autorizado"
       />
       {ivaTaxes.length > 0 ? (
         <div className="flex flex-col gap-2">

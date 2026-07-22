@@ -58,6 +58,7 @@ kai_product_label() {
   case "$(echo "${1:-kaistore}" | tr '[:upper:]' '[:lower:]')" in
     kaifood) echo "KaiFood" ;;
     kaiservices) echo "Kai Services" ;;
+    kaisuite) echo "Kai Suite" ;;
     *) echo "KaiStore" ;;
   esac
 }

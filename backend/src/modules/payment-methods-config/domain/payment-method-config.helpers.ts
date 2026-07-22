@@ -44,6 +44,39 @@ function trimOrNull(v: unknown): string | null {
   return t.length > 0 ? t : null;
 }
 
+const CARD_FEE_METHODS = new Set<PaymentMethod>([
+  PaymentMethod.CREDIT_CARD,
+  PaymentMethod.DEBIT_CARD,
+]);
+
+/**
+ * Comisión adquirente: solo tarjetas; 0–100 o null. Otros métodos → null.
+ */
+export function sanitizeFeePercent(
+  method: PaymentMethod,
+  raw: unknown,
+  index: number,
+): number | null {
+  if (!CARD_FEE_METHODS.has(method)) {
+    return null;
+  }
+  if (raw == null || raw === '') {
+    return null;
+  }
+  const n = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(n)) {
+    throw new Error(
+      `Medio de pago #${index + 1}: comisión (%) inválida`,
+    );
+  }
+  if (n < 0 || n > 100) {
+    throw new Error(
+      `Medio de pago #${index + 1}: comisión (%) debe estar entre 0 y 100`,
+    );
+  }
+  return Math.round(n * 100) / 100;
+}
+
 /**
  * Sanitiza y valida una entrada del catálogo de empresa.
  * - Asigna `id` UUID si falta.
@@ -90,6 +123,7 @@ export function sanitizeCompanyPaymentMethod(
       ? true
       : r.requireReference === true,
     bankAccountKey: trimOrNull(r.bankAccountKey),
+    feePercent: sanitizeFeePercent(method, r.feePercent, index),
     metadata: r.metadata && typeof r.metadata === 'object' ? (r.metadata as Record<string, any>) : null,
     voucherKindId:
       method === PaymentMethod.VOUCHER
@@ -338,6 +372,7 @@ export function buildDefaultCompanyCatalog(): CompanyPaymentMethodConfig[] {
     isActive: true,
     requireReference: false,
     bankAccountKey: null,
+    feePercent: null,
     metadata: null,
   }));
 }

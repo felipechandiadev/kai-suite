@@ -153,6 +153,14 @@ function normalizeVariant(v: unknown): ProductVariantGridRow | null {
             netPrice: net,
             grossPrice: gross,
             taxIds: Array.isArray(p.taxIds) ? p.taxIds.map(String) : undefined,
+            maxDiscountPercent:
+              p.maxDiscountPercent != null && Number.isFinite(Number(p.maxDiscountPercent))
+                ? Number(p.maxDiscountPercent)
+                : null,
+            minPrice:
+              p.minPrice != null && Number.isFinite(Number(p.minPrice))
+                ? Math.round(Number(p.minPrice))
+                : null,
             updatedAt,
           };
         })
@@ -603,6 +611,8 @@ export class ProductRequest {
       netPrice: number;
       grossPrice: number;
       taxIds?: string[];
+      maxDiscountPercent?: number | null;
+      minPrice?: number | null;
     }>;
     attributeValues?: Record<string, string>;
     trackInventory?: boolean;
@@ -631,6 +641,14 @@ export class ProductRequest {
         grossPrice: Math.round(Number(item.grossPrice)) || 0,
         taxIds:
           Array.isArray(item.taxIds) && item.taxIds.length > 0 ? item.taxIds : undefined,
+        maxDiscountPercent:
+          item.maxDiscountPercent != null && Number.isFinite(Number(item.maxDiscountPercent))
+            ? Number(item.maxDiscountPercent)
+            : null,
+        minPrice:
+          item.minPrice != null && Number.isFinite(Number(item.minPrice))
+            ? Math.round(Number(item.minPrice))
+            : null,
       })),
     };
     if (body.barcode?.trim()) {
@@ -728,6 +746,8 @@ export class ProductRequest {
         netPrice: number;
         grossPrice: number;
         taxIds?: string[];
+        maxDiscountPercent?: number | null;
+        minPrice?: number | null;
       }>;
       attributeValues?: Record<string, string>;
       trackInventory?: boolean;
@@ -765,6 +785,14 @@ export class ProductRequest {
         grossPrice: Math.round(Number(item.grossPrice)) || 0,
         taxIds:
           Array.isArray(item.taxIds) && item.taxIds.length > 0 ? item.taxIds : undefined,
+        maxDiscountPercent:
+          item.maxDiscountPercent != null && Number.isFinite(Number(item.maxDiscountPercent))
+            ? Number(item.maxDiscountPercent)
+            : null,
+        minPrice:
+          item.minPrice != null && Number.isFinite(Number(item.minPrice))
+            ? Math.round(Number(item.minPrice))
+            : null,
       })),
     };
     if (body.barcode?.trim()) {

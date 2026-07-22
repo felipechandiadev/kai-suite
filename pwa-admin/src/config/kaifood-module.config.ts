@@ -1,9 +1,9 @@
-import { resolveKaiProductId } from '@/config/product-brand.config';
+import { isKaiFoodProduct } from '@/config/product-brand.config';
 
 /**
  * Módulo KaiFood (salón, KDS, mesero, productos PREPARADO).
- * Activo cuando `NEXT_PUBLIC_KAI_PRODUCT=kaifood`.
+ * Activo con `NEXT_PUBLIC_KAI_PRODUCT=kaifood` o `kaisuite`.
  */
 export function isKaiFoodEnabled(): boolean {
-  return resolveKaiProductId(process.env.NEXT_PUBLIC_KAI_PRODUCT) === 'kaifood';
+  return isKaiFoodProduct(process.env.NEXT_PUBLIC_KAI_PRODUCT);
 }

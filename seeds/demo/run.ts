@@ -95,6 +95,9 @@ import {
   ProductionUnitScope,
 } from '@modules/production-units/domain/production-unit.enums';
 import { ProductVariantProductionUnit } from '@modules/product-variants/domain/product-variant-production-unit.entity';
+import { ProductVariantProductionAttribute } from '@modules/product-variants/domain/product-variant-production-attribute.entity';
+import { ProductVariantProductionAttributeOption } from '@modules/product-variants/domain/product-variant-production-attribute-option.entity';
+import { SEED_DEMO_PRODUCTION_ATTRIBUTES } from './seed-demo-production-attributes';
 import { TenantContext } from '@common/tenant/tenant.context';
 import { AppConfigService } from '../../backend/src/config/config.service';
 import { MultimediaAsset } from '@modules/multimedia/domain/multimedia-asset.entity';
@@ -111,6 +114,7 @@ import {
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
 import type { CompanyPaymentMethodConfig } from '@modules/payment-methods-config/domain/payment-method-config.types';
+import { CompanyPaymentCatalogService } from '@modules/companies/application/company-payment-catalog.service';
 import {
   SEED_BRANCH_ADDRESS,
   SEED_BRANCH_LOCATION,
@@ -1487,7 +1491,7 @@ type SeedEmployeeContractDef =
       art22Exempt?: boolean;
       exceptionalResolutionRef?: string | null;
       endDate?: string | null;
-      /** Comisión % sobre ventas brutas POS (solo PERCENT). */
+      /** Comisión % sobre ventas netas POS (solo PERCENT). */
       salesCommissionPercent?: string;
     }
   | {
@@ -1837,6 +1841,16 @@ async function bootstrap() {
       `✅ Settings empresa sincronizados: medios (${seedCompanyPaymentCatalog
         .map((c) => c.method)
         .join(', ')}), cotizaciones 10/20 días, cheques ON, crédito interno ON, preventa ON`,
+    );
+
+    const paymentCatalog = app.get(CompanyPaymentCatalogService);
+    const syncedCompanyPaymentMethods =
+      await paymentCatalog.replacePaymentMethods(
+        company.id,
+        seedCompanyPaymentCatalog,
+      );
+    console.log(
+      `✅ Catálogo company_payment_methods sincronizado (${syncedCompanyPaymentMethods.length} medios; fee tarjetas crédito 2.5% / débito 1.5%)`,
     );
     const mp = syncedSettings.mercadoPago as
       | { enabled?: boolean; environment?: string; eshopOnlinePaymentEnabled?: boolean }
@@ -3059,17 +3073,16 @@ async function bootstrap() {
       { id: listaVip.id, name: listaVip.name, isActive: true },
     ];
 
-    const reloadedCompany = await companyRepo.findOne({
-      where: { id: company.id },
-    });
     const companyCatalog: CompanyPaymentMethodConfig[] =
-      reloadedCompany?.settings &&
-      typeof reloadedCompany.settings === 'object' &&
-      Array.isArray((reloadedCompany.settings as { paymentMethods?: unknown }).paymentMethods)
-        ? ((reloadedCompany.settings as { paymentMethods: CompanyPaymentMethodConfig[] })
-            .paymentMethods)
+      syncedCompanyPaymentMethods.length > 0
+        ? syncedCompanyPaymentMethods
         : seedCompanyPaymentCatalog;
-    const posPaymentList = buildSeedPosPaymentList(companyCatalog);
+    const posPaymentList = buildSeedPosPaymentList(companyCatalog, {
+      preloadSaleMethods: true,
+    });
+    const presalePaymentList = buildSeedPosPaymentList(companyCatalog, {
+      preloadSaleMethods: false,
+    });
 
     const posPoints: PointOfSale[] = [];
     for (const posName of SEED_POS_NAMES) {
@@ -3107,6 +3120,14 @@ async function bootstrap() {
         posRow = await posRepo.save({ ...posRow, ...posPayload });
         console.log(`✅ Punto de venta sincronizado: «${posName}» id=${posRow.id}`);
       }
+      await paymentCatalog.replacePosPaymentMethods(
+        posRow.id,
+        company.id,
+        posPaymentList,
+      );
+      console.log(
+        `✅ Medios POS «${posName}»: precarga efectivo + débito + crédito + transferencia`,
+      );
       posPoints.push(posRow);
     }
 
@@ -3120,7 +3141,7 @@ async function bootstrap() {
       defaultPriceListId: listaMinorista.id,
       priceLists: priceListsJson,
       settings: {
-        paymentMethods: posPaymentList,
+        paymentMethods: presalePaymentList,
         kind: 'PRESALE' as const,
         acceptsPresaleTickets: false,
         allowsDeferredPayment: false,
@@ -3137,6 +3158,11 @@ async function bootstrap() {
         `✅ Punto de preventa sincronizado: «${SEED_PRESALE_POS_NAME}» id=${presalePos.id}`,
       );
     }
+    await paymentCatalog.replacePosPaymentMethods(
+      presalePos.id,
+      company.id,
+      presalePaymentList,
+    );
 
     const stockLevelRepo = dataSource.getRepository(StockLevel);
     const trackedVariants = await variantRepo.find({
@@ -3437,6 +3463,86 @@ async function bootstrap() {
       }
     }
     console.log(`✅ Routing CTP variante→UP: ${routingCount} vínculo(s)`);
+
+    const pvProdAttrRepo = dataSource.getRepository(
+      ProductVariantProductionAttribute,
+    );
+    const pvProdOptRepo = dataSource.getRepository(
+      ProductVariantProductionAttributeOption,
+    );
+    const variantBySku = new Map(
+      (
+        await variantRepo.find({
+          where: { companyId: company.id, deletedAt: IsNull() },
+          select: ['id', 'sku'],
+        })
+      ).map((v) => [v.sku, v.id] as const),
+    );
+    let prodAttrCount = 0;
+    let prodOptCount = 0;
+    for (const def of SEED_DEMO_PRODUCTION_ATTRIBUTES) {
+      const variantId = variantBySku.get(def.outputSku);
+      if (!variantId) continue;
+      for (let ai = 0; ai < def.attributes.length; ai++) {
+        const a = def.attributes[ai]!;
+        let attr = await pvProdAttrRepo.findOne({
+          where: { id: a.id },
+          withDeleted: true,
+        });
+        if (!attr) {
+          attr = pvProdAttrRepo.create({
+            id: a.id,
+            companyId: company.id,
+            productVariantId: variantId,
+            name: a.name,
+            description: a.description ?? null,
+            tagKey: a.tagKey,
+            tagLabel: a.tagLabel,
+            displayOrder: ai,
+            deletedAt: null,
+          });
+        } else {
+          attr.companyId = company.id;
+          attr.productVariantId = variantId;
+          attr.name = a.name;
+          attr.description = a.description ?? null;
+          attr.tagKey = a.tagKey;
+          attr.tagLabel = a.tagLabel;
+          attr.displayOrder = ai;
+          attr.deletedAt = null;
+        }
+        await pvProdAttrRepo.save(attr);
+        prodAttrCount += 1;
+        for (let oi = 0; oi < a.options.length; oi++) {
+          const o = a.options[oi]!;
+          let opt = await pvProdOptRepo.findOne({
+            where: { id: o.id },
+            withDeleted: true,
+          });
+          if (!opt) {
+            opt = pvProdOptRepo.create({
+              id: o.id,
+              companyId: company.id,
+              attributeId: a.id,
+              label: o.label,
+              displayOrder: oi,
+              deletedAt: null,
+            });
+          } else {
+            opt.companyId = company.id;
+            opt.attributeId = a.id;
+            opt.label = o.label;
+            opt.displayOrder = oi;
+            opt.deletedAt = null;
+          }
+          await pvProdOptRepo.save(opt);
+          prodOptCount += 1;
+        }
+      }
+    }
+    console.log(
+      `✅ Atributos de producción MANUFACTURADO: ${prodAttrCount} attr(s), ${prodOptCount} opción(es)`,
+    );
 
     // Stock de insumos también en bodega pastelería (CTP elaborados)
     if (seedPasteleriaInput?.id && seedSalaVenta?.id) {

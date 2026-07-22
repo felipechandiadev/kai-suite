@@ -86,6 +86,10 @@ export async function reopenPosDiningOrderAction(orderId: string) {
   return DiningPosRequest.reopenOrder(orderId);
 }
 
+export async function abandonEmptyPosDiningOrderAction(orderId: string) {
+  return DiningPosRequest.abandonEmptyOrder(orderId);
+}
+
 export async function closePosDiningOrderAction(input: {
   orderId: string;
   linkedTransactionId?: string;

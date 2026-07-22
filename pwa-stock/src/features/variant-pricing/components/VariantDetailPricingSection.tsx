@@ -153,6 +153,8 @@ export function VariantDetailPricingSection({ variant, onPricingChanged }: Props
               netPrice: item.netPrice,
               grossPrice: item.grossPrice,
               taxIds: item.taxIds,
+              maxDiscountPercent: item.maxDiscountPercent,
+              minPrice: item.minPrice,
             })),
           });
           setSavingListId(null);
@@ -225,13 +227,20 @@ export function VariantDetailPricingSection({ variant, onPricingChanged }: Props
   );
 
   const handleCalculatorApply = useCallback(
-    (_pmp: number, net: number) => {
+    (_pmp: number, net: number, maxDiscountPercent: number, minPrice: number | null) => {
       if (!draftRow) {
         return;
       }
       const f = effectiveIvaFactor(ivaTaxes, draftRow.taxIds);
       const n = roundMoneyInt(net);
-      setDraftRow({ ...draftRow, net: n, gross: netToGross(n, f), lastEdited: "net" });
+      setDraftRow({
+        ...draftRow,
+        net: n,
+        gross: netToGross(n, f),
+        maxDiscountPercent: maxDiscountPercent > 0 ? maxDiscountPercent : null,
+        minPrice,
+        lastEdited: "net",
+      });
       setCalculatorOpen(false);
     },
     [draftRow, ivaTaxes],

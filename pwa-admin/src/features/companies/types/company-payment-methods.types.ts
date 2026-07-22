@@ -27,6 +27,8 @@ export interface CompanyPaymentMethodConfig {
   isActive: boolean;
   requireReference: boolean;
   bankAccountKey?: string | null;
+  /** Comisión de adquirente (%). Solo CREDIT_CARD / DEBIT_CARD. */
+  feePercent?: number | null;
   metadata?: Record<string, any> | null;
   /** Obligatorio cuando method === VOUCHER. */
   voucherKindId?: string | null;

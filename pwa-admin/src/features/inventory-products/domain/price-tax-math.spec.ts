@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { TaxListItem } from "@/features/accounting-taxes/types/tax.types";
-import { effectiveGrossFactor, effectiveIvaFactor, netToGross, resolvePricingGrossFactor } from "./price-tax-math";
+import {
+  effectiveGrossFactor,
+  effectiveIvaFactor,
+  evaluateMaxDiscountImpact,
+  netFromCostAndMargin,
+  netFromCostMarginAndDiscount,
+  netToGross,
+  resolvePricingGrossFactor,
+} from "./price-tax-math";
 
 function tax(partial: Partial<TaxListItem> & Pick<TaxListItem, "id" | "taxType" | "rate">): TaxListItem {
   return {
@@ -52,5 +60,42 @@ describe("resolvePricingGrossFactor", () => {
 
   it("uses effectiveGrossFactor for TAX_STANDARD", () => {
     expect(resolvePricingGrossFactor("TAX_STANDARD", catalog, ["iva", "ila"])).toBe(1.29);
+  });
+});
+
+describe("netFromCostAndMargin", () => {
+  it("uses margin on sale (not markup on cost)", () => {
+    expect(netFromCostAndMargin(900, 10)).toBe(1000);
+  });
+
+  it("ignores discount arg on deprecated alias (no cushion)", () => {
+    expect(netFromCostMarginAndDiscount(900, 10, 10)).toBe(1000);
+  });
+});
+
+describe("evaluateMaxDiscountImpact", () => {
+  it("flags margin erosion when max discount wipes expected margin", () => {
+    // list 1000, cost 900, expected 10%; 10% discount → 900 net → 0% margin, below expected
+    const preview = evaluateMaxDiscountImpact(900, 1000, 10, 10);
+    expect(preview.netAfterMaxDiscount).toBe(900);
+    expect(preview.effectiveMarginPercent).toBeCloseTo(0, 5);
+    expect(preview.isBelowCost).toBe(false);
+    expect(preview.isMarginEroded).toBe(true);
+  });
+
+  it("flags below cost when discount exceeds margin room", () => {
+    const preview = evaluateMaxDiscountImpact(900, 1000, 10, 15);
+    expect(preview.netAfterMaxDiscount).toBe(850);
+    expect(preview.isBelowCost).toBe(true);
+    expect(preview.isMarginEroded).toBe(true);
+  });
+
+  it("ok when max discount leaves expected margin", () => {
+    // list 1000, 5% dto → 950; margin = 50/950 ≈ 5.26% < 10% still eroded
+    // Need higher list: cost 900, margin 20% → list 1125; max dto 5% → 1069; eff ≈ 15.8% < 20 eroded
+    // cost 900, margin 10% → 1000; max dto 0 → ok
+    const preview = evaluateMaxDiscountImpact(900, 1000, 10, 0);
+    expect(preview.isMarginEroded).toBe(false);
+    expect(preview.isBelowCost).toBe(false);
   });
 });

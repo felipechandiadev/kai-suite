@@ -16,6 +16,7 @@ import {
 } from "@/features/inventory-products/types/variant-fiscal.types";
 import {
   grossToNet,
+  minPriceFromMaxDiscount,
   netToGross,
   resolvePricingGrossFactor,
   roundMoneyInt,
@@ -27,6 +28,10 @@ export type VariantPriceRowModel = {
   net: number;
   gross: number;
   taxIds: string[];
+  /** Máximo descuento autorizado (%). */
+  maxDiscountPercent: number | null;
+  /** Precio neto mínimo derivado. */
+  minPrice: number | null;
   lastEdited: "net" | "gross";
 };
 
@@ -51,6 +56,8 @@ export function createVariantPriceRow(
     net: 0,
     gross: 0,
     taxIds: [...defaultTaxIds],
+    maxDiscountPercent: null,
+    minPrice: null,
     lastEdited: "net",
   };
 }
@@ -72,6 +79,14 @@ export function priceListItemsToVariantRows(
     net: roundMoneyInt(p.netPrice),
     gross: roundMoneyInt(p.grossPrice),
     taxIds: masterTaxIds.length > 0 ? [...masterTaxIds] : [],
+    maxDiscountPercent:
+      p.maxDiscountPercent != null && Number.isFinite(Number(p.maxDiscountPercent))
+        ? Number(p.maxDiscountPercent)
+        : null,
+    minPrice:
+      p.minPrice != null && Number.isFinite(Number(p.minPrice))
+        ? roundMoneyInt(Number(p.minPrice))
+        : null,
     lastEdited: "net" as const,
   }));
 }
@@ -177,10 +192,13 @@ export function VariantPriceRowsEditor({
     const n = roundMoneyInt(net);
     const f = factorForRow(row);
     const g = netEqualsGross ? n : netToGross(n, f);
+    const maxD = row.maxDiscountPercent;
     replaceRow(row.key, {
       net: n,
       gross: g,
       lastEdited: "net",
+      minPrice:
+        maxD != null && maxD > 0 ? minPriceFromMaxDiscount(n, maxD) : row.minPrice,
     });
   };
 
@@ -188,10 +206,13 @@ export function VariantPriceRowsEditor({
     const g = roundMoneyInt(gross);
     const f = factorForRow(row);
     const n = netEqualsGross ? g : grossToNet(g, f);
+    const maxD = row.maxDiscountPercent;
     replaceRow(row.key, {
       gross: g,
       net: n,
       lastEdited: "gross",
+      minPrice:
+        maxD != null && maxD > 0 ? minPriceFromMaxDiscount(n, maxD) : row.minPrice,
     });
   };
 
@@ -270,7 +291,7 @@ export function VariantPriceRowsEditor({
                   <IconButton
                     type="button"
                     icon="Calculator"
-                    ariaLabel="Calculadora PMP y utilidad"
+                    ariaLabel="Calculadora PMP y margen de utilidad"
                     variant="action"
                     size="sm"
                     onClick={() => onOpenPmpCalculator(row.key)}
@@ -342,6 +363,53 @@ export function VariantPriceRowsEditor({
                         setGrossAndNet(row, v);
                       }}
                       data-test-id={`variant-price-gross-${row.key}`}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <TextField
+                      label="Máximo descuento autorizado"
+                      name={`pv-max-discount-${row.key}`}
+                      value={
+                        row.maxDiscountPercent != null
+                          ? String(row.maxDiscountPercent)
+                          : ""
+                      }
+                      placeholder="Máximo descuento autorizado"
+                      onChange={(e) => {
+                        const t = e.target.value.trim().replace(",", ".");
+                        if (t === "") {
+                          replaceRow(row.key, {
+                            maxDiscountPercent: null,
+                            minPrice: null,
+                          });
+                          return;
+                        }
+                        const n = Number(t);
+                        if (!Number.isFinite(n) || n < 0) {
+                          return;
+                        }
+                        const clamped = Math.min(99.99, n);
+                        replaceRow(row.key, {
+                          maxDiscountPercent: clamped,
+                          minPrice:
+                            clamped > 0
+                              ? minPriceFromMaxDiscount(row.net, clamped)
+                              : null,
+                        });
+                      }}
+                      data-test-id={`variant-price-max-discount-${row.key}`}
+                    />
+                    <TextField
+                      type="currency"
+                      currencySymbol="$"
+                      allowDecimalComma={false}
+                      label="Precio mínimo (neto)"
+                      name={`pv-min-price-${row.key}`}
+                      value={row.minPrice != null ? String(row.minPrice) : ""}
+                      placeholder="$ 0"
+                      readOnly
+                      title="Derivado del máximo descuento autorizado"
+                      data-test-id={`variant-price-min-${row.key}`}
                     />
                   </div>
                   <div className="flex flex-col gap-1.5">

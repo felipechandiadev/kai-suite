@@ -1,17 +1,28 @@
-export type KaiProductId = 'kaistore' | 'kaifood' | 'kaiservices';
+export type KaiProductId = 'kaistore' | 'kaifood' | 'kaiservices' | 'kaisuite';
 
 const PRODUCT_LABELS: Record<KaiProductId, string> = {
   kaistore: 'KaiStore',
   kaifood: 'KaiFood',
   kaiservices: 'Kai Services',
+  kaisuite: 'Kai Suite',
 };
 
 export function resolveKaiProductId(raw: string | undefined): KaiProductId {
   const normalized = (raw ?? 'kaistore').trim().toLowerCase();
-  if (normalized === 'kaifood' || normalized === 'kaiservices') {
+  if (
+    normalized === 'kaifood' ||
+    normalized === 'kaiservices' ||
+    normalized === 'kaisuite'
+  ) {
     return normalized;
   }
   return 'kaistore';
+}
+
+/** Gastronomía (PREPARADO, salón, KDS): KaiFood o Suite. */
+export function isKaiFoodProduct(productId?: string): boolean {
+  const id = resolveKaiProductId(productId);
+  return id === 'kaifood' || id === 'kaisuite';
 }
 
 export function getKaiProductLabel(productId?: string): string {
@@ -23,6 +34,5 @@ export function getKaiAdminAppName(): string {
   if (fromEnv) {
     return fromEnv;
   }
-  // Admin PWA se marca siempre como KaiStore (KaiFood es módulo de menú, no el nombre de la app).
-  return 'KaiStore';
+  return getKaiProductLabel(process.env.NEXT_PUBLIC_KAI_PRODUCT);
 }

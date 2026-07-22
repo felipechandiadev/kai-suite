@@ -58,6 +58,8 @@ export function VariantPriceRowDialog({
       net: 0,
       gross: 0,
       taxIds: [...defaultIvaTaxIds],
+      maxDiscountPercent: null,
+      minPrice: null,
       lastEdited: "net",
     });
   }, [open, initialRow, priceListOptions, defaultIvaTaxIds]);

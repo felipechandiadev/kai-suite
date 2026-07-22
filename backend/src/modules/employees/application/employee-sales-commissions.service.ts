@@ -27,7 +27,8 @@ function requireCompanyId(): string {
 export type SalesCommissionMonthSummary = {
   yearMonth: string;
   salesCount: number;
-  salesGrossTotal: number;
+  /** Suma de montos netos (sin IVA, post-descuento) de ventas POS. */
+  salesNetTotal: number;
   commissionTotal: number;
 };
 
@@ -36,6 +37,7 @@ export type SalesCommissionSaleRow = {
   documentNumber: string;
   occurredAt: string;
   pointOfSaleName: string | null;
+  /** Monto neto de la venta (base de comisión). */
   total: number;
   commission: number;
 };
@@ -89,7 +91,7 @@ export class EmployeeSalesCommissionsService {
         months: months.map((yearMonth) => ({
           yearMonth,
           salesCount: 0,
-          salesGrossTotal: 0,
+          salesNetTotal: 0,
           commissionTotal: 0,
         })),
       };
@@ -103,7 +105,7 @@ export class EmployeeSalesCommissionsService {
         status: TransactionStatus.CONFIRMED,
         pointOfSaleId: Not(IsNull()),
       },
-      select: ['id', 'total', 'createdAt'],
+      select: ['id', 'total', 'taxAmount', 'createdAt'],
       order: { createdAt: 'DESC' },
     });
 
@@ -117,7 +119,7 @@ export class EmployeeSalesCommissionsService {
       byMonth.set(ym, {
         yearMonth: ym,
         salesCount: 0,
-        salesGrossTotal: 0,
+        salesNetTotal: 0,
         commissionTotal: 0,
       });
     }
@@ -126,12 +128,10 @@ export class EmployeeSalesCommissionsService {
       const ym = this.toYearMonth(sale.createdAt);
       const bucket = byMonth.get(ym);
       if (!bucket) continue;
-      const total = this.roundClp(sale.total);
+      const net = this.saleNetBase(sale);
       bucket.salesCount += 1;
-      bucket.salesGrossTotal += total;
-      bucket.commissionTotal += this.roundClp(
-        (total * rule.percent) / 100,
-      );
+      bucket.salesNetTotal += net;
+      bucket.commissionTotal += this.roundClp((net * rule.percent) / 100);
     }
 
     return {
@@ -225,7 +225,7 @@ export class EmployeeSalesCommissionsService {
     }
 
     const items: SalesCommissionSaleRow[] = rows.map((r) => {
-      const totalAmt = this.roundClp(r.total);
+      const netAmt = this.saleNetBase(r);
       return {
         id: r.id,
         documentNumber: r.documentNumber ?? '—',
@@ -233,8 +233,8 @@ export class EmployeeSalesCommissionsService {
         pointOfSaleName: r.pointOfSaleId
           ? posNameById.get(r.pointOfSaleId) ?? null
           : null,
-        total: totalAmt,
-        commission: this.roundClp((totalAmt * rule.percent) / 100),
+        total: netAmt,
+        commission: this.roundClp((netAmt * rule.percent) / 100),
       };
     });
 
@@ -338,5 +338,16 @@ export class EmployeeSalesCommissionsService {
 
   private roundClp(n: unknown): number {
     return Math.round(Number(n) || 0);
+  }
+
+  /** Neto post-descuento = total cobrado − IVA (no usa monto bruto). */
+  private saleNetBase(sale: {
+    total?: unknown;
+    taxAmount?: unknown;
+  }): number {
+    return Math.max(
+      0,
+      this.roundClp(sale.total) - this.roundClp(sale.taxAmount),
+    );
   }
 }

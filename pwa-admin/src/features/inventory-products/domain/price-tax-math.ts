@@ -81,13 +81,112 @@ export function parseIntegerMoneyInput(raw: string): number | null {
 }
 
 /**
- * Precio neto de venta desde PMP (costo ponderado) y utilidad esperada % sobre el costo.
- * `net = round(PMP × (1 + utilidad%/100))`.
+ * Convierte un % (0–99.99) a factor (1 − p/100).
+ * ≥ 100 → 0 (denominador inválido).
  */
-export function netFromPmpAndUtilityPercent(pmp: number, utilityPercent: number): number {
-  const c = Number.isFinite(pmp) && pmp >= 0 ? pmp : 0;
-  const u = Number.isFinite(utilityPercent) ? utilityPercent : 0;
-  return roundMoneyInt(c * (1 + u / 100));
+export function percentToComplementFactor(percent: number): number {
+  if (!Number.isFinite(percent) || percent <= 0) {
+    return 1;
+  }
+  if (percent >= 100) {
+    return 0;
+  }
+  return 1 - percent / 100;
+}
+
+/**
+ * Precio neto desde costo y margen de utilidad sobre la venta.
+ * `neto = costo / (1 − margen)`. El descuento máximo NO infla el precio.
+ */
+export function netFromCostAndMargin(cost: number, marginPercent: number): number {
+  const c = Number.isFinite(cost) && cost >= 0 ? cost : 0;
+  const denom = percentToComplementFactor(marginPercent);
+  if (denom <= 0) {
+    return 0;
+  }
+  return roundMoneyInt(c / denom);
+}
+
+/** @deprecated Use netFromCostAndMargin — alias. */
+export function netFromCostMarginAndDiscount(
+  cost: number,
+  marginPercent: number,
+  _discountPercent = 0,
+): number {
+  return netFromCostAndMargin(cost, marginPercent);
+}
+
+/**
+ * Precio neto desde PMP y margen de utilidad % sobre la venta.
+ */
+export function netFromPmpAndUtilityPercent(
+  pmp: number,
+  marginPercent: number,
+  _discountPercent = 0,
+): number {
+  return netFromCostAndMargin(pmp, marginPercent);
+}
+
+/** Neto tras aplicar un descuento % sobre el precio de lista. */
+export function netAfterDiscount(net: number, discountPercent: number): number {
+  const n = Number.isFinite(net) && net >= 0 ? net : 0;
+  const f = percentToComplementFactor(discountPercent);
+  if (f <= 0) {
+    return 0;
+  }
+  return roundMoneyInt(n * f);
+}
+
+/**
+ * Margen efectivo % sobre el neto cobrado: (neto − costo) / neto × 100.
+ * Si neto ≤ 0, retorna null.
+ */
+export function effectiveMarginPercent(cost: number, net: number): number | null {
+  const c = Number.isFinite(cost) ? cost : 0;
+  const n = Number.isFinite(net) ? net : 0;
+  if (n <= 0) {
+    return null;
+  }
+  return ((n - c) / n) * 100;
+}
+
+export type MarginDiscountPreview = {
+  netAfterMaxDiscount: number;
+  effectiveMarginPercent: number | null;
+  isBelowCost: boolean;
+  isMarginEroded: boolean;
+};
+
+/**
+ * Evalúa el impacto del máximo descuento autorizado sobre el neto de lista
+ * (sin modificar el precio sugerido).
+ */
+export function evaluateMaxDiscountImpact(
+  cost: number,
+  listNet: number,
+  expectedMarginPercent: number,
+  maxDiscountPercent: number,
+): MarginDiscountPreview {
+  const netAfter = netAfterDiscount(listNet, maxDiscountPercent);
+  const effective = effectiveMarginPercent(cost, netAfter);
+  const isBelowCost = netAfter < cost - 1e-9;
+  const expected = Number.isFinite(expectedMarginPercent) ? expectedMarginPercent : 0;
+  const isMarginEroded =
+    effective == null || isBelowCost || effective + 1e-6 < expected;
+  return {
+    netAfterMaxDiscount: netAfter,
+    effectiveMarginPercent: effective,
+    isBelowCost,
+    isMarginEroded,
+  };
+}
+
+/** Piso de precio neto derivado del tope de descuento. */
+export function minPriceFromMaxDiscount(
+  listNet: number,
+  maxDiscountPercent: number,
+): number {
+  return netAfterDiscount(listNet, maxDiscountPercent);
 }
 
 export function deriveBasePriceFromPriceRows(

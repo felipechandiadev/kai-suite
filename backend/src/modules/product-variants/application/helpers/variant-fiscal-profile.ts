@@ -103,6 +103,8 @@ export type VariantPriceFiscalRow = {
   netPrice: number;
   grossPrice: number;
   taxIds?: string[] | null;
+  maxDiscountPercent?: number | null;
+  minPrice?: number | null;
 };
 
 export type ApplyVariantFiscalProfileInput = {

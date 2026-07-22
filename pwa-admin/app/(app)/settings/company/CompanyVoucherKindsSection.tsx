@@ -134,11 +134,6 @@ export function CompanyVoucherKindsSection({ companyId }: Props) {
           <h2 className="text-lg font-semibold tracking-tight text-foreground">
             Tipos de voucher
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            El código se genera automáticamente al guardar. Soft-delete al
-            quitar de la lista. En valor nominal abierto, siempre se exige
-            definir el valor en la venta.
-          </p>
         </div>
         <IconButton
           icon="Plus"

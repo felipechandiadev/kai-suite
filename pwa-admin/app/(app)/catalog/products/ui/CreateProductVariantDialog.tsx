@@ -253,6 +253,8 @@ export function CreateProductVariantDialog({
       netPrice: number;
       grossPrice: number;
       taxIds?: string[];
+      maxDiscountPercent?: number | null;
+      minPrice?: number | null;
     }> = [];
 
     if (isSellable) {
@@ -288,6 +290,8 @@ export function CreateProductVariantDialog({
         netPrice: roundMoneyInt(r.net),
         grossPrice: roundMoneyInt(r.gross),
         taxIds: r.taxIds.length > 0 ? r.taxIds : undefined,
+        maxDiscountPercent: r.maxDiscountPercent,
+        minPrice: r.minPrice,
       }));
     }
 
@@ -368,7 +372,13 @@ export function CreateProductVariantDialog({
     });
   };
 
-  const handlePmpCalculatorApply = (_pmp: number, net: number, priceRowKey: string) => {
+  const handlePmpCalculatorApply = (
+    _pmp: number,
+    net: number,
+    maxDiscountPercent: number,
+    minPrice: number | null,
+    priceRowKey: string,
+  ) => {
     setPriceRows((prev) =>
       prev.map((r) => {
         if (r.key !== priceRowKey) {
@@ -376,13 +386,25 @@ export function CreateProductVariantDialog({
         }
         const f = resolvePricingGrossFactor(DEFAULT_VARIANT_TAX_CATEGORY, catalogTaxes, r.taxIds);
         const n = roundMoneyInt(net);
-        return { ...r, net: n, gross: netToGross(n, f), lastEdited: "net" as const };
+        return {
+          ...r,
+          net: n,
+          gross: netToGross(n, f),
+          maxDiscountPercent: maxDiscountPercent > 0 ? maxDiscountPercent : null,
+          minPrice,
+          lastEdited: "net" as const,
+        };
       }),
     );
   };
 
-  const handleJewelryCalculatorApply = (net: number, priceRowKey: string) => {
-    handlePmpCalculatorApply(0, net, priceRowKey);
+  const handleJewelryCalculatorApply = (
+    net: number,
+    maxDiscountPercent: number,
+    minPrice: number | null,
+    priceRowKey: string,
+  ) => {
+    handlePmpCalculatorApply(0, net, maxDiscountPercent, minPrice, priceRowKey);
   };
 
   const syncWeightFromGrams = (grams: number) => {
@@ -597,8 +619,8 @@ export function CreateProductVariantDialog({
               <p className="text-xs text-muted-foreground">
                 Use la calculadora <strong className="font-medium text-foreground">joyería</strong>{" "}
                 (ícono gema) con el peso de la pieza y precios de metales, o la calculadora{" "}
-                <strong className="font-medium text-foreground">PMP</strong> para margen sobre costo de
-                compra.
+                <strong className="font-medium text-foreground">PMP</strong> para margen de utilidad
+                sobre el precio de venta.
               </p>
               <VariantPriceRowsEditor
                 priceLists={priceLists}

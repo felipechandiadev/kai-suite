@@ -267,6 +267,25 @@ export const mainMenuItems: SideBarMenuItem[] = [
     ],
   },
   {
+    id: 'nav-jewelry',
+    label: 'Joyería',
+    requiresJewelryEnabled: true,
+    children: [
+      {
+        id: 'jewelry-scale',
+        label: 'Balanza',
+        url: '/settings/scale',
+        requiresJewelryEnabled: true,
+      },
+      {
+        id: 'jewelry-metal-prices',
+        label: 'Precios de los metales',
+        url: '/settings/metal-prices',
+        requiresJewelryEnabled: true,
+      },
+    ],
+  },
+  {
     id: 'nav-sii-admin',
     label: 'SII',
     url: '/sii',
@@ -311,13 +330,6 @@ export const mainMenuItems: SideBarMenuItem[] = [
       { id: 'settings-users', label: 'Usuarios', url: '/settings/users' },
       { id: 'settings-local-printing', label: 'Impresión local', url: '/settings/local-printing' },
       { id: 'settings-integrations', label: 'Integraciones', url: '/settings/integrations' },
-      { id: 'settings-scale', label: 'Balanza', url: '/settings/scale' },
-      {
-        id: 'settings-metal-prices',
-        label: 'Precios de metales',
-        url: '/settings/metal-prices',
-        requiresJewelryEnabled: true,
-      },
       { id: 'settings-about', label: 'Acerca de', url: '/settings/about' },
       // { id: 'settings-parameters', label: 'Parámetros del sistema', url: '/settings/parameters' },
     ],

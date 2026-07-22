@@ -1,12 +1,14 @@
+import { describe, expect, it } from "vitest";
 import {
   computeJewelryNetPrice,
+  computeJewelryTotalCost,
   parseJewelryMoneyField,
   parseJewelryPercent,
 } from "./jewelry-price-math";
 
 describe("jewelry-price-math", () => {
-  it("computes net price with merma, metal, costs and utilidad", () => {
-    // 10g, 10% merma => 11g; metal 1000 CLP/g => 11000; +5000 stones +2000 labor => 18000; +20% util => 21600
+  it("computes net price with merma, metal, costs and margin on sale", () => {
+    // cost 18000; margen 20% → 18000 / 0.8 = 22500
     const net = computeJewelryNetPrice({
       weightGrams: 10,
       metalPricePerGram: 1000,
@@ -16,7 +18,18 @@ describe("jewelry-price-math", () => {
       laborCost: 2000,
       otherCosts: 0,
     });
-    expect(net).toBe(21600);
+    expect(net).toBe(22500);
+    expect(
+      computeJewelryTotalCost({
+        weightGrams: 10,
+        metalPricePerGram: 1000,
+        mermaPercent: 10,
+        utilityPercent: 20,
+        stonesCost: 5000,
+        laborCost: 2000,
+        otherCosts: 0,
+      }),
+    ).toBe(18000);
   });
 
   it("clamps percent inputs", () => {

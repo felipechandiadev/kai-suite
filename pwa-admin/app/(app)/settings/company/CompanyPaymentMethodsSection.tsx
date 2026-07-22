@@ -26,16 +26,27 @@ type Props = {
 
 function MethodCard({
   item,
+  voucherKinds,
   onEdit,
   onDelete,
   busy,
 }: {
   item: CompanyPaymentMethodConfig;
+  voucherKinds: CompanyVoucherKind[];
   onEdit: () => void;
   onDelete: () => void;
   busy: boolean;
 }) {
   const label = companyPaymentMethodLabel(item.method);
+  const voucherKind =
+    item.method === "VOUCHER" && item.voucherKindId
+      ? voucherKinds.find((k) => k.id === item.voucherKindId)
+      : null;
+  const showFee =
+    (item.method === "CREDIT_CARD" || item.method === "DEBIT_CARD") &&
+    item.feePercent != null &&
+    Number.isFinite(item.feePercent);
+
   return (
     <article
       className="flex flex-col gap-2 rounded-xl border border-border bg-background p-4 shadow-sm"
@@ -56,10 +67,18 @@ function MethodCard({
           <dt className="text-muted-foreground">Tipo</dt>
           <dd>{label}</dd>
         </div>
-        {item.bankAccountKey ? (
+        {voucherKind ? (
           <div className="flex justify-between gap-2">
-            <dt className="text-muted-foreground">Cuenta</dt>
-            <dd className="font-mono">{item.bankAccountKey}</dd>
+            <dt className="text-muted-foreground">Tipo de voucher</dt>
+            <dd>
+              {voucherKind.code} — {voucherKind.name}
+            </dd>
+          </div>
+        ) : null}
+        {showFee ? (
+          <div className="flex justify-between gap-2">
+            <dt className="text-muted-foreground">Comisión</dt>
+            <dd>{item.feePercent}%</dd>
           </div>
         ) : null}
         {companyPaymentMethodAlwaysRequiresReference(item.method) || item.requireReference ? (
@@ -144,6 +163,18 @@ export function CompanyPaymentMethodsSection({ companyId }: Props) {
       cancelled = true;
     };
   }, [companyId]);
+
+  useEffect(() => {
+    if (!dialogOpen) return;
+    let cancelled = false;
+    void getCompanyVoucherKindsAction(companyId).then((vk) => {
+      if (cancelled || !vk.success) return;
+      setVoucherKinds(vk.voucherKinds);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [dialogOpen, companyId]);
 
   const sorted = useMemo(
     () =>
@@ -242,6 +273,7 @@ export function CompanyPaymentMethodsSection({ companyId }: Props) {
               <MethodCard
                 key={m.id}
                 item={m}
+                voucherKinds={voucherKinds}
                 busy={busy}
                 onEdit={() => {
                   setEditing(m);

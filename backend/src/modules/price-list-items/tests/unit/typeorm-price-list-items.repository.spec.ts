@@ -21,7 +21,7 @@ describe('TypeOrmPriceListItemsRepository', () => {
     grossPrice: 119,
     taxIds: ['tax-1'],
     minPrice: 90,
-    discountPercentage: 10,
+    maxDiscountPercent: 10,
   };
 
   beforeEach(() => {

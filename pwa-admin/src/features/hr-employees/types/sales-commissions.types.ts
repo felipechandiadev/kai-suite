@@ -1,7 +1,7 @@
 export type SalesCommissionMonthSummary = {
   yearMonth: string;
   salesCount: number;
-  salesGrossTotal: number;
+  salesNetTotal: number;
   commissionTotal: number;
 };
 

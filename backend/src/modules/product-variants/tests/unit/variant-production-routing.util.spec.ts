@@ -1,8 +1,14 @@
 import { BadRequestException } from '@nestjs/common';
-import { ProductionUnitScope } from '@modules/production-units/domain/production-unit.enums';
+import {
+  ProductionUnitPurpose,
+  ProductionUnitScope,
+} from '@modules/production-units/domain/production-unit.enums';
+import { ProductType } from '@modules/products/domain/product.entity';
 import {
   assertRoutingDefaultsPerBranch,
   assertUnitAllowedForBranch,
+  assertUnitPurposeMatchesProductType,
+  expectedProductionUnitPurposeForProductType,
 } from '../../application/helpers/variant-production-routing.util';
 
 describe('variant-production-routing.util', () => {
@@ -65,6 +71,56 @@ describe('variant-production-routing.util', () => {
           itemBranchId: 'b2',
         }),
       ).not.toThrow();
+    });
+  });
+
+  describe('expectedProductionUnitPurposeForProductType', () => {
+    it('maps PREPARADO to KITCHEN and finished goods to BATCH', () => {
+      expect(
+        expectedProductionUnitPurposeForProductType(ProductType.PREPARADO),
+      ).toBe(ProductionUnitPurpose.KITCHEN);
+      expect(
+        expectedProductionUnitPurposeForProductType(ProductType.ELABORADO),
+      ).toBe(ProductionUnitPurpose.BATCH);
+      expect(
+        expectedProductionUnitPurposeForProductType(ProductType.MANUFACTURADO),
+      ).toBe(ProductionUnitPurpose.BATCH);
+      expect(
+        expectedProductionUnitPurposeForProductType(ProductType.PHYSICAL),
+      ).toBeNull();
+    });
+  });
+
+  describe('assertUnitPurposeMatchesProductType', () => {
+    it('accepts matching purpose', () => {
+      expect(() =>
+        assertUnitPurposeMatchesProductType({
+          productType: ProductType.PREPARADO,
+          unitPurpose: ProductionUnitPurpose.KITCHEN,
+        }),
+      ).not.toThrow();
+      expect(() =>
+        assertUnitPurposeMatchesProductType({
+          productType: ProductType.MANUFACTURADO,
+          unitPurpose: ProductionUnitPurpose.BATCH,
+        }),
+      ).not.toThrow();
+    });
+
+    it('rejects mismatched purpose', () => {
+      expect(() =>
+        assertUnitPurposeMatchesProductType({
+          productType: ProductType.PREPARADO,
+          unitPurpose: ProductionUnitPurpose.BATCH,
+          unitName: 'Taller',
+        }),
+      ).toThrow(BadRequestException);
+      expect(() =>
+        assertUnitPurposeMatchesProductType({
+          productType: ProductType.ELABORADO,
+          unitPurpose: ProductionUnitPurpose.KITCHEN,
+        }),
+      ).toThrow(BadRequestException);
     });
   });
 });

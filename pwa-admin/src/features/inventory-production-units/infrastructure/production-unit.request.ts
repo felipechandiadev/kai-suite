@@ -52,9 +52,13 @@ function mapUnit(raw: Record<string, unknown>): ProductionUnitListItem {
 }
 
 export const ProductionUnitRequest = {
-  async list(branchId?: string): Promise<ProductionUnitListItem[]> {
+  async list(
+    branchId?: string,
+    opts?: { purpose?: ProductionUnitPurpose },
+  ): Promise<ProductionUnitListItem[]> {
     const qs = new URLSearchParams();
     if (branchId) qs.set("branchId", branchId);
+    if (opts?.purpose) qs.set("purpose", opts.purpose);
     qs.set("includeInactive", "true");
     const res = await fetch(apiUrl(`/production-units?${qs.toString()}`), {
       headers: await authHeaders(),

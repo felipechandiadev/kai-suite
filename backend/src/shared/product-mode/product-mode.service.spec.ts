@@ -25,6 +25,12 @@ describe('ProductModeService', () => {
     expect(service.isKaiFood()).toBe(true);
   });
 
+  it('detects kaisuite as food-enabled', () => {
+    const service = makeService('kaisuite');
+    expect(service.getProductMode()).toBe('kaisuite');
+    expect(service.isKaiFood()).toBe(true);
+  });
+
   it('allows PREPARADO in kaifood', () => {
     const service = makeService('kaifood');
     expect(() =>
@@ -32,7 +38,14 @@ describe('ProductModeService', () => {
     ).not.toThrow();
   });
 
-  it('rejects PREPARADO outside kaifood', () => {
+  it('allows PREPARADO in kaisuite', () => {
+    const service = makeService('kaisuite');
+    expect(() =>
+      service.assertProductTypeAllowed(ProductType.PREPARADO),
+    ).not.toThrow();
+  });
+
+  it('rejects PREPARADO outside kaifood/kaisuite', () => {
     const service = makeService('kaistore');
     expect(() =>
       service.assertProductTypeAllowed(ProductType.PREPARADO),

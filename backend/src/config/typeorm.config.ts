@@ -24,6 +24,8 @@ import { Product } from '@modules/products/domain/product.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { ProductVariantProductionUnit } from '@modules/product-variants/domain/product-variant-production-unit.entity';
 import { ProductVariantBranchAvailability } from '@modules/product-variants/domain/product-variant-branch-availability.entity';
+import { ProductVariantProductionAttribute } from '@modules/product-variants/domain/product-variant-production-attribute.entity';
+import { ProductVariantProductionAttributeOption } from '@modules/product-variants/domain/product-variant-production-attribute-option.entity';
 import { Customer } from '@modules/customers/domain/customer.entity';
 import { Tax } from '@modules/taxes/domain/tax.entity';
 import { Unit } from '@modules/units/domain/unit.entity';
@@ -177,6 +179,8 @@ export const typeOrmConfig = (
       ProductVariant,
       ProductVariantProductionUnit,
       ProductVariantBranchAvailability,
+      ProductVariantProductionAttribute,
+      ProductVariantProductionAttributeOption,
       Customer,
       Tax,
       Unit,

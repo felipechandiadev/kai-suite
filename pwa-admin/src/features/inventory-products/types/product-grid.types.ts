@@ -17,6 +17,10 @@ export type ProductPriceListItemRow = {
   netPrice: number;
   grossPrice: number;
   taxIds?: string[];
+  /** Máximo descuento autorizado (%). */
+  maxDiscountPercent?: number | null;
+  /** Precio neto mínimo derivado del tope. */
+  minPrice?: number | null;
   /** Última modificación del ítem en lista (`price_list_items.updatedAt`). */
   updatedAt?: string | null;
 };

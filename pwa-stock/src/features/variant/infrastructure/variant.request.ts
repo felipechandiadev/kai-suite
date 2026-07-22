@@ -40,6 +40,14 @@ function parsePriceListItems(raw: unknown): VariantPriceListItem[] {
         netPrice: net,
         grossPrice: gross,
         taxIds: Array.isArray(p.taxIds) ? p.taxIds.map(String) : undefined,
+        maxDiscountPercent:
+          p.maxDiscountPercent != null && Number.isFinite(Number(p.maxDiscountPercent))
+            ? Number(p.maxDiscountPercent)
+            : null,
+        minPrice:
+          p.minPrice != null && Number.isFinite(Number(p.minPrice))
+            ? Math.round(Number(p.minPrice))
+            : null,
       };
     })
     .filter((x): x is VariantPriceListItem => x != null);

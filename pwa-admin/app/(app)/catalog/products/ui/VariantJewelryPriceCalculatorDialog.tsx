@@ -18,9 +18,14 @@ import { latestMetalPriceByMetal } from "@/features/metal-prices/lib/metal-price
 import type { MetalTypeOption } from "@/features/metal-prices/types/metal-price.types";
 import {
   computeJewelryNetPrice,
+  computeJewelryTotalCost,
   parseJewelryMoneyField,
   parseJewelryPercent,
 } from "@/features/inventory-products/domain/jewelry-price-math";
+import {
+  evaluateMaxDiscountImpact,
+  minPriceFromMaxDiscount,
+} from "@/features/inventory-products/domain/price-tax-math";
 
 export type VariantJewelryPriceCalculatorDialogProps = {
   open: boolean;
@@ -30,7 +35,12 @@ export type VariantJewelryPriceCalculatorDialogProps = {
   /** Al cambiar o aplicar, sincroniza el peso con el formulario padre. */
   onWeightGramsChange?: (grams: number) => void;
   priceRowKey: string | null;
-  onApply: (net: number, priceRowKey: string) => void;
+  onApply: (
+    net: number,
+    maxDiscountPercent: number,
+    minPrice: number | null,
+    priceRowKey: string,
+  ) => void;
 };
 
 function fmtClp(n: number): string {
@@ -67,6 +77,7 @@ export function VariantJewelryPriceCalculatorDialog({
   const [weightInput, setWeightInput] = useState("");
   const [merma, setMerma] = useState("0");
   const [utilidad, setUtilidad] = useState("0");
+  const [descuento, setDescuento] = useState("0");
   const [costoPiedras, setCostoPiedras] = useState("0");
   const [manufacture, setManufacture] = useState("0");
   const [otrosCostos, setOtrosCostos] = useState("0");
@@ -80,6 +91,7 @@ export function VariantJewelryPriceCalculatorDialog({
     setWeightInput(weightGrams > 0 ? String(weightGrams) : "");
     setMerma("0");
     setUtilidad("0");
+    setDescuento("0");
     setCostoPiedras("0");
     setManufacture("0");
     setOtrosCostos("0");
@@ -113,19 +125,36 @@ export function VariantJewelryPriceCalculatorDialog({
 
   const effectiveWeightGrams = useMemo(() => parseWeightGramsInput(weightInput), [weightInput]);
 
-  const netPrice = useMemo(
-    () =>
-      computeJewelryNetPrice({
-        weightGrams: effectiveWeightGrams,
-        metalPricePerGram: metalPrice ?? 0,
-        mermaPercent: parseJewelryPercent(merma),
-        utilityPercent: parseJewelryPercent(utilidad),
-        stonesCost: parseJewelryMoneyField(costoPiedras),
-        laborCost: parseJewelryMoneyField(manufacture),
-        otherCosts: parseJewelryMoneyField(otrosCostos),
-      }),
-    [effectiveWeightGrams, metalPrice, merma, utilidad, costoPiedras, manufacture, otrosCostos],
+  const jewelryInput = useMemo(
+    () => ({
+      weightGrams: effectiveWeightGrams,
+      metalPricePerGram: metalPrice ?? 0,
+      mermaPercent: parseJewelryPercent(merma),
+      utilityPercent: parseJewelryPercent(utilidad),
+      stonesCost: parseJewelryMoneyField(costoPiedras),
+      laborCost: parseJewelryMoneyField(manufacture),
+      otherCosts: parseJewelryMoneyField(otrosCostos),
+    }),
+    [
+      effectiveWeightGrams,
+      metalPrice,
+      merma,
+      utilidad,
+      costoPiedras,
+      manufacture,
+      otrosCostos,
+    ],
   );
+
+  const netPrice = useMemo(() => computeJewelryNetPrice(jewelryInput), [jewelryInput]);
+  const totalCost = useMemo(() => computeJewelryTotalCost(jewelryInput), [jewelryInput]);
+  const expectedMargin = parseJewelryPercent(utilidad);
+  const maxDiscount = parseJewelryPercent(descuento);
+  const discountImpact = useMemo(
+    () => evaluateMaxDiscountImpact(totalCost, netPrice, expectedMargin, maxDiscount),
+    [totalCost, netPrice, expectedMargin, maxDiscount],
+  );
+  const showDiscountWarning = maxDiscount > 0 && discountImpact.isMarginEroded;
 
   const handleWeightChange = (value: string) => {
     setWeightInput(value);
@@ -187,7 +216,9 @@ export function VariantJewelryPriceCalculatorDialog({
     if (effectiveWeightGrams > 0) {
       onWeightGramsChange?.(effectiveWeightGrams);
     }
-    onApply(Math.round(netPrice), priceRowKey);
+    const net = Math.round(netPrice);
+    const minPrice = maxDiscount > 0 ? minPriceFromMaxDiscount(net, maxDiscount) : null;
+    onApply(net, maxDiscount, minPrice, priceRowKey);
     onClose();
   };
 
@@ -232,6 +263,12 @@ export function VariantJewelryPriceCalculatorDialog({
       }
     >
       <div className="flex flex-col gap-4 text-sm">
+        <p className="text-muted-foreground">
+          El margen es % de ganancia sobre el precio neto de venta:{" "}
+          <strong className="text-foreground">neto = costo ÷ (1 − margen)</strong>. El máximo
+          descuento autorizado no modifica el precio; si al aplicarlo se pierde el margen, se avisa
+          en rojo.
+        </p>
         <Select
           label="Tipo de metal"
           value={selectedMetal}
@@ -291,14 +328,36 @@ export function VariantJewelryPriceCalculatorDialog({
           data-test-id="variant-jewelry-calc-merma"
         />
         <TextField
-          label="Utilidad (%)"
+          label="Margen de utilidad esperado"
           name="jewelry-calc-utilidad"
           type="number"
           value={utilidad}
           onChange={(e) => setUtilidad(e.target.value)}
+          placeholder="Margen de utilidad esperado"
           selectOnFocus
           data-test-id="variant-jewelry-calc-utilidad"
         />
+        <TextField
+          label="Máximo descuento autorizado"
+          name="jewelry-calc-descuento"
+          type="number"
+          value={descuento}
+          onChange={(e) => setDescuento(e.target.value)}
+          placeholder="Máximo descuento autorizado"
+          selectOnFocus
+          data-test-id="variant-jewelry-calc-descuento"
+        />
+        {showDiscountWarning ? (
+          <p className="text-sm font-medium text-error" data-test-id="variant-jewelry-calc-discount-warn">
+            {discountImpact.isBelowCost
+              ? `Con el máximo descuento autorizado (${maxDiscount}%) el neto quedaría bajo el costo. Se pierde el margen.`
+              : `Con el máximo descuento autorizado (${maxDiscount}%) el margen efectivo baja a ${
+                  discountImpact.effectiveMarginPercent != null
+                    ? `${discountImpact.effectiveMarginPercent.toFixed(1)}%`
+                    : "—"
+                }. Se pierde el margen de utilidad esperado.`}
+          </p>
+        ) : null}
         <TextField
           label="Costo de piedras"
           name="jewelry-calc-piedras"

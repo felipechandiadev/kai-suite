@@ -1384,6 +1384,43 @@ export class DiningService {
     return updated;
   }
 
+  /**
+   * Cierra una cuenta vacía (sin ítems activos): libera mesa o elimina
+   * cuenta de barra / para llevar sin pasar por cobro.
+   */
+  async abandonEmptyOrder(orderId: string): Promise<DiningOrder> {
+    const companyId = this.requireCompanyId();
+    const order = await this.getOrderOrThrow(orderId, companyId);
+
+    if (order.status === DiningOrderStatus.CLOSED) {
+      throw new BadRequestException('La cuenta ya está cerrada.');
+    }
+    if (
+      order.status !== DiningOrderStatus.OPEN &&
+      order.status !== DiningOrderStatus.SENT
+    ) {
+      throw new BadRequestException(
+        'Solo se puede cerrar o eliminar una cuenta vacía en estado abierta.',
+      );
+    }
+
+    const activeLines = (order.lines ?? []).filter(
+      (line) => line.kitchenStatus !== KitchenItemStatus.CANCELLED,
+    );
+    if (activeLines.length > 0) {
+      throw new BadRequestException(
+        'La cuenta tiene ítems. Quitá todos los productos antes de cerrarla o eliminarla.',
+      );
+    }
+
+    order.status = DiningOrderStatus.CLOSED;
+    order.closedAt = new Date();
+    await this.diningOrderRepository.save(order);
+    const updated = await this.getOrderOrThrow(orderId, companyId);
+    this.publishSessionUpdated(updated);
+    return updated;
+  }
+
   async updateOrderLineNotes(
     orderId: string,
     lineId: string,

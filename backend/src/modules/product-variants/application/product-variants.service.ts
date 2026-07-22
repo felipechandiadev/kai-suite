@@ -81,6 +81,10 @@ import { ProductVariantProductionUnit } from '../domain/product-variant-producti
 import { ProductVariantBranchAvailability } from '../domain/product-variant-branch-availability.entity';
 import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
 import { ProductionUnitScope } from '@modules/production-units/domain/production-unit.enums';
+import {
+  assertUnitPurposeMatchesProductType,
+  expectedProductionUnitPurposeForProductType,
+} from './helpers/variant-production-routing.util';
 import { Branch } from '@modules/branches/domain/branch.entity';
 
 /** PMP en API: `null` si no hubo primera compra; nunca forzar 0 por defecto. */
@@ -291,6 +295,15 @@ export class ProductVariantsService {
           netPrice: Number(item.netPrice),
           grossPrice: Number(item.grossPrice),
           taxIds: item.taxIds || [],
+          maxDiscountPercent:
+            item.maxDiscountPercent != null &&
+            Number.isFinite(Number(item.maxDiscountPercent))
+              ? Number(item.maxDiscountPercent)
+              : null,
+          minPrice:
+            item.minPrice != null && Number.isFinite(Number(item.minPrice))
+              ? Math.round(Number(item.minPrice))
+              : null,
           updatedAt: item.updatedAt
             ? new Date(item.updatedAt).toISOString()
             : null,
@@ -713,6 +726,10 @@ export class ProductVariantsService {
               netPrice: item.netPrice ?? 0,
               grossPrice: item.grossPrice ?? 0,
               taxIds: item.taxIds ?? null,
+              maxDiscountPercent: this.normalizeMaxDiscountPercent(
+                item.maxDiscountPercent,
+              ),
+              minPrice: this.normalizeMinPrice(item.minPrice),
             }) as any,
         );
 
@@ -969,6 +986,10 @@ export class ProductVariantsService {
             netPrice: item.netPrice ?? 0,
             grossPrice: item.grossPrice ?? 0,
             taxIds: item.taxIds ?? null,
+            maxDiscountPercent: this.normalizeMaxDiscountPercent(
+              item.maxDiscountPercent,
+            ),
+            minPrice: this.normalizeMinPrice(item.minPrice),
           }) as any,
       );
       await Promise.all(
@@ -1510,6 +1531,10 @@ export class ProductVariantsService {
       netPrice: Math.round(Number(item?.netPrice) || 0),
       grossPrice: Math.round(Number(item?.grossPrice) || 0),
       taxIds: Array.isArray(item?.taxIds) ? item.taxIds.map(String) : null,
+      maxDiscountPercent: this.normalizeMaxDiscountPercent(
+        item?.maxDiscountPercent,
+      ),
+      minPrice: this.normalizeMinPrice(item?.minPrice),
     }));
   }
 
@@ -1518,7 +1543,33 @@ export class ProductVariantsService {
       netPrice: Math.round(Number(item.netPrice) || 0),
       grossPrice: Math.round(Number(item.grossPrice) || 0),
       taxIds: Array.isArray(item.taxIds) ? item.taxIds.map(String) : null,
+      maxDiscountPercent: this.normalizeMaxDiscountPercent(
+        item.maxDiscountPercent,
+      ),
+      minPrice: this.normalizeMinPrice(item.minPrice),
     }));
+  }
+
+  private normalizeMaxDiscountPercent(raw: unknown): number | null {
+    if (raw == null || raw === '') {
+      return null;
+    }
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) {
+      return null;
+    }
+    return Math.min(99.99, Math.round(n * 100) / 100);
+  }
+
+  private normalizeMinPrice(raw: unknown): number | null {
+    if (raw == null || raw === '') {
+      return null;
+    }
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) {
+      return null;
+    }
+    return Math.round(n);
   }
 
   private mergeFiscalPriceRowsIntoPayload(
@@ -1665,10 +1716,26 @@ export class ProductVariantsService {
     const companyId = this.requireCompanyId();
     const variant = await this.variantOrm.findOne({
       where: { id: variantId, companyId },
-      select: ['id'],
+      select: ['id', 'productId'],
     });
     if (!variant) {
       throw new NotFoundException('Product variant not found');
+    }
+
+    const product = await this.variantOrm.manager.getRepository(Product).findOne({
+      where: { id: variant.productId, companyId },
+      select: ['id', 'productType'],
+    });
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+    const expectedPurpose = expectedProductionUnitPurposeForProductType(
+      product.productType,
+    );
+    if (!expectedPurpose && items.length > 0) {
+      throw new BadRequestException(
+        'Este tipo de producto no admite asignación de unidades de producción.',
+      );
     }
 
     const defaultsByBranch = new Map<string, number>();
@@ -1724,6 +1791,11 @@ export class ProductVariantsService {
           'Unidad de producción no válida o inactiva.',
         );
       }
+      assertUnitPurposeMatchesProductType({
+        productType: product.productType,
+        unitPurpose: unit.purpose,
+        unitName: unit.name,
+      });
       if (unit.scope === ProductionUnitScope.BRANCH) {
         if (unit.branchId !== item.branchId) {
           throw new BadRequestException(

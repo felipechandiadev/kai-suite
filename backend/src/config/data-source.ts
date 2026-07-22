@@ -27,6 +27,8 @@ import { Product } from '@modules/products/domain/product.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { ProductVariantProductionUnit } from '@modules/product-variants/domain/product-variant-production-unit.entity';
 import { ProductVariantBranchAvailability } from '@modules/product-variants/domain/product-variant-branch-availability.entity';
+import { ProductVariantProductionAttribute } from '@modules/product-variants/domain/product-variant-production-attribute.entity';
+import { ProductVariantProductionAttributeOption } from '@modules/product-variants/domain/product-variant-production-attribute-option.entity';
 import { Customer } from '@modules/customers/domain/customer.entity';
 import { Tax } from '@modules/taxes/domain/tax.entity';
 import { Unit } from '@modules/units/domain/unit.entity';
@@ -175,6 +177,9 @@ import { RecipeCtpAndDiningMaterialReservation1757120000000 } from '../migration
 import { NotificationDomainCatalog1757130000000 } from '../migrations/1757130000000-NotificationDomainCatalog';
 import { WebPushSubscriptions1757300000000 } from '../migrations/1757300000000-WebPushSubscriptions';
 import { DiningStationOrders1757310000000 } from '../migrations/1757310000000-DiningStationOrders';
+import { PriceListItemMaxDiscountPercent1757320000000 } from '../migrations/1757320000000-PriceListItemMaxDiscountPercent';
+import { CompanyPaymentMethodFeePercent1757330000000 } from '../migrations/1757330000000-CompanyPaymentMethodFeePercent';
+import { VariantProductionAttributes1757340000000 } from '../migrations/1757340000000-VariantProductionAttributes';
 import { DiningKitchenFireId1757140000000 } from '../migrations/1757140000000-DiningKitchenFireId';
 import { DiningKitchenFireNumber1757150000000 } from '../migrations/1757150000000-DiningKitchenFireNumber';
 import { ProductionUnitPurpose1757160000000 } from '../migrations/1757160000000-ProductionUnitPurpose';
@@ -279,6 +284,8 @@ export const AppDataSource = new DataSource({
     ProductVariant,
     ProductVariantProductionUnit,
     ProductVariantBranchAvailability,
+    ProductVariantProductionAttribute,
+    ProductVariantProductionAttributeOption,
     Customer,
     Tax,
     Unit,
@@ -499,6 +506,9 @@ export const AppDataSource = new DataSource({
     DiningPosAccountsMenuCategories1757290000000,
     WebPushSubscriptions1757300000000,
     DiningStationOrders1757310000000,
+    PriceListItemMaxDiscountPercent1757320000000,
+    CompanyPaymentMethodFeePercent1757330000000,
+    VariantProductionAttributes1757340000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

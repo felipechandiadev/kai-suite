@@ -37,6 +37,25 @@ export class PriceListItemInputDto {
   @IsArray()
   @IsUUID('4', { each: true })
   taxIds?: string[];
+
+  /** Máximo descuento autorizado (%), 0–99.99. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(99.99)
+  maxDiscountPercent?: number | null;
+
+  /** Precio neto mínimo derivado del tope de descuento. */
+  @IsOptional()
+  @Transform(({ value }) =>
+    value == null || value === '' ? null : Math.round(Number(value)),
+  )
+  @Type(() => Number)
+  @ValidateIf((_, v) => v != null)
+  @IsInt()
+  @Min(0)
+  minPrice?: number | null;
 }
 
 export class CreateProductVariantDto {

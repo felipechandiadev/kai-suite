@@ -301,6 +301,12 @@ export function buildSeedCompanyPaymentCatalog(): CompanyPaymentMethodConfig[] {
     requireReference: false,
     bankAccountKey:
       method === PaymentMethod.TRANSFER ? PRIMARY_BANK_ACCOUNT_KEY : null,
+    feePercent:
+      method === PaymentMethod.CREDIT_CARD
+        ? 2.5
+        : method === PaymentMethod.DEBIT_CARD
+          ? 1.5
+          : null,
     metadata: null,
   }));
 }
@@ -311,15 +317,15 @@ type PosMethodSeed = {
   isDefaultForChange?: boolean;
 };
 
-/** Precarga alineada a Caja 1 en BD demo (efectivo + transferencia). */
+/** Precarga Caja 1 / Caja 2: efectivo + tarjetas + transferencia. */
 const POS_METHOD_SEED: Partial<Record<PaymentMethod, PosMethodSeed>> = {
   [PaymentMethod.CASH]: {
     preloadOnPaymentScreen: true,
     preloadOrder: 0,
     isDefaultForChange: true,
   },
-  [PaymentMethod.CREDIT_CARD]: { preloadOnPaymentScreen: false, preloadOrder: 1 },
-  [PaymentMethod.DEBIT_CARD]: { preloadOnPaymentScreen: false, preloadOrder: 2 },
+  [PaymentMethod.CREDIT_CARD]: { preloadOnPaymentScreen: true, preloadOrder: 1 },
+  [PaymentMethod.DEBIT_CARD]: { preloadOnPaymentScreen: true, preloadOrder: 2 },
   [PaymentMethod.TRANSFER]: { preloadOnPaymentScreen: true, preloadOrder: 3 },
   [PaymentMethod.CHECK]: { preloadOnPaymentScreen: false, preloadOrder: 4 },
   [PaymentMethod.INTERNAL_CREDIT]: {
@@ -330,17 +336,24 @@ const POS_METHOD_SEED: Partial<Record<PaymentMethod, PosMethodSeed>> = {
 
 export function buildSeedPosPaymentList(
   catalog: CompanyPaymentMethodConfig[],
+  opts?: { preloadSaleMethods?: boolean },
 ): PosPaymentMethodConfig[] {
+  const preloadSale = opts?.preloadSaleMethods !== false;
   return catalog.map((cmp) => {
     const cfg = POS_METHOD_SEED[cmp.method] ?? {
       preloadOnPaymentScreen: false,
       preloadOrder: null,
     };
+    const preloadOnPaymentScreen = preloadSale
+      ? cfg.preloadOnPaymentScreen
+      : cmp.method === PaymentMethod.CASH;
     return {
       companyPaymentMethodId: cmp.id,
       isEnabled: true,
-      preloadOnPaymentScreen: cfg.preloadOnPaymentScreen,
-      preloadOrder: cfg.preloadOrder,
+      preloadOnPaymentScreen,
+      preloadOrder: preloadOnPaymentScreen
+        ? (cfg.preloadOrder ?? (cmp.method === PaymentMethod.CASH ? 0 : null))
+        : null,
       isDefaultForChange:
         cmp.method === PaymentMethod.CASH && cfg.isDefaultForChange === true,
       bankAccountKey: cmp.bankAccountKey ?? null,

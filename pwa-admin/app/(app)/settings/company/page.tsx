@@ -10,9 +10,9 @@ export default async function Page() {
 
   return (
     <BasicPageLayout
-      title="Empresa"
-      className="min-w-0 w-full max-w-none"
-      contentClassName="min-w-0 w-full max-w-full"
+      title="Configuración de empresa"
+      className="min-w-0 w-full"
+      contentClassName="min-w-0 w-full"
       data-test-id="settings-company-page"
     >
       {company == null ? (
