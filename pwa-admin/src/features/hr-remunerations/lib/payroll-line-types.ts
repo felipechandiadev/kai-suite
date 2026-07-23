@@ -24,6 +24,7 @@ export const PAYROLL_EARNING_TYPE_IDS = [
 
 export const PAYROLL_DEDUCTION_TYPE_IDS = [
   "AFP",
+  "AFP_COMMISSION",
   "HEALTH_INSURANCE",
   "INCOME_TAX",
   "UNEMPLOYMENT_INSURANCE",
@@ -59,7 +60,8 @@ export const PAYROLL_LINE_TYPE_LABELS: Record<string, string> = {
   HOLIDAY: "Pago por trabajo en festivo",
   NIGHT_SHIFT: "Pago por trabajo nocturno",
   EXCEPTIONAL: "Pago excepcional o extraordinario",
-  AFP: "AFP (Pensión)",
+  AFP: "AFP (10% obligatorio)",
+  AFP_COMMISSION: "Comisión AFP",
   HEALTH_INSURANCE: "Seguro de Salud",
   INCOME_TAX: "Impuesto a la Renta",
   UNEMPLOYMENT_INSURANCE: "Seguro de Cesantía",

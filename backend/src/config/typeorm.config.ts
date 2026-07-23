@@ -109,6 +109,7 @@ import { FiscalDteEmission } from '@modules/fiscal/domain/fiscal-dte-emission.en
 import { PointOfSaleFolioAllocation } from '@modules/fiscal/domain/point-of-sale-folio-allocation.entity';
 import { PosSyncCommand } from '@modules/pos-sync/domain/pos-sync-command.entity';
 import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
+import { ProductionUnitEmployee } from '@modules/production-units/domain/production-unit-employee.entity';
 import { DiningRoom } from '@modules/dining/domain/dining-room.entity';
 import { DiningTable } from '@modules/dining/domain/dining-table.entity';
 import { DiningOrder } from '@modules/dining/domain/dining-order.entity';
@@ -117,6 +118,7 @@ import { DiningStationOrder } from '@modules/dining/domain/dining-station-order.
 import { DiningBranchSettings } from '@modules/dining/domain/dining-branch-settings.entity';
 import { DiningOrderSequence } from '@modules/dining/domain/dining-order-sequence.entity';
 import { DiningKitchenFireSequence } from '@modules/dining/domain/dining-kitchen-fire-sequence.entity';
+import { DiningBoardDisplay } from '@modules/dining/domain/dining-board-display.entity';
 import { HrJornadaConfig } from '@modules/hr-jornada/domain/hr-jornada-config.entity';
 import { HrHoliday, HrHolidayOverride } from '@modules/hr-jornada/domain/hr-holiday.entity';
 import { HrShiftTemplate } from '@modules/hr-jornada/domain/hr-shift-template.entity';
@@ -264,6 +266,7 @@ export const typeOrmConfig = (
       PointOfSaleFolioAllocation,
       PosSyncCommand,
       ProductionUnit,
+      ProductionUnitEmployee,
       DiningRoom,
       DiningTable,
       DiningOrder,
@@ -272,6 +275,7 @@ export const typeOrmConfig = (
       DiningBranchSettings,
       DiningOrderSequence,
       DiningKitchenFireSequence,
+      DiningBoardDisplay,
       HrJornadaConfig,
       HrHoliday,
       HrHolidayOverride,

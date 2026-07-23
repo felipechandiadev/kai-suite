@@ -119,6 +119,24 @@ export function PosSettingsPageClient() {
         </SettingsSection>
 
         <SettingsSection
+          title="Kai Board"
+          description="Monitor TV de pedidos en preparación y listos para retirar (código de 6 dígitos)."
+          data-test-id="pos-settings-kai-board-section"
+        >
+          <div className="flex justify-end">
+            <IconButton
+              icon="Tv"
+              variant="outlined"
+              size="sm"
+              ariaLabel="Configurar Kai Board"
+              title="Kai Board"
+              onClick={() => router.push("/settings/kai-board")}
+              data-test-id="pos-settings-kai-board-link"
+            />
+          </div>
+        </SettingsSection>
+
+        <SettingsSection
           title="Cola offline y conflictos"
           description="Operaciones pendientes de sincronizar, fallidas o en conflicto (stock, folio, sesión)."
           badge="Offline"

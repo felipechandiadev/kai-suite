@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Dialog } from "@kai/ui";
 import { Alert } from "@kai/ui";
 import { Button } from "@kai/ui";
 import { TextField } from "@kai/ui";
 import { Select, type Option } from "@kai/ui";
 import { PlannedPaymentPlanSection } from "@/shared/components/PlannedPaymentLines";
-import { createRemunerationAction, listPayrollSuggestionsFromJornadaAction } from "@/features/hr-remunerations/actions/remuneration.action";
+import { createRemunerationAction, listPayrollSuggestionsFromJornadaAction, previewPayrollSettlementAction } from "@/features/hr-remunerations/actions/remuneration.action";
 import type { EmployeeGridRow } from "@/features/hr-employees/types/employee.types";
 import type { CompanyBankAccountItem } from "@/features/settings-branches/infrastructure/company.request";
 import type { PersonBankAccountItem } from "@/features/person-bank-accounts/types/person-bank-account.types";
@@ -88,6 +88,15 @@ export function CreateRemunerationDialog({
   const [referenceLoading, setReferenceLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [employerCosts, setEmployerCosts] = useState<
+    Array<{ code: string; label: string; amount: number; ratePercent: number }>
+  >([]);
+  const [employerTotal, setEmployerTotal] = useState(0);
+  const [previewNote, setPreviewNote] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [paymentSyncKey, setPaymentSyncKey] = useState(0);
+  const previewSeqRef = useRef(0);
+  const skipEarningsPreviewRef = useRef(false);
 
   const selectedEmployee = useMemo(
     () => employees.find((e) => e.id === employeeId) ?? null,
@@ -147,6 +156,13 @@ export function CreateRemunerationDialog({
     setSettlementPayment({ mode: "PENDING", paidLines: [], scheduledLines: [] });
     setPaymentValid(true);
     setEmployeeBankAccounts([]);
+    setEmployerCosts([]);
+    setEmployerTotal(0);
+    setPreviewNote(null);
+    setPreviewLoading(false);
+    setPaymentSyncKey(0);
+    previewSeqRef.current = 0;
+    skipEarningsPreviewRef.current = false;
     setError(null);
   }, []);
 
@@ -181,21 +197,88 @@ export function CreateRemunerationDialog({
     })();
   }, [selectedEmployee?.personId, selectedEmployee?.person?.id]);
 
+  const applyPreview = useCallback(async (empId: string, earnings: PayrollSettlementDraftLine[]) => {
+    const seq = ++previewSeqRef.current;
+    setPreviewLoading(true);
+    const earningPayload = earnings
+      .map((l) => ({
+        typeId: l.typeId,
+        amount: parsePayrollAmount(l.amount),
+      }))
+      .filter((l) => l.amount > 0);
+    const res = await previewPayrollSettlementAction({
+      employeeId: empId,
+      date,
+      lines: earningPayload.length ? earningPayload : undefined,
+    });
+    if (seq !== previewSeqRef.current) {
+      return;
+    }
+    setPreviewLoading(false);
+    if (!res.success) {
+      setPreviewNote(null);
+      setEmployerCosts([]);
+      setEmployerTotal(0);
+      setDeductionLines([]);
+      setError(res.error);
+      return;
+    }
+    const data = res.data;
+    setError(null);
+    setEmployerCosts(
+      (data.employerCosts ?? []).map((c) => ({
+        code: c.code,
+        label: c.label,
+        amount: c.amount,
+        ratePercent: c.ratePercent,
+      })),
+    );
+    setEmployerTotal(data.totals.totalEmployerCost ?? 0);
+    setPreviewNote(data.note ?? null);
+
+    skipEarningsPreviewRef.current = true;
+    setEarningLines(
+      (data.suggestedEarnings ?? []).map((e) => ({
+        ...newDraftLine("EARNING", e.typeId as "ORDINARY"),
+        typeId: e.typeId,
+        amount: String(e.amount),
+      })),
+    );
+    setDeductionLines(
+      (data.suggestedDeductions ?? []).map((d) => ({
+        ...newDraftLine("DEDUCTION", d.typeId as "AFP"),
+        typeId: d.typeId,
+        amount: String(d.amount),
+      })),
+    );
+    // Fuerza re-sync del plan de pago al nuevo líquido (sin lock manual previo).
+    setPaymentSyncKey((k) => k + 1);
+  }, [date]);
+
   const handleEmployeeChange = (v: string | null) => {
     const id = v != null ? String(v) : null;
     setEmployeeId(id);
+    setError(null);
     if (!id) {
       setEarningLines([]);
+      setDeductionLines([]);
+      setEmployerCosts([]);
+      setEmployerTotal(0);
+      setPreviewNote(null);
       return;
     }
     const employee = employees.find((e) => e.id === id);
     const ordinary = baseSalaryAsInputValue(employee?.baseSalary);
-    setEarningLines([
+    const seed: PayrollSettlementDraftLine[] = [
       {
         ...newDraftLine("EARNING", "ORDINARY"),
         amount: ordinary,
       },
-    ]);
+    ];
+    skipEarningsPreviewRef.current = true;
+    setEarningLines(seed);
+    setDeductionLines([]);
+    void applyPreview(id, seed);
   };
 
   const patchEarningLine = useCallback(
@@ -211,6 +294,19 @@ export function CreateRemunerationDialog({
     },
     [],
   );
+
+  // Recalcular legales cuando cambian haberes o fecha (no cuando el preview los acaba de setear).
+  useEffect(() => {
+    if (!open || !employeeId) return;
+    if (skipEarningsPreviewRef.current) {
+      skipEarningsPreviewRef.current = false;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void applyPreview(employeeId, earningLines);
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [earningLines, employeeId, date, open, applyPreview]);
 
   const handleClose = () => {
     setError(null);
@@ -257,6 +353,7 @@ export function CreateRemunerationDialog({
   const canSubmit =
     !isPending &&
     !referenceLoading &&
+    !previewLoading &&
     employeeId != null &&
     date.trim().length > 0 &&
     totals.earningCount > 0 &&
@@ -364,23 +461,58 @@ export function CreateRemunerationDialog({
           onAddLine={() => setEarningLines((prev) => [...prev, newDraftLine("EARNING")])}
           onRemoveLine={(id) => setEarningLines((prev) => prev.filter((l) => l.id !== id))}
           onPatchLine={patchEarningLine}
-          disabled={!employeeId || isPending}
+          disabled={!employeeId || isPending || previewLoading}
           data-test-id="remuneration-create-earnings"
         />
 
         <PayrollSettlementLinesEditor
-          title="Descuentos"
+          title="Descuentos legales (trabajador)"
           category="DEDUCTION"
           lines={deductionLines}
           onAddLine={() => setDeductionLines((prev) => [...prev, newDraftLine("DEDUCTION")])}
           onRemoveLine={(id) => setDeductionLines((prev) => prev.filter((l) => l.id !== id))}
           onPatchLine={patchDeductionLine}
-          disabled={!employeeId || isPending}
+          disabled={!employeeId || isPending || previewLoading}
           data-test-id="remuneration-create-deductions"
         />
 
+        {employerCosts.length > 0 ? (
+          <div
+            className="flex w-full flex-col gap-2 rounded-lg border border-border p-3"
+            data-test-id="remuneration-employer-costs"
+          >
+            <p className="text-sm font-semibold text-foreground">Aportes del empleador</p>
+            <p className="text-xs text-muted-foreground">
+              No se descuentan del sueldo líquido. Al crear la liquidación se genera el gasto operativo
+              «Cargas sociales» y su cuenta por pagar.
+            </p>
+            <ul className="space-y-1 text-sm">
+              {employerCosts.map((c) => (
+                <li key={c.code} className="flex justify-between gap-2 tabular-nums">
+                  <span className="text-muted-foreground">
+                    {c.label} ({c.ratePercent}%)
+                  </span>
+                  <span className="font-medium text-foreground">{fmtClp(c.amount)}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="flex justify-between border-t border-border pt-2 text-sm font-semibold">
+              <span>Total costo empresa</span>
+              <span className="tabular-nums">{fmtClp(employerTotal)}</span>
+            </p>
+          </div>
+        ) : null}
+
+        {previewNote ? (
+          <p className="text-xs text-muted-foreground">{previewNote}</p>
+        ) : null}
+
         <div className="flex w-full flex-col gap-3" data-test-id="remuneration-create-summary">
           <p className="text-left text-sm font-semibold text-foreground">Resumen de liquidación</p>
+          <p className="text-xs text-muted-foreground">
+            Al crear se generará automáticamente el gasto operativo «Sueldos» (empleado como proveedor) y
+            la cuenta por pagar asociada.
+          </p>
           <table className="w-full min-w-0 table-fixed text-sm">
             <thead>
               <tr className="border-b border-border">
@@ -419,7 +551,8 @@ export function CreateRemunerationDialog({
         </div>
 
         <PlannedPaymentPlanSection
-          disabled={isPending || referenceLoading}
+          key={`payroll-pay-${paymentSyncKey}`}
+          disabled={isPending || referenceLoading || previewLoading}
           total={totals.netPayment}
           immediatePaymentDate={date}
           payeeSelected={Boolean(employeeId)}

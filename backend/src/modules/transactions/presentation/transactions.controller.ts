@@ -24,6 +24,8 @@ import {
 } from '../domain/transaction.entity';
 import { CancelBackorderService } from '../application/cancel-backorder.service';
 import { CancelBackorderDto } from '../application/dto/cancel-backorder.dto';
+import { VoidSaleService } from '../application/void-sale.service';
+import { VoidSaleDto } from '../application/dto/void-sale.dto';
 
 @ApiTags('Transactions')
 @ApiBearerAuth('JWT-auth')
@@ -36,6 +38,7 @@ export class TransactionsController {
     private readonly posSaleReceiptPrint: PosSaleReceiptPrintService,
     private readonly fiscalBoletaEmission: FiscalBoletaEmissionService,
     private readonly cancelBackorderService: CancelBackorderService,
+    private readonly voidSaleService: VoidSaleService,
   ) {}
 
   /**
@@ -258,6 +261,28 @@ export class TransactionsController {
     @CurrentUser() user: CurrentUserPayload,
   ) {
     const result = await this.cancelBackorderService.cancel(
+      companyId,
+      user.id,
+      id,
+      body,
+    );
+    return { success: true, ...result };
+  }
+
+  @Post('sales/:id/void')
+  @ApiOperation({
+    summary: 'Anular venta (SALE) operativa',
+    description:
+      'Anula una venta no fiscal: marca VOIDED, anula cobros hijos, restaura stock y registra VOID_ADJUSTMENT. Bloquea boleta/factura y ventas con devoluciones.',
+  })
+  @ApiParam({ name: 'id', description: 'UUID de la venta' })
+  async voidSale(
+    @Param('id') id: string,
+    @Body() body: VoidSaleDto,
+    @CurrentCompany() companyId: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    const result = await this.voidSaleService.void(
       companyId,
       user.id,
       id,

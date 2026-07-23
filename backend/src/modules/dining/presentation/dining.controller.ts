@@ -300,6 +300,22 @@ export class DiningController {
     );
   }
 
+  @Post('orders/:id/fires/:fireId/ready-for-pickup')
+  async markFireReadyForPickup(
+    @Param('id') id: string,
+    @Param('fireId') fireId: string,
+  ) {
+    return this.diningService.markKitchenFireReadyForPickup(id, fireId);
+  }
+
+  @Post('orders/:id/fires/:fireId/delivered')
+  async markFireDelivered(
+    @Param('id') id: string,
+    @Param('fireId') fireId: string,
+  ) {
+    return this.diningService.markKitchenFireDelivered(id, fireId);
+  }
+
   @Post('orders/:id/items/:lineId/served')
   async markServed(
     @Param('id') id: string,

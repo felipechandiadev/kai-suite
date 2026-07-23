@@ -35,6 +35,7 @@ import { Unit } from '@modules/units/domain/unit.entity';
 import { Category } from '@modules/categories/domain/category.entity';
 import { Brand } from '@modules/brands/domain/brand.entity';
 import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
+import { ProductionUnitEmployee } from '@modules/production-units/domain/production-unit-employee.entity';
 import { DiningRoom } from '@modules/dining/domain/dining-room.entity';
 import { DiningTable } from '@modules/dining/domain/dining-table.entity';
 import { DiningOrder } from '@modules/dining/domain/dining-order.entity';
@@ -43,6 +44,7 @@ import { DiningStationOrder } from '@modules/dining/domain/dining-station-order.
 import { DiningBranchSettings } from '@modules/dining/domain/dining-branch-settings.entity';
 import { DiningOrderSequence } from '@modules/dining/domain/dining-order-sequence.entity';
 import { DiningKitchenFireSequence } from '@modules/dining/domain/dining-kitchen-fire-sequence.entity';
+import { DiningBoardDisplay } from '@modules/dining/domain/dining-board-display.entity';
 import { Supplier } from '@modules/suppliers/domain/supplier.entity';
 import { TreasuryAccount } from '@modules/treasury-accounts/domain/treasury-account.entity';
 import { Storage } from '@modules/storages/domain/storage.entity';
@@ -186,6 +188,8 @@ import { ProductionUnitEmployees1757370000000 } from '../migrations/175737000000
 import { ExpenseCategoryPnlNature1757380000000 } from '../migrations/1757380000000-ExpenseCategoryPnlNature';
 import { ExpenseCategoryNonDeletable1757390000000 } from '../migrations/1757390000000-ExpenseCategoryNonDeletable';
 import { RecurringOeAsTemplates1757400000000 } from '../migrations/1757400000000-RecurringOeAsTemplates';
+import { EmploymentContractGenerationalLaguna1757410000000 } from '../migrations/1757410000000-EmploymentContractGenerationalLaguna';
+import { DiningBoardDisplays1757420000000 } from '../migrations/1757420000000-DiningBoardDisplays';
 import { DiningKitchenFireId1757140000000 } from '../migrations/1757140000000-DiningKitchenFireId';
 import { DiningKitchenFireNumber1757150000000 } from '../migrations/1757150000000-DiningKitchenFireNumber';
 import { ProductionUnitPurpose1757160000000 } from '../migrations/1757160000000-ProductionUnitPurpose';
@@ -298,6 +302,7 @@ export const AppDataSource = new DataSource({
     Category,
     Brand,
     ProductionUnit,
+    ProductionUnitEmployee,
     DiningRoom,
     DiningTable,
     DiningOrder,
@@ -306,6 +311,7 @@ export const AppDataSource = new DataSource({
     DiningBranchSettings,
     DiningOrderSequence,
     DiningKitchenFireSequence,
+    DiningBoardDisplay,
     Supplier,
     TreasuryAccount,
     Storage,
@@ -521,6 +527,8 @@ export const AppDataSource = new DataSource({
     ExpenseCategoryPnlNature1757380000000,
     ExpenseCategoryNonDeletable1757390000000,
     RecurringOeAsTemplates1757400000000,
+    EmploymentContractGenerationalLaguna1757410000000,
+    DiningBoardDisplays1757420000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

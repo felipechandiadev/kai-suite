@@ -17,6 +17,7 @@ import {
   CreateRemunerationDto,
   UpdateRemunerationDto,
 } from '../application/dto/create-remuneration.dto';
+import { PreviewSettlementDto } from '../application/dto/preview-settlement.dto';
 
 @Controller('remunerations')
 export class RemunerationsController {
@@ -28,6 +29,29 @@ export class RemunerationsController {
       success: true,
       data: this.remunerationsService.getPayrollLineTypeOptions(),
     };
+  }
+
+  @Post('preview-settlement')
+  async previewSettlement(@Body() data: PreviewSettlementDto) {
+    try {
+      const result = await this.remunerationsService.previewSettlement({
+        employeeId: data.employeeId,
+        date: data.date,
+        lines: data.lines,
+        includeContractAllowances: data.includeContractAllowances,
+      });
+      return { success: true, data: result };
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+      throw new HttpException(
+        {
+          success: false,
+          message:
+            error instanceof Error ? error.message : 'Internal server error',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   @Get('suggestions')
@@ -158,6 +182,8 @@ export class RemunerationsController {
               scheduledLines: data.settlementPayment.scheduledLines ?? [],
             }
           : undefined,
+        autoCreateOperationalExpenses: data.autoCreateOperationalExpenses,
+        autoSuggestStatutory: data.autoSuggestStatutory,
       });
       return { success: true, data: remuneration };
     } catch (error) {

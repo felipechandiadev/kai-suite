@@ -29,9 +29,12 @@ import {
   abandonEmptyPosDiningOrderAction,
   cancelPosDiningOrderItemAction,
   sendPosDiningOrderToKitchenAction,
+  markPosDiningFireReadyForPickupAction,
+  markPosDiningFireDeliveredAction,
   updatePosDiningOrderLineNotesAction,
 } from "@/features/dining/actions/dining-pos.action";
 import { diningAccountTitle } from "@/features/dining/lib/dining-account-title";
+import { groupDiningFiresForBoard } from "@/features/dining/lib/group-dining-fires-for-board";
 import { printDiningAccountTicketAgentOrBrowser } from "@/features/dining/lib/dining-account-ticket-agent";
 import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
 import { lookupPosVariantsAction } from "@/features/pos-products/actions/pos-products.action";
@@ -548,6 +551,11 @@ export default function PosDiningAccountsPanel({
     [detail],
   );
 
+  const kitchenFires = useMemo(
+    () => groupDiningFiresForBoard(detail?.lines ?? []),
+    [detail],
+  );
+
   const canManageCounter = detail?.kind === "COUNTER" || detail?.kind === "TAKEAWAY";
 
   const isAccountEmpty = useMemo(() => {
@@ -625,6 +633,40 @@ export default function PosDiningAccountsPanel({
     setActionBusy(true);
     setActionError(null);
     void sendPosDiningOrderToKitchenAction(detail.id, lineIds).then((res) => {
+      setActionBusy(false);
+      if (!res.success) {
+        if (redirectToLoginIfUnauthorized(res)) return;
+        setActionError(res.message);
+        return;
+      }
+      setDetail(res.order);
+      upsertOrderInList(res.order);
+      refreshList({ silent: true });
+    });
+  };
+
+  const handleFireReadyForPickup = (fireId: string) => {
+    if (!detail) return;
+    setActionBusy(true);
+    setActionError(null);
+    void markPosDiningFireReadyForPickupAction(detail.id, fireId).then((res) => {
+      setActionBusy(false);
+      if (!res.success) {
+        if (redirectToLoginIfUnauthorized(res)) return;
+        setActionError(res.message);
+        return;
+      }
+      setDetail(res.order);
+      upsertOrderInList(res.order);
+      refreshList({ silent: true });
+    });
+  };
+
+  const handleFireDelivered = (fireId: string) => {
+    if (!detail) return;
+    setActionBusy(true);
+    setActionError(null);
+    void markPosDiningFireDeliveredAction(detail.id, fireId).then((res) => {
       setActionBusy(false);
       if (!res.success) {
         if (redirectToLoginIfUnauthorized(res)) return;
@@ -1378,30 +1420,52 @@ export default function PosDiningAccountsPanel({
           ) : null}
           <div className="flex items-center gap-2">
             {kitchenProgress.total > 0 &&
-            (kitchenProgress.inKitchen > 0 || kitchenProgress.ready > 0) ? (
+            (kitchenFires.preparing.length > 0 || kitchenFires.ready.length > 0) ? (
               <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-                {kitchenProgress.inKitchen > 0 ? (
-                  <span aria-label={`En cocina ${kitchenProgress.inKitchen}`}>
-                    <Badge
-                      variant="primary-outlined"
-                      className="text-[10px]"
-                      data-test-id="pos-dining-badge-in-kitchen"
+                {kitchenFires.preparing.map((fire) => {
+                  const label =
+                    fire.kitchenFireNumber != null
+                      ? `En cocina #${fire.kitchenFireNumber}`
+                      : `En cocina (${fire.lineCount})`;
+                  return (
+                    <button
+                      key={`prep-${fire.fireId}`}
+                      type="button"
+                      disabled={disabled || actionBusy || isBilling}
+                      title="Marcar listo para retirar (Kai Board)"
+                      aria-label={`${label}. Marcar listo para retirar`}
+                      onClick={() => handleFireReadyForPickup(fire.fireId)}
+                      className="rounded-full disabled:cursor-not-allowed disabled:opacity-50"
+                      data-test-id={`pos-dining-badge-in-kitchen-fire-${fire.fireId}`}
                     >
-                      {`En cocina ${kitchenProgress.inKitchen}`}
-                    </Badge>
-                  </span>
-                ) : null}
-                {kitchenProgress.ready > 0 ? (
-                  <span aria-label={`Listos ${kitchenProgress.ready}`}>
-                    <Badge
-                      variant="success-outlined"
-                      className="text-[10px]"
-                      data-test-id="pos-dining-badge-ready"
+                      <Badge variant="primary-outlined" className="text-[10px]">
+                        {label}
+                      </Badge>
+                    </button>
+                  );
+                })}
+                {kitchenFires.ready.map((fire) => {
+                  const label =
+                    fire.kitchenFireNumber != null
+                      ? `Listo #${fire.kitchenFireNumber}`
+                      : `Listos (${fire.lineCount})`;
+                  return (
+                    <button
+                      key={`ready-${fire.fireId}`}
+                      type="button"
+                      disabled={disabled || actionBusy || isBilling}
+                      title="Marcar entregado (quitar de Kai Board)"
+                      aria-label={`${label}. Marcar entregado`}
+                      onClick={() => handleFireDelivered(fire.fireId)}
+                      className="rounded-full disabled:cursor-not-allowed disabled:opacity-50"
+                      data-test-id={`pos-dining-badge-ready-fire-${fire.fireId}`}
                     >
-                      {`Listos ${kitchenProgress.ready}`}
-                    </Badge>
-                  </span>
-                ) : null}
+                      <Badge variant="success-outlined" className="text-[10px]">
+                        {label}
+                      </Badge>
+                    </button>
+                  );
+                })}
               </div>
             ) : (
               <div className="min-w-0 flex-1" />

@@ -1,11 +1,61 @@
+/**
+ * Reescribe loopback solo en Node (server actions): preferir IPv4 estable.
+ * En el browser NO forzar 127.0.0.1 — ver getClientBackendApiBase.
+ */
+export function preferIpv4Loopback(baseUrl: string): string {
+  const trimmed = baseUrl.replace(/\/$/, "");
+  try {
+    const url = new URL(trimmed);
+    const host = url.hostname.toLowerCase();
+    if (host === "localhost" || host === "::1" || host === "[::1]") {
+      url.hostname = "127.0.0.1";
+      return url.origin;
+    }
+  } catch {
+    // URL inválida
+  }
+  return trimmed;
+}
+
+function isLoopbackHost(hostname: string): boolean {
+  const h = hostname.trim().toLowerCase();
+  return h === "localhost" || h === "127.0.0.1" || h === "::1";
+}
+
 export function getServerBackendApiBase(): string {
   const base =
     process.env.BACKEND_API_URL?.trim() ||
     process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim();
 
-  if (base) return base.replace(/\/$/, "");
-  if (process.env.NODE_ENV === "development") return "http://localhost:5030";
+  if (base) return preferIpv4Loopback(base);
+  if (process.env.NODE_ENV === "development") return "http://127.0.0.1:5030";
   throw new Error("BACKEND_API_URL no está definida");
+}
+
+/**
+ * Base del API para el browser (WebSocket / fetch cliente).
+ * Alinea loopback con el hostname de la página (evita localhost↔127.0.0.1).
+ */
+export function getClientBackendApiBase(): string {
+  const raw =
+    process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim() ||
+    process.env.BACKEND_API_URL?.trim() ||
+    (process.env.NODE_ENV === "development" ? "http://localhost:5030" : "");
+  if (!raw) {
+    throw new Error("NEXT_PUBLIC_BACKEND_API_URL no está definida");
+  }
+  let base = raw.replace(/\/$/, "");
+  if (typeof window === "undefined") return preferIpv4Loopback(base);
+  try {
+    const url = new URL(base);
+    if (isLoopbackHost(url.hostname)) {
+      url.hostname = window.location.hostname;
+      base = url.origin;
+    }
+  } catch {
+    // URL inválida
+  }
+  return base;
 }
 
 export type DiningAuthContext = {

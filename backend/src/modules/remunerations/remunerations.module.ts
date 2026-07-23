@@ -17,6 +17,12 @@ import {
   OvertimeGeneratedHandler,
   ShiftExceptionSettledHandler,
 } from './application/handlers/hr-jornada-payroll.handlers';
+import { PayrollStatutoryCalculator } from './application/payroll-statutory.calculator';
+import { PayrollAutoExpenseService } from './application/payroll-auto-expense.service';
+import { OperationalExpensesModule } from '@modules/operational-expenses/operational-expenses.module';
+import { Supplier } from '@modules/suppliers/domain/supplier.entity';
+import { Person } from '@modules/persons/domain/person.entity';
+import { ExpenseCategory } from '@modules/expense-categories/domain/expense-category.entity';
 
 @Module({
   imports: [
@@ -30,12 +36,18 @@ import {
       User,
       Remuneration,
       PayrollLineSuggestion,
+      Supplier,
+      Person,
+      ExpenseCategory,
     ]),
     TransactionsModule,
+    OperationalExpensesModule,
   ],
   controllers: [RemunerationsController],
   providers: [
     RemunerationsService,
+    PayrollStatutoryCalculator,
+    PayrollAutoExpenseService,
     {
       provide: 'RemunerationRepositoryPort',
       useClass: TypeOrmRemunerationRepository,

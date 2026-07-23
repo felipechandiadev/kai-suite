@@ -1,0 +1,150 @@
+.summaryGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 0.9rem;
+}
+
+.field {
+  font-size: 11px;
+  color: #111827;
+}
+
+.label {
+  font-size: 10px;
+  color: #6b7280;
+  margin: 0 0 0.2rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.value {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 700;
+  color: #111827;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.sectionTitle {
+  margin: 0 0 0.35rem 0;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #374151;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5px;
+}
+
+.thead th {
+  text-align: left;
+  padding: 0.3rem 0.45rem;
+  border-bottom: 1px solid rgba(17, 24, 39, 0.22);
+  color: #374151;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tbody td {
+  padding: 0.32rem 0.45rem;
+  border-bottom: 1px solid rgba(17, 24, 39, 0.12);
+  vertical-align: top;
+}
+
+.num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.muted {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.empty {
+  margin: 0.25rem 0;
+  font-size: 9.5px;
+  color: #6b7280;
+}
+
+.totals {
+  margin-top: 0.35rem;
+  border: 1px solid rgba(17, 24, 39, 0.18);
+  border-radius: 6px;
+  padding: 0.45rem 0.6rem;
+  font-size: 10px;
+  color: #111827;
+}
+
+.totalsRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.14rem 0;
+}
+
+.totalsNet {
+  margin-top: 0.2rem;
+  padding-top: 0.28rem;
+  border-top: 1px solid rgba(17, 24, 39, 0.16);
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.employerBlock {
+  margin-top: 0.85rem;
+}
+
+.signatures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-top: 2.25rem;
+  padding-top: 0.5rem;
+}
+
+.signatureBox {
+  text-align: center;
+}
+
+.signatureLine {
+  margin: 2.4rem 0 0.35rem 0;
+  border-top: 1px solid rgba(17, 24, 39, 0.45);
+}
+
+.signatureLabel {
+  margin: 0;
+  font-size: 9px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.footerNote {
+  margin: 1.25rem 0 0 0;
+  font-size: 8.5px;
+  color: #6b7280;
+  line-height: 1.35;
+}
+
+@media print {
+  .columns {
+    break-inside: avoid;
+  }
+}

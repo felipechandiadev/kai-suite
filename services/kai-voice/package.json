@@ -1,0 +1,11 @@
+{
+  "name": "kai-voice",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TTS edge-tts (Catalina) for Kai Board — audio generated server-side",
+  "scripts": {
+    "start": ".venv/bin/python main.py",
+    "start:dev": ".venv/bin/uvicorn main:app --host 0.0.0.0 --port ${PORT:-5041} --reload",
+    "install:py": "python3 -m venv .venv && .venv/bin/pip install -r requirements.txt"
+  }
+}

@@ -66,6 +66,7 @@ npm run env:dev              # regenera .env de cada app (forzado)
 | kai-delivery | 5065   | `kai-delivery.env.local.example`  | `kai-delivery/.env.local`      |
 | kai-waiter   | 5067   | `kai-waiter.env.local.example`    | `kai-waiter/.env.local`        |
 | kai-kds      | 5068   | `kai-kds.env.local.example`       | `kai-kds/.env.local`           |
+| kai-board    | 5069   | `kai-board.env.local.example`     | `kai-board/.env.local`         |
 | landing      | 5066   | —                                 | `landing/` (Astro)             |
 | kai-mail     | 5040   | `kai-mail.env.example`            | `services/kai-mail/.env`       |
 

@@ -46,7 +46,20 @@ function clientBackendBaseUrl(): string | null {
     process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim() ||
     process.env.BACKEND_API_URL?.trim();
   if (!raw) return null;
-  return raw.replace(/\/$/, "");
+  try {
+    const url = new URL(raw.replace(/\/$/, ""));
+    if (typeof window !== "undefined") {
+      const host = url.hostname.toLowerCase();
+      const loopback =
+        host === "localhost" || host === "127.0.0.1" || host === "::1";
+      if (loopback) {
+        url.hostname = window.location.hostname;
+      }
+    }
+    return url.origin;
+  } catch {
+    return raw.replace(/\/$/, "");
+  }
 }
 
 function wsPayloadToRow(payload: NotificationDeliveryWsPayload): NotificationRow | null {
@@ -121,7 +134,7 @@ export function NotificationsRealtimeProvider({ children }: { children: React.Re
     if (!base || !token) return;
 
     const socket = io(`${base}/realtime/notifications`, {
-      transports: ["websocket"],
+      transports: ["polling", "websocket"],
       auth: {
         userId: token,
         activeCompanyId,

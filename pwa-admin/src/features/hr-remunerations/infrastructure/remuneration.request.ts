@@ -50,6 +50,22 @@ export class RemunerationRequest {
     return json.data as RemunerationGridRow[];
   }
 
+  static async getById(id: string): Promise<RemunerationGridRow | null> {
+    const headers = await authHeaders();
+    const res = await fetch(apiUrl(`remunerations/${encodeURIComponent(id)}`), {
+      method: "GET",
+      headers,
+      cache: "no-store",
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      throw new Error(`No se pudo cargar la liquidación (HTTP ${res.status})`);
+    }
+    const json = (await res.json()) as { success?: boolean; data?: RemunerationGridRow };
+    if (!json.success || !json.data) return null;
+    return json.data;
+  }
+
   static async listSuggestions(opts: {
     employeeId?: string;
     periodStart?: string;
@@ -90,6 +106,89 @@ export class RemunerationRequest {
     }>;
   }
 
+  static async previewSettlement(payload: {
+    employeeId: string;
+    date?: string;
+    lines?: Array<{ typeId: string; amount: number }>;
+    includeContractAllowances?: boolean;
+  }): Promise<{
+    suggestedEarnings: Array<{ typeId: string; amount: number }>;
+    suggestedDeductions: Array<{ typeId: string; amount: number; label?: string }>;
+    employerCosts: Array<{
+      code: string;
+      label: string;
+      ratePercent: number;
+      base: number;
+      amount: number;
+    }>;
+    totals: {
+      totalImponible: number;
+      totalNoImponible: number;
+      totalEarnings: number;
+      totalDeductions: number;
+      totalEmployerCost: number;
+      netPayment: number;
+      taxableBase: number;
+    };
+    note?: string;
+  }> {
+    const headers = await authHeaders();
+    const res = await fetch(apiUrl("remunerations/preview-settlement"), {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    });
+    const json = (await res.json().catch(() => ({}))) as {
+      success?: boolean;
+      message?: string;
+      data?: {
+        suggestedEarnings?: Array<{ typeId: string; amount: number }>;
+        suggestedDeductions?: Array<{ typeId: string; amount: number; label?: string }>;
+        employerCosts?: Array<{
+          code: string;
+          label: string;
+          ratePercent: number;
+          base: number;
+          amount: number;
+        }>;
+        totals?: {
+          totalImponible: number;
+          totalNoImponible: number;
+          totalEarnings: number;
+          totalDeductions: number;
+          totalEmployerCost: number;
+          netPayment: number;
+          taxableBase: number;
+        };
+        note?: string;
+      };
+    };
+    if (!res.ok) {
+      throw new Error(
+        json.message || `No se pudo previsualizar la liquidación (HTTP ${res.status})`,
+      );
+    }
+    if (!json.success || !json.data) {
+      throw new Error(json.message || "Respuesta inválida al previsualizar liquidación.");
+    }
+    return {
+      suggestedEarnings: json.data.suggestedEarnings ?? [],
+      suggestedDeductions: json.data.suggestedDeductions ?? [],
+      employerCosts: json.data.employerCosts ?? [],
+      totals: json.data.totals ?? {
+        totalImponible: 0,
+        totalNoImponible: 0,
+        totalEarnings: 0,
+        totalDeductions: 0,
+        totalEmployerCost: 0,
+        netPayment: 0,
+        taxableBase: 0,
+      },
+      note: json.data.note,
+    };
+  }
+
   static async create(payload: {
     employeeId: string;
     date: string;
@@ -97,7 +196,9 @@ export class RemunerationRequest {
     lines: Array<{ typeId: string; amount: number }>;
     plannedPayments?: Array<{ dueDate: string; amount: number }>;
     settlementPayment?: PayrollSettlementPaymentPayload;
-  }): Promise<{ success: true; id: string } | { success: false; error: string }> {
+    autoCreateOperationalExpenses?: boolean;
+    autoSuggestStatutory?: boolean;
+  }): Promise<{ success: true; id: string; documentNumber?: string | null } | { success: false; error: string }> {
     const headers = await authHeaders();
     const res = await fetch(apiUrl("remunerations"), {
       method: "POST",
@@ -113,6 +214,8 @@ export class RemunerationRequest {
           paidLines: [],
           scheduledLines: [],
         },
+        autoCreateOperationalExpenses: payload.autoCreateOperationalExpenses ?? true,
+        autoSuggestStatutory: payload.autoSuggestStatutory ?? true,
       }),
       cache: "no-store",
     });

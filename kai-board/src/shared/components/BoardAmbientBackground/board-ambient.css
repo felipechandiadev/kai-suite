@@ -1,0 +1,52 @@
+.board-ambient-blob {
+  position: absolute;
+  height: 20rem;
+  width: 20rem;
+  border-radius: 9999px;
+  filter: blur(110px);
+  opacity: 0.22;
+}
+
+.board-ambient-blob--accent {
+  top: -6rem;
+  left: -2.5rem;
+  background-color: color-mix(in srgb, #0f766e 55%, transparent);
+}
+
+.board-ambient-blob--secondary {
+  top: -3rem;
+  right: -2.5rem;
+  background-color: color-mix(in srgb, #0891b2 50%, transparent);
+}
+
+.board-ambient-blob--soft {
+  bottom: -5rem;
+  left: 25%;
+  background-color: color-mix(in srgb, #1e3a5f 60%, transparent);
+}
+
+.board-ambient-blob--primary-mid {
+  top: 42%;
+  right: 15%;
+  height: 18rem;
+  width: 18rem;
+  opacity: 0.16;
+  background-color: color-mix(in srgb, #0369a1 50%, transparent);
+}
+
+.board-ambient-blob--accent-low {
+  top: 68%;
+  left: -3rem;
+  height: 22rem;
+  width: 22rem;
+  background-color: color-mix(in srgb, #115e59 55%, transparent);
+}
+
+.board-ambient-blob--success {
+  bottom: 8%;
+  right: -4rem;
+  height: 16rem;
+  width: 16rem;
+  opacity: 0.14;
+  background-color: color-mix(in srgb, #047857 45%, transparent);
+}

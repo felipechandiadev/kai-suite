@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { DataGridTable as DataGrid } from "@kai/ui";
 import type { DataGridColumn } from "@kai/ui";
 import { Badge, type BadgeVariant } from "@kai/ui";
+import { IconButton } from "@kai/ui";
 import { getTransactionStatusLabel } from "@/features/transactions/types/transaction-types";
 import type { RemunerationGridRow } from "@/features/hr-remunerations/types/remuneration.types";
 import type { EmployeeGridRow } from "@/features/hr-employees/types/employee.types";
 import { CreateRemunerationDialog } from "./CreateRemunerationDialog";
+import { PayrollSettlementPrintDialog } from "./PayrollSettlementPrintDialog";
 
 type RemunerationsDataGridProps = {
   rows: RemunerationGridRow[];
@@ -58,13 +60,38 @@ export default function RemunerationsDataGrid({
 }: RemunerationsDataGridProps) {
   const router = useRouter();
   const [createOpen, setCreateOpen] = useState(false);
+  const [printId, setPrintId] = useState<string | null>(null);
 
   const onSuccess = useCallback(async () => {
     await router.refresh();
   }, [router]);
 
-  const columns: DataGridColumn[] = useMemo(
-    () => [
+  const openPrint = useCallback((row: RemunerationGridRow) => {
+    setPrintId(row.id);
+  }, []);
+
+  const columns: DataGridColumn[] = useMemo(() => {
+    function RemunerationPrintActionsCell({ row }: { row: any; column: DataGridColumn }) {
+      const r = row as RemunerationGridRow;
+      return (
+        <div
+          className="flex items-center justify-center gap-1"
+          data-test-id={`remuneration-row-actions-${r.id}`}
+        >
+          <IconButton
+            icon="Printer"
+            variant="action"
+            size="sm"
+            ariaLabel="Vista previa e impresión de liquidación"
+            title="Imprimir liquidación"
+            onClick={() => openPrint(r)}
+            data-test-id={`remuneration-row-print-${r.id}`}
+          />
+        </div>
+      );
+    }
+
+    return [
       {
         field: "documentNumber",
         headerName: "Folio",
@@ -121,15 +148,27 @@ export default function RemunerationsDataGrid({
           const key = String(value || "");
           const label = getTransactionStatusLabel(key);
           return (
-            <Badge variant={statusBadgeVariant(key)} size="sm" data-test-id={`remuneration-status-${(row as RemunerationGridRow).id}`}>
+            <Badge
+              variant={statusBadgeVariant(key)}
+              size="sm"
+              data-test-id={`remuneration-status-${(row as RemunerationGridRow).id}`}
+            >
               {label}
             </Badge>
           );
         },
       },
-    ],
-    [],
-  );
+      {
+        field: "actions",
+        headerName: "",
+        width: 72,
+        minWidth: 72,
+        align: "center",
+        sortable: false,
+        actionComponent: RemunerationPrintActionsCell,
+      },
+    ];
+  }, [openPrint]);
 
   return (
     <>
@@ -144,6 +183,7 @@ export default function RemunerationsDataGrid({
         showSortButton={false}
         showFilterButton={false}
         showSearch={false}
+        pinActionsColumn
         onAddClick={() => setCreateOpen(true)}
         data-test-id="remunerations-data-grid"
       />
@@ -152,6 +192,11 @@ export default function RemunerationsDataGrid({
         onClose={() => setCreateOpen(false)}
         onSuccess={onSuccess}
         employees={employees}
+      />
+      <PayrollSettlementPrintDialog
+        open={printId != null}
+        remunerationId={printId}
+        onClose={() => setPrintId(null)}
       />
     </>
   );

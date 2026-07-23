@@ -27,6 +27,14 @@ export function kitchenUnitRoom(params: {
   return `company:${params.companyId}:unit:${params.unitId}`;
 }
 
+/** Room público Kai Board por sucursal (auth por display token). */
+export function boardBranchRoom(params: {
+  companyId: string;
+  branchId: string;
+}): string {
+  return `company:${params.companyId}:branch:${params.branchId}:board`;
+}
+
 export type DiningSessionLinePayload = {
   id: string;
   productVariantId: string;

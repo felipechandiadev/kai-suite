@@ -1,0 +1,20 @@
+{
+  "name": "Kai Board",
+  "short_name": "Kai Board",
+  "description": "Monitor de estado de pedidos KaiFood",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#070b12",
+  "theme_color": "#070b12",
+  "lang": "es-CL",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

@@ -110,6 +110,19 @@ export class EmploymentContract {
   @Column({ type: 'varchar', length: 150, nullable: true })
   mutualName?: string | null;
 
+  /**
+   * Fondo generacional (Ley 21.735) — cohorte de inversión.
+   * Persistido en v1; cálculo avanzado en fases siguientes.
+   */
+  @Column({ name: 'generational_fund', type: 'varchar', length: 64, nullable: true })
+  generationalFund?: string | null;
+
+  /**
+   * Si true, la cotización obligatoria está cubierta por Seguro de Cesantía (lagunas).
+   */
+  @Column({ name: 'laguna_insurance_covered', type: 'boolean', nullable: true })
+  lagunaInsuranceCovered?: boolean | null;
+
   @Column({ type: 'uuid', nullable: true })
   shiftSystemId?: string | null;
 

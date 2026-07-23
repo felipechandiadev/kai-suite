@@ -7,6 +7,8 @@ import {
   PayrollLineCategory,
   type PayrollLineTypeId,
 } from '../domain/payroll-line-type.enum';
+import { isPayrollEarningImponible } from '../domain/payroll-imponible';
+import type { PayrollEmployerCost } from '../domain/payroll-imponible';
 
 export interface PayrollLineInput {
   typeId: string;
@@ -17,6 +19,7 @@ export interface NormalizedPayrollLine {
   typeId: PayrollLineTypeId;
   amount: number;
   category: PayrollLineCategory;
+  imponible?: boolean;
 }
 
 const EARNING_TYPE_IDS = new Set<string>(Object.values(PayrollEarningTypeId));
@@ -59,13 +62,18 @@ export function getPayrollLineTypeLabel(typeId: string): string {
   return typeId;
 }
 
-export function calculatePayrollTotals(lines: PayrollLineInput[]) {
+export function calculatePayrollTotals(
+  lines: PayrollLineInput[],
+  opts?: { employerCosts?: PayrollEmployerCost[] },
+) {
   if (!Array.isArray(lines) || lines.length === 0) {
     throw new BadRequestException('La liquidación debe incluir al menos una línea');
   }
 
   let totalEarnings = 0;
   let totalDeductions = 0;
+  let totalImponible = 0;
+  let totalNoImponible = 0;
   let earningCount = 0;
 
   const normalizedLines: NormalizedPayrollLine[] = lines.map((line, index) => {
@@ -78,14 +86,18 @@ export function calculatePayrollTotals(lines: PayrollLineInput[]) {
     }
 
     const category = getPayrollLineCategory(typeId);
+    let imponible: boolean | undefined;
     if (category === PayrollLineCategory.DEDUCTION) {
       totalDeductions += amount;
     } else {
       totalEarnings += amount;
       earningCount += 1;
+      imponible = isPayrollEarningImponible(typeId);
+      if (imponible) totalImponible += amount;
+      else totalNoImponible += amount;
     }
 
-    return { typeId, amount, category };
+    return { typeId, amount, category, imponible };
   });
 
   if (earningCount === 0) {
@@ -99,11 +111,21 @@ export function calculatePayrollTotals(lines: PayrollLineInput[]) {
     );
   }
 
+  const employerCosts = opts?.employerCosts ?? [];
+  const totalEmployerCost = employerCosts.reduce(
+    (s, c) => s + Math.round(c.amount || 0),
+    0,
+  );
+
   return {
     totalEarnings,
     totalDeductions,
+    totalImponible,
+    totalNoImponible,
+    totalEmployerCost,
     netPayment,
     normalizedLines,
+    employerCosts,
   };
 }
 
@@ -112,6 +134,7 @@ export function listPayrollLineTypeOptions() {
     id,
     label: PAYROLL_LINE_TYPE_LABELS[id],
     category: PayrollLineCategory.EARNING,
+    imponible: isPayrollEarningImponible(id),
   }));
   const deductions = Object.values(PayrollDeductionTypeId).map((id) => ({
     id,

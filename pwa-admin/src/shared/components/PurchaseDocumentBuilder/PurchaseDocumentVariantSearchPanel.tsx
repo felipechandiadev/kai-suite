@@ -18,6 +18,11 @@ function formatPurchaseAvailableQty(n: number): string {
   }
   return n.toLocaleString("es-CL", { maximumFractionDigits: 2 });
 }
+import {
+  formatMoney,
+  InlineSepDot,
+  ProductNameWithAttributes,
+} from "./PurchaseDocumentProductPreview";
 import { PurchaseVariantPurchaseInsightsDialog } from "./PurchaseVariantPurchaseInsightsDialog";
 import {
   clampPurchaseDocVariantSearchPageSize,

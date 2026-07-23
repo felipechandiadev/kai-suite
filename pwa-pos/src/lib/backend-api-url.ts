@@ -26,6 +26,7 @@ function isLoopbackHost(hostname: string): boolean {
 /**
  * En tablet/LAN la PWA suele abrirse por IP (192.168.x.x) pero el .env trae localhost.
  * Reescribe solo en el navegador para que fetch/WS apunten al mismo host que la página.
+ * En loopback, usa el hostname de la página (localhost o 127.0.0.1) — no cruces entre ambos.
  */
 export function resolveClientBackendApiBase(configured: string): string {
   let base = configured.replace(/\/$/, "");
@@ -33,7 +34,7 @@ export function resolveClientBackendApiBase(configured: string): string {
   try {
     const url = new URL(base);
     const pageHost = window.location.hostname;
-    if (isLoopbackHost(url.hostname) && !isLoopbackHost(pageHost)) {
+    if (isLoopbackHost(url.hostname)) {
       url.hostname = pageHost;
       base = url.origin;
     }

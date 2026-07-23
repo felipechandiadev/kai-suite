@@ -41,6 +41,9 @@ type DraftCell = {
   workDate: string;
   startTime: string;
   endTime: string;
+  /** Fixed shift band for coverage mural (unchanged by jornada resize). */
+  shiftBandStartTime?: string | null;
+  shiftBandEndTime?: string | null;
   plannedOvertimeMinutes: number;
   isNight: boolean;
   isNightOutgoing: boolean;
@@ -68,6 +71,8 @@ function planToDrafts(plan: WeekPlanView): DraftCell[] {
         workDate: inst.workDate,
         startTime: inst.startTime,
         endTime: inst.endTime,
+        shiftBandStartTime: inst.startTime,
+        shiftBandEndTime: inst.endTime,
         plannedOvertimeMinutes: a.plannedOvertimeMinutes,
         isNight: inst.isNight,
         isNightOutgoing: inst.isNightOutgoing,
@@ -214,6 +219,8 @@ export function JornadaPlannerWorkspace({
             workDate: a.workDate,
             startTime: a.startTime,
             endTime: a.endTime,
+            shiftBandStartTime: a.startTime,
+            shiftBandEndTime: a.endTime,
             plannedOvertimeMinutes: a.plannedOvertimeMinutes ?? 0,
             isNight: a.isNight ?? false,
             isNightOutgoing: a.isNightOutgoing ?? false,
@@ -415,11 +422,30 @@ export function JornadaPlannerWorkspace({
       {laborUnitId && viewMode === "coverage" ? (
         <JornadaCoverageMural
           days={days}
-          drafts={drafts}
+          drafts={drafts.map((d) => ({
+            employeeId: d.employeeId,
+            workDate: d.workDate,
+            startTime: d.startTime,
+            endTime: d.endTime,
+            shiftBandStartTime: d.shiftBandStartTime ?? d.startTime,
+            shiftBandEndTime: d.shiftBandEndTime ?? d.endTime,
+            laborUnitShiftId: d.laborUnitShiftId,
+            laborUnitShiftName: d.laborUnitShiftName,
+            employeeDisplayName: d.employeeDisplayName,
+          }))}
           employees={employees}
           holidaySet={holidaySet}
           expandedDay={expandedDay}
           onExpandDay={setExpandedDay}
+          onUpdateAssignment={({ employeeId, workDate, startTime, endTime }) => {
+            setDrafts((prev) =>
+              prev.map((d) =>
+                d.employeeId === employeeId && d.workDate === workDate
+                  ? { ...d, startTime, endTime }
+                  : d,
+              ),
+            );
+          }}
         />
       ) : null}
 
@@ -477,6 +503,8 @@ export function JornadaPlannerWorkspace({
                               workDate: d,
                               startTime: "09:00",
                               endTime: "18:00",
+                              shiftBandStartTime: "09:00",
+                              shiftBandEndTime: "18:00",
                               plannedOvertimeMinutes: 0,
                               isNight: false,
                               isNightOutgoing: false,

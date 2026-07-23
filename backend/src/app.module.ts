@@ -77,6 +77,7 @@ import { FiscalModule } from './modules/fiscal/fiscal.module';
 import { PosSyncModule } from './modules/pos-sync/pos-sync.module';
 import { ProductModeModule } from './shared/product-mode/product-mode.module';
 import { DiningModule } from './modules/dining/dining.module';
+import { LiraModule } from './modules/lira/lira.module';
 import { HrJornadaModule } from './modules/hr-jornada/hr-jornada.module';
 import { HrLaborUnitsModule } from './modules/hr-labor-units/hr-labor-units.module';
 import { ProductionUnitsModule } from './modules/production-units/production-units.module';
@@ -143,6 +144,7 @@ import { ProductionUnitsModule } from './modules/production-units/production-uni
     BrandsModule,
     ProductionUnitsModule,
     DiningModule,
+    LiraModule,
     HrJornadaModule,
     HrLaborUnitsModule,
     ResultCentersModule,
@@ -169,6 +171,7 @@ import { ProductionUnitsModule } from './modules/production-units/production-uni
     InstallmentsModule,
     // analytics dashboard module
     require('./modules/analytics/analytics.module').AnalyticsModule,
+    require('./modules/signals/signals.module').SignalsModule,
     require('./modules/sales-reports/sales-reports.module').SalesReportsModule,
     require('./modules/purchasing-reports/purchasing-reports.module').PurchasingReportsModule,
     require('./modules/inventory-reports/inventory-reports.module').InventoryReportsModule,

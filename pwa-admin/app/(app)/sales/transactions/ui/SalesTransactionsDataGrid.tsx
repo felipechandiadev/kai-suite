@@ -9,6 +9,7 @@ import { Badge, type BadgeVariant } from "@kai/ui";
 import { IconButton } from "@kai/ui";
 import { DeleteDialog } from "@kai/ui";
 import { cancelBackorderAction } from "@/features/sales-transactions/actions/cancel-backorder.action";
+import { voidSaleAction } from "@/features/sales-transactions/actions/void-sale.action";
 import { backorderRefundableAmount } from "@/features/sales-transactions/lib/backorder-refundable-amount";
 import {
   SALES_PAYMENT_METHOD_LABEL,
@@ -31,10 +32,12 @@ import {
 } from "@/features/sales-transactions/lib/credit-note-usage-status";
 import {
   formatSaleDocumentFolio,
+  isFiscalSaleDocumentType,
   saleDocumentTypeBadgeVariant,
   saleDocumentTypeLabel,
 } from "@/features/sales-transactions/lib/sale-document-type";
 import SaleTransactionDetailDialog from "./SaleTransactionDetailDialog";
+import VoidSaleDialog from "./VoidSaleDialog";
 
 type SalesTransactionsDataGridProps = {
   rows: SalesTransactionListRow[];
@@ -125,6 +128,11 @@ export default function SalesTransactionsDataGrid({
   );
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [isCancelPending, startCancelTransition] = useTransition();
+  const [voidTarget, setVoidTarget] = useState<SalesTransactionListRow | null>(
+    null,
+  );
+  const [voidError, setVoidError] = useState<string | null>(null);
+  const [isVoidPending, startVoidTransition] = useTransition();
 
   const openDetail = useCallback((r: SalesTransactionListRow) => {
     setDetailTxId(r.id);
@@ -135,6 +143,11 @@ export default function SalesTransactionsDataGrid({
     setCancelTarget(r);
   }, []);
 
+  const openVoidDialog = useCallback((r: SalesTransactionListRow) => {
+    setVoidError(null);
+    setVoidTarget(r);
+  }, []);
+
   const columns: DataGridColumn[] = useMemo(() => {
     function SalesTransactionActionsCell({ row }: { row: any; column: DataGridColumn }) {
       const r = row as SalesTransactionListRow;
@@ -143,6 +156,15 @@ export default function SalesTransactionsDataGrid({
       );
       const canCancelBackorder =
         variant === "backorder" && reservationStatus === "OPEN";
+      const statusUpper = r.status?.trim?.().toUpperCase?.() ?? "";
+      const typeUpper = r.transactionType?.trim?.().toUpperCase?.() ?? "";
+      const canVoidSale =
+        variant !== "backorder" &&
+        mode === "default" &&
+        typeUpper === "SALE" &&
+        statusUpper !== "VOIDED" &&
+        statusUpper !== "CANCELLED" &&
+        !isFiscalSaleDocumentType(r.documentType);
 
       return (
         <div
@@ -165,6 +187,16 @@ export default function SalesTransactionsDataGrid({
               ariaLabel="Anular encargo"
               onClick={() => openCancelDialog(r)}
               data-test-id={`sales-transactions-row-cancel-backorder-${r.id}`}
+            />
+          ) : null}
+          {canVoidSale ? (
+            <IconButton
+              icon="Ban"
+              variant="action"
+              size="sm"
+              ariaLabel="Anular venta"
+              onClick={() => openVoidDialog(r)}
+              data-test-id={`sales-transactions-row-void-sale-${r.id}`}
             />
           ) : null}
         </div>
@@ -458,15 +490,15 @@ export default function SalesTransactionsDataGrid({
       {
         field: "actions",
         headerName: "",
-        width: variant === "backorder" ? 104 : 72,
-        minWidth: variant === "backorder" ? 104 : 72,
+        width: variant === "backorder" || mode === "default" ? 104 : 72,
+        minWidth: variant === "backorder" || mode === "default" ? 104 : 72,
         align: "center",
         sortable: false,
         filterable: false,
         actionComponent: SalesTransactionActionsCell,
       },
     ];
-  }, [openCancelDialog, openDetail, variant]);
+  }, [mode, openCancelDialog, openDetail, openVoidDialog, variant]);
 
   const cancelRefundAmount =
     cancelTarget != null ? backorderRefundableAmount(cancelTarget) : 0;
@@ -565,6 +597,39 @@ export default function SalesTransactionsDataGrid({
             });
           }}
           data-test-id="backorder-cancel-dialog"
+        />
+      ) : null}
+      {variant !== "backorder" && mode === "default" ? (
+        <VoidSaleDialog
+          open={voidTarget != null}
+          onClose={() => {
+            if (!isVoidPending) {
+              setVoidTarget(null);
+              setVoidError(null);
+            }
+          }}
+          documentLabel={
+            voidTarget?.documentNumber?.trim() || voidTarget?.id || ""
+          }
+          customerLabel={voidTarget?.counterpartyLabel}
+          errors={voidError ? [voidError] : []}
+          isSubmitting={isVoidPending}
+          onConfirm={(reason) => {
+            if (!voidTarget) return;
+            setVoidError(null);
+            startVoidTransition(() => {
+              void (async () => {
+                const r = await voidSaleAction(voidTarget.id, reason);
+                if (r.success) {
+                  setVoidTarget(null);
+                  router.refresh();
+                } else {
+                  setVoidError(r.error);
+                }
+              })();
+            });
+          }}
+          data-test-id="void-sale-dialog"
         />
       ) : null}
     </>

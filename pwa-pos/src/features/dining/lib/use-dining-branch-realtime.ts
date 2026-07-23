@@ -126,7 +126,7 @@ export function useDiningBranchRealtime(
     setConnected(false);
 
     const socket: Socket = io(`${base}/realtime/dining`, {
-      transports: ["websocket"],
+      transports: ["polling", "websocket"],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 8000,

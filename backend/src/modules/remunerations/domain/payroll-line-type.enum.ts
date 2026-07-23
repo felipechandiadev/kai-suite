@@ -29,6 +29,8 @@ export enum PayrollEarningTypeId {
 /** Tipos de línea de liquidación de sueldo (descuentos). */
 export enum PayrollDeductionTypeId {
   AFP = 'AFP',
+  /** Comisión AFP (sobre imponible; distinta del 10% obligatorio). */
+  AFP_COMMISSION = 'AFP_COMMISSION',
   HEALTH_INSURANCE = 'HEALTH_INSURANCE',
   INCOME_TAX = 'INCOME_TAX',
   UNEMPLOYMENT_INSURANCE = 'UNEMPLOYMENT_INSURANCE',
@@ -76,7 +78,8 @@ export const PAYROLL_LINE_TYPE_LABELS: Record<string, string> = {
   [PayrollEarningTypeId.HOLIDAY]: 'Pago por trabajo en festivo',
   [PayrollEarningTypeId.NIGHT_SHIFT]: 'Pago por trabajo nocturno',
   [PayrollEarningTypeId.EXCEPTIONAL]: 'Pago excepcional o extraordinario',
-  [PayrollDeductionTypeId.AFP]: 'AFP (Pensión)',
+  [PayrollDeductionTypeId.AFP]: 'AFP (10% obligatorio)',
+  [PayrollDeductionTypeId.AFP_COMMISSION]: 'Comisión AFP',
   [PayrollDeductionTypeId.HEALTH_INSURANCE]: 'Seguro de Salud',
   [PayrollDeductionTypeId.INCOME_TAX]: 'Impuesto a la Renta',
   [PayrollDeductionTypeId.UNEMPLOYMENT_INSURANCE]: 'Seguro de Cesantía',

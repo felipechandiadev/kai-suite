@@ -37,6 +37,96 @@ function sumLineAmounts(lines: PayrollSettlementPaymentLineInput[]): number {
   return lines.reduce((s, l) => s + roundClp(l.amount), 0);
 }
 
+/** Reparte un total CLP en N partes casi iguales (resto en la última). */
+export function distributeClpAcross(total: number, count: number): number[] {
+  const n = Math.max(0, Math.floor(count));
+  if (n <= 0) return [];
+  const t = roundClp(total);
+  const base = Math.floor(t / n);
+  const parts = Array.from({ length: n }, () => base);
+  const rem = t - base * n;
+  if (rem > 0 && parts.length > 0) {
+    parts[parts.length - 1] += rem;
+  }
+  return parts;
+}
+
+/**
+ * Cuando el líquido cambia (p.ej. tras auto-sugerir descuentos legales),
+ * reajusta montos de cuotas/abonos para igualar el nuevo neto sin alterar fechas/medios.
+ */
+export function alignSettlementPaymentToNet(
+  payment: PayrollSettlementPaymentInput,
+  netPayment: number,
+): PayrollSettlementPaymentInput {
+  const net = roundClp(netPayment);
+  const eps = 2;
+  const mode = payment.mode;
+
+  if (mode === 'PENDING') {
+    return { mode: 'PENDING', paidLines: [], scheduledLines: [] };
+  }
+
+  if (mode === 'PENDING_SCHEDULED') {
+    const sched = payment.scheduledLines ?? [];
+    if (!sched.length) return payment;
+    if (Math.abs(sumLineAmounts(sched) - net) <= eps) return payment;
+    const parts = distributeClpAcross(net, sched.length);
+    return {
+      ...payment,
+      paidLines: [],
+      scheduledLines: sched.map((line, i) => ({
+        ...line,
+        amount: parts[i] ?? 0,
+      })),
+    };
+  }
+
+  if (mode === 'COMPLETED') {
+    const paid = payment.paidLines ?? [];
+    if (!paid.length) return payment;
+    if (Math.abs(sumLineAmounts(paid) - net) <= eps) return payment;
+    const parts = distributeClpAcross(net, paid.length);
+    return {
+      ...payment,
+      paidLines: paid.map((line, i) => ({
+        ...line,
+        amount: parts[i] ?? 0,
+      })),
+      scheduledLines: [],
+    };
+  }
+
+  if (mode === 'PARTIAL') {
+    const paid = payment.paidLines ?? [];
+    const sched = payment.scheduledLines ?? [];
+    const part = roundClp(payment.partialPaidAmount ?? sumLineAmounts(paid));
+    if (part <= 0 || part >= net) {
+      // No se puede alinear de forma segura; deja que la validación falle.
+      return payment;
+    }
+    const remainder = net - part;
+    let nextPaid = paid;
+    if (paid.length > 0 && Math.abs(sumLineAmounts(paid) - part) > eps) {
+      const parts = distributeClpAcross(part, paid.length);
+      nextPaid = paid.map((line, i) => ({ ...line, amount: parts[i] ?? 0 }));
+    }
+    let nextSched = sched;
+    if (sched.length > 0 && Math.abs(sumLineAmounts(sched) - remainder) > eps) {
+      const parts = distributeClpAcross(remainder, sched.length);
+      nextSched = sched.map((line, i) => ({ ...line, amount: parts[i] ?? 0 }));
+    }
+    return {
+      ...payment,
+      partialPaidAmount: part,
+      paidLines: nextPaid,
+      scheduledLines: nextSched,
+    };
+  }
+
+  return payment;
+}
+
 function validatePaymentLine(
   line: PayrollSettlementPaymentLineInput,
   label: string,

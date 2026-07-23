@@ -78,6 +78,8 @@ import { StockLevelsModule } from '@modules/stock-levels/stock-levels.module';
 import { CancelBackorderService } from './application/cancel-backorder.service';
 import { BackorderRegistrationService } from './application/backorder-registration.service';
 import { EshopBackorderSyncService } from './application/eshop-backorder-sync.service';
+import { VoidSaleService } from './application/void-sale.service';
+import { Installment } from '@modules/installments/domain/installment.entity';
 
 @Module({
   imports: [
@@ -98,6 +100,7 @@ import { EshopBackorderSyncService } from './application/eshop-backorder-sync.se
       Tax,
       OperationalExpense,
       CashHub,
+      Installment,
     ]),
     LedgerEntriesModule,
     AccountingPeriodsModule,
@@ -126,6 +129,7 @@ import { EshopBackorderSyncService } from './application/eshop-backorder-sync.se
     PosBackorderLookupService,
     PosSaleReceiptPrintService,
     CancelBackorderService,
+    VoidSaleService,
     BackorderRegistrationService,
     EshopBackorderSyncService,
     SupplierFiscalDocumentPaymentAggregateService,

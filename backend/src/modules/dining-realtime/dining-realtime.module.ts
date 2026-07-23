@@ -8,7 +8,9 @@ import { ProductionUnit } from '@modules/production-units/domain/production-unit
 import { DiningModule } from '@modules/dining/dining.module';
 import { DiningRealtimePublisher } from './dining-realtime.publisher';
 import { DiningRealtimeGateway } from './dining-realtime.gateway';
+import { DiningBoardRealtimeGateway } from './dining-board-realtime.gateway';
 import { WsDiningTenantService } from './ws-dining-tenant.service';
+import { DiningBoardDisplay } from '@modules/dining/domain/dining-board-display.entity';
 
 @Module({
   imports: [
@@ -18,6 +20,7 @@ import { WsDiningTenantService } from './ws-dining-tenant.service';
       Branch,
       DiningRoom,
       ProductionUnit,
+      DiningBoardDisplay,
     ]),
     forwardRef(() => DiningModule),
   ],
@@ -25,6 +28,7 @@ import { WsDiningTenantService } from './ws-dining-tenant.service';
     WsDiningTenantService,
     DiningRealtimePublisher,
     DiningRealtimeGateway,
+    DiningBoardRealtimeGateway,
   ],
   exports: [DiningRealtimePublisher, WsDiningTenantService],
 })

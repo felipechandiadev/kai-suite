@@ -43,6 +43,7 @@ export const uiComponentItems: SideBarMenuItem[] = [
  */
 export const mainMenuItems: SideBarMenuItem[] = [
   { id: 'nav-dashboard', label: 'Panel', url: '/dashboard' },
+  { id: 'nav-signals', label: 'Señales', url: '/senales' },
   {
     id: 'nav-sales',
     label: 'Ventas',

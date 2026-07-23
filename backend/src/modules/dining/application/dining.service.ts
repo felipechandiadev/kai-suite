@@ -62,6 +62,7 @@ import { DiningBackflushService } from './dining-backflush.service';
 import { DiningMaterialReservationService } from './dining-material-reservation.service';
 import { DiningOrderNumberService } from './dining-order-number.service';
 import { DiningReadyNotificationService } from './dining-ready-notification.service';
+import { DiningBoardService } from './dining-board.service';
 import { WebPushSenderService } from '@modules/notifications/application/web-push-sender.service';
 import { UpsertDiningTableDto } from './dto/upsert-dining-tables.dto';
 import { RecipeCtpService } from '@modules/recipes/application/recipe-ctp.service';
@@ -145,6 +146,7 @@ export class DiningService {
     private readonly recipeCtpService: RecipeCtpService,
     private readonly diningReadyNotification: DiningReadyNotificationService,
     private readonly webPushSender: WebPushSenderService,
+    private readonly diningBoardService: DiningBoardService,
   ) {}
 
   private requireCompanyId(): string {
@@ -423,6 +425,26 @@ export class DiningService {
         });
       }),
     );
+  }
+
+  private async publishBoardForOrder(order: DiningOrder): Promise<void> {
+    const kind = order.kind;
+    if (
+      kind !== DiningOrderKind.TAKEAWAY &&
+      kind !== DiningOrderKind.COUNTER &&
+      kind !== DiningOrderKind.TABLE
+    ) {
+      return;
+    }
+    try {
+      await this.diningBoardService.publishBoardForBranch(
+        order.companyId,
+        order.branchId,
+      );
+    } catch (e) {
+      // Board feed must not break kitchen/POS mutations.
+      void e;
+    }
   }
 
   private async assertCtpHardBlockAllowsFire(
@@ -896,6 +918,7 @@ export class DiningService {
     const saved = await this.diningOrderRepository.save(order);
     const detailed = await this.getOrderOrThrow(saved.id, companyId);
     this.publishSessionUpdated(detailed);
+    await this.publishBoardForOrder(detailed);
     return detailed;
   }
 
@@ -1055,6 +1078,7 @@ export class DiningService {
       companyId,
       draftLines.map((line) => line.productionUnitId),
     );
+    await this.publishBoardForOrder(updated);
 
     const fireNumber =
       draftLines.find((l) => typeof l.kitchenFireNumber === 'number')
@@ -1189,6 +1213,7 @@ export class DiningService {
       markedLineIds: ids,
       forceOrderReady: false,
     });
+    await this.publishBoardForOrder(updated);
 
     return updated;
   }
@@ -1251,6 +1276,129 @@ export class DiningService {
       markedLineIds: targets.map((l) => l.id),
       forceOrderReady: true,
     });
+    await this.publishBoardForOrder(updated);
+    return updated;
+  }
+
+  /**
+   * POS / pickup: marca listo todo un fire (todas las UPs) para Kai Board.
+   */
+  async markKitchenFireReadyForPickup(
+    orderId: string,
+    fireId: string,
+  ): Promise<DiningOrder> {
+    const companyId = this.requireCompanyId();
+    const targetFire = fireId?.trim();
+    if (!targetFire) {
+      throw new BadRequestException('fireId es obligatorio.');
+    }
+    const order = await this.getOrderOrThrow(orderId, companyId);
+    const targets = (order.lines ?? []).filter(
+      (l) =>
+        effectiveKitchenFireId(l) === targetFire &&
+        canMarkReady(l.kitchenStatus),
+    );
+    if (targets.length === 0) {
+      throw new BadRequestException(
+        'No hay ítems pendientes de listo en este pedido.',
+      );
+    }
+
+    const now = new Date();
+    for (const line of targets) {
+      line.kitchenStatus = KitchenItemStatus.READY;
+      line.readyAt = now;
+    }
+    await this.diningOrderLineRepository.save(targets);
+
+    await this.syncStationOrderStatusFromLines(
+      targets[0]?.stationOrderId ?? targets[0]?.kitchenFireId ?? targetFire,
+    );
+
+    order.status = recomputeOrderStatusFromLines(
+      order.status,
+      order.lines ?? [],
+    );
+    await this.diningOrderRepository.save(order);
+    const updated = await this.getOrderOrThrow(orderId, companyId);
+    this.publishSessionUpdated(updated);
+    for (const line of targets) {
+      const refreshed =
+        (updated.lines ?? []).find((l) => l.id === line.id) ?? line;
+      this.publishKitchenItemUpdated(updated, refreshed);
+    }
+    await this.publishKitchenSnapshotsForUnitIds(
+      companyId,
+      targets.map((l) => l.productionUnitId),
+    );
+
+    const unitId = targets[0]?.productionUnitId?.trim();
+    if (unitId) {
+      await this.emitKitchenReadyNotification({
+        companyId,
+        order: updated,
+        productionUnitId: unitId,
+        fireId: targetFire,
+        markedLineIds: targets.map((l) => l.id),
+        forceOrderReady: true,
+      });
+    }
+    await this.publishBoardForOrder(updated);
+    return updated;
+  }
+
+  /**
+   * POS: marca entregado (SERVED) todas las líneas READY de un fire → sale de Kai Board.
+   */
+  async markKitchenFireDelivered(
+    orderId: string,
+    fireId: string,
+  ): Promise<DiningOrder> {
+    const companyId = this.requireCompanyId();
+    const targetFire = fireId?.trim();
+    if (!targetFire) {
+      throw new BadRequestException('fireId es obligatorio.');
+    }
+    const order = await this.getOrderOrThrow(orderId, companyId);
+    const targets = (order.lines ?? []).filter(
+      (l) =>
+        effectiveKitchenFireId(l) === targetFire &&
+        canMarkServed(l.kitchenStatus),
+    );
+    if (targets.length === 0) {
+      throw new BadRequestException(
+        'No hay ítems listos para marcar como entregados en este pedido.',
+      );
+    }
+
+    const now = new Date();
+    for (const line of targets) {
+      line.kitchenStatus = KitchenItemStatus.SERVED;
+      line.servedAt = now;
+    }
+    await this.diningOrderLineRepository.save(targets);
+
+    await this.syncStationOrderStatusFromLines(
+      targets[0]?.stationOrderId ?? targets[0]?.kitchenFireId ?? targetFire,
+    );
+
+    order.status = recomputeOrderStatusFromLines(
+      order.status,
+      order.lines ?? [],
+    );
+    await this.diningOrderRepository.save(order);
+    const updated = await this.getOrderOrThrow(orderId, companyId);
+    this.publishSessionUpdated(updated);
+    for (const line of targets) {
+      const refreshed =
+        (updated.lines ?? []).find((l) => l.id === line.id) ?? line;
+      this.publishKitchenItemUpdated(updated, refreshed);
+    }
+    await this.publishKitchenSnapshotsForUnitIds(
+      companyId,
+      targets.map((l) => l.productionUnitId),
+    );
+    await this.publishBoardForOrder(updated);
     return updated;
   }
 
@@ -1345,7 +1493,23 @@ export class DiningService {
     line.kitchenStatus = KitchenItemStatus.SERVED;
     line.servedAt = new Date();
     await this.diningOrderLineRepository.save(line);
-    return this.getOrderOrThrow(orderId, companyId);
+
+    order.status = recomputeOrderStatusFromLines(
+      order.status,
+      order.lines ?? [],
+    );
+    await this.diningOrderRepository.save(order);
+    const updated = await this.getOrderOrThrow(orderId, companyId);
+    this.publishSessionUpdated(updated);
+    const updatedLine = (updated.lines ?? []).find((l) => l.id === lineId);
+    if (updatedLine) {
+      this.publishKitchenItemUpdated(updated, updatedLine);
+      await this.publishKitchenSnapshotsForUnitIds(companyId, [
+        updatedLine.productionUnitId ?? line.productionUnitId,
+      ]);
+    }
+    await this.publishBoardForOrder(updated);
+    return updated;
   }
 
   async requestBill(orderId: string): Promise<DiningOrder> {
@@ -1501,6 +1665,7 @@ export class DiningService {
         updatedLine.productionUnitId ?? line.productionUnitId,
       ]);
     }
+    await this.publishBoardForOrder(updated);
     return updated;
   }
 

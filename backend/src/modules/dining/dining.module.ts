@@ -13,6 +13,7 @@ import { DiningBranchSettings } from './domain/dining-branch-settings.entity';
 import { DiningOrderSequence } from './domain/dining-order-sequence.entity';
 import { DiningKitchenFireSequence } from './domain/dining-kitchen-fire-sequence.entity';
 import { DiningStationOrder } from './domain/dining-station-order.entity';
+import { DiningBoardDisplay } from './domain/dining-board-display.entity';
 import { RecipesModule } from '@modules/recipes/recipes.module';
 import { TransactionsModule } from '@modules/transactions/transactions.module';
 import { StockLevelsModule } from '@modules/stock-levels/stock-levels.module';
@@ -22,7 +23,11 @@ import { DiningMaterialReservationService } from './application/dining-material-
 import { DiningOrderNumberService } from './application/dining-order-number.service';
 import { DiningSchemaBootstrap } from './application/dining-schema.bootstrap';
 import { DiningService } from './application/dining.service';
+import { DiningBoardService } from './application/dining-board.service';
 import { DiningController } from './presentation/dining.controller';
+import { DiningBoardDisplaysController } from './presentation/dining-board-displays.controller';
+import { DiningBoardPublicController } from './presentation/dining-board-public.controller';
+import { DiningBoardDisplayGuard } from './presentation/dining-board-display.guard';
 import { ProductVariantsModule } from '@modules/product-variants/product-variants.module';
 import { NotificationsModule } from '@modules/notifications/notifications.module';
 import { DiningReadyNotificationService } from './application/dining-ready-notification.service';
@@ -44,6 +49,7 @@ import { DiningReadyNotificationService } from './application/dining-ready-notif
       DiningOrderSequence,
       DiningKitchenFireSequence,
       DiningStationOrder,
+      DiningBoardDisplay,
       Branch,
       Category,
       ProductVariant,
@@ -51,15 +57,21 @@ import { DiningReadyNotificationService } from './application/dining-ready-notif
       Transaction,
     ]),
   ],
-  controllers: [DiningController],
+  controllers: [
+    DiningController,
+    DiningBoardDisplaysController,
+    DiningBoardPublicController,
+  ],
   providers: [
     DiningService,
+    DiningBoardService,
+    DiningBoardDisplayGuard,
     DiningBackflushService,
     DiningMaterialReservationService,
     DiningOrderNumberService,
     DiningSchemaBootstrap,
     DiningReadyNotificationService,
   ],
-  exports: [DiningService, DiningOrderNumberService],
+  exports: [DiningService, DiningOrderNumberService, DiningBoardService],
 })
 export class DiningModule {}

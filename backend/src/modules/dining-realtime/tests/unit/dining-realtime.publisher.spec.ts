@@ -119,4 +119,24 @@ describe('DiningRealtimePublisher', () => {
     expect(to).toHaveBeenCalledWith('company:c1:unit:unit-1');
     expect(emit).toHaveBeenCalledWith('dining.kitchen.snapshot', payload);
   });
+
+  it('emitBoardSnapshot targets board room on board server', () => {
+    const boardEmit = jest.fn();
+    const boardTo = jest.fn(() => ({ emit: boardEmit }));
+    publisher.attachBoardServer({ to: boardTo } as unknown as Server);
+
+    publisher.emitBoardSnapshot({
+      companyId: 'c1',
+      branchId: 'b1',
+      preparing: [],
+      ready: [],
+      updatedAt: '2026-07-22T12:00:00.000Z',
+    });
+
+    expect(boardTo).toHaveBeenCalledWith('company:c1:branch:b1:board');
+    expect(boardEmit).toHaveBeenCalledWith(
+      'dining.board.snapshot',
+      expect.objectContaining({ branchId: 'b1' }),
+    );
+  });
 });

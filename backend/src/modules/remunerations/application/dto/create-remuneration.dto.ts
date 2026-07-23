@@ -1,6 +1,7 @@
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsDateString,
   IsIn,
   IsNumber,
@@ -17,6 +18,7 @@ export class PayrollLineDto {
   @IsString()
   typeId!: string;
 
+  @Type(() => Number)
   @IsNumber()
   @Min(0.01)
   amount!: number;
@@ -119,6 +121,15 @@ export class CreateRemunerationDto {
   @ValidateNested()
   @Type(() => SettlementPaymentDto)
   settlementPayment?: SettlementPaymentDto;
+
+  /** Default true: genera OE + CxP (empleado como proveedor). */
+  @IsOptional()
+  @IsBoolean()
+  autoCreateOperationalExpenses?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  autoSuggestStatutory?: boolean;
 }
 
 export class UpdateRemunerationDto {

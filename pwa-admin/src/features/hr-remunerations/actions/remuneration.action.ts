@@ -56,6 +56,29 @@ export async function listRemunerationsForGridAction(opts: {
   return RemunerationRequest.list(opts);
 }
 
+export async function getRemunerationDetailAction(
+  id: string,
+): Promise<
+  { success: true; data: RemunerationGridRow } | { success: false; error: string }
+> {
+  const trimmed = id?.trim() ?? "";
+  if (!trimmed) {
+    return { success: false, error: "Liquidación no válida." };
+  }
+  try {
+    const data = await RemunerationRequest.getById(trimmed);
+    if (!data) {
+      return { success: false, error: "Liquidación no encontrada." };
+    }
+    return { success: true, data };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : "Error al cargar la liquidación",
+    };
+  }
+}
+
 export async function createRemunerationAction(
   input: CreateRemunerationFormInput,
 ): Promise<CreateRemunerationResult> {
@@ -131,11 +154,34 @@ export async function createRemunerationAction(
     resultCenterId: input.resultCenterId?.trim() || null,
     lines,
     settlementPayment,
+    autoCreateOperationalExpenses: true,
+    autoSuggestStatutory: true,
   });
   if (res.success) {
     revalidatePath(REMUNERATIONS_PATH, "page");
   }
   return res;
+}
+
+export async function previewPayrollSettlementAction(input: {
+  employeeId: string;
+  date?: string;
+  lines?: Array<{ typeId: string; amount: number }>;
+}) {
+  try {
+    const data = await RemunerationRequest.previewSettlement({
+      employeeId: input.employeeId,
+      date: input.date,
+      lines: input.lines,
+      includeContractAllowances: true,
+    });
+    return { success: true as const, data };
+  } catch (e) {
+    return {
+      success: false as const,
+      error: e instanceof Error ? e.message : "Error al previsualizar liquidación",
+    };
+  }
 }
 
 export async function listPayrollSuggestionsFromJornadaAction(opts: {

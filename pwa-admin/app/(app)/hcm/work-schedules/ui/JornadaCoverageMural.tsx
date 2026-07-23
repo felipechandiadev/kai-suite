@@ -10,6 +10,9 @@ export type MuralDraft = {
   workDate: string;
   startTime: string;
   endTime: string;
+  /** Fixed UL shift band; does not move when the person jornada is resized. */
+  shiftBandStartTime?: string | null;
+  shiftBandEndTime?: string | null;
   laborUnitShiftId?: string | null;
   laborUnitShiftName?: string | null;
   employeeDisplayName?: string | null;
@@ -38,6 +41,12 @@ type Props = {
   holidaySet: Set<string>;
   expandedDay: string;
   onExpandDay: (day: string) => void;
+  onUpdateAssignment?: (args: {
+    employeeId: string;
+    workDate: string;
+    startTime: string;
+    endTime: string;
+  }) => void;
 };
 
 /** Pixels per hour when the timeline is not stretched to fill the panel. */
@@ -54,6 +63,12 @@ const EXPANDED_BLOCK_MIN_HEIGHT_PX = 88;
 const SHIFT_LABEL_RAIL_PX = 34;
 /** Minimum person card height inside a shift. */
 const PERSON_CARD_MIN_HEIGHT_PX = 28;
+const SNAP_MINUTES = 15;
+const MIN_DURATION_MINUTES = 30;
+
+function personKey(employeeId: string, workDate: string): string {
+  return `${employeeId}|${workDate}`;
+}
 
 function parseHmToMinutes(hm: string): number {
   const [h, m] = hm.split(":").map((x) => Number(x));
@@ -61,11 +76,19 @@ function parseHmToMinutes(hm: string): number {
   return h * 60 + m;
 }
 
-function formatHourLabel(minutes: number): string {
-  const normalized = ((minutes % (24 * 60)) + 24 * 60) % (24 * 60);
+function minutesToHm(total: number): string {
+  const normalized = ((Math.round(total) % (24 * 60)) + 24 * 60) % (24 * 60);
   const h = Math.floor(normalized / 60);
   const m = normalized % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function snapMinutes(m: number): number {
+  return Math.round(m / SNAP_MINUTES) * SNAP_MINUTES;
+}
+
+function formatHourLabel(minutes: number): string {
+  return minutesToHm(minutes);
 }
 
 function blockEndMinutes(start: string, end: string): number {
@@ -89,6 +112,12 @@ function computeRangeMinutes(blocks: ShiftBlock[]): {
     const e = blockEndMinutes(b.startTime, b.endTime);
     minS = Math.min(minS, s);
     maxE = Math.max(maxE, e);
+    for (const p of b.people) {
+      const ps = parseHmToMinutes(p.startTime);
+      const pe = blockEndMinutes(p.startTime, p.endTime);
+      minS = Math.min(minS, ps);
+      maxE = Math.max(maxE, pe);
+    }
   }
   const startMin = Math.max(0, Math.floor(minS / 60) * 60 - 60);
   const endMin = Math.ceil(maxE / 60) * 60 + 60;
@@ -106,7 +135,9 @@ function groupDayBlocks(
   for (const d of dayDrafts) {
     const key = d.laborUnitShiftId
       ? d.laborUnitShiftId
-      : `adhoc|${d.startTime}|${d.endTime}`;
+      : `adhoc|${d.shiftBandStartTime ?? d.startTime}|${d.shiftBandEndTime ?? d.endTime}`;
+    const bandStart = d.shiftBandStartTime?.trim() || d.startTime;
+    const bandEnd = d.shiftBandEndTime?.trim() || d.endTime;
     let block = map.get(key);
     if (!block) {
       block = {
@@ -114,9 +145,9 @@ function groupDayBlocks(
         laborUnitShiftId: d.laborUnitShiftId ?? null,
         name:
           d.laborUnitShiftName?.trim() ||
-          `Turno ${d.startTime}–${d.endTime}`,
-        startTime: d.startTime,
-        endTime: d.endTime,
+          `Turno ${bandStart}–${bandEnd}`,
+        startTime: bandStart,
+        endTime: bandEnd,
         people: [],
       };
       map.set(key, block);
@@ -141,26 +172,6 @@ function groupDayBlocks(
   }
   for (const block of map.values()) {
     block.people.sort((a, b) => a.label.localeCompare(b.label, "es"));
-    if (block.people.length > 0) {
-      let minStart = Infinity;
-      let maxEnd = -Infinity;
-      let startHm = block.people[0]!.startTime;
-      let endHm = block.people[0]!.endTime;
-      for (const p of block.people) {
-        const s = parseHmToMinutes(p.startTime);
-        const e = blockEndMinutes(p.startTime, p.endTime);
-        if (s < minStart) {
-          minStart = s;
-          startHm = p.startTime;
-        }
-        if (e > maxEnd) {
-          maxEnd = e;
-          endHm = p.endTime;
-        }
-      }
-      block.startTime = startHm;
-      block.endTime = endHm;
-    }
   }
   return [...map.values()].sort((a, b) =>
     a.startTime.localeCompare(b.startTime),
@@ -192,7 +203,7 @@ type LaidOutPerson = ShiftPerson & {
   columnCount: number;
 };
 
-/** Position people inside a shift block; overlapping assignments share columns. */
+/** Position people relative to the fixed shift band (may overflow above/below). */
 function layoutPeopleInBlock(
   people: ShiftPerson[],
   blockStartHm: string,
@@ -207,16 +218,14 @@ function layoutPeopleInBlock(
     .map((p) => {
       const s = parseHmToMinutes(p.startTime);
       const e = blockEndMinutes(p.startTime, p.endTime);
-      const clampedS = Math.max(blockStart, Math.min(s, blockEnd));
-      const clampedE = Math.max(clampedS + 1, Math.min(e, blockEnd));
       return {
         ...p,
-        startMin: clampedS,
-        endMin: clampedE,
-        top: ((clampedS - blockStart) / duration) * blockHeight,
+        startMin: s,
+        endMin: e,
+        top: ((s - blockStart) / duration) * blockHeight,
         height: Math.max(
           PERSON_CARD_MIN_HEIGHT_PX,
-          ((clampedE - clampedS) / duration) * blockHeight,
+          ((e - s) / duration) * blockHeight,
         ),
       };
     })
@@ -273,6 +282,18 @@ function weekdayShort(idx: number): string {
   return full.slice(0, 3);
 }
 
+type ResizeSession = {
+  edge: "start" | "end";
+  employeeId: string;
+  workDate: string;
+  originStart: number;
+  originEnd: number;
+  dayStart: number;
+  dayDuration: number;
+  dayTop: number;
+  dayHeight: number;
+};
+
 export function JornadaCoverageMural({
   days,
   drafts,
@@ -280,9 +301,12 @@ export function JornadaCoverageMural({
   holidaySet,
   expandedDay,
   onExpandDay,
+  onUpdateAssignment,
 }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [panelHeight, setPanelHeight] = useState(420);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const resizeRef = useRef<ResizeSession | null>(null);
 
   useEffect(() => {
     const el = rootRef.current;
@@ -308,6 +332,18 @@ export function JornadaCoverageMural({
       ro.disconnect();
     };
   }, [days, expandedDay, drafts, holidaySet]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedKey(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  useEffect(() => {
+    setSelectedKey(null);
+  }, [expandedDay]);
 
   const empName = useMemo(() => {
     const m = new Map<string, string>();
@@ -354,6 +390,54 @@ export function JornadaCoverageMural({
 
   const today = getTodayIso();
 
+  const applyResizeFromPointer = (clientY: number) => {
+    const session = resizeRef.current;
+    if (!session || !onUpdateAssignment) return;
+    const {
+      edge,
+      employeeId,
+      workDate,
+      originStart,
+      originEnd,
+      dayStart,
+      dayDuration,
+      dayTop,
+      dayHeight,
+    } = session;
+    const absMin = snapMinutes(
+      dayStart + ((clientY - dayTop) / Math.max(1, dayHeight)) * dayDuration,
+    );
+
+    let nextStart = originStart;
+    let nextEnd = originEnd;
+    if (edge === "start") {
+      nextStart = Math.min(absMin, originEnd - MIN_DURATION_MINUTES);
+    } else {
+      nextEnd = Math.max(absMin, originStart + MIN_DURATION_MINUTES);
+    }
+    if (nextEnd - nextStart < MIN_DURATION_MINUTES) {
+      if (edge === "start") nextStart = nextEnd - MIN_DURATION_MINUTES;
+      else nextEnd = nextStart + MIN_DURATION_MINUTES;
+    }
+
+    onUpdateAssignment({
+      employeeId,
+      workDate,
+      startTime: minutesToHm(nextStart),
+      endTime: minutesToHm(nextEnd),
+    });
+  };
+
+  const endResize = (pointerId: number, target: Element) => {
+    if (!resizeRef.current) return;
+    resizeRef.current = null;
+    try {
+      (target as HTMLElement).releasePointerCapture(pointerId);
+    } catch {
+      // ignore
+    }
+  };
+
   return (
     <div
       ref={rootRef}
@@ -372,18 +456,22 @@ export function JornadaCoverageMural({
             key={day}
             role="button"
             tabIndex={0}
-            onClick={() => onExpandDay(day)}
+            onClick={() => {
+              setSelectedKey(null);
+              onExpandDay(day);
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
+                setSelectedKey(null);
                 onExpandDay(day);
               }
             }}
             className={[
-              "flex h-full shrink-0 flex-col overflow-hidden rounded-lg border text-left transition-all bg-background",
+              "flex h-full shrink-0 flex-col rounded-lg border text-left transition-all bg-background",
               expanded
-                ? "min-w-[min(100%,420px)] flex-[3] border-foreground/30"
-                : "flex-none cursor-pointer border-border hover:border-border/80",
+                ? "min-w-[min(100%,420px)] flex-[3] overflow-visible border-foreground/30"
+                : "flex-none cursor-pointer overflow-hidden border-border hover:border-border/80",
               isToday ? "ring-1 ring-foreground/20" : "",
             ].join(" ")}
             style={
@@ -425,7 +513,14 @@ export function JornadaCoverageMural({
               ) : null}
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+            <div
+              className={[
+                "min-h-0 flex-1",
+                expanded
+                  ? "overflow-visible"
+                  : "overflow-y-auto overflow-x-hidden",
+              ].join(" ")}
+            >
               <div
                 className="relative flex w-full"
                 style={{ height: timelineHeight }}
@@ -435,6 +530,7 @@ export function JornadaCoverageMural({
                     "relative min-w-0 flex-1",
                     expanded ? "px-2 py-0" : "px-0.5",
                   ].join(" ")}
+                  data-mural-day-lane={day}
                 >
                   {hours.map((mark) => {
                     const top =
@@ -477,14 +573,15 @@ export function JornadaCoverageMural({
                         b.people.length === 1
                           ? "1 persona"
                           : `${b.people.length} personas`;
+                      const dayDuration = Math.max(1, endMin - startMin);
                       return (
                         <div
                           key={b.key}
                           className={[
-                            "absolute overflow-hidden rounded-md border border-border bg-background shadow-sm",
+                            "absolute rounded-md border border-border/60 bg-background/35 shadow-sm backdrop-blur-[1px]",
                             expanded
-                              ? "right-1 left-1 flex flex-row"
-                              : "right-0.5 left-0.5",
+                              ? "right-1 left-1 flex flex-row overflow-visible"
+                              : "right-0.5 left-0.5 overflow-hidden",
                           ].join(" ")}
                           style={{ top, height }}
                           title={`${b.name} ${b.startTime}–${b.endTime} · ${peopleLabel}`}
@@ -492,7 +589,7 @@ export function JornadaCoverageMural({
                           {expanded ? (
                             <>
                               <div
-                                className="flex shrink-0 items-stretch justify-center border-r border-border/70 bg-muted/30"
+                                className="flex shrink-0 items-stretch justify-center overflow-hidden rounded-l-md border-r border-border/50 bg-muted/20"
                                 style={{ width: SHIFT_LABEL_RAIL_PX }}
                                 data-test-id="jornada-mural-shift-label"
                               >
@@ -510,17 +607,60 @@ export function JornadaCoverageMural({
                                 </div>
                               </div>
                               <div
-                                className="relative min-w-0 flex-1"
+                                className="relative min-w-0 flex-1 overflow-visible"
                                 data-test-id="jornada-mural-shift-people"
                               >
                                 {laidOut.map((p) => {
                                   const widthPct = 100 / p.columnCount;
                                   const leftPct = p.column * widthPct;
                                   const gapPx = 3;
+                                  const key = personKey(p.id, day);
+                                  const selected = selectedKey === key;
+                                  const originStart = parseHmToMinutes(
+                                    p.startTime,
+                                  );
+                                  const originEnd = blockEndMinutes(
+                                    p.startTime,
+                                    p.endTime,
+                                  );
+                                  const beginResize = (
+                                    e: React.PointerEvent<HTMLDivElement>,
+                                    edge: "start" | "end",
+                                  ) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const lane = e.currentTarget.closest(
+                                      "[data-mural-day-lane]",
+                                    ) as HTMLElement | null;
+                                    const laneRect =
+                                      lane?.getBoundingClientRect();
+                                    if (!laneRect) return;
+                                    resizeRef.current = {
+                                      edge,
+                                      employeeId: p.id,
+                                      workDate: day,
+                                      originStart,
+                                      originEnd,
+                                      dayStart: startMin,
+                                      dayDuration,
+                                      dayTop: laneRect.top,
+                                      dayHeight: timelineHeight,
+                                    };
+                                    e.currentTarget.setPointerCapture(
+                                      e.pointerId,
+                                    );
+                                  };
                                   return (
                                     <div
                                       key={p.id}
-                                      className="absolute overflow-hidden rounded-md border border-border/80 bg-muted/50 px-1.5 py-1 shadow-sm"
+                                      role="button"
+                                      tabIndex={0}
+                                      className={[
+                                        "absolute overflow-hidden rounded-md border bg-muted/30 px-1.5 py-1 shadow-sm backdrop-blur-[1px]",
+                                        selected
+                                          ? "z-10 border-foreground ring-2 ring-foreground/30 bg-muted/45"
+                                          : "border-border/60",
+                                      ].join(" ")}
                                       style={{
                                         top: p.top,
                                         height: p.height,
@@ -528,6 +668,18 @@ export function JornadaCoverageMural({
                                         width: `calc(${widthPct}% - ${gapPx}px)`,
                                       }}
                                       title={`${p.label} ${p.startTime}–${p.endTime}`}
+                                      data-test-id={`jornada-mural-person-${p.id}`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedKey(key);
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === " ") {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setSelectedKey(key);
+                                        }
+                                      }}
                                     >
                                       <p className="truncate text-xs font-medium text-foreground">
                                         {p.label}
@@ -535,6 +687,74 @@ export function JornadaCoverageMural({
                                       <p className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">
                                         {p.startTime}–{p.endTime}
                                       </p>
+                                      {selected && onUpdateAssignment ? (
+                                        <>
+                                          <div
+                                            className="absolute inset-x-0 top-0 z-20 h-2 cursor-ns-resize bg-foreground/25 hover:bg-foreground/40"
+                                            data-test-id="jornada-mural-resize-start"
+                                            onClick={(e) => e.stopPropagation()}
+                                            onPointerDown={(e) =>
+                                              beginResize(e, "start")
+                                            }
+                                            onPointerMove={(e) => {
+                                              if (!resizeRef.current) return;
+                                              if (
+                                                resizeRef.current.edge !==
+                                                  "start" ||
+                                                resizeRef.current.employeeId !==
+                                                  p.id
+                                              ) {
+                                                return;
+                                              }
+                                              applyResizeFromPointer(e.clientY);
+                                            }}
+                                            onPointerUp={(e) => {
+                                              endResize(
+                                                e.pointerId,
+                                                e.currentTarget,
+                                              );
+                                            }}
+                                            onPointerCancel={(e) => {
+                                              endResize(
+                                                e.pointerId,
+                                                e.currentTarget,
+                                              );
+                                            }}
+                                          />
+                                          <div
+                                            className="absolute inset-x-0 bottom-0 z-20 h-2 cursor-ns-resize bg-foreground/25 hover:bg-foreground/40"
+                                            data-test-id="jornada-mural-resize-end"
+                                            onClick={(e) => e.stopPropagation()}
+                                            onPointerDown={(e) =>
+                                              beginResize(e, "end")
+                                            }
+                                            onPointerMove={(e) => {
+                                              if (!resizeRef.current) return;
+                                              if (
+                                                resizeRef.current.edge !==
+                                                  "end" ||
+                                                resizeRef.current.employeeId !==
+                                                  p.id
+                                              ) {
+                                                return;
+                                              }
+                                              applyResizeFromPointer(e.clientY);
+                                            }}
+                                            onPointerUp={(e) => {
+                                              endResize(
+                                                e.pointerId,
+                                                e.currentTarget,
+                                              );
+                                            }}
+                                            onPointerCancel={(e) => {
+                                              endResize(
+                                                e.pointerId,
+                                                e.currentTarget,
+                                              );
+                                            }}
+                                          />
+                                        </>
+                                      ) : null}
                                     </div>
                                   );
                                 })}
@@ -542,7 +762,7 @@ export function JornadaCoverageMural({
                             </>
                           ) : (
                             <div
-                              className="flex h-full w-full items-stretch justify-center bg-muted/20"
+                              className="flex h-full w-full items-stretch justify-center bg-muted/15"
                               data-test-id="jornada-mural-shift-label-collapsed"
                             >
                               <div

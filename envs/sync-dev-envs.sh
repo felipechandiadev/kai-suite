@@ -158,19 +158,23 @@ apply_backend_derived() {
   local file="$1"
   local shared="$2"
 
-  local host backend_port mail_port backend_url
+  local host backend_port mail_port voice_port backend_url
   host="$(shared_get "$shared" KAI_DEV_HOST)"
   host="${host:-localhost}"
   backend_port="$(shared_get "$shared" KAI_BACKEND_PORT)"
   backend_port="${backend_port:-5060}"
   mail_port="$(shared_get "$shared" KAI_MAIL_PORT)"
   mail_port="${mail_port:-5040}"
+  voice_port="$(shared_get "$shared" KAI_VOICE_PORT)"
+  voice_port="${voice_port:-5041}"
   backend_url="$(shared_get "$shared" KAI_BACKEND_URL)"
   backend_url="${backend_url:-http://${host}:${backend_port}}"
 
   set_kv "$file" "PORT" "$backend_port"
   set_kv "$file" "BACKEND_API_URL" "$backend_url"
   set_kv "$file" "KAI_MAIL_URL" "http://${host}:${mail_port}"
+  set_kv "$file" "KAI_VOICE_URL" "http://${host}:${voice_port}"
+  set_kv "$file" "LIRA_VOICE_URL" "http://${host}:${voice_port}"
 
   local product
   product="$(shared_get "$shared" KAI_PRODUCT)"
@@ -185,7 +189,8 @@ apply_backend_derived() {
     "$(shared_get "$shared" KAI_ESHOP_PORT)" \
     "$(shared_get "$shared" KAI_DELIVERY_PORT)" \
     "$(shared_get "$shared" KAI_WAITER_PORT)" \
-    "$(shared_get "$shared" KAI_KDS_PORT)"; do
+    "$(shared_get "$shared" KAI_KDS_PORT)" \
+    "$(shared_get "$shared" KAI_BOARD_PORT)"; do
     [[ -z "$port" ]] && continue
     [[ -n "$cors" ]] && cors+=","
     cors+="http://${host}:${port},http://127.0.0.1:${port}"
@@ -283,15 +288,17 @@ write_env() {
       [[ -n "$backend_url" ]] && set_kv "$dest" "NEXT_PUBLIC_BACKEND_API_URL" "$backend_url"
       set_kv "$dest" "NODE_ENV" "development"
       ;;
-    waiter|kds)
+    waiter|kds|board)
       backend_url="$(shared_get "$shared" KAI_BACKEND_URL)"
       [[ -n "$backend_url" ]] && set_kv "$dest" "BACKEND_API_URL" "$backend_url"
       [[ -n "$backend_url" ]] && set_kv "$dest" "NEXT_PUBLIC_BACKEND_API_URL" "$backend_url"
       set_kv "$dest" "NODE_ENV" "development"
       if [[ "$profile" == "waiter" ]]; then
         apply_platform_flags "$dest" "$shared" "Waiter"
-      else
+      elif [[ "$profile" == "kds" ]]; then
         apply_platform_flags "$dest" "$shared" "KDS"
+      else
+        apply_platform_flags "$dest" "$shared" "Board"
       fi
       ;;
     mail) ;;
@@ -310,6 +317,7 @@ write_env "pwa-eshop.env.local" "$ROOT/pwa-eshop/.env.local" eshop
 write_env "kai-delivery.env.local" "$ROOT/kai-delivery/.env.local" delivery
 write_env "kai-waiter.env.local" "$ROOT/kai-waiter/.env.local" waiter
 write_env "kai-kds.env.local" "$ROOT/kai-kds/.env.local" kds
+write_env "kai-board.env.local" "$ROOT/kai-board/.env.local" board
 write_env "kai-mail.env" "$ROOT/services/kai-mail/.env" mail
 
 # Claves de shared que pueden faltar en .env generados antes de añadirlas a la matriz
@@ -348,4 +356,5 @@ echo "  pwa-eshop/.env.local      ← shared + pwa-eshop.env.local"
 echo "  kai-delivery/.env.local   ← shared + kai-delivery.env.local"
 echo "  kai-waiter/.env.local     ← shared + kai-waiter.env.local"
 echo "  kai-kds/.env.local        ← shared + kai-kds.env.local"
+echo "  kai-board/.env.local      ← shared + kai-board.env.local"
 echo "  services/kai-mail/.env    ← shared + kai-mail.env"

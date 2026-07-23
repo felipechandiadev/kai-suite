@@ -56,6 +56,6 @@ import {
     BackordersStatusHandler,
     SalesByCategoryHandler,
   ],
-  exports: [SalesReportRunner],
+  exports: [SalesReportRunner, SalesReportsQueryService],
 })
 export class SalesReportsModule {}

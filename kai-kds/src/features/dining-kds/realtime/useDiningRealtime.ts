@@ -2,15 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
+import { getClientBackendApiBase } from "@/lib/backend-api";
 import type {
   DiningKitchenItemUpdatedPayload,
   DiningKitchenSnapshotPayload,
 } from "./dining-realtime.types";
-
-function wsBaseUrl(): string {
-  const base = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
-  return base.replace(/\/$/, "");
-}
 
 type SubscribeAck = {
   ok?: boolean;
@@ -113,8 +109,20 @@ export function useDiningRealtime({
     subscribeAttemptRef.current = 0;
     setConnected(false);
 
-    const socket = io(`${wsBaseUrl()}/realtime/dining`, {
-      transports: ["websocket"],
+    let base: string;
+    try {
+      base = getClientBackendApiBase();
+    } catch (e) {
+      console.warn(
+        "[kds-ws] backend URL ausente",
+        e instanceof Error ? e.message : e,
+      );
+      return;
+    }
+
+    const socket = io(`${base}/realtime/dining`, {
+      // polling primero: más tolerante; luego upgrade a websocket
+      transports: ["polling", "websocket"],
       auth: {
         userId,
         activeCompanyId,
@@ -152,7 +160,7 @@ export function useDiningRealtime({
     });
 
     socket.on("connect_error", (err) => {
-      console.warn("[kds-ws] connect_error", err.message);
+      console.warn("[kds-ws] connect_error", err.message, base);
       setConnected(false);
     });
 

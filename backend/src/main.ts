@@ -56,6 +56,10 @@ async function bootstrap() {
       res.setHeader('Access-Control-Allow-Methods', CORS_ALLOWED_METHODS);
       res.setHeader('Access-Control-Allow-Headers', CORS_ALLOWED_HEADERS);
       res.setHeader('Access-Control-Max-Age', '86400');
+      // Chrome Private Network Access (localhost ↔ 127.0.0.1 / LAN)
+      if (req.headers?.['access-control-request-private-network'] === 'true') {
+        res.setHeader('Access-Control-Allow-Private-Network', 'true');
+      }
       return res.status(204).end();
     });
   }
@@ -100,7 +104,8 @@ async function bootstrap() {
   setupSwagger(app, configService);
 
   const port = configService.app.port;
-  await app.listen(port, '0.0.0.0');
+  // `::` dual-stack: browsers resuelven `localhost` → ::1; si solo oímos 0.0.0.0 el WS falla.
+  await app.listen(port, '::');
 }
 
 bootstrap();

@@ -74,6 +74,20 @@ export async function sendPosDiningOrderToKitchenAction(
   return DiningPosRequest.sendToKitchen(orderId, lineIds);
 }
 
+export async function markPosDiningFireReadyForPickupAction(
+  orderId: string,
+  fireId: string,
+) {
+  return DiningPosRequest.markFireReadyForPickup(orderId, fireId);
+}
+
+export async function markPosDiningFireDeliveredAction(
+  orderId: string,
+  fireId: string,
+) {
+  return DiningPosRequest.markFireDelivered(orderId, fireId);
+}
+
 export async function cancelPosDiningOrderItemAction(orderId: string, lineId: string) {
   return DiningPosRequest.cancelOrderItem(orderId, lineId);
 }

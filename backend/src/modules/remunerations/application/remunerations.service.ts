@@ -17,10 +17,13 @@ import { Branch } from '@modules/branches/domain/branch.entity';
 import { User } from '@modules/users/domain/user.entity';
 import {
   calculatePayrollTotals,
+  getPayrollLineCategory,
   listPayrollLineTypeOptions,
+  normalizePayrollLineTypeId,
   type PayrollLineInput,
 } from './payroll-lines.util';
 import {
+  alignSettlementPaymentToNet,
   coerceSettlementPaymentInput,
   mapUiPaymentMethod,
   resolvePayrollPaymentLines,
@@ -35,6 +38,12 @@ import {
 import { TenantContext } from '@common/tenant/tenant.context';
 import { HrEmployeeTimelineService } from '@modules/employees/application/hr-employee-timeline.service';
 import { HrEmployeeTimelineKind } from '@modules/employees/domain/hr-employee-timeline-entry.entity';
+import { EmploymentContractsService } from '@modules/employees/application/employment-contracts.service';
+import { PayrollStatutoryCalculator } from './payroll-statutory.calculator';
+import { PayrollAutoExpenseService } from './payroll-auto-expense.service';
+import type { PayrollEmployerCost } from '../domain/payroll-imponible';
+import { isStatutoryEmployeeDeduction } from '../domain/payroll-imponible';
+import { PayrollLineCategory } from '../domain/payroll-line-type.enum';
 
 export interface PlannedPaymentLineInput {
   dueDate: string;
@@ -59,6 +68,9 @@ export class RemunerationsService {
     @InjectRepository(PayrollLineSuggestion)
     private readonly suggestionRepository: Repository<PayrollLineSuggestion>,
     private readonly timelineService: HrEmployeeTimelineService,
+    private readonly contractsService: EmploymentContractsService,
+    private readonly statutoryCalculator: PayrollStatutoryCalculator,
+    private readonly autoExpenseService: PayrollAutoExpenseService,
   ) {}
 
   private async appendTimelineSafe(
@@ -170,6 +182,88 @@ export class RemunerationsService {
     return remunerations.map((tx) => this.formatRemuneration(tx));
   }
 
+  async previewSettlement(data: {
+    employeeId: string;
+    date?: string;
+    lines?: PayrollLineInput[];
+    includeContractAllowances?: boolean;
+  }) {
+    const employee = await this.employeeRepository.findOne({
+      where: { id: data.employeeId },
+    });
+    if (!employee) {
+      throw new BadRequestException('Employee not found');
+    }
+    const contract = await this.contractsService.getActive(data.employeeId);
+    const baseSalary = Number(contract?.baseSalary ?? employee.baseSalary ?? 0) || 0;
+
+    let earnings = (data.lines ?? []).filter((l) => {
+      try {
+        return (
+          getPayrollLineCategory(normalizePayrollLineTypeId(l.typeId)) ===
+          PayrollLineCategory.EARNING
+        );
+      } catch {
+        return true;
+      }
+    });
+
+    if (earnings.length === 0 && baseSalary > 0) {
+      earnings = [{ typeId: 'ORDINARY', amount: Math.round(baseSalary) }];
+    }
+
+    const statutory = this.statutoryCalculator.calculate({
+      earnings,
+      contract,
+      includeContractAllowances: data.includeContractAllowances !== false,
+    });
+
+    const earningLines = [
+      ...earnings,
+      ...statutory.suggestedAllowances.map((a) => ({
+        typeId: a.typeId,
+        amount: a.amount,
+      })),
+    ];
+    const allLines = [
+      ...earningLines,
+      ...statutory.suggestedDeductions.map((d) => ({
+        typeId: d.typeId,
+        amount: d.amount,
+      })),
+    ];
+    const totals = calculatePayrollTotals(allLines, {
+      employerCosts: statutory.employerCosts,
+    });
+
+    return {
+      date: data.date ?? null,
+      contract: contract
+        ? {
+            id: contract.id,
+            laborType: contract.laborType,
+            afpName: contract.afpName,
+            afpContributionPercent: contract.afpContributionPercent,
+            healthSystem: contract.healthSystem,
+            mutualName: contract.mutualName,
+          }
+        : null,
+      suggestedEarnings: earningLines,
+      suggestedDeductions: statutory.suggestedDeductions,
+      employerCosts: statutory.employerCosts,
+      totals: {
+        totalImponible: totals.totalImponible,
+        totalNoImponible: totals.totalNoImponible,
+        totalEarnings: totals.totalEarnings,
+        totalDeductions: totals.totalDeductions,
+        totalEmployerCost: totals.totalEmployerCost,
+        netPayment: totals.netPayment,
+        taxableBase: statutory.taxableBase,
+      },
+      note: 'Los aportes del empleador no se descuentan del sueldo líquido.',
+    };
+  }
+
   async createRemuneration(data: {
     employeeId: string;
     resultCenterId?: string | null;
@@ -178,6 +272,11 @@ export class RemunerationsService {
     userId?: string;
     plannedPayments?: PlannedPaymentLineInput[];
     settlementPayment?: PayrollSettlementPaymentInput;
+    employerCosts?: PayrollEmployerCost[];
+    /** Default true: genera OE Sueldos/Cargas + CxP; no crea PAYROLL_PAYMENT. */
+    autoCreateOperationalExpenses?: boolean;
+    /** Si faltan descuentos legales, los sugiere desde contrato. Default true. */
+    autoSuggestStatutory?: boolean;
   }) {
     const employee = await this.employeeRepository.findOne({
       where: { id: data.employeeId },
@@ -196,13 +295,72 @@ export class RemunerationsService {
     }
 
     const userId = await this.resolveUserId(data.userId);
+    const companyId = TenantContext.getCompanyId() ?? employee.companyId;
+    if (!companyId) {
+      throw new BadRequestException('Company context required');
+    }
 
-    const { totalEarnings, totalDeductions, netPayment, normalizedLines } =
-      calculatePayrollTotals(data.lines);
+    const contract = await this.contractsService.getActive(data.employeeId);
+    const autoSuggest = data.autoSuggestStatutory !== false;
+    const autoOe = data.autoCreateOperationalExpenses !== false;
 
-    const settlementInput = coerceSettlementPaymentInput(
+    let lines: PayrollLineInput[] = [...data.lines];
+    const earningsOnly = lines.filter((l) => {
+      try {
+        return (
+          getPayrollLineCategory(normalizePayrollLineTypeId(l.typeId)) ===
+          PayrollLineCategory.EARNING
+        );
+      } catch {
+        return !isStatutoryEmployeeDeduction(l.typeId);
+      }
+    });
+
+    const statutory = this.statutoryCalculator.calculate({
+      earnings: earningsOnly,
+      contract,
+    });
+
+    let didAutoSuggestDeductions = false;
+    if (autoSuggest) {
+      const hasAnyStatutory = lines.some((l) =>
+        isStatutoryEmployeeDeduction(l.typeId),
+      );
+      if (!hasAnyStatutory && statutory.suggestedDeductions.length > 0) {
+        lines = this.statutoryCalculator.mergeSuggestedDeductions(
+          lines,
+          statutory.suggestedDeductions,
+        );
+        didAutoSuggestDeductions = true;
+      }
+    }
+
+    const employerCosts =
+      data.employerCosts && data.employerCosts.length > 0
+        ? data.employerCosts
+        : statutory.employerCosts;
+
+    const {
+      totalEarnings,
+      totalDeductions,
+      totalImponible,
+      totalNoImponible,
+      totalEmployerCost,
+      netPayment,
+      normalizedLines,
+    } = calculatePayrollTotals(lines, { employerCosts });
+
+    let settlementInput = coerceSettlementPaymentInput(
       data.settlementPayment,
     );
+    // Si el front armó cuotas sobre el bruto (sin descuentos legales),
+    // realinear al líquido tras auto-sugerir.
+    if (didAutoSuggestDeductions && settlementInput) {
+      settlementInput = alignSettlementPaymentToNet(
+        settlementInput,
+        netPayment,
+      );
+    }
     const paymentPlan = resolvePayrollPaymentLines(
       settlementInput,
       netPayment,
@@ -214,14 +372,19 @@ export class RemunerationsService {
       ...paymentPlan.scheduledLines,
     ];
 
-    const metadata = {
+    const metadata: Record<string, unknown> = {
       remuneration: true,
       documentKind: 'PAYROLL_SETTLEMENT',
       payrollDate: data.date,
       lines: normalizedLines,
       totalEarnings,
       totalDeductions,
+      totalImponible,
+      totalNoImponible,
+      totalEmployerCost,
+      employerCosts,
       netPayment,
+      autoCreateOperationalExpenses: autoOe,
       settlementPayment: {
         mode: paymentPlan.mode,
         ...(paymentPlan.mode === 'PARTIAL' &&
@@ -248,8 +411,10 @@ export class RemunerationsService {
       paymentPlan.paidLines[0]?.paymentMethod != null
         ? mapUiPaymentMethod(paymentPlan.paidLines[0].paymentMethod)
         : PaymentMethod.TRANSFER;
-    dto.amountPaid = paymentPlan.parentAmountPaid;
-    dto.paymentStatus = paymentPlan.parentPaymentStatus;
+    dto.amountPaid = autoOe ? 0 : paymentPlan.parentAmountPaid;
+    dto.paymentStatus = autoOe
+      ? PaymentStatus.PENDING
+      : paymentPlan.parentPaymentStatus;
     dto.paymentDueDate = data.date;
     dto.metadata = metadata;
 
@@ -263,8 +428,39 @@ export class RemunerationsService {
       actorUserId: TenantContext.getUserId() ?? null,
       sourceType: 'Transaction',
       sourceId: created.id,
-      payload: { date: data.date, netPayment },
+      payload: { date: data.date, netPayment, totalEmployerCost },
     });
+
+    if (autoOe) {
+      try {
+        const { operationalExpenseIds } =
+          await this.autoExpenseService.createLinkedExpenses({
+            companyId,
+            branchId,
+            userId,
+            employee,
+            payrollTransactionId: created.id,
+            payrollDate: data.date,
+            netPayment,
+            employerCosts,
+            settlementPayment: settlementInput,
+            resultCenterId,
+          });
+        await this.transactionRepository.update(created.id, {
+          metadata: {
+            ...metadata,
+            operationalExpenseIds,
+          },
+        });
+      } catch (err) {
+        throw new BadRequestException(
+          `Liquidación creada pero falló la generación de gastos operativos: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+      return this.getRemunerationById(created.id);
+    }
 
     if (
       paymentPlan.mode === 'COMPLETED' ||
@@ -506,8 +702,11 @@ export class RemunerationsService {
   private formatRemuneration(tx: Transaction) {
     const person = tx.employee?.person;
     const employeeName = person
-      ? `${person.firstName ?? ''} ${person.lastName ?? ''}`.trim()
+      ? `${person.firstName ?? ''} ${person.lastName ?? ''}`.trim() ||
+        (person.businessName ?? '').trim()
       : '';
+    const employeeDocumentNumber =
+      (person?.documentNumber ?? '').trim() || null;
 
     const metadata = tx.metadata ?? {};
     const payrollDate =
@@ -519,12 +718,19 @@ export class RemunerationsService {
       date: payrollDate,
       employeeId: tx.employeeId ?? null,
       employeeName,
+      employeeDocumentNumber,
       resultCenterId: tx.resultCenterId ?? null,
       totalEarnings: Number(metadata.totalEarnings ?? tx.subtotal ?? 0),
       totalDeductions: Number(
         metadata.totalDeductions ?? tx.discountAmount ?? 0,
       ),
+      totalImponible: Number(metadata.totalImponible ?? 0),
+      totalNoImponible: Number(metadata.totalNoImponible ?? 0),
+      totalEmployerCost: Number(metadata.totalEmployerCost ?? 0),
       netPayment: Number(metadata.netPayment ?? tx.total ?? 0),
+      employerCosts: Array.isArray(metadata.employerCosts)
+        ? metadata.employerCosts
+        : [],
       status: tx.status,
       createdAt: tx.createdAt,
       updatedAt: tx.createdAt,

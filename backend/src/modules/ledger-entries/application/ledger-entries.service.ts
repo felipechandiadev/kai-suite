@@ -751,43 +751,33 @@ export class LedgerEntriesService {
       return entries;
     }
 
-    // Obtener accountIds por código
+    const autoOe =
+      metadata.autoCreateOperationalExpenses === true ||
+      (Array.isArray(metadata.operationalExpenseIds) &&
+        metadata.operationalExpenseIds.length > 0);
+
     const accountMap = await this.getPayrollAccountMap();
 
     let totalEarnings = 0;
     let totalLiabilities = 0;
 
-    // Procesar cada línea de la remuneración
     for (const line of metadata.lines) {
-      const { typeId, amount } = line;
+      const { typeId, amount, category } = line;
+      const absAmount = Math.abs(Number(amount) || 0);
+      if (absAmount <= 0) continue;
 
-      if (amount > 0) {
-        // HABERES (ingresos del empleado) → DEBE en cuenta de gasto
-        const expenseAccountId = this.mapPayrollTypeToExpenseAccount(
-          typeId,
-          accountMap,
+      const isDeduction =
+        category === 'DEDUCTION' ||
+        amount < 0 ||
+        ['AFP', 'AFP_COMMISSION', 'HEALTH_INSURANCE', 'INCOME_TAX', 'UNEMPLOYMENT_INSURANCE', 'LOAN_PAYMENT', 'ADVANCE_PAYMENT', 'UNION_FEE', 'COURT_ORDER', 'DEDUCTION_EXTRA', 'ADJUSTMENT_NEG'].includes(
+          String(typeId),
         );
 
-        entries.push({
-          transactionId: transaction.id,
-          accountId: expenseAccountId,
-          personId: personId,
-          entryDate: transaction.createdAt,
-          description: `Remuneración - ${this.getPayrollTypeName(typeId)}`,
-          debit: amount,
-          credit: 0,
-          metadata: { payrollLine: typeId, lineAmount: amount },
-        });
-
-        totalEarnings += amount;
-      } else if (amount < 0) {
-        // DEDUCCIONES (retenciones) → HABER en cuenta de pasivo específica
+      if (isDeduction) {
         const liabilityAccountId = this.mapPayrollTypeToLiabilityAccount(
           typeId,
           accountMap,
         );
-        const absAmount = Math.abs(amount);
-
         entries.push({
           transactionId: transaction.id,
           accountId: liabilityAccountId,
@@ -798,18 +788,61 @@ export class LedgerEntriesService {
           credit: absAmount,
           metadata: { payrollLine: typeId, lineAmount: amount },
         });
-
         totalLiabilities += absAmount;
+        continue;
       }
+
+      // Haber (earning)
+      if (!autoOe) {
+        const expenseAccountId = this.mapPayrollTypeToExpenseAccount(
+          typeId,
+          accountMap,
+        );
+        entries.push({
+          transactionId: transaction.id,
+          accountId: expenseAccountId,
+          personId: personId,
+          entryDate: transaction.createdAt,
+          description: `Remuneración - ${this.getPayrollTypeName(typeId)}`,
+          debit: absAmount,
+          credit: 0,
+          metadata: { payrollLine: typeId, lineAmount: amount },
+        });
+      }
+      totalEarnings += absAmount;
     }
 
-    // Asiento balanceador: HABER en "Remuneraciones por pagar" (2.2.01) por el líquido a pagar
-    const netPayment = totalEarnings - totalLiabilities;
+    // Con auto-OE el gasto y CxP del líquido viven en OE; aquí solo pasivos de retención.
+    // Balance: DEBIT a 2.2.01 (o gasto bridge) omitido — las retenciones quedan como pasivo
+    // financiado por el gasto reconocido en OE Sueldos (neto) + lógica de tesorería.
+    // Para cuadrar el asiento cuando solo hay créditos de retención, debitamos gasto de cargas/retenciones.
+    if (autoOe) {
+      if (totalLiabilities > 0) {
+        const expenseAccountId = accountMap['5.3.03'] ?? accountMap['5.3.01'];
+        if (expenseAccountId) {
+          entries.push({
+            transactionId: transaction.id,
+            accountId: expenseAccountId,
+            personId: personId,
+            entryDate: transaction.createdAt,
+            description: 'Retenciones legales (contrapartida)',
+            debit: totalLiabilities,
+            credit: 0,
+            metadata: { payrollAutoOeWithholdings: true },
+          });
+        }
+      }
+      this.logger.log(
+        `Generated ${entries.length} payroll retention entries (auto-OE) for ${transaction.id}`,
+      );
+      return entries;
+    }
 
+    const netPayment = totalEarnings - totalLiabilities;
     if (netPayment > 0) {
       entries.push({
         transactionId: transaction.id,
-        accountId: accountMap['2.2.01'], // Remuneraciones por pagar
+        accountId: accountMap['2.2.01'],
         personId: personId,
         entryDate: transaction.createdAt,
         description: 'Líquido a pagar',
@@ -879,8 +912,8 @@ export class LedgerEntriesService {
     typeId: string,
     accountMap: Record<string, string>,
   ): string {
-    // AFP → 2.2.02
-    if (typeId === 'AFP') {
+    // AFP / comisión AFP → 2.2.02
+    if (typeId === 'AFP' || typeId === 'AFP_COMMISSION') {
       return accountMap['2.2.02'];
     }
 
