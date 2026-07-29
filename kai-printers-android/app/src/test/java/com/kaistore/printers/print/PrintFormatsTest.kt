@@ -35,4 +35,11 @@ class PrintFormatsTest {
         assertEquals(PrintFormat.TICKET_80MM, PrintFormats.resolve(null, "tickets"))
         assertEquals(PrintFormat.DOCUMENT_A4, PrintFormats.resolve(null, "documents"))
     }
+
+    @Test
+    fun laundryReceptionIsTicketJobType() {
+        assertTrue(PrintFormats.isTicketJobType("pos-laundry-reception-ticket"))
+        assertTrue(PrintFormats.isTicketJobType("pos-dining-account-ticket"))
+        assertFalse(PrintFormats.isTicketJobType("pdf-base64"))
+    }
 }

@@ -103,6 +103,7 @@ object PrintFormats {
         "pos-bank-account-ticket",
         "pos-dining-account-ticket",
         "pos-presale-ticket",
+        "pos-laundry-reception-ticket",
         "fiscal-boleta-preview",
         "variant-barcode-label",
     )

@@ -2,6 +2,8 @@
 
 Copia instaladores a `pwa-pos/public/downloads/` para **Configuración → Impresión local** del POS.
 
+**Checklist paso a paso:** [PUBLISH-CHECKLIST.md](./PUBLISH-CHECKLIST.md)
+
 ## Comando único (Android + Windows + macOS)
 
 Desde la raíz del monorepo:

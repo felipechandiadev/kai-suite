@@ -23,37 +23,37 @@ describe("resolveKaiPrintersDownloadUrl", () => {
 
   it("defaults Android to versioned APK from manifest", () => {
     expect(resolveKaiPrintersDownloadUrl("android", SAMPLE_MANIFESTS)).toBe(
-      "/downloads/kai-printers-android-1.1.8.apk",
+      "/downloads/kai-printers-android-1.1.12.apk",
     );
   });
 
   it("defaults Windows and macOS from manifests", () => {
     expect(resolveKaiPrintersDownloadUrl("windows", SAMPLE_MANIFESTS)).toBe(
-      "/downloads/kai-printers-windows-1.0.5-x64-portable.zip",
+      "/downloads/kai-printers-windows-1.0.7-x64-portable.zip",
     );
     expect(resolveKaiPrintersDownloadUrl("macos", SAMPLE_MANIFESTS)).toBe(
-      "/downloads/kai-printers-macos-1.0.5-aarch64.dmg",
+      "/downloads/kai-printers-macos-1.0.7-aarch64.dmg",
     );
   });
 
   it("uses env override when set", () => {
     process.env.NEXT_PUBLIC_KAI_PRINTERS_ANDROID_URL =
-      "https://pos.example.cl/downloads/kai-printers-android-1.1.8.apk";
+      "https://pos.example.cl/downloads/kai-printers-android-1.1.12.apk";
     expect(resolveKaiPrintersDownloadUrl("android", SAMPLE_MANIFESTS)).toBe(
-      "https://pos.example.cl/downloads/kai-printers-android-1.1.8.apk",
+      "https://pos.example.cl/downloads/kai-printers-android-1.1.12.apk",
     );
   });
 
   it("listKaiPrintersDownloadOffers includes href and version per platform", () => {
     const offers = listKaiPrintersDownloadOffers(SAMPLE_MANIFESTS);
     expect(offers.find((o) => o.platform === "android")?.href).toBe(
-      "/downloads/kai-printers-android-1.1.8.apk",
+      "/downloads/kai-printers-android-1.1.12.apk",
     );
     expect(offers.find((o) => o.platform === "windows")?.href).toBe(
-      "/downloads/kai-printers-windows-1.0.5-x64-portable.zip",
+      "/downloads/kai-printers-windows-1.0.7-x64-portable.zip",
     );
     expect(offers.find((o) => o.platform === "macos")?.href).toBe(
-      "/downloads/kai-printers-macos-1.0.5-aarch64.dmg",
+      "/downloads/kai-printers-macos-1.0.7-aarch64.dmg",
     );
   });
 
