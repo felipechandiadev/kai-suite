@@ -17,7 +17,8 @@ Editar **solo** los SVG. Los PNG en `exports/` y en cada `pwa-*/public/` se gene
 npm run brand:icons
 ```
 
-Pipeline: [`packages/kai-brand`](../../../packages/kai-brand/)
+Pipeline: [`packages/kai-brand`](../../../packages/kai-brand/)  
+Estándar PWA + favicon (qué generar, `purpose`, iOS): [`docs/project/PWA-ICONOS-Y-FAVICONS.md`](../../../docs/project/PWA-ICONOS-Y-FAVICONS.md).
 
 1. `rasterize-svg.mjs` — SVG → `packages/kai-brand/sources/master-1024.png`
 2. `generate-all.mjs` — PWA, Android nativo, Kai Printers Tauri (si `kai-printers-desktop/` existe)

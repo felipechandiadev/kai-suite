@@ -7,6 +7,7 @@ import { MultimediaController } from './presentation/multimedia.controller';
 import { MultimediaServiceAdapter } from './application/services/multimedia.service.adapter';
 import { MultimediaAsset } from './domain/multimedia-asset.entity';
 import { MultimediaLink } from './domain/multimedia-link.entity';
+import { MultimediaVariant } from './domain/multimedia-variant.entity';
 import {
   MULTIMEDIA_REPOSITORY,
 } from './application/ports/multimedia.repository.port';
@@ -25,11 +26,14 @@ import { ListMultimediaAssetsQueryHandler } from './application/handlers/queries
 import { ListMultimediaAssetsByEntityIdsQueryHandler } from './application/handlers/queries/list-multimedia-assets-by-entity-ids.handler';
 import { SetPrimaryMultimediaLinkCommandHandler } from './application/handlers/commands/set-primary-multimedia-link.handler';
 import { ReorderMultimediaLinksCommandHandler } from './application/handlers/commands/reorder-multimedia-links.handler';
+import { ImageStrategyRegistry } from './application/media-optimization/image-strategy.registry';
+import { SharpProcessorService } from './application/media-optimization/sharp-processor.service';
+import { MultimediaIngestService } from './application/media-optimization/multimedia-ingest.service';
 
 @Module({
   imports: [
     AppConfigModule,
-    TypeOrmModule.forFeature([MultimediaAsset, MultimediaLink]),
+    TypeOrmModule.forFeature([MultimediaAsset, MultimediaLink, MultimediaVariant]),
     CqrsModule,
   ],
   controllers: [MultimediaController],
@@ -48,6 +52,9 @@ import { ReorderMultimediaLinksCommandHandler } from './application/handlers/com
     CloudflareR2Adapter,
     MultimediaStorageRegistry,
     MultimediaAssetPurgeService,
+    ImageStrategyRegistry,
+    SharpProcessorService,
+    MultimediaIngestService,
     {
       provide: MULTIMEDIA_REPOSITORY,
       useClass: TypeOrmMultimediaRepository,
@@ -68,6 +75,6 @@ import { ReorderMultimediaLinksCommandHandler } from './application/handlers/com
       inject: [AppConfigService, LocalStorageAdapter, CloudflareR2Adapter],
     },
   ],
-  exports: [MultimediaServiceAdapter],
+  exports: [MultimediaServiceAdapter, MultimediaIngestService],
 })
 export class MultimediaModule {}

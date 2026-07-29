@@ -1068,6 +1068,7 @@ async function bootstrap() {
           linkRepo: dataSource.getRepository(MultimediaLink),
           storage: seedStorage.storage,
           storageProvider: seedStorage.storageProvider,
+          ingest: seedStorage.ingest,
           sourceRelativePath: SEED_JOYARTE_COMPANY_LOGO_FILE,
           entityType: 'company',
           entityId: company.id,

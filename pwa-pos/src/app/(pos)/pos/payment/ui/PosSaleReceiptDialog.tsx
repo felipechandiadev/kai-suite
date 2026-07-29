@@ -660,6 +660,8 @@ type DialogProps = {
   onClose: () => void;
   /** CTA principal al cerrar el recibo (p.ej. "Volver a cuentas" si el cobro vino de dining). */
   closeLabel?: string;
+  /** Si true, no auto-imprime (p.ej. ya se imprimió en un plan externo guía+cobro). */
+  skipAutoPrint?: boolean;
 };
 
 function resolveSalePrintMode(data: PosSaleReceiptData): PosDocumentPrintMode {
@@ -760,6 +762,7 @@ export function PosSaleReceiptDialog({
   data,
   onClose,
   closeLabel = "Volver al POS",
+  skipAutoPrint = false,
 }: DialogProps) {
   const autoPrintForFolioRef = useRef<string | null>(null);
   const receiptDataRef = useRef(data);
@@ -810,7 +813,7 @@ export function PosSaleReceiptDialog({
   }, [data, printMode, printPlan]);
 
   useEffect(() => {
-    if (!open || !data) {
+    if (!open || !data || skipAutoPrint) {
       if (!open) {
         autoPrintForFolioRef.current = null;
       }
@@ -849,7 +852,7 @@ export function PosSaleReceiptDialog({
       })();
     }, 100);
     return () => clearTimeout(t);
-  }, [open, data?.folio, data?.transactionId, data?.documentKind]);
+  }, [open, data?.folio, data?.transactionId, data?.documentKind, skipAutoPrint]);
 
   const hasFiscalBoletaOnRecord = Boolean(
     data?.documentKind === "sale" &&

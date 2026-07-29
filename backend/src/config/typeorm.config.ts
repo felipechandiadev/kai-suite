@@ -60,6 +60,7 @@ import { ReceptionLine } from '@modules/receptions/domain/reception-line.entity'
 import { Installment } from '@modules/installments/domain/installment.entity';
 import { MultimediaAsset } from '@modules/multimedia/domain/multimedia-asset.entity';
 import { MultimediaLink } from '@modules/multimedia/domain/multimedia-link.entity';
+import { MultimediaVariant } from '@modules/multimedia/domain/multimedia-variant.entity';
 import { AccountingRuleLine } from '@modules/accounting-rules/domain/accounting-rule-line.entity';
 import { AutomationRule } from '@modules/automation/domain/automation-rule.entity';
 import { AutomationAction } from '@modules/automation/domain/automation-action.entity';
@@ -101,6 +102,13 @@ import { EShopDeliverySettings } from '@modules/delivery/domain/e-shop-delivery-
 import { PaymentGatewayIntent } from '@modules/payment-gateways/domain/payment-gateway-intent.entity';
 import { PresaleTicket } from '@modules/presale-tickets/domain/presale-ticket.entity';
 import { PresaleTicketLine } from '@modules/presale-tickets/domain/presale-ticket-line.entity';
+import { LaundryGarmentType } from '@modules/laundry/domain/laundry-garment-type.entity';
+import { LaundryGarmentAttribute } from '@modules/laundry/domain/laundry-garment-attribute.entity';
+import { LaundryGarmentAttributeValue } from '@modules/laundry/domain/laundry-garment-attribute-value.entity';
+import { LaundryCareTemplate } from '@modules/laundry/domain/laundry-care-template.entity';
+import { LaundryReception } from '@modules/laundry/domain/laundry-reception.entity';
+import { LaundryReceptionGarment } from '@modules/laundry/domain/laundry-reception-garment.entity';
+import { LaundryReceptionServiceLine } from '@modules/laundry/domain/laundry-reception-service-line.entity';
 import { FiscalProfile } from '@modules/fiscal/domain/fiscal-profile.entity';
 import { FiscalCertificate } from '@modules/fiscal/domain/fiscal-certificate.entity';
 import { FiscalCaf } from '@modules/fiscal/domain/fiscal-caf.entity';
@@ -222,6 +230,7 @@ export const typeOrmConfig = (
       Installment,
       MultimediaAsset,
       MultimediaLink,
+      MultimediaVariant,
       Check,
       CheckTransactionLink,
       CheckEvent,
@@ -302,6 +311,13 @@ export const typeOrmConfig = (
       HrLaborUnitBranch,
       HrLaborUnitOrganizationalUnit,
       HrLaborUnitProductionUnit,
+      LaundryGarmentType,
+      LaundryGarmentAttribute,
+      LaundryGarmentAttributeValue,
+      LaundryCareTemplate,
+      LaundryReception,
+      LaundryReceptionGarment,
+      LaundryReceptionServiceLine,
     ],
 
     // Register subscribers (TypeORM EventSubscribers)

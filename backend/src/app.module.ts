@@ -73,6 +73,7 @@ import { QuotationsModule } from './modules/quotations/quotations.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
 import { PaymentGatewaysModule } from './modules/payment-gateways/payment-gateways.module';
 import { PresaleTicketsModule } from './modules/presale-tickets/presale-tickets.module';
+import { LaundryModule } from './modules/laundry/laundry.module';
 import { FiscalModule } from './modules/fiscal/fiscal.module';
 import { PosSyncModule } from './modules/pos-sync/pos-sync.module';
 import { ProductModeModule } from './shared/product-mode/product-mode.module';
@@ -117,6 +118,7 @@ import { ProductionUnitsModule } from './modules/production-units/production-uni
     ChecksModule,
     QuotationsModule,
     PresaleTicketsModule,
+    LaundryModule,
     PromotionsModule,
     PaymentGatewaysModule,
     CapitalContributionsModule,

@@ -18,21 +18,30 @@ export class MultimediaAssetPurgeService {
   ) {}
 
   /**
-   * Elimina el binario en local/R2 y hace soft-delete del registro en BD.
+   * Elimina binarios (original + variantes) en local/R2 y soft-delete del asset.
    */
   async purgeAsset(asset: MultimediaAsset): Promise<void> {
     const storage = this.storageRegistry.forProvider(asset.storageProvider);
-    try {
-      await storage.delete(asset.storageKey);
-    } catch (err) {
-      this.logger.warn(
-        `No se pudo borrar el archivo «${asset.storageKey}» (${asset.storageProvider}): ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
+    const variants =
+      asset.variants ?? (await this.repository.listVariantsByAssetId(asset.id));
+    const keys = [
+      asset.storageKey,
+      ...variants.map((v) => v.storageKey),
+    ].filter(Boolean);
+
+    for (const key of keys) {
+      try {
+        await storage.delete(key);
+      } catch (err) {
+        this.logger.warn(
+          `No se pudo borrar el archivo «${key}» (${asset.storageProvider}): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
     }
     await this.repository.deleteAsset(asset.id);
-    this.logger.debug(`Multimedia asset purged: id=${asset.id}`);
+    this.logger.debug(`Multimedia asset purged: id=${asset.id} keys=${keys.length}`);
   }
 
   async purgeAssetById(assetId: string): Promise<void> {

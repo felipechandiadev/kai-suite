@@ -27,6 +27,7 @@ import {
   tryPosPrintJobBrowserFallback,
 } from "@/features/pos-print/lib/pos-print-job-browser-fallback";
 import { isKaiFoodEnabled } from "@/config/kaifood-module.config";
+import { isKaiServicesEnabled } from "@/config/kaiservices-module.config";
 
 export type PosTopBarProps = {
   pointOfSaleName?: string | null;
@@ -79,6 +80,7 @@ type PosTopBarNavProps = {
   isPresalePos?: boolean;
   isOffline?: boolean;
   kaiFoodEnabled?: boolean;
+  kaiServicesEnabled?: boolean;
   className?: string;
 };
 
@@ -89,6 +91,7 @@ function PosTopBarNav({
   isPresalePos = false,
   isOffline = false,
   kaiFoodEnabled = false,
+  kaiServicesEnabled = false,
   className = "",
 }: PosTopBarNavProps) {
   if (isOffline) {
@@ -207,6 +210,18 @@ function PosTopBarNav({
           aria-current={pathnameMatchesRoute(pathname, "/accounts") ? "page" : undefined}
           onClick={() => onNavigate("/accounts")}
           data-test-id="pos-topbar-dining-accounts"
+        />
+      ) : null}
+      {kaiServicesEnabled && !isPresalePos ? (
+        <IconButton
+          icon="WashingMachine"
+          variant={topBarNavIconVariant(pathnameMatchesRoute(pathname, "/laundry"))}
+          size="md"
+          ariaLabel="Recepción de lavandería"
+          title="Lavandería"
+          aria-current={pathnameMatchesRoute(pathname, "/laundry") ? "page" : undefined}
+          onClick={() => onNavigate("/laundry/receptions/new")}
+          data-test-id="pos-topbar-laundry"
         />
       ) : null}
       {!isPresalePos ? (
@@ -517,6 +532,7 @@ export default function PosTopBar({
 
   const isPresalePos = posKindFromClient === "PRESALE";
   const kaiFoodEnabled = isKaiFoodEnabled();
+  const kaiServicesEnabled = isKaiServicesEnabled();
 
   const navProps: PosTopBarNavProps = {
     pathname,
@@ -525,6 +541,7 @@ export default function PosTopBar({
     isPresalePos,
     isOffline,
     kaiFoodEnabled,
+    kaiServicesEnabled,
   };
 
   const userName = effectivePerson || "—";

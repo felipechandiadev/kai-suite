@@ -10,10 +10,12 @@ import {
   Index,
 } from 'typeorm';
 import { MultimediaLink } from './multimedia-link.entity';
+import { MultimediaVariant } from './multimedia-variant.entity';
 
 export type MultimediaKind = 'image' | 'document' | 'other';
 export type MultimediaStorageProvider = 'local' | 'cloudflare';
 export type MultimediaStatus = 'active' | 'deleted';
+export type MultimediaOptimizationStatus = 'skipped' | 'ready' | 'failed';
 
 @Entity('multimedia_assets')
 export class MultimediaAsset {
@@ -54,6 +56,20 @@ export class MultimediaAsset {
   @Column({ type: 'varchar', length: 20, default: 'active' })
   status!: MultimediaStatus;
 
+  @Column({
+    name: 'optimization_status',
+    type: 'varchar',
+    length: 20,
+    default: 'skipped',
+  })
+  optimizationStatus!: MultimediaOptimizationStatus;
+
+  @Column({ type: 'int', nullable: true })
+  width?: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  height?: number | null;
+
   @Column({ type: 'json', nullable: true })
   metadata?: Record<string, unknown> | null;
 
@@ -68,4 +84,7 @@ export class MultimediaAsset {
 
   @OneToMany(() => MultimediaLink, (link) => link.asset)
   links?: MultimediaLink[];
+
+  @OneToMany(() => MultimediaVariant, (variant) => variant.asset)
+  variants?: MultimediaVariant[];
 }

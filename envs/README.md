@@ -1,6 +1,6 @@
 # Variables de entorno — desarrollo local
 
-Puertos frontends en **506x** (demo VPS); **backend local 5030** (Next.js bloquea fetch a `:5060`); en VPS/demo backend **5060**; kai-mail **5040**; landing **5066**.
+Puertos frontends en **506x** (demo VPS); **backend local 5050** (Next.js bloquea fetch a `:5060`); en VPS/demo backend **5060**; kai-mail **5040**; landing **5066**.
 
 Ver también `deploy/ports.demo.env.example` y `docs/domains-demo.md`.
 
@@ -29,6 +29,8 @@ Opcional: `cp envs/shared.env.example envs/shared.env` para overrides locales (g
 | Variable | Ejemplo | Efecto |
 |----------|---------|--------|
 | `KAI_PRODUCT` | `kaistore` \| `kaifood` \| `kaiservices` \| `kaisuite` | Marca / `NEXT_PUBLIC_APP_NAME`; `kaisuite` habilita food + retail |
+| `MEDIA_OPTIMIZE_ENABLED` | `true` / `false` | Compresión Sharp + variantes al subir (seed y API) |
+| `MEDIA_OPTIMIZE_MAX_INPUT_PX` | `4096` | Límite de lado mayor antes de generar variantes |
 | `KAI_DEPLOY_PROFILE` | `lite` \| `eshop` \| `retail-full` | Fallback si `KAI_DEPLOY_APPS` vacío |
 | `KAI_FEATURE_ESHOP` | `true` / `false` | → `NEXT_PUBLIC_ESHOP_ENABLED` (admin) |
 | `KAI_FEATURE_JEWELRY` | `true` / `false` | → `NEXT_PUBLIC_JEWELRY_ENABLED` (metales, calculadora) |

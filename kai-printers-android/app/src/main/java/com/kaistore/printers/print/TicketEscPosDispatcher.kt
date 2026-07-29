@@ -35,6 +35,8 @@ object TicketEscPosDispatcher {
                 PosDiningAccountTicketEscPos.fromTicketJson(ticketJson, widthChars, context, logoSettings)
             "pos-presale-ticket" ->
                 PosPresaleTicketEscPos.fromTicketJson(ticketJson, widthChars, context, logoSettings)
+            "pos-laundry-reception-ticket" ->
+                PosLaundryReceptionTicketEscPos.fromTicketJson(ticketJson, widthChars, context, logoSettings)
             "fiscal-boleta-preview" ->
                 FiscalBoletaPreviewEscPos.fromTicketJson(ticketJson, widthChars, context, logoSettings)
             "variant-barcode-label" ->

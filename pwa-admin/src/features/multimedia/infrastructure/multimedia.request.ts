@@ -57,6 +57,10 @@ function normalizeAsset(raw: unknown): MultimediaAssetListItem | null {
     isPrimary: o.isPrimary === true,
     sortOrder: typeof o.sortOrder === "number" ? o.sortOrder : Number(o.sortOrder) || 0,
     linkId: o.linkId != null ? String(o.linkId) : undefined,
+    thumbnailUrl:
+      o.thumbnailUrl != null && String(o.thumbnailUrl).trim()
+        ? resolveMultimediaPublicUrl(String(o.thumbnailUrl))
+        : null,
   };
 }
 

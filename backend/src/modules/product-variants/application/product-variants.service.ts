@@ -20,6 +20,7 @@ import {
   PriceListItemsRepositoryPort,
 } from '@modules/price-list-items/application/ports/price-list-items.repository.port';
 import { MultimediaServiceAdapter } from '@modules/multimedia/application/services/multimedia.service.adapter';
+import { resolveThumbnailPublicUrl } from '@modules/multimedia/application/utils/resolve-multimedia-urls.util';
 import { AttributesService } from '@modules/attributes/application/attributes.service';
 import { Product, ProductType } from '@modules/products/domain/product.entity';
 import { VariantQuantityConversionService } from './variant-quantity-conversion.service';
@@ -261,6 +262,7 @@ export class ProductVariantsService {
             publicUrl: asset.publicUrl,
             mimeType: asset.mimeType,
             kind: asset.kind,
+            thumbnailUrl: resolveThumbnailPublicUrl(asset),
           })),
         });
       }),

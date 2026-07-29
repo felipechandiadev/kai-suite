@@ -16,4 +16,17 @@ export type MultimediaAssetListItem = {
   isPrimary?: boolean;
   sortOrder?: number;
   linkId?: string;
+  /** Preferido en grids / slots; cae a publicUrl si no hay variantes. */
+  thumbnailUrl?: string | null;
 };
+
+/** Src para listados (thumb) vs detalle (full / publicUrl). */
+export function pickMultimediaSrc(
+  asset: Pick<MultimediaAssetListItem, "publicUrl" | "thumbnailUrl">,
+  prefer: "thumb" | "full" = "full",
+): string {
+  if (prefer === "thumb") {
+    return (asset.thumbnailUrl?.trim() || asset.publicUrl).trim();
+  }
+  return asset.publicUrl.trim();
+}

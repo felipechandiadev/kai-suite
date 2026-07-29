@@ -6,6 +6,7 @@ import {
   MultimediaRepositoryPort,
 } from '../../ports/multimedia.repository.port';
 import { MultimediaAsset } from '../../../domain/multimedia-asset.entity';
+import { enrichMultimediaAssetForApi } from '../../utils/resolve-multimedia-urls.util';
 
 @QueryHandler(GetMultimediaAssetQuery)
 export class GetMultimediaAssetQueryHandler
@@ -16,7 +17,11 @@ export class GetMultimediaAssetQueryHandler
     private readonly repository: MultimediaRepositoryPort,
   ) {}
 
-  execute(query: GetMultimediaAssetQuery): Promise<MultimediaAsset | null> {
-    return this.repository.findAssetById(query.assetId);
+  async execute(
+    query: GetMultimediaAssetQuery,
+  ): Promise<MultimediaAsset | null> {
+    const asset = await this.repository.findAssetById(query.assetId);
+    if (!asset) return null;
+    return enrichMultimediaAssetForApi(asset) as MultimediaAsset;
   }
 }

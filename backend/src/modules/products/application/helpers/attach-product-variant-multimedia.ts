@@ -1,3 +1,4 @@
+import { toSlimMultimediaProjection } from '@modules/multimedia/application/utils/resolve-multimedia-urls.util';
 import { MultimediaServiceAdapter } from '@modules/multimedia/application/services/multimedia.service.adapter';
 
 /**
@@ -26,13 +27,7 @@ export async function attachProductVariantMultimedia(
       return {
         ...row,
         primaryImageUrl: null,
-        mediaAssets: assets.map((a) => ({
-          id: a.id,
-          publicUrl: a.publicUrl,
-          mimeType: a.mimeType,
-          kind: a.kind,
-          isPrimary: (a as { isPrimary?: boolean }).isPrimary === true,
-        })),
+        mediaAssets: assets.map((a) => toSlimMultimediaProjection(a)),
       };
     });
   }

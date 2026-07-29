@@ -287,6 +287,7 @@ fn vector_escpos_writer(print_type: &str) -> WriteVectorEscPosFn {
         "pos-supplier-payment-ticket" => write_pos_supplier_payment_ticket_escpos_from_value,
         "pos-bank-account-ticket" => write_pos_bank_account_ticket_escpos_from_value,
         "pos-dining-account-ticket" => write_pos_dining_account_ticket_escpos_from_value,
+        "pos-laundry-reception-ticket" => write_pos_laundry_reception_ticket_escpos_from_value,
         "pos-presale-ticket" => write_pos_presale_ticket_escpos_from_value,
         "fiscal-boleta-preview" => write_fiscal_boleta_preview_escpos_from_value,
         "variant-barcode-label" => write_variant_barcode_label_escpos_from_value,
@@ -767,6 +768,15 @@ pub fn write_pos_dining_account_ticket_escpos_from_value(
     value: &serde_json::Value,
 ) -> Result<PathBuf> {
     crate::pos_dining_account_ticket::write_pos_dining_account_ticket_escpos_from_value(dir, value)
+}
+
+pub fn write_pos_laundry_reception_ticket_escpos_from_value(
+    dir: &PathBuf,
+    value: &serde_json::Value,
+) -> Result<PathBuf> {
+    crate::pos_laundry_reception_ticket::write_pos_laundry_reception_ticket_escpos_from_value(
+        dir, value,
+    )
 }
 
 /// Genera bytes ESC/POS de ticket de preventa POS desde JSON (`pos-presale-ticket`).

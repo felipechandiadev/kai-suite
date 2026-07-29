@@ -78,6 +78,10 @@ type Props = {
   acceptsPresaleTickets?: boolean;
   cameraEnabled?: boolean;
   onCameraEnabledChange?: (enabled: boolean) => void;
+  /** Filtra tipos de producto en la búsqueda online (p. ej. `["SERVICE"]` lavandería). */
+  productTypes?: string[];
+  /** Oculta favoritos / extras de venta cuando el panel es solo servicios. */
+  servicesOnly?: boolean;
 };
 
 export type PosProductSearchPanelHandle = {
@@ -98,6 +102,8 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
   acceptsPresaleTickets = false,
   cameraEnabled = false,
   onCameraEnabledChange,
+  productTypes,
+  servicesOnly = false,
 }, ref) {
   const cart = usePosCart();
   const [draftSearch, setDraftSearch] = useState("");
@@ -331,6 +337,7 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
         priceListId,
         branchId,
         pointOfSaleId,
+        productTypes,
         page,
         pageSize,
       });
@@ -364,6 +371,7 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
     pageSize,
     tryAutoAddSingleResult,
     acceptsPresaleTickets,
+    productTypes,
     cart,
     clearSearch,
     focusSearchField,
@@ -515,7 +523,7 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
         </div>
       </div>
 
-      {showFavorites ? (
+      {showFavorites && !servicesOnly ? (
         <PosFavoriteQuickPickBar
           pointOfSaleId={pointOfSaleId}
           priceListId={priceListId}

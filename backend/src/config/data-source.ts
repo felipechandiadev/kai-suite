@@ -76,6 +76,7 @@ import { ReceptionLine } from '@modules/receptions/domain/reception-line.entity'
 import { Installment } from '@modules/installments/domain/installment.entity';
 import { MultimediaAsset } from '@modules/multimedia/domain/multimedia-asset.entity';
 import { MultimediaLink } from '@modules/multimedia/domain/multimedia-link.entity';
+import { MultimediaVariant } from '@modules/multimedia/domain/multimedia-variant.entity';
 import { CashHub } from '@modules/cash-hubs/domain/cash-hub.entity';
 import { AccountingRuleLine } from '@modules/accounting-rules/domain/accounting-rule-line.entity';
 import { AutomationRule } from '@modules/automation/domain/automation-rule.entity';
@@ -190,6 +191,8 @@ import { ExpenseCategoryNonDeletable1757390000000 } from '../migrations/17573900
 import { RecurringOeAsTemplates1757400000000 } from '../migrations/1757400000000-RecurringOeAsTemplates';
 import { EmploymentContractGenerationalLaguna1757410000000 } from '../migrations/1757410000000-EmploymentContractGenerationalLaguna';
 import { DiningBoardDisplays1757420000000 } from '../migrations/1757420000000-DiningBoardDisplays';
+import { MultimediaVariantsAndOptimization1757440000000 } from '../migrations/1757440000000-MultimediaVariantsAndOptimization';
+import { LaundryReceptionModule1757430000000 } from '../migrations/1757430000000-LaundryReceptionModule';
 import { DiningKitchenFireId1757140000000 } from '../migrations/1757140000000-DiningKitchenFireId';
 import { DiningKitchenFireNumber1757150000000 } from '../migrations/1757150000000-DiningKitchenFireNumber';
 import { ProductionUnitPurpose1757160000000 } from '../migrations/1757160000000-ProductionUnitPurpose';
@@ -218,6 +221,13 @@ import { EShopDeliverySettings } from '@modules/delivery/domain/e-shop-delivery-
 import { PaymentGatewayIntent } from '@modules/payment-gateways/domain/payment-gateway-intent.entity';
 import { PresaleTicket } from '@modules/presale-tickets/domain/presale-ticket.entity';
 import { PresaleTicketLine } from '@modules/presale-tickets/domain/presale-ticket-line.entity';
+import { LaundryGarmentType } from '@modules/laundry/domain/laundry-garment-type.entity';
+import { LaundryGarmentAttribute } from '@modules/laundry/domain/laundry-garment-attribute.entity';
+import { LaundryGarmentAttributeValue } from '@modules/laundry/domain/laundry-garment-attribute-value.entity';
+import { LaundryCareTemplate } from '@modules/laundry/domain/laundry-care-template.entity';
+import { LaundryReception } from '@modules/laundry/domain/laundry-reception.entity';
+import { LaundryReceptionGarment } from '@modules/laundry/domain/laundry-reception-garment.entity';
+import { LaundryReceptionServiceLine } from '@modules/laundry/domain/laundry-reception-service-line.entity';
 import { Notification } from '@modules/notifications/domain/notification.entity';
 import { NotificationDelivery } from '@modules/notifications/domain/notification-delivery.entity';
 import { NotificationAudience } from '@modules/notifications/domain/notification-audience.entity';
@@ -346,6 +356,7 @@ export const AppDataSource = new DataSource({
     Installment,
     MultimediaAsset,
     MultimediaLink,
+    MultimediaVariant,
     CashHub,
     Check,
     CheckTransactionLink,
@@ -416,6 +427,13 @@ export const AppDataSource = new DataSource({
     FiscalDteEmission,
     PointOfSaleFolioAllocation,
     PosSyncCommand,
+    LaundryGarmentType,
+    LaundryGarmentAttribute,
+    LaundryGarmentAttributeValue,
+    LaundryCareTemplate,
+    LaundryReception,
+    LaundryReceptionGarment,
+    LaundryReceptionServiceLine,
   ],
   subscribers: [AuditSubscriber, TenantSubscriber],
   migrations: [
@@ -529,6 +547,8 @@ export const AppDataSource = new DataSource({
     RecurringOeAsTemplates1757400000000,
     EmploymentContractGenerationalLaguna1757410000000,
     DiningBoardDisplays1757420000000,
+    LaundryReceptionModule1757430000000,
+    MultimediaVariantsAndOptimization1757440000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

@@ -19,4 +19,5 @@ Carpeta de **fuentes estáticas versionadas** que no son código.
 npm run brand:icons
 ```
 
-Fuente: `assets/brand/kai-store/source/kai-logo.svg`
+Fuente: `assets/brand/kai-store/source/` (ver README de marca).  
+Manual PWA / favicons: [`docs/project/PWA-ICONOS-Y-FAVICONS.md`](../docs/project/PWA-ICONOS-Y-FAVICONS.md).

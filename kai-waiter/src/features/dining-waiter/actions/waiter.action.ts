@@ -74,12 +74,57 @@ export async function getDiningNumberingSettingsAction(body: {
   return DiningRequest.getNumberingSettings(ctx(body), body.branchId);
 }
 
+export async function resolveWaiterBranchCatalogContextAction(body: {
+  userId: string;
+  companyId: string;
+  branchId: string;
+}) {
+  return DiningRequest.resolveBranchCatalogContext(ctx(body), body.branchId);
+}
+
 export async function searchWaiterMenuAction(body: {
   userId: string;
   companyId: string;
-  query: string;
+  priceListId: string;
+  branchId?: string;
+  pointOfSaleId?: string | null;
+  query?: string;
+  categoryIds?: string[];
+  page?: number;
+  pageSize?: number;
 }) {
-  return DiningRequest.searchMenuProducts(ctx(body), body.query);
+  return DiningRequest.searchPosMenuProducts(ctx(body), {
+    priceListId: body.priceListId,
+    branchId: body.branchId,
+    pointOfSaleId: body.pointOfSaleId,
+    query: body.query,
+    categoryIds: body.categoryIds,
+    page: body.page,
+    pageSize: body.pageSize,
+  });
+}
+
+export async function batchWaiterCtpAction(body: {
+  userId: string;
+  companyId: string;
+  branchId: string;
+  variantIds: string[];
+}) {
+  return DiningRequest.batchCtp(ctx(body), {
+    branchId: body.branchId,
+    variantIds: body.variantIds,
+  });
+}
+
+export async function lookupWaiterVariantsAction(body: {
+  userId: string;
+  companyId: string;
+  variantIds: string[];
+  branchId?: string;
+  priceListId?: string | null;
+  pointOfSaleId?: string | null;
+}) {
+  return DiningRequest.lookupVariants(ctx(body), body);
 }
 
 export async function addOrderItemsAction(body: {
@@ -114,4 +159,28 @@ export async function requestOrderBillAction(body: {
   orderId: string;
 }) {
   return DiningRequest.requestBill(ctx(body), body.orderId);
+}
+
+export async function cancelOrderItemAction(body: {
+  userId: string;
+  companyId: string;
+  orderId: string;
+  lineId: string;
+}) {
+  return DiningRequest.cancelOrderItem(ctx(body), body.orderId, body.lineId);
+}
+
+export async function updateOrderLineNotesAction(body: {
+  userId: string;
+  companyId: string;
+  orderId: string;
+  lineId: string;
+  notes: string | null;
+}) {
+  return DiningRequest.updateOrderLineNotes(
+    ctx(body),
+    body.orderId,
+    body.lineId,
+    body.notes,
+  );
 }

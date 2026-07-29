@@ -28,7 +28,7 @@ export function getServerBackendApiBase(): string {
     process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim();
 
   if (base) return preferIpv4Loopback(base);
-  if (process.env.NODE_ENV === "development") return "http://127.0.0.1:5030";
+  if (process.env.NODE_ENV === "development") return "http://127.0.0.1:5050";
   throw new Error("BACKEND_API_URL no está definida");
 }
 
@@ -40,7 +40,7 @@ export function getClientBackendApiBase(): string {
   const raw =
     process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim() ||
     process.env.BACKEND_API_URL?.trim() ||
-    (process.env.NODE_ENV === "development" ? "http://localhost:5030" : "");
+    (process.env.NODE_ENV === "development" ? "http://localhost:5050" : "");
   if (!raw) {
     throw new Error("NEXT_PUBLIC_BACKEND_API_URL no está definida");
   }

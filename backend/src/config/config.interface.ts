@@ -52,6 +52,8 @@ export interface StorageConfig {
   maxFileSize: number;
   allowedMimeTypes: string[];
   publicBasePath: string;
+  optimizeEnabled: boolean;
+  optimizeMaxInputPx: number;
   r2: R2StorageConfig;
   local: LocalStorageConfig;
 }

@@ -44,6 +44,10 @@ import type {
   PosPresaleTicketPrintExtras,
 } from "./pos-presale-ticket";
 import type {
+  PosLaundryReceptionTicketPayload,
+  PosLaundryReceptionTicketPrintExtras,
+} from "./pos-laundry-reception-ticket";
+import type {
   FiscalBoletaPreviewPayload,
   FiscalBoletaPreviewPrintExtras,
 } from "./fiscal-boleta-preview";
@@ -177,6 +181,8 @@ export const AGENT_CAPABILITY_POS_SUPPLIER_PAYMENT_TICKET =
   "pos-supplier-payment-ticket";
 export const AGENT_CAPABILITY_POS_BANK_ACCOUNT_TICKET = "pos-bank-account-ticket";
 export const AGENT_CAPABILITY_POS_DINING_ACCOUNT_TICKET = "pos-dining-account-ticket";
+export const AGENT_CAPABILITY_POS_LAUNDRY_RECEPTION_TICKET =
+  "pos-laundry-reception-ticket";
 export const AGENT_CAPABILITY_POS_PRESALE_TICKET = "pos-presale-ticket";
 export const AGENT_CAPABILITY_FISCAL_BOLETA_PREVIEW = "fiscal-boleta-preview";
 export const AGENT_CAPABILITY_VARIANT_BARCODE_LABEL = "variant-barcode-label";
@@ -794,6 +800,17 @@ export class PrintServiceConnection {
     return this.enqueuePosPrint(body);
   }
 
+  /** Guía recepción lavandería: ESC/POS (`type: "pos-laundry-reception-ticket"`). */
+  enqueuePosLaundryReceptionTicket(
+    ticket: PosLaundryReceptionTicketPayload,
+    extras: PosLaundryReceptionTicketPrintExtras & { purpose?: string; format?: PrintFormat },
+    omitPrinterDisplayLabel = false,
+  ): Promise<unknown> {
+    const body = buildPosTicketEnqueueBody("pos-laundry-reception-ticket", ticket, extras);
+    if (omitPrinterDisplayLabel) return this.enqueuePrint(body);
+    return this.enqueuePosPrint(body);
+  }
+
   /** Ticket de preventa POS: ESC/POS desde JSON (`type: "pos-presale-ticket"`). */
   enqueuePosPresaleTicket(
     ticket: PosPresaleTicketPayload,
@@ -1208,6 +1225,16 @@ export function agentSupportsPosPresaleTicket(
   const caps = hello?.agentCapabilities;
   if (Array.isArray(caps) && caps.length > 0) {
     return caps.includes(AGENT_CAPABILITY_POS_PRESALE_TICKET);
+  }
+  return Boolean(hello?.serviceStatus);
+}
+
+export function agentSupportsPosLaundryReceptionTicket(
+  hello: HelloResponseData | null | undefined,
+): boolean {
+  const caps = hello?.agentCapabilities;
+  if (Array.isArray(caps) && caps.length > 0) {
+    return caps.includes(AGENT_CAPABILITY_POS_LAUNDRY_RECEPTION_TICKET);
   }
   return Boolean(hello?.serviceStatus);
 }

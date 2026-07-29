@@ -137,6 +137,14 @@ export class AppConfigService {
       ),
       allowedMimeTypes,
       publicBasePath: this.configService.get<string>('MEDIA_PUBLIC_BASE_PATH')!,
+      optimizeEnabled:
+        this.configService.get('MEDIA_OPTIMIZE_ENABLED') == null
+          ? true
+          : this.envBool(this.configService.get('MEDIA_OPTIMIZE_ENABLED')),
+      optimizeMaxInputPx: parseInt(
+        this.configService.get<string>('MEDIA_OPTIMIZE_MAX_INPUT_PX') ?? '4096',
+        10,
+      ),
       r2: {
         accountId: this.configService.get<string>('R2_ACCOUNT_ID') || undefined,
         endpoint: this.configService.get<string>('R2_ENDPOINT') || undefined,

@@ -44,6 +44,7 @@ import {
 import { CreateTransactionDto } from '@modules/transactions/application/dto/create-transaction.dto';
 import { AppConfigService } from '../../../config/config.service';
 import { resolveMultimediaPublicUrl } from '@modules/multimedia/application/utils/resolve-multimedia-public-url.util';
+import { resolveThumbnailPublicUrl } from '@modules/multimedia/application/utils/resolve-multimedia-urls.util';
 import {
   resolvePrimaryMultimediaAsset,
   resolvePrimaryMultimediaPublicUrl,
@@ -652,9 +653,12 @@ export class EShopService {
       }
       const assets = mediaMap[id] ?? [];
       const primary = resolvePrimaryMultimediaAsset(assets);
+      const thumbOrFull = primary
+        ? resolveThumbnailPublicUrl(primary)
+        : null;
       const imageUrl =
-        resolveMultimediaPublicUrl(primary?.publicUrl, this.config) ??
-        primary?.publicUrl ??
+        resolveMultimediaPublicUrl(thumbOrFull, this.config) ??
+        thumbOrFull ??
         null;
       items.push({
         id: p.id,
@@ -1148,7 +1152,10 @@ export class EShopService {
     for (const productId of productIds) {
       const assets = productAssetsMap[productId] ?? [];
       const primary = resolvePrimaryMultimediaAsset(assets);
-      const resolved = resolveMultimediaPublicUrl(primary?.publicUrl, this.config);
+      const thumbOrFull = primary
+        ? resolveThumbnailPublicUrl(primary)
+        : null;
+      const resolved = resolveMultimediaPublicUrl(thumbOrFull, this.config);
       if (resolved) {
         imageByProductId.set(productId, resolved);
       }

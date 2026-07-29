@@ -1,5 +1,7 @@
 # Kai Brand — iconos del ecosistema
 
+**Manual completo (PWA `any`/`maskable`, favicons, iOS, checklist):** [`docs/project/PWA-ICONOS-Y-FAVICONS.md`](../../docs/project/PWA-ICONOS-Y-FAVICONS.md).
+
 Fuentes SVG en [`assets/brand/kai-store/source/`](../../assets/brand/kai-store/source/):
 
 | Archivo | Uso |

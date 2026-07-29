@@ -13,6 +13,8 @@
     "preseed:import-san-sebastian": "test -e node_modules || ln -sf ../backend/node_modules node_modules",
     "seed:demo": "node ../backend/node_modules/ts-node/dist/bin.js -r ../backend/node_modules/tsconfig-paths/register -P tsconfig.json demo/run.ts",
     "seed:demo:no-images": "SEED_SKIP_IMAGES=true node ../backend/node_modules/ts-node/dist/bin.js -r ../backend/node_modules/tsconfig-paths/register -P tsconfig.json demo/run.ts",
+    "preseed:demo:laundry": "test -e node_modules || ln -sf ../backend/node_modules node_modules",
+    "seed:demo:laundry": "node ../backend/node_modules/ts-node/dist/bin.js -r ../backend/node_modules/tsconfig-paths/register -P tsconfig.json demo/seed-demo-laundry-only.ts",
     "seed:delivery-orders-tomorrow": "node ../backend/node_modules/ts-node/dist/bin.js -r ../backend/node_modules/tsconfig-paths/register -P tsconfig.json demo/seed-delivery-orders-tomorrow.ts",
     "seed:joyarte": "node ../backend/node_modules/ts-node/dist/bin.js -r ../backend/node_modules/tsconfig-paths/register -P tsconfig.json joyarte/run.ts",
     "seed:san-sebastian": "node ../backend/node_modules/ts-node/dist/bin.js -r ../backend/node_modules/tsconfig-paths/register -P tsconfig.json san-sebastian/run.ts",

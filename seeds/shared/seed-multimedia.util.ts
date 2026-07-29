@@ -30,11 +30,13 @@ import type { INestApplicationContext } from '@nestjs/common';
 import { AppConfigService } from '../../backend/src/config/config.service';
 import { CloudflareR2Adapter } from '@modules/multimedia/infrastructure/adapters/cloudflare-r2.adapter';
 import { LocalStorageAdapter } from '@modules/multimedia/infrastructure/adapters/local-storage.adapter';
+import { MultimediaIngestService } from '@modules/multimedia/application/media-optimization/multimedia-ingest.service';
 
 export type SeedMultimediaStorageParams = {
   storage: StorageProviderPort;
   storageProvider: 'local' | 'cloudflare';
   seedImages: boolean;
+  ingest?: MultimediaIngestService;
 };
 
 /** `SEED_SKIP_IMAGES=true` omite logo, catálogo, hero y testimonials. */
@@ -72,10 +74,18 @@ export function resolveSeedMultimediaStorage(
       ? app.get(CloudflareR2Adapter)
       : app.get(LocalStorageAdapter);
 
+  let ingest: MultimediaIngestService | undefined;
+  try {
+    ingest = app.get(MultimediaIngestService);
+  } catch {
+    ingest = undefined;
+  }
+
   return {
     storage,
     storageProvider,
     seedImages: shouldSeedImages(),
+    ingest,
   };
 }
 
@@ -160,6 +170,8 @@ export async function seedMultimediaFileLink(params: {
   isPrimary?: boolean;
   attributeId?: string | null;
   assetsRoot?: string;
+  /** Prefer shared ingest (Sharp + variants). Required for compression. */
+  ingest?: MultimediaIngestService;
 }): Promise<MultimediaAsset> {
   const root = params.assetsRoot ?? SEED_ASSETS_ROOT;
   const sourcePath = path.join(root, params.sourceRelativePath);
@@ -167,6 +179,33 @@ export async function seedMultimediaFileLink(params: {
   const ext = path.extname(sourcePath).toLowerCase();
   const mimeType = MIME_BY_EXT[ext] ?? 'application/octet-stream';
   const originalName = path.basename(sourcePath);
+
+  if (params.ingest) {
+    const asset = await params.ingest.ingest({
+      file: {
+        buffer,
+        originalName,
+        mimeType,
+        size: buffer.length,
+      },
+      entityType: params.entityType,
+      entityId: params.entityId,
+      usageType: params.usageType ?? 'default',
+      isPrimary: params.isPrimary ?? true,
+      attributeId: params.attributeId,
+    });
+    const meta = (asset.metadata ?? {}) as Record<string, unknown>;
+    const originalSize = Number(meta.originalSize ?? asset.size) || buffer.length;
+    const displaySize = Number(meta.displaySize ?? asset.size) || asset.size;
+    if (asset.optimizationStatus === 'ready') {
+      console.log(
+        `   ↳ ${originalName}: ${asset.optimizationStatus} ` +
+          `${originalSize} → display ~${displaySize} B` +
+          (meta.compressionRatio != null ? ` (ratio ${meta.compressionRatio})` : ''),
+      );
+    }
+    return asset;
+  }
 
   const stored = await params.storage.upload({
     buffer,
@@ -187,6 +226,7 @@ export async function seedMultimediaFileLink(params: {
       size: buffer.length,
       checksum,
       status: 'active',
+      optimizationStatus: 'skipped',
     }),
   );
 
@@ -246,6 +286,7 @@ export async function seedDevEshopHeroSlides(params: {
       linkRepo: params.linkRepo,
       storage: params.storage,
       storageProvider: params.storageProvider,
+      ingest: params.ingest,
       sourceRelativePath: def.imageFile,
       entityType: ESHOP_HERO_SLIDE_MULTIMEDIA_ENTITY,
       entityId: slide.id,
@@ -300,6 +341,7 @@ export async function seedDevEshopTestimonials(params: {
       linkRepo: params.linkRepo,
       storage: params.storage,
       storageProvider: params.storageProvider,
+      ingest: params.ingest,
       sourceRelativePath: def.imageFile,
       entityType: ESHOP_TESTIMONIAL_MULTIMEDIA_ENTITY,
       entityId: row.id,
@@ -351,6 +393,7 @@ export async function seedDevCatalogMultimedia(params: {
       linkRepo: params.linkRepo,
       storage: params.storage,
       storageProvider: params.storageProvider,
+      ingest: params.ingest,
       sourceRelativePath: def.imageFile,
       entityType: 'product',
       entityId: product.id,
@@ -402,6 +445,7 @@ export async function seedDevCatalogMultimedia(params: {
       linkRepo: params.linkRepo,
       storage: params.storage,
       storageProvider: params.storageProvider,
+      ingest: params.ingest,
       sourceRelativePath: def.imageFile,
       entityType: 'product-variant',
       entityId: variant.id,
@@ -489,6 +533,7 @@ export async function seedEshopHeroSlidesFromDefs(params: {
       linkRepo: params.linkRepo,
       storage: params.storage,
       storageProvider: params.storageProvider,
+      ingest: params.ingest,
       sourceRelativePath: def.imageFile,
       entityType: ESHOP_HERO_SLIDE_MULTIMEDIA_ENTITY,
       entityId: slide.id,
@@ -536,6 +581,7 @@ export async function seedEshopTestimonialsFromDefs(params: {
       linkRepo: params.linkRepo,
       storage: params.storage,
       storageProvider: params.storageProvider,
+      ingest: params.ingest,
       sourceRelativePath: def.imageFile,
       entityType: ESHOP_TESTIMONIAL_MULTIMEDIA_ENTITY,
       entityId: row.id,
@@ -589,6 +635,7 @@ export async function seedCatalogMultimediaByProductName(params: {
       linkRepo: params.linkRepo,
       storage: params.storage,
       storageProvider: params.storageProvider,
+      ingest: params.ingest,
       sourceRelativePath: def.imageFile,
       entityType: 'product',
       entityId: product.id,

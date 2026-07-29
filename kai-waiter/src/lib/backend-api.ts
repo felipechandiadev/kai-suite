@@ -4,7 +4,7 @@ export function getServerBackendApiBase(): string {
     process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim();
 
   if (base) return base.replace(/\/$/, "");
-  if (process.env.NODE_ENV === "development") return "http://localhost:5030";
+  if (process.env.NODE_ENV === "development") return "http://localhost:5050";
   throw new Error("BACKEND_API_URL no está definida");
 }
 
@@ -72,6 +72,24 @@ export async function diningPost<T>(
 ): Promise<T> {
   const res = await fetch(apiUrl(path), {
     method: "POST",
+    headers: authHeaders(ctx),
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(parseApiError(text, res.status));
+  }
+  return res.json() as Promise<T>;
+}
+
+export async function diningPatch<T>(
+  path: string,
+  ctx: DiningAuthContext,
+  body?: unknown,
+): Promise<T> {
+  const res = await fetch(apiUrl(path), {
+    method: "PATCH",
     headers: authHeaders(ctx),
     body: body !== undefined ? JSON.stringify(body) : undefined,
     cache: "no-store",

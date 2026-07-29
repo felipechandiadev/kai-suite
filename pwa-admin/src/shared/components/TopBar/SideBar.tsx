@@ -10,6 +10,7 @@ import { isCompanyChecksEnabledFromSettings } from '@/features/companies/types/c
 import { isEShopModuleEnabled } from '@/config/eshop-module.config';
 import { isJewelryModuleEnabled } from '@/config/jewelry-module.config';
 import { isKaiFoodEnabled } from '@/config/kaifood-module.config';
+import { isKaiServicesEnabled } from '@/config/kaiservices-module.config';
 import { isMultiCompanyModuleEnabled } from '@/config/multi-company-module.config';
 import { getKaiAdminAppName } from '@/config/product-brand.config';
 import { isEShopEnabledFromSettings } from '@/features/companies/types/company-eshop.types';
@@ -39,6 +40,8 @@ export interface SideBarMenuItem {
   requiresJewelryEnabled?: boolean;
   /** Solo visible si el despliegue es KaiFood (`NEXT_PUBLIC_KAI_PRODUCT=kaifood`). */
   requiresKaiFoodEnabled?: boolean;
+  /** Solo visible si el despliegue es Kai Services (`NEXT_PUBLIC_KAI_PRODUCT=kaiservices`). */
+  requiresKaiServicesEnabled?: boolean;
   /** Solo visible en despliegues multi-empresa. */
   requiresMultiCompanyEnabled?: boolean;
 }
@@ -74,6 +77,7 @@ function filterVisibleMenuItems(
   localDeliveryEnabled: boolean,
   jewelryEnabled: boolean,
   kaiFoodEnabled: boolean,
+  kaiServicesEnabled: boolean,
   multiCompanyEnabled: boolean,
 ): SideBarMenuItem[] {
   return items.flatMap((item) => {
@@ -96,6 +100,9 @@ function filterVisibleMenuItems(
     if (item.requiresKaiFoodEnabled && !kaiFoodEnabled) {
       return [];
     }
+    if (item.requiresKaiServicesEnabled && !kaiServicesEnabled) {
+      return [];
+    }
     if (item.requiresMultiCompanyEnabled && !multiCompanyEnabled) {
       return [];
     }
@@ -108,6 +115,7 @@ function filterVisibleMenuItems(
         localDeliveryEnabled,
         jewelryEnabled,
         kaiFoodEnabled,
+        kaiServicesEnabled,
         multiCompanyEnabled,
       );
       if (visibleChildren.length === 0) return [];
@@ -145,6 +153,7 @@ const SideBar: React.FC<SideBarProps> = ({
     isEShopEnabledFromSettings(company?.settings as Record<string, unknown> | undefined);
   const jewelryEnabled = isJewelryModuleEnabled();
   const kaiFoodEnabled = isKaiFoodEnabled();
+  const kaiServicesEnabled = isKaiServicesEnabled();
   const multiCompanyEnabled = isMultiCompanyModuleEnabled();
 
   // Track which parent items are open using their id or label
@@ -337,6 +346,7 @@ const SideBar: React.FC<SideBarProps> = ({
             localDeliveryEnabled,
             jewelryEnabled,
             kaiFoodEnabled,
+            kaiServicesEnabled,
             multiCompanyEnabled,
           ).map((item, idx) => renderMenuItem(item, idx))}
         </ul>

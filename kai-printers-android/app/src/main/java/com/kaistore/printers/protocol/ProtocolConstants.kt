@@ -16,6 +16,7 @@ val AGENT_CAPABILITIES_MVP = listOf(
     "pos-bank-account-ticket",
     "pos-dining-account-ticket",
     "pos-presale-ticket",
+    "pos-laundry-reception-ticket",
     "fiscal-boleta-preview",
     "variant-barcode-label",
     "pdf-base64",

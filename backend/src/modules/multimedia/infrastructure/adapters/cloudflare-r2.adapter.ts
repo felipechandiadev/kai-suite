@@ -34,8 +34,14 @@ export class CloudflareR2Adapter implements StorageProviderPort {
   }
 
   async upload(payload: UploadStoragePayload): Promise<StoredFileResult> {
-    const extension = path.extname(payload.originalName);
-    const storedName = `${randomUUID()}${extension}`;
+    const extension = path.extname(payload.originalName) || '';
+    const storageKey =
+      payload.storageKey?.replace(/\\/g, '/').replace(/^\/+/, '') ||
+      `${randomUUID()}${extension}`;
+    if (!storageKey || storageKey.includes('..')) {
+      throw new Error(`Invalid storage key: ${payload.storageKey}`);
+    }
+    const storedName = path.basename(storageKey);
     const bucket = this.configService.storage.r2.bucketName;
 
     if (!bucket) {
@@ -45,16 +51,16 @@ export class CloudflareR2Adapter implements StorageProviderPort {
     await this.client.send(
       new PutObjectCommand({
         Bucket: bucket,
-        Key: storedName,
+        Key: storageKey,
         Body: payload.buffer,
         ContentType: payload.mimeType,
       }),
     );
 
     return {
-      storageKey: storedName,
+      storageKey,
       storedName,
-      publicUrl: this.buildPublicUrl(storedName),
+      publicUrl: this.buildPublicUrl(storageKey),
     };
   }
 
@@ -146,6 +152,10 @@ export class CloudflareR2Adapter implements StorageProviderPort {
       throw new Error('R2 public URL is not configured');
     }
 
-    return `${publicUrl.replace(/\/$/, '')}/${storageKey}`;
+    const key = storageKey
+      .split('/')
+      .map((part) => encodeURIComponent(part))
+      .join('/');
+    return `${publicUrl.replace(/\/$/, '')}/${key}`;
   }
 }

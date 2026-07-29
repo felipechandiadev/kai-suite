@@ -38,8 +38,10 @@ import { ProductVariantProductionUnit } from '@modules/product-variants/domain/p
 import { OperationalExpensesModule } from '@modules/operational-expenses/operational-expenses.module';
 import { FiscalModule } from '@modules/fiscal/fiscal.module';
 import { ProductModeModule } from '../../backend/src/shared/product-mode/product-mode.module';
-import { CloudflareR2Adapter } from '@modules/multimedia/infrastructure/adapters/cloudflare-r2.adapter';
 import { LocalStorageAdapter } from '@modules/multimedia/infrastructure/adapters/local-storage.adapter';
+import { CloudflareR2Adapter } from '@modules/multimedia/infrastructure/adapters/cloudflare-r2.adapter';
+import { MultimediaModule } from '@modules/multimedia/multimedia.module';
+import { MultimediaVariant } from '@modules/multimedia/domain/multimedia-variant.entity';
 
 /**
  * Misma conexión y entidades que el API: el esquema lo define TypeORM vía
@@ -81,6 +83,7 @@ import { LocalStorageAdapter } from '@modules/multimedia/infrastructure/adapters
       StockLevel,
       MultimediaAsset,
       MultimediaLink,
+      MultimediaVariant,
       EShopHeroSlide,
       EShopTestimonial,
       Recipe,
@@ -90,6 +93,7 @@ import { LocalStorageAdapter } from '@modules/multimedia/infrastructure/adapters
     ]),
     OperationalExpensesModule,
     FiscalModule,
+    MultimediaModule,
   ],
   providers: [LocalStorageAdapter, CloudflareR2Adapter],
 })

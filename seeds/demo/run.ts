@@ -100,6 +100,7 @@ import { ProductVariantProductionUnit } from '@modules/product-variants/domain/p
 import { ProductVariantProductionAttribute } from '@modules/product-variants/domain/product-variant-production-attribute.entity';
 import { ProductVariantProductionAttributeOption } from '@modules/product-variants/domain/product-variant-production-attribute-option.entity';
 import { SEED_DEMO_PRODUCTION_ATTRIBUTES } from './seed-demo-production-attributes';
+import { seedDemoLaundryCatalog } from './seed-demo-laundry-catalog';
 import { TenantContext } from '@common/tenant/tenant.context';
 import { AppConfigService } from '../../backend/src/config/config.service';
 import { MultimediaAsset } from '@modules/multimedia/domain/multimedia-asset.entity';
@@ -2147,6 +2148,7 @@ async function bootstrap() {
           linkRepo: dataSource.getRepository(MultimediaLink),
           storage: seedStorage.storage,
           storageProvider: seedStorage.storageProvider,
+          ingest: seedStorage.ingest,
           sourceRelativePath: SEED_COMPANY_LOGO_FILE,
           entityType: 'company',
           entityId: company.id,
@@ -3217,6 +3219,8 @@ async function bootstrap() {
       });
 
     console.log(`✅ Catálogo desarrollo: ${devVariantCount} variante(s) en ${SEED_DEV_PRODUCTS.length} producto(s)`);
+
+    await seedDemoLaundryCatalog(dataSource, company.id);
 
     await productRepo
       .createQueryBuilder()

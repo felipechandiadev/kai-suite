@@ -14,7 +14,7 @@ import {
   listDiningRoomsAction,
   openTableOrderAction,
 } from "@/features/dining-waiter/actions/waiter.action";
-import { WaiterFloorPlan } from "@/features/dining-waiter/ui/WaiterFloorPlan";
+import { WaiterMesasCards } from "@/features/dining-waiter/ui/WaiterMesasCards";
 import { WaiterTableScreen } from "@/features/dining-waiter/ui/WaiterTableScreen";
 import { useDiningRealtime } from "@/features/dining-waiter/realtime/useDiningRealtime";
 import {
@@ -107,22 +107,18 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
     };
   }, [session.userId, session.companyId, loadRoom]);
 
-  const handleSelectTable = async (table: DiningTableDto, orderId?: string) => {
+  const handleSelectOccupied = async (table: DiningTableDto, orderId: string) => {
     setSelectedTable(table);
     setError(null);
-    if (orderId) {
-      try {
-        const order = await getDiningOrderAction({
-          ...authRef.current,
-          orderId,
-        });
-        setSelectedOrder(order);
-      } catch (e) {
-        setSelectedOrder(null);
-        setError(e instanceof Error ? e.message : "Error al cargar cuenta");
-      }
-    } else {
+    try {
+      const order = await getDiningOrderAction({
+        ...authRef.current,
+        orderId,
+      });
+      setSelectedOrder(order);
+    } catch (e) {
       setSelectedOrder(null);
+      setError(e instanceof Error ? e.message : "Error al cargar cuenta");
     }
   };
 
@@ -133,16 +129,18 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
     void refreshOrders();
   };
 
-  const handleOpenTable = async () => {
-    if (!selectedTable || !branchId) return;
+  const handleOpenTable = async (table?: DiningTableDto) => {
+    const target = table ?? selectedTable;
+    if (!target || !branchId) return;
     setOpening(true);
     setError(null);
     try {
       const order = await openTableOrderAction({
         ...authRef.current,
         branchId,
-        diningTableId: selectedTable.id,
+        diningTableId: target.id,
       });
+      setSelectedTable(target);
       setSelectedOrder(order);
       await refreshOrders();
     } catch (e) {
@@ -169,7 +167,9 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
           void getDiningOrderAction({
             ...authRef.current,
             orderId: fresh.id,
-          }).then(setSelectedOrder).catch(() => undefined);
+          })
+            .then(setSelectedOrder)
+            .catch(() => undefined);
         }
       });
     },
@@ -197,10 +197,11 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
         {error ? <p className="mb-2 text-sm text-red-500">{error}</p> : null}
         <WaiterTableScreen
           session={session}
+          branchId={branchId}
           table={selectedTable}
           order={selectedOrder}
           onBack={handleBackToSalon}
-          onOpenTable={handleOpenTable}
+          onOpenTable={() => handleOpenTable()}
           onOrderUpdated={handleOrderUpdated}
           opening={opening}
           canOpenTable={canOpenTable}
@@ -211,45 +212,47 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
 
   return (
     <div className="flex flex-1 flex-col gap-3" data-test-id="waiter-salon-workspace">
-      {rooms.length > 1 ? (
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {rooms.map((r) => (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => {
-                setSelectedTable(null);
-                setSelectedOrder(null);
-                void loadRoom(r.id);
-              }}
-              className={`shrink-0 rounded-md border px-3 py-1.5 text-sm ${
-                room?.id === r.id
-                  ? "border-primary bg-primary/10 font-medium"
-                  : "border-border hover:border-primary/50"
-              }`}
-            >
-              {r.name}
-            </button>
-          ))}
-        </div>
-      ) : room ? (
-        <h1 className="text-base font-semibold text-foreground">{room.name}</h1>
-      ) : null}
+      <div className="flex flex-col gap-1">
+        <h1 className="text-lg font-semibold text-foreground" data-test-id="waiter-mesas-title">
+          Mesas
+        </h1>
+        {rooms.length > 1 ? (
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {rooms.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => {
+                  setSelectedTable(null);
+                  setSelectedOrder(null);
+                  void loadRoom(r.id);
+                }}
+                className={`shrink-0 rounded-md border px-3 py-1.5 text-sm ${
+                  room?.id === r.id
+                    ? "border-primary bg-primary/10 font-medium"
+                    : "border-border hover:border-primary/50"
+                }`}
+                data-test-id={`waiter-room-chip-${r.id}`}
+              >
+                {r.name}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
 
       {error ? <p className="text-sm text-red-500">{error}</p> : null}
 
       {room ? (
-        <WaiterFloorPlan
+        <WaiterMesasCards
           room={room}
           orders={orders}
-          selectedTableId={null}
-          onSelectTable={handleSelectTable}
+          canOpenTable={canOpenTable}
+          opening={opening}
+          onOpenTable={(table) => void handleOpenTable(table)}
+          onSelectOccupied={handleSelectOccupied}
         />
       ) : null}
-
-      <p className="text-center text-xs text-muted-foreground">
-        Toca una mesa para abrir la comanda
-      </p>
     </div>
   );
 }

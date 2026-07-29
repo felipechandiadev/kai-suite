@@ -5,6 +5,7 @@ import { IconButton } from "@kai/ui";
 import type { MultimediaAspectRatio, MultimediaGridItem, MultimediaLightboxItem } from "./types";
 import { MultimediaLightbox } from "./MultimediaLightbox";
 import { resolvePreviewSurface } from "./multimedia-preview-surface";
+import { pickMultimediaSrc } from "@/features/multimedia/types/multimedia.types";
 
 function aspectClass(ratio: MultimediaAspectRatio): string {
   if (ratio === "square") {
@@ -123,7 +124,9 @@ export function MultimediaCollectionGrid({
       >
         {items.map((item, index) => {
           const isPersisted = item.kind === "persisted";
-          const url = isPersisted ? item.asset.publicUrl : item.staging.previewUrl;
+          const url = isPersisted
+            ? pickMultimediaSrc(item.asset, "thumb")
+            : item.staging.previewUrl;
           const mimeType = isPersisted ? item.asset.mimeType : item.staging.file.type;
           const kind = isPersisted ? item.asset.kind : undefined;
           const isVideo = isVideoMime(mimeType, kind);

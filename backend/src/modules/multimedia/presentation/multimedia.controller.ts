@@ -76,24 +76,29 @@ export class MultimediaController {
     };
   }
 
-  /** Archivos locales: lectura pública por URL opaca (UUID); el navegador no envía Bearer en <img>. */
+  /** Archivos locales: keys planas o namespaced (`companyId/assetId/...`). */
   @SkipTenant()
-  @Get('files/:storageKey')
-  async getLocalFile(
-    @Param('storageKey') storageKey: string,
-    @Res() response: Response,
-  ) {
+  @Get('files/*path')
+  async getLocalFile(@Param('path') storageKeyRaw: string, @Res() response: Response) {
     if (this.configService.storage.strategy !== 'local') {
       throw new BadRequestException('Local storage strategy is not enabled');
     }
 
-    if (path.basename(storageKey) !== storageKey) {
+    const storageKey = decodeURIComponent(String(storageKeyRaw ?? ''))
+      .replace(/\\/g, '/')
+      .replace(/^\/+/, '');
+    if (!storageKey || storageKey.includes('..') || path.isAbsolute(storageKey)) {
+      throw new BadRequestException('Invalid storage key');
+    }
+
+    const root = path.resolve(this.configService.storage.local.path);
+    const absolute = path.resolve(root, storageKey);
+    if (absolute !== root && !absolute.startsWith(root + path.sep)) {
       throw new BadRequestException('Invalid storage key');
     }
 
     return response.sendFile(
-      storageKey,
-      { root: path.resolve(this.configService.storage.local.path) },
+      absolute,
       (error) => {
         if (error) {
           const statusCode: number =

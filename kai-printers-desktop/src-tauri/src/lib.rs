@@ -30,6 +30,8 @@ mod pos_bank_account_ticket;
 mod pos_bank_account_ticket_escpos;
 mod pos_dining_account_ticket;
 mod pos_dining_account_ticket_escpos;
+mod pos_laundry_reception_ticket;
+mod pos_laundry_reception_ticket_escpos;
 mod pos_payment_in_ticket;
 mod pos_payment_in_ticket_escpos;
 mod pos_presale_ticket;

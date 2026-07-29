@@ -8,6 +8,7 @@ import {
   MULTIMEDIA_REPOSITORY,
   MultimediaRepositoryPort,
 } from '../../ports/multimedia.repository.port';
+import { enrichMultimediaAssetForApi } from '../../utils/resolve-multimedia-urls.util';
 
 @QueryHandler(ListMultimediaAssetsQuery)
 export class ListMultimediaAssetsQueryHandler
@@ -19,11 +20,15 @@ export class ListMultimediaAssetsQueryHandler
   ) {}
 
   execute(query: ListMultimediaAssetsQuery): Promise<ListedMultimediaAsset[]> {
-    return this.repository.listAssetsByEntity({
-      entityType: query.entityType,
-      entityId: query.entityId,
-      usageType: query.usageType,
-      attributeId: query.attributeId,
-    });
+    return this.repository
+      .listAssetsByEntity({
+        entityType: query.entityType,
+        entityId: query.entityId,
+        usageType: query.usageType,
+        attributeId: query.attributeId,
+      })
+      .then((assets) =>
+        assets.map((a) => enrichMultimediaAssetForApi(a) as ListedMultimediaAsset),
+      );
   }
 }

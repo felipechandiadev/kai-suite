@@ -1,0 +1,8 @@
+export enum LaundryReceptionStatus {
+  DRAFT = 'DRAFT',
+  RECEIVED = 'RECEIVED',
+  IN_PROCESS = 'IN_PROCESS',
+  READY = 'READY',
+  DELIVERED = 'DELIVERED',
+  CANCELLED = 'CANCELLED',
+}

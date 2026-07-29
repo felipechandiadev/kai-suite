@@ -6,6 +6,7 @@ import {
 } from '../../ports/multimedia.repository.port';
 import { MultimediaAsset } from '../../../domain/multimedia-asset.entity';
 import { ListMultimediaAssetsByEntityIdsQuery } from '../../queries/list-multimedia-assets-by-entity-ids.query';
+import { enrichMultimediaAssetForApi } from '../../utils/resolve-multimedia-urls.util';
 
 @QueryHandler(ListMultimediaAssetsByEntityIdsQuery)
 export class ListMultimediaAssetsByEntityIdsQueryHandler
@@ -20,14 +21,20 @@ export class ListMultimediaAssetsByEntityIdsQueryHandler
     private readonly repository: MultimediaRepositoryPort,
   ) {}
 
-  execute(
+  async execute(
     query: ListMultimediaAssetsByEntityIdsQuery,
   ): Promise<Record<string, MultimediaAsset[]>> {
-    return this.repository.listAssetsByEntityIds({
+    const map = await this.repository.listAssetsByEntityIds({
       entityType: query.entityType,
       entityIds: query.entityIds,
       usageType: query.usageType,
       attributeScope: query.attributeScope,
     });
+    for (const id of Object.keys(map)) {
+      map[id] = map[id].map(
+        (a) => enrichMultimediaAssetForApi(a) as MultimediaAsset,
+      );
+    }
+    return map;
   }
 }

@@ -7,10 +7,10 @@ import type {
   DiningTableDto,
 } from "../infrastructure/dining.request";
 import { WaiterMenuPanel } from "./WaiterMenuPanel";
-import { WaiterMesaPanel } from "./WaiterMesaPanel";
+import { WaiterCuentaPanel } from "./WaiterCuentaPanel";
 import type { WaiterSession } from "@/lib/app-session";
 
-type TablePanel = "menu" | "mesa";
+type TablePanel = "menu" | "cuenta";
 
 const ORDER_STATUS_LABEL: Record<string, string> = {
   OPEN: "Abierta",
@@ -23,18 +23,19 @@ const ORDER_STATUS_LABEL: Record<string, string> = {
 
 type WaiterTableScreenProps = {
   session: WaiterSession;
+  branchId: string;
   table: DiningTableDto;
   order: DiningOrderDto | null;
   onBack: () => void;
   onOpenTable: () => Promise<void>;
   onOrderUpdated: (order: DiningOrderDto) => void;
   opening?: boolean;
-  /** Política de sucursal: mesero puede abrir mesa. */
   canOpenTable?: boolean;
 };
 
 export function WaiterTableScreen({
   session,
+  branchId,
   table,
   order,
   onBack,
@@ -59,10 +60,18 @@ export function WaiterTableScreen({
             variant="action"
             size="md"
             onClick={onBack}
-            ariaLabel="Volver al salón"
+            ariaLabel="Volver a Mesas"
             data-test-id="waiter-table-back"
           />
           <div className="min-w-0">
+            <button
+              type="button"
+              onClick={onBack}
+              className="text-left text-xs font-medium text-primary"
+              data-test-id="waiter-back-to-mesas"
+            >
+              Volver a Mesas
+            </button>
             <h1 className="truncate text-lg font-semibold text-foreground">
               Mesa {tableTitle}
             </h1>
@@ -98,91 +107,113 @@ export function WaiterTableScreen({
 
   const statusLabel = ORDER_STATUS_LABEL[order.status] ?? order.status;
   const isBilling = order.status === "BILLING";
+  const badgeValue =
+    draftCount > 0 ? draftCount : lineCount > 99 ? "99+" : lineCount;
 
   return (
     <div
       className="flex min-h-0 flex-1 flex-col gap-3"
       data-test-id="waiter-table-screen"
     >
-      <div className="flex shrink-0 items-center gap-2">
-        <IconButton
-          icon="ArrowLeft"
-          variant="action"
-          size="md"
-          onClick={onBack}
-          ariaLabel="Volver al salón"
-          data-test-id="waiter-table-back"
-        />
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-lg font-semibold text-foreground">
-            {order.displayLabel || `Mesa ${tableTitle}`}
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Estado:{" "}
-            <span className="font-medium text-foreground">{statusLabel}</span>
-          </p>
+      <div className="sticky top-0 z-10 -mx-1 flex shrink-0 flex-col gap-2 bg-background px-1 pb-1">
+        <div className="flex items-center gap-2">
+          <IconButton
+            icon="ArrowLeft"
+            variant="action"
+            size="md"
+            onClick={onBack}
+            ariaLabel="Volver a Mesas"
+            data-test-id="waiter-table-back"
+          />
+          <div className="min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={onBack}
+              className="text-left text-xs font-medium text-primary"
+              data-test-id="waiter-back-to-mesas"
+            >
+              Volver a Mesas
+            </button>
+            <h1 className="truncate text-lg font-semibold text-foreground">
+              {order.displayLabel || `Mesa ${tableTitle}`}
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              Estado:{" "}
+              <span
+                className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground"
+                data-test-id="waiter-order-status-badge"
+              >
+                {statusLabel}
+              </span>
+            </p>
+          </div>
         </div>
-      </div>
 
-      {isBilling ? (
-        <p
-          className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-foreground"
-          data-test-id="waiter-billing-banner"
-        >
-          Cuenta pedida. Si agregás ítems desde Menú, la comanda se reabre.
-        </p>
-      ) : null}
+        {isBilling ? (
+          <p
+            className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-foreground"
+            data-test-id="waiter-billing-banner"
+          >
+            Cuenta pedida. Si agregás ítems desde Menú, la comanda se reabre.
+          </p>
+        ) : null}
 
-      <div
-        className="flex shrink-0 rounded-lg border border-border bg-muted/30 p-1"
-        role="tablist"
-        aria-label="Vista de la mesa"
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={panel === "menu"}
-          className={`flex min-h-[36px] flex-1 items-center justify-center rounded-md px-2 text-xs font-medium transition-colors ${
-            panel === "menu"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground"
-          }`}
-          onClick={() => setPanel("menu")}
-          data-test-id="waiter-tab-menu"
+        <div
+          className="flex shrink-0 rounded-lg border border-border bg-muted/30 p-1"
+          role="tablist"
+          aria-label="Menú o cuenta"
+          data-test-id="waiter-panel-toggle"
         >
-          Menú
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={panel === "mesa"}
-          aria-label={lineCount > 0 ? `Mesa, ${lineCount} ítems` : "Mesa"}
-          className={`relative flex min-h-[36px] flex-1 items-center justify-center rounded-md px-2 text-xs font-medium transition-colors ${
-            panel === "mesa"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground"
-          }`}
-          onClick={() => setPanel("mesa")}
-          data-test-id="waiter-tab-mesa"
-        >
-          Mesa
-          {lineCount > 0 ? (
-            <span className="absolute right-1 top-1 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-secondary px-1 text-[10px] font-bold leading-none text-primary">
-              {draftCount > 0 ? draftCount : lineCount > 99 ? "99+" : lineCount}
-            </span>
-          ) : null}
-        </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={panel === "menu"}
+            className={`flex min-h-10 flex-1 items-center justify-center rounded-md px-2 text-sm font-medium transition-colors ${
+              panel === "menu"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground"
+            }`}
+            onClick={() => setPanel("menu")}
+            data-test-id="waiter-tab-menu"
+          >
+            Menú
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={panel === "cuenta"}
+            aria-label={
+              lineCount > 0 ? `Cuenta, ${lineCount} ítems` : "Cuenta"
+            }
+            className={`relative flex min-h-10 flex-1 items-center justify-center rounded-md px-2 text-sm font-medium transition-colors ${
+              panel === "cuenta"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground"
+            }`}
+            onClick={() => setPanel("cuenta")}
+            data-test-id="waiter-tab-cuenta"
+          >
+            Cuenta
+            {lineCount > 0 ? (
+              <span className="absolute right-1.5 top-1.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-secondary px-1 text-[10px] font-bold leading-none text-primary">
+                {badgeValue}
+              </span>
+            ) : null}
+          </button>
+        </div>
       </div>
 
       {panel === "menu" ? (
         <WaiterMenuPanel
           session={session}
+          branchId={branchId}
           orderId={order.id}
           onOrderUpdated={onOrderUpdated}
         />
       ) : (
-        <WaiterMesaPanel
+        <WaiterCuentaPanel
           session={session}
+          branchId={branchId}
           order={order}
           onOrderUpdated={onOrderUpdated}
         />

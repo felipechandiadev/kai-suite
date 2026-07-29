@@ -49,6 +49,8 @@ import { CompaniesModule } from '@modules/companies/companies.module';
 import { ProductModeModule } from '../../backend/src/shared/product-mode/product-mode.module';
 import { CloudflareR2Adapter } from '@modules/multimedia/infrastructure/adapters/cloudflare-r2.adapter';
 import { LocalStorageAdapter } from '@modules/multimedia/infrastructure/adapters/local-storage.adapter';
+import { MultimediaModule } from '@modules/multimedia/multimedia.module';
+import { MultimediaVariant } from '@modules/multimedia/domain/multimedia-variant.entity';
 
 /**
  * Seed demo con tesorería y recepciones: MinimalSeedModule + servicios transaccionales.
@@ -89,6 +91,7 @@ import { LocalStorageAdapter } from '@modules/multimedia/infrastructure/adapters
       StockLevel,
       MultimediaAsset,
       MultimediaLink,
+      MultimediaVariant,
       EShopHeroSlide,
       EShopTestimonial,
       Recipe,
@@ -107,6 +110,7 @@ import { LocalStorageAdapter } from '@modules/multimedia/infrastructure/adapters
     TransactionsModule,
     AutomationModule,
     CompaniesModule,
+    MultimediaModule,
   ],
   providers: [LocalStorageAdapter, CloudflareR2Adapter],
 })

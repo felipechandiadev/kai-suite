@@ -3,6 +3,11 @@ export interface UploadStoragePayload {
   originalName: string;
   mimeType: string;
   metadata?: Record<string, unknown>;
+  /**
+   * Optional explicit object key (may include `/` for namespaced paths).
+   * When omitted, adapters generate a random UUID key.
+   */
+  storageKey?: string;
 }
 
 export interface StoredFileResult {

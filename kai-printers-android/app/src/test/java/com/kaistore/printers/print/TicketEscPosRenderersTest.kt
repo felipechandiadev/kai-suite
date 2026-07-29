@@ -67,6 +67,38 @@ class TicketEscPosDispatcherTest {
         assertTrue(text.contains("7801234567890"))
         assertTrue(bytes.size > 80)
     }
+
+    @Test
+    fun dispatchesLaundryReceptionTicket() {
+        val json = """
+            {
+              "version": 1,
+              "code": "LV000123",
+              "issuedAt": "2026-07-20T12:00:00Z",
+              "company": { "nombreFantasia": "Lavanderia Demo" },
+              "customerName": "Ana",
+              "paymentModeLabel": "Abono",
+              "garments": [
+                {
+                  "label": "Camisa",
+                  "quantity": 2,
+                  "services": [
+                    { "name": "Lavado", "quantity": 2, "unitPrice": 1000, "lineTotal": 2000 }
+                  ]
+                }
+              ],
+              "totals": { "servicesTotal": 2000, "depositPaid": 500, "balanceDue": 1500 },
+              "footerNote": "Presente este codigo"
+            }
+        """.trimIndent()
+        val bytes = TicketEscPosDispatcher.fromJob("pos-laundry-reception-ticket", json, 48)
+        assertTrue(bytes.isNotEmpty())
+        val text = String(bytes, Charsets.ISO_8859_1)
+        assertTrue(text.contains("GUIA DE RECEPCION"))
+        assertTrue(text.contains("LV000123"))
+        assertTrue(text.contains("Camisa"))
+        assertTrue(!hasDrawerKick(bytes))
+    }
 }
 
 class PosQuotationTicketEscPosTest {

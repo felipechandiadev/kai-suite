@@ -28,6 +28,6 @@ export function getClientBackendApiBase(): string {
   const base =
     process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim() ||
     process.env.BACKEND_API_URL?.trim() ||
-    "http://localhost:5030";
+    "http://localhost:5050";
   return resolveClientBackendApiBase(base);
 }

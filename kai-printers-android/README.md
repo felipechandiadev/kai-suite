@@ -102,6 +102,13 @@ cp -R output/android/* ../kai-printers-android/app/src/main/res/
 1. Venta en POS → imprimir ticket.
 2. Verificar indicador de impresión en topbar del POS (verde).
 3. Ticket sale en impresora sin diálogo del sistema.
+4. (KaiServices) Guía de recepción lavandería → `pos-laundry-reception-ticket` en impresora / preview.
+
+## Tickets ESC/POS anunciados (hello)
+
+Paridad con desktop / `@kai/print-service-client`:
+
+`pos-sale-ticket`, `pos-quotation-ticket`, `pos-payment-in-ticket`, `pos-customer-credit-note-ticket`, `pos-cash-closing-ticket`, `pos-cash-count-sheet-ticket`, `pos-cash-session-opening-ticket`, `pos-cash-hub-movement-ticket`, `pos-supplier-payment-ticket`, `pos-bank-account-ticket`, `pos-dining-account-ticket`, `pos-presale-ticket`, `pos-laundry-reception-ticket`, `fiscal-boleta-preview`, `variant-barcode-label`, más `pdf-base64` y transportes `bluetooth-escpos` / `network-escpos` / `usb-escpos`.
 
 ## Checklist de pruebas por API
 
@@ -128,7 +135,7 @@ Criterio E2E: ticket de venta sin diálogo del sistema en al menos API **24** y 
 - `PrintAgentForegroundService` — servicio en primer plano
 - `WebSocketServerManager` — Ktor WS/WSS
 - `ProtocolDispatcher` — protocolo 2.1 (`hello`, `print`, …)
-- `PrintQueueWorker` — cola → `PosSaleTicketEscPos` → `TransportFactory` (BT / red / USB)
+- `PrintQueueWorker` — cola → `TicketEscPosDispatcher` (venta, lavandería, fiscal, …) → `TransportFactory` (BT / red / USB)
 
 ### Referencia de impresora (`systemPrinterName`)
 

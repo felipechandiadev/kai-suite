@@ -92,6 +92,8 @@ export const configSchema = Joi.object({
     'image/jpeg,image/png,image/webp,application/pdf',
   ),
   MEDIA_PUBLIC_BASE_PATH: Joi.string().default('/multimedia/files'),
+  MEDIA_OPTIMIZE_ENABLED: Joi.boolean().default(true),
+  MEDIA_OPTIMIZE_MAX_INPUT_PX: Joi.number().default(4096),
 
   // Security
   BCRYPT_ROUNDS: Joi.number().default(12),

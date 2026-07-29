@@ -25,6 +25,27 @@ import {
   useDiningPayment,
 } from "@/features/dining-payment";
 import { readDiningPaymentDraft } from "@/features/dining-payment/dining-payment-storage";
+import { recordLaundryReceptionPaymentAction, createLaundryReceptionAction } from "@/features/laundry/actions/laundry.action";
+import {
+  clearLaundryCheckoutDraft,
+  readLaundryCheckoutDraft,
+  writeLaundryCheckoutDraft,
+} from "@/features/laundry/lib/laundry-checkout";
+import {
+  clearLaundryPendingCheckout,
+  laundryGarmentTypeNamesFromPending,
+  laundryServiceNamesFromPending,
+  pendingCheckoutToCreateInput,
+  readLaundryPendingCheckout,
+  type LaundryPendingCheckout,
+} from "@/features/laundry/lib/laundry-pending-checkout";
+import { clearLaundryReceptionDraft } from "@/features/laundry/lib/laundry-reception-draft-storage";
+import type { LaundryReception } from "@/features/laundry/types/laundry.types";
+import LaundryReceptionPaymentSummary from "@/features/laundry/ui/LaundryReceptionPaymentSummary";
+import {
+  LaundryReceptionSuccessDialog,
+  type LaundryReceptionSuccessPayload,
+} from "@/features/laundry/ui/LaundryReceptionSuccessDialog";
 import { computePosSaleTotals } from "@/features/pos-cart/lib/pos-sale-totals";
 import { amountToPayWithPosDelivery } from "@/features/pos-cart/lib/amount-to-pay-with-delivery";
 import { PosDeliveryDialog } from "@/features/pos-delivery/ui/PosDeliveryDialog";
@@ -769,7 +790,73 @@ export default function PosPaymentWorkspace({
         null)
     : null;
 
+  const laundryReceptionIdParam = (searchParams.get("laundryReceptionId") ?? "").trim();
+  const laundryPendingParam = (searchParams.get("laundryPending") ?? "").trim() === "1";
+  const [laundryPendingDraft, setLaundryPendingDraft] = useState<LaundryPendingCheckout | null>(
+    () => (typeof window !== "undefined" ? readLaundryPendingCheckout() : null),
+  );
+  /** Primera recepción (create + cobro en payment): datos para imprimir guía. */
+  const laundryFirstRegisterPrintRef = useRef<{
+    reception: LaundryReception;
+    serviceNamesByVariantId: Record<string, string>;
+    garmentTypeNamesById: Record<string, string>;
+  } | null>(null);
+  useEffect(() => {
+    const draft = readLaundryPendingCheckout();
+    const checkout = readLaundryCheckoutDraft();
+    if (draft) {
+      setLaundryPendingDraft(draft);
+    } else if (!checkout?.receptionId) {
+      // Sin pending en storage y sin guía cobrándose: limpiar estado.
+      setLaundryPendingDraft(null);
+    }
+    // Si ya hay laundryCheckout (guía creada, cobro en curso), conservar el resumen en memoria.
+    if (laundryPendingParam && !draft && !checkout?.receptionId) {
+      router.replace("/laundry/receptions/new");
+    }
+  }, [laundryPendingParam, router, searchParams]);
+
+  const isLaundryPendingMode = Boolean(laundryPendingDraft);
+  const laundryChargeFromQuery = (
+    searchParams.get("laundryCharge") ?? ""
+  ).trim() as "full" | "deposit" | "balance" | "none" | "";
+  const laundryPendingCharge =
+    laundryPendingDraft?.charge ??
+    (laundryChargeFromQuery === "full" ||
+    laundryChargeFromQuery === "deposit" ||
+    laundryChargeFromQuery === "none"
+      ? laundryChargeFromQuery
+      : null);
+  /** Solo “pagar al retirar”: sin panel de métodos de pago. */
+  const isLaundryPickupConfirm =
+    Boolean(isLaundryPendingMode || laundryPendingParam) &&
+    laundryPendingCharge === "none";
+  const isLaundryCheckoutMode = Boolean(
+    laundryReceptionIdParam ||
+      readLaundryCheckoutDraft()?.receptionId ||
+      isLaundryPendingMode,
+  );
+  const laundryChargeNeedsCart =
+    Boolean(isLaundryPendingMode || laundryPendingParam) &&
+    (laundryPendingCharge === "full" || laundryPendingCharge === "deposit");
+  const laundryCartPrepError =
+    laundryChargeNeedsCart && cart.ready && cart.lines.length === 0
+      ? "No se preparó el cobro de la recepción. Volvé a lavandería e intentá de nuevo."
+      : null;
+
   const paymentExitHref = useMemo(() => {
+    const checkoutDraft = readLaundryCheckoutDraft();
+    if (checkoutDraft?.receptionId) {
+      return `/laundry/receptions/${checkoutDraft.receptionId}`;
+    }
+    if (isLaundryPendingMode) {
+      return "/laundry/receptions/new";
+    }
+    if (isLaundryCheckoutMode) {
+      const receptionId = laundryReceptionIdParam || "";
+      if (receptionId) return `/laundry/receptions/${receptionId}`;
+      return "/laundry/receptions";
+    }
     if (!isDiningMode) return "/pos";
     if (diningPayment.order) return diningPaymentExitHref(diningPayment.order);
     const orderId = (searchParams.get("diningOrderId") ?? "").trim();
@@ -777,8 +864,20 @@ export default function PosPaymentWorkspace({
     if (!orderId) return "/accounts";
     const params = new URLSearchParams({ diningOrderId: orderId, diningTab });
     return `/accounts?${params.toString()}`;
-  }, [isDiningMode, diningPayment.order, searchParams]);
-  const paymentExitLabel = isDiningMode ? "Volver a cuentas" : "Volver al POS";
+  }, [
+    isDiningMode,
+    isLaundryCheckoutMode,
+    isLaundryPendingMode,
+    diningPayment.order,
+    laundryReceptionIdParam,
+    searchParams,
+  ]);
+  const paymentExitLabel =
+    isLaundryPendingMode || isLaundryCheckoutMode
+      ? "Volver a la guía"
+      : isDiningMode
+        ? "Volver a cuentas"
+        : "Volver al POS";
   const saleAppliedPromotions = isDiningMode ? [] : appliedPromotions;
 
   const clearDiningPaymentSession = useCallback(() => {
@@ -790,6 +889,12 @@ export default function PosPaymentWorkspace({
     if (isDiningMode) {
       clearDiningPaymentSession();
     }
+    if (isLaundryPendingMode) {
+      clearLaundryPendingCheckout();
+    }
+    if (isLaundryCheckoutMode && !isLaundryPendingMode) {
+      clearLaundryCheckoutDraft();
+    }
     if (embedded && onCloseEmbedded) {
       onCloseEmbedded();
       return;
@@ -799,6 +904,8 @@ export default function PosPaymentWorkspace({
     clearDiningPaymentSession,
     embedded,
     isDiningMode,
+    isLaundryCheckoutMode,
+    isLaundryPendingMode,
     onCloseEmbedded,
     paymentExitHref,
     router,
@@ -868,6 +975,9 @@ export default function PosPaymentWorkspace({
   const [customerAvailableCredit, setCustomerAvailableCredit] = useState(0);
   const [successOpen, setSuccessOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<PosSaleReceiptData | null>(null);
+  const [laundrySuccessOpen, setLaundrySuccessOpen] = useState(false);
+  const [laundrySuccessData, setLaundrySuccessData] =
+    useState<LaundryReceptionSuccessPayload | null>(null);
   const [creditNoteSuccessOpen, setCreditNoteSuccessOpen] = useState(false);
   const [creditNotePrintData, setCreditNotePrintData] = useState<CustomerCreditNotePrintData | null>(
     null,
@@ -1212,6 +1322,7 @@ export default function PosPaymentWorkspace({
     !isDebtCollectMode &&
     !isNcPayoutMode &&
     !isDiningMode &&
+    !isLaundryCheckoutMode &&
     localDeliveryEnabled;
   const deliveryFeeActive =
     canUsePosDelivery && posDelivery != null
@@ -1331,11 +1442,21 @@ export default function PosPaymentWorkspace({
 
   useEffect(() => {
     if (!cart.ready) return;
-    if (isDebtCollectMode || isNcPayoutMode || isDiningMode) return;
+    if (isDebtCollectMode || isNcPayoutMode || isDiningMode || isLaundryPendingMode) return;
+    if (laundrySuccessOpen) return;
     if (cart.lines.length === 0) {
       router.replace("/pos");
     }
-  }, [cart.ready, cart.lines.length, router, isDebtCollectMode, isNcPayoutMode, isDiningMode]);
+  }, [
+    cart.ready,
+    cart.lines.length,
+    router,
+    isDebtCollectMode,
+    isNcPayoutMode,
+    isDiningMode,
+    isLaundryPendingMode,
+    laundrySuccessOpen,
+  ]);
 
   useEffect(() => {
     if (!isDiningMode) return;
@@ -1488,12 +1609,16 @@ export default function PosPaymentWorkspace({
       ? collectQuotaTotal
       : isCollectMode
         ? collectBalanceTotal
-        : isEncargoMode && backorderDeposit
-          ? Math.max(0, Math.round(backorderDeposit.amount))
-          : amountToPayWithPosDelivery(
-              saleTotal,
-              canUsePosDelivery ? posDelivery : null,
-            );
+        : isLaundryPickupConfirm
+          ? Math.max(0, Math.round(laundryPendingDraft?.servicesTotal ?? 0))
+          : isLaundryPendingMode && laundryPendingDraft
+            ? Math.max(0, Math.round(laundryPendingDraft.expectedPaidTotal))
+            : isEncargoMode && backorderDeposit
+              ? Math.max(0, Math.round(backorderDeposit.amount))
+              : amountToPayWithPosDelivery(
+                  saleTotal,
+                  canUsePosDelivery ? posDelivery : null,
+                );
   const encargoDepositAmountRounded =
     isEncargoMode && backorderDeposit != null
       ? Math.max(0, Math.round(backorderDeposit.amount))
@@ -1523,56 +1648,99 @@ export default function PosPaymentWorkspace({
     [setBackorderDeposit, setEncargoModeEnabled],
   );
 
+  const laundryCheckoutDraft = isLaundryCheckoutMode ? readLaundryCheckoutDraft() : null;
+  const laundryCharge =
+    (searchParams.get("laundryCharge") as "full" | "deposit" | "balance" | "none" | null) ||
+    laundryPendingDraft?.charge ||
+    laundryCheckoutDraft?.charge ||
+    null;
+  const laundryGuideCode = laundryCheckoutDraft?.code?.trim() || "";
+
   const flowTitle = isNcPayoutMode
     ? "Devolución saldo NC"
     : isQuotaMode
       ? "Cobro de cuotas"
       : isCollectMode
         ? "Cobro pendiente"
-        : isDiningMode
-          ? diningPayment.order?.displayLabel
-            ? `Cobro: ${diningPayment.order.displayLabel}`
-            : "Cobro de cuenta"
-          : isReturnMode
-            ? "Devolución en curso"
-            : isFulfillBackorderMode
-              ? "Liquidar encargo"
-              : isEncargoMode
-                ? "Encargo en curso"
-                : "Venta en curso";
+        : isLaundryPendingMode || isLaundryCheckoutMode
+          ? laundryCharge === "deposit"
+            ? laundryGuideCode
+              ? `Abono guía lavandería ${laundryGuideCode}`
+              : "Abono recepción lavandería"
+            : laundryCharge === "none" || isLaundryPickupConfirm
+              ? "Recepción lavandería"
+              : laundryGuideCode
+                ? `Cobro guía lavandería ${laundryGuideCode}`
+                : "Recepción lavandería"
+          : isDiningMode
+            ? diningPayment.order?.displayLabel
+              ? `Cobro: ${diningPayment.order.displayLabel}`
+              : "Cobro de cuenta"
+            : isReturnMode
+              ? "Devolución en curso"
+              : isFulfillBackorderMode
+                ? "Liquidar encargo"
+                : isEncargoMode
+                  ? "Encargo en curso"
+                  : "Venta en curso";
   const summarySectionLabel = isNcPayoutMode
     ? "Notas de crédito a liquidar"
     : isQuotaMode
       ? "Cuotas a cobrar"
       : isCollectMode
         ? "Ventas a cobrar"
-        : isDiningMode
-          ? "Resumen de cuenta"
-          : isReturnMode
-            ? "Resumen de devolución"
-            : isFulfillBackorderMode
-              ? "Resumen de liquidación"
-              : isEncargoMode
-                ? "Resumen de encargo"
-                : "Resumen de venta";
+        : isLaundryPendingMode
+          ? laundryCharge === "deposit"
+            ? "Resumen de recepción · Abono"
+            : "Resumen de recepción"
+          : isLaundryCheckoutMode
+            ? laundryCharge === "deposit"
+              ? "Resumen de abono"
+              : "Resumen de guía"
+            : isDiningMode
+              ? "Resumen de cuenta"
+              : isReturnMode
+                ? "Resumen de devolución"
+                : isFulfillBackorderMode
+                  ? "Resumen de liquidación"
+                  : isEncargoMode
+                    ? "Resumen de encargo"
+                    : "Resumen de venta";
   const amountDueLabel = isReturnMode
     ? "Total a devolver"
     : isNcPayoutMode
       ? "Total a devolver"
       : isDebtCollectMode
         ? "Total a cobrar"
-        : "Total a pagar";
+        : isLaundryPickupConfirm
+          ? "Total servicios"
+          : laundryCharge === "deposit" && (isLaundryPendingMode || isLaundryCheckoutMode)
+            ? "Abono a pagar"
+            : "Total a pagar";
   const showReturnRefundUi = !isReturnMode || immediateReturnRefund;
+  // Panel de pagos: visible con abono/inmediato; oculto solo en pickup (none).
+  const showLaundryPaymentMethods = showReturnRefundUi && !isLaundryPickupConfirm;
   const showSaleDteSelector =
     showReturnRefundUi &&
     !isDebtCollectMode &&
     !isNcPayoutMode &&
     !isReturnMode &&
-    !isEncargoMode;
+    !isEncargoMode &&
+    !isLaundryPickupConfirm;
   /** Devolución sin reembolso en caja: CTA con icono de documento en lugar de cobro. */
   const isReturnDocumentMode = isReturnMode && !immediateReturnRefund;
-  const confirmCtaIcon = isReturnDocumentMode ? "FileText" : "CircleDollarSign";
-  const confirmCtaAriaLabel = isReturnDocumentMode ? "Registrar devolución" : "Confirmar pago";
+  const confirmCtaIcon = isReturnDocumentMode
+    ? "FileText"
+    : isLaundryPickupConfirm
+      ? "WashingMachine"
+      : "CircleDollarSign";
+  const confirmCtaAriaLabel = isReturnDocumentMode
+    ? "Registrar devolución"
+    : isLaundryPickupConfirm
+      ? "Confirmar recepción"
+      : laundryCharge === "deposit" && (isLaundryPendingMode || isLaundryCheckoutMode)
+        ? "Cobrar abono"
+        : "Confirmar pago";
 
   useEffect(() => {
     if (!isReturnMode) setImmediateReturnRefund(false);
@@ -2351,17 +2519,23 @@ export default function PosPaymentWorkspace({
     saleTotal > 0 &&
     (isEncargoZeroDeposit ? remaining <= 0.01 : canConfirmStandardPayment);
 
+  const canConfirmLaundryPickup =
+    isLaundryPickupConfirm && hasSaleCustomer && Boolean(laundryPendingDraft);
+
   const canConfirmSale =
     !isReturnMode &&
     !isDebtCollectMode &&
     !isNcPayoutMode &&
+    !isLaundryPickupConfirm &&
     saleLines.length > 0 &&
     !stockBlocksSalePayment &&
     (isEncargoMode
       ? canConfirmEncargo
       : isFulfillBackorderMode
         ? canConfirmStandardPayment && hasSaleCustomer
-        : canConfirmStandardPayment);
+        : isLaundryPendingMode
+          ? canConfirmStandardPayment && hasSaleCustomer
+          : canConfirmStandardPayment);
 
   const canConfirm =
     canConfirmReturnDocument ||
@@ -2369,7 +2543,8 @@ export default function PosPaymentWorkspace({
     canConfirmSale ||
     canConfirmCollect ||
     canConfirmQuota ||
-    canConfirmNcPayout;
+    canConfirmNcPayout ||
+    canConfirmLaundryPickup;
 
   const confirmPaymentDisabled = !canConfirm || confirmLoading || deferLoading;
 
@@ -2384,6 +2559,7 @@ export default function PosPaymentWorkspace({
     !isDebtCollectMode &&
     !isNcPayoutMode &&
     !isDiningMode &&
+    !isLaundryCheckoutMode &&
     !isReturnMode &&
     !isFulfillBackorderMode &&
     !isEncargoMode &&
@@ -2436,6 +2612,24 @@ export default function PosPaymentWorkspace({
       }
       return overpay > 0 ? "Confirmar cobro (con vuelto)" : "Confirmar cobro";
     }
+    if (isLaundryPickupConfirm) {
+      if (!laundryPendingDraft) return "No hay borrador de recepción";
+      if (!hasSaleCustomer) return "Seleccioná un cliente para la recepción";
+      return "Confirmar recepción";
+    }
+    if (laundryCartPrepError) return laundryCartPrepError;
+    if (isLaundryPendingMode || (isLaundryCheckoutMode && laundryCharge === "deposit")) {
+      if (!hasSaleCustomer) return "Seleccioná un cliente para la recepción";
+      if (laundryCharge === "deposit") {
+        if (payments.length === 0) return "Agrega al menos un método de pago para el abono";
+        if (remaining > 0.01) return "Cubre el abono antes de confirmar";
+        return "Cobrar abono";
+      }
+      if (!hasSaleCustomer) return "Seleccioná un cliente para la recepción";
+    }
+    if (isLaundryPendingMode && !hasSaleCustomer) {
+      return "Seleccioná un cliente para la recepción";
+    }
     if (isFulfillBackorderMode && !hasSaleCustomer) {
       return "Selecciona el cliente del encargo";
     }
@@ -2452,6 +2646,15 @@ export default function PosPaymentWorkspace({
   })();
 
   const validateConfirm = (): string => {
+    if (laundryCartPrepError) return laundryCartPrepError;
+    if (isLaundryPickupConfirm) {
+      if (!laundryPendingDraft) return "No hay borrador de recepción.";
+      if (!hasSaleCustomer) return "Seleccioná un cliente para la recepción.";
+      return "";
+    }
+    if (isLaundryPendingMode && !hasSaleCustomer) {
+      return "Seleccioná un cliente para la recepción.";
+    }
     if (isNcPayoutMode) {
       if (ncPayoutInitError) return ncPayoutInitError;
       if (ncPayoutCreditNotes.length === 0) {
@@ -2491,7 +2694,9 @@ export default function PosPaymentWorkspace({
       return "";
     }
 
-    if (saleLines.length === 0) return isDiningMode ? "La cuenta no tiene ítems." : "El carrito está vacío.";
+    if (saleLines.length === 0 && !isLaundryPickupConfirm) {
+      return isDiningMode ? "La cuenta no tiene ítems." : "El carrito está vacío.";
+    }
 
     if (isReturnDocumentMode) {
       if (!loadedReturnSale?.id?.trim()) {
@@ -2746,6 +2951,96 @@ export default function PosPaymentWorkspace({
       return;
     }
     setConfirmLoading(true);
+
+    if (isLaundryPickupConfirm && laundryPendingDraft) {
+      const customerId = customer?.customerId?.trim();
+      if (!customerId) {
+        setConfirmLoading(false);
+        setPageAlert("Seleccioná un cliente para la recepción.");
+        return;
+      }
+      try {
+        const createRes = await createLaundryReceptionAction(
+          pendingCheckoutToCreateInput(laundryPendingDraft, customerId),
+        );
+        if (!createRes.success) {
+          setConfirmLoading(false);
+          setPageAlert(createRes.message);
+          return;
+        }
+        const serviceNamesByVariantId = laundryServiceNamesFromPending(laundryPendingDraft);
+        const garmentTypeNamesById = laundryGarmentTypeNamesFromPending(laundryPendingDraft);
+        clearLaundryPendingCheckout();
+        clearLaundryReceptionDraft();
+        setLaundryPendingDraft(null);
+        setLaundrySuccessData({
+          reception: createRes.reception,
+          serviceNamesByVariantId,
+          garmentTypeNamesById,
+          saleReceipt: null,
+          company: companyDetails,
+        });
+        setConfirmLoading(false);
+        setLaundrySuccessOpen(true);
+        return;
+      } catch (e) {
+        setConfirmLoading(false);
+        setPageAlert(
+          e instanceof Error ? e.message : "No se pudo crear la recepción de lavandería.",
+        );
+        return;
+      }
+    }
+
+    if (isLaundryPendingMode && laundryPendingDraft && !isLaundryPickupConfirm) {
+      const customerId = customer?.customerId?.trim();
+      if (!customerId) {
+        setConfirmLoading(false);
+        setPageAlert("Seleccioná un cliente para la recepción.");
+        return;
+      }
+      try {
+        const createRes = await createLaundryReceptionAction(
+          pendingCheckoutToCreateInput(laundryPendingDraft, customerId),
+        );
+        if (!createRes.success) {
+          setConfirmLoading(false);
+          setPageAlert(createRes.message);
+          return;
+        }
+        const charge =
+          laundryPendingDraft.charge === "deposit" ? ("deposit" as const) : ("full" as const);
+        const code =
+          createRes.reception.code?.trim() || createRes.reception.id.slice(0, 8);
+        laundryFirstRegisterPrintRef.current = {
+          reception: createRes.reception,
+          serviceNamesByVariantId: laundryServiceNamesFromPending(laundryPendingDraft),
+          garmentTypeNamesById: laundryGarmentTypeNamesFromPending(laundryPendingDraft),
+        };
+        writeLaundryCheckoutDraft({
+          receptionId: createRes.reception.id,
+          code,
+          charge,
+          expectedPaidTotal: laundryPendingDraft.expectedPaidTotal,
+        });
+        // Mantener pending en memoria para el resumen de prendas; limpiar storage.
+        // El cobro (abono o total) sigue en esta misma pantalla.
+        clearLaundryPendingCheckout();
+        clearLaundryReceptionDraft();
+        const params = new URLSearchParams({
+          laundryReceptionId: createRes.reception.id,
+          laundryCharge: charge,
+        });
+        router.replace(`/pos/payment?${params.toString()}`);
+      } catch (e) {
+        setConfirmLoading(false);
+        setPageAlert(
+          e instanceof Error ? e.message : "No se pudo crear la recepción de lavandería.",
+        );
+        return;
+      }
+    }
+
     const posCtx = readPosContextClient();
     const cashSessionId = posCtx?.cashSessionId?.trim();
     const pointOfSaleId = posCtx?.pointOfSaleId?.trim();
@@ -3333,6 +3628,38 @@ export default function PosPaymentWorkspace({
       clearDiningPaymentSession();
     }
 
+    const laundryDraft = readLaundryCheckoutDraft();
+    const laundryFirstRegisterPrint = laundryFirstRegisterPrintRef.current;
+    let laundryReceptionAfterPay: LaundryReception | null = null;
+    if (
+      laundryDraft?.receptionId &&
+      confirmRes.success &&
+      !isEncargoMode &&
+      confirmRes.transactionId
+    ) {
+      const paidAmount = Math.max(
+        0,
+        Math.round(Number(laundryDraft.expectedPaidTotal) || appliedTotal || 0),
+      );
+      try {
+        const payRes = await recordLaundryReceptionPaymentAction(laundryDraft.receptionId, {
+          paidAmount,
+          ...(laundryDraft.charge === "deposit"
+            ? { depositTransactionId: confirmRes.transactionId }
+            : { saleTransactionId: confirmRes.transactionId }),
+        });
+        if (payRes.success) {
+          laundryReceptionAfterPay = payRes.reception;
+        }
+      } catch (e) {
+        console.warn("[laundry] record payment after sale:", e);
+      } finally {
+        clearLaundryCheckoutDraft();
+        clearLaundryPendingCheckout();
+        setLaundryPendingDraft(null);
+      }
+    }
+
     if (saleCustomerId && !isEncargoMode) {
       void loadPaymentSources(saleCustomerId);
     }
@@ -3424,7 +3751,61 @@ export default function PosPaymentWorkspace({
         lineDiscountsTotal,
       },
     });
-    setReceiptData(snapshot);
+    let receiptSnapshot = snapshot;
+    if (laundryFirstRegisterPrint) {
+      laundryFirstRegisterPrintRef.current = null;
+      const receptionForPreview: LaundryReception = {
+        ...laundryFirstRegisterPrint.reception,
+        ...(laundryReceptionAfterPay
+          ? {
+              paidAmount: laundryReceptionAfterPay.paidAmount,
+              balanceDue: laundryReceptionAfterPay.balanceDue,
+              depositAmount: laundryReceptionAfterPay.depositAmount,
+              servicesTotal: laundryReceptionAfterPay.servicesTotal,
+              paymentMode: laundryReceptionAfterPay.paymentMode,
+            }
+          : {}),
+      };
+      try {
+        const printPlan = receiptSnapshot.printPlan ?? "TICKET_ONLY";
+        if (
+          (printPlan === "BOLETA_ONLY" || printPlan === "BOLETA_AND_TICKET") &&
+          !receiptSnapshot.fiscalPrintPreview
+        ) {
+          const txId = receiptSnapshot.transactionId?.trim();
+          if (txId && shouldUseBackendApi()) {
+            try {
+              const { getFiscalBoletaPrintPreviewAction } = await import(
+                "@/features/fiscal/actions/reprint-fiscal-boleta.action"
+              );
+              const res = await getFiscalBoletaPrintPreviewAction(txId);
+              if (res.success) {
+                receiptSnapshot = {
+                  ...receiptSnapshot,
+                  fiscalPrintPreview: res.preview,
+                };
+              }
+            } catch {
+              /* sin preview remota */
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("[KaiStore print] lavandería enrich boleta:", e);
+      }
+      setLaundrySuccessData({
+        reception: receptionForPreview,
+        serviceNamesByVariantId: laundryFirstRegisterPrint.serviceNamesByVariantId,
+        garmentTypeNamesById: laundryFirstRegisterPrint.garmentTypeNamesById,
+        saleReceipt: receiptSnapshot,
+        company: details,
+      });
+      setConfirmLoading(false);
+      emitKaiScreenSaleCompleted();
+      setLaundrySuccessOpen(true);
+      return;
+    }
+    setReceiptData(receiptSnapshot);
     setConfirmLoading(false);
     emitKaiScreenSaleCompleted();
     setSuccessOpen(true);
@@ -3461,7 +3842,14 @@ export default function PosPaymentWorkspace({
     );
   }
 
-  if (!isDebtCollectMode && !isNcPayoutMode && !isDiningMode && cart.lines.length === 0) {
+  if (
+    !isDebtCollectMode &&
+    !isNcPayoutMode &&
+    !isDiningMode &&
+    !isLaundryPendingMode &&
+    !laundrySuccessOpen &&
+    cart.lines.length === 0
+  ) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
         <DotProgress />
@@ -3470,10 +3858,49 @@ export default function PosPaymentWorkspace({
     );
   }
 
+  if (isLaundryPendingMode && !laundryPendingDraft && !laundrySuccessOpen) {
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+        <DotProgress />
+        <span>Cargando recepción…</span>
+      </div>
+    );
+  }
+
+  if (laundrySuccessOpen && laundrySuccessData) {
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+        <LaundryReceptionSuccessDialog
+          open
+          data={laundrySuccessData}
+          closeLabel="Ver guía"
+          onClose={() => {
+            const receptionId = laundrySuccessData.reception.id?.trim() || "";
+            setLaundrySuccessOpen(false);
+            setLaundrySuccessData(null);
+            clearLaundryCheckoutDraft();
+            clearLaundryPendingCheckout();
+            setLaundryPendingDraft(null);
+            cart.clear();
+            if (embedded && onCloseEmbedded) {
+              onCloseEmbedded();
+              return;
+            }
+            if (receptionId) {
+              router.push(`/laundry/receptions/${receptionId}`);
+              return;
+            }
+            router.push("/laundry/receptions");
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       className={`flex min-h-0 flex-col gap-4 ${
-        compactLayout ? "pb-[calc(14rem+env(safe-area-inset-bottom,0))]" : "pb-0"
+        compactLayout ? "pb-[calc(11rem+env(safe-area-inset-bottom,0))]" : "pb-0"
       }`}
     >
       <PaymentDisplayPublisher
@@ -3627,11 +4054,18 @@ export default function PosPaymentWorkspace({
         </Alert>
       ) : null}
 
+      {laundryCartPrepError ? (
+        <Alert variant="error" data-test-id="laundry-payment-cart-prep-error">
+          <strong className="block font-semibold">Cobro no preparado</strong>
+          <span className="mt-1 block text-sm">{laundryCartPrepError}</span>
+        </Alert>
+      ) : null}
+
       <div
         className={`grid items-stretch ${
           compactLayout
             ? "grid-cols-1 gap-2"
-            : `gap-4 ${showReturnRefundUi ? "grid-cols-3" : "grid-cols-2"}`
+            : `gap-4 ${showLaundryPaymentMethods ? "grid-cols-3" : "grid-cols-2"}`
         }`}
       >
         {/* Columna 1 — Carrito */}
@@ -3801,6 +4235,12 @@ export default function PosPaymentWorkspace({
                     </span>
                   </li>
                 ))
+              : isLaundryPendingMode && laundryPendingDraft
+              ? [
+                  <li key="laundry-pending-summary" className="list-none border-0 p-2">
+                    <LaundryReceptionPaymentSummary pending={laundryPendingDraft} />
+                  </li>,
+                ]
               : isQuotaMode
               ? collectQuotas.map((quota) => (
                   <li
@@ -3881,7 +4321,7 @@ export default function PosPaymentWorkspace({
             ) : null}
           </ul>
           <footer className="shrink-0 space-y-2 border-t border-border pt-3 text-sm">
-            {isDebtCollectMode || isNcPayoutMode || isEncargoMode ? (
+            {isDebtCollectMode || isNcPayoutMode || isEncargoMode || isLaundryPendingMode ? (
               <div className="flex justify-between gap-4 pt-1 text-base font-semibold">
                 <span className="text-foreground">{amountDueLabel}</span>
                 <span className="tabular-nums text-foreground">{formatMoney(amountToPay)}</span>
@@ -4071,7 +4511,7 @@ export default function PosPaymentWorkspace({
         />
         )}
 
-        {showReturnRefundUi ? (
+        {showLaundryPaymentMethods ? (
         /* Columna 3 — Métodos de pago */
         <section
           className="flex min-h-0 w-full min-w-0 flex-col gap-3 rounded-xl border border-border bg-background p-4"
@@ -4294,50 +4734,73 @@ export default function PosPaymentWorkspace({
             data-test-id="pos-payment-mobile-summary-card"
           >
             <div
-              className="grid grid-cols-2 gap-2 p-3 text-sm"
+              className="flex flex-col gap-0.5 border-b border-border px-3 py-1.5 text-center leading-tight"
+              data-test-id="pos-payment-mobile-context"
+            >
+              <span className="truncate text-xs font-semibold text-foreground">{flowTitle}</span>
+              <span className="max-w-full truncate text-[11px] text-muted-foreground">
+                Cliente:{" "}
+                <span className="font-medium text-foreground">{customerLabel}</span>
+              </span>
+              {showDeliveryCard ? (
+                <PosDeliverySummaryCard
+                  compact
+                  className="mt-0.5"
+                  posDelivery={canUsePosDelivery ? posDelivery : null}
+                  disabled={deliveryConfigureDisabled}
+                  disabledReason={deliveryDisabledReason}
+                  onConfigure={() => setDeliveryDialogOpen(true)}
+                  data-test-id="pos-payment-delivery-mobile"
+                />
+              ) : null}
+            </div>
+            <div
+              className="grid grid-cols-2 gap-1.5 px-2.5 py-2"
               data-test-id="pos-payment-summary"
             >
-              <div className="flex flex-col rounded-lg bg-slate-100/80 px-3 py-2 dark:bg-slate-800/40">
-                <span className="text-xs font-medium text-slate-600 dark:text-slate-300 sm:text-sm">
+              <div className="flex flex-col rounded-md bg-slate-100/80 px-2 py-1.5 dark:bg-slate-800/40">
+                <span className="text-[10px] font-medium leading-tight text-slate-600 dark:text-slate-300">
                   {amountDueLabel}
                 </span>
-                <span className="text-lg font-bold tabular-nums text-slate-900 dark:text-slate-100 sm:text-xl">
+                <span className="text-sm font-bold tabular-nums text-slate-900 dark:text-slate-100">
                   {formatMoney(amountToPay)}
                 </span>
               </div>
-              <div className="flex flex-col rounded-lg bg-sky-100/70 px-3 py-2 dark:bg-sky-900/30">
-                <span className="text-xs font-medium text-sky-700 dark:text-sky-300 sm:text-sm">
+              <div className="flex flex-col rounded-md bg-sky-100/70 px-2 py-1.5 dark:bg-sky-900/30">
+                <span className="text-[10px] font-medium leading-tight text-sky-700 dark:text-sky-300">
                   Total recibido
                 </span>
                 <span
-                  className="text-lg font-bold tabular-nums text-sky-900 dark:text-sky-100 sm:text-xl"
+                  className="text-sm font-bold tabular-nums text-sky-900 dark:text-sky-100"
                   data-test-id="pos-payment-applied-total"
                 >
                   {formatMoney(appliedTotal)}
                 </span>
               </div>
               {overpay > 0 ? (
-                <div className="flex flex-col rounded-lg bg-emerald-100/70 px-3 py-2 dark:bg-emerald-900/30">
-                  <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300 sm:text-sm">
+                <div className="flex flex-col rounded-md bg-emerald-100/70 px-2 py-1.5 dark:bg-emerald-900/30">
+                  <span className="text-[10px] font-medium leading-tight text-emerald-700 dark:text-emerald-300">
                     Vuelto
                   </span>
-                  <span className="text-lg font-bold tabular-nums text-emerald-900 dark:text-emerald-100 sm:text-xl">
+                  <span className="text-sm font-bold tabular-nums text-emerald-900 dark:text-emerald-100">
                     {formatMoney(overpay)}
                   </span>
                 </div>
               ) : (
-                <div className="flex flex-col rounded-lg bg-amber-100/70 px-3 py-2 dark:bg-amber-900/30">
-                  <span className="text-xs font-medium text-amber-800 dark:text-amber-300 sm:text-sm">
+                <div className="flex flex-col rounded-md bg-amber-100/70 px-2 py-1.5 dark:bg-amber-900/30">
+                  <span className="text-[10px] font-medium leading-tight text-amber-800 dark:text-amber-300">
                     Saldo restante
                   </span>
-                  <span className="text-lg font-bold tabular-nums text-amber-900 dark:text-amber-100 sm:text-xl">
+                  <span className="text-sm font-bold tabular-nums text-amber-900 dark:text-amber-100">
                     {formatMoney(remaining)}
                   </span>
                 </div>
               )}
-              <div className={`flex flex-col rounded-lg px-3 py-2 ${paymentStatusBoxTone}`}>
-                <span className="text-xs font-medium opacity-80 sm:text-sm">Estado del pago</span>
-                <span className="text-lg font-bold sm:text-xl">{paymentStatusLabel}</span>
+              <div className={`flex flex-col rounded-md px-2 py-1.5 ${paymentStatusBoxTone}`}>
+                <span className="text-[10px] font-medium leading-tight opacity-80">
+                  Estado del pago
+                </span>
+                <span className="text-sm font-bold leading-tight">{paymentStatusLabel}</span>
               </div>
             </div>
             <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
@@ -4358,29 +4821,7 @@ export default function PosPaymentWorkspace({
               ) : (
                 <span className="w-10 shrink-0" aria-hidden />
               )}
-              <div
-                className="flex min-w-0 flex-1 flex-col items-center gap-1 px-1 text-center leading-tight"
-                data-test-id="pos-payment-mobile-context"
-              >
-                <span className="truncate text-sm font-semibold text-foreground">
-                  {flowTitle}
-                </span>
-                <span className="max-w-full truncate text-xs text-muted-foreground">
-                  Cliente:{" "}
-                  <span className="font-medium text-foreground">{customerLabel}</span>
-                </span>
-                {showDeliveryCard ? (
-                  <PosDeliverySummaryCard
-                    compact
-                    className="mt-0.5"
-                    posDelivery={canUsePosDelivery ? posDelivery : null}
-                    disabled={deliveryConfigureDisabled}
-                    disabledReason={deliveryDisabledReason}
-                    onConfigure={() => setDeliveryDialogOpen(true)}
-                    data-test-id="pos-payment-delivery-mobile"
-                  />
-                ) : null}
-              </div>
+              <div className="min-w-0 flex-1" aria-hidden />
               <div className="flex shrink-0 items-center gap-2">
                 {showDeferPaymentButton ? (
                   <IconButton
@@ -4441,10 +4882,10 @@ export default function PosPaymentWorkspace({
               className="flex min-w-0 flex-1 flex-col items-center px-1 text-center leading-tight"
               data-test-id="pos-payment-mobile-context"
             >
-              <span className="truncate text-sm font-semibold text-foreground">
+              <span className="truncate text-xs font-semibold text-foreground">
                 {flowTitle}
               </span>
-              <span className="max-w-full truncate text-xs text-muted-foreground">
+              <span className="max-w-full truncate text-[11px] text-muted-foreground">
                 Cliente: <span className="font-medium text-foreground">{customerLabel}</span>
               </span>
             </div>
@@ -4555,6 +4996,18 @@ export default function PosPaymentWorkspace({
               return;
             }
             router.push(diningAccountsListHref(tab as "mesas" | "barra" | "takeaway"));
+            return;
+          }
+          if (isLaundryCheckoutMode || isLaundryPendingMode) {
+            clearLaundryCheckoutDraft();
+            clearLaundryPendingCheckout();
+            setLaundryPendingDraft(null);
+            cart.clear();
+            if (embedded && onCloseEmbedded) {
+              onCloseEmbedded();
+              return;
+            }
+            router.push(paymentExitHref);
             return;
           }
           cart.clear();

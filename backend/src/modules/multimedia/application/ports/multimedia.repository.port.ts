@@ -1,7 +1,10 @@
 import { MultimediaAsset } from '../../domain/multimedia-asset.entity';
 import { MultimediaLink } from '../../domain/multimedia-link.entity';
+import { MultimediaVariant } from '../../domain/multimedia-variant.entity';
 
 export interface CreateMultimediaAssetPayload {
+  id?: string;
+  companyId?: string;
   originalName: string;
   storedName: string;
   storageKey: string;
@@ -12,6 +15,20 @@ export interface CreateMultimediaAssetPayload {
   size: number;
   checksum?: string;
   metadata?: Record<string, unknown> | null;
+  optimizationStatus?: 'skipped' | 'ready' | 'failed';
+  width?: number | null;
+  height?: number | null;
+}
+
+export interface CreateMultimediaVariantPayload {
+  variantType: string;
+  format: 'webp' | 'jpeg' | 'png';
+  width: number;
+  height: number;
+  size: number;
+  storageKey: string;
+  publicUrl: string;
+  quality?: number | null;
 }
 
 export interface CreateMultimediaLinkPayload {
@@ -27,6 +44,20 @@ export interface CreateMultimediaLinkPayload {
 
 export interface MultimediaRepositoryPort {
   createAsset(payload: CreateMultimediaAssetPayload): Promise<MultimediaAsset>;
+  updateAsset(
+    id: string,
+    patch: Partial<
+      Pick<
+        MultimediaAsset,
+        'publicUrl' | 'optimizationStatus' | 'metadata' | 'width' | 'height'
+      >
+    >,
+  ): Promise<void>;
+  createVariants(
+    assetId: string,
+    variants: CreateMultimediaVariantPayload[],
+  ): Promise<MultimediaVariant[]>;
+  listVariantsByAssetId(assetId: string): Promise<MultimediaVariant[]>;
   findAssetById(id: string): Promise<MultimediaAsset | null>;
   findAssetByStorageKey(storageKey: string): Promise<MultimediaAsset | null>;
   deleteAsset(id: string): Promise<void>;
@@ -59,23 +90,17 @@ export interface MultimediaRepositoryPort {
     usageType?: string;
     attributeId?: string | null;
   }): Promise<void>;
-  /** Dentro del mismo ámbito (usageType + attributeId), solo un link puede ser principal. */
   setPrimaryAssetForEntity(params: {
     assetId: string;
     entityType: string;
     entityId: string;
     attributeId?: string | null;
   }): Promise<void>;
-  /**
-   * Misma orden que `listAssetsByEntity` por entidad: isPrimary DESC, sortOrder, createdAt.
-   * Claves = entityId; solo incluye ids con al menos un asset.
-   */
   listAssetsByEntityIds(params: {
     entityType: string;
     entityIds: string[];
     usageType?: string;
     attributeId?: string | null;
-    /** `general` (default): solo galería sin atributo; `all`: incluye multimedia por atributo. */
     attributeScope?: 'general' | 'all';
   }): Promise<Record<string, MultimediaAsset[]>>;
   countLinksForAsset(assetId: string): Promise<number>;

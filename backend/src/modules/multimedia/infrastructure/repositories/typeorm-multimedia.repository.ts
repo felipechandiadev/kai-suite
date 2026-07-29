@@ -1,13 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import {
   CreateMultimediaAssetPayload,
   CreateMultimediaLinkPayload,
+  CreateMultimediaVariantPayload,
   MultimediaRepositoryPort,
 } from '../../application/ports/multimedia.repository.port';
 import { MultimediaAsset } from '../../domain/multimedia-asset.entity';
 import { MultimediaLink } from '../../domain/multimedia-link.entity';
+import { MultimediaVariant } from '../../domain/multimedia-variant.entity';
 import {
   applyMultimediaLinkAttributeScope,
   normalizeMultimediaLinkAttributeId,
@@ -20,6 +22,8 @@ export class TypeOrmMultimediaRepository implements MultimediaRepositoryPort {
     private readonly assetRepository: Repository<MultimediaAsset>,
     @InjectRepository(MultimediaLink)
     private readonly linkRepository: Repository<MultimediaLink>,
+    @InjectRepository(MultimediaVariant)
+    private readonly variantRepository: Repository<MultimediaVariant>,
   ) {}
 
   async createAsset(
@@ -28,13 +32,70 @@ export class TypeOrmMultimediaRepository implements MultimediaRepositoryPort {
     const entity = this.assetRepository.create({
       ...payload,
       status: 'active',
+      optimizationStatus: payload.optimizationStatus ?? 'skipped',
     });
 
     return this.assetRepository.save(entity);
   }
 
-  findAssetById(id: string): Promise<MultimediaAsset | null> {
-    return this.assetRepository.findOne({ where: { id } });
+  async updateAsset(
+    id: string,
+    patch: Partial<
+      Pick<
+        MultimediaAsset,
+        'publicUrl' | 'optimizationStatus' | 'metadata' | 'width' | 'height'
+      >
+    >,
+  ): Promise<void> {
+    await this.assetRepository.update(
+      { id },
+      patch as Parameters<Repository<MultimediaAsset>['update']>[1],
+    );
+  }
+
+  async createVariants(
+    assetId: string,
+    variants: CreateMultimediaVariantPayload[],
+  ): Promise<MultimediaVariant[]> {
+    if (variants.length === 0) return [];
+    const entities = variants.map((v) =>
+      this.variantRepository.create({
+        assetId,
+        ...v,
+      }),
+    );
+    return this.variantRepository.save(entities);
+  }
+
+  listVariantsByAssetId(assetId: string): Promise<MultimediaVariant[]> {
+    return this.variantRepository.find({ where: { assetId } });
+  }
+
+  private async attachVariants(
+    assets: MultimediaAsset[],
+  ): Promise<MultimediaAsset[]> {
+    if (assets.length === 0) return assets;
+    const ids = assets.map((a) => a.id);
+    const variants = await this.variantRepository.find({
+      where: { assetId: In(ids) },
+    });
+    const byAsset = new Map<string, MultimediaVariant[]>();
+    for (const v of variants) {
+      const list = byAsset.get(v.assetId) ?? [];
+      list.push(v);
+      byAsset.set(v.assetId, list);
+    }
+    for (const asset of assets) {
+      asset.variants = byAsset.get(asset.id) ?? [];
+    }
+    return assets;
+  }
+
+  async findAssetById(id: string): Promise<MultimediaAsset | null> {
+    const asset = await this.assetRepository.findOne({ where: { id } });
+    if (!asset) return null;
+    await this.attachVariants([asset]);
+    return asset;
   }
 
   findAssetByStorageKey(storageKey: string): Promise<MultimediaAsset | null> {
@@ -42,6 +103,7 @@ export class TypeOrmMultimediaRepository implements MultimediaRepositoryPort {
   }
 
   async deleteAsset(id: string): Promise<void> {
+    await this.variantRepository.delete({ assetId: id });
     await this.assetRepository.softDelete(id);
   }
 
@@ -116,7 +178,7 @@ export class TypeOrmMultimediaRepository implements MultimediaRepositoryPort {
 
     const links = await qb.getMany();
 
-    return links.map((link) => {
+    const assets = links.map((link) => {
       const asset = link.asset;
       return Object.assign(asset, {
         isPrimary: link.isPrimary,
@@ -128,6 +190,8 @@ export class TypeOrmMultimediaRepository implements MultimediaRepositoryPort {
         linkId: string;
       };
     });
+    await this.attachVariants(assets);
+    return assets;
   }
 
   async reorderLinksForEntity(params: {
@@ -258,6 +322,7 @@ export class TypeOrmMultimediaRepository implements MultimediaRepositoryPort {
 
     const links = await qb.getMany();
     const byEntity: Record<string, MultimediaAsset[]> = {};
+    const allAssets: MultimediaAsset[] = [];
     for (const link of links) {
       const eid = link.entityId;
       const asset = link.asset;
@@ -270,8 +335,10 @@ export class TypeOrmMultimediaRepository implements MultimediaRepositoryPort {
       const seen = byEntity[eid].some((a) => a.id === asset.id);
       if (!seen) {
         byEntity[eid].push(asset);
+        allAssets.push(asset);
       }
     }
+    await this.attachVariants(allAssets);
     return byEntity;
   }
 

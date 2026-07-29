@@ -25,6 +25,11 @@ export function isKaiFoodProduct(productId?: string): boolean {
   return id === 'kaifood' || id === 'kaisuite';
 }
 
+/** Lavandería (recepción, catálogo de prendas): solo vertical Kai Services. */
+export function isKaiServicesProduct(productId?: string): boolean {
+  return resolveKaiProductId(productId) === 'kaiservices';
+}
+
 export function getKaiProductLabel(productId?: string): string {
   return PRODUCT_LABELS[resolveKaiProductId(productId)];
 }

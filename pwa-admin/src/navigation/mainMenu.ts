@@ -140,16 +140,6 @@ export const mainMenuItems: SideBarMenuItem[] = [
         url: '/production/orders',
       },
       {
-        id: 'production-manufacturing',
-        label: 'Manufactura',
-        url: '/production/manufacturing',
-      },
-      {
-        id: 'production-elaboration',
-        label: 'Elaboración',
-        url: '/production/elaboration',
-      },
-      {
         id: 'production-units',
         label: 'Unidades de producción',
         url: '/production/units',
@@ -204,6 +194,16 @@ export const mainMenuItems: SideBarMenuItem[] = [
         label: 'Configuración',
         url: '/kaifood/configuracion',
       },
+    ],
+  },
+  {
+    id: 'nav-laundry',
+    label: 'Lavandería',
+    requiresKaiServicesEnabled: true,
+    children: [
+      { id: 'laundry-types', label: 'Tipos de prenda', url: '/laundry/tipos-prenda' },
+      { id: 'laundry-attributes', label: 'Atributos', url: '/laundry/atributos' },
+      { id: 'laundry-care', label: 'Instrucciones de cuidado', url: '/laundry/instrucciones' },
     ],
   },
   {
