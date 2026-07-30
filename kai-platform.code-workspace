@@ -1,0 +1,13 @@
+{
+  "folders": [
+    {
+      "name": "kai-suite",
+      "path": "."
+    },
+    {
+      "name": "kai-deployments",
+      "path": "../kai-deployments"
+    }
+  ],
+  "settings": {}
+}

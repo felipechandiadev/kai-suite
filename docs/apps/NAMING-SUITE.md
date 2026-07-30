@@ -2,6 +2,8 @@
 
 Fuente de verdad de **cómo se llama cada app** en el launcher / dock / menú Inicio, qué **id estable** usa, y cómo se llaman las **carpetas del monorepo** (clientes + **Kai Core**). Aplica a PWAs, nativos y el API.
 
+**Producto vertical vs app vs topbar** (KaiStore / KaiFood, empresa activa): [`PRODUCTOS-Y-APPS.md`](./PRODUCTOS-Y-APPS.md).
+
 **Última revisión:** julio 2026  
 **Detalle web:** [`MANIFESTOS-PWA.md`](./MANIFESTOS-PWA.md) · **Detalle nativo:** [`MANIFESTOS-NATIVOS.md`](./MANIFESTOS-NATIVOS.md) · **Iconos:** [`PWA-ICONOS-Y-FAVICONS.md`](../project/PWA-ICONOS-Y-FAVICONS.md)
 

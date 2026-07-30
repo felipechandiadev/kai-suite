@@ -12,6 +12,7 @@ Referencia rápida para onboarding con Cursor u otros agentes.
 | `.instructions/webadmin.instruction` | Server Actions admin | Deprecated → usar `.cursor/rules` |
 | `docs/project/PWA-ICONOS-Y-FAVICONS.md` | Iconos PWA + favicons | Activo |
 | `docs/apps/NAMING-SUITE.md` | Naming suite: labels e ids PWA + nativos | Activo |
+| `docs/apps/PRODUCTOS-Y-APPS.md` | Productos × apps, topbar, `companies.kai_product` | Activo |
 | `docs/apps/MANIFESTOS-PWA.md` | Manifiestos PWA: short_name, id, estado vs estándar | Activo |
 | `docs/apps/MANIFESTOS-NATIVOS.md` | Manifiestos nativos Android/Tauri | Activo |
 | `docs/apps/SERVICE-WORKERS.md` | Service workers PWA: caches, offline, push | Activo |

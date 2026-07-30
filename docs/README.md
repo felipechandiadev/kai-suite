@@ -6,6 +6,7 @@
 | [project/ARQUITECTURA_Y_ECOSISTEMA.md](./project/ARQUITECTURA_Y_ECOSISTEMA.md) | Arquitectura monorepo Kai |
 | [project/PWA-ICONOS-Y-FAVICONS.md](./project/PWA-ICONOS-Y-FAVICONS.md) | Manual iconos PWA (`any`/`maskable`) + favicons |
 | [apps/NAMING-SUITE.md](./apps/NAMING-SUITE.md) | Naming suite — labels e ids (PWA + nativos) |
+| [apps/PRODUCTOS-Y-APPS.md](./apps/PRODUCTOS-Y-APPS.md) | Productos × apps, topbar, producto por empresa |
 | [apps/MANIFESTOS-PWA.md](./apps/MANIFESTOS-PWA.md) | Manifiestos PWA — `short_name`, `id`, estado vs estándar |
 | [apps/MANIFESTOS-NATIVOS.md](./apps/MANIFESTOS-NATIVOS.md) | Manifiestos nativos — Android / Tauri |
 | [apps/SERVICE-WORKERS.md](./apps/SERVICE-WORKERS.md) | Service workers — caches, offline, Web Push |

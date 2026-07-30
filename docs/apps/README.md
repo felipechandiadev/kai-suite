@@ -1,6 +1,6 @@
 # Docs — Apps instalables Kai
 
-Identidad, manifiestos e instalación del ecosistema cliente (PWAs / nativos), naming de carpetas (incl. Kai Core), **sidecars** (`services/`), y **versionado por app**.
+Identidad, manifiestos, productos/verticales, sidecars y versionado del ecosistema cliente.
 
 **Última revisión:** julio 2026
 
@@ -16,6 +16,7 @@ Identidad, manifiestos e instalación del ecosistema cliente (PWAs / nativos), n
 | Documento | Contenido |
 |-----------|-----------|
 | [`NAMING-SUITE.md`](./NAMING-SUITE.md) | **Tabla maestra** — labels, ids, **carpetas monorepo** (`kai-<slug>`) |
+| [`PRODUCTOS-Y-APPS.md`](./PRODUCTOS-Y-APPS.md) | **Productos × apps**, topbar, esbozo `companies.kai_product` |
 | [`MANIFESTOS-PWA.md`](./MANIFESTOS-PWA.md) | Web App Manifest: `short_name`, `id`, theme, fuente única |
 | [`MANIFESTOS-NATIVOS.md`](./MANIFESTOS-NATIVOS.md) | Android / Tauri: `applicationId`, `app_name`, `productName`, iconos |
 | [`RELEASE-MANIFESTS.md`](./RELEASE-MANIFESTS.md) | `kai-printers-*.manifest.json` / CFD (paths `kai-screen-*`) — versionado de descarga |
