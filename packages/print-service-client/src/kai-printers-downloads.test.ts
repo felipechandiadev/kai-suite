@@ -23,7 +23,7 @@ describe("resolveKaiPrintersDownloadUrl", () => {
 
   it("defaults Android to versioned APK from manifest", () => {
     expect(resolveKaiPrintersDownloadUrl("android", SAMPLE_MANIFESTS)).toBe(
-      "/downloads/kai-printers-android-1.1.12.apk",
+      "/downloads/kai-printers-android-1.1.14.apk",
     );
   });
 
@@ -38,16 +38,16 @@ describe("resolveKaiPrintersDownloadUrl", () => {
 
   it("uses env override when set", () => {
     process.env.NEXT_PUBLIC_KAI_PRINTERS_ANDROID_URL =
-      "https://pos.example.cl/downloads/kai-printers-android-1.1.12.apk";
+      "https://pos.example.cl/downloads/kai-printers-android-1.1.14.apk";
     expect(resolveKaiPrintersDownloadUrl("android", SAMPLE_MANIFESTS)).toBe(
-      "https://pos.example.cl/downloads/kai-printers-android-1.1.12.apk",
+      "https://pos.example.cl/downloads/kai-printers-android-1.1.14.apk",
     );
   });
 
   it("listKaiPrintersDownloadOffers includes href and version per platform", () => {
     const offers = listKaiPrintersDownloadOffers(SAMPLE_MANIFESTS);
     expect(offers.find((o) => o.platform === "android")?.href).toBe(
-      "/downloads/kai-printers-android-1.1.12.apk",
+      "/downloads/kai-printers-android-1.1.14.apk",
     );
     expect(offers.find((o) => o.platform === "windows")?.href).toBe(
       "/downloads/kai-printers-windows-1.0.7-x64-portable.zip",

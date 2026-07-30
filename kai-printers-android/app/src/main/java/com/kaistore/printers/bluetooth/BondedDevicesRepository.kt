@@ -21,15 +21,23 @@ class BondedDevicesRepository(private val context: Context) {
 
     @SuppressLint("MissingPermission")
     fun listBondedDevices(): List<BluetoothDevice> {
-        return adapter()?.bondedDevices?.toList().orEmpty()
+        if (!BluetoothPermissions.hasScanAndConnect(context)) return emptyList()
+        return try {
+            adapter()?.bondedDevices?.toList().orEmpty()
+        } catch (_: SecurityException) {
+            emptyList()
+        }
     }
+
+    /** Misma lista, pero nunca lanza (para UI). */
+    fun listBondedDevicesSafe(): List<BluetoothDevice> = listBondedDevices()
 
     @SuppressLint("MissingPermission")
     fun listBondedPrintersJson(): JsonArray = buildJsonArray {
         listBondedDevices().forEach { device ->
             add(
                 buildJsonObject {
-                    put("name", device.name ?: device.address)
+                    put("name", device.safeLabel())
                     put("address", device.address)
                     put("default", false)
                     put("online", isDeviceReachable(device.address))
@@ -40,10 +48,29 @@ class BondedDevicesRepository(private val context: Context) {
 
     @SuppressLint("MissingPermission")
     fun deviceForAddress(address: String): BluetoothDevice? =
-        adapter()?.getRemoteDevice(address)
+        try {
+            adapter()?.getRemoteDevice(address)
+        } catch (_: IllegalArgumentException) {
+            null
+        } catch (_: SecurityException) {
+            null
+        }
 
     fun isDeviceReachable(address: String): Boolean {
         val device = deviceForAddress(address) ?: return false
-        return BtSppTransport.tryQuickConnect(device, sppUuid)
+        return try {
+            BtSppTransport.tryQuickConnect(device, sppUuid)
+        } catch (_: SecurityException) {
+            false
+        }
+    }
+}
+
+@SuppressLint("MissingPermission")
+fun BluetoothDevice.safeLabel(): String {
+    return try {
+        name?.takeIf { it.isNotBlank() } ?: address
+    } catch (_: SecurityException) {
+        address
     }
 }

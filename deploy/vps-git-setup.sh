@@ -3,7 +3,7 @@
 # Kai Platform — configurar Git + SSH en el VPS (GitHub)
 #
 # Uso en el VPS:
-#   curl -fsSL https://raw.githubusercontent.com/felipechandiadev/kai/main/deploy/vps-git-setup.sh -o vps-git-setup.sh
+#   curl -fsSL https://raw.githubusercontent.com/felipechandiadev/kai-suite/main/deploy/vps-git-setup.sh -o vps-git-setup.sh
 #   chmod +x vps-git-setup.sh
 #   ./vps-git-setup.sh
 #
@@ -17,8 +17,8 @@
 
 set -euo pipefail
 
-REPO_SSH="git@github.com:felipechandiadev/kai.git"
-REPO_HTTPS="https://github.com/felipechandiadev/kai.git"
+REPO_SSH="git@github.com:felipechandiadev/kai-suite.git"
+REPO_HTTPS="https://github.com/felipechandiadev/kai-suite.git"
 SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519_kai}"
 DEPLOY_DIR="${DEPLOY_DIR:-$HOME/kai}"
 GIT_NAME="${GIT_NAME:-Kai VPS}"
@@ -109,7 +109,7 @@ print_github_instructions() {
   echo "=============================================================================="
   echo ""
   echo "Opción A — Deploy key (recomendada, solo este repo):"
-  echo "  1. Abre: https://github.com/felipechandiadev/kai/settings/keys"
+  echo "  1. Abre: https://github.com/felipechandiadev/kai-suite/settings/keys"
   echo "  2. Add deploy key → Title: VPS $(hostname)"
   echo "  3. Pega la clave pública de abajo"
   echo "  4. Deja 'Allow write access' DESMARCADO si el VPS solo hace pull"
@@ -139,7 +139,7 @@ test_github_ssh() {
 }
 
 clone_or_update_repo() {
-  local repo_url="git@github.com-kai:felipechandiadev/kai.git"
+  local repo_url="git@github.com-kai:felipechandiadev/kai-suite.git"
 
   if [[ -d "$DEPLOY_DIR/.git" ]]; then
     info "Repo existente en $DEPLOY_DIR — git fetch + reset a origin/$BRANCH"
@@ -197,6 +197,6 @@ echo "  ssh -T git@github.com-kai"
 echo "  $HOME/bin/kai-git-pull"
 echo "  cd $DEPLOY_DIR && git status"
 echo ""
-echo "Remoto SSH: git@github.com-kai:felipechandiadev/kai.git"
+echo "Remoto SSH: git@github.com-kai:felipechandiadev/kai-suite.git"
 echo "HTTPS:      $REPO_HTTPS"
 echo ""

@@ -1,6 +1,5 @@
 package com.kaistore.printers.ui.mapping
 
-import android.bluetooth.BluetoothDevice
 import android.content.Intent
 import android.hardware.usb.UsbDevice
 import android.provider.Settings
@@ -37,12 +36,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.kaistore.printers.R
+import com.kaistore.printers.bluetooth.BluetoothPermissions
 import com.kaistore.printers.bluetooth.BondedDevicesRepository
 import com.kaistore.printers.data.MappingLineUtils
-import com.kaistore.printers.print.PaperProfile
 import com.kaistore.printers.print.transport.PrinterRef
 import com.kaistore.printers.print.transport.TransportFactory
 import com.kaistore.printers.usb.UsbPrinterRepository
+import com.kaistore.printers.bluetooth.safeLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -63,7 +63,10 @@ fun AddMappingLineSheet(
     var paperProfile by rememberSaveable {
         mutableStateOf(MappingLineUtils.defaultPaperProfileForPurpose("tickets"))
     }
-    var transport by rememberSaveable { mutableStateOf(AddTransport.BLUETOOTH) }
+    // Enum no es Bundle-saveable: guardar como nombre evita crash al abrir el sheet.
+    var transportName by rememberSaveable { mutableStateOf(AddTransport.BLUETOOTH.name) }
+    val transport =
+        runCatching { AddTransport.valueOf(transportName) }.getOrDefault(AddTransport.BLUETOOTH)
     var alias by rememberSaveable { mutableStateOf("") }
     var systemPrinterName by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -101,7 +104,7 @@ fun AddMappingLineSheet(
             TransportSelector(
                 selected = transport,
                 onSelect = {
-                    transport = it
+                    transportName = it.name
                     systemPrinterName = null
                 },
             )
@@ -206,18 +209,36 @@ private fun TransportSelector(
 private fun BluetoothDevicePicker(onSelected: (address: String, label: String) -> Unit) {
     val context = LocalContext.current
     val bondedRepo = remember { BondedDevicesRepository(context) }
-    var devices by remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
+    var devices by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    var listError by remember { mutableStateOf<String?>(null) }
+    val hasBtPermission = BluetoothPermissions.hasScanAndConnect(context)
 
-    LaunchedEffect(Unit) {
-        devices = bondedRepo.listBondedDevices()
+    LaunchedEffect(hasBtPermission) {
+        if (!hasBtPermission) {
+            devices = emptyList()
+            listError = null
+            return@LaunchedEffect
+        }
+        devices = bondedRepo.listBondedDevicesSafe().map { it.address to it.safeLabel() }
+        listError = null
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (!hasBtPermission) {
+            Text(
+                stringResource(R.string.perm_bluetooth),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
         OutlinedButton(
             onClick = { context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) },
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(stringResource(R.string.pair_in_system))
+        }
+        listError?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         }
         if (devices.isEmpty()) {
             Text(stringResource(R.string.no_bonded_devices), style = MaterialTheme.typography.bodySmall)
@@ -226,10 +247,9 @@ private fun BluetoothDevicePicker(onSelected: (address: String, label: String) -
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                devices.forEach { device ->
-                    val label = device.name ?: device.address
+                devices.forEach { (address, label) ->
                     OutlinedButton(
-                        onClick = { onSelected(device.address, label) },
+                        onClick = { onSelected(address, label) },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(label)

@@ -33,6 +33,7 @@ Guía para Cursor al desarrollar la **plataforma Kai** (KaiStore, KaiFood, compo
 
 - `docs/project/ARQUITECTURA_Y_ECOSISTEMA.md`
 - `docs/project/MIGRACION-NOMBRES-KAISTORE.md`
+- `docs/apps/VERSIONS.md` — root bump siempre; apps solo tocadas; clasificar PATCH/MINOR/MAJOR
 - `pwa-admin/AGENTS.md`, `pwa-pos/AGENTS.md`
 
 ## Reglas

@@ -1,0 +1,29 @@
+---
+description: Bump root siempre + apps solo tocadas; clasificar PATCH/MINOR/MAJOR
+alwaysApply: true
+---
+
+# Versionado inteligente (commits)
+
+Al preparar un **commit** (solo cuando el usuario lo pida). Detalle: **`docs/apps/VERSIONS.md`**.
+
+## Obligatorio
+
+1. **Clasificar el tipo** del commit: `PATCH` | `MINOR` | `MAJOR` (docs/chore/fix → PATCH; feature → MINOR; breaking → MAJOR).
+2. **Siempre** actualizar `version` en el **`package.json` de la raíz** del monorepo (reloj del suite). Si hay varios impactos, el root usa el tipo **más alto**.
+3. Mapear paths del diff a apps (`pwa-pos/`, `backend/`, `services/kai-mail/`, `packages/*`, nativos, etc.).
+4. **Solo** bumpear las apps/paquetes **tocados**:
+   - Editar el campo `version` de **ese** `package.json` (o `version.properties` / Tauri si es nativo).
+   - **Nunca** bumpear apps sin cambios en el diff.
+5. Incluir root + versiones de apps afectadas en el **mismo commit**.
+6. Breaking API/protocolo → MAJOR + avisar release coordinado.
+
+## No bumpear apps si
+
+Solo docs, seeds de demo, formateo, o WIP explícito — en esos casos **sí** PATCH del root, **no** de las PWAs.
+
+## Prohibido
+
+- Subir versión de todas las apps “por las dudas”.
+- Omitir el bump del root.
+- Hardcodear versión en UI (usar `package.json` / health / env).

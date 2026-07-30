@@ -33,10 +33,10 @@ export type KaiPrintersDownloadOffer = {
 
 /** Fallback si falta manifest en public/downloads (SSR / build). */
 export const KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT: KaiPrintersAndroidManifest = {
-  version: "1.1.12",
-  versionCode: 22,
-  filename: "kai-printers-android-1.1.12.apk",
-  builtAt: "2026-07-29T20:29:12Z",
+  version: "1.1.14",
+  versionCode: 24,
+  filename: "kai-printers-android-1.1.14.apk",
+  builtAt: "2026-07-29T23:45:00Z",
 };
 
 export const KAI_PRINTERS_WINDOWS_MANIFEST_DEFAULT: KaiPrintersDesktopManifest = {

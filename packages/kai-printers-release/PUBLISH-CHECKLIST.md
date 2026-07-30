@@ -2,6 +2,8 @@
 
 Checklist operativo para sacar una nueva versión de los agentes (Android + Desktop) hacia el POS (`pwa-pos/public/downloads/`).
 
+Conceptos (identidad vs JSON de versión): [`docs/apps/RELEASE-MANIFESTS.md`](../../docs/apps/RELEASE-MANIFESTS.md) · labels nativos: [`docs/apps/MANIFESTOS-NATIVOS.md`](../../docs/apps/MANIFESTOS-NATIVOS.md).
+
 ## 0. Antes de compilar
 
 - [ ] Código de tickets/protocolo alineado en:

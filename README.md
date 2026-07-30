@@ -122,7 +122,7 @@ Versión desktop publicada: **1.0.6** (`kai-printers-windows-1.0.6-x64-portable.
 ## Repositorio
 
 ```bash
-git clone git@github.com:felipechandiadev/kai.git
+git clone git@github.com:felipechandiadev/kai-suite.git
 ```
 
 ## Contribución

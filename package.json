@@ -1,7 +1,8 @@
 {
-  "name": "flow-store",
+  "name": "kai-suite",
+  "version": "1.2.0",
   "private": true,
-  "description": "KaiStore monorepo — scripts de desarrollo",
+  "description": "Kai Suite monorepo",
   "packageManager": "npm@10.9.2",
   "engines": {
     "node": ">=20"
@@ -15,7 +16,8 @@
     "kai-waiter",
     "kai-kds",
     "kai-board",
-    "kai-delivery"
+    "kai-delivery",
+    "services/kai-mail"
   ],
   "scripts": {
     "dev": "bash scripts/dev-all.sh",
@@ -31,6 +33,8 @@
     "dev:apps:eshop": "bash scripts/dev-apps.sh eshop",
     "env:dev": "bash envs/sync-dev-envs.sh --force",
     "install:front": "npm install",
+    "mail:dev": "npm run start:dev -w kai-mail",
+    "mail:build": "npm run build -w kai-mail",
     "kai-printers:publish": "node packages/kai-printers-release/scripts/publish-all.mjs",
     "kai-printers:publish:android": "bash kai-printers-android/scripts/publish-to-pos-downloads.sh",
     "kai-printers:publish:desktop": "node packages/kai-printers-release/scripts/publish-to-pos-downloads.mjs",

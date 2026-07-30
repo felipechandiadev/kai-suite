@@ -6,20 +6,29 @@ Microservicio liviano para envío de correos transaccionales (eShop y futuros m�
 
 - NestJS + BullMQ + Redis + Nodemailer + Handlebars
 - Sin base de datos en v1
+- **npm workspace** del monorepo (`services/kai-mail` en el root `package.json`)
 
 ## Desarrollo local
 
+Desde la **raíz** del monorepo (un solo `npm install` / `node_modules` compartido):
+
 ```bash
-cd services/kai-mail
 npm install
 # Redis en localhost (docker compose del backend)
-REDIS_HOST=localhost SMTP_HOST=localhost SMTP_PORT=1025 npm run start:dev
+REDIS_HOST=localhost SMTP_HOST=localhost SMTP_PORT=1025 npm run mail:dev
+# equivalente: npm run start:dev -w kai-mail
 ```
 
-Con Mailpit:
+Build:
 
 ```bash
-docker compose -f docker-compose.mail.yml up mailpit
+npm run mail:build
+```
+
+Con Mailpit (desde `services/kai-mail`):
+
+```bash
+docker compose -f services/kai-mail/docker-compose.mail.yml up mailpit
 ```
 
 UI Mailpit: http://localhost:8025
@@ -53,3 +62,7 @@ ESHOP_CHECKOUT_V2=true
 KAI_MAIL_URL=http://localhost:5040
 KAI_MAIL_API_KEY=dev-kai-mail-key
 ```
+
+## Docker
+
+El [`Dockerfile`](./Dockerfile) sigue haciendo `npm install` en el contexto de la imagen (deploy independiente del workspace local).

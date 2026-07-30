@@ -81,6 +81,8 @@ npm run env:dev              # regenera .env de cada app (forzado)
 
 ## Service Workers (PWA)
 
+Estándar, auditoría por app y niveles L1–L3: **[`docs/apps/SERVICE-WORKERS.md`](../docs/apps/SERVICE-WORKERS.md)**.
+
 Todas las apps front registran `/sw.js` en **producción**, y en **desarrollo** cuando `NEXT_PUBLIC_SW_DEV=1` (incluido en cada fragmento `envs/*.env.local.example`).
 
 ```bash
