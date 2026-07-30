@@ -191,7 +191,7 @@ Cada PWA con set completo debe tener en `public/` (generado por `brand:icons`):
 
 Manifest: declarar **any** y **maskable** por separado. Layout: `icons` + `apple` + `manifest`.
 
-Referencia de implementación buena: `pwa-admin/app/manifest.ts`, `pwa-admin/app/layout.tsx`, `pwa-pos/public/manifest.json`.
+Referencia de implementación buena: `kai-admin/app/manifest.ts`, `kai-admin/app/layout.tsx`, `kai-pos/public/manifest.json`.
 
 ---
 
@@ -199,10 +199,10 @@ Referencia de implementación buena: `pwa-admin/app/manifest.ts`, `pwa-admin/app
 
 | App | Set any+maskable 192/512 | Favicon 16/32 | apple-touch 180 | Notas |
 |-----|--------------------------|---------------|-----------------|-------|
-| `pwa-admin` | Sí | Sí | Sí | Referencia; tiene `favicon.ico` |
-| `pwa-pos` | Sí | Sí | Sí | Falta `favicon.ico` opcional |
-| `pwa-stock` | Sí | Sí | Sí | OK |
-| `pwa-eshop` | Sí | Sí | Sí | OK |
+| `kai-admin` | Sí | Sí | Sí | Referencia; tiene `favicon.ico` |
+| `kai-pos` | Sí | Sí | Sí | Falta `favicon.ico` opcional |
+| `kai-stock` | Sí | Sí | Sí | OK |
+| `kai-eshop` | Sí | Sí | Sí | OK |
 | `kai-delivery` | Sí | Sí | Sí | OK |
 | `kai-board` | **No** | **No** | **No** | Solo `logo.png` mal tipado como 192 |
 | `kai-kds` | **No** | **No** | **No** | Solo `logo.png` |

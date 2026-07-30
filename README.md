@@ -11,11 +11,11 @@ Monorepo de la **plataforma Kai**: backend compartido y aplicaciones por vertica
 
 ```
 kai/
-├── backend/                    # API compartida (KaiStore, KaiFood, …)
-├── pwa-admin/                  # Admin web
-├── pwa-pos/                    # POS
-├── pwa-stock/                  # Inventario móvil
-├── pwa-eshop/                  # Tienda pública
+├── kai-core/                   # API (Kai Core) compartida (KaiStore, KaiFood, …)
+├── kai-admin/                  # Admin web
+├── kai-pos/                    # POS
+├── kai-stock/                  # Inventario móvil
+├── kai-eshop/                  # Tienda pública
 ├── kai-printers-android/       # Agente Kai Printers (Android)
 ├── kai-screen-android/         # Agente Kai Screen (Android)
 ├── kai-printers-desktop/       # Agente Kai Printers (Tauri, carpeta local)
@@ -36,7 +36,7 @@ npm run dev          # liviano: infra + backend + admin (recomendado)
 npm run dev:all      # stack completo (+ pos, stock, eshop, mail)
 ```
 
-`npm install` en la raíz instala **todas las PWAs** (`pwa-admin`, `pwa-pos`, `pwa-eshop`, `pwa-stock`, `kai-waiter`, `kai-kds`, `kai-delivery`) y los paquetes `@kai/*`. Backend, landing, seeds y servicios quedan **fuera** del workspace: `cd … && npm install` por carpeta.
+`npm install` en la raíz instala **todas las PWAs** (`kai-admin`, `kai-pos`, `kai-eshop`, `kai-stock`, `kai-waiter`, `kai-kds`, `kai-delivery`) y los paquetes `@kai/*`. Backend, landing, seeds y servicios quedan **fuera** del workspace: `cd … && npm install` por carpeta.
 
 `npm run dev` usa el perfil **liviano** (backend + admin). Para todo el ecosistema: `npm run dev:all`.
 
@@ -56,21 +56,21 @@ Login admin (seed): `admin` / `098098`
 
 1. **Backend** (fuera del workspace front):
    ```bash
-   cd backend
+   cd kai-core
    npm install
    npm run start:dev  # Puerto 5060
    ```
 
 2. **Admin** (deps ya instaladas con `npm install` en la raíz):
    ```bash
-   cd pwa-admin
+   cd kai-admin
    npm run dev  # Puerto 5071 (5061 bloqueado por Next.js)
-   # o: npm run dev -w kai-pwa-admin
+   # o: npm run dev -w kai-admin
    ```
 
 3. **KaiStore eShop**:
    ```bash
-   cd pwa-eshop
+   cd kai-eshop
    npm run dev  # Puerto 5064
    ```
 
@@ -82,20 +82,20 @@ Login admin (seed): `admin` / `098098`
    # npm run seed:san-sebastian --prefix seeds
    ```
 
-   Requiere PostgreSQL y `backend/.env`. Ver [`seeds/README.md`](seeds/README.md).
+   Requiere PostgreSQL y `kai-core/.env`. Ver [`seeds/README.md`](seeds/README.md).
 
 ## Kai Printers — publicar y deploy (Windows / Android / macOS)
 
 Instaladores servidos en **`/downloads/`** del POS (`Configuración → Impresión local`).
 
-Guía completa: [`pwa-pos/public/downloads/README.md`](pwa-pos/public/downloads/README.md) · deploy VPS: [`deploy/kai-printers-downloads.md`](deploy/kai-printers-downloads.md)
+Guía completa: [`kai-pos/public/downloads/README.md`](kai-pos/public/downloads/README.md) · deploy VPS: [`deploy/kai-printers-downloads.md`](deploy/kai-printers-downloads.md)
 
 ```bash
 # Publicar (requiere kai-printers-desktop/ y/o kai-printers-android/)
 npm run kai-printers:publish -- --windows-only --build
 
 # Solo manifests en git; luego rsync binarios al VPS
-git add pwa-pos/public/downloads/kai-printers-*.manifest.json
+git add kai-pos/public/downloads/kai-printers-*.manifest.json
 git commit -m "chore(printers): actualizar manifests Kai Printers"
 ```
 
@@ -110,14 +110,14 @@ Versión desktop publicada: **1.0.6** (`kai-printers-windows-1.0.6-x64-portable.
 
 ## Agentes IA (Cursor)
 
-- **Backend:** `.instructions/backend.instruction` y `pwa-admin/AGENTS.md`
+- **Backend:** `.instructions/backend.instruction` y `kai-admin/AGENTS.md`
 - **Frontend admin:** `.instructions/webadmin.instruction`
 - **Reglas monorepo:** `.cursor/rules/kai-platform.mdc`
 
 ## Configuración
 
 - Variables de entorno: ver guías en `docs/legacy/`
-- Base de datos: PostgreSQL vía `backend/docker-compose.yml`
+- Base de datos: PostgreSQL + PostGIS del **sistema** (`npm run setup:postgres`); Docker opcional (`KAI_DEV_POSTGRES=docker`)
 
 ## Repositorio
 

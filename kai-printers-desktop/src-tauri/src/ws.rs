@@ -222,7 +222,7 @@ pub async fn run_ws_loop(state: Arc<AppState>, mut shutdown_rx: watch::Receiver<
     })?;
     let listener = TcpListener::bind(addr).await.map_err(|e| {
         eprintln!(
-            "[KaiPrinters] ERROR: no se pudo abrir WebSocket en {addr} — {e}. \
+            "[Kai Printers] ERROR: no se pudo abrir WebSocket en {addr} — {e}. \
              ¿Otro proceso usa el puerto {port}? En `lsof` la columna COMMAND suele verse cortada (p. ej. «print-ser» = nombre del binario, p. ej. `print-service`). \
              Para ver el nombre completo: `lsof +c0 -nP -iTCP:{port} -sTCP:LISTEN`. Podés cerrar esa instancia o cambiar el puerto WS en la app."
         );
@@ -231,12 +231,12 @@ pub async fn run_ws_loop(state: Arc<AppState>, mut shutdown_rx: watch::Receiver<
     tracing::info!(%addr, "WebSocket listening");
     if loopback_only {
         eprintln!(
-            "[KaiPrinters] WebSocket (WS) activo: ws://127.0.0.1:{port}/  (y [::1]:{port} si está habilitado)"
+            "[Kai Printers] WebSocket (WS) activo: ws://127.0.0.1:{port}/  (y [::1]:{port} si está habilitado)"
         );
     } else {
         eprintln!(
-            "[KaiPrinters] WebSocket (WS) activo en {host}:{port} — desde otro equipo use ws://<IP-LAN-del-Mac>:{port}/ \
-             y en el POS el mismo host (no 127.0.0.1). Orígenes: permitir «todos» o http://<IP>:3022 en KaiPrinters."
+            "[Kai Printers] WebSocket (WS) activo en {host}:{port} — desde otro equipo use ws://<IP-LAN-del-Mac>:{port}/ \
+             y en el POS el mismo host (no 127.0.0.1). Orígenes: permitir «todos» o http://<IP>:3022 en Kai Printers."
         );
     }
     loop {

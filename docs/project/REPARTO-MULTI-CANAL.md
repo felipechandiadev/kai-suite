@@ -48,18 +48,18 @@ Este documento describe **cómo funciona hoy** el motor multi-canal, el menú ra
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌────────────────────────────┐
-│  pwa-eshop  │────▶│  API public  │──┐  │                            │
+│  kai-eshop  │────▶│  API public  │──┐  │                            │
 │  checkout   │     │ delivery/    │  │  │  módulo NestJS             │
 └─────────────┘     │ public/*     │  ├──▶│  delivery                  │
                     └──────────────┘  │  │  (settings, zones,         │
 ┌─────────────┐     ┌──────────────┐  │  │   occurrences, orders,     │
-│  pwa-pos    │────▶│  API POS     │──┤  │   dispatches, courier)     │
+│  kai-pos    │────▶│  API POS     │──┤  │   dispatches, courier)     │
 │  /payment   │     │ delivery/pos │  │  │                            │
 │  + card     │     │ /*           │  │  └────────────────────────────┘
 └─────────────┘     └──────────────┘  │
                                       │  tablas: delivery_*
 ┌─────────────┐     ┌──────────────┐  │  + PostGIS geom / point
-│  pwa-admin  │────▶│  API admin   │──┘
+│  kai-admin  │────▶│  API admin   │──┘
 │  /reparto/* │     │ delivery/    │
 │             │     │ admin/*      │
 └─────────────┘     └──────────────┘
@@ -132,7 +132,7 @@ Requieren usuario con rol `COURIER`. Opera sobre dispatches de franjas; no disti
 
 Seed demo: zona Parral, calendario jul–ago 2026 (reparto diario + retiro en local). Ver `seeds/demo/seed-delivery-calendar.ts`.
 
-**OSRM (ruteo):** el cliente HTTP vive en `backend/src/modules/routing/`; el contenedor hoy está en `backend/docker-compose.yml` (perfil `osrm`). **Tarea pendiente:** mover ops a `services/kai-osrm` — ver [`docs/apps/SERVICES-SIDECARS.md`](../apps/SERVICES-SIDECARS.md) §5.
+**OSRM (ruteo):** el cliente HTTP vive en `kai-core/src/modules/routing/`; el contenedor y bootstrap están en [`services/kai-osrm`](../../services/kai-osrm/README.md) (`docker compose -f services/kai-osrm/docker-compose.osrm.yml up -d`). Detalle ops: [`docs/apps/SERVICES-SIDECARS.md`](../apps/SERVICES-SIDECARS.md) §5.
 
 ---
 
@@ -279,12 +279,12 @@ No requiere rename de tablas ni módulos Nest.
 
 | Área | Ubicación |
 | --- | --- |
-| Dominio Nest | `backend/src/modules/delivery/` |
-| Admin UI (motor) | `pwa-admin/app/(app)/reparto/` (+ UI compartida en `e-shop/fulfillment/ui/`) |
-| Admin UI (tienda) | `pwa-admin/app/(app)/e-shop/fulfillment/` (Pedidos + Métodos) |
-| Menú | `pwa-admin/src/navigation/mainMenu.ts` |
-| POS UI | `pwa-pos/src/features/pos-delivery/` + payment workspace |
-| Metadata venta | `backend/.../cash-sessions/application/pos-delivery.metadata.ts` |
+| Dominio Nest | `kai-core/src/modules/delivery/` |
+| Admin UI (motor) | `kai-admin/app/(app)/reparto/` (+ UI compartida en `e-shop/fulfillment/ui/`) |
+| Admin UI (tienda) | `kai-admin/app/(app)/e-shop/fulfillment/` (Pedidos + Métodos) |
+| Menú | `kai-admin/src/navigation/mainMenu.ts` |
+| POS UI | `kai-pos/src/features/pos-delivery/` + payment workspace |
+| Metadata venta | `kai-core/.../cash-sessions/application/pos-delivery.metadata.ts` |
 | Creación order POS | `DeliveryOrderService.createFromPosSale` |
 | PostGIS | [`POSTGIS-DELIVERY.md`](./POSTGIS-DELIVERY.md) |
 | Seed calendario | `seeds/demo/seed-delivery-calendar.ts` |

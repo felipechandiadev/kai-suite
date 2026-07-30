@@ -1,10 +1,9 @@
-// Cache básico para Kai Delivery (PWA)
+// Cache shell Kai Delivery (L1)
 const CACHE_NAME = "kai-delivery-v1";
 const CORE_ASSETS = [
   "/",
   "/repartos",
   "/login",
-  "/manifest.json",
   "/logo.png",
   "/android-chrome-192x192.png",
   "/android-chrome-512x512.png",
@@ -31,15 +30,22 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Estrategia simple:
-// - Navegación (HTML): network-first con fallback a '/repartos'
-// - Otros: cache-first con fallback a network
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
 
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+
+  if (url.pathname === "/manifest.json" || url.pathname === "/manifest.webmanifest") {
+    event.respondWith(fetch(req));
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/")) {
+    event.respondWith(fetch(req));
+    return;
+  }
 
   const isNavigation = req.mode === "navigate" || req.destination === "document";
   if (isNavigation) {

@@ -831,7 +831,7 @@ fn print_raw_windows_spooler(printer: &str, data: &[u8]) -> Result<u32> {
             Some(&defaults),
         )
         .map_err(|e| anyhow::anyhow!("OpenPrinterW({printer}): {e}"))?;
-        let mut doc_name: Vec<u16> = "KaiPrinters\0".encode_utf16().collect();
+        let mut doc_name: Vec<u16> = "Kai Printers\0".encode_utf16().collect();
         let mut doc_datatype: Vec<u16> = "RAW\0".encode_utf16().collect();
         let doc_info = DOC_INFO_1W {
             pDocName: PWSTR(doc_name.as_mut_ptr()),
@@ -949,7 +949,7 @@ pub fn print_pdf_to_printer(
                     );
                 }
             } else {
-                tracing::debug!(printer, "CUPS: corte automático desactivado en KaiPrinters");
+                tracing::debug!(printer, "CUPS: corte automático desactivado en Kai Printers");
             }
         }
         let status = cmd.arg(pdf_path).status().context("lp")?;
@@ -1030,7 +1030,7 @@ fn resolve_sumatra_exe() -> Result<PathBuf> {
         *guard = None;
     }
     anyhow::bail!(
-        "SumatraPDF no encontrado. Reinstalá KaiPrinters o definí KAI_PRINTERS_SUMATRA \
+        "SumatraPDF no encontrado. Reinstalá Kai Printers o definí KAI_PRINTERS_SUMATRA \
          con la ruta completa a SumatraPDF.exe"
     )
 }

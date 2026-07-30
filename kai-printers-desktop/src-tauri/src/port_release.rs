@@ -101,10 +101,10 @@ fn terminate_stale_on_listen_ports_unix(ports: &[u16]) -> bool {
         killed_any = true;
         tracing::warn!(
             pid = %pid,
-            "Instancia previa de KaiPrinters aún escucha el puerto; envío SIGTERM para liberarlo"
+            "Instancia previa de Kai Printers aún escucha el puerto; envío SIGTERM para liberarlo"
         );
         eprintln!(
-            "[KaiPrinters] Cerrando instancia previa (PID {pid}) que ocupaba el puerto WS/WSS…"
+            "[Kai Printers] Cerrando instancia previa (PID {pid}) que ocupaba el puerto WS/WSS…"
         );
         let _ = Command::new("kill").args(["-15", &pid]).status();
     }

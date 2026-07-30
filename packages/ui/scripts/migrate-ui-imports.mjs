@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Migra imports legacy de primitivos UI hacia @kai/ui.
- * Uso: node packages/ui/scripts/migrate-ui-imports.mjs [--dry-run] [pwa-stock|pwa-eshop|pwa-pos|pwa-admin|all]
+ * Uso: node packages/ui/scripts/migrate-ui-imports.mjs [--dry-run] [kai-stock|kai-eshop|kai-pos|kai-admin|all]
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -149,10 +149,10 @@ const DOMAIN_SEGMENTS = new Set([
 ]);
 
 const APP_SCAN_ROOTS = {
-  "pwa-admin": ["app", "src"],
-  "pwa-pos": ["src"],
-  "pwa-eshop": ["src"],
-  "pwa-stock": ["src"],
+  "kai-admin": ["app", "src"],
+  "kai-pos": ["src"],
+  "kai-eshop": ["src"],
+  "kai-stock": ["src"],
 };
 
 const DEFAULT_TO_NAMED = new Set([

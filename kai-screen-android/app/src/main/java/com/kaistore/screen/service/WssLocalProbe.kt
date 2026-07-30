@@ -18,7 +18,7 @@ data class WssProbeResult(
  * No valida si Chrome ya confió el certificado (eso solo lo ve el navegador del POS).
  */
 object WssLocalProbe {
-    private const val MARKER = "Kai Screen"
+    private const val MARKER = "Kai CFD"
 
     fun probe(port: Int, timeoutMs: Int = 4000): WssProbeResult {
         if (port !in 1..65535) {

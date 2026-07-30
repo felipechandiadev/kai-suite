@@ -35,7 +35,7 @@ const PRIMITIVE_STUBS = [
 ];
 
 const DOMAIN_ALLOWLIST = {
-  "pwa-admin": new Set([
+  "kai-admin": new Set([
     "TopBar",
     "Multimedia",
     "PurchaseDocumentBuilder",
@@ -54,7 +54,7 @@ const DOMAIN_ALLOWLIST = {
     "INTEGRATION_GUIDE.md",
     "index.ts",
   ]),
-  "pwa-pos": new Set([
+  "kai-pos": new Set([
     "PosTopBar",
     "PurchaseDocumentBuilder",
     "PrintDocuments",
@@ -62,11 +62,11 @@ const DOMAIN_ALLOWLIST = {
     "MercadoPagoLogo.tsx",
     "index.ts",
   ]),
-  "pwa-eshop": new Set([
+  "kai-eshop": new Set([
     "MercadoPagoLogo.tsx",
     "index.ts",
   ]),
-  "pwa-stock": new Set([
+  "kai-stock": new Set([
     "StockTopBar",
     "SideBar",
     "StockPageShell",
@@ -80,7 +80,7 @@ const DOMAIN_ALLOWLIST = {
 
 const APP_CONFIGS = [
   {
-    app: "pwa-admin",
+    app: "kai-admin",
     srcRoot: ".",
     scanDirs: ["app", "src"],
     componentsRoots: ["src/shared/components"],
@@ -90,7 +90,7 @@ const APP_CONFIGS = [
     ],
   },
   {
-    app: "pwa-pos",
+    app: "kai-pos",
     srcRoot: "src",
     scanDirs: ["src"],
     componentsRoots: ["src/shared/components"],
@@ -101,7 +101,7 @@ const APP_CONFIGS = [
     ],
   },
   {
-    app: "pwa-eshop",
+    app: "kai-eshop",
     srcRoot: "src",
     scanDirs: ["src"],
     componentsRoots: ["src/shared/components"],
@@ -112,7 +112,7 @@ const APP_CONFIGS = [
     ],
   },
   {
-    app: "pwa-stock",
+    app: "kai-stock",
     srcRoot: "src",
     scanDirs: ["src"],
     componentsRoots: ["src/shared", "src/shared/components"],
@@ -207,7 +207,7 @@ function scanApp(config) {
       const allowlist = DOMAIN_ALLOWLIST[config.app] ?? new Set();
       const baseName = entry.isDirectory() ? name : name.replace(/\.tsx$/, "");
 
-      if (config.app === "pwa-eshop" && isEshopDomain(baseName)) continue;
+      if (config.app === "kai-eshop" && isEshopDomain(baseName)) continue;
       if (allowlist.has(name) || allowlist.has(baseName)) continue;
 
       const folderPath = entry.isDirectory()

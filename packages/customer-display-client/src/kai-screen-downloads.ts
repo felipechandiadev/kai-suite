@@ -13,7 +13,7 @@ export type KaiScreenDownloadOffer = {
   version?: string;
 };
 
-/** Debe coincidir con pwa-pos/public/downloads/kai-screen-android.manifest.json */
+/** Debe coincidir con kai-pos/public/downloads/kai-screen-android.manifest.json */
 export const KAI_SCREEN_ANDROID_MANIFEST_DEFAULT: KaiScreenAndroidManifest = {
   version: "1.0.1",
   versionCode: 3,
@@ -22,13 +22,13 @@ export const KAI_SCREEN_ANDROID_MANIFEST_DEFAULT: KaiScreenAndroidManifest = {
 };
 
 const OFFER: KaiScreenDownloadOffer = {
-  title: "Kai Screen para Android",
+  title: "Kai CFD para Android",
   description:
     "Pantalla cliente en la segunda pantalla de la tablet. Instalá el agente en el mismo dispositivo donde corre el POS.",
   filename: KAI_SCREEN_ANDROID_MANIFEST_DEFAULT.filename,
   version: KAI_SCREEN_ANDROID_MANIFEST_DEFAULT.version,
   installHint:
-    "Tras descargar, abrí el APK, permití «instalar apps desconocidas» si el sistema lo pide y activá el servicio en Kai Screen.",
+    "Tras descargar, abrí el APK, permití «instalar apps desconocidas» si el sistema lo pide y activá el servicio en Kai CFD.",
 };
 
 const ENV_KEY = "NEXT_PUBLIC_KAI_SCREEN_ANDROID_URL";

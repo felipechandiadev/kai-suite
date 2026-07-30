@@ -2,7 +2,7 @@
 
 Los instalables de Kai Printers se sirven como archivos estáticos en **`/downloads/`** del POS.
 
-**Documentación completa:** [pwa-pos/public/downloads/README.md](../pwa-pos/public/downloads/README.md)
+**Documentación completa:** [kai-pos/public/downloads/README.md](../kai-pos/public/downloads/README.md)
 
 ## Resumen
 
@@ -11,7 +11,7 @@ Los instalables de Kai Printers se sirven como archivos estáticos en **`/downlo
 npm run kai-printers:publish
 
 # 2. Commit manifests (no binarios)
-git add pwa-pos/public/downloads/kai-printers-*.manifest.json
+git add kai-pos/public/downloads/kai-printers-*.manifest.json
 git commit -m "chore(printers): actualizar manifests Kai Printers"
 git push
 
@@ -19,8 +19,8 @@ git push
 ssh usuario@vps 'cd /ruta/kai && git pull'
 
 # 4. Local → VPS — binarios (apk, zip, dmg)
-rsync -avz pwa-pos/public/downloads/ \
-  usuario@vps:/ruta/kai/pwa-pos/public/downloads/
+rsync -avz kai-pos/public/downloads/ \
+  usuario@vps:/ruta/kai/kai-pos/public/downloads/
 
 # 5. Verificar
 curl -I https://pos.tu-dominio.cl/downloads/kai-printers-android.manifest.json

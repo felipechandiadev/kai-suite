@@ -21,7 +21,7 @@ npm run fiscal:export-ss-seed
 
 Esto escribe `emisor.json`, `caf-boleta-39.xml` y `certificado.pfx` (desencriptado desde la DB).
 
-## Variables de entorno (`backend/.env`)
+## Variables de entorno (`kai-core/.env`)
 
 | Variable | Obligatorio | Default |
 |----------|-------------|---------|

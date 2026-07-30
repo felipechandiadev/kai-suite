@@ -8,7 +8,7 @@ Política SemVer en dos capas. Detalle completo: **[`docs/apps/VERSIONS.md`](../
 |-------|---------|-------------|
 | **Root monorepo** | `/package.json` → `version` | **Cada commit** |
 | App PWA | `pwa-*/package.json` · `kai-*/package.json` | Solo si esa app cambió |
-| Backend (Kai Core) | `backend/package.json` | Solo si Core cambió |
+| Backend (Kai Core) | `kai-core/package.json` | Solo si Core cambió |
 | Agente Android | `*/version.properties` | Solo si ese agente cambió |
 | Agente desktop | `tauri.conf.json` + `package.json` | Solo si desktop cambió |
 | Paquetes `@kai/*` | `packages/*/package.json` | Solo si el paquete cambió |
@@ -28,7 +28,7 @@ El root toma el **máximo** entre los impactos del commit. Cada app solo su impa
 
 ## Backend
 
-`GET /api/health` → `version` de `backend/package.json`.
+`GET /api/health` → `version` de `kai-core/package.json`.
 
 ## Agentes
 

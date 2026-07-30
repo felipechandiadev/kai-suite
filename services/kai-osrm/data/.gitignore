@@ -1,0 +1,4 @@
+# Generado por services/kai-osrm/scripts/osrm-bootstrap.sh
+*.osm.pbf
+*.osrm
+*.osrm.*

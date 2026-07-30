@@ -4,9 +4,9 @@ Scripts de seed independientes del backend API. Cada perfil **trunca** la base d
 
 ## Prerrequisitos
 
-- PostgreSQL accesible según `backend/.env`
-- `npm install` en `backend/` (ts-node, Nest, TypeORM; los scripts crean un symlink `seeds/node_modules` → `backend/node_modules` en la primera ejecución)
-- Variables de entorno leídas desde `backend/.env` vía `AppConfigModule`
+- PostgreSQL accesible según `kai-core/.env`
+- `npm install` en `kai-core/` (ts-node, Nest, TypeORM; los scripts crean un symlink `seeds/node_modules` → `kai-core/node_modules` en la primera ejecución)
+- Variables de entorno leídas desde `kai-core/.env` vía `AppConfigModule`
 
 ## Comandos
 
@@ -48,7 +48,7 @@ Credenciales configurables: `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD`, `SEED_
 
 ### Multimedia / storage
 
-Con `STORAGE_STRATEGY=local`, cada seed vacía `backend/public/` antes de cargar datos.
+Con `STORAGE_STRATEGY=local`, cada seed vacía `kai-core/public/` antes de cargar datos.
 
 Con `STORAGE_STRATEGY=cloudflare` (R2):
 
@@ -70,7 +70,7 @@ El seed carga emisor, certificado PFX, CAF boleta 39, sub-paquete de folios en `
 
 ### Prerrequisitos fiscales
 
-En `backend/.env`:
+En `kai-core/.env`:
 
 - `FISCAL_ENCRYPTION_KEY` (misma key que usa el admin)
 - `SAN_SEBASTIAN_SII_PFX_PASSWORD` (contraseña del certificado)
@@ -98,7 +98,7 @@ Para conservar datos existentes (casos excepcionales):
 SEED_SKIP_TRUNCATE=true npm run seed:demo --prefix seeds
 ```
 
-Con `STORAGE_STRATEGY=local`, demo/joyarte/san-sebastian limpian `backend/public/` antes del seed. Con R2, ver sección Multimedia / storage arriba.
+Con `STORAGE_STRATEGY=local`, demo/joyarte/san-sebastian limpian `kai-core/public/` antes del seed. Con R2, ver sección Multimedia / storage arriba.
 
 ## Estructura
 

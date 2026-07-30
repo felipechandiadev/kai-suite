@@ -105,7 +105,7 @@ export class DisplayConnection {
 
   private sendHello(): void {
     const msg = buildHelloMessage({
-      clientId: this.opts.clientId ?? "pwa-pos",
+      clientId: this.opts.clientId ?? "kai-pos",
       pointOfSaleId: this.opts.pointOfSaleId,
       appLabel: this.opts.appLabel,
       storeName: this.opts.storeName,

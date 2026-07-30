@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Publica Kai Printers desktop (Windows ZIP + macOS DMG) en pwa-pos/public/downloads/.
+ * Publica Kai Printers desktop (Windows ZIP + macOS DMG) en kai-pos/public/downloads/.
  * Requiere kai-printers-desktop/ en el monorepo (gitignored localmente).
  *
  * Uso (desde raíz del monorepo):
@@ -26,7 +26,7 @@ import { fileURLToPath } from "node:url";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(scriptDir, "..", "..", "..");
 const printServiceRoot = join(repoRoot, "kai-printers-desktop");
-const downloadsDir = join(repoRoot, "pwa-pos", "public", "downloads");
+const downloadsDir = join(repoRoot, "kai-pos", "public", "downloads");
 const tauriConfPath = join(printServiceRoot, "src-tauri", "tauri.conf.json");
 
 const args = new Set(process.argv.slice(2));
@@ -216,7 +216,7 @@ if (!existsSync(printServiceRoot)) {
 }
 
 const version = readVersion();
-console.log(`Kai Printers desktop v${version} → pwa-pos/public/downloads/`);
+console.log(`Kai Printers desktop v${version} → kai-pos/public/downloads/`);
 
 if (!macosOnly) publishWindows(version);
 if (!windowsOnly) publishMacos(version);
@@ -224,5 +224,5 @@ if (!windowsOnly) publishMacos(version);
 console.log("\n✅ Publicación desktop lista.");
 console.log("Commitear solo los manifest JSON (binarios quedan en .gitignore):");
 console.log(
-  "  git add pwa-pos/public/downloads/kai-printers-windows.manifest.json pwa-pos/public/downloads/kai-printers-macos.manifest.json",
+  "  git add kai-pos/public/downloads/kai-printers-windows.manifest.json kai-pos/public/downloads/kai-printers-macos.manifest.json",
 );

@@ -20,8 +20,11 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import com.kaistore.printers.net.KaiCoreCatalog
+import com.kaistore.printers.data.AgentSettingsKeys
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -68,6 +71,12 @@ fun ServiceSettingsScreen(
     var probeRunning by remember { mutableStateOf(false) }
     var probeMessage by remember { mutableStateOf<String?>(null) }
     var probeOk by remember { mutableStateOf(false) }
+    var agentDisplayName by remember { mutableStateOf("Kai Printers") }
+    var kaiCoreUrl by remember { mutableStateOf("http://localhost:5160") }
+    var kaiPairToken by remember { mutableStateOf("") }
+    var kaiPaired by remember { mutableStateOf(false) }
+    var kaiMsg by remember { mutableStateOf<String?>(null) }
+    var kaiBusy by remember { mutableStateOf(false) }
 
     fun notifyServiceStatus() {
         val ready = running && (!wssEnabled || (chromeCertAck && probeOk))
@@ -81,6 +90,10 @@ fun ServiceSettingsScreen(
             wssPort = app.container.repository.wssListenPort()
             wssEnabled = app.container.repository.wssEnabled()
             listenHost = app.container.repository.listenHost()
+            agentDisplayName = app.container.repository.agentDisplayName()
+            kaiCoreUrl = app.container.repository.getSetting(AgentSettingsKeys.KAI_CORE_BASE_URL)
+                ?: "http://localhost:5160"
+            kaiPaired = app.container.repository.isKaiCorePaired()
             lanIps = LanAddressResolver.ipv4NonLoopback()
             running = app.container.webSocketServer.isRunning()
             chromeCertAck = setupPrefs.isChromeCertAcknowledged()
@@ -140,6 +153,105 @@ fun ServiceSettingsScreen(
     ) {
         Text(stringResource(R.string.tab_service), style = MaterialTheme.typography.headlineSmall)
         Text(stringResource(R.string.pos_connection_subtitle), style = MaterialTheme.typography.bodyMedium)
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Nombre del agente", style = MaterialTheme.typography.titleSmall)
+                OutlinedTextField(
+                    value = agentDisplayName,
+                    onValueChange = { agentDisplayName = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+                OutlinedButton(
+                    onClick = {
+                        scope.launch {
+                            val name = agentDisplayName.trim()
+                            if (name.length < 2) {
+                                Toast.makeText(context, "Nombre demasiado corto", Toast.LENGTH_SHORT).show()
+                                return@launch
+                            }
+                            app.container.repository.setSetting(AgentSettingsKeys.AGENT_DISPLAY_NAME, name)
+                            Toast.makeText(context, "Nombre guardado", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Guardar nombre")
+                }
+                Text("Kai Core (catálogo)", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Emparejá para que Admin/POS elijan este agente por nombre. La impresión sigue por LAN.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = kaiCoreUrl,
+                    onValueChange = { kaiCoreUrl = it },
+                    label = { Text("URL Kai Core") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+                if (kaiPaired) {
+                    Text("Emparejado", color = MaterialTheme.colorScheme.primary)
+                    OutlinedButton(
+                        onClick = {
+                            scope.launch {
+                                kaiBusy = true
+                                KaiCoreCatalog.clearPair(app.container.repository)
+                                kaiPaired = false
+                                kaiMsg = "Desemparejado"
+                                kaiBusy = false
+                            }
+                        },
+                        enabled = !kaiBusy,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Desemparejar")
+                    }
+                } else {
+                    OutlinedTextField(
+                        value = kaiPairToken,
+                        onValueChange = { kaiPairToken = it },
+                        label = { Text("Token de emparejamiento") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                    )
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                kaiBusy = true
+                                kaiMsg = null
+                                app.container.repository.setSetting(
+                                    AgentSettingsKeys.KAI_CORE_BASE_URL,
+                                    kaiCoreUrl.trim().trimEnd('/'),
+                                )
+                                val result = KaiCoreCatalog.pair(app.container.repository, kaiPairToken)
+                                kaiBusy = false
+                                result.fold(
+                                    onSuccess = {
+                                        kaiPaired = true
+                                        kaiPairToken = ""
+                                        agentDisplayName = it.displayName
+                                        kaiMsg = "Emparejado: ${it.displayName}"
+                                    },
+                                    onFailure = {
+                                        kaiMsg = it.message ?: "Error al emparejar"
+                                    },
+                                )
+                            }
+                        },
+                        enabled = !kaiBusy && kaiPairToken.trim().length >= 32,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Emparejar con Core")
+                    }
+                }
+                kaiMsg?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

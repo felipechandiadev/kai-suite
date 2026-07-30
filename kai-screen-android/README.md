@@ -20,7 +20,7 @@ npm run kai-screen:publish
 # Opcional: npm run kai-screen:publish -- --bump patch
 ```
 
-Deja el APK en `pwa-pos/public/downloads/kai-screen-android-{version}.apk` y actualiza `kai-screen-android.manifest.json`.
+Deja el APK en `kai-pos/public/downloads/kai-screen-android-{version}.apk` y actualiza `kai-screen-android.manifest.json`.
 
 ## Protocolo
 

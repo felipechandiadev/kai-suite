@@ -11,7 +11,7 @@ Al preparar un **commit** (solo cuando el usuario lo pida). Detalle: **`docs/app
 
 1. **Clasificar el tipo** del commit: `PATCH` | `MINOR` | `MAJOR` (docs/chore/fix → PATCH; feature → MINOR; breaking → MAJOR).
 2. **Siempre** actualizar `version` en el **`package.json` de la raíz** del monorepo (reloj del suite). Si hay varios impactos, el root usa el tipo **más alto**.
-3. Mapear paths del diff a apps (`pwa-pos/`, `backend/`, `services/kai-mail/`, `packages/*`, nativos, etc.).
+3. Mapear paths del diff a apps (`kai-pos/`, `kai-core/`, `services/kai-mail/`, `packages/*`, nativos, etc.).
 4. **Solo** bumpear las apps/paquetes **tocados**:
    - Editar el campo `version` de **ese** `package.json` (o `version.properties` / Tauri si es nativo).
    - **Nunca** bumpear apps sin cambios en el diff.

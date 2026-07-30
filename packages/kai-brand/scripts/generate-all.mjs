@@ -27,22 +27,22 @@ const TRAY_WHITE = path.join(SOURCES, "tray-white-1024.png");
 const PWA_APPS = [
   {
     id: "admin",
-    publicDir: path.join(repoRoot, "pwa-admin", "public"),
+    publicDir: path.join(repoRoot, "kai-admin", "public"),
     shortcuts: [{ file: "icons/shortcut-dashboard.png" }],
   },
   {
     id: "pos",
-    publicDir: path.join(repoRoot, "pwa-pos", "public"),
+    publicDir: path.join(repoRoot, "kai-pos", "public"),
     shortcuts: [{ file: "icons/shortcut-pos.png" }],
   },
   {
     id: "stock",
-    publicDir: path.join(repoRoot, "pwa-stock", "public"),
+    publicDir: path.join(repoRoot, "kai-stock", "public"),
     shortcuts: [],
   },
   {
     id: "eshop",
-    publicDir: path.join(repoRoot, "pwa-eshop", "public"),
+    publicDir: path.join(repoRoot, "kai-eshop", "public"),
     shortcuts: [],
   },
 ];
@@ -127,10 +127,10 @@ async function syncTauriIcons() {
 
 async function syncBrandLogos() {
   const logoTargets = [
-    path.join(repoRoot, "pwa-admin", "public", "logo.png"),
-    path.join(repoRoot, "pwa-pos", "public", "logo.png"),
-    path.join(repoRoot, "pwa-stock", "public", "logo.png"),
-    path.join(repoRoot, "pwa-eshop", "public", "logo.png"),
+    path.join(repoRoot, "kai-admin", "public", "logo.png"),
+    path.join(repoRoot, "kai-pos", "public", "logo.png"),
+    path.join(repoRoot, "kai-stock", "public", "logo.png"),
+    path.join(repoRoot, "kai-eshop", "public", "logo.png"),
   ];
   for (const target of logoTargets) {
     if (!fs.existsSync(path.dirname(target))) continue;

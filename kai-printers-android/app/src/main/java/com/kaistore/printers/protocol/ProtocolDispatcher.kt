@@ -356,7 +356,7 @@ class ProtocolDispatcher(
     suspend fun serviceStatusPayload(): JsonObject = buildJsonObject {
         put("connectedClients", connectedCount())
         put("sessions", connectedSessionsJson())
-        put("agentDisplayName", "KaiPrinters")
+        put("agentDisplayName", repository.agentDisplayName())
         put("listenHost", repository.listenHost())
         put("listenPort", repository.listenPort())
         put("wssListenPort", repository.wssListenPort())

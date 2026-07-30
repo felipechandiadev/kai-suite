@@ -9,7 +9,7 @@ Referencia central para construir interfaces con `@kai/ui` en las PWAs del monor
 | **Tokens** | `packages/ui/src/theme/tokens.css` + `pwa-*/app/globals.css` | Contrato `--color-*`, tipografía, shell |
 | **Primitivos** | `packages/ui/src/components/` | Button, DataGrid, layouts, inputs… |
 | **Patrones** | Layouts + docs DataGrid | Composición de pantallas ERP |
-| **Showcase vivo** | `pwa-admin/app/(app)/design-system/` | Foundations, patrones, galería de componentes |
+| **Showcase vivo** | `kai-admin/app/(app)/design-system/` | Foundations, patrones, galería de componentes |
 
 Abrir en dev: **http://localhost:5031/design-system**
 
@@ -31,7 +31,7 @@ Abrir en dev: **http://localhost:5031/design-system**
 └── /governance                Reglas @kai/ui vs dominio
 ```
 
-Navegación centralizada: `pwa-admin/src/navigation/designSystemNav.ts`
+Navegación centralizada: `kai-admin/src/navigation/designSystemNav.ts`
 
 ## Foundations
 

@@ -51,4 +51,4 @@ Instrucciones activas para desarrollo diario también en:
 
 - `.instructions/backend.instruction`
 - `.instructions/webadmin.instruction`
-- `pwa-admin/AGENTS.md`, `pwa-pos/AGENTS.md`, `pwa-eshop/AGENTS.md`
+- `kai-admin/AGENTS.md`, `kai-pos/AGENTS.md`, `kai-eshop/AGENTS.md`

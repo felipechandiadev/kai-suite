@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Build release APK, publish versioned binary to pwa-pos/public/downloads, update manifest JSON.
+# Build release APK, publish versioned binary to kai-pos/public/downloads, update manifest JSON.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REPO_ROOT="$(cd "$ROOT/.." && pwd)"
 VERSION_FILE="$ROOT/version.properties"
-DOWNLOADS_DIR="$REPO_ROOT/pwa-pos/public/downloads"
+DOWNLOADS_DIR="$REPO_ROOT/kai-pos/public/downloads"
 MANIFEST_FILE="$DOWNLOADS_DIR/kai-printers-android.manifest.json"
 
 BUMP=""
@@ -134,4 +134,4 @@ echo "Manifest: $MANIFEST_FILE"
 echo "URL local: http://localhost:5032/downloads/${APK_NAME}"
 echo ""
 echo "Commitear solo el manifest (el APK queda fuera de git):"
-echo "  git add pwa-pos/public/downloads/kai-printers-android.manifest.json kai-printers-android/version.properties"
+echo "  git add kai-pos/public/downloads/kai-printers-android.manifest.json kai-printers-android/version.properties"

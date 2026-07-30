@@ -1,6 +1,6 @@
 # `@kai/ui`
 
-Librería de componentes React compartidos entre **pwa-admin**, **pwa-pos**, **pwa-eshop** y **pwa-stock**.
+Librería de componentes React compartidos entre **kai-admin**, **kai-pos**, **kai-eshop** y **kai-stock**.
 
 ## Uso
 

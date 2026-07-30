@@ -205,11 +205,11 @@ Hoy existe scope `@kaistore` en un solo paquete. **Objetivo:** alinear a `@kai/k
 ```
 Monorepo (GitHub)
 └── kai/                               ← carpeta local; repo remoto `kai-suite` (ex flow-store-2)
-    ├── backend/                       ← compartido KaiStore + KaiFood + …
-    ├── pwa-admin/                     ← título según KAI_PRODUCT_MODE
-    ├── pwa-pos/
-    ├── pwa-eshop/
-    ├── pwa-stock/
+    ├── kai-core/                       ← compartido KaiStore + KaiFood + …
+    ├── kai-admin/                     ← título según KAI_PRODUCT_MODE
+    ├── kai-pos/
+    ├── kai-eshop/
+    ├── kai-stock/
     ├── kai-printers-android/
     ├── kai-printers-desktop/          ← rename desde kai-printers-desktop/
     ├── assets/
@@ -357,11 +357,11 @@ Renombrar a `kai` / `kai-postgres` / `kai-network`. Posponer salvo fresh install
 
 | Componente | `package.json` / fuente | UI / API |
 |------------|-------------------------|----------|
-| `backend` | `0.0.1` | `/health` sin versión |
-| `pwa-admin` | `0.1.0` | Sidebar; fallback hardcode **`2.1.0`** |
-| `pwa-pos` | `1.0.0` | Sin versión en UI |
-| `pwa-stock` | `1.0.0` | Sidebar vía `next.config` → `NEXT_PUBLIC_APP_VERSION` |
-| `pwa-eshop` | `0.1.0` | Solo en `.env.example` |
+| `kai-core` | `0.0.1` | `/health` sin versión |
+| `kai-admin` | `0.1.0` | Sidebar; fallback hardcode **`2.1.0`** |
+| `kai-pos` | `1.0.0` | Sin versión en UI |
+| `kai-stock` | `1.0.0` | Sidebar vía `next.config` → `NEXT_PUBLIC_APP_VERSION` |
+| `kai-eshop` | `0.1.0` | Solo en `.env.example` |
 | Kai Printers Android | `version.properties` | Build + protocolo WS |
 | Kai Printers desktop | `tauri.conf.json` | Agente local |
 | Paquetes `@flowstore/*` | `0.0.1` dispersos | — |
@@ -371,7 +371,7 @@ Renombrar a `kai` / `kai-postgres` / `kai-network`. Posponer salvo fresh install
 | Nivel | Qué versiona | Ejemplo | Cuándo subir |
 |-------|---------------|---------|--------------|
 | **App PWA** | `pwa-*/package.json` | `1.2.3` | Cada deploy de esa PWA |
-| **Backend** | `backend/package.json` | `0.4.0` | API o lógica servidor |
+| **Backend** | `kai-core/package.json` | `0.4.0` | API o lógica servidor |
 | **Agente nativo** | `versionName` + `versionCode` (Android) | `1.0.2` / `102` | Cada release APK/desktop |
 | **Paquetes internos** | `packages/*/package.json` | `0.1.0` | Breaking en API del paquete |
 | **Build metadata** | CI → env | `a1b2c3d` + ISO date | Cada build; no es SemVer |
@@ -388,7 +388,7 @@ Renombrar a `kai` / `kai-postgres` / `kai-network`. Posponer salvo fresh install
 | ID | Tarea | Entregable |
 |----|-------|------------|
 | F8.T1 | Documento reglas (esta sección + [`VERSIONING.md`](./VERSIONING.md) cuando exista) | Política acordada |
-| F8.T2 | Unificar inyección `NEXT_PUBLIC_APP_VERSION` en **todas** las PWAs (`next.config.ts` desde `package.json`) | Mismo patrón que `pwa-stock` |
+| F8.T2 | Unificar inyección `NEXT_PUBLIC_APP_VERSION` en **todas** las PWAs (`next.config.ts` desde `package.json`) | Mismo patrón que `kai-stock` |
 | F8.T3 | Eliminar fallback hardcode `2.1.0` en admin | Una sola fuente de verdad |
 | F8.T4 | `NEXT_PUBLIC_BUILD_ID` / `NEXT_PUBLIC_BUILD_DATE` en CI (opcional) | Trazabilidad soporte |
 | F8.T5 | Backend: `GET /health` incluye `version` (y opcional `gitSha`) | About + monitoreo |
@@ -419,10 +419,10 @@ Renombrar a `kai` / `kai-postgres` / `kai-network`. Posponer salvo fresh install
 
 | App | Hoy | Objetivo F9 |
 |-----|-----|-------------|
-| `pwa-admin` | `vX` en sidebar | **Configuración → Acerca de** (+ mantener o quitar línea sidebar) |
-| `pwa-pos` | Nada | **Configuración → Acerca de** |
-| `pwa-stock` | `vX` en sidebar | **Configuración → Acerca de** |
-| `pwa-eshop` | Nada | Footer link o `/acerca` |
+| `kai-admin` | `vX` en sidebar | **Configuración → Acerca de** (+ mantener o quitar línea sidebar) |
+| `kai-pos` | Nada | **Configuración → Acerca de** |
+| `kai-stock` | `vX` en sidebar | **Configuración → Acerca de** |
+| `kai-eshop` | Nada | Footer link o `/acerca` |
 | Agentes | Versión en agente | Reflejada en About de POS/admin si online |
 
 #### Tareas F9
@@ -430,10 +430,10 @@ Renombrar a `kai` / `kai-postgres` / `kai-network`. Posponer salvo fresh install
 | ID | Tarea | Archivos / notas |
 |----|-------|------------------|
 | F9.T1 | Componente compartido `KaiAppAboutDialog` (o paquete post-F4) | `shared/` o `@kai/app-info` |
-| F9.T2 | Admin — enlace en settings | `pwa-admin/app/(app)/settings/…` |
-| F9.T3 | POS — enlace en settings | `pwa-pos/.../settings/…` |
-| F9.T4 | Stock — enlace en settings | `pwa-stock/...` |
-| F9.T5 | eShop — footer o página | `pwa-eshop/` |
+| F9.T2 | Admin — enlace en settings | `kai-admin/app/(app)/settings/…` |
+| F9.T3 | POS — enlace en settings | `kai-pos/.../settings/…` |
+| F9.T4 | Stock — enlace en settings | `kai-stock/...` |
+| F9.T5 | eShop — footer o página | `kai-eshop/` |
 | F9.T6 | Integrar lectura backend + agente impresión | Fetch health + `usePrintServiceConnection` |
 | F9.T7 | Tests smoke / snapshot mínimo | Opcional |
 
@@ -476,7 +476,7 @@ Renombrar a `kai` / `kai-postgres` / `kai-network`. Posponer salvo fresh install
 
 | Fuente | Rol |
 |--------|-----|
-| `pwa-admin/AGENTS.md`, `pwa-pos/AGENTS.md`, `pwa-eshop/AGENTS.md` | Reglas por app |
+| `kai-admin/AGENTS.md`, `kai-pos/AGENTS.md`, `kai-eshop/AGENTS.md` | Reglas por app |
 | `.instructions/backend.instruction`, `webadmin.instruction` | CQRS / Server Actions (texto “Copilot”) |
 | `.cursor/rules` | Reglas monorepo (legacy) |
 | `docs/legacy/*INSTRUCTIONS*` | Duplicado histórico |
@@ -534,7 +534,7 @@ Renombrar a `kai` / `kai-postgres` / `kai-network`. Posponer salvo fresh install
 | `packages/print-service-client/` | @flowstore, flowstore: | F4, F5, F6 |
 | `packages/*-client/` | scope, storage | F4, F5 |
 | `pwa-*` | imports, storage, cookies, títulos producto | F3, F4, F5 |
-| `backend/` | docker, seeds, swagger | F3, F7 |
+| `kai-core/` | docker, seeds, swagger | F3, F7 |
 | `assets/brand/` | kai-logo.svg | ✅ |
 | `docs/` | Flow Store, flow-store-2 | F1, F3 |
 | `pwa-*` | versión UI inconsistente | F8, F9 |

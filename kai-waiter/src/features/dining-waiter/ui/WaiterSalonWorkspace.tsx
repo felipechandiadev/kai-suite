@@ -186,7 +186,7 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
   if (rooms.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-        No hay salones configurados. Crea uno en pwa-admin.
+        No hay salones configurados. Crea uno en kai-admin.
       </div>
     );
   }

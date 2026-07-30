@@ -31,7 +31,7 @@ import {
   StorageType,
 } from '@modules/storages/domain/storage.entity';
 import { TenantContext } from '@common/tenant/tenant.context';
-import { AppConfigService } from '../../backend/src/config/config.service';
+import { AppConfigService } from '../../kai-core/src/config/config.service';
 import { cleanSeedMultimediaStorage } from '../shared/seed-multimedia.util';
 import { assertValidChileCompanyRut } from '@shared/utils/chile-company-rut.util';
 import type { CompanyPaymentMethodConfig } from '@modules/payment-methods-config/domain/payment-method-config.types';

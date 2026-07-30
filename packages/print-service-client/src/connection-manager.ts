@@ -43,7 +43,7 @@ function buildManagerUrl(): string {
 function connectionOptions(opts: PrintServiceManagerOptions): PrintServiceConnectionOptions {
   return {
     url: buildManagerUrl(),
-    clientId: opts.clientId ?? "pwa-pos-print",
+    clientId: opts.clientId ?? "kai-pos-print",
     appLabel: opts.appLabel ?? "KaiStore POS",
     requiredPurposes: opts.requiredPurposes ?? ["tickets", "documents"],
     userDisplayName: opts.userDisplayName,

@@ -38,10 +38,10 @@ Renombrar la **carpeta** no cambia el label del launcher ni el `applicationId`. 
 
 | Carpeta hoy | Carpeta objetivo | `id` (web) | `name` | `short_name` (≤12) |
 |-------------|------------------|------------|--------|---------------------|
-| `pwa-admin` | **`kai-admin`** | `kai-admin` | KaiStore Administración* | `KS Admin` |
-| `pwa-pos` | **`kai-pos`** | `kai-pos` | KaiStore POS* | `KS POS` |
-| `pwa-stock` | **`kai-stock`** | `kai-stock` | KaiStore Stock | `KS Stock` |
-| `pwa-eshop` | **`kai-eshop`** | `kai-eshop` | KaiStore eShop | `KS Shop` |
+| `kai-admin` | **`kai-admin`** | `kai-admin` | KaiStore Administración* | `KS Admin` |
+| `kai-pos` | **`kai-pos`** | `kai-pos` | KaiStore POS* | `KS POS` |
+| `kai-stock` | **`kai-stock`** | `kai-stock` | KaiStore Stock | `KS Stock` |
+| `kai-eshop` | **`kai-eshop`** | `kai-eshop` | KaiStore eShop | `KS Shop` |
 | `kai-delivery` | `kai-delivery` | `kai-delivery` | KaiStore Delivery | `KS Delivery` |
 | `kai-waiter` | `kai-waiter` | `kai-waiter` | KaiFood Mesero | `KF Mesero` |
 | `kai-kds` | `kai-kds` | `kai-kds` | KaiFood KDS | `KF KDS` |
@@ -54,8 +54,8 @@ Renombrar la **carpeta** no cambia el label del launcher ni el `applicationId`. 
 | Carpeta hoy | Carpeta objetivo | Id estable | Label launcher (objetivo) | Hoy (gap) |
 |-------------|------------------|------------|---------------------------|-----------|
 | `kai-printers-android` | `kai-printers-android` | `com.kaistore.kaiprinters` | `Kai Printers` | OK (`app_name`) |
-| `kai-printers-desktop` | `kai-printers-desktop` | `com.kaistore.kaiprinters` | `Kai Printers` | **`KaiPrinters`** (sin espacio) — homologar |
-| `kai-screen-android` | `kai-screen-android` *(opcional más adelante: `kai-cfd-android`)* | `com.kaistore.kaiscreen` | **`Kai CFD`** | Label **`Kai Screen`** — **debe cambiarse** (§2.3). Rename de carpeta = migración aparte |
+| `kai-printers-desktop` | `kai-printers-desktop` | `com.kaistore.kaiprinters` | `Kai Printers` | OK |
+| `kai-screen-android` | `kai-screen-android` *(opcional más adelante: `kai-cfd-android`)* | `com.kaistore.kaiscreen` | **`Kai CFD`** | OK (`app_name`) |
 
 Mismo `identifier` / `applicationId` base `com.kaistore.kaiprinters` en Android y Desktop es intencional. CFD es app distinta → `com.kaistore.kaiscreen` (id legado; no renombrar el package id sin plan).
 
@@ -81,10 +81,11 @@ En retail / POS, la segunda pantalla orientada al comprador se conoce como:
 
 **Pendiente de implementación (no solo doc):**
 
-- [ ] `app_name` en `kai-screen-android` → `Kai CFD`
-- [ ] Textos POS/admin/landing que digan solo “Kai Screen” → “Kai CFD” (+ visor de cliente en UI)
-- [ ] Ofertas de descarga (`kai-screen-downloads`, títulos) → marca Kai CFD
-- [ ] **No** cambiar `applicationId` / nombres de archivo APK / carpetas en el mismo PR salvo migración explícita
+- [x] `app_name` en `kai-screen-android` → `Kai CFD`
+- [x] Textos POS (settings pantalla cliente) → “Kai CFD” + visor de cliente
+- [ ] Textos admin/landing que digan solo “Kai Screen” → “Kai CFD” (pendiente)
+- [x] Ofertas de descarga (`kai-screen-downloads`, títulos) → marca Kai CFD
+- [x] **No** cambiar `applicationId` / nombres de archivo APK / carpetas en el mismo PR salvo migración explícita
 
 ---
 
@@ -113,8 +114,8 @@ No aplicar `KS`/`KF` a Printers / CFD: son **infra de tienda**, no un módulo de
 | kds | `KaiFood KDS` | `KF KDS` | Preferir corto |
 | board | `Kai Board` | `KF Board` | Vertical |
 | printers Android | `Kai Printers` | `Kai Printers` | — |
-| printers Desktop | `KaiPrinters` | `Kai Printers` | Espacio / display |
-| CFD (ex Screen) | `Kai Screen` | **`Kai CFD`** | Rename de marca / labels (§2.3) |
+| printers Desktop | **`Kai Printers`** | `Kai Printers` | — |
+| CFD (ex Screen) | **`Kai CFD`** | **`Kai CFD`** | — |
 
 ---
 
@@ -122,16 +123,16 @@ No aplicar `KS`/`KF` a Printers / CFD: son **infra de tienda**, no un módulo de
 
 | Carpeta hoy | Carpeta objetivo | Rol | Notas |
 |-------------|------------------|-----|-------|
-| `backend` | **`kai-core`** | API Nest — producto **Kai Core** | Rename **no urgente** (ver §5.1) |
+| `kai-core` | **`kai-core`** | API Nest — producto **Kai Core** | Rename **no urgente** (ver §5.1) |
 | `landing` | `landing` | Sitio comercial | Mantener |
 | `packages/*` | — | Librerías `@kai/*` | Ya bajo scope npm |
 | `seeds/`, `envs/`, `deploy/`, `docs/` | — | Infra / docs | Mantener |
 | `services/kai-mail` | — | Sidecar HTTP mail | **npm workspace** raíz (`npm run mail:dev`) |
 | `services/kai-voice` | — | Sidecar TTS | Python `.venv` (no workspace npm) |
-| `services/kai-osrm` | *(crear)* | Ops OSRM | **Pendiente** — sacar de `backend/docker-compose` |
+| `services/kai-osrm` | *(crear)* | Ops OSRM | **Pendiente** — sacar de `kai-core/docker-compose` |
 | `kai-kaiter` | — | Vacío / residual | **Eliminar** si sigue existiendo (no es app; typo de `kai-waiter`) |
 
-### 5.1 Kai Core (`backend` → `kai-core`)
+### 5.1 Kai Core (`kai-core` → `kai-core`)
 
 **Marca de producto: sí — ya es “Kai Core”.**  
 **Rename urgente de carpeta: no** — prioridad por debajo de unificar `pwa-*` → `kai-*`.
@@ -140,20 +141,20 @@ No aplicar `KS`/`KF` a Printers / CFD: son **infra de tienda**, no un módulo de
 
 | Capa | Valor actual |
 |------|----------------|
-| Carpeta | `backend` |
-| npm `package.json` (`name`) | `flow-backend` (legado Flow) |
+| Carpeta | `kai-core` |
+| npm `package.json` (`name`) | `kai-core` (legado Flow) |
 | Dominio demo | `core.demo.kaisuite.pro` → backend ([`domains-demo.md`](../domains-demo.md)) |
 | Landing / narrativa | **Kai Core** (API multi-tenant, auth, contabilidad, etc.) |
 
-El **producto** ya se llama Core; el **path del repo** sigue siendo genérico `backend`.
+El **producto** ya se llama Core; el **path del repo** sigue siendo genérico `kai-core`.
 
 #### ¿Renombrar a `kai-core`?
 
 | A favor | En contra / coste |
 |---------|-------------------|
-| Alinea carpeta con dominio, landing y suite (`kai-pos`, `kai-admin`…) | Cientos de refs: seeds (`../../backend/...`), envs, deploy, scripts, docs, CI |
-| Deja atrás `flow-backend` | No está en npm workspaces del root como las PWAs, pero igual rompe paths |
-| Más claro para agentes / onboarding | `backend` es universal y nadie se confunde hoy |
+| Alinea carpeta con dominio, landing y suite (`kai-pos`, `kai-admin`…) | Cientos de refs: seeds (`../../kai-core/...`), envs, deploy, scripts, docs, CI |
+| Deja atrás `kai-core` | No está en npm workspaces del root como las PWAs, pero igual rompe paths |
+| Más claro para agentes / onboarding | `kai-core` es universal y nadie se confunde hoy |
 
 #### Decisión
 
@@ -168,8 +169,8 @@ El **producto** ya se llama Core; el **path del repo** sigue siendo genérico `b
 
 1. Primero completar (o al menos no bloquear) `pwa-*` → `kai-*` (§6.3).
 2. `git mv backend` → **`kai-core`** (kebab-case; no `kaiCore` / `KaiCore`).
-3. En el mismo PR o seguido: `package.json` `name` `flow-backend` → `kai-core` o `@kai/core`.
-4. Actualizar seeds, envs (`backend.env.example` → naming coherente), deploy, docs.
+3. En el mismo PR o seguido: `package.json` `name` `kai-core` → `kai-core` o `@kai/core`.
+4. Actualizar seeds, envs (`kai-core.env.example` → naming coherente), deploy, docs.
 5. El hostname `core.demo.kaisuite.pro` **no** obliga al rename de carpeta; el mapeo dominio → servicio ya es correcto.
 
 ---
@@ -191,33 +192,33 @@ El **producto** ya se llama Core; el **path del repo** sigue siendo genérico `b
 - Debe coincidir con `id` del Web Manifest y con convención ya usada en `kai-waiter`, `kai-delivery`, etc.
 - El label visible del launcher es otra capa (`KS POS`), no el nombre de carpeta.
 
-### 6.3 Migración `pwa-*` → `kai-*` (pendiente)
+### 6.3 Migración `pwa-*` → `kai-*` (**hecho** 2026-07-30)
 
 | Hoy | Objetivo | Estado |
 |-----|----------|--------|
-| `pwa-admin` | `kai-admin` | Pendiente |
-| `pwa-pos` | `kai-pos` | Pendiente |
-| `pwa-stock` | `kai-stock` | Pendiente |
-| `pwa-eshop` | `kai-eshop` | Pendiente |
+| `kai-admin` | `kai-admin` | **Hecho** |
+| `kai-pos` | `kai-pos` | **Hecho** |
+| `kai-stock` | `kai-stock` | **Hecho** |
+| `kai-eshop` | `kai-eshop` | **Hecho** |
 | `kai-delivery`, `kai-waiter`, `kai-kds`, `kai-board` | — | Ya OK |
 | `kai-printers-*`, `kai-screen-android` | — | OK; CFD opcional `kai-cfd-android` después |
-| `backend` | `kai-core` | Pendiente — **prioridad baja–media** (después de `pwa-*`; ver §5.1) |
+| `kai-core` | `kai-core` | **Hecho** (antes `backend` / npm `flow-backend`) |
 
-**Alcance típico del rename (PR dedicado, alto impacto):**
+**Alcance del rename:**
 
 - Root `package.json` → `workspaces`
-- `envs/`, `deploy/`, scripts `dev-*` / `setup-*`
-- Docs, `AGENTS.md`, CI, paths en VPS
-- Referencias en código a paths absolutos o `path.join(…, "pwa-pos")`
+- `envs/` (`kai-*.env.local.example`, `kai-core.env.example`), `deploy/`, scripts `dev-*` / `setup-*`
+- Docs, `AGENTS.md`, paths en VPS
+- Referencias en código a paths
 
-No mezclar en el mismo PR: rename de carpetas + cambio de `short_name` + rename CFD de `applicationId`.
+No mezclar en el mismo PR futuro: rename de carpetas + cambio de `short_name` + rename CFD de `applicationId` (ya aplicados en fases distintas del épico docs/apps).
 
 ### 6.4 Checklist al renombrar una carpeta de app
 
-- [ ] `git mv` carpeta + actualizar `workspaces`
-- [ ] Grep de `pwa-<slug>` en repo (envs, deploy, scripts, docs)
+- [x] `git mv` carpeta + actualizar `workspaces`
+- [x] Grep de `pwa-<slug>` en repo (envs, deploy, scripts, docs)
 - [ ] `npm install` / smoke `dev` de esa app
-- [ ] Actualizar esta tabla (§2.1 / §6.3)
+- [x] Actualizar esta tabla (§2.1 / §6.3)
 - [ ] Coordinar path en VPS / demo si el deploy monta por nombre de carpeta
 
 ---

@@ -52,6 +52,7 @@ mod state;
 mod tls;
 mod ticket_logos;
 mod reachability;
+mod kai_core;
 mod ws;
 mod wss;
 
@@ -318,6 +319,7 @@ fn get_dashboard(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json::V
         "wsListening": state.ws_listener_running(),
         "wssListening": state.wss_listener_running(),
         "agentDisplayName": agent_display_name,
+        "kaiCore": kai_core::kai_core_status_json(&state.db),
         "globalTicketLogoPath": state.db.global_ticket_logo_path().map_err(|e| e.to_string())?,
         "globalTicketLogoDisplayName": state
             .db
@@ -390,7 +392,7 @@ fn install_wss_trust_certificate(state: tauri::State<'_, Arc<AppState>>) -> Resu
     let cert = tls::wss_cert_path(&state.data_dir);
     if !cert.is_file() {
         return Err(
-            "No existe el certificado WSS. Encendé el servicio (WSS) en KaiPrinters al menos una vez.".into(),
+            "No existe el certificado WSS. Encendé el servicio (WSS) en Kai Printers al menos una vez.".into(),
         );
     }
 
@@ -469,7 +471,7 @@ async fn open_agent_logs_window(app: tauri::AppHandle) -> Result<(), String> {
     }
     let url = WebviewUrl::App("/?view=logs".into());
     WebviewWindowBuilder::new(&app, "logs", url)
-        .title("KaiPrinters — Registro y errores")
+        .title("Kai Printers — Registro y errores")
         .inner_size(480.0, 520.0)
         .resizable(true)
         .build()
@@ -536,6 +538,48 @@ fn set_service_settings(
     }
     notify_printer_health_and_config(&state);
     Ok(())
+}
+
+#[tauri::command]
+fn get_kai_core_status(state: tauri::State<'_, Arc<AppState>>) -> serde_json::Value {
+    kai_core::kai_core_status_json(&state.db)
+}
+
+#[tauri::command]
+fn set_kai_core_base_url(
+    state: tauri::State<'_, Arc<AppState>>,
+    base_url: String,
+) -> Result<(), String> {
+    kai_core::set_base_url(&state.db, &base_url)
+}
+
+#[tauri::command]
+fn prepare_kai_core_pair(
+    state: tauri::State<'_, Arc<AppState>>,
+    pairing_token: String,
+) -> Result<serde_json::Value, String> {
+    kai_core::pair_request_parts(&state.db, &pairing_token)
+}
+
+#[tauri::command]
+fn save_kai_core_pair(
+    state: tauri::State<'_, Arc<AppState>>,
+    agent_id: String,
+    pairing_token: String,
+) -> Result<(), String> {
+    kai_core::set_paired(&state.db, &agent_id, &pairing_token)
+}
+
+#[tauri::command]
+fn clear_kai_core_pair(state: tauri::State<'_, Arc<AppState>>) -> Result<(), String> {
+    kai_core::clear_paired(&state.db)
+}
+
+#[tauri::command]
+fn prepare_kai_core_heartbeat(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<serde_json::Value, String> {
+    kai_core::heartbeat_request_parts(&state)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -1107,7 +1151,7 @@ pub fn run() {
 
             let mut tray = TrayIconBuilder::with_id("print_tray")
                 .menu(&menu)
-                .tooltip("KaiPrinters")
+                .tooltip("Kai Printers")
                 .show_menu_on_left_click(true)
                 .on_menu_event(move |app, event| {
                     if event.id == "open" {
@@ -1155,7 +1199,7 @@ pub fn run() {
                     &handle,
                     None,
                     Some(AboutMetadata {
-                        name: Some("KaiPrinters".into()),
+                        name: Some("Kai Printers".into()),
                         version: Some(version.into()),
                         authors: Some(vec!["Felipe Chandía Castillo".into()]),
                         ..Default::default()
@@ -1173,7 +1217,7 @@ pub fn run() {
                     PredefinedMenuItem::separator(&handle).map_err(|e| format!("sep: {e}"))?;
                 let app_menu = Submenu::with_items(
                     &handle,
-                    "KaiPrinters",
+                    "Kai Printers",
                     true,
                     &[&about, &sep1, &hide, &hide_others, &sep2, &quit],
                 )
@@ -1212,6 +1256,12 @@ pub fn run() {
             open_agent_logs_window,
             stop_print_network,
             start_print_network,
+            get_kai_core_status,
+            set_kai_core_base_url,
+            prepare_kai_core_pair,
+            save_kai_core_pair,
+            clear_kai_core_pair,
+            prepare_kai_core_heartbeat,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

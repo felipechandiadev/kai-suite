@@ -15,6 +15,7 @@ Identidad, manifiestos, productos/verticales, sidecars y versionado del ecosiste
 
 | Documento | Contenido |
 |-----------|-----------|
+| [`STATUS.md`](./STATUS.md) | **Estado del épico** — fases pendientes / hechas |
 | [`NAMING-SUITE.md`](./NAMING-SUITE.md) | **Tabla maestra** — labels, ids, **carpetas monorepo** (`kai-<slug>`) |
 | [`PRODUCTOS-Y-APPS.md`](./PRODUCTOS-Y-APPS.md) | **Productos × apps**, topbar, esbozo `companies.kai_product` |
 | [`MANIFESTOS-PWA.md`](./MANIFESTOS-PWA.md) | Web App Manifest: `short_name`, `id`, theme, fuente única |
@@ -29,10 +30,10 @@ Identidad, manifiestos, productos/verticales, sidecars y versionado del ecosiste
 
 | Paquete | Canal | Rol |
 |---------|-------|-----|
-| `pwa-admin` | PWA | ERP / backoffice |
-| `pwa-pos` | PWA | Caja / punto de venta |
-| `pwa-stock` | PWA | Inventario piso |
-| `pwa-eshop` | PWA | Tienda pública |
+| `kai-admin` | PWA | ERP / backoffice |
+| `kai-pos` | PWA | Caja / punto de venta |
+| `kai-stock` | PWA | Inventario piso |
+| `kai-eshop` | PWA | Tienda pública |
 | `kai-delivery` | PWA | Repartidores |
 | `kai-waiter` | PWA | Mesero / salón |
 | `kai-kds` | PWA | Cocina (KDS) |
@@ -40,7 +41,7 @@ Identidad, manifiestos, productos/verticales, sidecars y versionado del ecosiste
 | `kai-printers-android` | Nativo Android | Agente de impresión |
 | `kai-printers-desktop` | Nativo Tauri (Win/macOS) | Agente de impresión |
 | `kai-screen-android` | Nativo Android | **Kai CFD** (Customer Facing Display / visor de cliente) — label hoy “Kai Screen”, pendiente rename |
-| `backend` → objetivo `kai-core` | API (Nest) | Producto **Kai Core** — rename de carpeta no urgente ([`NAMING-SUITE` §5.1](./NAMING-SUITE.md)) |
+| `kai-core` → objetivo `kai-core` | API (Nest) | Producto **Kai Core** — rename de carpeta no urgente ([`NAMING-SUITE` §5.1](./NAMING-SUITE.md)) |
 
 **Fuera de identidad de suite (clientes):** `landing` (sitio comercial). Infra: `packages/`, `seeds/`, `envs/`, `deploy/`. Sidecars: `services/` ([`SERVICES-SIDECARS.md`](./SERVICES-SIDECARS.md) — mail, voice, migración OSRM).
 

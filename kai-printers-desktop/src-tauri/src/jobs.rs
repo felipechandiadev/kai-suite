@@ -347,7 +347,7 @@ async fn process_one_async(state: &Arc<AppState>, job: PendingJob) -> Result<()>
     let (printers, network_host) = resolve_job_print_targets(db, &job, purpose)?;
     if printers.is_empty() && network_host.is_none() {
         anyhow::bail!(
-            "no printer mapped for {purpose} (configure «Tickets» in KaiPrinters or map «Documentos»)"
+            "no printer mapped for {purpose} (configure «Tickets» in Kai Printers or map «Documentos»)"
         );
     }
     let paper_raw = db.paper_profile_for_ticket_line(

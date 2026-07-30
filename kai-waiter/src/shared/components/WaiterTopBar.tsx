@@ -40,6 +40,14 @@ export function WaiterTopBar({ session }: WaiterTopBarProps) {
           @{session.userName}
         </span>
         <IconButton
+          icon="Printer"
+          variant="action"
+          size="md"
+          onClick={() => router.push("/impresion")}
+          ariaLabel="Impresión local"
+          data-test-id="waiter-print-settings-button"
+        />
+        <IconButton
           icon="LogOut"
           variant="action"
           size="md"

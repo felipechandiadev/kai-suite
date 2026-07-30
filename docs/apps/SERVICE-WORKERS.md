@@ -26,10 +26,10 @@ El manifesto (`short_name`, `id`, iconos) **no** define el SW; son capas distint
 
 | Paquete | Archivo SW | Registro |
 |---------|------------|----------|
-| `pwa-admin` | `public/sw.js` | `app/layout.tsx` |
-| `pwa-pos` | `public/sw.js` | `src/app/layout.tsx` |
-| `pwa-stock` | `public/sw.js` | `src/app/layout.tsx` |
-| `pwa-eshop` | `public/sw.js` | `src/app/layout.tsx` |
+| `kai-admin` | `public/sw.js` | `app/layout.tsx` |
+| `kai-pos` | `public/sw.js` | `src/app/layout.tsx` |
+| `kai-stock` | `public/sw.js` | `src/app/layout.tsx` |
+| `kai-eshop` | `public/sw.js` | `src/app/layout.tsx` |
 | `kai-delivery` | `public/sw.js` | `src/app/layout.tsx` |
 | `kai-waiter` | `public/sw.js` | `src/app/layout.tsx` |
 | `kai-kds` | `public/sw.js` | `src/app/layout.tsx` |
@@ -56,7 +56,7 @@ En desarrollo: `NEXT_PUBLIC_SW_DEV=1` vía `npm run env:dev` / fragments en `env
 | **L0 — Registro** | Solo `install`/`activate` trivial o sin fetch útil | Cumple criterio “tiene SW” para instalabilidad | No usar solo; mínimo L1 |
 | **L1 — Shell** | Precache rutas/iconos; navegación network-first + fallback; same-origin GET | Offline “abrir app / ver última shell” | admin, stock, eshop, delivery, waiter, board |
 | **L2 — Shell + Push** | L1 + `push` + `notificationclick` | Toasts nativos | kds (hoy); waiter si se añade push |
-| **L3 — Offline operativo** | Caches separados (shell / static / RSC), SWR, timeouts, bypass localhost | POS usable sin red (parcial → IF-02) | **solo** `pwa-pos` |
+| **L3 — Offline operativo** | Caches separados (shell / static / RSC), SWR, timeouts, bypass localhost | POS usable sin red (parcial → IF-02) | **solo** `kai-pos` |
 
 No subir admin/eShop a L3 sin diseño: el volumen de rutas y mutaciones no justifica el mismo modelo que el POS.
 
@@ -68,25 +68,26 @@ No subir admin/eShop a L3 sin diseño: el volumen de rutas y mutaciones no justi
 
 | App | Nivel real | Cache name(s) | Push | Bypass manifest | Bypass `/api/` | Offline page | Notas |
 |-----|------------|---------------|------|-----------------|----------------|--------------|-------|
-| `pwa-pos` | **L3** | `flow-pos-shell-v3`, `flow-pos-static-v3`, `flow-pos-rsc-v3` | Sí | No (precached) | Red pura | `offline-fallback.html` | En localhost **no** intercepta fetch (solo push) |
-| `kai-kds` | **L2** | `kai-kds-v1` | Sí | No | Sí (no intercepta) | Fallback `/queue` | Icon push = `/logo.png` |
-| `pwa-admin` | **L1−** | `flow-admin-v2` | No | Sí | Fallback offline en error | `offline.html` | Fetch handler incompleto (casi solo `/api/`) |
-| `pwa-eshop` | **L1** | `flow-eshop-v1` | No | Sí | — | `offline.html` | OK patrón shell |
-| `pwa-stock` | **L1** | `flow-stock-v1` | No | No | — | Fallback `/` | Comentario “POS” en header (copy error) |
-| `kai-delivery` | **L1** | `kai-delivery-v1` | No | No | — | Fallback `/repartos` | Icon set en precache |
-| `kai-waiter` | **L1** | `kai-waiter-v1` | No | No | Sí | Fallback `/` o `/login` | Precache mínimo |
-| `kai-board` | **L1** | `kai-board-v1` | No | No | Sí | Fallback `/` o `/setup` | OK para monitor |
+| `kai-pos` | **L3** | `kai-pos-shell-v1`, `kai-pos-static-v1`, `kai-pos-rsc-v1` | Sí | Sí | Red pura | `offline-fallback.html` | En localhost **no** intercepta fetch (solo push) |
+| `kai-kds` | **L2** | `kai-kds-v1` | Sí | Sí | Sí | Fallback `/queue` | Push icons chrome-192 |
+| `kai-admin` | **L1** | `kai-admin-v1` | No | Sí | Sí | `offline.html` | Homologado |
+| `kai-eshop` | **L1** | `kai-eshop-v1` | No | Sí | Sí | `offline.html` | Homologado |
+| `kai-stock` | **L1** | `kai-stock-v1` | No | Sí | Sí | Fallback `/` | Homologado |
+| `kai-delivery` | **L1** | `kai-delivery-v1` | No | Sí | Sí | Fallback `/repartos` | Homologado |
+| `kai-waiter` | **L1** | `kai-waiter-v1` | No | Sí | Sí | Fallback `/` o `/login` | Homologado |
+| `kai-board` | **L1** | `kai-board-v1` | No | Sí | Sí | Fallback `/` o `/setup` | Homologado |
 
 ### 4.2 Homologación
 
 | Aspecto | Estado |
 |---------|--------|
 | Registro + flag `NEXT_PUBLIC_SW_DEV` | **Alineado** (8/8) |
-| Naming caches `kai-<app>-vN` | **Parcial** — varios `flow-*` legado |
-| Bypass network para manifesto | Solo admin + eshop |
-| Estrategia L1 compartida | Similar pero no idéntica |
+| Naming caches `kai-<app>-vN` | **Hecho** |
+| Bypass network para manifesto | **Hecho** (8/8) |
+| Bypass `/api/` | **Hecho** (8/8) |
+| Estrategia L1 compartida | Homologada |
 | Push | Solo POS + KDS (correcto por producto) |
-| Documentación | Notas en `envs/README.md`; este doc es la fuente de estándar |
+| Documentación | Este doc |
 
 ---
 
@@ -137,11 +138,11 @@ Nunca cachear paths `*.hot-update.*` (POS ya lo hace en L3).
 
 | App | `clientApp` (backend) | SW handlers | UI subscribe |
 |-----|------------------------|-------------|--------------|
-| `pwa-pos` | `pos` | `push` + `notificationclick` → `/pos` | `web-push-subscribe.ts` |
+| `kai-pos` | `pos` | `push` + `notificationclick` → `/pos` | `web-push-subscribe.ts` |
 | `kai-kds` | `kds` | idem → `/queue` | `web-push-subscribe.ts` |
 | Resto | — | No | No |
 
-Requisitos backend: `VAPID_*` en `backend/.env`, migración `web_push_subscriptions`. Sin VAPID el push queda off; inbox/WS siguen.
+Requisitos backend: `VAPID_*` en `kai-core/.env`, migración `web_push_subscriptions`. Sin VAPID el push queda off; inbox/WS siguen.
 
 Añadir push a otra app = subir a **L2** + contrato backend + iconos de notificación alineados al set PWA.
 

@@ -1,6 +1,6 @@
 # Kai Printers — tareas de compilar y publicar
 
-Checklist operativo para sacar una nueva versión de los agentes (Android + Desktop) hacia el POS (`pwa-pos/public/downloads/`).
+Checklist operativo para sacar una nueva versión de los agentes (Android + Desktop) hacia el POS (`kai-pos/public/downloads/`).
 
 Conceptos (identidad vs JSON de versión): [`docs/apps/RELEASE-MANIFESTS.md`](../../docs/apps/RELEASE-MANIFESTS.md) · labels nativos: [`docs/apps/MANIFESTOS-NATIVOS.md`](../../docs/apps/MANIFESTOS-NATIVOS.md).
 
@@ -35,7 +35,7 @@ Equivalente directo:
 | Android | `npm run kai-printers:publish:android` o `bash kai-printers-android/scripts/publish-to-pos-downloads.sh --bump patch` |
 | Desktop | `npm run kai-printers:publish:desktop` (`--build` / `--windows-only` / `--macos-only`) |
 
-Salida en `pwa-pos/public/downloads/`:
+Salida en `kai-pos/public/downloads/`:
 
 | Artefacto | Git |
 |-----------|-----|
@@ -54,7 +54,7 @@ Verificar en POS local (puerto típico `5062`):
 ## 2. Commit (solo metadatos)
 
 ```bash
-git add pwa-pos/public/downloads/kai-printers-*.manifest.json \
+git add kai-pos/public/downloads/kai-printers-*.manifest.json \
         kai-printers-android/version.properties
 # + código fuente si hubo cambios de tickets
 git commit -m "chore(printers): publicar Kai Printers vX.Y.Z"
@@ -66,10 +66,10 @@ No commitees `.apk` / `.zip` / `.dmg`.
 ## 3. Deploy al VPS
 
 1. En el VPS: `git pull` (trae manifests).
-2. Desde la máquina de build, **rsync/scp** los binarios a `…/pwa-pos/public/downloads/` (mismo nombre que en el manifest).
+2. Desde la máquina de build, **rsync/scp** los binarios a `…/kai-pos/public/downloads/` (mismo nombre que en el manifest).
 3. Reiniciar / redeploy PWA POS si hace falta para servir estáticos.
 
-Detalle: [`pwa-pos/public/downloads/README.md`](../../pwa-pos/public/downloads/README.md).
+Detalle: [`kai-pos/public/downloads/README.md`](../../kai-pos/public/downloads/README.md).
 
 ## 4. Validación en tienda
 

@@ -49,7 +49,11 @@ export function canCancelWaiterDraftLine(status: string): boolean {
 }
 
 export function isWaiterKitchenReadyStatus(status: string): boolean {
-  return status === "READY" || status === "SERVED";
+  return (
+    status === "READY" ||
+    status === "READY_FOR_PICKUP" ||
+    status === "SERVED"
+  );
 }
 
 export function waiterLineGroupAllReady(group: WaiterLineGroup): boolean {
@@ -64,7 +68,8 @@ export function waiterKitchenStatusLabel(status: string): string {
     DRAFT: "Borrador",
     SENT: "En cocina",
     PREPARING: "Preparando",
-    READY: "Listo",
+    READY: "Listo cocina",
+    READY_FOR_PICKUP: "Listo para retirar",
     SERVED: "Servido",
     CANCELLED: "Cancelado",
   };

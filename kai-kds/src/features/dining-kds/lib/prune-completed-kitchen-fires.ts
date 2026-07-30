@@ -22,6 +22,10 @@ export function pruneCompletedKitchenFires(
 
 export function isKitchenItemGroupReady(lines: DiningOrderLineDto[]): boolean {
   return (
-    lines.length > 0 && lines.every((l) => l.kitchenStatus === "READY")
+    lines.length > 0 &&
+    lines.every(
+      (l) =>
+        l.kitchenStatus === "READY" || l.kitchenStatus === "READY_FOR_PICKUP",
+    )
   );
 }

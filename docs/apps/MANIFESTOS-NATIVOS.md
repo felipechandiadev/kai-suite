@@ -43,8 +43,8 @@ Identidad de instalación de agentes nativos Kai (no Web App Manifest). Compleme
 | Campo | Hoy | Objetivo | Gap |
 |-------|-----|----------|-----|
 | `identifier` | `com.kaistore.kaiprinters` | Mantener (misma familia que Android) | — |
-| `productName` | `KaiPrinters` | **`Kai Printers`** | Sin espacio vs Android |
-| Título ventana | `KaiPrinters` | `Kai Printers` | Idem |
+| `productName` | **`Kai Printers`** | **`Kai Printers`** | — |
+| Título ventana | **`Kai Printers`** | `Kai Printers` | — |
 | `bundle.icon` | 32, 128, @2x, icns, ico | Mantener set; regenerar desde marca | — |
 | Tray | `tray-icon.png` | Mantener | — |
 
@@ -57,8 +57,8 @@ Rol de industria: **Customer Facing Display (CFD)** · en es-CL: visor de client
 | Campo | Hoy | Objetivo |
 |-------|-----|----------|
 | `applicationId` | `com.kaistore.kaiscreen` | **Mantener** (id legado; no forzar `…kaicfd` sin migración) |
-| `app_name` | `Kai Screen` | **`Kai CFD`** — **debe cambiarse** |
-| Copy settings POS / ofertas de descarga | “Kai Screen”, “pantalla cliente” | “Kai CFD” + subtítulo *Visor de cliente* donde ayude al cajero |
+| `app_name` | **`Kai CFD`** | **`Kai CFD`** |
+| Copy settings POS / ofertas de descarga | “Kai CFD”, “visor de cliente” | “Kai CFD” + subtítulo *Visor de cliente* donde ayude al cajero |
 
 Ver decisión completa: [`NAMING-SUITE.md` §2.3](./NAMING-SUITE.md).
 
@@ -99,7 +99,7 @@ Fuente de diseño: misma familia visual que PWAs (`assets/brand/…`). Detalle d
 
 - Capacidades de impresión / protocol (`print-service-client`) — docs de printers.
 - Web Push / service workers — solo PWA ([`SERVICE-WORKERS.md`](./SERVICE-WORKERS.md)).
-- JSON de versión en `pwa-pos/public/downloads/*.manifest.json` — [`RELEASE-MANIFESTS.md`](./RELEASE-MANIFESTS.md).
+- JSON de versión en `kai-pos/public/downloads/*.manifest.json` — [`RELEASE-MANIFESTS.md`](./RELEASE-MANIFESTS.md).
 
 ---
 
@@ -107,8 +107,8 @@ Fuente de diseño: misma familia visual que PWAs (`assets/brand/…`). Detalle d
 
 | Prioridad | Gap | Acción |
 |-----------|-----|--------|
-| P1 | Desktop `productName` / título ≠ Android `Kai Printers` | Homologar a `Kai Printers` + verificar publish scripts |
-| P1 | Label `Kai Screen` → **`Kai CFD`** | Cambiar `app_name` + copy POS/landing; no tocar `applicationId` |
+| ~~P1~~ | ~~Desktop `productName` / título ≠ Android `Kai Printers`~~ | ✅ Homologado a `Kai Printers` |
+| ~~P1~~ | ~~Label `Kai Screen` → **`Kai CFD`**~~ | ✅ `app_name` + copy POS/descargas actualizados |
 | P2 | Icon pipeline nativo vs `brand:icons` | Documentar/generar desde misma fuente SVG |
 | P3 | CFD sin variante desktop | N/A hasta existir producto |
 

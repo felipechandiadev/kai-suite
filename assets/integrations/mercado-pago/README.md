@@ -11,4 +11,4 @@ Assets de marca **Handshake** en RGB digital, copiados de la guía Mercado Pago 
 
 Copias servidas en cada PWA: `public/integrations/mercado-pago/`.
 
-Componentes React: `MercadoPagoLogo` en pwa-eshop, pwa-admin y pwa-pos.
+Componentes React: `MercadoPagoLogo` en kai-eshop, kai-admin y kai-pos.

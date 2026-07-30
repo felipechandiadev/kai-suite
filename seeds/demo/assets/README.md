@@ -4,7 +4,7 @@ Archivos estáticos que el script `npm run seed` copia al storage multimedia del
 
 | Ruta | Origen | Uso |
 |------|--------|-----|
-| `company/logo.png` | `pwa-admin/public/logo.png` | Logo de la empresa demo en settings / multimedia |
+| `company/logo.png` | `kai-admin/public/logo.png` | Logo de la empresa demo en settings / multimedia |
 | `hero-slides/01-calcetines-deportivos.png` | (Gemini / diseño) | Hero slide 1 — calcetines |
 | `hero-slides/02-polera-algodon.png` | (Gemini / diseño) | Hero slide 2 — polera |
 | `hero-slides/03-toalla-bano.png` | (Gemini / diseño) | Hero slide 3 — toalla |

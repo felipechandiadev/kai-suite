@@ -27,7 +27,7 @@ import {
 } from '../demo/eshop-testimonials';
 import type { StorageProviderPort } from '@modules/multimedia/application/ports/storage-provider.port';
 import type { INestApplicationContext } from '@nestjs/common';
-import { AppConfigService } from '../../backend/src/config/config.service';
+import { AppConfigService } from '../../kai-core/src/config/config.service';
 import { CloudflareR2Adapter } from '@modules/multimedia/infrastructure/adapters/cloudflare-r2.adapter';
 import { LocalStorageAdapter } from '@modules/multimedia/infrastructure/adapters/local-storage.adapter';
 import { MultimediaIngestService } from '@modules/multimedia/application/media-optimization/multimedia-ingest.service';
@@ -91,7 +91,7 @@ export function resolveSeedMultimediaStorage(
 
 /**
  * Limpia storage antes del seed:
- * - local: siempre vacía `backend/public` (como antes).
+ * - local: siempre vacía `kai-core/public` (como antes).
  * - cloudflare: vacía el bucket solo si `SEED_WIPE_R2=true` y el nombre está allowlisted.
  */
 export async function cleanSeedMultimediaStorage(params: {
@@ -136,7 +136,7 @@ export async function cleanSeedMultimediaStorage(params: {
 /** Raíz de archivos estáticos versionados para el seed demo (`seeds/demo/assets`). */
 export const SEED_ASSETS_ROOT = path.join(__dirname, '../demo/assets');
 
-/** Logo de empresa demo (copiado desde `pwa-admin/public/logo.png`). */
+/** Logo de empresa demo (copiado desde `kai-admin/public/logo.png`). */
 export const SEED_COMPANY_LOGO_FILE = 'company/logo.png';
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -148,7 +148,7 @@ const MIME_BY_EXT: Record<string, string> = {
 };
 
 /**
- * Vacía `backend/public` y recrea el directorio de uploads (`LOCAL_STORAGE_PATH`).
+ * Vacía `kai-core/public` y recrea el directorio de uploads (`LOCAL_STORAGE_PATH`).
  * Se ejecuta en cada corrida del seed para evitar archivos huérfanos.
  */
 export async function cleanBackendPublicFolder(localStoragePath: string): Promise<void> {

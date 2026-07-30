@@ -42,7 +42,7 @@ private const val TRUST_CERT_HTML = """
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Kai Screen</title>
+  <title>Kai CFD</title>
   <style>
     body { font-family: system-ui, sans-serif; margin: 2rem; line-height: 1.5; color: #111; }
     h1 { font-size: 1.25rem; }
@@ -50,9 +50,9 @@ private const val TRUST_CERT_HTML = """
   </style>
 </head>
 <body>
-  <h1>Kai Screen — servicio local</h1>
+  <h1>Kai CFD — servicio local</h1>
   <p>Si ve esta página, el certificado HTTPS está aceptado y el agente responde en este dispositivo.</p>
-  <p>Cierre esta pestaña y vuelva al <strong>POS</strong> (misma tablet). Active Kai Screen en Impresión local.</p>
+  <p>Cierre esta pestaña y vuelva al <strong>POS</strong> (misma tablet). Active Kai CFD en Impresión local.</p>
 </body>
 </html>
 """

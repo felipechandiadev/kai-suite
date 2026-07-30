@@ -1,9 +1,9 @@
 # Root ignores (repo-wide)
 
 # Backend runtime artifacts
-backend/logs/
-backend/public/uploads/
-backend/*.tsbuildinfo
+kai-core/logs/
+kai-core/public/uploads/
+kai-core/*.tsbuildinfo
 
 # Local folders not to push
 proyecto-reportes/
@@ -26,8 +26,8 @@ build/
 .env.production
 .env.development
 .env.test
-backend/.env
-backend/.env.local
+kai-core/.env
+kai-core/.env.local
 envs/*.env
 envs/*.env.local
 envs/certs/
@@ -42,9 +42,9 @@ kai-printers-android/release/
 kai-printers-android/dist/
 kai-printers-android/**/*.jks
 kai-printers-android/**/*.keystore
-pwa-pos/public/downloads/kai-printers-android-*.apk
-pwa-pos/public/downloads/kai-printers-windows-*.zip
-pwa-pos/public/downloads/kai-printers-macos-*.dmg
+kai-pos/public/downloads/kai-printers-android-*.apk
+kai-pos/public/downloads/kai-printers-windows-*.zip
+kai-pos/public/downloads/kai-printers-macos-*.dmg
 
 # Rust/Tauri build artifacts
 kai-printers-desktop/src-tauri/target/

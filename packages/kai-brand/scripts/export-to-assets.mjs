@@ -24,7 +24,7 @@ const PWA_ICON_NAMES = [
   "logo.png",
 ];
 
-const PWA_APPS = ["pwa-admin", "pwa-pos", "pwa-stock", "pwa-eshop"];
+const PWA_APPS = ["kai-admin", "kai-pos", "kai-stock", "kai-eshop"];
 
 function cpFile(src, dest) {
   if (!fs.existsSync(src)) return false;
@@ -50,7 +50,7 @@ function exportPwa() {
   fs.mkdirSync(pwaOut, { recursive: true });
 
   // Set compartido desde admin (mismo icono en todas las apps)
-  const adminPublic = path.join(repoRoot, "pwa-admin", "public");
+  const adminPublic = path.join(repoRoot, "kai-admin", "public");
   for (const name of PWA_ICON_NAMES) {
     cpFile(path.join(adminPublic, name), path.join(pwaOut, name));
   }

@@ -1,6 +1,13 @@
-// Service worker KDS — shell offline mínimo + push nativo + click → /queue
+// Service worker KDS — shell L2 + push nativo + click → /queue
 const CACHE_NAME = "kai-kds-v1";
-const CORE_ASSETS = ["/", "/queue", "/login", "/manifest.json", "/logo.png"];
+const CORE_ASSETS = [
+  "/",
+  "/queue",
+  "/login",
+  "/logo.png",
+  "/android-chrome-192x192.png",
+  "/android-chrome-512x512.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -28,7 +35,16 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
-  if (url.pathname.startsWith("/api/")) return;
+
+  if (url.pathname === "/manifest.json" || url.pathname === "/manifest.webmanifest") {
+    event.respondWith(fetch(req));
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/")) {
+    event.respondWith(fetch(req));
+    return;
+  }
 
   const isNavigation = req.mode === "navigate" || req.destination === "document";
   if (isNavigation) {
@@ -69,8 +85,8 @@ self.addEventListener("push", (event) => {
     self.registration.showNotification(title, {
       body,
       data,
-      icon: "/logo.png",
-      badge: "/logo.png",
+      icon: "/android-chrome-192x192.png",
+      badge: "/android-chrome-192x192.png",
     }),
   );
 });

@@ -37,7 +37,7 @@ src/
 - Usar en layouts del `app/` para mantener consistencia visual (TopBar/SideBar). Para cualquier flujo de confirmación, formulario en modal, etc., usar **solo** el Dialog compartido.
 
 ### Loading / estados de espera (obligatorio)
-- Cualquier **indicador de carga** que se añada en el web-admin (rutas `loading.tsx`, `fallback` de `Suspense`, `dynamic({ loading: () => ... })`, placeholders de sección, pantallas o bloques mientras se resuelve contenido) debe implementarse con el componente compartido **`DotProgress`** (`pwa-admin/src/shared/components/DotProgress/DotProgress.tsx`, o import vía el barrel de `@/shared/components` si exporta el mismo).
+- Cualquier **indicador de carga** que se añada en el web-admin (rutas `loading.tsx`, `fallback` de `Suspense`, `dynamic({ loading: () => ... })`, placeholders de sección, pantallas o bloques mientras se resuelve contenido) debe implementarse con el componente compartido **`DotProgress`** (`kai-admin/src/shared/components/DotProgress/DotProgress.tsx`, o import vía el barrel de `@/shared/components` si exporta el mismo).
 - **Prohibido** sustituirlo por: `animate-spin` + círculo a mano, SVGs de loading ad hoc, o **solo** texto «Cargando…» sin el componente (salvo excepción documentada en el repo). El **`Button`** con `loading` conserva su spinner interno; esa es la única pista de carga atada a ese control.
 
 ### Modales y diálogos (obligatorio)

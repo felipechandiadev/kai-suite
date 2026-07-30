@@ -9,7 +9,7 @@ Ver también `deploy/ports.demo.env.example` y `docs/domains-demo.md`.
 ```
 envs/shared.env.example     ← matriz (deploy + infra + secretos + seed)
         +
-envs/backend.env.example    ← solo lo específico del API
+envs/kai-core.env.example    ← solo lo específico del API
 envs/pwa-*.env.local.example
 envs/kai-delivery.env.local.example
 envs/kai-waiter.env.local.example
@@ -17,10 +17,17 @@ envs/kai-kds.env.local.example
         ↓
 envs/sync-dev-envs.sh       ← merge + proyección
         ↓
-backend/.env, pwa-*/.env.local, kai-*/.env.local, services/kai-mail/.env
+kai-core/.env, pwa-*/.env.local, kai-*/.env.local, services/kai-mail/.env
 ```
 
 **Editar desarrollo:** cambia la matriz (`shared.env.example` o copia local `shared.env`) y regenera con `npm run env:dev`.
+
+Tenant desde **kai-deployments** (matriz externa):
+
+```bash
+KAI_ENV_MATRIX=/path/to/kai-deployments/tenants/kai-food-demo/.env npm run env:dev
+# o: npm run dev:tenant -- kai-food-demo
+```
 
 Opcional: `cp envs/shared.env.example envs/shared.env` para overrides locales (gitignored).
 
@@ -49,6 +56,8 @@ Perfiles listos en `envs/profiles/*.env.example` (copiar líneas a `shared.env`)
 
 Desarrollo San Sebastián: `npm run setup:san-sebastian` (seed + `shared.env`) y `npm run dev:san-sebastian`.
 
+**Postgres + PostGIS (dev):** del sistema por defecto — `npm run setup:postgres` una vez, luego `npm run dev:infra`. Docker solo con `KAI_DEV_POSTGRES=docker` (ver [`POSTGIS-DELIVERY.md`](../docs/project/POSTGIS-DELIVERY.md)).
+
 ## Uso rápido
 
 ```bash
@@ -60,11 +69,11 @@ npm run env:dev              # regenera .env de cada app (forzado)
 
 | App          | Puerto | Fragmento                         | Destino                        |
 |--------------|--------|-----------------------------------|--------------------------------|
-| Backend      | 5060   | `backend.env.example`             | `backend/.env`                 |
-| pwa-admin    | 5071   | `pwa-admin.env.local.example`     | `pwa-admin/.env.local`         |
-| pwa-pos      | 5062   | `pwa-pos.env.local.example`       | `pwa-pos/.env.local`           |
-| pwa-stock    | 5063   | `pwa-stock.env.local.example`     | `pwa-stock/.env.local`         |
-| pwa-eshop    | 5064   | `pwa-eshop.env.local.example`     | `pwa-eshop/.env.local`         |
+| Backend      | 5060   | `kai-core.env.example`             | `kai-core/.env`                 |
+| kai-admin    | 5071   | `kai-admin.env.local.example`     | `kai-admin/.env.local`         |
+| kai-pos      | 5062   | `kai-pos.env.local.example`       | `kai-pos/.env.local`           |
+| kai-stock    | 5063   | `kai-stock.env.local.example`     | `kai-stock/.env.local`         |
+| kai-eshop    | 5064   | `kai-eshop.env.local.example`     | `kai-eshop/.env.local`         |
 | kai-delivery | 5065   | `kai-delivery.env.local.example`  | `kai-delivery/.env.local`      |
 | kai-waiter   | 5067   | `kai-waiter.env.local.example`    | `kai-waiter/.env.local`        |
 | kai-kds      | 5068   | `kai-kds.env.local.example`       | `kai-kds/.env.local`           |
@@ -93,16 +102,16 @@ Reiniciá Next tras el sync: las vars `NEXT_PUBLIC_*` se inyectan al arrancar.
 
 | App | SW | Web Push |
 |-----|----|----------|
-| pwa-pos | offline + push | sí (`clientApp=pos`) |
+| kai-pos | offline + push | sí (`clientApp=pos`) |
 | kai-kds | shell + push | sí (`clientApp=kds`) |
-| pwa-admin / pwa-stock / pwa-eshop / kai-delivery / kai-waiter | cache/offline | no |
+| kai-admin / kai-stock / kai-eshop / kai-delivery / kai-waiter | cache/offline | no |
 
 ### VAPID (toasts nativos POS/KDS)
 
-En `backend/.env` (ver `envs/backend.env.example`):
+En `kai-core/.env` (ver `envs/kai-core.env.example`):
 
 ```bash
-cd backend && npx web-push generate-vapid-keys
+cd kai-core && npx web-push generate-vapid-keys
 # pegar VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT
 ```
 
@@ -115,4 +124,4 @@ Sin keys el push queda deshabilitado; inbox/WS siguen OK.
 3. POS/KDS: Notifications = granted; Push messaging con suscripción; Network `POST .../push/subscribe` → 200.
 4. Residuos viejos: Application → Clear site data (eshop ya no desregistra en localhost).
 5. POS en localhost: el SW **no** intercepta fetch/RSC (solo push); en prod sí aplica cache offline.
-6. Migración `web_push_subscriptions` aplicada (`cd backend && npm run migration:run`). Sin la tabla el subscribe falla y no hay toast real (el “Test push” de DevTools sí funciona porque es local).
+6. Migración `web_push_subscriptions` aplicada (`cd kai-core && npm run migration:run`). Sin la tabla el subscribe falla y no hay toast real (el “Test push” de DevTools sí funciona porque es local).

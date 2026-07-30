@@ -55,7 +55,7 @@ Authorization: Bearer dev-kai-mail-key
 
 ## Integración backend KaiStore
 
-Variables en `backend/.env`:
+Variables en `kai-core/.env`:
 
 ```
 ESHOP_CHECKOUT_V2=true

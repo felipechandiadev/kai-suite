@@ -1,6 +1,6 @@
 # Kai Printers — publicación en el POS
 
-Copia instaladores a `pwa-pos/public/downloads/` para **Configuración → Impresión local** del POS.
+Copia instaladores a `kai-pos/public/downloads/` para **Configuración → Impresión local** del POS.
 
 **Checklist paso a paso:** [PUBLISH-CHECKLIST.md](./PUBLISH-CHECKLIST.md)
 
@@ -33,4 +33,4 @@ Desktop: `scripts/publish-to-pos-downloads.mjs` (requiere `kai-printers-desktop/
 
 ## Deploy al VPS
 
-Ver **`pwa-pos/public/downloads/README.md`** (commit manifests → push → pull → rsync binarios).
+Ver **`kai-pos/public/downloads/README.md`** (commit manifests → push → pull → rsync binarios).

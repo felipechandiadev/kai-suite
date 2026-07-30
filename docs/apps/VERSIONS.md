@@ -43,7 +43,7 @@ Si el commit toca varias cosas con tipos distintos, el **root** usa el **máximo
 
 `MAJOR` > `MINOR` > `PATCH`
 
-Cada app bumpea solo según **su** impacto (p. ej. root MINOR porque hubo feature en admin; `pwa-pos` no se toca si no hubo diff ahí).
+Cada app bumpea solo según **su** impacto (p. ej. root MINOR porque hubo feature en admin; `kai-pos` no se toca si no hubo diff ahí).
 
 ### Matriz rápida
 
@@ -51,8 +51,8 @@ Cada app bumpea solo según **su** impacto (p. ej. root MINOR porque hubo featur
 |------|-----------|----------------|
 | Solo `docs/…`, comentarios, formateo | **PATCH** | Ninguna |
 | Solo `seeds/…` demo | **PATCH** | Ninguna (salvo script de producto versionado) |
-| Fix UI en `pwa-pos` | **PATCH** | Solo `pwa-pos/package.json` |
-| Feature admin + endpoint Core | **MINOR** | `backend` + `pwa-admin` |
+| Fix UI en `kai-pos` | **PATCH** | Solo `kai-pos/package.json` |
+| Feature admin + endpoint Core | **MINOR** | `kai-core` + `kai-admin` |
 | Cambio solo `packages/ui` | **MINOR** o **PATCH** según alcance | `@kai/ui`; PWAs solo si cambio visible/breaking y se redeployan |
 | Ticket / protocol printers | Según impacto | Android/desktop (+ publish); POS solo si cambia UI descarga |
 | Breaking API | **MAJOR** | Core + consumidores afectados; avisar coordinación |
@@ -73,10 +73,10 @@ Baseline; actualizar en bumps notables o PRs de release.
 
 | Carpeta | Versión | Fuente |
 |---------|---------|--------|
-| `pwa-admin` | **1.3.3** | `package.json` |
-| `pwa-pos` | **1.0.0** | `package.json` |
-| `pwa-stock` | **1.0.0** | `package.json` |
-| `pwa-eshop` | **1.1.0** | `package.json` |
+| `kai-admin` | **1.3.3** | `package.json` |
+| `kai-pos` | **1.0.0** | `package.json` |
+| `kai-stock` | **1.0.0** | `package.json` |
+| `kai-eshop` | **1.1.0** | `package.json` |
 | `kai-delivery` | **1.1.0** | `package.json` |
 | `kai-waiter` | **1.1.0** | `package.json` |
 | `kai-kds` | **1.1.0** | `package.json` |
@@ -86,7 +86,7 @@ Baseline; actualizar en bumps notables o PRs de release.
 
 | Carpeta | Versión | Notas |
 |---------|---------|--------|
-| `backend` (Kai Core) | **1.0.1** | `name`: `flow-backend` legado |
+| `kai-core` (Kai Core) | **1.0.1** | `name`: `kai-core` legado |
 | `landing` | **1.1.0** | |
 | `services/kai-mail` | **1.1.0** | Workspace npm |
 | `services/kai-voice` | **1.1.0** | Python; `package.json` como marca |
@@ -119,15 +119,15 @@ Baseline; actualizar en bumps notables o PRs de release.
 
 | Prefijo de path | Componente (`version` a editar) |
 |-----------------|----------------------------------|
-| `pwa-admin/` | `pwa-admin/package.json` |
-| `pwa-pos/` | `pwa-pos/package.json` |
-| `pwa-stock/` | `pwa-stock/package.json` |
-| `pwa-eshop/` | `pwa-eshop/package.json` |
+| `kai-admin/` | `kai-admin/package.json` |
+| `kai-pos/` | `kai-pos/package.json` |
+| `kai-stock/` | `kai-stock/package.json` |
+| `kai-eshop/` | `kai-eshop/package.json` |
 | `kai-delivery/` | `kai-delivery/package.json` |
 | `kai-waiter/` | `kai-waiter/package.json` |
 | `kai-kds/` | `kai-kds/package.json` |
 | `kai-board/` | `kai-board/package.json` |
-| `backend/` | `backend/package.json` |
+| `kai-core/` | `kai-core/package.json` |
 | `landing/` | `landing/package.json` |
 | `services/kai-mail/` | `services/kai-mail/package.json` |
 | `services/kai-voice/` | `services/kai-voice/package.json` |
@@ -195,7 +195,7 @@ Cuando el usuario pida **crear un commit**:
 
 | Gap | Notas |
 |-----|--------|
-| Core `name` `flow-backend` | Rename package name en migración `kai-core` |
+| Core `name` `kai-core` | Rename package name en migración `kai-core` |
 | About hardcodeado (histórico F8) | Eliminar fallbacks; solo `NEXT_PUBLIC_APP_VERSION` / health |
 | Hook CI opcional | Avisar si hay diff de app sin cambio de su `version` |
 

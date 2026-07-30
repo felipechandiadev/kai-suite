@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:latest
+    container_name: kai-osrm
+    ports:
+      - '5001:5000'
+    volumes:
+      - ./data:/data
+    command: osrm-routed --algorithm mld /data/maule-parral.osrm
+    restart: unless-stopped

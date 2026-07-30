@@ -5,7 +5,7 @@
 @import "./styles/print-forms.css";
 
 /**
- * Tokens alineados con pwa-pos/src/app/globals.css (mismo patrón de tema).
+ * Tokens alineados con kai-pos/src/app/globals.css (mismo patrón de tema).
  */
 :root {
   --font-geist-sans:

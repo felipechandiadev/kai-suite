@@ -18,7 +18,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import com.kaistore.printers.net.KaiCoreCatalog
 
 class PrintAgentForegroundService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -44,6 +47,7 @@ class PrintAgentForegroundService : Service() {
                 app.container.queueWorker.notifyNewJob()
                 val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 nm.notify(NOTIFICATION_ID, buildNotification(port))
+                launchKaiCoreHeartbeat(app)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to start print agent", e)
                 stopServer()
@@ -52,6 +56,19 @@ class PrintAgentForegroundService : Service() {
             }
         }
         return START_STICKY
+    }
+
+    private fun launchKaiCoreHeartbeat(app: KaiPrintersApp) {
+        scope.launch(Dispatchers.IO) {
+            while (isActive) {
+                if (app.container.repository.isKaiCorePaired()) {
+                    KaiCoreCatalog.heartbeat(app.container.repository).onFailure {
+                        Log.w(TAG, "Kai Core heartbeat: ${it.message}")
+                    }
+                }
+                delay(25_000)
+            }
+        }
     }
 
     override fun onDestroy() {

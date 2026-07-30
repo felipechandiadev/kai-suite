@@ -26,10 +26,10 @@ La tabla maestra de nombres (incluye agentes nativos) está en [`NAMING-SUITE.md
 
 | Paquete | Producto | Rol | Puerto demo (ref.) |
 |---------|----------|-----|--------------------|
-| `pwa-admin` | KaiStore / KaiFood / KaiServices | ERP / backoffice | 5071 |
-| `pwa-pos` | KaiStore / KaiFood / … | Caja / punto de venta | 5062 |
-| `pwa-stock` | KaiStore | Inventario piso | 5063 |
-| `pwa-eshop` | KaiStore | Tienda pública | 5064 |
+| `kai-admin` | KaiStore / KaiFood / KaiServices | ERP / backoffice | 5071 |
+| `kai-pos` | KaiStore / KaiFood / … | Caja / punto de venta | 5062 |
+| `kai-stock` | KaiStore | Inventario piso | 5063 |
+| `kai-eshop` | KaiStore | Tienda pública | 5064 |
 | `kai-delivery` | KaiStore | Repartidores | 5065 |
 | `kai-waiter` | KaiFood | Mesero / salón | — |
 | `kai-kds` | KaiFood | Cocina (KDS) | — |
@@ -72,10 +72,10 @@ La tabla maestra de nombres (incluye agentes nativos) está en [`NAMING-SUITE.md
 
 | App | `id` | `name` | `short_name` | Len | Notas |
 |-----|------|--------|--------------|-----|-------|
-| `pwa-admin` | `kai-admin` | KaiStore Administración | `KS Admin` | 8 | Si el build es KaiFood/KaiServices, ver §3.4 |
-| `pwa-pos` | `kai-pos` | KaiStore POS | `KS POS` | 6 | |
-| `pwa-stock` | `kai-stock` | KaiStore Stock | `KS Stock` | 8 | Hoy “StockControl” → acortar |
-| `pwa-eshop` | `kai-eshop` | KaiStore eShop | `KS Shop` | 7 | Evitar colisión con Admin |
+| `kai-admin` | `kai-admin` | KaiStore Administración | `KS Admin` | 8 | Si el build es KaiFood/KaiServices, ver §3.4 |
+| `kai-pos` | `kai-pos` | KaiStore POS | `KS POS` | 6 | |
+| `kai-stock` | `kai-stock` | KaiStore Stock | `KS Stock` | 8 | Hoy “StockControl” → acortar |
+| `kai-eshop` | `kai-eshop` | KaiStore eShop | `KS Shop` | 7 | Evitar colisión con Admin |
 | `kai-delivery` | `kai-delivery` | KaiStore Delivery | `KS Delivery` | 11 | |
 | `kai-waiter` | `kai-waiter` | KaiFood Mesero | `KF Mesero` | 9 | |
 | `kai-kds` | `kai-kds` | KaiFood KDS | `KF KDS` | 6 | |
@@ -101,14 +101,14 @@ Si el manifiesto es estático (`public/manifest.json`), el valor por defecto del
 
 | App | Fuente actual | `id` | `name` (hoy) | `short_name` (hoy) | Gap vs objetivo |
 |-----|---------------|------|--------------|--------------------|-----------------|
-| `pwa-admin` | `app/manifest.ts` **y** `public/manifest.json` | `kaistore-admin` | KaiStore Administración | `KaiStore` | `id` + short (colisión); duplicar fuente |
-| `pwa-pos` | `public/manifest.json` | — | KaiStore POS | `KaiStore POS` | Falta `id`; short OK en longitud pero no usa prefijo KS |
-| `pwa-stock` | `public/manifest.json` | — | KaiStore StockControl | `StockControl` | Falta `id`; short sin marca |
-| `pwa-eshop` | `src/app/manifest.ts` | `kaistore-eshop` | KaiStore eShop | `KaiStore` | **Colisión** con Admin; alinear `id` a `kai-eshop` |
-| `kai-delivery` | `public/manifest.json` | — | KaiStore Delivery | `Delivery` | Falta `id`; short sin marca |
-| `kai-waiter` | `public/manifest.json` | — | KaiFood Mesero | `Mesero` | Falta `id`; short sin marca |
-| `kai-kds` | `public/manifest.json` | — | KaiFood KDS | `KaiFood KDS` | Falta `id`; short >12 (`KaiFood KDS` = 11… OK borde); preferir `KF KDS` |
-| `kai-board` | `public/manifest.json` | — | Kai Board | `Kai Board` | Falta `id`; marca genérica |
+| `kai-admin` | `app/manifest.ts` | `kai-admin` | según producto | `KS/KF/KV Admin` | **Hecho** |
+| `kai-pos` | `public/manifest.json` | `kai-pos` | KaiStore POS | `KS POS` | **Hecho** |
+| `kai-stock` | `public/manifest.json` | `kai-stock` | KaiStore Stock | `KS Stock` | **Hecho** |
+| `kai-eshop` | `src/app/manifest.ts` | `kai-eshop` | KaiStore eShop | `KS Shop` | **Hecho** |
+| `kai-delivery` | `public/manifest.json` | `kai-delivery` | KaiStore Delivery | `KS Delivery` | **Hecho** |
+| `kai-waiter` | `public/manifest.json` | `kai-waiter` | KaiFood Mesero | `KF Mesero` | **Hecho** |
+| `kai-kds` | `public/manifest.json` | `kai-kds` | KaiFood KDS | `KF KDS` | **Hecho** |
+| `kai-board` | `public/manifest.json` | `kai-board` | KaiFood Board | `KF Board` | **Hecho** |
 
 ### 4.2 Presentación / chrome
 
@@ -139,15 +139,15 @@ Si el manifiesto es estático (`public/manifest.json`), el valor por defecto del
 | stock | Sí | No | Opcional añadir |
 | eshop | Sí | Sí | |
 | delivery | Sí | No | Opcional |
-| waiter / kds / board | **No** (solo `logo.png`) | No | Ver doc de iconos |
+| waiter / kds / board | Sí (any+maskable 192/512; maskable interim desde logo) | No | Brand pipeline puede refinar safe-zone |
 
 ### 4.4 Fuentes duplicadas / stale (riesgo)
 
 | Archivo | Problema |
 |---------|----------|
-| `pwa-admin/public/manifest.json` + `pwa-admin/app/manifest.ts` | Dos fuentes; hoy alineadas, pueden divergir. **Dejar solo `app/manifest.ts`** (Next Metadata Route). |
-| `pwa-pos/public/icons/manifest.json` | Stale: `start_url: "/"`, shortcuts distintos a `public/manifest.json`. **Eliminar o no servir.** |
-| `pwa-stock/public/icons/manifest.json` | Copia POS antigua. **Eliminar.** |
+| `kai-admin/public/manifest.json` | **Eliminado** — fuente única `app/manifest.ts` |
+| `kai-pos/public/icons/manifest.json` | **Eliminado** |
+| `kai-stock/public/icons/manifest.json` | **Eliminado** |
 
 **Regla:** una sola fuente por app.
 

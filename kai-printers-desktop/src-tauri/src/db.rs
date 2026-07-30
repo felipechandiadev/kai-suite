@@ -706,7 +706,7 @@ impl Db {
     }
 
     pub fn default_agent_display_name() -> &'static str {
-        "KaiPrinters"
+        "Kai Printers"
     }
 
     pub fn agent_display_name(&self) -> String {

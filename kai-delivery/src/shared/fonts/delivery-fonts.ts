@@ -2,7 +2,7 @@ import localFont from "next/font/local";
 
 /**
  * Inter — fuente base de Delivery (variable, autohospedada vía next/font/local).
- * Mismo patrón que pwa-admin / pwa-eshop.
+ * Mismo patrón que kai-admin / kai-eshop.
  */
 export const inter = localFont({
   src: "../../assets/fonts/inter-variable.ttf",

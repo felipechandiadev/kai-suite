@@ -10,14 +10,14 @@ import {
 
 describe("print-notifications-storage", () => {
   it("storage key is scoped by clientId (kai: primary)", () => {
-    expect(printServiceNotificationsStorageKey("pwa-pos")).toBe(
-      "kai:print-service-notifications:pwa-pos",
+    expect(printServiceNotificationsStorageKey("kai-pos")).toBe(
+      "kai:print-service-notifications:kai-pos",
     );
   });
 
   it("legacy storage key is scoped by clientId", () => {
-    expect(printServiceNotificationsStorageKeyLegacy("pwa-pos")).toBe(
-      "flowstore:print-service-notifications:pwa-pos",
+    expect(printServiceNotificationsStorageKeyLegacy("kai-pos")).toBe(
+      "flowstore:print-service-notifications:kai-pos",
     );
   });
 

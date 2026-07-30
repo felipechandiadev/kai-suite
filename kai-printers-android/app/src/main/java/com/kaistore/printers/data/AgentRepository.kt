@@ -24,6 +24,9 @@ object AgentSettingsKeys {
     const val ALLOW_ALL_ORIGINS = "allow_all_origins"
     const val ALLOWED_ORIGINS = "allowed_origins"
     const val AGENT_DISPLAY_NAME = "agent_display_name"
+    const val KAI_CORE_BASE_URL = "kai_core_base_url"
+    const val KAI_CORE_AGENT_TOKEN = "kai_core_agent_token"
+    const val KAI_CORE_AGENT_ID = "kai_core_agent_id"
 }
 
 class AgentRepository(private val db: AgentDatabase) {
@@ -39,7 +42,10 @@ class AgentRepository(private val db: AgentDatabase) {
             AgentSettingsKeys.WSS_ENABLED to "true",
             AgentSettingsKeys.ALLOW_ALL_ORIGINS to "true",
             AgentSettingsKeys.ALLOWED_ORIGINS to "",
-            AgentSettingsKeys.AGENT_DISPLAY_NAME to "KaiPrinters",
+            AgentSettingsKeys.AGENT_DISPLAY_NAME to "Kai Printers",
+            AgentSettingsKeys.KAI_CORE_BASE_URL to "http://localhost:5160",
+            AgentSettingsKeys.KAI_CORE_AGENT_TOKEN to "",
+            AgentSettingsKeys.KAI_CORE_AGENT_ID to "",
         )
         for ((key, value) in defaults) {
             if (settings.get(key) == null) {
@@ -67,6 +73,13 @@ class AgentRepository(private val db: AgentDatabase) {
     suspend fun wssListenPort(): Int = getSetting(AgentSettingsKeys.WSS_LISTEN_PORT)?.toIntOrNull() ?: 14568
 
     suspend fun wssEnabled(): Boolean = getSetting(AgentSettingsKeys.WSS_ENABLED) != "false"
+
+    suspend fun agentDisplayName(): String =
+        getSetting(AgentSettingsKeys.AGENT_DISPLAY_NAME)?.trim()?.takeIf { it.isNotEmpty() }
+            ?: "Kai Printers"
+
+    suspend fun isKaiCorePaired(): Boolean =
+        !getSetting(AgentSettingsKeys.KAI_CORE_AGENT_TOKEN).isNullOrBlank()
 
     suspend fun allowAllOrigins(): Boolean = getSetting(AgentSettingsKeys.ALLOW_ALL_ORIGINS) != "false"
 

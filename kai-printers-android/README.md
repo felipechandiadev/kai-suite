@@ -73,7 +73,7 @@ O solo Android:
 # Opcional: ./scripts/publish-to-pos-downloads.sh --bump patch
 ```
 
-Salida: `../pwa-pos/public/downloads/kai-printers-android-{version}.apk` (fuera de git) y `kai-printers-android.manifest.json` (sí en git).
+Salida: `../kai-pos/public/downloads/kai-printers-android-{version}.apk` (fuera de git) y `kai-printers-android.manifest.json` (sí en git).
 
 `build-release-apk.sh` delega en el script anterior.
 

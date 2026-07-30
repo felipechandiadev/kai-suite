@@ -23,7 +23,7 @@ import type {
   MappingLineRow,
 } from "./features/printer-mapping/types";
 
-const APP_NAME = "KaiPrinters";
+const APP_NAME = "Kai Printers";
 const DEFAULT_AGENT_DISPLAY_NAME = APP_NAME;
 const APP_COPYRIGHT = "Kai © 2026";
 
@@ -86,6 +86,13 @@ type DashboardPayload = {
   hostPlatform?: string;
   sumatra?: SumatraStatus;
   agentDisplayName?: string;
+  kaiCore?: {
+    baseUrl?: string;
+    agentId?: string;
+    paired?: boolean;
+    lanHost?: string | null;
+    token?: string | null;
+  };
   printers?: PrinterRow[];
   mappings?: MappingRow[];
   mappingLines?: MappingLineRow[];
@@ -238,6 +245,11 @@ export default function App() {
   const [configDetailsOpen, setConfigDetailsOpen] = useState(false);
   const [printersDetailsOpen, setPrintersDetailsOpen] = useState(false);
   const [globalLogoBusy, setGlobalLogoBusy] = useState(false);
+  const [kaiCoreUrl, setKaiCoreUrl] = useState("http://localhost:5160");
+  const [kaiPairToken, setKaiPairToken] = useState("");
+  const [kaiCoreBusy, setKaiCoreBusy] = useState(false);
+  const [kaiCoreMsg, setKaiCoreMsg] = useState<string | null>(null);
+  const [kaiCorePaired, setKaiCorePaired] = useState(false);
 
   const applyDashboardFull = useCallback((d: DashboardPayload) => {
     setDashboard(d);
@@ -250,6 +262,8 @@ export default function App() {
       wssEnabled: !!d.wssEnabled,
       agentDisplayName: normalizeAgentDisplayName(d.agentDisplayName),
     });
+    if (d.kaiCore?.baseUrl) setKaiCoreUrl(d.kaiCore.baseUrl);
+    setKaiCorePaired(!!d.kaiCore?.paired);
     setConfigEdit(false);
   }, []);
 
@@ -306,6 +320,92 @@ export default function App() {
       .then(setAppVersion)
       .catch(() => setAppVersion(null));
   }, []);
+
+  /** Heartbeat a Kai Core (catálogo); la impresión sigue por WS local. */
+  useEffect(() => {
+    if (!kaiCorePaired) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const prep = (await invoke("prepare_kai_core_heartbeat")) as {
+          url: string;
+          token: string;
+          body: Record<string, unknown>;
+        };
+        const res = await fetch(prep.url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Print-Agent-Token": prep.token,
+          },
+          body: JSON.stringify(prep.body),
+        });
+        if (!cancelled && !res.ok) {
+          setKaiCoreMsg(`Heartbeat Core: HTTP ${res.status}`);
+        }
+      } catch {
+        /* silencioso si Core offline */
+      }
+    };
+    void tick();
+    const id = window.setInterval(() => void tick(), 25_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [kaiCorePaired]);
+
+  const handleKaiCorePair = async () => {
+    setKaiCoreBusy(true);
+    setKaiCoreMsg(null);
+    try {
+      await invoke("set_kai_core_base_url", { baseUrl: kaiCoreUrl.trim() });
+      const prep = (await invoke("prepare_kai_core_pair", {
+        pairingToken: kaiPairToken.trim(),
+      })) as { url: string; body: { pairingToken: string } };
+      const res = await fetch(prep.url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(prep.body),
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data = (await res.json()) as {
+        id: string;
+        pairingToken: string;
+        displayName?: string;
+      };
+      await invoke("save_kai_core_pair", {
+        agentId: data.id,
+        pairingToken: data.pairingToken ?? prep.body.pairingToken,
+      });
+      if (data.displayName?.trim()) {
+        setSettings((s) => ({ ...s, agentDisplayName: data.displayName!.trim() }));
+      }
+      setKaiCorePaired(true);
+      setKaiPairToken("");
+      setKaiCoreMsg(`Emparejado con Core (${data.displayName ?? data.id})`);
+      await fetchDashboard("full");
+    } catch (e) {
+      setKaiCoreMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setKaiCoreBusy(false);
+    }
+  };
+
+  const handleKaiCoreUnpair = async () => {
+    setKaiCoreBusy(true);
+    try {
+      await invoke("clear_kai_core_pair");
+      setKaiCorePaired(false);
+      setKaiCoreMsg("Desemparejado de Kai Core");
+    } catch (e) {
+      setKaiCoreMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setKaiCoreBusy(false);
+    }
+  };
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -934,6 +1034,62 @@ export default function App() {
             value={settings.agentDisplayName}
             onChange={(e) => setSettings((s) => ({ ...s, agentDisplayName: e.target.value }))}
           />
+          <div className="space-y-2 rounded-md border border-border bg-neutral/20 p-3">
+            <p className="text-xs font-semibold text-foreground">Kai Core (catálogo)</p>
+            <p className="text-[11px] text-muted-foreground">
+              Emparejá este agente para que Admin/POS lo elijan por nombre. La impresión sigue por red
+              local.
+            </p>
+            <SharedTextField
+              label="URL Kai Core"
+              name="kai-core-url"
+              type="url"
+              density="compact"
+              labelLayout="inline"
+              readOnly={!configEdit && kaiCorePaired}
+              disabled={kaiCoreBusy}
+              value={kaiCoreUrl}
+              onChange={(e) => setKaiCoreUrl(e.target.value)}
+            />
+            {kaiCorePaired ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-foreground">Emparejado</span>
+                <button
+                  type="button"
+                  className="text-xs underline"
+                  disabled={kaiCoreBusy}
+                  onClick={() => void handleKaiCoreUnpair()}
+                >
+                  Desemparejar
+                </button>
+              </div>
+            ) : (
+              <>
+                <SharedTextField
+                  label="Token de emparejamiento"
+                  name="kai-pair-token"
+                  type="text"
+                  density="compact"
+                  labelLayout="inline"
+                  disabled={kaiCoreBusy}
+                  value={kaiPairToken}
+                  onChange={(e) => setKaiPairToken(e.target.value)}
+                  placeholder="Pegá el token de Admin"
+                />
+                <button
+                  type="button"
+                  className="rounded-md border border-border px-3 py-1.5 text-xs font-medium"
+                  disabled={kaiCoreBusy || kaiPairToken.trim().length < 32}
+                  onClick={() => void handleKaiCorePair()}
+                >
+                  Emparejar con Core
+                </button>
+              </>
+            )}
+            {kaiCoreMsg ? (
+              <p className="text-[11px] text-muted-foreground">{kaiCoreMsg}</p>
+            ) : null}
+          </div>
           <SharedTextField
             label="Puerto WS"
             name="in-ws-port"
@@ -1041,7 +1197,7 @@ export default function App() {
               <p>
                 En Windows, los PDF se imprimen en silencio con{" "}
                 <strong className="text-foreground">SumatraPDF.exe</strong> en la misma carpeta que
-                KaiPrinters o empaquetado en el instalador.
+                Kai Printers o empaquetado en el instalador.
               </p>
               <p className="font-medium text-error">
                 SumatraPDF no detectado. Colocá <code className="text-foreground">SumatraPDF.exe</code> junto a{" "}

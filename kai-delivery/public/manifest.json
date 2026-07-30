@@ -1,6 +1,6 @@
 {
   "name": "KaiStore Delivery",
-  "short_name": "Delivery",
+  "short_name": "KS Delivery",
   "description": "App de reparto para repartidores KaiStore (PWA)",
   "start_url": "/repartos",
   "scope": "/",
@@ -52,5 +52,6 @@
       "type": "image/png",
       "purpose": "any"
     }
-  ]
+  ],
+  "id": "kai-delivery"
 }

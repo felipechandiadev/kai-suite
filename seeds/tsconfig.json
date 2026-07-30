@@ -1,12 +1,12 @@
 {
-  "extends": "../backend/tsconfig.json",
+  "extends": "../kai-core/tsconfig.json",
   "compilerOptions": {
     "rootDir": ".",
     "baseUrl": ".",
     "paths": {
-      "@modules/*": ["../backend/src/modules/*"],
-      "@shared/*": ["../backend/src/shared/*"],
-      "@common/*": ["../backend/src/common/*"]
+      "@modules/*": ["../kai-core/src/modules/*"],
+      "@shared/*": ["../kai-core/src/shared/*"],
+      "@common/*": ["../kai-core/src/common/*"]
     }
   },
   "include": ["./**/*.ts"],

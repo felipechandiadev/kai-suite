@@ -5,9 +5,9 @@ Referencia rápida para onboarding con Cursor u otros agentes.
 | Fuente | Rol | Estado |
 |--------|-----|--------|
 | `.cursor/rules/kai-platform.mdc` | Reglas monorepo Kai | **Principal** |
-| `pwa-admin/AGENTS.md` | Reglas app admin | Activo |
-| `pwa-pos/AGENTS.md` | Reglas app POS | Activo |
-| `pwa-eshop/AGENTS.md` | Reglas eShop | Activo |
+| `kai-admin/AGENTS.md` | Reglas app admin | Activo |
+| `kai-pos/AGENTS.md` | Reglas app POS | Activo |
+| `kai-eshop/AGENTS.md` | Reglas eShop | Activo |
 | `.instructions/backend.instruction` | CQRS NestJS | Deprecated → usar `.cursor/rules` |
 | `.instructions/webadmin.instruction` | Server Actions admin | Deprecated → usar `.cursor/rules` |
 | `docs/project/PWA-ICONOS-Y-FAVICONS.md` | Iconos PWA + favicons | Activo |

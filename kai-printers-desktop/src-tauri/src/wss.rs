@@ -17,7 +17,7 @@ fn log_tls_handshake_rejected(state: &AppState, e: &impl std::fmt::Display) {
     if msg.contains("CertificateUnknown") || msg.contains("certificate") {
         state.agent_log.push_warn(
             "WSS: el navegador rechazó el certificado local (CertificateUnknown). \
-             En KaiPrinters → Configuración usá «Confiar certificado WSS» (Windows) o importá \
+             En Kai Printers → Configuración usá «Confiar certificado WSS» (Windows) o importá \
              agent-tls-cert.der en «Entidades de certificación raíz de confianza». \
              Luego cerrá el navegador del POS y volvé a abrirlo.",
         );

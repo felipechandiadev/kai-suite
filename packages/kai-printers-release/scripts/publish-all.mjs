@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Publica Kai Printers (Android + Windows + macOS) en pwa-pos/public/downloads/.
+ * Publica Kai Printers (Android + Windows + macOS) en kai-pos/public/downloads/.
  *
  * Uso (desde la raíz del monorepo):
  *   npm run kai-printers:publish
@@ -57,7 +57,7 @@ function desktopCmd() {
   return `node packages/kai-printers-release/scripts/publish-to-pos-downloads.mjs${flags ? ` ${flags}` : ""}`;
 }
 
-console.log("Kai Printers — publicación unificada → pwa-pos/public/downloads/\n");
+console.log("Kai Printers — publicación unificada → kai-pos/public/downloads/\n");
 
 let ran = 0;
 
@@ -90,9 +90,9 @@ if (ran === 0) {
 
 console.log(`\n${"═".repeat(60)}`);
 console.log("✅ Publicación local lista.");
-console.log("\nSiguiente paso — deploy al VPS (ver pwa-pos/public/downloads/README.md):");
-console.log("  1. git add pwa-pos/public/downloads/*.manifest.json (+ version.properties si Android bump)");
+console.log("\nSiguiente paso — deploy al VPS (ver kai-pos/public/downloads/README.md):");
+console.log("  1. git add kai-pos/public/downloads/*.manifest.json (+ version.properties si Android bump)");
 console.log("  2. git commit && git push");
 console.log("  3. En el VPS: git pull");
-console.log("  4. rsync pwa-pos/public/downloads/ al VPS (binarios .apk/.zip/.dmg no van en git)");
+console.log("  4. rsync kai-pos/public/downloads/ al VPS (binarios .apk/.zip/.dmg no van en git)");
 console.log("  5. Probar: https://tu-pos.cl/downloads/kai-printers-android.manifest.json");

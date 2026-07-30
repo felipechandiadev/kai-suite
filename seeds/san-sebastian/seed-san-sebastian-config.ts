@@ -53,7 +53,7 @@ export type SanSebastianSiiEmisor = {
 export function loadSanSebastianSiiEmisor(): SanSebastianSiiEmisor {
   if (!fs.existsSync(FISCAL_EMISOR_PATH)) {
     throw new Error(
-      `No se encontró ${FISCAL_EMISOR_PATH}. Ejecute: cd backend && npm run fiscal:export-ss-seed`,
+      `No se encontró ${FISCAL_EMISOR_PATH}. Ejecute: cd kai-core && npm run fiscal:export-ss-seed`,
     );
   }
   const raw = JSON.parse(fs.readFileSync(FISCAL_EMISOR_PATH, 'utf8')) as SanSebastianSiiEmisor;

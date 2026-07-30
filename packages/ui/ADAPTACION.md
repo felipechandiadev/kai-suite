@@ -42,7 +42,7 @@ Librería de **primitivos UI genéricos** compartidos entre las PWAs Next.js del
 | PosTopBar/ | Específico POS |
 | BaseForm/ | Generadores de formularios por entidad |
 | Dialog/ChangePasswordDialog | Usa next-auth — vive en cada PWA |
-| EShop* (pwa-eshop) | Storefront |
+| EShop* (kai-eshop) | Storefront |
 | kai-printers-desktop | Pospuesto — stack Tauri/Vite |
 
 ## Consumo en apps
@@ -67,7 +67,7 @@ npm run ui:remove-stubs   # borra carpetas stub sin referencias (gate con rg)
 
 **Gates antes de borrar una carpeta stub:**
 
-1. `rg --glob '*.{ts,tsx}' '@/shared/components/Button' pwa-admin` → vacío
+1. `rg --glob '*.{ts,tsx}' '@/shared/components/Button' kai-admin` → vacío
 2. `npm run ui:typecheck`
 3. `npm run build --prefix <pwa-afectada>`
 
@@ -77,7 +77,7 @@ CSS de primitivos (p. ej. `tabs.css`, `dialog.css`): importar desde `@kai/ui/com
 
 ## Tailwind
 
-- **pwa-admin**, **pwa-pos**, **pwa-eshop**, **pwa-stock**: Tailwind v4 con `@source "../../../packages/ui/src"` en `globals.css`.
+- **kai-admin**, **kai-pos**, **kai-eshop**, **kai-stock**: Tailwind v4 con `@source "../../../packages/ui/src"` en `globals.css`.
 - Cada app define tokens `--color-*` (y opcionalmente `--fs-*`) en `globals.css`.
 
 ## Scripts (raíz del monorepo)

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Kai Screen</string>
+    <string name="app_name">Kai CFD</string>
     <string name="notification_channel_name">Pantalla cliente</string>
-    <string name="notification_title">Kai Screen activo</string>
+    <string name="notification_title">Kai CFD activo</string>
     <string name="notification_text">Puerto %1$d — toque para configurar</string>
     <string name="service_title">Servicio local</string>
     <string name="service_running">Servicio activo</string>
@@ -11,7 +11,7 @@
     <string name="stop_service">Detener servicio</string>
     <string name="trust_certificate">Confiar certificado WSS</string>
     <string name="trust_certificate_open_chrome">Abrir en Chrome (puerto %1$d)</string>
-    <string name="trust_certificate_desc">Abre Chrome en esta tablet. Si aparece «La conexión no es privada», toque Avanzado y Continuar a 127.0.0.1. Luego debe verse «Kai Screen — servicio local».</string>
+    <string name="trust_certificate_desc">Abre Chrome en esta tablet. Si aparece «La conexión no es privada», toque Avanzado y Continuar a 127.0.0.1. Luego debe verse «Kai CFD — servicio local».</string>
     <string name="trust_certificate_service_stopped">Inicie el servicio antes de confiar el certificado.</string>
     <string name="trust_probe_service_stopped">Inicie el servicio para verificar WSS.</string>
     <string name="ws_port">Puerto WS: %1$d</string>
@@ -50,7 +50,7 @@
     <string name="total_label">Total</string>
     <string name="items_count">%1$d artículos</string>
     <string name="pos_connection_title">Conectar con el POS</string>
-    <string name="pos_connection_subtitle">El POS y Kai Screen deben estar en la misma tablet. Siga los pasos en orden.</string>
+    <string name="pos_connection_subtitle">El POS y Kai CFD deben estar en la misma tablet. Siga los pasos en orden.</string>
     <string name="pos_connection_ready">Listo para caja: pantalla secundaria activa y POS conectado.</string>
     <string name="pos_step_service_title">Servicio activo</string>
     <string name="pos_step_service_switch">Agente de pantalla cliente</string>
@@ -59,7 +59,7 @@
     <string name="pos_step_cert_1">Asegúrese de que el servicio esté activo (paso 1).</string>
     <string name="pos_step_cert_2">Toque «Abrir en Chrome».</string>
     <string name="pos_step_cert_3">Si Chrome muestra «La conexión no es privada», toque Avanzado → Continuar a 127.0.0.1.</string>
-    <string name="pos_step_cert_4">Debe verse la página «Kai Screen — servicio local». Vuelva aquí y toque Verificar.</string>
+    <string name="pos_step_cert_4">Debe verse la página «Kai CFD — servicio local». Vuelva aquí y toque Verificar.</string>
     <string name="pos_step_cert_verify">Verificar servidor WSS</string>
     <string name="pos_step_cert_verifying">Verificando…</string>
     <string name="pos_step_cert_checkbox">Acepté el certificado en Chrome</string>
@@ -79,7 +79,7 @@
     <string name="pos_step_display_test">Probar pantalla cliente</string>
     <string name="pos_step_display_test_sent">Prueba enviada — revise la pantalla del cliente</string>
     <string name="pos_step_pos_title">Conexión POS</string>
-    <string name="pos_step_pos_body">Active Kai Screen en el POS y agregue un producto al carrito para verificar la sincronización.</string>
+    <string name="pos_step_pos_body">Active Kai CFD en el POS y agregue un producto al carrito para verificar la sincronización.</string>
     <string name="service_restart">Reiniciar servicio</string>
     <string name="status_granted">Concedido</string>
     <string name="status_pending">Pendiente</string>

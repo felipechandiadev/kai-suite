@@ -66,7 +66,7 @@ if [[ "$SKIP_SEED" != true ]]; then
   FISCAL_DIR="$ROOT/seeds/san-sebastian/data/fiscal"
   if [[ ! -f "$FISCAL_DIR/certificado.pfx" || ! -f "$FISCAL_DIR/caf-boleta-39.xml" ]]; then
     echo "[setup-ss] Exportando assets fiscales desde DB (npm run fiscal:export-ss-seed)…"
-    (cd "$ROOT/backend" && npm run fiscal:export-ss-seed) || {
+    (cd "$ROOT/kai-core" && npm run fiscal:export-ss-seed) || {
       echo "[setup-ss] AVISO: export falló — coloque certificado.pfx y caf-boleta-39.xml en $FISCAL_DIR" >&2
     }
   fi

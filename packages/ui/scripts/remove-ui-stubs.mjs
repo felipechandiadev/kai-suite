@@ -14,7 +14,7 @@ const cliArgs = process.argv.slice(2).filter((a) => !a.startsWith("-"));
 const target = cliArgs[0] ?? "all";
 
 const STUB_FOLDERS = {
-  "pwa-admin": [
+  "kai-admin": [
     "src/shared/components/Alert",
     "src/shared/components/Badge",
     "src/shared/components/Button",
@@ -37,7 +37,7 @@ const STUB_FOLDERS = {
     "src/shared/components/PrintDialog",
     "src/shared/components/layouts",
   ],
-  "pwa-pos": [
+  "kai-pos": [
     "src/shared/components/Alert",
     "src/shared/components/Badge",
     "src/shared/components/Button",
@@ -54,7 +54,7 @@ const STUB_FOLDERS = {
     "src/shared/components/PrintDialog",
     "src/shared/hooks/useCoarsePointer.ts",
   ],
-  "pwa-eshop": [
+  "kai-eshop": [
     "src/shared/components/Alert",
     "src/shared/components/Badge",
     "src/shared/components/Button",
@@ -69,7 +69,7 @@ const STUB_FOLDERS = {
     "src/shared/components/Skeleton",
     "src/shared/components/LoadingState",
   ],
-  "pwa-stock": [
+  "kai-stock": [
     "src/shared/Alert",
     "src/shared/Badge",
     "src/shared/Button",
@@ -87,13 +87,13 @@ const STUB_FOLDERS = {
 };
 
 const BRIDGE_FILES = {
-  "pwa-pos": ["src/shared/admin-shared.ts"],
-  "pwa-eshop": ["src/shared/admin-shared.ts"],
+  "kai-pos": ["src/shared/admin-shared.ts"],
+  "kai-eshop": ["src/shared/admin-shared.ts"],
 };
 
 function hasReferences(app, folderName) {
   const appRoot = path.join(root, app);
-  const scanRoots = app === "pwa-admin" ? ["app", "src"] : ["src"];
+  const scanRoots = app === "kai-admin" ? ["app", "src"] : ["src"];
   const patterns = [`@/shared/components/${folderName}`, `@/shared/${folderName}`];
   for (const scanRoot of scanRoots) {
     const dir = path.join(appRoot, scanRoot);

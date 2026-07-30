@@ -99,7 +99,7 @@ function buildPosTicketEnqueueBody(
       ticket,
       filename: extras.filename,
       copies: 1,
-      sourceApp: extras.sourceApp ?? "pwa-pos",
+      sourceApp: extras.sourceApp ?? "kai-pos",
       documentType: extras.documentType,
       internalFolio: extras.internalFolio,
     },
@@ -1001,24 +1001,50 @@ const LS_HOST = "printServiceHost";
 const LS_PORT = "printServicePort";
 const LS_WSS_PORT = "printServiceWssPort";
 const LS_USE_TLS = "printServiceUseTls";
+const LS_AGENT_ID = "printServiceAgentId";
+const LS_AGENT_NAME = "printServiceAgentName";
 /** Disparado en la misma pestaña tras `writePrintServiceConfigToStorage` (el evento `storage` solo cruza pestañas). */
 export const PRINT_SERVICE_CONFIG_CHANGED_EVENT = "kai:print-service-config-changed";
 export const PRINT_SERVICE_CONFIG_CHANGED_EVENT_LEGACY = "flowstore:print-service-config-changed";
 
-export function readPrintServiceConfigFromStorage(): {
+export type PrintServiceStoredConfig = {
   host: string;
   port: number;
   wssPort: number;
   useTls: boolean;
-} {
+  agentId: string | null;
+  agentName: string | null;
+};
+
+export type PrintAgentCatalogItem = {
+  id: string;
+  displayName: string;
+  lanHost: string | null;
+  wsPort: number | null;
+  wssPort: number | null;
+  useTls: boolean;
+  online: boolean;
+  platform?: string;
+};
+
+export function readPrintServiceConfigFromStorage(): PrintServiceStoredConfig {
   if (typeof window === "undefined") {
-    return { host: "127.0.0.1", port: 14567, wssPort: 14568, useTls: false };
+    return {
+      host: "127.0.0.1",
+      port: 14567,
+      wssPort: 14568,
+      useTls: false,
+      agentId: null,
+      agentName: null,
+    };
   }
   const host = localStorage.getItem(LS_HOST) || "127.0.0.1";
   const port = Number(localStorage.getItem(LS_PORT) || "14567") || 14567;
   const wssPort = Number(localStorage.getItem(LS_WSS_PORT) || "14568") || 14568;
   const useTls = localStorage.getItem(LS_USE_TLS) === "1";
-  return { host, port, wssPort, useTls };
+  const agentId = localStorage.getItem(LS_AGENT_ID)?.trim() || null;
+  const agentName = localStorage.getItem(LS_AGENT_NAME)?.trim() || null;
+  return { host, port, wssPort, useTls, agentId, agentName };
 }
 
 export function writePrintServiceConfigToStorage(cfg: {
@@ -1026,14 +1052,43 @@ export function writePrintServiceConfigToStorage(cfg: {
   port: number;
   wssPort: number;
   useTls: boolean;
+  agentId?: string | null;
+  agentName?: string | null;
 }): void {
   localStorage.setItem(LS_HOST, cfg.host);
   localStorage.setItem(LS_PORT, String(cfg.port));
   localStorage.setItem(LS_WSS_PORT, String(cfg.wssPort));
   localStorage.setItem(LS_USE_TLS, cfg.useTls ? "1" : "0");
+  if (cfg.agentId !== undefined) {
+    if (cfg.agentId) localStorage.setItem(LS_AGENT_ID, cfg.agentId);
+    else localStorage.removeItem(LS_AGENT_ID);
+  }
+  if (cfg.agentName !== undefined) {
+    if (cfg.agentName) localStorage.setItem(LS_AGENT_NAME, cfg.agentName);
+    else localStorage.removeItem(LS_AGENT_NAME);
+  }
   if (typeof globalThis.window !== "undefined") {
     dispatchDualPlatformEvent(PRINT_SERVICE_CONFIG_CHANGED_EVENT);
   }
+}
+
+/** Aplica un agente del catálogo Core a la config local (print sigue por LAN). */
+export function applyPrintAgentCatalogItemToStorage(
+  agent: PrintAgentCatalogItem,
+): PrintServiceStoredConfig {
+  if (!agent.lanHost?.trim()) {
+    throw new Error("El agente aún no reportó IP LAN (esperá un heartbeat)");
+  }
+  const cfg = {
+    host: agent.lanHost.trim(),
+    port: agent.wsPort ?? 14567,
+    wssPort: agent.wssPort ?? 14568,
+    useTls: Boolean(agent.useTls),
+    agentId: agent.id,
+    agentName: agent.displayName,
+  };
+  writePrintServiceConfigToStorage(cfg);
+  return { ...cfg };
 }
 
 /** Elección del POS: impresora por alias (definida en el agente) para tickets / documentos. Solo localStorage. */
@@ -1331,7 +1386,7 @@ export function writePosPurposePrinterAliasesToStorage(aliases: {
   }
 }
 
-/** Alias de impresora por propósito en pwa-admin (solo localStorage). */
+/** Alias de impresora por propósito en kai-admin (solo localStorage). */
 const LS_ADMIN_TICKETS_ALIAS = "printAdminPurposeTicketsAlias";
 const LS_ADMIN_DOCUMENTS_ALIAS = "printAdminPurposeDocumentsAlias";
 

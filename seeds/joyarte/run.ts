@@ -56,7 +56,7 @@ import {
 } from '@modules/storages/domain/storage.entity';
 import { StockLevel } from '@modules/stock-levels/domain/stock-level.entity';
 import { TenantContext } from '@common/tenant/tenant.context';
-import { AppConfigService } from '../../backend/src/config/config.service';
+import { AppConfigService } from '../../kai-core/src/config/config.service';
 import { MultimediaAsset } from '@modules/multimedia/domain/multimedia-asset.entity';
 import { MultimediaLink } from '@modules/multimedia/domain/multimedia-link.entity';
 import {

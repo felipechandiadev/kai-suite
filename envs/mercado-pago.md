@@ -148,7 +148,7 @@ Configurar en [Tus integraciones](https://www.mercadopago.cl/developers/panel/ap
 | Eventos | **Order (Mercado Pago)** y **Payment** |
 | URL producción | `https://<tu-dominio>/api/webhooks/mercado-pago` |
 | URL dev (ngrok) | `https://<subdominio>.ngrok-free.app/api/webhooks/mercado-pago` |
-| Clave secreta | Copiar del panel → `MP_WEBHOOK_SECRET` en `backend/.env` |
+| Clave secreta | Copiar del panel → `MP_WEBHOOK_SECRET` en `kai-core/.env` |
 
 Ejemplo de notificación:
 
@@ -170,7 +170,7 @@ Sin ngrok el flujo **Brick + confirm-payment** basta para pruebas locales; el we
 
 ## Checklist
 
-- [ ] Migración `payment_gateway_intents` (`cd backend && npm run migration:run`)
+- [ ] Migración `payment_gateway_intents` (`cd kai-core && npm run migration:run`)
 - [ ] Credenciales en Admin → Integraciones (Sandbox)
 - [ ] eShop → Integraciones: pago online ON
 - [ ] Tienda demo habilitada (`demo`) + métodos de entrega

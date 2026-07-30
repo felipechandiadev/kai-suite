@@ -102,7 +102,7 @@ import { ProductVariantProductionAttributeOption } from '@modules/product-varian
 import { SEED_DEMO_PRODUCTION_ATTRIBUTES } from './seed-demo-production-attributes';
 import { seedDemoLaundryCatalog } from './seed-demo-laundry-catalog';
 import { TenantContext } from '@common/tenant/tenant.context';
-import { AppConfigService } from '../../backend/src/config/config.service';
+import { AppConfigService } from '../../kai-core/src/config/config.service';
 import { MultimediaAsset } from '@modules/multimedia/domain/multimedia-asset.entity';
 import { MultimediaLink } from '@modules/multimedia/domain/multimedia-link.entity';
 import {
@@ -129,6 +129,7 @@ import {
   SEED_BRANCH_2_PHONE,
   SEED_CASH_HUBS,
   SEED_DEV_COMPANY,
+  SEED_DEV_COMPANY_SECOND,
   SEED_DEV_SHAREHOLDERS,
   SEED_POS_NAMES,
   SEED_PRESALE_POS_NAME,
@@ -2033,11 +2034,12 @@ async function bootstrap() {
         siiResolutionNumber: SEED_DEV_COMPANY.siiResolutionNumber,
         siiResolutionDate: SEED_DEV_COMPANY.siiResolutionDate,
         defaultCurrency: SEED_DEV_COMPANY.defaultCurrency,
+        kaiProduct: SEED_DEV_COMPANY.kaiProduct,
         isActive: true,
       });
       await companyRepo.save(company);
       console.log(
-        `✅ Empresa creada: id=${company.id} razonSocial='${razonSocial}' rut='${rut}'`,
+        `✅ Empresa creada: id=${company.id} razonSocial='${razonSocial}' rut='${rut}' kaiProduct=${company.kaiProduct}`,
       );
     } else {
       company.razonSocial = razonSocial;
@@ -2050,9 +2052,10 @@ async function bootstrap() {
       company.city = SEED_DEV_COMPANY.city;
       company.siiResolutionNumber = SEED_DEV_COMPANY.siiResolutionNumber;
       company.siiResolutionDate = SEED_DEV_COMPANY.siiResolutionDate;
+      company.kaiProduct = SEED_DEV_COMPANY.kaiProduct;
       await companyRepo.save(company);
       console.log(
-        `✅ Empresa ya existía: id=${company.id} razonSocial='${company.razonSocial}' rut='${company.rut}' (datos básicos actualizados)`,
+        `✅ Empresa ya existía: id=${company.id} razonSocial='${company.razonSocial}' rut='${company.rut}' kaiProduct=${company.kaiProduct} (datos básicos actualizados)`,
       );
     }
 
@@ -2120,6 +2123,38 @@ async function bootstrap() {
     };
     console.log(
       `✅ Contacto público eShop: email=${publicContact.email ?? '—'} phone=${publicContact.phone ?? '—'} instagram=${publicContact.instagram ?? '—'} tiktok=${publicContact.tiktok ?? '—'} facebook=${publicContact.facebook ?? '—'}`,
+    );
+
+    /** Segunda empresa (KaiFood) para switch multi-vertical en deploys suite. */
+    let companyFood = await companyRepo.findOne({
+      where: { rut: SEED_DEV_COMPANY_SECOND.rut, deletedAt: null as never },
+    });
+    if (!companyFood) {
+      companyFood = companyRepo.create({
+        razonSocial: SEED_DEV_COMPANY_SECOND.razonSocial,
+        nombreFantasia: SEED_DEV_COMPANY_SECOND.nombreFantasia,
+        businessActivity: SEED_DEV_COMPANY_SECOND.businessActivity,
+        rut: SEED_DEV_COMPANY_SECOND.rut,
+        address: SEED_DEV_COMPANY_SECOND.address,
+        mail: SEED_DEV_COMPANY_SECOND.mail,
+        phone: SEED_DEV_COMPANY_SECOND.phone,
+        defaultCurrency: SEED_DEV_COMPANY_SECOND.defaultCurrency,
+        kaiProduct: SEED_DEV_COMPANY_SECOND.kaiProduct,
+        isActive: true,
+      });
+    } else {
+      companyFood.razonSocial = SEED_DEV_COMPANY_SECOND.razonSocial;
+      companyFood.nombreFantasia = SEED_DEV_COMPANY_SECOND.nombreFantasia;
+      companyFood.businessActivity = SEED_DEV_COMPANY_SECOND.businessActivity;
+      companyFood.address = SEED_DEV_COMPANY_SECOND.address;
+      companyFood.mail = SEED_DEV_COMPANY_SECOND.mail;
+      companyFood.phone = SEED_DEV_COMPANY_SECOND.phone;
+      companyFood.kaiProduct = SEED_DEV_COMPANY_SECOND.kaiProduct;
+      companyFood.isActive = true;
+    }
+    await companyRepo.save(companyFood);
+    console.log(
+      `✅ Empresa secundaria: id=${companyFood.id} «${companyFood.nombreFantasia}» kaiProduct=${companyFood.kaiProduct}`,
     );
 
     /**
@@ -5037,6 +5072,38 @@ async function bootstrap() {
       throw new Error(`Usuario admin seed '${userName}' no encontrado tras ensureSeedUser`);
     }
 
+    let foodMembership = await membershipRepo.findOne({
+      where: { userId: adminUser.id, companyId: companyFood.id },
+    });
+    if (!foodMembership) {
+      foodMembership = await membershipRepo.save(
+        membershipRepo.create({
+          userId: adminUser.id,
+          companyId: companyFood.id,
+          isOwner: true,
+          isActive: true,
+        }),
+      );
+    } else {
+      foodMembership.isActive = true;
+      foodMembership.isOwner = true;
+      await membershipRepo.save(foodMembership);
+    }
+    const foodRoles = await membershipRoleRepo.find({
+      where: { membershipId: foodMembership.id },
+    });
+    if (!foodRoles.some((r) => r.role === PlatformRoleCode.ADMIN)) {
+      await membershipRoleRepo.save(
+        membershipRoleRepo.create({
+          membershipId: foodMembership.id,
+          role: PlatformRoleCode.ADMIN,
+        }),
+      );
+    }
+    console.log(
+      `✅ Admin «${userName}» también miembro de «${companyFood.nombreFantasia}» (${companyFood.kaiProduct})`,
+    );
+
     // Operadores POS antes del historial operativo (ventas los usan como userId).
     await ensureSeedUser({
       userName: 'operador',
@@ -5217,7 +5284,7 @@ async function bootstrap() {
       `   • mesero3 / ${seedPassword}    (WAITER · Javiera Soto · 17.100.011-4 · propinas)`,
     );
     console.log(
-      `   • Empresa en BD: «${SEED_DEV_COMPANY.nombreFantasia}» (${SEED_DEV_COMPANY.rut}, eShop demo) — seed mono-empresa`,
+      `   • Empresas: «${SEED_DEV_COMPANY.nombreFantasia}» (${SEED_DEV_COMPANY.kaiProduct}) + «${SEED_DEV_COMPANY_SECOND.nombreFantasia}» (${SEED_DEV_COMPANY_SECOND.kaiProduct}) — admin en ambas`,
     );
     console.log(
       `   • Preventa: ON | POS preventa «${SEED_PRESALE_POS_NAME}» | Cajas aceptan tickets de preventa`,

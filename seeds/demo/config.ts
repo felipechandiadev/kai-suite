@@ -49,7 +49,7 @@ export function buildSeedMercadoPagoSettings(): CompanyMercadoPagoSettings {
   };
 }
 
-/** Empresa genérica de desarrollo — «Kai Suite» (estado actual en BD demo). */
+/** Empresa genérica de desarrollo — vertical KaiStore. */
 export const SEED_DEV_COMPANY = {
   razonSocial: 'Kai Suite',
   nombreFantasia: 'Kai Suite',
@@ -63,18 +63,20 @@ export const SEED_DEV_COMPANY = {
   city: 'Parral',
   siiResolutionNumber: '80',
   siiResolutionDate: '2014-08-22',
+  kaiProduct: 'kaistore' as const,
 } as const;
 
-/** @deprecated Seed demo es mono-empresa (solo Kai Suite). Conservado por compat. */
+/** Segunda empresa demo (vertical KaiFood) para deploys suite multi-empresa. */
 export const SEED_DEV_COMPANY_SECOND = {
-  razonSocial: 'Segunda Empresa SpA',
-  nombreFantasia: 'Segunda Empresa',
+  razonSocial: 'Restó Demo SpA',
+  nombreFantasia: 'Restó Demo',
   rut: '76.999.999-K',
-  mail: 'contacto@segunda-empresa.cl',
+  mail: 'contacto@resto-demo.cl',
   phone: '+56 2 2000 0001',
   address: 'Av. Providencia 2000, Providencia, Santiago',
-  businessActivity: 'Comercio desarrollo multi-tenant',
+  businessActivity: 'Restaurantes',
   defaultCurrency: 'CLP',
+  kaiProduct: 'kaifood' as const,
 } as const;
 
 /** Slug eShop público de la segunda empresa (distinto de `demo`). */

@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { typeOrmConfig } from '../../backend/src/config/typeorm.config';
-import { AppConfigModule } from '../../backend/src/config/config.module';
-import { AppConfigService } from '../../backend/src/config/config.service';
+import { typeOrmConfig } from '../../kai-core/src/config/typeorm.config';
+import { AppConfigModule } from '../../kai-core/src/config/config.module';
+import { AppConfigService } from '../../kai-core/src/config/config.service';
 import { User } from '@modules/users/domain/user.entity';
 import { Person } from '@modules/persons/domain/person.entity';
 import { Company } from '@modules/companies/domain/company.entity';
@@ -37,7 +37,7 @@ import { ProductionUnit } from '@modules/production-units/domain/production-unit
 import { ProductVariantProductionUnit } from '@modules/product-variants/domain/product-variant-production-unit.entity';
 import { OperationalExpensesModule } from '@modules/operational-expenses/operational-expenses.module';
 import { FiscalModule } from '@modules/fiscal/fiscal.module';
-import { ProductModeModule } from '../../backend/src/shared/product-mode/product-mode.module';
+import { ProductModeModule } from '../../kai-core/src/shared/product-mode/product-mode.module';
 import { LocalStorageAdapter } from '@modules/multimedia/infrastructure/adapters/local-storage.adapter';
 import { CloudflareR2Adapter } from '@modules/multimedia/infrastructure/adapters/cloudflare-r2.adapter';
 import { MultimediaModule } from '@modules/multimedia/multimedia.module';

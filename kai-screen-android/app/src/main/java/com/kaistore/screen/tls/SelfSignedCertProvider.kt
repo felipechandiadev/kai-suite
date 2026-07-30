@@ -64,7 +64,7 @@ object SelfSignedCertProvider {
 
         val now = System.currentTimeMillis()
         val certBuilder = JcaX509v3CertificateBuilder(
-            X500Principal("CN=Kai Screen Local"),
+            X500Principal("CN=Kai CFD Local"),
             BigInteger.valueOf(now),
             Date(now - 86_400_000L),
             Date(now + 365L * 86_400_000L * 10),

@@ -23,6 +23,7 @@ export * from "./pos-laundry-reception-ticket";
 export * from "./variant-barcode-label";
 export * from "./react";
 export * from "./settings-form";
+export * from "./print-agent-picker";
 export * from "./print-service-dropdown";
 export * from "./top-bar-notification-badge";
 export * from "./kai-printers-downloads";

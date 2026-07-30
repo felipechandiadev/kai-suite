@@ -12,10 +12,10 @@ import { fileURLToPath } from "node:url";
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 
 const appConfigs = [
-  { app: "pwa-admin", componentsRoot: "src/shared/components" },
-  { app: "pwa-pos", componentsRoot: "src/shared/components" },
-  { app: "pwa-eshop", componentsRoot: "src/shared/components" },
-  { app: "pwa-stock", componentsRoot: "src/shared" },
+  { app: "kai-admin", componentsRoot: "src/shared/components" },
+  { app: "kai-pos", componentsRoot: "src/shared/components" },
+  { app: "kai-eshop", componentsRoot: "src/shared/components" },
+  { app: "kai-stock", componentsRoot: "src/shared" },
 ];
 
 const stubs = {
@@ -153,34 +153,34 @@ function stubFolder(app, componentsRoot, folder, files) {
 
 for (const { app, componentsRoot } of appConfigs) {
   const allowed =
-    app === "pwa-stock"
+    app === "kai-stock"
       ? stockOnlyStubs
-      : Object.keys(stubs).filter((k) => k !== "layouts" || app !== "pwa-eshop");
+      : Object.keys(stubs).filter((k) => k !== "layouts" || app !== "kai-eshop");
   for (const folder of allowed) {
     if (!stubs[folder]) continue;
-    if (folder === "layouts" && app === "pwa-eshop") continue;
-    if (folder === "layouts" && app === "pwa-stock") continue;
-    if (folder === "DataGrid" && (app === "pwa-eshop" || app === "pwa-stock")) continue;
-    if (folder === "AutoComplete" && app === "pwa-stock") continue;
-    if (folder === "PrintDialog" && app === "pwa-eshop") continue;
-    if (folder === "Stepper" && (app === "pwa-eshop" || app === "pwa-stock")) continue;
-    if (folder === "RangeSlider" && (app === "pwa-eshop" || app === "pwa-stock")) continue;
-    if (folder === "Tabs" && app === "pwa-stock") continue;
+    if (folder === "layouts" && app === "kai-eshop") continue;
+    if (folder === "layouts" && app === "kai-stock") continue;
+    if (folder === "DataGrid" && (app === "kai-eshop" || app === "kai-stock")) continue;
+    if (folder === "AutoComplete" && app === "kai-stock") continue;
+    if (folder === "PrintDialog" && app === "kai-eshop") continue;
+    if (folder === "Stepper" && (app === "kai-eshop" || app === "kai-stock")) continue;
+    if (folder === "RangeSlider" && (app === "kai-eshop" || app === "kai-stock")) continue;
+    if (folder === "Tabs" && app === "kai-stock") continue;
     stubFolder(app, componentsRoot, folder, stubs[folder]);
   }
 }
 
 // Stock Cards live under components/Cards
-if (fs.existsSync(path.join(root, "pwa-stock/src/shared/components/Cards"))) {
-  stubFolder("pwa-stock", "src/shared/components", "Cards", stubs.Cards);
+if (fs.existsSync(path.join(root, "kai-stock/src/shared/components/Cards"))) {
+  stubFolder("kai-stock", "src/shared/components", "Cards", stubs.Cards);
 }
 
-const posHook = path.join(root, "pwa-pos/src/shared/hooks/useCoarsePointer.ts");
+const posHook = path.join(root, "kai-pos/src/shared/hooks/useCoarsePointer.ts");
 if (fs.existsSync(posHook)) {
   fs.writeFileSync(posHook, `export { useCoarsePointer } from "@kai/ui";\n`, "utf8");
 }
 
-const posAdminShared = path.join(root, "pwa-pos/src/shared/admin-shared.ts");
+const posAdminShared = path.join(root, "kai-pos/src/shared/admin-shared.ts");
 fs.writeFileSync(
   posAdminShared,
   `// Re-exports desde @kai/ui (fuente: packages/ui)
@@ -206,7 +206,7 @@ export type { SwitchOptionLabels, DataGridColumn, TabItem, TabsProps } from "@ka
   "utf8",
 );
 
-const eshopAdminShared = path.join(root, "pwa-eshop/src/shared/admin-shared.ts");
+const eshopAdminShared = path.join(root, "kai-eshop/src/shared/admin-shared.ts");
 if (fs.existsSync(eshopAdminShared)) {
   fs.writeFileSync(
     eshopAdminShared,
@@ -230,7 +230,7 @@ export type { Option as SelectOption, TabItem, TabsProps } from "@kai/ui";
   );
 }
 
-const stockPageLoading = path.join(root, "pwa-stock/src/shared/components/PageLoading.tsx");
+const stockPageLoading = path.join(root, "kai-stock/src/shared/components/PageLoading.tsx");
 if (fs.existsSync(stockPageLoading)) {
   fs.writeFileSync(
     stockPageLoading,

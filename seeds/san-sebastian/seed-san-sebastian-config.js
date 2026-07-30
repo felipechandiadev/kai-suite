@@ -7,10 +7,10 @@ exports.buildSeedCompanyBankAccounts = buildSeedCompanyBankAccounts;
 exports.buildSeedCompanyPaymentCatalog = buildSeedCompanyPaymentCatalog;
 exports.buildSeedPosPaymentList = buildSeedPosPaymentList;
 exports.buildSeedSanSebastianCompanySettings = buildSeedSanSebastianCompanySettings;
-const person_entity_1 = require("../../backend/src/modules/persons/domain/person.entity");
-const transaction_entity_1 = require("../../backend/src/modules/transactions/domain/transaction.entity");
-const payment_method_config_helpers_1 = require("../../backend/src/modules/payment-methods-config/domain/payment-method-config.helpers");
-const person_entity_2 = require("../../backend/src/modules/persons/domain/person.entity");
+const person_entity_1 = require("../../kai-core/src/modules/persons/domain/person.entity");
+const transaction_entity_1 = require("../../kai-core/src/modules/transactions/domain/transaction.entity");
+const payment_method_config_helpers_1 = require("../../kai-core/src/modules/payment-methods-config/domain/payment-method-config.helpers");
+const person_entity_2 = require("../../kai-core/src/modules/persons/domain/person.entity");
 const fs = require("fs");
 const path = require("path");
 exports.SEED_SAN_SEBASTIAN_COMPANY = {
@@ -41,7 +41,7 @@ exports.SEED_OPERATOR_EMAIL = 'operador@san.sebastian.kai.local';
 const FISCAL_EMISOR_PATH = path.join(__dirname, 'data/fiscal/emisor.json');
 function loadSanSebastianSiiEmisor() {
     if (!fs.existsSync(FISCAL_EMISOR_PATH)) {
-        throw new Error(`No se encontró ${FISCAL_EMISOR_PATH}. Ejecute: cd backend && npm run fiscal:export-ss-seed`);
+        throw new Error(`No se encontró ${FISCAL_EMISOR_PATH}. Ejecute: cd kai-core && npm run fiscal:export-ss-seed`);
     }
     const raw = JSON.parse(fs.readFileSync(FISCAL_EMISOR_PATH, 'utf8'));
     if (!raw.commune?.trim() ||

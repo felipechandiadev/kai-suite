@@ -30,7 +30,7 @@ function requireFiscalAsset(filePath: string, label: string): Buffer {
     throw new Error(
       `No se encontró ${label} en ${filePath}. ` +
         'Copie certificado.pfx y caf-boleta-39.xml según seeds/san-sebastian/data/fiscal/README.md ' +
-        'o ejecute: cd backend && npm run fiscal:export-ss-seed',
+        'o ejecute: cd kai-core && npm run fiscal:export-ss-seed',
     );
   }
   return fs.readFileSync(filePath);
@@ -51,7 +51,7 @@ export async function seedSanSebastianFiscal(args: {
   const pfxPassword = process.env.SAN_SEBASTIAN_SII_PFX_PASSWORD?.trim();
   if (!pfxPassword) {
     throw new Error(
-      'SAN_SEBASTIAN_SII_PFX_PASSWORD no configurada en backend/.env (contraseña del certificado PFX).',
+      'SAN_SEBASTIAN_SII_PFX_PASSWORD no configurada en kai-core/.env (contraseña del certificado PFX).',
     );
   }
 

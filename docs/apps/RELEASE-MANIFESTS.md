@@ -10,7 +10,7 @@ Manifiestos **tipo B**: no definen el nombre en el launcher; anuncian **qué bin
 
 ## 1. Qué son
 
-JSON servidos como estáticos (típicamente bajo `pwa-pos/public/downloads/` y espejo en admin si aplica):
+JSON servidos como estáticos (típicamente bajo `kai-pos/public/downloads/` y espejo en admin si aplica):
 
 | Archivo | Agente |
 |---------|--------|

@@ -45,7 +45,7 @@ pub fn write_cut_test_escpos(path: &Path) -> Result<()> {
     let mut buf = escpos_init();
     escpos_apply_ticket_typography(&mut buf);
     append_line(&mut buf, "Prueba de corte ESC/POS");
-    append_line(&mut buf, "KaiPrinters");
+    append_line(&mut buf, "Kai Printers");
     append_line(&mut buf, "");
     std::fs::write(path, &buf)?;
     Ok(())

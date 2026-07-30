@@ -129,9 +129,9 @@ Explicar la solución FlowStore desde una mirada de **producto**:
 #### Propósito
 Describir la app Admin **por módulos y pantallas**, siempre desde UI/función:
 
-#### Fuente de verdad (UI real pwa-admin)
-- Menú lateral + rutas provienen de `pwa-admin/src/navigation/mainMenu.ts`.
-- Shell superior: `TopBar` (marca/título, usuario, acceso a cambio de clave, etc.) en `pwa-admin/app/(app)/AppShellLayoutClient.tsx`.
+#### Fuente de verdad (UI real kai-admin)
+- Menú lateral + rutas provienen de `kai-admin/src/navigation/mainMenu.ts`.
+- Shell superior: `TopBar` (marca/título, usuario, acceso a cambio de clave, etc.) en `kai-admin/app/(app)/AppShellLayoutClient.tsx`.
 
 > Nota editorial: el menú incluye **“UI Components”** (showcase interno). Para el informe al cliente final, normalmente **no** se documenta; puede ir a **Anexos** o quedar fuera.
 
