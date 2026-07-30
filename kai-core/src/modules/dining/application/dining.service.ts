@@ -1033,6 +1033,7 @@ export class DiningService {
     );
     const now = new Date();
     const stationOrderId = randomUUID();
+    const sentByUserId = TenantContext.getUserId() ?? null;
     const stationOrder = this.diningStationOrderRepository.create({
       id: stationOrderId,
       companyId,
@@ -1042,6 +1043,7 @@ export class DiningService {
       sequenceNumber: allocated.sequenceNumber,
       status: DiningStationOrderStatus.OPEN,
       sentAt: now,
+      sentByUserId,
       completedAt: null,
     });
     await this.diningStationOrderRepository.save(stationOrder);
@@ -1351,9 +1353,22 @@ export class DiningService {
     const targets = (order.lines ?? []).filter(
       (l) =>
         effectiveKitchenFireId(l) === targetFire &&
-        canMarkServed(l.kitchenStatus),
+        canMarkServed(l.kitchenStatus, order.kind),
     );
     if (targets.length === 0) {
+      const hasKitchenReady = (order.lines ?? []).some(
+        (l) =>
+          effectiveKitchenFireId(l) === targetFire &&
+          l.kitchenStatus === KitchenItemStatus.READY,
+      );
+      if (
+        hasKitchenReady &&
+        order.kind !== DiningOrderKind.TABLE
+      ) {
+        throw new BadRequestException(
+          'Marcá primero listo para retirar antes de entregar (mostrador / para llevar).',
+        );
+      }
       throw new BadRequestException(
         'No hay ítems listos para marcar como entregados en este pedido.',
       );
@@ -1426,6 +1441,14 @@ export class DiningService {
         ?.kitchenFireNumber ??
       null;
     const actorUserId = TenantContext.getUserId() ?? null;
+    let sentByUserId: string | null = null;
+    const fireId = params.fireId?.trim();
+    if (fireId) {
+      const station = await this.diningStationOrderRepository.findOne({
+        where: { id: fireId, companyId: params.companyId },
+      });
+      sentByUserId = station?.sentByUserId?.trim() || null;
+    }
 
     if (asOrder) {
       await this.diningReadyNotification.publishOrderReady({
@@ -1436,6 +1459,7 @@ export class DiningService {
         fireNumber,
         items,
         actorUserId,
+        sentByUserId,
       });
       return;
     }
@@ -1448,6 +1472,7 @@ export class DiningService {
       fireNumber,
       items,
       actorUserId,
+      sentByUserId,
     });
   }
 
@@ -1472,7 +1497,7 @@ export class DiningService {
     if (!line) {
       throw new NotFoundException('Línea de comanda no encontrada.');
     }
-    if (!canMarkServed(line.kitchenStatus)) {
+    if (!canMarkServed(line.kitchenStatus, order.kind)) {
       throw new BadRequestException(
         'El ítem no puede marcarse como servido en su estado actual.',
       );

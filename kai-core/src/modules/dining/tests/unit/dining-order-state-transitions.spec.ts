@@ -1,4 +1,5 @@
 import {
+  DiningOrderKind,
   DiningOrderStatus,
   KitchenItemStatus,
 } from '../../domain/dining.enums';
@@ -147,9 +148,18 @@ describe('Dining order state transitions', () => {
       );
     });
 
-    it('canMarkServed only from READY_FOR_PICKUP', () => {
+    it('canMarkServed from READY_FOR_PICKUP always; READY only for TABLE', () => {
       expect(canMarkServed(KitchenItemStatus.READY_FOR_PICKUP)).toBe(true);
       expect(canMarkServed(KitchenItemStatus.READY)).toBe(false);
+      expect(
+        canMarkServed(KitchenItemStatus.READY, DiningOrderKind.TABLE),
+      ).toBe(true);
+      expect(
+        canMarkServed(KitchenItemStatus.READY, DiningOrderKind.COUNTER),
+      ).toBe(false);
+      expect(
+        canMarkServed(KitchenItemStatus.READY, DiningOrderKind.TAKEAWAY),
+      ).toBe(false);
       expect(canMarkServed(KitchenItemStatus.SENT)).toBe(false);
     });
 

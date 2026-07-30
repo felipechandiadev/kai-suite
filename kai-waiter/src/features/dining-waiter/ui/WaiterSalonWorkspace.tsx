@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type {
   DiningOrderDto,
   DiningRoomDto,
@@ -27,18 +28,28 @@ type WaiterSalonWorkspaceProps = {
   session: WaiterSession;
 };
 
+function clearSalonDeepLinkQuery(pathname: string, router: ReturnType<typeof useRouter>) {
+  router.replace(pathname || "/salon");
+}
+
 export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [rooms, setRooms] = useState<DiningRoomDto[]>([]);
   const [room, setRoom] = useState<DiningRoomDto | null>(null);
   const [orders, setOrders] = useState<DiningOrderDto[]>([]);
   const [selectedTable, setSelectedTable] = useState<DiningTableDto | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<DiningOrderDto | null>(null);
+  const [highlightFireId, setHighlightFireId] = useState<string | null>(null);
+  const [openCuentaOnSelect, setOpenCuentaOnSelect] = useState(false);
   const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState(false);
   const [canOpenTable, setCanOpenTable] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const authRef = useRef({ userId: session.userId, companyId: session.companyId });
   authRef.current = { userId: session.userId, companyId: session.companyId };
+  const deepLinkHandledRef = useRef<string | null>(null);
 
   const branchId = room?.branchId ?? "";
 
@@ -70,8 +81,10 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
       ]);
       setOrders(list);
       setCanOpenTable(settings.allowWaiterOpenTable !== false);
+      return { detail, list };
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al cargar salón");
+      return null;
     } finally {
       setLoading(false);
     }
@@ -107,9 +120,15 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
     };
   }, [session.userId, session.companyId, loadRoom]);
 
-  const handleSelectOccupied = async (table: DiningTableDto, orderId: string) => {
+  const handleSelectOccupied = async (
+    table: DiningTableDto,
+    orderId: string,
+    opts?: { highlightFireId?: string | null; openCuenta?: boolean },
+  ) => {
     setSelectedTable(table);
     setError(null);
+    setHighlightFireId(opts?.highlightFireId ?? null);
+    setOpenCuentaOnSelect(Boolean(opts?.openCuenta || opts?.highlightFireId));
     try {
       const order = await getDiningOrderAction({
         ...authRef.current,
@@ -125,6 +144,8 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
   const handleBackToSalon = () => {
     setSelectedTable(null);
     setSelectedOrder(null);
+    setHighlightFireId(null);
+    setOpenCuentaOnSelect(false);
     setError(null);
     void refreshOrders();
   };
@@ -154,6 +175,125 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
     setSelectedOrder(order);
     await refreshOrders();
   };
+
+  // Deep-link: /salon?orderId=&fireId=&tableId=
+  useEffect(() => {
+    const orderId = searchParams.get("orderId")?.trim() || "";
+    const fireId = searchParams.get("fireId")?.trim() || "";
+    const tableId = searchParams.get("tableId")?.trim() || "";
+    if (!orderId && !tableId) return;
+
+    const key = `${orderId}|${fireId}|${tableId}`;
+    if (deepLinkHandledRef.current === key) return;
+    if (loading || rooms.length === 0) return;
+
+    deepLinkHandledRef.current = key;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const auth = authRef.current;
+        if (orderId) {
+          const order = await getDiningOrderAction({ ...auth, orderId });
+          if (cancelled) return;
+          if (order.status === "CLOSED") {
+            setError("La cuenta ya está cerrada.");
+            clearSalonDeepLinkQuery(pathname, router);
+            return;
+          }
+          let table: DiningTableDto | null = null;
+          const tid = order.diningTableId || tableId;
+          if (tid && room?.tables) {
+            table = room.tables.find((t) => t.id === tid) ?? null;
+          }
+          if (!table && tid) {
+            for (const r of rooms) {
+              const detail =
+                r.id === room?.id
+                  ? room
+                  : await getDiningRoomAction({ ...auth, roomId: r.id });
+              if (cancelled) return;
+              const found = detail.tables?.find((t) => t.id === tid) ?? null;
+              if (found) {
+                if (r.id !== room?.id) {
+                  await loadRoom(r.id);
+                }
+                table = found;
+                break;
+              }
+            }
+          }
+          if (!table) {
+            setError("No se encontró la mesa de esa notificación.");
+            clearSalonDeepLinkQuery(pathname, router);
+            return;
+          }
+          await handleSelectOccupied(table, order.id, {
+            highlightFireId: fireId || null,
+            openCuenta: true,
+          });
+          clearSalonDeepLinkQuery(pathname, router);
+          return;
+        }
+
+        if (tableId) {
+          let table: DiningTableDto | null =
+            room?.tables?.find((t) => t.id === tableId) ?? null;
+          if (!table) {
+            for (const r of rooms) {
+              const detail =
+                r.id === room?.id
+                  ? room
+                  : await getDiningRoomAction({ ...auth, roomId: r.id });
+              if (cancelled) return;
+              const found = detail.tables?.find((t) => t.id === tableId) ?? null;
+              if (found) {
+                if (r.id !== room?.id) await loadRoom(r.id);
+                table = found;
+                break;
+              }
+            }
+          }
+          if (!table) {
+            setError("No se encontró la mesa.");
+            clearSalonDeepLinkQuery(pathname, router);
+            return;
+          }
+          const list = await refreshOrders();
+          const active = (list ?? orders).find(
+            (o) =>
+              o.diningTableId === tableId &&
+              o.status !== "CLOSED" &&
+              o.kind === "TABLE",
+          );
+          if (!active) {
+            setError("La mesa ya no tiene cuenta abierta.");
+            clearSalonDeepLinkQuery(pathname, router);
+            return;
+          }
+          await handleSelectOccupied(table, active.id, {
+            highlightFireId: fireId || null,
+            openCuenta: true,
+          });
+          clearSalonDeepLinkQuery(pathname, router);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(
+            e instanceof Error
+              ? e.message
+              : "No se pudo abrir la cuenta de la notificación.",
+          );
+          clearSalonDeepLinkQuery(pathname, router);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deep-link once per query key
+  }, [searchParams, loading, rooms, room, pathname, router, loadRoom, refreshOrders]);
 
   useDiningRealtime({
     userId: session.userId,
@@ -196,6 +336,7 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
       <div className="flex min-h-0 flex-1 flex-col">
         {error ? <p className="mb-2 text-sm text-red-500">{error}</p> : null}
         <WaiterTableScreen
+          key={`${selectedOrder?.id ?? selectedTable.id}-${highlightFireId ?? ""}-${openCuentaOnSelect ? "cuenta" : "menu"}`}
           session={session}
           branchId={branchId}
           table={selectedTable}
@@ -205,6 +346,8 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
           onOrderUpdated={handleOrderUpdated}
           opening={opening}
           canOpenTable={canOpenTable}
+          initialPanel={openCuentaOnSelect ? "cuenta" : "menu"}
+          highlightFireId={highlightFireId}
         />
       </div>
     );

@@ -9,6 +9,7 @@ import type {
 import {
   cancelOrderItemAction,
   lookupWaiterVariantsAction,
+  markFireDeliveredAction,
   requestOrderBillAction,
   resolveWaiterBranchCatalogContextAction,
   sendOrderToKitchenAction,
@@ -26,6 +27,7 @@ import {
   waiterProductNeedsKitchen,
   type WaiterLineGroup,
 } from "../lib/group-waiter-order-lines";
+import { groupWaiterFiresForDelivery } from "../lib/group-waiter-fires";
 import { WaiterProductNameWithAttributes } from "./WaiterProductNameWithAttributes";
 import type { WaiterSession } from "@/lib/app-session";
 
@@ -48,6 +50,8 @@ type WaiterCuentaPanelProps = {
   branchId: string;
   order: DiningOrderDto;
   onOrderUpdated: (order: DiningOrderDto) => void;
+  /** Fire a resaltar (deep-link desde campana). */
+  highlightFireId?: string | null;
 };
 
 export function WaiterCuentaPanel({
@@ -55,6 +59,7 @@ export function WaiterCuentaPanel({
   branchId,
   order,
   onOrderUpdated,
+  highlightFireId = null,
 }: WaiterCuentaPanelProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +75,18 @@ export function WaiterCuentaPanel({
 
   const lines = order.lines ?? [];
   const groups = useMemo(() => groupWaiterOrderLines(lines), [lines]);
+  const kitchenFires = useMemo(
+    () => groupWaiterFiresForDelivery(lines),
+    [lines],
+  );
+
+  useEffect(() => {
+    if (!highlightFireId) return;
+    const el = document.querySelector(
+      `[data-test-id="waiter-badge-kitchen-ready-${highlightFireId}"]`,
+    );
+    el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [highlightFireId, kitchenFires.kitchenReady.length]);
   const draftLines = lines.filter((l) => {
     const meta = productByVariantId[l.productVariantId];
     return canSendWaiterLineToKitchen(l.kitchenStatus, meta?.productType);
@@ -212,6 +229,65 @@ export function WaiterCuentaPanel({
       </ul>
 
       <div className="flex flex-col gap-2 border-t border-border pt-3">
+        {(kitchenFires.preparing.length > 0 ||
+          kitchenFires.kitchenReady.length > 0) &&
+        !isBilling ? (
+          <div
+            className="flex flex-wrap items-center gap-1.5"
+            data-test-id="waiter-kitchen-fire-badges"
+          >
+            {kitchenFires.preparing.map((fire) => {
+              const label =
+                fire.kitchenFireNumber != null
+                  ? `En cocina #${fire.kitchenFireNumber}`
+                  : `En cocina (${fire.lineCount})`;
+              return (
+                <span
+                  key={`prep-${fire.fireId}`}
+                  className="rounded-full"
+                  data-test-id={`waiter-badge-in-kitchen-${fire.fireId}`}
+                >
+                  <Badge variant="primary-outlined" className="text-[10px]">
+                    {label}
+                  </Badge>
+                </span>
+              );
+            })}
+            {kitchenFires.kitchenReady.map((fire) => {
+              const label =
+                fire.kitchenFireNumber != null
+                  ? `Cocina lista #${fire.kitchenFireNumber}`
+                  : `Cocina lista (${fire.lineCount})`;
+              const highlighted = highlightFireId === fire.fireId;
+              return (
+                <button
+                  key={`ready-${fire.fireId}`}
+                  type="button"
+                  disabled={busy !== null}
+                  title="Marcar entregado en mesa"
+                  aria-label={`${label}. Marcar entregado`}
+                  onClick={() =>
+                    void run(`deliver-${fire.fireId}`, () =>
+                      markFireDeliveredAction({
+                        ...auth,
+                        orderId: order.id,
+                        fireId: fire.fireId,
+                      }),
+                    )
+                  }
+                  className={`rounded-full disabled:cursor-not-allowed disabled:opacity-50 ${
+                    highlighted ? "ring-2 ring-warning ring-offset-1" : ""
+                  }`}
+                  data-test-id={`waiter-badge-kitchen-ready-${fire.fireId}`}
+                >
+                  <Badge variant="warning-outlined" className="text-[10px]">
+                    {label}
+                  </Badge>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
         {draftCount > 0 ? (
           <Button
             type="button"

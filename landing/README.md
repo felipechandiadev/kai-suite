@@ -1,58 +1,65 @@
 # Kai — Landing (Astro)
 
-Landing comercial de **Kai / KaiStore**, inspirada en la estructura de [CIVIKA landing](https://github.com/felipechandiadev/civika) (hero con mockup, marquee, capas, ecosistema, pilares, módulos, SII opcional, bento).
+Landing comercial dual: **KaiStore** y **KaiFood** en el mismo paquete.
 
-Contenido comercial en [`../docs/sales/`](../docs/sales/).
+## Producto (`LANDING_PRODUCT`)
+
+| Valor | Sitio en `/` | Puerto típico |
+|-------|----------------|---------------|
+| `store` (default) | KaiStore | `KAI_LANDING_PORT=5066` |
+| `food` | KaiFood | `KAI_LANDING_PORT=5166` |
+
+Los tenants (`kai-store-demo` / `kai-food-demo`) inyectan `LANDING_PRODUCT` vía registry.
 
 ## Desarrollo
 
 Desde la raíz del monorepo:
 
 ```bash
-npm run landing:dev
+# Store
+LANDING_PRODUCT=store KAI_LANDING_PORT=5066 npm run landing:dev
+
+# Food
+LANDING_PRODUCT=food KAI_LANDING_PORT=5166 npm run landing:dev
 ```
 
 O desde esta carpeta:
 
 ```bash
 npm install
-npm run dev
+LANDING_PRODUCT=food KAI_LANDING_PORT=5166 npm run dev
 ```
 
-Abre http://localhost:5066
+## Estructura
 
-## Capturas de las apps
+```text
+src/
+  pages/index.astro     # router por LANDING_PRODUCT
+  shared/               # Layout, Reveal, tokens
+  store/                # contenido + UI KaiStore
+  food/                 # contenido + UI KaiFood (multipantalla)
+public/
+  store/screenshots/
+  food/screenshots/
+```
 
-Por defecto hay **placeholders SVG** en `public/screenshots/` (tema Kai).
+## Capturas
+
+Placeholders SVG en `public/{store,food}/screenshots/`.
 
 ```bash
 npm run screenshots:placeholders
 ```
 
-Para capturas reales: guardar como `public/screenshots/{app}.webp` y actualizar rutas en `src/content/site.ts` si cambias extensión.
-
 ## Build
 
 ```bash
-npm run build
-npm run preview
+LANDING_PRODUCT=food npm run build
 ```
 
-Output en `dist/`.
+El producto queda baked en el build (vite `define`). Para dos deploys, construí dos veces con distinto `LANDING_PRODUCT`.
 
-## Deploy
+## Colores
 
-Vercel con **Root Directory** `landing`, o estático desde `dist/`.
-
-## Colores de marca
-
-Paleta Kai (desde `assets/brand` y admin):
-
-| Token | Valor |
-|-------|-------|
-| Navy | `#002b59` |
-| Accent | `#0a7cad` |
-| Cyan | `#04c9e6` |
-| Light | `#18B3D6` / `#65F3FF` |
-
-Estilos en `src/styles/kai.css`.
+- **Store**: navy / cyan (`store/styles/store.css`)
+- **Food**: dark + ámbar cocina / verde listo (`food/styles/food.css`)

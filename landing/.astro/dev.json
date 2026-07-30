@@ -1,5 +1,5 @@
 {
-	"pid": 91252,
+	"pid": 57193,
 	"port": 5166,
 	"url": "http://localhost:5166",
 	"urls": {
@@ -7,9 +7,9 @@
 			"http://localhost:5166/"
 		],
 		"network": [
-			"http://192.168.0.168:5166/"
+			"http://192.168.0.27:5166/"
 		]
 	},
 	"background": false,
-	"startedAt": "2026-07-30T10:58:38.672Z"
+	"startedAt": "2026-07-30T18:43:10.734Z"
 }

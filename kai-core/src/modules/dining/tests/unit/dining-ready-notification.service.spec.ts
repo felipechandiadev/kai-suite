@@ -63,4 +63,49 @@ describe('DiningReadyNotificationService summaries', () => {
       '• 2× Lomo · sin cebolla\n• 1× Coca',
     );
   });
+
+  it('includes USER_IDS audience when sentByUserId is set', async () => {
+    const publish = jest.fn().mockResolvedValue(undefined);
+    const withPub = new DiningReadyNotificationService({
+      publish,
+    } as any);
+    await withPub.publishOrderReady({
+      companyId: 'c1',
+      order: {
+        id: 'o1',
+        displayLabel: 'Mesa 1',
+        diningTableId: 't1',
+        branchId: 'b1',
+      } as any,
+      productionUnitId: 'u1',
+      fireId: 'f1',
+      fireNumber: 3,
+      items: [
+        {
+          lineIds: ['a'],
+          productVariantId: 'v1',
+          name: 'Lomo',
+          quantity: 1,
+          notes: null,
+        },
+      ],
+      sentByUserId: 'waiter-user-1',
+    });
+    expect(publish).toHaveBeenCalledTimes(1);
+    const cmd = publish.mock.calls[0][0];
+    expect(cmd.audiences).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          audienceType: 'ROLES',
+          audienceConfig: expect.objectContaining({
+            roles: expect.arrayContaining(['ADMIN', 'POS_OPERATOR']),
+          }),
+        }),
+        expect.objectContaining({
+          audienceType: 'USER_IDS',
+          audienceConfig: { userIds: ['waiter-user-1'] },
+        }),
+      ]),
+    );
+  });
 });

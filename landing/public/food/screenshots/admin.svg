@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500" role="img">
+  <rect width="800" height="500" fill="#141a17"/>
+  <rect x="24" y="24" width="752" height="452" rx="16" fill="#0f1412" stroke="#9aa8a0" stroke-opacity="0.35"/>
+  <text x="48" y="80" fill="#9aa8a0" font-family="system-ui,sans-serif" font-size="22" font-weight="700">Kai Admin</text>
+  <text x="48" y="118" fill="#9aa8a0" font-family="system-ui,sans-serif" font-size="16">Gestión</text>
+  <rect x="48" y="160" width="220" height="14" rx="7" fill="#9aa8a0" fill-opacity="0.35"/>
+  <rect x="48" y="190" width="280" height="10" rx="5" fill="#2a322e"/>
+  <rect x="48" y="214" width="200" height="10" rx="5" fill="#2a322e"/>
+  <rect x="48" y="260" width="160" height="72" rx="12" fill="#9aa8a0" fill-opacity="0.15" stroke="#9aa8a0" stroke-opacity="0.4"/>
+  <rect x="228" y="260" width="160" height="72" rx="12" fill="#242b28"/>
+  <rect x="408" y="260" width="160" height="72" rx="12" fill="#242b28"/>
+  <text x="48" y="420" fill="#6b7870" font-family="system-ui,sans-serif" font-size="13">Placeholder UI · KaiFood</text>
+</svg>

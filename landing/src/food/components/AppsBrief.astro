@@ -1,0 +1,41 @@
+---
+import { APPS_BRIEF } from '../content/site';
+import Reveal from '../../shared/components/Reveal.astro';
+import DeviceFrame from './DeviceFrame.astro';
+---
+
+<section class="section food-apps" id="apps">
+  <div class="wrap">
+    <Reveal>
+      <div class="section-header center">
+        <span class="eyebrow">Apps</span>
+        <h2>El kit del local</h2>
+        <p class="lead">
+          Waiter, KDS, Board y POS en el dispositivo de cada rol. Admin para la oficina.
+        </p>
+      </div>
+    </Reveal>
+
+    <div class="apps-brief-grid grid-cards">
+      {
+        APPS_BRIEF.map((app) => (
+          <Reveal>
+            <article class="app-brief surface">
+              <DeviceFrame
+                shell={app.shell}
+                src={app.screenshot}
+                alt={app.name}
+                size="sm"
+              />
+              <div class="app-brief__body">
+                <span class="eyebrow">{app.tagline}</span>
+                <h3>{app.name}</h3>
+                <p>{app.description}</p>
+              </div>
+            </article>
+          </Reveal>
+        ))
+      }
+    </div>
+  </div>
+</section>

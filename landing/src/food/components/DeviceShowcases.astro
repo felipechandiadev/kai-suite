@@ -1,0 +1,51 @@
+---
+import { STAGE_DEVICES } from '../content/site';
+import Reveal from '../../shared/components/Reveal.astro';
+import DeviceFrame from './DeviceFrame.astro';
+---
+
+<section class="section food-devices" id="devices">
+  <div class="wrap">
+    <Reveal>
+      <div class="section-header center">
+        <span class="eyebrow">Multipantalla</span>
+        <h2>Cada rol en el dispositivo correcto</h2>
+        <p class="lead">
+          Board en TV, Waiter en móvil, KDS en tablet, POS en computador — no es el mismo POS
+          estirado a cuatro pantallas.
+        </p>
+      </div>
+    </Reveal>
+
+    <div class="device-showcase-list">
+      {
+        STAGE_DEVICES.map((d) => (
+          <Reveal>
+            <article class={`device-showcase device-showcase--${d.shell}`}>
+              <div class="device-showcase__copy">
+                <span class="eyebrow">{d.app}</span>
+                <h3>{d.caption}</h3>
+                <p>
+                  {d.id === 'board' &&
+                    'La sala ve qué está listo sin interrumpir a cocina.'}
+                  {d.id === 'waiter' &&
+                    'Mesas, comanda y entregado desde el bolsillo del mesero.'}
+                  {d.id === 'kds' &&
+                    'Fires claros por estación; marcar listo actualiza el local.'}
+                  {d.id === 'pos' &&
+                    'Caja, barra y takeaway con el mismo Core que sala y cocina.'}
+                </p>
+              </div>
+              <DeviceFrame
+                shell={d.shell}
+                src={d.screenshot}
+                alt={d.caption}
+                size={d.shell === 'phone' ? 'sm' : 'md'}
+              />
+            </article>
+          </Reveal>
+        ))
+      }
+    </div>
+  </div>
+</section>

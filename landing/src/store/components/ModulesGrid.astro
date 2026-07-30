@@ -1,0 +1,76 @@
+---
+import { MODULES, PWA_PLATFORMS } from '../content/site';
+import AppPreview from './AppPreview.astro';
+import PlatformIcon from './PlatformIcon.astro';
+import Reveal from '../../shared/components/Reveal.astro';
+
+function modulePlatforms(mod: (typeof MODULES)[number]) {
+  if (mod.platforms?.length) return mod.platforms;
+  if (mod.pwa) return PWA_PLATFORMS;
+  return [];
+}
+---
+
+<section class="section" id="modulos">
+  <div class="wrap">
+    <Reveal>
+      <div class="section-header">
+        <span class="eyebrow">Módulos</span>
+        <h2>Cada app con un rol claro en tu tienda</h2>
+        <p class="lead">
+          Aplicaciones especializadas sobre Kai Core: mostrador, gestión, inventario, canal digital,
+          logística y agentes locales.
+        </p>
+      </div>
+    </Reveal>
+
+    <div class="modules-grid grid-cards">
+      {MODULES.map((mod) => {
+        const platforms = modulePlatforms(mod);
+        const showPlatforms = mod.pwa || platforms.length > 0;
+        return (
+          <Reveal>
+            <article class="module-card" id={mod.id}>
+              <AppPreview
+                src={mod.screenshot}
+                alt={mod.name}
+                app={mod.id}
+                accent={mod.accent}
+              />
+              <div>
+                <div class="module-meta">
+                  <span class="module-tag">{mod.tagline}</span>
+                </div>
+                <h3 class="module-title">{mod.name}</h3>
+                <p>{mod.description}</p>
+                {showPlatforms && (
+                  <div class="module-platforms">
+                    <span class="module-platforms__label">
+                      {mod.pwa ? 'Instalable en' : 'Disponible en'}
+                    </span>
+                    <ul class="module-platforms__list">
+                      {platforms.map((platform) => (
+                        <li class="platform-badge" title={platform.label}>
+                          <PlatformIcon platform={platform.id} size={20} />
+                          <span>{platform.label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <p style="margin-top: 10px; font-size: 0.88rem;">
+                  <strong style="color: var(--text);">Usuarios:</strong> {mod.users}
+                </p>
+                <div class="module-highlights">
+                  {mod.highlights.map((item) => (
+                    <span class="chip">{item}</span>
+                  ))}
+                </div>
+              </div>
+            </article>
+          </Reveal>
+        );
+      })}
+    </div>
+  </div>
+</section>

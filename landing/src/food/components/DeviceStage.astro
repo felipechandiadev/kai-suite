@@ -1,0 +1,20 @@
+---
+import { STAGE_DEVICES } from '../content/site';
+import DeviceFrame from './DeviceFrame.astro';
+---
+
+<div class="device-stage" data-test-id="food-device-stage">
+  {
+    STAGE_DEVICES.map((d) => (
+      <div class={`device-stage__item device-stage__item--${d.id}`}>
+        <DeviceFrame
+          shell={d.shell}
+          src={d.screenshot}
+          alt={`${d.app}: ${d.caption}`}
+          caption={d.caption}
+          size={d.shell === 'tv' ? 'lg' : d.shell === 'phone' ? 'sm' : 'md'}
+        />
+      </div>
+    ))
+  }
+</div>

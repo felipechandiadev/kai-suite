@@ -1,0 +1,48 @@
+---
+import '../styles/tokens.css';
+
+type Props = {
+  title?: string;
+  description?: string;
+  /** Extra stylesheet URL or leave product pages to import their CSS */
+  themeClass?: string;
+};
+
+const {
+  title = 'Kai',
+  description = 'Ecosistema Kai para operaciones comerciales en Chile.',
+  themeClass = '',
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="es-CL" class={themeClass}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <slot name="head" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <slot />
+    <script>
+      const reveals = document.querySelectorAll('.reveal');
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-visible');
+            }
+          });
+        },
+        { threshold: 0.14, rootMargin: '0px 0px -8% 0px' },
+      );
+      reveals.forEach((node) => observer.observe(node));
+    </script>
+  </body>
+</html>

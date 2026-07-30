@@ -1,67 +1,12 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import Header from '../components/Header.astro';
-import Footer from '../components/Footer.astro';
-import Reveal from '../components/Reveal.astro';
-import LayersStack from '../components/LayersStack.astro';
-import EcosystemDiagram from '../components/EcosystemDiagram.astro';
-import StickyPillars from '../components/StickyPillars.astro';
-import ModulesGrid from '../components/ModulesGrid.astro';
-import IndicatorsSection from '../components/IndicatorsSection.astro';
-import LogoShowcase from '../components/LogoShowcase.astro';
-import SiiCompliance from '../components/SiiCompliance.astro';
-import MultiEmpresaSection from '../components/MultiEmpresaSection.astro';
-import BentoPlatform from '../components/BentoPlatform.astro';
-import HeroVisual from '../components/HeroVisual.astro';
-import { CTA, HERO, SITE } from '../content/site';
+/**
+ * Product router: LANDING_PRODUCT=store|food (default store).
+ * Baked at build/dev via astro.config vite.define.
+ */
+import StoreHome from '../store/pages/index.astro';
+import FoodHome from '../food/pages/index.astro';
+
+const product = import.meta.env.LANDING_PRODUCT === 'food' ? 'food' : 'store';
 ---
 
-<Layout title={`${SITE.name} — ${SITE.tagline}`} description={SITE.description}>
-  <div class="hero-glow" aria-hidden="true"></div>
-  <Header />
-
-  <main>
-    <section class="section hero" id="intro">
-      <div class="wrap hero-grid">
-        <Reveal>
-          <div class="hero-copy">
-            <p class="hero-brand">{HERO.brand}</p>
-            <h1>{HERO.title}</h1>
-            <p class="lead">{HERO.subtitle}</p>
-            <div class="hero-actions">
-              <a class="btn btn-primary" href={HERO.secondaryCta.href}>{HERO.secondaryCta.label}</a>
-            </div>
-          </div>
-        </Reveal>
-
-        <Reveal>
-          <HeroVisual />
-        </Reveal>
-      </div>
-    </section>
-
-    <LogoShowcase />
-    <LayersStack />
-    <MultiEmpresaSection />
-    <EcosystemDiagram />
-    <StickyPillars />
-    <ModulesGrid />
-    <IndicatorsSection />
-    <SiiCompliance />
-    <BentoPlatform />
-
-    <section class="cta-section" id="demo">
-      <div class="wrap">
-        <Reveal>
-          <h2>{CTA.title}</h2>
-          <p class="lead">{CTA.body}</p>
-          <div class="cta-actions">
-            <a class="btn btn-primary" href={CTA.secondary.href}>{CTA.secondary.label}</a>
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  </main>
-
-  <Footer />
-</Layout>
+{product === 'food' ? <FoodHome /> : <StoreHome />}

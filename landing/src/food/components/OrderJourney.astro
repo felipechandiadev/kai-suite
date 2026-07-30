@@ -1,0 +1,35 @@
+---
+import { ORDER_JOURNEY } from '../content/site';
+import Reveal from '../../shared/components/Reveal.astro';
+---
+
+<section class="section food-journey" id="journey">
+  <div class="wrap">
+    <Reveal>
+      <div class="section-header">
+        <span class="eyebrow">Flujo</span>
+        <h2>Un pedido, cuatro pantallas</h2>
+        <p class="lead">
+          El mismo ticket atraviesa Waiter, KDS, Board y POS sin perder el hilo.
+        </p>
+      </div>
+    </Reveal>
+
+    <ol class="journey-track">
+      {
+        ORDER_JOURNEY.map((step, i) => (
+          <Reveal>
+            <li class={`journey-step journey-step--${step.device}`}>
+              <span class="journey-step__index">{String(i + 1).padStart(2, '0')}</span>
+              <div class="journey-step__meta">
+                <span class="journey-step__app">{step.app}</span>
+                <h3>{step.title}</h3>
+                <p>{step.body}</p>
+              </div>
+            </li>
+          </Reveal>
+        ))
+      }
+    </ol>
+  </div>
+</section>

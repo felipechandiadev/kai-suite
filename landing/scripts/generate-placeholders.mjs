@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const outDir = join(__dirname, '../public/screenshots');
+const outDir = join(__dirname, '../public/store/screenshots');
 
 const APPS = [
   { id: 'admin', label: 'Admin', accent: '#0a7cad', panels: ['Catálogo', 'Compras', 'Tesorería'] },

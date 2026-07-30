@@ -184,3 +184,17 @@ export async function updateOrderLineNotesAction(body: {
     body.notes,
   );
 }
+
+export async function markFireDeliveredAction(body: {
+  userId: string;
+  companyId: string;
+  orderId: string;
+  fireId: string;
+}) {
+  return DiningRequest.markFireDelivered(
+    ctx(body),
+    body.orderId,
+    body.fireId,
+  );
+}
+

@@ -1,0 +1,592 @@
+/**
+ * KaiFood landing — atmósfera de servicio (noche de salón / calor de cocina).
+ * Ámbar cocina + verde listo; tipografía Fraunces + DM Sans.
+ */
+html.theme-food {
+  --bg: #0f1412;
+  --bg-elevated: #171c19;
+  --bg-card: #1c2320;
+  --bg-soft: #242b28;
+  --line: color-mix(in srgb, #3d4a44 80%, transparent);
+  --line-strong: #4a5a52;
+  --text: #f2f5f3;
+  --muted: #9aa8a0;
+  --accent: #e8a54b;
+  --accent-2: #3dba7a;
+  --kitchen: #e8a54b;
+  --ready: #3dba7a;
+  --navy: #0f1412;
+  --shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 20px 48px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 32px 80px rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
+}
+
+html.theme-food body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+html.theme-food h1,
+html.theme-food h2,
+html.theme-food h3 {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+  margin: 0;
+  color: var(--text);
+}
+
+html.theme-food h1 {
+  font-size: clamp(2.2rem, 5vw, 3.5rem);
+}
+
+html.theme-food h2 {
+  font-size: clamp(1.75rem, 3.5vw, 2.75rem);
+}
+
+html.theme-food h3 {
+  font-size: clamp(1.15rem, 2vw, 1.4rem);
+}
+
+html.theme-food p {
+  margin: 0;
+  color: var(--muted);
+}
+
+html.theme-food .eyebrow {
+  color: var(--kitchen);
+  letter-spacing: 0.12em;
+}
+
+html.theme-food .btn-primary {
+  background: var(--kitchen);
+  color: #1a1208;
+  border: none;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--kitchen) 35%, transparent);
+}
+
+html.theme-food .btn-primary:hover {
+  filter: brightness(1.05);
+}
+
+html.theme-food .btn-ghost {
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+  background: transparent;
+  border-radius: 999px;
+  min-height: 44px;
+  padding: 0 20px;
+  display: inline-flex;
+  align-items: center;
+  font-weight: 600;
+}
+
+html.theme-food .surface {
+  background: var(--bg-card);
+  border-color: var(--line);
+  box-shadow: var(--shadow-sm);
+}
+
+html.theme-food .section {
+  padding: 88px 0;
+  position: relative;
+}
+
+/* Atmosphere */
+.food-atmosphere {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% -10%, color-mix(in srgb, var(--kitchen) 22%, transparent), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 90% 20%, color-mix(in srgb, var(--ready) 12%, transparent), transparent 50%),
+    linear-gradient(180deg, #0f1412 0%, #121916 40%, #0f1412 100%);
+}
+
+html.theme-food main,
+html.theme-food .food-header,
+html.theme-food .food-footer {
+  position: relative;
+  z-index: 1;
+}
+
+/* Header */
+.food-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  border-bottom: 1px solid var(--line);
+}
+
+.food-header__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: var(--header-h);
+}
+
+.food-header__brand {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.food-header__mark {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1.25rem;
+}
+
+.food-header__product {
+  color: var(--kitchen);
+  font-size: 1.1rem;
+}
+
+.food-header__nav {
+  display: none;
+  gap: 1.1rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.food-header__nav a:hover {
+  color: var(--text);
+}
+
+@media (min-width: 860px) {
+  .food-header__nav {
+    display: flex;
+  }
+}
+
+/* Hero */
+.food-hero {
+  padding-top: 48px;
+}
+
+.food-hero__grid {
+  display: grid;
+  gap: 2.5rem;
+  align-items: center;
+}
+
+@media (min-width: 960px) {
+  .food-hero__grid {
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr);
+    gap: 2rem;
+  }
+}
+
+.hero-brand {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1rem;
+  color: var(--kitchen);
+  margin-bottom: 0.75rem !important;
+}
+
+.hero-actions,
+.cta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.food-hero__visual {
+  margin: 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+  background: var(--bg-elevated);
+}
+
+.food-hero__visual img {
+  width: 100%;
+  height: auto;
+  display: block;
+  aspect-ratio: 1024 / 683;
+  object-fit: cover;
+}
+
+/* Device stage composition */
+.device-stage {
+  display: grid;
+  grid-template-columns: 1.2fr 0.7fr;
+  grid-template-rows: auto auto;
+  gap: 0.75rem 1rem;
+  align-items: end;
+}
+
+.device-stage__item--board {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+}
+
+.device-stage__item--waiter {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
+}
+
+.device-stage__item--kds {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.device-stage__item--pos {
+  display: none;
+}
+
+@media (min-width: 720px) {
+  .device-stage {
+    grid-template-columns: 1.3fr 0.65fr 0.9fr;
+    grid-template-rows: auto auto;
+  }
+  .device-stage__item--pos {
+    display: block;
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+  .device-stage__item--waiter {
+    grid-column: 2;
+  }
+  .device-stage__item--kds {
+    grid-column: 2;
+  }
+}
+
+/* Device frames */
+.device-frame {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.device-frame__screen {
+  overflow: hidden;
+  background: #0a0d0c;
+  border: 1px solid var(--line-strong);
+}
+
+.device-frame__screen img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+}
+
+.device-frame__caption {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: center;
+  max-width: 16rem;
+}
+
+.device-frame--tv .device-frame__chrome {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.35rem;
+}
+
+.device-frame--tv .device-frame__bezel-label {
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+}
+
+.device-frame--tv .device-frame__screen {
+  width: 100%;
+  border-radius: 6px;
+  box-shadow:
+    0 0 0 8px #1a1f1d,
+    0 0 0 10px #2a322e,
+    var(--shadow-md);
+  aspect-ratio: 16 / 9;
+}
+
+.device-frame--tv .device-frame__screen img {
+  height: 100%;
+  object-fit: cover;
+}
+
+.device-frame--phone .device-frame__screen {
+  width: 118px;
+  border-radius: 18px;
+  box-shadow:
+    0 0 0 6px #151a18,
+    0 0 0 7px #2e3833,
+    var(--shadow-sm);
+  aspect-ratio: 9 / 19;
+}
+
+.device-frame--phone.device-frame--sm .device-frame__screen {
+  width: 100px;
+}
+
+.device-frame--phone .device-frame__notch {
+  position: absolute;
+  width: 36px;
+  height: 6px;
+  border-radius: 4px;
+  background: #0a0d0c;
+  margin-top: 10px;
+  z-index: 2;
+}
+
+.device-frame--phone {
+  position: relative;
+}
+
+.device-frame--tablet .device-frame__screen {
+  width: 100%;
+  max-width: 280px;
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 8px #151a18,
+    0 0 0 9px #2e3833,
+    var(--shadow-sm);
+  aspect-ratio: 4 / 3;
+}
+
+.device-frame--desktop .device-frame__screen {
+  width: 100%;
+  max-width: 320px;
+  border-radius: 8px 8px 2px 2px;
+  box-shadow:
+    0 0 0 6px #151a18,
+    var(--shadow-sm);
+  aspect-ratio: 16 / 10;
+}
+
+.device-frame--desktop .device-frame__cam {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2a322e;
+  margin-bottom: 4px;
+}
+
+.device-frame--desktop .device-frame__stand {
+  width: 48px;
+  height: 10px;
+  background: #2a322e;
+  border-radius: 0 0 4px 4px;
+  margin-top: 2px;
+}
+
+.device-frame--desktop .device-frame__stand::after {
+  content: '';
+  display: block;
+  width: 72px;
+  height: 4px;
+  margin: 6px auto 0;
+  background: #3a4540;
+  border-radius: 2px;
+  transform: translateX(-12px);
+}
+
+/* Journey */
+.journey-track {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 800px) {
+  .journey-track {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+}
+
+.journey-step {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+  min-height: 100%;
+}
+
+.journey-step__index {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1.5rem;
+  color: var(--kitchen);
+}
+
+.journey-step__app {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ready);
+  margin-bottom: 0.35rem;
+}
+
+.journey-step h3 {
+  margin-bottom: 0.5rem;
+}
+
+/* Device showcases */
+.device-showcase-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+}
+
+.device-showcase {
+  display: grid;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+@media (min-width: 800px) {
+  .device-showcase {
+    grid-template-columns: 1fr 1fr;
+  }
+  .device-showcase:nth-child(even) .device-showcase__copy {
+    order: 2;
+  }
+}
+
+.device-showcase__copy h3 {
+  margin: 0.5rem 0 0.75rem;
+}
+
+/* Roles */
+.roles-grid,
+.diff-grid,
+.apps-brief-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 700px) {
+  .roles-grid,
+  .diff-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .apps-brief-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1000px) {
+  .apps-brief-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.grid-cards > .reveal {
+  display: flex;
+  min-height: 100%;
+}
+
+.grid-cards > .reveal > * {
+  flex: 1;
+  width: 100%;
+}
+
+.role-card,
+.diff-card,
+.app-brief {
+  padding: 1.25rem;
+}
+
+.role-card__pain,
+.role-card__relief {
+  margin-top: 1rem !important;
+  font-size: 0.92rem;
+}
+
+.role-card__pain span,
+.role-card__relief span {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 0.35rem;
+  color: var(--muted);
+}
+
+.role-card__relief span {
+  color: var(--ready);
+}
+
+.diff-card__versus {
+  font-size: 0.75rem;
+  color: var(--kitchen) !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.app-brief {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+  text-align: center;
+}
+
+.app-brief__body {
+  width: 100%;
+}
+
+/* CTA */
+.food-cta__panel {
+  padding: clamp(1.75rem, 4vw, 3rem);
+  text-align: center;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--kitchen) 12%, var(--bg-card)),
+      var(--bg-card) 45%
+    );
+}
+
+.food-cta__panel h2 {
+  margin-bottom: 0.75rem;
+}
+
+.food-cta .cta-actions {
+  justify-content: center;
+}
+
+/* Footer */
+.food-footer {
+  border-top: 1px solid var(--line);
+  padding: 2rem 0 3rem;
+}
+
+.food-footer__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.food-footer strong {
+  color: var(--text);
+  margin-right: 0.5rem;
+}
+
+.food-footer__note {
+  font-size: 0.85rem;
+}

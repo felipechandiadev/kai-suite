@@ -1,0 +1,19 @@
+---
+import { NAV } from '../content/site';
+---
+
+<header class="food-header" data-test-id="food-header">
+  <div class="wrap food-header__inner">
+    <a class="food-header__brand" href="#intro">
+      <span class="food-header__mark">Kai</span>
+      <span class="food-header__product">Food</span>
+    </a>
+    <nav class="food-header__nav" aria-label="Secciones">
+      {
+        NAV.map((link) => (
+          <a href={link.href}>{link.label}</a>
+        ))
+      }
+    </nav>
+  </div>
+</header>

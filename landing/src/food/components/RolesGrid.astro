@@ -1,0 +1,36 @@
+---
+import { ROLES } from '../content/site';
+import Reveal from '../../shared/components/Reveal.astro';
+---
+
+<section class="section food-roles" id="roles">
+  <div class="wrap">
+    <Reveal>
+      <div class="section-header center">
+        <span class="eyebrow">Roles</span>
+        <h2>Hecho para quien está en el turno</h2>
+        <p class="lead">Menos fricción por persona — no otro tablero genérico.</p>
+      </div>
+    </Reveal>
+
+    <div class="roles-grid grid-cards">
+      {
+        ROLES.map((r) => (
+          <Reveal>
+            <article class="role-card surface">
+              <h3>{r.role}</h3>
+              <p class="role-card__pain">
+                <span>Dolor</span>
+                {r.pain}
+              </p>
+              <p class="role-card__relief">
+                <span>Con KaiFood</span>
+                {r.relief}
+              </p>
+            </article>
+          </Reveal>
+        ))
+      }
+    </div>
+  </div>
+</section>

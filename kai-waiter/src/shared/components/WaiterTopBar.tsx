@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { IconButton } from "@kai/ui";
+import { WaiterNotificationsBell } from "@/features/notifications/ui/WaiterNotificationsBell";
 import { clearWaiterSession, type WaiterSession } from "@/lib/app-session";
 
 type WaiterTopBarProps = {
@@ -39,6 +40,7 @@ export function WaiterTopBar({ session }: WaiterTopBarProps) {
         >
           @{session.userName}
         </span>
+        <WaiterNotificationsBell session={session} />
         <IconButton
           icon="Printer"
           variant="action"

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { WaiterSalonWorkspace } from "@/features/dining-waiter/ui/WaiterSalonWorkspace";
 import { loadWaiterSession, type WaiterSession } from "@/lib/app-session";
 
-export default function SalonPage() {
+function SalonPageInner() {
   const [session, setSession] = useState<WaiterSession | null>(null);
 
   useEffect(() => {
@@ -16,4 +16,18 @@ export default function SalonPage() {
   }
 
   return <WaiterSalonWorkspace session={session} />;
+}
+
+export default function SalonPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+          Cargando salón…
+        </div>
+      }
+    >
+      <SalonPageInner />
+    </Suspense>
+  );
 }

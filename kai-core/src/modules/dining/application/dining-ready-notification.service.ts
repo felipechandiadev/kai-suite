@@ -93,6 +93,7 @@ export class DiningReadyNotificationService {
     fireNumber?: number | null;
     items: KitchenReadyItemSummary[];
     actorUserId?: string | null;
+    sentByUserId?: string | null;
   }): Promise<void> {
     const label = params.order.displayLabel?.trim() || 'Cuenta';
     const items = params.items;
@@ -113,6 +114,7 @@ export class DiningReadyNotificationService {
       items,
       lineCount,
       actorUserId: params.actorUserId ?? null,
+      sentByUserId: params.sentByUserId ?? null,
     });
   }
 
@@ -124,6 +126,7 @@ export class DiningReadyNotificationService {
     fireNumber?: number | null;
     items: KitchenReadyItemSummary[];
     actorUserId?: string | null;
+    sentByUserId?: string | null;
   }): Promise<void> {
     const label = params.order.displayLabel?.trim() || 'Cuenta';
     const fireN =
@@ -153,6 +156,7 @@ export class DiningReadyNotificationService {
       items,
       lineCount,
       actorUserId: params.actorUserId ?? null,
+      sentByUserId: params.sentByUserId ?? null,
     });
   }
 
@@ -169,6 +173,7 @@ export class DiningReadyNotificationService {
     items: KitchenReadyItemSummary[];
     lineCount: number;
     actorUserId: string | null;
+    sentByUserId: string | null;
   }): Promise<void> {
     const order = params.order;
     const cmd = new PublishNotificationCommand();
@@ -202,6 +207,13 @@ export class DiningReadyNotificationService {
         },
       },
     ];
+    const sender = params.sentByUserId?.trim();
+    if (sender) {
+      cmd.audiences.push({
+        audienceType: NotificationAudienceType.USER_IDS,
+        audienceConfig: { userIds: [sender] },
+      });
+    }
 
     try {
       await this.notificationPublisher.publish(cmd);

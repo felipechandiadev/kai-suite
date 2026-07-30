@@ -1,4 +1,4 @@
-import { DiningOrderStatus, KitchenItemStatus } from '../domain/dining.enums';
+import { DiningOrderStatus, DiningOrderKind, KitchenItemStatus } from '../domain/dining.enums';
 
 const ACTIVE_KITCHEN_STATUSES = new Set<KitchenItemStatus>([
   KitchenItemStatus.SENT,
@@ -250,6 +250,20 @@ export function canMarkReadyForPickup(
   return kitchenStatus === KitchenItemStatus.READY;
 }
 
-export function canMarkServed(kitchenStatus: KitchenItemStatus): boolean {
-  return kitchenStatus === KitchenItemStatus.READY_FOR_PICKUP;
+/**
+ * POS: READY_FOR_PICKUP → SERVED.
+ * Mesa (mesero): READY → SERVED (equivale al listo-para-retirar del mostrador).
+ */
+export function canMarkServed(
+  kitchenStatus: KitchenItemStatus,
+  orderKind?: DiningOrderKind,
+): boolean {
+  if (kitchenStatus === KitchenItemStatus.READY_FOR_PICKUP) return true;
+  if (
+    kitchenStatus === KitchenItemStatus.READY &&
+    orderKind === DiningOrderKind.TABLE
+  ) {
+    return true;
+  }
+  return false;
 }

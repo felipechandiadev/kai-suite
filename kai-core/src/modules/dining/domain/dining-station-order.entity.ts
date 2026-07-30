@@ -54,6 +54,10 @@ export class DiningStationOrder {
   @Column({ name: 'sent_at', type: 'timestamptz' })
   sentAt!: Date;
 
+  /** Usuario que disparó sendToKitchen (mesero / cajero). */
+  @Column({ name: 'sent_by_user_id', type: 'uuid', nullable: true })
+  sentByUserId?: string | null;
+
   @Column({ name: 'completed_at', type: 'timestamptz', nullable: true })
   completedAt?: Date | null;
 

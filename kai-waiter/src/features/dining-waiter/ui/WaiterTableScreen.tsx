@@ -31,6 +31,9 @@ type WaiterTableScreenProps = {
   onOrderUpdated: (order: DiningOrderDto) => void;
   opening?: boolean;
   canOpenTable?: boolean;
+  /** Abrir directo en Cuenta (deep-link campana). */
+  initialPanel?: TablePanel;
+  highlightFireId?: string | null;
 };
 
 export function WaiterTableScreen({
@@ -43,8 +46,10 @@ export function WaiterTableScreen({
   onOrderUpdated,
   opening = false,
   canOpenTable = true,
+  initialPanel = "menu",
+  highlightFireId = null,
 }: WaiterTableScreenProps) {
-  const [panel, setPanel] = useState<TablePanel>("menu");
+  const [panel, setPanel] = useState<TablePanel>(initialPanel);
   const lineCount = order?.lines?.length ?? 0;
   const draftCount =
     order?.lines?.filter((l) => l.kitchenStatus === "DRAFT").length ?? 0;
@@ -216,6 +221,7 @@ export function WaiterTableScreen({
           branchId={branchId}
           order={order}
           onOrderUpdated={onOrderUpdated}
+          highlightFireId={highlightFireId}
         />
       )}
     </div>

@@ -1,0 +1,33 @@
+---
+import { DIFFERENTIATORS } from '../content/site';
+import Reveal from '../../shared/components/Reveal.astro';
+---
+
+<section class="section food-diff" id="diferencias">
+  <div class="wrap">
+    <Reveal>
+      <div class="section-header">
+        <span class="eyebrow">Por qué KaiFood</span>
+        <h2>No es “otro POS” con más pantallas</h2>
+        <p class="lead">
+          La diferencia está en el flujo del restaurant: comanda, cocina, sala y caja al mismo
+          tiempo.
+        </p>
+      </div>
+    </Reveal>
+
+    <div class="diff-grid grid-cards">
+      {
+        DIFFERENTIATORS.map((d) => (
+          <Reveal>
+            <article class="diff-card surface">
+              <p class="diff-card__versus">vs {d.versus}</p>
+              <h3>{d.title}</h3>
+              <p>{d.body}</p>
+            </article>
+          </Reveal>
+        ))
+      }
+    </div>
+  </div>
+</section>

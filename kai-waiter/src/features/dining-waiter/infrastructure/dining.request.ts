@@ -425,6 +425,17 @@ export class DiningRequest {
     );
   }
 
+  static markFireDelivered(
+    ctx: DiningAuthContext,
+    orderId: string,
+    fireId: string,
+  ) {
+    return diningPost<DiningOrderDto>(
+      `/dining/orders/${orderId}/fires/${fireId}/delivered`,
+      ctx,
+    );
+  }
+
   static listProductionUnits(ctx: DiningAuthContext, branchId?: string) {
     return diningGet<ProductionUnitDto[]>("/production-units", ctx, {
       branchId,

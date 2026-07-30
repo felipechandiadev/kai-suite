@@ -1,0 +1,27 @@
+---
+type Shell = 'tv' | 'phone' | 'tablet' | 'desktop';
+
+type Props = {
+  shell: Shell;
+  src: string;
+  alt: string;
+  caption?: string;
+  /** Visual weight in compositions */
+  size?: 'sm' | 'md' | 'lg';
+};
+
+const { shell, src, alt, caption, size = 'md' } = Astro.props;
+---
+
+<figure class={`device-frame device-frame--${shell} device-frame--${size}`}>
+  <div class="device-frame__chrome" aria-hidden="true">
+    {shell === 'tv' && <span class="device-frame__bezel-label">TV</span>}
+    {shell === 'phone' && <span class="device-frame__notch" />}
+    {shell === 'desktop' && <span class="device-frame__cam" />}
+  </div>
+  <div class="device-frame__screen">
+    <img src={src} alt={alt} loading="lazy" decoding="async" width="800" height="500" />
+  </div>
+  {shell === 'desktop' && <div class="device-frame__stand" aria-hidden="true" />}
+  {caption && <figcaption class="device-frame__caption">{caption}</figcaption>}
+</figure>

@@ -147,4 +147,30 @@ describe('buildDiningBoardSnapshot', () => {
     expect(snapshot.preparing).toHaveLength(1);
     expect(snapshot.ready).toHaveLength(0);
   });
+
+  it('TABLE kitchen READY stays off board (waiter delivers without READY_FOR_PICKUP)', () => {
+    const snapshot = buildDiningBoardSnapshot({
+      companyId,
+      branchId,
+      orders: [
+        {
+          id: 'ord-table-ready',
+          kind: DiningOrderKind.TABLE,
+          status: 'READY',
+          displayLabel: 'Mesa 7',
+          lines: [
+            {
+              id: 'ltr',
+              kitchenFireId: 'fire-table-ready',
+              kitchenFireNumber: 42,
+              kitchenStatus: KitchenItemStatus.READY,
+              readyAt: '2026-07-30T12:00:00.000Z',
+            },
+          ],
+        },
+      ],
+    });
+    expect(snapshot.preparing).toHaveLength(0);
+    expect(snapshot.ready).toHaveLength(0);
+  });
 });

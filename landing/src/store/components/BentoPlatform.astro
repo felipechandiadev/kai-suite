@@ -1,0 +1,32 @@
+---
+import { BENTO } from '../content/site';
+import Reveal from '../../shared/components/Reveal.astro';
+---
+
+<section class="section" id="plataforma">
+  <div class="wrap">
+    <Reveal>
+      <div class="section-header center">
+        <span class="eyebrow">Plataforma</span>
+        <h2>Infraestructura seria para retail</h2>
+        <p class="lead">
+          Offline, multi-empresa, multi-sucursal, reparto multi-canal, impresión local e instalables —
+          la capa que sostiene cada módulo del ecosistema.
+        </p>
+      </div>
+    </Reveal>
+
+    <div class="bento-grid grid-cards">
+      {BENTO.map((cell) => (
+        <Reveal>
+          <article class="bento-cell surface">
+            {cell.badge && <span class="bento-badge">{cell.badge}</span>}
+            <h3>{cell.title}</h3>
+            {cell.metric && <div class="bento-metric">{cell.metric}</div>}
+            <p>{cell.description}</p>
+          </article>
+        </Reveal>
+      ))}
+    </div>
+  </div>
+</section>
