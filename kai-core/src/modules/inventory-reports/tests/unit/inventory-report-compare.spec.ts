@@ -124,7 +124,7 @@ describe('InventoryPeriodCompareHandler', () => {
             lineEvents: 1,
             lineasSinCosto: 0,
           },
-        };
+        });
       },
     };
   }
