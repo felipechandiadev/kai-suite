@@ -26,6 +26,10 @@ import {
   SalesByPosHandler,
   TopProductsHandler,
 } from './application/handlers/p1.handlers';
+import {
+  PosCompareHandler,
+  SalesPeriodCompareHandler,
+} from './application/handlers/compare.handlers';
 
 @Module({
   imports: [
@@ -55,6 +59,8 @@ import {
     QuotationsFunnelHandler,
     BackordersStatusHandler,
     SalesByCategoryHandler,
+    SalesPeriodCompareHandler,
+    PosCompareHandler,
   ],
   exports: [SalesReportRunner, SalesReportsQueryService],
 })

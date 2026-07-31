@@ -13,7 +13,11 @@ import {
 } from '@modules/stock-realtime/variant-stock-alert.util';
 import { resolveStockThresholds } from '@modules/stock-realtime/stock-threshold-resolution.util';
 import { variantThresholdDefaultsFromRow } from '@modules/stock-realtime/stock-threshold-field.util';
-import { INVENTORY_REPORT_MAX_ROWS } from '../domain/inventory-report.types';
+import {
+  INVENTORY_REPORT_MAX_ROWS,
+  ReportGranularity,
+  inventoryBucketKey,
+} from '../domain/inventory-report.types';
 import {
   ADJUSTMENT_TYPES,
   STOCK_TREND_TYPES,
@@ -571,10 +575,18 @@ export class InventoryReportsQueryService {
     return qb;
   }
 
+  /** Expresiones SQL de bucket (día / semana ISO / mes) para agregados. */
+  private bucketSql(granularity: ReportGranularity): { trunc: string; fmt: string } {
+    if (granularity === 'month') return { trunc: 'month', fmt: 'YYYY-MM' };
+    if (granularity === 'week') return { trunc: 'week', fmt: 'IYYY-"W"IW' };
+    return { trunc: 'day', fmt: 'YYYY-MM-DD' };
+  }
+
   async stockMovementTrendRows(
     companyId: string,
     range: DateRange,
     opts?: StockFilterOpts,
+    granularity: ReportGranularity = 'day',
   ): Promise<{
     rows: Array<{
       day: string;
@@ -638,7 +650,7 @@ export class InventoryReportsQueryService {
         : '—';
       unitLabels.set(stockUnitId, stockUnit);
 
-      const day = new Date(t.createdAt).toISOString().slice(0, 10);
+      const day = inventoryBucketKey(new Date(t.createdAt), granularity);
       const key = `${day}::${stockUnitId}`;
       const qtyAbs = Math.abs(Number(tl.quantity) || 0);
       let bucket = dayUnit.get(key);
@@ -712,6 +724,7 @@ export class InventoryReportsQueryService {
     companyId: string,
     range: DateRange,
     opts?: StockFilterOpts,
+    granularity: ReportGranularity = 'day',
   ): Promise<{
     rows: Array<{
       createdAt: string;
@@ -769,17 +782,21 @@ export class InventoryReportsQueryService {
       .addSelect('COALESCE(SUM(tl.quantity), 0)', 'qty')
       .getRawOne<{ count: string; qty: string }>();
 
+    const bucket = this.bucketSql(granularity);
     const byDayAgg = await this.movementLinesQb(
       companyId,
       range,
       [...TRANSFER_EVENT_TYPES],
       opts,
     )
-      .select(`to_char(date_trunc('day', t.createdAt), 'YYYY-MM-DD')`, 'day')
+      .select(
+        `to_char(date_trunc('${bucket.trunc}', t.createdAt), '${bucket.fmt}')`,
+        'day',
+      )
       .addSelect('COUNT(*)', 'count')
       .addSelect('COALESCE(SUM(tl.quantity), 0)', 'qty')
-      .groupBy(`date_trunc('day', t.createdAt)`)
-      .orderBy(`date_trunc('day', t.createdAt)`, 'ASC')
+      .groupBy(`date_trunc('${bucket.trunc}', t.createdAt)`)
+      .orderBy(`date_trunc('${bucket.trunc}', t.createdAt)`, 'ASC')
       .getRawMany<{ day: string; count: string; qty: string }>();
 
     return {
@@ -799,6 +816,7 @@ export class InventoryReportsQueryService {
     companyId: string,
     range: DateRange,
     opts?: StockFilterOpts,
+    granularity: ReportGranularity = 'day',
   ): Promise<{
     rows: Array<{
       createdAt: string;
@@ -865,18 +883,22 @@ export class InventoryReportsQueryService {
       if (a.transactionType === TransactionType.ADJUSTMENT_OUT) qtyOut += q;
     }
 
+    const dayBucket = this.bucketSql(granularity);
     const byDayRaw = await this.movementLinesQb(
       companyId,
       range,
       [...ADJUSTMENT_TYPES],
       opts,
     )
-      .select(`to_char(date_trunc('day', t.createdAt), 'YYYY-MM-DD')`, 'day')
+      .select(
+        `to_char(date_trunc('${dayBucket.trunc}', t.createdAt), '${dayBucket.fmt}')`,
+        'day',
+      )
       .addSelect('t.transactionType', 'transactionType')
       .addSelect('COALESCE(SUM(tl.quantity), 0)', 'qty')
-      .groupBy(`date_trunc('day', t.createdAt)`)
+      .groupBy(`date_trunc('${dayBucket.trunc}', t.createdAt)`)
       .addGroupBy('t.transactionType')
-      .orderBy(`date_trunc('day', t.createdAt)`, 'ASC')
+      .orderBy(`date_trunc('${dayBucket.trunc}', t.createdAt)`, 'ASC')
       .getRawMany<{ day: string; transactionType: string; qty: string }>();
 
     const dayMap = new Map<string, { qtyIn: number; qtyOut: number }>();
@@ -904,6 +926,119 @@ export class InventoryReportsQueryService {
       qtyNet: qtyIn - qtyOut,
       count,
       truncated,
+    };
+  }
+
+  /**
+   * Movimientos de stock agregados por bucket (día / semana ISO / mes).
+   * Valor = |cantidad| × unitCost de la línea (sin fallback a PMP);
+   * las líneas sin costo se informan aparte para no inflar el monto.
+   */
+  async movementByBucket(
+    companyId: string,
+    range: DateRange,
+    opts: StockFilterOpts | undefined,
+    granularity: ReportGranularity = 'day',
+  ): Promise<{
+    buckets: Array<{
+      bucket: string;
+      qtyIn: number;
+      qtyOut: number;
+      qtyNet: number;
+      valorMovido: number;
+      lineEvents: number;
+    }>;
+    totals: {
+      qtyIn: number;
+      qtyOut: number;
+      qtyNet: number;
+      valorMovido: number;
+      lineEvents: number;
+      lineasSinCosto: number;
+    };
+  }> {
+    const bucket = this.bucketSql(granularity);
+    const raw = await this.movementLinesQb(
+      companyId,
+      range,
+      [...STOCK_TREND_TYPES],
+      opts,
+    )
+      .select(
+        `to_char(date_trunc('${bucket.trunc}', t.createdAt), '${bucket.fmt}')`,
+        'bucket',
+      )
+      .addSelect('t.transactionType', 'transactionType')
+      .addSelect('COALESCE(SUM(ABS(tl.quantity)), 0)', 'qty')
+      .addSelect(
+        'COALESCE(SUM(ABS(tl.quantity) * COALESCE(tl.unitCost, 0)), 0)',
+        'valor',
+      )
+      .addSelect('COUNT(*)', 'lines')
+      .addSelect(
+        'SUM(CASE WHEN tl.unitCost IS NULL OR tl.unitCost <= 0 THEN 1 ELSE 0 END)',
+        'linesNoCost',
+      )
+      .groupBy(`date_trunc('${bucket.trunc}', t.createdAt)`)
+      .addGroupBy('t.transactionType')
+      .orderBy(`date_trunc('${bucket.trunc}', t.createdAt)`, 'ASC')
+      .getRawMany<{
+        bucket: string;
+        transactionType: string;
+        qty: string;
+        valor: string;
+        lines: string;
+        linesNoCost: string;
+      }>();
+
+    const byBucket = new Map<
+      string,
+      { qtyIn: number; qtyOut: number; valorMovido: number; lineEvents: number }
+    >();
+    let lineasSinCosto = 0;
+
+    for (const r of raw) {
+      const sign = inventorySignedDelta(String(r.transactionType));
+      if (sign === 0) continue;
+      const qtyAbs = Number(r.qty) || 0;
+      lineasSinCosto += Number(r.linesNoCost) || 0;
+      const b = byBucket.get(r.bucket) ?? {
+        qtyIn: 0,
+        qtyOut: 0,
+        valorMovido: 0,
+        lineEvents: 0,
+      };
+      if (sign > 0) b.qtyIn += qtyAbs;
+      else b.qtyOut += qtyAbs;
+      b.valorMovido += Number(r.valor) || 0;
+      b.lineEvents += Number(r.lines) || 0;
+      byBucket.set(r.bucket, b);
+    }
+
+    const buckets = [...byBucket.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, b]) => ({
+        bucket: key,
+        qtyIn: Math.round(b.qtyIn * 1000) / 1000,
+        qtyOut: Math.round(b.qtyOut * 1000) / 1000,
+        qtyNet: Math.round((b.qtyIn - b.qtyOut) * 1000) / 1000,
+        valorMovido: Math.round(b.valorMovido * 100) / 100,
+        lineEvents: b.lineEvents,
+      }));
+
+    const sum = (pick: (b: (typeof buckets)[number]) => number) =>
+      buckets.reduce((s, b) => s + pick(b), 0);
+
+    return {
+      buckets,
+      totals: {
+        qtyIn: Math.round(sum((b) => b.qtyIn) * 1000) / 1000,
+        qtyOut: Math.round(sum((b) => b.qtyOut) * 1000) / 1000,
+        qtyNet: Math.round(sum((b) => b.qtyNet) * 1000) / 1000,
+        valorMovido: Math.round(sum((b) => b.valorMovido) * 100) / 100,
+        lineEvents: sum((b) => b.lineEvents),
+        lineasSinCosto,
+      },
     };
   }
 }

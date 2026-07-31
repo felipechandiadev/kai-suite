@@ -17,6 +17,7 @@ import {
   StockMovementTrendHandler,
   StockValuationHandler,
 } from './application/handlers/mvp.handlers';
+import { InventoryPeriodCompareHandler } from './application/handlers/compare.handlers';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import {
     StockMovementTrendHandler,
     InventoryTransfersHandler,
     InventoryAdjustmentsHandler,
+    InventoryPeriodCompareHandler,
   ],
   exports: [InventoryReportRunner],
 })

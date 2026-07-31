@@ -18,6 +18,15 @@ export const EXCLUDED_TX_STATUSES = [
 
 export type DateRange = { from: Date; to: Date; dateFrom: string; dateTo: string };
 
+export type PurchaseBucketRow = {
+  day: string;
+  total: number;
+  subtotal: number;
+  taxAmount: number;
+  count: number;
+  avgTicket: number;
+};
+
 export type PurchaseFilterOpts = {
   supplierId?: string;
   supplierIds?: string[];
@@ -124,24 +133,36 @@ export class PurchasingReportsQueryService {
     companyId: string,
     range: DateRange,
     opts?: PurchaseFilterOpts,
-  ): Promise<
-    Array<{
-      day: string;
-      total: number;
-      subtotal: number;
-      taxAmount: number;
-      count: number;
-      avgTicket: number;
-    }>
-  > {
+  ): Promise<PurchaseBucketRow[]> {
+    return this.purchasesByBucket(companyId, range, opts, 'day');
+  }
+
+  /**
+   * Agrega compras por día / semana ISO / mes.
+   * `day` usa YYYY-MM-DD, IYYY-Www o YYYY-MM según la granularidad.
+   */
+  async purchasesByBucket(
+    companyId: string,
+    range: DateRange,
+    opts: PurchaseFilterOpts | undefined,
+    granularity: 'day' | 'week' | 'month',
+  ): Promise<PurchaseBucketRow[]> {
+    const trunc =
+      granularity === 'month' ? 'month' : granularity === 'week' ? 'week' : 'day';
+    const fmt =
+      granularity === 'month'
+        ? 'YYYY-MM'
+        : granularity === 'week'
+          ? 'IYYY-"W"IW'
+          : 'YYYY-MM-DD';
     const qb = this.basePurchaseQb(companyId, range, opts)
-      .select(`to_char(date_trunc('day', t.createdAt), 'YYYY-MM-DD')`, 'day')
+      .select(`to_char(date_trunc('${trunc}', t.createdAt), '${fmt}')`, 'day')
       .addSelect('COALESCE(SUM(t.total), 0)', 'total')
       .addSelect('COALESCE(SUM(t.subtotal), 0)', 'subtotal')
       .addSelect('COALESCE(SUM(t.taxAmount), 0)', 'taxAmount')
       .addSelect('COUNT(*)', 'count')
-      .groupBy(`date_trunc('day', t.createdAt)`)
-      .orderBy(`date_trunc('day', t.createdAt)`, 'ASC');
+      .groupBy(`date_trunc('${trunc}', t.createdAt)`)
+      .orderBy(`date_trunc('${trunc}', t.createdAt)`, 'ASC');
     const rows = await qb.getRawMany<{
       day: string;
       total: string;

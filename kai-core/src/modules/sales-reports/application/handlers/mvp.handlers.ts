@@ -3,6 +3,10 @@ import {
   SalesReportHandler,
   SalesReportHandlerContext,
   SalesReportRunResult,
+  buildSummaryDelta,
+  compareDateRange,
+  parseCompareWith,
+  resolveGranularity,
 } from '../../domain/sales-report.types';
 import { SalesReportsQueryService } from '../sales-reports-query.service';
 
@@ -14,11 +18,32 @@ function money(n: number) {
   return Math.round(n * 100) / 100;
 }
 
+function mergeBucketPoints(
+  current: Array<{ day: string; total: number }>,
+  previous: Array<{ day: string; total: number }>,
+): Array<{ x: string; y: number; y2?: number }> {
+  const prevMap = new Map(previous.map((p, i) => [String(i), p.total]));
+  // Align by index for comparable period lengths (same bucket count order)
+  const len = Math.max(current.length, previous.length);
+  const points: Array<{ x: string; y: number; y2?: number }> = [];
+  for (let i = 0; i < len; i++) {
+    const cur = current[i];
+    const prev = previous[i];
+    points.push({
+      x: cur?.day ?? prev?.day ?? String(i + 1),
+      y: money(cur?.total ?? 0),
+      y2: prev != null ? money(prev.total) : undefined,
+    });
+  }
+  void prevMap;
+  return points;
+}
+
 @Injectable()
 export class SalesByPeriodHandler implements SalesReportHandler {
   readonly id = 'sales-by-period';
   readonly title = 'Resumen de ventas';
-  readonly description = 'Totales, ticket promedio y evolución diaria del período.';
+  readonly description = 'Totales, ticket promedio y evolución del período.';
   readonly wave = 'mvp' as const;
 
   constructor(private readonly q: SalesReportsQueryService) {}
@@ -30,6 +55,8 @@ export class SalesByPeriodHandler implements SalesReportHandler {
       dateTo: range.dateTo,
       branchId: this.q.optionalUuid(params, 'branchId'),
       pointOfSaleIds: this.q.optionalUuidList(params, 'pointOfSaleIds'),
+      granularity: resolveGranularity(params.granularity, range.dateFrom, range.dateTo),
+      compareWith: parseCompareWith(params.compareWith),
     };
   }
 
@@ -40,47 +67,85 @@ export class SalesByPeriodHandler implements SalesReportHandler {
       branchId: params.branchId,
       pointOfSaleIds: params.pointOfSaleIds,
     };
-    const [summary, byDay, margin] = await Promise.all([
+    const grain = params.granularity;
+    const [summary, byBucket, margin] = await Promise.all([
       this.q.salesSummary(ctx.companyId, range, filter),
-      this.q.salesByDay(ctx.companyId, range, filter),
+      this.q.salesByBucket(ctx.companyId, range, filter, grain),
       this.q.marginForLines(ctx.companyId, range, {
+        branchId: params.branchId,
         pointOfSaleIds: params.pointOfSaleIds,
       }),
     ]);
+
+    const summaryNums = {
+      totalSales: money(summary.total),
+      ticketCount: summary.count,
+      avgTicket: money(summary.avgTicket),
+      grossMargin: money(margin.margin),
+      marginCoveragePct: margin.quality.coveragePct,
+    };
+
+    let summaryDelta: SalesReportRunResult['summaryDelta'];
+    let previousBuckets: Array<{ day: string; total: number }> = [];
+    const cmp = compareDateRange(params.dateFrom, params.dateTo, params.compareWith);
+    if (cmp) {
+      const prevRange = this.q.parseDateRange(cmp);
+      const [prevSummary, prevBuckets, prevMargin] = await Promise.all([
+        this.q.salesSummary(ctx.companyId, prevRange, filter),
+        this.q.salesByBucket(ctx.companyId, prevRange, filter, grain),
+        this.q.marginForLines(ctx.companyId, prevRange, {
+          branchId: params.branchId,
+          pointOfSaleIds: params.pointOfSaleIds,
+        }),
+      ]);
+      previousBuckets = prevBuckets;
+      summaryDelta = buildSummaryDelta(summaryNums, {
+        totalSales: money(prevSummary.total),
+        ticketCount: prevSummary.count,
+        avgTicket: money(prevSummary.avgTicket),
+        grossMargin: money(prevMargin.margin),
+        marginCoveragePct: prevMargin.quality.coveragePct,
+      });
+    }
+
+    const grainLabel =
+      grain === 'month' ? 'mes' : grain === 'week' ? 'semana' : 'día';
+    const salesPoints =
+      previousBuckets.length > 0
+        ? mergeBucketPoints(byBucket, previousBuckets)
+        : byBucket.map((d) => ({ x: d.day, y: money(d.total) }));
 
     return {
       reportId: this.id,
       title: this.title,
       generatedAt: nowIso(),
       params,
-      summary: {
-        totalSales: money(summary.total),
-        ticketCount: summary.count,
-        avgTicket: money(summary.avgTicket),
-        grossMargin: money(margin.margin),
-        marginCoveragePct: margin.quality.coveragePct,
-      },
+      summary: summaryNums,
+      summaryDelta,
       series: [
         {
-          id: 'sales-by-day',
-          label: 'Ventas por día',
+          id: 'sales-by-bucket',
+          label:
+            previousBuckets.length > 0
+              ? `Ventas por ${grainLabel} (actual vs comparación)`
+              : `Ventas por ${grainLabel}`,
           chart: 'area',
-          points: byDay.map((d) => ({ x: d.day, y: money(d.total) })),
+          points: salesPoints,
         },
         {
-          id: 'avg-ticket-by-day',
-          label: 'Ticket promedio por día',
+          id: 'avg-ticket-by-bucket',
+          label: `Ticket promedio por ${grainLabel}`,
           chart: 'bar',
-          points: byDay.map((d) => ({ x: d.day, y: money(d.avgTicket) })),
+          points: byBucket.map((d) => ({ x: d.day, y: money(d.avgTicket) })),
         },
       ],
       columns: [
-        { key: 'day', label: 'Día' },
+        { key: 'day', label: grain === 'month' ? 'Mes' : grain === 'week' ? 'Semana' : 'Día' },
         { key: 'count', label: 'Tickets', align: 'right' },
         { key: 'total', label: 'Total', align: 'right' },
         { key: 'avgTicket', label: 'Ticket prom.', align: 'right' },
       ],
-      rows: byDay.map((d) => ({
+      rows: byBucket.map((d) => ({
         day: d.day,
         count: d.count,
         total: money(d.total),
@@ -111,12 +176,14 @@ export class SalesDetailHandler implements SalesReportHandler {
     return {
       dateFrom: range.dateFrom,
       dateTo: range.dateTo,
+      branchId: this.q.optionalUuid(params, 'branchId'),
       pointOfSaleIds: this.q.optionalUuidList(params, 'pointOfSaleIds'),
       customerId: this.q.optionalUuid(params, 'customerId'),
       paymentMethod:
         typeof params.paymentMethod === 'string' && params.paymentMethod
           ? params.paymentMethod
           : undefined,
+      granularity: resolveGranularity(params.granularity, range.dateFrom, range.dateTo),
     };
   }
 
@@ -124,15 +191,20 @@ export class SalesDetailHandler implements SalesReportHandler {
     const params = this.validate(ctx.params);
     const range = this.q.parseDateRange(params);
     const filter = {
+      branchId: params.branchId,
       pointOfSaleIds: params.pointOfSaleIds,
       customerId: params.customerId,
       paymentMethod: params.paymentMethod,
     };
-    const [detail, byDay, summary] = await Promise.all([
+    const grain = params.granularity;
+    const [detail, byBucket, summary] = await Promise.all([
       this.q.listSalesDetail(ctx.companyId, range, filter),
-      this.q.salesByDay(ctx.companyId, range, filter),
+      this.q.salesByBucket(ctx.companyId, range, filter, grain),
       this.q.salesSummary(ctx.companyId, range, filter),
     ]);
+
+    const grainLabel =
+      grain === 'month' ? 'mes' : grain === 'week' ? 'semana' : 'día';
 
     return {
       reportId: this.id,
@@ -146,10 +218,10 @@ export class SalesDetailHandler implements SalesReportHandler {
       },
       series: [
         {
-          id: 'sales-by-day',
-          label: 'Montos por día',
+          id: 'sales-by-bucket',
+          label: `Montos por ${grainLabel}`,
           chart: 'bar',
-          points: byDay.map((d) => ({ x: d.day, y: money(d.total) })),
+          points: byBucket.map((d) => ({ x: d.day, y: money(d.total) })),
         },
       ],
       columns: [
@@ -191,6 +263,7 @@ export class SalesByProductHandler implements SalesReportHandler {
       dateFrom: range.dateFrom,
       dateTo: range.dateTo,
       productId: this.q.requireUuid(params, 'productId'),
+      branchId: this.q.optionalUuid(params, 'branchId'),
       pointOfSaleIds: this.q.optionalUuidList(params, 'pointOfSaleIds'),
     };
   }
@@ -198,22 +271,16 @@ export class SalesByProductHandler implements SalesReportHandler {
   async run(ctx: SalesReportHandlerContext): Promise<SalesReportRunResult> {
     const params = this.validate(ctx.params);
     const range = this.q.parseDateRange(params);
+    const filter = {
+      branchId: params.branchId,
+      pointOfSaleIds: params.pointOfSaleIds,
+    };
     const [byDay, lines, margin] = await Promise.all([
-      this.q.productSalesByDay(
-        ctx.companyId,
-        range,
-        params.productId,
-        params.pointOfSaleIds,
-      ),
-      this.q.productSalesLines(
-        ctx.companyId,
-        range,
-        params.productId,
-        params.pointOfSaleIds,
-      ),
+      this.q.productSalesByDay(ctx.companyId, range, params.productId, filter),
+      this.q.productSalesLines(ctx.companyId, range, params.productId, filter),
       this.q.marginForLines(ctx.companyId, range, {
         productId: params.productId,
-        pointOfSaleIds: params.pointOfSaleIds,
+        ...filter,
       }),
     ]);
 

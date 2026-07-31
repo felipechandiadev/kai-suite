@@ -137,12 +137,33 @@ export class SalesReportsQueryService {
     range: DateRange,
     opts?: Parameters<SalesReportsQueryService['baseSalesQb']>[2],
   ): Promise<Array<{ day: string; total: number; count: number; avgTicket: number }>> {
+    return this.salesByBucket(companyId, range, opts, 'day');
+  }
+
+  /**
+   * Agrega ventas por día / semana ISO / mes.
+   * `bucket` usa YYYY-MM-DD, IYYY-Www o YYYY-MM.
+   */
+  async salesByBucket(
+    companyId: string,
+    range: DateRange,
+    opts: Parameters<SalesReportsQueryService['baseSalesQb']>[2] | undefined,
+    granularity: 'day' | 'week' | 'month',
+  ): Promise<Array<{ day: string; total: number; count: number; avgTicket: number }>> {
+    const trunc =
+      granularity === 'month' ? 'month' : granularity === 'week' ? 'week' : 'day';
+    const fmt =
+      granularity === 'month'
+        ? 'YYYY-MM'
+        : granularity === 'week'
+          ? 'IYYY-"W"IW'
+          : 'YYYY-MM-DD';
     const qb = this.baseSalesQb(companyId, range, opts)
-      .select(`to_char(date_trunc('day', t.createdAt), 'YYYY-MM-DD')`, 'day')
+      .select(`to_char(date_trunc('${trunc}', t.createdAt), '${fmt}')`, 'day')
       .addSelect('COALESCE(SUM(t.total), 0)', 'total')
       .addSelect('COUNT(*)', 'count')
-      .groupBy(`date_trunc('day', t.createdAt)`)
-      .orderBy(`date_trunc('day', t.createdAt)`, 'ASC');
+      .groupBy(`date_trunc('${trunc}', t.createdAt)`)
+      .orderBy(`date_trunc('${trunc}', t.createdAt)`, 'ASC');
     const rows = await qb.getRawMany<{ day: string; total: string; count: string }>();
     return rows.map((r) => {
       const total = Number(r.total) || 0;
@@ -191,6 +212,7 @@ export class SalesReportsQueryService {
     range: DateRange,
     opts?: {
       pointOfSaleIds?: string[];
+      branchId?: string;
       customerId?: string;
       productId?: string;
       productVariantId?: string;
@@ -209,6 +231,9 @@ export class SalesReportsQueryService {
 
     if (opts?.pointOfSaleIds?.length) {
       qb.andWhere('t.pointOfSaleId IN (:...posIds)', { posIds: opts.pointOfSaleIds });
+    }
+    if (opts?.branchId) {
+      qb.andWhere('t.branchId = :branchId', { branchId: opts.branchId });
     }
     if (opts?.customerId) {
       qb.andWhere('t.customerId = :customerId', { customerId: opts.customerId });
@@ -280,9 +305,9 @@ export class SalesReportsQueryService {
     companyId: string,
     range: DateRange,
     productId: string,
-    pointOfSaleIds?: string[],
+    opts?: { pointOfSaleIds?: string[]; branchId?: string },
   ): Promise<Array<{ day: string; qty: number; amount: number }>> {
-    const qb = this.linesWithTxQb(companyId, range, { productId, pointOfSaleIds })
+    const qb = this.linesWithTxQb(companyId, range, { productId, ...opts })
       .select(`to_char(date_trunc('day', t.createdAt), 'YYYY-MM-DD')`, 'day')
       .addSelect('COALESCE(SUM(l.quantity), 0)', 'qty')
       .addSelect('COALESCE(SUM(l.subtotal), 0)', 'amount')
@@ -300,9 +325,9 @@ export class SalesReportsQueryService {
     companyId: string,
     range: DateRange,
     productId: string,
-    pointOfSaleIds?: string[],
+    opts?: { pointOfSaleIds?: string[]; branchId?: string },
   ): Promise<{ rows: Array<Record<string, unknown>>; truncated: boolean }> {
-    const qb = this.linesWithTxQb(companyId, range, { productId, pointOfSaleIds })
+    const qb = this.linesWithTxQb(companyId, range, { productId, ...opts })
       .select('t.id', 'transactionId')
       .addSelect('t.createdAt', 'createdAt')
       .addSelect('l.productName', 'productName')
@@ -493,8 +518,12 @@ export class SalesReportsQueryService {
     );
   }
 
-  async salesByPos(companyId: string, range: DateRange) {
-    const qb = this.baseSalesQb(companyId, range)
+  async salesByPos(
+    companyId: string,
+    range: DateRange,
+    opts?: { branchId?: string },
+  ) {
+    const qb = this.baseSalesQb(companyId, range, opts)
       .select('t.pointOfSaleId', 'pointOfSaleId')
       .addSelect('COALESCE(SUM(t.total), 0)', 'total')
       .addSelect('COUNT(*)', 'count')
@@ -518,9 +547,9 @@ export class SalesReportsQueryService {
     companyId: string,
     range: DateRange,
     topN: number,
-    pointOfSaleIds?: string[],
+    opts?: { pointOfSaleIds?: string[]; branchId?: string },
   ) {
-    const qb = this.linesWithTxQb(companyId, range, { pointOfSaleIds })
+    const qb = this.linesWithTxQb(companyId, range, opts)
       .select('l.productId', 'productId')
       .addSelect('MAX(l.productName)', 'productName')
       .addSelect('MAX(l.productSku)', 'productSku')
@@ -543,8 +572,12 @@ export class SalesReportsQueryService {
     }));
   }
 
-  async salesByCategory(companyId: string, range: DateRange, pointOfSaleIds?: string[]) {
-    const qb = this.linesWithTxQb(companyId, range, { pointOfSaleIds })
+  async salesByCategory(
+    companyId: string,
+    range: DateRange,
+    opts?: { pointOfSaleIds?: string[]; branchId?: string },
+  ) {
+    const qb = this.linesWithTxQb(companyId, range, opts)
       .leftJoin('l.product', 'p')
       .select('p.categoryId', 'categoryId')
       .addSelect('COALESCE(SUM(l.quantity), 0)', 'qty')

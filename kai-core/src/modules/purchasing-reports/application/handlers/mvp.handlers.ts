@@ -3,6 +3,10 @@ import {
   PurchasingReportHandler,
   PurchasingReportHandlerContext,
   PurchasingReportRunResult,
+  buildSummaryDelta,
+  compareDateRange,
+  parseCompareWith,
+  resolveGranularity,
 } from '../../domain/purchasing-report.types';
 import { PurchasingReportsQueryService } from '../purchasing-reports-query.service';
 
@@ -12,6 +16,33 @@ function nowIso() {
 
 function money(n: number) {
   return Math.round(n * 100) / 100;
+}
+
+/** Alinea buckets actual vs comparación por índice (mismo largo de período). */
+export function mergeBucketPoints(
+  current: Array<{ day: string; total: number }>,
+  previous: Array<{ day: string; total: number }>,
+): Array<{ x: string; y: number; y2?: number }> {
+  const len = Math.max(current.length, previous.length);
+  const points: Array<{ x: string; y: number; y2?: number }> = [];
+  for (let i = 0; i < len; i++) {
+    const cur = current[i];
+    const prev = previous[i];
+    points.push({
+      x: cur?.day ?? prev?.day ?? String(i + 1),
+      y: money(cur?.total ?? 0),
+      y2: prev != null ? money(prev.total) : undefined,
+    });
+  }
+  return points;
+}
+
+export function bucketLabel(grain: 'day' | 'week' | 'month'): string {
+  return grain === 'month' ? 'mes' : grain === 'week' ? 'semana' : 'día';
+}
+
+export function bucketColumnLabel(grain: 'day' | 'week' | 'month'): string {
+  return grain === 'month' ? 'Mes' : grain === 'week' ? 'Semana' : 'Día';
 }
 
 @Injectable()
@@ -32,6 +63,8 @@ export class PurchasesByPeriodHandler implements PurchasingReportHandler {
       supplierId: this.q.optionalUuid(params, 'supplierId'),
       storageIds: this.q.optionalUuidList(params, 'storageIds'),
       branchId: this.q.optionalUuid(params, 'branchId'),
+      granularity: resolveGranularity(params.granularity, range.dateFrom, range.dateTo),
+      compareWith: parseCompareWith(params.compareWith),
     };
   }
 
@@ -43,46 +76,78 @@ export class PurchasesByPeriodHandler implements PurchasingReportHandler {
       storageIds: params.storageIds,
       branchId: params.branchId,
     };
-    const [summary, byDay] = await Promise.all([
+    const grain = params.granularity;
+    const [summary, byBucket] = await Promise.all([
       this.q.purchasesSummary(ctx.companyId, range, filter),
-      this.q.purchasesByDay(ctx.companyId, range, filter),
+      this.q.purchasesByBucket(ctx.companyId, range, filter, grain),
     ]);
+
+    const summaryNums = {
+      totalPurchases: money(summary.total),
+      subtotalNet: money(summary.subtotal),
+      taxAmount: money(summary.taxAmount),
+      purchaseCount: summary.count,
+      avgTicket: money(summary.avgTicket),
+    };
+
+    let summaryDelta: PurchasingReportRunResult['summaryDelta'];
+    let previousBuckets: Array<{ day: string; total: number }> = [];
+    const cmp = compareDateRange(params.dateFrom, params.dateTo, params.compareWith);
+    if (cmp) {
+      const prevRange = this.q.parseDateRange(cmp);
+      const [prevSummary, prevBuckets] = await Promise.all([
+        this.q.purchasesSummary(ctx.companyId, prevRange, filter),
+        this.q.purchasesByBucket(ctx.companyId, prevRange, filter, grain),
+      ]);
+      previousBuckets = prevBuckets;
+      summaryDelta = buildSummaryDelta(summaryNums, {
+        totalPurchases: money(prevSummary.total),
+        subtotalNet: money(prevSummary.subtotal),
+        taxAmount: money(prevSummary.taxAmount),
+        purchaseCount: prevSummary.count,
+        avgTicket: money(prevSummary.avgTicket),
+      });
+    }
+
+    const grainLabel = bucketLabel(grain);
+    const purchasePoints =
+      previousBuckets.length > 0
+        ? mergeBucketPoints(byBucket, previousBuckets)
+        : byBucket.map((d) => ({ x: d.day, y: money(d.total) }));
 
     return {
       reportId: this.id,
       title: this.title,
       generatedAt: nowIso(),
       params,
-      summary: {
-        totalPurchases: money(summary.total),
-        subtotalNet: money(summary.subtotal),
-        taxAmount: money(summary.taxAmount),
-        purchaseCount: summary.count,
-        avgTicket: money(summary.avgTicket),
-      },
+      summary: summaryNums,
+      summaryDelta,
       series: [
         {
-          id: 'purchases-by-day',
-          label: 'Compras por día',
+          id: 'purchases-by-bucket',
+          label:
+            previousBuckets.length > 0
+              ? `Compras por ${grainLabel} (actual vs comparación)`
+              : `Compras por ${grainLabel}`,
           chart: 'area',
-          points: byDay.map((d) => ({ x: d.day, y: money(d.total) })),
+          points: purchasePoints,
         },
         {
-          id: 'avg-ticket-by-day',
-          label: 'Ticket promedio por día',
+          id: 'avg-ticket-by-bucket',
+          label: `Ticket promedio por ${grainLabel}`,
           chart: 'bar',
-          points: byDay.map((d) => ({ x: d.day, y: money(d.avgTicket) })),
+          points: byBucket.map((d) => ({ x: d.day, y: money(d.avgTicket) })),
         },
       ],
       columns: [
-        { key: 'day', label: 'Día' },
+        { key: 'day', label: bucketColumnLabel(grain) },
         { key: 'count', label: 'Facturas', align: 'right' },
         { key: 'subtotal', label: 'Neto', align: 'right' },
         { key: 'taxAmount', label: 'IVA', align: 'right' },
         { key: 'total', label: 'Total', align: 'right' },
         { key: 'avgTicket', label: 'Ticket prom.', align: 'right' },
       ],
-      rows: byDay.map((d) => ({
+      rows: byBucket.map((d) => ({
         day: d.day,
         count: d.count,
         subtotal: money(d.subtotal),
@@ -98,6 +163,7 @@ export class PurchasesByPeriodHandler implements PurchasingReportHandler {
       },
       footnotes: [
         'Totales fiscales desde facturas de proveedor (SUPPLIER_INVOICE). El PURCHASE de stock se valora al neto sin IVA.',
+        ...(cmp ? [`Comparación: ${cmp.dateFrom} → ${cmp.dateTo}.`] : []),
       ],
     };
   }
@@ -123,6 +189,7 @@ export class PurchaseDetailHandler implements PurchasingReportHandler {
         typeof params.paymentMethod === 'string' && params.paymentMethod
           ? params.paymentMethod
           : undefined,
+      granularity: resolveGranularity(params.granularity, range.dateFrom, range.dateTo),
     };
   }
 
@@ -134,9 +201,10 @@ export class PurchaseDetailHandler implements PurchasingReportHandler {
       storageIds: params.storageIds,
       paymentMethod: params.paymentMethod,
     };
-    const [detail, byDay, summary] = await Promise.all([
+    const grain = params.granularity;
+    const [detail, byBucket, summary] = await Promise.all([
       this.q.listPurchaseDetail(ctx.companyId, range, filter),
-      this.q.purchasesByDay(ctx.companyId, range, filter),
+      this.q.purchasesByBucket(ctx.companyId, range, filter, grain),
       this.q.purchasesSummary(ctx.companyId, range, filter),
     ]);
 
@@ -153,10 +221,10 @@ export class PurchaseDetailHandler implements PurchasingReportHandler {
       },
       series: [
         {
-          id: 'purchases-by-day',
-          label: 'Montos por día',
+          id: 'purchases-by-bucket',
+          label: `Montos por ${bucketLabel(grain)}`,
           chart: 'bar',
-          points: byDay.map((d) => ({ x: d.day, y: money(d.total) })),
+          points: byBucket.map((d) => ({ x: d.day, y: money(d.total) })),
         },
       ],
       columns: [
@@ -214,6 +282,7 @@ export class PurchasesByProductHandler implements PurchasingReportHandler {
       productId: this.q.requireUuid(params, 'productId'),
       supplierId: this.q.optionalUuid(params, 'supplierId'),
       storageIds: this.q.optionalUuidList(params, 'storageIds'),
+      compareWith: parseCompareWith(params.compareWith),
     };
   }
 
@@ -232,15 +301,35 @@ export class PurchasesByProductHandler implements PurchasingReportHandler {
     const qty = byDay.reduce((s, d) => s + d.qty, 0);
     const amount = byDay.reduce((s, d) => s + d.amount, 0);
 
+    const summaryNums = {
+      quantity: money(qty),
+      amount: money(amount),
+    };
+
+    let summaryDelta: PurchasingReportRunResult['summaryDelta'];
+    let previousDays: Array<{ day: string; qty: number; amount: number }> = [];
+    const cmp = compareDateRange(params.dateFrom, params.dateTo, params.compareWith);
+    if (cmp) {
+      const prevRange = this.q.parseDateRange(cmp);
+      previousDays = await this.q.productPurchasesByDay(
+        ctx.companyId,
+        prevRange,
+        params.productId,
+        filter,
+      );
+      summaryDelta = buildSummaryDelta(summaryNums, {
+        quantity: money(previousDays.reduce((s, d) => s + d.qty, 0)),
+        amount: money(previousDays.reduce((s, d) => s + d.amount, 0)),
+      });
+    }
+
     return {
       reportId: this.id,
       title: this.title,
       generatedAt: nowIso(),
       params,
-      summary: {
-        quantity: money(qty),
-        amount: money(amount),
-      },
+      summary: summaryNums,
+      summaryDelta,
       series: [
         {
           id: 'qty-by-day',
@@ -250,9 +339,18 @@ export class PurchasesByProductHandler implements PurchasingReportHandler {
         },
         {
           id: 'amount-by-day',
-          label: 'Costo por día',
+          label:
+            previousDays.length > 0
+              ? 'Costo por día (actual vs comparación)'
+              : 'Costo por día',
           chart: 'bar',
-          points: byDay.map((d) => ({ x: d.day, y: money(d.amount) })),
+          points:
+            previousDays.length > 0
+              ? mergeBucketPoints(
+                  byDay.map((d) => ({ day: d.day, total: d.amount })),
+                  previousDays.map((d) => ({ day: d.day, total: d.amount })),
+                )
+              : byDay.map((d) => ({ x: d.day, y: money(d.amount) })),
         },
       ],
       columns: [
@@ -269,7 +367,10 @@ export class PurchasesByProductHandler implements PurchasingReportHandler {
         amount: money(amount),
       },
       truncated: lines.truncated,
-      footnotes: lines.truncated ? ['Resultado truncado a 1000 filas.'] : undefined,
+      footnotes: [
+        ...(cmp ? [`Comparación: ${cmp.dateFrom} → ${cmp.dateTo}.`] : []),
+        ...(lines.truncated ? ['Resultado truncado a 1000 filas.'] : []),
+      ],
     };
   }
 }
@@ -449,6 +550,7 @@ export class PurchasesByPaymentMethodHandler implements PurchasingReportHandler 
       dateTo: range.dateTo,
       supplierId: this.q.optionalUuid(params, 'supplierId'),
       storageIds: this.q.optionalUuidList(params, 'storageIds'),
+      compareWith: parseCompareWith(params.compareWith),
     };
   }
 
@@ -463,22 +565,54 @@ export class PurchasesByPaymentMethodHandler implements PurchasingReportHandler 
     const total = mix.reduce((s, m) => s + m.total, 0);
     const count = mix.reduce((s, m) => s + m.count, 0);
 
+    const summaryNums = {
+      totalPayments: money(total),
+      paymentCount: count,
+      methods: mix.length,
+    };
+
+    let summaryDelta: PurchasingReportRunResult['summaryDelta'];
+    let prevByMethod = new Map<string, number>();
+    const cmp = compareDateRange(params.dateFrom, params.dateTo, params.compareWith);
+    if (cmp) {
+      const prevRange = this.q.parseDateRange(cmp);
+      const prevMix = await this.q.paymentMix(ctx.companyId, prevRange, filter);
+      prevByMethod = new Map(prevMix.map((m) => [m.paymentMethod, m.total]));
+      summaryDelta = buildSummaryDelta(summaryNums, {
+        totalPayments: money(prevMix.reduce((s, m) => s + m.total, 0)),
+        paymentCount: prevMix.reduce((s, m) => s + m.count, 0),
+        methods: prevMix.length,
+      });
+    }
+
     return {
       reportId: this.id,
       title: this.title,
       generatedAt: nowIso(),
       params,
-      summary: {
-        totalPayments: money(total),
-        paymentCount: count,
-        methods: mix.length,
-      },
+      summary: summaryNums,
+      summaryDelta,
       series: [
         {
           id: 'payment-mix',
           label: 'Mix de medios de pago',
           chart: 'pie',
           points: mix.map((m) => ({ x: m.paymentMethod, y: money(m.total) })),
+        },
+        {
+          id: 'payment-bar',
+          label:
+            prevByMethod.size > 0
+              ? 'Montos por medio (actual vs comparación)'
+              : 'Montos por medio',
+          chart: 'bar',
+          points: mix.map((m) => ({
+            x: m.paymentMethod,
+            y: money(m.total),
+            ...(prevByMethod.size > 0
+              ? { y2: money(prevByMethod.get(m.paymentMethod) ?? 0) }
+              : {}),
+          })),
         },
       ],
       columns: [
@@ -496,6 +630,7 @@ export class PurchasesByPaymentMethodHandler implements PurchasingReportHandler 
       totals: { total: money(total), count },
       footnotes: [
         'Solo pagos confirmados (SUPPLIER_PAYMENT CONFIRMED). Excluye cuotas programadas en borrador.',
+        ...(cmp ? [`Comparación: ${cmp.dateFrom} → ${cmp.dateTo}.`] : []),
       ],
     };
   }

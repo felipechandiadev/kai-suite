@@ -22,6 +22,10 @@ import {
   SalesByPosHandler,
   TopProductsHandler,
 } from './handlers/p1.handlers';
+import {
+  PosCompareHandler,
+  SalesPeriodCompareHandler,
+} from './handlers/compare.handlers';
 
 @Injectable()
 export class SalesReportRunner {
@@ -42,6 +46,8 @@ export class SalesReportRunner {
     quotationsFunnel: QuotationsFunnelHandler,
     backordersStatus: BackordersStatusHandler,
     salesByCategory: SalesByCategoryHandler,
+    salesPeriodCompare: SalesPeriodCompareHandler,
+    posCompare: PosCompareHandler,
   ) {
     const list: SalesReportHandler[] = [
       salesByPeriod,
@@ -58,6 +64,8 @@ export class SalesReportRunner {
       quotationsFunnel,
       backordersStatus,
       salesByCategory,
+      salesPeriodCompare,
+      posCompare,
     ];
     this.handlers = new Map(list.map((h) => [h.id, h]));
   }

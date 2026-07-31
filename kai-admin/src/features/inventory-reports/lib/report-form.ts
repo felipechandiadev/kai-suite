@@ -1,7 +1,15 @@
 import type { ReportRegistryEntry } from "../types/inventory-report.types";
-import { dateRangeForPreset } from "./report-dates";
+import {
+  dateRangeForPreset,
+  resolveGranularity,
+  type CompareWith,
+  type DatePreset,
+  type ReportGranularity,
+  toIsoDate,
+} from "./report-dates";
 
 export type ReportFormState = {
+  datePreset: DatePreset;
   dateFrom: string;
   dateTo: string;
   productId: string | null;
@@ -9,11 +17,14 @@ export type ReportFormState = {
   storageIds: string[];
   stockUnitIds: string[];
   categoryIds: string[];
+  granularity: ReportGranularity;
+  compareWith: CompareWith;
 };
 
 export function emptyReportFormState(): ReportFormState {
   const month = dateRangeForPreset("month");
   return {
+    datePreset: "month",
     dateFrom: month.dateFrom,
     dateTo: month.dateTo,
     productId: null,
@@ -21,6 +32,8 @@ export function emptyReportFormState(): ReportFormState {
     storageIds: [],
     stockUnitIds: [],
     categoryIds: [],
+    granularity: "auto",
+    compareWith: "none",
   };
 }
 
@@ -44,6 +57,23 @@ export function formStateToParams(
   }
   if (kinds.has("categoryMulti") && state.categoryIds.length) {
     params.categoryIds = state.categoryIds;
+  }
+  if (kinds.has("granularity")) {
+    params.granularity = resolveGranularity(
+      state.granularity,
+      state.dateFrom,
+      state.dateTo,
+    );
+  }
+  if (kinds.has("compareWith") && state.compareWith && state.compareWith !== "none") {
+    params.compareWith = state.compareWith;
+  }
+  // inventory-period-compare siempre compara: default período anterior
+  if (
+    entry.id === "inventory-period-compare" &&
+    (!state.compareWith || state.compareWith === "none")
+  ) {
+    params.compareWith = "previousPeriod";
   }
   return params;
 }
@@ -70,3 +100,5 @@ export function validateFormForEntry(
   }
   return null;
 }
+
+export { toIsoDate };

@@ -3,6 +3,9 @@ import {
   SalesReportHandler,
   SalesReportHandlerContext,
   SalesReportRunResult,
+  buildSummaryDelta,
+  compareDateRange,
+  parseCompareWith,
 } from '../../domain/sales-report.types';
 import { SalesReportsQueryService } from '../sales-reports-query.service';
 
@@ -35,40 +38,71 @@ export class TopProductsHandler implements SalesReportHandler {
       dateFrom: range.dateFrom,
       dateTo: range.dateTo,
       topN: Number.isFinite(topN) ? topN : 20,
+      branchId: this.q.optionalUuid(params, 'branchId'),
       pointOfSaleIds: this.q.optionalUuidList(params, 'pointOfSaleIds'),
+      compareWith: parseCompareWith(params.compareWith),
     };
   }
 
   async run(ctx: SalesReportHandlerContext): Promise<SalesReportRunResult> {
     const params = this.validate(ctx.params);
     const range = this.q.parseDateRange(params);
-    const rows = await this.q.topProducts(
-      ctx.companyId,
-      range,
-      params.topN,
-      params.pointOfSaleIds,
-    );
+    const filter = {
+      branchId: params.branchId,
+      pointOfSaleIds: params.pointOfSaleIds,
+    };
+    const rows = await this.q.topProducts(ctx.companyId, range, params.topN, filter);
     const totalAmount = rows.reduce((s, r) => s + r.amount, 0);
     const totalMargin = rows.reduce((s, r) => s + r.margin, 0);
+
+    const summaryNums = {
+      products: rows.length,
+      totalAmount: money(totalAmount),
+      grossMargin: money(totalMargin),
+    };
+
+    let summaryDelta: SalesReportRunResult['summaryDelta'];
+    let prevByProduct = new Map<string, number>();
+    const cmp = compareDateRange(params.dateFrom, params.dateTo, params.compareWith);
+    if (cmp) {
+      const prevRange = this.q.parseDateRange(cmp);
+      const prevRows = await this.q.topProducts(
+        ctx.companyId,
+        prevRange,
+        params.topN,
+        filter,
+      );
+      prevByProduct = new Map(prevRows.map((r) => [String(r.productId), r.amount]));
+      const prevAmount = prevRows.reduce((s, r) => s + r.amount, 0);
+      const prevMargin = prevRows.reduce((s, r) => s + r.margin, 0);
+      summaryDelta = buildSummaryDelta(summaryNums, {
+        products: prevRows.length,
+        totalAmount: money(prevAmount),
+        grossMargin: money(prevMargin),
+      });
+    }
 
     return {
       reportId: this.id,
       title: this.title,
       generatedAt: nowIso(),
       params,
-      summary: {
-        products: rows.length,
-        totalAmount: money(totalAmount),
-        grossMargin: money(totalMargin),
-      },
+      summary: summaryNums,
+      summaryDelta,
       series: [
         {
           id: 'top-by-amount',
-          label: 'Top por monto',
+          label:
+            prevByProduct.size > 0
+              ? 'Top por monto (actual vs comparación)'
+              : 'Top por monto',
           chart: 'bar',
           points: rows.map((r) => ({
             x: String(r.productSku || r.productName || r.productId || '—').slice(0, 24),
             y: money(r.amount),
+            ...(prevByProduct.size > 0
+              ? { y2: money(prevByProduct.get(String(r.productId)) ?? 0) }
+              : {}),
           })),
         },
       ],
@@ -88,6 +122,9 @@ export class TopProductsHandler implements SalesReportHandler {
       totals: { amount: money(totalAmount), margin: money(totalMargin) },
       footnotes: [
         'Margen solo suma líneas con unitCost > 0 (sin recalcular costo actual).',
+        ...(cmp
+          ? [`Comparación: ${cmp.dateFrom} → ${cmp.dateTo}.`]
+          : []),
       ],
     };
   }
@@ -109,27 +146,46 @@ export class SalesByPaymentMethodHandler implements SalesReportHandler {
       dateTo: range.dateTo,
       pointOfSaleIds: this.q.optionalUuidList(params, 'pointOfSaleIds'),
       branchId: this.q.optionalUuid(params, 'branchId'),
+      compareWith: parseCompareWith(params.compareWith),
     };
   }
 
   async run(ctx: SalesReportHandlerContext): Promise<SalesReportRunResult> {
     const params = this.validate(ctx.params);
     const range = this.q.parseDateRange(params);
-    const mix = await this.q.paymentMix(ctx.companyId, range, {
+    const filter = {
       pointOfSaleIds: params.pointOfSaleIds,
       branchId: params.branchId,
-    });
+    };
+    const mix = await this.q.paymentMix(ctx.companyId, range, filter);
     const total = mix.reduce((s, m) => s + m.total, 0);
+
+    const summaryNums = {
+      totalSales: money(total),
+      methods: mix.length,
+    };
+
+    let summaryDelta: SalesReportRunResult['summaryDelta'];
+    let prevByMethod = new Map<string, number>();
+    const cmp = compareDateRange(params.dateFrom, params.dateTo, params.compareWith);
+    if (cmp) {
+      const prevRange = this.q.parseDateRange(cmp);
+      const prevMix = await this.q.paymentMix(ctx.companyId, prevRange, filter);
+      prevByMethod = new Map(prevMix.map((m) => [m.paymentMethod, m.total]));
+      const prevTotal = prevMix.reduce((s, m) => s + m.total, 0);
+      summaryDelta = buildSummaryDelta(summaryNums, {
+        totalSales: money(prevTotal),
+        methods: prevMix.length,
+      });
+    }
 
     return {
       reportId: this.id,
       title: this.title,
       generatedAt: nowIso(),
       params,
-      summary: {
-        totalSales: money(total),
-        methods: mix.length,
-      },
+      summary: summaryNums,
+      summaryDelta,
       series: [
         {
           id: 'payment-mix',
@@ -139,9 +195,18 @@ export class SalesByPaymentMethodHandler implements SalesReportHandler {
         },
         {
           id: 'payment-bar',
-          label: 'Montos por medio',
+          label:
+            prevByMethod.size > 0
+              ? 'Montos por medio (actual vs comparación)'
+              : 'Montos por medio',
           chart: 'bar',
-          points: mix.map((m) => ({ x: m.paymentMethod, y: money(m.total) })),
+          points: mix.map((m) => ({
+            x: m.paymentMethod,
+            y: money(m.total),
+            ...(prevByMethod.size > 0
+              ? { y2: money(prevByMethod.get(m.paymentMethod) ?? 0) }
+              : {}),
+          })),
         },
       ],
       columns: [
@@ -157,6 +222,9 @@ export class SalesByPaymentMethodHandler implements SalesReportHandler {
         sharePct: total > 0 ? Math.round((m.total / total) * 1000) / 10 : 0,
       })),
       totals: { total: money(total) },
+      footnotes: cmp
+        ? [`Comparación: ${cmp.dateFrom} → ${cmp.dateTo}.`]
+        : undefined,
     };
   }
 }
@@ -175,32 +243,62 @@ export class SalesByPosHandler implements SalesReportHandler {
     return {
       dateFrom: range.dateFrom,
       dateTo: range.dateTo,
+      branchId: this.q.optionalUuid(params, 'branchId'),
+      compareWith: parseCompareWith(params.compareWith),
     };
   }
 
   async run(ctx: SalesReportHandlerContext): Promise<SalesReportRunResult> {
     const params = this.validate(ctx.params);
     const range = this.q.parseDateRange(params);
-    const rows = await this.q.salesByPos(ctx.companyId, range);
+    const filter = { branchId: params.branchId };
+    const rows = await this.q.salesByPos(ctx.companyId, range, filter);
     const total = rows.reduce((s, r) => s + r.total, 0);
+
+    const summaryNums = {
+      totalSales: money(total),
+      posCount: rows.length,
+    };
+
+    let summaryDelta: SalesReportRunResult['summaryDelta'];
+    let prevByPos = new Map<string, number>();
+    const cmp = compareDateRange(params.dateFrom, params.dateTo, params.compareWith);
+    if (cmp) {
+      const prevRange = this.q.parseDateRange(cmp);
+      const prevRows = await this.q.salesByPos(ctx.companyId, prevRange, filter);
+      prevByPos = new Map(
+        prevRows.map((r) => [String(r.pointOfSaleId ?? ''), r.total]),
+      );
+      const prevTotal = prevRows.reduce((s, r) => s + r.total, 0);
+      summaryDelta = buildSummaryDelta(summaryNums, {
+        totalSales: money(prevTotal),
+        posCount: prevRows.length,
+      });
+    }
 
     return {
       reportId: this.id,
       title: this.title,
       generatedAt: nowIso(),
       params,
-      summary: {
-        totalSales: money(total),
-        posCount: rows.length,
-      },
+      summary: summaryNums,
+      summaryDelta,
       series: [
         {
           id: 'by-pos',
-          label: 'Ventas por POS',
+          label:
+            prevByPos.size > 0
+              ? 'Ventas por POS (actual vs comparación)'
+              : 'Ventas por POS',
           chart: 'bar',
           points: rows.map((r) => ({
             x: String(r.pointOfSaleId ?? 'Sin POS').slice(0, 8),
             y: money(r.total),
+            ...(prevByPos.size > 0
+              ? {
+                  y2: money(prevByPos.get(String(r.pointOfSaleId ?? '')) ?? 0),
+                }
+              : {}),
           })),
         },
       ],
@@ -217,6 +315,9 @@ export class SalesByPosHandler implements SalesReportHandler {
         avgTicket: money(r.avgTicket),
       })),
       totals: { total: money(total) },
+      footnotes: cmp
+        ? [`Comparación: ${cmp.dateFrom} → ${cmp.dateTo}.`]
+        : undefined,
     };
   }
 }
@@ -467,37 +568,64 @@ export class SalesByCategoryHandler implements SalesReportHandler {
     return {
       dateFrom: range.dateFrom,
       dateTo: range.dateTo,
+      branchId: this.q.optionalUuid(params, 'branchId'),
       pointOfSaleIds: this.q.optionalUuidList(params, 'pointOfSaleIds'),
+      compareWith: parseCompareWith(params.compareWith),
     };
   }
 
   async run(ctx: SalesReportHandlerContext): Promise<SalesReportRunResult> {
     const params = this.validate(ctx.params);
     const range = this.q.parseDateRange(params);
-    const rows = await this.q.salesByCategory(
-      ctx.companyId,
-      range,
-      params.pointOfSaleIds,
-    );
+    const filter = {
+      branchId: params.branchId,
+      pointOfSaleIds: params.pointOfSaleIds,
+    };
+    const rows = await this.q.salesByCategory(ctx.companyId, range, filter);
     const total = rows.reduce((s, r) => s + r.amount, 0);
+
+    const summaryNums = {
+      categories: rows.length,
+      totalAmount: money(total),
+    };
+
+    let summaryDelta: SalesReportRunResult['summaryDelta'];
+    let prevByCat = new Map<string, number>();
+    const cmp = compareDateRange(params.dateFrom, params.dateTo, params.compareWith);
+    if (cmp) {
+      const prevRange = this.q.parseDateRange(cmp);
+      const prevRows = await this.q.salesByCategory(ctx.companyId, prevRange, filter);
+      prevByCat = new Map(
+        prevRows.map((r) => [String(r.categoryId ?? ''), r.amount]),
+      );
+      const prevTotal = prevRows.reduce((s, r) => s + r.amount, 0);
+      summaryDelta = buildSummaryDelta(summaryNums, {
+        categories: prevRows.length,
+        totalAmount: money(prevTotal),
+      });
+    }
 
     return {
       reportId: this.id,
       title: this.title,
       generatedAt: nowIso(),
       params,
-      summary: {
-        categories: rows.length,
-        totalAmount: money(total),
-      },
+      summary: summaryNums,
+      summaryDelta,
       series: [
         {
           id: 'by-category',
-          label: 'Monto por categoría',
+          label:
+            prevByCat.size > 0
+              ? 'Monto por categoría (actual vs comparación)'
+              : 'Monto por categoría',
           chart: 'bar',
           points: rows.map((r) => ({
             x: String(r.categoryId ?? 'Sin categoría').slice(0, 10),
             y: money(r.amount),
+            ...(prevByCat.size > 0
+              ? { y2: money(prevByCat.get(String(r.categoryId ?? '')) ?? 0) }
+              : {}),
           })),
         },
         {
@@ -521,6 +649,9 @@ export class SalesByCategoryHandler implements SalesReportHandler {
         amount: money(r.amount),
       })),
       totals: { amount: money(total) },
+      footnotes: cmp
+        ? [`Comparación: ${cmp.dateFrom} → ${cmp.dateTo}.`]
+        : undefined,
     };
   }
 }

@@ -74,6 +74,7 @@ export class CashSessionCoreService {
       where: { id, deletedAt: null as any },
       relations: [
         'pointOfSale',
+        'pointOfSale.branch',
         'openedBy',
         'openedBy.person',
         'closedBy',

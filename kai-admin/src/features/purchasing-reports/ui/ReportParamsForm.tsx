@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import { AutoComplete, Button, SelectDefault as Select, TextField } from "@kai/ui";
+import { AutoComplete, SelectDefault as Select, TextField } from "@kai/ui";
 import type { ReportRegistryEntry } from "@/features/purchasing-reports/types/purchasing-report.types";
 import {
+  DATE_PRESET_OPTIONS,
   dateRangeForPreset,
-  type DatePreset,
   toIsoDate,
+  type CompareWith,
+  type DatePreset,
+  type ReportGranularity,
 } from "@/features/purchasing-reports/lib/report-dates";
 import type { ReportFormState } from "@/features/purchasing-reports/lib/report-form";
 import { searchProductsForPromotionAction } from "@/features/promotions/actions/search-products-for-promotion.action";
@@ -26,11 +29,17 @@ const PAYMENT_OPTIONS = [
   { id: "INTERNAL_CREDIT", label: "Crédito interno" },
 ];
 
-const PRESET_OPTIONS: Array<{ id: DatePreset; label: string }> = [
-  { id: "today", label: "Hoy" },
-  { id: "week", label: "Últimos 7 días" },
-  { id: "month", label: "Mes actual" },
-  { id: "prev-month", label: "Mes anterior" },
+const GRANULARITY_OPTIONS: Array<{ id: ReportGranularity; label: string }> = [
+  { id: "auto", label: "Automática" },
+  { id: "day", label: "Día" },
+  { id: "week", label: "Semana" },
+  { id: "month", label: "Mes" },
+];
+
+const COMPARE_OPTIONS: Array<{ id: CompareWith; label: string }> = [
+  { id: "none", label: "Sin comparación" },
+  { id: "previousPeriod", label: "Período anterior" },
+  { id: "samePeriodLastYear", label: "Mismo lapso año pasado" },
 ];
 
 type Props = {
@@ -39,6 +48,7 @@ type Props = {
   onChange: (next: ReportFormState) => void;
   suppliers: SupplierOpt[];
   storages: StorageListItem[];
+  branches?: Array<{ id: string; label: string }>;
 };
 
 export function ReportParamsForm({
@@ -47,6 +57,7 @@ export function ReportParamsForm({
   onChange,
   suppliers,
   storages,
+  branches = [],
 }: Props) {
   const kinds = useMemo(() => new Set(entry.params.map((p) => p.kind)), [entry]);
   const [productQuery, setProductQuery] = useState("");
@@ -104,43 +115,98 @@ export function ReportParamsForm({
       ? { id: value.supplierId, label: value.supplierLabel }
       : null;
 
+  const compareOptions =
+    entry.id === "purchases-period-compare"
+      ? COMPARE_OPTIONS.filter((o) => o.id !== "none")
+      : COMPARE_OPTIONS;
+
   return (
     <div className="space-y-3" data-test-id="purchasing-report-params-form">
       {kinds.has("dateRange") ? (
-        <div className="space-y-2">
-          <div className="flex flex-wrap gap-1">
-            {PRESET_OPTIONS.map((p) => (
-              <Button
-                key={p.id}
-                type="button"
-                size="sm"
-                variant="outlined"
-                className="px-2! py-0.5! text-[11px]"
-                onClick={() => {
-                  const range = dateRangeForPreset(p.id);
-                  patch(range);
-                }}
-              >
-                {p.label}
-              </Button>
-            ))}
-          </div>
+        <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-3">
+          <p className="text-xs font-medium text-foreground">Período</p>
+          <Select
+            label="Período rápido"
+            alwaysShowLabel
+            options={DATE_PRESET_OPTIONS}
+            value={value.datePreset}
+            onChange={(id) => {
+              const preset = String(id ?? "custom") as DatePreset;
+              if (preset === "custom") {
+                patch({ datePreset: "custom" });
+                return;
+              }
+              const range = dateRangeForPreset(preset);
+              patch({ datePreset: preset, ...range });
+            }}
+          />
           <div className="flex flex-col gap-2">
             <TextField
               label="Desde"
               type="date"
               alwaysShowLabel
               value={value.dateFrom}
-              onChange={(e) => patch({ dateFrom: e.target.value || toIsoDate(new Date()) })}
+              onChange={(e) =>
+                patch({
+                  datePreset: "custom",
+                  dateFrom: e.target.value || toIsoDate(new Date()),
+                })
+              }
             />
             <TextField
               label="Hasta"
               type="date"
               alwaysShowLabel
               value={value.dateTo}
-              onChange={(e) => patch({ dateTo: e.target.value || toIsoDate(new Date()) })}
+              onChange={(e) =>
+                patch({
+                  datePreset: "custom",
+                  dateTo: e.target.value || toIsoDate(new Date()),
+                })
+              }
             />
           </div>
+        </div>
+      ) : null}
+
+      {kinds.has("branch") || kinds.has("granularity") || kinds.has("compareWith") ? (
+        <div className="space-y-2 rounded-lg border border-border/70 bg-muted/20 p-3">
+          <p className="text-xs font-medium text-foreground">Alcance y análisis</p>
+          {kinds.has("branch") ? (
+            <Select
+              label="Sucursal"
+              alwaysShowLabel
+              options={[{ id: "", label: "Todas" }, ...branches]}
+              value={value.branchId}
+              onChange={(id) => patch({ branchId: String(id ?? "") })}
+            />
+          ) : null}
+          {kinds.has("granularity") ? (
+            <Select
+              label="Granularidad"
+              alwaysShowLabel
+              options={GRANULARITY_OPTIONS}
+              value={value.granularity}
+              onChange={(id) =>
+                patch({ granularity: String(id ?? "auto") as ReportGranularity })
+              }
+            />
+          ) : null}
+          {kinds.has("compareWith") ? (
+            <Select
+              label="Comparar con"
+              alwaysShowLabel
+              options={compareOptions}
+              value={
+                entry.id === "purchases-period-compare" && value.compareWith === "none"
+                  ? "previousPeriod"
+                  : value.compareWith
+              }
+              onChange={(id) =>
+                patch({ compareWith: String(id ?? "none") as CompareWith })
+              }
+            />
+          ) : null}
         </div>
       ) : null}
 

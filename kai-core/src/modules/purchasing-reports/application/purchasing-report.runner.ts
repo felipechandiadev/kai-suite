@@ -12,6 +12,7 @@ import {
   PurchasesBySupplierHandler,
   SupplierReturnsHandler,
 } from './handlers/mvp.handlers';
+import { PurchasesPeriodCompareHandler } from './handlers/compare.handlers';
 
 @Injectable()
 export class PurchasingReportRunner {
@@ -24,6 +25,7 @@ export class PurchasingReportRunner {
     supplierReturns: SupplierReturnsHandler,
     purchasesBySupplier: PurchasesBySupplierHandler,
     purchasesByPaymentMethod: PurchasesByPaymentMethodHandler,
+    purchasesPeriodCompare: PurchasesPeriodCompareHandler,
   ) {
     const list: PurchasingReportHandler[] = [
       purchasesByPeriod,
@@ -32,6 +34,7 @@ export class PurchasingReportRunner {
       supplierReturns,
       purchasesBySupplier,
       purchasesByPaymentMethod,
+      purchasesPeriodCompare,
     ];
     this.handlers = new Map(list.map((h) => [h.id, h]));
   }

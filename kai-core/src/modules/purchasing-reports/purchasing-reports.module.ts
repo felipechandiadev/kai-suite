@@ -14,6 +14,7 @@ import {
   PurchasesBySupplierHandler,
   SupplierReturnsHandler,
 } from './application/handlers/mvp.handlers';
+import { PurchasesPeriodCompareHandler } from './application/handlers/compare.handlers';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Transaction, TransactionLine, Supplier])],
@@ -27,6 +28,7 @@ import {
     SupplierReturnsHandler,
     PurchasesBySupplierHandler,
     PurchasesByPaymentMethodHandler,
+    PurchasesPeriodCompareHandler,
   ],
   exports: [PurchasingReportRunner],
 })

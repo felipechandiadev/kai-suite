@@ -1,20 +1,82 @@
 "use client";
 
+import { useId, useState } from "react";
+import { IconButton } from "@kai/ui";
 import { ReportCharts } from "./ReportCharts";
+import { KpiBulletChart, shouldUseKpiBullet } from "./KpiBulletChart";
 import {
   formatReportCell,
   formatReportColumnLabel,
   formatReportParamLabel,
   formatReportParamValue,
+  formatReportPercent,
   formatReportSummaryLabel,
   formatReportSummaryValue,
-} from "@/features/purchasing-reports/lib/report-dates";
-import type { PurchasingReportRunResult } from "@/features/purchasing-reports/types/purchasing-report.types";
+  reportKpiHelp,
+} from "@/shared/reports";
+import type {
+  PurchasingReportRunResult,
+  PurchasingReportSummaryDelta,
+} from "@/features/purchasing-reports/types/purchasing-report.types";
 
 type Props = {
   result: PurchasingReportRunResult | null;
   companyLabel?: string;
 };
+
+function KpiInfoButton({ help }: { help: string }) {
+  const [open, setOpen] = useState(false);
+  const tipId = useId();
+  return (
+    <span className="relative inline-flex shrink-0">
+      <IconButton
+        icon="Info"
+        variant="text"
+        size="xs"
+        ariaLabel="Más información"
+        aria-describedby={open ? tipId : undefined}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        onBlur={() => setOpen(false)}
+        className="!h-5 !w-5 text-muted-foreground hover:text-foreground"
+        data-test-id="purchasing-report-kpi-info"
+      />
+      {open ? (
+        <span
+          id={tipId}
+          role="tooltip"
+          className="absolute left-1/2 top-full z-20 mt-1 w-56 -translate-x-1/2 rounded-md border border-border bg-background px-2.5 py-2 text-left text-[11px] font-normal normal-case tracking-normal text-foreground shadow-md"
+        >
+          {help}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function DeltaBadge({ delta }: { delta: PurchasingReportSummaryDelta }) {
+  if (delta.deltaPct == null || !Number.isFinite(delta.deltaPct)) {
+    return (
+      <span className="shrink-0 text-[10px] font-medium text-muted-foreground">vs ant. —</span>
+    );
+  }
+  const up = delta.deltaPct > 0.05;
+  const down = delta.deltaPct < -0.05;
+  const tone = up
+    ? "text-emerald-700 dark:text-emerald-400"
+    : down
+      ? "text-red-700 dark:text-red-400"
+      : "text-muted-foreground";
+  const arrow = up ? "↑" : down ? "↓" : "→";
+  return (
+    <span className={`shrink-0 text-[10px] font-medium tabular-nums ${tone}`}>
+      {arrow} {formatReportPercent(Math.abs(delta.deltaPct))}
+    </span>
+  );
+}
 
 export function ReportPreview({ result, companyLabel }: Props) {
   if (!result) {
@@ -28,6 +90,12 @@ export function ReportPreview({ result, companyLabel }: Props) {
   }
 
   const summaryEntries = Object.entries(result.summary);
+  const bulletEntries = summaryEntries.filter(([key, value]) =>
+    shouldUseKpiBullet(key, value, result.summaryDelta?.[key]),
+  );
+  const cardEntries = summaryEntries.filter(
+    ([key, value]) => !shouldUseKpiBullet(key, value, result.summaryDelta?.[key]),
+  );
 
   return (
     <div
@@ -54,21 +122,57 @@ export function ReportPreview({ result, companyLabel }: Props) {
         </div>
       </header>
 
-      {summaryEntries.length > 0 ? (
+      {bulletEntries.length > 0 ? (
+        <section
+          className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-x-4 sm:gap-y-3"
+          data-test-id="purchasing-report-kpi-bullets"
+        >
+          {bulletEntries.map(([key, value]) => {
+            const help = reportKpiHelp(key);
+            const delta = result.summaryDelta![key]!;
+            return (
+              <KpiBulletChart
+                key={key}
+                label={formatReportSummaryLabel(key)}
+                formattedValue={formatReportSummaryValue(key, value)}
+                delta={delta}
+                helpSlot={help ? <KpiInfoButton help={help} /> : undefined}
+                deltaSlot={<DeltaBadge delta={delta} />}
+                testId={`purchasing-report-kpi-${key}`}
+              />
+            );
+          })}
+        </section>
+      ) : null}
+
+      {cardEntries.length > 0 ? (
         <section className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 print:grid-cols-4">
-          {summaryEntries.map(([key, value]) => (
-            <div
-              key={key}
-              className="rounded-lg border border-border bg-muted/30 px-3 py-2 print:border-neutral-300"
-            >
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                {formatReportSummaryLabel(key)}
-              </p>
-              <p className="mt-0.5 text-sm font-semibold tabular-nums text-foreground">
-                {formatReportSummaryValue(key, value)}
-              </p>
-            </div>
-          ))}
+          {cardEntries.map(([key, value]) => {
+            const help = reportKpiHelp(key);
+            const delta = result.summaryDelta?.[key];
+            return (
+              <div
+                key={key}
+                className="rounded-lg border border-border bg-muted/30 px-3 py-2 print:border-neutral-300"
+                data-test-id={`purchasing-report-kpi-${key}`}
+              >
+                <div className="flex items-start justify-between gap-1">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    {formatReportSummaryLabel(key)}
+                  </p>
+                  {help ? <KpiInfoButton help={help} /> : null}
+                </div>
+                <p className="mt-0.5 text-sm font-semibold tabular-nums text-foreground">
+                  {formatReportSummaryValue(key, value)}
+                </p>
+                {delta ? (
+                  <div className="mt-1">
+                    <DeltaBadge delta={delta} />
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
         </section>
       ) : null}
 
@@ -116,7 +220,10 @@ export function ReportPreview({ result, companyLabel }: Props) {
                           c.align === "right" ? "text-right" : "text-left"
                         }`}
                       >
-                        {formatReportCell(c.key, row[c.key])}
+                        {formatReportCell(c.key, row[c.key], {
+                          metricKey:
+                            typeof row.metric === "string" ? row.metric : undefined,
+                        })}
                       </td>
                     ))}
                   </tr>

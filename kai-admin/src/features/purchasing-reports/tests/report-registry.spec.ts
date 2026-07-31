@@ -9,15 +9,24 @@ import {
 } from "../lib/report-form";
 
 describe("purchasing report registry", () => {
-  it("includes 6 MVP reports with params", () => {
-    expect(PURCHASING_REPORT_REGISTRY).toHaveLength(6);
+  it("includes categorized reports with at least one param", () => {
+    expect(PURCHASING_REPORT_REGISTRY.length).toBeGreaterThanOrEqual(7);
     for (const entry of PURCHASING_REPORT_REGISTRY) {
       expect(entry.id).toBeTruthy();
-      expect(entry.wave).toBe("mvp");
+      expect(entry.category).toBeTruthy();
       expect(entry.params.length).toBeGreaterThan(0);
     }
     expect(
       getReportEntry("purchases-by-product")?.params.some((p) => p.kind === "product"),
+    ).toBe(true);
+    expect(getReportEntry("purchases-by-period")?.category).toBe("resumen");
+    expect(getReportEntry("purchases-by-supplier")?.category).toBe("proveedores");
+    expect(getReportEntry("purchases-by-payment-method")?.category).toBe("pagos");
+    expect(getReportEntry("purchases-period-compare")?.category).toBe("comparativos");
+    expect(
+      getReportEntry("purchases-period-compare")?.params.some(
+        (p) => p.kind === "compareWith",
+      ),
     ).toBe(true);
   });
 
@@ -43,6 +52,7 @@ describe("purchasing report registry", () => {
     form.paymentMethod = "TRANSFER";
     form.storageIds = ["st-1"];
     form.supplierId = "sup-1";
+    form.granularity = "week";
     const params = formStateToParams(entry, form);
     expect(params).toMatchObject({
       dateFrom: "2026-01-01",
@@ -50,6 +60,25 @@ describe("purchasing report registry", () => {
       paymentMethod: "TRANSFER",
       storageIds: ["st-1"],
       supplierId: "sup-1",
+      granularity: "week",
+    });
+  });
+
+  it("maps granularity and compare for the period compare report", () => {
+    const entry = getReportEntry("purchases-period-compare")!;
+    const form = emptyReportFormState();
+    form.dateFrom = "2026-01-01";
+    form.dateTo = "2026-01-31";
+    expect(formStateToParams(entry, form)).toMatchObject({
+      granularity: "day",
+      compareWith: "previousPeriod",
+    });
+
+    form.compareWith = "samePeriodLastYear";
+    form.granularity = "month";
+    expect(formStateToParams(entry, form)).toMatchObject({
+      granularity: "month",
+      compareWith: "samePeriodLastYear",
     });
   });
 });

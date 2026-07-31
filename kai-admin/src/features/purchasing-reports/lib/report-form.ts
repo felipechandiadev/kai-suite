@@ -1,7 +1,15 @@
 import type { ReportRegistryEntry } from "../types/purchasing-report.types";
-import { dateRangeForPreset } from "./report-dates";
+import {
+  dateRangeForPreset,
+  resolveGranularity,
+  toIsoDate,
+  type CompareWith,
+  type DatePreset,
+  type ReportGranularity,
+} from "@/shared/reports";
 
 export type ReportFormState = {
+  datePreset: DatePreset;
   dateFrom: string;
   dateTo: string;
   productId: string | null;
@@ -10,11 +18,15 @@ export type ReportFormState = {
   supplierLabel: string | null;
   storageIds: string[];
   paymentMethod: string;
+  branchId: string;
+  granularity: ReportGranularity;
+  compareWith: CompareWith;
 };
 
 export function emptyReportFormState(): ReportFormState {
   const month = dateRangeForPreset("month");
   return {
+    datePreset: "month",
     dateFrom: month.dateFrom,
     dateTo: month.dateTo,
     productId: null,
@@ -23,6 +35,9 @@ export function emptyReportFormState(): ReportFormState {
     supplierLabel: null,
     storageIds: [],
     paymentMethod: "",
+    branchId: "",
+    granularity: "auto",
+    compareWith: "none",
   };
 }
 
@@ -45,6 +60,26 @@ export function formStateToParams(
   if (kinds.has("paymentMethod") && state.paymentMethod) {
     params.paymentMethod = state.paymentMethod;
   }
+  if (kinds.has("branch") && state.branchId) {
+    params.branchId = state.branchId;
+  }
+  if (kinds.has("granularity")) {
+    params.granularity = resolveGranularity(
+      state.granularity,
+      state.dateFrom,
+      state.dateTo,
+    );
+  }
+  if (kinds.has("compareWith") && state.compareWith && state.compareWith !== "none") {
+    params.compareWith = state.compareWith;
+  }
+  // purchases-period-compare defaults to previousPeriod if none selected
+  if (
+    entry.id === "purchases-period-compare" &&
+    (!state.compareWith || state.compareWith === "none")
+  ) {
+    params.compareWith = "previousPeriod";
+  }
   return params;
 }
 
@@ -66,3 +101,5 @@ export function validateFormForEntry(
   }
   return null;
 }
+
+export { toIsoDate };

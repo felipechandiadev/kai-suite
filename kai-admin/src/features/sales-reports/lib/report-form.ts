@@ -1,10 +1,15 @@
 import type { ReportRegistryEntry } from "../types/sales-report.types";
 import {
   dateRangeForPreset,
+  resolveGranularity,
+  type CompareWith,
+  type DatePreset,
+  type ReportGranularity,
   toIsoDate,
 } from "./report-dates";
 
 export type ReportFormState = {
+  datePreset: DatePreset;
   dateFrom: string;
   dateTo: string;
   productId: string | null;
@@ -12,14 +17,21 @@ export type ReportFormState = {
   customerId: string | null;
   customerLabel: string | null;
   pointOfSaleIds: string[];
+  /** POS A / B para comparativo entre dos puntos de venta. */
+  posAId: string;
+  posBId: string;
   paymentMethod: string;
   cashSessionId: string;
   topN: string;
+  branchId: string;
+  granularity: ReportGranularity;
+  compareWith: CompareWith;
 };
 
 export function emptyReportFormState(): ReportFormState {
   const month = dateRangeForPreset("month");
   return {
+    datePreset: "month",
     dateFrom: month.dateFrom,
     dateTo: month.dateTo,
     productId: null,
@@ -27,9 +39,14 @@ export function emptyReportFormState(): ReportFormState {
     customerId: null,
     customerLabel: null,
     pointOfSaleIds: [],
+    posAId: "",
+    posBId: "",
     paymentMethod: "",
     cashSessionId: "",
     topN: "20",
+    branchId: "",
+    granularity: "auto",
+    compareWith: "none",
   };
 }
 
@@ -49,6 +66,10 @@ export function formStateToParams(
   if (kinds.has("posMulti") && state.pointOfSaleIds.length) {
     params.pointOfSaleIds = state.pointOfSaleIds;
   }
+  if (kinds.has("posPair")) {
+    if (state.posAId) params.posAId = state.posAId;
+    if (state.posBId) params.posBId = state.posBId;
+  }
   if (kinds.has("paymentMethod") && state.paymentMethod) {
     params.paymentMethod = state.paymentMethod;
   }
@@ -57,6 +78,23 @@ export function formStateToParams(
   }
   if (kinds.has("topN")) {
     params.topN = Number(state.topN) || 20;
+  }
+  if (kinds.has("branch") && state.branchId) {
+    params.branchId = state.branchId;
+  }
+  if (kinds.has("granularity")) {
+    params.granularity = resolveGranularity(
+      state.granularity,
+      state.dateFrom,
+      state.dateTo,
+    );
+  }
+  if (kinds.has("compareWith") && state.compareWith && state.compareWith !== "none") {
+    params.compareWith = state.compareWith;
+  }
+  // sales-period-compare defaults to previousPeriod if none selected
+  if (entry.id === "sales-period-compare" && (!state.compareWith || state.compareWith === "none")) {
+    params.compareWith = "previousPeriod";
   }
   return params;
 }
@@ -75,6 +113,14 @@ export function validateFormForEntry(
     }
     if (field.kind === "customer" && field.required && !state.customerId) {
       return "Seleccioná un cliente.";
+    }
+    if (field.kind === "posPair") {
+      if (!state.posAId || !state.posBId) {
+        return "Seleccioná dos puntos de venta para comparar.";
+      }
+      if (state.posAId === state.posBId) {
+        return "Los dos puntos de venta deben ser distintos.";
+      }
     }
   }
   if (entry.id === "cash-session-close") {

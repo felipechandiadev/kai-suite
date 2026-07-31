@@ -3,11 +3,28 @@ import {
   InventoryReportHandler,
   InventoryReportHandlerContext,
   InventoryReportRunResult,
+  bucketColumnLabel,
+  bucketGrainLabel,
+  buildSummaryDelta,
+  compareDateRange,
+  mergeBucketPoints,
+  parseCompareWith,
+  resolveGranularity,
 } from '../../domain/inventory-report.types';
 import { InventoryReportsQueryService } from '../inventory-reports-query.service';
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function compareFootnote(
+  current: { dateFrom: string; dateTo: string },
+  cmp: { dateFrom: string; dateTo: string } | null,
+): string[] {
+  if (!cmp) return [];
+  return [
+    `Período actual: ${current.dateFrom} → ${current.dateTo}. Comparación: ${cmp.dateFrom} → ${cmp.dateTo}.`,
+  ];
 }
 
 function money(n: number) {
@@ -417,17 +434,26 @@ export class StockMovementTrendHandler implements InventoryReportHandler {
       stockUnitIds: this.q.requireUuidList(params, 'stockUnitIds'),
       storageIds: this.q.optionalUuidList(params, 'storageIds'),
       productId: this.q.optionalUuid(params, 'productId'),
+      granularity: resolveGranularity(params.granularity, range.dateFrom, range.dateTo),
+      compareWith: parseCompareWith(params.compareWith),
     };
   }
 
   async run(ctx: InventoryReportHandlerContext): Promise<InventoryReportRunResult> {
     const params = this.validate(ctx.params);
     const range = this.q.parseDateRange(params);
-    const data = await this.q.stockMovementTrendRows(ctx.companyId, range, {
+    const filter = {
       stockUnitIds: params.stockUnitIds,
       storageIds: params.storageIds,
       productId: params.productId,
-    });
+    };
+    const grain = params.granularity;
+    const data = await this.q.stockMovementTrendRows(
+      ctx.companyId,
+      range,
+      filter,
+      grain,
+    );
 
     const familyLabel: Record<string, string> = {
       sale: 'Ventas',
@@ -437,20 +463,36 @@ export class StockMovementTrendHandler implements InventoryReportHandler {
       other: 'Otros',
     };
 
+    const summaryNums = movementTrendSummary(data);
+    let summaryDelta: InventoryReportRunResult['summaryDelta'];
+    const cmp = compareDateRange(params.dateFrom, params.dateTo, params.compareWith);
+    if (cmp) {
+      const prevRange = this.q.parseDateRange(cmp);
+      const prev = await this.q.stockMovementTrendRows(
+        ctx.companyId,
+        prevRange,
+        filter,
+        grain,
+      );
+      summaryDelta = buildSummaryDelta(summaryNums, movementTrendSummary(prev));
+    }
+
+    const grainLabel = bucketGrainLabel(grain);
+
     return {
       reportId: this.id,
       title: this.title,
       generatedAt: nowIso(),
-      params,
-      summary: {
-        dayRows: data.rows.length,
-        unitCount: data.byUnitSeries.length,
-        lineEvents: Object.values(data.familyCounts).reduce((s, n) => s + n, 0),
+      params: {
+        ...params,
+        ...(cmp ? { compareFrom: cmp.dateFrom, compareTo: cmp.dateTo } : {}),
       },
+      summary: summaryNums,
+      summaryDelta,
       series: [
         ...data.byUnitSeries.map((u) => ({
           id: `trend-${u.stockUnit}`,
-          label: `Neto diario (${u.stockUnit})`,
+          label: `Neto por ${grainLabel} (${u.stockUnit})`,
           chart: 'area' as const,
           points: u.points.map((p) => ({ x: p.day, y: qty(p.qtyNet) })),
         })),
@@ -465,7 +507,7 @@ export class StockMovementTrendHandler implements InventoryReportHandler {
         },
       ],
       columns: [
-        { key: 'day', label: 'Día' },
+        { key: 'day', label: bucketColumnLabel(grain) },
         { key: 'stockUnit', label: 'Unidad' },
         { key: 'qtyIn', label: 'Entradas', align: 'right' },
         { key: 'qtyOut', label: 'Salidas', align: 'right' },
@@ -481,9 +523,15 @@ export class StockMovementTrendHandler implements InventoryReportHandler {
         lineCount: r.lineCount,
       })),
       footnotes: [
-        'Neto = entradas − salidas del día (no es nivel de stock absoluto).',
+        `Neto = entradas − salidas del ${grainLabel} (no es nivel de stock absoluto).`,
         'Una serie de gráfico por unidad de stock; no se mezclan Un/Kg.',
+        ...(data.byUnitSeries.length > 1
+          ? [
+              'Con más de una unidad de stock con movimiento, las KPI de cantidad se omiten para no mezclar Un/Kg.',
+            ]
+          : []),
         `Tipos: ${['PURCHASE', 'SALE', 'TRANSFER_*', 'ADJUSTMENT_*', 'SALE_RETURN', 'PURCHASE_RETURN'].join(', ')}.`,
+        ...compareFootnote(params, cmp),
         ...(data.truncated ? ['Resultado truncado a 1000 líneas de movimiento.'] : []),
         ...(data.rows.length === 0
           ? ['Sin movimientos en el período / filtros.']
@@ -491,6 +539,26 @@ export class StockMovementTrendHandler implements InventoryReportHandler {
       ],
     };
   }
+}
+
+/** KPI del trend: cantidades solo con una unidad de stock (no mezclar Un/Kg). */
+function movementTrendSummary(data: {
+  rows: Array<{ qtyIn: number; qtyOut: number; qtyNet: number }>;
+  byUnitSeries: Array<{ stockUnitId: string }>;
+  familyCounts: Record<string, number>;
+}): Record<string, number> {
+  const base: Record<string, number> = {
+    dayRows: data.rows.length,
+    unitCount: data.byUnitSeries.length,
+    lineEvents: Object.values(data.familyCounts).reduce((s, n) => s + n, 0),
+  };
+  if (data.byUnitSeries.length > 1) return base;
+  return {
+    ...base,
+    qtyIn: qty(data.rows.reduce((s, r) => s + r.qtyIn, 0)),
+    qtyOut: qty(data.rows.reduce((s, r) => s + r.qtyOut, 0)),
+    qtyNet: qty(data.rows.reduce((s, r) => s + r.qtyNet, 0)),
+  };
 }
 
 @Injectable()
@@ -510,38 +578,75 @@ export class InventoryTransfersHandler implements InventoryReportHandler {
       dateTo: range.dateTo,
       storageIds: this.q.optionalUuidList(params, 'storageIds'),
       productId: this.q.optionalUuid(params, 'productId'),
+      granularity: resolveGranularity(params.granularity, range.dateFrom, range.dateTo),
+      compareWith: parseCompareWith(params.compareWith),
     };
   }
 
   async run(ctx: InventoryReportHandlerContext): Promise<InventoryReportRunResult> {
     const params = this.validate(ctx.params);
     const range = this.q.parseDateRange(params);
-    const data = await this.q.listTransfers(ctx.companyId, range, {
+    const filter = {
       storageIds: params.storageIds,
       productId: params.productId,
-    });
+    };
+    const grain = params.granularity;
+    const data = await this.q.listTransfers(ctx.companyId, range, filter, grain);
+
+    const summaryNums = {
+      transferCount: data.transferCount,
+      qtyMoved: qty(data.qtyMoved),
+    };
+    let summaryDelta: InventoryReportRunResult['summaryDelta'];
+    let prevBuckets: Array<{ day: string; count: number; qty: number }> = [];
+    const cmp = compareDateRange(params.dateFrom, params.dateTo, params.compareWith);
+    if (cmp) {
+      const prevRange = this.q.parseDateRange(cmp);
+      const prev = await this.q.listTransfers(ctx.companyId, prevRange, filter, grain);
+      prevBuckets = prev.byDay;
+      summaryDelta = buildSummaryDelta(summaryNums, {
+        transferCount: prev.transferCount,
+        qtyMoved: qty(prev.qtyMoved),
+      });
+    }
+
+    const grainLabel = bucketGrainLabel(grain);
+    const countPoints = data.byDay.map((d) => ({ x: d.day, y: d.count }));
+    const qtyPoints = data.byDay.map((d) => ({ x: d.day, y: qty(d.qty) }));
+    const compareSuffix = prevBuckets.length ? ' (actual vs comparación)' : '';
 
     return {
       reportId: this.id,
       title: this.title,
       generatedAt: nowIso(),
-      params,
-      summary: {
-        transferCount: data.transferCount,
-        qtyMoved: qty(data.qtyMoved),
+      params: {
+        ...params,
+        ...(cmp ? { compareFrom: cmp.dateFrom, compareTo: cmp.dateTo } : {}),
       },
+      summary: summaryNums,
+      summaryDelta,
       series: [
         {
           id: 'transfers-by-day',
-          label: 'Transferencias por día',
+          label: `Transferencias por ${grainLabel}${compareSuffix}`,
           chart: 'bar',
-          points: data.byDay.map((d) => ({ x: d.day, y: d.count })),
+          points: prevBuckets.length
+            ? mergeBucketPoints(
+                countPoints,
+                prevBuckets.map((d) => ({ x: d.day, y: d.count })),
+              )
+            : countPoints,
         },
         {
           id: 'transfer-qty-by-day',
-          label: 'Cantidad transferida por día',
+          label: `Cantidad transferida por ${grainLabel}${compareSuffix}`,
           chart: 'area',
-          points: data.byDay.map((d) => ({ x: d.day, y: qty(d.qty) })),
+          points: prevBuckets.length
+            ? mergeBucketPoints(
+                qtyPoints,
+                prevBuckets.map((d) => ({ x: d.day, y: qty(d.qty) })),
+              )
+            : qtyPoints,
         },
       ],
       columns: [
@@ -561,6 +666,7 @@ export class InventoryTransfersHandler implements InventoryReportHandler {
       truncated: data.truncated,
       footnotes: [
         'Se cuentan solo TRANSFER_OUT (una transferencia = un evento). TRANSFER_IN no duplica el total de empresa.',
+        ...compareFootnote(params, cmp),
         ...(data.truncated ? ['Resultado truncado a 1000 filas.'] : []),
         ...(data.transferCount === 0
           ? ['Sin transferencias en el período / filtros.']
@@ -586,34 +692,68 @@ export class InventoryAdjustmentsHandler implements InventoryReportHandler {
       dateTo: range.dateTo,
       storageIds: this.q.optionalUuidList(params, 'storageIds'),
       productId: this.q.optionalUuid(params, 'productId'),
+      granularity: resolveGranularity(params.granularity, range.dateFrom, range.dateTo),
+      compareWith: parseCompareWith(params.compareWith),
     };
   }
 
   async run(ctx: InventoryReportHandlerContext): Promise<InventoryReportRunResult> {
     const params = this.validate(ctx.params);
     const range = this.q.parseDateRange(params);
-    const data = await this.q.listAdjustments(ctx.companyId, range, {
+    const filter = {
       storageIds: params.storageIds,
       productId: params.productId,
-    });
+    };
+    const grain = params.granularity;
+    const data = await this.q.listAdjustments(ctx.companyId, range, filter, grain);
+
+    const summaryNums = {
+      count: data.count,
+      qtyIn: qty(data.qtyIn),
+      qtyOut: qty(data.qtyOut),
+      qtyNet: qty(data.qtyNet),
+    };
+    let summaryDelta: InventoryReportRunResult['summaryDelta'];
+    let prevBuckets: Array<{ day: string; qtyNet: number }> = [];
+    const cmp = compareDateRange(params.dateFrom, params.dateTo, params.compareWith);
+    if (cmp) {
+      const prevRange = this.q.parseDateRange(cmp);
+      const prev = await this.q.listAdjustments(ctx.companyId, prevRange, filter, grain);
+      prevBuckets = prev.byDay;
+      summaryDelta = buildSummaryDelta(summaryNums, {
+        count: prev.count,
+        qtyIn: qty(prev.qtyIn),
+        qtyOut: qty(prev.qtyOut),
+        qtyNet: qty(prev.qtyNet),
+      });
+    }
+
+    const grainLabel = bucketGrainLabel(grain);
+    const netPoints = data.byDay.map((d) => ({ x: d.day, y: qty(d.qtyNet) }));
 
     return {
       reportId: this.id,
       title: this.title,
       generatedAt: nowIso(),
-      params,
-      summary: {
-        count: data.count,
-        qtyIn: qty(data.qtyIn),
-        qtyOut: qty(data.qtyOut),
-        qtyNet: qty(data.qtyNet),
+      params: {
+        ...params,
+        ...(cmp ? { compareFrom: cmp.dateFrom, compareTo: cmp.dateTo } : {}),
       },
+      summary: summaryNums,
+      summaryDelta,
       series: [
         {
           id: 'adjustments-net-by-day',
-          label: 'Neto de ajustes por día',
+          label: `Neto de ajustes por ${grainLabel}${
+            prevBuckets.length ? ' (actual vs comparación)' : ''
+          }`,
           chart: 'bar',
-          points: data.byDay.map((d) => ({ x: d.day, y: qty(d.qtyNet) })),
+          points: prevBuckets.length
+            ? mergeBucketPoints(
+                netPoints,
+                prevBuckets.map((d) => ({ x: d.day, y: qty(d.qtyNet) })),
+              )
+            : netPoints,
         },
       ],
       columns: [
@@ -641,6 +781,7 @@ export class InventoryAdjustmentsHandler implements InventoryReportHandler {
       truncated: data.truncated,
       footnotes: [
         'Solo ADJUSTMENT_IN / ADJUSTMENT_OUT. Neto = entradas − salidas.',
+        ...compareFootnote(params, cmp),
         ...(data.truncated ? ['Resultado truncado a 1000 filas.'] : []),
         ...(data.count === 0 ? ['Sin ajustes en el período / filtros.'] : []),
       ],

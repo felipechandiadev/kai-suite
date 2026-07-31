@@ -13,6 +13,7 @@ import {
   StockMovementTrendHandler,
   StockValuationHandler,
 } from './handlers/mvp.handlers';
+import { InventoryPeriodCompareHandler } from './handlers/compare.handlers';
 
 @Injectable()
 export class InventoryReportRunner {
@@ -26,6 +27,7 @@ export class InventoryReportRunner {
     stockMovementTrend: StockMovementTrendHandler,
     inventoryTransfers: InventoryTransfersHandler,
     inventoryAdjustments: InventoryAdjustmentsHandler,
+    inventoryPeriodCompare: InventoryPeriodCompareHandler,
   ) {
     const list: InventoryReportHandler[] = [
       stockValuation,
@@ -35,6 +37,7 @@ export class InventoryReportRunner {
       stockMovementTrend,
       inventoryTransfers,
       inventoryAdjustments,
+      inventoryPeriodCompare,
     ];
     this.handlers = new Map(list.map((h) => [h.id, h]));
   }

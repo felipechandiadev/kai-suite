@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { DataGridTable as DataGrid } from "@kai/ui";
 import type { DataGridColumn } from "@kai/ui";
 import { Badge, type BadgeVariant } from "@kai/ui";
@@ -10,7 +11,6 @@ import {
   type CashSessionListRow,
   type CashSessionListStatus,
 } from "@/features/sales-cash-sessions/types/cash-session-list.types";
-import CashSessionTransactionsDialog from "./CashSessionTransactionsDialog";
 
 type CashSessionsDataGridProps = {
   rows: CashSessionListRow[];
@@ -48,14 +48,24 @@ export default function CashSessionsDataGrid({
   rows,
   total,
 }: CashSessionsDataGridProps) {
-  const [txSession, setTxSession] = useState<CashSessionListRow | null>(null);
+  const router = useRouter();
 
-  const openTransactions = useCallback((r: CashSessionListRow) => {
-    setTxSession(r);
-  }, []);
+  const openDetail = useCallback(
+    (r: CashSessionListRow) => {
+      const id = r.id?.trim();
+      if (!id) return;
+      router.push(`/sales/cash-sessions/${encodeURIComponent(id)}`);
+    },
+    [router],
+  );
 
   const columns: DataGridColumn[] = useMemo(() => {
-    function CashSessionActionsCell({ row }: { row: any; column: DataGridColumn }) {
+    function CashSessionActionsCell({
+      row,
+    }: {
+      row: any;
+      column: DataGridColumn;
+    }) {
       const r = row as CashSessionListRow;
       return (
         <div
@@ -66,9 +76,9 @@ export default function CashSessionsDataGrid({
             icon="MoreHorizontal"
             variant="action"
             size="sm"
-            ariaLabel="Ver movimientos de la sesión"
-            onClick={() => openTransactions(r)}
-            data-test-id={`cash-sessions-row-transactions-${r.id}`}
+            ariaLabel="Ver detalle de la sesión"
+            onClick={() => openDetail(r)}
+            data-test-id={`cash-sessions-row-detail-${r.id}`}
           />
         </div>
       );
@@ -135,6 +145,26 @@ export default function CashSessionsDataGrid({
           formatMoney((row as CashSessionListRow).openingAmount),
       },
       {
+        field: "expectedAmount",
+        headerName: "Saldo en caja ($)",
+        sortable: false,
+        width: 150,
+        align: "right",
+        valueGetter: ({ row }) => {
+          const r = row as CashSessionListRow;
+          return formatMoney(r.expectedAmount ?? r.openingAmount);
+        },
+      },
+      {
+        field: "salesTotal",
+        headerName: "Total ventas ($)",
+        sortable: false,
+        width: 140,
+        align: "right",
+        valueGetter: ({ row }) =>
+          formatMoney((row as CashSessionListRow).salesTotal),
+      },
+      {
         field: "closedAt",
         headerName: "Cierre",
         sortable: false,
@@ -150,15 +180,6 @@ export default function CashSessionsDataGrid({
         align: "right",
         valueGetter: ({ row }) =>
           formatMoney((row as CashSessionListRow).closingAmount),
-      },
-      {
-        field: "salesTotal",
-        headerName: "Total ventas ($)",
-        sortable: false,
-        width: 140,
-        align: "right",
-        valueGetter: ({ row }) =>
-          formatMoney((row as CashSessionListRow).salesTotal),
       },
       {
         field: "difference",
@@ -180,28 +201,21 @@ export default function CashSessionsDataGrid({
         actionComponent: CashSessionActionsCell,
       },
     ];
-  }, [openTransactions]);
+  }, [openDetail]);
 
   return (
-    <>
-      <DataGrid
-        title="Sesiones de caja"
-        columns={columns}
-        rows={rows}
-        totalRows={total}
-        totalGeneral={total}
-        height="85vh"
-        showExportButton={false}
-        showSortButton={false}
-        showFilterButton={false}
-        pinActionsColumn
-        data-test-id="sales-cash-sessions-data-grid"
-      />
-      <CashSessionTransactionsDialog
-        session={txSession}
-        open={txSession != null}
-        onClose={() => setTxSession(null)}
-      />
-    </>
+    <DataGrid
+      title="Sesiones de caja"
+      columns={columns}
+      rows={rows}
+      totalRows={total}
+      totalGeneral={total}
+      height="85vh"
+      showExportButton={false}
+      showSortButton={false}
+      showFilterButton={false}
+      pinActionsColumn
+      data-test-id="sales-cash-sessions-data-grid"
+    />
   );
 }

@@ -1,14 +1,18 @@
 "use client";
 
-import { useCallback, useMemo, useState, useTransition } from "react";
-import { Button, SelectDefault as Select } from "@kai/ui";
-import { RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { IconButton, SelectDefault as Select } from "@kai/ui";
 import {
   INVENTORY_REPORT_REGISTRY,
   getReportEntry,
 } from "@/features/inventory-reports/report-registry";
 import { runInventoryReportAction } from "@/features/inventory-reports/actions/inventory-reports.action";
 import type { InventoryReportRunResult } from "@/features/inventory-reports/types/inventory-report.types";
+import {
+  INVENTORY_REPORT_CATEGORY_LABEL,
+  INVENTORY_REPORT_CATEGORY_ORDER,
+  type InventoryReportCategory,
+} from "@/features/inventory-reports/types/inventory-report.types";
 import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
 import type { UnitListItem } from "@/features/inventory-units/types/unit.types";
 import type { CategoryListItem } from "@/features/inventory-categories/types/category.types";
@@ -28,32 +32,92 @@ type Props = {
   companyLabel?: string;
 };
 
+function categoryOf(id: string): InventoryReportCategory {
+  return getReportEntry(id)?.category ?? "valuacion";
+}
+
 export function InventoryReportsWorkspace({
   storages,
   units,
   categories,
   companyLabel,
 }: Props) {
-  const [reportId, setReportId] = useState(
-    INVENTORY_REPORT_REGISTRY[0]?.id ?? "stock-valuation",
+  const defaultId = INVENTORY_REPORT_REGISTRY[0]?.id ?? "stock-valuation";
+  const [category, setCategory] = useState<InventoryReportCategory>(() =>
+    categoryOf(defaultId),
   );
+  const [reportId, setReportId] = useState(defaultId);
   const entry = useMemo(
     () => getReportEntry(reportId) ?? INVENTORY_REPORT_REGISTRY[0],
     [reportId],
   );
-  const [form, setForm] = useState<ReportFormState>(emptyReportFormState);
+  const [form, setForm] = useState<ReportFormState>(() => emptyReportFormState());
   const [result, setResult] = useState<InventoryReportRunResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const reportOptions = useMemo(
+  const categoryOptions = useMemo(
     () =>
-      INVENTORY_REPORT_REGISTRY.map((r) => ({
-        id: r.id,
-        label: r.title,
+      INVENTORY_REPORT_CATEGORY_ORDER.filter((cat) =>
+        INVENTORY_REPORT_REGISTRY.some((r) => r.category === cat),
+      ).map((cat) => ({
+        id: cat,
+        label: INVENTORY_REPORT_CATEGORY_LABEL[cat],
       })),
     [],
   );
+
+  const reportOptions = useMemo(
+    () =>
+      INVENTORY_REPORT_REGISTRY.filter((r) => r.category === category).map((r) => ({
+        id: r.id,
+        label: r.title,
+      })),
+    [category],
+  );
+
+  const runReport = useCallback(
+    (activeEntry: NonNullable<typeof entry>, activeForm: ReportFormState) => {
+      const validationError = validateFormForEntry(activeEntry, activeForm);
+      if (validationError) {
+        setError(validationError);
+        setResult(null);
+        return;
+      }
+      setError(null);
+      const params = formStateToParams(activeEntry, activeForm);
+      startTransition(async () => {
+        const res = await runInventoryReportAction(activeEntry.id, params);
+        if (!res.success || !res.data) {
+          setResult(null);
+          setError(res.error ?? "No se pudo generar el reporte");
+          return;
+        }
+        setResult(res.data);
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!entry) return;
+    const timer = window.setTimeout(() => {
+      runReport(entry, form);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [entry, form, runReport]);
+
+  const onSelectCategory = useCallback((id: string | number | null) => {
+    const nextCat = String(id ?? "valuacion") as InventoryReportCategory;
+    setCategory(nextCat);
+    const first = INVENTORY_REPORT_REGISTRY.find((r) => r.category === nextCat);
+    if (first) {
+      setReportId(first.id);
+      setForm(emptyReportFormState());
+      setResult(null);
+      setError(null);
+    }
+  }, []);
 
   const onSelectReport = useCallback((id: string | number | null) => {
     const nextId = String(id ?? "");
@@ -63,59 +127,41 @@ export function InventoryReportsWorkspace({
     setError(null);
   }, []);
 
-  const onGenerate = useCallback(() => {
+  const onRefresh = useCallback(() => {
     if (!entry) return;
-    const validationError = validateFormForEntry(entry, form);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-    setError(null);
-    const params = formStateToParams(entry, form);
-    startTransition(async () => {
-      const res = await runInventoryReportAction(entry.id, params);
-      if (!res.success || !res.data) {
-        setResult(null);
-        setError(res.error ?? "No se pudo generar el reporte");
-        return;
-      }
-      if (!res.data.series?.length) {
-        setResult(res.data);
-        setError("El reporte no incluyó gráficos. Revisá filtros o datos.");
-        return;
-      }
-      setResult(res.data);
-    });
-  }, [entry, form]);
-
-  const onClear = useCallback(() => {
-    setForm(emptyReportFormState());
-    setResult(null);
-    setError(null);
-  }, []);
+    runReport(entry, form);
+  }, [entry, form, runReport]);
 
   return (
     <div
       className="inventory-reports-workspace flex min-h-0 flex-1 flex-col gap-3"
       data-test-id="inventory-reports-workspace"
     >
-      <div className="inventory-reports-toolbar flex flex-wrap items-center justify-between gap-2 print:hidden">
-        <div>
-          <h1 className="text-lg font-semibold text-foreground">Reportes de inventario</h1>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outlined" onClick={onClear} disabled={pending}>
-            Limpiar
-          </Button>
-          <Button type="button" onClick={onGenerate} loading={pending}>
-            <RefreshCw className="mr-1.5 size-4" />
-            Generar
-          </Button>
-        </div>
+      <div className="inventory-reports-toolbar flex flex-wrap items-center gap-2 print:hidden">
+        <IconButton
+          icon="RefreshCw"
+          variant="primary"
+          size="sm"
+          ariaLabel="Actualizar reporte"
+          onClick={onRefresh}
+          isLoading={pending}
+          disabled={pending}
+          data-test-id="inventory-reports-refresh"
+        />
+        <h1 className="text-lg font-semibold text-foreground">
+          Reportes de inventario
+        </h1>
       </div>
 
       <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
         <aside className="inventory-reports-config flex h-fit flex-col gap-3 rounded-xl border border-border bg-card p-4 print:hidden">
+          <Select
+            label="Categoría"
+            alwaysShowLabel
+            options={categoryOptions}
+            value={category}
+            onChange={onSelectCategory}
+          />
           <Select
             label="Tipo de reporte"
             alwaysShowLabel

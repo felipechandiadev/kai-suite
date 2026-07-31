@@ -1,0 +1,72 @@
+/** Ayudas cortas para KPI cards de reportes (ventas / compras / inventario). */
+export const REPORT_KPI_HELP: Record<string, string> = {
+  totalSales:
+    "Suma de los montos de tickets de venta del período, aplicando los filtros seleccionados.",
+  ticketCount:
+    "Cantidad de transacciones de venta contabilizadas en el período (excluye anuladas).",
+  avgTicket:
+    "Ventas totales divididas por la cantidad de tickets. Indica el ticket promedio.",
+  grossMargin:
+    "Suma de (precio − costo) en líneas de venta con costo registrado. Si faltan costos, el margen queda subestimado.",
+  marginCoveragePct:
+    "Porcentaje de líneas de venta que tienen unitCost > 0. Bajo 100% indica datos de costo incompletos.",
+  quantity: "Unidades vendidas o movimiento en el período.",
+  amount: "Monto agregado del período según el reporte.",
+  totalAmount: "Monto total agregado del período.",
+  returnsTotal: "Monto total de devoluciones en el período.",
+  returnsCount: "Cantidad de devoluciones registradas.",
+  salesTotal: "Total de ventas usado como base de comparación.",
+  returnsVsSalesPct: "Devoluciones como porcentaje de las ventas del mismo período.",
+  products: "Cantidad de productos distintos incluidos en el resultado.",
+  methods: "Cantidad de medios de pago con movimiento.",
+  posCount: "Cantidad de puntos de venta incluidos.",
+  creditNotes: "Cantidad de notas de crédito emitidas.",
+  redemptions: "Cantidad de redenciones de promociones.",
+  promotions: "Promociones distintas con al menos un uso.",
+  quotations: "Cotizaciones consideradas en el embudo.",
+  statuses: "Estados distintos presentes en el resultado.",
+  backorders: "Encargos (backorders) en el período.",
+  categories: "Categorías de producto con ventas.",
+  customerName: "Cliente seleccionado para el reporte.",
+  sessionStatus: "Estado de la sesión de caja (abierta, cerrada, conciliada).",
+  totalSalesB: "Ventas totales del segundo punto de venta (POS B) en el mismo período.",
+  ticketCountB: "Cantidad de tickets del segundo punto de venta (POS B).",
+  avgTicketB: "Ticket promedio del segundo punto de venta (POS B).",
+  totalPurchases: "Suma de montos de compras/recepciones del período.",
+  totalPayments: "Suma de pagos a proveedor del período.",
+  purchaseCount: "Cantidad de recepciones o facturas de compra.",
+  paymentCount: "Cantidad de pagos registrados.",
+  subtotalNet: "Monto neto (sin IVA) del período.",
+  taxAmount: "IVA del período.",
+  purchasesTotal: "Total de compras usado como base de comparación.",
+  returnsVsPurchasesPct: "Devoluciones como porcentaje de las compras del mismo período.",
+  supplierName: "Proveedor seleccionado para el reporte.",
+  skuCount: "Cantidad de SKUs (variantes) incluidos.",
+  qtyTotal: "Cantidad física agregada.",
+  valorConPmp: "Valoración a precio medio ponderado (PMP) vigente.",
+  lineasSinPmp: "Líneas sin PMP registrado.",
+  alertRows: "Filas que disparan al menos una alerta de stock.",
+  belowMinimum: "SKUs bajo el mínimo configurado.",
+  aboveMaximum: "SKUs sobre el máximo configurado.",
+  reorder: "SKUs en punto de reorden.",
+  storageCount: "Almacenes incluidos en el resultado.",
+  transferCount: "Transferencias entre almacenes en el período.",
+  qtyMoved: "Cantidad transferida en el período.",
+  qtyIn: "Cantidad de entradas.",
+  qtyOut: "Cantidad de salidas.",
+  qtyNet: "Neto de movimientos (entradas − salidas).",
+  valorMovido:
+    "Valor de los movimientos del período: |cantidad| × costo unitario de la línea. Las líneas sin costo no suman.",
+  lineEvents: "Cantidad de líneas de movimiento consideradas en el período.",
+  dayRows: "Filas del resultado (bucket × unidad de stock).",
+  unitCount: "Unidades de stock distintas con movimiento.",
+  rowCount: "Filas incluidas en el resultado.",
+  categoryCount: "Categorías con existencias en el resultado.",
+};
+
+export function reportKpiHelp(
+  key: string,
+  extra?: Record<string, string>,
+): string | null {
+  return extra?.[key] ?? REPORT_KPI_HELP[key] ?? null;
+}
