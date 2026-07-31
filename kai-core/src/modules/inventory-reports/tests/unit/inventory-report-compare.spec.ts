@@ -86,16 +86,16 @@ describe('InventoryPeriodCompareHandler', () => {
   ) {
     let call = 0;
     return {
-      parseDateRange: (p: Record<string, unknown>) => {
+      parseDateRange: (p: Partial<Record<string, string>>) => {
         if (!p.dateFrom || !p.dateTo) {
           throw new BadRequestException('dateFrom es requerido (YYYY-MM-DD)');
         }
-        return range(String(p.dateFrom), String(p.dateTo));
+        return range(p.dateFrom, p.dateTo);
       },
       requireUuidList: () => ['u-un'],
       optionalUuidList: () => undefined,
       optionalUuid: () => undefined,
-      movementByBucket: async (
+      movementByBucket: (
         _companyId: string,
         r: { dateFrom: string; dateTo: string },
       ) => {
@@ -105,7 +105,7 @@ describe('InventoryPeriodCompareHandler', () => {
           qtyOut: 0,
           valorMovido: 0,
         };
-        return {
+        return Promise.resolve({
           buckets: [
             {
               bucket: r.dateFrom,
