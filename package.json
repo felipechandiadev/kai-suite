@@ -48,6 +48,7 @@
     "seed:demo": "npm run seed:demo --prefix seeds",
     "seed:demo:no-images": "npm run seed:demo:no-images --prefix seeds",
     "seed:joyarte": "npm run seed:joyarte --prefix seeds",
+    "seed:barco": "npm run seed:barco --prefix seeds",
     "seed:san-sebastian": "npm run seed:san-sebastian --prefix seeds",
     "import-fiscal-ss-to-demo": "npm run import-fiscal-ss-to-demo --prefix seeds",
     "build:fiscal-ted": "npm run build -w @kai/fiscal-ted",

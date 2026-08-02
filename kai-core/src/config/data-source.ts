@@ -201,6 +201,7 @@ import { CompanyPaymentCatalogTables1757460000000 } from '../migrations/17574600
 import { PrintAgentsCatalog1757470000000 } from '../migrations/1757470000000-PrintAgentsCatalog';
 import { KitchenItemReadyForPickup1757480000000 } from '../migrations/1757480000000-KitchenItemReadyForPickup';
 import { DiningStationOrderSentByUser1757490000000 } from '../migrations/1757490000000-DiningStationOrderSentByUser';
+import { HcmAssignmentPersonHours1757500000000 } from '../migrations/1757500000000-HcmAssignmentPersonHours';
 import { LaundryReceptionModule1757430000000 } from '../migrations/1757430000000-LaundryReceptionModule';
 import { DiningKitchenFireId1757140000000 } from '../migrations/1757140000000-DiningKitchenFireId';
 import { DiningKitchenFireNumber1757150000000 } from '../migrations/1757150000000-DiningKitchenFireNumber';
@@ -567,6 +568,7 @@ export const AppDataSource = new DataSource({
     PrintAgentsCatalog1757470000000,
     KitchenItemReadyForPickup1757480000000,
     DiningStationOrderSentByUser1757490000000,
+    HcmAssignmentPersonHours1757500000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

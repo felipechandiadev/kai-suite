@@ -50,6 +50,7 @@ export async function syncSeedCategories(
   categoryRepo: Repository<Category>,
   categoryNames: readonly string[],
   logPrefix = 'Seed',
+  opts?: { silent?: boolean },
 ): Promise<Map<string, Category>> {
   const categoryByName = new Map<string, Category>();
   for (let i = 0; i < categoryNames.length; i++) {
@@ -76,8 +77,15 @@ export async function syncSeedCategories(
           }),
         );
     categoryByName.set(name, saved);
+    if (!opts?.silent) {
+      console.log(
+        `✅ ${logPrefix} categoría ${saved.name} ${existing ? 'sincronizada' : 'creada'}: id=${saved.id}`,
+      );
+    }
+  }
+  if (opts?.silent) {
     console.log(
-      `✅ ${logPrefix} categoría ${saved.name} ${existing ? 'sincronizada' : 'creada'}: id=${saved.id}`,
+      `✅ ${logPrefix} categorías sincronizadas: ${categoryNames.length}`,
     );
   }
   return categoryByName;
@@ -158,6 +166,8 @@ export type SeedCatalogContext = {
   listaEshopId: string;
   logPrefix?: string;
   defaultStockQty?: number;
+  /** Si true, no loguea cada producto (útil en catálogos grandes). */
+  silentProducts?: boolean;
 };
 
 export type SeedCatalogResult = {
@@ -260,9 +270,11 @@ export async function seedProductsFromDefinitions(
       }
     }
 
-    console.log(
-      `✅ ${logPrefix} producto «${def.name}» (${def.productType}) variantes=${def.variants.length}`,
-    );
+    if (!ctx.silentProducts) {
+      console.log(
+        `✅ ${logPrefix} producto «${def.name}» (${def.productType}) variantes=${def.variants.length}`,
+      );
+    }
   }
 
   return { variantCount, stockByVariantId };

@@ -2,6 +2,7 @@
 export const HCM_EMPLOYEES = "/hcm/employees";
 export const HCM_WORK_SCHEDULES = "/hcm/work-schedules";
 export const HCM_REMUNERATIONS = "/hcm/remunerations";
+export const HCM_REPORTS = "/hcm/reports";
 export const HCM_JOB_POSITIONS = "/hcm/job-positions";
 
 export const HCM_WORK_SCHEDULES_SETTINGS = `${HCM_WORK_SCHEDULES}/settings`;

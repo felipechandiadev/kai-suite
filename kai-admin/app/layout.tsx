@@ -5,9 +5,11 @@ import AuthProvider from '@/providers/AuthProvider';
 import ErrorHandlerProvider from '@/providers/ErrorHandlerProvider';
 import AdminAmbientBackground from '@/shared/components/AdminAmbientBackground/AdminAmbientBackground';
 import { adminFontClassName } from '@/shared/fonts/admin-fonts';
+import { getKaiProductLabel } from '@/config/product-brand.config';
 
 const THEME_COLOR = "#002B59";
-const APP_TITLE = "KaiStore | Administración";
+const PRODUCT_LABEL = getKaiProductLabel(process.env.NEXT_PUBLIC_KAI_PRODUCT);
+const APP_TITLE = `${PRODUCT_LABEL} | Administración`;
 
 export const metadata: Metadata = {
   applicationName: APP_TITLE,
@@ -15,7 +17,7 @@ export const metadata: Metadata = {
     default: APP_TITLE,
     template: APP_TITLE,
   },
-  description: "Panel de administración KaiStore",
+  description: `Panel de administración ${PRODUCT_LABEL}`,
   appleWebApp: {
     capable: true,
     title: APP_TITLE,

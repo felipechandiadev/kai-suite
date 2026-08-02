@@ -127,6 +127,7 @@ export const mainMenuItems: SideBarMenuItem[] = [
       { id: 'hcm-employees', label: 'Empleados', url: '/hcm/employees' },
       { id: 'hcm-work-schedules', label: 'Jornadas', url: '/hcm/work-schedules' },
       { id: 'hcm-remunerations', label: 'Remuneraciones', url: '/hcm/remunerations' },
+      { id: 'hcm-reports', label: 'Reportes', url: '/hcm/reports' },
       { id: 'hcm-settings', label: 'Configuración', url: '/hcm/settings' },
     ],
   },

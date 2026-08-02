@@ -11,6 +11,9 @@ import {
   readStockCompany,
   type StockCompanyConfig,
 } from "@/features/company/storage/stock-company-storage";
+import { getKaiProductLabel } from "@/config/product-brand.config";
+
+const PRODUCT_LABEL = getKaiProductLabel(process.env.NEXT_PUBLIC_KAI_PRODUCT);
 
 function postLoginPath(): string {
   if (typeof window === "undefined") return "/scan";
@@ -133,11 +136,11 @@ export default function LoginPageClient() {
             <div className="text-center">
               <img
                 src="/logo.png"
-                alt="KaiStore"
+                alt={PRODUCT_LABEL}
                 className="mx-auto h-16 w-16 object-contain"
               />
               <div className="mt-2 flex flex-col leading-none">
-                <span className="text-xl font-bold tracking-tight">KaiStore</span>
+                <span className="text-xl font-bold tracking-tight">{PRODUCT_LABEL}</span>
                 <span className="text-xs text-muted-foreground">StockControl</span>
               </div>
               <p

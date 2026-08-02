@@ -126,6 +126,14 @@ export class HrJornadaSchemaBootstrap implements OnModuleInit {
           "deletedAt" timestamptz NULL
         )
       `);
+      await this.dataSource.query(`
+        ALTER TABLE hr_shift_assignments
+        ADD COLUMN IF NOT EXISTS "startTime" varchar(5) NULL
+      `);
+      await this.dataSource.query(`
+        ALTER TABLE hr_shift_assignments
+        ADD COLUMN IF NOT EXISTS "endTime" varchar(5) NULL
+      `);
 
       await this.dataSource.query(`
         CREATE TABLE IF NOT EXISTS hr_shift_exceptions (

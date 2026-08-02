@@ -71,8 +71,15 @@ export type WeekAssignmentInput = {
   id?: string;
   employeeId: string;
   workDate: string;
+  /** Jornada real de la persona (HH:mm). */
   startTime: string;
   endTime: string;
+  /**
+   * Banda fija del turno UL (HH:mm). Si falta y hay laborUnitShiftId,
+   * se resuelve desde scheduleJson del turno.
+   */
+  shiftBandStartTime?: string | null;
+  shiftBandEndTime?: string | null;
   plannedOvertimeMinutes?: number;
   templateId?: string | null;
   laborUnitShiftId?: string | null;
@@ -81,6 +88,13 @@ export type WeekAssignmentInput = {
   notes?: string | null;
   timezone?: string;
 };
+
+/** Monday=0 … Sunday=6 (alineado a scheduleJson de turnos UL). */
+function weekdayIndexMon0(isoDate: string): number {
+  const d = new Date(`${isoDate}T12:00:00Z`);
+  const js = d.getUTCDay();
+  return js === 0 ? 6 : js - 1;
+}
 
 function addDaysIso(iso: string, days: number): string {
   const d = new Date(`${iso}T12:00:00Z`);
@@ -388,12 +402,14 @@ export class HrJornadaService {
         if (a.deletedAt) continue;
         if ((laborUnitId || branchId) && !employeeIds.includes(a.employeeId))
           continue;
+        const personStart = a.startTime?.trim() || inst.startTime;
+        const personEnd = a.endTime?.trim() || inst.endTime;
         assignments.push({
           assignmentId: a.id,
           employeeId: a.employeeId,
           workDate: inst.workDate,
-          startTime: inst.startTime,
-          endTime: inst.endTime,
+          startTime: personStart,
+          endTime: personEnd,
           plannedOvertimeMinutes: a.plannedOvertimeMinutes,
           isNightOutgoing: inst.isNightOutgoing,
           compensatoryBalanceMinutes: balances.get(a.employeeId) ?? 0,
@@ -474,6 +490,8 @@ export class HrJornadaService {
           .map((a) => ({
             id: a.id,
             employeeId: a.employeeId,
+            startTime: a.startTime?.trim() || inst.startTime,
+            endTime: a.endTime?.trim() || inst.endTime,
             plannedOvertimeMinutes: a.plannedOvertimeMinutes,
             notes: a.notes ?? null,
           })),
@@ -585,9 +603,45 @@ export class HrJornadaService {
     }
 
     const createdInstances: HrShiftInstance[] = [];
-    // Group by workDate+start+end+flags to share instances
-    const groupKey = (a: WeekAssignmentInput) =>
-      `${a.workDate}|${a.startTime}|${a.endTime}|${a.isNight ? 1 : 0}|${a.isNightOutgoing ? 1 : 0}|${a.templateId ?? ''}|${a.laborUnitShiftId ?? ''}`;
+
+    const ulShiftIds = [
+      ...new Set(
+        input.assignments
+          .map((a) => a.laborUnitShiftId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const ulShifts =
+      ulShiftIds.length > 0
+        ? await this.laborUnitShiftRepo.find({
+            where: { companyId, id: In(ulShiftIds) },
+          })
+        : [];
+    const ulShiftById = new Map(ulShifts.map((s) => [s.id, s]));
+
+    const resolveBand = (
+      a: WeekAssignmentInput,
+    ): { start: string; end: string } => {
+      const bandStart = a.shiftBandStartTime?.trim();
+      const bandEnd = a.shiftBandEndTime?.trim();
+      if (bandStart && bandEnd) return { start: bandStart, end: bandEnd };
+      if (a.laborUnitShiftId) {
+        const shift = ulShiftById.get(a.laborUnitShiftId);
+        const slot = shift?.scheduleJson?.[String(weekdayIndexMon0(a.workDate))];
+        if (slot?.start && slot?.end) {
+          return { start: slot.start, end: slot.end };
+        }
+      }
+      return { start: a.startTime, end: a.endTime };
+    };
+
+    // UL shift → one instance per day+shift (band fija). Ad-hoc → group by person hours.
+    const groupKey = (a: WeekAssignmentInput) => {
+      if (a.laborUnitShiftId) {
+        return `ul|${a.workDate}|${a.laborUnitShiftId}|${a.isNight ? 1 : 0}|${a.isNightOutgoing ? 1 : 0}|${a.templateId ?? ''}`;
+      }
+      return `adhoc|${a.workDate}|${a.startTime}|${a.endTime}|${a.isNight ? 1 : 0}|${a.isNightOutgoing ? 1 : 0}|${a.templateId ?? ''}`;
+    };
     const groups = new Map<string, WeekAssignmentInput[]>();
     for (const a of input.assignments) {
       const k = groupKey(a);
@@ -598,14 +652,15 @@ export class HrJornadaService {
 
     for (const [, group] of groups) {
       const first = group[0];
+      const band = resolveBand(first);
       const inst = await this.instanceRepo.save(
         this.instanceRepo.create({
           companyId,
           templateId: first.templateId ?? null,
           laborUnitShiftId: first.laborUnitShiftId ?? null,
           workDate: first.workDate,
-          startTime: first.startTime,
-          endTime: first.endTime,
+          startTime: band.start,
+          endTime: band.end,
           timezone: first.timezone ?? 'America/Santiago',
           isNight: first.isNight ?? false,
           isNightOutgoing: first.isNightOutgoing ?? false,
@@ -618,6 +673,8 @@ export class HrJornadaService {
             companyId,
             instanceId: inst.id,
             employeeId: a.employeeId,
+            startTime: a.startTime,
+            endTime: a.endTime,
             plannedOvertimeMinutes: a.plannedOvertimeMinutes ?? 0,
             notes: a.notes ?? null,
           }),
@@ -1037,8 +1094,8 @@ export class HrJornadaService {
         if (a.employeeId !== input.employeeId || a.deletedAt) continue;
         rows.push({
           date: inst.workDate,
-          startTime: inst.startTime,
-          endTime: inst.endTime,
+          startTime: a.startTime?.trim() || inst.startTime,
+          endTime: a.endTime?.trim() || inst.endTime,
           plannedOvertimeMinutes: a.plannedOvertimeMinutes,
         });
       }
@@ -1180,8 +1237,8 @@ export class HrJornadaService {
     if (assignment?.instance) {
       expectedAssignment = {
         workDate: assignment.instance.workDate,
-        startTime: assignment.instance.startTime,
-        endTime: assignment.instance.endTime,
+        startTime: assignment.startTime?.trim() || assignment.instance.startTime,
+        endTime: assignment.endTime?.trim() || assignment.instance.endTime,
       };
     }
 
@@ -1248,7 +1305,10 @@ export class HrJornadaService {
       if (!holidayDates.has(inst.workDate)) continue;
       for (const a of inst.assignments ?? []) {
         if (a.deletedAt) continue;
-        const minutes = durationMinutes(inst.startTime, inst.endTime);
+        const minutes = durationMinutes(
+          a.startTime?.trim() || inst.startTime,
+          a.endTime?.trim() || inst.endTime,
+        );
         await this.creditCompensatory({
           employeeId: a.employeeId,
           minutes,
@@ -1503,6 +1563,8 @@ export class HrJornadaService {
             workDate,
             startTime: slot.start,
             endTime: slot.end,
+            shiftBandStartTime: slot.start,
+            shiftBandEndTime: slot.end,
             plannedOvertimeMinutes: 0,
             laborUnitShiftId: shift.id,
             isNight: night.isNight,

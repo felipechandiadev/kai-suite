@@ -2,20 +2,23 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";
 import AuthProvider from "@/providers/AuthProvider";
+import { getKaiProductLabel } from "@/config/product-brand.config";
 
 const THEME_COLOR = "#002B59";
+const PRODUCT_LABEL = getKaiProductLabel(process.env.NEXT_PUBLIC_KAI_PRODUCT);
+const APP_TITLE = `${PRODUCT_LABEL} | StockControl`;
 
 export const metadata: Metadata = {
   title: {
-    default: "KaiStore | StockControl",
-    template: "KaiStore | StockControl",
+    default: APP_TITLE,
+    template: APP_TITLE,
   },
-  description: "Inventario móvil KaiStore (PWA)",
+  description: `Inventario móvil ${PRODUCT_LABEL} (PWA)`,
   manifest: "/manifest.json",
-  applicationName: "KaiStore StockControl",
+  applicationName: `${PRODUCT_LABEL} StockControl`,
   appleWebApp: {
     capable: true,
-    title: "KaiStore StockControl",
+    title: `${PRODUCT_LABEL} StockControl`,
     statusBarStyle: "default",
   },
   icons: {
@@ -45,7 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="es-CL" className="h-full antialiased">
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-title" content="KaiStore StockControl" />
+        <meta name="apple-mobile-web-app-title" content={`${PRODUCT_LABEL} StockControl`} />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <AuthProvider>{children}</AuthProvider>

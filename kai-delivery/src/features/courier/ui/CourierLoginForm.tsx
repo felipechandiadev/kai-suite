@@ -10,8 +10,10 @@ import {
   type DeliveryCompanyConfig,
 } from "@/features/company/storage/delivery-company-storage";
 import { loadCourierSession, saveCourierSession } from "@/lib/courier-session";
+import { getKaiProductLabel } from "@/config/product-brand.config";
 
 const POST_LOGIN_PATH = "/repartos";
+const PRODUCT_LABEL = getKaiProductLabel(process.env.NEXT_PUBLIC_KAI_PRODUCT);
 
 export function CourierLoginForm() {
   const router = useRouter();
@@ -115,10 +117,10 @@ export function CourierLoginForm() {
     <div className="flex min-h-screen items-center justify-center p-4" data-test-id="login-root">
       <div className="w-full max-w-md rounded-xl border border-border/70 bg-background/80 p-8 shadow-lg backdrop-blur-md">
         <div className="mb-6 flex flex-col items-center text-center">
-          <img src="/logo.png" alt="KaiStore" className="h-20 w-20 object-contain" />
+          <img src="/logo.png" alt={PRODUCT_LABEL} className="h-20 w-20 object-contain" />
           <div className="mt-3 flex flex-col gap-0 leading-none">
             <span className="block text-2xl font-bold leading-tight tracking-tight text-foreground">
-              KaiStore
+              {PRODUCT_LABEL}
             </span>
             <span className="-mt-px block text-[11px] font-normal leading-tight text-muted-foreground sm:text-xs">
               Delivery

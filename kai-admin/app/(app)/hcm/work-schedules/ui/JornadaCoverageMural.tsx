@@ -4,6 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getTodayIso } from "@kai/ui";
 import type { JornadaEmployeeRow } from "@/features/hr-jornada/types/jornada.types";
 import { WEEKDAY_LABELS } from "@/features/hr-jornada/types/employee-shift.types";
+import {
+  personAccentStyle,
+  shiftBlockStyle,
+  shiftRailStyle,
+} from "@/features/hr-jornada/ui/jornada-planner-tones";
 
 export type MuralDraft = {
   employeeId: string;
@@ -46,6 +51,10 @@ type Props = {
     workDate: string;
     startTime: string;
     endTime: string;
+  }) => void;
+  onRemoveAssignment?: (args: {
+    employeeId: string;
+    workDate: string;
   }) => void;
 };
 
@@ -203,7 +212,8 @@ type LaidOutPerson = ShiftPerson & {
   columnCount: number;
 };
 
-/** Position people relative to the fixed shift band (may overflow above/below). */
+/** Position people relative to the fixed shift band (may overflow above/below).
+ * Columns are assigned in stable employeeId order so resizing hours does not swap left/right. */
 function layoutPeopleInBlock(
   people: ShiftPerson[],
   blockStartHm: string,
@@ -214,7 +224,9 @@ function layoutPeopleInBlock(
   const blockEnd = blockEndMinutes(blockStartHm, blockEndHm);
   const duration = Math.max(1, blockEnd - blockStart);
 
-  const timed = people
+  // Stable order by id so column packing does not reshuffle on duration changes.
+  const timed = [...people]
+    .sort((a, b) => a.id.localeCompare(b.id))
     .map((p) => {
       const s = parseHmToMinutes(p.startTime);
       const e = blockEndMinutes(p.startTime, p.endTime);
@@ -228,13 +240,7 @@ function layoutPeopleInBlock(
           ((e - s) / duration) * blockHeight,
         ),
       };
-    })
-    .sort(
-      (a, b) =>
-        a.startMin - b.startMin ||
-        b.endMin - a.endMin ||
-        a.label.localeCompare(b.label, "es"),
-    );
+    });
 
   const columnEnds: number[] = [];
   const placed: Array<(typeof timed)[number] & { column: number }> = [];
@@ -302,6 +308,7 @@ export function JornadaCoverageMural({
   expandedDay,
   onExpandDay,
   onUpdateAssignment,
+  onRemoveAssignment,
 }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [panelHeight, setPanelHeight] = useState(420);
@@ -439,12 +446,13 @@ export function JornadaCoverageMural({
   };
 
   return (
-    <div
-      ref={rootRef}
-      className="flex gap-1.5 overflow-x-auto"
-      style={{ height: panelHeight }}
-      data-test-id="jornada-coverage-mural"
-    >
+    <div className="space-y-1.5" data-test-id="jornada-coverage-mural-wrap">
+      <div
+        ref={rootRef}
+        className="flex gap-1.5 overflow-x-auto"
+        style={{ height: panelHeight }}
+        data-test-id="jornada-coverage-mural"
+      >
       {days.map((day, idx) => {
         const expanded = day === expandedDay;
         const blocks = byDay.get(day) ?? [];
@@ -472,7 +480,7 @@ export function JornadaCoverageMural({
               expanded
                 ? "min-w-[min(100%,420px)] flex-[3] overflow-visible border-foreground/30"
                 : "flex-none cursor-pointer overflow-hidden border-border hover:border-border/80",
-              isToday ? "ring-1 ring-foreground/20" : "",
+              isToday ? "ring-1 ring-primary/30" : "",
             ].join(" ")}
             style={
               expanded
@@ -484,9 +492,12 @@ export function JornadaCoverageMural({
             <div
               className={[
                 "shrink-0 border-b border-border/60",
-                expanded
-                  ? "bg-muted/30 px-2 py-2"
-                  : "bg-background px-0.5 py-1.5",
+                isHoliday
+                  ? "bg-warning/10"
+                  : expanded
+                    ? "bg-muted/30"
+                    : "bg-background",
+                expanded ? "px-2 py-2" : "px-0.5 py-1.5",
               ].join(" ")}
               style={{ height: DAY_HEADER_PX }}
             >
@@ -578,19 +589,28 @@ export function JornadaCoverageMural({
                         <div
                           key={b.key}
                           className={[
-                            "absolute rounded-md border border-border/60 bg-background/35 shadow-sm backdrop-blur-[1px]",
+                            "absolute rounded-md border shadow-sm backdrop-blur-[1px]",
                             expanded
                               ? "right-1 left-1 flex flex-row overflow-visible"
                               : "right-0.5 left-0.5 overflow-hidden",
                           ].join(" ")}
-                          style={{ top, height }}
+                          style={{
+                            top,
+                            height,
+                            ...shiftBlockStyle(b.laborUnitShiftId),
+                          }}
+                          data-test-id="jornada-mural-shift-block"
+                          data-shift-band={`${b.startTime}-${b.endTime}`}
                           title={`${b.name} ${b.startTime}–${b.endTime} · ${peopleLabel}`}
                         >
                           {expanded ? (
                             <>
                               <div
-                                className="flex shrink-0 items-stretch justify-center overflow-hidden rounded-l-md border-r border-border/50 bg-muted/20"
-                                style={{ width: SHIFT_LABEL_RAIL_PX }}
+                                className="flex shrink-0 items-stretch justify-center overflow-hidden rounded-l-md border-r border-border/50"
+                                style={{
+                                  width: SHIFT_LABEL_RAIL_PX,
+                                  ...shiftRailStyle(b.laborUnitShiftId),
+                                }}
                                 data-test-id="jornada-mural-shift-label"
                               >
                                 <div
@@ -656,9 +676,9 @@ export function JornadaCoverageMural({
                                       role="button"
                                       tabIndex={0}
                                       className={[
-                                        "absolute overflow-hidden rounded-md border bg-muted/30 px-1.5 py-1 shadow-sm backdrop-blur-[1px]",
+                                        "group absolute overflow-hidden rounded-md border px-1.5 py-1 shadow-sm backdrop-blur-[1px]",
                                         selected
-                                          ? "z-10 border-foreground ring-2 ring-foreground/30 bg-muted/45"
+                                          ? "z-10 border-foreground ring-2 ring-foreground/30"
                                           : "border-border/60",
                                       ].join(" ")}
                                       style={{
@@ -666,6 +686,7 @@ export function JornadaCoverageMural({
                                         height: p.height,
                                         left: `calc(${leftPct}% + ${gapPx / 2}px)`,
                                         width: `calc(${widthPct}% - ${gapPx}px)`,
+                                        ...personAccentStyle(p.id),
                                       }}
                                       title={`${p.label} ${p.startTime}–${p.endTime}`}
                                       data-test-id={`jornada-mural-person-${p.id}`}
@@ -681,12 +702,37 @@ export function JornadaCoverageMural({
                                         }
                                       }}
                                     >
-                                      <p className="truncate text-xs font-medium text-foreground">
+                                      <p className="truncate pr-4 text-xs font-medium text-foreground">
                                         {p.label}
                                       </p>
                                       <p className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">
                                         {p.startTime}–{p.endTime}
                                       </p>
+                                      {onRemoveAssignment ? (
+                                        <button
+                                          type="button"
+                                          className={[
+                                            "absolute top-0.5 right-0.5 z-30 flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-destructive/15 hover:text-destructive",
+                                            selected
+                                              ? "opacity-100"
+                                              : "opacity-0 group-hover:opacity-100",
+                                          ].join(" ")}
+                                          aria-label={`Quitar a ${p.label} del día`}
+                                          data-test-id={`jornada-mural-remove-${p.id}`}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            onRemoveAssignment({
+                                              employeeId: p.id,
+                                              workDate: day,
+                                            });
+                                            setSelectedKey(null);
+                                          }}
+                                        >
+                                          <span className="text-sm leading-none" aria-hidden>
+                                            ×
+                                          </span>
+                                        </button>
+                                      ) : null}
                                       {selected && onUpdateAssignment ? (
                                         <>
                                           <div
@@ -762,7 +808,8 @@ export function JornadaCoverageMural({
                             </>
                           ) : (
                             <div
-                              className="flex h-full w-full items-stretch justify-center bg-muted/15"
+                              className="flex h-full w-full items-stretch justify-center"
+                              style={shiftRailStyle(b.laborUnitShiftId)}
                               data-test-id="jornada-mural-shift-label-collapsed"
                             >
                               <div
@@ -823,6 +870,10 @@ export function JornadaCoverageMural({
           </div>
         );
       })}
+      </div>
+      <p className="text-xs text-muted-foreground" data-test-id="jornada-mural-color-legend">
+        Color del bloque = turno · barra = persona · festivo = aviso
+      </p>
     </div>
   );
 }

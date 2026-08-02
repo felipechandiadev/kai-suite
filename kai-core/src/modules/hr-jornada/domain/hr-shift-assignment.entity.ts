@@ -29,6 +29,14 @@ export class HrShiftAssignment {
   @Column({ type: 'uuid' })
   employeeId!: string;
 
+  /** HH:mm — jornada de la persona; si null, hereda la banda de la instancia. */
+  @Column({ type: 'varchar', length: 5, nullable: true })
+  startTime?: string | null;
+
+  /** HH:mm — jornada de la persona; si null, hereda la banda de la instancia. */
+  @Column({ type: 'varchar', length: 5, nullable: true })
+  endTime?: string | null;
+
   @Column({ type: 'int', default: 0 })
   plannedOvertimeMinutes!: number;
 

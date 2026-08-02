@@ -37,9 +37,10 @@
 | [project/inconsistencias/](./project/inconsistencias/README.md) | Auditoría doc vs código — índice + detalle por inconsistencia (INC-01 … INC-17) |
 | [implementaciones-futuras/](./implementaciones-futuras/README.md) | Iniciativas planificadas (IF-XX) y [roadmap de tareas](./implementaciones-futuras/ROADMAP.md) |
 | [produccion/](./produccion/README.md) | **Producción** — tipos de producto, recetas, PMP, flujo y unidades de producción |
-| [kai-food/](./kai-food/README.md) | **KaiFood** — gastronomía, salón/mesas, kai-waiter, kai-kds, modalidad `kaifood` |
+| [kai-food/](./kai-food/README.md) | **KaiFood** — gastronomía, salón/mesas, kai-waiter, kai-kds, modalidad `kaifood`, [propinas](./kai-food/propinas/README.md) |
 | [kai-services/](./kai-services/README.md) | **KaiServices** — lavandería, guías de recepción, modalidad `kaiservices` |
 | [hr/](./hr/README.md) | **RRHH** — empleados, remuneraciones y documento de trabajo **Jornada** (turnos / cumplimiento) |
+| [codigo-del-trabajo/](./codigo-del-trabajo/README.md) | **Cumplimiento CdT (Chile)** — matriz Art. × Kai; [roadmap](./codigo-del-trabajo/ROADMAP.md) (tracks propinas / HCM) |
 
 ## Documentación legacy
 

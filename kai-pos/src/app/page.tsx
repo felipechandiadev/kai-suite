@@ -11,8 +11,10 @@ import {
 } from "@/features/company/storage/pos-company-storage";
 import { usePosTabletDensity } from "@/shared/hooks/usePosTabletDensity";
 import PosAmbientBackground from "@/shared/components/PosAmbientBackground/PosAmbientBackground";
+import { getKaiProductLabel } from "@/config/product-brand.config";
 
 const POST_LOGIN_PATH = "/session-setup";
+const PRODUCT_LABEL = getKaiProductLabel(process.env.NEXT_PUBLIC_KAI_PRODUCT);
 
 export default function LoginPage() {
   usePosTabletDensity();
@@ -135,12 +137,12 @@ export default function LoginPage() {
         <div className="mb-6 flex flex-col items-center text-center">
           <img
             src="/logo.png"
-            alt="KaiStore"
+            alt={PRODUCT_LABEL}
             className="h-20 w-20 object-contain"
           />
           <div className="mt-3 flex w-full max-w-full flex-col items-center gap-0 leading-none">
             <span className="block text-2xl font-bold leading-tight tracking-tight text-foreground">
-              KaiStore
+              {PRODUCT_LABEL}
             </span>
             <span className="-mt-px block text-[11px] font-normal leading-tight text-muted-foreground sm:text-xs">
               POS

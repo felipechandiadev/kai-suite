@@ -2,22 +2,25 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";
 import AuthProvider from "@/providers/AuthProvider";
+import { getKaiProductLabel } from "@/config/product-brand.config";
 
 /** Sin `next/font/google`: el build no debe hacer fetch a Google Fonts (CI/sin red). Ver `:root` en `globals.css`. */
 
 const THEME_COLOR = "#002B59";
+const PRODUCT_LABEL = getKaiProductLabel(process.env.NEXT_PUBLIC_KAI_PRODUCT);
+const APP_TITLE = `${PRODUCT_LABEL} | POS`;
 
 export const metadata: Metadata = {
   title: {
-    default: "KaiStore | POS",
-    template: "%s | KaiStore POS",
+    default: APP_TITLE,
+    template: `%s | ${PRODUCT_LABEL} POS`,
   },
-  description: "Punto de venta KaiStore (PWA)",
+  description: `Punto de venta ${PRODUCT_LABEL} (PWA)`,
   manifest: "/manifest.json",
-  applicationName: "KaiStore POS",
+  applicationName: `${PRODUCT_LABEL} POS`,
   appleWebApp: {
     capable: true,
-    title: "KaiStore | POS",
+    title: APP_TITLE,
     statusBarStyle: "default",
   },
   icons: {
@@ -57,7 +60,7 @@ export default function RootLayout({
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="KaiStore | POS" />
+        <meta name="apple-mobile-web-app-title" content={APP_TITLE} />
       </head>
       <body className="min-h-full flex flex-col text-foreground">
         <AuthProvider>{children}</AuthProvider>

@@ -12,8 +12,10 @@ import {
   writeAdminLoginContext,
   type AdminLoginContextPreference,
 } from "@/features/companies/storage/admin-login-context-storage";
+import { getKaiProductLabel } from "@/config/product-brand.config";
 
 const POST_LOGIN_PATH = "/dashboard";
+const PRODUCT_LABEL = getKaiProductLabel(process.env.NEXT_PUBLIC_KAI_PRODUCT);
 
 function companyLabel(c: PublicCompany): string {
   return c.nombreFantasia?.trim() || c.razonSocial.trim() || "Empresa";
@@ -165,12 +167,12 @@ export default function LoginPage() {
         <div className="mb-6 flex flex-col items-center text-center">
           <img
             src="/logo.png"
-            alt="KaiStore"
+            alt={PRODUCT_LABEL}
             className="h-20 w-20 object-contain"
           />
           <div className="mt-3 flex flex-col gap-0 leading-none">
             <span className="block text-2xl font-bold leading-tight tracking-tight text-foreground">
-              KaiStore
+              {PRODUCT_LABEL}
             </span>
             <span className="-mt-px block text-[11px] font-normal leading-tight text-muted-foreground sm:text-xs">
               Administración

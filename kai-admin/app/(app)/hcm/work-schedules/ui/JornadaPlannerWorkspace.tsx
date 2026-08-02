@@ -30,6 +30,10 @@ import {
   defaultExpandedDay,
   JornadaCoverageMural,
 } from "./JornadaCoverageMural";
+import {
+  personAccentStyle,
+  shiftCellFillStyle,
+} from "@/features/hr-jornada/ui/jornada-planner-tones";
 
 type Props = {
   initialPlan: WeekPlanView;
@@ -53,6 +57,22 @@ type DraftCell = {
   employeeDisplayName?: string | null;
 };
 
+/** Monday=0 … Sunday=6 — matches UL shift scheduleJson keys. */
+function weekdayIndexMon0(isoDate: string): number {
+  const d = new Date(`${isoDate}T12:00:00Z`);
+  const js = d.getUTCDay();
+  return js === 0 ? 6 : js - 1;
+}
+
+function slotFromMeta(
+  meta: { scheduleJson?: Record<string, { start?: string; end?: string } | null> | null } | undefined,
+  workDate: string,
+): { start: string; end: string } | null {
+  const slot = meta?.scheduleJson?.[String(weekdayIndexMon0(workDate))];
+  if (slot?.start && slot?.end) return { start: slot.start, end: slot.end };
+  return null;
+}
+
 function severityBadge(sev: string) {
   if (sev === "CRITICAL") return <Badge variant="error">Crítico</Badge>;
   if (sev === "WARNING") return <Badge variant="warning">Alerta</Badge>;
@@ -69,8 +89,8 @@ function planToDrafts(plan: WeekPlanView): DraftCell[] {
       out.push({
         employeeId: a.employeeId,
         workDate: inst.workDate,
-        startTime: inst.startTime,
-        endTime: inst.endTime,
+        startTime: a.startTime?.trim() || inst.startTime,
+        endTime: a.endTime?.trim() || inst.endTime,
         shiftBandStartTime: inst.startTime,
         shiftBandEndTime: inst.endTime,
         plannedOvertimeMinutes: a.plannedOvertimeMinutes,
@@ -91,6 +111,8 @@ function draftsToAssignments(drafts: DraftCell[]): WeekAssignmentInput[] {
     workDate: d.workDate,
     startTime: d.startTime,
     endTime: d.endTime,
+    shiftBandStartTime: d.shiftBandStartTime ?? d.startTime,
+    shiftBandEndTime: d.shiftBandEndTime ?? d.endTime,
     plannedOvertimeMinutes: d.plannedOvertimeMinutes,
     isNight: d.isNight,
     isNightOutgoing: d.isNightOutgoing,
@@ -214,13 +236,21 @@ export function JornadaPlannerWorkspace({
         loaded.map((a) => {
           const meta = shiftMeta.find((s) => s.id === a.laborUnitShiftId);
           const emp = res.data.employees?.find((e) => e.id === a.employeeId);
+          const bandStart =
+            a.shiftBandStartTime?.trim() ||
+            slotFromMeta(meta, a.workDate)?.start ||
+            a.startTime;
+          const bandEnd =
+            a.shiftBandEndTime?.trim() ||
+            slotFromMeta(meta, a.workDate)?.end ||
+            a.endTime;
           return {
             employeeId: a.employeeId,
             workDate: a.workDate,
             startTime: a.startTime,
             endTime: a.endTime,
-            shiftBandStartTime: a.startTime,
-            shiftBandEndTime: a.endTime,
+            shiftBandStartTime: bandStart,
+            shiftBandEndTime: bandEnd,
             plannedOvertimeMinutes: a.plannedOvertimeMinutes ?? 0,
             isNight: a.isNight ?? false,
             isNightOutgoing: a.isNightOutgoing ?? false,
@@ -446,6 +476,9 @@ export function JornadaPlannerWorkspace({
               ),
             );
           }}
+          onRemoveAssignment={({ employeeId, workDate }) => {
+            removeDraft(employeeId, workDate);
+          }}
         />
       ) : null}
 
@@ -456,7 +489,13 @@ export function JornadaPlannerWorkspace({
             <tr className="bg-neutral text-left text-xs uppercase tracking-wide text-muted-foreground">
               <th className="sticky left-0 z-10 bg-neutral px-3 py-2">Empleado</th>
               {days.map((d) => (
-                <th key={d} className="px-2 py-2 font-medium">
+                <th
+                  key={d}
+                  className={[
+                    "px-2 py-2 font-medium",
+                    holidaySet.has(d) ? "bg-warning/10" : "",
+                  ].join(" ")}
+                >
                   <div>{d.slice(5)}</div>
                   {holidaySet.has(d) ? (
                     <Badge variant="warning">Festivo</Badge>
@@ -481,7 +520,14 @@ export function JornadaPlannerWorkspace({
                       {cell ? (
                         <button
                           type="button"
-                          className="w-full rounded border border-border bg-neutral/50 px-2 py-1 text-left hover:border-primary"
+                          className="w-full rounded border px-2 py-1 text-left hover:border-primary"
+                          style={{
+                            ...shiftCellFillStyle(cell.laborUnitShiftId),
+                            borderLeftWidth: 3,
+                            borderLeftStyle: "solid",
+                            borderLeftColor:
+                              personAccentStyle(emp.id).borderLeftColor,
+                          }}
                           onClick={() => setEditor({ ...cell })}
                         >
                           <div className="font-medium">

@@ -23,6 +23,9 @@ export type JornadaEmployeeRow = {
 export type WeekAssignmentView = {
   id: string;
   employeeId: string;
+  /** Jornada de la persona (puede diferir de la banda del turno UL). */
+  startTime?: string;
+  endTime?: string;
   plannedOvertimeMinutes: number;
   notes: string | null;
 };
@@ -99,6 +102,9 @@ export type WeekAssignmentInput = {
   workDate: string;
   startTime: string;
   endTime: string;
+  /** Banda fija del turno UL; no cambia al extender la jornada de la persona. */
+  shiftBandStartTime?: string | null;
+  shiftBandEndTime?: string | null;
   plannedOvertimeMinutes?: number;
   templateId?: string | null;
   laborUnitShiftId?: string | null;
