@@ -38,6 +38,7 @@ export type HcmReportRunResult = {
   totals?: Record<string, number>;
   footnotes?: string[];
   truncated?: boolean;
+  certified?: boolean;
 };
 
 export type HcmReportHandlerContext = {

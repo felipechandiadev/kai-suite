@@ -218,6 +218,25 @@ export class HrJornadaSchemaBootstrap implements OnModuleInit {
       `);
 
       await this.dataSource.query(`
+        CREATE TABLE IF NOT EXISTS hr_jornada_periods (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          "companyId" uuid NOT NULL,
+          "periodStart" date NOT NULL,
+          "periodEnd" date NOT NULL,
+          status varchar(16) NOT NULL DEFAULT 'DRAFT',
+          "closedAt" timestamptz NULL,
+          "closedByUserId" uuid NULL,
+          "snapshotJson" jsonb NULL,
+          "createdAt" timestamptz NOT NULL DEFAULT now(),
+          "updatedAt" timestamptz NOT NULL DEFAULT now()
+        )
+      `);
+      await this.dataSource.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS "IDX_hr_jornada_periods_company_start"
+        ON hr_jornada_periods ("companyId", "periodStart")
+      `);
+
+      await this.dataSource.query(`
         CREATE TABLE IF NOT EXISTS payroll_line_suggestions (
           id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
           "companyId" uuid NOT NULL,

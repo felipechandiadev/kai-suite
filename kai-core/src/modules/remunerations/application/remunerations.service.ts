@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Inject, Optional, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TransactionsService } from '@modules/transactions/application/transactions.service';
@@ -39,6 +39,7 @@ import { TenantContext } from '@common/tenant/tenant.context';
 import { HrEmployeeTimelineService } from '@modules/employees/application/hr-employee-timeline.service';
 import { HrEmployeeTimelineKind } from '@modules/employees/domain/hr-employee-timeline-entry.entity';
 import { EmploymentContractsService } from '@modules/employees/application/employment-contracts.service';
+import { HrJornadaService } from '@modules/hr-jornada/application/hr-jornada.service';
 import { PayrollStatutoryCalculator } from './payroll-statutory.calculator';
 import { PayrollAutoExpenseService } from './payroll-auto-expense.service';
 import type { PayrollEmployerCost } from '../domain/payroll-imponible';
@@ -71,6 +72,9 @@ export class RemunerationsService {
     private readonly contractsService: EmploymentContractsService,
     private readonly statutoryCalculator: PayrollStatutoryCalculator,
     private readonly autoExpenseService: PayrollAutoExpenseService,
+    @Optional()
+    @Inject(forwardRef(() => HrJornadaService))
+    private readonly jornadaService?: HrJornadaService,
   ) {}
 
   private async appendTimelineSafe(
@@ -284,6 +288,10 @@ export class RemunerationsService {
     });
     if (!employee) {
       throw new BadRequestException('Employee not found');
+    }
+
+    if (this.jornadaService) {
+      await this.jornadaService.assertMonthClosedForPayroll(data.date);
     }
 
     const resultCenterId =

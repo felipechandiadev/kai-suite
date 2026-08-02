@@ -47,6 +47,8 @@ export type HcmReportRunResult = {
   totals?: Record<string, number>;
   footnotes?: string[];
   truncated?: boolean;
+  /** true si todos los meses del rango están CLOSED en Jornada */
+  certified?: boolean;
 };
 
 export type ReportParamField =

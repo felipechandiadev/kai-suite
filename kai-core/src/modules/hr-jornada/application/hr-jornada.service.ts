@@ -57,7 +57,20 @@ import {
   LaborUnitShiftMemberStatus,
 } from '../domain/hr-labor-unit-shift-member.entity';
 import { HrShiftSystem } from '../domain/hr-shift-system.entity';
+import {
+  HrJornadaPeriod,
+  JornadaPeriodStatus,
+} from '../domain/hr-jornada-period.entity';
 import { classifyShiftSlot } from '../domain/rules/night-window.util';
+import {
+  calendarMonthBounds,
+  clampDailyOvertime,
+  durationMinutes as otDurationMinutes,
+  excessOverBandMinutes,
+  shouldMaterializePaidOvertime,
+  weeksInMonth,
+} from '../domain/rules/overtime-from-plan.util';
+import { ShiftSystemType } from '../domain/shift-system.enums';
 import {
   CompensatoryRestCreditedEvent,
   CompensatoryRestRedeemedEvent,
@@ -145,6 +158,8 @@ export class HrJornadaService {
     private readonly laborUnitShiftRepo: Repository<HrLaborUnitShift>,
     @InjectRepository(HrLaborUnitShiftMember)
     private readonly laborUnitShiftMemberRepo: Repository<HrLaborUnitShiftMember>,
+    @InjectRepository(HrJornadaPeriod)
+    private readonly periodRepo: Repository<HrJornadaPeriod>,
     private readonly eventBus: EventBus,
     private readonly timelineService: HrEmployeeTimelineService,
   ) {}
@@ -570,6 +585,8 @@ export class HrJornadaService {
     const userId = TenantContext.getUserId() ?? null;
     const weekEnd = addDaysIso(input.weekStart, 6);
 
+    await this.assertWeeksEditable(companyId, input.weekStart, weekEnd);
+
     for (const a of input.assignments) {
       if (!a.employeeId || !a.workDate || !a.startTime || !a.endTime) {
         throw new BadRequestException('Asignación incompleta');
@@ -603,6 +620,8 @@ export class HrJornadaService {
     }
 
     const createdInstances: HrShiftInstance[] = [];
+
+    const config = await this.getOrCreateConfig();
 
     const ulShiftIds = [
       ...new Set(
@@ -668,6 +687,11 @@ export class HrJornadaService {
       );
       createdInstances.push(inst);
       for (const a of group) {
+        const liveOt = await this.resolveLiveOvertimeForAssignment(
+          a,
+          band,
+          config.maxDailyOvertimeMinutes,
+        );
         await this.assignmentRepo.save(
           this.assignmentRepo.create({
             companyId,
@@ -675,7 +699,7 @@ export class HrJornadaService {
             employeeId: a.employeeId,
             startTime: a.startTime,
             endTime: a.endTime,
-            plannedOvertimeMinutes: a.plannedOvertimeMinutes ?? 0,
+            plannedOvertimeMinutes: liveOt,
             notes: a.notes ?? null,
           }),
         );
@@ -1124,7 +1148,20 @@ export class HrJornadaService {
         notes: e.notes,
       })),
       generatedAt: new Date().toISOString(),
+      certified: await this.isRangeFullyCertified(
+        companyId,
+        input.periodStart,
+        input.periodEnd,
+      ),
+      certificationNote: null as string | null,
     };
+    if (!snapshot.certified) {
+      snapshot.certificationNote =
+        'Información preliminar / no certificada. El período de jornada no ha sido cerrado; las horas extraordinarias y totales pueden cambiar.';
+    } else {
+      snapshot.certificationNote =
+        'Información certificada: el período de jornada correspondiente está cerrado.';
+    }
 
     const contentHash = createHash('sha256')
       .update(JSON.stringify({ rows: snapshot.rows, exceptions: snapshot.exceptions }))
@@ -1603,5 +1640,345 @@ export class HrJornadaService {
           ? `${withoutShift.length} empleado(s) sin membresía a turno UL; no se cargaron.`
           : null,
     };
+  }
+
+  // --- Period close (mes calendario) ---
+
+  async getOrEnsurePeriod(periodStartInput: string): Promise<HrJornadaPeriod> {
+    const companyId = requireCompanyId();
+    const { periodStart, periodEnd } = calendarMonthBounds(periodStartInput);
+    let row = await this.periodRepo.findOne({
+      where: { companyId, periodStart },
+    });
+    if (!row) {
+      row = await this.periodRepo.save(
+        this.periodRepo.create({
+          companyId,
+          periodStart,
+          periodEnd,
+          status: JornadaPeriodStatus.DRAFT,
+        }),
+      );
+    }
+    return row;
+  }
+
+  async isMonthClosed(periodStartInput: string): Promise<boolean> {
+    const companyId = requireCompanyId();
+    const { periodStart } = calendarMonthBounds(periodStartInput);
+    const row = await this.periodRepo.findOne({
+      where: { companyId, periodStart },
+    });
+    return row?.status === JornadaPeriodStatus.CLOSED;
+  }
+
+  /** Gate remuneraciones: el mes de `isoDate` debe estar CLOSED. */
+  async assertMonthClosedForPayroll(isoDate: string): Promise<void> {
+    const closed = await this.isMonthClosed(isoDate);
+    if (!closed) {
+      const { periodStart } = calendarMonthBounds(isoDate);
+      throw new BadRequestException(
+        `No se puede crear la liquidación: el período de jornada ${periodStart.slice(0, 7)} no está cerrado. Cerrá el mes en Reportes HCM / Jornada antes de liquidar.`,
+      );
+    }
+  }
+
+  /** True si todos los meses que intersectan [from,to] están CLOSED. */
+  async isRangeFullyCertified(
+    companyId: string,
+    from: string,
+    to: string,
+  ): Promise<boolean> {
+    const months = this.monthsTouchingRange(from, to);
+    if (!months.length) return false;
+    for (const start of months) {
+      const row = await this.periodRepo.findOne({
+        where: { companyId, periodStart: start },
+      });
+      if (row?.status !== JornadaPeriodStatus.CLOSED) return false;
+    }
+    return true;
+  }
+
+  private monthsTouchingRange(from: string, to: string): string[] {
+    const out: string[] = [];
+    let cursor = calendarMonthBounds(from).periodStart;
+    const endMonth = calendarMonthBounds(to).periodStart;
+    while (cursor <= endMonth) {
+      out.push(cursor);
+      const [y, m] = cursor.split('-').map(Number);
+      const next = m === 12 ? { y: y + 1, m: 1 } : { y, m: m + 1 };
+      cursor = `${next.y}-${String(next.m).padStart(2, '0')}-01`;
+    }
+    return out;
+  }
+
+  private async assertWeeksEditable(
+    companyId: string,
+    weekStart: string,
+    weekEnd: string,
+  ): Promise<void> {
+    const months = this.monthsTouchingRange(weekStart, weekEnd);
+    for (const start of months) {
+      const row = await this.periodRepo.findOne({
+        where: { companyId, periodStart: start },
+      });
+      if (row?.status === JornadaPeriodStatus.CLOSED) {
+        throw new BadRequestException(
+          `El período ${start.slice(0, 7)} está cerrado. Reabrilo para editar la planificación.`,
+        );
+      }
+    }
+  }
+
+  private async resolveLiveOvertimeForAssignment(
+    a: WeekAssignmentInput,
+    band: { start: string; end: string },
+    maxDailyOvertimeMinutes: number,
+  ): Promise<number> {
+    const companyId = requireCompanyId();
+    const contracts = await this.loadActiveContracts([a.employeeId], companyId);
+    const contract = contracts.get(a.employeeId);
+    const ctx = await this.resolveAttendanceContext(contract);
+    if (!ctx || !shouldMaterializePaidOvertime(contract?.extraHoursMode, ctx.overtimeEnabled)) {
+      return a.plannedOvertimeMinutes ?? 0;
+    }
+    const type = String(ctx.shiftSystemType ?? '');
+    if (
+      type === ShiftSystemType.FREE ||
+      (type === ShiftSystemType.FLEXIBLE &&
+        String(ctx.flexibleMode ?? '').toUpperCase() === 'OPEN')
+    ) {
+      return a.plannedOvertimeMinutes ?? 0;
+    }
+
+    let bandStart = band.start;
+    let bandEnd = band.end;
+    if (type === ShiftSystemType.FIXED && ctx.fixedScheduleJson) {
+      const slot = ctx.fixedScheduleJson[String(weekdayIndexMon0(a.workDate))];
+      if (slot?.start && slot?.end) {
+        bandStart = slot.start;
+        bandEnd = slot.end;
+      }
+    }
+
+    const excess = excessOverBandMinutes(
+      a.startTime,
+      a.endTime,
+      bandStart,
+      bandEnd,
+    );
+    if (excess <= 0) {
+      return clampDailyOvertime(
+        a.plannedOvertimeMinutes ?? 0,
+        maxDailyOvertimeMinutes,
+      );
+    }
+    return clampDailyOvertime(excess, maxDailyOvertimeMinutes);
+  }
+
+  async closePeriod(periodStartInput: string) {
+    const companyId = requireCompanyId();
+    const userId = TenantContext.getUserId() ?? null;
+    const period = await this.getOrEnsurePeriod(periodStartInput);
+    if (period.status === JornadaPeriodStatus.CLOSED) {
+      return period;
+    }
+
+    const config = await this.getOrCreateConfig();
+    const instances = await this.instanceRepo.find({
+      where: {
+        companyId,
+        workDate: Between(period.periodStart, period.periodEnd),
+      },
+      relations: ['assignments'],
+    });
+
+    const employeeIds = new Set<string>();
+    for (const inst of instances) {
+      for (const a of inst.assignments ?? []) {
+        if (!a.deletedAt) employeeIds.add(a.employeeId);
+      }
+    }
+    const contracts = await this.loadActiveContracts(
+      [...employeeIds],
+      companyId,
+    );
+
+    let overtimeAdjusted = 0;
+    const deferredNotes: Array<Record<string, unknown>> = [];
+
+    for (const empId of employeeIds) {
+      const contract = contracts.get(empId);
+      const ctx = await this.resolveAttendanceContext(contract);
+      if (!ctx) continue;
+
+      const type = String(ctx.shiftSystemType ?? '');
+      const materialize = shouldMaterializePaidOvertime(
+        contract?.extraHoursMode,
+        ctx.overtimeEnabled,
+      );
+
+      // Re-aplicar HE live (banda / FIXED) en assignments del mes
+      for (const inst of instances) {
+        for (const a of inst.assignments ?? []) {
+          if (a.deletedAt || a.employeeId !== empId) continue;
+          const personStart = a.startTime?.trim() || inst.startTime;
+          const personEnd = a.endTime?.trim() || inst.endTime;
+          let bandStart = inst.startTime;
+          let bandEnd = inst.endTime;
+          if (type === ShiftSystemType.FIXED && ctx.fixedScheduleJson) {
+            const slot =
+              ctx.fixedScheduleJson[String(weekdayIndexMon0(inst.workDate))];
+            if (slot?.start && slot?.end) {
+              bandStart = slot.start;
+              bandEnd = slot.end;
+            }
+          }
+          if (
+            materialize &&
+            type !== ShiftSystemType.FREE &&
+            !(
+              type === ShiftSystemType.FLEXIBLE &&
+              String(ctx.flexibleMode ?? '').toUpperCase() === 'OPEN'
+            )
+          ) {
+            const excess = excessOverBandMinutes(
+              personStart,
+              personEnd,
+              bandStart,
+              bandEnd,
+            );
+            const next = clampDailyOvertime(
+              excess > 0 ? excess : a.plannedOvertimeMinutes,
+              config.maxDailyOvertimeMinutes,
+            );
+            if (next !== a.plannedOvertimeMinutes) {
+              a.plannedOvertimeMinutes = next;
+              await this.assignmentRepo.save(a);
+              overtimeAdjusted += 1;
+            }
+          }
+        }
+      }
+
+      // HE diferida: FLEXIBLE OPEN (o sin baseline) vs weeklyHours del mes
+      if (
+        materialize &&
+        (type === ShiftSystemType.FLEXIBLE &&
+          String(ctx.flexibleMode ?? '').toUpperCase() === 'OPEN')
+      ) {
+        const weekly = contractWeeklyMinutes(contract?.weeklyHours ?? null);
+        if (weekly != null) {
+          const weeks = weeksInMonth(period.periodStart, period.periodEnd);
+          const cap = Math.round(weekly * weeks);
+          let planned = 0;
+          const empAssignments: HrShiftAssignment[] = [];
+          for (const inst of instances) {
+            for (const a of inst.assignments ?? []) {
+              if (a.deletedAt || a.employeeId !== empId) continue;
+              const start = a.startTime?.trim() || inst.startTime;
+              const end = a.endTime?.trim() || inst.endTime;
+              planned +=
+                otDurationMinutes(start, end) + (a.plannedOvertimeMinutes ?? 0);
+              empAssignments.push(a);
+            }
+          }
+          let remaining = Math.max(0, planned - cap);
+          deferredNotes.push({
+            employeeId: empId,
+            plannedMinutes: planned,
+            capMinutes: cap,
+            excessMinutes: remaining,
+          });
+          empAssignments.sort(
+            (x, y) => (y.plannedOvertimeMinutes ?? 0) - (x.plannedOvertimeMinutes ?? 0),
+          );
+          for (const a of empAssignments) {
+            if (remaining <= 0) break;
+            const room = Math.max(
+              0,
+              config.maxDailyOvertimeMinutes - (a.plannedOvertimeMinutes ?? 0),
+            );
+            if (room <= 0) continue;
+            const add = Math.min(room, remaining);
+            a.plannedOvertimeMinutes = (a.plannedOvertimeMinutes ?? 0) + add;
+            await this.assignmentRepo.save(a);
+            remaining -= add;
+            overtimeAdjusted += 1;
+          }
+        }
+      }
+    }
+
+    const settle = await this.settleExceptions(
+      period.periodStart,
+      period.periodEnd,
+    );
+
+    const monthAssignments: WeekAssignmentInput[] = [];
+    for (const inst of instances) {
+      for (const a of inst.assignments ?? []) {
+        if (a.deletedAt) continue;
+        monthAssignments.push({
+          employeeId: a.employeeId,
+          workDate: inst.workDate,
+          startTime: a.startTime?.trim() || inst.startTime,
+          endTime: a.endTime?.trim() || inst.endTime,
+          plannedOvertimeMinutes: a.plannedOvertimeMinutes ?? 0,
+          isNight: inst.isNight,
+          isNightOutgoing: inst.isNightOutgoing,
+          notes: a.notes,
+          laborUnitShiftId: inst.laborUnitShiftId,
+          shiftBandStartTime: inst.startTime,
+          shiftBandEndTime: inst.endTime,
+        });
+      }
+    }
+    const validation = await this.validateWeek(monthAssignments);
+
+    period.status = JornadaPeriodStatus.CLOSED;
+    period.closedAt = new Date();
+    period.closedByUserId = userId;
+    period.snapshotJson = {
+      closedAt: period.closedAt.toISOString(),
+      overtimeAssignmentsAdjusted: overtimeAdjusted,
+      deferredNotes,
+      settle,
+      findings: validation.findings,
+      worstSeverity: validation.worstSeverity,
+    };
+    return this.periodRepo.save(period);
+  }
+
+  async reopenPeriod(periodStartInput: string) {
+    const companyId = requireCompanyId();
+    const period = await this.getOrEnsurePeriod(periodStartInput);
+    period.status = JornadaPeriodStatus.DRAFT;
+    period.closedAt = null;
+    period.closedByUserId = null;
+    const saved = await this.periodRepo.save(period);
+
+    const docs = await this.documentRepo.find({
+      where: {
+        companyId,
+        kind: HrDocumentKind.ATTENDANCE_STATEMENT,
+        status: HrDocumentStatus.CURRENT,
+        periodStart: Between(period.periodStart, period.periodEnd),
+      },
+    });
+    for (const doc of docs) {
+      const snap =
+        doc.snapshotJson && typeof doc.snapshotJson === 'object'
+          ? { ...(doc.snapshotJson as Record<string, unknown>) }
+          : {};
+      snap.certified = false;
+      snap.certificationNote =
+        'Información preliminar / no certificada. El período de jornada fue reabierto; las horas extraordinarias y totales pueden cambiar.';
+      doc.snapshotJson = snap;
+      await this.documentRepo.save(doc);
+    }
+
+    return saved;
   }
 }

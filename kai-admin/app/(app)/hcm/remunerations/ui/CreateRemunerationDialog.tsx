@@ -8,6 +8,7 @@ import { TextField } from "@kai/ui";
 import { Select, type Option } from "@kai/ui";
 import { PlannedPaymentPlanSection } from "@/shared/components/PlannedPaymentLines";
 import { createRemunerationAction, listPayrollSuggestionsFromJornadaAction, previewPayrollSettlementAction } from "@/features/hr-remunerations/actions/remuneration.action";
+import { getJornadaPeriodAction } from "@/features/hr-jornada/actions/jornada.action";
 import type { EmployeeGridRow } from "@/features/hr-employees/types/employee.types";
 import type { CompanyBankAccountItem } from "@/features/settings-branches/infrastructure/company.request";
 import type { PersonBankAccountItem } from "@/features/person-bank-accounts/types/person-bank-account.types";
@@ -48,6 +49,10 @@ function employeeLabel(row: EmployeeGridRow): string {
 function todayIsoDate(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function monthStartFromIso(iso: string): string {
+  return `${iso.slice(0, 7)}-01`;
 }
 
 function baseSalaryAsInputValue(baseSalary: string | null | undefined): string {
@@ -95,6 +100,7 @@ export function CreateRemunerationDialog({
   const [previewNote, setPreviewNote] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [paymentSyncKey, setPaymentSyncKey] = useState(0);
+  const [periodClosed, setPeriodClosed] = useState<boolean | null>(null);
   const previewSeqRef = useRef(0);
   const skipEarningsPreviewRef = useRef(false);
 
@@ -135,6 +141,26 @@ export function CreateRemunerationDialog({
       })),
     [employeeBankAccounts],
   );
+
+  useEffect(() => {
+    if (!open || !date) {
+      setPeriodClosed(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const res = await getJornadaPeriodAction(monthStartFromIso(date));
+      if (cancelled) return;
+      if (!res.success || !res.data) {
+        setPeriodClosed(null);
+        return;
+      }
+      setPeriodClosed(res.data.status === "CLOSED");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, date]);
 
   const onPaymentStateChange = useCallback(
     (state: {
@@ -358,7 +384,8 @@ export function CreateRemunerationDialog({
     date.trim().length > 0 &&
     totals.earningCount > 0 &&
     totals.netPayment >= 0 &&
-    paymentValid;
+    paymentValid &&
+    periodClosed !== false;
 
   return (
     <Dialog
@@ -408,6 +435,16 @@ export function CreateRemunerationDialog({
           required
           data-test-id="remuneration-create-date"
         />
+
+        {periodClosed === false ? (
+          <Alert
+            variant="warning"
+            data-test-id="remuneration-period-not-closed"
+          >
+            El mes {date.slice(0, 7)} de jornada no está cerrado. Debés cerrarlo
+            en Reportes HCM antes de crear la liquidación.
+          </Alert>
+        ) : null}
 
         <div>
           <Button

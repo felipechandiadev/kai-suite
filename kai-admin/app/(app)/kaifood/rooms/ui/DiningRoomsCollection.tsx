@@ -9,11 +9,49 @@ import {
   createDiningRoomAction,
 } from "@/features/kaifood-dining/actions/dining-room.action";
 import type { DiningRoomListItem } from "@/features/kaifood-dining/types/dining-room.types";
+import { FloorPlanMiniPreview } from "./FloorPlanMiniPreview";
 
 type Props = {
   initialRooms: DiningRoomListItem[];
   branches: BranchListItem[];
 };
+
+function DiningRoomCard({
+  room,
+  branchLabel,
+}: {
+  room: DiningRoomListItem;
+  branchLabel: string;
+}) {
+  const tables = room.tables ?? [];
+  const tableCount = tables.length;
+  const capacity = tables.reduce((sum, t) => sum + (Number(t.capacity) || 0), 0);
+
+  return (
+    <Link
+      href={`/kaifood/rooms/${room.id}`}
+      className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-foreground/20 hover:bg-muted/30"
+      data-test-id={`dining-room-card-${room.id}`}
+    >
+      <FloorPlanMiniPreview tables={tables} />
+      <div className="flex flex-1 flex-col gap-1.5 p-4">
+        <div className="flex items-start justify-between gap-2">
+          <h2 className="text-base font-semibold text-foreground group-hover:underline">
+            {room.name}
+          </h2>
+          <Badge variant={room.isActive ? "success" : "secondary"}>
+            {room.isActive ? "Activo" : "Inactivo"}
+          </Badge>
+        </div>
+        <p className="text-sm text-muted-foreground">{branchLabel}</p>
+        <p className="text-sm tabular-nums text-muted-foreground">
+          {tableCount} {tableCount === 1 ? "mesa" : "mesas"}
+          {capacity > 0 ? ` · ${capacity} pax` : ""}
+        </p>
+      </div>
+    </Link>
+  );
+}
 
 export function DiningRoomsCollection({ initialRooms, branches }: Props) {
   const searchParams = useSearchParams();
@@ -65,30 +103,20 @@ export function DiningRoomsCollection({ initialRooms, branches }: Props) {
         contentItems={
           filtered.length > 0
             ? filtered.map((r) => (
-                <Link
+                <DiningRoomCard
                   key={r.id}
-                  href={`/kaifood/rooms/${r.id}`}
-                  className="rounded-lg border border-border bg-card p-4 block hover:bg-muted/40 transition-colors"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium">{r.name}</span>
-                    <Badge variant={r.isActive ? "success" : "secondary"}>
-                      {r.isActive ? "Activo" : "Inactivo"}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {branchName(r.branchId)} · {(r.tables?.length ?? 0)} mesas
-                  </p>
-                </Link>
+                  room={r}
+                  branchLabel={branchName(r.branchId)}
+                />
               ))
             : []
         }
-        contentGridColumns={{ default: 1, md: 2, lg: 3 }}
-        contentGridGapClassName="gap-4"
+        contentGridColumns={{ default: 1, md: 2 }}
+        contentGridGapClassName="gap-5"
       />
 
       <Dialog open={open} onClose={() => setOpen(false)} title="Nuevo salón">
-        <div className="flex flex-col gap-3 min-w-[320px]">
+        <div className="flex w-full min-w-[320px] flex-col gap-3">
           <Select
             label="Sucursal"
             value={branchId}

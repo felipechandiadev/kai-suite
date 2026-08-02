@@ -6,6 +6,7 @@ import type { HcmReportRunResult } from "@/features/hcm-reports/types/hcm-report
 type Props = {
   result: HcmReportRunResult | null;
   companyLabel?: string;
+  periodActions?: React.ReactNode;
 };
 
 function formatCell(value: unknown): string {
@@ -25,9 +26,10 @@ const SUMMARY_LABELS: Record<string, string> = {
   totalOvertimeHours: "HE planificadas",
   totalExceptionHours: "Excepciones (h)",
   assignmentDays: "Días con turno",
+  certificationStatus: "Certificación",
 };
 
-export function ReportPreview({ result, companyLabel }: Props) {
+export function ReportPreview({ result, companyLabel, periodActions }: Props) {
   if (!result) {
     return (
       <div
@@ -39,13 +41,39 @@ export function ReportPreview({ result, companyLabel }: Props) {
     );
   }
 
-  const summaryEntries = Object.entries(result.summary);
+  const summaryEntries = Object.entries(result.summary).filter(
+    ([key]) => key !== "certificationStatus",
+  );
+  const certified =
+    result.certified === true ||
+    result.summary.certificationStatus === "Certificado";
 
   return (
     <div
       className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4"
       data-test-id="hcm-report-preview"
     >
+      <div
+        className={[
+          "rounded-lg border px-3 py-2 text-sm",
+          certified
+            ? "border-success/40 bg-success/10 text-foreground"
+            : "border-warning/40 bg-warning/10 text-foreground",
+        ].join(" ")}
+        data-test-id="hcm-report-certification-banner"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p>
+            {certified
+              ? "Información certificada: el período de jornada está cerrado."
+              : "Información preliminar / no certificada. Las horas extraordinarias y totales pueden cambiar hasta cerrar el mes."}
+          </p>
+          {periodActions ? (
+            <div className="flex flex-wrap gap-2 print:hidden">{periodActions}</div>
+          ) : null}
+        </div>
+      </div>
+
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
           <h2 className="text-base font-semibold text-foreground">

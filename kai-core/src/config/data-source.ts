@@ -202,6 +202,8 @@ import { PrintAgentsCatalog1757470000000 } from '../migrations/1757470000000-Pri
 import { KitchenItemReadyForPickup1757480000000 } from '../migrations/1757480000000-KitchenItemReadyForPickup';
 import { DiningStationOrderSentByUser1757490000000 } from '../migrations/1757490000000-DiningStationOrderSentByUser';
 import { HcmAssignmentPersonHours1757500000000 } from '../migrations/1757500000000-HcmAssignmentPersonHours';
+import { HcmJornadaPeriods1757600000000 } from '../migrations/1757600000000-HcmJornadaPeriods';
+import { TipLedgerEntries1757610000000 } from '../migrations/1757610000000-TipLedgerEntries';
 import { LaundryReceptionModule1757430000000 } from '../migrations/1757430000000-LaundryReceptionModule';
 import { DiningKitchenFireId1757140000000 } from '../migrations/1757140000000-DiningKitchenFireId';
 import { DiningKitchenFireNumber1757150000000 } from '../migrations/1757150000000-DiningKitchenFireNumber';
@@ -275,6 +277,8 @@ import { HcmShiftInstanceLaborUnitShift1757270000000 } from '../migrations/17572
 import { HrLaborUnitShift } from '@modules/hr-jornada/domain/hr-labor-unit-shift.entity';
 import { HrLaborUnitShiftMember } from '@modules/hr-jornada/domain/hr-labor-unit-shift-member.entity';
 import { HrShiftSystem } from '@modules/hr-jornada/domain/hr-shift-system.entity';
+import { HrJornadaPeriod } from '@modules/hr-jornada/domain/hr-jornada-period.entity';
+import { TipLedgerEntry } from '@modules/tips/domain/tip-ledger-entry.entity';
 import { HrLaborUnit } from '@modules/hr-labor-units/domain/hr-labor-unit.entity';
 import { HrLaborUnitStorage } from '@modules/hr-labor-units/domain/hr-labor-unit-storage.entity';
 import { HrLaborUnitBranch } from '@modules/hr-labor-units/domain/hr-labor-unit-branch.entity';
@@ -416,6 +420,8 @@ export const AppDataSource = new DataSource({
     HrLaborUnitShift,
     HrLaborUnitShiftMember,
     HrShiftSystem,
+    HrJornadaPeriod,
+    TipLedgerEntry,
     EShopTestimonial,
     EShopHeroSlide,
     EShopFulfillmentMethod,
@@ -569,6 +575,8 @@ export const AppDataSource = new DataSource({
     KitchenItemReadyForPickup1757480000000,
     DiningStationOrderSentByUser1757490000000,
     HcmAssignmentPersonHours1757500000000,
+    HcmJornadaPeriods1757600000000,
+    TipLedgerEntries1757610000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

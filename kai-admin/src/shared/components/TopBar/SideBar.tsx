@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronRight, User, LogOut, ImageOff, Image as ImageIcon } from 'lucide-react';
 import { useImageWithPlaceholder } from '@/shared/hooks/useImageWithPlaceholder';
 import { isCompanyChecksEnabledFromSettings } from '@/features/companies/types/company-checks.types';
+import { isCompanyTipsEnabledFromSettings } from '@/features/kaifood-tips/types/company-tips.types';
 import { isEShopModuleEnabled } from '@/config/eshop-module.config';
 import { isJewelryModuleEnabled } from '@/config/jewelry-module.config';
 import { isKaiFoodEnabled } from '@/config/kaifood-module.config';
@@ -32,6 +33,8 @@ export interface SideBarMenuItem {
   hidden?: boolean;
   /** Solo visible si la empresa tiene habilitado el módulo de cheques en tesorería. */
   requiresChecksEnabled?: boolean;
+  /** Solo visible si la empresa tiene `settings.tips.enabled`. */
+  requiresTipsEnabled?: boolean;
   /** Solo visible si el módulo eShop está activo en env y `settings.eShopEnabled` es true. */
   requiresEShopEnabled?: boolean;
   /** Solo visible si el motor de reparto local está activo (`localDeliveryEnabled`). */
@@ -73,6 +76,7 @@ function filterVisibleMenuItems(
   items: SideBarMenuItem[],
   role: string | null | undefined,
   checksEnabled: boolean,
+  tipsEnabled: boolean,
   eShopEnabled: boolean,
   localDeliveryEnabled: boolean,
   jewelryEnabled: boolean,
@@ -86,6 +90,9 @@ function filterVisibleMenuItems(
       return [];
     }
     if (item.requiresChecksEnabled && !checksEnabled) {
+      return [];
+    }
+    if (item.requiresTipsEnabled && !tipsEnabled) {
       return [];
     }
     if (item.requiresEShopEnabled && !eShopEnabled) {
@@ -111,6 +118,7 @@ function filterVisibleMenuItems(
         item.children,
         role,
         checksEnabled,
+        tipsEnabled,
         eShopEnabled,
         localDeliveryEnabled,
         jewelryEnabled,
@@ -148,6 +156,9 @@ const SideBar: React.FC<SideBarProps> = ({
   const { data: session } = useSession();
   const { company, localDeliveryEnabled } = useCompany();
   const checksEnabled = isCompanyChecksEnabledFromSettings(company?.settings);
+  const tipsEnabled = isCompanyTipsEnabledFromSettings(
+    company?.settings as Record<string, unknown> | undefined,
+  );
   const eShopEnabled =
     isEShopModuleEnabled() &&
     isEShopEnabledFromSettings(company?.settings as Record<string, unknown> | undefined);
@@ -342,6 +353,7 @@ const SideBar: React.FC<SideBarProps> = ({
             menuItems,
             (session?.user?.role as string | undefined) ?? null,
             checksEnabled,
+            tipsEnabled,
             eShopEnabled,
             localDeliveryEnabled,
             jewelryEnabled,

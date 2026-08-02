@@ -41,6 +41,11 @@ import {
   sanitizeCompanyQuotationSettings,
 } from '../domain/company-quotations.types';
 import {
+  CompanyTipSettings,
+  buildDefaultCompanyTipSettings,
+  sanitizeCompanyTipSettings,
+} from '../domain/company-tips.types';
+import {
   buildDefaultCompanyPresaleSettings,
   sanitizeCompanyPresaleSettings,
   type CompanyPresaleSettings,
@@ -858,6 +863,48 @@ export class CompaniesService {
     const validated = sanitizeCompanyQuotationSettings(raw);
     const settings = { ...(company.settings ?? {}) };
     settings.quotations = validated;
+    company.settings = settings;
+    await this.companyRepository.save(company);
+    return validated;
+  }
+
+  /**
+   * Lee la configuración de propinas KaiFood.
+   * Si no existe en `settings.tips`, devuelve defaults (enabled: false).
+   */
+  async getTipSettings(companyId: string): Promise<CompanyTipSettings> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+    const raw = company.settings?.tips;
+    if (!raw || typeof raw !== 'object') {
+      return buildDefaultCompanyTipSettings();
+    }
+    return sanitizeCompanyTipSettings(raw);
+  }
+
+  /**
+   * Reemplaza la configuración de propinas.
+   * Solo permitido en deploys KaiFood / Suite.
+   */
+  async replaceTipSettings(
+    companyId: string,
+    raw: unknown,
+  ): Promise<CompanyTipSettings> {
+    if (!this.productMode.isKaiFood()) {
+      throw new BadRequestException(
+        'La configuración de propinas solo aplica a KaiFood (o Suite).',
+      );
+    }
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+
+    const validated = sanitizeCompanyTipSettings(raw);
+    const settings = { ...(company.settings ?? {}) };
+    settings.tips = validated;
     company.settings = settings;
     await this.companyRepository.save(company);
     return validated;

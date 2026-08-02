@@ -23,11 +23,13 @@ import { OperationalExpensesModule } from '@modules/operational-expenses/operati
 import { Supplier } from '@modules/suppliers/domain/supplier.entity';
 import { Person } from '@modules/persons/domain/person.entity';
 import { ExpenseCategory } from '@modules/expense-categories/domain/expense-category.entity';
+import { HrJornadaModule } from '@modules/hr-jornada/hr-jornada.module';
 
 @Module({
   imports: [
     CqrsModule,
     forwardRef(() => EmployeesModule),
+    forwardRef(() => HrJornadaModule),
     TypeOrmModule.forFeature([
       Transaction,
       Employee,

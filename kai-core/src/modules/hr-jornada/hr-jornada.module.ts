@@ -18,6 +18,7 @@ import { HrEmployeeShift } from './domain/hr-employee-shift.entity';
 import { HrLaborUnitShift } from './domain/hr-labor-unit-shift.entity';
 import { HrLaborUnitShiftMember } from './domain/hr-labor-unit-shift-member.entity';
 import { HrShiftSystem } from './domain/hr-shift-system.entity';
+import { HrJornadaPeriod } from './domain/hr-jornada-period.entity';
 import { HrLaborUnit } from '@modules/hr-labor-units/domain/hr-labor-unit.entity';
 import { HrJornadaService } from './application/hr-jornada.service';
 import { LaborUnitShiftsService } from './application/labor-unit-shifts.service';
@@ -47,6 +48,7 @@ import { ShiftSystemsController } from './presentation/shift-systems.controller'
       HrLaborUnitShift,
       HrLaborUnitShiftMember,
       HrShiftSystem,
+      HrJornadaPeriod,
       HrLaborUnit,
       Employee,
       EmploymentContract,

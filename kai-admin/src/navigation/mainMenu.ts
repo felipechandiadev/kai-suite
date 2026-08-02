@@ -191,6 +191,24 @@ export const mainMenuItems: SideBarMenuItem[] = [
     children: [
       { id: 'kaifood-rooms', label: 'Salones', url: '/kaifood/rooms' },
       {
+        id: 'kaifood-propinas',
+        label: 'Propinas',
+        url: '/kaifood/propinas',
+        requiresTipsEnabled: true,
+      },
+      {
+        id: 'kaifood-propinas-movimientos',
+        label: 'Propinas · Movimientos',
+        url: '/kaifood/propinas/movimientos',
+        requiresTipsEnabled: true,
+      },
+      {
+        id: 'kaifood-propinas-reportes',
+        label: 'Propinas · Reportes',
+        url: '/kaifood/propinas/reportes',
+        requiresTipsEnabled: true,
+      },
+      {
         id: 'kaifood-config',
         label: 'Configuración',
         url: '/kaifood/configuracion',

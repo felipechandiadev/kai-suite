@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import { IconButton, SelectDefault as Select } from "@kai/ui";
+import { Button, IconButton, SelectDefault as Select } from "@kai/ui";
 import {
   HCM_REPORT_REGISTRY,
   getReportEntry,
@@ -19,6 +19,11 @@ import {
   validateFormForEntry,
   type ReportFormState,
 } from "@/features/hcm-reports/lib/report-form";
+import {
+  closeJornadaPeriodAction,
+  getJornadaPeriodAction,
+  reopenJornadaPeriodAction,
+} from "@/features/hr-jornada/actions/jornada.action";
 import { ReportParamsForm } from "./ReportParamsForm";
 import { ReportPreview } from "./ReportPreview";
 
@@ -33,6 +38,11 @@ type Props = {
 
 function categoryOf(id: string): HcmReportCategory {
   return getReportEntry(id)?.category ?? "jornada";
+}
+
+function monthStartFromIso(iso: string): string {
+  const d = iso.slice(0, 10);
+  return `${d.slice(0, 7)}-01`;
 }
 
 export function HcmReportsWorkspace({
@@ -53,6 +63,10 @@ export function HcmReportsWorkspace({
   const [result, setResult] = useState<HcmReportRunResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [periodStatus, setPeriodStatus] = useState<"DRAFT" | "CLOSED" | null>(
+    null,
+  );
+  const [periodBusy, setPeriodBusy] = useState(false);
 
   const categoryOptions = useMemo(
     () =>
@@ -73,6 +87,27 @@ export function HcmReportsWorkspace({
       })),
     [category],
   );
+
+  const periodStart = form.dateFrom
+    ? monthStartFromIso(form.dateFrom)
+    : null;
+
+  const refreshPeriod = useCallback(async (start: string) => {
+    const res = await getJornadaPeriodAction(start);
+    if (res.success && res.data) {
+      setPeriodStatus(res.data.status);
+    } else {
+      setPeriodStatus(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!periodStart) {
+      setPeriodStatus(null);
+      return;
+    }
+    void refreshPeriod(periodStart);
+  }, [periodStart, refreshPeriod]);
 
   const runReport = useCallback(
     (activeEntry: NonNullable<typeof entry>, activeForm: ReportFormState) => {
@@ -128,7 +163,67 @@ export function HcmReportsWorkspace({
   const onRefresh = useCallback(() => {
     if (!entry) return;
     runReport(entry, form);
-  }, [entry, form, runReport]);
+    if (periodStart) void refreshPeriod(periodStart);
+  }, [entry, form, runReport, periodStart, refreshPeriod]);
+
+  const onCloseMonth = useCallback(() => {
+    if (!periodStart) return;
+    setPeriodBusy(true);
+    startTransition(async () => {
+      const res = await closeJornadaPeriodAction(periodStart);
+      setPeriodBusy(false);
+      if (!res.success) {
+        setError(res.message ?? "No se pudo cerrar el mes");
+        return;
+      }
+      setPeriodStatus("CLOSED");
+      setError(null);
+      if (entry) runReport(entry, form);
+    });
+  }, [periodStart, entry, form, runReport]);
+
+  const onReopenMonth = useCallback(() => {
+    if (!periodStart) return;
+    setPeriodBusy(true);
+    startTransition(async () => {
+      const res = await reopenJornadaPeriodAction(periodStart);
+      setPeriodBusy(false);
+      if (!res.success) {
+        setError(res.message ?? "No se pudo reabrir el mes");
+        return;
+      }
+      setPeriodStatus("DRAFT");
+      setError(null);
+      if (entry) runReport(entry, form);
+    });
+  }, [periodStart, entry, form, runReport]);
+
+  const periodLabel = periodStart?.slice(0, 7) ?? "";
+
+  const periodActions =
+    periodStart && periodStatus ? (
+      periodStatus === "CLOSED" ? (
+        <Button
+          size="sm"
+          variant="outlined"
+          disabled={periodBusy || pending}
+          onClick={onReopenMonth}
+          data-test-id="hcm-reports-reopen-month"
+        >
+          Reabrir {periodLabel}
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          variant="primary"
+          disabled={periodBusy || pending}
+          onClick={onCloseMonth}
+          data-test-id="hcm-reports-close-month"
+        >
+          Cerrar mes {periodLabel}
+        </Button>
+      )
+    ) : null;
 
   return (
     <div
@@ -187,7 +282,11 @@ export function HcmReportsWorkspace({
         </aside>
 
         <div className="min-w-0">
-          <ReportPreview result={result} companyLabel={companyLabel} />
+          <ReportPreview
+            result={result}
+            companyLabel={companyLabel}
+            periodActions={periodActions}
+          />
         </div>
       </div>
     </div>

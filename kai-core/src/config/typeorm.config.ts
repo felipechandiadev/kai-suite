@@ -147,6 +147,8 @@ import { HrEmployeeShift } from '@modules/hr-jornada/domain/hr-employee-shift.en
 import { HrLaborUnitShift } from '@modules/hr-jornada/domain/hr-labor-unit-shift.entity';
 import { HrLaborUnitShiftMember } from '@modules/hr-jornada/domain/hr-labor-unit-shift-member.entity';
 import { HrShiftSystem } from '@modules/hr-jornada/domain/hr-shift-system.entity';
+import { HrJornadaPeriod } from '@modules/hr-jornada/domain/hr-jornada-period.entity';
+import { TipLedgerEntry } from '@modules/tips/domain/tip-ledger-entry.entity';
 import { HrLaborUnit } from '@modules/hr-labor-units/domain/hr-labor-unit.entity';
 import { HrLaborUnitStorage } from '@modules/hr-labor-units/domain/hr-labor-unit-storage.entity';
 import { HrLaborUnitBranch } from '@modules/hr-labor-units/domain/hr-labor-unit-branch.entity';
@@ -306,6 +308,8 @@ export const typeOrmConfig = (
       HrLaborUnitShift,
       HrLaborUnitShiftMember,
       HrShiftSystem,
+      HrJornadaPeriod,
+      TipLedgerEntry,
       HrLaborUnit,
       HrLaborUnitStorage,
       HrLaborUnitBranch,

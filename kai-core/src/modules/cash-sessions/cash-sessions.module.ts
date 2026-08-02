@@ -33,6 +33,7 @@ import { MercadoPagoSalePaymentService } from '@modules/payment-gateways/applica
 import { FiscalModule } from '@modules/fiscal/fiscal.module';
 import { DeliveryModule } from '@modules/delivery/delivery.module';
 import { AppConfigModule } from '../../config/config.module';
+import { TipsModule } from '@modules/tips/tips.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { AppConfigModule } from '../../config/config.module';
     PresaleTicketsModule,
     FiscalModule,
     DeliveryModule,
+    TipsModule,
     AppConfigModule,
     CqrsModule,
   ],

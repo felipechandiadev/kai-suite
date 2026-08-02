@@ -179,6 +179,53 @@ export class HrJornadaRequest {
     return data.data as { settledCount: number; overtimeEmitted: number };
   }
 
+  static async getPeriod(periodStart: string) {
+    const q = new URLSearchParams({ periodStart });
+    const res = await fetch(apiUrl(`/hr/jornada/periods?${q}`), {
+      headers: await authHeaders(),
+      cache: "no-store",
+    });
+    const data = await parseJson(res);
+    return data.data as {
+      id: string;
+      periodStart: string;
+      periodEnd: string;
+      status: "DRAFT" | "CLOSED";
+      closedAt?: string | null;
+      snapshotJson?: Record<string, unknown> | null;
+    };
+  }
+
+  static async closePeriod(periodStart: string) {
+    const res = await fetch(apiUrl("/hr/jornada/periods/close"), {
+      method: "POST",
+      headers: await authHeaders(),
+      body: JSON.stringify({ periodStart }),
+    });
+    const data = await parseJson(res);
+    return data.data as {
+      id: string;
+      status: string;
+      periodStart: string;
+      periodEnd: string;
+    };
+  }
+
+  static async reopenPeriod(periodStart: string) {
+    const res = await fetch(apiUrl("/hr/jornada/periods/reopen"), {
+      method: "POST",
+      headers: await authHeaders(),
+      body: JSON.stringify({ periodStart }),
+    });
+    const data = await parseJson(res);
+    return data.data as {
+      id: string;
+      status: string;
+      periodStart: string;
+      periodEnd: string;
+    };
+  }
+
   static async listLedger(employeeId: string): Promise<LedgerEntryView[]> {
     const res = await fetch(apiUrl(`/hr/jornada/ledger/${employeeId}`), {
       headers: await authHeaders(),

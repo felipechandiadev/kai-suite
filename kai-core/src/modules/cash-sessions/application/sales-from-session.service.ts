@@ -42,6 +42,7 @@ import {
   parseSelectedSaleDocumentKind,
   resolveEffectiveLineRequiresDteMap,
 } from '@modules/fiscal/domain/resolve-effective-line-requires-dte';
+import { TipsService } from '@modules/tips/application/tips.service';
 import {
   extractDiningOrderIdFromMetadata,
   shouldSkipFinishedGoodsStockForDiningSale,
@@ -211,6 +212,7 @@ export class SalesFromSessionService {
     private readonly deliveryQuote: DeliveryQuoteService,
     private readonly deliveryOccurrences: DeliveryOccurrenceService,
     private readonly deliveryOrders: DeliveryOrderService,
+    private readonly tipsService: TipsService,
   ) {}
 
   /**
@@ -342,6 +344,7 @@ export class SalesFromSessionService {
     });
     if (result.success && result.transaction?.id) {
       await this.persistSaleFiscalMetadata(result.transaction.id, createSaleDto);
+      await this.maybeRecordTipFromSale(createSaleDto, result.transaction);
     }
     const fiscalEmission = await this.maybeEmitSaleBoleta(createSaleDto, result);
     if (fiscalEmission) {
@@ -359,8 +362,64 @@ export class SalesFromSessionService {
     });
     if (result.success && result.transaction?.id) {
       await this.persistSaleFiscalMetadata(result.transaction.id, createSaleDto);
+      await this.maybeRecordTipFromSale(createSaleDto, result.transaction);
     }
     return result;
+  }
+
+  private async maybeRecordTipFromSale(
+    createSaleDto: CreateSaleDto,
+    transaction: {
+      id: string;
+      paymentMethod?: PaymentMethod | string | null;
+      companyId?: string | null;
+      branchId?: string | null;
+      metadata?: Record<string, unknown> | null;
+    },
+  ): Promise<void> {
+    try {
+      let companyId = transaction.companyId?.trim() || '';
+      let branchId = transaction.branchId?.trim() || null;
+      if (!companyId) {
+        const pos = await this.pointOfSaleRepository.findOne({
+          where: { id: createSaleDto.pointOfSaleId, deletedAt: IsNull() },
+        });
+        companyId = pos?.companyId?.trim() || '';
+        if (!branchId) {
+          branchId = pos?.branchId?.trim() || null;
+        }
+      }
+      if (!companyId) {
+        this.logger.warn(
+          `Tip ledger skipped for sale ${transaction.id}: missing companyId`,
+        );
+        return;
+      }
+
+      const meta =
+        (createSaleDto.metadata as Record<string, unknown> | undefined) ??
+        (transaction.metadata as Record<string, unknown> | undefined) ??
+        {};
+      const diningOrderId =
+        extractDiningOrderIdFromMetadata(meta) ??
+        (typeof meta.diningOrderId === 'string' ? meta.diningOrderId : null);
+      await this.tipsService.maybeRecordFromSale({
+        companyId,
+        branchId,
+        saleTransactionId: transaction.id,
+        diningOrderId,
+        metadata: meta,
+        paymentMethod: transaction.paymentMethod
+          ? String(transaction.paymentMethod)
+          : null,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Tip ledger hook failed for sale ${transaction.id}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
   }
 
   private async assertDeferredPaymentAllowed(pointOfSaleId: string): Promise<void> {

@@ -31,15 +31,13 @@ export class HoursPlannedByEmployeeHandler implements HcmReportHandler {
 
   async run(ctx: HcmReportHandlerContext): Promise<HcmReportRunResult> {
     const params = this.validate(ctx.params);
-    const { rows, dailySeries, truncated } = await this.q.plannedHoursByEmployee(
-      ctx.companyId,
-      {
+    const { rows, dailySeries, truncated, certified } =
+      await this.q.plannedHoursByEmployee(ctx.companyId, {
         dateFrom: params.dateFrom,
         dateTo: params.dateTo,
         laborUnitId: params.laborUnitId,
         employeeIds: params.employeeIds,
-      },
-    );
+      });
 
     let totalOrdinary = 0;
     let totalOt = 0;
@@ -68,6 +66,7 @@ export class HoursPlannedByEmployeeHandler implements HcmReportHandler {
         totalOvertimeHours: round2(totalOt),
         totalExceptionHours: round2(totalExc),
         assignmentDays: daysCovered,
+        certificationStatus: certified ? 'Certificado' : 'Preliminar',
       },
       series: [
         {
@@ -94,11 +93,15 @@ export class HoursPlannedByEmployeeHandler implements HcmReportHandler {
         netHours: round2(totalNet),
       },
       footnotes: [
+        certified
+          ? 'Información certificada: el(los) mes(es) del rango están cerrados en Jornada.'
+          : 'Información preliminar / no certificada. El período de jornada no ha sido cerrado; las horas extraordinarias y totales pueden cambiar.',
         'Las horas ordinarias provienen de la jornada de cada asignación (start/end de la persona).',
         'Excepciones solo incluyen las marcadas como impacto en nómina.',
         'Neto = ordinarias + HE − excepciones (mínimo 0).',
       ],
       truncated,
+      certified,
     };
   }
 }

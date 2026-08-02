@@ -343,6 +343,39 @@ export class CompaniesController {
     return { success: true, quotationSettings };
   }
 
+  /**
+   * Configuración de propinas KaiFood (solo ADMIN).
+   * Defaults: enabled false, suggestPercent 10.
+   */
+  @Get('companies/:id/tip-settings')
+  @AdminOnly()
+  @AllowAdminWithoutCompany()
+  async getCompanyTipSettings(@Param('id') id: string) {
+    const tipSettings = await this.companiesService.getTipSettings(id);
+    return { success: true, tipSettings };
+  }
+
+  /**
+   * Body: `{ tipSettings: CompanyTipSettings }` o el objeto directo.
+   */
+  @Put('companies/:id/tip-settings')
+  @AdminOnly()
+  @AllowAdminWithoutCompany()
+  async replaceCompanyTipSettings(
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    const incoming =
+      body && typeof body === 'object' && 'tipSettings' in (body as any)
+        ? (body as any).tipSettings
+        : body;
+    const tipSettings = await this.companiesService.replaceTipSettings(
+      id,
+      incoming,
+    );
+    return { success: true, tipSettings };
+  }
+
   @Get('companies/:id/presale-settings')
   @AdminOnly()
   @AllowAdminWithoutCompany()
@@ -418,6 +451,16 @@ export class CompaniesController {
     const quotationSettings =
       await this.companiesService.getQuotationSettings(activeCompanyId);
     return { success: true, quotationSettings };
+  }
+
+  /** Tip settings de la empresa activa (POS / admin). */
+  @Get('company/tip-settings')
+  async getActiveCompanyTipSettings(
+    @CurrentCompany() activeCompanyId: string,
+  ) {
+    const tipSettings =
+      await this.companiesService.getTipSettings(activeCompanyId);
+    return { success: true, tipSettings };
   }
 
   @Get('company/presale-settings')

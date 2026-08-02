@@ -78,6 +78,7 @@ import { FiscalModule } from './modules/fiscal/fiscal.module';
 import { PosSyncModule } from './modules/pos-sync/pos-sync.module';
 import { ProductModeModule } from './shared/product-mode/product-mode.module';
 import { DiningModule } from './modules/dining/dining.module';
+import { TipsModule } from './modules/tips/tips.module';
 import { PrintAgentsModule } from './modules/print-agents/print-agents.module';
 import { LiraModule } from './modules/lira/lira.module';
 import { HrJornadaModule } from './modules/hr-jornada/hr-jornada.module';
@@ -147,6 +148,7 @@ import { ProductionUnitsModule } from './modules/production-units/production-uni
     BrandsModule,
     ProductionUnitsModule,
     DiningModule,
+    TipsModule,
     PrintAgentsModule,
     LiraModule,
     HrJornadaModule,

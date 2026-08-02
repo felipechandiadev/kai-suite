@@ -14,10 +14,15 @@ import type {
   DiningTableItem,
   TableShape,
 } from "@/features/kaifood-dining/types/dining-room.types";
+import {
+  FLOOR_PLAN_CANVAS_H,
+  FLOOR_PLAN_CANVAS_W,
+  FLOOR_PLAN_GRID,
+} from "@/features/kaifood-dining/ui/floor-plan-canvas";
 
-const GRID = 20;
-const CANVAS_W = 800;
-const CANVAS_H = 600;
+const GRID = FLOOR_PLAN_GRID;
+const CANVAS_W = FLOOR_PLAN_CANVAS_W;
+const CANVAS_H = FLOOR_PLAN_CANVAS_H;
 
 function snap(n: number) {
   return Math.round(n / GRID) * GRID;

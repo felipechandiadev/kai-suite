@@ -16,9 +16,12 @@ import {
 } from "@kai/ui";
 import {
   createJornadaExceptionAction,
+  getJornadaPeriodAction,
   loadJornadaWeekFromShiftsAction,
   saveJornadaWeekAction,
 } from "@/features/hr-jornada/actions/jornada.action";
+import { listLaborUnitShiftsAction } from "@/features/hr-labor-unit-shifts/actions/labor-unit-shift.action";
+import type { LaborUnitShiftView } from "@/features/hr-labor-unit-shifts/types/labor-unit-shift.types";
 import type {
   ScheduleFinding,
   ShiftExceptionView,
@@ -74,19 +77,121 @@ function slotFromMeta(
   return null;
 }
 
+function parseHm(hm: string): number {
+  const [h, m] = hm.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+function durationMinutesHm(startTime: string, endTime: string): number {
+  const s = parseHm(startTime);
+  let e = parseHm(endTime);
+  if (e <= s) e += 24 * 60;
+  return e - s;
+}
+
+/** HE live vs banda UL cuando hay baseline claro (exceso de duración). */
+function liveOvertimeFromBand(
+  startTime: string,
+  endTime: string,
+  bandStart: string,
+  bandEnd: string,
+  maxDailyOvertimeMinutes: number,
+): number {
+  const excess = Math.max(
+    0,
+    durationMinutesHm(startTime, endTime) - durationMinutesHm(bandStart, bandEnd),
+  );
+  if (excess <= 0) return 0;
+  return Math.min(excess, Math.max(0, maxDailyOvertimeMinutes));
+}
+
+function monthStartFromIso(iso: string): string {
+  return `${iso.slice(0, 7)}-01`;
+}
+
+/** Meses calendario que toca un rango inclusive. */
+function monthsTouchingRange(from: string, to: string): string[] {
+  const out: string[] = [];
+  let cursor = monthStartFromIso(from);
+  const endMonth = monthStartFromIso(to);
+  while (cursor <= endMonth) {
+    out.push(cursor);
+    const [y, m] = cursor.split("-").map(Number);
+    const next = m === 12 ? { y: y + 1, m: 1 } : { y, m: m + 1 };
+    cursor = `${next.y}-${String(next.m).padStart(2, "0")}-01`;
+  }
+  return out;
+}
+
+function toSegments(startMin: number, endMin: number): [number, number][] {
+  if (endMin > startMin) return [[startMin, endMin]];
+  if (endMin === startMin) return [];
+  return [
+    [startMin, 24 * 60],
+    [0, endMin],
+  ];
+}
+
+function segmentsOverlap(
+  a: [number, number][],
+  b: [number, number][],
+): boolean {
+  for (const [as, ae] of a) {
+    for (const [bs, be] of b) {
+      if (as < be && bs < ae) return true;
+    }
+  }
+  return false;
+}
+
+/** Clasifica franja nocturna (alineado a night-window.util del core). */
+function classifyNightSlot(
+  startTime: string,
+  endTime: string,
+  nightStart: string,
+  nightEnd: string,
+): { isNight: boolean; isNightOutgoing: boolean } {
+  const start = parseHm(startTime);
+  const end = parseHm(endTime);
+  const nStart = parseHm(nightStart);
+  const nEnd = parseHm(nightEnd);
+  const isNight = segmentsOverlap(
+    toSegments(start, end),
+    toSegments(nStart, nEnd),
+  );
+  const endsInMorningWindow = end > 0 && end <= nEnd;
+  const crossesMidnight = end <= start;
+  const isNightOutgoing =
+    isNight && (crossesMidnight || endsInMorningWindow) && endsInMorningWindow;
+  return { isNight, isNightOutgoing };
+}
+
+function isShiftEffectiveOn(
+  shift: Pick<LaborUnitShiftView, "effectiveFrom" | "effectiveTo">,
+  workDate: string,
+): boolean {
+  if (shift.effectiveFrom && workDate < shift.effectiveFrom) return false;
+  if (shift.effectiveTo && workDate > shift.effectiveTo) return false;
+  return true;
+}
+
 function severityBadge(sev: string) {
   if (sev === "CRITICAL") return <Badge variant="error">Crítico</Badge>;
   if (sev === "WARNING") return <Badge variant="warning">Alerta</Badge>;
   return <Badge variant="success">OK</Badge>;
 }
 
-function planToDrafts(plan: WeekPlanView): DraftCell[] {
+function planToDrafts(
+  plan: WeekPlanView,
+  shiftNameById?: Map<string, string>,
+): DraftCell[] {
   const nameById = new Map(
     plan.employees.map((e) => [e.id, e.displayName] as const),
   );
   const out: DraftCell[] = [];
   for (const inst of plan.instances) {
     for (const a of inst.assignments) {
+      const shiftId = inst.laborUnitShiftId ?? null;
       out.push({
         employeeId: a.employeeId,
         workDate: inst.workDate,
@@ -98,7 +203,10 @@ function planToDrafts(plan: WeekPlanView): DraftCell[] {
         isNight: inst.isNight,
         isNightOutgoing: inst.isNightOutgoing,
         notes: a.notes ?? "",
-        laborUnitShiftId: inst.laborUnitShiftId ?? null,
+        laborUnitShiftId: shiftId,
+        laborUnitShiftName: shiftId
+          ? (shiftNameById?.get(shiftId) ?? null)
+          : null,
         employeeDisplayName: nameById.get(a.employeeId) ?? null,
       });
     }
@@ -183,6 +291,8 @@ export function JornadaPlannerWorkspace({
   const [exceptionType, setExceptionType] = useState("LATE");
   const [exceptionMinutes, setExceptionMinutes] = useState("30");
   const [viewMode, setViewMode] = useState<"coverage" | "person">("coverage");
+  const [ulShifts, setUlShifts] = useState<LaborUnitShiftView[]>([]);
+  const [closedMonths, setClosedMonths] = useState<string[]>([]);
   const [expandedDay, setExpandedDay] = useState(() =>
     defaultExpandedDay(
       Array.from({ length: 7 }, (_, i) => addDaysIso(weekStart, i)),
@@ -195,6 +305,12 @@ export function JornadaPlannerWorkspace({
     [weekStart],
   );
   const weekEnd = days[6] ?? addDaysIso(weekStart, 6);
+  const periodLocked = closedMonths.length > 0;
+
+  const shiftNameById = useMemo(
+    () => new Map(ulShifts.map((s) => [s.id, s.name] as const)),
+    [ulShifts],
+  );
 
   const planSyncKey = useMemo(
     () =>
@@ -221,11 +337,77 @@ export function JornadaPlannerWorkspace({
     [plan.exceptions],
   );
 
+  const editorDayShifts = useMemo(() => {
+    if (!editor) return [] as LaborUnitShiftView[];
+    return ulShifts.filter(
+      (s) =>
+        s.isActive &&
+        isShiftEffectiveOn(s, editor.workDate) &&
+        !!slotFromMeta(s, editor.workDate),
+    );
+  }, [editor, ulShifts]);
+
   useEffect(() => {
     if (!days.includes(expandedDay)) {
       setExpandedDay(defaultExpandedDay(days));
     }
   }, [days, expandedDay]);
+
+  /** Períodos CLOSED que intersectan la semana (bloquean guardar). */
+  useEffect(() => {
+    let cancelled = false;
+    const months = monthsTouchingRange(weekStart, weekEnd);
+    void (async () => {
+      const closed: string[] = [];
+      for (const start of months) {
+        const res = await getJornadaPeriodAction(start);
+        if (res.success && res.data?.status === "CLOSED") {
+          closed.push(start.slice(0, 7));
+        }
+      }
+      if (!cancelled) setClosedMonths(closed);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [weekStart, weekEnd]);
+
+  /** Catálogo de turnos UL para la unidad seleccionada. */
+  useEffect(() => {
+    if (!laborUnitId) {
+      setUlShifts([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const res = await listLaborUnitShiftsAction(laborUnitId);
+      if (cancelled) return;
+      if (!res.success) {
+        setUlShifts([]);
+        return;
+      }
+      setUlShifts(res.data.filter((s) => s.isActive));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [laborUnitId]);
+
+  /** Enriquecer nombres de turno cuando llega el catálogo UL. */
+  useEffect(() => {
+    if (!shiftNameById.size) return;
+    setDrafts((prev) => {
+      let changed = false;
+      const next = prev.map((d) => {
+        if (!d.laborUnitShiftId) return d;
+        const name = shiftNameById.get(d.laborUnitShiftId) ?? null;
+        if (name === d.laborUnitShiftName) return d;
+        changed = true;
+        return { ...d, laborUnitShiftName: name };
+      });
+      return changed ? next : prev;
+    });
+  }, [shiftNameById]);
 
   /**
    * Sync server plan; if the week has no saved assignments, auto-load from turnos UL.
@@ -235,7 +417,7 @@ export function JornadaPlannerWorkspace({
     setFindings(initialPlan.findings);
     setWorst(initialPlan.worstSeverity);
 
-    const saved = planToDrafts(initialPlan);
+    const saved = planToDrafts(initialPlan, shiftNameById);
     if (saved.length > 0 || !laborUnitId) {
       setDrafts(saved);
       setError(null);
@@ -302,7 +484,11 @@ export function JornadaPlannerWorkspace({
             isNightOutgoing: a.isNightOutgoing ?? false,
             notes: a.notes ?? "",
             laborUnitShiftId: a.laborUnitShiftId ?? null,
-            laborUnitShiftName: meta?.name ?? null,
+            laborUnitShiftName:
+              meta?.name ??
+              (a.laborUnitShiftId
+                ? (shiftNameById.get(a.laborUnitShiftId) ?? null)
+                : null),
             employeeDisplayName: emp?.displayName ?? null,
           };
         }),
@@ -374,7 +560,7 @@ export function JornadaPlannerWorkspace({
         return;
       }
       setPlan(res.data);
-      setDrafts(planToDrafts(res.data));
+      setDrafts(planToDrafts(res.data, shiftNameById));
       setFindings(res.data.findings);
       setWorst(res.data.worstSeverity);
       setOverrideOpen(false);
@@ -384,6 +570,7 @@ export function JornadaPlannerWorkspace({
   }
 
   function onSaveClick() {
+    if (periodLocked) return;
     if (worst === "CRITICAL" || findings.some((f) => f.severity === "CRITICAL")) {
       // Local preview may be stale; still require reason if current findings have CRITICAL
       // Validate via save which enforces server-side
@@ -435,24 +622,32 @@ export function JornadaPlannerWorkspace({
           />
         </div>
         {laborUnitId ? (
-          <div
-            className="flex items-center gap-2 pb-1"
-            data-test-id="jornada-view-mode"
-          >
-            <Button
-              variant={viewMode === "coverage" ? "primary" : "outlined"}
-              size="sm"
-              onClick={() => setViewMode("coverage")}
+          <div className="pb-1">
+            <div
+              className="flex items-center gap-0.5 rounded-lg border border-border p-0.5"
+              role="group"
+              aria-label="Modo de vista"
+              data-test-id="jornada-view-mode"
             >
-              Cobertura
-            </Button>
-            <Button
-              variant={viewMode === "person" ? "primary" : "outlined"}
-              size="sm"
-              onClick={() => setViewMode("person")}
-            >
-              Por persona
-            </Button>
+              <IconButton
+                icon="Columns3"
+                variant={viewMode === "coverage" ? "primary" : "action"}
+                size="sm"
+                ariaLabel="Vista mural por turno"
+                title="Mural por turno"
+                onClick={() => setViewMode("coverage")}
+                data-test-id="jornada-view-coverage"
+              />
+              <IconButton
+                icon="Table"
+                variant={viewMode === "person" ? "primary" : "action"}
+                size="sm"
+                ariaLabel="Vista por persona"
+                title="Por persona"
+                onClick={() => setViewMode("person")}
+                data-test-id="jornada-view-person"
+              />
+            </div>
           </div>
         ) : null}
         <div className="ml-auto flex flex-wrap items-center gap-2 pb-1">
@@ -461,8 +656,14 @@ export function JornadaPlannerWorkspace({
             variant="primary"
             size="sm"
             ariaLabel={pending ? "Guardando plan" : "Guardar plan"}
-            title={pending ? "Guardando…" : "Guardar plan"}
-            disabled={pending || !laborUnitId}
+            title={
+              periodLocked
+                ? `Período cerrado (${closedMonths.join(", ")})`
+                : pending
+                  ? "Guardando…"
+                  : "Guardar plan"
+            }
+            disabled={pending || !laborUnitId || periodLocked}
             isLoading={pending}
             onClick={onSaveClick}
             data-test-id="jornada-save-plan"
@@ -472,6 +673,12 @@ export function JornadaPlannerWorkspace({
 
       {error ? <Alert variant="error">{error}</Alert> : null}
       {notice ? <Alert variant="warning">{notice}</Alert> : null}
+      {periodLocked ? (
+        <Alert variant="warning" data-test-id="jornada-period-closed">
+          El período {closedMonths.join(", ")} está cerrado. Reabrilo en Reportes
+          HCM para editar esta semana.
+        </Alert>
+      ) : null}
 
       {!laborUnitId ? (
         <Alert variant="info" data-test-id="jornada-labor-unit-required">
@@ -508,6 +715,7 @@ export function JornadaPlannerWorkspace({
             laborUnitShiftId: d.laborUnitShiftId,
             laborUnitShiftName: d.laborUnitShiftName,
             employeeDisplayName: d.employeeDisplayName,
+            plannedOvertimeMinutes: d.plannedOvertimeMinutes,
           }))}
           employees={employees}
           holidaySet={holidaySet}
@@ -515,12 +723,23 @@ export function JornadaPlannerWorkspace({
           exceptionLinesByKey={exceptionLines}
           onExpandDay={setExpandedDay}
           onUpdateAssignment={({ employeeId, workDate, startTime, endTime }) => {
+            const maxOt = plan.config?.maxDailyOvertimeMinutes ?? 120;
             setDrafts((prev) =>
-              prev.map((d) =>
-                d.employeeId === employeeId && d.workDate === workDate
-                  ? { ...d, startTime, endTime }
-                  : d,
-              ),
+              prev.map((d) => {
+                if (d.employeeId !== employeeId || d.workDate !== workDate) {
+                  return d;
+                }
+                const bandStart = d.shiftBandStartTime ?? d.startTime;
+                const bandEnd = d.shiftBandEndTime ?? d.endTime;
+                const plannedOvertimeMinutes = liveOvertimeFromBand(
+                  startTime,
+                  endTime,
+                  bandStart,
+                  bandEnd,
+                  maxOt,
+                );
+                return { ...d, startTime, endTime, plannedOvertimeMinutes };
+              }),
             );
           }}
           onRemoveAssignment={({ employeeId, workDate }) => {
@@ -581,7 +800,22 @@ export function JornadaPlannerWorkspace({
                           }}
                           onClick={() => setEditor({ ...cell })}
                         >
-                          <div className="font-medium">
+                          {cell.laborUnitShiftName ? (
+                            <div
+                              className="truncate text-xs font-medium text-foreground"
+                              title={cell.laborUnitShiftName}
+                            >
+                              {cell.laborUnitShiftName}
+                            </div>
+                          ) : null}
+                          <div
+                            className={[
+                              "tabular-nums",
+                              cell.laborUnitShiftName
+                                ? "text-xs text-muted-foreground"
+                                : "font-medium",
+                            ].join(" ")}
+                          >
                             {cell.startTime}–{cell.endTime}
                           </div>
                           {cell.plannedOvertimeMinutes > 0 ? (
@@ -606,14 +840,17 @@ export function JornadaPlannerWorkspace({
                             setEditor({
                               employeeId: emp.id,
                               workDate: d,
-                              startTime: "09:00",
-                              endTime: "18:00",
-                              shiftBandStartTime: "09:00",
-                              shiftBandEndTime: "18:00",
+                              startTime: "",
+                              endTime: "",
+                              shiftBandStartTime: null,
+                              shiftBandEndTime: null,
                               plannedOvertimeMinutes: 0,
                               isNight: false,
                               isNightOutgoing: false,
                               notes: "",
+                              laborUnitShiftId: null,
+                              laborUnitShiftName: null,
+                              employeeDisplayName: emp.displayName,
                             })
                           }
                         >
@@ -654,19 +891,110 @@ export function JornadaPlannerWorkspace({
         onClose={() => setEditor(null)}
         title="Asignar turno"
         size="sm"
+        actions={
+          <>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outlined"
+                onClick={() => setEditor(null)}
+              >
+                Cancelar
+              </Button>
+              {editor &&
+              cellDraft(editor.employeeId, editor.workDate) ? (
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    removeDraft(editor.employeeId, editor.workDate);
+                    setEditor(null);
+                  }}
+                >
+                  Quitar
+                </Button>
+              ) : null}
+            </div>
+            <Button
+              variant="primary"
+              disabled={
+                !editor?.laborUnitShiftId ||
+                !editor.startTime ||
+                !editor.endTime ||
+                editorDayShifts.length === 0
+              }
+              onClick={() => {
+                if (
+                  !editor?.laborUnitShiftId ||
+                  !editor.startTime ||
+                  !editor.endTime
+                ) {
+                  return;
+                }
+                upsertDraft(editor);
+                setEditor(null);
+              }}
+            >
+              Guardar
+            </Button>
+          </>
+        }
       >
         {editor ? (
           <div className="space-y-3">
-            <TextField
-              label="Inicio"
-              value={editor.startTime}
-              onChange={(e) => setEditor({ ...editor, startTime: e.target.value })}
-            />
-            <TextField
-              label="Fin"
-              value={editor.endTime}
-              onChange={(e) => setEditor({ ...editor, endTime: e.target.value })}
-            />
+            {editorDayShifts.length === 0 ? (
+              <Alert variant="info">
+                No hay turnos UL activos con horario para este día. Configúralos
+                en Turnos UL.
+              </Alert>
+            ) : (
+              <Select
+                label="Turno"
+                value={editor.laborUnitShiftId || null}
+                onChange={(id) => {
+                  const shiftId = id != null ? String(id) : "";
+                  const shift = editorDayShifts.find((s) => s.id === shiftId);
+                  if (!shift) return;
+                  const slot = slotFromMeta(shift, editor.workDate);
+                  if (!slot) return;
+                  const night = classifyNightSlot(
+                    slot.start,
+                    slot.end,
+                    plan.config?.nightStart ?? "21:00",
+                    plan.config?.nightEnd ?? "07:00",
+                  );
+                  setEditor({
+                    ...editor,
+                    laborUnitShiftId: shift.id,
+                    laborUnitShiftName: shift.name,
+                    startTime: slot.start,
+                    endTime: slot.end,
+                    shiftBandStartTime: slot.start,
+                    shiftBandEndTime: slot.end,
+                    isNight: night.isNight,
+                    isNightOutgoing: night.isNightOutgoing,
+                  });
+                }}
+                options={editorDayShifts.map((s) => {
+                  const slot = slotFromMeta(s, editor.workDate);
+                  const range = slot
+                    ? `${slot.start}–${slot.end}`
+                    : "";
+                  return {
+                    id: s.id,
+                    label: range ? `${s.name} (${range})` : s.name,
+                  };
+                })}
+                alwaysShowLabel
+                data-test-id="jornada-assign-ul-shift"
+              />
+            )}
+            {editor.startTime && editor.endTime ? (
+              <p className="text-sm text-muted-foreground">
+                Horario:{" "}
+                <span className="font-medium tabular-nums text-foreground">
+                  {editor.startTime}–{editor.endTime}
+                </span>
+              </p>
+            ) : null}
             <TextField
               label="HE (minutos)"
               type="number"
@@ -678,26 +1006,6 @@ export function JornadaPlannerWorkspace({
                 })
               }
             />
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="primary"
-                onClick={() => {
-                  upsertDraft(editor);
-                  setEditor(null);
-                }}
-              >
-                Aplicar
-              </Button>
-              <Button
-                variant="outlined"
-                onClick={() => {
-                  removeDraft(editor.employeeId, editor.workDate);
-                  setEditor(null);
-                }}
-              >
-                Quitar
-              </Button>
-            </div>
           </div>
         ) : null}
       </Dialog>

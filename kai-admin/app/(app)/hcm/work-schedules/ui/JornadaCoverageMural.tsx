@@ -21,6 +21,7 @@ export type MuralDraft = {
   laborUnitShiftId?: string | null;
   laborUnitShiftName?: string | null;
   employeeDisplayName?: string | null;
+  plannedOvertimeMinutes?: number;
 };
 
 type ShiftPerson = {
@@ -28,6 +29,7 @@ type ShiftPerson = {
   label: string;
   startTime: string;
   endTime: string;
+  plannedOvertimeMinutes: number;
 };
 
 type ShiftBlock = {
@@ -182,6 +184,7 @@ function groupDayBlocks(
         label,
         startTime: d.startTime,
         endTime: d.endTime,
+        plannedOvertimeMinutes: d.plannedOvertimeMinutes ?? 0,
       });
     }
   }
@@ -267,6 +270,7 @@ function layoutPeopleInBlock(
     label: p.label,
     startTime: p.startTime,
     endTime: p.endTime,
+    plannedOvertimeMinutes: p.plannedOvertimeMinutes,
     top: p.top,
     height: p.height,
     column: p.column,
@@ -722,6 +726,9 @@ export function JornadaCoverageMural({
                                       </p>
                                       <p className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">
                                         {p.startTime}–{p.endTime}
+                                        {p.plannedOvertimeMinutes > 0
+                                          ? ` · HE ${p.plannedOvertimeMinutes}m`
+                                          : ""}
                                       </p>
                                       {excLine ? (
                                         <p

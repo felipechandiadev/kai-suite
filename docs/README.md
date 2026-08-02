@@ -7,6 +7,7 @@
 | [project/PWA-ICONOS-Y-FAVICONS.md](./project/PWA-ICONOS-Y-FAVICONS.md) | Manual iconos PWA (`any`/`maskable`) + favicons |
 | [apps/NAMING-SUITE.md](./apps/NAMING-SUITE.md) | Naming suite — labels e ids (PWA + nativos) |
 | [apps/PRODUCTOS-Y-APPS.md](./apps/PRODUCTOS-Y-APPS.md) | Productos × apps, topbar, producto por empresa |
+| [project/PRODUCTOS-CAPACIDADES-Y-CONFIG.md](./project/PRODUCTOS-CAPACIDADES-Y-CONFIG.md) | **Capacidades y config por vertical** (KaiStore / KaiFood / KaiServices) — matriz viva |
 | [apps/MANIFESTOS-PWA.md](./apps/MANIFESTOS-PWA.md) | Manifiestos PWA — `short_name`, `id`, estado vs estándar |
 | [apps/MANIFESTOS-NATIVOS.md](./apps/MANIFESTOS-NATIVOS.md) | Manifiestos nativos — Android / Tauri |
 | [apps/SERVICE-WORKERS.md](./apps/SERVICE-WORKERS.md) | Service workers — caches, offline, Web Push |
@@ -28,6 +29,7 @@
 | [assets/README.md](../assets/README.md) | Assets estáticos — marca Kai (`assets/brand/`) e integraciones |
 | [project/MIGRACION-NOMBRES-KAISTORE.md](./project/MIGRACION-NOMBRES-KAISTORE.md) | Plan de migración **Flow Store → Kai** (plataforma: KaiStore, KaiFood, KaiServices) |
 | [project/ARQUITECTURA_Y_ECOSISTEMA.md](./project/ARQUITECTURA_Y_ECOSISTEMA.md) | Arquitectura, ecosistema, dominios de negocio y flujos principales |
+| [project/PRODUCTOS-CAPACIDADES-Y-CONFIG.md](./project/PRODUCTOS-CAPACIDADES-Y-CONFIG.md) | Separación de características y configuración por producto (Store / Food / Services) |
 | [project/PWA-ICONOS-Y-FAVICONS.md](./project/PWA-ICONOS-Y-FAVICONS.md) | Iconos de instalación PWA vs favicon — estándar, checklist y estado por app |
 | [apps/](./apps/README.md) | **Apps** — naming, manifiestos, SW, sidecars, **versiones** |
 | [project/MODULOS_Y_SERVICIOS_BACKEND.md](./project/MODULOS_Y_SERVICIOS_BACKEND.md) | Catálogo detallado de módulos, servicios y rutas REST del backend |

@@ -223,6 +223,30 @@ export class HrJornadaController {
     };
   }
 
+  @Get('periods')
+  async getPeriod(@Query('periodStart') periodStart: string) {
+    return {
+      success: true,
+      data: await this.wrap(() => this.service.getOrEnsurePeriod(periodStart)),
+    };
+  }
+
+  @Post('periods/close')
+  async closePeriod(@Body() body: { periodStart: string }) {
+    return {
+      success: true,
+      data: await this.wrap(() => this.service.closePeriod(body.periodStart)),
+    };
+  }
+
+  @Post('periods/reopen')
+  async reopenPeriod(@Body() body: { periodStart: string }) {
+    return {
+      success: true,
+      data: await this.wrap(() => this.service.reopenPeriod(body.periodStart)),
+    };
+  }
+
   @Get('ledger/:employeeId')
   async listLedger(@Param('employeeId') employeeId: string) {
     return { success: true, data: await this.wrap(() => this.service.listLedger(employeeId)) };

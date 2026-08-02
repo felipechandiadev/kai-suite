@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import {
   HCM_EMPLOYEES,
   HCM_REMUNERATIONS,
+  HCM_REPORTS,
   HCM_WORK_SCHEDULES,
   HCM_WORK_SCHEDULES_COMPENSATORY,
   HCM_WORK_SCHEDULES_EXCEPTIONS,
@@ -153,6 +154,38 @@ export async function settleJornadaExceptionsAction(
     return ok(data);
   } catch (e) {
     return fail(e instanceof Error ? e.message : "Error al liquidar excepciones");
+  }
+}
+
+export async function getJornadaPeriodAction(periodStart: string) {
+  try {
+    return ok(await HrJornadaRequest.getPeriod(periodStart));
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Error al obtener período");
+  }
+}
+
+export async function closeJornadaPeriodAction(periodStart: string) {
+  try {
+    const data = await HrJornadaRequest.closePeriod(periodStart);
+    revalidatePath(HCM_WORK_SCHEDULES_EXCEPTIONS, "page");
+    revalidatePath(HCM_REMUNERATIONS, "page");
+    revalidatePath(HCM_REPORTS, "page");
+    return ok(data);
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Error al cerrar período");
+  }
+}
+
+export async function reopenJornadaPeriodAction(periodStart: string) {
+  try {
+    const data = await HrJornadaRequest.reopenPeriod(periodStart);
+    revalidatePath(HCM_WORK_SCHEDULES_EXCEPTIONS, "page");
+    revalidatePath(HCM_REMUNERATIONS, "page");
+    revalidatePath(HCM_REPORTS, "page");
+    return ok(data);
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Error al reabrir período");
   }
 }
 

@@ -194,6 +194,11 @@ export function buildCreateSaleClientPayload(input: {
   } | null;
   /** Cuenta salón cobrada: el backend omite stock de terminado PREPARADO. */
   diningOrderId?: string | null;
+  /** Propina (fuera del total fiscal). */
+  tipAmount?: number | null;
+  tipSuggestedAmount?: number | null;
+  tipPercentApplied?: number | null;
+  tipStatus?: "NONE" | "SUGGESTED" | "ACCEPTED" | "CUSTOM" | "DECLINED" | null;
 }): CreateSaleClientPayload {
   const priceListCheck = assertCartSinglePriceList(input.cartLines);
   if (!priceListCheck.ok) {
@@ -236,6 +241,22 @@ export function buildCreateSaleClientPayload(input: {
   const diningOrderId = input.diningOrderId?.trim() || "";
   if (diningOrderId) {
     metadata.diningOrderId = diningOrderId;
+  }
+  const tipAmount = Math.max(0, Math.round(Number(input.tipAmount) || 0));
+  if (tipAmount > 0 || input.tipStatus) {
+    metadata.tipAmount = tipAmount;
+    if (input.tipSuggestedAmount != null) {
+      metadata.tipSuggestedAmount = Math.max(
+        0,
+        Math.round(Number(input.tipSuggestedAmount) || 0),
+      );
+    }
+    if (input.tipPercentApplied != null) {
+      metadata.tipPercentApplied = Number(input.tipPercentApplied);
+    }
+    if (input.tipStatus) {
+      metadata.tipStatus = input.tipStatus;
+    }
   }
   const delivery = input.posDelivery;
   if (

@@ -48,6 +48,9 @@ import {
 } from "@/features/laundry/ui/LaundryReceptionSuccessDialog";
 import { computePosSaleTotals } from "@/features/pos-cart/lib/pos-sale-totals";
 import { amountToPayWithPosDelivery } from "@/features/pos-cart/lib/amount-to-pay-with-delivery";
+import { PosDiningTipCapture } from "@/features/dining/ui/PosDiningTipCapture";
+import { getCompanyTipSettingsForPosAction } from "@/features/company/actions/company-tips.action";
+import type { CompanyTipSettings } from "@/features/company/types/company-tips.types";
 import { PosDeliveryDialog } from "@/features/pos-delivery/ui/PosDeliveryDialog";
 import { PosDeliverySummaryCard } from "@/features/pos-delivery/ui/PosDeliverySummaryCard";
 import { fetchPosDeliveryCoverageAction } from "@/features/pos-delivery/actions/pos-delivery.action";
@@ -789,6 +792,37 @@ export default function PosPaymentWorkspace({
         (searchParams.get("diningOrderId") ?? "").trim() ||
         null)
     : null;
+
+  const [tipSettings, setTipSettings] = useState<CompanyTipSettings | null>(
+    null,
+  );
+  const [tipAmount, setTipAmount] = useState(0);
+  const [tipStatus, setTipStatus] = useState<
+    "ACCEPTED" | "CUSTOM" | "DECLINED" | "NONE"
+  >("NONE");
+
+  useEffect(() => {
+    if (!activeDiningOrderId) {
+      setTipSettings(null);
+      setTipAmount(0);
+      setTipStatus("NONE");
+      return;
+    }
+    let cancelled = false;
+    void getCompanyTipSettingsForPosAction().then((res) => {
+      if (cancelled) return;
+      if (!res.success || !res.tipSettings?.enabled) {
+        setTipSettings(null);
+        setTipAmount(0);
+        setTipStatus("NONE");
+        return;
+      }
+      setTipSettings(res.tipSettings);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeDiningOrderId]);
 
   const laundryReceptionIdParam = (searchParams.get("laundryReceptionId") ?? "").trim();
   const laundryPendingParam = (searchParams.get("laundryPending") ?? "").trim() === "1";
@@ -1603,6 +1637,28 @@ export default function PosPaymentWorkspace({
       ncPayoutCreditNotes.reduce((acc, n) => acc + (Number(n.availableAmount) || 0), 0),
     [ncPayoutCreditNotes],
   );
+  const tipSuggestedAmount = useMemo(() => {
+    if (!tipSettings?.enabled || !activeDiningOrderId) return 0;
+    const pct = Math.max(0, Number(tipSettings.suggestPercent) || 0);
+    return Math.max(0, Math.round((saleTotal * pct) / 100));
+  }, [tipSettings, activeDiningOrderId, saleTotal]);
+
+  useEffect(() => {
+    if (!tipSettings?.enabled || !activeDiningOrderId) return;
+    if (tipStatus === "NONE") {
+      setTipAmount(tipSuggestedAmount);
+      setTipStatus("ACCEPTED");
+    }
+  }, [tipSettings, activeDiningOrderId, tipSuggestedAmount, tipStatus]);
+
+  const tipPayable =
+    tipSettings?.enabled &&
+    activeDiningOrderId &&
+    tipStatus !== "DECLINED" &&
+    tipStatus !== "NONE"
+      ? Math.max(0, Math.round(tipAmount))
+      : 0;
+
   const amountToPay = isNcPayoutMode
     ? ncPayoutBalanceTotal
     : isQuotaMode
@@ -1618,7 +1674,7 @@ export default function PosPaymentWorkspace({
               : amountToPayWithPosDelivery(
                   saleTotal,
                   canUsePosDelivery ? posDelivery : null,
-                );
+                ) + tipPayable;
   const encargoDepositAmountRounded =
     isEncargoMode && backorderDeposit != null
       ? Math.max(0, Math.round(backorderDeposit.amount))
@@ -3605,6 +3661,19 @@ export default function PosPaymentWorkspace({
                 ? posDelivery
                 : null,
             diningOrderId: activeDiningOrderId,
+            tipAmount: tipPayable,
+            tipSuggestedAmount:
+              tipSettings?.enabled && activeDiningOrderId
+                ? tipSuggestedAmount
+                : null,
+            tipPercentApplied:
+              tipSettings?.enabled && activeDiningOrderId
+                ? tipSettings.suggestPercent
+                : null,
+            tipStatus:
+              tipSettings?.enabled && activeDiningOrderId
+                ? tipStatus
+                : null,
           }),
         );
 
@@ -4320,6 +4389,29 @@ export default function PosPaymentWorkspace({
               </li>
             ) : null}
           </ul>
+          {tipSettings?.enabled && activeDiningOrderId ? (
+            <div className="shrink-0 px-1 pt-2">
+              <PosDiningTipCapture
+                suggestPercent={tipSettings.suggestPercent}
+                suggestedAmount={tipSuggestedAmount}
+                tipAmount={tipAmount}
+                tipStatus={tipStatus}
+                allowCustomAmount={tipSettings.allowCustomAmount}
+                onAccept={() => {
+                  setTipAmount(tipSuggestedAmount);
+                  setTipStatus("ACCEPTED");
+                }}
+                onDecline={() => {
+                  setTipAmount(0);
+                  setTipStatus("DECLINED");
+                }}
+                onCustom={(amount) => {
+                  setTipAmount(amount);
+                  setTipStatus(amount <= 0 ? "DECLINED" : "CUSTOM");
+                }}
+              />
+            </div>
+          ) : null}
           <footer className="shrink-0 space-y-2 border-t border-border pt-3 text-sm">
             {isDebtCollectMode || isNcPayoutMode || isEncargoMode || isLaundryPendingMode ? (
               <div className="flex justify-between gap-4 pt-1 text-base font-semibold">
@@ -4409,6 +4501,14 @@ export default function PosPaymentWorkspace({
                       );
                     })
                   : null}
+                {tipPayable > 0 ? (
+                  <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground">Propina</span>
+                    <span className="font-medium tabular-nums text-foreground">
+                      {formatMoney(tipPayable)}
+                    </span>
+                  </div>
+                ) : null}
                 <div className="flex justify-between gap-4 pt-1 text-base font-semibold">
                   <span className="text-foreground">Total</span>
                   <span className="tabular-nums text-foreground">{formatMoney(amountToPay)}</span>

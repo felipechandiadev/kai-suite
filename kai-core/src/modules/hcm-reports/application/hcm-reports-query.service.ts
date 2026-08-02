@@ -3,6 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Between, In, IsNull, Repository } from 'typeorm';
 import { HrShiftInstance } from '@modules/hr-jornada/domain/hr-shift-instance.entity';
 import { HrShiftException } from '@modules/hr-jornada/domain/hr-shift-exception.entity';
+import {
+  HrJornadaPeriod,
+  JornadaPeriodStatus,
+} from '@modules/hr-jornada/domain/hr-jornada-period.entity';
+import { calendarMonthBounds } from '@modules/hr-jornada/domain/rules/overtime-from-plan.util';
 import { Employee } from '@modules/employees/domain/employee.entity';
 import { durationMinutes } from '@modules/hr-jornada/domain/rules/rules-engine';
 import { HCM_REPORT_MAX_ROWS } from '../domain/hcm-report.types';
@@ -25,6 +30,8 @@ export class HcmReportsQueryService {
     private readonly exceptionRepo: Repository<HrShiftException>,
     @InjectRepository(Employee)
     private readonly employeeRepo: Repository<Employee>,
+    @InjectRepository(HrJornadaPeriod)
+    private readonly periodRepo: Repository<HrJornadaPeriod>,
   ) {}
 
   requireDateRange(params: Record<string, unknown>): {
@@ -191,6 +198,41 @@ export class HcmReportsQueryService {
         hours: Math.round((minutes / 60) * 100) / 100,
       }));
 
-    return { rows, dailySeries, truncated };
+    const certified = await this.isRangeFullyCertified(
+      companyId,
+      opts.dateFrom,
+      opts.dateTo,
+    );
+
+    return { rows, dailySeries, truncated, certified };
+  }
+
+  private monthsTouching(from: string, to: string): string[] {
+    const out: string[] = [];
+    let cursor = calendarMonthBounds(from).periodStart;
+    const endMonth = calendarMonthBounds(to).periodStart;
+    while (cursor <= endMonth) {
+      out.push(cursor);
+      const [y, m] = cursor.split('-').map(Number);
+      const next = m === 12 ? { y: y + 1, m: 1 } : { y, m: m + 1 };
+      cursor = `${next.y}-${String(next.m).padStart(2, '0')}-01`;
+    }
+    return out;
+  }
+
+  async isRangeFullyCertified(
+    companyId: string,
+    from: string,
+    to: string,
+  ): Promise<boolean> {
+    const months = this.monthsTouching(from, to);
+    if (!months.length) return false;
+    for (const start of months) {
+      const row = await this.periodRepo.findOne({
+        where: { companyId, periodStart: start },
+      });
+      if (row?.status !== JornadaPeriodStatus.CLOSED) return false;
+    }
+    return true;
   }
 }

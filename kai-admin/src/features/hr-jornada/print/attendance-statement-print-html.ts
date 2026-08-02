@@ -18,6 +18,8 @@ export type AttendanceStatementSnapshot = {
     notes?: string | null;
   }>;
   generatedAt?: string;
+  certified?: boolean;
+  certificationNote?: string | null;
 };
 
 function escapeHtml(s: string) {
@@ -46,6 +48,13 @@ export function buildAttendanceStatementHtml(
     )
     .join("");
 
+  const certified = snapshot.certified === true;
+  const note =
+    snapshot.certificationNote?.trim() ||
+    (certified
+      ? "Información certificada: el período de jornada correspondiente está cerrado."
+      : "Información preliminar / no certificada. El período de jornada no ha sido cerrado; las horas extraordinarias y totales pueden cambiar.");
+
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -53,15 +62,20 @@ export function buildAttendanceStatementHtml(
 <title>Comprobante de asistencia</title>
 <style>
 ${DOCUMENT_HEADER_PRINT_CSS}
-body { font-family: system-ui, sans-serif; color: #111; padding: 24px; }
+body { font-family: system-ui, sans-serif; color: #111; padding: 24px; position: relative; }
 table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
 th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
 th { background: #f5f5f5; }
 .sign { margin-top: 48px; display: flex; gap: 48px; }
 .sign div { flex: 1; border-top: 1px solid #333; padding-top: 8px; font-size: 12px; }
+.cert-banner { margin: 12px 0; padding: 8px 10px; border: 1px solid ${certified ? "#86efac" : "#fbbf24"}; background: ${certified ? "#f0fdf4" : "#fffbeb"}; font-size: 12px; }
+${!certified ? `.watermark { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 0; }
+.watermark span { transform: rotate(-28deg); font-size: 64px; font-weight: 700; letter-spacing: 0.08em; color: rgba(180, 83, 9, 0.12); white-space: nowrap; }
+body > *:not(.watermark) { position: relative; z-index: 1; }` : ""}
 </style>
 </head>
 <body>
+${!certified ? `<div class="watermark" aria-hidden="true"><span>PRELIMINAR</span></div>` : ""}
 <div class="companyHeader">
   <div>
     <p class="companyKicker">Comprobante</p>
@@ -74,6 +88,7 @@ th { background: #f5f5f5; }
   </div>
 </div>
 <div class="separator"></div>
+<div class="cert-banner">${escapeHtml(note)}</div>
 <p><strong>Empleado:</strong> ${escapeHtml(snapshot.employeeName ?? "")}
 ${snapshot.documentNumber ? ` · RUT ${escapeHtml(String(snapshot.documentNumber))}` : ""}</p>
 <h2>Turnos planificados</h2>
