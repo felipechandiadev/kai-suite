@@ -16,6 +16,8 @@
     "seed:demo:no-images": "SEED_SKIP_IMAGES=true node ../kai-core/node_modules/ts-node/dist/bin.js -r ../kai-core/node_modules/tsconfig-paths/register -P tsconfig.json demo/run.ts",
     "preseed:demo:laundry": "test -e node_modules || ln -sf ../kai-core/node_modules node_modules",
     "seed:demo:laundry": "node ../kai-core/node_modules/ts-node/dist/bin.js -r ../kai-core/node_modules/tsconfig-paths/register -P tsconfig.json demo/seed-demo-laundry-only.ts",
+    "preseed:demo:jornada": "test -e node_modules || ln -sf ../kai-core/node_modules node_modules",
+    "seed:demo:jornada": "node ../kai-core/node_modules/ts-node/dist/bin.js -r ../kai-core/node_modules/tsconfig-paths/register -P tsconfig.json demo/seed-demo-jornada-only.ts",
     "seed:delivery-orders-tomorrow": "node ../kai-core/node_modules/ts-node/dist/bin.js -r ../kai-core/node_modules/tsconfig-paths/register -P tsconfig.json demo/seed-delivery-orders-tomorrow.ts",
     "seed:joyarte": "node ../kai-core/node_modules/ts-node/dist/bin.js -r ../kai-core/node_modules/tsconfig-paths/register -P tsconfig.json joyarte/run.ts",
     "seed:barco": "node ../kai-core/node_modules/ts-node/dist/bin.js -r ../kai-core/node_modules/tsconfig-paths/register -P tsconfig.json barco/run.ts",

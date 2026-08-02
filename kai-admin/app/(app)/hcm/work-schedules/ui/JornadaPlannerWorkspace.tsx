@@ -21,6 +21,7 @@ import {
 } from "@/features/hr-jornada/actions/jornada.action";
 import type {
   ScheduleFinding,
+  ShiftExceptionView,
   WeekAssignmentInput,
   WeekPlanView,
 } from "@/features/hr-jornada/types/jornada.types";
@@ -121,6 +122,39 @@ function draftsToAssignments(drafts: DraftCell[]): WeekAssignmentInput[] {
   }));
 }
 
+function personDayKey(employeeId: string, workDate: string): string {
+  return `${employeeId}|${workDate}`;
+}
+
+function formatExceptionItem(ex: ShiftExceptionView): string {
+  const label = EXCEPTION_TYPE_LABELS[ex.type] ?? ex.type;
+  return ex.minutes > 0 ? `${label} ${ex.minutes}m` : label;
+}
+
+function formatExceptionLine(excs: ShiftExceptionView[]): string {
+  if (!excs.length) return "";
+  return excs.map(formatExceptionItem).join(" · ");
+}
+
+/** Clave employeeId|workDate → línea compacta de excepciones. */
+function exceptionLinesByPersonDay(
+  exceptions: ShiftExceptionView[],
+): Map<string, string> {
+  const grouped = new Map<string, ShiftExceptionView[]>();
+  for (const ex of exceptions) {
+    const key = personDayKey(ex.employeeId, ex.workDate);
+    const list = grouped.get(key) ?? [];
+    list.push(ex);
+    grouped.set(key, list);
+  }
+  const lines = new Map<string, string>();
+  for (const [key, list] of grouped) {
+    const line = formatExceptionLine(list);
+    if (line) lines.set(key, line);
+  }
+  return lines;
+}
+
 export function JornadaPlannerWorkspace({
   initialPlan,
   laborUnits = [],
@@ -171,8 +205,20 @@ export function JornadaPlannerWorkspace({
         initialPlan.instances
           .map((i) => `${i.id}:${i.assignments.length}`)
           .join(","),
+        initialPlan.exceptions.map((e) => e.id).join(","),
       ].join("|"),
-    [weekStart, laborUnitId, initialPlan.employees, initialPlan.instances],
+    [
+      weekStart,
+      laborUnitId,
+      initialPlan.employees,
+      initialPlan.instances,
+      initialPlan.exceptions,
+    ],
+  );
+
+  const exceptionLines = useMemo(
+    () => exceptionLinesByPersonDay(plan.exceptions ?? []),
+    [plan.exceptions],
   );
 
   useEffect(() => {
@@ -466,6 +512,7 @@ export function JornadaPlannerWorkspace({
           employees={employees}
           holidaySet={holidaySet}
           expandedDay={expandedDay}
+          exceptionLinesByKey={exceptionLines}
           onExpandDay={setExpandedDay}
           onUpdateAssignment={({ employeeId, workDate, startTime, endTime }) => {
             setDrafts((prev) =>
@@ -478,6 +525,9 @@ export function JornadaPlannerWorkspace({
           }}
           onRemoveAssignment={({ employeeId, workDate }) => {
             removeDraft(employeeId, workDate);
+          }}
+          onAddException={({ employeeId, workDate }) => {
+            setExceptionOpen({ employeeId, workDate });
           }}
         />
       ) : null}
@@ -515,6 +565,7 @@ export function JornadaPlannerWorkspace({
                 </td>
                 {days.map((d) => {
                   const cell = cellDraft(emp.id, d);
+                  const excLine = exceptionLines.get(personDayKey(emp.id, d));
                   return (
                     <td key={d} className="px-1 py-1 align-top">
                       {cell ? (
@@ -536,6 +587,14 @@ export function JornadaPlannerWorkspace({
                           {cell.plannedOvertimeMinutes > 0 ? (
                             <div className="text-xs text-warning">
                               HE {cell.plannedOvertimeMinutes}m
+                            </div>
+                          ) : null}
+                          {excLine ? (
+                            <div
+                              className="truncate text-xs text-warning"
+                              title={excLine}
+                            >
+                              {excLine}
                             </div>
                           ) : null}
                         </button>
@@ -681,6 +740,46 @@ export function JornadaPlannerWorkspace({
         onClose={() => setExceptionOpen(null)}
         title="Registrar excepción"
         size="sm"
+        actions={
+          <>
+            <Button
+              variant="outlined"
+              disabled={pending}
+              onClick={() => setExceptionOpen(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              disabled={pending || !exceptionOpen}
+              onClick={() => {
+                if (!exceptionOpen) return;
+                startTransition(async () => {
+                  const res = await createJornadaExceptionAction({
+                    employeeId: exceptionOpen.employeeId,
+                    workDate: exceptionOpen.workDate,
+                    type: exceptionType,
+                    minutes: Number(exceptionMinutes) || 0,
+                  });
+                  if (!res.success) {
+                    setError(res.message);
+                    return;
+                  }
+                  if (res.data) {
+                    setPlan((prev) => ({
+                      ...prev,
+                      exceptions: [...(prev.exceptions ?? []), res.data],
+                    }));
+                  }
+                  setExceptionOpen(null);
+                  router.refresh();
+                });
+              }}
+            >
+              Guardar
+            </Button>
+          </>
+        }
       >
         {exceptionOpen ? (
           <div className="space-y-3">
@@ -699,28 +798,6 @@ export function JornadaPlannerWorkspace({
               value={exceptionMinutes}
               onChange={(e) => setExceptionMinutes(e.target.value)}
             />
-            <Button
-              variant="primary"
-              disabled={pending}
-              onClick={() => {
-                startTransition(async () => {
-                  const res = await createJornadaExceptionAction({
-                    employeeId: exceptionOpen.employeeId,
-                    workDate: exceptionOpen.workDate,
-                    type: exceptionType,
-                    minutes: Number(exceptionMinutes) || 0,
-                  });
-                  if (!res.success) {
-                    setError(res.message);
-                    return;
-                  }
-                  setExceptionOpen(null);
-                  router.refresh();
-                });
-              }}
-            >
-              Guardar excepción
-            </Button>
           </div>
         ) : null}
       </Dialog>

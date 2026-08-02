@@ -31,6 +31,7 @@ import {
 } from './seed-demo-purchase-fiscal.util';
 import { seedDemoSalesHistory } from './seed-demo-sales-history';
 import { seedDemoOperationalExpenses } from './seed-demo-operational-expenses';
+import { seedDemoJornadaHistory } from './seed-demo-jornada-history';
 
 const ANA_SHAREHOLDER_DOC = '12.345.678-5';
 const PRINCIPAL_HUB_CODE = 'CEV00001';
@@ -239,6 +240,8 @@ export async function seedDemoOperationalHistory(ctx: {
     operatorUserIds,
     purchasePlan,
   });
+
+  await seedDemoJornadaHistory({ dataSource, companyId });
 
   await logOperationalSmokeSummary(dataSource, companyId, variantBySku);
 }

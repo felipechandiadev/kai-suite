@@ -45,6 +45,8 @@ type Props = {
   employees: JornadaEmployeeRow[];
   holidaySet: Set<string>;
   expandedDay: string;
+  /** Clave employeeId|workDate → línea compacta de excepciones. */
+  exceptionLinesByKey?: Map<string, string>;
   onExpandDay: (day: string) => void;
   onUpdateAssignment?: (args: {
     employeeId: string;
@@ -53,6 +55,10 @@ type Props = {
     endTime: string;
   }) => void;
   onRemoveAssignment?: (args: {
+    employeeId: string;
+    workDate: string;
+  }) => void;
+  onAddException?: (args: {
     employeeId: string;
     workDate: string;
   }) => void;
@@ -306,9 +312,11 @@ export function JornadaCoverageMural({
   employees,
   holidaySet,
   expandedDay,
+  exceptionLinesByKey,
   onExpandDay,
   onUpdateAssignment,
   onRemoveAssignment,
+  onAddException,
 }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [panelHeight, setPanelHeight] = useState(420);
@@ -636,6 +644,8 @@ export function JornadaCoverageMural({
                                   const gapPx = 3;
                                   const key = personKey(p.id, day);
                                   const selected = selectedKey === key;
+                                  const excLine =
+                                    exceptionLinesByKey?.get(key) ?? "";
                                   const originStart = parseHmToMinutes(
                                     p.startTime,
                                   );
@@ -688,7 +698,12 @@ export function JornadaCoverageMural({
                                         width: `calc(${widthPct}% - ${gapPx}px)`,
                                         ...personAccentStyle(p.id),
                                       }}
-                                      title={`${p.label} ${p.startTime}–${p.endTime}`}
+                                      title={[
+                                        `${p.label} ${p.startTime}–${p.endTime}`,
+                                        excLine,
+                                      ]
+                                        .filter(Boolean)
+                                        .join(" · ")}
                                       data-test-id={`jornada-mural-person-${p.id}`}
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -708,6 +723,14 @@ export function JornadaCoverageMural({
                                       <p className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">
                                         {p.startTime}–{p.endTime}
                                       </p>
+                                      {excLine ? (
+                                        <p
+                                          className="mt-0.5 truncate text-[10px] text-warning"
+                                          title={excLine}
+                                        >
+                                          {excLine}
+                                        </p>
+                                      ) : null}
                                       {onRemoveAssignment ? (
                                         <button
                                           type="button"
@@ -731,6 +754,22 @@ export function JornadaCoverageMural({
                                           <span className="text-sm leading-none" aria-hidden>
                                             ×
                                           </span>
+                                        </button>
+                                      ) : null}
+                                      {selected && onAddException ? (
+                                        <button
+                                          type="button"
+                                          className="absolute bottom-0.5 left-1.5 z-30 text-[9px] text-muted-foreground underline hover:text-foreground"
+                                          data-test-id={`jornada-mural-exception-${p.id}`}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            onAddException({
+                                              employeeId: p.id,
+                                              workDate: day,
+                                            });
+                                          }}
+                                        >
+                                          Excepción
                                         </button>
                                       ) : null}
                                       {selected && onUpdateAssignment ? (
