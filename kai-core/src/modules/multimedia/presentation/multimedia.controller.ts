@@ -78,13 +78,19 @@ export class MultimediaController {
 
   /** Archivos locales: keys planas o namespaced (`companyId/assetId/...`). */
   @SkipTenant()
-  @Get('files/*path')
-  async getLocalFile(@Param('path') storageKeyRaw: string, @Res() response: Response) {
+  @Get('files/{*path}')
+  async getLocalFile(
+    @Param('path') storageKeyRaw: string | string[],
+    @Res() response: Response,
+  ) {
     if (this.configService.storage.strategy !== 'local') {
       throw new BadRequestException('Local storage strategy is not enabled');
     }
 
-    const storageKey = decodeURIComponent(String(storageKeyRaw ?? ''))
+    const raw = Array.isArray(storageKeyRaw)
+      ? storageKeyRaw.join('/')
+      : String(storageKeyRaw ?? '');
+    const storageKey = decodeURIComponent(raw)
       .replace(/\\/g, '/')
       .replace(/^\/+/, '');
     if (!storageKey || storageKey.includes('..') || path.isAbsolute(storageKey)) {

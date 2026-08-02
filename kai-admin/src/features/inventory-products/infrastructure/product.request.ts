@@ -331,6 +331,7 @@ function normalizeProduct(row: unknown): ProductGridRow | null {
     categoryName,
     isActive: o.isActive !== false,
     visibleInEShop: o.visibleInEShop === true,
+    onMenu: o.onMenu === true,
     variantCount,
     variants,
     primaryImageUrl:
@@ -538,6 +539,7 @@ export class ProductRequest {
     body: {
       isActive?: boolean;
       visibleInEShop?: boolean;
+      onMenu?: boolean;
     },
   ): Promise<{ success: true } | { success: false; error: string }> {
     const headers = await authHeaders();
@@ -547,6 +549,9 @@ export class ProductRequest {
     }
     if (body.visibleInEShop !== undefined) {
       payload.visibleInEShop = body.visibleInEShop;
+    }
+    if (body.onMenu !== undefined) {
+      payload.onMenu = body.onMenu;
     }
     if (Object.keys(payload).length === 0) {
       return { success: false, error: "Sin campos para actualizar" };

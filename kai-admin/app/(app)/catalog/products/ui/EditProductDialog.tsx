@@ -19,6 +19,7 @@ import { listCategoriesForPage } from "@/features/inventory-categories/actions/c
 import { listBrandsForPage } from "@/features/catalog-brands/actions/brand.action";
 import { MultimediaField } from "@/shared/components/Multimedia";
 import { isEShopModuleEnabled } from "@/config/eshop-module.config";
+import { useCompany } from "@/providers/CompanyProvider";
 
 export type EditProductDialogProps = {
   open: boolean;
@@ -29,6 +30,7 @@ export type EditProductDialogProps = {
 
 export function EditProductDialog({ open, product, onClose, onSuccess }: EditProductDialogProps) {
   const router = useRouter();
+  const { company } = useCompany();
   const [name, setName] = useState("");
   const [brandId, setBrandId] = useState<string | null>(null);
   const [description, setDescription] = useState("");
@@ -160,7 +162,7 @@ export function EditProductDialog({ open, product, onClose, onSuccess }: EditPro
           label="Tipo"
           name="product-edit-type"
           placeholder="Seleccione tipo"
-          options={getCatalogProductTypeSelectOptions()}
+          options={getCatalogProductTypeSelectOptions(company?.kaiProduct)}
           value={productType}
           onChange={(id) => setProductType(normalizeCatalogProductType(id == null ? "PHYSICAL" : String(id)))}
           data-test-id="product-edit-type"

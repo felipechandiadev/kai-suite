@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { ProductType } from '@modules/products/domain/product.entity';
 
 export type KaiProduct = 'kaistore' | 'kaifood' | 'kaiservices' | 'kaisuite';
+export type CompanyKaiProduct = 'kaistore' | 'kaifood' | 'kaiservices';
 
 export const FOOD_ONLY_PRODUCT_TYPES: readonly ProductType[] = [
   ProductType.PREPARADO,
@@ -20,6 +21,20 @@ export class ProductModeService {
   isKaiFood(): boolean {
     const mode = this.getProductMode();
     return mode === 'kaifood' || mode === 'kaisuite';
+  }
+
+  /** Vertical efectivo de una empresa (no incluye `kaisuite`). */
+  isKaiFoodCompany(kaiProduct: string | null | undefined): boolean {
+    return (kaiProduct ?? '').trim().toLowerCase() === 'kaifood';
+  }
+
+  isKaiStoreCompany(kaiProduct: string | null | undefined): boolean {
+    const v = (kaiProduct ?? '').trim().toLowerCase();
+    return v === '' || v === 'kaistore';
+  }
+
+  isKaiServicesCompany(kaiProduct: string | null | undefined): boolean {
+    return (kaiProduct ?? '').trim().toLowerCase() === 'kaiservices';
   }
 
   /** Lavandería (recepción, catálogo de prendas): solo vertical Kai Services. */
@@ -61,5 +76,25 @@ export class ProductModeService {
         `El tipo de producto ${productType} solo está disponible en KaiFood o Kai Suite.`,
       );
     }
+  }
+
+  /**
+   * Valida tipo de producto contra el vertical de la empresa activa
+   * y el techo del deploy (`KAI_PRODUCT`).
+   */
+  assertProductTypeAllowedForCompany(
+    productType: ProductType,
+    companyProduct: CompanyKaiProduct,
+  ): void {
+    this.assertCompanyProductAllowed(companyProduct);
+    if (
+      (FOOD_ONLY_PRODUCT_TYPES as ProductType[]).includes(productType) &&
+      !this.isKaiFoodCompany(companyProduct)
+    ) {
+      throw new BadRequestException(
+        `El tipo de producto ${productType} solo está disponible en empresas KaiFood.`,
+      );
+    }
+    this.assertProductTypeAllowed(productType);
   }
 }

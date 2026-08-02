@@ -183,6 +183,7 @@ import { ProductionUnitsModule } from './modules/production-units/production-uni
     require('./modules/inventory-reports/inventory-reports.module').InventoryReportsModule,
     require('./modules/hcm-reports/hcm-reports.module').HcmReportsModule,
     require('./modules/e-shop/e-shop.module').EShopModule,
+    require('./modules/menu/menu.module').MenuModule,
     require('./modules/delivery/delivery.module').DeliveryModule,
     ObservabilityModule,
     CacheModule,

@@ -271,6 +271,7 @@ export class DiningRequest {
       page: String(page),
       pageSize: String(pageSize),
       productTypes: "PREPARADO,PHYSICAL",
+      onMenuOnly: "true",
     };
     if (input.categoryIds?.length) {
       query.categoryIds = input.categoryIds.join(",");

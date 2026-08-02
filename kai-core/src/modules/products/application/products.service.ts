@@ -191,6 +191,7 @@ export class ProductsService {
     product.isActive =
       typeof data.isActive === 'boolean' ? data.isActive : true;
     product.visibleInEShop = data.visibleInEShop === true;
+    product.onMenu = data.onMenu === true;
     product.baseUnitId = data.baseUnitId || undefined;
     try {
       const saved = await this.productRepository.save(product as any);
@@ -250,6 +251,8 @@ export class ProductsService {
         typeof data.isActive === 'boolean' ? data.isActive : true;
     if (data.visibleInEShop !== undefined)
       updateData.visibleInEShop = data.visibleInEShop === true;
+    if (data.onMenu !== undefined)
+      updateData.onMenu = data.onMenu === true;
     if (data.baseUnitId !== undefined)
       updateData.baseUnitId = data.baseUnitId || null;
 

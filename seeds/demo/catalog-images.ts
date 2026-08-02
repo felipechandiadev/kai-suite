@@ -12,7 +12,7 @@ export type SeedDevVariantImageDef = {
   imageFile: string;
 };
 
-/** Imagen principal por producto (15). */
+/** Imagen principal por producto (tienda / catálogo general). */
 export const SEED_DEV_PRODUCT_IMAGES: readonly SeedDevProductImageDef[] = [
   { productName: 'Aceite de oliva extra virgen', imageFile: 'products/aceite-oliva-extra-virgen.png' },
   { productName: 'Café molido premium', imageFile: 'products/cafe-molido-premium.png' },
@@ -29,6 +29,25 @@ export const SEED_DEV_PRODUCT_IMAGES: readonly SeedDevProductImageDef[] = [
   { productName: 'Mochila urbana', imageFile: 'products/mochila-urbana.png' },
   { productName: 'Servicio armado de pedido', imageFile: 'products/servicio-armado-pedido.png' },
   { productName: 'Pack plantillas hoja de cálculo', imageFile: 'products/pack-plantillas-hoja-calculo.png' },
+] as const;
+
+/**
+ * Imágenes carta KaiFood / Restó Demo (suite + food mode).
+ * Incluye overlaps con tienda (café, galletas) y elaborados/preparados de menú.
+ */
+export const SEED_KAIFOOD_PRODUCT_IMAGES: readonly SeedDevProductImageDef[] = [
+  { productName: 'Café molido premium', imageFile: 'products/cafe-molido-premium.png' },
+  { productName: 'Galletas surtidas', imageFile: 'products/galletas-surtidas.png' },
+  { productName: 'Torta cumpleaños', imageFile: 'products/torta-cumpleanos.png' },
+  { productName: 'Medialuna', imageFile: 'products/medialuna.png' },
+  { productName: 'Pie de limón', imageFile: 'products/pie-de-limon.png' },
+  { productName: 'Brownie', imageFile: 'products/brownie.png' },
+  { productName: 'Empanada de horno', imageFile: 'products/empanada-de-horno.png' },
+  { productName: 'Pan de masa madre', imageFile: 'products/pan-de-masa-madre.png' },
+  { productName: 'Hamburguesa clásica', imageFile: 'products/hamburguesa-clasica.png' },
+  { productName: 'Completo italiano', imageFile: 'products/completo-italiano.png' },
+  { productName: 'Bebida gaseosa', imageFile: 'products/bebida-gaseosa.png' },
+  { productName: 'Combo del día', imageFile: 'products/combo-del-dia.png' },
 ] as const;
 
 /** Imagen por variante (calcetines Gris S/M/L). */

@@ -16,6 +16,7 @@ export class ProductsPosRequest {
     pointOfSaleId?: string | null;
     productTypes?: string[];
     categoryIds?: string[];
+    onMenuOnly?: boolean;
     page: number;
     pageSize: number;
   }): Promise<PosProductSearchResponse> {
@@ -41,6 +42,9 @@ export class ProductsPosRequest {
     }
     if (input.categoryIds?.length) {
       qs.set("categoryIds", input.categoryIds.join(","));
+    }
+    if (input.onMenuOnly === true) {
+      qs.set("onMenuOnly", "true");
     }
     qs.set("page", String(Math.max(1, input.page)));
     qs.set("pageSize", String(Math.max(1, input.pageSize)));

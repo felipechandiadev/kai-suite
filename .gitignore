@@ -88,3 +88,6 @@ docs/SII/config-actual/*.xml
 /*.md
 !README.md
 
+
+# Seed runtime uploads (cwd=seeds); same as kai-core/public/uploads
+seeds/public/

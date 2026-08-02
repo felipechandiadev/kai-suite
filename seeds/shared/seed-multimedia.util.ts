@@ -6,8 +6,10 @@ import { Repository } from 'typeorm';
 import { MultimediaAsset } from '@modules/multimedia/domain/multimedia-asset.entity';
 import { MultimediaLink } from '@modules/multimedia/domain/multimedia-link.entity';
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
+import { MenuHeroSlide } from '@modules/menu/domain/menu-hero-slide.entity';
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
 import { ESHOP_HERO_SLIDE_MULTIMEDIA_ENTITY } from '@modules/e-shop/domain/e-shop-hero-slide.constants';
+import { MENU_HERO_SLIDE_MULTIMEDIA_ENTITY } from '@modules/menu/domain/menu-hero-slide.constants';
 import { ESHOP_TESTIMONIAL_MULTIMEDIA_ENTITY } from '@modules/e-shop/domain/e-shop-testimonial.constants';
 import { Product } from '@modules/products/domain/product.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
@@ -16,6 +18,8 @@ import { IsNull } from 'typeorm';
 import {
   SEED_DEV_PRODUCT_IMAGES,
   SEED_DEV_VARIANT_IMAGES,
+  type SeedDevProductImageDef,
+  type SeedDevVariantImageDef,
 } from '../demo/catalog-images';
 import {
   SEED_DEV_ESHOP_HERO_SLIDES,
@@ -102,9 +106,19 @@ export async function cleanSeedMultimediaStorage(params: {
   const strategy = configService.storage.strategy;
 
   if (strategy === 'local') {
-    await cleanBackendPublicFolder(configService.storage.local.path);
+    const configured = configService.storage.local.path;
+    const uploadsPath = path.isAbsolute(configured)
+      ? configured
+      : path.resolve(__dirname, '../../kai-core/public/uploads');
+    if (uploadsPath !== configured) {
+      process.env.LOCAL_STORAGE_PATH = uploadsPath;
+      console.warn(
+        `⚠️ LOCAL_STORAGE_PATH relativo («${configured}») → ${uploadsPath}`,
+      );
+    }
+    await cleanBackendPublicFolder(uploadsPath);
     console.log(
-      `✅ Carpeta public del backend limpiada (${path.dirname(path.resolve(configService.storage.local.path))})`,
+      `✅ Carpeta public del backend limpiada (${path.dirname(path.resolve(uploadsPath))})`,
     );
     return;
   }
@@ -363,26 +377,35 @@ export async function seedDevCatalogMultimedia(params: {
   assetRepo: Repository<MultimediaAsset>;
   linkRepo: Repository<MultimediaLink>;
   companyId: string;
+  /** Override de imágenes de producto (p. ej. KaiFood / Restó Demo). */
+  productImages?: readonly SeedDevProductImageDef[];
+  /** Override de imágenes de variante; `[]` para omitir. */
+  variantImages?: readonly SeedDevVariantImageDef[];
+  logLabel?: string;
 } & SeedMultimediaStorageParams): Promise<void> {
   if (!params.seedImages) {
     console.log('⏭️ Imágenes catálogo seed omitidas');
     return;
   }
 
+  const productImages = params.productImages ?? SEED_DEV_PRODUCT_IMAGES;
+  const variantImages = params.variantImages ?? SEED_DEV_VARIANT_IMAGES;
+  const label = params.logLabel ? ` (${params.logLabel})` : '';
+
   let linkedProducts = 0;
-  for (const def of SEED_DEV_PRODUCT_IMAGES) {
+  for (const def of productImages) {
     const product = await params.productRepo.findOne({
       where: { name: def.productName, companyId: params.companyId },
     });
     if (!product) {
       console.warn(
-        `⚠️ Seed dev: producto «${def.productName}» no encontrado; imagen omitida`,
+        `⚠️ Seed dev: producto «${def.productName}» no encontrado; imagen omitida${label}`,
       );
       continue;
     }
     if (!(await seedAssetFileExists(def.imageFile))) {
       console.warn(
-        `⚠️ Seed dev: imagen producto «${def.productName}» no encontrada (${def.imageFile})`,
+        `⚠️ Seed dev: imagen producto «${def.productName}» no encontrada (${def.imageFile})${label}`,
       );
       continue;
     }
@@ -404,60 +427,66 @@ export async function seedDevCatalogMultimedia(params: {
   }
 
   let linkedVariants = 0;
-  await params.linkRepo.delete({
-    entityType: 'product-variant',
-    companyId: params.companyId,
-    attributeId: IsNull(),
-  });
-
-  const colorAttribute = await params.attributeRepo.findOne({
-    where: { companyId: params.companyId, name: 'Color' },
-  });
-  if (!colorAttribute && SEED_DEV_VARIANT_IMAGES.length > 0) {
-    console.warn('⚠️ Seed dev: atributo Color no encontrado; imágenes de variantes omitidas');
-  }
-
-  for (const def of SEED_DEV_VARIANT_IMAGES) {
-    if (!colorAttribute) {
-      break;
-    }
-    const variant = await params.variantRepo.findOne({
-      where: { sku: def.sku, companyId: params.companyId },
-    });
-    if (!variant) {
-      console.warn(`⚠️ Seed dev: variante SKU «${def.sku}» no encontrada; imagen omitida`);
-      continue;
-    }
-    if (!(await seedAssetFileExists(def.imageFile))) {
-      console.warn(
-        `⚠️ Seed dev: imagen variante «${def.sku}» no encontrada (${def.imageFile})`,
-      );
-      continue;
-    }
-
+  if (variantImages.length > 0) {
     await params.linkRepo.delete({
       entityType: 'product-variant',
-      entityId: variant.id,
-      attributeId: colorAttribute.id,
+      companyId: params.companyId,
+      attributeId: IsNull(),
     });
-    await seedMultimediaFileLink({
-      assetRepo: params.assetRepo,
-      linkRepo: params.linkRepo,
-      storage: params.storage,
-      storageProvider: params.storageProvider,
-      ingest: params.ingest,
-      sourceRelativePath: def.imageFile,
-      entityType: 'product-variant',
-      entityId: variant.id,
-      usageType: 'default',
-      isPrimary: false,
-      attributeId: colorAttribute.id,
+
+    const colorAttribute = await params.attributeRepo.findOne({
+      where: { companyId: params.companyId, name: 'Color' },
     });
-    linkedVariants += 1;
+    if (!colorAttribute) {
+      console.warn(
+        `⚠️ Seed dev: atributo Color no encontrado; imágenes de variantes omitidas${label}`,
+      );
+    }
+
+    for (const def of variantImages) {
+      if (!colorAttribute) {
+        break;
+      }
+      const variant = await params.variantRepo.findOne({
+        where: { sku: def.sku, companyId: params.companyId },
+      });
+      if (!variant) {
+        console.warn(
+          `⚠️ Seed dev: variante SKU «${def.sku}» no encontrada; imagen omitida${label}`,
+        );
+        continue;
+      }
+      if (!(await seedAssetFileExists(def.imageFile))) {
+        console.warn(
+          `⚠️ Seed dev: imagen variante «${def.sku}» no encontrada (${def.imageFile})${label}`,
+        );
+        continue;
+      }
+
+      await params.linkRepo.delete({
+        entityType: 'product-variant',
+        entityId: variant.id,
+        attributeId: colorAttribute.id,
+      });
+      await seedMultimediaFileLink({
+        assetRepo: params.assetRepo,
+        linkRepo: params.linkRepo,
+        storage: params.storage,
+        storageProvider: params.storageProvider,
+        ingest: params.ingest,
+        sourceRelativePath: def.imageFile,
+        entityType: 'product-variant',
+        entityId: variant.id,
+        usageType: 'default',
+        isPrimary: false,
+        attributeId: colorAttribute.id,
+      });
+      linkedVariants += 1;
+    }
   }
 
   console.log(
-    `✅ Imágenes catálogo: ${linkedProducts}/${SEED_DEV_PRODUCT_IMAGES.length} producto(s), ${linkedVariants}/${SEED_DEV_VARIANT_IMAGES.length} variante(s)`,
+    `✅ Imágenes catálogo${label}: ${linkedProducts}/${productImages.length} producto(s), ${linkedVariants}/${variantImages.length} variante(s)`,
   );
 }
 
@@ -540,6 +569,55 @@ export async function seedEshopHeroSlidesFromDefs(params: {
       usageType: 'default',
       isPrimary: true,
       assetsRoot: params.assetsRoot,
+    });
+    linkedImages += 1;
+  }
+
+  console.log(
+    `✅ Hero slides ${params.logLabel}: ${params.slides.length} slide(s), ${linkedImages} con imagen`,
+  );
+}
+
+export async function seedMenuHeroSlidesFromDefs(params: {
+  heroSlideRepo: Repository<MenuHeroSlide>;
+  assetRepo: Repository<MultimediaAsset>;
+  linkRepo: Repository<MultimediaLink>;
+  companyId: string;
+  slides: readonly GenericHeroSlideDef[];
+  assetsRoot?: string;
+  logLabel: string;
+} & SeedMultimediaStorageParams): Promise<void> {
+  const assetsRoot = params.assetsRoot ?? SEED_ASSETS_ROOT;
+  await params.heroSlideRepo.delete({ companyId: params.companyId });
+
+  let linkedImages = 0;
+  for (const def of params.slides) {
+    const slide = await params.heroSlideRepo.save(
+      params.heroSlideRepo.create(mapHeroSlideDef(params.companyId, def)),
+    );
+
+    if (!params.seedImages || !def.imageFile) {
+      continue;
+    }
+    if (!(await seedAssetFileExists(def.imageFile, assetsRoot))) {
+      console.warn(
+        `⚠️ ${params.logLabel}: imagen hero «${def.key}» no encontrada (${def.imageFile}); slide sin imagen`,
+      );
+      continue;
+    }
+
+    await seedMultimediaFileLink({
+      assetRepo: params.assetRepo,
+      linkRepo: params.linkRepo,
+      storage: params.storage,
+      storageProvider: params.storageProvider,
+      ingest: params.ingest,
+      sourceRelativePath: def.imageFile,
+      entityType: MENU_HERO_SLIDE_MULTIMEDIA_ENTITY,
+      entityId: slide.id,
+      usageType: 'default',
+      isPrimary: true,
+      assetsRoot,
     });
     linkedImages += 1;
   }

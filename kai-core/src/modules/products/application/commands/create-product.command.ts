@@ -10,6 +10,7 @@ export class CreateProductCommand extends BaseCommand {
     public readonly description?: string,
     public readonly isActive: boolean = true,
     public readonly visibleInEShop: boolean = false,
+    public readonly onMenu: boolean = false,
     public readonly productType?: ProductType,
     /** FK opcional a `brands`; si viene, el handler denormaliza `brand` con el nombre de la marca. */
     public readonly brandId?: string | null,

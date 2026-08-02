@@ -1,5 +1,6 @@
 #!/usr/bin/env ts-node
 
+import '../shared/ensure-seed-local-storage-path';
 import { NestFactory } from '@nestjs/core';
 import { DataSource, DeepPartial, IsNull, Not, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
@@ -111,10 +112,14 @@ import {
   seedDevCatalogMultimedia,
   seedDevEshopHeroSlides,
   seedDevEshopTestimonials,
+  seedMenuHeroSlidesFromDefs,
   seedMultimediaFileLink,
   resolveSeedMultimediaStorage,
 } from '../shared/seed-multimedia.util';
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
+import { MenuHeroSlide } from '@modules/menu/domain/menu-hero-slide.entity';
+import { SEED_DEV_MENU_HERO_SLIDES } from './menu-hero-slides';
+import { SEED_KAIFOOD_PRODUCT_IMAGES } from './catalog-images';
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
 import type { CompanyPaymentMethodConfig } from '@modules/payment-methods-config/domain/payment-method-config.types';
 import { CompanyPaymentCatalogService } from '@modules/companies/application/company-payment-catalog.service';
@@ -163,8 +168,10 @@ import {
   getSeedDevEshopFeaturedProductNames,
   getSeedDevProducts,
   isKaiFoodSeedMode,
+  isKaiSuiteSeedMode,
   type SeedDevUnitKey,
 } from './catalog';
+import { seedDemoSuiteFoodCompany } from './seed-demo-suite-food-company';
 import {
   getSeedDevProductionRecipes,
   getSeedDevProductionUnits,
@@ -2017,7 +2024,12 @@ async function bootstrap() {
     const userCompanyPersonRepo = dataSource.getRepository(UserCompanyPerson);
 
     const foodMode = isKaiFoodSeedMode();
-    if (foodMode) {
+    const suiteMode = isKaiSuiteSeedMode();
+    if (suiteMode) {
+      console.log(
+        '🧩 Seed modo Suite: empresa Store + empresa Food (multi-vertical)',
+      );
+    } else if (foodMode) {
       console.log(
         '🍽️  Seed modo KaiFood: catálogo gastronómico (sin textil/manufacturados/lavandería)',
       );
@@ -3202,6 +3214,7 @@ async function bootstrap() {
 
     const categoryByName = await syncSeedCategories(
       categoryRepo,
+      company.id,
       seedDevCategories,
       'Seed dev',
     );
@@ -3338,6 +3351,17 @@ async function bootstrap() {
     }
     console.log('✅ eShop: productos/variantes vendibles marcados visibleInEShop=true (INSUMO excluido)');
 
+    if (foodMode) {
+      await productRepo
+        .createQueryBuilder()
+        .update(Product)
+        .set({ onMenu: true })
+        .where('companyId = :companyId', { companyId: company.id })
+        .andWhere('productType != :insumo', { insumo: ProductType.INSUMO })
+        .execute();
+      console.log('✅ KaiFood: productos vendibles marcados on_menu=true');
+    }
+
     const recipeRepo = dataSource.getRepository(Recipe);
     const recipeLineRepo = dataSource.getRepository(RecipeLine);
 
@@ -3402,6 +3426,13 @@ async function bootstrap() {
       variantRepo,
       attributeRepo: dataSource.getRepository(Attribute),
       ...seedMultimediaParams,
+      ...(foodMode
+        ? {
+            productImages: SEED_KAIFOOD_PRODUCT_IMAGES,
+            variantImages: [] as const,
+            logLabel: 'KaiFood',
+          }
+        : {}),
     });
 
     await seedDevEshopHeroSlides({
@@ -5225,7 +5256,7 @@ async function bootstrap() {
       userName: 'mesero1',
       password: seedPassword,
       rol: UserRole.WAITER,
-      companyId: company.id,
+      companyId: suiteMode ? companyFood.id : company.id,
       nonDeletable: false,
       firstName: 'Camila',
       lastName: 'Rojas Paredes',
@@ -5238,7 +5269,7 @@ async function bootstrap() {
       userName: 'mesero2',
       password: seedPassword,
       rol: UserRole.WAITER,
-      companyId: company.id,
+      companyId: suiteMode ? companyFood.id : company.id,
       nonDeletable: false,
       firstName: 'Diego',
       lastName: 'Muñoz Castillo',
@@ -5251,7 +5282,7 @@ async function bootstrap() {
       userName: 'mesero3',
       password: seedPassword,
       rol: UserRole.WAITER,
-      companyId: company.id,
+      companyId: suiteMode ? companyFood.id : company.id,
       nonDeletable: false,
       firstName: 'Javiera',
       lastName: 'Soto Ibáñez',
@@ -5338,6 +5369,42 @@ async function bootstrap() {
       dataSource,
       companyId: company.id,
     });
+
+    if (suiteMode) {
+      await seedDemoSuiteFoodCompany({
+        dataSource,
+        companyFood,
+        ivaTax,
+        seedUnitId,
+      });
+
+      const foodMultimediaParams = {
+        assetRepo: dataSource.getRepository(MultimediaAsset),
+        linkRepo: dataSource.getRepository(MultimediaLink),
+        companyId: companyFood.id,
+        ...resolveSeedMultimediaStorage(app, configService),
+      };
+
+      await seedDevCatalogMultimedia({
+        productRepo,
+        variantRepo,
+        attributeRepo: dataSource.getRepository(Attribute),
+        productImages: SEED_KAIFOOD_PRODUCT_IMAGES,
+        variantImages: [],
+        logLabel: 'Restó Demo / KaiFood',
+        ...foodMultimediaParams,
+      });
+
+      await seedMenuHeroSlidesFromDefs({
+        heroSlideRepo: dataSource.getRepository(MenuHeroSlide),
+        assetRepo: dataSource.getRepository(MultimediaAsset),
+        linkRepo: dataSource.getRepository(MultimediaLink),
+        companyId: companyFood.id,
+        slides: SEED_DEV_MENU_HERO_SLIDES,
+        logLabel: 'Kai Menú Restó Demo',
+        ...resolveSeedMultimediaStorage(app, configService),
+      });
+    }
 
     console.log('✅ Seed mínimo OK. Usuarios listos:');
     console.log(`   • superadmin / ${seedPassword}   (SUPER_ADMIN, sin persona, protegido)`);

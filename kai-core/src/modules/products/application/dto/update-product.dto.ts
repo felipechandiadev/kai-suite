@@ -71,6 +71,11 @@ export class UpdateProductDto {
   visibleInEShop?: boolean;
 
   @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean()
+  onMenu?: boolean;
+
+  @IsOptional()
   @IsUUID()
   resultCenterId?: string;
 

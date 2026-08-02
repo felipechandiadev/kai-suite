@@ -202,7 +202,8 @@ apply_backend_derived() {
     "$(shared_get "$shared" KAI_DELIVERY_PORT)" \
     "$(shared_get "$shared" KAI_WAITER_PORT)" \
     "$(shared_get "$shared" KAI_KDS_PORT)" \
-    "$(shared_get "$shared" KAI_BOARD_PORT)"; do
+    "$(shared_get "$shared" KAI_BOARD_PORT)" \
+    "$(shared_get "$shared" KAI_MENU_PORT)"; do
     [[ -z "$port" ]] && continue
     [[ -n "$cors" ]] && cors+=","
     cors+="http://${host}:${port},http://127.0.0.1:${port}"
@@ -320,7 +321,7 @@ write_env() {
       [[ -n "$backend_url" ]] && set_kv "$dest" "NEXT_PUBLIC_BACKEND_API_URL" "$backend_url"
       set_kv "$dest" "NODE_ENV" "development"
       ;;
-    waiter|kds|board)
+    waiter|kds|board|menu)
       backend_url="$(shared_get "$shared" KAI_BACKEND_URL)"
       [[ -n "$backend_url" ]] && set_kv "$dest" "BACKEND_API_URL" "$backend_url"
       [[ -n "$backend_url" ]] && set_kv "$dest" "NEXT_PUBLIC_BACKEND_API_URL" "$backend_url"
@@ -329,6 +330,10 @@ write_env() {
         apply_platform_flags "$dest" "$shared" "Waiter"
       elif [[ "$profile" == "kds" ]]; then
         apply_platform_flags "$dest" "$shared" "KDS"
+      elif [[ "$profile" == "menu" ]]; then
+        slug="$(shared_get "$shared" NEXT_PUBLIC_MENU_STORE_SLUG)"
+        [[ -n "$slug" ]] && set_kv "$dest" "NEXT_PUBLIC_MENU_STORE_SLUG" "$slug"
+        apply_platform_flags "$dest" "$shared" "Menú"
       else
         apply_platform_flags "$dest" "$shared" "Board"
       fi
@@ -350,6 +355,7 @@ write_env "kai-delivery.env.local" "$ROOT/kai-delivery/.env.local" delivery
 write_env "kai-waiter.env.local" "$ROOT/kai-waiter/.env.local" waiter
 write_env "kai-kds.env.local" "$ROOT/kai-kds/.env.local" kds
 write_env "kai-board.env.local" "$ROOT/kai-board/.env.local" board
+write_env "kai-menu.env.local" "$ROOT/kai-menu/.env.local" menu
 write_env "kai-mail.env" "$ROOT/services/kai-mail/.env" mail
 
 # Claves de shared que pueden faltar en .env generados antes de añadirlas a la matriz
@@ -389,4 +395,5 @@ echo "  kai-delivery/.env.local   ← shared + kai-delivery.env.local"
 echo "  kai-waiter/.env.local     ← shared + kai-waiter.env.local"
 echo "  kai-kds/.env.local        ← shared + kai-kds.env.local"
 echo "  kai-board/.env.local      ← shared + kai-board.env.local"
+echo "  kai-menu/.env.local       ← shared + kai-menu.env.local"
 echo "  services/kai-mail/.env    ← shared + kai-mail.env"

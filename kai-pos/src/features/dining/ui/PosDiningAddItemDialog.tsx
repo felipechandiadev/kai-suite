@@ -63,6 +63,7 @@ export function PosDiningAddItemDialog({ open, onClose, orderId, onAdded }: Prop
         priceListId,
         branchId: ctx?.branchId ?? null,
         pointOfSaleId: ctx?.pointOfSaleId ?? null,
+        onMenuOnly: true,
         page: 1,
         pageSize: 8,
       }).then((res) => {

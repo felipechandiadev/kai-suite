@@ -110,6 +110,10 @@ export class Product {
   @Column({ name: 'visible_in_e_shop', type: 'boolean', default: false })
   visibleInEShop!: boolean;
 
+  /** Visible en carta (kai-menu), POS cuentas y mesero (KaiFood). */
+  @Column({ name: 'on_menu', type: 'boolean', default: false })
+  onMenu!: boolean;
+
   @Column({ type: 'uuid', nullable: true })
   resultCenterId?: string | null;
 

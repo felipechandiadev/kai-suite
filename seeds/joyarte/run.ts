@@ -1,6 +1,7 @@
 #!/usr/bin/env ts-node
 /** Seed Joyarte — joyería demo (`npm run seed:joyarte`). */
 
+import '../shared/ensure-seed-local-storage-path';
 import { NestFactory } from '@nestjs/core';
 import { DataSource, IsNull, Not, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
@@ -1764,6 +1765,7 @@ async function bootstrap() {
 
     const categoryByName = await syncSeedCategories(
       categoryRepo,
+      company.id,
       SEED_JOYARTE_CATEGORIES,
       'Seed Joyarte',
     );

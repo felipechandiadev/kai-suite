@@ -1,6 +1,6 @@
 {
   "name": "kai-core",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "",
   "author": "",
   "private": true,
@@ -22,6 +22,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "migration:run": "npm run build && typeorm migration:run -d dist/config/data-source.js --transaction each",
+    "migration:baseline": "npm run build && node node_modules/ts-node/dist/bin.js -r tsconfig-paths/register scripts/baseline-migrations.ts",
     "eshop:enable-demo": "ts-node -r tsconfig-paths/register src/scripts/enable-eshop-demo.ts",
     "fiscal:try-pfx-password": "ts-node -r tsconfig-paths/register src/scripts/try-pfx-password.ts",
     "fiscal:export-ss-seed": "ts-node -r tsconfig-paths/register src/scripts/export-san-sebastian-fiscal-seed.ts",

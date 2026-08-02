@@ -22,6 +22,8 @@ import {
   normalizeCatalogProductType,
 } from "./catalog-product-type-options";
 import { isEShopModuleEnabled } from "@/config/eshop-module.config";
+import { isKaiFoodEnabledForCompany } from "@/config/kaifood-module.config";
+import { useCompany } from "@/providers/CompanyProvider";
 import { printVariantBarcodeLabel } from "@/features/catalog-products/print/variant-barcode-label-print";
 
 type ProductsDataGridProps = {
@@ -37,7 +39,7 @@ function ProductGridFlagSwitch({
   "data-test-id": dataTestId,
 }: {
   productId: string;
-  field: "isActive" | "visibleInEShop";
+  field: "isActive" | "visibleInEShop" | "onMenu";
   checked: boolean;
   disabled?: boolean;
   "data-test-id"?: string;
@@ -56,7 +58,11 @@ function ProductGridFlagSwitch({
     startTransition(() => {
       void patchProductGridFlagsAction({
         id: productId,
-        ...(field === "isActive" ? { isActive: next } : { visibleInEShop: next }),
+        ...(field === "isActive"
+          ? { isActive: next }
+          : field === "visibleInEShop"
+            ? { visibleInEShop: next }
+            : { onMenu: next }),
       }).then((result) => {
         if (!result.success) {
           setValue(previous);
@@ -79,23 +85,29 @@ function ProductGridFlagSwitch({
         onChange={onChange}
         disabled={pending || disabled}
         density="compact"
-        aria-label={field === "isActive" ? "Producto activo" : "Visible en eShop"}
+        aria-label={
+          field === "isActive"
+            ? "Producto activo"
+            : field === "visibleInEShop"
+              ? "Visible en eShop"
+              : "Visible en menú"
+        }
       />
     </div>
   );
 }
 
-function ProductTypeFilter() {
+function ProductTypeFilter({ companyKaiProduct }: { companyKaiProduct?: string | null }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const current = searchParams.get("productType") || "";
   const options: Option[] = useMemo(
     () =>
-      getCatalogProductTypeSelectOptions().map((o) => ({
+      getCatalogProductTypeSelectOptions(companyKaiProduct).map((o) => ({
         id: o.id,
         label: o.label,
       })),
-    [],
+    [companyKaiProduct],
   );
 
   const apply = (productType: string | null) => {
@@ -643,6 +655,8 @@ function ProductExpandPanel({
 export default function ProductsDataGrid({ rows, total }: ProductsDataGridProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { company } = useCompany();
+  const companyKaiProduct = company?.kaiProduct;
   const expandProductId = searchParams.get("expandProduct")?.trim() || null;
   const [createOpen, setCreateOpen] = useState(false);
   const [editRow, setEditRow] = useState<ProductGridRow | null>(null);
@@ -704,6 +718,7 @@ export default function ProductsDataGrid({ rows, total }: ProductsDataGridProps)
   }, []);
 
   const eshopModuleOn = isEShopModuleEnabled();
+  const menuModuleOn = isKaiFoodEnabledForCompany(companyKaiProduct);
 
   const columns: DataGridColumn[] = useMemo(() => {
     function ProductActionsCell({ row, column: _column }: { row: any; column: DataGridColumn }) {
@@ -829,6 +844,28 @@ export default function ProductsDataGrid({ rows, total }: ProductsDataGridProps)
         },
       });
     }
+    if (menuModuleOn) {
+      cols.push({
+        field: "onMenu",
+        headerName: "Menú",
+        width: 88,
+        align: "left",
+        sortable: true,
+        renderCell: ({ row }) => {
+          const r = row as ProductGridRow;
+          const sellable = catalogProductTypeIsSellable(r.productType);
+          return (
+            <ProductGridFlagSwitch
+              productId={r.id}
+              field="onMenu"
+              checked={sellable && r.onMenu === true}
+              disabled={!sellable}
+              data-test-id={`products-row-menu-${r.id}`}
+            />
+          );
+        },
+      });
+    }
     cols.push({
       field: "actions",
       headerName: "",
@@ -840,7 +877,7 @@ export default function ProductsDataGrid({ rows, total }: ProductsDataGridProps)
       actionComponent: ProductActionsCell,
     });
     return cols;
-  }, [eshopModuleOn, onEditProduct, onDeleteProduct, onPreviewProduct]);
+  }, [eshopModuleOn, menuModuleOn, onEditProduct, onDeleteProduct, onPreviewProduct]);
 
   const onDeleteVariantClick = useCallback((product: ProductGridRow, variant: ProductVariantGridRow) => {
     setDeleteVariantError(null);
@@ -892,7 +929,7 @@ export default function ProductsDataGrid({ rows, total }: ProductsDataGridProps)
         expandable
         expandableRowContent={(row) => expandableRowContent(row as ProductGridRow)}
         defaultExpandedRowIds={expandProductId ? [expandProductId] : []}
-        headerActions={<ProductTypeFilter />}
+        headerActions={<ProductTypeFilter companyKaiProduct={companyKaiProduct} />}
         onAddClick={() => setCreateOpen(true)}
         data-test-id="products-data-grid"
       />

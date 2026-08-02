@@ -1,6 +1,6 @@
 {
   "name": "kai-suite",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "description": "Kai Suite monorepo",
   "packageManager": "npm@10.9.2",
@@ -14,6 +14,7 @@
     "kai-eshop",
     "kai-stock",
     "kai-waiter",
+    "kai-menu",
     "kai-kds",
     "kai-board",
     "kai-delivery",

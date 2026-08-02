@@ -54,8 +54,12 @@ export class UpdateProductCommandHandler implements ICommandHandler<
     if (command.visibleInEShop !== undefined) {
       product.visibleInEShop = command.visibleInEShop;
     }
+    if (command.onMenu !== undefined) {
+      product.onMenu = command.onMenu;
+    }
     if (!isSellableProductType(product.productType)) {
       product.visibleInEShop = false;
+      product.onMenu = false;
     }
 
     if (command.brandId !== undefined) {
@@ -108,6 +112,7 @@ export class UpdateProductCommandHandler implements ICommandHandler<
       description: updated.description,
       isActive: updated.isActive,
       visibleInEShop: updated.visibleInEShop,
+      onMenu: updated.onMenu,
       productType: updated.productType,
       taxIds: updated.taxIds,
       resultCenterId: updated.resultCenterId ?? null,

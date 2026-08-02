@@ -10,7 +10,7 @@ import { isCompanyChecksEnabledFromSettings } from '@/features/companies/types/c
 import { isCompanyTipsEnabledFromSettings } from '@/features/kaifood-tips/types/company-tips.types';
 import { isEShopModuleEnabled } from '@/config/eshop-module.config';
 import { isJewelryModuleEnabled } from '@/config/jewelry-module.config';
-import { isKaiFoodEnabled } from '@/config/kaifood-module.config';
+import { isKaiFoodEnabledForCompany } from '@/config/kaifood-module.config';
 import { isKaiServicesEnabled } from '@/config/kaiservices-module.config';
 import { isMultiCompanyModuleEnabled } from '@/config/multi-company-module.config';
 import { getKaiAdminAppName } from '@/config/product-brand.config';
@@ -163,7 +163,7 @@ const SideBar: React.FC<SideBarProps> = ({
     isEShopModuleEnabled() &&
     isEShopEnabledFromSettings(company?.settings as Record<string, unknown> | undefined);
   const jewelryEnabled = isJewelryModuleEnabled();
-  const kaiFoodEnabled = isKaiFoodEnabled();
+  const kaiFoodEnabled = isKaiFoodEnabledForCompany(company?.kaiProduct);
   const kaiServicesEnabled = isKaiServicesEnabled();
   const multiCompanyEnabled = isMultiCompanyModuleEnabled();
 

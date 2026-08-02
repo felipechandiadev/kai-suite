@@ -201,6 +201,18 @@ export const mainMenuItems: SideBarMenuItem[] = [
         label: 'Configuración',
         url: '/kaifood/configuracion',
       },
+      {
+        id: 'kaifood-menu',
+        label: 'KaiMenú',
+        requiresKaiFoodEnabled: true,
+        children: [
+          { id: 'kaifood-menu-appearance', label: 'Apariencia', url: '/kaifood/menu/appearance' },
+          { id: 'kaifood-menu-topbar', label: 'Topbar', url: '/kaifood/menu/topbar' },
+          { id: 'kaifood-menu-hero', label: 'Hero', url: '/kaifood/menu/hero' },
+          { id: 'kaifood-menu-about', label: 'Nosotros', url: '/kaifood/menu/about' },
+          { id: 'kaifood-menu-find-us', label: 'Encuéntranos', url: '/kaifood/menu/find-us' },
+        ],
+      },
     ],
   },
   {

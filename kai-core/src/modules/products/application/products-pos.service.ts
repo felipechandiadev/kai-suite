@@ -87,6 +87,7 @@ export class ProductsPosService {
       pointOfSaleId,
       productTypes,
       categoryIds,
+      onMenuOnly,
     } = dto;
 
     if (!priceListId) {
@@ -143,6 +144,10 @@ export class ProductsPosService {
       qb.andWhere('product.categoryId IN (:...categoryIdList)', {
         categoryIdList,
       });
+    }
+
+    if (onMenuOnly === true) {
+      qb.andWhere('product.onMenu = :onMenu', { onMenu: true });
     }
 
     const effectiveBranchId = scope.resolvedBranchId?.trim() || '';

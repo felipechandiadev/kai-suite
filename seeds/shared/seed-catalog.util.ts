@@ -48,6 +48,7 @@ export function resolveSeedVariantAttributeValues(
 
 export async function syncSeedCategories(
   categoryRepo: Repository<Category>,
+  companyId: string,
   categoryNames: readonly string[],
   logPrefix = 'Seed',
   opts?: { silent?: boolean },
@@ -55,10 +56,13 @@ export async function syncSeedCategories(
   const categoryByName = new Map<string, Category>();
   for (let i = 0; i < categoryNames.length; i++) {
     const name = categoryNames[i];
-    const existing = await categoryRepo.findOne({ where: { name } });
+    const existing = await categoryRepo.findOne({
+      where: { name, companyId },
+    });
     const saved = existing
       ? await categoryRepo.save({
           ...existing,
+          companyId,
           name,
           description: undefined,
           parentId: undefined,
@@ -68,6 +72,7 @@ export async function syncSeedCategories(
         })
       : await categoryRepo.save(
           categoryRepo.create({
+            companyId,
             name,
             description: undefined,
             parentId: undefined,

@@ -26,6 +26,7 @@ export class ProductsRepository implements ProductsRepositoryPort {
       taxIds: e.taxIds,
       isActive: e.isActive,
       visibleInEShop: e.visibleInEShop === true,
+      onMenu: e.onMenu === true,
       resultCenterId: e.resultCenterId ?? null,
       baseUnitId: e.baseUnitId,
       metadata: e.metadata,
@@ -48,6 +49,7 @@ export class ProductsRepository implements ProductsRepositoryPort {
     e.taxIds = d.taxIds;
     e.isActive = d.isActive;
     e.visibleInEShop = d.visibleInEShop === true;
+    e.onMenu = d.onMenu === true;
     e.resultCenterId = d.resultCenterId ?? null;
     e.baseUnitId = d.baseUnitId;
     e.metadata = d.metadata;

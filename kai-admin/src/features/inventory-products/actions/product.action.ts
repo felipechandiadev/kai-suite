@@ -185,6 +185,10 @@ export async function listProductsForGrid(input: ListProductsForGridInput): Prom
         va = r1.visibleInEShop === true;
         vb = r2.visibleInEShop === true;
         break;
+      case "onMenu":
+        va = r1.onMenu === true;
+        vb = r2.onMenu === true;
+        break;
       default:
         va = r1.name;
         vb = r2.name;
@@ -230,17 +234,23 @@ export async function patchProductGridFlagsAction(input: {
   id: string;
   isActive?: boolean;
   visibleInEShop?: boolean;
+  onMenu?: boolean;
 }): Promise<PatchProductGridFlagsResult> {
   const id = input.id?.trim() ?? "";
   if (!id) {
     return { success: false, error: "Producto no válido" };
   }
-  if (input.isActive === undefined && input.visibleInEShop === undefined) {
+  if (
+    input.isActive === undefined &&
+    input.visibleInEShop === undefined &&
+    input.onMenu === undefined
+  ) {
     return { success: false, error: "Sin campos para actualizar" };
   }
   const r = await ProductRequest.patchFields(id, {
     isActive: input.isActive,
     visibleInEShop: input.visibleInEShop,
+    onMenu: input.onMenu,
   });
   if (r.success) {
     revalidatePath(PRODUCTS_PATH, "page");

@@ -700,4 +700,88 @@ export class CompaniesController {
     ).resolved;
     return { success: true, footer, resolved };
   }
+
+  @Get('companies/:id/menu-topbar')
+  @AdminOnly()
+  @AllowAdminWithoutCompany()
+  async getCompanyMenuTopBar(@Param('id') id: string) {
+    const data = await this.companiesService.getMenuTopBarSettings(id);
+    return { success: true, ...data };
+  }
+
+  @Patch('companies/:id/menu-topbar')
+  @AdminOnly()
+  @AllowAdminWithoutCompany()
+  async replaceCompanyMenuTopBar(@Param('id') id: string, @Body() body: unknown) {
+    const incoming =
+      body && typeof body === 'object' && 'topBar' in (body as object)
+        ? (body as { topBar: Record<string, unknown> }).topBar
+        : (body as Record<string, unknown>);
+    const topBar = await this.companiesService.replaceMenuTopBarSettings(
+      id,
+      incoming as import('../domain/company-menu-topbar.types').CompanyMenuTopBarSettings,
+    );
+    const resolved = (await this.companiesService.getMenuTopBarSettings(id)).resolved;
+    return { success: true, topBar, resolved };
+  }
+
+  @Get('companies/:id/menu-about')
+  @AdminOnly()
+  @AllowAdminWithoutCompany()
+  async getCompanyMenuAbout(@Param('id') id: string) {
+    const data = await this.companiesService.getMenuAboutSettings(id);
+    return { success: true, ...data };
+  }
+
+  @Patch('companies/:id/menu-about')
+  @AdminOnly()
+  @AllowAdminWithoutCompany()
+  async replaceCompanyMenuAbout(@Param('id') id: string, @Body() body: unknown) {
+    const about = await this.companiesService.replaceMenuAboutSettings(
+      id,
+      body as import('../domain/company-menu-about.types').CompanyMenuAboutSettings,
+    );
+    const resolved = (await this.companiesService.getMenuAboutSettings(id)).resolved;
+    return { success: true, about, resolved };
+  }
+
+  @Get('companies/:id/menu-find-us')
+  @AdminOnly()
+  @AllowAdminWithoutCompany()
+  async getCompanyMenuFindUs(@Param('id') id: string) {
+    const data = await this.companiesService.getMenuFindUsSettings(id);
+    return { success: true, ...data };
+  }
+
+  @Patch('companies/:id/menu-find-us')
+  @AdminOnly()
+  @AllowAdminWithoutCompany()
+  async replaceCompanyMenuFindUs(@Param('id') id: string, @Body() body: unknown) {
+    const findUs = await this.companiesService.replaceMenuFindUsSettings(
+      id,
+      body as import('../domain/company-menu-find-us.types').CompanyMenuFindUsSettings,
+    );
+    const resolved = (await this.companiesService.getMenuFindUsSettings(id)).resolved;
+    return { success: true, findUs, resolved };
+  }
+
+  @Get('companies/:id/menu-theme')
+  @AdminOnly()
+  @AllowAdminWithoutCompany()
+  async getCompanyMenuTheme(@Param('id') id: string) {
+    const data = await this.companiesService.getMenuThemeSettings(id);
+    return { success: true, ...data };
+  }
+
+  @Patch('companies/:id/menu-theme')
+  @AdminOnly()
+  @AllowAdminWithoutCompany()
+  async replaceCompanyMenuTheme(@Param('id') id: string, @Body() body: unknown) {
+    const theme = await this.companiesService.replaceMenuThemeSettings(
+      id,
+      body as import('../domain/company-menu-theme.types').CompanyMenuThemeSettings,
+    );
+    const resolved = (await this.companiesService.getMenuThemeSettings(id)).resolved;
+    return { success: true, theme, resolved };
+  }
 }

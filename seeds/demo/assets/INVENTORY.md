@@ -1,6 +1,6 @@
 # Inventario de imágenes seed (clasificado)
 
-## `products/` — imagen principal por producto (15)
+## `products/` — imagen principal por producto
 
 | Archivo | Producto en catálogo |
 |---------|----------------------|
@@ -19,6 +19,16 @@
 | `mochila-urbana.png` | Mochila urbana |
 | `servicio-armado-pedido.png` | Servicio armado de pedido |
 | `pack-plantillas-hoja-calculo.png` | Pack plantillas hoja de cálculo |
+| `torta-cumpleanos.png` | Torta cumpleaños (KaiFood) |
+| `medialuna.png` | Medialuna (KaiFood) |
+| `pie-de-limon.png` | Pie de limón (KaiFood) |
+| `brownie.png` | Brownie (KaiFood) |
+| `empanada-de-horno.png` | Empanada de horno (KaiFood) |
+| `pan-de-masa-madre.png` | Pan de masa madre (KaiFood) |
+| `hamburguesa-clasica.png` | Hamburguesa clásica (KaiFood) |
+| `completo-italiano.png` | Completo italiano (KaiFood) |
+| `bebida-gaseosa.png` | Bebida gaseosa (KaiFood) |
+| `combo-del-dia.png` | Combo del día (KaiFood) |
 
 ## `variants/` — calcetines por SKU (3, color Gris)
 

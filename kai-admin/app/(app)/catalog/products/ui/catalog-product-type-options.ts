@@ -1,4 +1,4 @@
-import { isKaiFoodEnabled } from "@/config/kaifood-module.config";
+import { isKaiFoodEnabledForCompany } from "@/config/kaifood-module.config";
 import type { CatalogProductType } from "@/features/inventory-products/types/product-grid.types";
 
 const CATALOG_PRODUCT_TYPE_IDS = new Set<CatalogProductType>([
@@ -63,8 +63,10 @@ export function catalogProductTypeLabel(raw: string | null | undefined): string 
 }
 
 /** Opciones del selector de tipo de producto (crear / editar). */
-export function getCatalogProductTypeSelectOptions(): { id: CatalogProductType; label: string }[] {
-  if (isKaiFoodEnabled()) {
+export function getCatalogProductTypeSelectOptions(
+  companyKaiProduct?: string | null,
+): { id: CatalogProductType; label: string }[] {
+  if (isKaiFoodEnabledForCompany(companyKaiProduct)) {
     return ALL_CATALOG_PRODUCT_TYPE_SELECT_OPTIONS;
   }
   return ALL_CATALOG_PRODUCT_TYPE_SELECT_OPTIONS.filter((o) => o.id !== "PREPARADO");

@@ -1,5 +1,15 @@
-import { IsString, IsOptional, IsUUID, IsInt, Min } from 'class-validator';
+import { IsString, IsOptional, IsUUID, IsInt, Min, IsBoolean } from 'class-validator';
 import { Transform } from 'class-transformer';
+
+const toBoolean = ({ value }: { value: unknown }) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true' || normalized === '1') return true;
+    if (normalized === 'false' || normalized === '0') return false;
+  }
+  return value;
+};
 
 export class SearchPosProductsDto {
   @IsString()
@@ -33,6 +43,14 @@ export class SearchPosProductsDto {
   @IsString()
   @IsOptional()
   categoryIds?: string;
+
+  /**
+   * Si true, solo productos con `on_menu=true` (carta / cuentas POS / mesero).
+   */
+  @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean()
+  onMenuOnly?: boolean;
 
   @IsInt()
   @Min(1)

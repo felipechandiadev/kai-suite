@@ -92,6 +92,26 @@ import {
   sanitizeCompanyEShopFooterSettings,
 } from '../domain/company-eshop-footer.types';
 import {
+  type CompanyMenuAboutSettings,
+  resolveMenuAbout,
+  sanitizeCompanyMenuAboutSettings,
+} from '../domain/company-menu-about.types';
+import {
+  type CompanyMenuFindUsSettings,
+  resolveMenuFindUs,
+  sanitizeCompanyMenuFindUsSettings,
+} from '../domain/company-menu-find-us.types';
+import {
+  type CompanyMenuThemeSettings,
+  resolveMenuTheme,
+  sanitizeCompanyMenuThemeSettings,
+} from '../domain/company-menu-theme.types';
+import {
+  type CompanyMenuTopBarSettings,
+  resolveMenuTopBar,
+  sanitizeCompanyMenuTopBarSettings,
+} from '../domain/company-menu-topbar.types';
+import {
   CompanyIdentitySettings,
   resolveCompanyIdentity,
   sanitizeCompanyIdentity,
@@ -982,6 +1002,18 @@ export class CompaniesService {
       .getOne();
   }
 
+  async findByMenuPublicSlug(slug: string): Promise<Company | null> {
+    const normalized = slug.trim().toLowerCase();
+    if (!normalized) return null;
+    return this.companyRepository
+      .createQueryBuilder('c')
+      .where("LOWER(TRIM(c.settings->>'menuPublicSlug')) = :slug", {
+        slug: normalized,
+      })
+      .andWhere('c.isActive = :active', { active: true })
+      .getOne();
+  }
+
   async getPublicContactSettings(
     companyId: string,
   ): Promise<CompanyPublicContactSettings> {
@@ -1249,6 +1281,145 @@ export class CompaniesService {
 
     const settings = { ...(company.settings ?? {}) };
     settings.eShopFooter = merged;
+    company.settings = settings;
+    await this.companyRepository.save(company);
+    return merged;
+  }
+
+  async getMenuTopBarSettings(companyId: string): Promise<{
+    topBar: CompanyMenuTopBarSettings;
+    resolved: CompanyMenuTopBarSettings;
+  }> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+    const settings = company.settings as Record<string, unknown>;
+    const topBar = sanitizeCompanyMenuTopBarSettings(settings?.menuTopBar);
+    return { topBar, resolved: resolveMenuTopBar(settings) };
+  }
+
+  async replaceMenuTopBarSettings(
+    companyId: string,
+    raw: Partial<CompanyMenuTopBarSettings>,
+  ): Promise<CompanyMenuTopBarSettings> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+    const current = sanitizeCompanyMenuTopBarSettings(
+      (company.settings as Record<string, unknown>)?.menuTopBar,
+    );
+    const merged = sanitizeCompanyMenuTopBarSettings({
+      showLogo: raw.showLogo ?? current.showLogo,
+      showCompanyName: raw.showCompanyName ?? current.showCompanyName,
+      navLinks: raw.navLinks ?? current.navLinks,
+    });
+    const settings = { ...(company.settings ?? {}) };
+    settings.menuTopBar = merged;
+    company.settings = settings;
+    await this.companyRepository.save(company);
+    return merged;
+  }
+
+  async getMenuAboutSettings(companyId: string): Promise<{
+    about: CompanyMenuAboutSettings;
+    resolved: CompanyMenuAboutSettings;
+  }> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+    const settings = company.settings as Record<string, unknown>;
+    const about = sanitizeCompanyMenuAboutSettings(settings?.menuAbout);
+    return { about, resolved: resolveMenuAbout(settings) };
+  }
+
+  async replaceMenuAboutSettings(
+    companyId: string,
+    raw: Partial<CompanyMenuAboutSettings>,
+  ): Promise<CompanyMenuAboutSettings> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+    const current = sanitizeCompanyMenuAboutSettings(
+      (company.settings as Record<string, unknown>)?.menuAbout,
+    );
+    const merged = sanitizeCompanyMenuAboutSettings({
+      title: raw.title ?? current.title,
+      body: raw.body ?? current.body,
+    });
+    const settings = { ...(company.settings ?? {}) };
+    settings.menuAbout = merged;
+    company.settings = settings;
+    await this.companyRepository.save(company);
+    return merged;
+  }
+
+  async getMenuFindUsSettings(companyId: string): Promise<{
+    findUs: CompanyMenuFindUsSettings;
+    resolved: CompanyMenuFindUsSettings;
+  }> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+    const settings = company.settings as Record<string, unknown>;
+    const findUs = sanitizeCompanyMenuFindUsSettings(settings?.menuFindUs);
+    return { findUs, resolved: resolveMenuFindUs(settings) };
+  }
+
+  async replaceMenuFindUsSettings(
+    companyId: string,
+    raw: Partial<CompanyMenuFindUsSettings>,
+  ): Promise<CompanyMenuFindUsSettings> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+    const current = sanitizeCompanyMenuFindUsSettings(
+      (company.settings as Record<string, unknown>)?.menuFindUs,
+    );
+    const merged = sanitizeCompanyMenuFindUsSettings({ ...current, ...raw });
+    const settings = { ...(company.settings ?? {}) };
+    settings.menuFindUs = merged;
+    company.settings = settings;
+    await this.companyRepository.save(company);
+    return merged;
+  }
+
+  async getMenuThemeSettings(companyId: string): Promise<{
+    theme: CompanyMenuThemeSettings;
+    resolved: CompanyMenuThemeSettings;
+  }> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+    const settings = company.settings as Record<string, unknown>;
+    const theme = sanitizeCompanyMenuThemeSettings(settings?.menuTheme);
+    return { theme, resolved: resolveMenuTheme(settings) };
+  }
+
+  async replaceMenuThemeSettings(
+    companyId: string,
+    raw: Partial<CompanyMenuThemeSettings>,
+  ): Promise<CompanyMenuThemeSettings> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+    const current = sanitizeCompanyMenuThemeSettings(
+      (company.settings as Record<string, unknown>)?.menuTheme,
+    );
+    const merged = sanitizeCompanyMenuThemeSettings({
+      templateId: raw.templateId ?? current.templateId,
+      themeTokenOverrides:
+        raw.themeTokenOverrides ?? current.themeTokenOverrides,
+    });
+    const settings = { ...(company.settings ?? {}) };
+    settings.menuTheme = merged;
     company.settings = settings;
     await this.companyRepository.save(company);
     return merged;

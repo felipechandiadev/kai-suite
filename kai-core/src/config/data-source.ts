@@ -205,6 +205,8 @@ import { HcmAssignmentPersonHours1757500000000 } from '../migrations/17575000000
 import { HcmJornadaPeriods1757600000000 } from '../migrations/1757600000000-HcmJornadaPeriods';
 import { TipLedgerEntries1757610000000 } from '../migrations/1757610000000-TipLedgerEntries';
 import { TipLedgerTrackA1757620000000 } from '../migrations/1757620000000-TipLedgerTrackA';
+import { ProductOnMenu1757630000000 } from '../migrations/1757630000000-ProductOnMenu';
+import { MenuHeroSlides1757640000000 } from '../migrations/1757640000000-MenuHeroSlides';
 import { LaundryReceptionModule1757430000000 } from '../migrations/1757430000000-LaundryReceptionModule';
 import { DiningKitchenFireId1757140000000 } from '../migrations/1757140000000-DiningKitchenFireId';
 import { DiningKitchenFireNumber1757150000000 } from '../migrations/1757150000000-DiningKitchenFireNumber';
@@ -218,6 +220,7 @@ import { PointOfSaleFolioAllocation } from '@modules/fiscal/domain/point-of-sale
 import { PosSyncCommand } from '@modules/pos-sync/domain/pos-sync-command.entity';
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
+import { MenuHeroSlide } from '@modules/menu/domain/menu-hero-slide.entity';
 import { EShopFulfillmentMethod } from '@modules/e-shop/domain/e-shop-fulfillment-method.entity';
 import { EshopCustomerAccount } from '@modules/e-shop/domain/eshop-customer-account.entity';
 import { EShopCart } from '@modules/e-shop/domain/e-shop-cart.entity';
@@ -425,6 +428,7 @@ export const AppDataSource = new DataSource({
     TipLedgerEntry,
     EShopTestimonial,
     EShopHeroSlide,
+    MenuHeroSlide,
     EShopFulfillmentMethod,
     EshopCustomerAccount,
     EShopCart,
@@ -579,6 +583,8 @@ export const AppDataSource = new DataSource({
     HcmJornadaPeriods1757600000000,
     TipLedgerEntries1757610000000,
     TipLedgerTrackA1757620000000,
+    ProductOnMenu1757630000000,
+    MenuHeroSlides1757640000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

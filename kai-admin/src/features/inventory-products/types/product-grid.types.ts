@@ -102,6 +102,7 @@ export type ProductGridRow = {
   categoryName: string | null;
   isActive: boolean;
   visibleInEShop?: boolean;
+  onMenu?: boolean;
   variantCount: number;
   variants: ProductVariantGridRow[];
   primaryImageUrl?: string | null;

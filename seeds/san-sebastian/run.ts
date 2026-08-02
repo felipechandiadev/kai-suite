@@ -1,6 +1,7 @@
 #!/usr/bin/env ts-node
 /** Seed Supermercado San Sebastián — `npm run seed:san-sebastian`. */
 
+import '../shared/ensure-seed-local-storage-path';
 import { NestFactory } from '@nestjs/core';
 import { DataSource, Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
@@ -276,6 +277,7 @@ async function bootstrap() {
 
         const categoryByName = await syncSeedCategories(
           categoryRepo,
+          company.id,
           categoriesJson,
           'Seed San Sebastián',
         );

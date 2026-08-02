@@ -1,4 +1,5 @@
 import { ProductType } from '@modules/products/domain/product.entity';
+import { FOOD_COPY } from './catalog-food-copy';
 
 /** Categorías multi-rubro (sin vidrios / parabrisas). */
 export const SEED_DEV_CATEGORIES = [
@@ -143,7 +144,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   {
     name: 'Café molido premium',
     brand: 'Casa Norte',
-    description: 'Café en grano molido — presentaciones 250 g, 500 g y 1 kg.',
+    description: FOOD_COPY.cafeMolidoPremium,
     productType: ProductType.PHYSICAL,
     categoryName: 'Alimentos y bebidas',
     productBaseUnit: 'UN',
@@ -236,6 +237,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   {
     name: 'Galletas surtidas',
     brand: 'VitalPack',
+    description: FOOD_COPY.galletasSurtidas,
     productType: ProductType.PHYSICAL,
     categoryName: 'Alimentos y bebidas',
     variants: [
@@ -1055,7 +1057,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   {
     name: 'Torta cumpleaños',
     brand: 'Dulce Horno',
-    description: 'Torta elaborada en pastelería — sabores y tamaños.',
+    description: FOOD_COPY.tortaCumpleanos,
     productType: ProductType.ELABORADO,
     categoryName: 'Pastelería',
     productBaseUnit: 'UN',
@@ -1131,7 +1133,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   {
     name: 'Medialuna',
     brand: 'Dulce Horno',
-    description: 'Medialunas de pastelería — mantequilla o jamón queso.',
+    description: FOOD_COPY.medialuna,
     productType: ProductType.ELABORADO,
     categoryName: 'Pastelería',
     variants: [
@@ -1162,7 +1164,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   {
     name: 'Pie de limón',
     brand: 'Dulce Horno',
-    description: 'Pie de limón fresco — porción o familiar.',
+    description: FOOD_COPY.pieDeLimon,
     productType: ProductType.ELABORADO,
     categoryName: 'Pastelería',
     variants: [
@@ -1193,7 +1195,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   {
     name: 'Brownie',
     brand: 'Dulce Horno',
-    description: 'Brownie de chocolate — clásico o con nueces.',
+    description: FOOD_COPY.brownie,
     productType: ProductType.ELABORADO,
     categoryName: 'Pastelería',
     variants: [
@@ -1224,7 +1226,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   {
     name: 'Empanada de horno',
     brand: 'Dulce Horno',
-    description: 'Empanadas horneadas — pino o queso.',
+    description: FOOD_COPY.empanadaDeHorno,
     productType: ProductType.ELABORADO,
     categoryName: 'Pastelería',
     variants: [
@@ -1255,7 +1257,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   {
     name: 'Pan de masa madre',
     brand: 'Dulce Horno',
-    description: 'Pan artesanal — masa madre o integral.',
+    description: FOOD_COPY.panDeMasaMadre,
     productType: ProductType.ELABORADO,
     categoryName: 'Pastelería',
     variants: [
@@ -1287,7 +1289,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   {
     name: 'Hamburguesa clásica',
     brand: 'Rápido Norte',
-    description: 'Hamburguesa a la plancha — simple o doble.',
+    description: FOOD_COPY.hamburguesaClasica,
     productType: ProductType.PREPARADO,
     categoryName: 'Comida rápida',
     variants: [
@@ -1360,7 +1362,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   {
     name: 'Completo italiano',
     brand: 'Rápido Norte',
-    description: 'Completo italiano clásico.',
+    description: FOOD_COPY.completoItaliano,
     productType: ProductType.PREPARADO,
     categoryName: 'Comida rápida',
     variants: [
@@ -1380,7 +1382,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   {
     name: 'Bebida gaseosa',
     brand: 'Rápido Norte',
-    description: 'Bebida embotellada / vaso — producto físico de compra.',
+    description: FOOD_COPY.bebidaGaseosa,
     productType: ProductType.PHYSICAL,
     categoryName: 'Comida rápida',
     variants: [
@@ -1433,7 +1435,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   {
     name: 'Combo del día',
     brand: 'Rápido Norte',
-    description: 'Combo hamburguesa + papas + bebida.',
+    description: FOOD_COPY.comboDelDia,
     productType: ProductType.PREPARADO,
     categoryName: 'Comida rápida',
     variants: [
@@ -1635,10 +1637,25 @@ export const SEED_KAIFOOD_ESHOP_FEATURED_PRODUCT_NAMES = [
  * `KAI_SEED_PROFILE` ∈ {kaifood, food}.
  */
 export function isKaiFoodSeedMode(): boolean {
+  if (isKaiSuiteSeedMode()) return false;
   const product = (process.env.KAI_PRODUCT ?? '').trim().toLowerCase();
   if (product === 'kaifood') return true;
   const profile = (process.env.KAI_SEED_PROFILE ?? '').trim().toLowerCase();
   return profile === 'kaifood' || profile === 'food';
+}
+
+/** Deploy suite: empresa Store + empresa Food en la misma BD. */
+export function isKaiSuiteSeedMode(): boolean {
+  const mode = (process.env.KAI_SEED_MODE ?? '').trim().toLowerCase();
+  if (mode === 'suite') return true;
+  const profile = (process.env.KAI_SEED_PROFILE ?? '').trim().toLowerCase();
+  return profile === 'suite';
+}
+
+export function getSeedFoodOnlyProducts(): SeedDevProductSeed[] {
+  return SEED_DEV_PRODUCTS.filter((p) =>
+    SEED_KAIFOOD_CATEGORY_SET.has(p.categoryName),
+  );
 }
 
 export function getSeedDevCategories(): readonly SeedDevCategoryName[] {

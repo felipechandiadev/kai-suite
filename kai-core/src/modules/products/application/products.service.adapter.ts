@@ -58,6 +58,7 @@ export class ProductsServiceAdapter {
       payload.description,
       payload.isActive !== false,
       payload.visibleInEShop === true,
+      payload.onMenu === true,
       payload.productType,
       payload.brandId ?? null,
     );
@@ -80,6 +81,7 @@ export class ProductsServiceAdapter {
       payload.categoryId,
       payload.isActive,
       payload.visibleInEShop,
+      payload.onMenu,
       payload.productType,
       payload.brandId,
     );

@@ -30,6 +30,7 @@ import { StockLevel } from '@modules/stock-levels/domain/stock-level.entity';
 import { MultimediaAsset } from '@modules/multimedia/domain/multimedia-asset.entity';
 import { MultimediaLink } from '@modules/multimedia/domain/multimedia-link.entity';
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
+import { MenuHeroSlide } from '@modules/menu/domain/menu-hero-slide.entity';
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
 import { Recipe } from '@modules/recipes/domain/recipe.entity';
 import { RecipeLine } from '@modules/recipes/domain/recipe-line.entity';
@@ -85,6 +86,7 @@ import { MultimediaVariant } from '@modules/multimedia/domain/multimedia-variant
       MultimediaLink,
       MultimediaVariant,
       EShopHeroSlide,
+      MenuHeroSlide,
       EShopTestimonial,
       Recipe,
       RecipeLine,

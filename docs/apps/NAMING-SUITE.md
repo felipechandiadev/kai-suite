@@ -44,6 +44,7 @@ Renombrar la **carpeta** no cambia el label del launcher ni el `applicationId`. 
 | `kai-eshop` | **`kai-eshop`** | `kai-eshop` | KaiStore eShop | `KS Shop` |
 | `kai-delivery` | `kai-delivery` | `kai-delivery` | KaiStore Delivery | `KS Delivery` |
 | `kai-waiter` | `kai-waiter` | `kai-waiter` | KaiFood Mesero | `KF Mesero` |
+| `kai-menu` | `kai-menu` | `kai-menu` | KaiFood Menú | `KF Menú` |
 | `kai-kds` | `kai-kds` | `kai-kds` | KaiFood KDS | `KF KDS` |
 | `kai-board` | `kai-board` | `kai-board` | KaiFood Board | `KF Board` |
 

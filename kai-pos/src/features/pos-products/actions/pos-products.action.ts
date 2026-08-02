@@ -9,6 +9,7 @@ export async function searchPosProductsAction(input: {
   pointOfSaleId?: string | null;
   productTypes?: string[];
   categoryIds?: string[];
+  onMenuOnly?: boolean;
   page: number;
   pageSize: number;
 }) {

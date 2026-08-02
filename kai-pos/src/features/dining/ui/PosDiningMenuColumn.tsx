@@ -238,6 +238,7 @@ export function PosDiningMenuColumn({
       branchId: ctx?.branchId ?? null,
       pointOfSaleId: ctx?.pointOfSaleId ?? null,
       categoryIds: searchCategoryIds,
+      onMenuOnly: true,
       page,
       pageSize,
     });

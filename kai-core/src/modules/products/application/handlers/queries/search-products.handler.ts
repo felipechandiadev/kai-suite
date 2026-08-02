@@ -171,6 +171,7 @@ export class SearchProductsQueryHandler implements IQueryHandler<
       categoryName: p.category?.name ?? null,
       isActive: p.isActive,
       visibleInEShop: p.visibleInEShop === true,
+      onMenu: p.onMenu === true,
       variants: variantsByProduct[p.id] ?? [],
       variantCount: (variantsByProduct[p.id] ?? []).length,
     }));

@@ -40,6 +40,8 @@ export class CreateProductCommandHandler implements ICommandHandler<
 
     const visibleInEShop =
       isSellableProductType(productType) && command.visibleInEShop === true;
+    const onMenu =
+      isSellableProductType(productType) && command.onMenu === true;
 
     const product = this.productRepository.create({
       id: command.productId,
@@ -50,6 +52,7 @@ export class CreateProductCommandHandler implements ICommandHandler<
       description: command.description,
       isActive: command.isActive,
       visibleInEShop,
+      onMenu,
       productType,
     });
 
@@ -77,6 +80,7 @@ export class CreateProductCommandHandler implements ICommandHandler<
       description: saved.description,
       isActive: saved.isActive,
       visibleInEShop: saved.visibleInEShop,
+      onMenu: saved.onMenu,
       productType: saved.productType,
       taxIds: saved.taxIds,
       resultCenterId: saved.resultCenterId ?? null,

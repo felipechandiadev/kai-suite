@@ -78,6 +78,9 @@ export class ProductOrmEntity {
   @Column({ name: 'visible_in_e_shop', type: 'boolean', default: false })
   visibleInEShop!: boolean;
 
+  @Column({ name: 'on_menu', type: 'boolean', default: false })
+  onMenu!: boolean;
+
   @Column({ type: 'uuid', nullable: true })
   resultCenterId?: string | null;
 

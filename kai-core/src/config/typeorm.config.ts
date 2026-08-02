@@ -86,6 +86,7 @@ import { NotificationRetentionPolicy } from '@modules/notifications/domain/notif
 import { WebPushSubscription } from '@modules/notifications/domain/web-push-subscription.entity';
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
+import { MenuHeroSlide } from '@modules/menu/domain/menu-hero-slide.entity';
 import { EShopFulfillmentMethod } from '@modules/e-shop/domain/e-shop-fulfillment-method.entity';
 import { EshopCustomerAccount } from '@modules/e-shop/domain/eshop-customer-account.entity';
 import { EShopCart } from '@modules/e-shop/domain/e-shop-cart.entity';
@@ -254,6 +255,7 @@ export const typeOrmConfig = (
       WebPushSubscription,
       EShopTestimonial,
       EShopHeroSlide,
+      MenuHeroSlide,
       EShopFulfillmentMethod,
       EshopCustomerAccount,
       EShopCart,

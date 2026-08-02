@@ -22,6 +22,7 @@ import { revalidateMultimediaCachesAction } from "@/features/multimedia/actions/
 import { uploadMultimediaFilesForEntity } from "@/features/multimedia/infrastructure/multimedia.client";
 import type { MultimediaEntityType } from "@/features/multimedia/types/multimedia.types";
 import { useSession } from "next-auth/react";
+import { useCompany } from "@/providers/CompanyProvider";
 import type { CatalogProductType } from "@/features/inventory-products/types/product-grid.types";
 import {
   catalogProductTypeIsSellable,
@@ -74,6 +75,7 @@ export type CreateProductDialogProps = {
 export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductDialogProps) {
   const router = useRouter();
   const { data: session } = useSession();
+  const { company } = useCompany();
   const multimediaAuth = {
     accessToken: session?.user?.accessToken,
     activeCompanyId: (session?.user as { activeCompanyId?: string | null } | undefined)?.activeCompanyId,
@@ -353,7 +355,7 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
           label="Tipo"
           name="product-create-type"
           placeholder="Seleccione tipo"
-          options={getCatalogProductTypeSelectOptions()}
+          options={getCatalogProductTypeSelectOptions(company?.kaiProduct)}
           value={productType}
           onChange={(id) => setProductType(normalizeCatalogProductType(id == null ? "PHYSICAL" : String(id)))}
           data-test-id="product-create-type"

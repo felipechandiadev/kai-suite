@@ -44,6 +44,7 @@ export class GetProductQueryHandler implements IQueryHandler<
       description: product.description,
       isActive: product.isActive,
       visibleInEShop: product.visibleInEShop === true,
+      onMenu: product.onMenu === true,
       productType: product.productType,
       taxIds: product.taxIds,
       primaryImageUrl: resolvePrimaryMultimediaPublicUrl(assets),

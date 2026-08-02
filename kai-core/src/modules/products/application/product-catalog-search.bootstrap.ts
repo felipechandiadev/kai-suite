@@ -15,6 +15,7 @@ export class ProductCatalogSearchBootstrap implements OnModuleInit {
   async onModuleInit(): Promise<void> {
     await this.ensureExtension('unaccent');
     await this.ensureProductVisibleInEShopColumn();
+    await this.ensureProductOnMenuColumn();
   }
 
   /** Columna de migración 1756430000000; evita 500 si `migration:run` no llegó a aplicarla. */
@@ -27,6 +28,21 @@ export class ProductCatalogSearchBootstrap implements OnModuleInit {
     } catch (err) {
       this.logger.error(
         `No se pudo asegurar products.visible_in_e_shop: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
+
+  private async ensureProductOnMenuColumn(): Promise<void> {
+    try {
+      await this.dataSource.query(`
+        ALTER TABLE "products"
+        ADD COLUMN IF NOT EXISTS "on_menu" boolean NOT NULL DEFAULT false;
+      `);
+    } catch (err) {
+      this.logger.error(
+        `No se pudo asegurar products.on_menu: ${
           err instanceof Error ? err.message : String(err)
         }`,
       );

@@ -1,6 +1,7 @@
 #!/usr/bin/env ts-node
 /** Seed Barco — catálogo desde export PDV (`npm run seed:barco`). */
 
+import '../shared/ensure-seed-local-storage-path';
 import { NestFactory } from '@nestjs/core';
 import { DataSource, IsNull } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
@@ -322,6 +323,7 @@ async function bootstrap() {
 
         const categoryByName = await syncSeedCategories(
           categoryRepo,
+          company.id,
           catalog.categories,
           'Barco',
           { silent: true },
