@@ -155,7 +155,7 @@ export function printPosTicketFailureDocumentFallbackFireAndForget(
 
 export function buildAgentWebSocketUrl(): string {
   const cfg = readPrintServiceConfigFromStorage();
-  const tls = printServicePageRequiresTls() || cfg.useTls;
+  const tls = printServicePageRequiresTls();
   const port = tls ? cfg.wssPort : cfg.port;
   return buildWebSocketUrl(cfg.host, port, tls);
 }

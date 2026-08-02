@@ -8,13 +8,16 @@ import type {
 } from "../infrastructure/dining.request";
 import {
   cancelOrderItemAction,
+  getCompanyTipSettingsAction,
   lookupWaiterVariantsAction,
   markFireDeliveredAction,
+  reopenOrderAction,
   requestOrderBillAction,
   resolveWaiterBranchCatalogContextAction,
   sendOrderToKitchenAction,
   updateOrderLineNotesAction,
 } from "../actions/waiter.action";
+import { printWaiterDiningAccountTicket } from "../lib/waiter-dining-account-ticket-print";
 import {
   canCancelWaiterLine,
   canSendWaiterLineToKitchen,
@@ -155,6 +158,96 @@ export function WaiterCuentaPanel({
       onOrderUpdated(await fn());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error en la operación");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const buildPrintLines = (ord: DiningOrderDto) => {
+    const active = (ord.lines ?? []).filter(
+      (l) => l.kitchenStatus !== "CANCELLED",
+    );
+    return active.map((l) => {
+      const meta = productByVariantId[l.productVariantId];
+      const attrs = (meta?.attributes ?? [])
+        .map((a) => a.attributeValue?.trim())
+        .filter(Boolean) as string[];
+      const baseName =
+        meta?.name?.trim() ||
+        l.productVariant?.name?.trim() ||
+        "Producto";
+      const name =
+        attrs.length > 0 ? `${baseName} · ${attrs.join(" · ")}` : baseName;
+      return {
+        name,
+        quantity: Number(l.quantity) || 0,
+        unitPrice: meta?.unitPrice ?? 0,
+        notes: l.notes ?? null,
+      };
+    });
+  };
+
+  const printAccount = async (ord: DiningOrderDto) => {
+    const lines = buildPrintLines(ord);
+    if (lines.length === 0) {
+      throw new Error("La cuenta no tiene ítems para imprimir");
+    }
+    const fiscalTotal = lines.reduce(
+      (sum, l) =>
+        sum + Math.round((Number(l.quantity) || 0) * (Number(l.unitPrice) || 0)),
+      0,
+    );
+    let tipSuggestPercent: number | null = null;
+    let tipSuggestedAmount: number | null = null;
+    try {
+      const tipSettings = await getCompanyTipSettingsAction({ ...auth });
+      if (tipSettings?.enabled) {
+        tipSuggestPercent = Number(tipSettings.suggestPercent) || 10;
+        tipSuggestedAmount = Math.max(
+          0,
+          Math.round((fiscalTotal * tipSuggestPercent) / 100),
+        );
+      }
+    } catch {
+      // tips optional
+    }
+    await printWaiterDiningAccountTicket({
+      orderId: ord.id,
+      displayLabel: ord.displayLabel,
+      tableCode: ord.diningTable?.code ?? null,
+      kind: ord.kind,
+      status: ord.status,
+      lines,
+      companyName: null,
+      tipSuggestPercent,
+      tipSuggestedAmount,
+    });
+  };
+
+  const handleRequestBillAndPrint = async () => {
+    setBusy("bill");
+    setError(null);
+    try {
+      let next = order;
+      if (next.status !== "BILLING") {
+        next = await requestOrderBillAction({ ...auth, orderId: order.id });
+        onOrderUpdated(next);
+      }
+      await printAccount(next);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al pedir la cuenta");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleReprint = async () => {
+    setBusy("reprint");
+    setError(null);
+    try {
+      await printAccount(order);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al imprimir la cuenta");
     } finally {
       setBusy(null);
     }
@@ -309,21 +402,48 @@ export function WaiterCuentaPanel({
             Enviar {draftCount} a cocina
           </Button>
         ) : null}
-        <Button
-          type="button"
-          variant="outlined"
-          size="sm"
-          loading={busy === "bill"}
-          disabled={busy !== null}
-          onClick={() =>
-            void run("bill", () =>
-              requestOrderBillAction({ ...auth, orderId: order.id }),
-            )
-          }
-          data-test-id="waiter-request-bill"
-        >
-          Pedir cuenta
-        </Button>
+        {isBilling ? (
+          <>
+            <Button
+              type="button"
+              variant="outlined"
+              size="sm"
+              loading={busy === "reopen"}
+              disabled={busy !== null}
+              onClick={() =>
+                void run("reopen", () =>
+                  reopenOrderAction({ ...auth, orderId: order.id }),
+                )
+              }
+              data-test-id="waiter-reopen-account"
+            >
+              Reabrir cuenta
+            </Button>
+            <Button
+              type="button"
+              variant="outlined"
+              size="sm"
+              loading={busy === "reprint"}
+              disabled={busy !== null}
+              onClick={() => void handleReprint()}
+              data-test-id="waiter-reprint-account"
+            >
+              Reimprimir cuenta
+            </Button>
+          </>
+        ) : (
+          <Button
+            type="button"
+            variant="outlined"
+            size="sm"
+            loading={busy === "bill"}
+            disabled={busy !== null}
+            onClick={() => void handleRequestBillAndPrint()}
+            data-test-id="waiter-request-bill"
+          >
+            Pedir cuenta
+          </Button>
+        )}
       </div>
 
       {error ? (

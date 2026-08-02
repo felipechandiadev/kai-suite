@@ -107,6 +107,10 @@ export function posSaleReceiptToTicketPayload(
       orderDiscount: data.totals.orderDiscount,
       total: data.totals.total,
       change: data.totals.change,
+      tipAmount:
+        data.totals.tipAmount != null && data.totals.tipAmount > 0
+          ? Math.round(data.totals.tipAmount)
+          : null,
     },
     payments: data.payments.map((p) => ({
       label: p.label,

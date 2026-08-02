@@ -16,6 +16,7 @@ import type {
   WaiterNotificationDeliveryWsPayload,
   WaiterNotificationRow,
 } from "../types/notification.types";
+import { getClientBackendApiBase } from "@/lib/backend-api";
 
 function formatReceivedAt(ts: number): string {
   try {
@@ -39,12 +40,22 @@ export function WaiterNotificationsBell({ session }: Props) {
   const [unread, setUnread] = useState(0);
   const [markingId, setMarkingId] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const knownIdsRef = useRef<Set<string>>(new Set());
+  const connectErrorLoggedRef = useRef(false);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (opts?: { playIfNew?: boolean }) => {
     const [list, count] = await Promise.all([
       fetchWaiterDiningInbox(session.userId, session.companyId),
       fetchWaiterUnreadCount(session.userId, session.companyId),
     ]);
+    if (opts?.playIfNew) {
+      const prev = knownIdsRef.current;
+      const hasNew = list.some((r) => !prev.has(r.deliveryId));
+      if (hasNew && prev.size > 0) {
+        playWaiterAlertSound();
+      }
+    }
+    knownIdsRef.current = new Set(list.map((r) => r.deliveryId));
     setRows(list);
     setUnread(count);
   }, [session.userId, session.companyId]);
@@ -53,17 +64,70 @@ export function WaiterNotificationsBell({ session }: Props) {
     void refresh();
   }, [refresh]);
 
+  // Fallback si el WS se cae o el tab estuvo en background.
   useEffect(() => {
-    const base = process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim() ?? "";
-    if (!base) return;
+    const id = window.setInterval(() => {
+      void refresh({ playIfNew: true });
+    }, 12_000);
+    return () => window.clearInterval(id);
+  }, [refresh]);
+
+  useEffect(() => {
+    const onFocus = () => {
+      void refresh({ playIfNew: true });
+    };
+    const onVis = () => {
+      if (document.visibilityState === "visible") {
+        void refresh({ playIfNew: true });
+      }
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [refresh]);
+
+  useEffect(() => {
+    let base = "";
+    try {
+      base = getClientBackendApiBase();
+    } catch {
+      console.warn(
+        "[waiter-notifications] WS omitido: NEXT_PUBLIC_BACKEND_API_URL no definida",
+      );
+      return;
+    }
+    if (!base || !session.userId || !session.companyId) return;
+
+    connectErrorLoggedRef.current = false;
     let socket: Socket | null = null;
     try {
-      socket = io(`${base.replace(/\/$/, "")}/realtime/notifications`, {
-        transports: ["websocket", "polling"],
+      // polling primero: el upgrade websocket falla a menudo con localhost↔127.0.0.1 / LAN.
+      socket = io(`${base}/realtime/notifications`, {
+        transports: ["polling", "websocket"],
         auth: {
           userId: session.userId,
+          activeCompanyId: session.companyId,
           companyId: session.companyId,
         },
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1500,
+      });
+      socket.on("connect", () => {
+        connectErrorLoggedRef.current = false;
+      });
+      socket.on("connect_error", (err) => {
+        if (connectErrorLoggedRef.current) return;
+        connectErrorLoggedRef.current = true;
+        console.warn(
+          `[waiter-notifications] WS connect_error (${base}): ${err.message}`,
+        );
+      });
+      socket.on("auth_error", (payload) => {
+        console.warn("[waiter-notifications] WS auth_error", payload);
       });
       socket.on("notification:delivery", (payload: WaiterNotificationDeliveryWsPayload) => {
         if (payload.companyId !== session.companyId) return;
@@ -80,6 +144,7 @@ export function WaiterNotificationsBell({ session }: Props) {
         };
         const row = waiterInboxItemToRow(fakeItem);
         if (row) {
+          knownIdsRef.current.add(row.deliveryId);
           setRows((prev) => {
             if (prev.some((r) => r.deliveryId === row.deliveryId)) return prev;
             return [row, ...prev].slice(0, 40);
@@ -89,8 +154,8 @@ export function WaiterNotificationsBell({ session }: Props) {
           void refresh();
         }
       });
-    } catch {
-      // ignore
+    } catch (err) {
+      console.warn("[waiter-notifications] WS init failed", err);
     }
     return () => {
       socket?.disconnect();
@@ -114,6 +179,7 @@ export function WaiterNotificationsBell({ session }: Props) {
         session.companyId,
         row.deliveryId,
       );
+      knownIdsRef.current.delete(row.deliveryId);
       setRows((prev) => prev.filter((r) => r.deliveryId !== row.deliveryId));
       setUnread((c) => Math.max(0, c - 1));
       if (row.orderId) {
@@ -163,7 +229,7 @@ export function WaiterNotificationsBell({ session }: Props) {
           <div className="border-b border-border px-3 py-2">
             <p className="text-sm font-semibold text-foreground">Cocina lista</p>
             <p className="text-[11px] text-muted-foreground">
-              Pedidos que enviaste y ya están listos
+              Pedidos listos para llevar a mesa
             </p>
           </div>
           {rows.length === 0 ? (

@@ -29,6 +29,13 @@ pub struct PosDiningAccountTicketAccount {
 #[serde(rename_all = "camelCase")]
 pub struct PosDiningAccountTicketTotals {
     pub total: f64,
+    /// Propina sugerida (informativa; no fiscal).
+    #[serde(default)]
+    pub tip_suggested_amount: Option<f64>,
+    #[serde(default)]
+    pub tip_suggest_percent: Option<f64>,
+    #[serde(default)]
+    pub total_with_tip: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]

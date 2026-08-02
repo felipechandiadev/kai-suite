@@ -32,6 +32,59 @@ function normalizeAgentDisplayName(raw: string | undefined): string {
   return t || DEFAULT_AGENT_DISPLAY_NAME;
 }
 
+type KaiLoginCompany = {
+  id: string;
+  razonSocial: string;
+  nombreFantasia: string | null;
+};
+
+type PendingKaiLogin = {
+  userId: string;
+  companies: KaiLoginCompany[];
+  selectedCompanyId: string;
+};
+
+function companyLabel(c: KaiLoginCompany): string {
+  const fantasy = (c.nombreFantasia ?? "").trim();
+  return fantasy || c.razonSocial || c.id;
+}
+
+const DEFAULT_KAI_CORE_URL = "http://localhost:5180";
+
+async function readHttpErrorMessage(res: Response, fallback: string): Promise<string> {
+  try {
+    const body = (await res.json()) as { message?: string | string[]; error?: string };
+    if (Array.isArray(body.message)) {
+      return body.message.filter(Boolean).join("; ") || fallback;
+    }
+    if (typeof body.message === "string" && body.message.trim()) {
+      return body.message.trim();
+    }
+    if (typeof body.error === "string" && body.error.trim()) {
+      return body.error.trim();
+    }
+  } catch {
+    /* ignore parse errors */
+  }
+  return fallback;
+}
+
+/** WebKit/Tauri suele decir "Load failed" si Core no responde (URL/puerto mal). */
+function formatKaiCoreNetworkError(err: unknown, baseUrl: string): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  const lower = raw.toLowerCase();
+  if (
+    lower.includes("load failed") ||
+    lower.includes("failed to fetch") ||
+    lower.includes("networkerror") ||
+    lower.includes("network request failed")
+  ) {
+    const base = baseUrl.trim().replace(/\/+$/, "") || DEFAULT_KAI_CORE_URL;
+    return `No se pudo conectar a Kai Core (${base}). Revisá la URL (p. ej. http://localhost:5180) y que el backend esté levantado.`;
+  }
+  return raw;
+}
+
 const VALID_PURPOSES = ["tickets", "documents", "labels"] as const;
 const DEFAULT_PURPOSE = "tickets";
 
@@ -245,7 +298,11 @@ export default function App() {
   const [configDetailsOpen, setConfigDetailsOpen] = useState(false);
   const [printersDetailsOpen, setPrintersDetailsOpen] = useState(false);
   const [globalLogoBusy, setGlobalLogoBusy] = useState(false);
-  const [kaiCoreUrl, setKaiCoreUrl] = useState("http://localhost:5160");
+  const [kaiCoreUrl, setKaiCoreUrl] = useState(DEFAULT_KAI_CORE_URL);
+  const [kaiLoginUser, setKaiLoginUser] = useState("");
+  const [kaiLoginPass, setKaiLoginPass] = useState("");
+  const [kaiPendingLogin, setKaiPendingLogin] = useState<PendingKaiLogin | null>(null);
+  const [kaiPairAdvancedOpen, setKaiPairAdvancedOpen] = useState(false);
   const [kaiPairToken, setKaiPairToken] = useState("");
   const [kaiCoreBusy, setKaiCoreBusy] = useState(false);
   const [kaiCoreMsg, setKaiCoreMsg] = useState<string | null>(null);
@@ -262,7 +319,16 @@ export default function App() {
       wssEnabled: !!d.wssEnabled,
       agentDisplayName: normalizeAgentDisplayName(d.agentDisplayName),
     });
-    if (d.kaiCore?.baseUrl) setKaiCoreUrl(d.kaiCore.baseUrl);
+    const storedCoreUrl = (d.kaiCore?.baseUrl ?? "").trim().replace(/\/+$/, "");
+    const legacyCoreDefault = "http://localhost:5160";
+    if (storedCoreUrl && !(storedCoreUrl === legacyCoreDefault && !d.kaiCore?.paired)) {
+      setKaiCoreUrl(storedCoreUrl);
+    } else if (!d.kaiCore?.paired) {
+      setKaiCoreUrl(DEFAULT_KAI_CORE_URL);
+      if (storedCoreUrl === legacyCoreDefault) {
+        void invoke("set_kai_core_base_url", { baseUrl: DEFAULT_KAI_CORE_URL });
+      }
+    }
     setKaiCorePaired(!!d.kaiCore?.paired);
     setConfigEdit(false);
   }, []);
@@ -340,11 +406,25 @@ export default function App() {
           },
           body: JSON.stringify(prep.body),
         });
-        if (!cancelled && !res.ok) {
-          setKaiCoreMsg(`Heartbeat Core: HTTP ${res.status}`);
+        if (cancelled) return;
+        if (!res.ok) {
+          setKaiCoreMsg(
+            await readHttpErrorMessage(
+              res,
+              `Heartbeat Core: HTTP ${res.status}`,
+            ),
+          );
+          return;
         }
-      } catch {
-        /* silencioso si Core offline */
+        setKaiCoreMsg((prev) =>
+          prev?.startsWith("Heartbeat") || prev?.startsWith("No se pudo conectar")
+            ? null
+            : prev,
+        );
+      } catch (e) {
+        if (!cancelled) {
+          setKaiCoreMsg(formatKaiCoreNetworkError(e, kaiCoreUrl));
+        }
       }
     };
     void tick();
@@ -353,42 +433,167 @@ export default function App() {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [kaiCorePaired]);
+  }, [kaiCorePaired, kaiCoreUrl]);
+
+  const completeKaiCorePair = async (pairingToken: string) => {
+    const prep = (await invoke("prepare_kai_core_pair", {
+      pairingToken: pairingToken.trim(),
+    })) as { url: string; body: { pairingToken: string } };
+    const res = await fetch(prep.url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(prep.body),
+    });
+    if (!res.ok) {
+      throw new Error(
+        await readHttpErrorMessage(res, `No se pudo emparejar (HTTP ${res.status})`),
+      );
+    }
+    const data = (await res.json()) as {
+      id: string;
+      pairingToken: string;
+      displayName?: string;
+    };
+    await invoke("save_kai_core_pair", {
+      agentId: data.id,
+      pairingToken: data.pairingToken ?? prep.body.pairingToken,
+    });
+    if (data.displayName?.trim()) {
+      setSettings((s) => ({ ...s, agentDisplayName: data.displayName!.trim() }));
+    }
+    setKaiCorePaired(true);
+    setKaiPairToken("");
+    setKaiLoginPass("");
+    setKaiPendingLogin(null);
+    setKaiCoreMsg(`Emparejado con Core (${data.displayName ?? data.id})`);
+    await fetchDashboard("full");
+  };
+
+  const createAgentAndPair = async (userId: string, companyId: string) => {
+    const base = kaiCoreUrl.trim().replace(/\/+$/, "");
+    const displayName = normalizeAgentDisplayName(settings.agentDisplayName);
+    const createRes = await fetch(`${base}/api/print-agents`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${userId}`,
+        "X-Active-Company-Id": companyId,
+      },
+      body: JSON.stringify({ displayName }),
+    });
+    if (!createRes.ok) {
+      const fallback =
+        createRes.status === 403
+          ? "Se necesita un usuario administrador para crear el agente"
+          : `No se pudo crear el agente (HTTP ${createRes.status})`;
+      throw new Error(await readHttpErrorMessage(createRes, fallback));
+    }
+    const created = (await createRes.json()) as {
+      id: string;
+      pairingToken?: string;
+      displayName?: string;
+    };
+    if (!created.pairingToken?.trim()) {
+      throw new Error("Core no devolvió token de emparejamiento");
+    }
+    await completeKaiCorePair(created.pairingToken);
+  };
+
+  const handleKaiCoreLoginPair = async () => {
+    setKaiCoreBusy(true);
+    setKaiCoreMsg(null);
+    try {
+      const userName = kaiLoginUser.trim();
+      const password = kaiLoginPass;
+      if (!userName || !password) {
+        throw new Error("Ingresá usuario y contraseña de un administrador");
+      }
+      if (!normalizeAgentDisplayName(settings.agentDisplayName)) {
+        throw new Error("Definí el nombre del agente de impresión");
+      }
+      await invoke("set_kai_core_base_url", { baseUrl: kaiCoreUrl.trim() });
+      const base = kaiCoreUrl.trim().replace(/\/+$/, "");
+      const loginRes = await fetch(`${base}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userName, password }),
+      });
+      if (!loginRes.ok) {
+        throw new Error(
+          await readHttpErrorMessage(
+            loginRes,
+            loginRes.status === 401
+              ? "Usuario o contraseña incorrectos"
+              : `Login falló (HTTP ${loginRes.status})`,
+          ),
+        );
+      }
+      const login = (await loginRes.json()) as {
+        success?: boolean;
+        message?: string;
+        user?: { id?: string };
+        activeCompanyId?: string | null;
+        companies?: KaiLoginCompany[] | null;
+      };
+      if (!login.success || !login.user?.id) {
+        throw new Error(login.message?.trim() || "Usuario o contraseña incorrectos");
+      }
+      const companies = (login.companies ?? []).filter((c) => c?.id);
+      const activeId = (login.activeCompanyId ?? "").trim();
+      if (companies.length === 0 && !activeId) {
+        throw new Error("El usuario no tiene empresa activa para crear el agente");
+      }
+      if (companies.length > 1) {
+        const selected =
+          (activeId && companies.some((c) => c.id === activeId) && activeId) ||
+          companies[0]!.id;
+        setKaiPendingLogin({
+          userId: login.user.id,
+          companies,
+          selectedCompanyId: selected,
+        });
+        setKaiLoginPass("");
+        setKaiCoreMsg("Elegí la empresa y continuá el emparejamiento");
+        return;
+      }
+      const companyId = activeId || companies[0]?.id;
+      if (!companyId) {
+        throw new Error("No se pudo determinar la empresa activa");
+      }
+      await createAgentAndPair(login.user.id, companyId);
+      setKaiLoginPass("");
+    } catch (e) {
+      setKaiCoreMsg(formatKaiCoreNetworkError(e, kaiCoreUrl));
+    } finally {
+      setKaiCoreBusy(false);
+    }
+  };
+
+  const handleKaiCoreContinueCompany = async () => {
+    if (!kaiPendingLogin) return;
+    setKaiCoreBusy(true);
+    setKaiCoreMsg(null);
+    try {
+      await invoke("set_kai_core_base_url", { baseUrl: kaiCoreUrl.trim() });
+      await createAgentAndPair(
+        kaiPendingLogin.userId,
+        kaiPendingLogin.selectedCompanyId,
+      );
+    } catch (e) {
+      setKaiCoreMsg(formatKaiCoreNetworkError(e, kaiCoreUrl));
+    } finally {
+      setKaiCoreBusy(false);
+    }
+  };
 
   const handleKaiCorePair = async () => {
     setKaiCoreBusy(true);
     setKaiCoreMsg(null);
     try {
       await invoke("set_kai_core_base_url", { baseUrl: kaiCoreUrl.trim() });
-      const prep = (await invoke("prepare_kai_core_pair", {
-        pairingToken: kaiPairToken.trim(),
-      })) as { url: string; body: { pairingToken: string } };
-      const res = await fetch(prep.url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(prep.body),
-      });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const data = (await res.json()) as {
-        id: string;
-        pairingToken: string;
-        displayName?: string;
-      };
-      await invoke("save_kai_core_pair", {
-        agentId: data.id,
-        pairingToken: data.pairingToken ?? prep.body.pairingToken,
-      });
-      if (data.displayName?.trim()) {
-        setSettings((s) => ({ ...s, agentDisplayName: data.displayName!.trim() }));
-      }
-      setKaiCorePaired(true);
-      setKaiPairToken("");
-      setKaiCoreMsg(`Emparejado con Core (${data.displayName ?? data.id})`);
-      await fetchDashboard("full");
+      await completeKaiCorePair(kaiPairToken.trim());
     } catch (e) {
-      setKaiCoreMsg(e instanceof Error ? e.message : String(e));
+      setKaiCoreMsg(formatKaiCoreNetworkError(e, kaiCoreUrl));
     } finally {
       setKaiCoreBusy(false);
     }
@@ -399,6 +604,7 @@ export default function App() {
     try {
       await invoke("clear_kai_core_pair");
       setKaiCorePaired(false);
+      setKaiPendingLogin(null);
       setKaiCoreMsg("Desemparejado de Kai Core");
     } catch (e) {
       setKaiCoreMsg(e instanceof Error ? e.message : String(e));
@@ -1037,8 +1243,8 @@ export default function App() {
           <div className="space-y-2 rounded-md border border-border bg-neutral/20 p-3">
             <p className="text-xs font-semibold text-foreground">Kai Core (catálogo)</p>
             <p className="text-[11px] text-muted-foreground">
-              Emparejá este agente para que Admin/POS lo elijan por nombre. La impresión sigue por red
-              local.
+              Iniciá sesión con un administrador para registrar este agente. La impresión sigue por
+              red local; solo se guarda el token del agente (no tu contraseña).
             </p>
             <SharedTextField
               label="URL Kai Core"
@@ -1050,6 +1256,7 @@ export default function App() {
               disabled={kaiCoreBusy}
               value={kaiCoreUrl}
               onChange={(e) => setKaiCoreUrl(e.target.value)}
+              placeholder={DEFAULT_KAI_CORE_URL}
             />
             {kaiCorePaired ? (
               <div className="flex flex-wrap items-center gap-2">
@@ -1063,27 +1270,120 @@ export default function App() {
                   Desemparejar
                 </button>
               </div>
+            ) : kaiPendingLogin ? (
+              <>
+                <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+                  Empresa
+                  <select
+                    className="rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground"
+                    disabled={kaiCoreBusy}
+                    value={kaiPendingLogin.selectedCompanyId}
+                    onChange={(e) =>
+                      setKaiPendingLogin((prev) =>
+                        prev
+                          ? { ...prev, selectedCompanyId: e.target.value }
+                          : prev,
+                      )
+                    }
+                  >
+                    {kaiPendingLogin.companies.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {companyLabel(c)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="rounded-md border border-border px-3 py-1.5 text-xs font-medium"
+                    disabled={kaiCoreBusy || !kaiPendingLogin.selectedCompanyId}
+                    onClick={() => void handleKaiCoreContinueCompany()}
+                  >
+                    Continuar emparejamiento
+                  </button>
+                  <button
+                    type="button"
+                    className="text-xs underline"
+                    disabled={kaiCoreBusy}
+                    onClick={() => {
+                      setKaiPendingLogin(null);
+                      setKaiCoreMsg(null);
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </>
             ) : (
               <>
                 <SharedTextField
-                  label="Token de emparejamiento"
-                  name="kai-pair-token"
+                  label="Usuario"
+                  name="kai-login-user"
                   type="text"
                   density="compact"
                   labelLayout="inline"
                   disabled={kaiCoreBusy}
-                  value={kaiPairToken}
-                  onChange={(e) => setKaiPairToken(e.target.value)}
-                  placeholder="Pegá el token de Admin"
+                  value={kaiLoginUser}
+                  onChange={(e) => setKaiLoginUser(e.target.value)}
+                  autoComplete="username"
+                />
+                <SharedTextField
+                  label="Contraseña"
+                  name="kai-login-pass"
+                  type="password"
+                  density="compact"
+                  labelLayout="inline"
+                  disabled={kaiCoreBusy}
+                  value={kaiLoginPass}
+                  onChange={(e) => setKaiLoginPass(e.target.value)}
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
                   className="rounded-md border border-border px-3 py-1.5 text-xs font-medium"
-                  disabled={kaiCoreBusy || kaiPairToken.trim().length < 32}
-                  onClick={() => void handleKaiCorePair()}
+                  disabled={
+                    kaiCoreBusy ||
+                    !kaiLoginUser.trim() ||
+                    !kaiLoginPass ||
+                    !kaiCoreUrl.trim()
+                  }
+                  onClick={() => void handleKaiCoreLoginPair()}
                 >
-                  Emparejar con Core
+                  Iniciar sesión y emparejar
                 </button>
+                <details
+                  className="rounded-md border border-border/60 bg-background/40 p-2"
+                  open={kaiPairAdvancedOpen}
+                  onToggle={(e) =>
+                    setKaiPairAdvancedOpen((e.target as HTMLDetailsElement).open)
+                  }
+                >
+                  <summary className="cursor-pointer text-[11px] font-medium text-muted-foreground">
+                    Avanzado: pegar token de Admin
+                  </summary>
+                  <div className="mt-2 space-y-2">
+                    <SharedTextField
+                      label="Token de emparejamiento"
+                      name="kai-pair-token"
+                      type="text"
+                      density="compact"
+                      labelLayout="inline"
+                      disabled={kaiCoreBusy}
+                      value={kaiPairToken}
+                      onChange={(e) => setKaiPairToken(e.target.value)}
+                      placeholder="Pegá el token de Admin"
+                    />
+                    <button
+                      type="button"
+                      className="rounded-md border border-border px-3 py-1.5 text-xs font-medium"
+                      disabled={kaiCoreBusy || kaiPairToken.trim().length < 32}
+                      onClick={() => void handleKaiCorePair()}
+                    >
+                      Emparejar con token
+                    </button>
+                  </div>
+                </details>
               </>
             )}
             {kaiCoreMsg ? (

@@ -41,6 +41,8 @@ export const DOCUMENT_PREFIXES: Record<TransactionType, string> = {
   [TransactionType.CASH_SESSION_WITHDRAWAL]: 'RETIRO-CAJA-',
   [TransactionType.CASH_SESSION_DEPOSIT]: 'DEPOSITO-CAJA-',
   [TransactionType.PAYROLL]: 'NOMINA-',
+  [TransactionType.TIP_PAYOUT]: 'PAGO-PROPINAS-',
+  [TransactionType.TIP_PAYOUT_LINE]: 'PAGO-PROPINA-',
   [TransactionType.CAPITAL_CONTRIBUTION]: 'APORTE-CAPITAL-',
   [TransactionType.BANK_WITHDRAWAL_TO_SHAREHOLDER]: 'EGRESO-BANCARIO-SOCIO-',
   [TransactionType.CASH_WITHDRAWAL_TO_PETTY_CASH]: 'GIRO-CAJA-',

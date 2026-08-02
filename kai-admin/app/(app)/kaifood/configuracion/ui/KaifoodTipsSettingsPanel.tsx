@@ -12,18 +12,11 @@ import {
   type CompanyTipSettings,
   type TipDistributionMode,
 } from "@/features/kaifood-tips/types/company-tips.types";
+import { TIP_DISTRIBUTION_MODE_OPTIONS } from "@/features/kaifood-tips/lib/tip-labels";
 
 type Props = {
   companyId: string;
 };
-
-const DISTRIBUTION_OPTIONS: Array<{ id: TipDistributionMode; label: string }> =
-  [
-    { id: "NONE", label: "Sin distribución en Kai (solo captura)" },
-    { id: "DIRECT", label: "Directo al mesero (futuro)" },
-    { id: "POOL", label: "Pozo / pooling (futuro)" },
-    { id: "POINTS", label: "Puntos / tronco (futuro)" },
-  ];
 
 export function KaifoodTipsSettingsPanel({ companyId }: Props) {
   const router = useRouter();
@@ -43,7 +36,11 @@ export function KaifoodTipsSettingsPanel({ companyId }: Props) {
         setError(res.message);
         return;
       }
-      setSettings(res.tipSettings);
+      setSettings({
+        ...defaultCompanyTipSettings(),
+        ...res.tipSettings,
+        distributionWeights: res.tipSettings.distributionWeights ?? {},
+      });
       setError(null);
     });
   }, [companyId]);
@@ -56,7 +53,11 @@ export function KaifoodTipsSettingsPanel({ companyId }: Props) {
           setError(res.message);
           return;
         }
-        setSettings(res.tipSettings);
+        setSettings({
+          ...defaultCompanyTipSettings(),
+          ...res.tipSettings,
+          distributionWeights: res.tipSettings.distributionWeights ?? {},
+        });
         router.refresh();
       });
     });
@@ -129,7 +130,7 @@ export function KaifoodTipsSettingsPanel({ companyId }: Props) {
               onChange={(v) => setSettings((s) => ({ ...s, allowCashTips: v }))}
             />
             <Select
-              label="Modo de atribución (post-cobro)"
+              label="Modo de atribución (después del cobro)"
               alwaysShowLabel
               value={settings.distributionMode}
               onChange={(id) =>
@@ -138,11 +139,13 @@ export function KaifoodTipsSettingsPanel({ companyId }: Props) {
                   distributionMode: String(id ?? "NONE") as TipDistributionMode,
                 }))
               }
-              options={DISTRIBUTION_OPTIONS}
+              options={TIP_DISTRIBUTION_MODE_OPTIONS}
             />
             <p className="text-xs text-muted-foreground">
-              El reparto automatizado (pozo/puntos) se implementa en fases
-              posteriores. Hoy solo se captura y acumula en el ledger.
+              El reparto en pozo o puntos es un{" "}
+              <strong>acuerdo de trabajadores</strong>: Kai calcula y custodia;
+              el empleador solo paga. En modo directo, se asigna al mesero que
+              abrió la cuenta. En Saldos puedes atribuir el pozo pendiente.
             </p>
           </>
         ) : null}

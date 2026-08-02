@@ -4,6 +4,7 @@ import {
   diningPatch,
   diningPost,
 } from "@/lib/backend-api";
+import type { WaiterCompanyTipSettings } from "../types/company-tips.types";
 
 export type DiningTableDto = {
   id: string;
@@ -50,6 +51,7 @@ export type DiningOrderDto = {
   diningRoomId?: string | null;
   status: string;
   openedAt: string;
+  openedByUserId?: string | null;
   lines?: DiningOrderLineDto[];
   diningTable?: { code?: string; label?: string };
 };
@@ -404,6 +406,20 @@ export class DiningRequest {
   static requestBill(ctx: DiningAuthContext, orderId: string) {
     return diningPost<DiningOrderDto>(
       `/dining/orders/${orderId}/request-bill`,
+      ctx,
+    );
+  }
+
+  static reopenOrder(ctx: DiningAuthContext, orderId: string) {
+    return diningPost<DiningOrderDto>(
+      `/dining/orders/${orderId}/reopen`,
+      ctx,
+    );
+  }
+
+  static getTipSettings(ctx: DiningAuthContext) {
+    return diningGet<{ tipSettings?: WaiterCompanyTipSettings }>(
+      "/company/tip-settings",
       ctx,
     );
   }

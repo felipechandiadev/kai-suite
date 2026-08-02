@@ -76,6 +76,7 @@ describe('DiningReadyNotificationService summaries', () => {
         displayLabel: 'Mesa 1',
         diningTableId: 't1',
         branchId: 'b1',
+        openedByUserId: 'opener-1',
       } as any,
       productionUnitId: 'u1',
       fireId: 'f1',
@@ -98,12 +99,60 @@ describe('DiningReadyNotificationService summaries', () => {
         expect.objectContaining({
           audienceType: 'ROLES',
           audienceConfig: expect.objectContaining({
-            roles: expect.arrayContaining(['ADMIN', 'POS_OPERATOR']),
+            roles: expect.arrayContaining([
+              'ADMIN',
+              'POS_OPERATOR',
+              'WAITER',
+            ]),
           }),
         }),
         expect.objectContaining({
           audienceType: 'USER_IDS',
-          audienceConfig: { userIds: ['waiter-user-1'] },
+          audienceConfig: {
+            userIds: expect.arrayContaining(['waiter-user-1', 'opener-1']),
+          },
+        }),
+      ]),
+    );
+    const userAudience = cmd.audiences.find(
+      (a: { audienceType: string }) => a.audienceType === 'USER_IDS',
+    );
+    expect(userAudience.audienceConfig.userIds).toHaveLength(2);
+  });
+
+  it('includes openedByUserId even when sentByUserId is missing', async () => {
+    const publish = jest.fn().mockResolvedValue(undefined);
+    const withPub = new DiningReadyNotificationService({
+      publish,
+    } as any);
+    await withPub.publishItemReady({
+      companyId: 'c1',
+      order: {
+        id: 'o1',
+        displayLabel: 'Mesa 2',
+        diningTableId: 't2',
+        branchId: 'b1',
+        openedByUserId: 'opener-only',
+      } as any,
+      productionUnitId: 'u1',
+      fireId: 'f2',
+      items: [
+        {
+          lineIds: ['a'],
+          productVariantId: 'v1',
+          name: 'Lomo',
+          quantity: 1,
+          notes: null,
+        },
+      ],
+      sentByUserId: null,
+    });
+    const cmd = publish.mock.calls[0][0];
+    expect(cmd.audiences).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          audienceType: 'USER_IDS',
+          audienceConfig: { userIds: ['opener-only'] },
         }),
       ]),
     );

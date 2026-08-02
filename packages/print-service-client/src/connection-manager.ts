@@ -35,7 +35,9 @@ function purposesKey(purposes: string[]): string {
 
 function buildManagerUrl(): string {
   const cfg = readPrintServiceConfigFromStorage();
-  const tls = printServicePageRequiresTls() || cfg.useTls;
+  // Página HTTPS → WSS obligatorio (mixed content).
+  // Página HTTP → WS; cfg.useTls+WSS autofirmado provoca closed_before_open en Chromium.
+  const tls = printServicePageRequiresTls();
   const port = tls ? cfg.wssPort : cfg.port;
   return buildWebSocketUrl(cfg.host, port, tls);
 }

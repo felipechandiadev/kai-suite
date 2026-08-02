@@ -203,15 +203,22 @@ export class DiningReadyNotificationService {
       {
         audienceType: NotificationAudienceType.ROLES,
         audienceConfig: {
-          roles: [UserRole.ADMIN, UserRole.POS_OPERATOR],
+          // Meseros necesitan la alerta en kai-waiter; POS/admin en campana POS.
+          roles: [UserRole.ADMIN, UserRole.POS_OPERATOR, UserRole.WAITER],
         },
       },
     ];
-    const sender = params.sentByUserId?.trim();
-    if (sender) {
+    const userIds = [
+      ...new Set(
+        [params.sentByUserId, order.openedByUserId]
+          .map((id) => (typeof id === 'string' ? id.trim() : ''))
+          .filter(Boolean),
+      ),
+    ];
+    if (userIds.length > 0) {
       cmd.audiences.push({
         audienceType: NotificationAudienceType.USER_IDS,
-        audienceConfig: { userIds: [sender] },
+        audienceConfig: { userIds },
       });
     }
 

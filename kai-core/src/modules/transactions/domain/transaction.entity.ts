@@ -146,6 +146,13 @@ export enum TransactionType {
   PAYROLL = 'PAYROLL',
   PAYMENT_EXECUTION = 'PAYMENT_EXECUTION',
 
+  /**
+   * Lote de pago de propinas a trabajadores (padre).
+   * Hijas: TIP_PAYOUT_LINE (una por empleado).
+   */
+  TIP_PAYOUT = 'TIP_PAYOUT',
+  TIP_PAYOUT_LINE = 'TIP_PAYOUT_LINE',
+
   // Anulaciones
   VOID_ADJUSTMENT = 'VOID_ADJUSTMENT',
 

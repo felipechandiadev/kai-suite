@@ -30,6 +30,9 @@ export type DiningAccountTicketPrintInput = {
   status: string;
   lines: DiningAccountTicketLineInput[];
   company: CompanyDetails | null;
+  /** Tips on: sugerencia Ley 20.729 (informativa). */
+  tipSuggestPercent?: number | null;
+  tipSuggestedAmount?: number | null;
 };
 
 function diningAccountPrintMeta(orderId: string) {
@@ -64,6 +67,14 @@ export function buildDiningAccountTicketPayload(
     };
   });
   const total = lines.reduce((sum, l) => sum + l.lineTotal, 0);
+  const tipSuggestedAmount =
+    input.tipSuggestedAmount != null && input.tipSuggestedAmount > 0
+      ? Math.round(input.tipSuggestedAmount)
+      : null;
+  const tipSuggestPercent =
+    tipSuggestedAmount != null && input.tipSuggestPercent != null
+      ? Number(input.tipSuggestPercent)
+      : null;
   return {
     version: POS_DINING_ACCOUNT_TICKET_PAYLOAD_VERSION,
     company: {
@@ -83,7 +94,13 @@ export function buildDiningAccountTicketPayload(
     pointOfSaleName: posCtx?.pointOfSaleName?.trim() || null,
     issuedAt: new Date().toISOString(),
     lines,
-    totals: { total },
+    totals: {
+      total,
+      tipSuggestedAmount,
+      tipSuggestPercent,
+      totalWithTip:
+        tipSuggestedAmount != null ? total + tipSuggestedAmount : null,
+    },
     footerNote: POS_DINING_ACCOUNT_TICKET_FOOTER_NOTE,
   };
 }

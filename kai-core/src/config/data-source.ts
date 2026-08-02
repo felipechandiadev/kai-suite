@@ -204,6 +204,7 @@ import { DiningStationOrderSentByUser1757490000000 } from '../migrations/1757490
 import { HcmAssignmentPersonHours1757500000000 } from '../migrations/1757500000000-HcmAssignmentPersonHours';
 import { HcmJornadaPeriods1757600000000 } from '../migrations/1757600000000-HcmJornadaPeriods';
 import { TipLedgerEntries1757610000000 } from '../migrations/1757610000000-TipLedgerEntries';
+import { TipLedgerTrackA1757620000000 } from '../migrations/1757620000000-TipLedgerTrackA';
 import { LaundryReceptionModule1757430000000 } from '../migrations/1757430000000-LaundryReceptionModule';
 import { DiningKitchenFireId1757140000000 } from '../migrations/1757140000000-DiningKitchenFireId';
 import { DiningKitchenFireNumber1757150000000 } from '../migrations/1757150000000-DiningKitchenFireNumber';
@@ -577,6 +578,7 @@ export const AppDataSource = new DataSource({
     HcmAssignmentPersonHours1757500000000,
     HcmJornadaPeriods1757600000000,
     TipLedgerEntries1757610000000,
+    TipLedgerTrackA1757620000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

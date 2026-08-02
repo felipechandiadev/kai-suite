@@ -11,6 +11,7 @@ describe('CompanyTipSettings helpers', () => {
       allowCustomAmount: true,
       allowCashTips: true,
       distributionMode: 'NONE',
+      distributionWeights: {},
     });
   });
 
@@ -21,6 +22,7 @@ describe('CompanyTipSettings helpers', () => {
       allowCustomAmount: 0,
       allowCashTips: 1,
       distributionMode: 'pool',
+      distributionWeights: { 'emp-1': 2, 'emp-2': '3' },
     });
     expect(out).toEqual({
       enabled: true,
@@ -28,6 +30,7 @@ describe('CompanyTipSettings helpers', () => {
       allowCustomAmount: false,
       allowCashTips: true,
       distributionMode: 'POOL',
+      distributionWeights: { 'emp-1': 2, 'emp-2': 3 },
     });
   });
 

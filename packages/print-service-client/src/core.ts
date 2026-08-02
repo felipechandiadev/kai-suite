@@ -1079,11 +1079,13 @@ export function applyPrintAgentCatalogItemToStorage(
   if (!agent.lanHost?.trim()) {
     throw new Error("El agente aún no reportó IP LAN (esperá un heartbeat)");
   }
+  // En HTTP, WSS autofirmado suele fallar (closed_before_open). WS es el camino seguro.
+  const useTls = printServicePageRequiresTls() ? Boolean(agent.useTls) : false;
   const cfg = {
     host: agent.lanHost.trim(),
     port: agent.wsPort ?? 14567,
     wssPort: agent.wssPort ?? 14568,
-    useTls: Boolean(agent.useTls),
+    useTls,
     agentId: agent.id,
     agentName: agent.displayName,
   };

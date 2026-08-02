@@ -32,6 +32,7 @@ import {
 import { CreateTransactionDto } from '@modules/transactions/application/dto/create-transaction.dto';
 import { CashHubsService } from '@modules/cash-hubs/application/cash-hubs.service';
 import { computeCashSessionExpectedAmount } from './cash-session-expected-amount.util';
+import { sumSaleTipTenders } from './sale-tip-tender.util';
 
 /**
  * CashSessionCoreService - Single Responsibility: Session Lifecycle Management
@@ -582,6 +583,23 @@ export class CashSessionCoreService {
         'No se pudo determinar la sucursal (branchId) para la sesión de caja.',
       );
     }
+
+    const sessionTxs = await this.transactionRepository.find({
+      where: {
+        cashSessionId: session.id,
+        status: TransactionStatus.CONFIRMED,
+      },
+    });
+    const tipTenders = sumSaleTipTenders(sessionTxs);
+    const tipBlock =
+      tipTenders.tipTotal > 0
+        ? {
+            cash: tipTenders.tipCash,
+            card: tipTenders.tipCard,
+            total: tipTenders.tipTotal,
+          }
+        : null;
+
     let closingTxId: string | null = null;
     let hubTransferId: string | null = null;
     if (Number(closingTxTotal) >= 0.01) {
@@ -607,7 +625,10 @@ export class CashSessionCoreService {
           counted: countedActual,
           systemCashExpected,
           salesTotal,
+          tips: tipBlock,
         };
+      } else if (tipBlock) {
+        txDto.metadata = { tips: tipBlock };
       }
 
       const closingTx = await this.transactionsService.createTransaction(txDto);
@@ -690,6 +711,7 @@ export class CashSessionCoreService {
             cash: diffCash,
             total: diffCash,
           },
+          tips: tipBlock,
         }
       : null;
 

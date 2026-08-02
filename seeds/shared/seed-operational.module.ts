@@ -46,11 +46,13 @@ import { ReceptionsModule } from '@modules/receptions/receptions.module';
 import { TransactionsModule } from '@modules/transactions/transactions.module';
 import { AutomationModule } from '@modules/automation/automation.module';
 import { CompaniesModule } from '@modules/companies/companies.module';
+import { TipsModule } from '@modules/tips/tips.module';
 import { ProductModeModule } from '../../kai-core/src/shared/product-mode/product-mode.module';
 import { CloudflareR2Adapter } from '@modules/multimedia/infrastructure/adapters/cloudflare-r2.adapter';
 import { LocalStorageAdapter } from '@modules/multimedia/infrastructure/adapters/local-storage.adapter';
 import { MultimediaModule } from '@modules/multimedia/multimedia.module';
 import { MultimediaVariant } from '@modules/multimedia/domain/multimedia-variant.entity';
+import { DiningOrder } from '@modules/dining/domain/dining-order.entity';
 
 /**
  * Seed demo con tesorería y recepciones: MinimalSeedModule + servicios transaccionales.
@@ -101,6 +103,7 @@ import { MultimediaVariant } from '@modules/multimedia/domain/multimedia-variant
       DiningRoom,
       DiningTable,
       DiningBranchSettings,
+      DiningOrder,
     ]),
     OperationalExpensesModule,
     FiscalModule,
@@ -110,6 +113,7 @@ import { MultimediaVariant } from '@modules/multimedia/domain/multimedia-variant
     TransactionsModule,
     AutomationModule,
     CompaniesModule,
+    TipsModule,
     MultimediaModule,
   ],
   providers: [LocalStorageAdapter, CloudflareR2Adapter],

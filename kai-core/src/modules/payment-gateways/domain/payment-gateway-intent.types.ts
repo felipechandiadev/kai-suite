@@ -16,6 +16,10 @@ export type PaymentGatewayIntentMetadata = {
   paymentType?: string | null;
   cardLastFour?: string | null;
   statusDetail?: string | null;
+  /** Split lógico venta+tip en un solo cobro Point (A1). */
+  tipSplit?: boolean;
+  tipAmount?: number | null;
+  saleAmount?: number | null;
 };
 
 /**

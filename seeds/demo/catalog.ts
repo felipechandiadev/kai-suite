@@ -136,7 +136,9 @@ export type SeedDevProductSeed = {
   variants: SeedDevVariantSeed[];
 };
 
-/** Catálogo desarrollo: PHYSICAL + INSUMO + MANUFACTURADO + ELABORADO + PREPARADO + SERVICE/DIGITAL. */
+/** Catálogo desarrollo (suite): PHYSICAL + INSUMO + MANUFACTURADO + ELABORADO + PREPARADO + SERVICE/DIGITAL.
+ * Modo food (`isKaiFoodSeedMode`): ver `getSeedDevProducts()`.
+ */
 export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   {
     name: 'Café molido premium',
@@ -1460,23 +1462,6 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
     ],
   },
   {
-    name: 'Servicio armado de pedido',
-    brand: 'DemoBrand',
-    productType: ProductType.SERVICE,
-    categoryName: 'Servicios y digitales',
-    variants: [
-      {
-        sku: 'SEEDDEVSRVARM',
-        basePrice: 3500,
-        baseCost: 0,
-        trackInventory: false,
-        retailNet: 3500,
-        wholesaleNet: 3000,
-        inBothPriceLists: true,
-      },
-    ],
-  },
-  {
     name: 'Lavado prenda',
     brand: 'DemoBrand',
     description: 'Lavado estándar por prenda (lavandería).',
@@ -1606,7 +1591,26 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
 /** Prefijo de SKU generados por el catálogo de desarrollo. */
 export const SEED_DEV_VARIANT_SKU_PREFIX = 'SEEDDEV';
 
-/** Productos visibles y destacados en home eShop (orden = vitrina). */
+/** Categorías gastronómicas (modo kai-food-demo / KAI_PRODUCT=kaifood). */
+export const SEED_KAIFOOD_CATEGORIES = [
+  'Alimentos y bebidas',
+  'Insumos cocina',
+  'Pastelería',
+  'Comida rápida',
+] as const satisfies readonly SeedDevCategoryName[];
+
+const SEED_KAIFOOD_CATEGORY_SET = new Set<string>(SEED_KAIFOOD_CATEGORIES);
+
+/** Marcas usadas por el catálogo food-only. */
+export const SEED_KAIFOOD_BRANDS = [
+  'Casa Norte',
+  'VitalPack',
+  'DemoBrand',
+  'Dulce Horno',
+  'Rápido Norte',
+] as const satisfies readonly (typeof SEED_DEV_BRANDS)[number][];
+
+/** Productos visibles y destacados en home eShop (suite / KaiStore). */
 export const SEED_DEV_ESHOP_FEATURED_PRODUCT_NAMES = [
   'Calcetines deportivos',
   'Polera algodón',
@@ -1617,18 +1621,65 @@ export const SEED_DEV_ESHOP_FEATURED_PRODUCT_NAMES = [
   'Medialuna',
 ] as const;
 
-export function collectSeedDevCatalogSkus(): Set<string> {
-  return new Set(SEED_DEV_PRODUCTS.flatMap((p) => p.variants.map((v) => v.sku)));
+/** Destacados eShop en modo food (eShop suele estar off en kai-food-demo). */
+export const SEED_KAIFOOD_ESHOP_FEATURED_PRODUCT_NAMES = [
+  'Café molido premium',
+  'Torta cumpleaños',
+  'Medialuna',
+  'Hamburguesa clásica',
+  'Bebida gaseosa',
+] as const;
+
+/**
+ * Deploy kai-food-demo: `KAI_PRODUCT=kaifood` (sync-dev-envs) o
+ * `KAI_SEED_PROFILE` ∈ {kaifood, food}.
+ */
+export function isKaiFoodSeedMode(): boolean {
+  const product = (process.env.KAI_PRODUCT ?? '').trim().toLowerCase();
+  if (product === 'kaifood') return true;
+  const profile = (process.env.KAI_SEED_PROFILE ?? '').trim().toLowerCase();
+  return profile === 'kaifood' || profile === 'food';
 }
 
-export function collectSeedDevCatalogProductNames(): Set<string> {
-  return new Set(SEED_DEV_PRODUCTS.map((p) => p.name));
+export function getSeedDevCategories(): readonly SeedDevCategoryName[] {
+  return isKaiFoodSeedMode() ? SEED_KAIFOOD_CATEGORIES : SEED_DEV_CATEGORIES;
+}
+
+export function getSeedDevBrands(): readonly string[] {
+  return isKaiFoodSeedMode() ? SEED_KAIFOOD_BRANDS : SEED_DEV_BRANDS;
+}
+
+export function getSeedDevProducts(): SeedDevProductSeed[] {
+  if (!isKaiFoodSeedMode()) return [...SEED_DEV_PRODUCTS];
+  return SEED_DEV_PRODUCTS.filter((p) =>
+    SEED_KAIFOOD_CATEGORY_SET.has(p.categoryName),
+  );
+}
+
+export function getSeedDevEshopFeaturedProductNames(): readonly string[] {
+  return isKaiFoodSeedMode()
+    ? SEED_KAIFOOD_ESHOP_FEATURED_PRODUCT_NAMES
+    : SEED_DEV_ESHOP_FEATURED_PRODUCT_NAMES;
+}
+
+export function collectSeedDevCatalogSkus(
+  products: readonly SeedDevProductSeed[] = getSeedDevProducts(),
+): Set<string> {
+  return new Set(products.flatMap((p) => p.variants.map((v) => v.sku)));
+}
+
+export function collectSeedDevCatalogProductNames(
+  products: readonly SeedDevProductSeed[] = getSeedDevProducts(),
+): Set<string> {
+  return new Set(products.map((p) => p.name));
 }
 
 /** Variantes PHYSICAL del catálogo seed (sku + baseCost) para planes de compra. */
-export function collectSeedDevPhysicalVariants(): Array<{ sku: string; baseCost: number }> {
+export function collectSeedDevPhysicalVariants(
+  products: readonly SeedDevProductSeed[] = getSeedDevProducts(),
+): Array<{ sku: string; baseCost: number }> {
   const rows: Array<{ sku: string; baseCost: number }> = [];
-  for (const product of SEED_DEV_PRODUCTS) {
+  for (const product of products) {
     if (product.productType !== ProductType.PHYSICAL) continue;
     for (const variant of product.variants) {
       rows.push({
@@ -1641,13 +1692,15 @@ export function collectSeedDevPhysicalVariants(): Array<{ sku: string; baseCost:
 }
 
 /** PHYSICAL con precio de venta (basePrice) — aptos para plan de ventas demo. */
-export function collectSeedDevPhysicalSellableVariants(): Array<{
+export function collectSeedDevPhysicalSellableVariants(
+  products: readonly SeedDevProductSeed[] = getSeedDevProducts(),
+): Array<{
   sku: string;
   basePrice: number;
   baseCost: number;
 }> {
   const rows: Array<{ sku: string; basePrice: number; baseCost: number }> = [];
-  for (const product of SEED_DEV_PRODUCTS) {
+  for (const product of products) {
     if (product.productType !== ProductType.PHYSICAL) continue;
     for (const variant of product.variants) {
       const basePrice = Number(variant.basePrice) || 0;

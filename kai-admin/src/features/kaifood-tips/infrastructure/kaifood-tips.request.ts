@@ -28,19 +28,41 @@ export type TipLedgerEntryView = {
   saleTransactionId: string;
   diningOrderId?: string | null;
   amount: string | number;
+  amountPaid?: string | number;
   status: string;
   tipStatus: string;
   suggestPercent?: string | number | null;
   suggestedAmount?: string | number | null;
   paymentMethod?: string | null;
   employeeId?: string | null;
+  employeeName?: string | null;
+  dueAt?: string | null;
+  attributedAt?: string | null;
   createdAt: string;
 };
 
 export type TipSummaryView = {
   accruedTotal: number;
   accruedCount: number;
+  overdueTotal?: number;
+  overdueCount?: number;
   byDay: Array<{ date: string; total: number; count: number }>;
+};
+
+export type TipBalancesView = {
+  poolOpen: number;
+  byEmployee: Array<{
+    employeeId: string | null;
+    employeeName?: string | null;
+    openAmount: number;
+    entryCount: number;
+  }>;
+};
+
+export type TipOverdueView = {
+  items: TipLedgerEntryView[];
+  overdueTotal: number;
+  overdueCount: number;
 };
 
 export const KaifoodTipsRequest = {
@@ -161,5 +183,107 @@ export const KaifoodTipsRequest = {
     };
     if (!res.ok) return null;
     return data.data ?? null;
+  },
+
+  async overdue(): Promise<TipOverdueView | null> {
+    const res = await fetch(apiUrl("/tips/overdue"), {
+      headers: await authHeaders(),
+      cache: "no-store",
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      data?: TipOverdueView;
+    };
+    if (!res.ok) return null;
+    return data.data ?? null;
+  },
+
+  async balances(): Promise<TipBalancesView | null> {
+    const res = await fetch(apiUrl("/tips/balances"), {
+      headers: await authHeaders(),
+      cache: "no-store",
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      data?: TipBalancesView;
+    };
+    if (!res.ok) return null;
+    return data.data ?? null;
+  },
+
+  async attribute(params?: {
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<
+    | { success: true; data: { attributedCount: number; attributedTotal: number } }
+    | { success: false; error: string }
+  > {
+    try {
+      const res = await fetch(apiUrl("/tips/attribute"), {
+        method: "POST",
+        headers: await authHeaders(),
+        body: JSON.stringify(params ?? {}),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        data?: { attributedCount: number; attributedTotal: number };
+        message?: string;
+      };
+      if (!res.ok || !data.data) {
+        return {
+          success: false,
+          error: data.message || res.statusText || "Error atribución",
+        };
+      }
+      return { success: true, data: data.data };
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : "Error atribución",
+      };
+    }
+  },
+
+  async payout(body: {
+    lines: Array<{ employeeId: string; amount?: number }>;
+    paymentMethod?: "CASH" | "TRANSFER" | "CHECK";
+    companyBankAccountKey?: string | null;
+    cashHubId?: string | null;
+    notes?: string | null;
+  }): Promise<
+    | {
+        success: true;
+        data: {
+          parentTransactionId: string;
+          total: number;
+          lineCount: number;
+        };
+      }
+    | { success: false; error: string }
+  > {
+    try {
+      const res = await fetch(apiUrl("/tips/payout"), {
+        method: "POST",
+        headers: await authHeaders(),
+        body: JSON.stringify(body),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        data?: {
+          parentTransactionId: string;
+          total: number;
+          lineCount: number;
+        };
+        message?: string;
+      };
+      if (!res.ok || !data.data) {
+        return {
+          success: false,
+          error: data.message || res.statusText || "Error pago propinas",
+        };
+      }
+      return { success: true, data: data.data };
+    } catch (e) {
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : "Error pago propinas",
+      };
+    }
   },
 };

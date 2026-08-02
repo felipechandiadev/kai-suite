@@ -47,6 +47,8 @@ export async function createMpPointIntentAction(input: {
   amount: number;
   cashSessionId: string;
   pointOfSaleId: string;
+  saleAmount?: number | null;
+  tipAmount?: number | null;
 }) {
   try {
     const res = await fetch(`${getServerBackendApiBase()}/api/pos/mp-point/intents`, {

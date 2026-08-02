@@ -57,6 +57,16 @@ export function buildDiningAccountTicketHtml(
     };
   });
   const total = lines.reduce((sum, l) => sum + l.lineTotal, 0);
+  const tipSuggestedAmount =
+    input.tipSuggestedAmount != null && input.tipSuggestedAmount > 0
+      ? Math.round(input.tipSuggestedAmount)
+      : null;
+  const tipSuggestPercent =
+    tipSuggestedAmount != null && input.tipSuggestPercent != null
+      ? Number(input.tipSuggestPercent)
+      : null;
+  const totalWithTip =
+    tipSuggestedAmount != null ? total + tipSuggestedAmount : null;
 
   const lineRows = lines
     .map((l) => {
@@ -98,6 +108,15 @@ export function buildDiningAccountTicketHtml(
   <table class="lines" role="presentation">${lineRows}</table>
   <div class="sep"></div>
   <div class="row tot"><span>TOTAL</span><span>${escapeHtml(formatMoneyClp(total))}</span></div>
+  ${
+    tipSuggestedAmount != null
+      ? `<div class="row"><span>Propina sugerida${
+          tipSuggestPercent != null ? ` (${tipSuggestPercent}%)` : ""
+        }</span><span class="tright">${escapeHtml(formatMoneyClp(tipSuggestedAmount))}</span></div>
+  <div class="row"><span>Total c/ propina (info)</span><span class="tright">${escapeHtml(formatMoneyClp(totalWithTip ?? 0))}</span></div>
+  <p class="center muted" style="font-size:10px">La propina no forma parte de la boleta</p>`
+      : ""
+  }
   <div class="sep"></div>
   <p class="center muted">${escapeHtml(POS_DINING_ACCOUNT_TICKET_FOOTER_NOTE)}</p>
 </div>

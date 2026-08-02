@@ -36,6 +36,8 @@ export const DOCUMENT_TYPE_CODES: Record<TransactionType, string> = {
   [TransactionType.EXPENSE_PAYMENT]: 'PGO',
   [TransactionType.BANK_TO_CASH_TRANSFER]: 'BCT',
   [TransactionType.PAYROLL]: 'NOM',
+  [TransactionType.TIP_PAYOUT]: 'TPP',
+  [TransactionType.TIP_PAYOUT_LINE]: 'TPL',
   [TransactionType.PAYMENT_EXECUTION]: 'EPN',
   [TransactionType.VOID_ADJUSTMENT]: 'ANL',
   [TransactionType.CASH_DEPOSIT]: 'DEP',

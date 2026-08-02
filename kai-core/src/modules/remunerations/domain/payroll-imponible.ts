@@ -29,6 +29,7 @@ const NO_IMPONIBLE_EARNINGS = new Set<string>([
   PayrollEarningTypeId.INDEMNITY,
   PayrollEarningTypeId.SETTLEMENT,
   PayrollEarningTypeId.FEES,
+  PayrollEarningTypeId.TIP,
 ]);
 
 export function isPayrollEarningImponible(typeId: string): boolean {

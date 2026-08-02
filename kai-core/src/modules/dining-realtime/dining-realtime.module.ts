@@ -4,6 +4,7 @@ import { User } from '@modules/users/domain/user.entity';
 import { Company } from '@modules/companies/domain/company.entity';
 import { Branch } from '@modules/branches/domain/branch.entity';
 import { DiningRoom } from '@modules/dining/domain/dining-room.entity';
+import { DiningTable } from '@modules/dining/domain/dining-table.entity';
 import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
 import { DiningModule } from '@modules/dining/dining.module';
 import { DiningRealtimePublisher } from './dining-realtime.publisher';
@@ -19,6 +20,7 @@ import { DiningBoardDisplay } from '@modules/dining/domain/dining-board-display.
       Company,
       Branch,
       DiningRoom,
+      DiningTable,
       ProductionUnit,
       DiningBoardDisplay,
     ]),

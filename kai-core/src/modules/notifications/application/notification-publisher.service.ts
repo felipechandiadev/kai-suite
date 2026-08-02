@@ -233,16 +233,39 @@ export class NotificationPublisherService {
     ]);
     if (!posDomains.has(notification.domain)) return;
 
-    const url =
+    const isDiningReady =
       notification.domain === NotificationDomain.SALES &&
       (notification.kind === DiningNotificationKind.KITCHEN_READY ||
         notification.kind === DiningNotificationKind.ITEM_READY ||
-        notification.kind === DiningNotificationKind.ORDER_READY)
-        ? '/accounts'
-        : '/pos';
+        notification.kind === DiningNotificationKind.ORDER_READY);
 
-    await Promise.all(
-      deliveries.map((d) =>
+    const posUrl = isDiningReady ? '/accounts' : '/pos';
+    const payloadObj =
+      notification.payload && typeof notification.payload === 'object'
+        ? (notification.payload as Record<string, unknown>)
+        : null;
+    const orderId =
+      typeof payloadObj?.orderId === 'string' ? payloadObj.orderId : undefined;
+    const diningTableId =
+      typeof payloadObj?.diningTableId === 'string'
+        ? payloadObj.diningTableId
+        : undefined;
+    const kitchenFireId =
+      typeof payloadObj?.kitchenFireId === 'string'
+        ? payloadObj.kitchenFireId
+        : undefined;
+
+    let waiterUrl = '/salon';
+    if (isDiningReady && orderId) {
+      const q = new URLSearchParams();
+      q.set('orderId', orderId);
+      if (kitchenFireId) q.set('fireId', kitchenFireId);
+      if (diningTableId) q.set('tableId', diningTableId);
+      waiterUrl = `/salon?${q.toString()}`;
+    }
+
+    const sendJobs = deliveries.flatMap((d) => {
+      const jobs = [
         this.webPushSender
           .sendToUser({
             userId: d.userId,
@@ -252,15 +275,11 @@ export class NotificationPublisherService {
               title: notification.title,
               body: notification.body,
               data: {
-                url,
+                url: posUrl,
                 kind: notification.kind,
                 domain: notification.domain,
                 deliveryId: d.id,
-                orderId:
-                  notification.payload &&
-                  typeof notification.payload === 'object'
-                    ? (notification.payload as Record<string, unknown>).orderId
-                    : undefined,
+                orderId,
               },
             },
           })
@@ -271,8 +290,39 @@ export class NotificationPublisherService {
               }`,
             );
           }),
-      ),
-    );
+      ];
+      if (isDiningReady) {
+        jobs.push(
+          this.webPushSender
+            .sendToUser({
+              userId: d.userId,
+              companyId: d.companyId,
+              clientApp: 'waiter',
+              payload: {
+                title: notification.title,
+                body: notification.body,
+                data: {
+                  url: waiterUrl,
+                  kind: notification.kind,
+                  domain: notification.domain,
+                  deliveryId: d.id,
+                  orderId,
+                },
+              },
+            })
+            .catch((e) => {
+              this.logger.warn(
+                `Web Push waiter failed user=${d.userId}: ${
+                  e instanceof Error ? e.message : String(e)
+                }`,
+              );
+            }),
+        );
+      }
+      return jobs;
+    });
+
+    await Promise.all(sendJobs);
   }
 
   private async getDedupWindowMinutes(

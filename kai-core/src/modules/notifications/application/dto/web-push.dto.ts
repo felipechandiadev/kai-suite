@@ -19,8 +19,8 @@ class PushSubscriptionDto {
 }
 
 export class SubscribeWebPushDto {
-  @IsIn(['pos', 'kds'])
-  clientApp!: 'pos' | 'kds';
+  @IsIn(['pos', 'kds', 'waiter'])
+  clientApp!: 'pos' | 'kds' | 'waiter';
 
   @IsObject()
   @ValidateNested()

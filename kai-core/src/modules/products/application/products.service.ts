@@ -59,6 +59,8 @@ const MOVEMENT_DIRECTION: Record<TransactionType, MovementDirection | null> = {
   [TransactionType.CASH_SESSION_WITHDRAWAL]: null,
   [TransactionType.CASH_SESSION_DEPOSIT]: null,
   [TransactionType.PAYROLL]: null,
+  [TransactionType.TIP_PAYOUT]: null,
+  [TransactionType.TIP_PAYOUT_LINE]: null,
   [TransactionType.CAPITAL_CONTRIBUTION]: null,
   [TransactionType.BANK_WITHDRAWAL_TO_SHAREHOLDER]: null,
   [TransactionType.CASH_WITHDRAWAL_TO_PETTY_CASH]: null,

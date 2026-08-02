@@ -19,6 +19,10 @@ export class MercadoPagoPointService {
     amount: number;
     cashSessionId: string;
     pointOfSaleId: string;
+    /** Monto fiscal de la venta (sin tip). */
+    saleAmount?: number | null;
+    /** Propina cobrada en el mismo intent (split lógico Art. 64). */
+    tipAmount?: number | null;
   }) {
     const settings = await this.companiesService.getMercadoPagoSettingsInternal(
       input.companyId,
@@ -40,6 +44,21 @@ export class MercadoPagoPointService {
       cashSessionId: input.cashSessionId,
       pointOfSaleId: input.pointOfSaleId,
     });
+
+    const tipAmount = Math.max(0, Math.round(Number(input.tipAmount) || 0));
+    const saleAmount =
+      input.saleAmount != null
+        ? Math.max(0, Math.round(Number(input.saleAmount) || 0))
+        : Math.max(0, Math.round(Number(input.amount) || 0) - tipAmount);
+    if (tipAmount > 0 || input.saleAmount != null) {
+      intent.metadata = {
+        ...(intent.metadata ?? {}),
+        tipSplit: true,
+        tipAmount,
+        saleAmount,
+      };
+      intent = await this.intentService.updateStatus(intent, intent.status);
+    }
 
     intent = await this.intentService.ensureMpCompatibleExternalReference(intent);
 

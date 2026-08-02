@@ -12,6 +12,11 @@ use crate::pos_sale_ticket_escpos::{
 use anyhow::Result;
 use std::path::PathBuf;
 
+/// Líneas en blanco al final (antes del feed/corte del worker).
+const DINING_ACCOUNT_BOTTOM_BLANK_LINES: usize = 4;
+/// Avance extra de papel (`ESC d n`) para que el pie no quede bajo la cuchilla.
+const DINING_ACCOUNT_BOTTOM_FEED_UNITS: u8 = 8;
+
 fn kind_label(kind: &str) -> &'static str {
     match kind.trim().to_uppercase().as_str() {
         "TABLE" => "Mesa",
@@ -35,6 +40,13 @@ fn append_line_notes(buf: &mut Vec<u8>, line: &PosDiningAccountTicketLine) {
             append_line(buf, &wrapped);
         }
     }
+}
+
+fn append_dining_account_bottom_feed(buf: &mut Vec<u8>) {
+    for _ in 0..DINING_ACCOUNT_BOTTOM_BLANK_LINES {
+        append_line(buf, "");
+    }
+    buf.extend_from_slice(&[0x1B, b'd', DINING_ACCOUNT_BOTTOM_FEED_UNITS]);
 }
 
 pub fn build_pos_dining_account_ticket_escpos(t: &PosDiningAccountTicket) -> Result<Vec<u8>> {
@@ -122,6 +134,29 @@ pub fn build_pos_dining_account_ticket_escpos(t: &PosDiningAccountTicket) -> Res
     escpos_bold(&mut buf, true);
     append_line(&mut buf, &pad_left("TOTAL:", &money(t.totals.total)));
     escpos_bold(&mut buf, false);
+
+    let tip_suggested = t
+        .totals
+        .tip_suggested_amount
+        .filter(|n| *n > 0.01);
+    if let Some(tip) = tip_suggested {
+        let pct = t.totals.tip_suggest_percent.filter(|p| *p > 0.0);
+        let tip_label = match pct {
+            Some(p) => format!("Propina sugerida ({:.0}%):", p),
+            None => "Propina sugerida:".to_string(),
+        };
+        append_line(&mut buf, &pad_left(&tip_label, &money(tip)));
+        let with_tip = t
+            .totals
+            .total_with_tip
+            .filter(|n| *n > 0.01)
+            .unwrap_or(t.totals.total + tip);
+        append_line(
+            &mut buf,
+            &pad_left("Total c/ propina (info):", &money(with_tip)),
+        );
+    }
+
     append_divider(&mut buf);
 
     let note = t.footer_note.trim();
@@ -132,7 +167,7 @@ pub fn build_pos_dining_account_ticket_escpos(t: &PosDiningAccountTicket) -> Res
         }
         escpos_align(&mut buf, 0);
     }
-    append_line(&mut buf, "");
+    append_dining_account_bottom_feed(&mut buf);
 
     Ok(buf)
 }
@@ -180,7 +215,12 @@ mod tests {
                 "lineTotal": 3000,
                 "notes": "sin azúcar"
             }],
-            "totals": { "total": 3000 },
+            "totals": {
+                "total": 3000,
+                "tipSuggestedAmount": 300,
+                "tipSuggestPercent": 10,
+                "totalWithTip": 3300
+            },
             "footerNote": "Documento informativo — no válido como boleta"
         });
         let t = parse_pos_dining_account_ticket_from_value(&value).expect("parse");
@@ -189,5 +229,12 @@ mod tests {
         let text = String::from_utf8_lossy(&bytes);
         assert!(text.contains("CUENTA"));
         assert!(text.contains("TOTAL"));
+        assert!(text.contains("Propina sugerida"));
+        assert!(text.contains("Total c/ propina"));
+        // Feed extra al pie (`ESC d n`)
+        assert!(
+            bytes.windows(3).any(|w| w == [0x1B, b'd', DINING_ACCOUNT_BOTTOM_FEED_UNITS]),
+            "expected ESC d feed at end of dining account ticket"
+        );
     }
 }

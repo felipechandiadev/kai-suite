@@ -161,6 +161,22 @@ export async function requestOrderBillAction(body: {
   return DiningRequest.requestBill(ctx(body), body.orderId);
 }
 
+export async function reopenOrderAction(body: {
+  userId: string;
+  companyId: string;
+  orderId: string;
+}) {
+  return DiningRequest.reopenOrder(ctx(body), body.orderId);
+}
+
+export async function getCompanyTipSettingsAction(body: {
+  userId: string;
+  companyId: string;
+}) {
+  const data = await DiningRequest.getTipSettings(ctx(body));
+  return data.tipSettings ?? null;
+}
+
 export async function cancelOrderItemAction(body: {
   userId: string;
   companyId: string;

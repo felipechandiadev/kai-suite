@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type {
   DiningOrderDto,
@@ -52,6 +52,19 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
   const deepLinkHandledRef = useRef<string | null>(null);
 
   const branchId = room?.branchId ?? "";
+
+  const openTableIds = useMemo(() => {
+    const uid = session.userId.trim();
+    if (!uid) return [];
+    return [
+      ...new Set(
+        orders
+          .filter((o) => (o.openedByUserId ?? "").trim() === uid)
+          .map((o) => (o.diningTableId ?? "").trim())
+          .filter(Boolean),
+      ),
+    ];
+  }, [orders, session.userId]);
 
   const refreshOrders = useCallback(async () => {
     if (!branchId) return [];
@@ -298,7 +311,9 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
   useDiningRealtime({
     userId: session.userId,
     activeCompanyId: session.companyId,
+    branchId: branchId || null,
     salonId: room?.id ?? null,
+    openTableIds,
     onSessionUpdated: () => {
       void refreshOrders().then((list) => {
         if (!selectedOrder || !list) return;

@@ -33,7 +33,13 @@ export type PosDiningAccountTicketPayload = {
   pointOfSaleName?: string | null;
   issuedAt: string;
   lines: PosDiningAccountTicketLine[];
-  totals: { total: number };
+  totals: {
+    total: number;
+    /** Propina sugerida (informativa; no fiscal). */
+    tipSuggestedAmount?: number | null;
+    tipSuggestPercent?: number | null;
+    totalWithTip?: number | null;
+  };
   footerNote: string;
 };
 

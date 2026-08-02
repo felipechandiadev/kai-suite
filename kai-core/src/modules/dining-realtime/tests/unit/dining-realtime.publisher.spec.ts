@@ -4,6 +4,7 @@ import {
   branchDiningRoom,
   kitchenUnitRoom,
   salonRoom,
+  tableRoom,
   type DiningKitchenItemUpdatedPayload,
   type DiningKitchenSnapshotPayload,
   type DiningSessionUpdatedPayload,
@@ -28,7 +29,7 @@ describe('DiningRealtimePublisher', () => {
     publisher.attachServer(server as Server);
   });
 
-  it('salonRoom, branchDiningRoom and kitchenUnitRoom use documented patterns', () => {
+  it('salonRoom, branchDiningRoom, kitchenUnitRoom and tableRoom use documented patterns', () => {
     expect(
       salonRoom({
         companyId: 'c1',
@@ -50,9 +51,16 @@ describe('DiningRealtimePublisher', () => {
         unitId: 'u1',
       }),
     ).toBe('company:c1:unit:u1');
+
+    expect(
+      tableRoom({
+        companyId: 'c1',
+        tableId: 't1',
+      }),
+    ).toBe('company:c1:table:t1');
   });
 
-  it('emitSessionUpdated targets branch room and salon room when salonId present', () => {
+  it('emitSessionUpdated targets branch, salon and table rooms when present', () => {
     const payload: DiningSessionUpdatedPayload = {
       companyId: 'c1',
       branchId: 'b1',
@@ -69,8 +77,9 @@ describe('DiningRealtimePublisher', () => {
 
     expect(to).toHaveBeenCalledWith('company:c1:branch:b1:dining');
     expect(to).toHaveBeenCalledWith('company:c1:branch:b1:salon:salon-1');
+    expect(to).toHaveBeenCalledWith('company:c1:table:table-1');
     expect(emit).toHaveBeenCalledWith('dining.session.updated', payload);
-    expect(emit).toHaveBeenCalledTimes(2);
+    expect(emit).toHaveBeenCalledTimes(3);
   });
 
   it('emitSessionUpdated still targets branch room when salonId is missing', () => {

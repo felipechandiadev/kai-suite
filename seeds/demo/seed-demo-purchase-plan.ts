@@ -2,7 +2,10 @@ import {
   SEED_STORAGE_CODE,
   SEED_STORAGE_PASTELERIA_CODE,
 } from './config';
-import { collectSeedDevPhysicalVariants } from './catalog';
+import {
+  collectSeedDevPhysicalVariants,
+  isKaiFoodSeedMode,
+} from './catalog';
 
 export type SeedPurchaseLine = {
   sku: string;
@@ -309,9 +312,11 @@ export function buildSeedDemoPurchasePlan(
     pushDoc({ ...insumo });
   }
 
-  // 5) Insumos textil / taller (fijos)
-  for (const insumo of INSUMO_TEXTIL_DOCS) {
-    pushDoc({ ...insumo });
+  // 5) Insumos textil / taller — omitidos en KaiFood (catálogo sin textil)
+  if (!isKaiFoodSeedMode()) {
+    for (const insumo of INSUMO_TEXTIL_DOCS) {
+      pushDoc({ ...insumo });
+    }
   }
 
   // 6) Insumos cocina PREPARADO (fijos → bodega principal / Cocina)

@@ -117,6 +117,11 @@ export function buildTicketReceiptDataFromCart(args: {
       total: Math.round(total),
       paid: printPlan === "BOLETA_AND_TICKET" ? 0 : base.totals.paid,
       change: printPlan === "BOLETA_AND_TICKET" ? 0 : base.totals.change,
+      // Tip cobrado es informativo (nunca va en DTE); debe ir en el ticket que imprime el agente.
+      tipAmount:
+        base.totals.tipAmount != null && base.totals.tipAmount > 0
+          ? Math.round(base.totals.tipAmount)
+          : undefined,
     },
     payments: printPlan === "BOLETA_AND_TICKET" ? [] : base.payments,
   };

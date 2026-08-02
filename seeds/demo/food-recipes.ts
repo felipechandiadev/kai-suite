@@ -2,6 +2,8 @@
  * Recetas PRODUCTION demo: output SKU → líneas (input SKU + qty por unidad de salida).
  * SKUs de insumos deben existir en `SEED_DEV_PRODUCTS`.
  */
+import { isKaiFoodSeedMode } from './catalog';
+
 export type SeedRecipeLineDef = {
   inputSku: string;
   qtyPerOutputUnit: number;
@@ -281,3 +283,17 @@ export const SEED_DEV_PRODUCTION_UNITS: readonly SeedProductionUnitDef[] = [
     purpose: 'BATCH',
   },
 ];
+
+/** Recetas efectivas según modo seed (food omite MANUFACTURADO textil). */
+export function getSeedDevProductionRecipes(): readonly SeedRecipeDef[] {
+  if (!isKaiFoodSeedMode()) return SEED_DEV_PRODUCTION_RECIPES;
+  return SEED_DEV_PRODUCTION_RECIPES.filter(
+    (r) => !r.outputSku.startsWith('SEEDDEVMAN'),
+  );
+}
+
+/** Unidades de producción efectivas (food omite TALLER textil). */
+export function getSeedDevProductionUnits(): readonly SeedProductionUnitDef[] {
+  if (!isKaiFoodSeedMode()) return SEED_DEV_PRODUCTION_UNITS;
+  return SEED_DEV_PRODUCTION_UNITS.filter((u) => u.code !== 'TALLER');
+}

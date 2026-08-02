@@ -133,21 +133,29 @@ export async function seedDemoOperationalHistory(ctx: {
     }
 
     const occurredOn = seedHistoricalDateFromDaysAgo(doc.daysAgo);
-    const lines = doc.lines.map((line) => {
-      const productVariantId = variantBySku.get(line.sku);
-      if (!productVariantId) {
-        throw new Error(`Variante seed no encontrada: ${line.sku}`);
-      }
-      return {
-        productVariantId,
-        quantity: line.qty,
-        receivedQuantity: line.qty,
-        unitCost: line.unitCost,
-        unitPrice: line.unitCost,
-      };
-    });
+    const lines = doc.lines
+      .filter((line) => variantBySku.has(line.sku))
+      .map((line) => {
+        const productVariantId = variantBySku.get(line.sku)!;
+        return {
+          productVariantId,
+          quantity: line.qty,
+          receivedQuantity: line.qty,
+          unitCost: line.unitCost,
+          unitPrice: line.unitCost,
+        };
+      });
+    if (lines.length === 0) {
+      console.warn(
+        `⏭️  Recepción seed omitida (sin SKUs en catálogo): ${doc.reference}`,
+      );
+      continue;
+    }
 
-    const subtotalNeto = computeLineSubtotalNeto(doc.lines);
+    const keptPurchaseLines = doc.lines.filter((line) =>
+      variantBySku.has(line.sku),
+    );
+    const subtotalNeto = computeLineSubtotalNeto(keptPurchaseLines);
     const supplierFiscalAmounts = buildSupplierFiscalAmounts(subtotalNeto, ivaTaxId);
     const supplierDocumentPayment = buildSupplierDocumentPayment(
       doc,

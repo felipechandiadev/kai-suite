@@ -11,12 +11,23 @@
  */
 export type TipDistributionMode = 'NONE' | 'DIRECT' | 'POOL' | 'POINTS';
 
+/**
+ * Pesos del acuerdo de trabajadores (POOL = %, POINTS = puntos).
+ * Clave = employeeId. Vacío → reparto igual entre tipsEligible.
+ */
+export type TipDistributionWeights = Record<string, number>;
+
 export interface CompanyTipSettings {
   enabled: boolean;
   suggestPercent: number;
   allowCustomAmount: boolean;
   allowCashTips: boolean;
   distributionMode: TipDistributionMode;
+  /**
+   * Acuerdo de trabajadores para POOL/POINTS (no es política del empleador).
+   * employeeId → peso.
+   */
+  distributionWeights: TipDistributionWeights;
 }
 
 export function buildDefaultCompanyTipSettings(): CompanyTipSettings {
@@ -26,6 +37,7 @@ export function buildDefaultCompanyTipSettings(): CompanyTipSettings {
     allowCustomAmount: true,
     allowCashTips: true,
     distributionMode: 'NONE',
+    distributionWeights: {},
   };
 }
 
@@ -61,6 +73,24 @@ function sanitizeDistributionMode(raw: unknown): TipDistributionMode {
   return 'NONE';
 }
 
+function sanitizeDistributionWeights(raw: unknown): TipDistributionWeights {
+  if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out: TipDistributionWeights = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    const id = String(k || '').trim();
+    if (!id) continue;
+    const n =
+      typeof v === 'number'
+        ? v
+        : typeof v === 'string' && v.trim() !== ''
+          ? Number(v)
+          : NaN;
+    if (!Number.isFinite(n) || n <= 0) continue;
+    out[id] = n;
+  }
+  return out;
+}
+
 export function sanitizeCompanyTipSettings(raw: unknown): CompanyTipSettings {
   const r = (raw ?? {}) as Partial<CompanyTipSettings> & {
     [k: string]: unknown;
@@ -73,5 +103,6 @@ export function sanitizeCompanyTipSettings(raw: unknown): CompanyTipSettings {
     allowCashTips:
       r.allowCashTips === undefined ? true : truthy(r.allowCashTips),
     distributionMode: sanitizeDistributionMode(r.distributionMode),
+    distributionWeights: sanitizeDistributionWeights(r.distributionWeights),
   };
 }

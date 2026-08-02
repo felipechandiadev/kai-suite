@@ -150,21 +150,24 @@ import {
   buildSeedEshopPublicContact,
   buildSeedPosPaymentList,
 } from './config';
+import { sanitizeCompanyTipSettings } from '@modules/companies/domain/company-tips.types';
+import { seedDemoTipsHistory } from './seed-demo-tips-history';
 import {
   SEED_DEV_ATTRIBUTES,
   SEED_DEV_ATTRIBUTE_TALLA,
-  SEED_DEV_BRANDS,
-  SEED_DEV_CATEGORIES,
-  SEED_DEV_PRODUCTS,
-  SEED_DEV_ESHOP_FEATURED_PRODUCT_NAMES,
   SEED_DEV_VARIANT_SKU_PREFIX,
   collectSeedDevCatalogProductNames,
   collectSeedDevCatalogSkus,
+  getSeedDevBrands,
+  getSeedDevCategories,
+  getSeedDevEshopFeaturedProductNames,
+  getSeedDevProducts,
+  isKaiFoodSeedMode,
   type SeedDevUnitKey,
 } from './catalog';
 import {
-  SEED_DEV_PRODUCTION_RECIPES,
-  SEED_DEV_PRODUCTION_UNITS,
+  getSeedDevProductionRecipes,
+  getSeedDevProductionUnits,
 } from './food-recipes';
 import { seedDemoDeliveryCalendar } from './seed-delivery-calendar';
 import { DiningRoom } from '@modules/dining/domain/dining-room.entity';
@@ -181,6 +184,13 @@ import {
 
 const SEED_IVA_DESCRIPTION =
   'Impuesto al Valor Agregado sobre ventas, servicios e importaciones.';
+
+/** Meseros seed (JP00009) — únicos tipsEligible en modo KaiFood. */
+const SEED_WAITER_DOCUMENT_NUMBERS = new Set([
+  '17.100.009-2',
+  '17.100.010-6',
+  '17.100.011-4',
+]);
 
 const SEED_HONORARIUM_RETENTION_NAME = 'Retención pago Honorarios';
 const SEED_HONORARIUM_RETENTION_DESCRIPTION =
@@ -1960,6 +1970,14 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
 };
 
 async function bootstrap() {
+  // Evita que el due-worker de tips quede con interval durante el seed.
+  if (
+    process.env.TIP_DUE_WORKER_INTERVAL_MS == null ||
+    String(process.env.TIP_DUE_WORKER_INTERVAL_MS).trim() === ''
+  ) {
+    process.env.TIP_DUE_WORKER_INTERVAL_MS = '0';
+  }
+
   const app = await NestFactory.createApplicationContext(SeedOperationalModule, {
     logger: ['error', 'warn', 'log'],
   });
@@ -1998,22 +2016,36 @@ async function bootstrap() {
     const membershipRoleRepo = dataSource.getRepository(UserCompanyRole);
     const userCompanyPersonRepo = dataSource.getRepository(UserCompanyPerson);
 
+    const foodMode = isKaiFoodSeedMode();
+    if (foodMode) {
+      console.log(
+        '🍽️  Seed modo KaiFood: catálogo gastronómico (sin textil/manufacturados/lavandería)',
+      );
+    }
+
     const userName = process.env.SEED_ADMIN_USERNAME || 'admin';
     const password = process.env.SEED_ADMIN_PASSWORD || '098098';
     const email = process.env.SEED_ADMIN_EMAIL || 'admin@kai.local';
+    const companyDefaults = foodMode ? SEED_DEV_COMPANY_SECOND : SEED_DEV_COMPANY;
     const razonSocial =
-      process.env.SEED_COMPANY_RAZON_SOCIAL || SEED_DEV_COMPANY.razonSocial;
+      process.env.SEED_COMPANY_RAZON_SOCIAL || companyDefaults.razonSocial;
     const nombreFantasia =
-      process.env.SEED_NOMBRE_FANTASIA || SEED_DEV_COMPANY.nombreFantasia;
+      process.env.SEED_NOMBRE_FANTASIA || companyDefaults.nombreFantasia;
     const businessActivity =
-      process.env.SEED_BUSINESS_ACTIVITY || SEED_DEV_COMPANY.businessActivity;
+      process.env.SEED_BUSINESS_ACTIVITY || companyDefaults.businessActivity;
     const rut = process.env.SEED_COMPANY_RUT || SEED_DEV_COMPANY.rut;
     const companyAddress =
-      process.env.SEED_COMPANY_ADDRESS || SEED_DEV_COMPANY.address;
+      process.env.SEED_COMPANY_ADDRESS ||
+      (foodMode ? SEED_DEV_COMPANY_SECOND.address : SEED_DEV_COMPANY.address);
     const companyMail =
-      process.env.SEED_COMPANY_MAIL || SEED_DEV_COMPANY.mail;
+      process.env.SEED_COMPANY_MAIL ||
+      (foodMode ? SEED_DEV_COMPANY_SECOND.mail : SEED_DEV_COMPANY.mail);
     const companyPhone =
-      process.env.SEED_COMPANY_PHONE || SEED_DEV_COMPANY.phone;
+      process.env.SEED_COMPANY_PHONE ||
+      (foodMode ? SEED_DEV_COMPANY_SECOND.phone : SEED_DEV_COMPANY.phone);
+    const companyKaiProduct = foodMode
+      ? SEED_DEV_COMPANY_SECOND.kaiProduct
+      : SEED_DEV_COMPANY.kaiProduct;
 
     assertValidChileCompanyRut(rut, 'SEED_COMPANY_RUT');
 
@@ -2034,7 +2066,7 @@ async function bootstrap() {
         siiResolutionNumber: SEED_DEV_COMPANY.siiResolutionNumber,
         siiResolutionDate: SEED_DEV_COMPANY.siiResolutionDate,
         defaultCurrency: SEED_DEV_COMPANY.defaultCurrency,
-        kaiProduct: SEED_DEV_COMPANY.kaiProduct,
+        kaiProduct: companyKaiProduct,
         isActive: true,
       });
       await companyRepo.save(company);
@@ -2052,7 +2084,7 @@ async function bootstrap() {
       company.city = SEED_DEV_COMPANY.city;
       company.siiResolutionNumber = SEED_DEV_COMPANY.siiResolutionNumber;
       company.siiResolutionDate = SEED_DEV_COMPANY.siiResolutionDate;
-      company.kaiProduct = SEED_DEV_COMPANY.kaiProduct;
+      company.kaiProduct = companyKaiProduct;
       await companyRepo.save(company);
       console.log(
         `✅ Empresa ya existía: id=${company.id} razonSocial='${company.razonSocial}' rut='${company.rut}' kaiProduct=${company.kaiProduct} (datos básicos actualizados)`,
@@ -2091,12 +2123,24 @@ async function bootstrap() {
       company.mail ?? SEED_DEV_COMPANY.mail,
       company.phone ?? SEED_DEV_COMPANY.phone,
     );
+    if (foodMode) {
+      syncedSettings.tips = sanitizeCompanyTipSettings({
+        enabled: true,
+        suggestPercent: 10,
+        allowCustomAmount: true,
+        allowCashTips: true,
+        distributionMode: 'DIRECT',
+        distributionWeights: {},
+      });
+    }
     company.settings = syncedSettings;
     await companyRepo.save(company);
     console.log(
       `✅ Settings empresa sincronizados: medios (${seedCompanyPaymentCatalog
         .map((c) => c.method)
-        .join(', ')}), cotizaciones 10/20 días, cheques ON, crédito interno ON, preventa ON`,
+        .join(', ')}), cotizaciones 10/20 días, cheques ON, crédito interno ON, preventa ON${
+        foodMode ? ', tips ON (DIRECT 10%)' : ''
+      }`,
     );
 
     const paymentCatalog = app.get(CompanyPaymentCatalogService);
@@ -3149,9 +3193,16 @@ async function bootstrap() {
       KG: unitKg.id,
     };
 
+    const seedDevProducts = getSeedDevProducts();
+    const seedDevCategories = getSeedDevCategories();
+    const seedDevBrands = getSeedDevBrands();
+    const seedDevFeaturedNames = getSeedDevEshopFeaturedProductNames();
+    const seedDevProductionUnits = getSeedDevProductionUnits();
+    const seedDevProductionRecipes = getSeedDevProductionRecipes();
+
     const categoryByName = await syncSeedCategories(
       categoryRepo,
-      SEED_DEV_CATEGORIES,
+      seedDevCategories,
       'Seed dev',
     );
 
@@ -3230,13 +3281,13 @@ async function bootstrap() {
     const brandIdByName = await syncSeedBrands(
       brandRepo,
       company.id,
-      SEED_DEV_BRANDS,
+      seedDevBrands,
       'Seed dev',
     );
-    console.log(`✅ Marcas desarrollo sincronizadas: ${SEED_DEV_BRANDS.length}`);
+    console.log(`✅ Marcas desarrollo sincronizadas: ${seedDevBrands.length}`);
 
     const { variantCount: devVariantCount, stockByVariantId: devStockByVariantId } =
-      await seedProductsFromDefinitions(SEED_DEV_PRODUCTS, {
+      await seedProductsFromDefinitions(seedDevProducts, {
         companyId: company.id,
         productRepo,
         variantRepo,
@@ -3253,9 +3304,13 @@ async function bootstrap() {
         defaultStockQty: 0,
       });
 
-    console.log(`✅ Catálogo desarrollo: ${devVariantCount} variante(s) en ${SEED_DEV_PRODUCTS.length} producto(s)`);
+    console.log(`✅ Catálogo desarrollo: ${devVariantCount} variante(s) en ${seedDevProducts.length} producto(s)`);
 
-    await seedDemoLaundryCatalog(dataSource, company.id);
+    if (!foodMode) {
+      await seedDemoLaundryCatalog(dataSource, company.id);
+    } else {
+      console.log('⏭️  Lavandería catálogo omitido (modo KaiFood)');
+    }
 
     await productRepo
       .createQueryBuilder()
@@ -3307,7 +3362,7 @@ async function bootstrap() {
       settings.eShopDefaultStorageId = seedSalaVenta.id;
 
       const featuredProductIds: string[] = [];
-      for (const productName of SEED_DEV_ESHOP_FEATURED_PRODUCT_NAMES) {
+      for (const productName of seedDevFeaturedNames) {
         const featuredProduct = await productRepo.findOne({
           where: { name: productName, companyId: company.id },
         });
@@ -3322,9 +3377,9 @@ async function bootstrap() {
       settings.eShopFeaturedProductIds = featuredProductIds;
       settings.eShopFeaturedProductVariantIds = [];
 
-      if (featuredProductIds.length < SEED_DEV_ESHOP_FEATURED_PRODUCT_NAMES.length) {
+      if (featuredProductIds.length < seedDevFeaturedNames.length) {
         console.warn(
-          `⚠️ Seed dev: solo ${featuredProductIds.length}/${SEED_DEV_ESHOP_FEATURED_PRODUCT_NAMES.length} producto(s) destacados eShop encontrados`,
+          `⚠️ Seed dev: solo ${featuredProductIds.length}/${seedDevFeaturedNames.length} producto(s) destacados eShop encontrados`,
         );
       }
 
@@ -3489,7 +3544,7 @@ async function bootstrap() {
 
     const productionUnitRepo = dataSource.getRepository(ProductionUnit);
 
-    for (const unitDef of SEED_DEV_PRODUCTION_UNITS) {
+    for (const unitDef of seedDevProductionUnits) {
       const scope =
         unitDef.scope === 'COMPANY'
           ? ProductionUnitScope.COMPANY
@@ -3592,7 +3647,7 @@ async function bootstrap() {
 
     let recipesCreated = 0;
     let recipesUpdated = 0;
-    for (const recipeDef of SEED_DEV_PRODUCTION_RECIPES) {
+    for (const recipeDef of seedDevProductionRecipes) {
       const outputVariantId = skuToVariantId.get(recipeDef.outputSku);
       if (!outputVariantId) {
         console.warn(
@@ -3661,7 +3716,7 @@ async function bootstrap() {
       else recipesCreated += 1;
     }
     console.log(
-      `✅ Recetas PRODUCTION: ${recipesCreated} creada(s), ${recipesUpdated} actualizada(s) (total defs=${SEED_DEV_PRODUCTION_RECIPES.length})`,
+      `✅ Recetas PRODUCTION: ${recipesCreated} creada(s), ${recipesUpdated} actualizada(s) (total defs=${seedDevProductionRecipes.length})`,
     );
 
     // CTP: routing variante → UP + stock insumos en bodega pastelería
@@ -4614,7 +4669,9 @@ async function bootstrap() {
         contract.extraHoursMode = def.extraHoursMode;
         contract.baseSalary = employee.baseSalary ?? null;
         contract.feeAmount = null;
-        contract.tipsEligible = def.tipsEligible ?? false;
+        contract.tipsEligible = foodMode
+          ? SEED_WAITER_DOCUMENT_NUMBERS.has(documentNumber)
+          : def.tipsEligible ?? false;
         contract.afpId = afp.id;
         contract.afpCode = afp.code;
         contract.afpName = afp.name;
@@ -4677,8 +4734,14 @@ async function bootstrap() {
             ? ` ${contract.weeklyHours}h · ${contract.shiftSystemCode}` +
               (contract.salesCommissionType === SalesCommissionType.PERCENT
                 ? ` · comisión ${contract.salesCommissionValue}%`
-                : '')
+                : '') +
+              (contract.tipsEligible ? ' · tipsEligible' : '')
             : ` honorario=${contract.feeAmount}`),
+      );
+    }
+    if (foodMode) {
+      console.log(
+        '✅ KaiFood: tipsEligible solo meseros (17.100.009-2 / 010-6 / 011-4)',
       );
     }
 
@@ -5158,6 +5221,59 @@ async function bootstrap() {
       operatorUserIds[opName] = opUser.id;
     }
 
+    await ensureSeedUser({
+      userName: 'mesero1',
+      password: seedPassword,
+      rol: UserRole.WAITER,
+      companyId: company.id,
+      nonDeletable: false,
+      firstName: 'Camila',
+      lastName: 'Rojas Paredes',
+      email: 'camila.rojas@empleado.local',
+      documentNumber: '17.100.009-2',
+      phone: '+56 9 7000 0009',
+    });
+
+    await ensureSeedUser({
+      userName: 'mesero2',
+      password: seedPassword,
+      rol: UserRole.WAITER,
+      companyId: company.id,
+      nonDeletable: false,
+      firstName: 'Diego',
+      lastName: 'Muñoz Castillo',
+      email: 'diego.munoz@empleado.local',
+      documentNumber: '17.100.010-6',
+      phone: '+56 9 7000 0010',
+    });
+
+    await ensureSeedUser({
+      userName: 'mesero3',
+      password: seedPassword,
+      rol: UserRole.WAITER,
+      companyId: company.id,
+      nonDeletable: false,
+      firstName: 'Javiera',
+      lastName: 'Soto Ibáñez',
+      email: 'javiera.soto@empleado.local',
+      documentNumber: '17.100.011-4',
+      phone: '+56 9 7000 0011',
+    });
+
+    const waiterUserNames = ['mesero1', 'mesero2', 'mesero3'] as const;
+    const waiterUserIds: Record<string, string> = {};
+    for (const wName of waiterUserNames) {
+      const wUser = await userRepo.findOne({
+        where: { userName: wName, deletedAt: null as never },
+      });
+      if (!wUser) {
+        throw new Error(
+          `Usuario mesero seed '${wName}' no encontrado tras ensureSeedUser`,
+        );
+      }
+      waiterUserIds[wName] = wUser.id;
+    }
+
     await seedDemoOperationalHistory({
       app,
       dataSource,
@@ -5166,6 +5282,17 @@ async function bootstrap() {
       adminUserId: adminUser.id,
       operatorUserIds,
     });
+
+    if (foodMode) {
+      await seedDemoTipsHistory({
+        app,
+        dataSource,
+        companyId: company.id,
+        branchId: seedBranch.id,
+        operatorUserIds,
+        waiterUserIds,
+      });
+    }
 
     await ensureSeedUser({
       userName: 'admin2',
@@ -5205,45 +5332,6 @@ async function bootstrap() {
       email: 'delivery2@kai.local',
       documentNumber: '19.884.201-7',
       phone: '+56 9 5432 1098',
-    });
-
-    await ensureSeedUser({
-      userName: 'mesero1',
-      password: seedPassword,
-      rol: UserRole.WAITER,
-      companyId: company.id,
-      nonDeletable: false,
-      firstName: 'Camila',
-      lastName: 'Rojas Paredes',
-      email: 'camila.rojas@empleado.local',
-      documentNumber: '17.100.009-2',
-      phone: '+56 9 7000 0009',
-    });
-
-    await ensureSeedUser({
-      userName: 'mesero2',
-      password: seedPassword,
-      rol: UserRole.WAITER,
-      companyId: company.id,
-      nonDeletable: false,
-      firstName: 'Diego',
-      lastName: 'Muñoz Castillo',
-      email: 'diego.munoz@empleado.local',
-      documentNumber: '17.100.010-6',
-      phone: '+56 9 7000 0010',
-    });
-
-    await ensureSeedUser({
-      userName: 'mesero3',
-      password: seedPassword,
-      rol: UserRole.WAITER,
-      companyId: company.id,
-      nonDeletable: false,
-      firstName: 'Javiera',
-      lastName: 'Soto Ibáñez',
-      email: 'javiera.soto@empleado.local',
-      documentNumber: '17.100.011-4',
-      phone: '+56 9 7000 0011',
     });
 
     await seedDemoDeliveryCalendar({

@@ -1,41 +1,30 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
-import Link from "next/link";
-import { Alert, TextField } from "@kai/ui";
+import { useEffect, useState, useTransition } from "react";
+import { Alert, DotProgress } from "@kai/ui";
 import { getTipSummaryAction } from "@/features/kaifood-tips/actions/kaifood-tips.action";
-
-function monthBounds(): { dateFrom: string; dateTo: string } {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth() + 1;
-  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  return {
-    dateFrom: `${y}-${String(m).padStart(2, "0")}-01`,
-    dateTo: `${y}-${String(m).padStart(2, "0")}-${String(last).padStart(2, "0")}`,
-  };
-}
-
-function fmtClp(n: number) {
-  return new Intl.NumberFormat("es-CL", {
-    style: "currency",
-    currency: "CLP",
-    maximumFractionDigits: 0,
-  }).format(n);
-}
+import { formatTipClp } from "@/features/kaifood-tips/lib/tip-labels";
+import {
+  defaultPropinasPeriod,
+  PropinasPeriodFilter,
+  type PropinasPeriodValue,
+} from "./PropinasPeriodFilter";
 
 export function PropinasResumenView() {
-  const defaults = useMemo(() => monthBounds(), []);
-  const [dateFrom, setDateFrom] = useState(defaults.dateFrom);
-  const [dateTo, setDateTo] = useState(defaults.dateTo);
+  const [period, setPeriod] = useState<PropinasPeriodValue>(defaultPropinasPeriod);
   const [error, setError] = useState<string | null>(null);
   const [accruedTotal, setAccruedTotal] = useState(0);
   const [accruedCount, setAccruedCount] = useState(0);
+  const [overdueTotal, setOverdueTotal] = useState(0);
+  const [overdueCount, setOverdueCount] = useState(0);
   const [pending, startTransition] = useTransition();
 
-  const load = () => {
+  useEffect(() => {
     startTransition(() => {
-      void getTipSummaryAction({ dateFrom, dateTo }).then((res) => {
+      void getTipSummaryAction({
+        dateFrom: period.dateFrom,
+        dateTo: period.dateTo,
+      }).then((res) => {
         if (!res.success) {
           setError(res.message);
           return;
@@ -43,70 +32,57 @@ export function PropinasResumenView() {
         setError(null);
         setAccruedTotal(res.data.accruedTotal);
         setAccruedCount(res.data.accruedCount);
+        setOverdueTotal(res.data.overdueTotal ?? 0);
+        setOverdueCount(res.data.overdueCount ?? 0);
       });
     });
-  };
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- load on mount / range change
-  }, [dateFrom, dateTo]);
+  }, [period.dateFrom, period.dateTo]);
 
   return (
-    <div className="flex flex-col gap-4 p-4 md:p-6" data-test-id="kaifood-propinas-resumen">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">Propinas</h1>
-          <p className="text-sm text-muted-foreground">
-            Resumen de propinas acumuladas (no son ingreso de venta).
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2 text-sm">
-          <Link href="/kaifood/propinas/movimientos" className="underline">
-            Movimientos
-          </Link>
-          <Link href="/kaifood/propinas/reportes" className="underline">
-            Reportes
-          </Link>
-          <Link href="/kaifood/configuracion" className="underline">
-            Configuración
-          </Link>
-        </div>
+    <div
+      className="flex flex-col gap-4 p-4 md:p-6"
+      data-test-id="kaifood-propinas-resumen"
+    >
+      <div>
+        <h1 className="text-xl font-semibold text-foreground">Propinas</h1>
+        <p className="text-sm text-muted-foreground">
+          Resumen de propinas acumuladas. No forman parte del ingreso de venta.
+        </p>
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <TextField
-          label="Desde"
-          type="date"
-          value={dateFrom}
-          onChange={(e) => setDateFrom(e.target.value)}
-        />
-        <TextField
-          label="Hasta"
-          type="date"
-          value={dateTo}
-          onChange={(e) => setDateTo(e.target.value)}
-        />
-      </div>
+      <PropinasPeriodFilter value={period} onChange={setPeriod} />
 
       {error ? <Alert variant="error">{error}</Alert> : null}
+      {pending ? <DotProgress aria-label="Cargando resumen" /> : null}
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            Pendiente (ACCRUED)
+            Pendiente de pago
           </p>
           <p className="mt-1 text-2xl font-semibold tabular-nums">
-            {pending ? "…" : fmtClp(accruedTotal)}
+            {formatTipClp(accruedTotal)}
           </p>
         </div>
         <div className="rounded-xl border border-border bg-card p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            Cobros con tip
+            Cobros con propina
+          </p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">{accruedCount}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            Vencido (tarjeta)
           </p>
           <p className="mt-1 text-2xl font-semibold tabular-nums">
-            {pending ? "…" : accruedCount}
+            {formatTipClp(overdueTotal)}
           </p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            Cobros vencidos
+          </p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">{overdueCount}</p>
         </div>
       </div>
     </div>

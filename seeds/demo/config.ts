@@ -393,6 +393,15 @@ export function buildSeedCompanySettings(
     },
     internalCustomerCredit: { enabled: true },
     presales: { enabled: true },
+    /** Solo meaningful en KaiFood; el seed food pisa enabled/mode tras build. */
+    tips: {
+      enabled: false,
+      suggestPercent: 10,
+      allowCustomAmount: true,
+      allowCashTips: true,
+      distributionMode: 'NONE' as const,
+      distributionWeights: {},
+    },
     eShopEnabled: true,
     eShopPublicSlug: 'demo',
     eShopCustomerPortalEnabled: true,

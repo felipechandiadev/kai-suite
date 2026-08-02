@@ -1529,6 +1529,10 @@ export class DiningService {
     const companyId = this.requireCompanyId();
     const order = await this.getOrderOrThrow(orderId, companyId);
 
+    if (order.status === DiningOrderStatus.BILLING) {
+      return order;
+    }
+
     if (!canRequestBill(order.status)) {
       throw new BadRequestException(
         'La cuenta no puede pasar a cobro en su estado actual.',

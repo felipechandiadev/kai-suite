@@ -12,6 +12,14 @@ export function salonRoom(params: {
   return `company:${params.companyId}:branch:${params.branchId}:salon:${params.salonId}`;
 }
 
+/** Room por mesa (mesero con esa cuenta abierta). */
+export function tableRoom(params: {
+  companyId: string;
+  tableId: string;
+}): string {
+  return `company:${params.companyId}:table:${params.tableId}`;
+}
+
 /** Room de sucursal para POS / cuentas (mesas, barra, takeaway). */
 export function branchDiningRoom(params: {
   companyId: string;

@@ -18,6 +18,8 @@ export class MercadoPagoPosController {
       amount: number;
       cashSessionId: string;
       pointOfSaleId: string;
+      saleAmount?: number | null;
+      tipAmount?: number | null;
     },
   ) {
     return this.pointService.createPointIntent({
@@ -25,6 +27,8 @@ export class MercadoPagoPosController {
       amount: body.amount,
       cashSessionId: body.cashSessionId?.trim(),
       pointOfSaleId: body.pointOfSaleId?.trim(),
+      saleAmount: body.saleAmount,
+      tipAmount: body.tipAmount,
     });
   }
 

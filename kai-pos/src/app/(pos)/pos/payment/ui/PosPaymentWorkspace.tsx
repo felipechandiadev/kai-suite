@@ -2016,10 +2016,15 @@ export default function PosPaymentWorkspace({
     setMpPointBusy(true);
     setMpPointStatus("Esperando pago en la terminal Point…");
     setPaymentMethodsAlert("");
+    const tipForPoint =
+      tipSettings?.enabled && activeDiningOrderId ? tipPayable : 0;
+    const saleForPoint = Math.max(0, amount - tipForPoint);
     const created = await createMpPointIntentAction({
       amount,
       cashSessionId: ctx.cashSessionId.trim(),
       pointOfSaleId: ctx.pointOfSaleId.trim(),
+      saleAmount: saleForPoint,
+      tipAmount: tipForPoint > 0 ? tipForPoint : null,
     });
     if (!created.success) {
       setMpPointBusy(false);
@@ -2065,7 +2070,7 @@ export default function PosPaymentWorkspace({
         paymentGatewayIntentId: intent.id,
       },
     ]);
-  }, [remaining, setPayments]);
+  }, [remaining, setPayments, tipSettings, activeDiningOrderId, tipPayable]);
 
   const openInternalCreditDialog = useCallback(
     (lineId?: string | null) => {
@@ -3759,9 +3764,13 @@ export default function PosPaymentWorkspace({
           gross: totals.gross,
           taxes,
           discounts,
-          saleTotal: amountToPay,
+          saleTotal:
+            tipPayable > 0
+              ? Math.max(0, Math.round(amountToPay - tipPayable))
+              : amountToPay,
           appliedTotal: appliedTotal,
           overpay,
+          tipAmount: tipPayable > 0 ? tipPayable : undefined,
         },
         methodsById,
         loadedQuotation,

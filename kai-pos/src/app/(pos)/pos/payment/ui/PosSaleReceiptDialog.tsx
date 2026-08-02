@@ -176,6 +176,8 @@ export type PosSaleReceiptData = {
     total: number;
     paid: number;
     change: number;
+    /** Propina informativa (no fiscal / no DTE). */
+    tipAmount?: number;
   };
   payments: PosSaleReceiptPayment[];
   /** Venta emitida sin cobro inmediato (AR). */
@@ -219,6 +221,8 @@ export type PosSaleReceiptSnapshotInput = {
     saleTotal: number;
     appliedTotal: number;
     overpay: number;
+    /** Propina cobrada (informativa; fuera del total fiscal). */
+    tipAmount?: number;
   };
   methodsById: Map<string, EffectivePaymentMethod>;
   loadedQuotation: LoadedQuotationMeta | null;
@@ -402,6 +406,10 @@ export function buildPosSaleReceiptSnapshot(input: PosSaleReceiptSnapshotInput):
       total: input.totals.saleTotal,
       paid: input.totals.appliedTotal,
       change: input.totals.overpay,
+      tipAmount:
+        input.totals.tipAmount != null && input.totals.tipAmount > 0
+          ? Math.round(input.totals.tipAmount)
+          : undefined,
     },
     payments,
     collectionPending: input.collectionPending === true,
@@ -625,6 +633,13 @@ export function buildPosSaleReceiptHtml(
          <div class="row tot"><span>Abono</span><span>${formatMoney(data.backorder.depositAmount)}</span></div>
          <div class="row"><span>Saldo pendiente</span><span>${formatMoney(Math.max(0, data.backorder.orderTotal - data.backorder.depositAmount))}</span></div>`
       : `<div class="row tot"><span>TOTAL</span><span>${formatMoney(data.totals.total)}</span></div>`
+  }
+  ${
+    (data.totals.tipAmount ?? 0) > 0.01
+      ? `<div class="row"><span>Propina (info)</span><span>${formatMoney(data.totals.tipAmount ?? 0)}</span></div>
+  <p class="center muted" style="font-size:10px">La propina no forma parte de la boleta</p>
+  <div class="row"><span>Total cobrado</span><span>${formatMoney(data.totals.total + (data.totals.tipAmount ?? 0))}</span></div>`
+      : ""
   }
   ${paymentsSection}
   ${arCollectionBlock}

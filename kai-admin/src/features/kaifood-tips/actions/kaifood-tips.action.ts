@@ -65,3 +65,54 @@ export async function getTipSummaryAction(params?: {
     return fail(e instanceof Error ? e.message : "Error resumen");
   }
 }
+
+export async function getTipOverdueAction() {
+  try {
+    const data = await KaifoodTipsRequest.overdue();
+    if (!data) return fail("No se pudo cargar vencidos");
+    return { success: true as const, data };
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Error vencidos");
+  }
+}
+
+export async function getTipBalancesAction() {
+  try {
+    const data = await KaifoodTipsRequest.balances();
+    if (!data) return fail("No se pudieron cargar saldos");
+    return { success: true as const, data };
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Error saldos");
+  }
+}
+
+export async function attributeTipsAction(params?: {
+  dateFrom?: string;
+  dateTo?: string;
+}) {
+  try {
+    const res = await KaifoodTipsRequest.attribute(params);
+    if (!res.success) return fail(res.error);
+    revalidatePath("/kaifood/propinas", "layout");
+    return { success: true as const, data: res.data };
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Error atribución");
+  }
+}
+
+export async function createTipPayoutAction(body: {
+  lines: Array<{ employeeId: string; amount?: number }>;
+  paymentMethod?: "CASH" | "TRANSFER" | "CHECK";
+  companyBankAccountKey?: string | null;
+  cashHubId?: string | null;
+  notes?: string | null;
+}) {
+  try {
+    const res = await KaifoodTipsRequest.payout(body);
+    if (!res.success) return fail(res.error);
+    revalidatePath("/kaifood/propinas", "layout");
+    return { success: true as const, data: res.data };
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Error pago propinas");
+  }
+}

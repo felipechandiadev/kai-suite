@@ -353,6 +353,8 @@ export class CreateTransactionDto {
       TransactionType.PAYMENT_EXECUTION,
       TransactionType.BACKORDER,
       TransactionType.CUSTOMER_ORDER,
+      TransactionType.TIP_PAYOUT,
+      TransactionType.TIP_PAYOUT_LINE,
     ];
     if (requirePositive.includes(this.transactionType) && !poDraft) {
       if (this.subtotal < 0.01) {

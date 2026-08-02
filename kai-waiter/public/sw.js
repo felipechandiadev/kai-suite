@@ -1,4 +1,4 @@
-// Cache shell Kai Waiter (L1)
+// Service worker Waiter — shell L2 + push nativo + click → /salon
 const CACHE_NAME = "kai-waiter-v1";
 const CORE_ASSETS = [
   "/",
@@ -57,4 +57,70 @@ self.addEventListener("fetch", (event) => {
   }
 
   event.respondWith(caches.match(req).then((cached) => cached || fetch(req)));
+});
+
+self.addEventListener("push", (event) => {
+  let title = "KaiFood Mesero";
+  let body = "";
+  let data = { url: "/salon" };
+  try {
+    const raw = event.data ? event.data.text() : "";
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        if (typeof parsed.title === "string" && parsed.title.trim()) {
+          title = parsed.title.trim();
+        }
+        if (typeof parsed.body === "string") body = parsed.body;
+        if (parsed.data && typeof parsed.data === "object") {
+          data = { ...data, ...parsed.data };
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      data,
+      icon: "/android-chrome-192x192.png",
+      badge: "/android-chrome-192x192.png",
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const rawUrl =
+    event.notification?.data && typeof event.notification.data.url === "string"
+      ? event.notification.data.url
+      : "/salon";
+  const target = rawUrl.startsWith("/") ? rawUrl : "/salon";
+
+  event.waitUntil(
+    (async () => {
+      const all = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      for (const client of all) {
+        if ("focus" in client) {
+          await client.focus();
+          if ("navigate" in client && typeof client.navigate === "function") {
+            try {
+              await client.navigate(target);
+            } catch {
+              // ignore
+            }
+          }
+          return;
+        }
+      }
+      if (self.clients.openWindow) {
+        await self.clients.openWindow(target);
+      }
+    })(),
+  );
 });

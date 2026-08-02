@@ -127,6 +127,7 @@ import { DiningBranchSettings } from '@modules/dining/domain/dining-branch-setti
 import { DiningOrderSequence } from '@modules/dining/domain/dining-order-sequence.entity';
 import { DiningKitchenFireSequence } from '@modules/dining/domain/dining-kitchen-fire-sequence.entity';
 import { DiningBoardDisplay } from '@modules/dining/domain/dining-board-display.entity';
+import { PrintAgent } from '@modules/print-agents/domain/print-agent.entity';
 import { HrJornadaConfig } from '@modules/hr-jornada/domain/hr-jornada-config.entity';
 import { HrHoliday, HrHolidayOverride } from '@modules/hr-jornada/domain/hr-holiday.entity';
 import { HrShiftTemplate } from '@modules/hr-jornada/domain/hr-shift-template.entity';
@@ -287,6 +288,7 @@ export const typeOrmConfig = (
       DiningOrderSequence,
       DiningKitchenFireSequence,
       DiningBoardDisplay,
+      PrintAgent,
       HrJornadaConfig,
       HrHoliday,
       HrHolidayOverride,

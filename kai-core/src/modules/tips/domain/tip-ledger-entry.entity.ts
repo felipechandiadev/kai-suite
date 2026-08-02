@@ -24,6 +24,8 @@ export enum TipCaptureStatus {
 @Entity('tip_ledger_entries')
 @Index(['companyId', 'createdAt'])
 @Index(['companyId', 'status'])
+@Index(['companyId', 'dueAt'])
+@Index(['companyId', 'employeeId'])
 @Index(['saleTransactionId'], { unique: true })
 export class TipLedgerEntry {
   @PrimaryGeneratedColumn('uuid')
@@ -61,6 +63,21 @@ export class TipLedgerEntry {
 
   @Column({ type: 'uuid', nullable: true })
   employeeId?: string | null;
+
+  /** Monto ya enterado a trabajadores (parcial o total). */
+  @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+  amountPaid!: string;
+
+  /** Plazo legal tip tarjeta (createdAt + 7 días hábiles). */
+  @Column({ type: 'timestamptz', nullable: true })
+  dueAt?: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  attributedAt?: Date | null;
+
+  /** Lote TIP_PAYOUT (o PAYROLL) que cerró este asiento. */
+  @Column({ type: 'uuid', nullable: true })
+  payoutTransactionId?: string | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;

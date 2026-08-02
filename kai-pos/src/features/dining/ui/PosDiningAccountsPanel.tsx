@@ -37,6 +37,7 @@ import { diningAccountTitle } from "@/features/dining/lib/dining-account-title";
 import { groupDiningFiresForBoard } from "@/features/dining/lib/group-dining-fires-for-board";
 import { printDiningAccountTicketAgentOrBrowser } from "@/features/dining/lib/dining-account-ticket-agent";
 import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
+import { getCompanyTipSettingsForPosAction } from "@/features/company/actions/company-tips.action";
 import { lookupPosVariantsAction } from "@/features/pos-products/actions/pos-products.action";
 import {
   readPosDiningMenuColumnCollapsed,
@@ -902,6 +903,25 @@ export default function PosDiningAccountsPanel({
       company = null;
     }
 
+    const fiscalTotal = lines.reduce(
+      (sum, l) => sum + Math.round((Number(l.quantity) || 0) * (Number(l.unitPrice) || 0)),
+      0,
+    );
+    let tipSuggestPercent: number | null = null;
+    let tipSuggestedAmount: number | null = null;
+    try {
+      const tipRes = await getCompanyTipSettingsForPosAction();
+      if (tipRes.success && tipRes.tipSettings?.enabled) {
+        tipSuggestPercent = tipRes.tipSettings.suggestPercent;
+        tipSuggestedAmount = Math.max(
+          0,
+          Math.round((fiscalTotal * tipSuggestPercent) / 100),
+        );
+      }
+    } catch {
+      // tips optional
+    }
+
     await printDiningAccountTicketAgentOrBrowser({
       orderId: order.id,
       displayLabel: order.displayLabel,
@@ -910,6 +930,8 @@ export default function PosDiningAccountsPanel({
       status: order.status,
       lines,
       company,
+      tipSuggestPercent,
+      tipSuggestedAmount,
     });
     setActionBusy(false);
     refreshList({ silent: true });

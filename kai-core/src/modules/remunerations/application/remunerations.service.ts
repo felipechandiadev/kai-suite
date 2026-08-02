@@ -44,7 +44,8 @@ import { PayrollStatutoryCalculator } from './payroll-statutory.calculator';
 import { PayrollAutoExpenseService } from './payroll-auto-expense.service';
 import type { PayrollEmployerCost } from '../domain/payroll-imponible';
 import { isStatutoryEmployeeDeduction } from '../domain/payroll-imponible';
-import { PayrollLineCategory } from '../domain/payroll-line-type.enum';
+import { PayrollLineCategory, PayrollEarningTypeId } from '../domain/payroll-line-type.enum';
+import { TipsService, tipAmountOpen } from '@modules/tips/application/tips.service';
 
 export interface PlannedPaymentLineInput {
   dueDate: string;
@@ -75,6 +76,9 @@ export class RemunerationsService {
     @Optional()
     @Inject(forwardRef(() => HrJornadaService))
     private readonly jornadaService?: HrJornadaService,
+    @Optional()
+    @Inject(forwardRef(() => TipsService))
+    private readonly tipsService?: TipsService,
   ) {}
 
   private async appendTimelineSafe(
@@ -229,6 +233,33 @@ export class RemunerationsService {
         amount: a.amount,
       })),
     ];
+
+    // A4: sugerir tip pendiente no imponible si hay saldo TipLedger atribuido.
+    if (this.tipsService) {
+      const companyId = TenantContext.getCompanyId() ?? employee.companyId;
+      if (companyId) {
+        try {
+          const tipOpen = await this.tipsService.openAmountForEmployee(
+            companyId,
+            data.employeeId,
+          );
+          if (tipOpen.openAmount > 0) {
+            const already = earningLines.some(
+              (l) => String(l.typeId).toUpperCase() === PayrollEarningTypeId.TIP,
+            );
+            if (!already) {
+              earningLines.push({
+                typeId: PayrollEarningTypeId.TIP,
+                amount: Math.round(tipOpen.openAmount),
+              });
+            }
+          }
+        } catch {
+          // tips module optional
+        }
+      }
+    }
+
     const allLines = [
       ...earningLines,
       ...statutory.suggestedDeductions.map((d) => ({
@@ -264,7 +295,7 @@ export class RemunerationsService {
         netPayment: totals.netPayment,
         taxableBase: statutory.taxableBase,
       },
-      note: 'Los aportes del empleador no se descuentan del sueldo líquido.',
+      note: 'Los aportes del empleador no se descuentan del sueldo líquido. La línea TIP (propinas) es no imponible.',
     };
   }
 
@@ -427,6 +458,13 @@ export class RemunerationsService {
     dto.metadata = metadata;
 
     const created = await this.transactionsService.createTransaction(dto);
+
+    await this.syncTipLedgerFromPayrollLines({
+      companyId,
+      employeeId: employee.id,
+      lines: data.lines,
+      payrollTransactionId: created.id,
+    });
 
     await this.appendTimelineSafe({
       employeeId: employee.id,
@@ -635,6 +673,48 @@ export class RemunerationsService {
       { status: TransactionStatus.CANCELLED },
     );
     return { success: true };
+  }
+
+  private async syncTipLedgerFromPayrollLines(opts: {
+    companyId: string;
+    employeeId: string;
+    lines: PayrollLineInput[];
+    payrollTransactionId: string;
+  }): Promise<void> {
+    if (!this.tipsService) return;
+    const tipLine = opts.lines.find(
+      (l) => String(l.typeId).trim().toUpperCase() === PayrollEarningTypeId.TIP,
+    );
+    if (!tipLine) return;
+    const tipAmount = Math.max(0, Math.round(Number(tipLine.amount) || 0));
+    if (tipAmount <= 0) return;
+
+    try {
+      const entries = await this.tipsService.listOpenEntriesForEmployee(
+        opts.companyId,
+        opts.employeeId,
+      );
+      let remaining = tipAmount;
+      const amountsByEntryId: Record<string, number> = {};
+      const entryIds: string[] = [];
+      for (const e of entries) {
+        if (remaining <= 0) break;
+        const open = tipAmountOpen(e);
+        const take = Math.min(open, remaining);
+        if (take <= 0) continue;
+        amountsByEntryId[e.id] = take;
+        entryIds.push(e.id);
+        remaining -= take;
+      }
+      if (entryIds.length === 0) return;
+      await this.tipsService.applyPayoutToEntries({
+        entryIds,
+        amountsByEntryId,
+        payoutTransactionId: opts.payrollTransactionId,
+      });
+    } catch {
+      // no bloquear liquidación si tip sync falla
+    }
   }
 
   private async createPayrollPaymentLine(opts: {

@@ -159,7 +159,8 @@ export function WaiterTableScreen({
             className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-foreground"
             data-test-id="waiter-billing-banner"
           >
-            Cuenta pedida. Si agregás ítems desde Menú, la comanda se reabre.
+            Cuenta pedida. Para agregar o modificar ítems, reabrí la cuenta desde
+            la pestaña Cuenta.
           </p>
         ) : null}
 

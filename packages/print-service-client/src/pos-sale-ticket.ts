@@ -64,6 +64,8 @@ export type PosSaleTicketTotals = {
   orderDiscount: number;
   total: number;
   change: number;
+  /** Propina cobrada (informativa; fuera del total fiscal / DTE). */
+  tipAmount?: number | null;
 };
 
 export type PosSaleTicketCollectionRow = {

@@ -197,18 +197,6 @@ export const mainMenuItems: SideBarMenuItem[] = [
         requiresTipsEnabled: true,
       },
       {
-        id: 'kaifood-propinas-movimientos',
-        label: 'Propinas · Movimientos',
-        url: '/kaifood/propinas/movimientos',
-        requiresTipsEnabled: true,
-      },
-      {
-        id: 'kaifood-propinas-reportes',
-        label: 'Propinas · Reportes',
-        url: '/kaifood/propinas/reportes',
-        requiresTipsEnabled: true,
-      },
-      {
         id: 'kaifood-config',
         label: 'Configuración',
         url: '/kaifood/configuracion',

@@ -7,7 +7,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-export type WebPushClientApp = 'pos' | 'kds';
+export type WebPushClientApp = 'pos' | 'kds' | 'waiter';
 
 @Entity('web_push_subscriptions')
 @Index('idx_web_push_subs_user_company', ['userId', 'companyId'])

@@ -24,6 +24,8 @@ export enum PayrollEarningTypeId {
   HOLIDAY = 'HOLIDAY',
   NIGHT_SHIFT = 'NIGHT_SHIFT',
   EXCEPTIONAL = 'EXCEPTIONAL',
+  /** Propina enterada vía liquidación (no imponible; custodia Art. 64). */
+  TIP = 'TIP',
 }
 
 /** Tipos de línea de liquidación de sueldo (descuentos). */
@@ -78,6 +80,7 @@ export const PAYROLL_LINE_TYPE_LABELS: Record<string, string> = {
   [PayrollEarningTypeId.HOLIDAY]: 'Pago por trabajo en festivo',
   [PayrollEarningTypeId.NIGHT_SHIFT]: 'Pago por trabajo nocturno',
   [PayrollEarningTypeId.EXCEPTIONAL]: 'Pago excepcional o extraordinario',
+  [PayrollEarningTypeId.TIP]: 'Propinas',
   [PayrollDeductionTypeId.AFP]: 'AFP (10% obligatorio)',
   [PayrollDeductionTypeId.AFP_COMMISSION]: 'Comisión AFP',
   [PayrollDeductionTypeId.HEALTH_INSURANCE]: 'Seguro de Salud',

@@ -6,10 +6,14 @@ import type {
   WaiterInboxItem,
   WaiterNotificationRow,
 } from "../types/notification.types";
+import { getClientBackendApiBase } from "@/lib/backend-api";
 
 function clientBackendBase(): string {
-  const base = process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim() ?? "";
-  return base.replace(/\/$/, "");
+  try {
+    return getClientBackendApiBase();
+  } catch {
+    return "";
+  }
 }
 
 function authHeaders(

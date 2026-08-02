@@ -109,7 +109,7 @@ export function resolveCorsAllowOriginHeader(
 }
 
 export const CORS_ALLOWED_HEADERS =
-  'Authorization,Content-Type,X-Active-Company-Id,x-active-company-id,X-Board-Display-Token,x-board-display-token,Accept,Origin,X-Requested-With';
+  'Authorization,Content-Type,X-Active-Company-Id,x-active-company-id,X-Board-Display-Token,x-board-display-token,X-Print-Agent-Token,x-print-agent-token,Accept,Origin,X-Requested-With';
 
 export const CORS_ALLOWED_METHODS =
   'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS';

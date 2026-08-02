@@ -6,6 +6,7 @@ import {
   boardBranchRoom,
   kitchenUnitRoom,
   salonRoom,
+  tableRoom,
   type DiningKitchenItemUpdatedPayload,
   type DiningKitchenSnapshotPayload,
   type DiningSessionUpdatedPayload,
@@ -46,6 +47,15 @@ export class DiningRealtimePublisher {
         companyId: payload.companyId,
         branchId: payload.branchId,
         salonId: payload.salonId,
+      });
+      this.diningServer.to(room).emit('dining.session.updated', payload);
+    }
+
+    const tableId = payload.diningTableId?.trim();
+    if (tableId) {
+      const room = tableRoom({
+        companyId: payload.companyId,
+        tableId,
       });
       this.diningServer.to(room).emit('dining.session.updated', payload);
     }

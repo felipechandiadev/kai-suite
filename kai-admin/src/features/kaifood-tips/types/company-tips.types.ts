@@ -6,6 +6,8 @@ export type CompanyTipSettings = {
   allowCustomAmount: boolean;
   allowCashTips: boolean;
   distributionMode: TipDistributionMode;
+  /** Acuerdo de trabajadores: employeeId → peso (POOL % / POINTS puntos). */
+  distributionWeights: Record<string, number>;
 };
 
 export function defaultCompanyTipSettings(): CompanyTipSettings {
@@ -15,6 +17,7 @@ export function defaultCompanyTipSettings(): CompanyTipSettings {
     allowCustomAmount: true,
     allowCashTips: true,
     distributionMode: "NONE",
+    distributionWeights: {},
   };
 }
 

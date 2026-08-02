@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { IconButton } from "@kai/ui";
 import { WaiterNotificationsBell } from "@/features/notifications/ui/WaiterNotificationsBell";
+import { ensureWaiterWebPushSubscription } from "@/features/notifications/lib/web-push-subscribe";
 import { clearWaiterSession, type WaiterSession } from "@/lib/app-session";
 
 type WaiterTopBarProps = {
@@ -11,6 +13,13 @@ type WaiterTopBarProps = {
 
 export function WaiterTopBar({ session }: WaiterTopBarProps) {
   const router = useRouter();
+
+  useEffect(() => {
+    void ensureWaiterWebPushSubscription({
+      userId: session.userId,
+      companyId: session.companyId,
+    });
+  }, [session.userId, session.companyId]);
 
   const handleLogout = () => {
     clearWaiterSession();

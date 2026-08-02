@@ -54,8 +54,8 @@ En desarrollo: `NEXT_PUBLIC_SW_DEV=1` vía `npm run env:dev` / fragments en `env
 | Nivel | Código | Qué hace | Quién debería usarlo |
 |-------|--------|----------|----------------------|
 | **L0 — Registro** | Solo `install`/`activate` trivial o sin fetch útil | Cumple criterio “tiene SW” para instalabilidad | No usar solo; mínimo L1 |
-| **L1 — Shell** | Precache rutas/iconos; navegación network-first + fallback; same-origin GET | Offline “abrir app / ver última shell” | admin, stock, eshop, delivery, waiter, board |
-| **L2 — Shell + Push** | L1 + `push` + `notificationclick` | Toasts nativos | kds (hoy); waiter si se añade push |
+| **L1 — Shell** | Precache rutas/iconos; navegación network-first + fallback; same-origin GET | Offline “abrir app / ver última shell” | admin, stock, eshop, delivery, board |
+| **L2 — Shell + Push** | L1 + `push` + `notificationclick` | Toasts nativos | kds, waiter |
 | **L3 — Offline operativo** | Caches separados (shell / static / RSC), SWR, timeouts, bypass localhost | POS usable sin red (parcial → IF-02) | **solo** `kai-pos` |
 
 No subir admin/eShop a L3 sin diseño: el volumen de rutas y mutaciones no justifica el mismo modelo que el POS.
@@ -74,7 +74,7 @@ No subir admin/eShop a L3 sin diseño: el volumen de rutas y mutaciones no justi
 | `kai-eshop` | **L1** | `kai-eshop-v1` | No | Sí | Sí | `offline.html` | Homologado |
 | `kai-stock` | **L1** | `kai-stock-v1` | No | Sí | Sí | Fallback `/` | Homologado |
 | `kai-delivery` | **L1** | `kai-delivery-v1` | No | Sí | Sí | Fallback `/repartos` | Homologado |
-| `kai-waiter` | **L1** | `kai-waiter-v1` | No | Sí | Sí | Fallback `/` o `/login` | Homologado |
+| `kai-waiter` | **L2** | `kai-waiter-v1` | Sí | Sí | Sí | Fallback `/` o `/login` | Push cocina lista → `/salon` |
 | `kai-board` | **L1** | `kai-board-v1` | No | Sí | Sí | Fallback `/` o `/setup` | Homologado |
 
 ### 4.2 Homologación
@@ -86,7 +86,7 @@ No subir admin/eShop a L3 sin diseño: el volumen de rutas y mutaciones no justi
 | Bypass network para manifesto | **Hecho** (8/8) |
 | Bypass `/api/` | **Hecho** (8/8) |
 | Estrategia L1 compartida | Homologada |
-| Push | Solo POS + KDS (correcto por producto) |
+| Push | POS + KDS + Waiter |
 | Documentación | Este doc |
 
 ---
@@ -140,6 +140,7 @@ Nunca cachear paths `*.hot-update.*` (POS ya lo hace en L3).
 |-----|------------------------|-------------|--------------|
 | `kai-pos` | `pos` | `push` + `notificationclick` → `/pos` | `web-push-subscribe.ts` |
 | `kai-kds` | `kds` | idem → `/queue` | `web-push-subscribe.ts` |
+| `kai-waiter` | `waiter` | idem → `/salon` | `web-push-subscribe.ts` |
 | Resto | — | No | No |
 
 Requisitos backend: `VAPID_*` en `kai-core/.env`, migración `web_push_subscriptions`. Sin VAPID el push queda off; inbox/WS siguen.
@@ -202,7 +203,7 @@ Detalle operativo de env/VAPID: [`envs/README.md`](../../envs/README.md) § Serv
 |------|----------|
 | Documento | Separado de manifiestos (esta hoja) |
 | Registro | Prod siempre; dev con `NEXT_PUBLIC_SW_DEV` |
-| Niveles | L1 shell default; L2 + push; L3 solo POS |
+| Niveles | L1 shell default; L2 + push (kds, waiter); L3 solo POS |
 | Caches | Prefijo `kai-`, versión bumpeable |
 | Push | Solo POS + KDS salvo nuevo requisito |
 | Manifest vs SW | Capas distintas; SW no debe fijar manifesto en cache |

@@ -96,6 +96,9 @@ pub struct TicketTotals {
     pub total: f64,
     #[serde(default)]
     pub change: f64,
+    /// Propina cobrada (informativa; fuera del total fiscal).
+    #[serde(default)]
+    pub tip_amount: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]

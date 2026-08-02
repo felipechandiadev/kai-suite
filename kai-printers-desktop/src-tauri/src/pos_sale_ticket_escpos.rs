@@ -573,6 +573,14 @@ fn append_totals_block(buf: &mut Vec<u8>, ticket: &PosSaleTicket) {
         escpos_bold(buf, true);
         append_line(buf, &pad_left("TOTAL:", &money(tot.total)));
         escpos_bold(buf, false);
+        let tip = tot.tip_amount.filter(|n| *n > 0.01);
+        if let Some(tip_amt) = tip {
+            append_line(buf, &pad_left("Propina (info):", &money(tip_amt)));
+            append_line(
+                buf,
+                &pad_left("Total cobrado:", &money(tot.total + tip_amt)),
+            );
+        }
     }
     append_divider(buf);
 }

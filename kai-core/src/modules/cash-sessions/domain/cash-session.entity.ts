@@ -33,6 +33,12 @@ export type CashSessionClosingDetails = {
     cash: number;
     total: number;
   };
+  /** Propina cobrada en la sesión (fuera del fiscal; custodia trabajadores). */
+  tips?: {
+    cash: number;
+    card: number;
+    total: number;
+  } | null;
 };
 
 export enum CashSessionStatus {

@@ -1,17 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { io, type Socket } from "socket.io-client";
-
-function wsBaseUrl(): string {
-  const base = process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "";
-  return base.replace(/\/$/, "");
-}
+import { getClientBackendApiBase } from "@/lib/backend-api";
 
 type DiningRealtimeOptions = {
   userId: string;
   activeCompanyId: string;
+  branchId?: string | null;
   salonId?: string | null;
+  /** Mesas abiertas por este mesero (rooms de mensajería por mesa). */
+  openTableIds?: string[];
   productionUnitId?: string | null;
   onSessionUpdated?: (payload: unknown) => void;
   onKitchenItemUpdated?: (payload: unknown) => void;
@@ -21,13 +20,16 @@ type DiningRealtimeOptions = {
 export function useDiningRealtime({
   userId,
   activeCompanyId,
+  branchId,
   salonId,
+  openTableIds,
   productionUnitId,
   onSessionUpdated,
   onKitchenItemUpdated,
   onKitchenSnapshot,
 }: DiningRealtimeOptions) {
   const socketRef = useRef<Socket | null>(null);
+  const authReadyRef = useRef(false);
   const callbacksRef = useRef({
     onSessionUpdated,
     onKitchenItemUpdated,
@@ -40,22 +42,44 @@ export function useDiningRealtime({
     onKitchenSnapshot,
   };
 
+  const tableIdsKey = useMemo(() => {
+    const ids = (openTableIds ?? [])
+      .map((id) => id.trim())
+      .filter(Boolean);
+    return [...new Set(ids)].sort().join(",");
+  }, [openTableIds]);
+
   const refreshSubscribe = useCallback(() => {
     const socket = socketRef.current;
-    if (!socket?.connected) return;
-    if (salonId) {
-      socket.emit("subscribeSalon", { salonId, branchId: null });
+    if (!socket?.connected || !authReadyRef.current) return;
+
+    const bid = branchId?.trim();
+    const sid = salonId?.trim();
+    if (bid && sid) {
+      socket.emit("subscribeSalon", { salonId: sid, branchId: bid });
     }
+
+    const tableIds = tableIdsKey ? tableIdsKey.split(",") : [];
+    socket.emit("subscribeTables", { tableIds });
+
     if (productionUnitId) {
       socket.emit("subscribeKitchenUnit", { productionUnitId });
     }
-  }, [salonId, productionUnitId]);
+  }, [branchId, salonId, tableIdsKey, productionUnitId]);
 
   useEffect(() => {
     if (!userId || !activeCompanyId) return;
 
-    const socket = io(`${wsBaseUrl()}/realtime/dining`, {
-      transports: ["websocket"],
+    let base = "";
+    try {
+      base = getClientBackendApiBase();
+    } catch {
+      return;
+    }
+
+    authReadyRef.current = false;
+    const socket = io(`${base}/realtime/dining`, {
+      transports: ["polling", "websocket"],
       auth: {
         userId,
         activeCompanyId,
@@ -63,7 +87,13 @@ export function useDiningRealtime({
     });
     socketRef.current = socket;
 
-    socket.on("connect", () => refreshSubscribe());
+    socket.on("dining.ready", () => {
+      authReadyRef.current = true;
+      refreshSubscribe();
+    });
+    socket.on("connect", () => {
+      if (authReadyRef.current) refreshSubscribe();
+    });
     socket.on("dining.session.updated", (payload) => {
       callbacksRef.current.onSessionUpdated?.(payload);
     });
@@ -77,6 +107,7 @@ export function useDiningRealtime({
     return () => {
       socket.disconnect();
       socketRef.current = null;
+      authReadyRef.current = false;
     };
   }, [userId, activeCompanyId, refreshSubscribe]);
 

@@ -211,6 +211,33 @@ describe("sale-print-plan", () => {
     expect(ticket?.totals.subtotalNet).toBe(0);
   });
 
+  it("preserva tipAmount en ticket TICKET_ONLY (impresión del agente)", () => {
+    const lines = [cartLine({ variantId: "v1", unitPriceWithTax: 10000 })];
+    const ticket = buildTicketReceiptDataFromCart({
+      base: {
+        ...baseReceipt(),
+        totals: {
+          ...baseReceipt().totals,
+          total: 10000,
+          tipAmount: 1000,
+        },
+      },
+      cartLines: lines,
+      totals: {
+        net: 8403,
+        gross: 10000,
+        taxes: 1597,
+        discounts: 0,
+        saleTotal: 10000,
+        orderDiscount: 0,
+        lineDiscountsTotal: 0,
+      },
+      printPlan: "TICKET_ONLY",
+      ticketScope: "all",
+    });
+    expect(ticket?.totals.tipAmount).toBe(1000);
+  });
+
   it("resolveEffectiveSaleDocumentKind: Boleta sin líneas DTE → TICKET", () => {
     const lines = [
       cartLine({ variantId: "v1", requiresDte: false }),
