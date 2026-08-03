@@ -22,21 +22,11 @@ export function buildDefaultCompanyMenuTopBarSettings(): CompanyMenuTopBarSettin
         href: '#menu',
         order: 0,
       }),
-      newMenuNavLink({
-        label: 'Encuéntranos',
-        kind: 'anchor',
-        href: '#find-us',
-        order: 1,
-      }),
-      newMenuNavLink({
-        label: 'Nosotros',
-        kind: 'anchor',
-        href: '#about',
-        order: 2,
-      }),
     ],
   };
 }
+
+const RETIRED_MENU_NAV_HREFS = new Set(['#about', '#find-us', '#hero']);
 
 export function sanitizeCompanyMenuTopBarSettings(
   raw: unknown,
@@ -44,7 +34,9 @@ export function sanitizeCompanyMenuTopBarSettings(
   const defaults = buildDefaultCompanyMenuTopBarSettings();
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return defaults;
   const o = raw as Record<string, unknown>;
-  const navLinks = sanitizeMenuNavLinks(o.navLinks, MENU_NAV_LINKS_PER_GROUP_MAX);
+  const navLinks = sanitizeMenuNavLinks(o.navLinks, MENU_NAV_LINKS_PER_GROUP_MAX).filter(
+    (link) => !RETIRED_MENU_NAV_HREFS.has((link.href ?? '').trim().toLowerCase()),
+  );
   return {
     showLogo: o.showLogo !== false,
     showCompanyName: o.showCompanyName !== false,

@@ -15,15 +15,24 @@ function fmtClp(n: number) {
 }
 
 function formatAttributeValues(values: Record<string, string>) {
-  const parts = Object.entries(values)
-    .map(([k, v]) => `${k}: ${v}`)
+  const parts = Object.values(values)
+    .map((v) => String(v).trim())
     .filter(Boolean);
   return parts.length ? parts.join(" · ") : null;
 }
 
-export function MenuProductDetailClient({ productId }: { productId: string }) {
+export function MenuProductDetailClient({
+  productId,
+  initialVariantId,
+}: {
+  productId: string;
+  initialVariantId?: string | null;
+}) {
   const [detail, setDetail] = useState<MenuProductDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
+    initialVariantId ?? null,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -32,13 +41,29 @@ export function MenuProductDetailClient({ productId }: { productId: string }) {
       const data = await fetchMenuProductAction(productId);
       if (!cancelled) {
         setDetail(data);
+        if (data?.variants.length) {
+          const preferred =
+            (initialVariantId &&
+              data.variants.find((v) => v.id === initialVariantId)?.id) ||
+            data.variants[0]!.id;
+          setSelectedVariantId(preferred);
+        }
         setLoading(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [productId]);
+  }, [productId, initialVariantId]);
+
+  const selectedVariant = useMemo(() => {
+    if (!detail?.variants.length) return null;
+    return (
+      detail.variants.find((v) => v.id === selectedVariantId) ??
+      detail.variants[0] ??
+      null
+    );
+  }, [detail, selectedVariantId]);
 
   const imageUrl = useMemo(() => {
     if (!detail) return null;
@@ -48,13 +73,6 @@ export function MenuProductDetailClient({ productId }: { productId: string }) {
       detail.multimedia[0]?.publicUrl ??
       null
     );
-  }, [detail]);
-
-  const priceFrom = useMemo(() => {
-    if (!detail?.variants.length) return null;
-    const prices = detail.variants.map((v) => v.basePrice).filter((n) => n > 0);
-    if (!prices.length) return null;
-    return Math.min(...prices);
   }, [detail]);
 
   if (loading) {
@@ -108,8 +126,8 @@ export function MenuProductDetailClient({ productId }: { productId: string }) {
               </p>
             ) : null}
             <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">{detail.name}</h1>
-            {priceFrom != null ? (
-              <p className="text-lg font-medium">desde {fmtClp(priceFrom)}</p>
+            {selectedVariant ? (
+              <p className="text-lg font-medium">{fmtClp(selectedVariant.basePrice)}</p>
             ) : null}
 
             {detail.description ? (
@@ -118,19 +136,29 @@ export function MenuProductDetailClient({ productId }: { productId: string }) {
               </div>
             ) : null}
 
-            {detail.variants.length > 1 ? (
+            {detail.variants.length > 0 ? (
               <div className="border-t border-[var(--border)] pt-4">
-                <h2 className="mb-2 text-sm font-semibold">Opciones</h2>
+                <h2 className="mb-2 text-sm font-semibold">
+                  {detail.variants.length > 1 ? "Opciones" : "Precio"}
+                </h2>
                 <ul className="space-y-2">
                   {detail.variants.map((v) => {
                     const label = formatAttributeValues(v.attributeValues) ?? v.sku;
+                    const selected = v.id === selectedVariant?.id;
                     return (
-                      <li
-                        key={v.id}
-                        className="flex items-center justify-between gap-3 text-sm"
-                      >
-                        <span>{label}</span>
-                        <span className="shrink-0 font-medium">{fmtClp(v.basePrice)}</span>
+                      <li key={v.id}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedVariantId(v.id)}
+                          className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left text-sm transition ${
+                            selected
+                              ? "border-[var(--primary)] bg-[var(--primary)]/5 font-medium"
+                              : "border-[var(--border)] hover:border-[var(--primary)]/50"
+                          }`}
+                        >
+                          <span>{label}</span>
+                          <span className="shrink-0 tabular-nums">{fmtClp(v.basePrice)}</span>
+                        </button>
                       </li>
                     );
                   })}

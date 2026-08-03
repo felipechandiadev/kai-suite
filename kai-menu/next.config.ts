@@ -40,7 +40,7 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_BACKEND_API_URL:
       process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_BACKEND_API_URL || "",
     NEXT_PUBLIC_MENU_STORE_SLUG:
-      process.env.NEXT_PUBLIC_MENU_STORE_SLUG || process.env.MENU_STORE_SLUG || "resto-demo",
+      process.env.NEXT_PUBLIC_MENU_STORE_SLUG || process.env.MENU_STORE_SLUG || "kai-food",
     NEXT_PUBLIC_APP_VERSION: packageJson.version,
     NEXT_PUBLIC_KAI_PRODUCT: "kaifood",
   },

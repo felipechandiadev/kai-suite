@@ -6,10 +6,10 @@ import { Tabs } from "@kai/ui";
 
 const BASE = "/treasury/operating-expenses";
 
+/** Recurrentes oculto temporalmente (ruta redirige a expenses). */
 const items = [
   { url: `${BASE}/expenses`, label: "Gastos operativos" },
   { url: `${BASE}/categories`, label: "Categorías" },
-  { url: `${BASE}/recurring`, label: "Recurrentes" },
 ];
 
 function activeTabUrl(pathname: string): string {

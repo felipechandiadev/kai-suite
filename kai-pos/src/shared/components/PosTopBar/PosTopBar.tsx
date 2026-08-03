@@ -26,7 +26,7 @@ import {
   clearPosPrintJobBrowserFallback,
   tryPosPrintJobBrowserFallback,
 } from "@/features/pos-print/lib/pos-print-job-browser-fallback";
-import { isKaiFoodEnabled } from "@/config/kaifood-module.config";
+import { isKaiFoodEnabledForCompany } from "@/config/kaifood-module.config";
 import { isKaiServicesEnabled } from "@/config/kaiservices-module.config";
 import { resolveTopbarProductLabel } from "@/config/product-brand.config";
 
@@ -534,7 +534,7 @@ export default function PosTopBar({
   };
 
   const isPresalePos = posKindFromClient === "PRESALE";
-  const kaiFoodEnabled = isKaiFoodEnabled();
+  const kaiFoodEnabled = isKaiFoodEnabledForCompany(companyKaiProduct);
   const kaiServicesEnabled = isKaiServicesEnabled();
 
   const navProps: PosTopBarNavProps = {

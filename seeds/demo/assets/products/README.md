@@ -17,6 +17,6 @@ Slug del nombre del producto en minúsculas, guiones, sin acentos:
 
 Formatos: **PNG**, **JPEG** o **WebP**. Una imagen por producto (la primera será `primary-image`).
 
-KaiFood / Restó Demo: ver `SEED_KAIFOOD_PRODUCT_IMAGES` en `catalog-images.ts`.
+KaiFood / Kai Food: ver `SEED_KAIFOOD_PRODUCT_IMAGES` en `catalog-images.ts`.
 
 Cuando el seed enlace multimedia de productos esté activo, los archivos presentes aquí se copian a `public/uploads` al ejecutar `npm run seed`.

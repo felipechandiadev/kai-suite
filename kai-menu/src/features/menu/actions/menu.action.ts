@@ -7,12 +7,21 @@ import {
   fetchMenuStorefront,
 } from "../infrastructure/menu.request";
 
-export async function fetchMenuStorefrontAction() {
-  return fetchMenuStorefront();
-}
-
-export async function fetchMenuCategoriesAction() {
-  return fetchMenuCategories();
+/** Carga inicial / refresh de la home en un solo Server Action (evita Promise.all de actions en el cliente). */
+export async function loadMenuHomeAction(input?: {
+  search?: string;
+  categoryIds?: string[];
+}) {
+  const [store, categories, catalog] = await Promise.all([
+    fetchMenuStorefront(),
+    fetchMenuCategories(),
+    fetchMenuCatalog(input?.search, input?.categoryIds),
+  ]);
+  return {
+    store,
+    categories,
+    items: catalog?.items ?? [],
+  };
 }
 
 export async function fetchMenuCatalogAction(input?: {

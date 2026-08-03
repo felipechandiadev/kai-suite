@@ -202,9 +202,9 @@ const TopBar: React.FC<TopBarProps & { className?: string }> = ({
             )}
           </div>
 
-          {/* Derecha: usuario, separador (círculo secondary), nombre de fantasía, menú */}
+          {/* Derecha: usuario (md+), empresa, alertas; impresión/refresh solo desktop */}
           <div className="flex min-w-0 max-w-full items-center justify-end gap-2">
-            <div className="flex min-w-0 max-w-full items-center justify-end gap-2 sm:gap-2.5">
+            <div className="hidden min-w-0 max-w-full items-center justify-end gap-2 sm:gap-2.5 md:flex">
               {(personName || userName) && (
                 <span
                   className="min-w-0 max-w-[min(10rem,36vw)] truncate text-right text-sm font-medium text-foreground sm:max-w-[12rem] md:max-w-xs"
@@ -227,12 +227,13 @@ const TopBar: React.FC<TopBarProps & { className?: string }> = ({
                   aria-hidden
                 />
               ) : null}
-              <CompanySwitcher fallbackCompanyLabel={companySwitcherFallbackLabel} />
             </div>
+
+            <CompanySwitcher fallbackCompanyLabel={companySwitcherFallbackLabel} />
 
             <NotificationsDropdown />
 
-            <div className="relative z-[100] shrink-0" data-test-id="top-bar-print-service">
+            <div className="relative z-[100] hidden shrink-0 md:block" data-test-id="top-bar-print-service">
               <PrintServiceTopBarDropdown
                 settingsHref="/settings/local-printing"
                 panelVariant="pos"
@@ -280,6 +281,7 @@ const TopBar: React.FC<TopBarProps & { className?: string }> = ({
             </div>
 
             <IconButton
+              className="hidden md:inline-flex"
               icon="RefreshCw"
               variant="text"
               size="md"

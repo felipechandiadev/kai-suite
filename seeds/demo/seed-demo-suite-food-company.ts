@@ -1,4 +1,4 @@
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, IsNull } from 'typeorm';
 import { TenantContext } from '@common/tenant/tenant.context';
 import { Company } from '@modules/companies/domain/company.entity';
 import { Branch } from '@modules/branches/domain/branch.entity';
@@ -11,8 +11,9 @@ import { Brand } from '@modules/brands/domain/brand.entity';
 import { Product, ProductType } from '@modules/products/domain/product.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { PriceListItem } from '@modules/price-list-items/domain/price-list-item.entity';
-import { Tax } from '@modules/taxes/domain/tax.entity';
+import { Tax, TaxType } from '@modules/taxes/domain/tax.entity';
 import { Unit } from '@modules/units/domain/unit.entity';
+import { UnitDimension } from '@modules/units/domain/unit-dimension.enum';
 import { DiningRoom } from '@modules/dining/domain/dining-room.entity';
 import { DiningTable } from '@modules/dining/domain/dining-table.entity';
 import { DiningBranchSettings } from '@modules/dining/domain/dining-branch-settings.entity';
@@ -24,14 +25,13 @@ import { buildDefaultCompanyMenuFindUsSettings } from '@modules/companies/domain
 import { buildDefaultCompanyMenuThemeSettings } from '@modules/companies/domain/company-menu-theme.types';
 import {
   SEED_BRANCH_NAME,
-  SEED_BRANCH_ADDRESS,
-  SEED_BRANCH_PHONE,
   SEED_BRANCH_LOCATION,
   SEED_POS_NAMES,
   SEED_PRICE_LIST_RETAIL_NAME,
   SEED_STORAGE_CODE,
   SEED_STORAGE_NAME,
   SEED_DEV_COMPANY_SECOND,
+  SEED_DEV_MENU_PUBLIC_SLUG,
 } from './config';
 import {
   getSeedFoodOnlyProducts,
@@ -49,8 +49,8 @@ import {
 export type SeedSuiteFoodCompanyInput = {
   dataSource: DataSource;
   companyFood: Company;
-  ivaTax: Tax;
-  seedUnitId: Record<'UN' | 'ML' | 'L' | 'G' | 'KG', string>;
+  /** Si se omite, se crea/sincroniza IVA 19% en la empresa Food. */
+  ivaTax?: Tax;
 };
 
 /**
@@ -60,7 +60,7 @@ export type SeedSuiteFoodCompanyInput = {
 export async function seedDemoSuiteFoodCompany(
   input: SeedSuiteFoodCompanyInput,
 ): Promise<void> {
-  const { dataSource, companyFood, ivaTax, seedUnitId } = input;
+  const { dataSource, companyFood } = input;
   console.log(
     `🍽️  Suite: sembrando empresa food «${companyFood.nombreFantasia}» (${companyFood.id})`,
   );
@@ -68,6 +68,136 @@ export async function seedDemoSuiteFoodCompany(
   await TenantContext.run(
     { activeCompanyId: companyFood.id, userId: null, rol: null },
     async () => {
+      const taxRepo = dataSource.getRepository(Tax);
+      const unitRepo = dataSource.getRepository(Unit);
+      let ivaTax = input.ivaTax;
+      if (!ivaTax || ivaTax.companyId !== companyFood.id) {
+        let existing = await taxRepo.findOne({
+          where: {
+            companyId: companyFood.id,
+            name: 'IVA',
+            taxType: TaxType.IVA,
+          },
+        });
+        if (!existing) {
+          existing = taxRepo.create({
+            companyId: companyFood.id,
+            name: 'IVA',
+            rate: 19,
+            taxType: TaxType.IVA,
+            isActive: true,
+            description: 'Impuesto al Valor Agregado (IVA) 19% — seed demo',
+          });
+        } else {
+          existing.rate = 19;
+          existing.isActive = true;
+        }
+        ivaTax = await taxRepo.save(existing);
+        console.log(`✅ Suite food: IVA 19% id=${ivaTax.id}`);
+      }
+
+      const upsertUnit = async (args: {
+        symbol: string;
+        name: string;
+        dimension: UnitDimension;
+        isBase: boolean;
+        conversionFactor: number;
+        baseUnitId: string | null;
+        allowDecimals: boolean;
+        isDefault?: boolean;
+      }): Promise<Unit> => {
+        let u = await unitRepo.findOne({
+          where: {
+            companyId: companyFood.id,
+            symbol: args.symbol,
+            deletedAt: IsNull(),
+          },
+          withDeleted: true,
+        });
+        if (!u) {
+          u = unitRepo.create({
+            companyId: companyFood.id,
+            symbol: args.symbol,
+            name: args.name,
+            dimension: args.dimension,
+            isBase: args.isBase,
+            conversionFactor: args.conversionFactor,
+            baseUnitId: args.baseUnitId,
+            allowDecimals: args.allowDecimals,
+            active: true,
+            isDefault: args.isDefault === true,
+          });
+        } else {
+          if (u.deletedAt) {
+            u = await unitRepo.recover(u);
+          }
+          u.name = args.name;
+          u.dimension = args.dimension;
+          u.isBase = args.isBase;
+          u.conversionFactor = args.conversionFactor;
+          u.baseUnitId = args.baseUnitId;
+          u.allowDecimals = args.allowDecimals;
+          u.active = true;
+          u.isDefault = args.isDefault === true;
+        }
+        return unitRepo.save(u);
+      };
+
+      const unitUn = await upsertUnit({
+        symbol: 'un',
+        name: 'Unidad',
+        dimension: UnitDimension.COUNT,
+        isBase: true,
+        conversionFactor: 1,
+        baseUnitId: null,
+        allowDecimals: false,
+        isDefault: true,
+      });
+      const unitMl = await upsertUnit({
+        symbol: 'ml',
+        name: 'Mililitro',
+        dimension: UnitDimension.VOLUME,
+        isBase: true,
+        conversionFactor: 1,
+        baseUnitId: null,
+        allowDecimals: true,
+      });
+      const unitLiter = await upsertUnit({
+        symbol: 'L',
+        name: 'Litro',
+        dimension: UnitDimension.VOLUME,
+        isBase: false,
+        conversionFactor: 1000,
+        baseUnitId: unitMl.id,
+        allowDecimals: true,
+      });
+      const unitGram = await upsertUnit({
+        symbol: 'g',
+        name: 'Gramo',
+        dimension: UnitDimension.MASS,
+        isBase: true,
+        conversionFactor: 1,
+        baseUnitId: null,
+        allowDecimals: true,
+      });
+      const unitKg = await upsertUnit({
+        symbol: 'kg',
+        name: 'Kilogramo',
+        dimension: UnitDimension.MASS,
+        isBase: false,
+        conversionFactor: 1000,
+        baseUnitId: unitGram.id,
+        allowDecimals: true,
+      });
+      const seedUnitId = {
+        UN: unitUn.id,
+        ML: unitMl.id,
+        L: unitLiter.id,
+        G: unitGram.id,
+        KG: unitKg.id,
+      };
+      console.log('✅ Suite food: unidades UN/ml/L/g/kg');
+
       const branchRepo = dataSource.getRepository(Branch);
       const storageRepo = dataSource.getRepository(Storage);
       const priceListRepo = dataSource.getRepository(PriceList);
@@ -184,7 +314,7 @@ export async function seedDemoSuiteFoodCompany(
         listaMayoristaId: listaMinorista.id,
         listaEshopId: listaMinorista.id,
         logPrefix: 'Suite food',
-        defaultStockQty: 50,
+        defaultStockQty: 0,
       });
 
       await productRepo
@@ -254,7 +384,7 @@ export async function seedDemoSuiteFoodCompany(
             distributionWeights: {},
           }),
           menuEnabled: true,
-          menuPublicSlug: 'resto-demo',
+          menuPublicSlug: SEED_DEV_MENU_PUBLIC_SLUG,
           menuDefaultBranchId: branch.id,
           menuDefaultPriceListId: listaMinorista.id,
           menuTopBar: buildDefaultCompanyMenuTopBarSettings(),
@@ -271,7 +401,7 @@ export async function seedDemoSuiteFoodCompany(
       }
 
       console.log(
-        `✅ Suite food: ${foodProducts.length} productos, on_menu=true, salón 6 mesas, carta slug=resto-demo`,
+        `✅ Suite food: ${foodProducts.length} productos, on_menu=true, salón 6 mesas, carta slug=${SEED_DEV_MENU_PUBLIC_SLUG}`,
       );
     },
   );

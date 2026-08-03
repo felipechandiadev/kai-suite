@@ -4,7 +4,11 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DotProgress } from "@kai/ui";
 import PosDiningAccountsPanel from "@/features/dining/ui/PosDiningAccountsPanel";
-import { isKaiFoodEnabled } from "@/config/kaifood-module.config";
+import {
+  isKaiFoodEnabled,
+  isKaiFoodEnabledForCompany,
+} from "@/config/kaifood-module.config";
+import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
 
 /** Alto útil bajo topbar + padding del main (pt-4 + pb-6 ≈ 2.5rem). */
@@ -26,21 +30,46 @@ function AccountsPageInner() {
   const router = useRouter();
   const [branchId, setBranchId] = useState<string>("");
   const [contextReady, setContextReady] = useState(false);
+  const [foodGate, setFoodGate] = useState<"pending" | "allowed" | "denied">(
+    () => (isKaiFoodEnabled() ? "pending" : "denied"),
+  );
 
   useEffect(() => {
     if (!isKaiFoodEnabled()) {
       router.replace("/pos");
       return;
     }
-    setBranchId(readPosContextClient()?.branchId?.trim() ?? "");
-    setContextReady(true);
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const details = await getCompanyDetailsAction();
+        if (cancelled) return;
+        if (!isKaiFoodEnabledForCompany(details?.kaiProduct ?? null)) {
+          setFoodGate("denied");
+          router.replace("/pos");
+          return;
+        }
+        setFoodGate("allowed");
+        setBranchId(readPosContextClient()?.branchId?.trim() ?? "");
+        setContextReady(true);
+      } catch {
+        if (cancelled) return;
+        setFoodGate("denied");
+        router.replace("/pos");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
-  if (!isKaiFoodEnabled()) {
+  if (foodGate === "denied") {
     return null;
   }
 
-  if (!contextReady) {
+  if (foodGate === "pending" || !contextReady) {
     return <AccountsLoading />;
   }
 

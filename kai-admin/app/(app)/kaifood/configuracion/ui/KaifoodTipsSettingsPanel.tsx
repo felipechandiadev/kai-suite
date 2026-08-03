@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, IconButton, Select, Switch, TextField } from "@kai/ui";
+import { Alert, IconButton, Switch } from "@kai/ui";
 import {
   getCompanyTipSettingsAction,
   replaceCompanyTipSettingsAction,
@@ -10,13 +10,22 @@ import {
 import {
   defaultCompanyTipSettings,
   type CompanyTipSettings,
-  type TipDistributionMode,
 } from "@/features/kaifood-tips/types/company-tips.types";
-import { TIP_DISTRIBUTION_MODE_OPTIONS } from "@/features/kaifood-tips/lib/tip-labels";
 
 type Props = {
   companyId: string;
 };
+
+function mergeTipSettings(
+  partial: Partial<CompanyTipSettings> | null | undefined,
+): CompanyTipSettings {
+  const base = defaultCompanyTipSettings();
+  return {
+    ...base,
+    ...partial,
+    distributionWeights: partial?.distributionWeights ?? base.distributionWeights,
+  };
+}
 
 export function KaifoodTipsSettingsPanel({ companyId }: Props) {
   const router = useRouter();
@@ -36,28 +45,25 @@ export function KaifoodTipsSettingsPanel({ companyId }: Props) {
         setError(res.message);
         return;
       }
-      setSettings({
-        ...defaultCompanyTipSettings(),
-        ...res.tipSettings,
-        distributionWeights: res.tipSettings.distributionWeights ?? {},
-      });
+      setSettings(mergeTipSettings(res.tipSettings));
       setError(null);
     });
   }, [companyId]);
 
   const save = () => {
     setError(null);
+    // Solo cambia `enabled`; el resto del JSON se reenvía intacto (defaults + cargado).
+    const payload = mergeTipSettings({
+      ...settings,
+      enabled: settings.enabled,
+    });
     startTransition(() => {
-      void replaceCompanyTipSettingsAction(companyId, settings).then((res) => {
+      void replaceCompanyTipSettingsAction(companyId, payload).then((res) => {
         if (!res.success) {
           setError(res.message);
           return;
         }
-        setSettings({
-          ...defaultCompanyTipSettings(),
-          ...res.tipSettings,
-          distributionWeights: res.tipSettings.distributionWeights ?? {},
-        });
+        setSettings(mergeTipSettings(res.tipSettings));
         router.refresh();
       });
     });
@@ -72,8 +78,8 @@ export function KaifoodTipsSettingsPanel({ companyId }: Props) {
         <div>
           <h2 className="text-base font-semibold text-foreground">Propinas</h2>
           <p className="text-xs text-muted-foreground">
-            Configuración de empresa (Ley 20.729). Opt-in: desactivado por
-            defecto.
+            Opt-in por empresa. Al activar, la pre-cuenta y el cobro del POS
+            muestran propina sugerida (no forma parte de la boleta).
           </p>
         </div>
         <IconButton
@@ -90,65 +96,13 @@ export function KaifoodTipsSettingsPanel({ companyId }: Props) {
 
       {error ? <Alert variant="error">{error}</Alert> : null}
 
-      <div className="mt-3 flex flex-col gap-4">
+      <div className="mt-3">
         <Switch
           label="Usar propinas"
           checked={settings.enabled}
           onChange={(v) => setSettings((s) => ({ ...s, enabled: v }))}
           data-test-id="kaifood-tips-enabled"
         />
-
-        {settings.enabled ? (
-          <>
-            <TextField
-              label="% sugerido"
-              type="number"
-              min={0}
-              max={100}
-              value={String(settings.suggestPercent)}
-              onChange={(e) =>
-                setSettings((s) => ({
-                  ...s,
-                  suggestPercent: Math.min(
-                    100,
-                    Math.max(0, Number(e.target.value) || 0),
-                  ),
-                }))
-              }
-              data-test-id="kaifood-tips-percent"
-            />
-            <Switch
-              label="Permitir modificar / rechazar monto"
-              checked={settings.allowCustomAmount}
-              onChange={(v) =>
-                setSettings((s) => ({ ...s, allowCustomAmount: v }))
-              }
-            />
-            <Switch
-              label="Permitir propina en efectivo"
-              checked={settings.allowCashTips}
-              onChange={(v) => setSettings((s) => ({ ...s, allowCashTips: v }))}
-            />
-            <Select
-              label="Modo de atribución (después del cobro)"
-              alwaysShowLabel
-              value={settings.distributionMode}
-              onChange={(id) =>
-                setSettings((s) => ({
-                  ...s,
-                  distributionMode: String(id ?? "NONE") as TipDistributionMode,
-                }))
-              }
-              options={TIP_DISTRIBUTION_MODE_OPTIONS}
-            />
-            <p className="text-xs text-muted-foreground">
-              El reparto en pozo o puntos es un{" "}
-              <strong>acuerdo de trabajadores</strong>: Kai calcula y custodia;
-              el empleador solo paga. En modo directo, se asigna al mesero que
-              abrió la cuenta. En Saldos puedes atribuir el pozo pendiente.
-            </p>
-          </>
-        ) : null}
       </div>
     </section>
   );

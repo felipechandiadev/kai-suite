@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Product } from '@modules/products/domain/product.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
+import { Attribute } from '@modules/attributes/domain/attribute.entity';
 import { MenuHeroSlide } from './domain/menu-hero-slide.entity';
 import { MenuService } from './application/menu.service';
 import { MenuPublicController } from './presentation/menu-public.controller';
@@ -13,7 +14,7 @@ import { MenuSchemaBootstrap } from './application/menu-schema.bootstrap';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Product, ProductVariant, MenuHeroSlide]),
+    TypeOrmModule.forFeature([Product, ProductVariant, Attribute, MenuHeroSlide]),
     AppConfigModule,
     CompaniesModule,
     MultimediaModule,

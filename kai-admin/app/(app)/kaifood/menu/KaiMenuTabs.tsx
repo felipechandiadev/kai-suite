@@ -3,12 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+/** CMS carta: Apariencia + Topbar. Hero / Nosotros / Encuéntranos deshabilitados por ahora. */
 const TABS = [
   { href: "/kaifood/menu/appearance", label: "Apariencia" },
   { href: "/kaifood/menu/topbar", label: "Topbar" },
-  { href: "/kaifood/menu/hero", label: "Hero" },
-  { href: "/kaifood/menu/about", label: "Nosotros" },
-  { href: "/kaifood/menu/find-us", label: "Encuéntranos" },
 ] as const;
 
 export function KaiMenuTabs() {

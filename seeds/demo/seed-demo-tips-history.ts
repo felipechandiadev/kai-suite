@@ -41,6 +41,10 @@ import {
   buildSeedDemoTipsPlan,
   type SeedTipPaymentMethod,
 } from './seed-demo-tips-plan';
+import {
+  buildPurchasedQtyBySku,
+  type SeedPurchaseDoc,
+} from './seed-demo-purchase-plan';
 
 function roundClp(n: number): number {
   return Math.round(Number(n) || 0);
@@ -66,6 +70,8 @@ export async function seedDemoTipsHistory(ctx: {
   branchId: string;
   operatorUserIds: Record<string, string>;
   waiterUserIds: Record<string, string>;
+  /** Plan de compras Food — acota qty vendible a lo recepcionado. */
+  purchasePlan?: SeedPurchaseDoc[];
 }): Promise<void> {
   const {
     app,
@@ -74,6 +80,7 @@ export async function seedDemoTipsHistory(ctx: {
     branchId,
     operatorUserIds,
     waiterUserIds,
+    purchasePlan,
   } = ctx;
 
   const transactionsService = app.get(TransactionsService);
@@ -130,7 +137,10 @@ export async function seedDemoTipsHistory(ctx: {
     throw new Error('No hay mesas dining seed para tip-sales');
   }
 
-  const plan = buildSeedDemoTipsPlan();
+  const purchasedQty = purchasePlan
+    ? buildPurchasedQtyBySku(purchasePlan)
+    : undefined;
+  const plan = buildSeedDemoTipsPlan(purchasedQty);
   const sorted = [...plan].sort((a, b) => b.daysAgo - a.daysAgo);
   console.log(
     `🍽️  Plan tip-sales KaiFood: ${sorted.length} (horizonte ≤${Math.max(...sorted.map((d) => d.daysAgo))}d)`,
@@ -160,9 +170,13 @@ export async function seedDemoTipsHistory(ctx: {
       throw new Error(`POS seed no encontrado: ${doc.posName}`);
     }
 
-    const table = tableByCode.get(doc.tableCode);
+    const table =
+      tableByCode.get(doc.tableCode) ??
+      [...tableByCode.values()][doc.index % Math.max(1, tableByCode.size)];
     if (!table) {
-      throw new Error(`Mesa seed no encontrada: ${doc.tableCode}`);
+      throw new Error(
+        `Mesa seed no encontrada: ${doc.tableCode} (ni fallback)`,
+      );
     }
     const room = rooms.find((r) => r.id === table.diningRoomId);
 
@@ -181,7 +195,7 @@ export async function seedDemoTipsHistory(ctx: {
       status: DiningOrderStatus.CLOSED,
       profile: {
         adultCount: 2,
-        notes: `Seed tip-sale ${doc.index}`,
+        notes: `Seed venta salón Food ${doc.index}`,
       },
       openedAt,
       closedAt,
@@ -194,7 +208,7 @@ export async function seedDemoTipsHistory(ctx: {
     for (const line of doc.lines) {
       const variant = variantBySku.get(line.sku);
       if (!variant) {
-        throw new Error(`Variante seed no encontrada para tip-sale: ${line.sku}`);
+        throw new Error(`Variante seed no encontrada para venta Food: ${line.sku}`);
       }
       const unitNet = roundClp(line.unitPriceNet);
       const lineSub = roundClp(unitNet * line.qty);
@@ -261,9 +275,9 @@ export async function seedDemoTipsHistory(ctx: {
     dto.amountPaid = total + doc.tipAmount;
     dto.changeAmount = 0;
     dto.lines = lines;
-    dto.notes = `Seed tip-sale salón ${occurredOn} · ${doc.waiterUserName}`;
+    dto.notes = `Seed venta salón Food ${occurredOn} · ${doc.waiterUserName}`;
     dto.metadata = {
-      origin: 'SEED_DEMO_TIP_SALE',
+      origin: 'SEED_DEMO_FOOD_SALE',
       fulfillment: { deliveryMode: 'IMMEDIATE' },
       occurredOn,
       ...tipMeta,
@@ -292,11 +306,11 @@ export async function seedDemoTipsHistory(ctx: {
     paymentInDto.amountPaid = total + doc.tipAmount;
     paymentInDto.changeAmount = 0;
     paymentInDto.lines = [];
-    paymentInDto.notes = `Cobro tip-sale seed de ${created.documentNumber}`;
+    paymentInDto.notes = `Cobro venta Food seed de ${created.documentNumber}`;
     paymentInDto.metadata = {
-      origin: 'SEED_DEMO_TIP_PAYMENT_IN',
+      origin: 'SEED_DEMO_FOOD_PAYMENT_IN',
       saleTransactionId: created.id,
-      source: 'seed_tip_sale',
+      source: 'seed_food_sale',
       occurredOn,
       ...tipMeta,
       ...paymentsMeta,
@@ -356,7 +370,7 @@ export async function seedDemoTipsHistory(ctx: {
   }
 
   console.log(
-    `🍽️  Tip-sales seed: ${saleCount} · atribuidas=${attributed} · pozo=${unattributed} · tarjeta overdue(dueAt pasado)=${overduePatched} · meseros ${Object.entries(
+    `🍽️  Ventas Food seed (salón+tip): ${saleCount} · atribuidas=${attributed} · pozo=${unattributed} · tarjeta overdue(dueAt pasado)=${overduePatched} · meseros ${Object.entries(
       waiterCounts,
     )
       .map(([k, v]) => `${k}=${v}`)

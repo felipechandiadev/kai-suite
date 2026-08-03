@@ -1,6 +1,6 @@
 /**
- * Plan determinístico de tip-sales KaiFood (salón + propina).
- * Solo PHYSICAL food — stock del plan de compras retail.
+ * Plan determinístico de ventas Kai Food (salón + propina en la misma SALE).
+ * SKUs PHYSICAL food; qty acotada al stock recepcionado si se pasa purchasedQtyBySku.
  */
 
 export type SeedTipPaymentMethod = 'CASH' | 'DEBIT_CARD' | 'CREDIT_CARD';
@@ -49,7 +49,7 @@ const PAYMENTS: SeedTipPaymentMethod[] = [
   'DEBIT_CARD',
   'CREDIT_CARD',
 ];
-const TABLE_CODES = ['M1', 'M2', 'M3', 'T1', 'T2', 'T3'] as const;
+const TABLE_CODES = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6'] as const;
 
 /** SKUs PHYSICAL food con precio neto típico del catálogo demo. */
 const FOOD_PHYSICAL_SKUS: Array<{ sku: string; unitPriceNet: number }> = [
@@ -85,48 +85,99 @@ function tipFromLines(
 }
 
 /**
- * 30 tip-sales repartidas en ~45 días (más densas en los últimos 20).
+ * 30 ventas salón repartidas en ~45 días.
+ * Si `purchasedQtyBySku` está presente, no vende más de lo recepcionado.
  */
-export function buildSeedDemoTipsPlan(): SeedTipSaleDoc[] {
+export function buildSeedDemoTipsPlan(
+  purchasedQtyBySku?: Map<string, number>,
+): SeedTipSaleDoc[] {
+  const remaining = new Map<string, number>();
+  if (purchasedQtyBySku) {
+    for (const [sku, qty] of purchasedQtyBySku) {
+      remaining.set(sku, qty);
+    }
+  }
+
+  const canTake = (sku: string, qty: number): boolean => {
+    if (!purchasedQtyBySku) return true;
+    return (remaining.get(sku) ?? 0) >= qty;
+  };
+  const consume = (sku: string, qty: number) => {
+    if (!purchasedQtyBySku) return;
+    remaining.set(sku, (remaining.get(sku) ?? 0) - qty);
+  };
+
   const docs: SeedTipSaleDoc[] = [];
-  for (let i = 0; i < TIP_SALE_TARGET; i++) {
-    // Reparto lineal 1..45 días (más recientes al inicio del índice).
+  let i = 0;
+  let guard = 0;
+  while (docs.length < TIP_SALE_TARGET && guard < TIP_SALE_TARGET * 8) {
+    guard += 1;
     const daysAgo = Math.max(
       1,
       Math.min(
         TIP_SALE_HORIZON_DAYS,
-        1 + Math.floor((i * (TIP_SALE_HORIZON_DAYS - 1)) / (TIP_SALE_TARGET - 1)),
+        1 +
+          Math.floor(
+            (docs.length * (TIP_SALE_HORIZON_DAYS - 1)) /
+              Math.max(1, TIP_SALE_TARGET - 1),
+          ),
       ),
     );
 
     const product = FOOD_PHYSICAL_SKUS[i % FOOD_PHYSICAL_SKUS.length]!;
     const second =
       FOOD_PHYSICAL_SKUS[(i + 3) % FOOD_PHYSICAL_SKUS.length]!;
-    const lines =
-      i % 3 === 0
-        ? [
-            { sku: product.sku, qty: 1, unitPriceNet: product.unitPriceNet },
-            { sku: second.sku, qty: 1, unitPriceNet: second.unitPriceNet },
-          ]
-        : [{ sku: product.sku, qty: 1, unitPriceNet: product.unitPriceNet }];
+    i += 1;
+
+    let lines: Array<{ sku: string; qty: number; unitPriceNet: number }>;
+    if (docs.length % 3 === 0) {
+      if (!canTake(product.sku, 1) || !canTake(second.sku, 1)) {
+        if (!canTake(product.sku, 1)) continue;
+        lines = [
+          { sku: product.sku, qty: 1, unitPriceNet: product.unitPriceNet },
+        ];
+      } else {
+        lines = [
+          { sku: product.sku, qty: 1, unitPriceNet: product.unitPriceNet },
+          { sku: second.sku, qty: 1, unitPriceNet: second.unitPriceNet },
+        ];
+      }
+    } else {
+      if (!canTake(product.sku, 1)) continue;
+      lines = [
+        { sku: product.sku, qty: 1, unitPriceNet: product.unitPriceNet },
+      ];
+    }
+
+    for (const line of lines) {
+      consume(line.sku, line.qty);
+    }
 
     const { tipAmount, tipSuggestedAmount } = tipFromLines(lines);
-    const paymentMethod = PAYMENTS[i % PAYMENTS.length]!;
+    const paymentMethod = PAYMENTS[docs.length % PAYMENTS.length]!;
+    const idx = docs.length;
 
     docs.push({
       daysAgo,
-      index: i,
-      waiterUserName: WAITERS[i % WAITERS.length]!,
-      operatorUserName: OPERATORS[i % OPERATORS.length]!,
-      posName: i % 2 === 0 ? 'Caja 1' : 'Caja 2',
+      index: idx,
+      waiterUserName: WAITERS[idx % WAITERS.length]!,
+      operatorUserName: OPERATORS[idx % OPERATORS.length]!,
+      posName: idx % 2 === 0 ? 'Caja 1' : 'Caja 2',
       paymentMethod,
-      leaveUnattributed: i % TIP_UNATTRIBUTED_EVERY === 0,
-      tableCode: TABLE_CODES[i % TABLE_CODES.length]!,
+      leaveUnattributed: idx % TIP_UNATTRIBUTED_EVERY === 0,
+      tableCode: TABLE_CODES[idx % TABLE_CODES.length]!,
       lines,
       tipAmount,
       tipSuggestedAmount,
     });
   }
+
+  if (docs.length < TIP_SALE_TARGET) {
+    console.warn(
+      `⚠️ Plan ventas Food: solo ${docs.length}/${TIP_SALE_TARGET} docs (stock recepcionado insuficiente)`,
+    );
+  }
+
   return docs;
 }
 

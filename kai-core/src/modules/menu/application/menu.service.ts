@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Product, ProductType } from '@modules/products/domain/product.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { Category } from '@modules/categories/domain/category.entity';
+import { Attribute } from '@modules/attributes/domain/attribute.entity';
 import { PriceListItem } from '@modules/price-list-items/domain/price-list-item.entity';
 import { MenuHeroSlide } from '../domain/menu-hero-slide.entity';
 import { MENU_HERO_SLIDE_MULTIMEDIA_ENTITY } from '../domain/menu-hero-slide.constants';
@@ -12,6 +13,7 @@ import { MultimediaServiceAdapter } from '@modules/multimedia/application/servic
 import { AppConfigService } from '../../../config/config.service';
 import { resolveMultimediaPublicUrl } from '@modules/multimedia/application/utils/resolve-multimedia-public-url.util';
 import { resolvePrimaryMultimediaAsset } from '@modules/multimedia/application/utils/resolve-primary-multimedia.util';
+import { resolveVariantAttributeLabels } from '@modules/e-shop/application/helpers/eshop-catalog-product.helpers';
 
 @Injectable()
 export class MenuService {
@@ -20,6 +22,8 @@ export class MenuService {
     private readonly productRepo: Repository<Product>,
     @InjectRepository(ProductVariant)
     private readonly variantRepo: Repository<ProductVariant>,
+    @InjectRepository(Attribute)
+    private readonly attributeRepo: Repository<Attribute>,
     @InjectRepository(MenuHeroSlide)
     private readonly heroSlideRepo: Repository<MenuHeroSlide>,
     private readonly multimediaService: MultimediaServiceAdapter,
@@ -84,22 +88,76 @@ export class MenuService {
     });
   }
 
-  private async attachProductImages<T extends { id: string }>(
-    rows: T[],
-  ): Promise<Array<T & { imageUrl: string | null }>> {
-    if (!rows.length) return [];
-    const ids = rows.map((r) => r.id);
-    const assetsMap = await this.multimediaService.listByEntityIds(
-      'product',
-      ids,
-    );
-    return rows.map((row) => {
-      const list = assetsMap[row.id] ?? [];
-      const primary = resolvePrimaryMultimediaAsset(list);
-      const raw = primary?.publicUrl ?? list[0]?.publicUrl ?? null;
-      const imageUrl = resolveMultimediaPublicUrl(raw, this.config) ?? raw;
-      return { ...row, imageUrl };
-    });
+  private resolveAssetUrl(
+    assets: ReadonlyArray<{ publicUrl: string; isPrimary?: boolean }>,
+  ): string | null {
+    const primary = resolvePrimaryMultimediaAsset(assets);
+    const raw = primary?.publicUrl ?? assets[0]?.publicUrl ?? null;
+    return resolveMultimediaPublicUrl(raw, this.config) ?? raw;
+  }
+
+  private async loadAttributeNameById(
+    companyId: string,
+    attributeIds: string[] = [],
+  ): Promise<Map<string, string>> {
+    const uniqueIds = [...new Set(attributeIds.filter(Boolean))];
+    const rows = (await this.attributeRepo.manager.query(
+      `SELECT id, name
+       FROM attributes
+       WHERE "deletedAt" IS NULL
+         AND (
+           company_id = $1
+           OR (cardinality($2::uuid[]) > 0 AND id = ANY($2::uuid[]))
+         )`,
+      [companyId, uniqueIds],
+    )) as Array<{ id: string; name: string }>;
+    return new Map(rows.map((a) => [a.id, a.name]));
+  }
+
+  private collectAttributeIdsFromRaw(
+    rows: Array<{ attributeValues?: unknown }>,
+  ): string[] {
+    const ids: string[] = [];
+    for (const row of rows) {
+      const parsed = this.parseAttributeValues(row.attributeValues);
+      if (!parsed) continue;
+      for (const key of Object.keys(parsed)) {
+        if (key.trim()) ids.push(key.trim());
+      }
+    }
+    return ids;
+  }
+
+  private formatVariantDisplayName(
+    productName: string,
+    attributeValues: Record<string, string>,
+  ): string {
+    const values = Object.values(attributeValues)
+      .map((v) => String(v).trim())
+      .filter(Boolean);
+    if (!values.length) return productName;
+    return `${productName} · ${values.join(' · ')}`;
+  }
+
+  private parseAttributeValues(
+    raw: unknown,
+  ): Record<string, string> | null {
+    if (raw == null) return null;
+    if (typeof raw === 'string') {
+      try {
+        const parsed = JSON.parse(raw) as unknown;
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          return parsed as Record<string, string>;
+        }
+      } catch {
+        return null;
+      }
+      return null;
+    }
+    if (typeof raw === 'object' && !Array.isArray(raw)) {
+      return raw as Record<string, string>;
+    }
+    return null;
   }
 
   async listCatalog(
@@ -171,41 +229,88 @@ export class MenuService {
     if (opts.search?.trim()) {
       const q = `%${opts.search.trim()}%`;
       qb.andWhere(
-        `(LOWER(p.name) LIKE LOWER(:q) OR LOWER(COALESCE(cat.name, '')) LIKE LOWER(:q))`,
+        `(LOWER(p.name) LIKE LOWER(:q)
+          OR LOWER(COALESCE(cat.name, '')) LIKE LOWER(:q)
+          OR LOWER(COALESCE(v."attributeValues"::text, '')) LIKE LOWER(:q))`,
         { q },
       );
     }
 
     const countRow = await qb
       .clone()
-      .select('COUNT(DISTINCT p.id)', 'cnt')
+      .select('COUNT(v.id)', 'cnt')
       .getRawOne<{ cnt: string }>();
     const total = Number(countRow?.cnt ?? 0);
 
-    const rows = await qb
-      .select('p.id', 'id')
-      .addSelect('p.name', 'name')
+    const selectQb = qb
+      .clone()
+      .select('v.id', 'id')
+      .addSelect('p.id', 'productId')
+      .addSelect('p.name', 'productName')
       .addSelect('p.description', 'description')
       .addSelect('p.categoryId', 'categoryId')
       .addSelect('cat.name', 'categoryName')
-      .groupBy('p.id')
-      .addGroupBy('p.name')
-      .addGroupBy('p.description')
-      .addGroupBy('p.categoryId')
-      .addGroupBy('cat.name')
+      .addSelect('v.attributeValues', 'attributeValues')
+      .addSelect('v.basePrice', 'basePrice')
       .orderBy('cat.name', 'ASC', 'NULLS LAST')
       .addOrderBy('p.name', 'ASC')
+      .addOrderBy('v.sku', 'ASC')
       .offset((page - 1) * limit)
-      .limit(limit)
-      .getRawMany<{
-        id: string;
-        name: string;
-        description: string | null;
-        categoryId: string | null;
-        categoryName: string | null;
-      }>();
+      .limit(limit);
 
-    const items = await this.attachProductImages(rows);
+    if (priceListId) {
+      selectQb.addSelect('pli.grossPrice', 'listPrice');
+    }
+
+    const rows = await selectQb.getRawMany<{
+      id: string;
+      productId: string;
+      productName: string;
+      description: string | null;
+      categoryId: string | null;
+      categoryName: string | null;
+      attributeValues: unknown;
+      basePrice: string;
+      listPrice?: string;
+    }>();
+
+    const attributeNameById = await this.loadAttributeNameById(
+      companyId,
+      this.collectAttributeIdsFromRaw(rows),
+    );
+    const variantIds = rows.map((r) => r.id);
+    const productIds = [...new Set(rows.map((r) => r.productId))];
+
+    const [variantAssetsMap, productAssetsMap] = await Promise.all([
+      variantIds.length
+        ? this.multimediaService.listByEntityIds('product-variant', variantIds)
+        : Promise.resolve({} as Record<string, never>),
+      productIds.length
+        ? this.multimediaService.listByEntityIds('product', productIds)
+        : Promise.resolve({} as Record<string, never>),
+    ]);
+
+    const items = rows.map((row) => {
+      const labels = resolveVariantAttributeLabels(
+        this.parseAttributeValues(row.attributeValues),
+        attributeNameById,
+      );
+      const variantUrl = this.resolveAssetUrl(variantAssetsMap[row.id] ?? []);
+      const productUrl = this.resolveAssetUrl(productAssetsMap[row.productId] ?? []);
+      const price = Number(row.listPrice ?? row.basePrice) || 0;
+      return {
+        id: row.id,
+        productId: row.productId,
+        name: this.formatVariantDisplayName(row.productName, labels),
+        description: row.description,
+        price,
+        categoryId: row.categoryId,
+        categoryName: row.categoryName,
+        imageUrl: variantUrl ?? productUrl,
+        attributeValues: labels,
+      };
+    });
+
     return { items, total, page, limit };
   }
 
@@ -244,15 +349,16 @@ export class MenuService {
       throw new NotFoundException('Producto no encontrado en la carta');
     }
 
-    let variants: Array<{
+    let variantRows: Array<{
       id: string;
       sku: string;
-      basePrice: number;
-      attributeValues: Record<string, string>;
+      basePrice: string;
+      listPrice?: string;
+      attributeValues: unknown;
     }>;
 
     if (priceListId) {
-      const rows = await this.variantRepo
+      variantRows = await this.variantRepo
         .createQueryBuilder('v')
         .innerJoin(
           PriceListItem,
@@ -272,21 +378,9 @@ export class MenuService {
         .addSelect('v.attributeValues', 'attributeValues')
         .addSelect('pli.grossPrice', 'listPrice')
         .orderBy('v.sku', 'ASC')
-        .getRawMany<{
-          id: string;
-          sku: string;
-          basePrice: string;
-          listPrice: string;
-          attributeValues: Record<string, string> | null;
-        }>();
-      variants = rows.map((v) => ({
-        id: v.id,
-        sku: v.sku,
-        basePrice: Number(v.listPrice ?? v.basePrice) || 0,
-        attributeValues: v.attributeValues ?? {},
-      }));
+        .getRawMany();
     } else {
-      const rows = await this.variantRepo.find({
+      const found = await this.variantRepo.find({
         where: {
           productId,
           companyId,
@@ -294,21 +388,39 @@ export class MenuService {
         },
         order: { sku: 'ASC' },
       });
-      variants = rows.map((v) => ({
+      variantRows = found.map((v) => ({
         id: v.id,
         sku: v.sku,
-        basePrice: Number(v.basePrice) || 0,
-        attributeValues: (v.attributeValues as Record<string, string>) ?? {},
+        basePrice: String(v.basePrice ?? 0),
+        attributeValues: v.attributeValues ?? null,
       }));
     }
 
-    if (!variants.length) {
+    if (!variantRows.length) {
       throw new NotFoundException('Producto sin variantes en la carta');
     }
 
-    const [withImage] = await this.attachProductImages([product]);
-    const assets = await this.multimediaService.listByEntity('product', product.id);
-    const multimedia = assets.map((asset) => ({
+    const attributeNameById = await this.loadAttributeNameById(
+      companyId,
+      this.collectAttributeIdsFromRaw(variantRows),
+    );
+
+    const variants = variantRows.map((v) => ({
+      id: v.id,
+      sku: v.sku,
+      basePrice: Number(v.listPrice ?? v.basePrice) || 0,
+      attributeValues: resolveVariantAttributeLabels(
+        this.parseAttributeValues(v.attributeValues),
+        attributeNameById,
+      ),
+    }));
+
+    const productAssets = await this.multimediaService.listByEntity(
+      'product',
+      product.id,
+    );
+    const imageUrl = this.resolveAssetUrl(productAssets);
+    const multimedia = productAssets.map((asset) => ({
       id: asset.id,
       publicUrl:
         resolveMultimediaPublicUrl(asset.publicUrl, this.config) ?? asset.publicUrl,
@@ -322,7 +434,7 @@ export class MenuService {
       description: product.description,
       categoryId: product.categoryId,
       categoryName: product.categoryName,
-      imageUrl: withImage?.imageUrl ?? null,
+      imageUrl,
       multimedia,
       variants,
     };

@@ -2,10 +2,10 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { DataGridTable as DataGrid } from "@kai/ui";
+import { Button, DataGridTable as DataGrid, IconButton } from "@kai/ui";
 import type { DataGridColumn } from "@kai/ui";
-import { IconButton } from "@kai/ui";
 import type { ReceptionGridRow } from "@/features/receptions/types/reception.types";
+import { BulkReceptionImportDialog } from "@/features/receptions/ui/BulkReceptionImportDialog";
 import ReceptionDetailDialog from "@/features/purchasing-document/ui/ReceptionDetailDialog";
 
 type ReceptionsDataGridProps = {
@@ -36,6 +36,7 @@ const ORIGIN_LABEL: Record<string, string> = {
 export default function ReceptionsDataGrid({ rows, total }: ReceptionsDataGridProps) {
   const router = useRouter();
   const [detailReceptionId, setDetailReceptionId] = useState<string | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const openDetail = useCallback((r: ReceptionGridRow) => {
     setDetailReceptionId(r.id);
@@ -185,6 +186,16 @@ export default function ReceptionsDataGrid({ rows, total }: ReceptionsDataGridPr
 
   return (
     <>
+      <div className="mb-2 flex flex-wrap items-center justify-end gap-2 px-1">
+        <Button
+          variant="outlined"
+          size="sm"
+          onClick={() => setBulkOpen(true)}
+          data-test-id="receptions-bulk-import-open"
+        >
+          Carga masiva
+        </Button>
+      </div>
       <DataGrid
         title=""
         columns={columns}
@@ -206,6 +217,7 @@ export default function ReceptionsDataGrid({ rows, total }: ReceptionsDataGridPr
         open={detailReceptionId != null}
         onClose={() => setDetailReceptionId(null)}
       />
+      <BulkReceptionImportDialog open={bulkOpen} onClose={() => setBulkOpen(false)} />
     </>
   );
 }

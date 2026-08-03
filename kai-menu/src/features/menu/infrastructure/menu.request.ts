@@ -5,7 +5,7 @@ const base = () =>
   );
 
 const slug = () =>
-  (process.env.NEXT_PUBLIC_MENU_STORE_SLUG || process.env.MENU_STORE_SLUG || "resto-demo").trim();
+  (process.env.NEXT_PUBLIC_MENU_STORE_SLUG || process.env.MENU_STORE_SLUG || "kai-food").trim();
 
 export type MenuStorefront = {
   companyName: string;
@@ -36,11 +36,14 @@ export type MenuStorefront = {
 
 export type MenuCatalogItem = {
   id: string;
+  productId: string;
   name: string;
   description: string | null;
+  price: number;
   categoryId: string | null;
   categoryName: string | null;
   imageUrl?: string | null;
+  attributeValues?: Record<string, string>;
 };
 
 export type MenuCategory = { id: string; name: string };
@@ -69,12 +72,18 @@ export type MenuProductDetail = {
 async function menuFetch<T>(path: string): Promise<T | null> {
   const api = base();
   if (!api) return null;
-  const res = await fetch(`${api}/api/menu/${path}`, {
-    headers: { "X-Menu-Store-Slug": slug() },
-    cache: "no-store",
-  });
-  if (!res.ok) return null;
-  return (await res.json()) as T;
+  try {
+    const res = await fetch(`${api}/api/menu/${path}`, {
+      headers: { "X-Menu-Store-Slug": slug() },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const text = await res.text();
+    if (!text.trim()) return null;
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchMenuStorefront(): Promise<MenuStorefront | null> {

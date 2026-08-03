@@ -22,7 +22,7 @@ import {
   patchTransactionHistoricalDate,
   seedHistoricalDateFromDaysAgo,
 } from './seed-demo-historical-dates.util';
-import { buildSeedDemoPurchasePlan } from './seed-demo-purchase-plan';
+import { buildSeedDemoPurchasePlan, type SeedPurchaseDoc } from './seed-demo-purchase-plan';
 import { collectSeedDevPhysicalVariants } from './catalog';
 import {
   buildSupplierDocumentPayment,
@@ -44,9 +44,25 @@ export async function seedDemoOperationalHistory(ctx: {
   adminUserId: string;
   /** userName → userId de operadores POS para ventas. */
   operatorUserIds: Record<string, string>;
+  /**
+   * `full` (default): capital + gastos + compras + ventas retail + jornada.
+   * `purchases`: capital + compras/recepciones (sin ventas retail ni jornada).
+   */
+  mode?: 'full' | 'purchases';
+  /** Plan de compras explícito (p. ej. Food). Si omitido, se construye el plan Store. */
+  purchasePlan?: SeedPurchaseDoc[];
 }): Promise<void> {
-  const { app, dataSource, companyId, branchId, adminUserId, operatorUserIds } =
-    ctx;
+  const {
+    app,
+    dataSource,
+    companyId,
+    branchId,
+    adminUserId,
+    operatorUserIds,
+    mode = 'full',
+    purchasePlan: purchasePlanOverride,
+  } = ctx;
+  const purchasesOnly = mode === 'purchases';
 
   const capitalService = app.get(CapitalContributionsService);
   const bankTransferService = app.get(BankTransfersService);
@@ -60,14 +76,18 @@ export async function seedDemoOperationalHistory(ctx: {
   const supplierByAlias = await loadSupplierIds(dataSource, companyId);
 
   const treasuryDate = seedHistoricalDateFromDaysAgo(180);
-  console.log(`📅 Seed operativo: ancla tesorería ${treasuryDate}`);
+  console.log(
+    `📅 Seed operativo (${purchasesOnly ? 'purchases' : 'full'}): ancla tesorería ${treasuryDate}`,
+  );
 
   const capitalRes = await capitalService.create({
     shareholderId,
     bankAccountKey: PRIMARY_BANK_ACCOUNT_KEY,
-    amount: 25_000_000,
+    amount: purchasesOnly ? 15_000_000 : 25_000_000,
     occurredOn: treasuryDate,
-    notes: 'Aporte de capital seed — Ana García López',
+    notes: purchasesOnly
+      ? 'Aporte de capital seed Food — Ana García López'
+      : 'Aporte de capital seed — Ana García López',
   });
   if (!capitalRes.success || !capitalRes.data?.id) {
     throw new Error(`Aporte de capital seed falló: ${capitalRes.error ?? 'sin id'}`);
@@ -77,12 +97,14 @@ export async function seedDemoOperationalHistory(ctx: {
     transactionId: capitalRes.data.id,
     occurredOn: treasuryDate,
   });
-  console.log(`✅ Aporte capital $25.000.000 → banco (${treasuryDate})`);
+  console.log(
+    `✅ Aporte capital $${(purchasesOnly ? 15_000_000 : 25_000_000).toLocaleString('es-CL')} → banco (${treasuryDate})`,
+  );
 
   const transferRes = await bankTransferService.create({
     bankAccountKey: PRIMARY_BANK_ACCOUNT_KEY,
     cashHubId,
-    amount: 5_000_000,
+    amount: purchasesOnly ? 3_000_000 : 5_000_000,
     occurredOn: treasuryDate,
     notes: 'Dotación centro de efectivo Principal (seed)',
   });
@@ -94,15 +116,19 @@ export async function seedDemoOperationalHistory(ctx: {
     transactionId: transferRes.data.id,
     occurredOn: treasuryDate,
   });
-  console.log(`✅ Giro banco→hub Principal $5.000.000 (${treasuryDate})`);
+  console.log(
+    `✅ Giro banco→hub Principal $${(purchasesOnly ? 3_000_000 : 5_000_000).toLocaleString('es-CL')} (${treasuryDate})`,
+  );
 
-  await seedDemoOperationalExpenses({
-    app,
-    dataSource,
-    companyId,
-    branchId,
-    userId: adminUserId,
-  });
+  if (!purchasesOnly) {
+    await seedDemoOperationalExpenses({
+      app,
+      dataSource,
+      companyId,
+      branchId,
+      userId: adminUserId,
+    });
+  }
 
   let transferCount = 0;
   let checkCount = 0;
@@ -115,11 +141,12 @@ export async function seedDemoOperationalHistory(ctx: {
   const physicalFromCatalog = collectSeedDevPhysicalVariants().filter((v) =>
     variantBySku.has(v.sku),
   );
-  const purchasePlan = buildSeedDemoPurchasePlan(physicalFromCatalog);
+  const purchasePlan =
+    purchasePlanOverride ?? buildSeedDemoPurchasePlan(physicalFromCatalog);
   const sortedPurchases = [...purchasePlan].sort((a, b) => b.daysAgo - a.daysAgo);
 
   console.log(
-    `🛒 Plan compras seed: ${sortedPurchases.length} recepciones (PHYSICAL cubiertos=${physicalFromCatalog.length})`,
+    `🛒 Plan compras seed: ${sortedPurchases.length} recepciones (PHYSICAL cubiertos=${physicalFromCatalog.length}${purchasePlanOverride ? ', plan override' : ''})`,
   );
 
   for (const doc of sortedPurchases) {
@@ -240,16 +267,18 @@ export async function seedDemoOperationalHistory(ctx: {
     `📄 Documentos proveedor: ${fiscalDocCount} facturas · transfer=${transferCount} check=${checkCount} · cuotas completed=${installmentCompleted} partial=${installmentPartial} pending=${installmentPending} · líneas pago=${supplierPaymentCount}`,
   );
 
-  await seedDemoSalesHistory({
-    app,
-    dataSource,
-    companyId,
-    branchId,
-    operatorUserIds,
-    purchasePlan,
-  });
+  if (!purchasesOnly) {
+    await seedDemoSalesHistory({
+      app,
+      dataSource,
+      companyId,
+      branchId,
+      operatorUserIds,
+      purchasePlan,
+    });
 
-  await seedDemoJornadaHistory({ dataSource, companyId });
+    await seedDemoJornadaHistory({ dataSource, companyId });
+  }
 
   await logOperationalSmokeSummary(dataSource, companyId, variantBySku);
 }

@@ -19,7 +19,7 @@ export type SeedDevMenuHeroSlideDef = {
   imageFile?: string;
 };
 
-/** Hero Kai Menú — Restó Demo (cafetería / pastelería). */
+/** Hero Kai Menú — Kai Food (cafetería / pastelería). */
 export const SEED_DEV_MENU_HERO_SLIDES: readonly SeedDevMenuHeroSlideDef[] = [
   {
     key: 'cafe-especialidad',

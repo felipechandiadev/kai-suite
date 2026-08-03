@@ -235,17 +235,7 @@ const SideBar: React.FC<SideBarProps> = ({
             />
           </button>
           <ul className={`pl-5 space-y-0.5 mt-0.5 ${isOpen ? '' : 'hidden'}`}>
-            {item.children!.map((child, cIdx) => (
-              <li key={(child.id ?? `${child.label}-${cIdx}`)}>
-                <button
-                  className={`${MENU_ITEM_CLASSES} w-full text-left cursor-pointer`}
-                  onClick={() => handleNavigate(child.url)}
-                  data-test-id={`side-bar-child-${child.label.toLowerCase().replace(/\s+/g, '-')}`}
-                >
-                  {child.label}
-                </button>
-              </li>
-            ))}
+            {item.children!.map((child, cIdx) => renderMenuItem(child, cIdx))}
           </ul>
         </li>
       );

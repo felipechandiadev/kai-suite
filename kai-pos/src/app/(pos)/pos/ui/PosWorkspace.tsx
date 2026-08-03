@@ -42,7 +42,8 @@ import type { PosProductSearchItem } from "@/features/pos-products/types/pos-pro
 import PosPaymentWorkspace from "@/app/(pos)/pos/payment/ui/PosPaymentWorkspace";
 import { POS_CUSTOMER_SEARCH_DEFAULT_PAGE_SIZE } from "@/features/customers/lib/posCustomerSearchStorage";
 import type { PosCustomerSearchInitial } from "@/features/customers/ui/PosCustomerSearchPanel";
-import { isKaiFoodEnabled } from "@/config/kaifood-module.config";
+import { isKaiFoodEnabledForCompany } from "@/config/kaifood-module.config";
+import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
 
 const emptyCustomerSearch: PosCustomerSearchInitial = {
   query: "",
@@ -80,19 +81,41 @@ export default function PosWorkspace() {
   const [lastPresaleTicket, setLastPresaleTicket] = useState<PresaleTicketDetail | null>(null);
   const [embeddedPaymentOpen, setEmbeddedPaymentOpen] = useState(false);
   const [discountDetailOpen, setDiscountDetailOpen] = useState(false);
+  /** null = aún no cargado (transfer off para evitar flash en kaistore). */
+  const [companyKaiProduct, setCompanyKaiProduct] = useState<string | null | undefined>(
+    undefined,
+  );
   const isReturnMode = cart.isReturnMode;
   const isFulfillBackorderMode = cart.isFulfillBackorderMode;
   const hasLoadedQuotation = cart.loadedQuotation != null;
   const quotationsEnabled = cart.quotationsEnabled;
   const isPresaleMode = ctx?.posKind === "PRESALE";
   const cartLocked = isReturnMode || isFulfillBackorderMode;
-  const kaiFoodEnabled = isKaiFoodEnabled();
+  const kaiFoodEnabled =
+    companyKaiProduct !== undefined &&
+    isKaiFoodEnabledForCompany(companyKaiProduct);
   const diningTransferEnabled =
     kaiFoodEnabled &&
     !isOffline &&
     !cartLocked &&
     !hasLoadedQuotation &&
     diningPayment.order == null;
+
+  useEffect(() => {
+    let cancelled = false;
+    void getCompanyDetailsAction()
+      .then((details) => {
+        if (cancelled) return;
+        setCompanyKaiProduct(details?.kaiProduct ?? null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCompanyKaiProduct(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const refreshPriceListOptions = useCallback(async (posId: string, currentListId?: string) => {
     if (!shouldUseBackendApi()) return;

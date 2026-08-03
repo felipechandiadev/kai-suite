@@ -326,3 +326,132 @@ export function buildSeedDemoPurchasePlan(
 
   return docs.sort((a, b) => b.daysAgo - a.daysAgo || a.reference.localeCompare(b.reference));
 }
+
+const FOOD_SUPPLIERS = ['Mayorista Central', 'Andes'] as const;
+
+function uniqueFoodReference(daysAgo: number, seq: number): string {
+  return `F-SEED-FOOD-${String(daysAgo).padStart(3, '0')}${String(seq).padStart(2, '0')}`;
+}
+
+/**
+ * Plan de compras Kai Food: PHYSICAL food + insumos pastelería/cocina.
+ * Sin textil. Bodega pastelería se mapea a bodega principal (Food no tiene UP pastelería).
+ */
+export function buildSeedDemoFoodPurchasePlan(
+  physicalVariants: SeedPhysicalVariantInput[],
+): SeedPurchaseDoc[] {
+  if (!physicalVariants.length) {
+    throw new Error('buildSeedDemoFoodPurchasePlan: no hay variantes PHYSICAL food');
+  }
+
+  const variants = [...physicalVariants].sort((a, b) => a.sku.localeCompare(b.sku));
+  const docs: SeedPurchaseDoc[] = [];
+  const usedRefs = new Set<string>();
+  let seq = 0;
+
+  const pushDoc = (partial: Omit<SeedPurchaseDoc, 'reference'> & { reference?: string }) => {
+    seq += 1;
+    let reference = partial.reference ?? uniqueFoodReference(partial.daysAgo, seq);
+    if (!reference.startsWith('F-SEED-FOOD-') && partial.reference) {
+      reference = `F-SEED-FOOD-${partial.reference.replace(/^F-SEED-/, '')}`;
+    }
+    while (usedRefs.has(reference)) {
+      seq += 1;
+      reference = uniqueFoodReference(partial.daysAgo, seq);
+    }
+    usedRefs.add(reference);
+    docs.push({
+      ...partial,
+      storageCode: SEED_STORAGE_CODE,
+      reference,
+    });
+  };
+
+  const foodRecentTarget = 24;
+  const foodOlderTarget = 8;
+
+  for (let i = 0; i < variants.length; i++) {
+    const v = variants[i]!;
+    const daysAgo = daysAgoForCoverage(i, variants.length);
+    pushDoc({
+      daysAgo,
+      supplierAlias: FOOD_SUPPLIERS[i % FOOD_SUPPLIERS.length]!,
+      storageCode: SEED_STORAGE_CODE,
+      paymentStrategy: paymentStrategyForIndex(i),
+      lines: [
+        {
+          sku: v.sku,
+          qty: qtyForSku(v.sku, i),
+          unitCost: costWithDrift(v.baseCost, i, 0),
+        },
+      ],
+    });
+  }
+
+  const countRecent = () => docs.filter((d) => d.daysAgo <= RECENT_WINDOW).length;
+  const countOlder = () =>
+    docs.filter((d) => d.daysAgo > RECENT_WINDOW && d.daysAgo <= HORIZON_DAYS).length;
+
+  let fillIdx = 0;
+  while (countRecent() < foodRecentTarget) {
+    const i = fillIdx++;
+    const primary = variants[i % variants.length]!;
+    const secondary = variants[(i + 5) % variants.length]!;
+    const daysAgo = daysAgoForFill(i, true);
+    pushDoc({
+      daysAgo,
+      supplierAlias: FOOD_SUPPLIERS[i % FOOD_SUPPLIERS.length]!,
+      storageCode: SEED_STORAGE_CODE,
+      paymentStrategy: paymentStrategyForIndex(variants.length + i),
+      lines: [primary, secondary].slice(0, 1 + (i % 2)).map((v, li) => ({
+        sku: v.sku,
+        qty: qtyForSku(v.sku, variants.length + i + li),
+        unitCost: costWithDrift(v.baseCost, variants.length + i, li),
+      })),
+    });
+    if (fillIdx > 400) break;
+  }
+
+  fillIdx = 0;
+  while (countOlder() < foodOlderTarget) {
+    const i = fillIdx++;
+    const primary = variants[(i + 2) % variants.length]!;
+    const daysAgo = daysAgoForFill(i, false);
+    pushDoc({
+      daysAgo,
+      supplierAlias: FOOD_SUPPLIERS[(i + 1) % FOOD_SUPPLIERS.length]!,
+      storageCode: SEED_STORAGE_CODE,
+      paymentStrategy: paymentStrategyForIndex(variants.length * 2 + i),
+      lines: [
+        {
+          sku: primary.sku,
+          qty: qtyForSku(primary.sku, 300 + i),
+          unitCost: costWithDrift(primary.baseCost, 300 + i, 0),
+        },
+      ],
+    });
+    if (fillIdx > 200) break;
+  }
+
+  for (const insumo of INSUMO_PASTELERIA_DOCS) {
+    pushDoc({ ...insumo });
+  }
+  for (const insumo of INSUMO_COCINA_PREPARADO_DOCS) {
+    pushDoc({ ...insumo });
+  }
+
+  return docs.sort((a, b) => b.daysAgo - a.daysAgo || a.reference.localeCompare(b.reference));
+}
+
+/** Qty recepcionada por SKU (para coherencia ventas). */
+export function buildPurchasedQtyBySku(
+  purchasePlan: SeedPurchaseDoc[],
+): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const doc of purchasePlan) {
+    for (const line of doc.lines) {
+      map.set(line.sku, (map.get(line.sku) ?? 0) + line.qty);
+    }
+  }
+  return map;
+}

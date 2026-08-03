@@ -32,7 +32,7 @@ export const SEED_DEV_PRODUCT_IMAGES: readonly SeedDevProductImageDef[] = [
 ] as const;
 
 /**
- * Imágenes carta KaiFood / Restó Demo (suite + food mode).
+ * Imágenes carta KaiFood / Kai Food (suite + food mode).
  * Incluye overlaps con tienda (café, galletas) y elaborados/preparados de menú.
  */
 export const SEED_KAIFOOD_PRODUCT_IMAGES: readonly SeedDevProductImageDef[] = [

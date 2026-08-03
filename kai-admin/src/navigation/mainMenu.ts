@@ -134,6 +134,8 @@ export const mainMenuItems: SideBarMenuItem[] = [
   {
     id: 'nav-production',
     label: 'Producción',
+    /** Futuro: menú Store (elaboración/manufactura). Hoy vive bajo KaiFood. */
+    hidden: true,
     children: [
       {
         id: 'production-orders',
@@ -190,11 +192,18 @@ export const mainMenuItems: SideBarMenuItem[] = [
     requiresKaiFoodEnabled: true,
     children: [
       { id: 'kaifood-rooms', label: 'Salones', url: '/kaifood/rooms' },
+      // Propinas — oculto temporalmente del sidebar (rutas /kaifood/propinas* siguen por URL).
       {
-        id: 'kaifood-propinas',
-        label: 'Propinas',
-        url: '/kaifood/propinas',
-        requiresTipsEnabled: true,
+        id: 'kaifood-production-orders',
+        label: 'Órdenes de producción',
+        url: '/production/orders',
+        requiresKaiFoodEnabled: true,
+      },
+      {
+        id: 'kaifood-production-units',
+        label: 'Unidades de producción',
+        url: '/production/units',
+        requiresKaiFoodEnabled: true,
       },
       {
         id: 'kaifood-config',
@@ -204,17 +213,12 @@ export const mainMenuItems: SideBarMenuItem[] = [
       {
         id: 'kaifood-menu',
         label: 'KaiMenú',
+        url: '/kaifood/menu/appearance',
         requiresKaiFoodEnabled: true,
-        children: [
-          { id: 'kaifood-menu-appearance', label: 'Apariencia', url: '/kaifood/menu/appearance' },
-          { id: 'kaifood-menu-topbar', label: 'Topbar', url: '/kaifood/menu/topbar' },
-          { id: 'kaifood-menu-hero', label: 'Hero', url: '/kaifood/menu/hero' },
-          { id: 'kaifood-menu-about', label: 'Nosotros', url: '/kaifood/menu/about' },
-          { id: 'kaifood-menu-find-us', label: 'Encuéntranos', url: '/kaifood/menu/find-us' },
-        ],
       },
     ],
   },
+
   {
     id: 'nav-laundry',
     label: 'Lavandería',
@@ -355,5 +359,11 @@ export const mainMenuItems: SideBarMenuItem[] = [
     ],
   },
   // { id: 'nav-ui', label: 'UI Components', children: uiComponentItems },
-  { id: 'nav-design-system', label: 'Design System', url: '/design-system' },
+  {
+    id: 'nav-design-system',
+    label: 'Design System',
+    url: '/design-system',
+    /** Showcase interno; no exponer en sidebar de producción. */
+    hidden: true,
+  },
 ];

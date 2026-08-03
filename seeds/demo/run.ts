@@ -73,11 +73,8 @@ import { AutomationRule } from '@modules/automation/domain/automation-rule.entit
 import { AutomationAction } from '@modules/automation/domain/automation-action.entity';
 import { AutomationEventType } from '@modules/automation/domain/automation-event-type.enum';
 import { AutomationActionType } from '@modules/automation/domain/automation-action-type.enum';
-import {
-  ExpenseCategoryOperationalGroup,
-} from '@modules/expense-categories/domain/expense-category-operational-group.enum';
-import { ExpenseCategoryPnlNature } from '@modules/expense-categories/domain/expense-category-pnl-nature.enum';
 import { assertValidChileCompanyRut } from '@shared/utils/chile-company-rut.util';
+import { seedExpenseCategoriesForCompany } from '../shared/seed-expense-categories';
 import { Product, ProductType } from '@modules/products/domain/product.entity';
 import { Brand } from '@modules/brands/domain/brand.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
@@ -112,13 +109,10 @@ import {
   seedDevCatalogMultimedia,
   seedDevEshopHeroSlides,
   seedDevEshopTestimonials,
-  seedMenuHeroSlidesFromDefs,
   seedMultimediaFileLink,
   resolveSeedMultimediaStorage,
 } from '../shared/seed-multimedia.util';
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
-import { MenuHeroSlide } from '@modules/menu/domain/menu-hero-slide.entity';
-import { SEED_DEV_MENU_HERO_SLIDES } from './menu-hero-slides';
 import { SEED_KAIFOOD_PRODUCT_IMAGES } from './catalog-images';
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
 import type { CompanyPaymentMethodConfig } from '@modules/payment-methods-config/domain/payment-method-config.types';
@@ -163,15 +157,19 @@ import {
   SEED_DEV_VARIANT_SKU_PREFIX,
   collectSeedDevCatalogProductNames,
   collectSeedDevCatalogSkus,
+  collectSeedDevPhysicalVariants,
   getSeedDevBrands,
   getSeedDevCategories,
   getSeedDevEshopFeaturedProductNames,
   getSeedDevProducts,
+  getSeedFoodOnlyProducts,
   isKaiFoodSeedMode,
   isKaiSuiteSeedMode,
   type SeedDevUnitKey,
 } from './catalog';
 import { seedDemoSuiteFoodCompany } from './seed-demo-suite-food-company';
+import { seedDemoSuiteFoodOperationalPrereqs } from './seed-demo-suite-food-prereqs';
+import { buildSeedDemoFoodPurchasePlan } from './seed-demo-purchase-plan';
 import {
   getSeedDevProductionRecipes,
   getSeedDevProductionUnits,
@@ -407,222 +405,6 @@ const SEED_ACCOUNTING_ACCOUNTS: readonly {
   { code: '5201', name: 'Gastos operativos varios', type: AccountType.EXPENSE, parentCode: '5200' },
 ] as const;
 
-const SEED_EXPENSE_CATEGORIES: readonly {
-  name: string;
-  operationalExpenseGroup: ExpenseCategoryOperationalGroup;
-  pnlNature: ExpenseCategoryPnlNature;
-  nonDeletable?: boolean;
-}[] = [
-  {
-    name: 'Sueldos',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.PERSONAL_NOMINA,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-    nonDeletable: true,
-  },
-  {
-    name: 'Horas extra',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.PERSONAL_NOMINA,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-    nonDeletable: true,
-  },
-  {
-    name: 'Cargas sociales',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.PERSONAL_NOMINA,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-    nonDeletable: true,
-  },
-  {
-    name: 'Capacitación operativa',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.PERSONAL_NOMINA,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Arriendo',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Gastos comunes',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Mantención',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Limpieza',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Seguridad física',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Electricidad',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Agua',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOCALES_INSTALACIONES,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Embalaje',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.SUMINISTROS_CONSUMIBLES,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Útiles',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.SUMINISTROS_CONSUMIBLES,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Materiales no inventariables',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.SUMINISTROS_CONSUMIBLES,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'EPP (Elementos de Protección Personal)',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.SUMINISTROS_CONSUMIBLES,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Flete',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOGISTICA_DISTRIBUCION,
-    pnlNature: ExpenseCategoryPnlNature.SALES,
-  },
-  {
-    name: 'Courier',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOGISTICA_DISTRIBUCION,
-    pnlNature: ExpenseCategoryPnlNature.SALES,
-  },
-  {
-    name: 'Combustible operativo',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOGISTICA_DISTRIBUCION,
-    pnlNature: ExpenseCategoryPnlNature.SALES,
-  },
-  {
-    name: 'Peajes',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOGISTICA_DISTRIBUCION,
-    pnlNature: ExpenseCategoryPnlNature.SALES,
-  },
-  {
-    name: 'Almacenaje externo',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.LOGISTICA_DISTRIBUCION,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Software recurrente',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Hosting',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Internet y telecomunicaciones',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'POS (Puntos de Venta)',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS,
-    pnlNature: ExpenseCategoryPnlNature.SALES,
-  },
-  {
-    name: 'Soporte',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Licencias',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.TECNOLOGIA_SISTEMAS,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Promociones en tienda',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.COMUNICACION_MARKETING_OPERATIVO,
-    pnlNature: ExpenseCategoryPnlNature.SALES,
-  },
-  {
-    name: 'Señalética',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.COMUNICACION_MARKETING_OPERATIVO,
-    pnlNature: ExpenseCategoryPnlNature.SALES,
-  },
-  {
-    name: 'Muestras',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.COMUNICACION_MARKETING_OPERATIVO,
-    pnlNature: ExpenseCategoryPnlNature.SALES,
-  },
-  {
-    name: 'Contabilidad/tributario recurrente',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.SERVICIOS_EXTERNOS,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Retainer legal',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.SERVICIOS_EXTERNOS,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Auditorías',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.SERVICIOS_EXTERNOS,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Comisiones bancarias',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.FINANCIEROS_TESORERIA,
-    pnlNature: ExpenseCategoryPnlNature.SALES,
-  },
-  {
-    name: 'Seguros operativos',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.FINANCIEROS_TESORERIA,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Costos de líneas de crédito',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.FINANCIEROS_TESORERIA,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Mermas autorizadas',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.PERDIDAS_AJUSTES_OPERATIVOS,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Diferencias de caja menores',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.PERDIDAS_AJUSTES_OPERATIVOS,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Obsolescencia (gasto operativo)',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.PERDIDAS_AJUSTES_OPERATIVOS,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Permisos municipales',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.REGULATORIO_CUMPLIMIENTO,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Fiscalización',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.REGULATORIO_CUMPLIMIENTO,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-  {
-    name: 'Certificaciones obligatorias',
-    operationalExpenseGroup: ExpenseCategoryOperationalGroup.REGULATORIO_CUMPLIMIENTO,
-    pnlNature: ExpenseCategoryPnlNature.ADMIN,
-  },
-] as const;
-
 type SeedPersonGeo = {
   regionCode?: string;
   regionName?: string;
@@ -690,7 +472,7 @@ const SEED_SUPPLIERS: readonly {
       firstName: 'Comercial Andes SpA',
       businessName: 'Comercial Andes SpA',
       documentType: DocumentType.RUT,
-      documentNumber: '76.123.456-7',
+      documentNumber: '76.123.456-0',
       email: 'contacto@andes-proveedores.cl',
       phone: '+56 9 6123 4567',
       address: 'Av. Providencia 1234, Santiago',
@@ -3996,37 +3778,11 @@ async function bootstrap() {
     }
 
     // Expense categories (seed explícito): limpiar y recrear catálogo por empresa.
-    const deleteResult = await expenseCategoryRepo
-      .createQueryBuilder()
-      .delete()
-      .from(ExpenseCategory)
-      .where('companyId = :companyId', { companyId: company.id })
-      .execute();
-    console.log(
-      `✅ Categorías de gasto eliminadas para companyId=${company.id}: ${deleteResult.affected ?? 0}`,
-    );
-
-    for (const item of SEED_EXPENSE_CATEGORIES) {
-      const row = expenseCategoryRepo.create({
-        companyId: company.id,
-        code: null,
-        name: item.name,
-        operationalExpenseGroup: item.operationalExpenseGroup,
-        pnlNature: item.pnlNature,
-        description: item.name,
-        requiresApproval: false,
-        approvalThreshold: '0',
-        defaultResultCenterId: null,
-        isActive: true,
-        nonDeletable: item.nonDeletable === true,
-        examples: null,
-        metadata: null,
-      });
-      await expenseCategoryRepo.save(row);
-      console.log(
-        `✅ Categoría de gasto creada: ${row.name} (${row.operationalExpenseGroup} / ${row.pnlNature}${row.nonDeletable ? ' · sistema' : ''}) id=${row.id}`,
-      );
-    }
+    await seedExpenseCategoriesForCompany({
+      expenseCategoryRepo,
+      companyId: company.id,
+      logLabel: company.nombreFantasia ?? company.id,
+    });
 
     // Suppliers (ejemplos): 10 combinaciones entre persona/empresa y campos opcionales.
     for (const item of SEED_SUPPLIERS) {
@@ -5374,9 +5130,57 @@ async function bootstrap() {
       await seedDemoSuiteFoodCompany({
         dataSource,
         companyFood,
-        ivaTax,
-        seedUnitId,
       });
+
+      const foodBranch = await branchRepo.findOne({
+        where: {
+          companyId: companyFood.id,
+          name: SEED_BRANCH_NAME,
+          deletedAt: null as never,
+        },
+      });
+      if (!foodBranch) {
+        throw new Error(
+          `Sucursal Kai Food «${SEED_BRANCH_NAME}» no encontrada tras suite food seed`,
+        );
+      }
+
+      await seedDemoSuiteFoodOperationalPrereqs({
+        dataSource,
+        companyFood,
+        branchId: foodBranch.id,
+      });
+
+      const foodPhysical = collectSeedDevPhysicalVariants(
+        getSeedFoodOnlyProducts(),
+      );
+      const foodPurchasePlan = buildSeedDemoFoodPurchasePlan(foodPhysical);
+
+      await TenantContext.run(
+        { activeCompanyId: companyFood.id, userId: null, rol: null },
+        async () => {
+          await seedDemoOperationalHistory({
+            app,
+            dataSource,
+            companyId: companyFood.id,
+            branchId: foodBranch.id,
+            adminUserId: adminUser.id,
+            operatorUserIds,
+            mode: 'purchases',
+            purchasePlan: foodPurchasePlan,
+          });
+
+          await seedDemoTipsHistory({
+            app,
+            dataSource,
+            companyId: companyFood.id,
+            branchId: foodBranch.id,
+            operatorUserIds,
+            waiterUserIds,
+            purchasePlan: foodPurchasePlan,
+          });
+        },
+      );
 
       const foodMultimediaParams = {
         assetRepo: dataSource.getRepository(MultimediaAsset),
@@ -5385,31 +5189,47 @@ async function bootstrap() {
         ...resolveSeedMultimediaStorage(app, configService),
       };
 
+      if (foodMultimediaParams.seedImages) {
+        try {
+          const foodLogo = await seedMultimediaFileLink({
+            assetRepo: foodMultimediaParams.assetRepo,
+            linkRepo: foodMultimediaParams.linkRepo,
+            storage: foodMultimediaParams.storage,
+            storageProvider: foodMultimediaParams.storageProvider,
+            ingest: foodMultimediaParams.ingest,
+            sourceRelativePath: SEED_COMPANY_LOGO_FILE,
+            entityType: 'company',
+            entityId: companyFood.id,
+            usageType: 'default',
+            isPrimary: true,
+          });
+          console.log(
+            `✅ Logo Kai Food enlazado (companyId=${companyFood.id}, url=${foodLogo.publicUrl})`,
+          );
+        } catch (err) {
+          console.warn(
+            `⚠️  Logo Kai Food omitido: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
+
       await seedDevCatalogMultimedia({
         productRepo,
         variantRepo,
         attributeRepo: dataSource.getRepository(Attribute),
         productImages: SEED_KAIFOOD_PRODUCT_IMAGES,
         variantImages: [],
-        logLabel: 'Restó Demo / KaiFood',
+        logLabel: 'Kai Food',
         ...foodMultimediaParams,
       });
 
-      await seedMenuHeroSlidesFromDefs({
-        heroSlideRepo: dataSource.getRepository(MenuHeroSlide),
-        assetRepo: dataSource.getRepository(MultimediaAsset),
-        linkRepo: dataSource.getRepository(MultimediaLink),
-        companyId: companyFood.id,
-        slides: SEED_DEV_MENU_HERO_SLIDES,
-        logLabel: 'Kai Menú Restó Demo',
-        ...resolveSeedMultimediaStorage(app, configService),
-      });
+      // Hero carta deshabilitado por ahora — no sembrar slides.
     }
 
     console.log('✅ Seed mínimo OK. Usuarios listos:');
     console.log(`   • superadmin / ${seedPassword}   (SUPER_ADMIN, sin persona, protegido)`);
     console.log(
-      `   • ${userName} / ${seedPassword}        (ADMIN owner · Kai Suite · 10.987.654-3)`,
+      `   • ${userName} / ${seedPassword}        (ADMIN owner · Kai Store · 10.987.654-3)`,
     );
     console.log(
       `   • admin2 / ${seedPassword}         (ADMIN no-owner · Pedro Soto Núñez · 15.333.222-1)`,

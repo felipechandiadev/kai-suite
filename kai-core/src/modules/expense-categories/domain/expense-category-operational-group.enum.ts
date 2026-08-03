@@ -11,6 +11,7 @@ export enum ExpenseCategoryOperationalGroup {
   COMUNICACION_MARKETING_OPERATIVO = 'COMUNICACION_MARKETING_OPERATIVO',
   SERVICIOS_EXTERNOS = 'SERVICIOS_EXTERNOS',
   FINANCIEROS_TESORERIA = 'FINANCIEROS_TESORERIA',
+  CREDITOS = 'CREDITOS',
   PERDIDAS_AJUSTES_OPERATIVOS = 'PERDIDAS_AJUSTES_OPERATIVOS',
   REGULATORIO_CUMPLIMIENTO = 'REGULATORIO_CUMPLIMIENTO',
 }
@@ -69,6 +70,12 @@ export const OPERATIONAL_EXPENSE_GROUP_META: readonly OperationalExpenseGroupMet
     label: 'Financieros / tesorería',
     description:
       'Costos derivados de la intermediación bancaria, protección de activos mediante pólizas de seguro y el costo financiero de los instrumentos de liquidez de corto plazo.',
+  },
+  {
+    value: ExpenseCategoryOperationalGroup.CREDITOS,
+    label: 'Créditos',
+    description:
+      'Pagos de cuotas de créditos, financiamiento y leasing asociados a la operación (capital e intereses según el documento de pago).',
   },
   {
     value: ExpenseCategoryOperationalGroup.PERDIDAS_AJUSTES_OPERATIVOS,

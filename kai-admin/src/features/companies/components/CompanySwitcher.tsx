@@ -113,7 +113,7 @@ const CompanySwitcher: React.FC<CompanySwitcherProps> = ({
 
   if (!canSwitch) {
     return (
-      <div className="flex items-center gap-1.5 text-sm text-foreground">
+      <div className="hidden items-center gap-1.5 text-sm text-foreground md:flex">
         <Building2 size={14} className="text-muted-foreground" aria-hidden />
         <span className="truncate font-semibold" title={label}>
           {label}

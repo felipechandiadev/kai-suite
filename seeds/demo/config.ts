@@ -51,13 +51,13 @@ export function buildSeedMercadoPagoSettings(): CompanyMercadoPagoSettings {
 
 /** Empresa genérica de desarrollo — vertical KaiStore. */
 export const SEED_DEV_COMPANY = {
-  razonSocial: 'Kai Suite',
-  nombreFantasia: 'Kai Suite',
+  razonSocial: 'Kai Store',
+  nombreFantasia: 'Kai Store',
   rut: '11.111.111-1',
   mail: 'san.sebastian@kai.local',
   phone: '+56984488195',
   address: 'Anibal Pinto 405',
-  businessActivity: 'Suite Retail',
+  businessActivity: 'Retail',
   defaultCurrency: 'CLP',
   commune: 'Parral',
   city: 'Parral',
@@ -68,16 +68,19 @@ export const SEED_DEV_COMPANY = {
 
 /** Segunda empresa demo (vertical KaiFood) para deploys suite multi-empresa. */
 export const SEED_DEV_COMPANY_SECOND = {
-  razonSocial: 'Restó Demo SpA',
-  nombreFantasia: 'Restó Demo',
+  razonSocial: 'Kai Food SpA',
+  nombreFantasia: 'Kai Food',
   rut: '76.999.999-K',
-  mail: 'contacto@resto-demo.cl',
+  mail: 'contacto@kai-food.local',
   phone: '+56 2 2000 0001',
   address: 'Av. Providencia 2000, Providencia, Santiago',
   businessActivity: 'Restaurantes',
   defaultCurrency: 'CLP',
   kaiProduct: 'kaifood' as const,
 } as const;
+
+/** Slug público de la carta Kai Menú (empresa Food). */
+export const SEED_DEV_MENU_PUBLIC_SLUG = 'kai-food';
 
 /** Slug eShop público de la segunda empresa (distinto de `demo`). */
 export const SEED_DEV_COMPANY_SECOND_ESHOP_SLUG = 'demo-2';
