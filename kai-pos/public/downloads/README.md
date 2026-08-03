@@ -96,6 +96,14 @@ rsync -avz kai-pos/public/downloads/ \
 
 Incluye manifests y binarios. Si ya hiciste `git pull` en el VPS, el rsync asegura que los artefactos grandes estén presentes.
 
+Desde **kai-deployments** (filtra por `apps.native.printers` del tenant):
+
+```bash
+./_shared/scripts/sync-tenant-pos-downloads.sh barco
+TENANT_POS_DOWNLOADS_RSYNC_TARGET=usuario@tu-vps:/ruta/al/repo/kai/kai-pos/public/downloads/ \
+  ./_shared/scripts/sync-tenant-pos-downloads.sh barco --rsync
+```
+
 ### 5. Verificar en producción
 
 Abrir en el navegador (reemplazá el dominio):
