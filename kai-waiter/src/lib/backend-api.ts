@@ -168,6 +168,7 @@ export async function diningLogin(body: {
     headers: {
       "Content-Type": "application/json",
       "X-Active-Company-Id": body.companyId,
+      "X-Kai-App": "kai-waiter",
     },
     body: JSON.stringify({
       userName: body.userName,
@@ -184,19 +185,42 @@ export async function diningLogin(body: {
       id: string;
       userName: string;
       email: string;
+      rol?: string | null;
       companyId: string | null;
       person?: { firstName?: string; lastName?: string };
     };
+    activeCompanyId?: string | null;
+    memberships?: Array<{ companyId?: string }>;
   };
   const user = data.user;
   if (!user?.id) throw new Error("Credenciales inválidas");
-  const userCompanyId = user.companyId ?? body.companyId;
-  if (userCompanyId !== body.companyId) {
+
+  const userCompanyId = user.companyId ?? null;
+  const role = user.rol ?? null;
+  const backendActiveCompanyId =
+    typeof data.activeCompanyId === "string" && data.activeCompanyId.trim()
+      ? data.activeCompanyId.trim()
+      : null;
+  const memberships = Array.isArray(data.memberships)
+    ? data.memberships.filter(
+        (m) => typeof m?.companyId === "string" && m.companyId.trim().length > 0,
+      )
+    : [];
+
+  // Multiempresa: user.companyId legacy puede ser Store mientras mesero/KDS está en Food.
+  const belongsToConfiguredCompany =
+    role === "SUPER_ADMIN" ||
+    userCompanyId === body.companyId ||
+    backendActiveCompanyId === body.companyId ||
+    memberships.some((m) => m.companyId === body.companyId);
+
+  if (!belongsToConfiguredCompany) {
     throw new Error("Este usuario no pertenece a la empresa configurada");
   }
+
   return {
     userId: user.id,
-    companyId: userCompanyId,
+    companyId: body.companyId,
     userName: user.userName,
     email: user.email ?? null,
     displayName:

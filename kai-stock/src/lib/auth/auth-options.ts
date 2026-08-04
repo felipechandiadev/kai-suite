@@ -86,10 +86,31 @@ export const authOptions: NextAuthOptions = {
         };
         const userCompanyId = user.companyId ?? null;
         const role = user.rol ?? null;
+        const backendActiveCompanyId =
+          typeof data.activeCompanyId === "string" && data.activeCompanyId.trim()
+            ? data.activeCompanyId.trim()
+            : null;
+        const memberships = Array.isArray(data.memberships)
+          ? (data.memberships as Array<{ companyId?: string }>).filter(
+              (m) => typeof m?.companyId === "string" && m.companyId.trim().length > 0,
+            )
+          : [];
 
-        if (companyId && role !== "SUPER_ADMIN" && userCompanyId !== companyId) {
+        const belongsToConfiguredCompany =
+          !companyId ||
+          role === "SUPER_ADMIN" ||
+          userCompanyId === companyId ||
+          backendActiveCompanyId === companyId ||
+          memberships.some((m) => m.companyId === companyId);
+
+        if (!belongsToConfiguredCompany) {
           throw new Error("Este usuario no pertenece a la empresa configurada");
         }
+
+        const activeCompanyId =
+          role === "SUPER_ADMIN"
+            ? companyId ?? backendActiveCompanyId
+            : companyId ?? backendActiveCompanyId ?? userCompanyId;
 
         return {
           id: user.id,
@@ -101,7 +122,7 @@ export const authOptions: NextAuthOptions = {
           accessToken: user.id,
           role,
           companyId: userCompanyId,
-          activeCompanyId: role === "SUPER_ADMIN" ? companyId : userCompanyId,
+          activeCompanyId,
         };
       },
     }),

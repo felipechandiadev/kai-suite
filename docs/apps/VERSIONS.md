@@ -67,7 +67,7 @@ Baseline; actualizar en bumps notables o PRs de release.
 
 | Archivo | Versión | Notas |
 |---------|---------|--------|
-| `/package.json` (monorepo) | **1.7.0** | Reloj del suite; bump en **cada** commit |
+| `/package.json` (monorepo) | **1.7.1** | Reloj del suite; bump en **cada** commit |
 
 ### 3.1 Clientes web (PWA)
 
@@ -75,11 +75,11 @@ Baseline; actualizar en bumps notables o PRs de release.
 |---------|---------|--------|
 | `kai-admin` | **1.7.0** | `package.json` |
 | `kai-pos` | **1.3.0** | `package.json` |
-| `kai-stock` | **1.0.0** | `package.json` |
+| `kai-stock` | **1.0.1** | `package.json` |
 | `kai-eshop` | **1.1.0** | `package.json` |
 | `kai-delivery` | **1.1.0** | `package.json` |
-| `kai-waiter` | **1.1.0** | `package.json` |
-| `kai-kds` | **1.1.0** | `package.json` |
+| `kai-waiter` | **1.2.2** | `package.json` |
+| `kai-kds` | **1.1.1** | `package.json` |
 | `kai-board` | **1.1.0** | `package.json` |
 
 ### 3.2 Core, landing, sidecars
