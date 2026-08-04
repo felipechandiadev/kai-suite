@@ -18,6 +18,7 @@ import {
   readDeferredPaymentEnabledFromOfflineCache,
 } from "@/features/pos-offline/lib/read-deferred-payment-enabled";
 import { usePosCart } from "@/features/pos-cart/PosCartProvider";
+import { PosCartSlotSwitcher } from "@/features/pos-cart/ui/PosCartSlotSwitcher";
 import {
   diningAccountsListHref,
   diningKindToTab,
@@ -4018,9 +4019,12 @@ export default function PosPaymentWorkspace({
             />
           ) : null}
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <h1 id={saleTitleId} className="truncate text-base font-semibold text-foreground">
-              {flowTitle}
-            </h1>
+            <div className="flex min-w-0 items-center gap-3">
+              <h1 id={saleTitleId} className="truncate text-base font-semibold text-foreground">
+                {flowTitle}
+              </h1>
+              <PosCartSlotSwitcher className="ml-auto w-72 max-w-[min(100%,18rem)] shrink-0" />
+            </div>
             <p className="truncate text-sm text-muted-foreground">
               {loadedReturnSale ? (
                 <>

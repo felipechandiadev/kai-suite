@@ -67,14 +67,14 @@ Baseline; actualizar en bumps notables o PRs de release.
 
 | Archivo | Versión | Notas |
 |---------|---------|--------|
-| `/package.json` (monorepo) | **1.2.0** | Reloj del suite; bump en **cada** commit |
+| `/package.json` (monorepo) | **1.7.0** | Reloj del suite; bump en **cada** commit |
 
 ### 3.1 Clientes web (PWA)
 
 | Carpeta | Versión | Fuente |
 |---------|---------|--------|
-| `kai-admin` | **1.3.3** | `package.json` |
-| `kai-pos` | **1.0.0** | `package.json` |
+| `kai-admin` | **1.7.0** | `package.json` |
+| `kai-pos` | **1.3.0** | `package.json` |
 | `kai-stock` | **1.0.0** | `package.json` |
 | `kai-eshop` | **1.1.0** | `package.json` |
 | `kai-delivery` | **1.1.0** | `package.json` |
@@ -86,7 +86,7 @@ Baseline; actualizar en bumps notables o PRs de release.
 
 | Carpeta | Versión | Notas |
 |---------|---------|--------|
-| `kai-core` (Kai Core) | **1.0.1** | `name`: `kai-core` legado |
+| `kai-core` (Kai Core) | **1.4.0** | `name`: `kai-core` legado |
 | `landing` | **1.1.0** | |
 | `services/kai-mail` | **1.1.0** | Workspace npm |
 | `services/kai-voice` | **1.1.0** | Python; `package.json` como marca |
@@ -95,8 +95,8 @@ Baseline; actualizar en bumps notables o PRs de release.
 
 | Carpeta | Versión | Fuente |
 |---------|---------|--------|
-| `kai-printers-android` | **1.1.14** (code **24**) | `version.properties` |
-| `kai-printers-desktop` | **1.0.7** | `package.json` + `tauri.conf.json` |
+| `kai-printers-android` | **1.2.1** (code **27**) | `version.properties` |
+| `kai-printers-desktop` | **1.2.1** | `package.json` + `tauri.conf.json` |
 | `kai-screen-android` (Kai CFD) | **1.2.0** (code **5**) | `version.properties` |
 
 ### 3.4 Paquetes internos (muestra)
@@ -104,7 +104,7 @@ Baseline; actualizar en bumps notables o PRs de release.
 | Paquete | Versión |
 |---------|---------|
 | `@kai/ui` | **1.1.0** |
-| `@kai/print-service-client` | **1.0.1** |
+| `@kai/print-service-client` | **1.2.0** |
 | `@kai/customer-display-client` | **1.0.1** |
 | `@kai/fiscal-ted` | **1.0.1** |
 | `@kai/document-print` | **1.0.1** |

@@ -22,12 +22,27 @@ function isUnknownPrinterLabelError(e: unknown): boolean {
 }
 
 function toPayload(input: VariantBarcodeLabelPrintInput): VariantBarcodeLabelPayload {
-  return {
+  const layout = input.layout === "detailed" ? "detailed" : "minimal";
+  const attributes = (input.attributes ?? [])
+    .map((a) => ({
+      label: a.label?.trim() || undefined,
+      value: a.value.trim(),
+    }))
+    .filter((a) => a.value.length > 0);
+  const priceLabel = input.priceLabel?.trim() || undefined;
+
+  const payload: VariantBarcodeLabelPayload = {
     version: VARIANT_BARCODE_LABEL_PAYLOAD_VERSION,
     productName: input.productName.trim(),
     sku: input.sku.trim(),
     barcode: input.barcode.trim(),
+    layout,
   };
+  if (layout === "detailed") {
+    if (attributes.length > 0) payload.attributes = attributes;
+    if (priceLabel) payload.priceLabel = priceLabel;
+  }
+  return payload;
 }
 
 async function enqueueVariantBarcodeOnAgent(

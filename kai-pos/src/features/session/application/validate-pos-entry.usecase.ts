@@ -99,30 +99,33 @@ export class ValidatePosEntryUseCase {
     }
 
     const pos = posRes.pointOfSale;
-    const branch =
-      pos.branch && typeof pos.branch === "object"
-        ? (pos.branch as Record<string, unknown>)
-        : null;
-    const priceLists = normalizePriceLists(pos.priceLists);
-    const defaultPriceListId =
-      pos.defaultPriceListId != null ? String(pos.defaultPriceListId).trim() || null : null;
+  const branch =
+    pos.branch && typeof pos.branch === "object"
+      ? (pos.branch as Record<string, unknown>)
+      : null;
+  const priceLists = normalizePriceLists(pos.priceLists);
+  const defaultPriceListId =
+    pos.defaultPriceListId != null ? String(pos.defaultPriceListId).trim() || null : null;
+  if (defaultPriceListId && !priceLists.some((p) => p.id === defaultPriceListId)) {
+    priceLists.unshift({ id: defaultPriceListId, name: "Lista de precios" });
+  }
 
-    return {
-      valid: true,
-      snapshot: {
-        branchId:
-          (pos.branchId != null ? String(pos.branchId).trim() : "") ||
-          (branch?.id != null ? String(branch.id).trim() : "") ||
-          null,
-        branchName: branch?.name != null ? String(branch.name).trim() || null : null,
-        storageId: pos.storageId != null ? String(pos.storageId).trim() || null : null,
-        pointOfSaleName: pos.name != null ? String(pos.name).trim() || null : null,
-        posKind: parsePosKind(pos),
-        acceptsPresaleTickets: pos.acceptsPresaleTickets === true,
-        deferredPaymentEnabled: pos.deferredPaymentEnabled === true,
-        priceLists,
-        defaultPriceListId,
-      },
-    };
+  return {
+    valid: true,
+    snapshot: {
+      branchId:
+        (pos.branchId != null ? String(pos.branchId).trim() : "") ||
+        (branch?.id != null ? String(branch.id).trim() : "") ||
+        null,
+      branchName: branch?.name != null ? String(branch.name).trim() || null : null,
+      storageId: pos.storageId != null ? String(pos.storageId).trim() || null : null,
+      pointOfSaleName: pos.name != null ? String(pos.name).trim() || null : null,
+      posKind: parsePosKind(pos),
+      acceptsPresaleTickets: pos.acceptsPresaleTickets === true,
+      deferredPaymentEnabled: pos.deferredPaymentEnabled === true,
+      priceLists,
+      defaultPriceListId,
+    },
+  };
   }
 }

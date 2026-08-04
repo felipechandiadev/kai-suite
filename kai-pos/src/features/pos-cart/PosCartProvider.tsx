@@ -1,10 +1,32 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { PosProductSearchItem } from "@/features/pos-products/types/pos-product.types";
 import type { PosCartLine } from "@/app/(pos)/pos/ui/PosCartLineCard";
 import { readPosContextClient, POS_CONTEXT_KEY, POS_CONTEXT_KEY_LEGACY, POS_CONTEXT_CHANGED_EVENT } from "@/features/session/lib/pos-context-storage";
-import { readCartClient, writeCartClient, type LoadedQuotationMeta } from "./cart-storage";
+import {
+  CART_SLOT_COUNT,
+  emptyCartSlots,
+  emptySlotSnapshot,
+  normalizeActiveSlot,
+  padCartSlots,
+  readCartEnvelopeClient,
+  summarizeCartSlot,
+  writeCartEnvelopeClient,
+  type CartSlotIndex,
+  type CartSlots,
+  type CartSlotSnapshot,
+  type CartSlotSummary,
+  type LoadedQuotationMeta,
+} from "./cart-storage";
 import {
   CART_MIXED_PRICE_LIST_MESSAGE,
   resolveActivePriceListStamp,
@@ -143,6 +165,12 @@ type PosCartContextValue = {
   refreshPromotions: () => Promise<void>;
   /** Módulo de cotizaciones habilitado en la empresa activa. */
   quotationsEnabled: boolean;
+  /** Slot de carrito activo (0 = Carro 1 … 3 = Carro 4). */
+  activeCartSlot: CartSlotIndex;
+  /** Resumen de los 4 slots para el switcher UI. */
+  cartSlotsSummary: CartSlotSummary[];
+  /** Alterna el workspace al slot indicado (persiste el activo). */
+  switchCartSlot: (index: CartSlotIndex) => void;
 };
 
 const PosCartContext = createContext<PosCartContextValue | null>(null);
@@ -234,8 +262,25 @@ export function cartHasLoadedQuotationLine(
   return lines.some((l) => isQuotationCartVariant(l.variantId, quotation));
 }
 
+async function hydrateSlotSnapshot(
+  snap: CartSlotSnapshot,
+  pointOfSaleId: string,
+  priceListId: string,
+): Promise<CartSlotSnapshot> {
+  if (snap.lines.length === 0) return snap;
+  const lines = await hydrateCartLinesFiscalFlags(
+    snap.lines,
+    pointOfSaleId,
+    priceListId,
+  );
+  return { ...snap, lines };
+}
+
 export default function PosCartProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
+  const [activeCartSlot, setActiveCartSlot] = useState<CartSlotIndex>(0);
+  const slotsRef = useRef<CartSlots>(emptyCartSlots());
+  const [inactiveSlotVersion, setInactiveSlotVersion] = useState(0);
   const [lines, setLines] = useState<PosCartLine[]>([]);
   const [saleCustomer, setSaleCustomer] = useState<PosSaleCustomer | null>(null);
   const [payments, setPayments] = useState<PosPaymentLine[]>([]);
@@ -276,6 +321,93 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
   const [orderDiscount, setOrderDiscount] = useState(0);
   const [promotionWarnings, setPromotionWarnings] = useState<EngineWarning[]>([]);
 
+  const resetPromotionWorkspace = useCallback(() => {
+    setManualSelections([]);
+    setAppliedPromotions([]);
+    setSuggestedLineDiscounts({});
+    setSuggestedOrderPromotions([]);
+    setSuggestedOrderDiscount(0);
+    setOrderDiscount(0);
+    setPromotionWarnings([]);
+  }, []);
+
+  const applySlotToWorkspace = useCallback(
+    (snap: CartSlotSnapshot) => {
+      setLines(snap.lines);
+      setSaleCustomer(snap.customer);
+      setPayments(snap.payments);
+      setLoadedQuotation(snap.quotation);
+      setBackorderDeposit(snap.backorderDeposit);
+      setPosDelivery(snap.posDelivery);
+      setEncargoModeEnabled(snap.encargoModeEnabled);
+      setCartMode(snap.cartMode);
+      setLoadedReturnSale(snap.loadedReturnSale);
+      setLoadedBackorder(snap.loadedBackorder);
+      setLoadedPresaleTickets(snap.loadedPresaleTickets);
+      setLastCartError(null);
+      resetPromotionWorkspace();
+    },
+    [resetPromotionWorkspace],
+  );
+
+  const captureWorkspaceSnapshot = useCallback((): CartSlotSnapshot => {
+    return {
+      lines,
+      customer: saleCustomer,
+      quotation: loadedQuotation,
+      backorderDeposit,
+      encargoModeEnabled,
+      cartMode,
+      loadedReturnSale,
+      loadedBackorder,
+      loadedPresaleTickets,
+      payments,
+      posDelivery,
+    };
+  }, [
+    lines,
+    saleCustomer,
+    loadedQuotation,
+    backorderDeposit,
+    encargoModeEnabled,
+    cartMode,
+    loadedReturnSale,
+    loadedBackorder,
+    loadedPresaleTickets,
+    payments,
+    posDelivery,
+  ]);
+
+  const hydrateEnvelopeSlots = useCallback(
+    async (
+      envelopeSlots: CartSlotSnapshot[],
+      pointOfSaleId: string,
+      priceListId: string,
+    ): Promise<CartSlots> => {
+      const hydrated: CartSlotSnapshot[] = [];
+      for (let i = 0; i < CART_SLOT_COUNT; i++) {
+        hydrated.push(
+          await hydrateSlotSnapshot(
+            envelopeSlots[i] ?? emptySlotSnapshot(),
+            pointOfSaleId,
+            priceListId,
+          ),
+        );
+      }
+      return padCartSlots(hydrated);
+    },
+    [],
+  );
+
+  const mergeActiveIntoSlots = useCallback(
+    (active: CartSlotIndex, activeSnap: CartSlotSnapshot): CartSlots => {
+      const next = padCartSlots([...slotsRef.current]);
+      next[active] = activeSnap;
+      return next;
+    },
+    [],
+  );
+
   useEffect(() => {
     let cancelled = false;
 
@@ -283,50 +415,24 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       const s = cartScope();
       setScope(s);
       if (!s) {
-        setLines([]);
-        setSaleCustomer(null);
-        setPayments([]);
-        setLoadedQuotation(null);
-        setBackorderDeposit(null);
-        setPosDelivery(null);
-        setEncargoModeEnabled(false);
-        setCartMode("sale");
-        setLoadedReturnSale(null);
-        setLoadedBackorder(null);
-        setLoadedPresaleTickets([]);
+        slotsRef.current = emptyCartSlots();
+        setActiveCartSlot(0);
+        applySlotToWorkspace(emptySlotSnapshot());
         setReady(true);
         return;
       }
-      const {
-        lines: loadedLines,
-        customer,
-        quotation,
-        backorderDeposit: loadedDeposit,
-        encargoModeEnabled: loadedEncargoMode,
-        cartMode: loadedMode,
-        loadedReturnSale: loadedReturn,
-        loadedBackorder: loadedBo,
-        loadedPresaleTickets: loadedPresale,
-        payments: loadedPayments,
-        posDelivery: loadedDelivery,
-      } = readCartClient(s);
-      const hydratedLines = await hydrateCartLinesFiscalFlags(
-        loadedLines,
+      const envelope = readCartEnvelopeClient(s);
+      const hydrated = await hydrateEnvelopeSlots(
+        envelope.slots,
         s.pointOfSaleId,
         s.priceListId,
       );
       if (cancelled) return;
-      setLines(hydratedLines);
-      setSaleCustomer(customer);
-      setPayments(loadedPayments);
-      setLoadedQuotation(quotation);
-      setBackorderDeposit(loadedDeposit);
-      setPosDelivery(loadedDelivery);
-      setEncargoModeEnabled(loadedEncargoMode);
-      setCartMode(loadedMode);
-      setLoadedReturnSale(loadedReturn);
-      setLoadedBackorder(loadedBo);
-      setLoadedPresaleTickets(loadedPresale);
+      slotsRef.current = hydrated;
+      const active = normalizeActiveSlot(envelope.activeSlot);
+      setActiveCartSlot(active);
+      applySlotToWorkspace(slotsRef.current[active]);
+      setInactiveSlotVersion((v) => v + 1);
       setReady(true);
     };
 
@@ -334,7 +440,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [applySlotToWorkspace, hydrateEnvelopeSlots]);
 
   useEffect(() => {
     if (!shouldUseBackendApi()) return;
@@ -351,20 +457,12 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
 
   useEffect(() => {
     if (!ready || !scope) return;
-    writeCartClient(
-      scope,
-      lines,
-      saleCustomer,
-      loadedQuotation,
-      backorderDeposit,
-      cartMode,
-      loadedReturnSale,
-      encargoModeEnabled,
-      loadedBackorder,
-      loadedPresaleTickets,
-      payments,
-      posDelivery,
-    );
+    const nextSlots = mergeActiveIntoSlots(activeCartSlot, captureWorkspaceSnapshot());
+    slotsRef.current = nextSlots;
+    writeCartEnvelopeClient(scope, {
+      activeSlot: activeCartSlot,
+      slots: nextSlots,
+    });
   }, [
     lines,
     saleCustomer,
@@ -379,6 +477,9 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     posDelivery,
     ready,
     scope,
+    activeCartSlot,
+    captureWorkspaceSnapshot,
+    mergeActiveIntoSlots,
   ]);
 
   // If POS context changes (same tab or other tab), reload cart scope.
@@ -390,48 +491,22 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
         const s = cartScope();
         setScope(s);
         if (!s) {
-          setLines([]);
-          setSaleCustomer(null);
-          setPayments([]);
-          setLoadedQuotation(null);
-          setBackorderDeposit(null);
-          setPosDelivery(null);
-          setEncargoModeEnabled(false);
-          setCartMode("sale");
-          setLoadedReturnSale(null);
-          setLoadedBackorder(null);
-          setLoadedPresaleTickets([]);
+          slotsRef.current = emptyCartSlots();
+          setActiveCartSlot(0);
+          applySlotToWorkspace(emptySlotSnapshot());
           return;
         }
-        const {
-          lines: nextLines,
-          customer,
-          quotation,
-          backorderDeposit: nextDeposit,
-          encargoModeEnabled: nextEncargoMode,
-          cartMode: nextMode,
-          loadedReturnSale: nextReturn,
-          loadedBackorder: nextBo,
-          loadedPresaleTickets: nextPresale,
-          payments: savedPayments,
-          posDelivery: nextDelivery,
-        } = readCartClient(s);
-        const hydratedLines = await hydrateCartLinesFiscalFlags(
-          nextLines,
+        const envelope = readCartEnvelopeClient(s);
+        const hydrated = await hydrateEnvelopeSlots(
+          envelope.slots,
           s.pointOfSaleId,
           s.priceListId,
         );
-        setLines(hydratedLines);
-        setSaleCustomer(customer);
-        setPayments(savedPayments);
-        setLoadedQuotation(quotation);
-        setBackorderDeposit(nextDeposit);
-        setPosDelivery(nextDelivery);
-        setEncargoModeEnabled(nextEncargoMode);
-        setCartMode(nextMode);
-        setLoadedReturnSale(nextReturn);
-        setLoadedBackorder(nextBo);
-        setLoadedPresaleTickets(nextPresale);
+        slotsRef.current = hydrated;
+        const active = normalizeActiveSlot(envelope.activeSlot);
+        setActiveCartSlot(active);
+        applySlotToWorkspace(slotsRef.current[active]);
+        setInactiveSlotVersion((v) => v + 1);
       })();
     };
 
@@ -446,7 +521,44 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       window.removeEventListener("storage", onStorage);
       window.removeEventListener(POS_CONTEXT_CHANGED_EVENT, reloadFromContext);
     };
-  }, []);
+  }, [applySlotToWorkspace, hydrateEnvelopeSlots]);
+
+  const switchCartSlot = useCallback(
+    (index: CartSlotIndex) => {
+      const target = normalizeActiveSlot(index);
+      if (target === activeCartSlot) return;
+      const nextSlots = mergeActiveIntoSlots(activeCartSlot, captureWorkspaceSnapshot());
+      slotsRef.current = nextSlots;
+      setActiveCartSlot(target);
+      applySlotToWorkspace(nextSlots[target]);
+      setInactiveSlotVersion((v) => v + 1);
+      if (scope) {
+        writeCartEnvelopeClient(scope, {
+          activeSlot: target,
+          slots: nextSlots,
+        });
+      }
+    },
+    [
+      activeCartSlot,
+      applySlotToWorkspace,
+      captureWorkspaceSnapshot,
+      mergeActiveIntoSlots,
+      scope,
+    ],
+  );
+
+  const cartSlotsSummary = useMemo((): CartSlotSummary[] => {
+    void inactiveSlotVersion;
+    const activeSnap = captureWorkspaceSnapshot();
+    const summary: CartSlotSummary[] = [];
+    for (let i = 0; i < CART_SLOT_COUNT; i++) {
+      const idx = i as CartSlotIndex;
+      const slot = activeCartSlot === idx ? activeSnap : slotsRef.current[idx];
+      summary.push(summarizeCartSlot(idx, slot));
+    }
+    return summary;
+  }, [activeCartSlot, captureWorkspaceSnapshot, inactiveSlotVersion]);
 
   const itemsCount = useMemo(() => lines.reduce((a, l) => a + (Number(l.quantity) || 0), 0), [lines]);
 
@@ -1118,6 +1230,9 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       redeemCode,
       refreshPromotions,
       quotationsEnabled,
+      activeCartSlot,
+      cartSlotsSummary,
+      switchCartSlot,
     }),
     [
       ready,
@@ -1166,6 +1281,9 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       redeemCode,
       refreshPromotions,
       quotationsEnabled,
+      activeCartSlot,
+      cartSlotsSummary,
+      switchCartSlot,
     ],
   );
 

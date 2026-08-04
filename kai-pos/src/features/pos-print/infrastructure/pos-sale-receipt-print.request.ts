@@ -2,12 +2,16 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/auth-options";
 import type { PosSaleReceiptPrintDto } from "../types/pos-sale-receipt-print.types";
 
-async function authHeaders(): Promise<HeadersInit | null> {
+async function authHeaders(companyIdOverride?: string | null): Promise<HeadersInit | null> {
   const session = await getServerSession(authOptions);
   const token = session?.user?.accessToken;
   if (!token) return null;
-  const activeCompanyId = (session?.user as { activeCompanyId?: string | null })
+  const sessionCompanyId = (session?.user as { activeCompanyId?: string | null })
     ?.activeCompanyId;
+  const activeCompanyId =
+    (typeof companyIdOverride === "string" && companyIdOverride.trim()) ||
+    sessionCompanyId ||
+    null;
   const h: Record<string, string> = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
@@ -25,7 +29,7 @@ function apiUrl(path: string): string | null {
 export class PosSaleReceiptPrintRequest {
   static async getByTransactionId(
     transactionId: string,
-    options?: { scope?: "full" | "non_dte" },
+    options?: { scope?: "full" | "non_dte"; companyId?: string | null },
   ): Promise<
     | { success: true; receipt: PosSaleReceiptPrintDto }
     | { success: false; message: string }
@@ -42,7 +46,7 @@ export class PosSaleReceiptPrintRequest {
     if (!url) {
       return { success: false, message: "BACKEND_API_URL no está configurada" };
     }
-    const headers = await authHeaders();
+    const headers = await authHeaders(options?.companyId);
     if (!headers) return { success: false, message: "No autenticado" };
 
     try {

@@ -214,6 +214,7 @@ export class CashSessionsController {
         cashHubId: dto.cashHubId,
         notes: dto.notes,
         counted: dto.counted,
+        adminClose: dto.adminClose === true,
       });
     }
 
@@ -222,6 +223,7 @@ export class CashSessionsController {
         cashHubId: dto.cashHubId,
         notes: dto.notes,
         counted: dto.counted,
+        adminClose: dto.adminClose === true,
       });
     }
 

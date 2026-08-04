@@ -23,12 +23,18 @@ import {
   setMigratedLocalStorageItem,
 } from "@kai-shared/storage-key-migrate";
 
-/** v4: un carrito por POS (lista de precios en las líneas, no en la key). */
-const CART_STORAGE_VERSION = 4;
+/** v5: dos slots de carrito por POS. */
+export const CART_STORAGE_VERSION = 5;
+/** v4: un carrito plano por POS (migración → slot 0). */
+const CART_STORAGE_VERSION_SINGLE = 4;
 const CART_KEY_PREFIX = "kai.pos.cart.v";
 const CART_KEY_PREFIX_LEGACY = "flowstore.pos.cart.v";
 /** Keys v3: …{posId}.{priceListId} */
 const CART_STORAGE_VERSION_LEGACY_SCOPED = 3;
+
+export type CartSlotIndex = 0 | 1 | 2 | 3;
+export const CART_SLOT_COUNT = 4 as const;
+
 
 /** Metadatos de una cotización cargada en el carrito. La venta resultante
  * de pagar el carrito se considerará una *conversión* de esa cotización
@@ -42,21 +48,17 @@ export type LoadedQuotationMeta = {
   lineMaxQtyByVariantId: Record<string, number>;
 };
 
-type StoredCart = {
-  v: number;
-  updatedAt: string;
+/** Payload persistido de un slot (sin envelope). */
+type StoredCartSlot = {
   lines: Array<{
     variantId: string;
     quantity: number;
-    /** Descuento aplicado por el motor de promociones, persistido para
-     * sobrevivir refresh y re-cálculo idempotente al cargar. */
     discount?: ResolvedLineDiscount | null;
     item: Omit<PosCartLine, "quantity" | "discount">;
   }>;
   customer?: PosSaleCustomer | null;
   quotation?: LoadedQuotationMeta | null;
   backorderDeposit?: BackorderDepositConfig | null;
-  /** Modalidad encargo activa en pantalla de cobro. */
   encargoModeEnabled?: boolean;
   cartMode?: PosCartMode;
   loadedReturnSale?: LoadedReturnSaleMeta | null;
@@ -67,11 +69,58 @@ type StoredCart = {
   posDelivery?: PosDeliveryConfig | null;
 };
 
+type StoredCartEnvelope = {
+  v: number;
+  updatedAt: string;
+  activeSlot: number;
+  slots: StoredCartSlot[];
+};
+
+/** Forma legacy v1–v4 (carrito único con `v` en la raíz). */
+type StoredCartLegacySingle = StoredCartSlot & {
+  v: number;
+  updatedAt?: string;
+};
+
 export type CartStorageScope = {
   pointOfSaleId: string;
   /** Solo para migrar keys v3 y backfill de stamp en líneas sin lista. */
   priceListId?: string | null;
   priceLists?: Array<{ id: string; name: string }> | null;
+};
+
+export type CartSlotSnapshot = {
+  lines: PosCartLine[];
+  customer: PosSaleCustomer | null;
+  quotation: LoadedQuotationMeta | null;
+  backorderDeposit: BackorderDepositConfig | null;
+  encargoModeEnabled: boolean;
+  cartMode: PosCartMode;
+  loadedReturnSale: LoadedReturnSaleMeta | null;
+  loadedBackorder: LoadedBackorderMeta | null;
+  loadedPresaleTickets: LoadedPresaleTicketMeta[];
+  payments: PosPaymentLine[];
+  posDelivery: PosDeliveryConfig | null;
+};
+
+export type CartEnvelope = {
+  activeSlot: CartSlotIndex;
+  slots: CartSlots;
+};
+
+export type CartSlots = [
+  CartSlotSnapshot,
+  CartSlotSnapshot,
+  CartSlotSnapshot,
+  CartSlotSnapshot,
+];
+
+export type CartSlotSummary = {
+  index: CartSlotIndex;
+  itemsCount: number;
+  customerName: string | null;
+  isEmpty: boolean;
+  cartMode: PosCartMode;
 };
 
 function parseDiscount(value: unknown): ResolvedLineDiscount | null {
@@ -241,151 +290,283 @@ function parsePayments(value: unknown): PosPaymentLine[] {
   return value.filter((p) => p && typeof p === "object") as PosPaymentLine[];
 }
 
-function emptyCartResult() {
+function parseCustomer(value: unknown): PosSaleCustomer | null {
+  const c = value;
+  if (
+    !c ||
+    typeof c !== "object" ||
+    typeof (c as PosSaleCustomer).name !== "string" ||
+    typeof (c as PosSaleCustomer).document !== "string" ||
+    typeof (c as PosSaleCustomer).phone !== "string"
+  ) {
+    return null;
+  }
   return {
-    lines: [] as PosCartLine[],
-    customer: null as PosSaleCustomer | null,
-    quotation: null as LoadedQuotationMeta | null,
-    backorderDeposit: null as BackorderDepositConfig | null,
-    encargoModeEnabled: false,
-    cartMode: "sale" as PosCartMode,
-    loadedReturnSale: null as LoadedReturnSaleMeta | null,
-    loadedBackorder: null as LoadedBackorderMeta | null,
-    loadedPresaleTickets: [] as LoadedPresaleTicketMeta[],
-    payments: [] as PosPaymentLine[],
-    posDelivery: null as PosDeliveryConfig | null,
+    customerId:
+      (c as PosSaleCustomer).customerId != null &&
+      String((c as PosSaleCustomer).customerId).trim() !== ""
+        ? String((c as PosSaleCustomer).customerId)
+        : null,
+    name: String((c as PosSaleCustomer).name),
+    document: String((c as PosSaleCustomer).document),
+    phone: String((c as PosSaleCustomer).phone),
+    email:
+      (c as PosSaleCustomer).email != null &&
+      String((c as PosSaleCustomer).email).trim() !== ""
+        ? String((c as PosSaleCustomer).email)
+        : null,
   };
 }
 
-function parseStoredCartRaw(raw: string, stamp: PriceListStamp | null) {
-  const empty = emptyCartResult();
+export function emptySlotSnapshot(): CartSlotSnapshot {
+  return {
+    lines: [],
+    customer: null,
+    quotation: null,
+    backorderDeposit: null,
+    encargoModeEnabled: false,
+    cartMode: "sale",
+    loadedReturnSale: null,
+    loadedBackorder: null,
+    loadedPresaleTickets: [],
+    payments: [],
+    posDelivery: null,
+  };
+}
+
+export function emptyCartSlots(): CartSlots {
+  return [
+    emptySlotSnapshot(),
+    emptySlotSnapshot(),
+    emptySlotSnapshot(),
+    emptySlotSnapshot(),
+  ];
+}
+
+export function emptyCartEnvelope(): CartEnvelope {
+  return {
+    activeSlot: 0,
+    slots: emptyCartSlots(),
+  };
+}
+
+export function padCartSlots(slots: CartSlotSnapshot[]): CartSlots {
+  const out = emptyCartSlots();
+  for (let i = 0; i < CART_SLOT_COUNT; i++) {
+    out[i] = slots[i] ?? emptySlotSnapshot();
+  }
+  return out;
+}
+
+/** Clamp índice activo a `0..CART_SLOT_COUNT-1`. Exportado para tests. */
+export function normalizeActiveSlot(value: unknown): CartSlotIndex {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return 0;
+  const i = Math.trunc(n);
+  if (i < 0) return 0;
+  if (i >= CART_SLOT_COUNT) return (CART_SLOT_COUNT - 1) as CartSlotIndex;
+  return i as CartSlotIndex;
+}
+
+export function isSlotEmpty(slot: CartSlotSnapshot): boolean {
+  return (
+    slot.lines.length === 0 &&
+    slot.customer == null &&
+    slot.quotation == null &&
+    slot.backorderDeposit == null &&
+    !slot.encargoModeEnabled &&
+    slot.cartMode === "sale" &&
+    slot.loadedReturnSale == null &&
+    slot.loadedBackorder == null &&
+    slot.loadedPresaleTickets.length === 0 &&
+    slot.payments.length === 0 &&
+    slot.posDelivery == null
+  );
+}
+
+export function summarizeCartSlot(
+  index: CartSlotIndex,
+  slot: CartSlotSnapshot,
+): CartSlotSummary {
+  const itemsCount = slot.lines.reduce((a, l) => a + (Number(l.quantity) || 0), 0);
+  const name = slot.customer?.name?.trim() || null;
+  return {
+    index,
+    itemsCount,
+    customerName: name,
+    isEmpty: isSlotEmpty(slot),
+    cartMode: slot.cartMode,
+  };
+}
+
+function parseSlotFields(
+  parsed: StoredCartSlot,
+  stamp: PriceListStamp | null,
+  opts: { legacyVersion?: number } = {},
+): CartSlotSnapshot {
+  const empty = emptySlotSnapshot();
+  if (!parsed || !Array.isArray(parsed.lines)) return empty;
+
+  const legacyV = opts.legacyVersion;
+  const isModern =
+    legacyV == null ||
+    legacyV === CART_STORAGE_VERSION_SINGLE ||
+    legacyV === CART_STORAGE_VERSION_LEGACY_SCOPED ||
+    legacyV === CART_STORAGE_VERSION;
+
+  let lines = parsed.lines
+    .map((l) => {
+      if (!l?.item || !l.variantId) return null;
+      const qty = Number(l.quantity) || 0;
+      if (qty <= 0) return null;
+      const discount = parseDiscount((l as { discount?: unknown }).discount);
+      return {
+        ...(l.item as object),
+        quantity: qty,
+        discount,
+      } as PosCartLine;
+    })
+    .filter(Boolean) as PosCartLine[];
+
+  lines = backfillCartLinesPriceList(lines, stamp);
+
+  const customer = parseCustomer(parsed.customer);
+  const quotation = isModern ? parseLoadedQuotation(parsed.quotation) : null;
+  const backorderDeposit = parseBackorderDeposit(parsed.backorderDeposit);
+  const encargoModeEnabled =
+    isModern && typeof parsed.encargoModeEnabled === "boolean"
+      ? parsed.encargoModeEnabled
+      : Boolean(backorderDeposit);
+  const cartMode = isModern ? parseCartMode(parsed.cartMode) : "sale";
+  const loadedReturnSale = isModern ? parseLoadedReturnSale(parsed.loadedReturnSale) : null;
+  const loadedBackorder = isModern ? parseLoadedBackorder(parsed.loadedBackorder) : null;
+
+  let loadedPresaleTickets: LoadedPresaleTicketMeta[] = [];
+  if (isModern) {
+    loadedPresaleTickets = parseLoadedPresaleTickets(parsed.loadedPresaleTickets);
+  } else if (legacyV === 2) {
+    const legacy = parseLoadedPresaleTicket(parsed.loadedPresaleTicket);
+    if (legacy) loadedPresaleTickets = [legacy];
+  }
+
+  const posDelivery = isModern ? parsePosDeliveryConfig(parsed.posDelivery) : null;
+
+  return {
+    lines,
+    customer,
+    quotation,
+    backorderDeposit,
+    encargoModeEnabled,
+    cartMode,
+    loadedReturnSale,
+    loadedBackorder,
+    loadedPresaleTickets,
+    payments: parsePayments(parsed.payments),
+    posDelivery,
+  };
+}
+
+/** Parsea carrito legacy v1–v4 (raíz con `v` + `lines`). */
+export function parseLegacySingleCartRaw(
+  raw: string,
+  stamp: PriceListStamp | null,
+): CartSlotSnapshot {
+  const empty = emptySlotSnapshot();
   try {
-    const parsed = JSON.parse(raw) as StoredCart;
+    const parsed = JSON.parse(raw) as StoredCartLegacySingle;
     if (!parsed || !Array.isArray(parsed.lines)) return empty;
     if (
-      parsed.v !== CART_STORAGE_VERSION &&
+      parsed.v !== CART_STORAGE_VERSION_SINGLE &&
       parsed.v !== CART_STORAGE_VERSION_LEGACY_SCOPED &&
       parsed.v !== 1 &&
       parsed.v !== 2
     ) {
       return empty;
     }
-    let lines = parsed.lines
-      .map((l) => {
-        if (!l?.item || !l.variantId) return null;
-        const qty = Number(l.quantity) || 0;
-        if (qty <= 0) return null;
-        const discount = parseDiscount((l as { discount?: unknown }).discount);
-        return {
-          ...(l.item as object),
-          quantity: qty,
-          discount,
-        } as PosCartLine;
-      })
-      .filter(Boolean) as PosCartLine[];
-
-    lines = backfillCartLinesPriceList(lines, stamp);
-
-    const c = parsed.customer;
-    const customer: PosSaleCustomer | null =
-      c &&
-      typeof c === "object" &&
-      typeof (c as PosSaleCustomer).name === "string" &&
-      typeof (c as PosSaleCustomer).document === "string" &&
-      typeof (c as PosSaleCustomer).phone === "string"
-        ? {
-            customerId:
-              (c as PosSaleCustomer).customerId != null &&
-              String((c as PosSaleCustomer).customerId).trim() !== ""
-                ? String((c as PosSaleCustomer).customerId)
-                : null,
-            name: String((c as PosSaleCustomer).name),
-            document: String((c as PosSaleCustomer).document),
-            phone: String((c as PosSaleCustomer).phone),
-            email:
-              (c as PosSaleCustomer).email != null &&
-              String((c as PosSaleCustomer).email).trim() !== ""
-                ? String((c as PosSaleCustomer).email)
-                : null,
-          }
-        : null;
-
-    const quotation =
-      parsed.v === CART_STORAGE_VERSION || parsed.v === CART_STORAGE_VERSION_LEGACY_SCOPED
-        ? parseLoadedQuotation(parsed.quotation)
-        : null;
-
-    const backorderDeposit = parseBackorderDeposit(parsed.backorderDeposit);
-    const encargoModeEnabled =
-      (parsed.v === CART_STORAGE_VERSION ||
-        parsed.v === CART_STORAGE_VERSION_LEGACY_SCOPED) &&
-      typeof parsed.encargoModeEnabled === "boolean"
-        ? parsed.encargoModeEnabled
-        : Boolean(backorderDeposit);
-    const cartMode =
-      parsed.v === CART_STORAGE_VERSION || parsed.v === CART_STORAGE_VERSION_LEGACY_SCOPED
-        ? parseCartMode(parsed.cartMode)
-        : "sale";
-    const loadedReturnSale =
-      parsed.v === CART_STORAGE_VERSION || parsed.v === CART_STORAGE_VERSION_LEGACY_SCOPED
-        ? parseLoadedReturnSale(parsed.loadedReturnSale)
-        : null;
-    const loadedBackorder =
-      parsed.v === CART_STORAGE_VERSION || parsed.v === CART_STORAGE_VERSION_LEGACY_SCOPED
-        ? parseLoadedBackorder(parsed.loadedBackorder)
-        : null;
-    let loadedPresaleTickets: LoadedPresaleTicketMeta[] = [];
-    if (
-      parsed.v === CART_STORAGE_VERSION ||
-      parsed.v === CART_STORAGE_VERSION_LEGACY_SCOPED
-    ) {
-      loadedPresaleTickets = parseLoadedPresaleTickets(parsed.loadedPresaleTickets);
-    } else if (parsed.v === 2) {
-      const legacy = parseLoadedPresaleTicket(parsed.loadedPresaleTicket);
-      if (legacy) loadedPresaleTickets = [legacy];
-    }
-
-    const posDelivery =
-      parsed.v === CART_STORAGE_VERSION || parsed.v === CART_STORAGE_VERSION_LEGACY_SCOPED
-        ? parsePosDeliveryConfig(parsed.posDelivery)
-        : null;
-
-    return {
-      lines,
-      customer,
-      quotation,
-      backorderDeposit,
-      encargoModeEnabled,
-      cartMode,
-      loadedReturnSale,
-      loadedBackorder,
-      loadedPresaleTickets,
-      payments: parsePayments(parsed.payments),
-      posDelivery,
-    };
+    return parseSlotFields(parsed, stamp, { legacyVersion: parsed.v });
   } catch {
     return empty;
   }
+}
+
+/** Parsea envelope v5 o migra JSON legacy a envelope. Exportado para tests. */
+export function parseCartEnvelopeRaw(
+  raw: string,
+  stamp: PriceListStamp | null,
+): CartEnvelope {
+  const empty = emptyCartEnvelope();
+  try {
+    const parsed = JSON.parse(raw) as StoredCartEnvelope | StoredCartLegacySingle;
+    if (!parsed || typeof parsed !== "object") return empty;
+
+    if (parsed.v === CART_STORAGE_VERSION) {
+      const env = parsed as StoredCartEnvelope;
+      if (!Array.isArray(env.slots) || env.slots.length < 1) return empty;
+      const parsedSlots = env.slots.map((s) =>
+        parseSlotFields(s ?? { lines: [] }, stamp),
+      );
+      return {
+        activeSlot: normalizeActiveSlot(env.activeSlot),
+        slots: padCartSlots(parsedSlots),
+      };
+    }
+
+    if (
+      parsed.v === CART_STORAGE_VERSION_SINGLE ||
+      parsed.v === CART_STORAGE_VERSION_LEGACY_SCOPED ||
+      parsed.v === 1 ||
+      parsed.v === 2
+    ) {
+      const slot0 = parseSlotFields(parsed as StoredCartLegacySingle, stamp, {
+        legacyVersion: parsed.v,
+      });
+      return {
+        activeSlot: 0,
+        slots: padCartSlots([slot0]),
+      };
+    }
+
+    return empty;
+  } catch {
+    return empty;
+  }
+}
+
+function snapshotToStoredSlot(snap: CartSlotSnapshot): StoredCartSlot {
+  return {
+    lines: snap.lines.map((l) => ({
+      variantId: l.variantId,
+      quantity: l.quantity,
+      discount: l.discount ?? null,
+      item: (({ quantity, discount, ...rest }) => rest)(l),
+    })),
+    customer: snap.customer ?? null,
+    quotation: snap.quotation ?? null,
+    backorderDeposit: snap.backorderDeposit ?? null,
+    encargoModeEnabled:
+      snap.cartMode === "return" || snap.cartMode === "fulfill_backorder"
+        ? false
+        : snap.encargoModeEnabled,
+    cartMode: snap.cartMode,
+    loadedReturnSale: snap.cartMode === "return" ? snap.loadedReturnSale : null,
+    loadedBackorder:
+      snap.cartMode === "fulfill_backorder" ? snap.loadedBackorder : null,
+    loadedPresaleTickets:
+      snap.loadedPresaleTickets.length > 0 ? snap.loadedPresaleTickets : null,
+    payments: snap.payments.length > 0 ? snap.payments : null,
+    posDelivery:
+      snap.cartMode === "sale" && !snap.encargoModeEnabled
+        ? snap.posDelivery ?? null
+        : null,
+  };
 }
 
 function readRawFromKeys(primary: string, legacy: string): string | null {
   return getMigratedLocalStorageItem(primary, legacy);
 }
 
-export function readCartClient(input: CartStorageScope): {
-  lines: PosCartLine[];
-  customer: PosSaleCustomer | null;
-  quotation: LoadedQuotationMeta | null;
-  backorderDeposit: BackorderDepositConfig | null;
-  encargoModeEnabled: boolean;
-  cartMode: PosCartMode;
-  loadedReturnSale: LoadedReturnSaleMeta | null;
-  loadedBackorder: LoadedBackorderMeta | null;
-  loadedPresaleTickets: LoadedPresaleTicketMeta[];
-  payments: PosPaymentLine[];
-  posDelivery: PosDeliveryConfig | null;
-} {
-  const empty = emptyCartResult();
+export function readCartEnvelopeClient(input: CartStorageScope): CartEnvelope {
+  const empty = emptyCartEnvelope();
   if (typeof window === "undefined") return empty;
 
   const stamp = resolveActivePriceListStamp({
@@ -397,9 +578,17 @@ export function readCartClient(input: CartStorageScope): {
   if (!posId) return empty;
 
   try {
-    const rawV4 = readRawFromKeys(keyFor(posId), legacyBrandKeyFor(posId));
+    const rawV5 = readRawFromKeys(keyFor(posId), legacyBrandKeyFor(posId));
+    if (rawV5) {
+      return parseCartEnvelopeRaw(rawV5, stamp);
+    }
+
+    const rawV4 = readRawFromKeys(
+      keyFor(posId, CART_STORAGE_VERSION_SINGLE),
+      legacyBrandKeyFor(posId, CART_STORAGE_VERSION_SINGLE),
+    );
     if (rawV4) {
-      return parseStoredCartRaw(rawV4, stamp);
+      return parseCartEnvelopeRaw(rawV4, stamp);
     }
 
     const listId = input.priceListId?.trim();
@@ -409,7 +598,7 @@ export function readCartClient(input: CartStorageScope): {
         scopedLegacyBrandKeyFor(posId, listId),
       );
       if (rawScoped) {
-        return parseStoredCartRaw(rawScoped, stamp);
+        return parseCartEnvelopeRaw(rawScoped, stamp);
       }
     }
 
@@ -419,6 +608,38 @@ export function readCartClient(input: CartStorageScope): {
   }
 }
 
+export function writeCartEnvelopeClient(
+  input: CartStorageScope,
+  envelope: CartEnvelope,
+): void {
+  if (typeof window === "undefined") return;
+  const posId = input.pointOfSaleId.trim();
+  if (!posId) return;
+  try {
+    const slots = padCartSlots([...envelope.slots]);
+    const payload: StoredCartEnvelope = {
+      v: CART_STORAGE_VERSION,
+      updatedAt: new Date().toISOString(),
+      activeSlot: normalizeActiveSlot(envelope.activeSlot),
+      slots: slots.map((s) => snapshotToStoredSlot(s)),
+    };
+    setMigratedLocalStorageItem(
+      keyFor(posId),
+      legacyBrandKeyFor(posId),
+      JSON.stringify(payload),
+    );
+  } catch {
+    // ignore
+  }
+}
+
+/** Preferir readCartEnvelopeClient; mantiene compat de callers. */
+export function readCartClient(input: CartStorageScope): CartSlotSnapshot {
+  const env = readCartEnvelopeClient(input);
+  return env.slots[env.activeSlot] ?? emptySlotSnapshot();
+}
+
+/** Preferir writeCartEnvelopeClient. Actualiza solo el slot activo. */
 export function writeCartClient(
   input: CartStorageScope,
   lines: PosCartLine[],
@@ -433,38 +654,22 @@ export function writeCartClient(
   payments: PosPaymentLine[] = [],
   posDelivery: PosDeliveryConfig | null = null,
 ): void {
-  if (typeof window === "undefined") return;
-  const posId = input.pointOfSaleId.trim();
-  if (!posId) return;
-  try {
-    const payload: StoredCart = {
-      v: CART_STORAGE_VERSION,
-      updatedAt: new Date().toISOString(),
-      lines: lines.map((l) => ({
-        variantId: l.variantId,
-        quantity: l.quantity,
-        discount: l.discount ?? null,
-        item: (({ quantity, discount, ...rest }) => rest)(l),
-      })),
-      customer: customer ?? null,
-      quotation: quotation ?? null,
-      backorderDeposit: backorderDeposit ?? null,
-      encargoModeEnabled:
-        cartMode === "return" || cartMode === "fulfill_backorder" ? false : encargoModeEnabled,
-      cartMode,
-      loadedReturnSale: cartMode === "return" ? loadedReturnSale : null,
-      loadedBackorder: cartMode === "fulfill_backorder" ? loadedBackorder : null,
-      loadedPresaleTickets: loadedPresaleTickets.length > 0 ? loadedPresaleTickets : null,
-      payments: payments.length > 0 ? payments : null,
-      posDelivery:
-        cartMode === "sale" && !encargoModeEnabled ? posDelivery ?? null : null,
-    };
-    setMigratedLocalStorageItem(
-      keyFor(posId),
-      legacyBrandKeyFor(posId),
-      JSON.stringify(payload),
-    );
-  } catch {
-    // ignore
-  }
+  const current = readCartEnvelopeClient(input);
+  const active = current.activeSlot;
+  const snap: CartSlotSnapshot = {
+    lines,
+    customer,
+    quotation,
+    backorderDeposit,
+    encargoModeEnabled,
+    cartMode,
+    loadedReturnSale,
+    loadedBackorder,
+    loadedPresaleTickets,
+    payments,
+    posDelivery,
+  };
+  const slots = padCartSlots([...current.slots]);
+  slots[active] = snap;
+  writeCartEnvelopeClient(input, { activeSlot: active, slots });
 }

@@ -114,6 +114,9 @@ export async function fetchPointOfSalePriceListsAction(pointOfSaleId: string): P
     res.pointOfSale.defaultPriceListId != null
       ? String(res.pointOfSale.defaultPriceListId).trim() || null
       : null;
+  if (defaultPriceListId && !priceLists.some((p) => p.id === defaultPriceListId)) {
+    priceLists.unshift({ id: defaultPriceListId, name: "Lista de precios" });
+  }
 
   return {
     success: true,

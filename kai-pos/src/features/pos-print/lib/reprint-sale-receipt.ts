@@ -1,5 +1,6 @@
 import type { PosSaleReceiptData } from "@/app/(pos)/pos/payment/ui/PosSaleReceiptDialog";
 import { getFiscalBoletaPrintPreviewAction } from "@/features/fiscal/actions/reprint-fiscal-boleta.action";
+import { readPosCompany } from "@/features/company/storage/pos-company-storage";
 import { getPosSaleReceiptPrintAction } from "@/features/pos-print/actions/pos-sale-receipt-print.action";
 import { mapPosSaleReceiptPrintToReceiptData } from "@/features/pos-print/lib/map-pos-sale-receipt-print";
 import { executeSalePrintPlan } from "@/features/pos-print/lib/execute-sale-print-plan";
@@ -14,14 +15,29 @@ export function canReprintPosSaleReceipt(transactionType: string): boolean {
   return REPRINTABLE_TYPES.has(String(transactionType ?? "").trim());
 }
 
+/** Empresa del POS en dispositivo; alinea X-Active-Company-Id en reimpresión. */
+function resolveReprintCompanyId(explicit?: string | null): string | null {
+  const fromArg = typeof explicit === "string" ? explicit.trim() : "";
+  if (fromArg) return fromArg;
+  try {
+    return readPosCompany()?.id?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function loadPosSaleReceiptDataForReprint(
   transactionId: string,
-  options?: { scope?: "full" | "non_dte" },
+  options?: { scope?: "full" | "non_dte"; companyId?: string | null },
 ): Promise<
   | { success: true; data: PosSaleReceiptData; printPlan: SalePrintPlan | null }
   | { success: false; message: string }
 > {
-  const res = await getPosSaleReceiptPrintAction(transactionId, options);
+  const companyId = resolveReprintCompanyId(options?.companyId);
+  const res = await getPosSaleReceiptPrintAction(transactionId, {
+    scope: options?.scope,
+    companyId,
+  });
   if (!res.success) {
     return { success: false, message: res.message };
   }
@@ -38,7 +54,10 @@ export async function loadPosSaleReceiptDataForReprint(
   };
 }
 
-export async function loadReprintBundle(transactionId: string): Promise<
+export async function loadReprintBundle(
+  transactionId: string,
+  options?: { companyId?: string | null },
+): Promise<
   | {
       success: true;
       full: PosSaleReceiptData;
@@ -53,7 +72,11 @@ export async function loadReprintBundle(transactionId: string): Promise<
     }
   | { success: false; message: string }
 > {
-  const fullLoaded = await loadPosSaleReceiptDataForReprint(transactionId, { scope: "full" });
+  const companyId = resolveReprintCompanyId(options?.companyId);
+  const fullLoaded = await loadPosSaleReceiptDataForReprint(transactionId, {
+    scope: "full",
+    companyId,
+  });
   if (!fullLoaded.success) {
     return { success: false, message: fullLoaded.message };
   }
@@ -63,6 +86,7 @@ export async function loadReprintBundle(transactionId: string): Promise<
   if (printPlan === "BOLETA_AND_TICKET") {
     const subsetLoaded = await loadPosSaleReceiptDataForReprint(transactionId, {
       scope: "non_dte",
+      companyId,
     });
     if (subsetLoaded.success) {
       ticketSubset = subsetLoaded.data;

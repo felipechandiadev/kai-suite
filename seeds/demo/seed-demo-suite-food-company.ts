@@ -267,12 +267,26 @@ export async function seedDemoSuiteFoodCompany(
             storageId: storage.id,
             name: posName,
             defaultPriceListId: listaMinorista.id,
+            priceLists: [
+              {
+                id: listaMinorista.id,
+                name: listaMinorista.name,
+                isActive: true,
+              },
+            ],
             isActive: true,
           });
         } else {
           pos.branchId = branch.id;
           pos.storageId = storage.id;
           pos.defaultPriceListId = listaMinorista.id;
+          pos.priceLists = [
+            {
+              id: listaMinorista.id,
+              name: listaMinorista.name,
+              isActive: true,
+            },
+          ];
         }
         await posRepo.save(pos);
       }

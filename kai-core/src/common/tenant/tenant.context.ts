@@ -31,6 +31,10 @@ class TenantContextHolder {
   getUserId(): string | null {
     return this.get()?.userId ?? null;
   }
+
+  getRol(): string | null {
+    return this.get()?.rol ?? null;
+  }
 }
 
 export const TenantContext = new TenantContextHolder();

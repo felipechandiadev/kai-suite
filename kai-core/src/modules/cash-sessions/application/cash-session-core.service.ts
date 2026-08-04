@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
   Inject,
   forwardRef,
   Logger,
@@ -33,6 +34,8 @@ import { CreateTransactionDto } from '@modules/transactions/application/dto/crea
 import { CashHubsService } from '@modules/cash-hubs/application/cash-hubs.service';
 import { computeCashSessionExpectedAmount } from './cash-session-expected-amount.util';
 import { sumSaleTipTenders } from './sale-tip-tender.util';
+import { TenantContext } from '@common/tenant/tenant.context';
+import { isGovernanceRole } from '@modules/users/domain/platform-role.codes';
 
 /**
  * CashSessionCoreService - Single Responsibility: Session Lifecycle Management
@@ -167,6 +170,7 @@ export class CashSessionCoreService {
    * Query: Obtener todas las sesiones con filtros
    */
   async findAll(query: GetCashSessionsDto) {
+    const companyId = TenantContext.getCompanyId()?.trim() || null;
     const qb = this.cashSessionRepository
       .createQueryBuilder('cs')
       .leftJoinAndSelect('cs.pointOfSale', 'pointOfSale')
@@ -175,6 +179,10 @@ export class CashSessionCoreService {
       .leftJoinAndSelect('openedBy.person', 'openedByPerson')
       .leftJoinAndSelect('cs.closedBy', 'closedBy')
       .leftJoinAndSelect('closedBy.person', 'closedByPerson');
+
+    if (companyId) {
+      qb.andWhere('cs.companyId = :companyId', { companyId });
+    }
 
     if (query.pointOfSaleId) {
       qb.andWhere('cs.pointOfSaleId = :pointOfSaleId', {
@@ -264,10 +272,19 @@ export class CashSessionCoreService {
     if (!pointOfSale) {
       throw new NotFoundException('El punto de venta especificado no existe.');
     }
-    const companyId = pointOfSale.branch?.companyId;
+    const companyId =
+      pointOfSale.companyId?.trim() ||
+      pointOfSale.branch?.companyId?.trim() ||
+      null;
     if (!companyId) {
       throw new BadRequestException(
         'No se pudo determinar la empresa asociada al punto de venta.',
+      );
+    }
+    const activeCompanyId = TenantContext.getCompanyId()?.trim() || null;
+    if (activeCompanyId && activeCompanyId !== companyId) {
+      throw new BadRequestException(
+        'El punto de venta no pertenece a la empresa activa de este dispositivo.',
       );
     }
 
@@ -469,6 +486,7 @@ export class CashSessionCoreService {
       cashHubId?: string;
       notes?: string | null;
       counted?: CloseCashSessionCountedDto | null;
+      adminClose?: boolean;
     },
   ) {
     const trimmedUserName = userName?.trim();
@@ -520,6 +538,7 @@ export class CashSessionCoreService {
       cashHubId?: string;
       notes?: string | null;
       counted?: CloseCashSessionCountedDto | null;
+      adminClose?: boolean;
     },
   ) {
     // 1. Validar sesión
@@ -541,10 +560,31 @@ export class CashSessionCoreService {
         'Punto de venta no configurado en la sesión de caja',
       );
     }
-    assertCashSessionOperableByUser(session, {
-      userId,
-      pointOfSaleId,
-    });
+
+    const adminClose = options?.adminClose === true;
+    if (adminClose) {
+      const rol = TenantContext.getRol();
+      if (!rol || !isGovernanceRole(rol)) {
+        throw new ForbiddenException(
+          'Solo administración puede cerrar una sesión de caja ajena.',
+        );
+      }
+      const activeCompanyId = TenantContext.getCompanyId()?.trim() || null;
+      if (
+        activeCompanyId &&
+        session.companyId &&
+        activeCompanyId !== session.companyId
+      ) {
+        throw new ForbiddenException(
+          'La sesión de caja no pertenece a la empresa activa.',
+        );
+      }
+    } else {
+      assertCashSessionOperableByUser(session, {
+        userId,
+        pointOfSaleId,
+      });
+    }
 
     // 2. Totales de referencia
     const salesTotal =
@@ -618,7 +658,9 @@ export class CashSessionCoreService {
       txDto.lines = [];
       txDto.notes = useCounted
         ? options?.notes?.trim() || 'Cierre de sesión con arqueo (conteo físico)'
-        : 'Cierre automático de sesión de caja';
+        : adminClose
+          ? options?.notes?.trim() || 'Cierre administrativo (sin arqueo)'
+          : 'Cierre automático de sesión de caja';
       if (useCounted) {
         txDto.metadata = {
           blindClose: true,
@@ -626,6 +668,11 @@ export class CashSessionCoreService {
           systemCashExpected,
           salesTotal,
           tips: tipBlock,
+        };
+      } else if (adminClose) {
+        txDto.metadata = {
+          adminClose: true,
+          ...(tipBlock ? { tips: tipBlock } : {}),
         };
       } else if (tipBlock) {
         txDto.metadata = { tips: tipBlock };
@@ -724,6 +771,8 @@ export class CashSessionCoreService {
     session.difference = useCounted ? diffCash : 0;
     if (options?.notes?.trim()) {
       session.notes = options.notes.trim();
+    } else if (adminClose) {
+      session.notes = 'Cierre administrativo (sin arqueo)';
     }
     session.closingDetails = closingDetails;
     await this.cashSessionRepository.save(session);

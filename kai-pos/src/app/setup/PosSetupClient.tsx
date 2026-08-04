@@ -10,6 +10,7 @@ import {
   readPosCompany,
   writePosCompany,
 } from "@/features/company/storage/pos-company-storage";
+import { clearPosContextClient } from "@/features/session/lib/pos-context-storage";
 
 type PosSetupClientProps = {
   companies: PublicCompany[];
@@ -49,12 +50,17 @@ export function PosSetupClient({
     setSaving(true);
     setError(null);
     try {
+      const previous = readPosCompany();
       writePosCompany({
         id: target.id,
         razonSocial: target.razonSocial,
         nombreFantasia: target.nombreFantasia,
         rut: target.rut,
       });
+      // Evita reusar sucursal/caja de otra empresa al cambiar la config del dispositivo.
+      if (!previous?.id || previous.id !== target.id) {
+        clearPosContextClient();
+      }
       router.push("/");
       router.refresh();
     } catch (e) {

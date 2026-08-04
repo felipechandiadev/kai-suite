@@ -54,26 +54,52 @@ export class PosSaleReceiptPrintService {
   async findReceiptByTransactionId(
     companyId: string,
     transactionId: string,
-    options?: { scope?: 'full' | 'non_dte' },
+    options?: {
+      scope?: 'full' | 'non_dte';
+      /** Empresas a las que el usuario tiene membership (multiempresa). */
+      allowedCompanyIds?: string[];
+      isSuperAdmin?: boolean;
+    },
   ): Promise<PosSaleReceiptPrintDto> {
     const id = transactionId?.trim();
     if (!id) {
       throw new BadRequestException('Transacción no especificada');
     }
 
-    const tx = await this.transactionRepository.findOne({
+    const relations = [
+      'lines',
+      'lines.product',
+      'lines.productVariant',
+      'lines.unit',
+      'customer',
+      'customer.person',
+      'branch',
+      'pointOfSale',
+    ] as const;
+
+    let tx = await this.transactionRepository.findOne({
       where: { id, companyId },
-      relations: [
-        'lines',
-        'lines.product',
-        'lines.productVariant',
-        'lines.unit',
-        'customer',
-        'customer.person',
-        'branch',
-        'pointOfSale',
-      ],
+      relations: [...relations],
     });
+
+    // Multiempresa: el header puede ser la company legacy mientras la venta
+    // pertenece a otra empresa del membership (p. ej. admin Store+Food).
+    if (!tx) {
+      const candidate = await this.transactionRepository.findOne({
+        where: { id },
+        relations: [...relations],
+      });
+      if (candidate) {
+        const allowedIds = options?.allowedCompanyIds ?? [];
+        const allowed =
+          options?.isSuperAdmin === true ||
+          candidate.companyId === companyId ||
+          allowedIds.includes(candidate.companyId);
+        if (allowed) {
+          tx = candidate;
+        }
+      }
+    }
 
     if (!tx) {
       throw new NotFoundException('Transacción no encontrada');
@@ -92,7 +118,7 @@ export class PosSaleReceiptPrintService {
       );
     }
 
-    const company = await this.companiesService.getCompanyById(companyId);
+    const company = await this.companiesService.getCompanyById(tx.companyId);
     return this.toReceiptDto(tx, company, options?.scope ?? 'full');
   }
 

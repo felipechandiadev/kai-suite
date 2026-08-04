@@ -24,6 +24,30 @@ object VariantBarcodeLabelEscPos {
             w.alignCenter(false)
         }
 
+        val layout = t.jsonStr("layout").orEmpty().trim().lowercase()
+        val detailed = layout == "detailed"
+
+        if (detailed) {
+            t.jsonArr("attributes").orEmpty().forEach { el ->
+                val obj = el.jsonObj() ?: return@forEach
+                val value = obj.jsonStr("value").present().orEmpty()
+                if (value.isBlank()) return@forEach
+                val label = obj.jsonStr("label").present()
+                val text = if (label != null) "$label: $value" else value
+                for (line in w.wrapLines(text, widthChars)) {
+                    w.line(line)
+                }
+            }
+            val priceLabel = t.jsonStr("priceLabel").present()
+            if (priceLabel != null) {
+                w.bold(true)
+                for (line in w.wrapLines(priceLabel, widthChars)) {
+                    w.line(line)
+                }
+                w.bold(false)
+            }
+        }
+
         val sku = t.jsonStr("sku").present().orEmpty()
         if (sku.isNotBlank()) {
             w.line(w.padLeft("SKU:", sku))

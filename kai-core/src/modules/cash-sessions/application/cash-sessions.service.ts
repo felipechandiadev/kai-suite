@@ -34,6 +34,7 @@ import { GetCashSessionsDto } from './dto/get-cash-sessions.dto';
 import { OpenCashSessionDto } from './dto/open-cash-session.dto';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { computeCashSessionExpectedAmount } from './cash-session-expected-amount.util';
+import { TenantContext } from '@common/tenant/tenant.context';
 import {
   buildPaymentSnapshotsFromSalePayments,
   buildPaymentsMetadataFields,
@@ -322,6 +323,7 @@ export class CashSessionsService {
   }
 
   async findAll(query: GetCashSessionsDto) {
+    const companyId = TenantContext.getCompanyId()?.trim() || null;
     const qb = this.cashSessionRepository
       .createQueryBuilder('cs')
       .leftJoinAndSelect('cs.pointOfSale', 'pointOfSale')
@@ -329,6 +331,10 @@ export class CashSessionsService {
       .leftJoinAndSelect('openedBy.person', 'openedByPerson')
       .leftJoinAndSelect('cs.closedBy', 'closedBy')
       .leftJoinAndSelect('closedBy.person', 'closedByPerson');
+
+    if (companyId) {
+      qb.andWhere('cs.companyId = :companyId', { companyId });
+    }
 
     if (query.pointOfSaleId) {
       qb.andWhere('cs.pointOfSaleId = :pointOfSaleId', {

@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsNumber,
   IsOptional,
   IsString,
@@ -102,4 +103,12 @@ export class CloseCashSessionDto {
   @ValidateNested()
   @Type(() => CloseCashSessionCountedDto)
   counted?: CloseCashSessionCountedDto;
+
+  /**
+   * Cierre desde kai-admin: permite cerrar aunque el usuario no haya abierto la sesión.
+   * Requiere rol de gobernanza (ADMIN / SUB_ADMIN / SUPER_ADMIN). Sin arqueo ciego.
+   */
+  @IsOptional()
+  @IsBoolean()
+  adminClose?: boolean;
 }

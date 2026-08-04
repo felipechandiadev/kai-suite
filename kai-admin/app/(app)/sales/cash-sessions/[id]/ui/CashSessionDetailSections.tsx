@@ -1,6 +1,6 @@
 "use client";
 
-import { TextField } from "@kai/ui";
+import { Button, TextField } from "@kai/ui";
 import type { CashSessionDetail } from "@/features/sales-cash-sessions/types/cash-session-detail.types";
 import type { CashSessionMovementRow } from "@/features/sales-cash-sessions/types/cash-session-movement.types";
 import { CASH_SESSION_STATUS_LABEL } from "@/features/sales-cash-sessions/types/cash-session-list.types";
@@ -46,8 +46,10 @@ const DIRECTION_LABEL: Record<string, string> = {
 
 export function CashSessionDetailResumenSection({
   session,
+  onCloseSession,
 }: {
   session: CashSessionDetail;
+  onCloseSession?: () => void;
 }) {
   const openedBy =
     session.openedByFullName ?? session.openedByUserName ?? "—";
@@ -60,7 +62,20 @@ export function CashSessionDetailResumenSection({
       className="relative space-y-3 rounded-lg border border-border bg-background p-4"
       data-test-id="cash-session-detail-resumen"
     >
-      <p className="text-xs font-medium text-foreground">Datos de la sesión</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-medium text-foreground">Datos de la sesión</p>
+        {session.status === "OPEN" && onCloseSession ? (
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={onCloseSession}
+            data-test-id="cash-session-detail-close-resumen"
+          >
+            Cerrar caja
+          </Button>
+        ) : null}
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <TextField
           label="Estado"

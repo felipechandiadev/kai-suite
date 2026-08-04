@@ -102,18 +102,43 @@ export const authOptions: NextAuthOptions = {
         };
         const userCompanyId = user.companyId ?? null;
         const role = user.rol ?? null;
+        const backendActiveCompanyId =
+          typeof data.activeCompanyId === "string" && data.activeCompanyId.trim()
+            ? data.activeCompanyId.trim()
+            : null;
+        const memberships = Array.isArray(data.memberships)
+          ? (data.memberships as Array<{ companyId?: string }>).filter(
+              (m) => typeof m?.companyId === "string" && m.companyId.trim().length > 0,
+            )
+          : [];
 
-        // Misma regla que el backend (login.handler): empresa del POS vs empresa del usuario.
-        if (companyId && role !== "SUPER_ADMIN" && userCompanyId !== companyId) {
+        // Alineado a login.handler: SUPER_ADMIN o membership / activeCompany del hint.
+        // No basta con user.companyId legacy (admin multiempresa tiene Store en legacy
+        // y membership en Food).
+        const belongsToPosCompany =
+          !companyId ||
+          role === "SUPER_ADMIN" ||
+          userCompanyId === companyId ||
+          backendActiveCompanyId === companyId ||
+          memberships.some((m) => m.companyId === companyId);
+
+        if (!belongsToPosCompany) {
           console.warn("[POS][auth] Usuario no pertenece a la empresa del POS", {
             role,
             userCompanyId,
+            backendActiveCompanyId,
+            membershipCompanyIds: memberships.map((m) => m.companyId),
             expected: companyId,
           });
           throw new Error(
             "Este usuario no pertenece a la empresa solicitada por este punto de venta",
           );
         }
+
+        const activeCompanyId =
+          role === "SUPER_ADMIN"
+            ? companyId ?? backendActiveCompanyId
+            : companyId ?? backendActiveCompanyId ?? userCompanyId;
 
         return {
           id: user.id,
@@ -124,9 +149,7 @@ export const authOptions: NextAuthOptions = {
           accessToken: user.id,
           role,
           companyId: userCompanyId,
-          // SUPER_ADMIN: usar la company del deployment como activa.
-          // ADMIN/OPERATOR: usar su propia companyId.
-          activeCompanyId: role === "SUPER_ADMIN" ? companyId : userCompanyId,
+          activeCompanyId,
         };
       },
     }),

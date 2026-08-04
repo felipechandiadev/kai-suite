@@ -14,7 +14,7 @@ import { listCashHubsForPosAction } from "@/features/session/actions/cash-hub-po
 import type { CashHubDepositCandidate } from "@/features/session/types/cash-hub-deposit.types";
 import { Alert, Button, Dialog, Select, TextField } from "@kai/ui";
 import { fetchPointOfSalePriceListsAction } from "@/features/session/actions/point-of-sale-pos.action";
-import { savePosContextClient, type PosPriceListSnapshot } from "@/features/session/lib/pos-context-storage";
+import { savePosContextClient, clearPosContextClient, readPosContextClient, type PosPriceListSnapshot } from "@/features/session/lib/pos-context-storage";
 import { queueCashSessionOpeningPrint } from "@/features/cash-session-opening/lib/pending-cash-session-opening-print";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/pos-api-failure";
 
@@ -80,10 +80,16 @@ function parseOpeningAmount(raw: string): number {
 }
 
 function buildPosContextFromPos(pos: PointOfSaleListItem) {
-  const availablePriceLists: PosPriceList[] = pos.priceLists ?? [];
+  const availablePriceLists: PosPriceList[] = [...(pos.priceLists ?? [])];
+  const defaultId =
+    typeof pos.defaultPriceListId === "string" ? pos.defaultPriceListId.trim() : "";
+  // Algunas cajas tienen defaultPriceListId pero priceLists JSON vacío (seed incompleto).
+  if (defaultId && !availablePriceLists.some((p) => p.id === defaultId)) {
+    availablePriceLists.unshift({ id: defaultId, name: "Lista de precios", isActive: true });
+  }
   const defaultPriceListId =
-    pos.defaultPriceListId && availablePriceLists.some((p) => p.id === pos.defaultPriceListId)
-      ? pos.defaultPriceListId
+    defaultId && availablePriceLists.some((p) => p.id === defaultId)
+      ? defaultId
       : availablePriceLists[0]?.id ?? "";
   return {
     pointOfSaleId: pos.id,
@@ -157,9 +163,20 @@ export default function SessionSetupForm({
     [pointsOfSaleForBranch, pointOfSaleId],
   );
 
-  const availablePriceLists: PosPriceList[] = selectedPos?.priceLists ?? [];
+  const availablePriceLists: PosPriceList[] = useMemo(() => {
+    const lists = [...(selectedPos?.priceLists ?? [])];
+    const defaultId =
+      typeof selectedPos?.defaultPriceListId === "string"
+        ? selectedPos.defaultPriceListId.trim()
+        : "";
+    if (defaultId && !lists.some((p) => p.id === defaultId)) {
+      lists.unshift({ id: defaultId, name: "Lista de precios", isActive: true });
+    }
+    return lists;
+  }, [selectedPos]);
   const defaultPriceListId =
-    selectedPos?.defaultPriceListId && availablePriceLists.some((p) => p.id === selectedPos.defaultPriceListId)
+    selectedPos?.defaultPriceListId &&
+    availablePriceLists.some((p) => p.id === selectedPos.defaultPriceListId)
       ? selectedPos.defaultPriceListId
       : availablePriceLists[0]?.id ?? "";
   const defaultPriceListName =
@@ -205,6 +222,17 @@ export default function SessionSetupForm({
   useEffect(() => {
     void refreshOpenSessions();
   }, []);
+
+  // Si el dispositivo tenía una caja/sucursal de otra empresa, descartarla.
+  useEffect(() => {
+    if (pointsOfSale.length === 0) return;
+    const ctx = readPosContextClient();
+    const ctxPosId = ctx?.pointOfSaleId?.trim() ?? "";
+    if (!ctxPosId) return;
+    if (!pointsOfSale.some((p) => p.id === ctxPosId)) {
+      clearPosContextClient();
+    }
+  }, [pointsOfSale]);
 
   useEffect(() => {
     if (!currentUserId || openSessions.length === 0 || pointOfSaleId) return;

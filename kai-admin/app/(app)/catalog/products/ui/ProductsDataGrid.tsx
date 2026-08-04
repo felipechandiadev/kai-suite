@@ -14,6 +14,7 @@ import { CreateProductDialog } from "./CreateProductDialog";
 import { EditProductDialog } from "./EditProductDialog";
 import { CreateProductVariantDialog } from "./CreateProductVariantDialog";
 import { ProductEShopPreviewDialog } from "./ProductEShopPreviewDialog";
+import { BulkProductImportDialog } from "@/features/inventory-products/ui/BulkProductImportDialog";
 import { MultimediaLightbox } from "@/shared/components/Multimedia";
 import type { MultimediaLightboxItem } from "@/shared/components/Multimedia/types";
 import {
@@ -25,6 +26,8 @@ import { isEShopModuleEnabled } from "@/config/eshop-module.config";
 import { isKaiFoodEnabledForCompany } from "@/config/kaifood-module.config";
 import { useCompany } from "@/providers/CompanyProvider";
 import { printVariantBarcodeLabel } from "@/features/catalog-products/print/variant-barcode-label-print";
+import { PrintVariantBarcodeLabelDialog } from "@/features/catalog-products/print/PrintVariantBarcodeLabelDialog";
+import type { VariantBarcodeLabelPrintInput } from "@/features/catalog-products/print/variant-barcode-label-print-html";
 
 type ProductsDataGridProps = {
   rows: ProductGridRow[];
@@ -676,7 +679,12 @@ export default function ProductsDataGrid({ rows, total }: ProductsDataGridProps)
   const [deleteVariantError, setDeleteVariantError] = useState<string | null>(null);
   const [isDeleteVariantPending, startDeleteVariantTransition] = useTransition();
   const [printingVariantId, setPrintingVariantId] = useState<string | null>(null);
+  const [barcodePrintTarget, setBarcodePrintTarget] = useState<{
+    product: ProductGridRow;
+    variant: ProductVariantGridRow;
+  } | null>(null);
   const [previewRow, setPreviewRow] = useState<ProductGridRow | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const openVariantDialog = useCallback((r: ProductGridRow) => {
     setVariantDialog({
@@ -888,17 +896,22 @@ export default function ProductsDataGrid({ rows, total }: ProductsDataGridProps)
     (product: ProductGridRow, variant: ProductVariantGridRow) => {
       const barcode = variant.barcode?.trim() ?? "";
       if (!barcode) return;
-      setPrintingVariantId(variant.id);
-      void printVariantBarcodeLabel({
-        productName: product.name,
-        sku: variant.sku?.trim() ?? "",
-        barcode,
-      }).finally(() => {
-        setPrintingVariantId((current) => (current === variant.id ? null : current));
-      });
+      setBarcodePrintTarget({ product, variant });
     },
     [],
   );
+
+  const onConfirmVariantBarcodePrint = useCallback((input: VariantBarcodeLabelPrintInput) => {
+    const variantId = barcodePrintTarget?.variant.id ?? null;
+    if (!variantId) return;
+    setPrintingVariantId(variantId);
+    void printVariantBarcodeLabel(input)
+      .catch(() => undefined)
+      .finally(() => {
+        setPrintingVariantId((current) => (current === variantId ? null : current));
+        setBarcodePrintTarget(null);
+      });
+  }, [barcodePrintTarget]);
 
   const expandableRowContent = useCallback(
     (row: ProductGridRow) => (
@@ -916,6 +929,16 @@ export default function ProductsDataGrid({ rows, total }: ProductsDataGridProps)
 
   return (
     <>
+      <div className="mb-2 flex flex-wrap items-center justify-end gap-2 px-1">
+        <Button
+          variant="outlined"
+          size="sm"
+          onClick={() => setBulkOpen(true)}
+          data-test-id="products-bulk-import-open"
+        >
+          Carga masiva
+        </Button>
+      </div>
       <DataGrid
         title="Productos"
         columns={columns}
@@ -932,6 +955,18 @@ export default function ProductsDataGrid({ rows, total }: ProductsDataGridProps)
         headerActions={<ProductTypeFilter companyKaiProduct={companyKaiProduct} />}
         onAddClick={() => setCreateOpen(true)}
         data-test-id="products-data-grid"
+      />
+      <BulkProductImportDialog open={bulkOpen} onClose={() => setBulkOpen(false)} />
+      <PrintVariantBarcodeLabelDialog
+        open={barcodePrintTarget != null}
+        product={barcodePrintTarget?.product ?? null}
+        variant={barcodePrintTarget?.variant ?? null}
+        printing={printingVariantId != null}
+        onClose={() => {
+          if (printingVariantId != null) return;
+          setBarcodePrintTarget(null);
+        }}
+        onConfirm={onConfirmVariantBarcodePrint}
       />
       <CreateProductDialog
         open={createOpen}

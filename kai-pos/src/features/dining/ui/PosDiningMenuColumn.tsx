@@ -200,8 +200,18 @@ export function PosDiningMenuColumn({
     void getPosDiningBranchSettingsAction(bid).then((res) => {
       if (!res.success) {
         if (redirectToLoginIfUnauthorized(res)) return;
+        const msg = String(res.message ?? "");
+        if (/sucursal no válida|no pertenece a la empresa/i.test(msg)) {
+          setError(
+            "Esta caja está configurada con una sucursal de otra empresa. Andá a Sesión de caja, elegí la sucursal y el punto de venta de esta empresa, y volvé a abrir o continuar la sesión.",
+          );
+        }
+        setMenuCategories([]);
+        setConfiguredCategoryIds([]);
+        setActiveCategoryIds([]);
         return;
       }
+      setError(null);
       const cats = res.settings.posAccountsMenuCategories ?? [];
       const allowed = new Set(cats.map((c) => c.id));
       const stored = readPosDiningMenuActiveCategoryIds(bid).filter((id) =>

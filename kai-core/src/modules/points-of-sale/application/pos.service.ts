@@ -51,6 +51,7 @@ export class PosService {
   ) {}
 
   async findAll(includeInactive: boolean) {
+    const companyId = TenantContext.getCompanyId()?.trim() || null;
     const query = this.posRepository
       .createQueryBuilder('pos')
       .leftJoinAndSelect('pos.branch', 'branch')
@@ -58,13 +59,16 @@ export class PosService {
       .where('pos.deletedAt IS NULL')
       .orderBy('pos.name', 'ASC');
 
+    if (companyId) {
+      query.andWhere('pos.companyId = :companyId', { companyId });
+    }
+
     if (!includeInactive) {
       query.andWhere('pos.isActive = :isActive', { isActive: true });
     }
 
     const pointsOfSale = await query.getMany();
 
-    const companyId = TenantContext.getCompanyId();
     let companyDeferredEnabled = false;
     if (companyId) {
       const deferred =

@@ -9,6 +9,7 @@ import {
   clearPosContextClient,
   patchPosContextClient,
   readPosContextClient,
+  savePosContextClient,
   type PosContextV1,
   type PosPriceListSnapshot,
 } from "@/features/session/lib/pos-context-storage";
@@ -24,6 +25,7 @@ import PosProductSearchPanel, {
 import PosBarcodeScanner from "@/features/pos-products/ui/PosBarcodeScanner";
 import PosCartLineCard from "./PosCartLineCard";
 import { isQuotationCartVariant, usePosCart } from "@/features/pos-cart/PosCartProvider";
+import { PosCartSlotSwitcher } from "@/features/pos-cart/ui/PosCartSlotSwitcher";
 import { useDiningPayment } from "@/features/dining-payment";
 import { computePosSaleTotals } from "@/features/pos-cart/lib/pos-sale-totals";
 import { PosDiscountDetailDialog } from "@/features/promotions/ui/PosDiscountDetailDialog";
@@ -162,47 +164,120 @@ export default function PosWorkspace() {
 
   useEffect(() => {
     const c = readPosContextClient();
-    if (!c?.pointOfSaleId || !c?.priceListId) {
+    if (!c?.pointOfSaleId) {
       router.replace("/session-setup");
       return;
     }
 
     void (async () => {
+      let working = c;
+
+      // Si falta lista de precios (p.ej. priceLists vacío en el POS), resolverla antes de entrar.
+      if (!working.priceListId?.trim() && shouldUseBackendApi()) {
+        try {
+          const fetched = await fetchPointOfSalePriceListsAction(working.pointOfSaleId);
+          if (fetched.success) {
+            const lists = [...fetched.priceLists];
+            const defaultId = fetched.defaultPriceListId?.trim() || "";
+            if (defaultId && !lists.some((p) => p.id === defaultId)) {
+              lists.unshift({ id: defaultId, name: "Lista de precios" });
+            }
+            const priceListId = defaultId || lists[0]?.id || null;
+            if (priceListId) {
+              savePosContextClient({
+                ...working,
+                priceListId,
+                priceLists: lists.length > 0 ? lists : [{ id: priceListId, name: "Lista de precios" }],
+                branchId: fetched.branchId ?? working.branchId ?? null,
+                branchName: fetched.branchName ?? working.branchName ?? null,
+                storageId: fetched.storageId ?? working.storageId ?? null,
+                pointOfSaleName: fetched.pointOfSaleName ?? working.pointOfSaleName ?? null,
+                posKind: fetched.posKind ?? working.posKind,
+                acceptsPresaleTickets: fetched.acceptsPresaleTickets,
+                deferredPaymentEnabled: fetched.deferredPaymentEnabled,
+              });
+              working = readPosContextClient() ?? working;
+            }
+          }
+        } catch {
+          /* seguir con validación / redirect */
+        }
+      }
+
+      if (!working.priceListId?.trim()) {
+        router.replace("/session-setup");
+        return;
+      }
+
       if (shouldUseBackendApi()) {
         const validation = await validatePosEntryAction({
-          pointOfSaleId: c.pointOfSaleId,
-          cashSessionId: c.cashSessionId ?? null,
-          posKind: c.posKind ?? null,
+          pointOfSaleId: working.pointOfSaleId,
+          cashSessionId: working.cashSessionId ?? null,
+          posKind: working.posKind ?? null,
         });
         if (!validation.valid) {
           clearPosContextClient();
           router.replace("/session-setup");
           return;
         }
+        if (validation.valid && validation.snapshot) {
+          const snap = validation.snapshot;
+          const lists = [...(snap.priceLists ?? [])];
+          const defaultId = snap.defaultPriceListId?.trim() || "";
+          if (defaultId && !lists.some((p) => p.id === defaultId)) {
+            lists.unshift({ id: defaultId, name: "Lista de precios" });
+          }
+          patchPosContextClient({
+            branchId: snap.branchId,
+            branchName: snap.branchName,
+            storageId: snap.storageId,
+            pointOfSaleName: snap.pointOfSaleName,
+            posKind: snap.posKind,
+            acceptsPresaleTickets: snap.acceptsPresaleTickets,
+            deferredPaymentEnabled: snap.deferredPaymentEnabled,
+            ...(lists.length > 0 ? { priceLists: lists } : {}),
+            ...(!working.priceListId && (defaultId || lists[0]?.id)
+              ? { priceListId: defaultId || lists[0]?.id }
+              : {}),
+          });
+          working = readPosContextClient() ?? working;
+        }
       }
 
       let res: Awaited<ReturnType<typeof fetchPointOfSalePriceListsAction>> | null = null;
       if (shouldUseBackendApi()) {
         try {
-          res = await fetchPointOfSalePriceListsAction(c.pointOfSaleId);
+          res = await fetchPointOfSalePriceListsAction(working.pointOfSaleId);
         } catch {
           res = null;
         }
       }
 
       if (res?.success) {
+        const lists = [...res.priceLists];
+        const defaultId = res.defaultPriceListId?.trim() || "";
+        if (defaultId && !lists.some((p) => p.id === defaultId)) {
+          lists.unshift({ id: defaultId, name: "Lista de precios" });
+        }
         patchPosContextClient({
           ...(res.branchId ? { branchId: res.branchId, branchName: res.branchName ?? null } : {}),
           storageId: res.storageId ?? null,
-          pointOfSaleName: res.pointOfSaleName ?? c.pointOfSaleName ?? null,
+          pointOfSaleName: res.pointOfSaleName ?? working.pointOfSaleName ?? null,
           posKind: res.posKind,
           acceptsPresaleTickets: res.acceptsPresaleTickets,
           deferredPaymentEnabled: res.deferredPaymentEnabled,
-          ...(res.priceLists.length > 0 ? { priceLists: res.priceLists } : {}),
+          ...(lists.length > 0 ? { priceLists: lists } : {}),
+          ...(!working.priceListId && (defaultId || lists[0]?.id)
+            ? { priceListId: defaultId || lists[0]?.id }
+            : {}),
         });
       }
 
-      const synced = readPosContextClient() ?? c;
+      const synced = readPosContextClient() ?? working;
+      if (!synced.priceListId?.trim()) {
+        router.replace("/session-setup");
+        return;
+      }
       setCtx(synced);
       runPendingCashSessionOpeningPrintIfAny();
       const listId = String(synced.priceListId);
@@ -496,7 +571,8 @@ export default function PosWorkspace() {
             />
             ) : null}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <PosCartSlotSwitcher className="w-72 max-w-full shrink-0" />
             <p className="text-xs text-zinc-500" data-test-id="pos-cart-items-count">
               {cart.itemsCount} ítems
             </p>

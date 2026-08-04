@@ -26,6 +26,7 @@ import { CancelBackorderService } from '../application/cancel-backorder.service'
 import { CancelBackorderDto } from '../application/dto/cancel-backorder.dto';
 import { VoidSaleService } from '../application/void-sale.service';
 import { VoidSaleDto } from '../application/dto/void-sale.dto';
+import { UserRole } from '@modules/users/domain/user.entity';
 
 @ApiTags('Transactions')
 @ApiBearerAuth('JWT-auth')
@@ -415,12 +416,17 @@ export class TransactionsController {
   async getPosSaleReceipt(
     @Param('id') id: string,
     @CurrentCompany() companyId: string,
+    @CurrentUser() user: CurrentUserPayload,
     @Query('scope') scope?: 'full' | 'non_dte',
   ) {
     const receipt = await this.posSaleReceiptPrint.findReceiptByTransactionId(
       companyId,
       id,
-      { scope: scope === 'non_dte' ? 'non_dte' : 'full' },
+      {
+        scope: scope === 'non_dte' ? 'non_dte' : 'full',
+        allowedCompanyIds: (user.memberships ?? []).map((m) => m.companyId),
+        isSuperAdmin: user.rol === UserRole.SUPER_ADMIN,
+      },
     );
     return { success: true, receipt };
   }

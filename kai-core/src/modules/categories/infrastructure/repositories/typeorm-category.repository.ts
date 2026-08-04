@@ -5,6 +5,7 @@ import { Category } from '../../domain/category.entity';
 import { Product } from '../../../products/domain/product.entity';
 import { CategoryRepositoryPort } from '../../application/ports/category.repository.port';
 import { CategoryWithCountsDto } from '../../application/dto/category-with-counts.dto';
+import { TenantContext } from '@common/tenant/tenant.context';
 
 @Injectable()
 export class TypeOrmCategoryRepository implements CategoryRepositoryPort {
@@ -15,26 +16,43 @@ export class TypeOrmCategoryRepository implements CategoryRepositoryPort {
     private readonly productRepository: Repository<Product>,
   ) {}
 
+  private activeCompanyId(): string | null {
+    return TenantContext.getCompanyId()?.trim() || null;
+  }
+
   async save(category: Category): Promise<Category> {
     return this.categoryRepository.save(category);
   }
 
   async findById(id: string): Promise<Category | null> {
+    const companyId = this.activeCompanyId();
     return this.categoryRepository.findOne({
-      where: { id, deletedAt: null as any },
+      where: {
+        id,
+        deletedAt: null as any,
+        ...(companyId ? { companyId } : {}),
+      },
     });
   }
 
   async findAll(): Promise<Category[]> {
+    const companyId = this.activeCompanyId();
     return this.categoryRepository.find({
-      where: { deletedAt: null as any },
+      where: {
+        deletedAt: null as any,
+        ...(companyId ? { companyId } : {}),
+      },
       order: { name: 'ASC' },
     });
   }
 
   async findAllWithCounts(): Promise<CategoryWithCountsDto[]> {
+    const companyId = this.activeCompanyId();
     const categories = await this.categoryRepository.find({
-      where: { deletedAt: null as any },
+      where: {
+        deletedAt: null as any,
+        ...(companyId ? { companyId } : {}),
+      },
       order: { name: 'ASC' },
     });
 
@@ -94,9 +112,14 @@ export class TypeOrmCategoryRepository implements CategoryRepositoryPort {
     offset: number,
     search?: string,
   ): Promise<{ items: Category[]; total: number }> {
+    const companyId = this.activeCompanyId();
     const qb = this.categoryRepository
       .createQueryBuilder('category')
       .where('category.deletedAt IS NULL');
+
+    if (companyId) {
+      qb.andWhere('category.companyId = :companyId', { companyId });
+    }
 
     if (search && search.trim().length > 0) {
       const q = `%${search.trim().toLowerCase()}%`;

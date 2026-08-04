@@ -4,7 +4,7 @@ import { PosSaleReceiptPrintRequest } from "../infrastructure/pos-sale-receipt-p
 
 export async function getPosSaleReceiptPrintAction(
   transactionId: string,
-  options?: { scope?: "full" | "non_dte" },
+  options?: { scope?: "full" | "non_dte"; companyId?: string | null },
 ) {
   return PosSaleReceiptPrintRequest.getByTransactionId(transactionId, options);
 }

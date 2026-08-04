@@ -52,9 +52,14 @@ export function DiningNumberingSettingsPanel({ branches }: Props) {
       setResetTimeLocal(res.settings.resetTimeLocal);
       setAllowWaiterOpenTable(res.settings.allowWaiterOpenTable !== false);
       setAllowPosOpenTable(res.settings.allowPosOpenTable === true);
-      setSelectedCategoryIds(res.settings.posAccountsMenuCategoryIds ?? []);
+      const allowed = new Set(allCategories.map((c) => c.id));
+      const saved = res.settings.posAccountsMenuCategoryIds ?? [];
+      // Descarta IDs de otra empresa (p. ej. residuales de suite Store+Food).
+      setSelectedCategoryIds(
+        allowed.size > 0 ? saved.filter((id) => allowed.has(id)) : saved,
+      );
     });
-  }, [branchId]);
+  }, [branchId, allCategories]);
 
   const toggleCategory = (id: string) => {
     setSelectedCategoryIds((prev) =>
@@ -70,12 +75,14 @@ export function DiningNumberingSettingsPanel({ branches }: Props) {
     }
     setError(null);
     startTransition(() => {
+      const allowed = new Set(allCategories.map((c) => c.id));
+      const categoryIds = selectedCategoryIds.filter((id) => allowed.has(id));
       void updateDiningNumberingSettingsAction(branchId, {
         timezone: timezone.trim(),
         resetTimeLocal: resetTimeLocal.trim(),
         allowWaiterOpenTable,
         allowPosOpenTable,
-        posAccountsMenuCategoryIds: selectedCategoryIds,
+        posAccountsMenuCategoryIds: categoryIds,
       }).then((res) => {
         if (!res.success) {
           setError(res.message);

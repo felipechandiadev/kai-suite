@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Badge, IconButton, type BadgeVariant } from "@kai/ui";
+import { Badge, Button, IconButton, type BadgeVariant } from "@kai/ui";
 import {
   CASH_SESSION_DETAIL_TABS,
   cashSessionDetailSectionFromHash,
@@ -19,6 +19,7 @@ import {
   CashSessionDetailMovimientosSection,
   CashSessionDetailResumenSection,
 } from "./CashSessionDetailSections";
+import { CloseCashSessionDialog } from "./CloseCashSessionDialog";
 
 type Props = {
   detail: CashSessionDetailResult;
@@ -54,6 +55,7 @@ export default function CashSessionDetailPage({ detail }: Props) {
   const { session, movements } = detail;
   const [activeSection, setActiveSection] =
     useState<CashSessionDetailSectionId>("resumen");
+  const [closeOpen, setCloseOpen] = useState(false);
 
   useEffect(() => {
     const fromHash = cashSessionDetailSectionFromHash(window.location.hash);
@@ -78,6 +80,11 @@ export default function CashSessionDetailPage({ detail }: Props) {
     router.push("/sales/cash-sessions");
   }, [router]);
 
+  const openedByLabel =
+    session.openedByFullName?.trim() ||
+    session.openedByUserName?.trim() ||
+    null;
+
   return (
     <div
       className="mx-auto w-full max-w-4xl space-y-6 p-4 sm:p-6"
@@ -97,7 +104,7 @@ export default function CashSessionDetailPage({ detail }: Props) {
             data-test-id="cash-session-detail-back"
           />
           <h1
-            className="min-w-0 text-2xl font-bold tracking-tight text-foreground sm:text-3xl"
+            className="min-w-0 flex-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl"
             title={sessionTitle(session)}
           >
             {sessionTitle(session)}
@@ -105,6 +112,17 @@ export default function CashSessionDetailPage({ detail }: Props) {
           <Badge variant={statusBadgeVariant(session.status)}>
             {CASH_SESSION_STATUS_LABEL[session.status] ?? session.status}
           </Badge>
+          {session.status === "OPEN" ? (
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => setCloseOpen(true)}
+              data-test-id="cash-session-detail-close"
+            >
+              Cerrar caja
+            </Button>
+          ) : null}
         </div>
         <p
           className="mt-3 text-sm text-muted-foreground"
@@ -144,12 +162,28 @@ export default function CashSessionDetailPage({ detail }: Props) {
         data-active-section={activeSection}
       >
         {activeSection === "resumen" ? (
-          <CashSessionDetailResumenSection session={session} />
+          <CashSessionDetailResumenSection
+            session={session}
+            onCloseSession={
+              session.status === "OPEN" ? () => setCloseOpen(true) : undefined
+            }
+          />
         ) : null}
         {activeSection === "movimientos" ? (
           <CashSessionDetailMovimientosSection movements={movements} />
         ) : null}
       </div>
+
+      <CloseCashSessionDialog
+        open={closeOpen}
+        onClose={() => setCloseOpen(false)}
+        sessionId={session.id}
+        pointOfSaleName={session.pointOfSaleName}
+        openedByLabel={openedByLabel}
+        onSuccess={() => {
+          router.refresh();
+        }}
+      />
     </div>
   );
 }
