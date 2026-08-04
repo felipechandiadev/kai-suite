@@ -52,6 +52,7 @@ class PrintQueueWorker(
                             ?: throw IllegalStateException("no_target_printer")
                         val widthChars = PrintFormats.charsPerLine(format)
                         val logoSettings = printLogoRepository.currentSettings()
+                        val headerPrefs = repository.ticketHeaderPrefs()
                         val bytes = if (PrintFormats.isTicketJobType(queued.documentType ?: "")) {
                             TicketEscPosDispatcher.fromJob(
                                 queued.documentType ?: "",
@@ -59,6 +60,7 @@ class PrintQueueWorker(
                                 widthChars,
                                 context.applicationContext,
                                 logoSettings,
+                                headerPrefs,
                             )
                         } else {
                             throw IllegalStateException("unsupported_document_type")

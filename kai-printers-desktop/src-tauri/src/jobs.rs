@@ -417,6 +417,7 @@ async fn process_one_async(state: &Arc<AppState>, job: PendingJob) -> Result<()>
             .as_deref()
             .filter(|s| !s.is_empty())
             .unwrap_or("pos-sale-ticket");
+        crate::ticket_header_prefs::install_for_job(db);
         Some(build_vector_ticket_escpos_bytes(
             print_type,
             &value,

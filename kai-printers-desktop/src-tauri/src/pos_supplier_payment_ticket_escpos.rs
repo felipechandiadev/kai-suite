@@ -1,9 +1,9 @@
 //! Pago a proveedor (salida de efectivo) 80 mm en ESC/POS.
 
 use crate::pos_sale_ticket_escpos::{
-    append_divider, append_label_value_wrapped, append_line, append_ticket_logo, escpos_align,
-    escpos_apply_ticket_typography, escpos_bold, escpos_double_height_off, escpos_double_height_on,
-    escpos_init, format_datetime, money, pad_left, wrap_lines, layout_width,
+    append_company_store_header, append_divider, append_label_value_wrapped, append_line,
+    append_ticket_logo, escpos_align, escpos_apply_ticket_typography, escpos_bold, escpos_init, format_datetime, money,
+    pad_left, CompanyHeaderStyle,
 };
 use crate::pos_supplier_payment_ticket::{
     parse_pos_supplier_payment_ticket_from_value, PosSupplierPaymentTicket,
@@ -16,23 +16,10 @@ pub fn build_pos_supplier_payment_ticket_escpos(t: &PosSupplierPaymentTicket) ->
     escpos_apply_ticket_typography(&mut buf);
 
     append_ticket_logo(&mut buf, t.company.logo_base64.as_deref());
-
-    let store = t
-        .company
-        .nombre_fantasia
-        .as_deref()
-        .filter(|s| !s.trim().is_empty())
-        .unwrap_or(t.company.razon_social.as_str());
-
-    escpos_align(&mut buf, 1);
-    escpos_bold(&mut buf, true);
-    escpos_double_height_on(&mut buf);
-    for line in wrap_lines(store, layout_width() / 2) {
-        append_line(&mut buf, &line);
-    }
-    escpos_double_height_off(&mut buf);
+    append_company_store_header(&mut buf, &t.company, CompanyHeaderStyle::TITLE_ONLY);
 
     append_divider(&mut buf);
+    escpos_bold(&mut buf, true);
     append_line(&mut buf, "PAGO A PROVEEDOR");
     escpos_bold(&mut buf, false);
     let method = t

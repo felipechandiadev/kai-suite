@@ -2,10 +2,10 @@
 
 use crate::pos_presale_ticket::{parse_pos_presale_ticket_from_value, PosPresaleTicket};
 use crate::pos_sale_ticket_escpos::{
-    append_barcode_centered, append_divider, append_line, append_ticket_logo,
-    append_operator_footer, escpos_align, escpos_apply_ticket_typography, escpos_bold,
-    escpos_double_height_off, escpos_double_height_on, escpos_init, format_datetime, money,
-    pad_left, wrap_lines, layout_width,
+    append_barcode_centered, append_company_store_header, append_divider, append_line,
+    append_ticket_logo, append_operator_footer, escpos_align, escpos_apply_ticket_typography,
+    escpos_bold, escpos_double_height_off, escpos_double_height_on, escpos_init, format_datetime,
+    money, pad_left, wrap_lines, layout_width, CompanyHeaderStyle,
 };
 use anyhow::Result;
 use std::path::PathBuf;
@@ -32,44 +32,7 @@ pub fn build_pos_presale_ticket_escpos(ticket: &PosPresaleTicket) -> Result<Vec<
     escpos_apply_ticket_typography(&mut buf);
 
     append_ticket_logo(&mut buf, ticket.company.logo_base64.as_deref());
-
-    let store = ticket
-        .company
-        .nombre_fantasia
-        .as_deref()
-        .filter(|s| !s.trim().is_empty())
-        .unwrap_or(ticket.company.razon_social.as_str());
-
-    escpos_align(&mut buf, 1);
-    escpos_bold(&mut buf, true);
-    escpos_double_height_on(&mut buf);
-    for line in wrap_lines(store, layout_width() / 2) {
-        append_line(&mut buf, &line);
-    }
-    escpos_double_height_off(&mut buf);
-    escpos_bold(&mut buf, false);
-
-    if let Some(fantasy) = ticket.company.nombre_fantasia.as_deref() {
-        let rs = ticket.company.razon_social.trim();
-        if !rs.is_empty() && fantasy.trim() != rs {
-            for line in wrap_lines(rs, layout_width()) {
-                append_line(&mut buf, &line);
-            }
-        }
-    }
-    if let Some(rut) = ticket.company.rut.as_deref().filter(|s| !s.trim().is_empty()) {
-        append_line(&mut buf, &format!("RUT: {}", rut.trim()));
-    }
-    if let Some(act) = ticket
-        .company
-        .business_activity
-        .as_deref()
-        .filter(|s| !s.trim().is_empty())
-    {
-        for line in wrap_lines(act.trim(), layout_width()) {
-            append_line(&mut buf, &line);
-        }
-    }
+    append_company_store_header(&mut buf, &ticket.company, CompanyHeaderStyle::FULL);
 
     append_divider(&mut buf);
     escpos_align(&mut buf, 1);

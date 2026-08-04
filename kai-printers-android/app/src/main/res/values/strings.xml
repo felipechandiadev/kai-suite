@@ -94,6 +94,11 @@
     <string name="print_logo_restore_default">Usar logo Kai</string>
     <string name="print_logo_saved">Logo guardado</string>
     <string name="print_logo_error">No se pudo guardar el logo</string>
+    <string name="ticket_header_section_title">Datos de empresa en tickets</string>
+    <string name="ticket_header_section_desc">Define si el encabezado ESC/POS muestra RUT y razón social (además del nombre de fantasía).</string>
+    <string name="ticket_show_company_rut">Mostrar RUT</string>
+    <string name="ticket_show_razon_social">Mostrar razón social</string>
+    <string name="ticket_header_prefs_saved">Preferencias de ticket guardadas</string>
     <string name="tab_bluetooth">Bluetooth</string>
     <string name="tab_network">Red</string>
     <string name="tab_usb">USB</string>

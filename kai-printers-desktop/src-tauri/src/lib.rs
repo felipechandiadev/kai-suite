@@ -51,6 +51,7 @@ mod security;
 mod state;
 mod tls;
 mod ticket_logos;
+mod ticket_header_prefs;
 mod reachability;
 mod kai_core;
 mod ws;
@@ -284,6 +285,8 @@ struct ServiceSettingsPatch {
     wss_listen_port: Option<u16>,
     wss_enabled: Option<bool>,
     agent_display_name: Option<String>,
+    ticket_show_company_rut: Option<bool>,
+    ticket_show_razon_social: Option<bool>,
 }
 
 #[tauri::command]
@@ -330,6 +333,8 @@ fn get_dashboard(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json::V
                 let t = p.replace('\\', "/");
                 t.rsplit('/').next().unwrap_or(&t).to_string()
             }),
+        "ticketShowCompanyRut": ticket_header_prefs::show_company_rut_from_db(&state.db),
+        "ticketShowRazonSocial": ticket_header_prefs::show_razon_social_from_db(&state.db),
         "agentLogs": state.agent_log.list(),
         "hostPlatform": platform::host_platform(),
         "sumatra": platform::sumatra_status(),
@@ -534,6 +539,24 @@ fn set_service_settings(
         state
             .db
             .set_setting("agent_display_name", t)
+            .map_err(|e| e.to_string())?;
+    }
+    if let Some(v) = patch.ticket_show_company_rut {
+        state
+            .db
+            .set_setting(
+                ticket_header_prefs::SHOW_COMPANY_RUT_KEY,
+                if v { "true" } else { "false" },
+            )
+            .map_err(|e| e.to_string())?;
+    }
+    if let Some(v) = patch.ticket_show_razon_social {
+        state
+            .db
+            .set_setting(
+                ticket_header_prefs::SHOW_RAZON_SOCIAL_KEY,
+                if v { "true" } else { "false" },
+            )
             .map_err(|e| e.to_string())?;
     }
     notify_printer_health_and_config(&state);

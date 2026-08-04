@@ -4,10 +4,10 @@ use crate::pos_payment_in_ticket::{
     parse_pos_payment_in_ticket_from_value, PaymentInAllocation, PaymentInLine, PosPaymentInTicket,
 };
 use crate::pos_sale_ticket_escpos::{
-    append_divider, append_label_value_wrapped, append_line, append_ticket_logo,
-    append_folio_barcode_footer, escpos_align, escpos_apply_ticket_typography, escpos_bold,
-    escpos_double_height_off, escpos_double_height_on, escpos_init, footer_folio_datetime_line,
-    money, pad_left, wrap_lines, layout_width,
+    append_company_store_header, append_divider, append_label_value_wrapped, append_line,
+    append_ticket_logo, append_folio_barcode_footer, escpos_apply_ticket_typography,
+    escpos_bold, escpos_init,
+    footer_folio_datetime_line, money, pad_left, wrap_lines, layout_width, CompanyHeaderStyle,
 };
 use anyhow::Result;
 use std::path::PathBuf;
@@ -71,26 +71,7 @@ pub fn build_pos_payment_in_ticket_escpos(t: &PosPaymentInTicket) -> Result<Vec<
     escpos_apply_ticket_typography(&mut buf);
 
     append_ticket_logo(&mut buf, t.company.logo_base64.as_deref());
-
-    let store = t
-        .company
-        .nombre_fantasia
-        .as_deref()
-        .filter(|s| !s.trim().is_empty())
-        .unwrap_or(t.company.razon_social.as_str());
-
-    escpos_align(&mut buf, 1);
-    escpos_bold(&mut buf, true);
-    escpos_double_height_on(&mut buf);
-    for line in wrap_lines(store, layout_width() / 2) {
-        append_line(&mut buf, &line);
-    }
-    escpos_double_height_off(&mut buf);
-    escpos_bold(&mut buf, false);
-
-    if let Some(rut) = t.company.rut.as_deref().filter(|s| !s.trim().is_empty()) {
-        append_line(&mut buf, &format!("RUT: {}", rut.trim()));
-    }
+    append_company_store_header(&mut buf, &t.company, CompanyHeaderStyle::TITLE_AND_RUT);
 
     append_divider(&mut buf);
     escpos_bold(&mut buf, true);

@@ -1,6 +1,7 @@
 package com.kaistore.printers.print
 
 import kotlinx.serialization.json.JsonObject
+import com.kaistore.printers.data.TicketHeaderPrefs
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -159,7 +160,11 @@ class EscPosWriter(widthChars: Int) {
     }
 
     /** Encabezado tienda centrado (fantasía grande opcional). */
-    fun appendStoreHeader(company: JsonObject?, largeTitle: Boolean = true) {
+    fun appendStoreHeader(
+        company: JsonObject?,
+        largeTitle: Boolean = true,
+        headerPrefs: TicketHeaderPrefs = TicketHeaderPrefs(),
+    ) {
         val store = storeName(company)
         alignCenter(true)
         if (largeTitle) {
@@ -173,10 +178,12 @@ class EscPosWriter(widthChars: Int) {
         }
         val fantasy = company?.jsonStr("nombreFantasia").present()
         val razon = company?.jsonStr("razonSocial").present()
-        if (largeTitle && fantasy != null && razon != null && fantasy != razon) {
+        if (headerPrefs.showRazonSocial && largeTitle && fantasy != null && razon != null && fantasy != razon) {
             lineWrapped(razon)
         }
-        company?.jsonStr("rut")?.present()?.let { line(if (it.startsWith("RUT")) it else "RUT: $it") }
+        if (headerPrefs.showCompanyRut) {
+            company?.jsonStr("rut")?.present()?.let { line(if (it.startsWith("RUT")) it else "RUT: $it") }
+        }
         company?.jsonStr("businessActivity")?.present()?.let { lineWrapped(it) }
         alignCenter(false)
     }

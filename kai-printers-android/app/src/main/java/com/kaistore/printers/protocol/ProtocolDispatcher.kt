@@ -342,7 +342,8 @@ class ProtocolDispatcher(
                     }
                     val app = appContext.applicationContext as KaiPrintersApp
                     val logoSettings = app.container.printLogoRepository.currentSettings()
-                    val bytes = EscPosTestBytes.testPage(paperProfile, appContext, logoSettings)
+                    val headerPrefs = repository.ticketHeaderPrefs()
+                    val bytes = EscPosTestBytes.testPage(paperProfile, appContext, logoSettings, headerPrefs)
                     transport.write(ref, bytes)
                     encodeOk(requestId, buildJsonObject { put("ok", true) })
                 }

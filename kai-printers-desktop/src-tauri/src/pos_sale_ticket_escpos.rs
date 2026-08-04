@@ -4,8 +4,9 @@
 use crate::escpos_raster::{append_gs_v0, logo_base64_to_raster};
 use crate::pos_sale_ticket_pdf::{
     format_product_line_name, parse_pos_sale_ticket_from_value, sale_ticket_section_heading,
-    sale_ticket_thanks_message, PosSaleTicket,
+    sale_ticket_thanks_message, PosSaleTicket, TicketCompany,
 };
+use crate::ticket_header_prefs;
 use crate::ticket_barcode::{
     code128_escpos_data, code128_escpos_data_charset_a, code128_raster_bitmap,
     code39_escpos_compatible, code39_escpos_data, ean13_payload_from_folio,
@@ -414,6 +415,98 @@ pub(crate) fn append_ticket_logo(buf: &mut Vec<u8>, logo_base64: Option<&str>) {
     }
 }
 
+/// Qué líneas del encabezado de empresa incluir (además de las prefs del agente).
+#[derive(Clone, Copy)]
+pub(crate) struct CompanyHeaderStyle {
+    pub secondary_razon: bool,
+    pub rut: bool,
+    pub activity: bool,
+    /// `true` → `RUT: x`; `false` → `RUT x`
+    pub rut_with_colon: bool,
+}
+
+impl CompanyHeaderStyle {
+    pub(crate) const FULL: Self = Self {
+        secondary_razon: true,
+        rut: true,
+        activity: true,
+        rut_with_colon: true,
+    };
+
+    pub(crate) const TITLE_AND_RUT: Self = Self {
+        secondary_razon: false,
+        rut: true,
+        activity: false,
+        rut_with_colon: true,
+    };
+
+    pub(crate) const TITLE_ONLY: Self = Self {
+        secondary_razon: false,
+        rut: false,
+        activity: false,
+        rut_with_colon: true,
+    };
+}
+
+/// Nombre fantasía (o razón social) + líneas opcionales según estilo y prefs del agente.
+pub(crate) fn append_company_store_header(
+    buf: &mut Vec<u8>,
+    company: &TicketCompany,
+    style: CompanyHeaderStyle,
+) {
+    let store = company
+        .nombre_fantasia
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or(company.razon_social.as_str());
+
+    escpos_align(buf, 1);
+    escpos_bold(buf, true);
+    escpos_double_height_on(buf);
+    for line in wrap_lines(store, layout_width() / 2) {
+        append_line(buf, &line);
+    }
+    escpos_double_height_off(buf);
+    escpos_bold(buf, false);
+
+    if style.secondary_razon && ticket_header_prefs::show_razon_social() {
+        if let Some(fantasy) = company.nombre_fantasia.as_deref() {
+            let rs = company.razon_social.trim();
+            if !rs.is_empty() && fantasy.trim() != rs {
+                escpos_align(buf, 1);
+                for line in wrap_lines(rs, layout_width()) {
+                    append_line(buf, &line);
+                }
+            }
+        }
+    }
+
+    if style.rut && ticket_header_prefs::show_company_rut() {
+        if let Some(rut) = company.rut.as_deref().filter(|s| !s.trim().is_empty()) {
+            escpos_align(buf, 1);
+            let line = if style.rut_with_colon {
+                format!("RUT: {}", rut.trim())
+            } else {
+                format!("RUT {}", rut.trim())
+            };
+            append_line(buf, &line);
+        }
+    }
+
+    if style.activity {
+        if let Some(act) = company
+            .business_activity
+            .as_deref()
+            .filter(|s| !s.trim().is_empty())
+        {
+            escpos_align(buf, 1);
+            for line in wrap_lines(act.trim(), layout_width()) {
+                append_line(buf, &line);
+            }
+        }
+    }
+}
+
 fn append_ticket_logo_raster(buf: &mut Vec<u8>, bitmap: &[u8], w_bytes: u16, h_dots: u16) {
     tracing::debug!(w_bytes, h_dots, "escpos: logo raster");
     escpos_align(buf, 1);
@@ -698,47 +791,7 @@ pub fn build_pos_sale_ticket_escpos(ticket: &PosSaleTicket) -> Result<Vec<u8>> {
     escpos_apply_ticket_typography(&mut buf);
 
     append_ticket_logo(&mut buf, ticket.company.logo_base64.as_deref());
-
-    let store = ticket
-        .company
-        .nombre_fantasia
-        .as_deref()
-        .filter(|s| !s.trim().is_empty())
-        .unwrap_or(ticket.company.razon_social.as_str());
-
-    escpos_align(&mut buf, 1);
-    escpos_bold(&mut buf, true);
-    escpos_double_height_on(&mut buf);
-    for line in wrap_lines(store, layout_width() / 2) {
-        append_line(&mut buf, &line);
-    }
-    escpos_double_height_off(&mut buf);
-    escpos_bold(&mut buf, false);
-
-    if let Some(fantasy) = ticket.company.nombre_fantasia.as_deref() {
-        let rs = ticket.company.razon_social.trim();
-        if !rs.is_empty() && fantasy.trim() != rs {
-            escpos_align(&mut buf, 1);
-            for line in wrap_lines(rs, layout_width()) {
-                append_line(&mut buf, &line);
-            }
-        }
-    }
-    if let Some(rut) = ticket.company.rut.as_deref().filter(|s| !s.trim().is_empty()) {
-        escpos_align(&mut buf, 1);
-        append_line(&mut buf, &format!("RUT: {}", rut.trim()));
-    }
-    if let Some(act) = ticket
-        .company
-        .business_activity
-        .as_deref()
-        .filter(|s| !s.trim().is_empty())
-    {
-        escpos_align(&mut buf, 1);
-        for line in wrap_lines(act.trim(), layout_width()) {
-            append_line(&mut buf, &line);
-        }
-    }
+    append_company_store_header(&mut buf, &ticket.company, CompanyHeaderStyle::FULL);
 
     escpos_align(&mut buf, 0);
     append_line(&mut buf, "");

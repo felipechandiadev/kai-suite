@@ -1,5 +1,6 @@
 package com.kaistore.printers.print
 
+import com.kaistore.printers.data.TicketHeaderPrefs
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -66,6 +67,33 @@ class TicketEscPosDispatcherTest {
         assertTrue(text.contains("ACE-500"))
         assertTrue(text.contains("7801234567890"))
         assertTrue(bytes.size > 80)
+    }
+
+    @Test
+    fun dispatchesVariantBarcodeLabelDetailed() {
+        val json = """
+            {
+              "version": 1,
+              "productName": "Polera",
+              "sku": "POL-M-AZ",
+              "barcode": "7809999888777",
+              "layout": "detailed",
+              "attributes": [
+                { "label": "Talla", "value": "M" },
+                { "value": "Azul" }
+              ],
+              "priceLabel": "${'$'}12.990"
+            }
+        """.trimIndent()
+        val bytes = TicketEscPosDispatcher.fromJob("variant-barcode-label", json, 48)
+        assertTrue(bytes.isNotEmpty())
+        val text = String(bytes, Charsets.ISO_8859_1)
+        assertTrue(text.contains("Polera"))
+        assertTrue(text.contains("Talla: M"))
+        assertTrue(text.contains("Azul"))
+        assertTrue(text.contains("${'$'}12.990"))
+        assertTrue(text.contains("POL-M-AZ"))
+        assertTrue(text.contains("7809999888777"))
     }
 
     @Test
@@ -202,14 +230,22 @@ class FiscalBoletaPreviewEscPosTest {
               "folio": 1,
               "issuedAt": "2026-06-28",
               "tipoDte": 39,
-              "emisor": { "legalName": "Test" },
+              "emisor": { "legalName": "Test", "rut": "76.111.111-1" },
               "receptor": { "rut": "66666666-6", "name": "Cliente" },
               "lines": [],
               "totals": { "mntNeto": 0, "mntExe": 0, "iva": 0, "mntTotal": 0 }
             }
         """.trimIndent()
-        val bytes = TicketEscPosDispatcher.fromJob("fiscal-boleta-preview", json, 48)
+        val bytes = TicketEscPosDispatcher.fromJob(
+            "fiscal-boleta-preview",
+            json,
+            48,
+            headerPrefs = TicketHeaderPrefs(showCompanyRut = false, showRazonSocial = false),
+        )
         assertTrue(bytes.isNotEmpty())
+        val text = String(bytes, Charsets.ISO_8859_1)
+        // Prefs de tickets de tienda no aplican a boleta fiscal.
+        assertTrue(text.contains("76.111.111-1") || text.contains("RUT"))
     }
 }
 

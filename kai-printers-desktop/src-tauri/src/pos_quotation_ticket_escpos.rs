@@ -2,11 +2,11 @@
 
 use crate::pos_quotation_ticket::{parse_pos_quotation_ticket_from_value, PosQuotationTicket, QuotationLine};
 use crate::pos_sale_ticket_escpos::{
-    append_divider, append_label_value_wrapped, append_line,
+    append_company_store_header, append_divider, append_label_value_wrapped, append_line,
     append_product_line_block, append_section_gap, append_ticket_logo, append_folio_barcode_footer,
-    escpos_align, escpos_apply_ticket_typography, escpos_bold, escpos_dense_body,
-    escpos_double_height_off, escpos_double_height_on, escpos_init, footer_folio_datetime_line,
+    escpos_align, escpos_apply_ticket_typography, escpos_bold, escpos_dense_body, escpos_init, footer_folio_datetime_line,
     format_clp, format_datetime, money, pad_label_value, pad_left, wrap_lines, layout_width,
+    CompanyHeaderStyle,
 };
 use anyhow::Result;
 use std::path::PathBuf;
@@ -73,44 +73,7 @@ pub fn build_pos_quotation_ticket_escpos(q: &PosQuotationTicket) -> Result<Vec<u
     escpos_apply_ticket_typography(&mut buf);
 
     append_ticket_logo(&mut buf, q.company.logo_base64.as_deref());
-
-    let store = q
-        .company
-        .nombre_fantasia
-        .as_deref()
-        .filter(|s| !s.trim().is_empty())
-        .unwrap_or(q.company.razon_social.as_str());
-
-    escpos_align(&mut buf, 1);
-    escpos_bold(&mut buf, true);
-    escpos_double_height_on(&mut buf);
-    for line in wrap_lines(store, layout_width() / 2) {
-        append_line(&mut buf, &line);
-    }
-    escpos_double_height_off(&mut buf);
-    escpos_bold(&mut buf, false);
-
-    if let Some(fantasy) = q.company.nombre_fantasia.as_deref() {
-        let rs = q.company.razon_social.trim();
-        if !rs.is_empty() && fantasy.trim() != rs {
-            for line in wrap_lines(rs, layout_width()) {
-                append_line(&mut buf, &line);
-            }
-        }
-    }
-    if let Some(rut) = q.company.rut.as_deref().filter(|s| !s.trim().is_empty()) {
-        append_line(&mut buf, &format!("RUT: {}", rut.trim()));
-    }
-    if let Some(act) = q
-        .company
-        .business_activity
-        .as_deref()
-        .filter(|s| !s.trim().is_empty())
-    {
-        for line in wrap_lines(act.trim(), layout_width()) {
-            append_line(&mut buf, &line);
-        }
-    }
+    append_company_store_header(&mut buf, &q.company, CompanyHeaderStyle::FULL);
 
     append_divider(&mut buf);
     escpos_bold(&mut buf, true);

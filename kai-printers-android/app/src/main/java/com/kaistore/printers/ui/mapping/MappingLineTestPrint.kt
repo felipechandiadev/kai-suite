@@ -36,10 +36,11 @@ object MappingLineTestPrint {
                         }
                         val app = context.applicationContext as KaiPrintersApp
                         val logoSettings = app.container.printLogoRepository.currentSettings()
+                        val headerPrefs = repository.ticketHeaderPrefs()
                         val transport = TransportFactory(context)
                         transport.write(
                             ref,
-                            EscPosTestBytes.testPage(profile, context, logoSettings),
+                            EscPosTestBytes.testPage(profile, context, logoSettings, headerPrefs),
                         )
                     }
                     else -> throw IllegalStateException("unsupported_purpose")

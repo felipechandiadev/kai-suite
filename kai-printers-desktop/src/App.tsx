@@ -163,6 +163,8 @@ type DashboardPayload = {
   metrics?: { jobsCompletedTotal?: number };
   globalTicketLogoPath?: string;
   globalTicketLogoDisplayName?: string;
+  ticketShowCompanyRut?: boolean;
+  ticketShowRazonSocial?: boolean;
 };
 
 function escapeHtml(s: string) {
@@ -269,6 +271,8 @@ export default function App() {
     wssListenPort: "",
     wssEnabled: false,
     agentDisplayName: DEFAULT_AGENT_DISPLAY_NAME,
+    ticketShowCompanyRut: true,
+    ticketShowRazonSocial: true,
   });
 
   const [configEdit, setConfigEdit] = useState(false);
@@ -318,6 +322,8 @@ export default function App() {
       wssListenPort: d.wssListenPort != null ? String(d.wssListenPort) : "",
       wssEnabled: !!d.wssEnabled,
       agentDisplayName: normalizeAgentDisplayName(d.agentDisplayName),
+      ticketShowCompanyRut: d.ticketShowCompanyRut !== false,
+      ticketShowRazonSocial: d.ticketShowRazonSocial !== false,
     });
     const storedCoreUrl = (d.kaiCore?.baseUrl ?? "").trim().replace(/\/+$/, "");
     const legacyCoreDefault = "http://localhost:5160";
@@ -708,6 +714,8 @@ export default function App() {
       wssListenPort: settings.wssListenPort ? Number(settings.wssListenPort) : undefined,
       wssEnabled: settings.wssEnabled,
       agentDisplayName: agentName,
+      ticketShowCompanyRut: settings.ticketShowCompanyRut,
+      ticketShowRazonSocial: settings.ticketShowRazonSocial,
     };
     setSettingsSaveBusy(true);
     try {
@@ -1607,6 +1615,32 @@ export default function App() {
               Un solo logo para todas las líneas de tickets. Cada línea activa o desactiva la impresión del logo.
             </p>
           )}
+          <div className="space-y-2 border-t border-border pt-3">
+            <p className="text-xs font-semibold text-foreground">Datos de empresa en tickets</p>
+            <p className="text-[11px] text-muted-foreground">
+              Controla si el encabezado ESC/POS muestra RUT y razón social (además del nombre de fantasía).
+            </p>
+            <InlineSwitchField
+              label="Mostrar RUT"
+              checked={settings.ticketShowCompanyRut}
+              onChange={(ticketShowCompanyRut) => {
+                setSettings((s) => ({ ...s, ticketShowCompanyRut }));
+                void invoke("set_service_settings", { patch: { ticketShowCompanyRut } }).catch(() => {
+                  window.alert("No se pudo guardar la preferencia de RUT.");
+                });
+              }}
+            />
+            <InlineSwitchField
+              label="Mostrar razón social"
+              checked={settings.ticketShowRazonSocial}
+              onChange={(ticketShowRazonSocial) => {
+                setSettings((s) => ({ ...s, ticketShowRazonSocial }));
+                void invoke("set_service_settings", { patch: { ticketShowRazonSocial } }).catch(() => {
+                  window.alert("No se pudo guardar la preferencia de razón social.");
+                });
+              }}
+            />
+          </div>
         </div>
       </details>
 

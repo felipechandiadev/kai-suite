@@ -1,5 +1,6 @@
 package com.kaistore.printers.print
 
+import com.kaistore.printers.data.TicketHeaderPrefs
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -170,5 +171,82 @@ class PosSaleTicketEscPosTest {
         assertTrue(text.contains("PAGOS"))
         assertTrue(text.contains("Vuelto:"))
         assertTrue(bytes.any { it == 0x1D.toByte() })
+    }
+
+    @Test
+    fun omitsCompanyRutWhenHeaderPrefOff() {
+        val json = """
+            {
+              "folio": "VTA-1",
+              "issuedAtIso": "2026-06-02T12:00:00Z",
+              "company": {
+                "nombreFantasia": "Joyarte",
+                "razonSocial": "Joyarte SpA",
+                "rut": "76.543.210-K"
+              },
+              "lines": [],
+              "totals": { "total": 1000 }
+            }
+        """.trimIndent()
+        val bytes = PosSaleTicketEscPos.fromTicketJson(
+            json,
+            headerPrefs = TicketHeaderPrefs(showCompanyRut = false, showRazonSocial = true),
+        )
+        val text = String(bytes, Charsets.ISO_8859_1)
+        assertTrue(text.contains("JOYARTE", ignoreCase = true))
+        assertTrue(!text.contains("76.543.210-K"))
+        assertTrue(!text.contains("RUT:", ignoreCase = true))
+    }
+}
+
+class TicketHeaderPrefsEscPosTest {
+    @Test
+    fun quotationOmitsSecondaryRazonWhenPrefOff() {
+        val json = """
+            {
+              "documentNumber": "COT-1",
+              "issuedAtIso": "2026-06-02T12:00:00Z",
+              "company": {
+                "nombreFantasia": "Kai Food",
+                "razonSocial": "Comercial Demo SpA",
+                "rut": "76.123.456-7"
+              },
+              "lines": [],
+              "totals": { "total": 1000 }
+            }
+        """.trimIndent()
+        val on = String(
+            PosQuotationTicketEscPos.fromTicketJson(
+                json,
+                headerPrefs = TicketHeaderPrefs(showCompanyRut = true, showRazonSocial = true),
+            ),
+            Charsets.ISO_8859_1,
+        )
+        val off = String(
+            PosQuotationTicketEscPos.fromTicketJson(
+                json,
+                headerPrefs = TicketHeaderPrefs(showCompanyRut = true, showRazonSocial = false),
+            ),
+            Charsets.ISO_8859_1,
+        )
+        assertTrue(on.contains("Comercial Demo SpA"))
+        assertTrue(on.contains("RUT: 76.123.456-7") || on.contains("76.123.456-7"))
+        assertTrue(!off.contains("Comercial Demo SpA"))
+        assertTrue(off.contains("Kai Food") || off.contains("KAI FOOD"))
+        assertTrue(off.contains("76.123.456-7"))
+    }
+
+    @Test
+    fun testPageRespectsHeaderPrefs() {
+        val off = String(
+            EscPosTestBytes.testPage(
+                headerPrefs = TicketHeaderPrefs(showCompanyRut = false, showRazonSocial = false),
+            ),
+            Charsets.ISO_8859_1,
+        )
+        assertTrue(off.contains("Tienda de Prueba", ignoreCase = true) || off.contains("TIENDA DE PRUEBA"))
+        assertTrue(!off.contains("76.543.210-K"))
+        // Sale demo header uses largeTitle=false → secondary razón never printed anyway.
+        assertTrue(off.contains(PosSaleTicketDemo.FOLIO))
     }
 }

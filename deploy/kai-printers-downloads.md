@@ -2,6 +2,8 @@
 
 Los instalables de Kai Printers se sirven como archivos estáticos en **`/downloads/`** del POS.
 
+**Importante:** `.apk` / `.zip` / `.dmg` están en `.gitignore`. Un `git pull` solo actualiza manifests; sin **rsync** de binarios las descargas dan 404.
+
 **Documentación completa:** [kai-pos/public/downloads/README.md](../kai-pos/public/downloads/README.md)
 
 ## Resumen

@@ -27,7 +27,14 @@ object AgentSettingsKeys {
     const val KAI_CORE_BASE_URL = "kai_core_base_url"
     const val KAI_CORE_AGENT_TOKEN = "kai_core_agent_token"
     const val KAI_CORE_AGENT_ID = "kai_core_agent_id"
+    const val TICKET_SHOW_COMPANY_RUT = "ticket_show_company_rut"
+    const val TICKET_SHOW_RAZON_SOCIAL = "ticket_show_razon_social"
 }
+
+data class TicketHeaderPrefs(
+    val showCompanyRut: Boolean = true,
+    val showRazonSocial: Boolean = true,
+)
 
 class AgentRepository(private val db: AgentDatabase) {
     private val settings = db.settingsDao()
@@ -46,6 +53,8 @@ class AgentRepository(private val db: AgentDatabase) {
             AgentSettingsKeys.KAI_CORE_BASE_URL to "http://localhost:5160",
             AgentSettingsKeys.KAI_CORE_AGENT_TOKEN to "",
             AgentSettingsKeys.KAI_CORE_AGENT_ID to "",
+            AgentSettingsKeys.TICKET_SHOW_COMPANY_RUT to "true",
+            AgentSettingsKeys.TICKET_SHOW_RAZON_SOCIAL to "true",
         )
         for ((key, value) in defaults) {
             if (settings.get(key) == null) {
@@ -80,6 +89,19 @@ class AgentRepository(private val db: AgentDatabase) {
 
     suspend fun isKaiCorePaired(): Boolean =
         !getSetting(AgentSettingsKeys.KAI_CORE_AGENT_TOKEN).isNullOrBlank()
+
+    suspend fun ticketHeaderPrefs(): TicketHeaderPrefs = TicketHeaderPrefs(
+        showCompanyRut = getSetting(AgentSettingsKeys.TICKET_SHOW_COMPANY_RUT) != "false",
+        showRazonSocial = getSetting(AgentSettingsKeys.TICKET_SHOW_RAZON_SOCIAL) != "false",
+    )
+
+    suspend fun setTicketShowCompanyRut(enabled: Boolean) {
+        setSetting(AgentSettingsKeys.TICKET_SHOW_COMPANY_RUT, if (enabled) "true" else "false")
+    }
+
+    suspend fun setTicketShowRazonSocial(enabled: Boolean) {
+        setSetting(AgentSettingsKeys.TICKET_SHOW_RAZON_SOCIAL, if (enabled) "true" else "false")
+    }
 
     suspend fun allowAllOrigins(): Boolean = getSetting(AgentSettingsKeys.ALLOW_ALL_ORIGINS) != "false"
 

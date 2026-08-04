@@ -53,6 +53,8 @@ npm run kai-printers:publish:desktop
 
 Los **binarios no van en git** (`.gitignore`). Con `git pull` en el VPS solo llegan los **manifest JSON** y el código; los `.apk` / `.zip` / `.dmg` hay que copiarlos aparte.
 
+**Por qué:** los instalables pesan decenas de MB y se regeneran en cada publish. Si solo hacés `git pull` en el VPS y ves **404** al descargar Kai Printers, no es un fallo de git: faltó el paso **rsync** (o `sync-tenant-pos-downloads.sh --rsync`) de los artefactos. Los manifests en git apuntan a un `filename`/`version` que debe existir como archivo físico en `kai-pos/public/downloads/` del servidor.
+
 ### 1. Publicar en tu máquina de desarrollo
 
 ```bash

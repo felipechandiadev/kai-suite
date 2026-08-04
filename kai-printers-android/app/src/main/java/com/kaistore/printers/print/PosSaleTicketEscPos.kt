@@ -2,6 +2,7 @@ package com.kaistore.printers.print
 
 import android.content.Context
 import com.kaistore.printers.data.PrintLogoSettings
+import com.kaistore.printers.data.TicketHeaderPrefs
 import kotlinx.serialization.json.Json
 import java.util.Locale
 
@@ -11,6 +12,7 @@ object PosSaleTicketEscPos {
         widthChars: Int = 48,
         context: Context? = null,
         logoSettings: PrintLogoSettings? = null,
+        headerPrefs: TicketHeaderPrefs = TicketHeaderPrefs(),
     ): ByteArray {
         val ticket = Json.parseToJsonElement(ticketJson).jsonObj()
             ?: throw IllegalStateException("invalid_ticket_json")
@@ -19,15 +21,7 @@ object PosSaleTicketEscPos {
 
         val company = ticket.jsonObj("company")
         EscPosLogo.appendForJob(w, context, logoSettings, company?.jsonStr("logoBase64"))
-
-        w.alignCenter(true)
-        val fantasy = company?.jsonStr("nombreFantasia").present()
-            ?: company?.jsonStr("razonSocial").present()
-            ?: "KaiStore"
-        w.line(fantasy.uppercase())
-        company?.jsonStr("rut")?.present()?.let { w.line(it) }
-        company?.jsonStr("businessActivity")?.present()?.let { w.line(it) }
-        w.alignCenter(false)
+        w.appendStoreHeader(company, largeTitle = false, headerPrefs = headerPrefs)
 
         val isBackorder = ticket.jsonStr("documentKind") == "backorder"
         val hasNcPayout = !ticket.jsonArr("ncPayout").isNullOrEmpty()

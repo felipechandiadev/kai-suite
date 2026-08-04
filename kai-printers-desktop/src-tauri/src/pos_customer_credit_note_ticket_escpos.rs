@@ -4,11 +4,10 @@ use crate::pos_customer_credit_note_ticket::{
     parse_pos_customer_credit_note_ticket_from_value, CreditNoteLine, PosCustomerCreditNoteTicket,
 };
 use crate::pos_sale_ticket_escpos::{
-    append_divider, append_label_value_wrapped, append_line, append_product_line_block,
-    append_section_gap, append_ticket_logo, append_folio_barcode_footer, escpos_align,
-    escpos_apply_ticket_typography, escpos_bold, escpos_dense_body, escpos_double_height_off,
-    escpos_double_height_on, escpos_init, footer_folio_datetime_line, money, pad_label_value,
-    pad_left, wrap_lines, layout_width,
+    append_company_store_header, append_divider, append_label_value_wrapped, append_line,
+    append_product_line_block, append_section_gap, append_ticket_logo, append_folio_barcode_footer,
+    escpos_align, escpos_apply_ticket_typography, escpos_bold, escpos_dense_body, escpos_init, footer_folio_datetime_line,
+    money, pad_label_value, pad_left, wrap_lines, layout_width, CompanyHeaderStyle,
 };
 use anyhow::Result;
 use std::path::PathBuf;
@@ -48,26 +47,16 @@ pub fn build_pos_customer_credit_note_ticket_escpos(
     escpos_apply_ticket_typography(&mut buf);
 
     append_ticket_logo(&mut buf, nc.company.logo_base64.as_deref());
-
-    let store = nc
-        .company
-        .nombre_fantasia
-        .as_deref()
-        .filter(|s| !s.trim().is_empty())
-        .unwrap_or(nc.company.razon_social.as_str());
-
-    escpos_align(&mut buf, 1);
-    escpos_bold(&mut buf, true);
-    escpos_double_height_on(&mut buf);
-    for line in wrap_lines(store, layout_width() / 2) {
-        append_line(&mut buf, &line);
-    }
-    escpos_double_height_off(&mut buf);
-    escpos_bold(&mut buf, false);
-
-    if let Some(rut) = nc.company.rut.as_deref().filter(|s| !s.trim().is_empty()) {
-        append_line(&mut buf, &format!("RUT {}", rut.trim()));
-    }
+    append_company_store_header(
+        &mut buf,
+        &nc.company,
+        CompanyHeaderStyle {
+            secondary_razon: false,
+            rut: true,
+            activity: false,
+            rut_with_colon: false,
+        },
+    );
 
     append_divider(&mut buf);
     escpos_bold(&mut buf, true);

@@ -21,10 +21,13 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
@@ -45,6 +48,15 @@ fun LogoBrandingScreen() {
     val app = remember { context.applicationContext as KaiPrintersApp }
     val logoRepo = remember { app.container.printLogoRepository }
     val settings by logoRepo.settings.collectAsState(initial = PrintLogoSettings())
+    var showCompanyRut by remember { mutableStateOf(true) }
+    var showRazonSocial by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        app.container.repository.ensureDefaults()
+        val prefs = app.container.repository.ticketHeaderPrefs()
+        showCompanyRut = prefs.showCompanyRut
+        showRazonSocial = prefs.showRazonSocial
+    }
 
     val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
@@ -143,6 +155,73 @@ fun LogoBrandingScreen() {
                             Text(stringResource(R.string.print_logo_restore_default))
                         }
                     }
+                }
+            }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    stringResource(R.string.ticket_header_section_title),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    stringResource(R.string.ticket_header_section_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        stringResource(R.string.ticket_show_company_rut),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f).padding(end = 12.dp),
+                    )
+                    Switch(
+                        checked = showCompanyRut,
+                        onCheckedChange = { enabled ->
+                            showCompanyRut = enabled
+                            scope.launch {
+                                app.container.repository.setTicketShowCompanyRut(enabled)
+                                Toast.makeText(
+                                    context,
+                                    R.string.ticket_header_prefs_saved,
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        stringResource(R.string.ticket_show_razon_social),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f).padding(end = 12.dp),
+                    )
+                    Switch(
+                        checked = showRazonSocial,
+                        onCheckedChange = { enabled ->
+                            showRazonSocial = enabled
+                            scope.launch {
+                                app.container.repository.setTicketShowRazonSocial(enabled)
+                                Toast.makeText(
+                                    context,
+                                    R.string.ticket_header_prefs_saved,
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
+                    )
                 }
             }
         }
