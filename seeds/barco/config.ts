@@ -1,5 +1,5 @@
 /**
- * Seed Barco dual — El Barco (kaistore) + Ohlala (kaifood).
+ * Seed Barco — Ohlala (kaifood) con dos sucursales: Ohlala + El Barco.
  */
 import { createHash } from 'node:crypto';
 import type { CompanyBankAccount } from '@modules/companies/domain/company.entity';
@@ -16,21 +16,7 @@ import { UserRole } from '@modules/users/domain/user.entity';
 
 export const SEED_PASSWORD = process.env.SEED_ADMIN_PASSWORD || '098098';
 
-/** Empresa A — retail KaiStore. */
-export const SEED_BARCO_COMPANY = {
-  razonSocial: 'Comercial El Barco SpA',
-  nombreFantasia: 'El Barco',
-  rut: '76.543.210-3',
-  mail: 'contacto@elbarco.local',
-  phone: '+56 9 5000 0000',
-  address: 'Local El Barco, Valparaíso',
-  businessActivity: 'Comercio al por menor',
-  defaultCurrency: 'CLP',
-  kaiProduct: 'kaistore' as const,
-  eShopSlug: 'el-barco',
-} as const;
-
-/** Empresa B — KaiFood (mariscos / helados). */
+/** Empresa única — KaiFood. */
 export const SEED_OHLALA_COMPANY = {
   razonSocial: 'Ohlala SpA',
   nombreFantasia: 'Ohlala',
@@ -44,13 +30,31 @@ export const SEED_OHLALA_COMPANY = {
   menuPublicSlug: 'ohlala',
 } as const;
 
-export const SEED_BRANCH_NAME = 'Casa matriz';
+export const SEED_BRAND_NAME = 'Ohlala';
 export const SEED_PRICE_LIST_RETAIL_NAME = 'Minorista';
 export const SEED_POS_NAME = 'Caja 1';
 export const SEED_UNIT_BASE_NAME = 'Unidad';
 export const SEED_UNIT_BASE_SYMBOL = 'un';
 
-export type SeedCompanySite = {
+/** Datos de empresa (banco + medios de pago). */
+export type SeedCompanyPayments = {
+  bankAccountKey: string;
+  bankAccountNumber: string;
+  pmNamespace: string;
+};
+
+export const SEED_OHLALA_PAYMENTS: SeedCompanyPayments = {
+  bankAccountKey: 'ohlala-seed-banco-estado-cc',
+  bankAccountNumber: '12345678902',
+  pmNamespace: 'ohlala-seed-pm-v1',
+};
+
+export type SeedBranchDef = {
+  key: 'ohlala' | 'el-barco';
+  name: string;
+  isHeadquarters: boolean;
+  /** Dining, menú, tips settings (solo Ohlala). */
+  foodExtras: boolean;
   branchAddress: string;
   branchPhone: string;
   branchLocation: { lat: number; lng: number };
@@ -58,39 +62,36 @@ export type SeedCompanySite = {
   storageCode: string;
   cashHubName: string;
   cashHubCode: string;
-  brandName: string;
-  bankAccountKey: string;
-  bankAccountNumber: string;
-  pmNamespace: string;
 };
 
-export const SEED_BARCO_SITE: SeedCompanySite = {
-  branchAddress: SEED_BARCO_COMPANY.address,
-  branchPhone: SEED_BARCO_COMPANY.phone,
-  branchLocation: { lat: -33.045, lng: -71.543 },
-  storageName: 'Bodega principal',
-  storageCode: 'BARCO-BODEGA-01',
-  cashHubName: 'Caja principal',
-  cashHubCode: 'BARCO-CAJA-01',
-  brandName: 'El Barco',
-  bankAccountKey: 'barco-seed-banco-estado-cc',
-  bankAccountNumber: '12345678901',
-  pmNamespace: 'barco-seed-pm-v1',
-};
-
-export const SEED_OHLALA_SITE: SeedCompanySite = {
-  branchAddress: SEED_OHLALA_COMPANY.address,
-  branchPhone: SEED_OHLALA_COMPANY.phone,
-  branchLocation: { lat: -33.046, lng: -71.544 },
-  storageName: 'Bodega principal',
-  storageCode: 'OHLALA-BODEGA-01',
-  cashHubName: 'Caja principal',
-  cashHubCode: 'OHLALA-CAJA-01',
-  brandName: 'Ohlala',
-  bankAccountKey: 'ohlala-seed-banco-estado-cc',
-  bankAccountNumber: '12345678902',
-  pmNamespace: 'ohlala-seed-pm-v1',
-};
+export const SEED_BRANCHES: SeedBranchDef[] = [
+  {
+    key: 'ohlala',
+    name: 'Ohlala',
+    isHeadquarters: true,
+    foodExtras: true,
+    branchAddress: SEED_OHLALA_COMPANY.address,
+    branchPhone: SEED_OHLALA_COMPANY.phone,
+    branchLocation: { lat: -33.046, lng: -71.544 },
+    storageName: 'Sala de venta',
+    storageCode: 'OHLALA-SALA-01',
+    cashHubName: 'Caja principal Ohlala',
+    cashHubCode: 'OHLALA-CAJA-01',
+  },
+  {
+    key: 'el-barco',
+    name: 'El Barco',
+    isHeadquarters: false,
+    foodExtras: false,
+    branchAddress: 'Local El Barco, Valparaíso',
+    branchPhone: '+56 9 5000 0000',
+    branchLocation: { lat: -33.045, lng: -71.543 },
+    storageName: 'Sala de venta',
+    storageCode: 'BARCO-SALA-01',
+    cashHubName: 'Caja principal El Barco',
+    cashHubCode: 'BARCO-CAJA-01',
+  },
+];
 
 /** Usuarios seed (todos con Person). Password: SEED_PASSWORD. */
 export const SEED_BARCO_USERS = {
@@ -148,15 +149,15 @@ function seedPaymentMethodId(namespace: string, method: PaymentMethod): string {
 }
 
 export function buildSeedCompanyBankAccounts(
-  site: SeedCompanySite,
+  payments: SeedCompanyPayments,
   accountHolderName: string,
 ): CompanyBankAccount[] {
   return [
     {
-      accountKey: site.bankAccountKey,
+      accountKey: payments.bankAccountKey,
       bankName: BankName.BANCO_ESTADO,
       accountType: AccountTypeName.CUENTA_CORRIENTE,
-      accountNumber: site.bankAccountNumber,
+      accountNumber: payments.bankAccountNumber,
       accountHolderName,
       currentBalance: 0,
       isPrimary: true,
@@ -172,17 +173,17 @@ const COMPANY_PAYMENT_METHODS: PaymentMethod[] = [
 ];
 
 export function buildSeedCompanyPaymentCatalog(
-  site: SeedCompanySite,
+  payments: SeedCompanyPayments,
 ): CompanyPaymentMethodConfig[] {
   return COMPANY_PAYMENT_METHODS.map((method, displayOrder) => ({
-    id: seedPaymentMethodId(site.pmNamespace, method),
+    id: seedPaymentMethodId(payments.pmNamespace, method),
     method,
     alias: null,
     displayOrder,
     isActive: true,
     requireReference: false,
     bankAccountKey:
-      method === PaymentMethod.TRANSFER ? site.bankAccountKey : null,
+      method === PaymentMethod.TRANSFER ? payments.bankAccountKey : null,
     feePercent: null,
     metadata: null,
   }));
@@ -206,7 +207,6 @@ export function buildSeedCompanySettings(params: {
   existing: Record<string, unknown> | null | undefined;
   paymentMethods: CompanyPaymentMethodConfig[];
   kaiProduct: 'kaistore' | 'kaifood';
-  eShopSlug?: string;
   menuPublicSlug?: string;
   menuDefaultBranchId?: string;
   menuDefaultPriceListId?: string;
@@ -224,15 +224,6 @@ export function buildSeedCompanySettings(params: {
     quotations: { enabled: false, defaultValidityDays: 10 },
     internalCredit: { enabled: false },
   };
-  if (params.kaiProduct === 'kaistore') {
-    out.eShop = {
-      ...(typeof base.eShop === 'object' && base.eShop
-        ? (base.eShop as Record<string, unknown>)
-        : {}),
-      enabled: false,
-      slug: params.eShopSlug ?? 'el-barco',
-    };
-  }
   if (params.kaiProduct === 'kaifood') {
     out.menuEnabled = true;
     out.menuPublicSlug = params.menuPublicSlug ?? 'ohlala';
@@ -251,6 +242,3 @@ export function buildSeedCompanySettings(params: {
   }
   return out;
 }
-
-/** @deprecated alias — prefer SEED_BARCO_SITE.brandName */
-export const SEED_BRAND_NAME = SEED_BARCO_SITE.brandName;

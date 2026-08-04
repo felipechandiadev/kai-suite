@@ -1,18 +1,20 @@
-# Seed Barco (dual)
+# Seed Barco (Ohlala unificado)
 
-El Barco (`kaistore`) + Ohlala (`kaifood`) en la misma DB.
+Una empresa **Ohlala** (`kaifood`) con dos sucursales: **Ohlala** (HQ, dining + Cocina) y **El Barco** (POS retail).
 
 ```bash
 # Desde la raíz del monorepo (kai-core/.env → DB del tenant)
 npm run seed:barco
 ```
 
-Datos:
+**Importante:** si la DB venía del seed dual (El Barco kaistore + Ohlala), recreá la DB o wipe antes de reseedar. Este seed no migra in-place.
 
-- `data/catalog-store.json` — El Barco
-- `data/catalog-food.json` — Ohlala
+## Datos
 
-Regen:
+- `data/catalog-food.json` + `data/catalog-store.json` — fuentes PDV
+- Merge en runtime (`loadUnifiedBarcoCatalog`): food gana en choques (barcode → nombre); SKUs únicos; **sin control de stock**
+
+Regen de fuentes:
 
 ```bash
 cd ../kai-deployments/tenants/barco

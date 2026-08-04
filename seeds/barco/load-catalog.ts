@@ -26,8 +26,6 @@ export type BarcoCatalogFile = {
   products: BarcoCatalogProduct[];
 };
 
-const STOCK_OUTLIER_MAX = 1e7;
-
 function resolveCatalogPath(fileName: string): string {
   const envKey =
     fileName === 'catalog-food.json'
@@ -92,16 +90,128 @@ export function loadBarcoCatalogFile(
   return raw;
 }
 
-/** @deprecated use loadBarcoCatalogFile('store') */
+/** @deprecated use loadUnifiedBarcoCatalog */
 export function loadBarcoCatalog(): BarcoCatalogFile {
   return loadBarcoCatalogFile('store');
+}
+
+function normalizeKeyPart(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+function productDedupeKey(p: BarcoCatalogProduct): string {
+  const barcode = (p.barcode ?? '').toString().trim();
+  if (barcode) return `b:${barcode}`;
+  return `n:${normalizeKeyPart(p.name || '')}`;
+}
+
+function remappedSku(prefix: string, original: string, used: Set<string>): string {
+  const base = `${prefix}${String(original).trim() || 'SKU'}`;
+  if (!used.has(base)) return base;
+  let n = 2;
+  while (used.has(`${base}-${n}`)) n += 1;
+  return `${base}-${n}`;
+}
+
+/**
+ * Unifica catalog-food + catalog-store.
+ * Food gana en choques (barcode o nombre). SKUs remapeados a únicos.
+ * trackInventory se fuerza a false al mapear a seed products.
+ */
+export function loadUnifiedBarcoCatalog(): BarcoCatalogFile {
+  const food = loadBarcoCatalogFile('food');
+  const store = loadBarcoCatalogFile('store');
+
+  const byKey = new Map<string, BarcoCatalogProduct>();
+  let foodDupes = 0;
+  let storeSkipped = 0;
+  let storeAdded = 0;
+
+  for (const p of food.products) {
+    const key = productDedupeKey(p);
+    if (!key || key === 'n:') continue;
+    if (byKey.has(key)) {
+      foodDupes += 1;
+      continue;
+    }
+    byKey.set(key, { ...p });
+  }
+
+  for (const p of store.products) {
+    const key = productDedupeKey(p);
+    if (!key || key === 'n:') continue;
+    if (byKey.has(key)) {
+      storeSkipped += 1;
+      continue;
+    }
+    byKey.set(key, { ...p });
+    storeAdded += 1;
+  }
+
+  const usedSkus = new Set<string>();
+  const products: BarcoCatalogProduct[] = [];
+  for (const p of byKey.values()) {
+    let sku = String(p.sku ?? '').trim();
+    if (!sku || usedSkus.has(sku)) {
+      sku = remappedSku('OHL-', sku || 'SKU', usedSkus);
+    }
+    usedSkus.add(sku);
+    products.push({
+      ...p,
+      sku,
+      trackInventory: false,
+      allowNegativeStock: false,
+      initialStock: 0,
+    });
+  }
+
+  const catSeen = new Map<string, string>();
+  for (const c of [...(food.categories ?? []), ...(store.categories ?? [])]) {
+    const n = normalizeKeyPart(c);
+    if (!n || catSeen.has(n)) continue;
+    catSeen.set(n, c);
+  }
+  for (const p of products) {
+    const raw = p.categoryName || 'Sin categoría';
+    const n = normalizeKeyPart(raw);
+    if (!n) {
+      p.categoryName = 'Sin categoría';
+      continue;
+    }
+    if (!catSeen.has(n)) {
+      catSeen.set(n, raw);
+    }
+    // Misma grafía que la categoría sincronizada (evita «niños» vs «Niños»).
+    p.categoryName = catSeen.get(n)!;
+  }
+  if (!catSeen.has(normalizeKeyPart('Sin categoría'))) {
+    catSeen.set(normalizeKeyPart('Sin categoría'), 'Sin categoría');
+  }
+
+  console.log(
+    `📦 Catálogo unificado: ${products.length} productos · ${catSeen.size} categorías` +
+      ` (food dupes=${foodDupes}, store skipped=${storeSkipped}, store-only=${storeAdded})`,
+  );
+
+  return {
+    source: 'unified:food+store',
+    generatedAt: new Date().toISOString(),
+    brand: 'Ohlala',
+    categories: [...catSeen.values()],
+    products,
+  };
 }
 
 export function mapBarcoCatalogToSeedProducts(
   catalog: BarcoCatalogFile,
   brandOverride?: string,
 ): SeedProductDefinition[] {
-  const brand = brandOverride?.trim() || catalog.brand?.trim() || 'Marca';
+  const brand = brandOverride?.trim() || catalog.brand?.trim() || 'Ohlala';
   return catalog.products.map((p) => {
     const unit = p.productBaseUnit || 'UN';
     return {
@@ -117,8 +227,8 @@ export function mapBarcoCatalogToSeedProducts(
           barcode: p.barcode || undefined,
           basePrice: p.basePrice || 0,
           baseCost: p.baseCost || 0,
-          trackInventory: p.trackInventory !== false,
-          allowNegativeStock: p.allowNegativeStock === true,
+          trackInventory: false,
+          allowNegativeStock: false,
           retailNet: p.retailNet ?? 0,
           uom: { stock: unit, sale: unit, purchase: unit },
         },
@@ -127,15 +237,9 @@ export function mapBarcoCatalogToSeedProducts(
   });
 }
 
-/** Stock inicial por SKU (desde DINVENTARIO; outliers ≥ 1e7 → 0). */
+/** Sin control de stock: mapa vacío. */
 export function barcoInitialStockBySku(
-  catalog: BarcoCatalogFile,
+  _catalog: BarcoCatalogFile,
 ): Map<string, number> {
-  const m = new Map<string, number>();
-  for (const p of catalog.products) {
-    let qty = Math.max(0, Number(p.initialStock) || 0);
-    if (qty >= STOCK_OUTLIER_MAX) qty = 0;
-    m.set(p.sku, qty);
-  }
-  return m;
+  return new Map();
 }
