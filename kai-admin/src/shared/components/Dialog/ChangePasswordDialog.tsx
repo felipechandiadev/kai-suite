@@ -12,7 +12,18 @@ interface ChangePasswordDialogProps {
   onClose: () => void;
 }
 
-export default function ChangePasswordDialog({ isOpen, onClose }: ChangePasswordDialogProps) {
+function resolveClientBackendBase(): string {
+  const raw =
+    process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim() ||
+    process.env.BACKEND_API_URL?.trim() ||
+    "http://localhost:3001";
+  return raw.replace(/\/$/, "");
+}
+
+export default function ChangePasswordDialog({
+  isOpen,
+  onClose,
+}: ChangePasswordDialogProps) {
   const { data: session } = useSession();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -26,27 +37,34 @@ export default function ChangePasswordDialog({ isOpen, onClose }: ChangePassword
     setIsLoading(true);
 
     try {
-      const accessToken = (session?.user as { accessToken?: string } | undefined)?.accessToken;
-      const baseUrl =
-        process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim() ||
-        process.env.BACKEND_API_URL?.trim() ||
-        "http://localhost:3001";
-      const response = await fetch(`${baseUrl.replace(/\/$/, "")}/auth/change-password`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken ?? ""}`,
+      const accessToken = (session?.user as { accessToken?: string } | undefined)
+        ?.accessToken;
+      const response = await fetch(
+        `${resolveClientBackendBase()}/api/auth/change-password`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken ?? ""}`,
+          },
+          body: JSON.stringify({
+            currentPassword,
+            newPassword,
+            confirmPassword,
+          }),
         },
-        body: JSON.stringify({
-          currentPassword,
-          newPassword,
-          confirmPassword,
-        }),
-      });
+      );
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || "Error al cambiar la contraseña");
+        const data = (await response.json().catch(() => null)) as {
+          message?: string | string[];
+        } | null;
+        const message = Array.isArray(data?.message)
+          ? data.message.map(String).join("; ")
+          : typeof data?.message === "string"
+            ? data.message
+            : "Error al cambiar la contraseña";
+        throw new Error(message);
       }
 
       onClose();

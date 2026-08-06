@@ -1,8 +1,11 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Badge, DataGridTable as DataGrid, type DataGridColumn } from "@kai/ui";
 import type { ProductionBatchListItem } from "@/features/inventory-production/types/production-batch.types";
+import { productionOrdersListTitle } from "@/features/inventory-production/lib/production-batch-labels";
+import { useCompany } from "@/providers/CompanyProvider";
 
 type Props = {
   rows: ProductionBatchListItem[];
@@ -52,8 +55,12 @@ const columns: DataGridColumn[] = [
   },
 ];
 
+const NEW_ORDER_PATH = "/production/orders/new";
+
 export function ProductionOrdersPanel({ rows }: Props) {
   const router = useRouter();
+  const { company } = useCompany();
+  const gridTitle = productionOrdersListTitle(company?.kaiProduct);
   const gridRows: GridRow[] = rows.map((r) => ({
     ...r,
     codigo: r.documentNumber ?? "—",
@@ -71,13 +78,21 @@ export function ProductionOrdersPanel({ rows }: Props) {
     })(),
   }));
 
+  /** Prefetch: en dev la 1ª compilación de /new puede tardar minutos y romper el RSC de router.push. */
+  useEffect(() => {
+    router.prefetch(NEW_ORDER_PATH);
+  }, [router]);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-4" data-test-id="production-orders-panel">
       <DataGrid
-        title="Órdenes de producción"
+        title={gridTitle}
         columns={columns}
         rows={gridRows}
-        onAddClick={() => router.push("/production/orders/new")}
+        fillViewport
+        onAddClick={() => {
+          window.location.assign(NEW_ORDER_PATH);
+        }}
         onRowClick={(row) => {
           const id = (row as GridRow).id;
           if (id) router.push(`/production/orders/${id}`);

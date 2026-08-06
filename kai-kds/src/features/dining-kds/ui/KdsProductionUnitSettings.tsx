@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge, BasicPageLayout, Button, Card, IconButton } from "@kai/ui";
 import "@kai/ui/components/Cards/cards.css";
@@ -8,6 +9,7 @@ import { ChefHat, Factory } from "lucide-react";
 import { useKdsStation } from "../station/kds-station-context";
 import { unlockKdsAlertAudio } from "../lib/play-kds-alert-sound";
 import type { ProductionUnitDto } from "../infrastructure/dining-kds.request";
+import ChangePasswordDialog from "@/shared/components/Dialog/ChangePasswordDialog";
 
 function scopeLabel(unit: ProductionUnitDto): string {
   if (unit.scope === "COMPANY") return "Ámbito empresa";
@@ -44,7 +46,9 @@ function UnitMedia({ unit, active }: { unit: ProductionUnitDto; active: boolean 
 
 export function KdsProductionUnitSettings() {
   const router = useRouter();
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const {
+    session,
     units,
     unitsLoading,
     unitsError,
@@ -82,7 +86,7 @@ export function KdsProductionUnitSettings() {
       subtitle="Unidad de producción de esta estación"
       data-test-id="kds-settings-page"
     >
-      <div className="mb-4 flex items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <Button
           type="button"
           variant="outlined"
@@ -91,6 +95,15 @@ export function KdsProductionUnitSettings() {
           loading={unitsLoading}
         >
           Actualizar lista
+        </Button>
+        <Button
+          type="button"
+          variant="outlined"
+          size="sm"
+          onClick={() => setChangePasswordOpen(true)}
+          data-test-id="kds-settings-change-password"
+        >
+          Cambiar contraseña
         </Button>
       </div>
 
@@ -175,6 +188,13 @@ export function KdsProductionUnitSettings() {
           );
         })}
       </div>
+
+      <ChangePasswordDialog
+        isOpen={changePasswordOpen}
+        onClose={() => setChangePasswordOpen(false)}
+        userId={session.userId}
+        companyId={session.companyId}
+      />
     </BasicPageLayout>
   );
 }

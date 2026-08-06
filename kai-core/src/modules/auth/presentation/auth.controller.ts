@@ -24,6 +24,10 @@ import { LoginDto } from '../application/dto/login.dto';
 import { LoginResponseDto } from '../application/dto/login-response.dto';
 import { LogoutDto } from '../application/dto/logout.dto';
 import { LogoutResponseDto } from '../application/dto/logout-response.dto';
+import {
+  ChangePasswordDto,
+  ChangePasswordResponseDto,
+} from '../application/dto/change-password.dto';
 import { Company } from '@modules/companies/domain/company.entity';
 import { UserRole } from '@modules/users/domain/user.entity';
 import { MembershipsService } from '@modules/users/application/memberships.service';
@@ -122,6 +126,30 @@ export class AuthController {
   })
   async logout(@Body() logoutDto: LogoutDto): Promise<LogoutResponseDto> {
     return this.authService.logout(logoutDto);
+  }
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @AllowAdminWithoutCompany()
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Cambiar contraseña propia',
+    description:
+      'Verifica la contraseña actual y actualiza la del usuario autenticado (Bearer UUID).',
+  })
+  @ApiBody({ type: ChangePasswordDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Contraseña actualizada',
+    type: ChangePasswordResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Validación / confirmación' })
+  @ApiResponse({ status: 401, description: 'Contraseña actual incorrecta' })
+  async changePassword(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<ChangePasswordResponseDto> {
+    return this.authService.changePassword(user.id, dto);
   }
 
   /**

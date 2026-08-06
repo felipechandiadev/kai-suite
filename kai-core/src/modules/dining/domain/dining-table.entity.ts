@@ -52,6 +52,9 @@ export class DiningTable {
   @Column({ name: 'merge_group_id', type: 'uuid', nullable: true })
   mergeGroupId?: string | null;
 
+  @Column({ name: 'is_active', type: 'boolean', default: true })
+  isActive!: boolean;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

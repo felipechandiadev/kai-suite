@@ -29,6 +29,7 @@ import {
   abandonEmptyPosDiningOrderAction,
   cancelPosDiningOrderItemAction,
   sendPosDiningOrderToKitchenAction,
+  markPosDiningFireReadyAction,
   markPosDiningFireReadyForPickupAction,
   markPosDiningFireDeliveredAction,
   updatePosDiningOrderLineNotesAction,
@@ -47,6 +48,13 @@ import {
   writePosDiningTablesView,
   type PosDiningTablesView,
 } from "@/features/dining/lib/dining-menu-column-collapsed-storage";
+import {
+  ALL_POS_DINING_TABS,
+  POS_DINING_ENABLED_TABS_LS_KEY,
+  defaultPosDiningTab,
+  readPosDiningEnabledTabs,
+  type PosDiningTabKey,
+} from "@/features/dining/lib/dining-enabled-tabs-storage";
 import { diningOrderLinesToCart } from "@/features/dining/lib/dining-order-lines-to-cart";
 import { diningOrderAllKitchenReady, diningOrderCanBillOrCharge, diningProductNeedsKitchen } from "@/features/dining/lib/group-dining-order-lines";
 import { mergeDiningSessionLines } from "@/features/dining/lib/merge-dining-session-lines";
@@ -81,7 +89,7 @@ export const POS_DINING_URL_KEYS = {
   roomId: "diningRoomId",
 } as const;
 
-type TabKey = "mesas" | "barra" | "takeaway";
+type TabKey = PosDiningTabKey;
 
 const TAB_TO_KIND: Record<TabKey, DiningOrderKind> = {
   mesas: "TABLE",
@@ -94,8 +102,6 @@ const TAB_LABELS: Record<TabKey, string> = {
   barra: "Barra",
   takeaway: "Para llevar",
 };
-
-const ALL_TABS = Object.keys(TAB_TO_KIND) as TabKey[];
 
 function formatMoney(n: number) {
   return new Intl.NumberFormat("es-CL", {
@@ -170,9 +176,20 @@ export default function PosDiningAccountsPanel({
     : { height: `${heightVh}vh`, minHeight: `${heightVh}vh` };
   const shellClass = fillViewport ? "h-full min-h-0" : "";
 
+  const [enabledTabs, setEnabledTabs] = useState<PosDiningTabKey[]>(() =>
+    typeof window !== "undefined"
+      ? readPosDiningEnabledTabs()
+      : [...ALL_POS_DINING_TABS],
+  );
+
   const urlTab = (sp.get(POS_DINING_URL_KEYS.tab) ?? "mesas") as TabKey;
-  const tab: TabKey =
-    urlTab === "barra" || urlTab === "takeaway" || urlTab === "mesas" ? urlTab : "mesas";
+  const rawTab: TabKey =
+    urlTab === "barra" || urlTab === "takeaway" || urlTab === "mesas"
+      ? urlTab
+      : "mesas";
+  const tab: TabKey = enabledTabs.includes(rawTab)
+    ? rawTab
+    : defaultPosDiningTab(enabledTabs);
   const urlOrderId = (sp.get(POS_DINING_URL_KEYS.orderId) ?? "").trim();
   const urlRoomId = (sp.get(POS_DINING_URL_KEYS.roomId) ?? "").trim();
 
@@ -203,6 +220,22 @@ export default function PosDiningAccountsPanel({
   useEffect(() => {
     setMenuColumnCollapsed(readPosDiningMenuColumnCollapsed());
     setTablesView(readPosDiningTablesView());
+    setEnabledTabs(readPosDiningEnabledTabs());
+  }, []);
+
+  useEffect(() => {
+    const syncEnabledTabs = () => setEnabledTabs(readPosDiningEnabledTabs());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === POS_DINING_ENABLED_TABS_LS_KEY || e.key == null) {
+        syncEnabledTabs();
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", syncEnabledTabs);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", syncEnabledTabs);
+    };
   }, []);
 
   const setMenuCollapsedPersist = useCallback((collapsed: boolean) => {
@@ -227,6 +260,7 @@ export default function PosDiningAccountsPanel({
 
   const setTab = useCallback(
     (next: TabKey) => {
+      if (!enabledTabs.includes(next)) return;
       const params = new URLSearchParams(sp.toString());
       params.set(POS_DINING_URL_KEYS.tab, next);
       if (!pageDesktop) {
@@ -234,8 +268,22 @@ export default function PosDiningAccountsPanel({
       }
       navigateDining(params);
     },
-    [navigateDining, pageDesktop, sp],
+    [enabledTabs, navigateDining, pageDesktop, sp],
   );
+
+  /** Si la URL apunta a un tab deshabilitado, reemplazar por el default habilitado. */
+  useEffect(() => {
+    if (enabledTabs.includes(rawTab)) return;
+    const next = defaultPosDiningTab(enabledTabs);
+    const params = new URLSearchParams(sp.toString());
+    if (params.get(POS_DINING_URL_KEYS.tab) === next) return;
+    params.set(POS_DINING_URL_KEYS.tab, next);
+    startTransition(() => {
+      router.replace(params.toString() ? `${pathname}?${params}` : pathname, {
+        scroll: false,
+      });
+    });
+  }, [enabledTabs, rawTab, pathname, router, sp, startTransition]);
 
   const setSelectedOrderId = useCallback(
     (orderId: string | null) => {
@@ -662,6 +710,59 @@ export default function PosDiningAccountsPanel({
         }
       })();
     });
+  };
+
+  const handleFireKitchenReady = (fireId: string) => {
+    if (!detail) return;
+    const targetFire = fireId.trim();
+    if (!targetFire) return;
+
+    const preparingStatuses = new Set(["SENT", "PREPARING"]);
+    const unitIds = [
+      ...new Set(
+        (detail.lines ?? [])
+          .filter((l) => {
+            const lineFire = l.kitchenFireId?.trim() || l.id;
+            return (
+              lineFire === targetFire &&
+              preparingStatuses.has(l.kitchenStatus) &&
+              Boolean(l.productionUnitId?.trim())
+            );
+          })
+          .map((l) => l.productionUnitId!.trim()),
+      ),
+    ];
+    if (unitIds.length === 0) {
+      setActionError(
+        "No hay ítems en cocina con unidad de producción para marcar listos.",
+      );
+      return;
+    }
+
+    const orderId = detail.id;
+    setActionBusy(true);
+    setActionError(null);
+    void (async () => {
+      let lastOrder = detail;
+      for (const productionUnitId of unitIds) {
+        const res = await markPosDiningFireReadyAction(
+          orderId,
+          targetFire,
+          productionUnitId,
+        );
+        if (!res.success) {
+          setActionBusy(false);
+          if (redirectToLoginIfUnauthorized(res)) return;
+          setActionError(res.message);
+          return;
+        }
+        lastOrder = res.order;
+      }
+      setActionBusy(false);
+      setDetail(lastOrder);
+      upsertOrderInList(lastOrder);
+      refreshList({ silent: true });
+    })();
   };
 
   const handleFireReadyForPickup = (fireId: string) => {
@@ -1379,32 +1480,33 @@ export default function PosDiningAccountsPanel({
     </>
   );
 
-  const tabSelector = (
-    <div
-      className="flex shrink-0 gap-1 rounded-lg border border-border bg-muted/30 p-1"
-      role="tablist"
-      aria-label="Tipo de cuenta"
-    >
-      {ALL_TABS.map((key) => (
-        <button
-          key={key}
-          type="button"
-          role="tab"
-          aria-selected={tab === key}
-          disabled={disabled}
-          className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
-            tab === key
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:bg-muted"
-          }`}
-          onClick={() => setTab(key)}
-          data-test-id={`pos-dining-tab-${key}`}
-        >
-          {TAB_LABELS[key]}
-        </button>
-      ))}
-    </div>
-  );
+  const tabSelector =
+    enabledTabs.length <= 1 ? null : (
+      <div
+        className="flex shrink-0 gap-1 rounded-lg border border-border bg-muted/30 p-1"
+        role="tablist"
+        aria-label="Tipo de cuenta"
+      >
+        {enabledTabs.map((key) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            disabled={disabled}
+            className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+              tab === key
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-muted"
+            }`}
+            onClick={() => setTab(key)}
+            data-test-id={`pos-dining-tab-${key}`}
+          >
+            {TAB_LABELS[key]}
+          </button>
+        ))}
+      </div>
+    );
 
   const detailContent = (
     <>
@@ -1490,17 +1592,20 @@ export default function PosDiningAccountsPanel({
                       ? `En cocina #${fire.kitchenFireNumber}`
                       : `En cocina (${fire.lineCount})`;
                   return (
-                    <span
+                    <button
                       key={`prep-${fire.fireId}`}
-                      title="Pedido en cocina"
-                      aria-label={label}
-                      className="rounded-full"
+                      type="button"
+                      disabled={disabled || actionBusy || isBilling}
+                      title="Marcar cocina lista"
+                      aria-label={`${label}. Marcar cocina lista`}
+                      onClick={() => handleFireKitchenReady(fire.fireId)}
+                      className="rounded-full disabled:cursor-not-allowed disabled:opacity-50"
                       data-test-id={`pos-dining-badge-in-kitchen-fire-${fire.fireId}`}
                     >
                       <Badge variant="primary-outlined" className="text-[10px]">
                         {label}
                       </Badge>
-                    </span>
+                    </button>
                   );
                 })}
                 {kitchenFires.kitchenReady.map((fire) => {
@@ -1729,7 +1834,7 @@ export default function PosDiningAccountsPanel({
           aria-label="Cuentas"
           data-test-id="pos-dining-accounts-column"
         >
-          <div className="shrink-0">{tabSelector}</div>
+          {tabSelector ? <div className="shrink-0">{tabSelector}</div> : null}
           {accountsListBody}
         </aside>
 

@@ -11,12 +11,14 @@ import {
   createHeroSlideAction,
   deleteHeroSlideAction,
   getHeroSliderSettingsAction,
+  listHeroSlidesAction,
   updateHeroSlideAction,
   updateHeroSliderAutoplayAction,
 } from "@/features/menu-hero-slides/actions/hero-slide.action";
 import { HERO_SLIDER_AUTOPLAY_DEFAULT_SECONDS } from "@/features/menu-hero-slides/constants/hero-slider.constants";
 import { EntityMultimediaPanel } from "../../../../catalog/products/ui/EntityMultimediaPanel";
 import { HeroSlideAutoplayField } from "./HeroSlideAutoplayField";
+import { HeroSlideDialogPreview } from "./HeroSlideDialogPreview";
 import { HeroSlideFormFields } from "./HeroSlideFormFields";
 
 export type CreateHeroSlideDialogProps = {
@@ -41,8 +43,19 @@ export function CreateHeroSlideDialog({ open, onClose, onSuccess }: CreateHeroSl
   const [textColor, setTextColor] = useState<string | null>(null);
   const [isActive, setIsActive] = useState(true);
   const [autoplaySeconds, setAutoplaySeconds] = useState(HERO_SLIDER_AUTOPLAY_DEFAULT_SECONDS);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const refreshPreviewImage = async (slideId: string) => {
+    try {
+      const slides = await listHeroSlidesAction();
+      const found = slides.find((s) => s.id === slideId);
+      setPreviewImageUrl(found?.imageUrl ?? null);
+    } catch {
+      /* keep previous preview */
+    }
+  };
 
   const cleanupDraft = async (slideId: string | null) => {
     if (slideId && !finalizedRef.current) {
@@ -64,6 +77,7 @@ export function CreateHeroSlideDialog({ open, onClose, onSuccess }: CreateHeroSl
     setTextAlign("left");
     setOverlayOpacity("45");
     setTextColor(null);
+    setPreviewImageUrl(null);
     setIsActive(true);
     setAutoplaySeconds(HERO_SLIDER_AUTOPLAY_DEFAULT_SECONDS);
     setError(null);
@@ -195,7 +209,7 @@ export function CreateHeroSlideDialog({ open, onClose, onSuccess }: CreateHeroSl
           onOverlayOpacityChange={setOverlayOpacity}
           textColor={textColor}
           onTextColorChange={setTextColor}
-          showAdvanced={false}
+          showAdvanced
         />
         <HeroSlideAutoplayField
           value={autoplaySeconds}
@@ -215,9 +229,23 @@ export function CreateHeroSlideDialog({ open, onClose, onSuccess }: CreateHeroSl
             title="Imagen de fondo"
             collectionOnly
             disabled={draftPreparing || isPending}
-            onChanged={() => router.refresh()}
+            onChanged={() => {
+              void router.refresh();
+              void refreshPreviewImage(draftSlideId);
+            }}
           />
         ) : null}
+        <HeroSlideDialogPreview
+          title={title}
+          message={message}
+          ctaStyle={ctaStyle}
+          ctaLabel={ctaLabel}
+          ctaHref={ctaHref}
+          textAlign={textAlign}
+          overlayOpacity={overlayOpacity}
+          textColor={textColor}
+          imageUrl={previewImageUrl}
+        />
       </div>
     </Dialog>
   );

@@ -15,6 +15,8 @@ import {
   createProductionBatchAction,
   listVariantProductionAttributesAction,
 } from "@/features/inventory-production/actions/production-batch.action";
+import { productionOrderCreateTitle } from "@/features/inventory-production/lib/production-batch-labels";
+import { useCompany } from "@/providers/CompanyProvider";
 import { ManufactureVariantSearchPanel } from "./ManufactureVariantSearchPanel";
 
 type Props = {
@@ -51,12 +53,21 @@ function formatMoney(n: number | null | undefined): string {
   });
 }
 
+/** Valor inicial para `<input type="datetime-local">` (hora local). */
+function defaultDatetimeLocalNow(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export function CreateProductionForm({
   storages,
   productionUnits,
   fallbackBranchId = null,
 }: Props) {
   const router = useRouter();
+  const { company } = useCompany();
+  const pageTitle = productionOrderCreateTitle(company?.kaiProduct);
   const batchUnits = useMemo(
     () =>
       productionUnits.filter((u) => u.isActive && u.purpose === "BATCH"),
@@ -67,8 +78,7 @@ export function CreateProductionForm({
     () => batchUnits[0]?.id ?? "",
   );
   const [outputStorageId, setOutputStorageId] = useState("");
-  const [capacity, setCapacity] = useState("");
-  const [plannedStartAt, setPlannedStartAt] = useState("");
+  const [plannedStartAt, setPlannedStartAt] = useState(defaultDatetimeLocalNow);
   const [plannedDeliveryAt, setPlannedDeliveryAt] = useState("");
   const [headerNotes, setHeaderNotes] = useState("");
   const [lots, setLots] = useState<LotLine[]>([]);
@@ -252,14 +262,12 @@ export function CreateProductionForm({
 
     setSaving(true);
     setError(null);
-    const capacityNum = capacity.trim() === "" ? null : Number(capacity);
     const result = await createProductionBatchAction({
       branchId,
       storageId: selectedUnit.defaultInputStorageId,
       outputStorageId,
       productionUnitId,
-      capacity:
-        capacityNum != null && Number.isFinite(capacityNum) ? capacityNum : null,
+      capacity: null,
       plannedStartAt: plannedStartAt.trim() || null,
       plannedDeliveryAt: plannedDeliveryAt.trim() || null,
       notes: headerNotes.trim() || undefined,
@@ -291,7 +299,7 @@ export function CreateProductionForm({
       data-test-id="create-production-form"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-lg font-semibold">Nueva orden de manufactura</h1>
+        <h1 className="text-lg font-semibold">{pageTitle}</h1>
         <div className="flex gap-2">
           <Button
             variant="outlined"
@@ -342,14 +350,6 @@ export function CreateProductionForm({
               onChange={(v) => setOutputStorageId(v ? String(v) : "")}
               options={outputStorageOptions}
               data-test-id="production-output-storage"
-            />
-            <TextField
-              label="Capacidad planificada (orden)"
-              type="number"
-              value={capacity}
-              onChange={(e) => setCapacity(e.target.value)}
-              placeholder="Opcional"
-              data-test-id="production-capacity"
             />
             <TextField
               label="Fecha de inicio"

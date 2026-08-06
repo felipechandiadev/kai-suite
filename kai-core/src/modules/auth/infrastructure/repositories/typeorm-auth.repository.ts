@@ -18,6 +18,12 @@ export class TypeOrmAuthRepository implements AuthRepositoryPort {
     });
   }
 
+  async findUserById(id: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { id, deletedAt: null as never },
+    });
+  }
+
   async saveUser(user: User): Promise<User> {
     return this.userRepository.save(user);
   }

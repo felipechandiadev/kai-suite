@@ -11,6 +11,7 @@ export type DiningTableItem = {
   width: number;
   height: number;
   rotation: number;
+  isActive: boolean;
 };
 
 export type DiningRoomListItem = {

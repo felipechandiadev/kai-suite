@@ -209,6 +209,7 @@ import { ProductOnMenu1757630000000 } from '../migrations/1757630000000-ProductO
 import { MenuHeroSlides1757640000000 } from '../migrations/1757640000000-MenuHeroSlides';
 import { ExpenseCategoryOperationalGroupCreditos1757650000000 } from '../migrations/1757650000000-ExpenseCategoryOperationalGroupCreditos';
 import { ProductionUnitKitchenFulfillment1757660000000 } from '../migrations/1757660000000-ProductionUnitKitchenFulfillment';
+import { DiningTableIsActive1757670000000 } from '../migrations/1757670000000-DiningTableIsActive';
 import { LaundryReceptionModule1757430000000 } from '../migrations/1757430000000-LaundryReceptionModule';
 import { DiningKitchenFireId1757140000000 } from '../migrations/1757140000000-DiningKitchenFireId';
 import { DiningKitchenFireNumber1757150000000 } from '../migrations/1757150000000-DiningKitchenFireNumber';
@@ -589,6 +590,7 @@ export const AppDataSource = new DataSource({
     MenuHeroSlides1757640000000,
     ExpenseCategoryOperationalGroupCreditos1757650000000,
     ProductionUnitKitchenFulfillment1757660000000,
+    DiningTableIsActive1757670000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

@@ -509,18 +509,25 @@ export class DiningService {
     includeInactive?: boolean;
   }): Promise<DiningRoom[]> {
     const companyId = this.requireCompanyId();
+    const includeInactive = Boolean(options?.includeInactive);
     const qb = this.diningRoomRepository
       .createQueryBuilder('room')
-      .leftJoinAndSelect('room.tables', 'tables')
       .where('room.companyId = :companyId', { companyId })
       .orderBy('room.name', 'ASC')
       .addOrderBy('tables.code', 'ASC');
 
+    if (includeInactive) {
+      qb.leftJoinAndSelect('room.tables', 'tables');
+    } else {
+      qb.leftJoinAndSelect(
+        'room.tables',
+        'tables',
+        'tables.isActive = true',
+      ).andWhere('room.isActive = :isActive', { isActive: true });
+    }
+
     if (options?.branchId) {
       qb.andWhere('room.branchId = :branchId', { branchId: options.branchId });
-    }
-    if (!options?.includeInactive) {
-      qb.andWhere('room.isActive = :isActive', { isActive: true });
     }
 
     return qb.getMany();
@@ -648,6 +655,7 @@ export class DiningService {
         height: dto.height ?? 80,
         rotation: dto.rotation ?? 0,
         mergeGroupId: dto.mergeGroupId ?? null,
+        isActive: dto.isActive !== false,
       };
 
       if (dto.id && existingById.has(dto.id)) {
@@ -699,6 +707,12 @@ export class DiningService {
       throw new BadRequestException(
         'La mesa no pertenece a la sucursal indicada.',
       );
+    }
+    if (!table.isActive) {
+      throw new BadRequestException('La mesa está desactivada.');
+    }
+    if (!table.diningRoom.isActive) {
+      throw new BadRequestException('El salón de la mesa está desactivado.');
     }
 
     await this.assertNoActiveTableOrder(data.diningTableId, companyId);

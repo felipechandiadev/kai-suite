@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { PosFavoriteProductsSection } from "@/features/pos-settings/ui/PosFavoriteProductsSection";
 import { OfflineConflictPanel } from "@/features/pos-offline/ui/OfflineConflictPanel";
+import { PosDiningEnabledTabsSettings } from "@/features/dining/ui/PosDiningEnabledTabsSettings";
 import { IconButton } from "@kai/ui";
 
 type SettingsSectionProps = {
@@ -81,6 +82,8 @@ export function PosSettingsPageClient() {
         >
           <PosFavoriteProductsSection />
         </SettingsSection>
+
+        <PosDiningEnabledTabsSettings />
 
         <SettingsSection
           title="Impresión y tickets"

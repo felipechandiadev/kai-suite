@@ -13,12 +13,14 @@ import type {
 } from "@/features/menu-hero-slides/types/hero-slide.types";
 import {
   getHeroSliderSettingsAction,
+  listHeroSlidesAction,
   updateHeroSlideAction,
   updateHeroSliderAutoplayAction,
 } from "@/features/menu-hero-slides/actions/hero-slide.action";
 import { HERO_SLIDER_AUTOPLAY_DEFAULT_SECONDS } from "@/features/menu-hero-slides/constants/hero-slider.constants";
 import { EntityMultimediaPanel } from "../../../../catalog/products/ui/EntityMultimediaPanel";
 import { HeroSlideAutoplayField } from "./HeroSlideAutoplayField";
+import { HeroSlideDialogPreview } from "./HeroSlideDialogPreview";
 import { HeroSlideFormFields } from "./HeroSlideFormFields";
 
 function resolveCtaStyle(slide: MenuHeroSlideRow): MenuHeroSlideCtaStyle {
@@ -48,8 +50,19 @@ export function UpdateHeroSlideDialog({ open, onClose, slide, onSuccess }: Updat
   const [textColor, setTextColor] = useState<string | null>(null);
   const [isActive, setIsActive] = useState(true);
   const [autoplaySeconds, setAutoplaySeconds] = useState(HERO_SLIDER_AUTOPLAY_DEFAULT_SECONDS);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const refreshPreviewImage = async (slideId: string) => {
+    try {
+      const slides = await listHeroSlidesAction();
+      const found = slides.find((s) => s.id === slideId);
+      setPreviewImageUrl(found?.imageUrl ?? null);
+    } catch {
+      /* keep previous preview */
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -63,12 +76,13 @@ export function UpdateHeroSlideDialog({ open, onClose, slide, onSuccess }: Updat
     setOverlayOpacity(String(slide.overlayOpacity ?? 45));
     setTextColor(slide.textColor ?? null);
     setIsActive(slide.isActive !== false);
+    setPreviewImageUrl(slide.imageUrl ?? null);
     setAutoplaySeconds(HERO_SLIDER_AUTOPLAY_DEFAULT_SECONDS);
     setError(null);
     void getHeroSliderSettingsAction().then((r) => {
       if (r.success) setAutoplaySeconds(r.autoplaySeconds);
     });
-  }, [open, slide.id]);
+  }, [open, slide]);
 
   const handleClose = () => {
     setError(null);
@@ -162,12 +176,29 @@ export function UpdateHeroSlideDialog({ open, onClose, slide, onSuccess }: Updat
           disabled={isPending}
         />
         <Switch checked={isActive} onChange={setIsActive} label="Activo en la carta" labelPosition="right" />
-        <EntityMultimediaPanel
-          entityType="menu-hero-slide"
-          entityId={slide.id}
-          title="Imagen de fondo"
-          collectionOnly
-          onChanged={() => router.refresh()}
+        {open ? (
+          <EntityMultimediaPanel
+            entityType="menu-hero-slide"
+            entityId={slide.id}
+            title="Imagen de fondo"
+            collectionOnly
+            disabled={isPending}
+            onChanged={() => {
+              void router.refresh();
+              void refreshPreviewImage(slide.id);
+            }}
+          />
+        ) : null}
+        <HeroSlideDialogPreview
+          title={title}
+          message={message}
+          ctaStyle={ctaStyle}
+          ctaLabel={ctaLabel}
+          ctaHref={ctaHref}
+          textAlign={textAlign}
+          overlayOpacity={overlayOpacity}
+          textColor={textColor}
+          imageUrl={previewImageUrl}
         />
       </div>
     </Dialog>

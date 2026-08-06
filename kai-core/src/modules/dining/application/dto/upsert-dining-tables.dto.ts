@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -58,6 +59,10 @@ export class UpsertDiningTableDto {
   @IsOptional()
   @IsUUID()
   mergeGroupId?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }
 
 import { Type } from 'class-transformer';

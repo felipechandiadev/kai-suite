@@ -53,13 +53,21 @@ pub fn build_pos_kitchen_ticket_escpos(t: &PosKitchenTicket) -> Result<Vec<u8>> 
         "COMANDA"
     };
     append_line(&mut buf, title);
+    let unit_name = t.production_unit_name.trim();
+    if !unit_name.is_empty() {
+        escpos_align(&mut buf, 1);
+        for wrapped in wrap_lines(unit_name, layout_width()) {
+            append_line(&mut buf, &wrapped);
+        }
+        escpos_align(&mut buf, 0);
+    }
     escpos_bold(&mut buf, false);
 
     append_line(
         &mut buf,
         &pad_left("Pedido #:", &t.fire_number.to_string()),
     );
-    append_label_value_wrapped(&mut buf, "Estación:", t.production_unit_name.trim());
+    append_label_value_wrapped(&mut buf, "Estación:", unit_name);
     append_label_value_wrapped(&mut buf, "Cuenta:", t.account_label.trim());
     if let Some(code) = t
         .table_code

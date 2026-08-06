@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import React from "react";
-import { useSession, signOut } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import { Alert, Button, Dialog, TextField } from "@kai/ui";
+import { changePasswordAction } from "@/features/auth/actions/change-password.action";
 
 const CHANGE_PASSWORD_FORM_ID = "change-password-form";
 
@@ -12,8 +13,10 @@ interface ChangePasswordDialogProps {
   onClose: () => void;
 }
 
-export default function ChangePasswordDialog({ isOpen, onClose }: ChangePasswordDialogProps) {
-  const { data: session } = useSession();
+export default function ChangePasswordDialog({
+  isOpen,
+  onClose,
+}: ChangePasswordDialogProps) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -26,27 +29,14 @@ export default function ChangePasswordDialog({ isOpen, onClose }: ChangePassword
     setIsLoading(true);
 
     try {
-      const accessToken = (session?.user as { accessToken?: string } | undefined)?.accessToken;
-      const baseUrl =
-        process.env.NEXT_PUBLIC_BACKEND_API_URL?.trim() ||
-        process.env.BACKEND_API_URL?.trim() ||
-        "http://localhost:3001";
-      const response = await fetch(`${baseUrl.replace(/\/$/, "")}/auth/change-password`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken ?? ""}`,
-        },
-        body: JSON.stringify({
-          currentPassword,
-          newPassword,
-          confirmPassword,
-        }),
+      const result = await changePasswordAction({
+        currentPassword,
+        newPassword,
+        confirmPassword,
       });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || "Error al cambiar la contraseña");
+      if (!result.success) {
+        setError(result.error);
+        return;
       }
 
       onClose();

@@ -19,6 +19,11 @@ import { WaiterMesasCards } from "@/features/dining-waiter/ui/WaiterMesasCards";
 import { WaiterTableScreen } from "@/features/dining-waiter/ui/WaiterTableScreen";
 import { useDiningRealtime } from "@/features/dining-waiter/realtime/useDiningRealtime";
 import {
+  isWaiterAccountUnavailableError,
+  messageFromUnknownError,
+  WAITER_ACCOUNT_UNAVAILABLE_MSG,
+} from "@/features/dining-waiter/lib/waiter-account-unavailable";
+import {
   loadWaiterRoomId,
   saveWaiterRoomId,
   type WaiterSession,
@@ -50,6 +55,8 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
   const authRef = useRef({ userId: session.userId, companyId: session.companyId });
   authRef.current = { userId: session.userId, companyId: session.companyId };
   const deepLinkHandledRef = useRef<string | null>(null);
+  const selectedOrderRef = useRef<DiningOrderDto | null>(null);
+  selectedOrderRef.current = selectedOrder;
 
   const branchId = room?.branchId ?? "";
 
@@ -73,6 +80,18 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
     setOrders(list);
     return list;
   }, [branchId]);
+
+  const exitToMesas = useCallback(
+    (message: string) => {
+      setError(message);
+      setSelectedTable(null);
+      setSelectedOrder(null);
+      setHighlightFireId(null);
+      setOpenCuentaOnSelect(false);
+      void refreshOrders();
+    },
+    [refreshOrders],
+  );
 
   const loadRoom = useCallback(async (roomId: string) => {
     setLoading(true);
@@ -147,10 +166,19 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
         ...authRef.current,
         orderId,
       });
+      if (order.status === "CLOSED") {
+        exitToMesas(WAITER_ACCOUNT_UNAVAILABLE_MSG);
+        return;
+      }
       setSelectedOrder(order);
     } catch (e) {
       setSelectedOrder(null);
-      setError(e instanceof Error ? e.message : "Error al cargar cuenta");
+      const msg = messageFromUnknownError(e, "Error al cargar cuenta");
+      if (isWaiterAccountUnavailableError(msg)) {
+        exitToMesas(WAITER_ACCOUNT_UNAVAILABLE_MSG);
+        return;
+      }
+      setError(msg);
     }
   };
 
@@ -185,6 +213,10 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
   };
 
   const handleOrderUpdated = async (order: DiningOrderDto) => {
+    if (order.status === "CLOSED") {
+      exitToMesas(WAITER_ACCOUNT_UNAVAILABLE_MSG);
+      return;
+    }
     setSelectedOrder(order);
     await refreshOrders();
   };
@@ -210,7 +242,7 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
           const order = await getDiningOrderAction({ ...auth, orderId });
           if (cancelled) return;
           if (order.status === "CLOSED") {
-            setError("La cuenta ya está cerrada.");
+            exitToMesas(WAITER_ACCOUNT_UNAVAILABLE_MSG);
             clearSalonDeepLinkQuery(pathname, router);
             return;
           }
@@ -237,7 +269,7 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
             }
           }
           if (!table) {
-            setError("No se encontró la mesa de esa notificación.");
+            exitToMesas("No se encontró la mesa de esa notificación.");
             clearSalonDeepLinkQuery(pathname, router);
             return;
           }
@@ -268,7 +300,7 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
             }
           }
           if (!table) {
-            setError("No se encontró la mesa.");
+            exitToMesas("No se encontró la mesa.");
             clearSalonDeepLinkQuery(pathname, router);
             return;
           }
@@ -280,7 +312,7 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
               o.kind === "TABLE",
           );
           if (!active) {
-            setError("La mesa ya no tiene cuenta abierta.");
+            exitToMesas("La mesa ya no tiene cuenta abierta.");
             clearSalonDeepLinkQuery(pathname, router);
             return;
           }
@@ -292,10 +324,14 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
         }
       } catch (e) {
         if (!cancelled) {
-          setError(
-            e instanceof Error
-              ? e.message
-              : "No se pudo abrir la cuenta de la notificación.",
+          const msg = messageFromUnknownError(
+            e,
+            "No se pudo abrir la cuenta de la notificación.",
+          );
+          exitToMesas(
+            isWaiterAccountUnavailableError(msg)
+              ? WAITER_ACCOUNT_UNAVAILABLE_MSG
+              : msg,
           );
           clearSalonDeepLinkQuery(pathname, router);
         }
@@ -315,16 +351,29 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
     salonId: room?.id ?? null,
     openTableIds,
     onSessionUpdated: () => {
-      void refreshOrders().then((list) => {
-        if (!selectedOrder || !list) return;
-        const fresh = list.find((o) => o.id === selectedOrder.id);
-        if (fresh) {
-          void getDiningOrderAction({
+      void refreshOrders().then(async (list) => {
+        const current = selectedOrderRef.current;
+        if (!current || !list) return;
+        const fresh = list.find((o) => o.id === current.id);
+        if (!fresh) {
+          exitToMesas(WAITER_ACCOUNT_UNAVAILABLE_MSG);
+          return;
+        }
+        try {
+          const detail = await getDiningOrderAction({
             ...authRef.current,
             orderId: fresh.id,
-          })
-            .then(setSelectedOrder)
-            .catch(() => undefined);
+          });
+          if (detail.status === "CLOSED") {
+            exitToMesas(WAITER_ACCOUNT_UNAVAILABLE_MSG);
+            return;
+          }
+          setSelectedOrder(detail);
+        } catch (e) {
+          const msg = messageFromUnknownError(e, "");
+          if (isWaiterAccountUnavailableError(msg)) {
+            exitToMesas(WAITER_ACCOUNT_UNAVAILABLE_MSG);
+          }
         }
       });
     },
@@ -359,6 +408,7 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
           onBack={handleBackToSalon}
           onOpenTable={() => handleOpenTable()}
           onOrderUpdated={handleOrderUpdated}
+          onAccountUnavailable={exitToMesas}
           opening={opening}
           canOpenTable={canOpenTable}
           initialPanel={openCuentaOnSelect ? "cuenta" : "menu"}

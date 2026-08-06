@@ -67,6 +67,19 @@ export class ProductModeService {
     return deploy;
   }
 
+  /**
+   * Tipos de salida permitidos en lotes PRODUCTION_BATCH según vertical de empresa.
+   * KaiFood → ELABORADO; KaiStore (u vacío) → MANUFACTURADO.
+   */
+  batchProductionOutputTypes(
+    kaiProduct: string | null | undefined,
+  ): ProductType[] {
+    if (this.isKaiFoodCompany(kaiProduct)) {
+      return [ProductType.ELABORADO];
+    }
+    return [ProductType.MANUFACTURADO];
+  }
+
   assertProductTypeAllowed(productType: ProductType): void {
     if (
       (FOOD_ONLY_PRODUCT_TYPES as ProductType[]).includes(productType) &&

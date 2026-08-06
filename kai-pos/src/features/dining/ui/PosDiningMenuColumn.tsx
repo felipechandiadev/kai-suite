@@ -76,8 +76,6 @@ export function PosDiningMenuColumn({
   const [posStorageId, setPosStorageId] = useState("");
   const [branchId, setBranchId] = useState("");
   const [menuCategories, setMenuCategories] = useState<MenuCategory[]>([]);
-  /** IDs configurados en sucursal; vacío = universo “todas”. */
-  const [configuredCategoryIds, setConfiguredCategoryIds] = useState<string[]>([]);
   const [activeCategoryIds, setActiveCategoryIds] = useState<string[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const itemsRef = useRef(items);
@@ -193,7 +191,6 @@ export function PosDiningMenuColumn({
     setBranchId(bid);
     if (!bid) {
       setMenuCategories([]);
-      setConfiguredCategoryIds([]);
       setActiveCategoryIds([]);
       return;
     }
@@ -207,7 +204,6 @@ export function PosDiningMenuColumn({
           );
         }
         setMenuCategories([]);
-        setConfiguredCategoryIds([]);
         setActiveCategoryIds([]);
         return;
       }
@@ -217,17 +213,16 @@ export function PosDiningMenuColumn({
       const stored = readPosDiningMenuActiveCategoryIds(bid).filter((id) =>
         allowed.has(id),
       );
-      setConfiguredCategoryIds(res.settings.posAccountsMenuCategoryIds ?? []);
       setMenuCategories(cats);
       setActiveCategoryIds(stored);
     });
   }, []);
 
+  /** Sin badge activo = todo el menú (onMenu); categorías configuradas solo definen badges. */
   const searchCategoryIds = useMemo(() => {
     if (activeCategoryIds.length > 0) return activeCategoryIds;
-    if (configuredCategoryIds.length > 0) return configuredCategoryIds;
     return undefined;
-  }, [activeCategoryIds, configuredCategoryIds]);
+  }, [activeCategoryIds]);
 
   const load = useCallback(async () => {
     const ctx = readPosContextClient();

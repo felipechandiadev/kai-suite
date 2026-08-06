@@ -6,6 +6,7 @@ import {
   IconButton,
   NumberStepper,
   Select,
+  Switch,
   TextField,
 } from "@kai/ui";
 import { saveDiningFloorPlanAction } from "@/features/kaifood-dining/actions/dining-room.action";
@@ -85,6 +86,7 @@ export function DiningRoomFloorPlanEditor({ room }: Props) {
         ...pos,
         ...size,
         rotation: 0,
+        isActive: true,
       },
     ]);
   };
@@ -248,56 +250,73 @@ export function DiningRoomFloorPlanEditor({ room }: Props) {
             <rect width={CANVAS_W} height={CANVAS_H} fill="url(#grid)" />
             {tables.map((t, idx) => {
               const isSelected = idx === selectedIdx;
+              const inactive = t.isActive === false;
               const common = {
                 onPointerDown: (e: React.PointerEvent<SVGElement>) =>
                   onPointerDown(idx, e),
                 fill: isSelected
                   ? "var(--color-secondary)"
                   : "var(--color-muted-foreground)",
-                fillOpacity: isSelected ? 0.35 : 0.2,
+                fillOpacity: inactive
+                  ? isSelected
+                    ? 0.18
+                    : 0.08
+                  : isSelected
+                    ? 0.35
+                    : 0.2,
                 stroke: isSelected
                   ? "var(--color-secondary)"
                   : "var(--color-muted-foreground)",
                 strokeWidth: isSelected ? 2.5 : 2,
+                strokeDasharray: inactive ? "4 3" : undefined,
                 cursor: "grab" as const,
+                opacity: inactive ? 0.55 : 1,
               };
-              return t.shape === "CIRCLE" ? (
+              const labelY =
+                t.shape === "CIRCLE"
+                  ? t.y + t.height / 2
+                  : t.y + t.height / 2;
+              return (
                 <g key={`${t.code}-${idx}`}>
-                  <circle
-                    cx={t.x + t.width / 2}
-                    cy={t.y + t.height / 2}
-                    r={t.width / 2}
-                    {...common}
-                  />
+                  {t.shape === "CIRCLE" ? (
+                    <circle
+                      cx={t.x + t.width / 2}
+                      cy={t.y + t.height / 2}
+                      r={t.width / 2}
+                      {...common}
+                    />
+                  ) : (
+                    <rect
+                      x={t.x}
+                      y={t.y}
+                      width={t.width}
+                      height={t.height}
+                      rx={6}
+                      {...common}
+                    />
+                  )}
                   <text
                     x={t.x + t.width / 2}
-                    y={t.y + t.height / 2}
+                    y={inactive ? labelY - 6 : labelY}
                     textAnchor="middle"
                     dominantBaseline="middle"
                     className="fill-foreground pointer-events-none text-xs"
+                    opacity={inactive ? 0.7 : 1}
                   >
                     {t.code}
                   </text>
-                </g>
-              ) : (
-                <g key={`${t.code}-${idx}`}>
-                  <rect
-                    x={t.x}
-                    y={t.y}
-                    width={t.width}
-                    height={t.height}
-                    rx={6}
-                    {...common}
-                  />
-                  <text
-                    x={t.x + t.width / 2}
-                    y={t.y + t.height / 2}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    className="fill-foreground pointer-events-none text-xs"
-                  >
-                    {t.code}
-                  </text>
+                  {inactive ? (
+                    <text
+                      x={t.x + t.width / 2}
+                      y={labelY + 10}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      className="pointer-events-none fill-muted-foreground"
+                      style={{ fontSize: 9 }}
+                    >
+                      Inactiva
+                    </text>
+                  ) : null}
                 </g>
               );
             })}
@@ -326,7 +345,9 @@ export function DiningRoomFloorPlanEditor({ room }: Props) {
               }}
               options={tables.map((t, i) => ({
                 id: String(i),
-                label: `${t.code} — ${t.label}`,
+                label: t.isActive === false
+                  ? `${t.code} — ${t.label} (inactiva)`
+                  : `${t.code} — ${t.label}`,
               }))}
               alwaysShowLabel
               disabled={tables.length === 0}
@@ -334,6 +355,13 @@ export function DiningRoomFloorPlanEditor({ room }: Props) {
             />
             {selected ? (
               <>
+                <Switch
+                  checked={selected.isActive !== false}
+                  onChange={(checked) => updateSelected({ isActive: checked })}
+                  label="Activa"
+                  labelPosition="right"
+                  data-test-id="dining-table-active"
+                />
                 <TextField
                   label="Código"
                   value={selected.code}

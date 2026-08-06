@@ -8,6 +8,8 @@ import {
   printServicePageRequiresTls,
   readConfiguredPurposePrinterAliasMap,
   readPrintServiceConfigFromStorage,
+  readWaiterIncludeBranchName,
+  resolveTicketBranchName,
   resetSharedPrintServiceConnections,
   withSharedPrintServiceConnection,
   writePrintServiceConfigToStorage,
@@ -29,6 +31,7 @@ export type WaiterDiningAccountTicketInput = {
   status: string;
   lines: WaiterDiningAccountTicketLine[];
   companyName?: string | null;
+  branchName?: string | null;
   tipSuggestPercent?: number | null;
   tipSuggestedAmount?: number | null;
 };
@@ -78,7 +81,10 @@ function buildPayload(
       kind: input.kind.trim() || "TABLE",
       status: input.status.trim() || "BILLING",
     },
-    branchName: null,
+    branchName: resolveTicketBranchName(
+      input.branchName,
+      readWaiterIncludeBranchName(),
+    ),
     pointOfSaleName: null,
     issuedAt: new Date().toISOString(),
     lines,

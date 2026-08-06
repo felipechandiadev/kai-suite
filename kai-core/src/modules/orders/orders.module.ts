@@ -10,6 +10,8 @@ import { ProductVariant } from '@modules/product-variants/domain/product-variant
 import { ProductVariantProductionUnit } from '@modules/product-variants/domain/product-variant-production-unit.entity';
 import { ProductVariantProductionAttribute } from '@modules/product-variants/domain/product-variant-production-attribute.entity';
 import { StockLevel } from '@modules/stock-levels/domain/stock-level.entity';
+import { Company } from '@modules/companies/domain/company.entity';
+import { ProductModeModule } from '@shared/product-mode/product-mode.module';
 import { OrdersController } from './presentation/orders.controller';
 import { ServiceOrdersController } from './presentation/service-orders.controller';
 import { ProductionBatchesController } from './presentation/production-batches.controller';
@@ -23,6 +25,7 @@ import { CompleteProductionBatchUseCase } from './application/commands/complete-
     TransactionsModule,
     RecipesModule,
     ProductionUnitsModule,
+    ProductModeModule,
     TypeOrmModule.forFeature([
       Transaction,
       TransactionLine,
@@ -30,6 +33,7 @@ import { CompleteProductionBatchUseCase } from './application/commands/complete-
       ProductVariantProductionUnit,
       ProductVariantProductionAttribute,
       StockLevel,
+      Company,
     ]),
   ],
   controllers: [
@@ -41,4 +45,3 @@ import { CompleteProductionBatchUseCase } from './application/commands/complete-
   providers: [CompleteServiceOrderUseCase, CompleteProductionBatchUseCase],
 })
 export class OrdersModule {}
-

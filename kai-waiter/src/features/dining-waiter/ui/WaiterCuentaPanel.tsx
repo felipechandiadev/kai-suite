@@ -37,6 +37,11 @@ import {
 import { groupWaiterFiresForDelivery } from "../lib/group-waiter-fires";
 import { WaiterProductNameWithAttributes } from "./WaiterProductNameWithAttributes";
 import type { WaiterSession } from "@/lib/app-session";
+import {
+  isWaiterAccountUnavailableError,
+  messageFromUnknownError,
+  WAITER_ACCOUNT_UNAVAILABLE_MSG,
+} from "../lib/waiter-account-unavailable";
 
 function formatMoney(n: number) {
   return new Intl.NumberFormat("es-CL", {
@@ -57,6 +62,7 @@ type WaiterCuentaPanelProps = {
   branchId: string;
   order: DiningOrderDto;
   onOrderUpdated: (order: DiningOrderDto) => void;
+  onAccountUnavailable: (message: string) => void;
   /** Fire a resaltar (deep-link desde campana). */
   highlightFireId?: string | null;
 };
@@ -66,6 +72,7 @@ export function WaiterCuentaPanel({
   branchId,
   order,
   onOrderUpdated,
+  onAccountUnavailable,
   highlightFireId = null,
 }: WaiterCuentaPanelProps) {
   const [busy, setBusy] = useState<string | null>(null);
@@ -76,6 +83,7 @@ export function WaiterCuentaPanel({
   >({});
   const [kitchenUnits, setKitchenUnits] = useState<KitchenUnitPrintInfo[]>([]);
   const [printAgents, setPrintAgents] = useState<PrintAgentCatalogItem[]>([]);
+  const [branchName, setBranchName] = useState<string | null>(null);
 
   const auth = useMemo(
     () => ({ userId: session.userId, companyId: session.companyId }),
@@ -86,12 +94,13 @@ export function WaiterCuentaPanel({
     let cancelled = false;
     void (async () => {
       try {
-        const [units, agents] = await Promise.all([
+        const [units, agents, catalog] = await Promise.all([
           listKitchenProductionUnitsAction({ ...auth, branchId }),
           listPrintAgentsForWaiterAction({
             userId: session.userId,
             companyId: session.companyId,
           }),
+          resolveWaiterBranchCatalogContextAction({ ...auth, branchId }),
         ]);
         if (cancelled) return;
         setKitchenUnits(
@@ -114,10 +123,12 @@ export function WaiterCuentaPanel({
             platform: a.platform,
           })),
         );
+        setBranchName(catalog.branchName?.trim() || null);
       } catch {
         if (!cancelled) {
           setKitchenUnits([]);
           setPrintAgents([]);
+          setBranchName(null);
         }
       }
     })();
@@ -139,6 +150,7 @@ export function WaiterCuentaPanel({
       kitchenUnits,
       printAgents,
       companyName: null,
+      branchName,
     });
     return next;
   };
@@ -224,7 +236,12 @@ export function WaiterCuentaPanel({
     try {
       onOrderUpdated(await fn());
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error en la operación");
+      const msg = messageFromUnknownError(e, "Error en la operación");
+      if (isWaiterAccountUnavailableError(msg)) {
+        onAccountUnavailable(WAITER_ACCOUNT_UNAVAILABLE_MSG);
+        return;
+      }
+      setError(msg);
     } finally {
       setBusy(null);
     }
@@ -286,6 +303,7 @@ export function WaiterCuentaPanel({
       status: ord.status,
       lines,
       companyName: null,
+      branchName,
       tipSuggestPercent,
       tipSuggestedAmount,
     });
@@ -302,7 +320,12 @@ export function WaiterCuentaPanel({
       }
       await printAccount(next);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error al pedir la cuenta");
+      const msg = messageFromUnknownError(e, "Error al pedir la cuenta");
+      if (isWaiterAccountUnavailableError(msg)) {
+        onAccountUnavailable(WAITER_ACCOUNT_UNAVAILABLE_MSG);
+        return;
+      }
+      setError(msg);
     } finally {
       setBusy(null);
     }
@@ -314,7 +337,12 @@ export function WaiterCuentaPanel({
     try {
       await printAccount(order);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error al imprimir la cuenta");
+      const msg = messageFromUnknownError(e, "Error al imprimir la cuenta");
+      if (isWaiterAccountUnavailableError(msg)) {
+        onAccountUnavailable(WAITER_ACCOUNT_UNAVAILABLE_MSG);
+        return;
+      }
+      setError(msg);
     } finally {
       setBusy(null);
     }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconButton } from "@kai/ui";
 import { clearKdsSession, type KdsSession } from "@/lib/app-session";
+import ChangePasswordDialog from "@/shared/components/Dialog/ChangePasswordDialog";
 import {
   subscribeKdsAlertAudioState,
   unlockAndTestKdsAlertAudio,
@@ -18,6 +19,7 @@ type KdsTopBarProps = {
 export function KdsTopBar({ session, productionUnitLabel }: KdsTopBarProps) {
   const router = useRouter();
   const [audioRunning, setAudioRunning] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const { refreshQueue, queueRefreshing, queueConnected } = useKdsQueueRefresh();
 
   useEffect(() => subscribeKdsAlertAudioState(setAudioRunning), []);
@@ -118,6 +120,15 @@ export function KdsTopBar({ session, productionUnitLabel }: KdsTopBarProps) {
           data-test-id="kds-settings-button"
         />
         <IconButton
+          icon="KeyRound"
+          variant="action"
+          size="md"
+          onClick={() => setChangePasswordOpen(true)}
+          ariaLabel="Cambiar contraseña"
+          title="Cambiar contraseña"
+          data-test-id="kds-change-password-button"
+        />
+        <IconButton
           icon="RefreshCw"
           variant="action"
           size="md"
@@ -180,6 +191,12 @@ export function KdsTopBar({ session, productionUnitLabel }: KdsTopBarProps) {
         </span>
         {renderLiveBadge("kds-ws-status-mobile")}
       </div>
+      <ChangePasswordDialog
+        isOpen={changePasswordOpen}
+        onClose={() => setChangePasswordOpen(false)}
+        userId={session.userId}
+        companyId={session.companyId}
+      />
     </header>
   );
 }

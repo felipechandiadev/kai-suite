@@ -232,4 +232,91 @@ describe('CompleteProductionBatchUseCase', () => {
     expect(outputDto.metadata.links.materialsCost).toBe(500);
     expect(outputDto.metadata.links.laborCost).toBe(50);
   });
+
+  it('completes without recipe: output stock only, no input consumption', async () => {
+    recipesService.list.mockResolvedValue([]);
+    transactionsService.createTransaction
+      .mockReset()
+      .mockResolvedValueOnce({ id: 'adj-in' });
+
+    const result = await useCase.execute({ productionBatchId: batchId });
+
+    expect(result.stockOutInputsTransactionId).toBeNull();
+    expect(result.stockInOutputTransactionId).toBe('adj-in');
+    expect(result.unitCost).toBe(10);
+    expect(result.totalCost).toBe(20);
+    expect(transactionsService.createTransaction).toHaveBeenCalledTimes(1);
+    expect(stockLevelRepo.find).not.toHaveBeenCalled();
+    expect(variantRepo.find).not.toHaveBeenCalled();
+
+    const outputDto = transactionsService.createTransaction.mock.calls[0][0];
+    expect(outputDto.transactionType).toBe(TransactionType.ADJUSTMENT_IN);
+    expect(outputDto.metadata.links.materialsCost).toBe(0);
+    expect(outputDto.metadata.links.laborCost).toBe(20);
+    expect(outputDto.lines[0].notes).toContain('without recipe');
+  });
+
+  it('mixed lots: consumes only lines with recipe', async () => {
+    const outNoRecipe = 'out-no-recipe';
+    txLineRepo.find.mockResolvedValue([
+      {
+        productVariantId: outputVariantId,
+        quantity: 2,
+        productName: 'Con receta',
+      },
+      {
+        productVariantId: outNoRecipe,
+        quantity: 3,
+        productName: 'Sin receta',
+      },
+    ]);
+    recipesService.list.mockImplementation(async (_companyId: string, variantId: string) => {
+      if (variantId === outputVariantId) {
+        return [
+          {
+            id: 'recipe-1',
+            version: 1,
+            isActive: true,
+            type: RecipeType.PRODUCTION,
+            lines: [
+              {
+                inputVariantId,
+                qtyPerOutputUnit: 1,
+                wasteFactor: 0,
+                sortOrder: 1,
+              },
+            ],
+          },
+        ];
+      }
+      return [];
+    });
+    stockLevelRepo.find.mockResolvedValue([
+      {
+        productVariantId: inputVariantId,
+        storageId: inputStorageId,
+        availableStock: 20,
+        physicalStock: 20,
+      },
+    ]);
+    transactionsService.createTransaction
+      .mockReset()
+      .mockResolvedValueOnce({ id: 'adj-out' })
+      .mockResolvedValueOnce({ id: 'adj-in' });
+
+    const result = await useCase.execute({ productionBatchId: batchId });
+
+    // materials 2*100 + labor (2+3)*10 = 200 + 50
+    expect(result.totalCost).toBe(250);
+    expect(result.stockOutInputsTransactionId).toBe('adj-out');
+    expect(result.stockInOutputTransactionId).toBe('adj-in');
+
+    const consumptionDto = transactionsService.createTransaction.mock.calls[0][0];
+    expect(consumptionDto.total).toBe(200);
+
+    const outputDto = transactionsService.createTransaction.mock.calls[1][0];
+    expect(outputDto.lines).toHaveLength(2);
+    expect(outputDto.metadata.links.materialsCost).toBe(200);
+    expect(outputDto.metadata.links.laborCost).toBe(50);
+  });
 });

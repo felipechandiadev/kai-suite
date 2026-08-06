@@ -20,6 +20,7 @@ function mapTable(raw: Record<string, unknown>): DiningTableItem {
     width: Number(raw.width ?? 80),
     height: Number(raw.height ?? 80),
     rotation: Number(raw.rotation ?? 0),
+    isActive: raw.isActive !== false,
   };
 }
 

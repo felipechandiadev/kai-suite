@@ -29,6 +29,8 @@ type WaiterTableScreenProps = {
   onBack: () => void;
   onOpenTable: () => Promise<void>;
   onOrderUpdated: (order: DiningOrderDto) => void;
+  /** Cuenta cerrada/cobrada: mensaje + volver a Mesas. */
+  onAccountUnavailable: (message: string) => void;
   opening?: boolean;
   canOpenTable?: boolean;
   /** Abrir directo en Cuenta (deep-link campana). */
@@ -44,6 +46,7 @@ export function WaiterTableScreen({
   onBack,
   onOpenTable,
   onOrderUpdated,
+  onAccountUnavailable,
   opening = false,
   canOpenTable = true,
   initialPanel = "menu",
@@ -215,6 +218,7 @@ export function WaiterTableScreen({
           branchId={branchId}
           orderId={order.id}
           onOrderUpdated={onOrderUpdated}
+          onAccountUnavailable={onAccountUnavailable}
         />
       ) : (
         <WaiterCuentaPanel
@@ -222,6 +226,7 @@ export function WaiterTableScreen({
           branchId={branchId}
           order={order}
           onOrderUpdated={onOrderUpdated}
+          onAccountUnavailable={onAccountUnavailable}
           highlightFireId={highlightFireId}
         />
       )}

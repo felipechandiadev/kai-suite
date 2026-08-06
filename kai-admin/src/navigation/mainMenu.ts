@@ -139,7 +139,7 @@ export const mainMenuItems: SideBarMenuItem[] = [
     children: [
       {
         id: 'production-orders',
-        label: 'Órdenes de producción',
+        label: 'Órdenes de manufactura',
         url: '/production/orders',
       },
       {
@@ -193,14 +193,21 @@ export const mainMenuItems: SideBarMenuItem[] = [
     children: [
       { id: 'kaifood-rooms', label: 'Salones', url: '/kaifood/rooms' },
       {
+        id: 'kaifood-reports',
+        label: 'Reportes',
+        url: '/kaifood/reportes',
+        requiresKaiFoodEnabled: true,
+      },
+      {
         id: 'kaifood-propinas',
         label: 'Propinas',
         url: '/kaifood/propinas',
         requiresTipsEnabled: true,
+        hidden: true,
       },
       {
         id: 'kaifood-production-orders',
-        label: 'Órdenes de producción',
+        label: 'Órdenes de elaboración',
         url: '/production/orders',
         requiresKaiFoodEnabled: true,
       },

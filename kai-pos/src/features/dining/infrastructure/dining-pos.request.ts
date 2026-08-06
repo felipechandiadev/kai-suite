@@ -486,6 +486,40 @@ export class DiningPosRequest {
     return { success: true, order: mapOrder(data as Record<string, unknown>) };
   }
 
+  static async markFireReady(
+    orderId: string,
+    fireId: string,
+    productionUnitId: string,
+  ): Promise<PosDiningMutationResponse> {
+    const base = process.env.BACKEND_API_URL;
+    if (!base) return { success: false, message: "BACKEND_API_URL no está configurada" };
+    const auth = await authHeaders();
+    if (!auth.ok) return { success: false, message: auth.message };
+
+    const unitId = productionUnitId.trim();
+    if (!unitId) {
+      return { success: false, message: "productionUnitId es obligatorio" };
+    }
+
+    const res = await backendFetch(
+      `${base}/api/dining/orders/${encodeURIComponent(orderId.trim())}/fires/${encodeURIComponent(fireId.trim())}/ready`,
+      {
+        method: "POST",
+        headers: auth.headers,
+        body: JSON.stringify({ productionUnitId: unitId }),
+      },
+    );
+    if (!res) return { success: false, message: BACKEND_CONNECTION_MESSAGE };
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { success: false, message: parseMessage(data, `HTTP ${res.status}`) };
+    }
+    if (!data || typeof data !== "object") {
+      return { success: false, message: "Respuesta inválida del servidor" };
+    }
+    return { success: true, order: mapOrder(data as Record<string, unknown>) };
+  }
+
   static async markFireReadyForPickup(
     orderId: string,
     fireId: string,

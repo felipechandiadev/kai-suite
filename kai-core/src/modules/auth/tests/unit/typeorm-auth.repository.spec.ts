@@ -28,6 +28,17 @@ describe('TypeOrmAuthRepository', () => {
     expect(result).toMatchObject({ id: 'user-1', userName: 'john' });
   });
 
+  it('should find user by id with soft-delete filter', async () => {
+    ormRepository.findOne.mockResolvedValueOnce({ id: 'user-1' });
+
+    const result = await repository.findUserById('user-1');
+
+    expect(ormRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'user-1', deletedAt: null as never },
+    });
+    expect(result).toMatchObject({ id: 'user-1' });
+  });
+
   it('should save user through orm repository', async () => {
     const user = { id: 'user-1', userName: 'john' };
     ormRepository.save.mockResolvedValueOnce(user);

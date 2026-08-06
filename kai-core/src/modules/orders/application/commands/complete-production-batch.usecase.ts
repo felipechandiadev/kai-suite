@@ -39,8 +39,8 @@ type OutputLot = {
   laborCost: number;
   lineCost: number;
   unitCost: number;
-  recipeId: string;
-  recipeVersion: number;
+  recipeId: string | null;
+  recipeVersion: number | null;
 };
 
 @Injectable()
@@ -122,7 +122,10 @@ export class CompleteProductionBatchUseCase
     >();
     const outputLots: OutputLot[] = [];
     const missingPmp: string[] = [];
-    const recipeCache = new Map<string, Awaited<ReturnType<RecipesService['list']>>[number]>();
+    const recipeCache = new Map<
+      string,
+      Awaited<ReturnType<RecipesService['list']>>[number] | null
+    >();
 
     for (const line of lines) {
       const outputVariantId = line.productVariantId?.trim();
@@ -148,16 +151,29 @@ export class CompleteProductionBatchUseCase
       }
       const laborPerPiece = laborPerPieceByVariant.get(outputVariantId) ?? 0;
 
-      let recipe = recipeCache.get(outputVariantId);
-      if (!recipe) {
+      if (!recipeCache.has(outputVariantId)) {
         const recipes = await this.recipesService.list(companyId, outputVariantId);
-        recipe = recipes.find((r) => r.isActive && r.type === RecipeType.PRODUCTION);
-        if (!recipe) {
-          throw new BadRequestException(
-            `No active PRODUCTION recipe for outputVariantId ${outputVariantId}`,
-          );
-        }
-        recipeCache.set(outputVariantId, recipe);
+        const found =
+          recipes.find((r) => r.isActive && r.type === RecipeType.PRODUCTION) ?? null;
+        recipeCache.set(outputVariantId, found);
+      }
+      const recipe = recipeCache.get(outputVariantId) ?? null;
+
+      /** Sin receta: solo ingresa terminado (cantidad); no consume insumos. */
+      if (!recipe) {
+        const laborCost = Number((laborPerPiece * outputQty).toFixed(6));
+        outputLots.push({
+          productVariantId: outputVariantId,
+          quantity: outputQty,
+          productName: line.productName || `Output ${outputVariantId}`,
+          materialsCost: 0,
+          laborCost,
+          lineCost: laborCost,
+          unitCost: outputQty > 0 ? Number((laborCost / outputQty).toFixed(6)) : 0,
+          recipeId: null,
+          recipeVersion: null,
+        });
+        continue;
       }
 
       const recipeLines = [...recipe.lines].sort(
@@ -236,38 +252,6 @@ export class CompleteProductionBatchUseCase
         ].join(', ')}`,
       );
     }
-    if (consumptionByInput.size === 0) {
-      throw new BadRequestException('No hay consumo de insumos calculable para esta producción');
-    }
-
-    const allInputIds = [...consumptionByInput.keys()];
-    const stockLevels = await this.stockLevelRepo.find({
-      where: {
-        storageId: inputStorageId,
-        productVariantId: In(allInputIds),
-      },
-    });
-    const stockByVariant = new Map(
-      stockLevels.map((s) => [s.productVariantId, Number(s.availableStock ?? s.physicalStock ?? 0)]),
-    );
-    const inputVariants = await this.variantRepo.find({
-      where: { id: In(allInputIds) },
-    });
-    const inputVariantById = new Map(inputVariants.map((v) => [v.id, v]));
-
-    const insufficientStock: string[] = [];
-    for (const [inputVariantId, c] of consumptionByInput) {
-      const available = stockByVariant.get(inputVariantId) ?? 0;
-      if (available + 1e-9 < c.qty) {
-        const sku = inputVariantById.get(inputVariantId)?.sku ?? inputVariantId;
-        insufficientStock.push(`${sku}: disponible ${available}, requerido ${c.qty}`);
-      }
-    }
-    if (insufficientStock.length > 0) {
-      throw new BadRequestException(
-        `Stock insuficiente de insumos en el almacén: ${insufficientStock.join('; ')}`,
-      );
-    }
 
     const materialsCostTotal = Number(
       [...consumptionByInput.values()]
@@ -282,41 +266,77 @@ export class CompleteProductionBatchUseCase
     const unitCost =
       totalOutputQty > 0 ? Number((totalCost / totalOutputQty).toFixed(6)) : 0;
 
-    const inputLines: CreateTransactionLineDto[] = [...consumptionByInput.entries()].map(
-      ([inputVariantId, c]) => {
-        const variant = inputVariantById.get(inputVariantId);
-        return {
-          productName: variant?.sku ? `Insumo ${variant.sku}` : `Input ${inputVariantId}`,
-          productVariantId: inputVariantId,
-          quantity: c.qty,
-          unitPrice: c.pmp,
-          subtotal: c.lineCost,
-          total: c.lineCost,
-          notes: 'Derived from recipe (production consumption)',
-        } as CreateTransactionLineDto;
-      },
-    );
+    let stockOutId: string | null = null;
+    if (consumptionByInput.size > 0) {
+      const allInputIds = [...consumptionByInput.keys()];
+      const stockLevels = await this.stockLevelRepo.find({
+        where: {
+          storageId: inputStorageId,
+          productVariantId: In(allInputIds),
+        },
+      });
+      const stockByVariant = new Map(
+        stockLevels.map((s) => [
+          s.productVariantId,
+          Number(s.availableStock ?? s.physicalStock ?? 0),
+        ]),
+      );
+      const inputVariants = await this.variantRepo.find({
+        where: { id: In(allInputIds) },
+      });
+      const inputVariantById = new Map(inputVariants.map((v) => [v.id, v]));
 
-    const inputsDto = new CreateTransactionDto();
-    inputsDto.transactionType = TransactionType.ADJUSTMENT_OUT;
-    inputsDto.branchId = batch.branchId as any;
-    inputsDto.userId = batch.userId as any;
-    inputsDto.storageId = inputStorageId as any;
-    inputsDto.subtotal = materialsCostTotal;
-    inputsDto.taxAmount = 0;
-    inputsDto.discountAmount = 0;
-    inputsDto.total = materialsCostTotal;
-    inputsDto.lines = inputLines;
-    inputsDto.relatedTransactionId = batch.id;
-    inputsDto.metadata = {
-      origin: 'PRODUCTION_CONSUMPTION',
-      links: {
-        productionBatchId: batch.id,
-        orderId: batch.metadata?.links?.orderId ?? null,
-      },
-    } as any;
+      const insufficientStock: string[] = [];
+      for (const [inputVariantId, c] of consumptionByInput) {
+        const available = stockByVariant.get(inputVariantId) ?? 0;
+        if (available + 1e-9 < c.qty) {
+          const sku = inputVariantById.get(inputVariantId)?.sku ?? inputVariantId;
+          insufficientStock.push(`${sku}: disponible ${available}, requerido ${c.qty}`);
+        }
+      }
+      if (insufficientStock.length > 0) {
+        throw new BadRequestException(
+          `Stock insuficiente de insumos en el almacén: ${insufficientStock.join('; ')}`,
+        );
+      }
 
-    const stockOut = await this.transactionsService.createTransaction(inputsDto);
+      const inputLines: CreateTransactionLineDto[] = [...consumptionByInput.entries()].map(
+        ([inputVariantId, c]) => {
+          const variant = inputVariantById.get(inputVariantId);
+          return {
+            productName: variant?.sku ? `Insumo ${variant.sku}` : `Input ${inputVariantId}`,
+            productVariantId: inputVariantId,
+            quantity: c.qty,
+            unitPrice: c.pmp,
+            subtotal: c.lineCost,
+            total: c.lineCost,
+            notes: 'Derived from recipe (production consumption)',
+          } as CreateTransactionLineDto;
+        },
+      );
+
+      const inputsDto = new CreateTransactionDto();
+      inputsDto.transactionType = TransactionType.ADJUSTMENT_OUT;
+      inputsDto.branchId = batch.branchId as any;
+      inputsDto.userId = batch.userId as any;
+      inputsDto.storageId = inputStorageId as any;
+      inputsDto.subtotal = materialsCostTotal;
+      inputsDto.taxAmount = 0;
+      inputsDto.discountAmount = 0;
+      inputsDto.total = materialsCostTotal;
+      inputsDto.lines = inputLines;
+      inputsDto.relatedTransactionId = batch.id;
+      inputsDto.metadata = {
+        origin: 'PRODUCTION_CONSUMPTION',
+        links: {
+          productionBatchId: batch.id,
+          orderId: batch.metadata?.links?.orderId ?? null,
+        },
+      } as any;
+
+      const stockOut = await this.transactionsService.createTransaction(inputsDto);
+      stockOutId = stockOut.id;
+    }
 
     const outputLines: CreateTransactionLineDto[] = outputLots.map(
       (lot) =>
@@ -327,7 +347,9 @@ export class CompleteProductionBatchUseCase
           unitPrice: lot.unitCost,
           subtotal: lot.lineCost,
           total: lot.lineCost,
-          notes: 'Derived from recipe + labor (production output)',
+          notes: lot.recipeId
+            ? 'Derived from recipe + labor (production output)'
+            : 'Production output without recipe (quantity only)',
         }) as CreateTransactionLineDto,
     );
 
@@ -406,7 +428,7 @@ export class CompleteProductionBatchUseCase
 
     return {
       productionBatchId: batch.id,
-      stockOutInputsTransactionId: stockOut.id,
+      stockOutInputsTransactionId: stockOutId,
       stockInOutputTransactionId: stockIn.id,
       unitCost,
       totalCost,

@@ -127,13 +127,19 @@ export function HeroSlideFormFields({
         ) : null}
       </div>
 
-      {showAdvanced && onSortOrderChange != null && sortOrder != null ? (
-        <div className="grid gap-4 md:grid-cols-3">
-          <TextField
-            label="Orden (desde 1)"
-            value={sortOrder}
-            onChange={(e) => onSortOrderChange(e.target.value)}
-          />
+      {showAdvanced ? (
+        <div
+          className={`grid gap-4 ${
+            onSortOrderChange != null && sortOrder != null ? "md:grid-cols-3" : "md:grid-cols-2"
+          }`}
+        >
+          {onSortOrderChange != null && sortOrder != null ? (
+            <TextField
+              label="Orden (desde 1)"
+              value={sortOrder}
+              onChange={(e) => onSortOrderChange(e.target.value)}
+            />
+          ) : null}
           <TextField
             label="Opacidad overlay (0–90)"
             value={overlayOpacity}

@@ -5,6 +5,8 @@ import { Search } from "lucide-react";
 import { IconButton, TextField } from "@kai/ui";
 import type { ManufactureVariantSearchItem } from "@/features/inventory-production/types/production-batch.types";
 import { searchManufactureVariantsAction } from "@/features/inventory-production/actions/production-batch.action";
+import { productionVariantSearchHelper } from "@/features/inventory-production/lib/production-batch-labels";
+import { useCompany } from "@/providers/CompanyProvider";
 
 type Props = {
   productionUnitId: string | null;
@@ -15,6 +17,8 @@ export function ManufactureVariantSearchPanel({
   productionUnitId,
   onAddVariant,
 }: Props) {
+  const { company } = useCompany();
+  const searchHelper = productionVariantSearchHelper(company?.kaiProduct);
   const [draftSearch, setDraftSearch] = useState("");
   const [items, setItems] = useState<ManufactureVariantSearchItem[]>([]);
   const [searching, setSearching] = useState(false);
@@ -76,7 +80,7 @@ export function ManufactureVariantSearchPanel({
             ? "Elija la unidad a la derecha para filtrar"
             : searching
               ? "Buscando…"
-              : "Solo MANUFACTURADO habilitado en la unidad"
+              : searchHelper
         }
         data-test-id="manufacture-variant-search-field"
       />
@@ -111,8 +115,8 @@ export function ManufactureVariantSearchPanel({
                     : ""}
                 </p>
                 {!item.hasRecipe ? (
-                  <p className="mt-1 text-xs text-destructive">
-                    Sin receta PRODUCTION
+                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                    Sin receta: al completar no se descontarán insumos
                   </p>
                 ) : null}
               </div>
@@ -123,7 +127,6 @@ export function ManufactureVariantSearchPanel({
                   size="sm"
                   title="Agregar a la orden"
                   ariaLabel="Agregar variante a la orden"
-                  disabled={!item.hasRecipe}
                   onClick={() => onAddVariant(item)}
                   data-test-id={`manufacture-variant-add-${item.variantId}`}
                 />

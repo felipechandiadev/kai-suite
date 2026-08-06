@@ -84,13 +84,14 @@ type HeroSlidePreviewProps = {
   className?: string;
 };
 
-/** Vista previa estática de un slide (como en la tienda: textos abajo). */
+/** Vista previa estática de un slide (como en la carta: textos abajo + overlay). */
 export function HeroSlidePreview({ slide, className = "" }: HeroSlidePreviewProps) {
   const alignClass = TEXT_ALIGN_CLASS[slide.textAlign] ?? TEXT_ALIGN_CLASS.left;
   const ctaStyle = resolveCtaStyle(slide);
   const presentation = getHeroSlideTextPresentation(slide.textColor);
   const titleStyle = heroSlideTitleStyle(slide.textColor);
   const subtitleStyle = heroSlideSubtitleStyle(slide.textColor);
+  const overlay = Math.min(90, Math.max(0, Number(slide.overlayOpacity) || 45)) / 100;
 
   return (
     <div
@@ -103,6 +104,11 @@ export function HeroSlidePreview({ slide, className = "" }: HeroSlidePreviewProp
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5" />
       )}
+      <div
+        className="absolute inset-0 z-[1]"
+        style={{ backgroundColor: `rgba(0,0,0,${overlay})` }}
+        aria-hidden
+      />
       <div className="relative z-10 flex h-full min-h-[200px] flex-col justify-end pb-12 pt-10 text-foreground md:min-h-[260px] md:pb-14">
         <div className="mx-auto w-full max-w-6xl px-4">
           <div className={`flex max-w-2xl flex-col ${alignClass}`}>

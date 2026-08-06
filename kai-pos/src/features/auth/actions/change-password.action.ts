@@ -9,12 +9,18 @@ export async function changePasswordAction(input: {
   newPassword: string;
   confirmPassword: string;
 }): Promise<{ success: true } | { success: false; error: string }> {
-  const currentPassword = typeof input.currentPassword === "string" ? input.currentPassword : "";
-  const newPassword = typeof input.newPassword === "string" ? input.newPassword : "";
-  const confirmPassword = typeof input.confirmPassword === "string" ? input.confirmPassword : "";
+  const currentPassword =
+    typeof input.currentPassword === "string" ? input.currentPassword : "";
+  const newPassword =
+    typeof input.newPassword === "string" ? input.newPassword : "";
+  const confirmPassword =
+    typeof input.confirmPassword === "string" ? input.confirmPassword : "";
 
   if (newPassword.length < 6) {
-    return { success: false, error: "La contraseña debe tener al menos 6 caracteres." };
+    return {
+      success: false,
+      error: "La contraseña debe tener al menos 6 caracteres.",
+    };
   }
   if (newPassword !== confirmPassword) {
     return { success: false, error: "La confirmación no coincide." };
@@ -28,7 +34,7 @@ export async function changePasswordAction(input: {
 
   try {
     const base = getServerBackendApiBase();
-    const res = await fetch(`${base}/auth/change-password`, {
+    const res = await fetch(`${base}/api/auth/change-password`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -38,7 +44,9 @@ export async function changePasswordAction(input: {
       cache: "no-store",
     });
 
-    const json = (await res.json().catch(() => null)) as any;
+    const json = (await res.json().catch(() => null)) as {
+      message?: string | string[];
+    } | null;
     if (!res.ok) {
       const message =
         typeof json?.message === "string" && json.message.trim()
@@ -49,10 +57,12 @@ export async function changePasswordAction(input: {
       return { success: false, error: message };
     }
 
-    // API puede devolver {success:true} o algo similar; si no hay error consideramos ok.
     return { success: true };
   } catch (e) {
-    return { success: false, error: e instanceof Error ? e.message : "Error al cambiar la contraseña" };
+    return {
+      success: false,
+      error:
+        e instanceof Error ? e.message : "Error al cambiar la contraseña",
+    };
   }
 }
-

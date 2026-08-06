@@ -182,6 +182,8 @@ const PARAM_LABELS_ES: Record<string, string> = {
   paymentMethod: "Medio de pago",
   cashSessionId: "Sesión de caja",
   branchId: "Sucursal",
+  diningRoomId: "Salón",
+  orderKind: "Tipo de cuenta",
   topN: "Top N",
   promotionId: "Promoción",
   sessionStatus: "Estado sesión",
@@ -260,6 +262,13 @@ const SUMMARY_LABELS_ES: Record<string, string> = {
   qtyNet: "Neto",
   valorMovido: "Valor movido",
   lineasSinCosto: "Líneas sin costo",
+  accountCount: "Cuentas cerradas",
+  avgDwellMinutes: "Permanencia media (min)",
+  tipTotal: "Propinas",
+  tipPct: "% propina",
+  peakHour: "Hora pico",
+  peakHourAccounts: "Cuentas en hora pico",
+  tableCount: "Mesas con movimiento",
 };
 
 const COLUMN_LABELS_ES: Record<string, string> = {
@@ -267,6 +276,13 @@ const COLUMN_LABELS_ES: Record<string, string> = {
   count: "Cantidad",
   total: "Total",
   avgTicket: "Ticket prom.",
+  avgDwellMinutes: "Permanencia (min)",
+  roomName: "Salón",
+  tableLabel: "Mesa",
+  turns: "Turnos",
+  hour: "Hora",
+  tipTotal: "Propinas",
+  tipPct: "% propina",
   createdAt: "Fecha",
   id: "ID",
   paymentMethod: "Pago",
@@ -326,6 +342,14 @@ const VALUE_KIND_BY_KEY: Record<string, ReportValueKind> = {
   totalSalesB: "money",
   avgTicket: "money",
   avgTicketB: "money",
+  tipTotal: "money",
+  tipPct: "percent",
+  avgDwellMinutes: "count",
+  accountCount: "count",
+  peakHour: "count",
+  peakHourAccounts: "count",
+  tableCount: "count",
+  turns: "count",
   grossMargin: "money",
   amount: "money",
   totalAmount: "money",
@@ -673,6 +697,14 @@ export function formatReportParamValue(key: string, value: unknown): string {
   }
   if (key === "paymentMethod" || key === "sessionStatus" || key === "status") {
     return translateEnumValue(value);
+  }
+  if (key === "orderKind") {
+    const map: Record<string, string> = {
+      TABLE: "Mesas",
+      COUNTER: "Barra",
+      TAKEAWAY: "Para llevar",
+    };
+    return map[String(value)] ?? String(value);
   }
   if (key === "compareWith") {
     const map: Record<string, string> = {

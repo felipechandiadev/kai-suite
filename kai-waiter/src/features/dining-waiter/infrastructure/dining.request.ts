@@ -112,6 +112,7 @@ export type WaiterMenuSearchResult = {
 
 export type WaiterBranchCatalogContextDto = {
   branchId: string;
+  branchName: string | null;
   priceListId: string | null;
   pointOfSaleId: string | null;
 };
@@ -133,7 +134,7 @@ export type WaiterLineProductMeta = {
 type PosListRow = {
   id?: string;
   branchId?: string | null;
-  branch?: { id?: string } | null;
+  branch?: { id?: string; name?: string | null } | null;
   isActive?: boolean;
   defaultPriceListId?: string | null;
 };
@@ -248,8 +249,13 @@ export class DiningRequest {
       );
     });
     const pick = forBranch[0];
+    const branchName =
+      pick?.branch?.name != null && String(pick.branch.name).trim()
+        ? String(pick.branch.name).trim()
+        : null;
     return {
       branchId: bid,
+      branchName,
       priceListId: pick?.defaultPriceListId?.trim() || null,
       pointOfSaleId: pick?.id?.trim() || null,
     };

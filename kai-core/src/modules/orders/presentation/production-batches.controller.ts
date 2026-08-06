@@ -25,6 +25,8 @@ import { ProductVariant } from '@modules/product-variants/domain/product-variant
 import { ProductVariantProductionUnit } from '@modules/product-variants/domain/product-variant-production-unit.entity';
 import { ProductVariantProductionAttribute } from '@modules/product-variants/domain/product-variant-production-attribute.entity';
 import { ProductType } from '@modules/products/domain/product.entity';
+import { Company } from '@modules/companies/domain/company.entity';
+import { ProductModeService } from '@shared/product-mode/product-mode.service';
 import { RecipesService } from '@modules/recipes/application/recipes.service';
 import { RecipeType } from '@modules/recipes/domain/recipe-type.enum';
 import { SearchTransactionsQuery } from '@modules/transactions/application/queries/search-transactions.query';
@@ -49,6 +51,7 @@ export class ProductionBatchesController {
     private readonly transactionsService: TransactionsService,
     private readonly recipesService: RecipesService,
     private readonly productionUnitsService: ProductionUnitsService,
+    private readonly productModeService: ProductModeService,
     @InjectRepository(Transaction)
     private readonly txRepo: Repository<Transaction>,
     @InjectRepository(TransactionLine)
@@ -59,7 +62,21 @@ export class ProductionBatchesController {
     private readonly routingRepo: Repository<ProductVariantProductionUnit>,
     @InjectRepository(ProductVariantProductionAttribute)
     private readonly attrRepo: Repository<ProductVariantProductionAttribute>,
+    @InjectRepository(Company)
+    private readonly companyRepo: Repository<Company>,
   ) {}
+
+  private async resolveBatchOutputTypes(): Promise<ProductType[]> {
+    const companyId = TenantContext.getCompanyId();
+    if (!companyId) {
+      throw new BadRequestException('Empresa activa requerida');
+    }
+    const company = await this.companyRepo.findOne({
+      where: { id: companyId },
+      select: ['id', 'kaiProduct'],
+    });
+    return this.productModeService.batchProductionOutputTypes(company?.kaiProduct);
+  }
 
   @Get('manufacture-variants')
   async searchManufactureVariants(
@@ -72,6 +89,7 @@ export class ProductionBatchesController {
     }
     const limit = Math.max(1, Math.min(50, parseInt(query.limit || '30', 10) || 30));
     const q = (query.q ?? '').trim();
+    const allowedTypes = await this.resolveBatchOutputTypes();
 
     const routedRows = await this.routingRepo
       .createQueryBuilder('routing')
@@ -95,9 +113,7 @@ export class ProductionBatchesController {
       .where('v.id IN (:...routedIds)', { routedIds })
       .andWhere('v.deletedAt IS NULL')
       .andWhere('product.deletedAt IS NULL')
-      .andWhere('product.productType = :productType', {
-        productType: ProductType.MANUFACTURADO,
-      })
+      .andWhere('product.productType IN (:...allowedTypes)', { allowedTypes })
       .orderBy('product.name', 'ASC')
       .addOrderBy('v.sku', 'ASC')
       .take(limit);
@@ -145,11 +161,12 @@ export class ProductionBatchesController {
       const hasRecipe = recipes.some(
         (r) => r.isActive && r.type === RecipeType.PRODUCTION,
       );
+      const productType = v.product?.productType ?? allowedTypes[0]!;
       items.push({
         variantId: v.id,
         sku: v.sku,
         productName: v.product?.name ?? v.sku,
-        productType: ProductType.MANUFACTURADO,
+        productType,
         hasRecipe,
         attributesCount: attrCounts.get(v.id) ?? 0,
       });
@@ -327,6 +344,9 @@ export class ProductionBatchesController {
       attrsByVariant.set(a.productVariantId, list);
     }
 
+    const allowedTypes = await this.resolveBatchOutputTypes();
+    const allowedLabel = allowedTypes.join(' / ');
+
     const lots: ProductionOrderLotSnapshot[] = [];
     const txLines: CreateTransactionDto['lines'] = [];
 
@@ -337,24 +357,14 @@ export class ProductionBatchesController {
           `Variante de salida no encontrada: ${line.productVariantId}`,
         );
       }
-      if (variant.product.productType !== ProductType.MANUFACTURADO) {
+      if (!allowedTypes.includes(variant.product.productType)) {
         throw new BadRequestException(
-          `Solo se permiten productos MANUFACTURADO (SKU ${variant.sku}).`,
+          `Solo se permiten productos ${allowedLabel} (SKU ${variant.sku}).`,
         );
       }
       if (!routedVariantIds.has(variant.id)) {
         throw new BadRequestException(
           `La variante ${variant.sku} no está habilitada en la unidad de producción seleccionada.`,
-        );
-      }
-
-      const recipes = await this.recipesService.list(companyId, variant.id);
-      const recipe = recipes.find(
-        (r) => r.isActive && r.type === RecipeType.PRODUCTION,
-      );
-      if (!recipe) {
-        throw new BadRequestException(
-          `Se requiere una receta PRODUCTION activa para ${variant.sku}.`,
         );
       }
 

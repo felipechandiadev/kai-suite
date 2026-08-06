@@ -17,6 +17,11 @@ import type {
 } from "../infrastructure/dining.request";
 import { WaiterProductNameWithAttributes } from "./WaiterProductNameWithAttributes";
 import type { WaiterSession } from "@/lib/app-session";
+import {
+  isWaiterAccountUnavailableError,
+  messageFromUnknownError,
+  WAITER_ACCOUNT_UNAVAILABLE_MSG,
+} from "../lib/waiter-account-unavailable";
 
 const SEARCH_DEBOUNCE_MS = 280;
 const PAGE_SIZE = 24;
@@ -55,6 +60,7 @@ type WaiterMenuPanelProps = {
   branchId: string;
   orderId: string;
   onOrderUpdated: (order: DiningOrderDto) => void;
+  onAccountUnavailable: (message: string) => void;
 };
 
 export function WaiterMenuPanel({
@@ -62,6 +68,7 @@ export function WaiterMenuPanel({
   branchId,
   orderId,
   onOrderUpdated,
+  onAccountUnavailable,
 }: WaiterMenuPanelProps) {
   const [draftSearch, setDraftSearch] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -74,9 +81,6 @@ export function WaiterMenuPanel({
   const [priceListId, setPriceListId] = useState<string | null>(null);
   const [pointOfSaleId, setPointOfSaleId] = useState<string | null>(null);
   const [menuCategories, setMenuCategories] = useState<WaiterMenuCategoryDto[]>(
-    [],
-  );
-  const [configuredCategoryIds, setConfiguredCategoryIds] = useState<string[]>(
     [],
   );
   const [activeCategoryIds, setActiveCategoryIds] = useState<string[]>([]);
@@ -106,7 +110,6 @@ export function WaiterMenuPanel({
         const allowed = new Set(cats.map((c) => c.id));
         const stored = readActiveCategoryIds(bid).filter((id) => allowed.has(id));
         setMenuCategories(cats);
-        setConfiguredCategoryIds(settings.posAccountsMenuCategoryIds ?? []);
         setActiveCategoryIds(stored);
         if (!ctx.priceListId) {
           setError(
@@ -136,11 +139,11 @@ export function WaiterMenuPanel({
     };
   }, [draftSearch]);
 
+  /** Sin badge activo = todo el menú (onMenu); categorías configuradas solo definen badges. */
   const searchCategoryIds = useMemo(() => {
     if (activeCategoryIds.length > 0) return activeCategoryIds;
-    if (configuredCategoryIds.length > 0) return configuredCategoryIds;
     return undefined;
-  }, [activeCategoryIds, configuredCategoryIds]);
+  }, [activeCategoryIds]);
 
   const load = useCallback(async () => {
     const pl = priceListId?.trim();
@@ -229,7 +232,12 @@ export function WaiterMenuPanel({
       });
       onOrderUpdated(updated);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo agregar");
+      const msg = messageFromUnknownError(e, "No se pudo agregar");
+      if (isWaiterAccountUnavailableError(msg)) {
+        onAccountUnavailable(WAITER_ACCOUNT_UNAVAILABLE_MSG);
+        return;
+      }
+      setError(msg);
     } finally {
       setAddingId(null);
     }

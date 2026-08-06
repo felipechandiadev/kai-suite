@@ -62,6 +62,14 @@ export const REPORT_KPI_HELP: Record<string, string> = {
   unitCount: "Unidades de stock distintas con movimiento.",
   rowCount: "Filas incluidas en el resultado.",
   categoryCount: "Categorías con existencias en el resultado.",
+  accountCount: "Cantidad de cuentas dining CLOSED con cierre en el período.",
+  avgDwellMinutes:
+    "Promedio de minutos entre apertura y cierre de la cuenta.",
+  tipTotal: "Suma de propinas del ledger vinculadas a esas cuentas (excluye VOID).",
+  tipPct: "Propinas como porcentaje de las ventas vinculadas.",
+  peakHour: "Hora del día (0–23, America/Santiago) con más cierres.",
+  peakHourAccounts: "Cuentas cerradas en la hora pico.",
+  tableCount: "Mesas (o agrupaciones) con al menos un cierre en el período.",
 };
 
 export function reportKpiHelp(

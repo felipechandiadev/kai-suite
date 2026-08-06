@@ -179,6 +179,7 @@ import { ProductionUnitsModule } from './modules/production-units/production-uni
     require('./modules/analytics/analytics.module').AnalyticsModule,
     require('./modules/signals/signals.module').SignalsModule,
     require('./modules/sales-reports/sales-reports.module').SalesReportsModule,
+    require('./modules/dining-reports/dining-reports.module').DiningReportsModule,
     require('./modules/purchasing-reports/purchasing-reports.module').PurchasingReportsModule,
     require('./modules/inventory-reports/inventory-reports.module').InventoryReportsModule,
     require('./modules/hcm-reports/hcm-reports.module').HcmReportsModule,

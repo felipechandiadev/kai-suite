@@ -83,6 +83,8 @@ const BULLET_KPI_KEYS = new Set([
   "totalSales",
   "ticketCount",
   "avgTicket",
+  "accountCount",
+  "tipTotal",
   "grossMargin",
   "totalAmount",
   "amount",

@@ -6,12 +6,10 @@ import { Tabs } from "@kai/ui";
 
 const BASE = "/kaifood/menu";
 
+/** Topbar / Nosotros / Encuéntranos ocultos por ahora (páginas siguen por URL). */
 const items = [
   { url: `${BASE}/appearance`, label: "Apariencia" },
-  { url: `${BASE}/topbar`, label: "Topbar" },
   { url: `${BASE}/hero`, label: "Hero" },
-  { url: `${BASE}/about`, label: "Nosotros" },
-  { url: `${BASE}/find-us`, label: "Encuéntranos" },
   { url: `${BASE}/qr`, label: "QR" },
 ] as const;
 

@@ -58,4 +58,21 @@ describe('ProductModeService', () => {
       service.assertProductTypeAllowed(ProductType.PHYSICAL),
     ).not.toThrow();
   });
+
+  it('batch outputs: ELABORADO for kaifood company', () => {
+    const service = makeService('kaisuite');
+    expect(service.batchProductionOutputTypes('kaifood')).toEqual([
+      ProductType.ELABORADO,
+    ]);
+  });
+
+  it('batch outputs: MANUFACTURADO for kaistore / empty company', () => {
+    const service = makeService('kaisuite');
+    expect(service.batchProductionOutputTypes('kaistore')).toEqual([
+      ProductType.MANUFACTURADO,
+    ]);
+    expect(service.batchProductionOutputTypes(null)).toEqual([
+      ProductType.MANUFACTURADO,
+    ]);
+  });
 });

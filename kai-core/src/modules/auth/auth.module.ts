@@ -13,6 +13,7 @@ import { TypeOrmAuthRepository } from './infrastructure/repositories/typeorm-aut
 // CQRS Imports
 import { LoginCommandHandler } from './application/handlers/commands/login.handler';
 import { LogoutCommandHandler } from './application/handlers/commands/logout.handler';
+import { ChangePasswordCommandHandler } from './application/handlers/commands/change-password.handler';
 
 @Module({
   imports: [UsersModule, TypeOrmModule.forFeature([User, Company]), CqrsModule],
@@ -29,6 +30,7 @@ import { LogoutCommandHandler } from './application/handlers/commands/logout.han
     // CQRS Handlers
     LoginCommandHandler,
     LogoutCommandHandler,
+    ChangePasswordCommandHandler,
   ],
   exports: [AuthService, AuthServiceAdapter, AUTH_REPOSITORY],
 })

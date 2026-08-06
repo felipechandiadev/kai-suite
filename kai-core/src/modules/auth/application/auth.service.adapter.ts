@@ -1,11 +1,16 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { LoginCommand } from './commands/login.command';
 import { LogoutCommand } from './commands/logout.command';
+import { ChangePasswordCommand } from './commands/change-password.command';
 import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { LogoutResponseDto } from './dto/logout-response.dto';
+import {
+  ChangePasswordDto,
+  ChangePasswordResponseDto,
+} from './dto/change-password.dto';
 
 @Injectable()
 export class AuthServiceAdapter {
@@ -49,6 +54,24 @@ export class AuthServiceAdapter {
     return {
       success: result.success,
       message: 'Logout successful',
+    };
+  }
+
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+  ): Promise<ChangePasswordResponseDto> {
+    const result = await this.commandBus.execute(
+      new ChangePasswordCommand(
+        userId,
+        dto.currentPassword,
+        dto.newPassword,
+        dto.confirmPassword,
+      ),
+    );
+    return {
+      success: result.success,
+      message: result.message ?? 'Contraseña actualizada',
     };
   }
 }
