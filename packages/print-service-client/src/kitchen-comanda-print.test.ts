@@ -3,7 +3,6 @@ import {
   collectKitchenComandaPrintJobs,
   kitchenUnitShouldPrint,
   replicaIncludesUnit,
-  resolveTicketBranchName,
   type KitchenFireLineForPrint,
 } from "./kitchen-comanda-print";
 
@@ -38,14 +37,6 @@ describe("kitchen-comanda-print helpers", () => {
     expect(
       replicaIncludesUnit({ enabled: false, productionUnitIds: [] }, "up-a"),
     ).toBe(false);
-  });
-
-  it("resolveTicketBranchName respects include flag", () => {
-    expect(resolveTicketBranchName("Centro", true)).toBe("Centro");
-    expect(resolveTicketBranchName("  Centro  ", true)).toBe("Centro");
-    expect(resolveTicketBranchName("Centro", false)).toBeNull();
-    expect(resolveTicketBranchName("", true)).toBeNull();
-    expect(resolveTicketBranchName(null, true)).toBeNull();
   });
 
   it("collectKitchenComandaPrintJobs groups by UP and fire", () => {

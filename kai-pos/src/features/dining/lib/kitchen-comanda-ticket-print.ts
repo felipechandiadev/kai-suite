@@ -9,8 +9,6 @@ import {
   printServicePageRequiresTls,
   PrintServiceConnection,
   readPosKitchenComandaReplicaPrefs,
-  readPosIncludeBranchName,
-  resolveTicketBranchName,
   replicaIncludesUnit,
   withSharedPrintServiceConnection,
   type HelloResponseData,
@@ -209,7 +207,6 @@ export async function printKitchenComandasAfterFire(
   const agentById = new Map(agents.map((a) => [a.id, a]));
 
   const replicaPrefs = readPosKitchenComandaReplicaPrefs();
-  const includeBranch = readPosIncludeBranchName();
   const posCtx = readPosContextClient();
   const company = companyPayload(input.company);
 
@@ -227,7 +224,7 @@ export async function printKitchenComandasAfterFire(
       fireNumber: job.fireNumber,
       accountLabel: input.order.displayLabel,
       tableCode: input.order.tableCode,
-      branchName: resolveTicketBranchName(posCtx?.branchName, includeBranch),
+      branchName: posCtx?.branchName?.trim() || null,
       lines: job.lines,
     });
     const folio = `F${job.fireNumber}-${job.productionUnitId.slice(0, 8)}`;

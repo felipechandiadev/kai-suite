@@ -9,8 +9,6 @@ import {
   printServicePageRequiresTls,
   PrintServiceConnection,
   readWaiterKitchenComandaReplicaPrefs,
-  readWaiterIncludeBranchName,
-  resolveTicketBranchName,
   replicaIncludesUnit,
   withSharedPrintServiceConnection,
   type HelloResponseData,
@@ -161,8 +159,7 @@ export async function printWaiterKitchenComandasAfterFire(
     (input.printAgents ?? []).map((a) => [a.id, a] as const),
   );
   const replicaPrefs = readWaiterKitchenComandaReplicaPrefs();
-  const includeBranch = readWaiterIncludeBranchName();
-  const branchName = resolveTicketBranchName(input.branchName, includeBranch);
+  const branchName = input.branchName?.trim() || null;
   const displayName = input.companyName?.trim() || "Empresa";
   const company = {
     razonSocial: displayName,

@@ -165,6 +165,7 @@ type DashboardPayload = {
   globalTicketLogoDisplayName?: string;
   ticketShowCompanyRut?: boolean;
   ticketShowRazonSocial?: boolean;
+  ticketHeaderTitleMode?: "fantasy" | "branch";
 };
 
 function escapeHtml(s: string) {
@@ -273,6 +274,7 @@ export default function App() {
     agentDisplayName: DEFAULT_AGENT_DISPLAY_NAME,
     ticketShowCompanyRut: true,
     ticketShowRazonSocial: true,
+    ticketHeaderTitleMode: "fantasy" as "fantasy" | "branch",
   });
 
   const [configEdit, setConfigEdit] = useState(false);
@@ -324,6 +326,7 @@ export default function App() {
       agentDisplayName: normalizeAgentDisplayName(d.agentDisplayName),
       ticketShowCompanyRut: d.ticketShowCompanyRut !== false,
       ticketShowRazonSocial: d.ticketShowRazonSocial !== false,
+      ticketHeaderTitleMode: d.ticketHeaderTitleMode === "branch" ? "branch" : "fantasy",
     });
     const storedCoreUrl = (d.kaiCore?.baseUrl ?? "").trim().replace(/\/+$/, "");
     const legacyCoreDefault = "http://localhost:5160";
@@ -716,6 +719,7 @@ export default function App() {
       agentDisplayName: agentName,
       ticketShowCompanyRut: settings.ticketShowCompanyRut,
       ticketShowRazonSocial: settings.ticketShowRazonSocial,
+      ticketHeaderTitleMode: settings.ticketHeaderTitleMode,
     };
     setSettingsSaveBusy(true);
     try {
@@ -1618,8 +1622,45 @@ export default function App() {
           <div className="space-y-2 border-t border-border pt-3">
             <p className="text-xs font-semibold text-foreground">Datos de empresa en tickets</p>
             <p className="text-[11px] text-muted-foreground">
-              Controla si el encabezado ESC/POS muestra RUT y razón social (además del nombre de fantasía).
+              Define el título grande del encabezado ESC/POS y si se muestran RUT y razón social.
             </p>
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-medium text-foreground">Título del ticket</p>
+              <div className="flex flex-col gap-1.5">
+                <label className="flex items-center gap-2 text-sm text-foreground">
+                  <input
+                    type="radio"
+                    name="ticket-header-title-mode"
+                    checked={settings.ticketHeaderTitleMode === "fantasy"}
+                    onChange={() => {
+                      setSettings((s) => ({ ...s, ticketHeaderTitleMode: "fantasy" }));
+                      void invoke("set_service_settings", {
+                        patch: { ticketHeaderTitleMode: "fantasy" },
+                      }).catch(() => {
+                        window.alert("No se pudo guardar el título del ticket.");
+                      });
+                    }}
+                  />
+                  Nombre de fantasía
+                </label>
+                <label className="flex items-center gap-2 text-sm text-foreground">
+                  <input
+                    type="radio"
+                    name="ticket-header-title-mode"
+                    checked={settings.ticketHeaderTitleMode === "branch"}
+                    onChange={() => {
+                      setSettings((s) => ({ ...s, ticketHeaderTitleMode: "branch" }));
+                      void invoke("set_service_settings", {
+                        patch: { ticketHeaderTitleMode: "branch" },
+                      }).catch(() => {
+                        window.alert("No se pudo guardar el título del ticket.");
+                      });
+                    }}
+                  />
+                  Sucursal
+                </label>
+              </div>
+            </div>
             <InlineSwitchField
               label="Mostrar RUT"
               checked={settings.ticketShowCompanyRut}

@@ -9,6 +9,7 @@ use crate::pos_sale_ticket_escpos::{
     escpos_align, escpos_apply_ticket_typography, escpos_bold, escpos_dense_body, escpos_init, footer_folio_datetime_line,
     money, pad_label_value, pad_left, wrap_lines, layout_width, CompanyHeaderStyle,
 };
+use crate::ticket_header_prefs;
 use anyhow::Result;
 use std::path::PathBuf;
 
@@ -56,6 +57,7 @@ pub fn build_pos_customer_credit_note_ticket_escpos(
             activity: false,
             rut_with_colon: false,
         },
+        nc.branch_name.as_deref(),
     );
 
     append_divider(&mut buf);
@@ -64,8 +66,10 @@ pub fn build_pos_customer_credit_note_ticket_escpos(
     escpos_bold(&mut buf, false);
 
     let folio = nc.credit_note_folio.trim();
-    if let Some(b) = nc.branch_name.as_deref().filter(|s| !s.trim().is_empty()) {
-        append_line(&mut buf, &pad_left("Sucursal:", b.trim()));
+    if ticket_header_prefs::should_emit_branch_line(nc.branch_name.as_deref()) {
+        if let Some(b) = nc.branch_name.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            append_line(&mut buf, &pad_left("Sucursal:", b));
+        }
     }
     if let Some(p) = nc.point_of_sale_name.as_deref().filter(|s| !s.trim().is_empty()) {
         append_line(&mut buf, &pad_left("Punto venta:", p.trim()));

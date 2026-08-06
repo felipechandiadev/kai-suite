@@ -15,7 +15,7 @@ pub fn build_pos_bank_account_ticket_escpos(t: &PosBankAccountTicket) -> Result<
     escpos_apply_ticket_typography(&mut buf);
 
     append_ticket_logo(&mut buf, t.company.logo_base64.as_deref());
-    append_company_store_header(&mut buf, &t.company, CompanyHeaderStyle::TITLE_ONLY);
+    append_company_store_header(&mut buf, &t.company, CompanyHeaderStyle::TITLE_ONLY, t.branch_name.as_deref());
 
     append_divider(&mut buf);
     escpos_bold(&mut buf, true);

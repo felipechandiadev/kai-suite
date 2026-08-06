@@ -8,6 +8,7 @@ use crate::pos_sale_ticket_escpos::{
 use crate::pos_supplier_payment_ticket::{
     parse_pos_supplier_payment_ticket_from_value, PosSupplierPaymentTicket,
 };
+use crate::ticket_header_prefs;
 use anyhow::Result;
 use std::path::PathBuf;
 
@@ -16,7 +17,7 @@ pub fn build_pos_supplier_payment_ticket_escpos(t: &PosSupplierPaymentTicket) ->
     escpos_apply_ticket_typography(&mut buf);
 
     append_ticket_logo(&mut buf, t.company.logo_base64.as_deref());
-    append_company_store_header(&mut buf, &t.company, CompanyHeaderStyle::TITLE_ONLY);
+    append_company_store_header(&mut buf, &t.company, CompanyHeaderStyle::TITLE_ONLY, t.branch_name.as_deref());
 
     append_divider(&mut buf);
     escpos_bold(&mut buf, true);
@@ -30,7 +31,12 @@ pub fn build_pos_supplier_payment_ticket_escpos(t: &PosSupplierPaymentTicket) ->
         .unwrap_or("Efectivo");
     append_line(&mut buf, &format!("Salida de efectivo · {method}"));
 
-    let origin = [t.branch_name.as_deref(), t.point_of_sale_name.as_deref()]
+    let branch_for_origin = if ticket_header_prefs::should_emit_branch_line(t.branch_name.as_deref()) {
+        t.branch_name.as_deref()
+    } else {
+        None
+    };
+    let origin = [branch_for_origin, t.point_of_sale_name.as_deref()]
         .into_iter()
         .filter_map(|s| s.map(str::trim).filter(|s| !s.is_empty()))
         .collect::<Vec<_>>()

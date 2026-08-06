@@ -7,6 +7,7 @@ use crate::pos_sale_ticket_escpos::{
     escpos_bold, escpos_double_height_off, escpos_double_height_on, escpos_init, format_datetime,
     money, pad_left, wrap_lines, layout_width, CompanyHeaderStyle,
 };
+use crate::ticket_header_prefs;
 use anyhow::Result;
 use std::path::PathBuf;
 
@@ -32,7 +33,7 @@ pub fn build_pos_presale_ticket_escpos(ticket: &PosPresaleTicket) -> Result<Vec<
     escpos_apply_ticket_typography(&mut buf);
 
     append_ticket_logo(&mut buf, ticket.company.logo_base64.as_deref());
-    append_company_store_header(&mut buf, &ticket.company, CompanyHeaderStyle::FULL);
+    append_company_store_header(&mut buf, &ticket.company, CompanyHeaderStyle::FULL, ticket.branch_name.as_deref());
 
     append_divider(&mut buf);
     escpos_align(&mut buf, 1);
@@ -43,8 +44,10 @@ pub fn build_pos_presale_ticket_escpos(ticket: &PosPresaleTicket) -> Result<Vec<
     escpos_bold(&mut buf, false);
     escpos_align(&mut buf, 0);
 
-    if let Some(b) = ticket.branch_name.as_deref().filter(|s| !s.trim().is_empty()) {
-        append_line(&mut buf, &pad_left("Sucursal:", b.trim()));
+    if ticket_header_prefs::should_emit_branch_line(ticket.branch_name.as_deref()) {
+        if let Some(b) = ticket.branch_name.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            append_line(&mut buf, &pad_left("Sucursal:", b));
+        }
     }
     if let Some(p) = ticket
         .point_of_sale_name

@@ -11,8 +11,6 @@ import {
   readPosPurposePrinterAliasesFromStorage,
   readPosKitchenComandaReplicaPrefs,
   writePosKitchenComandaReplicaPrefs,
-  readPosIncludeBranchName,
-  writePosIncludeBranchName,
   sanitizePosDocumentPrintMode,
   type KaiPrintersDownloadsManifests,
   type PosDocumentPrintKind,
@@ -110,7 +108,6 @@ export function PosLocalPrintPreferencesForm({
   const [kaiFoodUi, setKaiFoodUi] = useState(false);
   const [kitchenReplicaEnabled, setKitchenReplicaEnabled] = useState(false);
   const [kitchenReplicaUnitIds, setKitchenReplicaUnitIds] = useState<string[]>([]);
-  const [includeBranchName, setIncludeBranchName] = useState(true);
   const [kitchenUnits, setKitchenUnits] = useState<
     Array<{ id: string; name: string }>
   >([]);
@@ -181,7 +178,6 @@ export function PosLocalPrintPreferencesForm({
       sanitized[kind] = sanitizePosDocumentPrintMode(kind, sanitized[kind]);
     }
     setDocPrintModes(sanitized);
-    setIncludeBranchName(readPosIncludeBranchName());
     setStorageHydrated(true);
   }, []);
 
@@ -246,7 +242,6 @@ export function PosLocalPrintPreferencesForm({
       documentsAlias,
     });
     writePosDocumentPrintModesToStorage(docPrintModes);
-    writePosIncludeBranchName(includeBranchName);
     if (kaiFoodUi) {
       writePosKitchenComandaReplicaPrefs({
         enabled: kitchenReplicaEnabled,
@@ -261,7 +256,6 @@ export function PosLocalPrintPreferencesForm({
     ticketsAlias,
     documentsAlias,
     docPrintModes,
-    includeBranchName,
     kaiFoodUi,
     kitchenReplicaEnabled,
     kitchenReplicaUnitIds,
@@ -583,25 +577,6 @@ export function PosLocalPrintPreferencesForm({
               allowClear
               alwaysShowLabel
               data-test-id="pos-print-prefs-documents-alias"
-            />
-          </div>
-        </section>
-
-        <section className="rounded-xl border border-border bg-background p-4 shadow-sm">
-          <h2 className="text-sm font-semibold text-foreground">
-            Contenido de tickets
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Incluye el nombre de la sucursal del contexto POS en comandas de cocina y
-            tickets de cuenta dining.
-          </p>
-          <div className="mt-4">
-            <Switch
-              checked={includeBranchName}
-              onChange={setIncludeBranchName}
-              label="Incluir sucursal en tickets"
-              labelPosition="right"
-              data-test-id="pos-print-include-branch-name"
             />
           </div>
         </section>

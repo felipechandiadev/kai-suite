@@ -155,6 +155,8 @@ pub struct PosSaleTicket {
     pub customer: Option<TicketCustomer>,
     pub quotation: Option<TicketQuotation>,
     #[serde(default)]
+    pub branch_name: Option<String>,
+    #[serde(default)]
     pub lines: Vec<TicketLine>,
     #[serde(default)]
     pub promotions: Vec<TicketPromotion>,

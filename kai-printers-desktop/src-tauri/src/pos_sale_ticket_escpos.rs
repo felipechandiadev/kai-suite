@@ -448,17 +448,23 @@ impl CompanyHeaderStyle {
     };
 }
 
-/// Nombre fantasía (o razón social) + líneas opcionales según estilo y prefs del agente.
+/// Título grande (fantasía o sucursal según prefs) + líneas opcionales.
 pub(crate) fn append_company_store_header(
     buf: &mut Vec<u8>,
     company: &TicketCompany,
     style: CompanyHeaderStyle,
+    branch_name: Option<&str>,
 ) {
-    let store = company
+    let fantasy_or_razon = company
         .nombre_fantasia
         .as_deref()
         .filter(|s| !s.trim().is_empty())
         .unwrap_or(company.razon_social.as_str());
+    let branch_trim = branch_name.map(str::trim).filter(|s| !s.is_empty());
+    let store = match ticket_header_prefs::title_mode() {
+        ticket_header_prefs::TitleMode::Branch => branch_trim.unwrap_or(fantasy_or_razon),
+        ticket_header_prefs::TitleMode::Fantasy => fantasy_or_razon,
+    };
 
     escpos_align(buf, 1);
     escpos_bold(buf, true);
@@ -791,7 +797,7 @@ pub fn build_pos_sale_ticket_escpos(ticket: &PosSaleTicket) -> Result<Vec<u8>> {
     escpos_apply_ticket_typography(&mut buf);
 
     append_ticket_logo(&mut buf, ticket.company.logo_base64.as_deref());
-    append_company_store_header(&mut buf, &ticket.company, CompanyHeaderStyle::FULL);
+    append_company_store_header(&mut buf, &ticket.company, CompanyHeaderStyle::FULL, ticket.branch_name.as_deref());
 
     escpos_align(&mut buf, 0);
     append_line(&mut buf, "");

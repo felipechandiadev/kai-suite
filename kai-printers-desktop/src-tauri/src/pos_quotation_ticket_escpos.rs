@@ -8,6 +8,7 @@ use crate::pos_sale_ticket_escpos::{
     format_clp, format_datetime, money, pad_label_value, pad_left, wrap_lines, layout_width,
     CompanyHeaderStyle,
 };
+use crate::ticket_header_prefs;
 use anyhow::Result;
 use std::path::PathBuf;
 
@@ -73,7 +74,7 @@ pub fn build_pos_quotation_ticket_escpos(q: &PosQuotationTicket) -> Result<Vec<u
     escpos_apply_ticket_typography(&mut buf);
 
     append_ticket_logo(&mut buf, q.company.logo_base64.as_deref());
-    append_company_store_header(&mut buf, &q.company, CompanyHeaderStyle::FULL);
+    append_company_store_header(&mut buf, &q.company, CompanyHeaderStyle::FULL, q.branch_name.as_deref());
 
     append_divider(&mut buf);
     escpos_bold(&mut buf, true);
@@ -86,8 +87,10 @@ pub fn build_pos_quotation_ticket_escpos(q: &PosQuotationTicket) -> Result<Vec<u
         &format!("Valida hasta: {}", format_datetime(&q.valid_until)),
     );
 
-    if let Some(b) = q.branch_name.as_deref().filter(|s| !s.trim().is_empty()) {
-        append_line(&mut buf, &pad_left("Sucursal:", b.trim()));
+    if ticket_header_prefs::should_emit_branch_line(q.branch_name.as_deref()) {
+        if let Some(b) = q.branch_name.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            append_line(&mut buf, &pad_left("Sucursal:", b));
+        }
     }
     if let Some(p) = q.point_of_sale_name.as_deref().filter(|s| !s.trim().is_empty()) {
         append_line(&mut buf, &pad_left("Punto venta:", p.trim()));

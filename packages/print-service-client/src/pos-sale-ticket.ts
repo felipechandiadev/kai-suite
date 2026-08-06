@@ -105,6 +105,8 @@ export type PosSaleTicketPayload = {
   company: PosSaleTicketCompany;
   customer?: PosSaleTicketCustomer | null;
   quotation?: PosSaleTicketQuotation | null;
+  /** Sucursal del POS (título opcional en Kai Printers). */
+  branchName?: string | null;
   lines: PosSaleTicketLine[];
   promotions: PosSaleTicketPromotion[];
   totals: PosSaleTicketTotals;

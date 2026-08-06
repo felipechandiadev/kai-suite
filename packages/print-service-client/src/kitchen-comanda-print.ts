@@ -131,47 +131,6 @@ export function writeWaiterKitchenComandaReplicaPrefs(
   writeReplicaPrefs(WAITER_REPLICA_ENABLED_KEY, WAITER_REPLICA_UNITS_KEY, prefs);
 }
 
-const POS_INCLUDE_BRANCH_KEY = "kai.pos.print.includeBranchName";
-const WAITER_INCLUDE_BRANCH_KEY = "kai.waiter.print.includeBranchName";
-
-function readIncludeBranchName(key: string): boolean {
-  if (typeof window === "undefined") return true;
-  const raw = localStorage.getItem(key);
-  if (raw == null) return true; // default on
-  return raw !== "0";
-}
-
-function writeIncludeBranchName(key: string, include: boolean): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(key, include ? "1" : "0");
-}
-
-export function readPosIncludeBranchName(): boolean {
-  return readIncludeBranchName(POS_INCLUDE_BRANCH_KEY);
-}
-
-export function writePosIncludeBranchName(include: boolean): void {
-  writeIncludeBranchName(POS_INCLUDE_BRANCH_KEY, include);
-}
-
-export function readWaiterIncludeBranchName(): boolean {
-  return readIncludeBranchName(WAITER_INCLUDE_BRANCH_KEY);
-}
-
-export function writeWaiterIncludeBranchName(include: boolean): void {
-  writeIncludeBranchName(WAITER_INCLUDE_BRANCH_KEY, include);
-}
-
-/** Aplica preferencia: si include=false o raw vacío → null. */
-export function resolveTicketBranchName(
-  raw: string | null | undefined,
-  include: boolean,
-): string | null {
-  if (!include) return null;
-  const t = raw?.trim();
-  return t ? t : null;
-}
-
 export function replicaIncludesUnit(
   prefs: KitchenComandaReplicaPrefs,
   productionUnitId: string,

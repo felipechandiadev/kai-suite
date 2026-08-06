@@ -5,10 +5,8 @@ import { useRouter } from "next/navigation";
 import {
   PrintAgentPicker,
   readPrintServiceConfigFromStorage,
-  readWaiterIncludeBranchName,
   readWaiterKitchenComandaReplicaPrefs,
   writePrintServiceConfigToStorage,
-  writeWaiterIncludeBranchName,
   writeWaiterKitchenComandaReplicaPrefs,
   type PrintAgentCatalogItem,
 } from "@kai/print-service-client";
@@ -33,7 +31,6 @@ export default function WaiterLocalPrintingPage() {
   const [kitchenReplicaUnitIds, setKitchenReplicaUnitIds] = useState<string[]>(
     [],
   );
-  const [includeBranchName, setIncludeBranchName] = useState(true);
   const [kitchenUnits, setKitchenUnits] = useState<
     Array<{ id: string; name: string }>
   >([]);
@@ -53,7 +50,6 @@ export default function WaiterLocalPrintingPage() {
     const prefs = readWaiterKitchenComandaReplicaPrefs();
     setKitchenReplicaEnabled(prefs.enabled);
     setKitchenReplicaUnitIds(prefs.productionUnitIds);
-    setIncludeBranchName(readWaiterIncludeBranchName());
   }, [router]);
 
   const refresh = useCallback(async () => {
@@ -171,36 +167,6 @@ export default function WaiterLocalPrintingPage() {
           </Button>
         </div>
       </details>
-
-      <section className="rounded-xl border border-border p-3">
-        <h2 className="text-sm font-semibold text-foreground">
-          Contenido de tickets
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Incluye el nombre de la sucursal en comandas de cocina y tickets de cuenta.
-        </p>
-        <div className="mt-3">
-          <Switch
-            checked={includeBranchName}
-            onChange={setIncludeBranchName}
-            label="Incluir sucursal en tickets"
-            labelPosition="right"
-            data-test-id="waiter-print-include-branch-name"
-          />
-        </div>
-        <Button
-          type="button"
-          className="mt-3"
-          size="sm"
-          onClick={() => {
-            writeWaiterIncludeBranchName(includeBranchName);
-            setSavedMsg("Preferencia de sucursal guardada");
-          }}
-          data-test-id="waiter-print-include-branch-save"
-        >
-          Guardar
-        </Button>
-      </section>
 
       <section className="rounded-xl border border-border p-3">
         <h2 className="text-sm font-semibold text-foreground">

@@ -3,8 +3,6 @@ import {
   isPosAgentPrintConfiguredForPurpose,
   POS_DINING_ACCOUNT_TICKET_FOOTER_NOTE,
   POS_DINING_ACCOUNT_TICKET_PAYLOAD_VERSION,
-  readPosIncludeBranchName,
-  resolveTicketBranchName,
   type HelloResponseData,
   type PosDiningAccountTicketPayload,
 } from "@kai/print-service-client";
@@ -92,10 +90,7 @@ export function buildDiningAccountTicketPayload(
       kind: input.kind.trim() || "TABLE",
       status: input.status.trim() || "BILLING",
     },
-    branchName: resolveTicketBranchName(
-      posCtx?.branchName,
-      readPosIncludeBranchName(),
-    ),
+    branchName: posCtx?.branchName?.trim() || null,
     pointOfSaleName: posCtx?.pointOfSaleName?.trim() || null,
     issuedAt: new Date().toISOString(),
     lines,

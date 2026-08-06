@@ -85,6 +85,7 @@ export function posSaleReceiptToTicketPayload(
           validUntil: data.quotation.validUntil ?? null,
         }
       : null,
+    branchName: data.pos?.branchName?.trim() || null,
     lines: data.lines.map((l) => ({
       productName: l.productName,
       attributes: l.attributes ?? [],

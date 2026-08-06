@@ -1,6 +1,6 @@
 {
   "name": "kai-suite",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "private": true,
   "description": "Kai Suite monorepo",
   "packageManager": "npm@10.9.2",
@@ -51,6 +51,7 @@
     "seed:joyarte": "npm run seed:joyarte --prefix seeds",
     "seed:barco": "npm run seed:barco --prefix seeds",
     "seed:velarys": "npm run seed:velarys --prefix seeds",
+    "seed:mias": "npm run seed:mias --prefix seeds",
     "seed:san-sebastian": "npm run seed:san-sebastian --prefix seeds",
     "import-fiscal-ss-to-demo": "npm run import-fiscal-ss-to-demo --prefix seeds",
     "build:fiscal-ted": "npm run build -w @kai/fiscal-ted",
