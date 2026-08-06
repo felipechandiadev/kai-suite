@@ -111,6 +111,7 @@ import {
   resolveMenuTopBar,
   sanitizeCompanyMenuTopBarSettings,
 } from '../domain/company-menu-topbar.types';
+import { sanitizeCompanyMenuFlatSettings } from '../domain/company-menu-flat.types';
 import {
   CompanyIdentitySettings,
   resolveCompanyIdentity,
@@ -1423,6 +1424,36 @@ export class CompaniesService {
     company.settings = settings;
     await this.companyRepository.save(company);
     return merged;
+  }
+
+  async getMenuHeroSliderAutoplaySeconds(companyId: string): Promise<number> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+    return sanitizeCompanyMenuFlatSettings(
+      company.settings as Record<string, unknown>,
+    ).menuHeroSliderAutoplaySeconds;
+  }
+
+  async replaceMenuHeroSliderAutoplaySeconds(
+    companyId: string,
+    autoplaySeconds: number,
+  ): Promise<number> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+    const settings = { ...(company.settings ?? {}) } as Record<string, unknown>;
+    const next = sanitizeCompanyMenuFlatSettings({
+      ...settings,
+      menuHeroSliderAutoplaySeconds: autoplaySeconds,
+    });
+    settings.menuHeroSliderAutoplaySeconds =
+      next.menuHeroSliderAutoplaySeconds;
+    company.settings = settings;
+    await this.companyRepository.save(company);
+    return next.menuHeroSliderAutoplaySeconds;
   }
 
   async addBankAccount(

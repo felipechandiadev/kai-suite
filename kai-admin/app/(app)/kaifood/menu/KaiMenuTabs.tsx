@@ -1,32 +1,36 @@
 "use client";
 
-import Link from "next/link";
+import { useMemo } from "react";
 import { usePathname } from "next/navigation";
+import { Tabs } from "@kai/ui";
 
-/** CMS carta: Apariencia + Topbar. Hero / Nosotros / Encuéntranos deshabilitados por ahora. */
-const TABS = [
-  { href: "/kaifood/menu/appearance", label: "Apariencia" },
-  { href: "/kaifood/menu/topbar", label: "Topbar" },
+const BASE = "/kaifood/menu";
+
+const items = [
+  { url: `${BASE}/appearance`, label: "Apariencia" },
+  { url: `${BASE}/topbar`, label: "Topbar" },
+  { url: `${BASE}/hero`, label: "Hero" },
+  { url: `${BASE}/about`, label: "Nosotros" },
+  { url: `${BASE}/find-us`, label: "Encuéntranos" },
 ] as const;
+
+function activeTabUrl(pathname: string): string {
+  const matches = items.filter(
+    (tab) => pathname === tab.url || pathname.startsWith(`${tab.url}/`),
+  );
+  if (matches.length === 0) {
+    return `${BASE}/appearance`;
+  }
+  return [...matches].sort((a, b) => b.url.length - a.url.length)[0]!.url;
+}
 
 export function KaiMenuTabs() {
   const pathname = usePathname();
+  const activeTab = useMemo(() => activeTabUrl(pathname), [pathname]);
+
   return (
-    <nav className="flex flex-wrap gap-2 border-b border-border pb-3">
-      {TABS.map((tab) => {
-        const active = pathname === tab.href;
-        return (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            className={`rounded-full px-3 py-1 text-sm ${
-              active ? "bg-primary text-primary-foreground" : "bg-muted/40 text-muted-foreground"
-            }`}
-          >
-            {tab.label}
-          </Link>
-        );
-      })}
-    </nav>
+    <div className="w-fit max-w-full shrink-0 border-b border-border">
+      <Tabs items={[...items]} activeTab={activeTab} />
+    </div>
   );
 }

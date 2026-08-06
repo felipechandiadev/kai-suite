@@ -5,9 +5,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { loadMenuHomeAction } from "../actions/menu.action";
 import type { MenuCatalogItem, MenuCategory, MenuStorefront } from "../infrastructure/menu.request";
+import { MenuHeroSlider } from "./MenuHeroSlider";
 
 /** Anchors de secciones retiradas de la carta pública (por ahora). */
-const RETIRED_NAV_HREFS = new Set(["#about", "#find-us", "#hero"]);
+const RETIRED_NAV_HREFS = new Set(["#about", "#find-us"]);
 
 function fmtClp(n: number) {
   return new Intl.NumberFormat("es-CL", {
@@ -116,6 +117,13 @@ export function MenuPageClient() {
           </nav>
         </div>
       </header>
+
+      {(store.heroSlides?.length ?? 0) > 0 ? (
+        <MenuHeroSlider
+          slides={store.heroSlides}
+          autoplaySeconds={store.heroSliderAutoplaySeconds ?? 6}
+        />
+      ) : null}
 
       <section id="menu" className="sticky top-[57px] z-20 border-b border-[var(--border)] bg-[var(--background)]/95 backdrop-blur">
         <div className="mx-auto max-w-5xl space-y-3 px-4 py-3">

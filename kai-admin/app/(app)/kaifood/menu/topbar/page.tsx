@@ -1,4 +1,3 @@
-import { BasicPageLayout } from "@kai/ui";
 import { GetCompanyUseCase } from "@/features/settings-company/application/get-company.usecase";
 import { getMenuTopBarAction } from "@/features/kai-menu/actions/kai-menu.action";
 
@@ -11,13 +10,13 @@ export default async function KaiMenuTopbarPage() {
   }
   const topBar = await getMenuTopBarAction(company.id);
   return (
-    <BasicPageLayout title="Topbar" subtitle="Enlaces de navegación de la carta.">
+    <div className="space-y-3">
       <pre className="overflow-auto rounded-md bg-muted/30 p-4 text-xs">
         {JSON.stringify(topBar, null, 2)}
       </pre>
-      <p className="mt-3 text-sm text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         Editor visual de enlaces: reutilizar patrón eShop en PR siguiente.
       </p>
-    </BasicPageLayout>
+    </div>
   );
 }

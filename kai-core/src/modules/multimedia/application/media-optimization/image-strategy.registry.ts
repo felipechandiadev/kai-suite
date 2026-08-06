@@ -13,6 +13,7 @@ const ENTITY_STRATEGY: Record<string, ImageOptimizationStrategy> = {
   category: ProductImageStrategy,
   brand: ProductImageStrategy,
   'e-shop-hero-slide': HeroImageStrategy,
+  'menu-hero-slide': HeroImageStrategy,
   'e-shop-testimonial': AvatarImageStrategy,
   employee: AvatarImageStrategy,
   company: LogoImageStrategy,

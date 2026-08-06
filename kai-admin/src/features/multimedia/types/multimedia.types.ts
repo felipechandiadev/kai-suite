@@ -5,6 +5,7 @@ export type MultimediaEntityType =
   | "brand"
   | "e-shop-testimonial"
   | "e-shop-hero-slide"
+  | "menu-hero-slide"
   | "employee";
 
 export type MultimediaAssetListItem = {

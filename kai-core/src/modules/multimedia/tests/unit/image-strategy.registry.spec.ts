@@ -16,6 +16,7 @@ describe('ImageStrategyRegistry', () => {
 
   it('maps hero and avatar entities', () => {
     expect(registry.resolve('e-shop-hero-slide')?.name).toBe(HeroImageStrategy.name);
+    expect(registry.resolve('menu-hero-slide')?.name).toBe(HeroImageStrategy.name);
     expect(registry.resolve('e-shop-testimonial')?.name).toBe(AvatarImageStrategy.name);
     expect(registry.resolve('employee')?.name).toBe(AvatarImageStrategy.name);
   });

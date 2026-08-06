@@ -32,6 +32,7 @@ export type MenuStorefront = {
     textColor?: string | null;
     overlayOpacity?: number | null;
   }>;
+  heroSliderAutoplaySeconds?: number;
 };
 
 export type MenuCatalogItem = {

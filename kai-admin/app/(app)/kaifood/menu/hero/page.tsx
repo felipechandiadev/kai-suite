@@ -1,17 +1,23 @@
-import { BasicPageLayout } from "@kai/ui";
+import { Suspense } from "react";
+import { listHeroSlidesAction } from "@/features/menu-hero-slides/actions/hero-slide.action";
+import { HeroSlidesCollection } from "./components/HeroSlidesCollection";
+import { LoadingState } from "@kai/ui";
 
 export const dynamic = "force-dynamic";
 
-export default function KaiMenuHeroPage() {
+export default async function KaiMenuHeroPage() {
+  const initialSlides = await listHeroSlidesAction();
+
   return (
-    <BasicPageLayout
-      title="Hero"
-      subtitle="Slides del encabezado (próximamente: gestor multimedia como eShop)."
+    <Suspense
+      fallback={
+        <LoadingState
+          className="flex items-center justify-center p-4 md:p-6 py-4"
+          data-test-id="menu-hero-slides-page-skeleton"
+        />
+      }
     >
-      <p className="text-sm text-muted-foreground">
-        Use la API de hero slides o el seed demo para contenido inicial. El editor visual se
-        añadirá en una iteración siguiente.
-      </p>
-    </BasicPageLayout>
+      <HeroSlidesCollection initialSlides={initialSlides} />
+    </Suspense>
   );
 }

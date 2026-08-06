@@ -6,6 +6,7 @@ import { Attribute } from '@modules/attributes/domain/attribute.entity';
 import { MenuHeroSlide } from './domain/menu-hero-slide.entity';
 import { MenuService } from './application/menu.service';
 import { MenuPublicController } from './presentation/menu-public.controller';
+import { MenuAdminController } from './presentation/menu-admin.controller';
 import { MenuStoreGuard } from './presentation/menu-store.guard';
 import { CompaniesModule } from '@modules/companies/companies.module';
 import { MultimediaModule } from '@modules/multimedia/multimedia.module';
@@ -19,7 +20,7 @@ import { MenuSchemaBootstrap } from './application/menu-schema.bootstrap';
     CompaniesModule,
     MultimediaModule,
   ],
-  controllers: [MenuPublicController],
+  controllers: [MenuPublicController, MenuAdminController],
   providers: [MenuService, MenuStoreGuard, MenuSchemaBootstrap],
   exports: [MenuService],
 })

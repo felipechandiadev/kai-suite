@@ -9,6 +9,7 @@ const PRODUCTS_PATH = "/catalog/products";
 const SETTINGS_COMPANY_PATH = "/settings/company";
 const ESHOP_TESTIMONIALS_PATH = "/e-shop/testimonials";
 const ESHOP_HERO_SLIDES_PATH = "/e-shop/hero-slides";
+const MENU_HERO_SLIDES_PATH = "/kaifood/menu/hero";
 const HR_EMPLOYEES_PATH = HCM_EMPLOYEES;
 
 const ENTITY_TYPES: MultimediaEntityType[] = [
@@ -16,6 +17,10 @@ const ENTITY_TYPES: MultimediaEntityType[] = [
   "product-variant",
   "company",
   "employee",
+  "e-shop-hero-slide",
+  "e-shop-testimonial",
+  "menu-hero-slide",
+  "brand",
 ];
 
 export async function revalidateMultimediaCachesAction(
@@ -43,6 +48,10 @@ function revalidatePathsForEntityType(
   }
   if (entityType === "e-shop-hero-slide") {
     revalidatePath(ESHOP_HERO_SLIDES_PATH, "page");
+    return;
+  }
+  if (entityType === "menu-hero-slide") {
+    revalidatePath(MENU_HERO_SLIDES_PATH, "page");
     return;
   }
   revalidatePath(PRODUCTS_PATH, "page");

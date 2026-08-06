@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product, ProductType } from '@modules/products/domain/product.entity';
@@ -6,7 +10,11 @@ import { ProductVariant } from '@modules/product-variants/domain/product-variant
 import { Category } from '@modules/categories/domain/category.entity';
 import { Attribute } from '@modules/attributes/domain/attribute.entity';
 import { PriceListItem } from '@modules/price-list-items/domain/price-list-item.entity';
-import { MenuHeroSlide } from '../domain/menu-hero-slide.entity';
+import {
+  MenuHeroSlide,
+  type MenuHeroSlideCtaStyle,
+  type MenuHeroSlideTextAlign,
+} from '../domain/menu-hero-slide.entity';
 import { MENU_HERO_SLIDE_MULTIMEDIA_ENTITY } from '../domain/menu-hero-slide.constants';
 import type { MenuStoreContext } from './menu-store.context';
 import { MultimediaServiceAdapter } from '@modules/multimedia/application/services/multimedia.service.adapter';
@@ -14,6 +22,11 @@ import { AppConfigService } from '../../../config/config.service';
 import { resolveMultimediaPublicUrl } from '@modules/multimedia/application/utils/resolve-multimedia-public-url.util';
 import { resolvePrimaryMultimediaAsset } from '@modules/multimedia/application/utils/resolve-primary-multimedia.util';
 import { resolveVariantAttributeLabels } from '@modules/e-shop/application/helpers/eshop-catalog-product.helpers';
+import { CompaniesService } from '@modules/companies/application/companies.service';
+import {
+  MENU_HERO_SLIDER_AUTOPLAY_DEFAULT_SECONDS,
+  MENU_HERO_SLIDER_AUTOPLAY_MIN_SECONDS,
+} from '@modules/companies/domain/company-menu-flat.types';
 
 @Injectable()
 export class MenuService {
@@ -28,6 +41,7 @@ export class MenuService {
     private readonly heroSlideRepo: Repository<MenuHeroSlide>,
     private readonly multimediaService: MultimediaServiceAdapter,
     private readonly config: AppConfigService,
+    private readonly companiesService: CompaniesService,
   ) {}
 
   async getStorefront(store: MenuStoreContext) {
@@ -46,6 +60,10 @@ export class MenuService {
       order: { sortOrder: 'ASC', createdAt: 'ASC' },
     });
     const heroSlides = await this.attachHeroSlideImages(heroRows);
+    const heroSliderAutoplaySeconds =
+      await this.companiesService.getMenuHeroSliderAutoplaySeconds(
+        store.companyId,
+      );
 
     return {
       companyName: store.companyName,
@@ -57,7 +75,200 @@ export class MenuService {
       findUs: store.findUs,
       theme: store.theme,
       heroSlides,
+      heroSliderAutoplaySeconds,
     };
+  }
+
+  async getHeroSliderSettingsAdmin(companyId: string) {
+    const autoplaySeconds =
+      await this.companiesService.getMenuHeroSliderAutoplaySeconds(companyId);
+    return { autoplaySeconds };
+  }
+
+  async updateHeroSliderAutoplaySeconds(
+    companyId: string,
+    autoplaySeconds: number,
+  ) {
+    const normalized = Math.max(
+      MENU_HERO_SLIDER_AUTOPLAY_MIN_SECONDS,
+      Math.round(
+        Number(autoplaySeconds) || MENU_HERO_SLIDER_AUTOPLAY_DEFAULT_SECONDS,
+      ),
+    );
+    const value =
+      await this.companiesService.replaceMenuHeroSliderAutoplaySeconds(
+        companyId,
+        normalized,
+      );
+    return { autoplaySeconds: value };
+  }
+
+  async listHeroSlidesAdmin(companyId: string) {
+    const rows = await this.heroSlideRepo.find({
+      where: { companyId },
+      order: { sortOrder: 'ASC', createdAt: 'DESC' },
+    });
+    return this.attachHeroSlideImages(rows);
+  }
+
+  private async nextHeroSlideSortOrder(companyId: string): Promise<number> {
+    const result = await this.heroSlideRepo
+      .createQueryBuilder('s')
+      .select('MAX(s.sort_order)', 'max')
+      .where('s.company_id = :companyId', { companyId })
+      .getRawOne<{ max: string | null }>();
+    const max = Number(result?.max ?? 0);
+    return max < 1 ? 1 : max + 1;
+  }
+
+  async reorderHeroSlides(companyId: string, orderedIds: string[]) {
+    const uniqueIds = [...new Set(orderedIds)];
+    if (uniqueIds.length !== orderedIds.length) {
+      throw new BadRequestException('IDs duplicados en el orden');
+    }
+    const rows = await this.heroSlideRepo.find({ where: { companyId } });
+    if (uniqueIds.length !== rows.length) {
+      throw new BadRequestException(
+        'La lista debe incluir todos los slides de la empresa',
+      );
+    }
+    const rowIds = new Set(rows.map((r) => r.id));
+    for (const id of uniqueIds) {
+      if (!rowIds.has(id)) {
+        throw new BadRequestException('Slide no encontrado');
+      }
+    }
+    await this.heroSlideRepo.manager.transaction(async (em) => {
+      for (let i = 0; i < orderedIds.length; i++) {
+        await em.update(
+          MenuHeroSlide,
+          { id: orderedIds[i], companyId },
+          { sortOrder: i + 1 },
+        );
+      }
+    });
+    return this.listHeroSlidesAdmin(companyId);
+  }
+
+  async createHeroSlide(
+    companyId: string,
+    data: {
+      title?: string | null;
+      subtitle?: string | null;
+      ctaLabel?: string | null;
+      ctaHref?: string | null;
+      ctaStyle?: MenuHeroSlideCtaStyle;
+      isActive?: boolean;
+      sortOrder?: number;
+      textAlign?: MenuHeroSlideTextAlign;
+      overlayOpacity?: number;
+      textColor?: string | null;
+    },
+  ) {
+    const sortOrder =
+      data.sortOrder != null && data.sortOrder >= 1
+        ? Math.round(data.sortOrder)
+        : await this.nextHeroSlideSortOrder(companyId);
+    const row = this.heroSlideRepo.create({
+      companyId,
+      title: data.title?.trim() || null,
+      subtitle: data.subtitle?.trim() || null,
+      ctaLabel: data.ctaLabel?.trim() || null,
+      ctaHref: data.ctaHref?.trim() || null,
+      ctaStyle: this.normalizeCtaStyle(data.ctaStyle, data.ctaLabel),
+      isActive: data.isActive !== false,
+      sortOrder,
+      textAlign: this.normalizeTextAlign(data.textAlign),
+      overlayOpacity: this.normalizeOverlayOpacity(data.overlayOpacity),
+      textColor: this.normalizeTextColor(data.textColor),
+    });
+    return this.heroSlideRepo.save(row);
+  }
+
+  async updateHeroSlide(
+    companyId: string,
+    id: string,
+    data: Partial<{
+      title: string | null;
+      subtitle: string | null;
+      ctaLabel: string | null;
+      ctaHref: string | null;
+      ctaStyle: MenuHeroSlideCtaStyle;
+      isActive: boolean;
+      sortOrder: number;
+      textAlign: MenuHeroSlideTextAlign;
+      overlayOpacity: number;
+      textColor: string | null;
+    }>,
+  ) {
+    const row = await this.heroSlideRepo.findOne({ where: { id, companyId } });
+    if (!row) throw new NotFoundException('Slide no encontrado');
+    if (data.title !== undefined) row.title = data.title?.trim() || null;
+    if (data.subtitle !== undefined)
+      row.subtitle = data.subtitle?.trim() || null;
+    if (data.ctaLabel !== undefined)
+      row.ctaLabel = data.ctaLabel?.trim() || null;
+    if (data.ctaHref !== undefined) row.ctaHref = data.ctaHref?.trim() || null;
+    if (data.ctaStyle != null) {
+      row.ctaStyle = this.normalizeCtaStyle(data.ctaStyle, row.ctaLabel);
+    } else if (data.ctaLabel !== undefined && !data.ctaLabel?.trim()) {
+      row.ctaStyle = 'none';
+    }
+    if (data.isActive != null) row.isActive = data.isActive;
+    if (data.sortOrder != null) {
+      row.sortOrder = Math.max(1, Math.round(data.sortOrder));
+    }
+    if (data.textAlign != null)
+      row.textAlign = this.normalizeTextAlign(data.textAlign);
+    if (data.overlayOpacity != null) {
+      row.overlayOpacity = this.normalizeOverlayOpacity(data.overlayOpacity);
+    }
+    if (data.textColor !== undefined) {
+      row.textColor =
+        data.textColor === null
+          ? null
+          : this.normalizeTextColor(data.textColor);
+    }
+    return this.heroSlideRepo.save(row);
+  }
+
+  async deleteHeroSlide(companyId: string, id: string) {
+    const row = await this.heroSlideRepo.findOne({ where: { id, companyId } });
+    if (!row) throw new NotFoundException('Slide no encontrado');
+    await this.heroSlideRepo.remove(row);
+    return { success: true };
+  }
+
+  private normalizeTextAlign(
+    value?: MenuHeroSlideTextAlign,
+  ): MenuHeroSlideTextAlign {
+    if (value === 'center' || value === 'right') return value;
+    return 'left';
+  }
+
+  private normalizeCtaStyle(
+    value?: MenuHeroSlideCtaStyle,
+    ctaLabel?: string | null,
+  ): MenuHeroSlideCtaStyle {
+    if (value === 'button' || value === 'link' || value === 'none') return value;
+    return ctaLabel?.trim() ? 'button' : 'none';
+  }
+
+  private normalizeOverlayOpacity(value?: number): number {
+    if (value == null || Number.isNaN(value)) return 45;
+    return Math.min(90, Math.max(0, Math.floor(value)));
+  }
+
+  private normalizeTextColor(value?: string | null): string | null {
+    if (value == null || !String(value).trim()) return null;
+    const raw = String(value).trim();
+    const hex = raw.startsWith('#') ? raw : `#${raw}`;
+    if (/^#[0-9A-Fa-f]{6}$/.test(hex)) return hex.toUpperCase();
+    if (/^#[0-9A-Fa-f]{3}$/.test(hex)) {
+      const h = hex.slice(1);
+      return `#${h[0]}${h[0]}${h[1]}${h[1]}${h[2]}${h[2]}`.toUpperCase();
+    }
+    return null;
   }
 
   private async attachHeroSlideImages(

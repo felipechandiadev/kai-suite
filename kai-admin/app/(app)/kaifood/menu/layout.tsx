@@ -1,10 +1,17 @@
+import type { ReactNode } from "react";
+import { TabPageLayout } from "@kai/ui";
 import { KaiMenuTabs } from "./KaiMenuTabs";
 
-export default function KaiMenuLayout({ children }: { children: React.ReactNode }) {
+export default function KaiMenuLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <KaiMenuTabs />
+    <TabPageLayout
+      title="KaiMenú"
+      subtitle="Contenido y apariencia de la carta pública"
+      tabs={<KaiMenuTabs />}
+      compact
+      data-test-id="kai-menu-layout"
+    >
       {children}
-    </div>
+    </TabPageLayout>
   );
 }

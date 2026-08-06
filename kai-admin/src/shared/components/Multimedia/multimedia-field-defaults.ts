@@ -43,6 +43,7 @@ export function multimediaDefaultsForEntity(
       };
     case "brand":
     case "e-shop-hero-slide":
+    case "menu-hero-slide":
     case "e-shop-testimonial":
       return {
         layout: "collection",
