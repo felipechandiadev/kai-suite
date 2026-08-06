@@ -83,6 +83,15 @@ export function ProductionUnitCard({
           <Badge variant="info-outlined">
             {unit.purpose === "BATCH" ? "Producción por lotes" : "Cocina"}
           </Badge>
+          {unit.purpose === "KITCHEN" ? (
+            <Badge variant="info-outlined">
+              {unit.kitchenFulfillmentMode === "PRINTED"
+                ? "Comanda impresa"
+                : unit.kitchenFulfillmentMode === "BOTH"
+                  ? "KDS + impresa"
+                  : "KDS"}
+            </Badge>
+          ) : null}
           <Badge variant="warning-outlined">
             {unit.inventoryMode === "AUTONOMOUS" ? "Autónoma" : "Dependiente"}
           </Badge>

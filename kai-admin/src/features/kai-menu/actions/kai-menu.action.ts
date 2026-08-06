@@ -67,18 +67,31 @@ export async function getMenuThemeAction(companyId: string) {
     headers: await authHeaders(companyId),
     cache: "no-store",
   });
+  if (!res.ok) throw new Error("No se pudo cargar el tema de la carta");
   const data = await res.json();
-  return data.theme ?? data.resolved;
+  return {
+    theme: data.theme,
+    resolved: data.resolved,
+    presets: data.presets ?? [],
+  };
 }
 
 export async function saveMenuThemeAction(
   companyId: string,
-  body: { templateId: string; themeTokenOverrides?: Record<string, string> },
+  body: {
+    templateId: string;
+    tokenOverrides?: Record<string, string>;
+    themeTokenOverrides?: Record<string, string>;
+  },
 ) {
+  const payload = {
+    templateId: body.templateId,
+    tokenOverrides: body.tokenOverrides ?? body.themeTokenOverrides ?? {},
+  };
   const res = await fetch(apiUrl(`companies/${companyId}/menu-theme`), {
     method: "PATCH",
     headers: await authHeaders(companyId),
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   });
   return res.ok;
 }

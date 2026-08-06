@@ -202,7 +202,7 @@ export function CreateHeroSlideDialog({ open, onClose, onSuccess }: CreateHeroSl
           onChange={setAutoplaySeconds}
           disabled={isPending || draftPreparing}
         />
-        <Switch checked={isActive} onChange={setIsActive} label="Activo en la tienda" labelPosition="right" />
+        <Switch checked={isActive} onChange={setIsActive} label="Activo en la carta" labelPosition="right" />
         {draftPreparing ? (
           <p className="text-sm text-muted-foreground" data-test-id="hero-slide-create-draft-loading">
             Preparando subida de imágenes…

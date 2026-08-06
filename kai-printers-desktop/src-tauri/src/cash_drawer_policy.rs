@@ -112,4 +112,13 @@ mod tests {
             true
         ));
     }
+
+    #[test]
+    fn kitchen_ticket_does_not_open() {
+        assert!(!open_cash_drawer_for_agent_type(
+            "pos-kitchen-ticket",
+            80,
+            true
+        ));
+    }
 }

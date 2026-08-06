@@ -12,6 +12,7 @@ const items = [
   { url: `${BASE}/hero`, label: "Hero" },
   { url: `${BASE}/about`, label: "Nosotros" },
   { url: `${BASE}/find-us`, label: "Encuéntranos" },
+  { url: `${BASE}/qr`, label: "QR" },
 ] as const;
 
 function activeTabUrl(pathname: string): string {

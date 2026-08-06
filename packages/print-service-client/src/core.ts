@@ -40,6 +40,10 @@ import type {
   PosDiningAccountTicketPrintExtras,
 } from "./pos-dining-account-ticket";
 import type {
+  PosKitchenTicketPayload,
+  PosKitchenTicketPrintExtras,
+} from "./pos-kitchen-ticket";
+import type {
   PosPresaleTicketPayload,
   PosPresaleTicketPrintExtras,
 } from "./pos-presale-ticket";
@@ -181,6 +185,7 @@ export const AGENT_CAPABILITY_POS_SUPPLIER_PAYMENT_TICKET =
   "pos-supplier-payment-ticket";
 export const AGENT_CAPABILITY_POS_BANK_ACCOUNT_TICKET = "pos-bank-account-ticket";
 export const AGENT_CAPABILITY_POS_DINING_ACCOUNT_TICKET = "pos-dining-account-ticket";
+export const AGENT_CAPABILITY_POS_KITCHEN_TICKET = "pos-kitchen-ticket";
 export const AGENT_CAPABILITY_POS_LAUNDRY_RECEPTION_TICKET =
   "pos-laundry-reception-ticket";
 export const AGENT_CAPABILITY_POS_PRESALE_TICKET = "pos-presale-ticket";
@@ -800,6 +805,33 @@ export class PrintServiceConnection {
     return this.enqueuePosPrint(body);
   }
 
+  /** Comanda de cocina: ESC/POS (`type: "pos-kitchen-ticket"`). */
+  enqueuePosKitchenTicket(
+    ticket: PosKitchenTicketPayload,
+    extras: PosKitchenTicketPrintExtras & { purpose?: string; format?: PrintFormat },
+    omitPrinterDisplayLabel = false,
+  ): Promise<unknown> {
+    const body = buildPosTicketEnqueueBody("pos-kitchen-ticket", ticket, extras);
+    const purpose =
+      typeof extras.purpose === "string" && extras.purpose.trim()
+        ? extras.purpose.trim()
+        : "tickets";
+    const label =
+      typeof extras.printerDisplayLabel === "string"
+        ? extras.printerDisplayLabel.trim()
+        : "";
+    if (label) {
+      return this.enqueuePrint({
+        ...body,
+        purpose,
+        printerDisplayLabel: label,
+        printerAlias: label,
+      });
+    }
+    if (omitPrinterDisplayLabel) return this.enqueuePrint(body);
+    return this.enqueuePosPrint({ ...body, purpose });
+  }
+
   /** Guía recepción lavandería: ESC/POS (`type: "pos-laundry-reception-ticket"`). */
   enqueuePosLaundryReceptionTicket(
     ticket: PosLaundryReceptionTicketPayload,
@@ -1272,6 +1304,16 @@ export function agentSupportsPosDiningAccountTicket(
   const caps = hello?.agentCapabilities;
   if (Array.isArray(caps) && caps.length > 0) {
     return caps.includes(AGENT_CAPABILITY_POS_DINING_ACCOUNT_TICKET);
+  }
+  return Boolean(hello?.serviceStatus);
+}
+
+export function agentSupportsPosKitchenTicket(
+  hello: HelloResponseData | null | undefined,
+): boolean {
+  const caps = hello?.agentCapabilities;
+  if (Array.isArray(caps) && caps.length > 0) {
+    return caps.includes(AGENT_CAPABILITY_POS_KITCHEN_TICKET);
   }
   return Boolean(hello?.serviceStatus);
 }

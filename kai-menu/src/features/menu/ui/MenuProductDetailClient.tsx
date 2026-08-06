@@ -14,11 +14,20 @@ function fmtClp(n: number) {
   }).format(n);
 }
 
-function formatAttributeValues(values: Record<string, string>) {
+function formatAttributeValues(values: Record<string, string> | null | undefined) {
+  if (!values) return null;
   const parts = Object.values(values)
     .map((v) => String(v).trim())
     .filter(Boolean);
   return parts.length ? parts.join(" · ") : null;
+}
+
+function formatProductTitle(
+  productName: string,
+  attributeValues?: Record<string, string> | null,
+) {
+  const attrs = formatAttributeValues(attributeValues);
+  return attrs ? `${productName} · ${attrs}` : productName;
 }
 
 export function MenuProductDetailClient({
@@ -75,6 +84,11 @@ export function MenuProductDetailClient({
     );
   }, [detail]);
 
+  const title = useMemo(() => {
+    if (!detail) return "";
+    return formatProductTitle(detail.name, selectedVariant?.attributeValues);
+  }, [detail, selectedVariant]);
+
   if (loading) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center text-sm text-[var(--muted)]">
@@ -110,7 +124,7 @@ export function MenuProductDetailClient({
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={imageUrl}
-              alt={detail.name}
+              alt={title}
               className="aspect-[4/3] w-full object-cover"
             />
           ) : (
@@ -125,7 +139,7 @@ export function MenuProductDetailClient({
                 {detail.categoryName}
               </p>
             ) : null}
-            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">{detail.name}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">{title}</h1>
             {selectedVariant ? (
               <p className="text-lg font-medium">{fmtClp(selectedVariant.basePrice)}</p>
             ) : null}

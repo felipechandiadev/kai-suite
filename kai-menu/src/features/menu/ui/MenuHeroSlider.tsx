@@ -65,24 +65,30 @@ function SlideLayer({
           className="absolute inset-0 h-full w-full object-cover"
         />
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-[var(--primary)]/30 to-[var(--primary)]/5" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[var(--primary)] to-[var(--primary)]/40" />
       )}
       <div
         className="absolute inset-0"
-        style={{ backgroundColor: `rgba(0,0,0,${overlay})` }}
+        style={{ backgroundColor: `rgba(0,0,0,${Math.max(overlay, 0.35)})` }}
       />
-      <div className="relative z-10 flex min-h-[280px] flex-1 flex-col justify-end px-6 pb-14 pt-16 md:min-h-[360px] md:px-10">
-        <div className="mx-auto w-full max-w-5xl" style={{ color: textColor }}>
+      <div className="relative z-10 flex h-full min-h-[280px] flex-1 flex-col justify-end px-6 pb-14 pt-16 md:min-h-[360px] md:px-10">
+        <div
+          className="mx-auto w-full max-w-5xl"
+          style={{
+            color: textColor,
+            textShadow: "0 1px 2px rgba(0,0,0,0.45)",
+          }}
+        >
           {slide.title ? (
             <h1 className="text-2xl font-bold tracking-tight md:text-4xl">{slide.title}</h1>
           ) : null}
           {slide.subtitle ? (
-            <p className="mt-2 max-w-2xl text-sm opacity-90 md:text-base">{slide.subtitle}</p>
+            <p className="mt-2 max-w-2xl text-sm opacity-95 md:text-base">{slide.subtitle}</p>
           ) : null}
           {slide.ctaLabel?.trim() && slide.ctaHref?.trim() ? (
             <a
               href={slide.ctaHref}
-              className="mt-5 inline-flex items-center rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white"
+              className="mt-5 inline-flex items-center rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-white [text-shadow:none]"
             >
               {slide.ctaLabel}
             </a>
@@ -100,12 +106,20 @@ export function MenuHeroSlider({
   slides: MenuHeroSlide[];
   autoplaySeconds?: number;
 }) {
-  const visible = slides.filter((s) => s.imageUrl || s.title || s.subtitle);
+  /** Slides activos del storefront: mostrar si hay imagen, título o subtítulo. */
+  const visible = (slides ?? []).filter(
+    (s) => Boolean(s?.imageUrl?.trim()) || Boolean(s?.title?.trim()) || Boolean(s?.subtitle?.trim()),
+  );
+  const slidesKey = visible.map((s) => s.id).join("|");
   const [index, setIndex] = useState(0);
   const count = visible.length;
   const prefersReducedMotion = usePrefersReducedMotion();
   const animate = !prefersReducedMotion;
   const autoplayMs = resolveAutoplayMs(autoplaySeconds);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [slidesKey]);
 
   const goTo = useCallback(
     (next: number) => {
@@ -147,11 +161,13 @@ export function MenuHeroSlider({
   return (
     <section
       id="hero"
-      className="relative w-full overflow-hidden"
+      className="relative w-full overflow-hidden bg-[var(--primary)]"
       aria-roledescription="carousel"
       aria-label="Destacados"
+      data-test-id="menu-hero-slider"
+      data-slide-count={count}
     >
-      <div className="relative min-h-[280px] w-full md:min-h-[360px]">
+      <div className="relative h-[280px] w-full md:h-[360px]">
         {visible.map((slide, i) => (
           <SlideLayer
             key={slide.id}
@@ -165,7 +181,7 @@ export function MenuHeroSlider({
           <>
             <button
               type="button"
-              className="absolute left-3 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)]/90 text-[var(--foreground)]"
+              className="absolute left-3 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/30 text-white backdrop-blur-sm"
               aria-label="Slide anterior"
               onClick={() => goTo(index - 1)}
             >
@@ -173,7 +189,7 @@ export function MenuHeroSlider({
             </button>
             <button
               type="button"
-              className="absolute right-3 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)]/90 text-[var(--foreground)]"
+              className="absolute right-3 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/30 text-white backdrop-blur-sm"
               aria-label="Slide siguiente"
               onClick={() => goTo(index + 1)}
             >

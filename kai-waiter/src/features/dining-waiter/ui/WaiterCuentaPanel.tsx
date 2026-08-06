@@ -9,6 +9,7 @@ import type {
 import {
   cancelOrderItemAction,
   getCompanyTipSettingsAction,
+  listKitchenProductionUnitsAction,
   lookupWaiterVariantsAction,
   markFireDeliveredAction,
   reopenOrderAction,
@@ -17,7 +18,10 @@ import {
   sendOrderToKitchenAction,
   updateOrderLineNotesAction,
 } from "../actions/waiter.action";
+import { listPrintAgentsForWaiterAction } from "@/features/print-agents/actions/print-agents.action";
 import { printWaiterDiningAccountTicket } from "../lib/waiter-dining-account-ticket-print";
+import { printWaiterKitchenComandasAfterFire } from "../lib/waiter-kitchen-comanda-print";
+import type { KitchenUnitPrintInfo, PrintAgentCatalogItem } from "@kai/print-service-client";
 import {
   canCancelWaiterLine,
   canSendWaiterLineToKitchen,
@@ -70,11 +74,74 @@ export function WaiterCuentaPanel({
   const [productByVariantId, setProductByVariantId] = useState<
     Record<string, WaiterLineProductMeta>
   >({});
+  const [kitchenUnits, setKitchenUnits] = useState<KitchenUnitPrintInfo[]>([]);
+  const [printAgents, setPrintAgents] = useState<PrintAgentCatalogItem[]>([]);
 
   const auth = useMemo(
     () => ({ userId: session.userId, companyId: session.companyId }),
     [session.userId, session.companyId],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [units, agents] = await Promise.all([
+          listKitchenProductionUnitsAction({ ...auth, branchId }),
+          listPrintAgentsForWaiterAction({
+            userId: session.userId,
+            companyId: session.companyId,
+          }),
+        ]);
+        if (cancelled) return;
+        setKitchenUnits(
+          units.map((u) => ({
+            id: u.id,
+            name: u.name,
+            kitchenFulfillmentMode: u.kitchenFulfillmentMode,
+            kitchenPrintSettings: u.kitchenPrintSettings,
+          })),
+        );
+        setPrintAgents(
+          agents.map((a) => ({
+            id: a.id,
+            displayName: a.displayName,
+            lanHost: a.lanHost,
+            wsPort: a.wsPort,
+            wssPort: a.wssPort,
+            useTls: a.useTls,
+            online: a.online,
+            platform: a.platform,
+          })),
+        );
+      } catch {
+        if (!cancelled) {
+          setKitchenUnits([]);
+          setPrintAgents([]);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [auth, branchId, session.userId, session.companyId]);
+
+  const fireAndMaybePrint = async (lineIds: string[]) => {
+    const next = await sendOrderToKitchenAction({
+      ...auth,
+      orderId: order.id,
+      lineIds,
+    });
+    void printWaiterKitchenComandasAfterFire({
+      order: next,
+      sentLineIds: lineIds,
+      productByVariantId,
+      kitchenUnits,
+      printAgents,
+      companyName: null,
+    });
+    return next;
+  };
 
   const lines = order.lines ?? [];
   const groups = useMemo(() => groupWaiterOrderLines(lines), [lines]);
@@ -281,13 +348,7 @@ export function WaiterCuentaPanel({
               busy={busy !== null}
               onToggle={() => toggle(group.key)}
               onSendLines={(lineIds) =>
-                void run(`fire-${group.key}`, () =>
-                  sendOrderToKitchenAction({
-                    ...auth,
-                    orderId: order.id,
-                    lineIds,
-                  }),
-                )
+                void run(`fire-${group.key}`, () => fireAndMaybePrint(lineIds))
               }
               onCancelLines={(lineIds) =>
                 void run(`cancel-${group.key}`, async () => {
@@ -390,11 +451,7 @@ export function WaiterCuentaPanel({
             disabled={busy !== null || isBilling}
             onClick={() =>
               void run("fire-all", () =>
-                sendOrderToKitchenAction({
-                  ...auth,
-                  orderId: order.id,
-                  lineIds: draftLines.map((l) => l.id),
-                }),
+                fireAndMaybePrint(draftLines.map((l) => l.id)),
               )
             }
             data-test-id="waiter-fire-all"

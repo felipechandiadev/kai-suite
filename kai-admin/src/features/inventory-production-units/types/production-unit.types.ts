@@ -1,6 +1,12 @@
 export type ProductionUnitScope = "BRANCH" | "COMPANY";
 export type ProductionUnitInventoryMode = "AUTONOMOUS" | "DEPENDENT";
 export type ProductionUnitPurpose = "KITCHEN" | "BATCH";
+export type KitchenFulfillmentMode = "KDS" | "PRINTED" | "BOTH";
+
+export type KitchenPrintSettings = {
+  printAgentId?: string | null;
+  printerDisplayLabel?: string | null;
+};
 
 export type ProductionUnitListItem = {
   id: string;
@@ -27,6 +33,8 @@ export type ProductionUnitListItem = {
   monthlyPayrollTotal?: number;
   laborCostPerUnit?: number | null;
   isActive: boolean;
+  kitchenFulfillmentMode?: KitchenFulfillmentMode;
+  kitchenPrintSettings?: KitchenPrintSettings | null;
 };
 
 export type CreateProductionUnitInput = {
@@ -43,6 +51,8 @@ export type CreateProductionUnitInput = {
   laborUnitIds?: string[];
   employeeIds?: string[];
   isActive?: boolean;
+  kitchenFulfillmentMode?: KitchenFulfillmentMode;
+  kitchenPrintSettings?: KitchenPrintSettings | null;
 };
 
 export type UpdateProductionUnitInput = {
@@ -59,6 +69,8 @@ export type UpdateProductionUnitInput = {
   laborUnitIds?: string[];
   employeeIds?: string[];
   isActive?: boolean;
+  kitchenFulfillmentMode?: KitchenFulfillmentMode;
+  kitchenPrintSettings?: KitchenPrintSettings | null;
 };
 
 export type ProductionUnitActionResult =

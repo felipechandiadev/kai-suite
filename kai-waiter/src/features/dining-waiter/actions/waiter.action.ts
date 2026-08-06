@@ -214,3 +214,29 @@ export async function markFireDeliveredAction(body: {
   );
 }
 
+export async function listKitchenProductionUnitsAction(body: {
+  userId: string;
+  companyId: string;
+  branchId?: string;
+}) {
+  const rows = await DiningRequest.listProductionUnits(ctx(body), {
+    branchId: body.branchId,
+    purpose: "KITCHEN",
+  });
+  return rows.map((u) => {
+    const mode =
+      u.kitchenFulfillmentMode === "PRINTED"
+        ? ("PRINTED" as const)
+        : u.kitchenFulfillmentMode === "BOTH"
+          ? ("BOTH" as const)
+          : ("KDS" as const);
+    return {
+      id: u.id,
+      name: u.name,
+      code: u.code,
+      kitchenFulfillmentMode: mode,
+      kitchenPrintSettings: u.kitchenPrintSettings ?? null,
+    };
+  });
+}
+

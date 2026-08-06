@@ -6,6 +6,7 @@ import { Search } from "lucide-react";
 import { loadMenuHomeAction } from "../actions/menu.action";
 import type { MenuCatalogItem, MenuCategory, MenuStorefront } from "../infrastructure/menu.request";
 import { MenuHeroSlider } from "./MenuHeroSlider";
+import { MenuThemeShell } from "./MenuThemeShell";
 
 /** Anchors de secciones retiradas de la carta pública (por ahora). */
 const RETIRED_NAV_HREFS = new Set(["#about", "#find-us"]);
@@ -18,6 +19,29 @@ function fmtClp(n: number) {
   }).format(n);
 }
 
+function ProductCardSkeleton() {
+  return (
+    <div className="flex gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
+      <div className="h-20 w-20 shrink-0 animate-pulse rounded-lg bg-[var(--border)]/60" />
+      <div className="min-w-0 flex-1 space-y-2 py-1">
+        <div className="h-4 w-[60%] animate-pulse rounded bg-[var(--border)]/60" />
+        <div className="h-3 w-full animate-pulse rounded bg-[var(--border)]/40" />
+        <div className="h-3 w-[40%] animate-pulse rounded bg-[var(--border)]/40" />
+      </div>
+    </div>
+  );
+}
+
+function ProductImageSlot({ imageUrl }: { imageUrl?: string | null }) {
+  if (imageUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={imageUrl} alt="" className="h-20 w-20 shrink-0 rounded-lg object-cover" />
+    );
+  }
+  return <div className="h-20 w-20 shrink-0" aria-hidden />;
+}
+
 export function MenuPageClient() {
   const [store, setStore] = useState<MenuStorefront | null>(null);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
@@ -25,9 +49,12 @@ export function MenuPageClient() {
   const [search, setSearch] = useState("");
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { soft?: boolean }) => {
+    const soft = opts?.soft === true;
+    if (!soft) setLoading(true);
+    setLoadFailed(false);
     try {
       const data = await loadMenuHomeAction({
         search,
@@ -37,16 +64,28 @@ export function MenuPageClient() {
       setCategories(data.categories);
       setItems(data.items);
     } catch {
-      setStore(null);
-      setCategories([]);
-      setItems([]);
+      if (!soft) {
+        setStore(null);
+        setCategories([]);
+        setItems([]);
+        setLoadFailed(true);
+      }
     } finally {
-      setLoading(false);
+      if (!soft) setLoading(false);
     }
   }, [search, selectedCategoryIds]);
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  /** Al volver a la pestaña (p. ej. tras crear un hero en admin), refrescar storefront sin skeleton. */
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void load({ soft: true });
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [load]);
 
   const navLinks = useMemo(
@@ -80,11 +119,7 @@ export function MenuPageClient() {
 
   const allSelected = selectedCategoryIds.length === 0;
 
-  if (loading && !store) {
-    return <div className="p-8 text-center text-sm text-[var(--muted)]">Cargando carta…</div>;
-  }
-
-  if (!store) {
+  if (loadFailed && !store) {
     return (
       <div className="p-8 text-center text-sm text-[var(--muted)]">
         Carta no disponible. Verifique la configuración del restaurante.
@@ -92,25 +127,34 @@ export function MenuPageClient() {
     );
   }
 
-  return (
+  const content = (
     <div className="min-h-screen">
       <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--card)]/95 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
-          {/* Logo + nombre siempre desde configuración de empresa (settings/company multimedia + nombreFantasia). */}
           <div className="flex min-w-0 items-center gap-3">
-            {store.companyLogoUrl ? (
+            {store?.companyLogoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={store.companyLogoUrl}
                 alt={store.companyName}
                 className="h-10 w-10 rounded-full object-cover"
               />
+            ) : loading && !store ? (
+              <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-[var(--border)]/60" />
             ) : null}
-            <span className="truncate text-lg font-semibold">{store.companyName}</span>
+            {store?.companyName ? (
+              <span className="truncate text-lg font-semibold">{store.companyName}</span>
+            ) : (
+              <div className="h-5 w-36 animate-pulse rounded bg-[var(--border)]/60" />
+            )}
           </div>
           <nav className="hidden gap-4 text-sm md:flex">
             {navLinks.map((link) => (
-              <a key={link.href} href={link.href} className="text-[var(--muted)] hover:text-[var(--primary)]">
+              <a
+                key={link.href}
+                href={link.href}
+                className="text-[var(--muted)] hover:text-[var(--primary)]"
+              >
                 {link.label}
               </a>
             ))}
@@ -118,14 +162,17 @@ export function MenuPageClient() {
         </div>
       </header>
 
-      {(store.heroSlides?.length ?? 0) > 0 ? (
+      {(store?.heroSlides?.length ?? 0) > 0 ? (
         <MenuHeroSlider
-          slides={store.heroSlides}
-          autoplaySeconds={store.heroSliderAutoplaySeconds ?? 6}
+          slides={store!.heroSlides}
+          autoplaySeconds={store!.heroSliderAutoplaySeconds ?? 6}
         />
       ) : null}
 
-      <section id="menu" className="sticky top-[57px] z-20 border-b border-[var(--border)] bg-[var(--background)]/95 backdrop-blur">
+      <section
+        id="menu"
+        className="sticky top-[57px] z-20 border-b border-[var(--border)] bg-[var(--background)]/95 backdrop-blur"
+      >
         <div className="mx-auto max-w-5xl space-y-3 px-4 py-3">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted)]" />
@@ -148,29 +195,42 @@ export function MenuPageClient() {
             >
               Todas
             </button>
-            {categories.map((cat) => {
-              const active = selectedCategoryIds.includes(cat.id);
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => toggleCategory(cat.id)}
-                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
-                    active
-                      ? "bg-[var(--primary)] text-white"
-                      : "bg-[var(--card)] text-[var(--muted)]"
-                  }`}
-                >
-                  {cat.name}
-                </button>
-              );
-            })}
+            {loading && categories.length === 0
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-6 w-16 shrink-0 animate-pulse rounded-full bg-[var(--border)]/50"
+                  />
+                ))
+              : categories.map((cat) => {
+                  const active = selectedCategoryIds.includes(cat.id);
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => toggleCategory(cat.id)}
+                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
+                        active
+                          ? "bg-[var(--primary)] text-white"
+                          : "bg-[var(--card)] text-[var(--muted)]"
+                      }`}
+                    >
+                      {cat.name}
+                    </button>
+                  );
+                })}
           </div>
         </div>
       </section>
 
       <main className="mx-auto max-w-5xl px-4 py-6">
-        {grouped.length === 0 ? (
+        {loading ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <ProductCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : grouped.length === 0 ? (
           <p className="text-center text-sm text-[var(--muted)]">No hay productos en la carta.</p>
         ) : (
           <div className="space-y-8">
@@ -184,18 +244,7 @@ export function MenuPageClient() {
                       href={`/p/${item.productId}?variant=${item.id}`}
                       className="flex gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-sm transition hover:border-[var(--primary)]"
                     >
-                      {item.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={item.imageUrl}
-                          alt=""
-                          className="h-20 w-20 shrink-0 rounded-lg object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-[var(--background)] text-[10px] text-[var(--muted)]">
-                          —
-                        </div>
-                      )}
+                      <ProductImageSlot imageUrl={item.imageUrl} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
                           <h3 className="font-medium leading-snug">{item.name}</h3>
@@ -204,7 +253,7 @@ export function MenuPageClient() {
                           </span>
                         </div>
                         {item.description ? (
-                          <p className="mt-1 text-sm text-[var(--muted)] line-clamp-2">
+                          <p className="mt-1 line-clamp-2 text-sm text-[var(--muted)]">
                             {item.description}
                           </p>
                         ) : null}
@@ -219,4 +268,6 @@ export function MenuPageClient() {
       </main>
     </div>
   );
+
+  return <MenuThemeShell theme={store?.theme ?? null}>{content}</MenuThemeShell>;
 }

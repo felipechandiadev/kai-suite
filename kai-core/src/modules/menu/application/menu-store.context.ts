@@ -1,6 +1,6 @@
 import type { CompanyMenuAboutSettings } from '@modules/companies/domain/company-menu-about.types';
 import type { CompanyMenuFindUsSettings } from '@modules/companies/domain/company-menu-find-us.types';
-import type { CompanyMenuThemeSettings } from '@modules/companies/domain/company-menu-theme.types';
+import type { MenuResolvedTheme } from '@modules/companies/domain/company-menu-theme.types';
 import type { CompanyMenuTopBarSettings } from '@modules/companies/domain/company-menu-topbar.types';
 
 export type MenuStoreContext = {
@@ -14,6 +14,6 @@ export type MenuStoreContext = {
   topBar: CompanyMenuTopBarSettings;
   about: CompanyMenuAboutSettings;
   findUs: CompanyMenuFindUsSettings;
-  theme: CompanyMenuThemeSettings;
+  theme: MenuResolvedTheme;
   companySettings: Record<string, unknown>;
 };

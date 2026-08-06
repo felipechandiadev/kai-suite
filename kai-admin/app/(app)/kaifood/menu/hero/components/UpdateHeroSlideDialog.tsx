@@ -161,7 +161,7 @@ export function UpdateHeroSlideDialog({ open, onClose, slide, onSuccess }: Updat
           onChange={setAutoplaySeconds}
           disabled={isPending}
         />
-        <Switch checked={isActive} onChange={setIsActive} label="Activo en la tienda" labelPosition="right" />
+        <Switch checked={isActive} onChange={setIsActive} label="Activo en la carta" labelPosition="right" />
         <EntityMultimediaPanel
           entityType="menu-hero-slide"
           entityId={slide.id}

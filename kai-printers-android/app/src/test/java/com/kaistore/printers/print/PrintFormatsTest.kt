@@ -40,6 +40,7 @@ class PrintFormatsTest {
     fun laundryReceptionIsTicketJobType() {
         assertTrue(PrintFormats.isTicketJobType("pos-laundry-reception-ticket"))
         assertTrue(PrintFormats.isTicketJobType("pos-dining-account-ticket"))
+        assertTrue(PrintFormats.isTicketJobType("pos-kitchen-ticket"))
         assertFalse(PrintFormats.isTicketJobType("pdf-base64"))
     }
 }

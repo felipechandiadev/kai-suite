@@ -61,6 +61,10 @@ function mapLine(raw: Record<string, unknown>): PosDiningOrderLine {
     productVariantId: String(raw.productVariantId ?? ""),
     quantity: Number(raw.quantity) || 0,
     notes: typeof raw.notes === "string" ? raw.notes : null,
+    productionUnitId:
+      raw.productionUnitId === null || raw.productionUnitId === undefined
+        ? null
+        : String(raw.productionUnitId),
     kitchenStatus: String(raw.kitchenStatus ?? "DRAFT") as PosDiningOrderLine["kitchenStatus"],
     kitchenFireId:
       raw.kitchenFireId === null || raw.kitchenFireId === undefined

@@ -192,7 +192,12 @@ export const mainMenuItems: SideBarMenuItem[] = [
     requiresKaiFoodEnabled: true,
     children: [
       { id: 'kaifood-rooms', label: 'Salones', url: '/kaifood/rooms' },
-      // Propinas — oculto temporalmente del sidebar (rutas /kaifood/propinas* siguen por URL).
+      {
+        id: 'kaifood-propinas',
+        label: 'Propinas',
+        url: '/kaifood/propinas',
+        requiresTipsEnabled: true,
+      },
       {
         id: 'kaifood-production-orders',
         label: 'Órdenes de producción',

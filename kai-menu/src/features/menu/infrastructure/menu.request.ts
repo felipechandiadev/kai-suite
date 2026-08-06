@@ -7,6 +7,27 @@ const base = () =>
 const slug = () =>
   (process.env.NEXT_PUBLIC_MENU_STORE_SLUG || process.env.MENU_STORE_SLUG || "kai-food").trim();
 
+export type MenuThemeTokens = {
+  primary: string;
+  secondary: string;
+  background: string;
+  foreground: string;
+  accent: string;
+  border: string;
+  chrome: string;
+  chromeForeground: string;
+  surface: string;
+  active: string;
+  muted: string;
+  mutedForeground: string;
+  card: string;
+};
+
+export type MenuResolvedTheme = {
+  templateId: string;
+  tokens: MenuThemeTokens;
+};
+
 export type MenuStorefront = {
   companyName: string;
   companyLogoUrl: string | null;
@@ -22,6 +43,7 @@ export type MenuStorefront = {
     phone: string;
     hours: string;
   };
+  theme?: MenuResolvedTheme | null;
   heroSlides: Array<{
     id: string;
     title: string | null;
@@ -74,7 +96,9 @@ async function menuFetch<T>(path: string): Promise<T | null> {
   const api = base();
   if (!api) return null;
   try {
-    const res = await fetch(`${api}/api/menu/${path}`, {
+    const sep = path.includes("?") ? "&" : "?";
+    const url = `${api}/api/menu/${path}${sep}_=${Date.now()}`;
+    const res = await fetch(url, {
       headers: { "X-Menu-Store-Slug": slug() },
       cache: "no-store",
     });

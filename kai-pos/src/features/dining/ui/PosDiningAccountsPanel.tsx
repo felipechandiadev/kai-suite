@@ -36,6 +36,7 @@ import {
 import { diningAccountTitle } from "@/features/dining/lib/dining-account-title";
 import { groupDiningFiresForBoard } from "@/features/dining/lib/group-dining-fires-for-board";
 import { printDiningAccountTicketAgentOrBrowser } from "@/features/dining/lib/dining-account-ticket-agent";
+import { printKitchenComandasAfterFire } from "@/features/dining/lib/kitchen-comanda-ticket-print";
 import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
 import { getCompanyTipSettingsForPosAction } from "@/features/company/actions/company-tips.action";
 import { lookupPosVariantsAction } from "@/features/pos-products/actions/pos-products.action";
@@ -635,6 +636,7 @@ export default function PosDiningAccountsPanel({
     if (!detail) return;
     setActionBusy(true);
     setActionError(null);
+    const sentIds = lineIds;
     void sendPosDiningOrderToKitchenAction(detail.id, lineIds).then((res) => {
       setActionBusy(false);
       if (!res.success) {
@@ -645,6 +647,20 @@ export default function PosDiningAccountsPanel({
       setDetail(res.order);
       upsertOrderInList(res.order);
       refreshList({ silent: true });
+      void (async () => {
+        try {
+          const company =
+            (await getCompanyDetailsAction()) ?? null;
+          await printKitchenComandasAfterFire({
+            order: res.order,
+            sentLineIds: sentIds,
+            productNameByVariantId: productByVariantId,
+            company,
+          });
+        } catch (e) {
+          console.warn("[KaiFood print] comanda tras fire:", e);
+        }
+      })();
     });
   };
 

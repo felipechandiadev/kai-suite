@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Button,
@@ -10,6 +10,10 @@ import {
   Select,
   TextField,
 } from "@kai/ui";
+import {
+  PrintAgentPicker,
+  type PrintAgentCatalogItem,
+} from "@kai/print-service-client";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
 import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
 import {
@@ -25,11 +29,14 @@ import {
   updateProductionUnitAction,
 } from "@/features/inventory-production-units/actions/production-unit.action";
 import type {
+  KitchenFulfillmentMode,
   ProductionUnitInventoryMode,
   ProductionUnitListItem,
   ProductionUnitPurpose,
   ProductionUnitScope,
 } from "@/features/inventory-production-units/types/production-unit.types";
+import { listPrintAgentsAction } from "@/features/print-agents/actions/print-agents.action";
+import type { PrintAgentDto } from "@/features/print-agents/types/print-agent.types";
 import { LaborUnitAssociationsField } from "@/features/hr-labor-units/ui/LaborUnitAssociationsField";
 import { EmployeeAssociationsField } from "@/features/hr-employees/ui/EmployeeAssociationsField";
 import { ProductionUnitCard } from "./ProductionUnitCard";
@@ -72,6 +79,13 @@ export function ProductionUnitsCollection({
   const [inventoryMode, setInventoryMode] =
     useState<ProductionUnitInventoryMode>("DEPENDENT");
   const [purpose, setPurpose] = useState<ProductionUnitPurpose>("KITCHEN");
+  const [kitchenFulfillmentMode, setKitchenFulfillmentMode] =
+    useState<KitchenFulfillmentMode>("KDS");
+  const [kitchenPrintAgentId, setKitchenPrintAgentId] = useState<string>("");
+  const [kitchenPrintAgentName, setKitchenPrintAgentName] = useState<string>("");
+  const [kitchenPrinterLabel, setKitchenPrinterLabel] = useState<string>("");
+  const [catalogAgents, setCatalogAgents] = useState<PrintAgentCatalogItem[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
   const [inputStorageId, setInputStorageId] = useState<string>("");
   const [laborUnitIds, setLaborUnitIds] = useState<string[]>([]);
   const [employeeIds, setEmployeeIds] = useState<string[]>([]);
@@ -169,6 +183,35 @@ export function ProductionUnitsCollection({
     }
   }, [open, inputCandidates, inputStorageId]);
 
+  const refreshCatalog = useCallback(async () => {
+    setCatalogLoading(true);
+    try {
+      const rows = await listPrintAgentsAction();
+      setCatalogAgents(
+        rows.map((a: PrintAgentDto) => ({
+          id: a.id,
+          displayName: a.displayName,
+          lanHost: a.lanHost,
+          wsPort: a.wsPort,
+          wssPort: a.wssPort,
+          useTls: a.useTls,
+          online: a.online,
+          platform: a.platform,
+        })),
+      );
+    } catch {
+      setCatalogAgents([]);
+    } finally {
+      setCatalogLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open && purpose === "KITCHEN") {
+      void refreshCatalog();
+    }
+  }, [open, purpose, refreshCatalog]);
+
   const resetDialogFields = (mode: ProductionUnitInventoryMode = "DEPENDENT") => {
     const shared = (() => {
       const preferred = storages
@@ -198,6 +241,10 @@ export function ProductionUnitsCollection({
     setBranchId(branches[0]?.id ?? "");
     setInventoryMode("DEPENDENT");
     setPurpose("KITCHEN");
+    setKitchenFulfillmentMode("KDS");
+    setKitchenPrintAgentId("");
+    setKitchenPrintAgentName("");
+    setKitchenPrinterLabel("");
     setName("");
     setIsActive(true);
     setLaborUnitIds([]);
@@ -213,6 +260,18 @@ export function ProductionUnitsCollection({
     setBranchId(unit.branchId ?? branches[0]?.id ?? "");
     setInventoryMode(unit.inventoryMode);
     setPurpose(unit.purpose === "BATCH" ? "BATCH" : "KITCHEN");
+    setKitchenFulfillmentMode(
+      unit.kitchenFulfillmentMode === "PRINTED"
+        ? "PRINTED"
+        : unit.kitchenFulfillmentMode === "BOTH"
+          ? "BOTH"
+          : "KDS",
+    );
+    setKitchenPrintAgentId(unit.kitchenPrintSettings?.printAgentId ?? "");
+    setKitchenPrintAgentName("");
+    setKitchenPrinterLabel(
+      unit.kitchenPrintSettings?.printerDisplayLabel ?? "",
+    );
     setInputStorageId(unit.defaultInputStorageId ?? "");
     setLaborUnitIds(unit.laborUnitIds ?? []);
     setEmployeeIds(unit.employeeIds ?? []);
@@ -323,6 +382,17 @@ export function ProductionUnitsCollection({
       laborUnitIds,
       employeeIds,
       isActive,
+      kitchenFulfillmentMode:
+        purpose === "KITCHEN" ? kitchenFulfillmentMode : "KDS",
+      kitchenPrintSettings:
+        purpose === "KITCHEN" &&
+        (kitchenFulfillmentMode === "PRINTED" ||
+          kitchenFulfillmentMode === "BOTH")
+          ? {
+              printAgentId: kitchenPrintAgentId.trim() || null,
+              printerDisplayLabel: kitchenPrinterLabel.trim() || null,
+            }
+          : null,
     };
     const result = editing
       ? await updateProductionUnitAction({ id: editing.id, ...payload })
@@ -434,6 +504,58 @@ export function ProductionUnitsCollection({
             ]}
             data-test-id="production-unit-purpose"
           />
+          {purpose === "KITCHEN" ? (
+            <div className="space-y-3 rounded-lg border border-border/70 p-3">
+              <Select
+                label="Modo de comanda"
+                value={kitchenFulfillmentMode}
+                onChange={(v) => {
+                  const s = String(v);
+                  setKitchenFulfillmentMode(
+                    s === "PRINTED" ? "PRINTED" : s === "BOTH" ? "BOTH" : "KDS",
+                  );
+                }}
+                options={[
+                  { id: "KDS", label: "Pantalla KDS" },
+                  { id: "PRINTED", label: "Comanda impresa" },
+                  { id: "BOTH", label: "KDS + comanda impresa" },
+                ]}
+                data-test-id="production-unit-kitchen-fulfillment"
+              />
+              {kitchenFulfillmentMode === "PRINTED" ||
+              kitchenFulfillmentMode === "BOTH" ? (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    Agente e impresora para el ticket de cocina (Kai Printers).
+                    {kitchenPrintAgentName
+                      ? ` Seleccionado: ${kitchenPrintAgentName}`
+                      : kitchenPrintAgentId
+                        ? ` Agente: ${kitchenPrintAgentId}`
+                        : ""}
+                  </p>
+                  <PrintAgentPicker
+                    agents={catalogAgents}
+                    loading={catalogLoading}
+                    onRefresh={() => void refreshCatalog()}
+                    onApplied={(agent) => {
+                      setKitchenPrintAgentId(agent.id);
+                      setKitchenPrintAgentName(agent.displayName);
+                    }}
+                    data-test-id="production-unit-kitchen-print-agent"
+                  />
+                  <TextField
+                    label="Alias impresora (tickets)"
+                    name="kitchen-printer-label"
+                    value={kitchenPrinterLabel}
+                    onChange={(e) => setKitchenPrinterLabel(e.target.value)}
+                    alwaysShowLabel
+                    placeholder="Ej. Cocina"
+                    data-test-id="production-unit-kitchen-printer-label"
+                  />
+                </>
+              ) : null}
+            </div>
+          ) : null}
           <div className="flex flex-col gap-1">
             <Select
               label="Modo de inventario"

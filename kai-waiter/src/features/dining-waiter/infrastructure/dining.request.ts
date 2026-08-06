@@ -61,6 +61,12 @@ export type ProductionUnitDto = {
   code: string;
   name: string;
   isActive: boolean;
+  purpose?: string;
+  kitchenFulfillmentMode?: "KDS" | "PRINTED" | "BOTH";
+  kitchenPrintSettings?: {
+    printAgentId?: string | null;
+    printerDisplayLabel?: string | null;
+  } | null;
 };
 
 export type WaiterMenuCategoryDto = {
@@ -453,9 +459,13 @@ export class DiningRequest {
     );
   }
 
-  static listProductionUnits(ctx: DiningAuthContext, branchId?: string) {
+  static listProductionUnits(
+    ctx: DiningAuthContext,
+    opts?: { branchId?: string; purpose?: string },
+  ) {
     return diningGet<ProductionUnitDto[]>("/production-units", ctx, {
-      branchId,
+      branchId: opts?.branchId,
+      purpose: opts?.purpose,
       includeInactive: "false",
     });
   }

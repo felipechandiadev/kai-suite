@@ -12,6 +12,7 @@ import {
   patchProductGridFlagsAction,
 } from "@/features/inventory-products/actions/product.action";
 import { prepareBulkProductImportAction } from "@/features/inventory-products/actions/bulk-product.action";
+import { saveVariantProductionRoutingAction } from "@/features/inventory-products/actions/variant-production.action";
 import {
   buildBulkProductTemplateBuffer,
   downloadBulkProductTemplate,
@@ -133,7 +134,7 @@ export function BulkProductImportDialog({ open, onClose }: Props) {
         const productRes = await createProductAction({
           name: row.nombre,
           categoryId: row.categoryId ?? undefined,
-          productType: "PHYSICAL",
+          productType: row.productType,
           isActive: row.isActive,
           visibleInEShop: row.visibleInEShop,
         });
@@ -194,12 +195,42 @@ export function BulkProductImportDialog({ open, onClose }: Props) {
           }
         }
 
+        if (
+          row.productionUnitId &&
+          row.productionUnitBranchId &&
+          (row.productType === "PREPARADO" || row.productType === "ELABORADO")
+        ) {
+          const route = await saveVariantProductionRoutingAction(
+            variantRes.id,
+            [
+              {
+                branchId: row.productionUnitBranchId,
+                productionUnitId: row.productionUnitId,
+                isDefault: true,
+              },
+            ],
+          );
+          if (!route.success) {
+            out.push({
+              key,
+              sku: row.sku,
+              nombre: row.nombre,
+              ok: false,
+              message: `Producto creado, pero no se pudo asignar cocina: ${route.message}`,
+            });
+            setResults([...out]);
+            continue;
+          }
+        }
+
         out.push({
           key,
           sku: row.sku,
           nombre: row.nombre,
           ok: true,
-          message: "Creado",
+          message: row.productionUnitName
+            ? `Creado · ${row.productType} → ${row.productionUnitName}`
+            : `Creado · ${row.productType}`,
         });
         setResults([...out]);
       }
@@ -289,9 +320,14 @@ export function BulkProductImportDialog({ open, onClose }: Props) {
         {(step === "setup" || step === "preview") && (
           <>
             <p className="text-sm text-muted-foreground">
-              Descargue la plantilla, complete una fila por producto (stock) y
-              súbala. Cada fila crea un producto PHYSICAL con su primera
-              variante (SKU, código de barras, flags y precio).
+              Descargue la plantilla, complete una fila por producto y súbala.
+              Cada fila crea un producto con su primera variante (SKU, código de
+              barras, flags y precio). Use{" "}
+              <code className="text-foreground">tipo_producto</code> (
+              PHYSICAL / PREPARADO / ELABORADO) y{" "}
+              <code className="text-foreground">cocina</code> (nombre de la UP)
+              para ruteo a producción. También acepta el Excel de catálogo Barco
+              (hoja Productos).
             </p>
             {gatingNoteParts.length > 0 ? (
               <p className="text-xs text-muted-foreground">
@@ -366,6 +402,8 @@ export function BulkProductImportDialog({ open, onClose }: Props) {
                     <th className="p-2">Activo</th>
                     <th className="p-2">eShop</th>
                     <th className="p-2">Menú</th>
+                    <th className="p-2">Tipo</th>
+                    <th className="p-2">Cocina</th>
                     <th className="p-2">Precio</th>
                   </tr>
                 </thead>
@@ -381,12 +419,16 @@ export function BulkProductImportDialog({ open, onClose }: Props) {
                       <td className="p-2">{flagLabel(r.isActive)}</td>
                       <td className="p-2">{flagLabel(r.visibleInEShop)}</td>
                       <td className="p-2">{flagLabel(r.onMenu)}</td>
+                      <td className="p-2">{r.productType}</td>
+                      <td className="p-2 text-muted-foreground">
+                        {r.productionUnitName ?? "—"}
+                      </td>
                       <td className="p-2">{r.basePrice}</td>
                     </tr>
                   ))}
                   {preparedRows.length === 0 ? (
                     <tr>
-                      <td className="p-2 text-muted-foreground" colSpan={8}>
+                      <td className="p-2 text-muted-foreground" colSpan={10}>
                         Sin filas válidas para procesar.
                       </td>
                     </tr>

@@ -66,6 +66,9 @@ export const SEED_DEV_ATTRIBUTES: readonly SeedDevAttributeDef[] = [
       'Doble',
       'Regular',
       'XL',
+      '250 g',
+      '500 g',
+      '1 kg',
     ],
     displayOrder: 3,
   },
@@ -159,6 +162,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         wholesaleNet: 2350,
         inBothPriceLists: true,
         uom: { stock: 'UN', sale: 'UN', purchase: 'UN' },
+        attributeValues: { Tamaño: '250 g' },
       },
       {
         sku: 'SEEDDEVCAFE500',
@@ -170,6 +174,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         wholesaleNet: 4200,
         inBothPriceLists: true,
         uom: { stock: 'UN', sale: 'UN', purchase: 'UN' },
+        attributeValues: { Tamaño: '500 g' },
       },
       {
         sku: 'SEEDDEVCAFE1KG',
@@ -181,6 +186,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
         wholesaleNet: 7600,
         inBothPriceLists: false,
         uom: { stock: 'UN', sale: 'UN', purchase: 'UN' },
+        attributeValues: { Tamaño: '1 kg' },
       },
     ],
   },

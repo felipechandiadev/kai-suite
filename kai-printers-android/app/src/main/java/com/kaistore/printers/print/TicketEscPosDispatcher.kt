@@ -53,6 +53,10 @@ object TicketEscPosDispatcher {
                 PosDiningAccountTicketEscPos.fromTicketJson(
                     ticketJson, widthChars, context, logoSettings, headerPrefs,
                 )
+            "pos-kitchen-ticket" ->
+                PosKitchenTicketEscPos.fromTicketJson(
+                    ticketJson, widthChars, context, logoSettings, headerPrefs,
+                )
             "pos-presale-ticket" ->
                 PosPresaleTicketEscPos.fromTicketJson(ticketJson, widthChars, context, logoSettings, headerPrefs)
             "pos-laundry-reception-ticket" ->

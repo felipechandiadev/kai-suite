@@ -10,9 +10,13 @@ export const BULK_PRODUCT_HEADERS = [
   "eshop",
   "menu",
   "precio",
+  "tipo_producto",
+  "cocina",
 ] as const;
 
 export type BulkProductExcelHeader = (typeof BULK_PRODUCT_HEADERS)[number];
+
+export type BulkProductType = "PHYSICAL" | "PREPARADO" | "ELABORADO";
 
 export type BulkProductExcelRow = {
   /** 1-based Excel row number (incluye encabezado: datos desde 2). */
@@ -33,6 +37,8 @@ export type BulkProductExcelRow = {
   activoRaw: string;
   eshopRaw: string;
   menuRaw: string;
+  tipoProductoRaw: string;
+  cocina: string;
   raw: Record<BulkProductExcelHeader, string>;
 };
 
@@ -111,7 +117,9 @@ export async function buildBulkProductTemplateBuffer(): Promise<ArrayBuffer> {
   ws.getColumn(6).width = 10;
   ws.getColumn(7).width = 10;
   ws.getColumn(8).width = 12;
-  // Ejemplo (fila 2) — el usuario puede borrar
+  ws.getColumn(9).width = 14;
+  ws.getColumn(10).width = 14;
+  // Ejemplo PHYSICAL
   ws.addRow([
     "Producto ejemplo",
     "SKU-EJEMPLO-001",
@@ -121,9 +129,26 @@ export async function buildBulkProductTemplateBuffer(): Promise<ArrayBuffer> {
     "no",
     "no",
     1000,
+    "PHYSICAL",
+    "",
   ]);
-  for (let c = 1; c <= 7; c++) {
-    ws.getRow(2).getCell(c).numFmt = "@";
+  // Ejemplo PREPARADO + cocina
+  ws.addRow([
+    "Empanada queso",
+    "E-DEMO-001",
+    "",
+    "EMPANADAS",
+    "si",
+    "no",
+    "si",
+    1300,
+    "PREPARADO",
+    "Cocina",
+  ]);
+  for (const r of [2, 3]) {
+    for (let c = 1; c <= 10; c++) {
+      if (c !== 8) ws.getRow(r).getCell(c).numFmt = "@";
+    }
   }
   const buf = await wb.xlsx.writeBuffer();
   return buf as ArrayBuffer;
@@ -146,7 +171,9 @@ export function downloadBulkProductTemplate(
 
 /**
  * Parsea un archivo XLSX de carga masiva de productos.
- * Exige encabezados exactos en la fila 1.
+ * Resuelve columnas por nombre de encabezado (fila 1).
+ * Obligatorios: nombre, sku. Opcionales: resto de plantilla.
+ * Acepta plantillas Admin y Excel cliente Barco (columnas extra se ignoran).
  */
 export async function parseBulkProductExcel(
   data: ArrayBuffer | Uint8Array,
@@ -157,40 +184,53 @@ export async function parseBulkProductExcel(
   } catch {
     return { rows: [], error: "No se pudo leer el archivo Excel." };
   }
-  const ws = wb.worksheets[0];
+  // Preferir hoja "Productos" si existe (Excel cliente Barco).
+  const ws =
+    wb.worksheets.find((s) => s.name.trim().toLowerCase() === "productos") ??
+    wb.worksheets[0];
   if (!ws) {
     return { rows: [], error: "El Excel no tiene hojas." };
   }
 
   const headerRow = ws.getRow(1);
-  const headers: string[] = [];
-  for (let c = 1; c <= BULK_PRODUCT_HEADERS.length; c++) {
-    headers.push(cellToString(headerRow.getCell(c).value).toLowerCase());
+  const colByHeader = new Map<string, number>();
+  const lastCol = Math.max(headerRow.cellCount || 0, BULK_PRODUCT_HEADERS.length);
+  for (let c = 1; c <= lastCol + 8; c++) {
+    const h = cellToString(headerRow.getCell(c).value).toLowerCase();
+    if (h && !colByHeader.has(h)) colByHeader.set(h, c);
   }
-  for (let i = 0; i < BULK_PRODUCT_HEADERS.length; i++) {
-    if (headers[i] !== BULK_PRODUCT_HEADERS[i]) {
-      return {
-        rows: [],
-        error: `Encabezado inválido en columna ${i + 1}: se esperaba "${BULK_PRODUCT_HEADERS[i]}", se encontró "${headers[i] || "(vacío)"}". Descargue la plantilla.`,
-      };
-    }
+
+  if (!colByHeader.has("nombre") || !colByHeader.has("sku")) {
+    return {
+      rows: [],
+      error:
+        'Faltan columnas obligatorias "nombre" y/o "sku" en la fila 1. Descargue la plantilla o use la hoja Productos del catálogo Barco.',
+    };
   }
+
+  const cell = (row: ExcelJS.Row, header: string): string => {
+    const c = colByHeader.get(header);
+    if (!c) return "";
+    return cellToString(row.getCell(c).value);
+  };
 
   const rows: BulkProductExcelRow[] = [];
   const last = ws.rowCount || 0;
   for (let r = 2; r <= last; r++) {
     const row = ws.getRow(r);
     const rawVals: Record<BulkProductExcelHeader, string> = {
-      nombre: cellToString(row.getCell(1).value),
-      sku: cellToString(row.getCell(2).value),
-      codigo_barras: cellToString(row.getCell(3).value),
-      categoria: cellToString(row.getCell(4).value),
-      activo: cellToString(row.getCell(5).value),
-      eshop: cellToString(row.getCell(6).value),
-      menu: cellToString(row.getCell(7).value),
-      precio: cellToString(row.getCell(8).value),
+      nombre: cell(row, "nombre"),
+      sku: cell(row, "sku"),
+      codigo_barras: cell(row, "codigo_barras"),
+      categoria: cell(row, "categoria"),
+      activo: cell(row, "activo"),
+      eshop: cell(row, "eshop"),
+      menu: cell(row, "menu"),
+      precio: cell(row, "precio"),
+      tipo_producto: cell(row, "tipo_producto"),
+      cocina: cell(row, "cocina"),
     };
-    const empty = BULK_PRODUCT_HEADERS.every((h) => !rawVals[h]);
+    const empty = !rawVals.nombre && !rawVals.sku && !rawVals.codigo_barras;
     if (empty) continue;
 
     const precioParsed = parseNonNegativeNumber(rawVals.precio);
@@ -215,6 +255,8 @@ export async function parseBulkProductExcel(
       activoRaw: rawVals.activo,
       eshopRaw: rawVals.eshop,
       menuRaw: rawVals.menu,
+      tipoProductoRaw: rawVals.tipo_producto,
+      cocina: rawVals.cocina,
       raw: rawVals,
     });
   }

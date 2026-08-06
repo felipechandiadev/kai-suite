@@ -103,6 +103,8 @@ import {
 } from '../domain/company-menu-find-us.types';
 import {
   type CompanyMenuThemeSettings,
+  type MenuResolvedTheme,
+  listMenuThemePresetsForAdmin,
   resolveMenuTheme,
   sanitizeCompanyMenuThemeSettings,
 } from '../domain/company-menu-theme.types';
@@ -1392,7 +1394,8 @@ export class CompaniesService {
 
   async getMenuThemeSettings(companyId: string): Promise<{
     theme: CompanyMenuThemeSettings;
-    resolved: CompanyMenuThemeSettings;
+    resolved: MenuResolvedTheme;
+    presets: ReturnType<typeof listMenuThemePresetsForAdmin>;
   }> {
     const company = await this.companyRepository.findOne({
       where: { id: companyId },
@@ -1400,7 +1403,11 @@ export class CompaniesService {
     if (!company) throw new NotFoundException('Empresa no encontrada');
     const settings = company.settings as Record<string, unknown>;
     const theme = sanitizeCompanyMenuThemeSettings(settings?.menuTheme);
-    return { theme, resolved: resolveMenuTheme(settings) };
+    return {
+      theme,
+      resolved: resolveMenuTheme(settings),
+      presets: listMenuThemePresetsForAdmin(),
+    };
   }
 
   async replaceMenuThemeSettings(
@@ -1416,8 +1423,7 @@ export class CompaniesService {
     );
     const merged = sanitizeCompanyMenuThemeSettings({
       templateId: raw.templateId ?? current.templateId,
-      themeTokenOverrides:
-        raw.themeTokenOverrides ?? current.themeTokenOverrides,
+      tokenOverrides: raw.tokenOverrides ?? current.tokenOverrides,
     });
     const settings = { ...(company.settings ?? {}) };
     settings.menuTheme = merged;

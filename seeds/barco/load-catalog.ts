@@ -2,6 +2,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ProductType } from '@modules/products/domain/product.entity';
 import type { SeedProductDefinition } from '../shared/seed-catalog.types';
+import {
+  disambiguateDuplicateNames,
+  stripParenEanFromName,
+} from './catalog-clean.util';
 
 export type BarcoCatalogProduct = {
   name: string;
@@ -212,10 +216,21 @@ export function mapBarcoCatalogToSeedProducts(
   brandOverride?: string,
 ): SeedProductDefinition[] {
   const brand = brandOverride?.trim() || catalog.brand?.trim() || 'Ohlala';
-  return catalog.products.map((p) => {
+  const cleaned = catalog.products.map((p) => {
+    const { clean } = stripParenEanFromName(p.name, p.barcode, p.sku);
+    return {
+      nombre: clean,
+      sku: p.sku,
+      codigo_barras: (p.barcode ?? '').toString().trim(),
+      product: p,
+    };
+  });
+  const uniqueNames = disambiguateDuplicateNames(cleaned);
+  return uniqueNames.map((row) => {
+    const p = row.product;
     const unit = p.productBaseUnit || 'UN';
     return {
-      name: p.name,
+      name: row.nombre,
       brand,
       productType: ProductType.PHYSICAL,
       categoryName: p.categoryName || 'Sin categoría',

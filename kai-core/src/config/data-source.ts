@@ -208,6 +208,7 @@ import { TipLedgerTrackA1757620000000 } from '../migrations/1757620000000-TipLed
 import { ProductOnMenu1757630000000 } from '../migrations/1757630000000-ProductOnMenu';
 import { MenuHeroSlides1757640000000 } from '../migrations/1757640000000-MenuHeroSlides';
 import { ExpenseCategoryOperationalGroupCreditos1757650000000 } from '../migrations/1757650000000-ExpenseCategoryOperationalGroupCreditos';
+import { ProductionUnitKitchenFulfillment1757660000000 } from '../migrations/1757660000000-ProductionUnitKitchenFulfillment';
 import { LaundryReceptionModule1757430000000 } from '../migrations/1757430000000-LaundryReceptionModule';
 import { DiningKitchenFireId1757140000000 } from '../migrations/1757140000000-DiningKitchenFireId';
 import { DiningKitchenFireNumber1757150000000 } from '../migrations/1757150000000-DiningKitchenFireNumber';
@@ -587,6 +588,7 @@ export const AppDataSource = new DataSource({
     ProductOnMenu1757630000000,
     MenuHeroSlides1757640000000,
     ExpenseCategoryOperationalGroupCreditos1757650000000,
+    ProductionUnitKitchenFulfillment1757660000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

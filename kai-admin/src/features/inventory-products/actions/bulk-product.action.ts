@@ -5,6 +5,7 @@ import { listUnitsForPage } from "@/features/inventory-units/actions/unit.action
 import { pickDefaultUnit } from "@/features/inventory-units/types/unit.types";
 import { listPriceListsForPage } from "@/features/sales-price-lists/actions/price-list.action";
 import { listTaxesForPage } from "@/features/accounting-taxes/actions/tax.action";
+import { listProductionUnitsForPage } from "@/features/inventory-production-units/actions/production-unit.action";
 import {
   effectiveGrossFactor,
   netToGross,
@@ -16,6 +17,7 @@ import {
   parseNonNegativeNumber,
   parseOptionalBoolean,
   type BulkProductExcelRow,
+  type BulkProductType,
 } from "../lib/bulk-product-excel";
 import type {
   BulkProductPrepareResult,
@@ -25,6 +27,19 @@ import type {
 
 function normalizeKey(s: string): string {
   return s.trim().toLowerCase();
+}
+
+const ALLOWED_TYPES = new Set<BulkProductType>([
+  "PHYSICAL",
+  "PREPARADO",
+  "ELABORADO",
+]);
+
+function parseProductType(raw: string): BulkProductType | null | "invalid" {
+  const s = raw.trim().toUpperCase();
+  if (!s) return null;
+  if (ALLOWED_TYPES.has(s as BulkProductType)) return s as BulkProductType;
+  return "invalid";
 }
 
 export async function prepareBulkProductImportAction(input: {
@@ -38,12 +53,14 @@ export async function prepareBulkProductImportAction(input: {
     return { success: false, error: "No hay filas para validar." };
   }
 
-  const [categories, units, priceLists, taxes] = await Promise.all([
-    listCategoriesForPage(),
-    listUnitsForPage(),
-    listPriceListsForPage(),
-    listTaxesForPage(),
-  ]);
+  const [categories, units, priceLists, taxes, productionUnits] =
+    await Promise.all([
+      listCategoriesForPage(),
+      listUnitsForPage(),
+      listPriceListsForPage(),
+      listTaxesForPage(),
+      listProductionUnitsForPage(undefined, undefined),
+    ]);
 
   const defaultUnit = pickDefaultUnit(units);
   if (!defaultUnit) {
@@ -56,7 +73,9 @@ export async function prepareBulkProductImportAction(input: {
 
   const activePriceLists = priceLists.filter((p) => p.isActive);
   const defaultPriceListId =
-    activePriceLists.find((p) => p.isDefault)?.id ?? activePriceLists[0]?.id ?? null;
+    activePriceLists.find((p) => p.isDefault)?.id ??
+    activePriceLists[0]?.id ??
+    null;
   if (!defaultPriceListId) {
     return { success: false, error: "No hay lista de precios activa." };
   }
@@ -71,6 +90,32 @@ export async function prepareBulkProductImportAction(input: {
       categoryByName.set(key, { id: c.id, name: c.name });
     }
   }
+
+  const kitchenUnits = productionUnits.filter(
+    (u) => u.isActive && u.purpose === "KITCHEN",
+  );
+  const batchUnits = productionUnits.filter(
+    (u) => u.isActive && u.purpose === "BATCH",
+  );
+  const allActiveUnits = productionUnits.filter((u) => u.isActive);
+
+  const findUpByName = (
+    name: string,
+    prefer: "KITCHEN" | "BATCH" | null,
+  ): (typeof productionUnits)[number] | null => {
+    const key = normalizeKey(name);
+    const pools =
+      prefer === "KITCHEN"
+        ? [kitchenUnits, allActiveUnits]
+        : prefer === "BATCH"
+          ? [batchUnits, allActiveUnits]
+          : [allActiveUnits];
+    for (const pool of pools) {
+      const hit = pool.find((u) => normalizeKey(u.name) === key);
+      if (hit) return hit;
+    }
+    return null;
+  };
 
   const rowErrors: BulkProductRowError[] = [];
   const skuInFile = new Map<string, number>();
@@ -159,6 +204,58 @@ export async function prepareBulkProductImportAction(input: {
       continue;
     }
 
+    const parsedType = parseProductType(row.tipoProductoRaw);
+    if (parsedType === "invalid") {
+      rowErrors.push({
+        rowNumber: row.rowNumber,
+        message: `tipo_producto inválido: "${row.tipoProductoRaw}". Use PHYSICAL, PREPARADO o ELABORADO.`,
+      });
+      continue;
+    }
+    const productType: BulkProductType = parsedType ?? "PHYSICAL";
+    const cocinaName = row.cocina.trim();
+
+    if (productType === "PHYSICAL" && cocinaName) {
+      rowErrors.push({
+        rowNumber: row.rowNumber,
+        message:
+          "cocina solo aplica a PREPARADO o ELABORADO. Deje cocina vacía o cambie tipo_producto.",
+      });
+      continue;
+    }
+    if (productType === "PREPARADO" && !cocinaName) {
+      rowErrors.push({
+        rowNumber: row.rowNumber,
+        message: "PREPARADO requiere columna cocina (nombre de la unidad de producción).",
+      });
+      continue;
+    }
+
+    let productionUnitId: string | null = null;
+    let productionUnitBranchId: string | null = null;
+    let productionUnitName: string | null = null;
+    if (cocinaName && (productType === "PREPARADO" || productType === "ELABORADO")) {
+      const prefer = productType === "PREPARADO" ? "KITCHEN" : "BATCH";
+      const up = findUpByName(cocinaName, prefer);
+      if (!up) {
+        rowErrors.push({
+          rowNumber: row.rowNumber,
+          message: `Unidad de producción no encontrada: "${cocinaName}".`,
+        });
+        continue;
+      }
+      if (!up.branchId?.trim()) {
+        rowErrors.push({
+          rowNumber: row.rowNumber,
+          message: `La UP "${up.name}" no tiene sucursal (branch); no se puede rutar.`,
+        });
+        continue;
+      }
+      productionUnitId = up.id;
+      productionUnitBranchId = up.branchId;
+      productionUnitName = up.name;
+    }
+
     let categoryId: string | null = null;
     let categoryName: string | null = null;
     const catRaw = row.categoria.trim();
@@ -215,6 +312,10 @@ export async function prepareBulkProductImportAction(input: {
       isActive,
       visibleInEShop,
       onMenu,
+      productType,
+      productionUnitId,
+      productionUnitBranchId,
+      productionUnitName,
       basePrice,
       unitId: defaultUnit.id,
       priceListItems: [

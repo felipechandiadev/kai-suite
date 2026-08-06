@@ -62,6 +62,7 @@ import { HrLaborUnitProductionUnit } from '@modules/hr-labor-units/domain/hr-lab
 import { HrLaborUnitShift } from '@modules/hr-jornada/domain/hr-labor-unit-shift.entity';
 import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
 import {
+  KitchenFulfillmentMode,
   ProductionUnitInventoryMode,
   ProductionUnitPurpose,
   ProductionUnitScope,
@@ -911,6 +912,8 @@ async function bootstrap() {
               scope: ProductionUnitScope.BRANCH,
               inventoryMode: ProductionUnitInventoryMode.DEPENDENT,
               purpose: ProductionUnitPurpose.KITCHEN,
+              kitchenFulfillmentMode: KitchenFulfillmentMode.PRINTED,
+              kitchenPrintSettings: null,
               code: 'COCINA',
               name: 'Cocina',
               defaultInputStorageId: ohlalaOps.storageId,
@@ -922,6 +925,8 @@ async function bootstrap() {
         } else {
           cocina.name = 'Cocina';
           cocina.purpose = ProductionUnitPurpose.KITCHEN;
+          cocina.kitchenFulfillmentMode = KitchenFulfillmentMode.PRINTED;
+          cocina.kitchenPrintSettings = null;
           cocina.inventoryMode = ProductionUnitInventoryMode.DEPENDENT;
           cocina.defaultInputStorageId = ohlalaOps.storageId;
           cocina.isActive = true;

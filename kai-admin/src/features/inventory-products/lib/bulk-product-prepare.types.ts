@@ -1,4 +1,5 @@
 import type { CreateProductVariantPriceListItemInput } from "../actions/product.action";
+import type { BulkProductType } from "./bulk-product-excel";
 
 export type BulkProductRowError = {
   rowNumber: number;
@@ -15,6 +16,11 @@ export type BulkProductPreparedRow = {
   isActive: boolean;
   visibleInEShop: boolean;
   onMenu: boolean;
+  productType: BulkProductType;
+  /** UP resuelta por nombre de columna cocina (si aplica). */
+  productionUnitId: string | null;
+  productionUnitBranchId: string | null;
+  productionUnitName: string | null;
   basePrice: number;
   unitId: string;
   priceListItems: CreateProductVariantPriceListItemInput[];

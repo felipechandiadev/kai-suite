@@ -72,6 +72,8 @@ export class ProductionUnitsController {
       laborUnitIds: dto.laborUnitIds,
       employeeIds: dto.employeeIds,
       isActive: dto.isActive,
+      kitchenFulfillmentMode: dto.kitchenFulfillmentMode,
+      kitchenPrintSettings: dto.kitchenPrintSettings,
     });
   }
 
@@ -90,6 +92,8 @@ export class ProductionUnitsController {
       laborUnitIds: dto.laborUnitIds,
       employeeIds: dto.employeeIds,
       isActive: dto.isActive,
+      kitchenFulfillmentMode: dto.kitchenFulfillmentMode,
+      kitchenPrintSettings: dto.kitchenPrintSettings,
     });
   }
 }

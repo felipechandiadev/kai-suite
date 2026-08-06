@@ -777,11 +777,26 @@ export class CompaniesController {
   @AdminOnly()
   @AllowAdminWithoutCompany()
   async replaceCompanyMenuTheme(@Param('id') id: string, @Body() body: unknown) {
-    const theme = await this.companiesService.replaceMenuThemeSettings(
-      id,
-      body as import('../domain/company-menu-theme.types').CompanyMenuThemeSettings,
-    );
-    const resolved = (await this.companiesService.getMenuThemeSettings(id)).resolved;
+    const incoming =
+      body && typeof body === 'object' && 'theme' in (body as object)
+        ? (body as { theme: Record<string, unknown> }).theme
+        : (body as Record<string, unknown>);
+    const theme = await this.companiesService.replaceMenuThemeSettings(id, {
+      templateId:
+        typeof incoming.templateId === 'string'
+          ? (incoming.templateId as import('../domain/company-menu-theme.types').MenuTemplateId)
+          : undefined,
+      tokenOverrides:
+        (incoming.tokenOverrides && typeof incoming.tokenOverrides === 'object'
+          ? (incoming.tokenOverrides as import('../domain/company-menu-theme.types').MenuThemeTokenOverrides)
+          : undefined) ??
+        (incoming.themeTokenOverrides &&
+        typeof incoming.themeTokenOverrides === 'object'
+          ? (incoming.themeTokenOverrides as import('../domain/company-menu-theme.types').MenuThemeTokenOverrides)
+          : undefined),
+    });
+    const resolved = (await this.companiesService.getMenuThemeSettings(id))
+      .resolved;
     return { success: true, theme, resolved };
   }
 }

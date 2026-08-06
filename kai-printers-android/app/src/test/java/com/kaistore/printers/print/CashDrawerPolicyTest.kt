@@ -68,6 +68,13 @@ class CashDrawerPolicyTest {
                 drawerEnabledInMapping = true,
             ),
         )
+        assertFalse(
+            CashDrawerPolicy.shouldOpenCashDrawerForTicketJob(
+                "pos-kitchen-ticket",
+                48,
+                drawerEnabledInMapping = true,
+            ),
+        )
     }
 
     @Test

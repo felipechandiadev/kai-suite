@@ -2,6 +2,7 @@ import {
   IsBoolean,
   IsIn,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -10,9 +11,11 @@ import {
   ValidateIf,
 } from 'class-validator';
 import {
+  KitchenFulfillmentMode,
   ProductionUnitInventoryMode,
   ProductionUnitPurpose,
   ProductionUnitScope,
+  type KitchenPrintSettings,
 } from '../../domain/production-unit.enums';
 
 export class UpdateProductionUnitDto {
@@ -73,4 +76,17 @@ export class UpdateProductionUnitDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsIn([
+    KitchenFulfillmentMode.KDS,
+    KitchenFulfillmentMode.PRINTED,
+    KitchenFulfillmentMode.BOTH,
+  ])
+  kitchenFulfillmentMode?: KitchenFulfillmentMode;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v != null)
+  @IsObject()
+  kitchenPrintSettings?: KitchenPrintSettings | null;
 }

@@ -31,6 +31,7 @@ export type PosDiningOrderLine = {
   productVariantId: string;
   quantity: number;
   notes?: string | null;
+  productionUnitId?: string | null;
   kitchenStatus: KitchenItemStatus;
   kitchenFireId?: string | null;
   kitchenFireNumber?: number | null;

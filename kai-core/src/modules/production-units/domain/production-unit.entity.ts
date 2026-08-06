@@ -12,6 +12,8 @@ import {
 import { Branch } from '@modules/branches/domain/branch.entity';
 import { Storage } from '@modules/storages/domain/storage.entity';
 import {
+  KitchenFulfillmentMode,
+  type KitchenPrintSettings,
   ProductionUnitInventoryMode,
   ProductionUnitPurpose,
   ProductionUnitScope,
@@ -82,6 +84,21 @@ export class ProductionUnit {
 
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean;
+
+  /**
+   * Solo relevante si purpose=KITCHEN. Default KDS (comportamiento histórico).
+   */
+  @Column({
+    name: 'kitchen_fulfillment_mode',
+    type: 'varchar',
+    length: 16,
+    default: KitchenFulfillmentMode.KDS,
+  })
+  kitchenFulfillmentMode!: KitchenFulfillmentMode;
+
+  /** Agente KaiPrinters + alias impresora para comanda impresa. */
+  @Column({ name: 'kitchen_print_settings', type: 'jsonb', nullable: true })
+  kitchenPrintSettings?: KitchenPrintSettings | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

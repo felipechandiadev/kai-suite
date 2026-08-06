@@ -49,6 +49,7 @@ fn is_vector_pos_ticket_type(print_type: &str) -> bool {
             | "pos-supplier-payment-ticket"
             | "pos-bank-account-ticket"
             | "pos-dining-account-ticket"
+            | "pos-kitchen-ticket"
             | "pos-laundry-reception-ticket"
             | "pos-presale-ticket"
             | "fiscal-boleta-preview"
@@ -139,6 +140,17 @@ fn vector_ticket_folio(print_type: &str, ticket: &serde_json::Value) -> String {
                 ticket
                     .get("account")
                     .and_then(|a| a.get("tableCode"))
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.trim().to_string())
+            })
+            .unwrap_or_default(),
+        "pos-kitchen-ticket" => ticket
+            .get("fireNumber")
+            .and_then(|v| v.as_i64())
+            .map(|n| format!("pedido-{n}"))
+            .or_else(|| {
+                ticket
+                    .get("accountLabel")
                     .and_then(|v| v.as_str())
                     .map(|s| s.trim().to_string())
             })
@@ -420,6 +432,7 @@ where
                                     "pos-supplier-payment-ticket",
                                     "pos-bank-account-ticket",
                                     "pos-dining-account-ticket",
+                                    "pos-kitchen-ticket",
                                     "pos-laundry-reception-ticket",
                                     "pos-presale-ticket",
                                     "fiscal-boleta-preview",

@@ -33,6 +33,27 @@ function mapUnit(raw: Record<string, unknown>): ProductionUnitListItem {
     raw.inventoryMode === "AUTONOMOUS" ? "AUTONOMOUS" : "DEPENDENT";
   const purpose: ProductionUnitPurpose =
     raw.purpose === "BATCH" ? "BATCH" : "KITCHEN";
+  const kitchenFulfillmentMode =
+    raw.kitchenFulfillmentMode === "PRINTED"
+      ? "PRINTED"
+      : raw.kitchenFulfillmentMode === "BOTH"
+        ? "BOTH"
+        : "KDS";
+  const rawPrint = raw.kitchenPrintSettings;
+  let kitchenPrintSettings: ProductionUnitListItem["kitchenPrintSettings"] = null;
+  if (rawPrint && typeof rawPrint === "object" && !Array.isArray(rawPrint)) {
+    const o = rawPrint as Record<string, unknown>;
+    kitchenPrintSettings = {
+      printAgentId:
+        o.printAgentId != null && String(o.printAgentId).trim()
+          ? String(o.printAgentId).trim()
+          : null,
+      printerDisplayLabel:
+        o.printerDisplayLabel != null && String(o.printerDisplayLabel).trim()
+          ? String(o.printerDisplayLabel).trim()
+          : null,
+    };
+  }
   return {
     id: String(raw.id),
     branchId: raw.branchId != null ? String(raw.branchId) : null,
@@ -80,6 +101,8 @@ function mapUnit(raw: Record<string, unknown>): ProductionUnitListItem {
         ? Number(raw.laborCostPerUnit)
         : null,
     isActive: raw.isActive !== false,
+    kitchenFulfillmentMode,
+    kitchenPrintSettings,
   };
 }
 

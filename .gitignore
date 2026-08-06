@@ -91,3 +91,4 @@ docs/SII/config-actual/*.xml
 
 # Seed runtime uploads (cwd=seeds); same as kai-core/public/uploads
 seeds/public/
+seeds/barco/exports/

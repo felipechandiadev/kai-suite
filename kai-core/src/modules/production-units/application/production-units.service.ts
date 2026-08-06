@@ -16,9 +16,11 @@ import { Employee, EmployeeStatus } from '@modules/employees/domain/employee.ent
 import { ProductionUnit } from '../domain/production-unit.entity';
 import { ProductionUnitEmployee } from '../domain/production-unit-employee.entity';
 import {
+  KitchenFulfillmentMode,
   ProductionUnitInventoryMode,
   ProductionUnitPurpose,
   ProductionUnitScope,
+  type KitchenPrintSettings,
 } from '../domain/production-unit.enums';
 import { nextProductionUnitCodeFromExisting } from './production-unit-code.util';
 import { LaborUnitsService } from '@modules/hr-labor-units/application/labor-units.service';
@@ -354,6 +356,35 @@ export class ProductionUnitsService {
     return ProductionUnitPurpose.KITCHEN;
   }
 
+  private normalizeKitchenFulfillmentMode(
+    raw?: string | null,
+  ): KitchenFulfillmentMode {
+    if (raw === KitchenFulfillmentMode.PRINTED) {
+      return KitchenFulfillmentMode.PRINTED;
+    }
+    if (raw === KitchenFulfillmentMode.BOTH) {
+      return KitchenFulfillmentMode.BOTH;
+    }
+    return KitchenFulfillmentMode.KDS;
+  }
+
+  private sanitizeKitchenPrintSettings(
+    raw?: KitchenPrintSettings | null,
+  ): KitchenPrintSettings | null {
+    if (raw == null || typeof raw !== 'object') return null;
+    const printAgentId =
+      typeof raw.printAgentId === 'string' && raw.printAgentId.trim()
+        ? raw.printAgentId.trim()
+        : null;
+    const printerDisplayLabel =
+      typeof raw.printerDisplayLabel === 'string' &&
+      raw.printerDisplayLabel.trim()
+        ? raw.printerDisplayLabel.trim()
+        : null;
+    if (!printAgentId && !printerDisplayLabel) return null;
+    return { printAgentId, printerDisplayLabel };
+  }
+
   private assertScopeBranchConsistency(
     scope: ProductionUnitScope,
     branchId: string | null | undefined,
@@ -685,6 +716,8 @@ export class ProductionUnitsService {
     laborUnitIds?: string[];
     employeeIds?: string[];
     isActive?: boolean;
+    kitchenFulfillmentMode?: KitchenFulfillmentMode | string;
+    kitchenPrintSettings?: KitchenPrintSettings | null;
   }): Promise<ProductionUnitView> {
     const companyId = this.requireCompanyId();
     const scope = this.normalizeScope(data.scope);
@@ -700,6 +733,12 @@ export class ProductionUnitsService {
 
     const inventoryMode = this.normalizeInventoryMode(data.inventoryMode);
     const purpose = this.normalizePurpose(data.purpose);
+    const kitchenFulfillmentMode = this.normalizeKitchenFulfillmentMode(
+      data.kitchenFulfillmentMode,
+    );
+    const kitchenPrintSettings = this.sanitizeKitchenPrintSettings(
+      data.kitchenPrintSettings,
+    );
     await this.assertInventoryStorages({
       companyId,
       scope,
@@ -740,6 +779,8 @@ export class ProductionUnitsService {
       defaultOutputStorageId: data.defaultOutputStorageId ?? null,
       monthlyCapacity,
       isActive: data.isActive !== false,
+      kitchenFulfillmentMode,
+      kitchenPrintSettings,
     });
     const saved = await this.productionUnitRepository.save(row);
     await this.syncAutonomousInputOwnership({
@@ -771,6 +812,8 @@ export class ProductionUnitsService {
       laborUnitIds: string[];
       employeeIds: string[];
       isActive: boolean;
+      kitchenFulfillmentMode: KitchenFulfillmentMode | string;
+      kitchenPrintSettings: KitchenPrintSettings | null;
     }>,
   ): Promise<ProductionUnitView> {
     const companyId = this.requireCompanyId();
@@ -862,6 +905,17 @@ export class ProductionUnitsService {
 
     if (rest.isActive !== undefined) {
       existing.isActive = rest.isActive;
+    }
+
+    if (rest.kitchenFulfillmentMode !== undefined) {
+      existing.kitchenFulfillmentMode = this.normalizeKitchenFulfillmentMode(
+        rest.kitchenFulfillmentMode,
+      );
+    }
+    if (rest.kitchenPrintSettings !== undefined) {
+      existing.kitchenPrintSettings = this.sanitizeKitchenPrintSettings(
+        rest.kitchenPrintSettings,
+      );
     }
 
     const saved = await this.productionUnitRepository.save(existing);
