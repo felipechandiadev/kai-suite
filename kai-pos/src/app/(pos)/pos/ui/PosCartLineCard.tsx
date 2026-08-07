@@ -24,6 +24,7 @@ import { IconButton } from "@kai/ui";
 import { Alert, Badge, Button, Dialog, TextField } from "@kai/ui";
 import { listActivePosInventoryReservationsAction } from "@/features/pos-inventory-reservations/actions/list-active-reservations.action";
 import { PosDiningTransferLineDialog } from "@/features/dining/ui/PosDiningTransferLineDialog";
+import { readPosRelaxPreparadoStock } from "@/features/session/lib/pos-context-storage";
 
 /**
  * Línea del carrito en el POS. `discount` es opcional y lo asigna el
@@ -303,7 +304,9 @@ export default function PosCartLineCard({
   const lineGross = (Number(line.unitPriceWithTax) || 0) * (Number(line.quantity) || 0);
   const lineDiscount = line.discount?.discountAmount ?? 0;
   const lineSubtotal = Math.max(0, lineGross - lineDiscount);
-  const exceedsAvailableStock = posCartQuantityExceedsAvailableStock(line);
+  const exceedsAvailableStock = posCartQuantityExceedsAvailableStock(line, {
+    relaxPreparadoStock: readPosRelaxPreparadoStock(),
+  });
 
   return (
     <article

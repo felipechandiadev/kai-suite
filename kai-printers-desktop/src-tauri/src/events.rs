@@ -6,7 +6,7 @@ use crate::reachability::{self, LineReachEntry, ReachabilityCache, LINE_STATUS_O
 use anyhow::Result;
 use serde_json::{json, Value};
 
-const PURPOSES: &[&str] = &["documents", "tickets", "labels"];
+const PURPOSES: &[&str] = crate::purpose_util::VALID_PURPOSES;
 
 pub fn service_status_payload(connected_clients: usize, sessions: Vec<Value>) -> Value {
     json!({

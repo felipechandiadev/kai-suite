@@ -78,6 +78,7 @@ export class PosController {
       kind?: 'PRESALE' | 'SALE';
       acceptsPresaleTickets?: boolean;
       allowsDeferredPayment?: boolean;
+      kaiFoodEnabled?: boolean;
     },
   ) {
     return this.posService.createPointOfSale(data);
@@ -98,6 +99,7 @@ export class PosController {
       kind?: 'PRESALE' | 'SALE';
       acceptsPresaleTickets?: boolean;
       allowsDeferredPayment?: boolean;
+      kaiFoodEnabled?: boolean;
     }>,
   ) {
     return this.posService.updatePointOfSale(id, data);

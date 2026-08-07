@@ -45,8 +45,9 @@ import {
 import { TipsService } from '@modules/tips/application/tips.service';
 import {
   extractDiningOrderIdFromMetadata,
-  shouldSkipFinishedGoodsStockForDiningSale,
+  shouldSkipFinishedGoodsStockForSale,
 } from '@modules/dining/application/dining-sale-finished-stock.util';
+import { resolveKaiFoodEnabled } from '@modules/points-of-sale/domain/pos-settings.types';
 import { CollectPendingSalesDto } from './dto/collect-pending-sales.dto';
 import { CollectPendingQuotasDto } from './dto/collect-pending-quotas.dto';
 import { PayoutCustomerCreditNotesDto } from './dto/payout-customer-credit-notes.dto';
@@ -2239,8 +2240,19 @@ export class SalesFromSessionService {
         }
         const variantIdsToCheck = [...qtyNeedByVariant.keys()];
         const diningOrderId = extractDiningOrderIdFromMetadata(metadata);
+        let posKaiFoodEnabled = false;
+        if (pointOfSale.companyId) {
+          const company = await this.companiesService.getCompanyById(
+            pointOfSale.companyId,
+          );
+          posKaiFoodEnabled = resolveKaiFoodEnabled(
+            company.kaiProduct,
+            pointOfSale.settings,
+          );
+        }
         if (effectiveStorageId && variantIdsToCheck.length > 0) {
-          const variantsToCheck = diningOrderId
+          const needsProductType = Boolean(diningOrderId) || !posKaiFoodEnabled;
+          const variantsToCheck = needsProductType
             ? await manager.getRepository(ProductVariant).find({
                 where: { id: In(variantIdsToCheck) },
                 relations: ['product'],
@@ -2252,8 +2264,9 @@ export class SalesFromSessionService {
           for (const v of variantsToCheck) {
             if (!v.trackInventory || v.allowNegativeStock) continue;
             if (
-              shouldSkipFinishedGoodsStockForDiningSale({
+              shouldSkipFinishedGoodsStockForSale({
                 diningOrderId,
+                posKaiFoodEnabled,
                 productType: v.product?.productType,
               })
             ) {

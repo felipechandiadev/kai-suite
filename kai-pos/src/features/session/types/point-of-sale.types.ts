@@ -18,6 +18,7 @@ export type PointOfSaleListItem = {
   acceptsPresaleTickets?: boolean;
   allowsDeferredPayment?: boolean;
   deferredPaymentEnabled?: boolean;
+  kaiFoodEnabled?: boolean;
 };
 
 export type ListPointsOfSaleResult =

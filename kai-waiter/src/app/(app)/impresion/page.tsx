@@ -1,19 +1,34 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  KitchenUnitPrintBindingsSection,
+  migrateKitchenBindingsFromServer,
   PrintAgentPicker,
+  PrintServiceConnection,
   readPrintServiceConfigFromStorage,
   readWaiterKitchenComandaReplicaPrefs,
+  readWaiterKitchenUnitPrintBindings,
+  resolvePrintAgentConnectionUrls,
   writePrintServiceConfigToStorage,
   writeWaiterKitchenComandaReplicaPrefs,
+  writeWaiterKitchenUnitPrintBindings,
+  type KitchenFulfillmentModeClient,
+  type KitchenUnitPrintBindingsMap,
   type PrintAgentCatalogItem,
 } from "@kai/print-service-client";
 import { Button, TextField, Switch } from "@kai/ui";
 import { loadWaiterSession } from "@/lib/app-session";
 import { listPrintAgentsForWaiterAction } from "@/features/print-agents/actions/print-agents.action";
 import { listKitchenProductionUnitsAction } from "@/features/dining-waiter/actions/waiter.action";
+
+function stringList(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+    .map((s) => s.trim());
+}
 
 export default function WaiterLocalPrintingPage() {
   const router = useRouter();
@@ -26,14 +41,27 @@ export default function WaiterLocalPrintingPage() {
   const [useTls, setUseTls] = useState(false);
   const [agents, setAgents] = useState<PrintAgentCatalogItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [aliasesLoading, setAliasesLoading] = useState(false);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [kitchenReplicaEnabled, setKitchenReplicaEnabled] = useState(false);
   const [kitchenReplicaUnitIds, setKitchenReplicaUnitIds] = useState<string[]>(
     [],
   );
   const [kitchenUnits, setKitchenUnits] = useState<
-    Array<{ id: string; name: string }>
+    Array<{
+      id: string;
+      name: string;
+      kitchenFulfillmentMode: KitchenFulfillmentModeClient;
+      kitchenPrintSettings?: {
+        printAgentId?: string | null;
+        printerDisplayLabel?: string | null;
+      } | null;
+    }>
   >([]);
+  const [kitchenBindings, setKitchenBindings] = useState<KitchenUnitPrintBindingsMap>(
+    () => readWaiterKitchenUnitPrintBindings(),
+  );
+  const [comandasAliases, setComandasAliases] = useState<string[]>([]);
 
   useEffect(() => {
     const s = loadWaiterSession();
@@ -51,6 +79,44 @@ export default function WaiterLocalPrintingPage() {
     setKitchenReplicaEnabled(prefs.enabled);
     setKitchenReplicaUnitIds(prefs.productionUnitIds);
   }, [router]);
+
+  const { wsUrl: url } = useMemo(
+    () =>
+      resolvePrintAgentConnectionUrls({
+        host,
+        port,
+        wssPort,
+        useTls,
+      }),
+    [host, port, wssPort, useTls],
+  );
+
+  const refreshAliasesFromAgent = useCallback(async () => {
+    setAliasesLoading(true);
+    const c = new PrintServiceConnection({
+      url,
+      clientId: "kai-waiter-print-prefs",
+      appLabel: "Kai Waiter",
+      userDisplayName: "Impresión",
+    });
+    let reachedOpen = false;
+    c.connect();
+    try {
+      await c.waitForOpen(20_000);
+      reachedOpen = true;
+      await new Promise((r) => globalThis.setTimeout(r, 400));
+      const raw = (await c.getConfig()) as {
+        aliasesByPurpose?: Record<string, unknown>;
+      };
+      const abp = raw?.aliasesByPurpose ?? {};
+      setComandasAliases(stringList(abp.comandas));
+    } catch {
+      setComandasAliases([]);
+    } finally {
+      c.disconnect({ ifConnecting: reachedOpen ? "default" : "abandon" });
+      setAliasesLoading(false);
+    }
+  }, [url]);
 
   const refresh = useCallback(async () => {
     const s = loadWaiterSession();
@@ -79,7 +145,24 @@ export default function WaiterLocalPrintingPage() {
           platform: a.platform,
         })),
       );
-      setKitchenUnits(units.map((u) => ({ id: u.id, name: u.name })));
+      const mapped = units.map((u) => ({
+        id: u.id,
+        name: u.name,
+        kitchenFulfillmentMode: u.kitchenFulfillmentMode,
+        kitchenPrintSettings: u.kitchenPrintSettings,
+      }));
+      setKitchenUnits(mapped);
+      setKitchenBindings(
+        migrateKitchenBindingsFromServer(
+          "waiter",
+          mapped.map((u) => ({
+            id: u.id,
+            name: u.name,
+            kitchenFulfillmentMode: u.kitchenFulfillmentMode,
+            kitchenPrintSettings: u.kitchenPrintSettings,
+          })),
+        ),
+      );
     } catch {
       setAgents([]);
       setKitchenUnits([]);
@@ -92,9 +175,21 @@ export default function WaiterLocalPrintingPage() {
     if (session) void refresh();
   }, [session, refresh]);
 
+  useEffect(() => {
+    if (session) void refreshAliasesFromAgent();
+  }, [session, refreshAliasesFromAgent]);
+
+  const saveKitchenConfig = useCallback(() => {
+    writeWaiterKitchenComandaReplicaPrefs({
+      enabled: kitchenReplicaEnabled,
+      productionUnitIds: kitchenReplicaUnitIds,
+    });
+    writeWaiterKitchenUnitPrintBindings(kitchenBindings);
+    setSavedMsg("Configuración de comandas guardada");
+  }, [kitchenBindings, kitchenReplicaEnabled, kitchenReplicaUnitIds]);
+
   if (!session) return null;
 
-  // Top bar la provee `(app)/layout`; no duplicar aquí.
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
@@ -117,6 +212,7 @@ export default function WaiterLocalPrintingPage() {
           setWssPort(String(agent.wssPort ?? 14568));
           setUseTls(Boolean(agent.useTls));
           setSavedMsg(`Conectado a ${agent.displayName}`);
+          void refreshAliasesFromAgent();
         }}
       />
       <details className="rounded-xl border border-border p-3">
@@ -161,6 +257,7 @@ export default function WaiterLocalPrintingPage() {
                 agentName: null,
               });
               setSavedMsg("Configuración manual guardada");
+              void refreshAliasesFromAgent();
             }}
           >
             Guardar manual
@@ -169,75 +266,31 @@ export default function WaiterLocalPrintingPage() {
       </details>
 
       <section className="rounded-xl border border-border p-3">
-        <h2 className="text-sm font-semibold text-foreground">
-          Réplica de comanda de cocina
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Imprime una copia en la impresora de este dispositivo al enviar a cocina (además de la
-          impresora de la unidad de producción).
-        </p>
-        <div className="mt-3">
-          <Switch
-            checked={kitchenReplicaEnabled}
-            onChange={setKitchenReplicaEnabled}
-            label="Réplica local de comanda"
-            labelPosition="right"
-            data-test-id="waiter-kitchen-comanda-replica-enabled"
-          />
-        </div>
-        {kitchenReplicaEnabled && kitchenUnits.length > 0 ? (
-          <div className="mt-3 space-y-2">
-            <p className="text-xs text-muted-foreground">
-              Unidades (vacío = todas las de cocina)
-            </p>
-            {kitchenUnits.map((u) => {
-              const explicitlySelected = kitchenReplicaUnitIds.includes(u.id);
-              return (
-                <Switch
-                  key={u.id}
-                  checked={
-                    kitchenReplicaUnitIds.length === 0 ? true : explicitlySelected
-                  }
-                  onChange={(on) => {
-                    setKitchenReplicaUnitIds((prev) => {
-                      if (prev.length === 0) {
-                        if (!on) {
-                          return kitchenUnits
-                            .map((x) => x.id)
-                            .filter((id) => id !== u.id);
-                        }
-                        return prev;
-                      }
-                      if (on) {
-                        const next = [...new Set([...prev, u.id])];
-                        if (next.length === kitchenUnits.length) return [];
-                        return next;
-                      }
-                      return prev.filter((id) => id !== u.id);
-                    });
-                  }}
-                  label={u.name}
-                  labelPosition="right"
-                  data-test-id={`waiter-kitchen-comanda-replica-unit-${u.id}`}
-                />
-              );
-            })}
-          </div>
-        ) : null}
+        <KitchenUnitPrintBindingsSection
+          units={kitchenUnits}
+          bindings={kitchenBindings}
+          onBindingsChange={setKitchenBindings}
+          agents={agents}
+          catalogLoading={loading || aliasesLoading}
+          onRefreshCatalog={() => {
+            void refresh();
+            void refreshAliasesFromAgent();
+          }}
+          comandasAliases={comandasAliases}
+          replicaEnabled={kitchenReplicaEnabled}
+          onReplicaEnabledChange={setKitchenReplicaEnabled}
+          replicaUnitIds={kitchenReplicaUnitIds}
+          onReplicaUnitIdsChange={setKitchenReplicaUnitIds}
+          idPrefix="waiter-kitchen"
+        />
         <Button
           type="button"
           className="mt-3"
           size="sm"
-          onClick={() => {
-            writeWaiterKitchenComandaReplicaPrefs({
-              enabled: kitchenReplicaEnabled,
-              productionUnitIds: kitchenReplicaUnitIds,
-            });
-            setSavedMsg("Réplica de comanda guardada");
-          }}
-          data-test-id="waiter-kitchen-comanda-replica-save"
+          onClick={saveKitchenConfig}
+          data-test-id="waiter-kitchen-comanda-save"
         >
-          Guardar réplica
+          Guardar comandas
         </Button>
       </section>
 

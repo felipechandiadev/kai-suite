@@ -705,7 +705,7 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
                 ));
                 let logo_merge_started = std::time::Instant::now();
                 let mut ticket_value = ticket.clone();
-                if purpose == "tickets" {
+                if crate::purpose_util::is_sale_ticket_purpose(purpose) {
                     crate::ticket_logos::merge_mapping_logo_into_ticket(
                         &state.data_dir,
                         &state.db,
@@ -727,9 +727,9 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
                 };
                 ("-".to_string(), Some("ticket_json"), Some(ticket_json))
             } else {
-                if purpose == "tickets" {
+                if crate::purpose_util::is_ticket_like_purpose(purpose) {
                     let msg = format!(
-                        "Rechazado PDF en tickets (alias {:?}). \
+                        "Rechazado PDF en tickets/comandas (alias {:?}). \
                          Use ticket vectorial (pos-sale-ticket, etc.) o impresión del navegador.",
                         printer_display_label_early
                     );
@@ -847,7 +847,7 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
                 .and_then(|v| v.as_str())
                 .map(str::trim)
                 .filter(|s| !s.is_empty());
-            let use_escpos = purpose == "tickets";
+            let use_escpos = crate::purpose_util::is_ticket_like_purpose(purpose);
             let agent_label = state.db.agent_display_name();
             let path = match jobs::write_test_print_path(
                 &state.temp_dir,

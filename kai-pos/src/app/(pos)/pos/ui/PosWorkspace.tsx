@@ -44,7 +44,7 @@ import type { PosProductSearchItem } from "@/features/pos-products/types/pos-pro
 import PosPaymentWorkspace from "@/app/(pos)/pos/payment/ui/PosPaymentWorkspace";
 import { POS_CUSTOMER_SEARCH_DEFAULT_PAGE_SIZE } from "@/features/customers/lib/posCustomerSearchStorage";
 import type { PosCustomerSearchInitial } from "@/features/customers/ui/PosCustomerSearchPanel";
-import { isKaiFoodEnabledForCompany } from "@/config/kaifood-module.config";
+import { isKaiFoodEnabledForPos } from "@/config/kaifood-module.config";
 import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
 
 const emptyCustomerSearch: PosCustomerSearchInitial = {
@@ -95,7 +95,7 @@ export default function PosWorkspace() {
   const cartLocked = isReturnMode || isFulfillBackorderMode;
   const kaiFoodEnabled =
     companyKaiProduct !== undefined &&
-    isKaiFoodEnabledForCompany(companyKaiProduct);
+    isKaiFoodEnabledForPos(companyKaiProduct, ctx?.kaiFoodEnabled);
   const diningTransferEnabled =
     kaiFoodEnabled &&
     !isOffline &&
@@ -195,6 +195,7 @@ export default function PosWorkspace() {
                 posKind: fetched.posKind ?? working.posKind,
                 acceptsPresaleTickets: fetched.acceptsPresaleTickets,
                 deferredPaymentEnabled: fetched.deferredPaymentEnabled,
+                kaiFoodEnabled: fetched.kaiFoodEnabled,
               });
               working = readPosContextClient() ?? working;
             }
@@ -235,6 +236,7 @@ export default function PosWorkspace() {
             posKind: snap.posKind,
             acceptsPresaleTickets: snap.acceptsPresaleTickets,
             deferredPaymentEnabled: snap.deferredPaymentEnabled,
+            kaiFoodEnabled: snap.kaiFoodEnabled,
             ...(lists.length > 0 ? { priceLists: lists } : {}),
             ...(!working.priceListId && (defaultId || lists[0]?.id)
               ? { priceListId: defaultId || lists[0]?.id }
@@ -266,6 +268,7 @@ export default function PosWorkspace() {
           posKind: res.posKind,
           acceptsPresaleTickets: res.acceptsPresaleTickets,
           deferredPaymentEnabled: res.deferredPaymentEnabled,
+          kaiFoodEnabled: res.kaiFoodEnabled,
           ...(lists.length > 0 ? { priceLists: lists } : {}),
           ...(!working.priceListId && (defaultId || lists[0]?.id)
             ? { priceListId: defaultId || lists[0]?.id }

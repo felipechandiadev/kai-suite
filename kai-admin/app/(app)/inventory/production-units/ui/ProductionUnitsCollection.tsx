@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Button,
@@ -10,10 +10,6 @@ import {
   Select,
   TextField,
 } from "@kai/ui";
-import {
-  PrintAgentPicker,
-  type PrintAgentCatalogItem,
-} from "@kai/print-service-client";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
 import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
 import {
@@ -35,8 +31,6 @@ import type {
   ProductionUnitPurpose,
   ProductionUnitScope,
 } from "@/features/inventory-production-units/types/production-unit.types";
-import { listPrintAgentsAction } from "@/features/print-agents/actions/print-agents.action";
-import type { PrintAgentDto } from "@/features/print-agents/types/print-agent.types";
 import { LaborUnitAssociationsField } from "@/features/hr-labor-units/ui/LaborUnitAssociationsField";
 import { EmployeeAssociationsField } from "@/features/hr-employees/ui/EmployeeAssociationsField";
 import { ProductionUnitCard } from "./ProductionUnitCard";
@@ -81,11 +75,6 @@ export function ProductionUnitsCollection({
   const [purpose, setPurpose] = useState<ProductionUnitPurpose>("KITCHEN");
   const [kitchenFulfillmentMode, setKitchenFulfillmentMode] =
     useState<KitchenFulfillmentMode>("KDS");
-  const [kitchenPrintAgentId, setKitchenPrintAgentId] = useState<string>("");
-  const [kitchenPrintAgentName, setKitchenPrintAgentName] = useState<string>("");
-  const [kitchenPrinterLabel, setKitchenPrinterLabel] = useState<string>("");
-  const [catalogAgents, setCatalogAgents] = useState<PrintAgentCatalogItem[]>([]);
-  const [catalogLoading, setCatalogLoading] = useState(false);
   const [inputStorageId, setInputStorageId] = useState<string>("");
   const [laborUnitIds, setLaborUnitIds] = useState<string[]>([]);
   const [employeeIds, setEmployeeIds] = useState<string[]>([]);
@@ -183,35 +172,6 @@ export function ProductionUnitsCollection({
     }
   }, [open, inputCandidates, inputStorageId]);
 
-  const refreshCatalog = useCallback(async () => {
-    setCatalogLoading(true);
-    try {
-      const rows = await listPrintAgentsAction();
-      setCatalogAgents(
-        rows.map((a: PrintAgentDto) => ({
-          id: a.id,
-          displayName: a.displayName,
-          lanHost: a.lanHost,
-          wsPort: a.wsPort,
-          wssPort: a.wssPort,
-          useTls: a.useTls,
-          online: a.online,
-          platform: a.platform,
-        })),
-      );
-    } catch {
-      setCatalogAgents([]);
-    } finally {
-      setCatalogLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (open && purpose === "KITCHEN") {
-      void refreshCatalog();
-    }
-  }, [open, purpose, refreshCatalog]);
-
   const resetDialogFields = (mode: ProductionUnitInventoryMode = "DEPENDENT") => {
     const shared = (() => {
       const preferred = storages
@@ -242,9 +202,6 @@ export function ProductionUnitsCollection({
     setInventoryMode("DEPENDENT");
     setPurpose("KITCHEN");
     setKitchenFulfillmentMode("KDS");
-    setKitchenPrintAgentId("");
-    setKitchenPrintAgentName("");
-    setKitchenPrinterLabel("");
     setName("");
     setIsActive(true);
     setLaborUnitIds([]);
@@ -266,11 +223,6 @@ export function ProductionUnitsCollection({
         : unit.kitchenFulfillmentMode === "BOTH"
           ? "BOTH"
           : "KDS",
-    );
-    setKitchenPrintAgentId(unit.kitchenPrintSettings?.printAgentId ?? "");
-    setKitchenPrintAgentName("");
-    setKitchenPrinterLabel(
-      unit.kitchenPrintSettings?.printerDisplayLabel ?? "",
     );
     setInputStorageId(unit.defaultInputStorageId ?? "");
     setLaborUnitIds(unit.laborUnitIds ?? []);
@@ -384,15 +336,7 @@ export function ProductionUnitsCollection({
       isActive,
       kitchenFulfillmentMode:
         purpose === "KITCHEN" ? kitchenFulfillmentMode : "KDS",
-      kitchenPrintSettings:
-        purpose === "KITCHEN" &&
-        (kitchenFulfillmentMode === "PRINTED" ||
-          kitchenFulfillmentMode === "BOTH")
-          ? {
-              printAgentId: kitchenPrintAgentId.trim() || null,
-              printerDisplayLabel: kitchenPrinterLabel.trim() || null,
-            }
-          : null,
+      kitchenPrintSettings: null,
     };
     const result = editing
       ? await updateProductionUnitAction({ id: editing.id, ...payload })
@@ -524,35 +468,10 @@ export function ProductionUnitsCollection({
               />
               {kitchenFulfillmentMode === "PRINTED" ||
               kitchenFulfillmentMode === "BOTH" ? (
-                <>
-                  <p className="text-xs text-muted-foreground">
-                    Agente e impresora para el ticket de cocina (Kai Printers).
-                    {kitchenPrintAgentName
-                      ? ` Seleccionado: ${kitchenPrintAgentName}`
-                      : kitchenPrintAgentId
-                        ? ` Agente: ${kitchenPrintAgentId}`
-                        : ""}
-                  </p>
-                  <PrintAgentPicker
-                    agents={catalogAgents}
-                    loading={catalogLoading}
-                    onRefresh={() => void refreshCatalog()}
-                    onApplied={(agent) => {
-                      setKitchenPrintAgentId(agent.id);
-                      setKitchenPrintAgentName(agent.displayName);
-                    }}
-                    data-test-id="production-unit-kitchen-print-agent"
-                  />
-                  <TextField
-                    label="Alias impresora (tickets)"
-                    name="kitchen-printer-label"
-                    value={kitchenPrinterLabel}
-                    onChange={(e) => setKitchenPrinterLabel(e.target.value)}
-                    alwaysShowLabel
-                    placeholder="Ej. Cocina"
-                    data-test-id="production-unit-kitchen-printer-label"
-                  />
-                </>
+                <p className="text-xs text-muted-foreground">
+                  La impresora de comandas se configura en cada POS o mesero
+                  (Impresión local → Comandas por unidad de producción).
+                </p>
               ) : null}
             </div>
           ) : null}

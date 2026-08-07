@@ -1,6 +1,8 @@
 import {
   extractDiningOrderIdFromMetadata,
   shouldSkipFinishedGoodsStockForDiningSale,
+  shouldSkipFinishedGoodsStockForPreparadoRetail,
+  shouldSkipFinishedGoodsStockForSale,
 } from '../../application/dining-sale-finished-stock.util';
 import { ProductType } from '@modules/products/domain/product.entity';
 
@@ -64,6 +66,52 @@ describe('dining-sale-finished-stock.util', () => {
         shouldSkipFinishedGoodsStockForDiningSale({
           diningOrderId: 'ord-1',
           productType: ProductType.MANUFACTURADO,
+        }),
+      ).toBe(false);
+    });
+  });
+
+  describe('shouldSkipFinishedGoodsStockForPreparadoRetail', () => {
+    it('omite PREPARADO cuando KaiFood está OFF en el POS', () => {
+      expect(
+        shouldSkipFinishedGoodsStockForPreparadoRetail({
+          posKaiFoodEnabled: false,
+          productType: ProductType.PREPARADO,
+        }),
+      ).toBe(true);
+    });
+
+    it('no omite cuando KaiFood está ON', () => {
+      expect(
+        shouldSkipFinishedGoodsStockForPreparadoRetail({
+          posKaiFoodEnabled: true,
+          productType: ProductType.PREPARADO,
+        }),
+      ).toBe(false);
+    });
+  });
+
+  describe('shouldSkipFinishedGoodsStockForSale', () => {
+    it('combina dining y retail preparado', () => {
+      expect(
+        shouldSkipFinishedGoodsStockForSale({
+          diningOrderId: 'ord-1',
+          posKaiFoodEnabled: true,
+          productType: ProductType.PREPARADO,
+        }),
+      ).toBe(true);
+      expect(
+        shouldSkipFinishedGoodsStockForSale({
+          diningOrderId: null,
+          posKaiFoodEnabled: false,
+          productType: ProductType.PREPARADO,
+        }),
+      ).toBe(true);
+      expect(
+        shouldSkipFinishedGoodsStockForSale({
+          diningOrderId: null,
+          posKaiFoodEnabled: true,
+          productType: ProductType.PREPARADO,
         }),
       ).toBe(false);
     });

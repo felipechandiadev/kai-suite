@@ -62,6 +62,7 @@ export async function fetchPointOfSalePriceListsAction(pointOfSaleId: string): P
       posKind: "PRESALE" | "SALE";
       acceptsPresaleTickets: boolean;
       deferredPaymentEnabled: boolean;
+      kaiFoodEnabled: boolean;
     }
   | {
       success: false;
@@ -74,6 +75,7 @@ export async function fetchPointOfSalePriceListsAction(pointOfSaleId: string): P
       posKind: "SALE";
       acceptsPresaleTickets: false;
       deferredPaymentEnabled: false;
+      kaiFoodEnabled: false;
     }
 > {
   const id = pointOfSaleId?.trim();
@@ -89,6 +91,7 @@ export async function fetchPointOfSalePriceListsAction(pointOfSaleId: string): P
       posKind: "SALE",
       acceptsPresaleTickets: false,
       deferredPaymentEnabled: false,
+      kaiFoodEnabled: false,
     };
   }
 
@@ -105,6 +108,7 @@ export async function fetchPointOfSalePriceListsAction(pointOfSaleId: string): P
       posKind: "SALE",
       acceptsPresaleTickets: false,
       deferredPaymentEnabled: false,
+      kaiFoodEnabled: false,
     };
   }
 
@@ -125,6 +129,7 @@ export async function fetchPointOfSalePriceListsAction(pointOfSaleId: string): P
     posKind: parsePosKind(res.pointOfSale),
     acceptsPresaleTickets: res.pointOfSale.acceptsPresaleTickets === true,
     deferredPaymentEnabled: res.pointOfSale.deferredPaymentEnabled === true,
+    kaiFoodEnabled: res.pointOfSale.kaiFoodEnabled !== false,
     ...posFields,
   };
 }

@@ -225,6 +225,16 @@ fn resolve_job_print_targets(
 
 fn printers_for_purpose_with_fallback(db: &Db, purpose: &str) -> Result<Vec<String>> {
     let mut printers = db.printers_for_purpose_ordered(purpose)?;
+    if printers.is_empty() && purpose == "comandas" {
+        let tickets = db.printers_for_purpose_ordered("tickets")?;
+        if !tickets.is_empty() {
+            tracing::warn!(
+                "no printer mapped for comandas; using tickets mapping as fallback ({})",
+                tickets.join(", ")
+            );
+            printers = tickets;
+        }
+    }
     if printers.is_empty() && purpose == "tickets" {
         let docs = db.printers_for_purpose_ordered("documents")?;
         if !docs.is_empty() {
@@ -646,13 +656,13 @@ pub fn write_test_print_path(
 ) -> Result<PathBuf> {
     std::fs::create_dir_all(dir)?;
     let id = uuid::Uuid::new_v4().to_string();
-    if purpose == "tickets" && use_escpos {
+    if crate::purpose_util::is_ticket_like_purpose(purpose) && use_escpos {
         let p = dir.join(format!("test_{id}.escpos"));
         ticket_test_escpos::write_pos_ticket_test_escpos(&p, agent_label)?;
         return Ok(p);
     }
     let p = dir.join(format!("test_{id}.pdf"));
-    if purpose == "tickets" {
+    if crate::purpose_util::is_ticket_like_purpose(purpose) {
         ticket_test_pdf::write_pos_ticket_test_pdf(&p, agent_label)?;
     } else {
         static PDF: &[u8] = include_bytes!("../assets/minimal_test.pdf");

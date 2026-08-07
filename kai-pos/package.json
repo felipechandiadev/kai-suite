@@ -1,6 +1,6 @@
 {
   "name": "kai-pos",
-  "version": "1.5.1",
+  "version": "1.7.0",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack -p ${PORT:-5062} -H 0.0.0.0",

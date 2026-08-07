@@ -9,6 +9,8 @@ import type { PointOfSaleListItem, PosKind } from "@/features/sales-points-of-sa
 import type { PriceListListItem } from "@/features/sales-price-lists/types/price-list.types";
 import { updatePointOfSaleAction } from "@/features/sales-points-of-sale/actions/point-of-sale.action";
 import { getCompanyDeferredPaymentSettingsAction } from "@/features/companies/actions/companies-deferred-payment.action";
+import { getCompanyAction } from "@/features/companies/actions/companies.action";
+import { isKaiFoodCompany } from "@/config/kaifood-module.config";
 import { buildPosUpdateInput } from "./build-pos-update-input";
 
 type Props = {
@@ -39,7 +41,9 @@ export function PosDetailGeneralSection({
   const [posKind, setPosKind] = useState<PosKind>(point.kind ?? "SALE");
   const [acceptsPresaleTickets, setAcceptsPresaleTickets] = useState(Boolean(point.acceptsPresaleTickets));
   const [allowsDeferredPayment, setAllowsDeferredPayment] = useState(Boolean(point.allowsDeferredPayment));
+  const [kaiFoodEnabled, setKaiFoodEnabled] = useState(point.kaiFoodEnabled !== false);
   const [companyDeferredPaymentEnabled, setCompanyDeferredPaymentEnabled] = useState(false);
+  const [companyIsKaiFood, setCompanyIsKaiFood] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -67,18 +71,25 @@ export function PosDetailGeneralSection({
     setPosKind(point.kind ?? "SALE");
     setAcceptsPresaleTickets(Boolean(point.acceptsPresaleTickets));
     setAllowsDeferredPayment(Boolean(point.allowsDeferredPayment));
+    setKaiFoodEnabled(point.kaiFoodEnabled !== false);
   }, [point, branches]);
 
   useEffect(() => {
     const cid = (companyId ?? "").trim();
     if (!cid) {
       setCompanyDeferredPaymentEnabled(false);
+      setCompanyIsKaiFood(false);
       return;
     }
     let cancelled = false;
     void getCompanyDeferredPaymentSettingsAction(cid).then((res) => {
       if (!cancelled) {
         setCompanyDeferredPaymentEnabled(res.success && res.deferredPayment.enabled === true);
+      }
+    });
+    void getCompanyAction(cid).then((res) => {
+      if (!cancelled && res.success) {
+        setCompanyIsKaiFood(isKaiFoodCompany(res.company.kaiProduct));
       }
     });
     return () => {
@@ -121,6 +132,7 @@ export function PosDetailGeneralSection({
             kind: posKind,
             acceptsPresaleTickets,
             allowsDeferredPayment,
+            kaiFoodEnabled,
           },
           priceListCatalog,
         );
@@ -245,6 +257,22 @@ export function PosDetailGeneralSection({
               Activa «Venta sin pago inmediato» en Configuración → Empresa → Crédito interno.
             </p>
           ) : null}
+        </>
+      ) : null}
+
+      {companyIsKaiFood ? (
+        <>
+          <Switch
+            checked={kaiFoodEnabled}
+            onChange={setKaiFoodEnabled}
+            label="Módulo KaiFood (salón)"
+            labelPosition="right"
+            data-test-id="pos-detail-kai-food-enabled"
+          />
+          <p className="text-xs text-muted-foreground">
+            Desactivado: este punto de venta opera como retail (sin cuentas, KDS ni Kai Board).
+            Los productos PREPARADO siguen disponibles en venta directa.
+          </p>
         </>
       ) : null}
 

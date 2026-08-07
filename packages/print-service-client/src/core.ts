@@ -815,7 +815,7 @@ export class PrintServiceConnection {
     const purpose =
       typeof extras.purpose === "string" && extras.purpose.trim()
         ? extras.purpose.trim()
-        : "tickets";
+        : "comandas";
     const label =
       typeof extras.printerDisplayLabel === "string"
         ? extras.printerDisplayLabel.trim()
@@ -1186,7 +1186,7 @@ export function resolvePosPrinterAliasForFormat(format: PrintFormat): string {
   return "";
 }
 
-export type PosPrintAgentPurpose = "tickets" | "documents";
+export type PosPrintAgentPurpose = "tickets" | "documents" | "comandas";
 
 /** POS configuró impresión de tickets vía agente (alias elegido en Impresión local). */
 export function isPosTicketAgentPrintConfigured(): boolean {

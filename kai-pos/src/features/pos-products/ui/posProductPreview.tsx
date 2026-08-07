@@ -117,11 +117,12 @@ export function posCartQuantityExceedsAvailableStock(
     productType?: string | null;
     metadata?: Record<string, unknown> | null;
   },
+  options?: { relaxPreparadoStock?: boolean },
 ): boolean {
   // PREPARADO de cuenta dining: se prepara bajo pedido (CTP en menú/fire), no stock de terminado.
   const fromDining = line.metadata?.sourceDiningOrder === true;
   const productType = String(line.productType ?? "").trim().toUpperCase();
-  if (fromDining && productType === "PREPARADO") {
+  if (productType === "PREPARADO" && (fromDining || options?.relaxPreparadoStock === true)) {
     return false;
   }
   if (!line.trackInventory) return false;

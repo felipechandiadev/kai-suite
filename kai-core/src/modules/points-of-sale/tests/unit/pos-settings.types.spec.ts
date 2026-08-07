@@ -2,7 +2,9 @@ import {
   readAcceptsPresaleTickets,
   readAllowsDeferredPayment,
   readPosKind,
+  readKaiFoodEnabledSetting,
   resolveDeferredPaymentEnabled,
+  resolveKaiFoodEnabled,
   sanitizePosSettingsPatch,
 } from '@modules/points-of-sale/domain/pos-settings.types';
 
@@ -64,5 +66,23 @@ describe('pos-settings.types', () => {
     expect(readAllowsDeferredPayment({ kind: 'PRESALE', allowsDeferredPayment: true })).toBe(
       false,
     );
+  });
+
+  it('kaiFoodEnabled defaults to true', () => {
+    expect(readKaiFoodEnabledSetting(null)).toBe(true);
+    expect(readKaiFoodEnabledSetting({})).toBe(true);
+    expect(readKaiFoodEnabledSetting({ kaiFoodEnabled: false })).toBe(false);
+  });
+
+  it('resolveKaiFoodEnabled requires company KaiFood and POS flag', () => {
+    expect(resolveKaiFoodEnabled('kaifood', { kaiFoodEnabled: true })).toBe(true);
+    expect(resolveKaiFoodEnabled('kaifood', {})).toBe(true);
+    expect(resolveKaiFoodEnabled('kaifood', { kaiFoodEnabled: false })).toBe(false);
+    expect(resolveKaiFoodEnabled('kaistore', { kaiFoodEnabled: true })).toBe(false);
+  });
+
+  it('sanitizePosSettingsPatch persists kaiFoodEnabled', () => {
+    const out = sanitizePosSettingsPatch({}, { kaiFoodEnabled: false });
+    expect(out.kaiFoodEnabled).toBe(false);
   });
 });

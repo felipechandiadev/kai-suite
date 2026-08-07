@@ -23,6 +23,7 @@ export type ValidatePosEntryResult =
         posKind: PosKind;
         acceptsPresaleTickets: boolean;
         deferredPaymentEnabled: boolean;
+        kaiFoodEnabled: boolean;
         priceLists: PosPriceListSnapshot[];
         defaultPriceListId: string | null;
       };
@@ -123,6 +124,7 @@ export class ValidatePosEntryUseCase {
       posKind: parsePosKind(pos),
       acceptsPresaleTickets: pos.acceptsPresaleTickets === true,
       deferredPaymentEnabled: pos.deferredPaymentEnabled === true,
+      kaiFoodEnabled: pos.kaiFoodEnabled !== false,
       priceLists,
       defaultPriceListId,
     },

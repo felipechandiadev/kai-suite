@@ -26,7 +26,7 @@ import {
   clearPosPrintJobBrowserFallback,
   tryPosPrintJobBrowserFallback,
 } from "@/features/pos-print/lib/pos-print-job-browser-fallback";
-import { isKaiFoodEnabledForCompany } from "@/config/kaifood-module.config";
+import { isKaiFoodEnabledForPos } from "@/config/kaifood-module.config";
 import { isKaiServicesEnabled } from "@/config/kaiservices-module.config";
 import { resolveTopbarProductLabel } from "@/config/product-brand.config";
 
@@ -367,6 +367,7 @@ export default function PosTopBar({
 }: PosTopBarProps) {
   const [posNameFromClient, setPosNameFromClient] = useState<string | null>(null);
   const [posKindFromClient, setPosKindFromClient] = useState<PosKind | null>(null);
+  const [posKaiFoodFromClient, setPosKaiFoodFromClient] = useState<boolean | null>(null);
   useEffect(() => {
     const syncFromContext = () => {
       const parsed = readPosContextClient();
@@ -377,6 +378,9 @@ export default function PosTopBar({
       setPosNameFromClient(label || null);
       setPosKindFromClient(
         parsed.posKind === "PRESALE" || parsed.posKind === "SALE" ? parsed.posKind : null,
+      );
+      setPosKaiFoodFromClient(
+        typeof parsed.kaiFoodEnabled === "boolean" ? parsed.kaiFoodEnabled : null,
       );
     };
     syncFromContext();
@@ -534,7 +538,7 @@ export default function PosTopBar({
   };
 
   const isPresalePos = posKindFromClient === "PRESALE";
-  const kaiFoodEnabled = isKaiFoodEnabledForCompany(companyKaiProduct);
+  const kaiFoodEnabled = isKaiFoodEnabledForPos(companyKaiProduct, posKaiFoodFromClient);
   const kaiServicesEnabled = isKaiServicesEnabled();
 
   const navProps: PosTopBarNavProps = {

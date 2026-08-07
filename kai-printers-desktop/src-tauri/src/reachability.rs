@@ -121,7 +121,9 @@ pub fn evaluate_mapping_line(row: &Value, system: &[PrinterInfo]) -> LineReachEn
         .trim()
         .to_string();
 
-    if purpose == "tickets" && ticket_type.eq_ignore_ascii_case("network") {
+    if crate::purpose_util::is_ticket_like_purpose(purpose)
+        && ticket_type.eq_ignore_ascii_case("network")
+    {
         if network_host.is_empty() {
             return LineReachEntry::unknown();
         }

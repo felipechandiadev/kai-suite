@@ -6,7 +6,7 @@ import { DotProgress } from "@kai/ui";
 import PosDiningAccountsPanel from "@/features/dining/ui/PosDiningAccountsPanel";
 import {
   isKaiFoodEnabled,
-  isKaiFoodEnabledForCompany,
+  isKaiFoodEnabledForPos,
 } from "@/config/kaifood-module.config";
 import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
@@ -45,7 +45,7 @@ function AccountsPageInner() {
       try {
         const details = await getCompanyDetailsAction();
         if (cancelled) return;
-        if (!isKaiFoodEnabledForCompany(details?.kaiProduct ?? null)) {
+        if (!isKaiFoodEnabledForPos(details?.kaiProduct ?? null, readPosContextClient()?.kaiFoodEnabled)) {
           setFoodGate("denied");
           router.replace("/pos");
           return;

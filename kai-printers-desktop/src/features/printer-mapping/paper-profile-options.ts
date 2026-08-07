@@ -17,7 +17,7 @@ export function normalizePaperProfile(purpose: string, raw?: string | null): str
   if (purpose === "documents") {
     return v === "letter" ? "letter" : "a4";
   }
-  if (purpose === "tickets") {
+  if (purpose === "tickets" || purpose === "comandas") {
     return v === "58mm" ? "58mm" : "80mm";
   }
   return defaultPaperProfileForPurpose(purpose);

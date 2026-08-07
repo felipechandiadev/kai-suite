@@ -1,10 +1,14 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PosFavoriteProductsSection } from "@/features/pos-settings/ui/PosFavoriteProductsSection";
 import { OfflineConflictPanel } from "@/features/pos-offline/ui/OfflineConflictPanel";
 import { PosDiningEnabledTabsSettings } from "@/features/dining/ui/PosDiningEnabledTabsSettings";
 import { IconButton } from "@kai/ui";
+import { isKaiFoodEnabledForPos } from "@/config/kaifood-module.config";
+import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
+import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
 
 type SettingsSectionProps = {
   title: string;
@@ -59,6 +63,27 @@ function SettingsSection({
 
 export function PosSettingsPageClient() {
   const router = useRouter();
+  const [kaiFoodEnabled, setKaiFoodEnabled] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getCompanyDetailsAction()
+      .then((details) => {
+        if (cancelled) return;
+        setKaiFoodEnabled(
+          isKaiFoodEnabledForPos(
+            details?.kaiProduct ?? null,
+            readPosContextClient()?.kaiFoodEnabled,
+          ),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setKaiFoodEnabled(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div
@@ -83,7 +108,7 @@ export function PosSettingsPageClient() {
           <PosFavoriteProductsSection />
         </SettingsSection>
 
-        <PosDiningEnabledTabsSettings />
+        {kaiFoodEnabled ? <PosDiningEnabledTabsSettings /> : null}
 
         <SettingsSection
           title="Impresión y tickets"
@@ -121,6 +146,7 @@ export function PosSettingsPageClient() {
           </div>
         </SettingsSection>
 
+        {kaiFoodEnabled ? (
         <SettingsSection
           title="Kai Board"
           description="Monitor TV de pedidos en preparación y listos para retirar (código de 6 dígitos)."
@@ -138,6 +164,7 @@ export function PosSettingsPageClient() {
             />
           </div>
         </SettingsSection>
+        ) : null}
 
         <SettingsSection
           title="Cola offline y conflictos"

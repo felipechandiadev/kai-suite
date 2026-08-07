@@ -48,6 +48,7 @@ mod platform;
 mod port_release;
 mod protocol;
 mod print_formats;
+mod purpose_util;
 mod escpos_width;
 mod security;
 mod state;
@@ -831,9 +832,9 @@ fn queue_escpos_qa_print(
     } else {
         None
     };
-    if purpose != "tickets" {
+    if !crate::purpose_util::is_ticket_like_purpose(purpose) {
         return Err(
-            "La prueba ESC/POS QA solo aplica a líneas con propósito «Tickets».".to_string(),
+            "La prueba ESC/POS QA solo aplica a líneas con propósito «Tickets» o «Comandas».".to_string(),
         );
     }
     let net = ticket_network_host
@@ -936,7 +937,7 @@ fn queue_test_print(
         .map(str::trim)
         .filter(|s| !s.is_empty());
     let agent_label = state.db.agent_display_name();
-    let use_escpos = purpose == "tickets";
+    let use_escpos = crate::purpose_util::is_ticket_like_purpose(purpose);
     let path =
         jobs::write_test_print_path(&state.temp_dir, purpose, &agent_label, use_escpos)
             .map_err(|e| e.to_string())?;
@@ -947,7 +948,7 @@ fn queue_test_print(
     };
     let format_label = if use_escpos {
         "ESC/POS RAW"
-    } else if purpose == "tickets" {
+    } else if crate::purpose_util::is_ticket_like_purpose(purpose) {
         "PDF ticket"
     } else {
         "PDF documento"

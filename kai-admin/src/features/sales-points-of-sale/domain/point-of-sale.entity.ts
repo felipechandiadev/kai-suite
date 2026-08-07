@@ -25,6 +25,7 @@ export const CreatePointOfSaleFormSchema = z
     kind: posKindSchema,
     acceptsPresaleTickets: z.boolean().default(false),
     allowsDeferredPayment: z.boolean().default(false),
+    kaiFoodEnabled: z.boolean().default(true),
   })
   .refine(
     (d) => {
@@ -53,6 +54,7 @@ export const UpdatePointOfSaleFormSchema = z
     kind: posKindSchema,
     acceptsPresaleTickets: z.boolean().default(false),
     allowsDeferredPayment: z.boolean().default(false),
+    kaiFoodEnabled: z.boolean().default(true),
   })
   .refine(
     (d) => {

@@ -2,8 +2,12 @@ import type { MappingLineRow, PrinterRow, LinePrinterStatus, MappingLineHealthRo
 import { normalizeTicketPrinterType } from "./ticket-printer-type";
 import { normalizePaperProfile } from "./paper-profile-options";
 
+export function isTicketLikePurpose(purpose: string): boolean {
+  return purpose === "tickets" || purpose === "comandas";
+}
+
 export function isTicketNetworkLine(line: Pick<MappingLineRow, "purpose" | "ticketPrinterType">): boolean {
-  return line.purpose === "tickets" && normalizeTicketPrinterType(line.ticketPrinterType) === "network";
+  return isTicketLikePurpose(line.purpose) && normalizeTicketPrinterType(line.ticketPrinterType) === "network";
 }
 
 export function linePrinterStatus(

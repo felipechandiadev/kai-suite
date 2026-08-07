@@ -1,15 +1,56 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PosKaiBoardSettingsSection } from "@/features/dining-board/ui/PosKaiBoardSettingsSection";
+import { isKaiFoodEnabledForPos } from "@/config/kaifood-module.config";
+import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
 
 export default function KaiBoardSettingsPage() {
+  const router = useRouter();
   const [branchId, setBranchId] = useState("");
+  const [allowed, setAllowed] = useState<"pending" | "yes" | "no">("pending");
 
   useEffect(() => {
     setBranchId(readPosContextClient()?.branchId?.trim() ?? "");
-  }, []);
+    let cancelled = false;
+    void getCompanyDetailsAction()
+      .then((details) => {
+        if (cancelled) return;
+        const ok = isKaiFoodEnabledForPos(
+          details?.kaiProduct ?? null,
+          readPosContextClient()?.kaiFoodEnabled,
+        );
+        if (!ok) {
+          setAllowed("no");
+          router.replace("/settings");
+          return;
+        }
+        setAllowed("yes");
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAllowed("no");
+          router.replace("/settings");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  if (allowed === "no") {
+    return null;
+  }
+
+  if (allowed === "pending") {
+    return (
+      <p className="px-6 py-6 text-sm text-muted-foreground" data-test-id="pos-settings-kai-board-loading">
+        Cargando…
+      </p>
+    );
+  }
 
   return (
     <div

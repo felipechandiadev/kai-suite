@@ -29,6 +29,175 @@ export function kitchenUnitShouldPrint(
   return mode === "PRINTED" || mode === "BOTH";
 }
 
+/** UP con modo que requiere binding de impresora en POS/Waiter. */
+export function kitchenUnitRequiresPrintBinding(
+  mode: KitchenFulfillmentModeClient | string | null | undefined,
+): boolean {
+  return kitchenUnitShouldPrint(mode);
+}
+
+export type KitchenUnitPrintBinding = {
+  printAgentId?: string | null;
+  printerDisplayLabel?: string | null;
+};
+
+export type KitchenUnitPrintBindingsMap = Record<string, KitchenUnitPrintBinding>;
+
+const POS_BINDINGS_KEY = "printPosKitchenUnitBindings";
+const WAITER_BINDINGS_KEY = "printWaiterKitchenUnitBindings";
+const POS_BINDINGS_MIGRATED_KEY = "printPosKitchenUnitBindingsMigrated";
+const WAITER_BINDINGS_MIGRATED_KEY = "printWaiterKitchenUnitBindingsMigrated";
+
+function sanitizeBinding(raw: unknown): KitchenUnitPrintBinding | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  const printAgentId =
+    o.printAgentId != null && String(o.printAgentId).trim()
+      ? String(o.printAgentId).trim()
+      : null;
+  const printerDisplayLabel =
+    o.printerDisplayLabel != null && String(o.printerDisplayLabel).trim()
+      ? String(o.printerDisplayLabel).trim()
+      : null;
+  if (!printAgentId && !printerDisplayLabel) return null;
+  return { printAgentId, printerDisplayLabel };
+}
+
+function readBindingsMap(storageKey: string): KitchenUnitPrintBindingsMap {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const out: KitchenUnitPrintBindingsMap = {};
+    for (const [id, value] of Object.entries(parsed)) {
+      const key = String(id).trim();
+      if (!key) continue;
+      const binding = sanitizeBinding(value);
+      if (binding) out[key] = binding;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function writeBindingsMap(
+  storageKey: string,
+  map: KitchenUnitPrintBindingsMap,
+): void {
+  if (typeof window === "undefined") return;
+  const cleaned: KitchenUnitPrintBindingsMap = {};
+  for (const [id, binding] of Object.entries(map)) {
+    const key = String(id).trim();
+    if (!key) continue;
+    const sanitized = sanitizeBinding(binding);
+    if (sanitized) cleaned[key] = sanitized;
+  }
+  if (Object.keys(cleaned).length === 0) {
+    localStorage.removeItem(storageKey);
+    return;
+  }
+  localStorage.setItem(storageKey, JSON.stringify(cleaned));
+}
+
+export function readPosKitchenUnitPrintBindings(): KitchenUnitPrintBindingsMap {
+  return readBindingsMap(POS_BINDINGS_KEY);
+}
+
+export function writePosKitchenUnitPrintBindings(
+  map: KitchenUnitPrintBindingsMap,
+): void {
+  writeBindingsMap(POS_BINDINGS_KEY, map);
+}
+
+export function readWaiterKitchenUnitPrintBindings(): KitchenUnitPrintBindingsMap {
+  return readBindingsMap(WAITER_BINDINGS_KEY);
+}
+
+export function writeWaiterKitchenUnitPrintBindings(
+  map: KitchenUnitPrintBindingsMap,
+): void {
+  writeBindingsMap(WAITER_BINDINGS_KEY, map);
+}
+
+export function resolveKitchenUnitPrintBinding(
+  bindings: KitchenUnitPrintBindingsMap,
+  productionUnitId: string,
+): KitchenUnitPrintBinding | null {
+  const id = productionUnitId.trim();
+  if (!id) return null;
+  return bindings[id] ?? null;
+}
+
+export function kitchenUnitPrintBindingConfigured(
+  binding: KitchenUnitPrintBinding | null | undefined,
+): boolean {
+  if (!binding) return false;
+  return Boolean(
+    binding.printAgentId?.trim() || binding.printerDisplayLabel?.trim(),
+  );
+}
+
+/**
+ * Una vez: copia `kitchenPrintSettings` del Core a localStorage si el mapa local está vacío.
+ */
+export function migrateKitchenBindingsFromServer(
+  app: "pos" | "waiter",
+  units: KitchenUnitPrintInfo[],
+): KitchenUnitPrintBindingsMap {
+  const migratedKey =
+    app === "pos" ? POS_BINDINGS_MIGRATED_KEY : WAITER_BINDINGS_MIGRATED_KEY;
+  const read =
+    app === "pos"
+      ? readPosKitchenUnitPrintBindings
+      : readWaiterKitchenUnitPrintBindings;
+  const write =
+    app === "pos"
+      ? writePosKitchenUnitPrintBindings
+      : writeWaiterKitchenUnitPrintBindings;
+
+  const existing = read();
+  if (typeof window !== "undefined" && localStorage.getItem(migratedKey) === "1") {
+    return existing;
+  }
+  if (Object.keys(existing).length > 0) {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(migratedKey, "1");
+    }
+    return existing;
+  }
+
+  const next: KitchenUnitPrintBindingsMap = { ...existing };
+  let changed = false;
+  for (const unit of units) {
+    if (!kitchenUnitRequiresPrintBinding(unit.kitchenFulfillmentMode)) continue;
+    const legacy = unit.kitchenPrintSettings;
+    if (!legacy) continue;
+    const printAgentId = legacy.printAgentId?.trim() || null;
+    const printerDisplayLabel = legacy.printerDisplayLabel?.trim() || null;
+    if (!printAgentId && !printerDisplayLabel) continue;
+    if (!next[unit.id]) {
+      next[unit.id] = { printAgentId, printerDisplayLabel };
+      changed = true;
+    }
+  }
+  if (changed) write(next);
+  if (typeof window !== "undefined") {
+    localStorage.setItem(migratedKey, "1");
+  }
+  return changed ? next : existing;
+}
+
+export function fulfillmentModeLabel(
+  mode: KitchenFulfillmentModeClient | string | null | undefined,
+): string {
+  if (mode === "PRINTED") return "Comanda impresa";
+  if (mode === "BOTH") return "KDS + comanda impresa";
+  return "Solo KDS";
+}
+
 export type BuildKitchenTicketInput = {
   company: PosSaleTicketCompany;
   productionUnitName: string;
@@ -134,9 +303,11 @@ export function writeWaiterKitchenComandaReplicaPrefs(
 export function replicaIncludesUnit(
   prefs: KitchenComandaReplicaPrefs,
   productionUnitId: string,
+  mode?: KitchenFulfillmentModeClient | string | null,
 ): boolean {
   if (!prefs.enabled) return false;
-  if (prefs.productionUnitIds.length === 0) return true; // all kitchen UPs
+  if (mode != null && !kitchenUnitRequiresPrintBinding(mode)) return false;
+  if (prefs.productionUnitIds.length === 0) return true;
   return prefs.productionUnitIds.includes(productionUnitId);
 }
 

@@ -23,6 +23,7 @@ export function buildPosUpdateInput(
     kind: PosKind;
     acceptsPresaleTickets: boolean;
     allowsDeferredPayment: boolean;
+    kaiFoodEnabled: boolean;
     selectedListIds: string[];
     defaultListId: string | null;
   }>,
@@ -65,5 +66,6 @@ export function buildPosUpdateInput(
       kind === "SALE"
         ? (patch.allowsDeferredPayment ?? Boolean(point.allowsDeferredPayment))
         : false,
+    kaiFoodEnabled: patch.kaiFoodEnabled ?? point.kaiFoodEnabled !== false,
   };
 }

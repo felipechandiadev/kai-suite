@@ -12,7 +12,7 @@ import {
   Select,
   TextField,
 } from "@kai/ui";
-import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
+import { readPosContextClient, readPosRelaxPreparadoStock } from "@/features/session/lib/pos-context-storage";
 import {
   POS_CONTEXT_CHANGED_EVENT,
   readDeferredPaymentEnabledFromOfflineCache,
@@ -631,12 +631,14 @@ function PaymentCartReadOnlyRow({
   applied,
   onToggleDiscount,
   offline,
+  relaxPreparadoStock = false,
 }: {
   line: PosCartLine;
   suggestedDiscount: import("@/features/promotions/lib/discount-engine.types").ResolvedLineDiscount | null;
   applied: boolean;
   onToggleDiscount?: () => void;
   offline?: boolean;
+  relaxPreparadoStock?: boolean;
 }) {
   const q = Number(line.quantity) || 0;
   const unitGross = Number(line.unitPriceWithTax) || 0;
@@ -649,7 +651,9 @@ function PaymentCartReadOnlyRow({
   const promoName =
     (applied ? line.discount?.promotionName : suggestedDiscount?.promotionName) ??
     "";
-  const exceedsAvailableStock = posCartQuantityExceedsAvailableStock(line);
+  const exceedsAvailableStock = posCartQuantityExceedsAvailableStock(line, {
+    relaxPreparadoStock,
+  });
   const attrBits =
     line.attributes?.map((a: { attributeValue?: string | null }) => String(a.attributeValue ?? "").trim()).filter(Boolean) ?? [];
   const nameWithAttrs = formatReceiptLineDisplayName(line.productName, attrBits);
@@ -743,6 +747,7 @@ export default function PosPaymentWorkspace({
   const isNcPayoutMode = (searchParams.get("mode") ?? "").trim() === "nc-payout";
   const isDiningMode = (searchParams.get("mode") ?? "").trim() === "dining";
   const diningPayment = useDiningPayment();
+  const relaxPreparadoStock = readPosRelaxPreparadoStock();
   const [diningRehydrating, setDiningRehydrating] = useState(false);
   const diningRehydrateAttemptedRef = useRef(false);
   const skipDiningRehydrateRef = useRef(false);
@@ -1617,8 +1622,11 @@ export default function PosPaymentWorkspace({
   const totals = { net: saleTotals.net, gross: saleTotals.gross };
   const { taxes, lineDiscountsTotal, discounts, saleTotal } = saleTotals;
   const hasInsufficientStock = useMemo(
-    () => saleLines.some((line) => posCartQuantityExceedsAvailableStock(line)),
-    [saleLines],
+    () =>
+      saleLines.some((line) =>
+        posCartQuantityExceedsAvailableStock(line, { relaxPreparadoStock }),
+      ),
+    [saleLines, relaxPreparadoStock],
   );
   /** Venta normal: no cobrar si alguna línea supera el stock disponible. */
   const stockBlocksSalePayment =
@@ -4376,6 +4384,7 @@ export default function PosPaymentWorkspace({
                       suggestedDiscount={suggested ?? line.discount ?? null}
                       applied={applied || hasAppliedOnly}
                       offline={isOffline}
+                      relaxPreparadoStock={relaxPreparadoStock}
                       onToggleDiscount={
                         !isDiningMode && !isOffline && suggested
                           ? () =>

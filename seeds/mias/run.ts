@@ -1,5 +1,5 @@
 #!/usr/bin/env ts-node
-/** Seed Mias — KaiFood vacío operable. `npm run seed:mias` */
+/** Seed Mias — KaiFood con catálogo uniCenta. `npm run seed:mias` */
 
 import '../shared/ensure-seed-local-storage-path';
 import { NestFactory } from '@nestjs/core';
@@ -21,12 +21,17 @@ import { Tax, TaxType } from '@modules/taxes/domain/tax.entity';
 import { Branch } from '@modules/branches/domain/branch.entity';
 import { Unit } from '@modules/units/domain/unit.entity';
 import { UnitDimension } from '@modules/units/domain/unit-dimension.enum';
+import { Category } from '@modules/categories/domain/category.entity';
 import { PriceList, PriceListType } from '@modules/price-lists/domain/price-list.entity';
 import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
 import { CashHub } from '@modules/cash-hubs/domain/cash-hub.entity';
 import { ExpenseCategory } from '@modules/expense-categories/domain/expense-category.entity';
 import { assertValidChileCompanyRut } from '@shared/utils/chile-company-rut.util';
 import { Brand } from '@modules/brands/domain/brand.entity';
+import { Product, ProductType } from '@modules/products/domain/product.entity';
+import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
+import { ProductVariantProductionUnit } from '@modules/product-variants/domain/product-variant-production-unit.entity';
+import { PriceListItem } from '@modules/price-list-items/domain/price-list-item.entity';
 import {
   Storage,
   StorageCategory,
@@ -57,8 +62,13 @@ import { Supplier } from '@modules/suppliers/domain/supplier.entity';
 import { Customer } from '@modules/customers/domain/customer.entity';
 import { TenantContext } from '@common/tenant/tenant.context';
 import { runSeedBootstrapGuards } from '../shared/seed-bootstrap.util';
-import { syncSeedBrands } from '../shared/seed-catalog.util';
+import {
+  seedProductsFromDefinitions,
+  syncSeedBrands,
+  syncSeedCategories,
+} from '../shared/seed-catalog.util';
 import { seedExpenseCategoriesForCompany } from '../shared/seed-expense-categories';
+import type { SeedUnitKey } from '../shared/seed-catalog.types';
 import {
   SEED_BRANCH,
   SEED_BRAND_NAME,
@@ -79,6 +89,10 @@ import {
   buildSeedEmployeeBankAccount,
   buildSeedPosPaymentList,
 } from './config';
+import {
+  loadMiasCatalog,
+  mapMiasCatalogToSeedProducts,
+} from './load-catalog';
 
 const SEED_IVA_DESCRIPTION =
   'Impuesto al Valor Agregado sobre ventas, servicios e importaciones.';
@@ -155,7 +169,11 @@ async function bootstrap() {
     const cashHubRepo = dataSource.getRepository(CashHub);
     const expenseCategoryRepo = dataSource.getRepository(ExpenseCategory);
     const userRepo = dataSource.getRepository(User);
+    const productRepo = dataSource.getRepository(Product);
     const brandRepo = dataSource.getRepository(Brand);
+    const categoryRepo = dataSource.getRepository(Category);
+    const variantRepo = dataSource.getRepository(ProductVariant);
+    const priceListItemRepo = dataSource.getRepository(PriceListItem);
     const storageRepo = dataSource.getRepository(Storage);
     const membershipRepo = dataSource.getRepository(UserCompanyMembership);
     const membershipRoleRepo = dataSource.getRepository(UserCompanyRole);
@@ -165,6 +183,10 @@ async function bootstrap() {
     const customerRepo = dataSource.getRepository(Customer);
 
     const password = SEED_PASSWORD;
+    const catalog = loadMiasCatalog();
+    const { products: seedProducts, productionUnitBySku } =
+      mapMiasCatalogToSeedProducts(catalog, SEED_BRAND_NAME);
+
     const { company, paymentCatalog } = await ensureCompany(companyRepo);
 
     const branchOps = await TenantContext.run(
@@ -230,7 +252,7 @@ async function bootstrap() {
           return u;
         };
 
-        await upsertSeedUnit({
+        const baseUnit = await upsertSeedUnit({
           symbol: SEED_UNIT_BASE_SYMBOL,
           name: SEED_UNIT_BASE_NAME,
           dimension: UnitDimension.COUNT,
@@ -248,7 +270,7 @@ async function bootstrap() {
           baseUnitId: null,
           allowDecimals: true,
         });
-        await upsertSeedUnit({
+        const unitLiter = await upsertSeedUnit({
           symbol: 'L',
           name: 'Litro',
           dimension: UnitDimension.VOLUME,
@@ -266,7 +288,7 @@ async function bootstrap() {
           baseUnitId: null,
           allowDecimals: true,
         });
-        await upsertSeedUnit({
+        const unitKg = await upsertSeedUnit({
           symbol: 'kg',
           name: 'Kilogramo',
           dimension: UnitDimension.MASS,
@@ -275,8 +297,22 @@ async function bootstrap() {
           baseUnitId: unitGram.id,
           allowDecimals: true,
         });
+        const seedUnitId: Record<SeedUnitKey, string> = {
+          UN: baseUnit.id,
+          ML: unitMl.id,
+          L: unitLiter.id,
+          G: unitGram.id,
+          KG: unitKg.id,
+        };
 
-        await syncSeedBrands(
+        const categoryByName = await syncSeedCategories(
+          categoryRepo,
+          company.id,
+          catalog.categories,
+          SEED_BRAND_NAME,
+          { silent: true },
+        );
+        const brandIdByName = await syncSeedBrands(
           brandRepo,
           company.id,
           [SEED_BRAND_NAME],
@@ -315,7 +351,26 @@ async function bootstrap() {
           expenseCategoryRepo,
         });
 
-        console.log('✅ Catálogo vacío (sin productos ni categorías)');
+        await seedProductsFromDefinitions(seedProducts, {
+          companyId: company.id,
+          productRepo,
+          variantRepo,
+          priceListItemRepo,
+          ivaTax,
+          categoryByName,
+          brandIdByName,
+          attributesByName: new Map(),
+          seedUnitId,
+          listaMinoristaId: retailList.id,
+          listaMayoristaId: retailList.id,
+          listaEshopId: retailList.id,
+          logPrefix: SEED_BRAND_NAME,
+          defaultStockQty: 0,
+          silentProducts: true,
+        });
+        console.log(
+          `✅ Productos sembrados: ${seedProducts.length} (trackInventory=false)`,
+        );
 
         const site = SEED_BRANCH;
         const posPayments = buildSeedPosPaymentList(paymentCatalog);
@@ -433,6 +488,16 @@ async function bootstrap() {
         await cashHubRepo.save(cashHub);
         pos.defaultCashHubId = cashHub.id;
         await posRepo.save(pos);
+
+        await productRepo
+          .createQueryBuilder()
+          .update(Product)
+          .set({ onMenu: true })
+          .where('companyId = :companyId', { companyId: company.id })
+          .andWhere('productType != :insumo', {
+            insumo: ProductType.INSUMO,
+          })
+          .execute();
 
         const diningRoomRepo = dataSource.getRepository(DiningRoom);
         const diningTableRepo = dataSource.getRepository(DiningTable);
@@ -1020,12 +1085,42 @@ async function bootstrap() {
         }
         await laborUnitShiftRepo.save(shift);
         console.log(`✅ UL Salón + turno ${shift.code}`);
+
+        const pvPuRepo = dataSource.getRepository(ProductVariantProductionUnit);
+        let routed = 0;
+        for (const [sku, code] of productionUnitBySku) {
+          if (code !== 'COCINA') continue;
+          const variant = await variantRepo.findOne({
+            where: { companyId: company.id, sku, deletedAt: IsNull() },
+          });
+          if (!variant) continue;
+          let row = await pvPuRepo.findOne({
+            where: {
+              companyId: company.id,
+              productVariantId: variant.id,
+              branchId: branchOps.branchId,
+              productionUnitId: cocina.id,
+            },
+          });
+          if (!row) {
+            row = pvPuRepo.create({
+              companyId: company.id,
+              productVariantId: variant.id,
+              branchId: branchOps.branchId,
+              productionUnitId: cocina.id,
+              isDefault: true,
+            });
+            await pvPuRepo.save(row);
+            routed += 1;
+          }
+        }
+        console.log(`✅ Routing variante→UP Cocina: ${routed} vínculos nuevos`);
       },
     );
 
     console.log('✅ Seed Mias OK');
     console.log(
-      `   • ${SEED_MIAS_COMPANY.nombreFantasia} (${SEED_MIAS_COMPANY.rut}) · kaifood · sin productos`,
+      `   • ${SEED_MIAS_COMPANY.nombreFantasia} (${SEED_MIAS_COMPANY.rut}) · kaifood · ${catalog.products.length} productos`,
     );
     console.log(
       `   • Menú ${SEED_MIAS_COMPANY.menuPublicSlug} · UP Cocina (KDS) · 1 mesa · tips ON`,

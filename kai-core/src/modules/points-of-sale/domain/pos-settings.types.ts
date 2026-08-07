@@ -5,6 +5,8 @@ export interface PosSettings {
   kind?: PosKind;
   acceptsPresaleTickets?: boolean;
   allowsDeferredPayment?: boolean;
+  /** Módulo salón/KDS en este POS (default ON). Solo aplica si la empresa es KaiFood. */
+  kaiFoodEnabled?: boolean;
   fiscal?: import('./pos-fiscal-settings.types').PosFiscalSettings;
 }
 
@@ -39,6 +41,23 @@ export function resolveDeferredPaymentEnabled(
   return readPosKind(posSettings) === 'SALE' && readAllowsDeferredPayment(posSettings);
 }
 
+/** Valor crudo en settings (default ON si no está definido). */
+export function readKaiFoodEnabledSetting(settings: unknown): boolean {
+  const s = (settings ?? {}) as PosSettings;
+  if (s.kaiFoodEnabled === false) return false;
+  return true;
+}
+
+/** KaiFood efectivo en este POS: empresa KaiFood y setting distinto de false. */
+export function resolveKaiFoodEnabled(
+  companyKaiProduct: string | null | undefined,
+  posSettings: unknown,
+): boolean {
+  const product = (companyKaiProduct ?? '').trim().toLowerCase();
+  if (product !== 'kaifood') return false;
+  return readKaiFoodEnabledSetting(posSettings);
+}
+
 export function sanitizePosSettingsPatch(
   current: PosSettings | null | undefined,
   patch: Partial<PosSettings> | undefined,
@@ -54,6 +73,9 @@ export function sanitizePosSettingsPatch(
   }
   if (patch.allowsDeferredPayment !== undefined) {
     base.allowsDeferredPayment = truthy(patch.allowsDeferredPayment);
+  }
+  if (patch.kaiFoodEnabled !== undefined) {
+    base.kaiFoodEnabled = truthy(patch.kaiFoodEnabled);
   }
   if (base.kind === 'PRESALE') {
     base.acceptsPresaleTickets = false;

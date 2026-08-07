@@ -11,6 +11,12 @@ import {
   readPosPurposePrinterAliasesFromStorage,
   readPosKitchenComandaReplicaPrefs,
   writePosKitchenComandaReplicaPrefs,
+  readPosKitchenUnitPrintBindings,
+  writePosKitchenUnitPrintBindings,
+  migrateKitchenBindingsFromServer,
+  KitchenUnitPrintBindingsSection,
+  type KitchenFulfillmentModeClient,
+  type KitchenUnitPrintBindingsMap,
   sanitizePosDocumentPrintMode,
   type KaiPrintersDownloadsManifests,
   type PosDocumentPrintKind,
@@ -34,7 +40,7 @@ import { DocumentPrintTestButton } from "@/features/pos-print/ui/DocumentPrintTe
 import { getQuotationsEnabledAction } from "@/features/company/actions/company-quotations.action";
 import { shouldUseBackendApi } from "@/features/pos-offline/infrastructure/connectivity";
 import { getPresalesEnabledAction } from "@/features/presale-tickets/actions/presales-enabled.action";
-import { isKaiFoodEnabled, isKaiFoodEnabledForCompany } from "@/config/kaifood-module.config";
+import { isKaiFoodEnabled, isKaiFoodEnabledForPos } from "@/config/kaifood-module.config";
 import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
 
@@ -109,8 +115,18 @@ export function PosLocalPrintPreferencesForm({
   const [kitchenReplicaEnabled, setKitchenReplicaEnabled] = useState(false);
   const [kitchenReplicaUnitIds, setKitchenReplicaUnitIds] = useState<string[]>([]);
   const [kitchenUnits, setKitchenUnits] = useState<
-    Array<{ id: string; name: string }>
+    Array<{
+      id: string;
+      name: string;
+      kitchenFulfillmentMode: KitchenFulfillmentModeClient;
+      kitchenPrintSettings?: {
+        printAgentId?: string | null;
+        printerDisplayLabel?: string | null;
+      } | null;
+    }>
   >([]);
+  const [kitchenBindings, setKitchenBindings] = useState<KitchenUnitPrintBindingsMap>({});
+  const [comandasAliases, setComandasAliases] = useState<string[]>([]);
 
   const refreshCatalog = useCallback(async () => {
     if (!shouldUseBackendApi()) return;
@@ -148,7 +164,10 @@ export function PosLocalPrintPreferencesForm({
     void (async () => {
       try {
         const details = await getCompanyDetailsAction();
-        const enabled = isKaiFoodEnabledForCompany(details?.kaiProduct ?? null);
+        const enabled = isKaiFoodEnabledForPos(
+          details?.kaiProduct ?? null,
+          readPosContextClient()?.kaiFoodEnabled,
+        );
         setKaiFoodUi(enabled);
         if (!enabled) return;
         const prefs = readPosKitchenComandaReplicaPrefs();
@@ -156,7 +175,24 @@ export function PosLocalPrintPreferencesForm({
         setKitchenReplicaUnitIds(prefs.productionUnitIds);
         const branchId = readPosContextClient()?.branchId ?? null;
         const units = await listPosKitchenProductionUnitsAction({ branchId });
-        setKitchenUnits(units.map((u) => ({ id: u.id, name: u.name })));
+        const mapped = units.map((u) => ({
+          id: u.id,
+          name: u.name,
+          kitchenFulfillmentMode: u.kitchenFulfillmentMode,
+          kitchenPrintSettings: u.kitchenPrintSettings,
+        }));
+        setKitchenUnits(mapped);
+        setKitchenBindings(
+          migrateKitchenBindingsFromServer(
+            "pos",
+            mapped.map((u) => ({
+              id: u.id,
+              name: u.name,
+              kitchenFulfillmentMode: u.kitchenFulfillmentMode,
+              kitchenPrintSettings: u.kitchenPrintSettings,
+            })),
+          ),
+        );
       } catch {
         setKaiFoodUi(isKaiFoodEnabled());
       }
@@ -217,9 +253,11 @@ export function PosLocalPrintPreferencesForm({
       const abp = raw?.aliasesByPurpose ?? {};
       setTicketAliases(stringList(abp.tickets));
       setDocumentAliases(stringList(abp.documents));
+      setComandasAliases(stringList(abp.comandas));
     } catch {
       setTicketAliases([]);
       setDocumentAliases([]);
+      setComandasAliases([]);
     } finally {
       c.disconnect({ ifConnecting: reachedOpen ? "default" : "abandon" });
       setAliasesLoading(false);
@@ -247,6 +285,7 @@ export function PosLocalPrintPreferencesForm({
         enabled: kitchenReplicaEnabled,
         productionUnitIds: kitchenReplicaUnitIds,
       });
+      writePosKitchenUnitPrintBindings(kitchenBindings);
     }
   }, [
     host,
@@ -259,6 +298,7 @@ export function PosLocalPrintPreferencesForm({
     kaiFoodUi,
     kitchenReplicaEnabled,
     kitchenReplicaUnitIds,
+    kitchenBindings,
   ]);
 
   const handleSave = useCallback(async () => {
@@ -583,61 +623,20 @@ export function PosLocalPrintPreferencesForm({
 
         {kaiFoodUi ? (
           <section className="rounded-xl border border-border bg-background p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-foreground">
-              Réplica de comanda de cocina
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Imprime una copia de la comanda en la impresora de tickets de este POS cuando se
-              envía a cocina (además de la impresora de la unidad de producción).
-            </p>
-            <div className="mt-4">
-              <Switch
-                checked={kitchenReplicaEnabled}
-                onChange={setKitchenReplicaEnabled}
-                label="Réplica local de comanda"
-                labelPosition="right"
-                data-test-id="pos-kitchen-comanda-replica-enabled"
-              />
-            </div>
-            {kitchenReplicaEnabled && kitchenUnits.length > 0 ? (
-              <div className="mt-4 space-y-2">
-                <p className="text-xs text-muted-foreground">
-                  Unidades (vacío = todas las de cocina)
-                </p>
-                {kitchenUnits.map((u) => {
-                  const explicitlySelected = kitchenReplicaUnitIds.includes(u.id);
-                  return (
-                    <Switch
-                      key={u.id}
-                      checked={
-                        kitchenReplicaUnitIds.length === 0 ? true : explicitlySelected
-                      }
-                      onChange={(on) => {
-                        setKitchenReplicaUnitIds((prev) => {
-                          if (prev.length === 0) {
-                            if (!on) {
-                              return kitchenUnits
-                                .map((x) => x.id)
-                                .filter((id) => id !== u.id);
-                            }
-                            return prev;
-                          }
-                          if (on) {
-                            const next = [...new Set([...prev, u.id])];
-                            if (next.length === kitchenUnits.length) return [];
-                            return next;
-                          }
-                          return prev.filter((id) => id !== u.id);
-                        });
-                      }}
-                      label={u.name}
-                      labelPosition="right"
-                      data-test-id={`pos-kitchen-comanda-replica-unit-${u.id}`}
-                    />
-                  );
-                })}
-              </div>
-            ) : null}
+            <KitchenUnitPrintBindingsSection
+              units={kitchenUnits}
+              bindings={kitchenBindings}
+              onBindingsChange={setKitchenBindings}
+              agents={catalogAgents}
+              catalogLoading={catalogLoading}
+              onRefreshCatalog={() => void refreshCatalog()}
+              comandasAliases={comandasAliases}
+              replicaEnabled={kitchenReplicaEnabled}
+              onReplicaEnabledChange={setKitchenReplicaEnabled}
+              replicaUnitIds={kitchenReplicaUnitIds}
+              onReplicaUnitIdsChange={setKitchenReplicaUnitIds}
+              idPrefix="pos-kitchen"
+            />
           </section>
         ) : null}
 

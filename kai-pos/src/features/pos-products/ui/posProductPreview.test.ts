@@ -41,6 +41,19 @@ describe("posCartQuantityExceedsAvailableStock", () => {
     ).toBe(true);
   });
 
+  it("no bloquea PREPARADO retail cuando relaxPreparadoStock", () => {
+    expect(
+      posCartQuantityExceedsAvailableStock(
+        {
+          ...base,
+          productType: "PREPARADO",
+          metadata: null,
+        },
+        { relaxPreparadoStock: true },
+      ),
+    ).toBe(false);
+  });
+
   it("bloquea sin productType cuando hay stock insuficiente", () => {
     expect(
       posCartQuantityExceedsAvailableStock({

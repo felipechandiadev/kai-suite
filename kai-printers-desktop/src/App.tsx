@@ -80,12 +80,61 @@ function formatKaiCoreNetworkError(err: unknown, baseUrl: string): string {
     lower.includes("network request failed")
   ) {
     const base = baseUrl.trim().replace(/\/+$/, "") || DEFAULT_KAI_CORE_URL;
-    return `No se pudo conectar a Kai Core (${base}). Revisá la URL (p. ej. http://localhost:5180) y que el backend esté levantado.`;
+    return `No se pudo conectar a Kai Core (${base}). Revisá la URL (ej. http://localhost:5360 para demo, :5560 para mias) y que el backend esté levantado.`;
   }
   return raw;
 }
 
-const VALID_PURPOSES = ["tickets", "documents", "labels"] as const;
+async function pingKaiCore(base: string): Promise<void> {
+  const res = await fetch(`${base}/api/health`, { method: "GET" });
+  if (!res.ok) {
+    throw new Error(
+      `Kai Core no respondió correctamente (HTTP ${res.status}). Revisá la URL del tenant.`,
+    );
+  }
+}
+
+type KaiLoginPayload = {
+  success?: boolean;
+  message?: string;
+  user?: { id?: string; rol?: string };
+  activeCompanyId?: string | null;
+  companies?: KaiLoginCompany[] | null;
+  memberships?: Array<{
+    companyId: string;
+    roles?: string[];
+    isOwner?: boolean;
+  }>;
+};
+
+const KAI_ADMIN_ROLES = new Set(["ADMIN", "SUB_ADMIN", "SUPER_ADMIN"]);
+
+function userCanCreatePrintAgent(
+  login: KaiLoginPayload,
+  companyId: string,
+): boolean {
+  const legacyRol = (login.user?.rol ?? "").trim().toUpperCase();
+  if (legacyRol === "SUPER_ADMIN" || legacyRol === "ADMIN") return true;
+  const mem = login.memberships?.find((m) => m.companyId === companyId);
+  if (!mem) return false;
+  if (mem.isOwner) return true;
+  return (mem.roles ?? []).some((r) =>
+    KAI_ADMIN_ROLES.has(String(r).trim().toUpperCase()),
+  );
+}
+
+function assertKaiAdminForPrintAgent(
+  login: KaiLoginPayload,
+  companyId: string,
+): void {
+  if (!userCanCreatePrintAgent(login, companyId)) {
+    throw new Error(
+      "Se necesita un usuario administrador de la empresa para crear el agente de impresión.",
+    );
+  }
+}
+
+const VALID_PURPOSES = ["tickets", "documents", "labels", "comandas"] as const;
 const DEFAULT_PURPOSE = "tickets";
 
 function normalizeMappingPurpose(purpose: string | undefined): string {
@@ -522,6 +571,7 @@ export default function App() {
       }
       await invoke("set_kai_core_base_url", { baseUrl: kaiCoreUrl.trim() });
       const base = kaiCoreUrl.trim().replace(/\/+$/, "");
+      await pingKaiCore(base);
       const loginRes = await fetch(`${base}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -537,13 +587,7 @@ export default function App() {
           ),
         );
       }
-      const login = (await loginRes.json()) as {
-        success?: boolean;
-        message?: string;
-        user?: { id?: string };
-        activeCompanyId?: string | null;
-        companies?: KaiLoginCompany[] | null;
-      };
+      const login = (await loginRes.json()) as KaiLoginPayload;
       if (!login.success || !login.user?.id) {
         throw new Error(login.message?.trim() || "Usuario o contraseña incorrectos");
       }
@@ -556,6 +600,7 @@ export default function App() {
         const selected =
           (activeId && companies.some((c) => c.id === activeId) && activeId) ||
           companies[0]!.id;
+        assertKaiAdminForPrintAgent(login, selected);
         setKaiPendingLogin({
           userId: login.user.id,
           companies,
@@ -569,6 +614,7 @@ export default function App() {
       if (!companyId) {
         throw new Error("No se pudo determinar la empresa activa");
       }
+      assertKaiAdminForPrintAgent(login, companyId);
       await createAgentAndPair(login.user.id, companyId);
       setKaiLoginPass("");
     } catch (e) {
@@ -1256,7 +1302,9 @@ export default function App() {
             <p className="text-xs font-semibold text-foreground">Kai Core (catálogo)</p>
             <p className="text-[11px] text-muted-foreground">
               Iniciá sesión con un administrador para registrar este agente. La impresión sigue por
-              red local; solo se guarda el token del agente (no tu contraseña).
+              red local; solo se guarda el token del agente (no tu contraseña). URL típica del
+              backend: <code className="text-foreground">http://localhost:PUERTO</code> (ej. 5360
+              demo, 5560 mias).
             </p>
             <SharedTextField
               label="URL Kai Core"

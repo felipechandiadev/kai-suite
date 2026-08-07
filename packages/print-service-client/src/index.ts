@@ -20,6 +20,7 @@ export * from "./pos-supplier-payment-ticket";
 export * from "./pos-bank-account-ticket";
 export * from "./pos-dining-account-ticket";
 export * from "./pos-kitchen-ticket";
+export * from "./kitchen-unit-print-bindings-section";
 export * from "./kitchen-comanda-print";
 export * from "./pos-laundry-reception-ticket";
 export * from "./variant-barcode-label";

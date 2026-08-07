@@ -13,6 +13,7 @@ type PointOfSaleWriteBody = {
   kind?: PosKind;
   acceptsPresaleTickets?: boolean;
   allowsDeferredPayment?: boolean;
+  kaiFoodEnabled?: boolean;
 };
 
 function apiUrl(path: string): string {
@@ -118,6 +119,7 @@ export class PointOfSaleRequest {
           kind: body.kind,
           acceptsPresaleTickets: body.acceptsPresaleTickets,
           allowsDeferredPayment: body.allowsDeferredPayment,
+          kaiFoodEnabled: body.kaiFoodEnabled,
         }),
         cache: "no-store",
       });
@@ -158,6 +160,7 @@ export class PointOfSaleRequest {
           kind: body.kind,
           acceptsPresaleTickets: body.acceptsPresaleTickets,
           allowsDeferredPayment: body.allowsDeferredPayment,
+          kaiFoodEnabled: body.kaiFoodEnabled,
         }),
         cache: "no-store",
       });

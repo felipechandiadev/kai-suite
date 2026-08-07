@@ -26,3 +26,35 @@ export function shouldSkipFinishedGoodsStockForDiningSale(params: {
       .toUpperCase() === ProductType.PREPARADO
   );
 }
+
+/** Venta retail PREPARADO con módulo KaiFood OFF en el POS: sin stock de terminado. */
+export function shouldSkipFinishedGoodsStockForPreparadoRetail(params: {
+  posKaiFoodEnabled?: boolean | null;
+  productType?: string | null;
+}): boolean {
+  if (params.posKaiFoodEnabled !== false) return false;
+  return (
+    String(params.productType ?? '')
+      .trim()
+      .toUpperCase() === ProductType.PREPARADO
+  );
+}
+
+export function shouldSkipFinishedGoodsStockForSale(params: {
+  diningOrderId?: string | null;
+  posKaiFoodEnabled?: boolean | null;
+  productType?: string | null;
+}): boolean {
+  if (
+    shouldSkipFinishedGoodsStockForDiningSale({
+      diningOrderId: params.diningOrderId,
+      productType: params.productType,
+    })
+  ) {
+    return true;
+  }
+  return shouldSkipFinishedGoodsStockForPreparadoRetail({
+    posKaiFoodEnabled: params.posKaiFoodEnabled,
+    productType: params.productType,
+  });
+}

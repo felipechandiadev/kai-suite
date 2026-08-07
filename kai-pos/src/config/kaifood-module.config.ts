@@ -38,3 +38,16 @@ export function isKaiFoodEnabledForCompany(kaiProduct?: string | null): boolean 
   }
   return isKaiFoodEnabled();
 }
+
+/**
+ * KaiFood efectivo en un POS: empresa KaiFood y flag del punto de venta distinto de false.
+ * Si `posKaiFoodEnabled` es undefined (sesión legacy), se asume true cuando la empresa es KaiFood.
+ */
+export function isKaiFoodEnabledForPos(
+  companyKaiProduct?: string | null,
+  posKaiFoodEnabled?: boolean | null,
+): boolean {
+  if (!isKaiFoodEnabledForCompany(companyKaiProduct)) return false;
+  if (posKaiFoodEnabled === false) return false;
+  return true;
+}

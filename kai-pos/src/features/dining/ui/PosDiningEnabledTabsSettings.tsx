@@ -10,10 +10,11 @@ import {
 } from "@/features/dining/lib/dining-enabled-tabs-storage";
 import {
   isKaiFoodEnabled,
-  isKaiFoodEnabledForCompany,
+  isKaiFoodEnabledForPos,
 } from "@/config/kaifood-module.config";
 import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
 import { shouldUseBackendApi } from "@/features/pos-offline/infrastructure/connectivity";
+import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
 
 const TAB_LABELS: Record<PosDiningTabKey, string> = {
   mesas: "Mesas",
@@ -40,7 +41,12 @@ export function PosDiningEnabledTabsSettings() {
     }
     void getCompanyDetailsAction()
       .then((d) => {
-        setVisible(isKaiFoodEnabledForCompany(d?.kaiProduct ?? null));
+        setVisible(
+          isKaiFoodEnabledForPos(
+            d?.kaiProduct ?? null,
+            readPosContextClient()?.kaiFoodEnabled,
+          ),
+        );
       })
       .catch(() => setVisible(isKaiFoodEnabled()));
   }, []);

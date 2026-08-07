@@ -28,8 +28,11 @@ import {
 } from '../../helpers/reception-stock-snapshot.util';
 import {
   extractDiningOrderIdFromMetadata,
-  shouldSkipFinishedGoodsStockForDiningSale,
+  shouldSkipFinishedGoodsStockForSale,
 } from '@modules/dining/application/dining-sale-finished-stock.util';
+import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
+import { CompaniesService } from '@modules/companies/application/companies.service';
+import { resolveKaiFoodEnabled } from '@modules/points-of-sale/domain/pos-settings.types';
 
 @Injectable()
 export class UpdateStockActionHandler {
@@ -40,6 +43,7 @@ export class UpdateStockActionHandler {
     private readonly stockRealtime: StockRealtimePublisher,
     private readonly stockNotificationEvaluator: StockNotificationEvaluator,
     private readonly notificationPublisher: NotificationPublisherService,
+    private readonly companiesService: CompaniesService,
   ) {}
 
   async execute(ctx: { companyId: string; eventType: AutomationEventType; payload: any }, rule: any) {
@@ -105,6 +109,19 @@ export class UpdateStockActionHandler {
         type === TransactionType.SALE
           ? extractDiningOrderIdFromMetadata(txMeta)
           : null;
+      let posKaiFoodEnabled = false;
+      if (type === TransactionType.SALE && txFull?.pointOfSaleId) {
+        const pos = await manager.getRepository(PointOfSale).findOne({
+          where: { id: txFull.pointOfSaleId },
+        });
+        if (pos?.companyId) {
+          const company = await this.companiesService.getCompanyById(pos.companyId);
+          posKaiFoodEnabled = resolveKaiFoodEnabled(
+            company.kaiProduct,
+            pos.settings,
+          );
+        }
+      }
       const receptionId = getReceptionIdFromTransactionMetadata(txMeta);
       let txLineToReceptionLineId = new Map<string, string>();
       if (receptionId && type === TransactionType.PURCHASE) {
@@ -184,8 +201,9 @@ export class UpdateStockActionHandler {
           relations: ['product'],
         });
         if (
-          shouldSkipFinishedGoodsStockForDiningSale({
+          shouldSkipFinishedGoodsStockForSale({
             diningOrderId,
+            posKaiFoodEnabled,
             productType: variantRow?.product?.productType,
           })
         ) {

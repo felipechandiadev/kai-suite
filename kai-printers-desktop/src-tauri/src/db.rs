@@ -769,9 +769,23 @@ impl Db {
         display_label: Option<&str>,
     ) -> Result<Option<PrintTarget>> {
         if let Some(lbl) = display_label.map(str::trim).filter(|s| !s.is_empty()) {
-            return self.print_target_for_purpose_display_label(purpose, lbl);
+            if let Some(t) = self.print_target_for_purpose_display_label(purpose, lbl)? {
+                return Ok(Some(t));
+            }
+            if purpose == "comandas" {
+                if let Some(t) = self.print_target_for_purpose_display_label("tickets", lbl)? {
+                    return Ok(Some(t));
+                }
+            }
+            return Ok(None);
         }
-        self.default_print_target_for_purpose(purpose)
+        if let Some(t) = self.default_print_target_for_purpose(purpose)? {
+            return Ok(Some(t));
+        }
+        if purpose == "comandas" {
+            return self.default_print_target_for_purpose("tickets");
+        }
+        Ok(None)
     }
 
     /// Primera línea de mapeo con impresora SO o host de red configurado.
@@ -898,7 +912,7 @@ impl Db {
         purpose: &str,
         display_label: Option<&str>,
     ) -> Result<crate::ticket_logos::MappingLogoAction> {
-        if purpose != "tickets" {
+        if !crate::purpose_util::is_sale_ticket_purpose(purpose) {
             return Ok(crate::ticket_logos::MappingLogoAction::LeaveTicketAsIs);
         }
         let enabled = self.ticket_logo_enabled_for_enqueue(purpose, display_label)?;
@@ -916,7 +930,7 @@ impl Db {
         purpose: &str,
         display_label: Option<&str>,
     ) -> Result<bool> {
-        if purpose != "tickets" {
+        if !crate::purpose_util::is_sale_ticket_purpose(purpose) {
             return Ok(false);
         }
         let c = self.inner.lock();
@@ -995,7 +1009,9 @@ impl Db {
         system_printer_name: Option<String>,
         ticket_network_host: Option<String>,
     ) -> PrintTarget {
-        if purpose == "tickets" && ticket_printer_type.trim().eq_ignore_ascii_case("network") {
+        if crate::purpose_util::is_ticket_like_purpose(purpose)
+            && ticket_printer_type.trim().eq_ignore_ascii_case("network")
+        {
             let host = ticket_network_host
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty());
@@ -1147,7 +1163,7 @@ impl Db {
     }
 
     pub fn aliases_by_purpose_json(&self) -> Result<serde_json::Value> {
-        const PURPOSES: &[&str] = &["documents", "tickets", "labels"];
+        const PURPOSES: &[&str] = crate::purpose_util::VALID_PURPOSES;
         let lines = self.list_mapping_lines()?;
         let mut root = serde_json::Map::new();
         for purpose in PURPOSES {
@@ -1208,13 +1224,13 @@ impl Db {
             .get("purpose")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("line missing purpose"))?;
-        let ticket_printer_type = if purpose == "tickets" {
+        let ticket_printer_type = if crate::purpose_util::is_ticket_like_purpose(purpose) {
             json_ticket_printer_type(row).to_string()
         } else {
             "system".to_string()
         };
-        let network_line =
-            purpose == "tickets" && ticket_printer_type.eq_ignore_ascii_case("network");
+        let network_line = crate::purpose_util::is_ticket_like_purpose(purpose)
+            && ticket_printer_type.eq_ignore_ascii_case("network");
         let system_printer_name: Option<String> = if network_line {
             None
         } else {
@@ -1337,13 +1353,13 @@ impl Db {
                 .get("purpose")
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| anyhow::anyhow!("line missing purpose"))?;
-            let ticket_printer_type = if purpose == "tickets" {
+            let ticket_printer_type = if crate::purpose_util::is_ticket_like_purpose(purpose) {
                 json_ticket_printer_type(row).to_string()
             } else {
                 "system".to_string()
             };
-            let network_line =
-                purpose == "tickets" && ticket_printer_type.eq_ignore_ascii_case("network");
+            let network_line = crate::purpose_util::is_ticket_like_purpose(purpose)
+                && ticket_printer_type.eq_ignore_ascii_case("network");
             let system_printer_name: Option<String> = if network_line {
                 None
             } else {

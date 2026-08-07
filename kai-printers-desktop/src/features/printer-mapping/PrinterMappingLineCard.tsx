@@ -3,7 +3,12 @@ import InlineSwitchField from "../../shared/components/InlineSwitchField";
 import { Select } from "../../shared/components/Select";
 import SharedTextField from "../../shared/components/TextField/TextField";
 import { PrinterStatusDot } from "./PrinterStatusDot";
-import { isLineDirty, isTicketNetworkLine, linePrinterStatus } from "./mapping-line-utils";
+import {
+  isLineDirty,
+  isTicketLikePurpose,
+  isTicketNetworkLine,
+  linePrinterStatus,
+} from "./mapping-line-utils";
 import {
   isPlausibleNetworkHost,
   TICKET_PRINTER_TYPE_OPTIONS,
@@ -19,6 +24,7 @@ import type { MappingLineRow, MappingLineHealthRow, PrinterRow } from "./types";
 
 const PURPOSES = [
   { id: "tickets", label: "Tickets" },
+  { id: "comandas", label: "Comandas" },
   { id: "documents", label: "Documentos" },
   { id: "labels", label: "Etiquetas" },
 ] as const;
@@ -83,15 +89,16 @@ export function PrinterMappingLineCard({
 
   const aliasOk = Boolean(line.displayLabel?.trim());
   const isTickets = line.purpose === "tickets";
+  const isTicketLike = isTicketLikePurpose(line.purpose);
   const isDocuments = line.purpose === "documents";
   const isLabels = line.purpose === "labels";
   const paperProfile = normalizePaperProfile(line.purpose, line.paperProfile);
   const paperProfileOpts = isDocuments
     ? DOCUMENT_PAPER_PROFILE_OPTIONS.map(({ id, label }) => ({ id, label }))
-    : isTickets
+    : isTicketLike
       ? TICKET_PAPER_PROFILE_OPTIONS.map(({ id, label }) => ({ id, label }))
       : [];
-  const showPrintTest = isTickets || isDocuments || isLabels;
+  const showPrintTest = isTicketLike || isDocuments || isLabels;
   const ticketNetwork = isTicketNetworkLine(line);
   const printerOk = ticketNetwork
     ? isPlausibleNetworkHost(line.ticketNetworkHost ?? "")
@@ -123,7 +130,7 @@ export function PrinterMappingLineCard({
         }
         endAdornment={
           <span className="inline-flex shrink-0 items-center gap-0.5">
-            {isTickets ? (
+            {isTicketLike ? (
               <span
                 className="text-[10px] font-medium text-muted-foreground"
                 title="Ancho del rollo configurado para esta línea"
@@ -174,21 +181,21 @@ export function PrinterMappingLineCard({
                 isLoading={printBusy}
                 className="min-h-5 min-w-5 p-0"
                 ariaLabel={
-                  isTickets ? "Prueba ESC/POS (RAW)" : "Prueba de impresión (PDF)"
+                  isTicketLike ? "Prueba ESC/POS (RAW)" : "Prueba de impresión (PDF)"
                 }
                 title={
                   !aliasOk
                     ? "Completá el alias antes de imprimir"
                     : !printerOk
                       ? "Seleccioná impresora o IP válida"
-                      : isTickets
+                      : isTicketLike
                         ? "Prueba ESC/POS RAW (logo y corte de esta línea)"
                         : isDocuments
                           ? "Prueba PDF en hoja (macOS: CUPS, Windows: SumatraPDF)"
                           : "Prueba PDF de etiqueta"
                 }
                 data-test-id={
-                  isTickets ? `line-escpos-qa-${line.id}` : `line-document-test-${line.id}`
+                  isTicketLike ? `line-escpos-qa-${line.id}` : `line-document-test-${line.id}`
                 }
                 onClick={(e) => {
                   e.stopPropagation();
@@ -210,10 +217,10 @@ export function PrinterMappingLineCard({
             value={line.purpose}
             onChange={(id) => {
               const purpose = String(id ?? "tickets");
-              if (purpose === "tickets") {
+              if (purpose === "tickets" || purpose === "comandas") {
                 onChange({
                   purpose,
-                  paperProfile: normalizePaperProfile("tickets", line.paperProfile),
+                  paperProfile: normalizePaperProfile(purpose, line.paperProfile),
                 });
               } else {
                 onChange({
@@ -227,7 +234,7 @@ export function PrinterMappingLineCard({
             options={purposeOpts}
             name={`purpose-${line.id}`}
           />
-          {isTickets ? (
+          {isTicketLike ? (
             <Select
               label="Tipo"
               placeholder="Seleccionar"
@@ -266,7 +273,7 @@ export function PrinterMappingLineCard({
               data-test-id={`line-ticket-logo-enabled-${line.id}`}
             />
           ) : null}
-          {isTickets && ticketNetwork ? (
+          {isTicketLike && ticketNetwork ? (
             <SharedTextField
               label="Dirección IP"
               name={`network-host-${line.id}`}
@@ -310,7 +317,7 @@ export function PrinterMappingLineCard({
               name={`printer-${line.id}`}
             />
           )}
-          {isTickets ? (
+          {isTicketLike ? (
             <InlineSwitchField
               label="Corte automático"
               disabled={!printerOk}

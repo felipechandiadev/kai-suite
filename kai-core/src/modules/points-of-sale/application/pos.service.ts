@@ -21,6 +21,7 @@ import {
   readAllowsDeferredPayment,
   readPosKind,
   resolveDeferredPaymentEnabled,
+  resolveKaiFoodEnabled,
   sanitizePosSettingsPatch,
   type PosKind,
   type PosSettings,
@@ -70,16 +71,19 @@ export class PosService {
     const pointsOfSale = await query.getMany();
 
     let companyDeferredEnabled = false;
+    let companyKaiProduct: string | null = null;
     if (companyId) {
       const deferred =
         await this.companiesService.getDeferredPaymentSettings(companyId);
       companyDeferredEnabled = deferred.enabled;
+      const company = await this.companiesService.getCompanyById(companyId);
+      companyKaiProduct = company.kaiProduct ?? null;
     }
 
     return {
       success: true,
       pointsOfSale: pointsOfSale.map((pos) =>
-        this.mapPointOfSale(pos, companyDeferredEnabled),
+        this.mapPointOfSale(pos, companyDeferredEnabled, companyKaiProduct),
       ),
     };
   }
@@ -95,7 +99,8 @@ export class PosService {
     const deferred = await this.companiesService.getDeferredPaymentSettings(
       pos.companyId,
     );
-    return this.mapPointOfSale(pos, deferred.enabled);
+    const company = await this.companiesService.getCompanyById(pos.companyId);
+    return this.mapPointOfSale(pos, deferred.enabled, company.kaiProduct ?? null);
   }
 
   async createPointOfSale(data: {
@@ -109,6 +114,7 @@ export class PosService {
     kind?: PosKind;
     acceptsPresaleTickets?: boolean;
     allowsDeferredPayment?: boolean;
+    kaiFoodEnabled?: boolean;
   }) {
     if (!data.name || !data.name.trim()) {
       return { success: false, error: 'El nombre es requerido' };
@@ -144,6 +150,7 @@ export class PosService {
       kind: data.kind,
       acceptsPresaleTickets: data.acceptsPresaleTickets,
       allowsDeferredPayment: data.allowsDeferredPayment,
+      kaiFoodEnabled: data.kaiFoodEnabled,
     });
 
     const pos = this.posRepository.create({
@@ -176,6 +183,7 @@ export class PosService {
       kind?: PosKind;
       acceptsPresaleTickets?: boolean;
       allowsDeferredPayment?: boolean;
+      kaiFoodEnabled?: boolean;
     }>,
   ) {
     const pos = await this.posRepository.findOne({
@@ -254,7 +262,8 @@ export class PosService {
     if (
       data.kind !== undefined ||
       data.acceptsPresaleTickets !== undefined ||
-      data.allowsDeferredPayment !== undefined
+      data.allowsDeferredPayment !== undefined ||
+      data.kaiFoodEnabled !== undefined
     ) {
       const nextSettings = sanitizePosSettingsPatch(
         (pos.settings ?? {}) as PosSettings,
@@ -262,6 +271,7 @@ export class PosService {
           kind: data.kind,
           acceptsPresaleTickets: data.acceptsPresaleTickets,
           allowsDeferredPayment: data.allowsDeferredPayment,
+          kaiFoodEnabled: data.kaiFoodEnabled,
         },
       );
       updateData.settings = nextSettings;
@@ -339,7 +349,11 @@ export class PosService {
     );
   }
 
-  private mapPointOfSale(pos: PointOfSale, companyDeferredEnabled = false) {
+  private mapPointOfSale(
+    pos: PointOfSale,
+    companyDeferredEnabled = false,
+    companyKaiProduct: string | null = null,
+  ) {
     const settings = pos.settings;
     return {
       id: pos.id,
@@ -371,6 +385,7 @@ export class PosService {
         companyDeferredEnabled,
         settings,
       ),
+      kaiFoodEnabled: resolveKaiFoodEnabled(companyKaiProduct, settings),
       createdAt: pos.createdAt,
       updatedAt: pos.updatedAt,
     };

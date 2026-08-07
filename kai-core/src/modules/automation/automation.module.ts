@@ -12,6 +12,7 @@ import { UpdateStockActionHandler } from './application/handlers/actions/update-
 import { TransactionsModule } from '@modules/transactions/transactions.module';
 import { StockRealtimeModule } from '@modules/stock-realtime/stock-realtime.module';
 import { NotificationsModule } from '@modules/notifications/notifications.module';
+import { CompaniesModule } from '@modules/companies/companies.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { NotificationsModule } from '@modules/notifications/notifications.module
     TransactionsModule,
     StockRealtimeModule,
     NotificationsModule,
+    CompaniesModule,
   ],
   controllers: [AutomationRulesController],
   providers: [

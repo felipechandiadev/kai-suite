@@ -38,6 +38,7 @@ function savePosContext(input: {
   posKind?: "PRESALE" | "SALE";
   acceptsPresaleTickets?: boolean;
   deferredPaymentEnabled?: boolean;
+  kaiFoodEnabled?: boolean;
 }) {
   savePosContextClient({
     pointOfSaleId: input.pointOfSaleId,
@@ -55,6 +56,7 @@ function savePosContext(input: {
     ...(input.deferredPaymentEnabled != null
       ? { deferredPaymentEnabled: input.deferredPaymentEnabled }
       : {}),
+    ...(input.kaiFoodEnabled != null ? { kaiFoodEnabled: input.kaiFoodEnabled } : {}),
   });
 }
 
@@ -102,6 +104,7 @@ function buildPosContextFromPos(pos: PointOfSaleListItem) {
     posKind: pos.kind ?? "SALE",
     acceptsPresaleTickets: pos.acceptsPresaleTickets === true,
     deferredPaymentEnabled: pos.deferredPaymentEnabled === true,
+    kaiFoodEnabled: pos.kaiFoodEnabled !== false,
   };
 }
 
@@ -409,6 +412,7 @@ export default function SessionSetupForm({
         posKind: fetched.success ? fetched.posKind : "SALE",
         acceptsPresaleTickets: fetched.success ? fetched.acceptsPresaleTickets : false,
         deferredPaymentEnabled: fetched.success ? fetched.deferredPaymentEnabled : false,
+        kaiFoodEnabled: fetched.success ? fetched.kaiFoodEnabled : false,
       });
     }
 

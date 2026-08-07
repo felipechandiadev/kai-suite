@@ -27,6 +27,8 @@ export type PosContextV1 = {
   posKind?: PosKind;
   acceptsPresaleTickets?: boolean;
   deferredPaymentEnabled?: boolean;
+  /** Módulo KaiFood efectivo en este POS (resuelto al entrar). */
+  kaiFoodEnabled?: boolean;
   updatedAt?: string;
 };
 
@@ -46,6 +48,11 @@ export function readPosContextClient(): PosContextV1 | null {
   } catch {
     return null;
   }
+}
+
+/** POS KaiFood OFF: venta retail de PREPARADO sin validar stock terminado. */
+export function readPosRelaxPreparadoStock(): boolean {
+  return readPosContextClient()?.kaiFoodEnabled === false;
 }
 
 export function savePosContextClient(ctx: PosContextV1): void {
