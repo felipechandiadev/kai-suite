@@ -9,7 +9,6 @@ use crate::pos_sale_ticket_escpos::{
     escpos_bold, escpos_init,
     footer_folio_datetime_line, money, pad_left, wrap_lines, layout_width, CompanyHeaderStyle,
 };
-use crate::ticket_header_prefs;
 use anyhow::Result;
 use std::path::PathBuf;
 
@@ -81,11 +80,11 @@ pub fn build_pos_payment_in_ticket_escpos(t: &PosPaymentInTicket) -> Result<Vec<
 
     let folio = t.document_number.trim();
 
-    let branch_for_origin = if ticket_header_prefs::should_emit_branch_line(t.branch_name.as_deref()) {
-        t.branch_name.as_deref()
-    } else {
-        None
-    };
+    let branch_for_origin = t
+        .branch_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
     let origin = [branch_for_origin, t.point_of_sale_name.as_deref()]
         .into_iter()
         .filter_map(|s| s.map(str::trim).filter(|s| !s.is_empty()))

@@ -8,7 +8,6 @@ use crate::pos_sale_ticket_escpos::{
     append_ticket_logo, escpos_align, escpos_apply_ticket_typography, escpos_bold, escpos_init, format_datetime, money,
     pad_left, CompanyHeaderStyle,
 };
-use crate::ticket_header_prefs;
 use anyhow::Result;
 use std::path::PathBuf;
 
@@ -34,11 +33,11 @@ pub fn build_pos_cash_hub_movement_ticket_escpos(t: &PosCashHubMovementTicket) -
     escpos_bold(&mut buf, false);
     append_line(&mut buf, subtitle);
 
-    let branch_for_origin = if ticket_header_prefs::should_emit_branch_line(t.branch_name.as_deref()) {
-        t.branch_name.as_deref()
-    } else {
-        None
-    };
+    let branch_for_origin = t
+        .branch_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
     let origin = [branch_for_origin, t.point_of_sale_name.as_deref()]
         .into_iter()
         .filter_map(|s| s.map(str::trim).filter(|s| !s.is_empty()))

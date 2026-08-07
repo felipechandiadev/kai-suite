@@ -8,7 +8,6 @@ use crate::pos_sale_ticket_escpos::{
 use crate::pos_supplier_payment_ticket::{
     parse_pos_supplier_payment_ticket_from_value, PosSupplierPaymentTicket,
 };
-use crate::ticket_header_prefs;
 use anyhow::Result;
 use std::path::PathBuf;
 
@@ -31,11 +30,11 @@ pub fn build_pos_supplier_payment_ticket_escpos(t: &PosSupplierPaymentTicket) ->
         .unwrap_or("Efectivo");
     append_line(&mut buf, &format!("Salida de efectivo · {method}"));
 
-    let branch_for_origin = if ticket_header_prefs::should_emit_branch_line(t.branch_name.as_deref()) {
-        t.branch_name.as_deref()
-    } else {
-        None
-    };
+    let branch_for_origin = t
+        .branch_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
     let origin = [branch_for_origin, t.point_of_sale_name.as_deref()]
         .into_iter()
         .filter_map(|s| s.map(str::trim).filter(|s| !s.is_empty()))

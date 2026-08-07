@@ -461,19 +461,22 @@ pub(crate) fn append_company_store_header(
         .filter(|s| !s.trim().is_empty())
         .unwrap_or(company.razon_social.as_str());
     let branch_trim = branch_name.map(str::trim).filter(|s| !s.is_empty());
-    let store = match ticket_header_prefs::title_mode() {
-        ticket_header_prefs::TitleMode::Branch => branch_trim.unwrap_or(fantasy_or_razon),
-        ticket_header_prefs::TitleMode::Fantasy => fantasy_or_razon,
+    let store: Option<&str> = match ticket_header_prefs::title_mode() {
+        ticket_header_prefs::TitleMode::Branch => Some(branch_trim.unwrap_or(fantasy_or_razon)),
+        ticket_header_prefs::TitleMode::Fantasy => Some(fantasy_or_razon),
+        ticket_header_prefs::TitleMode::None => None,
     };
 
-    escpos_align(buf, 1);
-    escpos_bold(buf, true);
-    escpos_double_height_on(buf);
-    for line in wrap_lines(store, layout_width() / 2) {
-        append_line(buf, &line);
+    if let Some(store) = store {
+        escpos_align(buf, 1);
+        escpos_bold(buf, true);
+        escpos_double_height_on(buf);
+        for line in wrap_lines(store, layout_width() / 2) {
+            append_line(buf, &line);
+        }
+        escpos_double_height_off(buf);
+        escpos_bold(buf, false);
     }
-    escpos_double_height_off(buf);
-    escpos_bold(buf, false);
 
     if style.secondary_razon && ticket_header_prefs::show_razon_social() {
         if let Some(fantasy) = company.nombre_fantasia.as_deref() {

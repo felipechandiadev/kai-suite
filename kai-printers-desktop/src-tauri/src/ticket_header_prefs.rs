@@ -7,11 +7,12 @@ pub const SHOW_COMPANY_RUT_KEY: &str = "ticket_show_company_rut";
 pub const SHOW_RAZON_SOCIAL_KEY: &str = "ticket_show_razon_social";
 pub const TITLE_MODE_KEY: &str = "ticket_header_title_mode";
 
-/// Título grande del encabezado: fantasía de empresa o nombre de sucursal.
+/// Título grande del encabezado: fantasía, sucursal, o ninguno.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TitleMode {
     Fantasy,
     Branch,
+    None,
 }
 
 impl TitleMode {
@@ -19,12 +20,14 @@ impl TitleMode {
         match self {
             TitleMode::Fantasy => "fantasy",
             TitleMode::Branch => "branch",
+            TitleMode::None => "none",
         }
     }
 
     pub fn parse(raw: &str) -> Self {
         match raw.trim().to_ascii_lowercase().as_str() {
             "branch" => TitleMode::Branch,
+            "none" => TitleMode::None,
             _ => TitleMode::Fantasy,
         }
     }
@@ -172,6 +175,22 @@ mod tests {
     fn header_branch_mode_falls_back_to_fantasy_when_branch_empty() {
         let text = header_text(true, false, TitleMode::Branch, Some("  "));
         assert!(text.contains("Kai Food"), "{text}");
+    }
+
+    #[test]
+    fn header_none_mode_omits_title_but_keeps_rut() {
+        let text = header_text(true, true, TitleMode::None, Some("Sucursal Centro"));
+        assert!(!text.contains("Kai Food"), "{text}");
+        assert!(!text.contains("Sucursal Centro"), "{text}");
+        assert!(text.contains("Comercial Demo SpA"), "{text}");
+        assert!(text.contains("RUT: 76.123.456-7"), "{text}");
+    }
+
+    #[test]
+    fn should_emit_branch_line_false_in_none_mode() {
+        set_title_mode_for_render(TitleMode::None);
+        assert!(!should_emit_branch_line(Some("Centro")));
+        set_title_mode_for_render(TitleMode::Fantasy);
     }
 
     #[test]

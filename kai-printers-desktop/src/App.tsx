@@ -214,8 +214,15 @@ type DashboardPayload = {
   globalTicketLogoDisplayName?: string;
   ticketShowCompanyRut?: boolean;
   ticketShowRazonSocial?: boolean;
-  ticketHeaderTitleMode?: "fantasy" | "branch";
+  ticketHeaderTitleMode?: "fantasy" | "branch" | "none";
 };
+
+type TicketHeaderTitleMode = "fantasy" | "branch" | "none";
+
+function parseTicketHeaderTitleMode(raw: unknown): TicketHeaderTitleMode {
+  if (raw === "branch" || raw === "none") return raw;
+  return "fantasy";
+}
 
 function escapeHtml(s: string) {
   return String(s)
@@ -323,7 +330,7 @@ export default function App() {
     agentDisplayName: DEFAULT_AGENT_DISPLAY_NAME,
     ticketShowCompanyRut: true,
     ticketShowRazonSocial: true,
-    ticketHeaderTitleMode: "fantasy" as "fantasy" | "branch",
+    ticketHeaderTitleMode: "fantasy" as TicketHeaderTitleMode,
   });
 
   const [configEdit, setConfigEdit] = useState(false);
@@ -375,7 +382,7 @@ export default function App() {
       agentDisplayName: normalizeAgentDisplayName(d.agentDisplayName),
       ticketShowCompanyRut: d.ticketShowCompanyRut !== false,
       ticketShowRazonSocial: d.ticketShowRazonSocial !== false,
-      ticketHeaderTitleMode: d.ticketHeaderTitleMode === "branch" ? "branch" : "fantasy",
+      ticketHeaderTitleMode: parseTicketHeaderTitleMode(d.ticketHeaderTitleMode),
     });
     const storedCoreUrl = (d.kaiCore?.baseUrl ?? "").trim().replace(/\/+$/, "");
     const legacyCoreDefault = "http://localhost:5160";
@@ -1706,6 +1713,22 @@ export default function App() {
                     }}
                   />
                   Sucursal
+                </label>
+                <label className="flex items-center gap-2 text-sm text-foreground">
+                  <input
+                    type="radio"
+                    name="ticket-header-title-mode"
+                    checked={settings.ticketHeaderTitleMode === "none"}
+                    onChange={() => {
+                      setSettings((s) => ({ ...s, ticketHeaderTitleMode: "none" }));
+                      void invoke("set_service_settings", {
+                        patch: { ticketHeaderTitleMode: "none" },
+                      }).catch(() => {
+                        window.alert("No se pudo guardar el título del ticket.");
+                      });
+                    }}
+                  />
+                  Sin título de local
                 </label>
               </div>
             </div>
