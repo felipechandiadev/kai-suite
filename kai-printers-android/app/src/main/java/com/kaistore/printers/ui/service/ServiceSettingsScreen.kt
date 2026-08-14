@@ -72,9 +72,10 @@ fun ServiceSettingsScreen(
     var probeMessage by remember { mutableStateOf<String?>(null) }
     var probeOk by remember { mutableStateOf(false) }
     var agentDisplayName by remember { mutableStateOf("Kai Printers") }
-    var kaiCoreUrl by remember { mutableStateOf("http://localhost:5160") }
+    var kaiCoreUrl by remember { mutableStateOf("") }
     var kaiPairToken by remember { mutableStateOf("") }
     var kaiPaired by remember { mutableStateOf(false) }
+    var kaiCompanyName by remember { mutableStateOf<String?>(null) }
     var kaiMsg by remember { mutableStateOf<String?>(null) }
     var kaiBusy by remember { mutableStateOf(false) }
 
@@ -91,9 +92,15 @@ fun ServiceSettingsScreen(
             wssEnabled = app.container.repository.wssEnabled()
             listenHost = app.container.repository.listenHost()
             agentDisplayName = app.container.repository.agentDisplayName()
-            kaiCoreUrl = app.container.repository.getSetting(AgentSettingsKeys.KAI_CORE_BASE_URL)
-                ?: "http://localhost:5160"
             kaiPaired = app.container.repository.isKaiCorePaired()
+            val storedCore = app.container.repository.getSetting(AgentSettingsKeys.KAI_CORE_BASE_URL)
+                ?.trim()
+                .orEmpty()
+            kaiCoreUrl =
+                if (!kaiPaired && storedCore == "http://localhost:5160") "" else storedCore
+            kaiCompanyName = app.container.repository.getSetting(AgentSettingsKeys.KAI_CORE_COMPANY_NAME)
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
             lanIps = LanAddressResolver.ipv4NonLoopback()
             running = app.container.webSocketServer.isRunning()
             chromeCertAck = setupPrefs.isChromeCertAcknowledged()
@@ -181,7 +188,7 @@ fun ServiceSettingsScreen(
                 }
                 Text("Kai Core (catálogo)", style = MaterialTheme.typography.titleSmall)
                 Text(
-                    "Emparejá para que Admin/POS elijan este agente por nombre. La impresión sigue por LAN.",
+                    "Core solo registra este equipo. Tickets y comandas se imprimen por LAN. URL de producción: https://core.{tenant}.kaisuite.pro. En local, p. ej. http://localhost:5360 (demo) o :5560 (mias).",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -189,17 +196,22 @@ fun ServiceSettingsScreen(
                     value = kaiCoreUrl,
                     onValueChange = { kaiCoreUrl = it },
                     label = { Text("URL Kai Core") },
+                    placeholder = { Text("https://core.{tenant}.kaisuite.pro") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                 )
                 if (kaiPaired) {
-                    Text("Emparejado", color = MaterialTheme.colorScheme.primary)
+                    Text(
+                        if (kaiCompanyName.isNullOrBlank()) "Emparejado" else "Emparejado · $kaiCompanyName",
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                     OutlinedButton(
                         onClick = {
                             scope.launch {
                                 kaiBusy = true
                                 KaiCoreCatalog.clearPair(app.container.repository)
                                 kaiPaired = false
+                                kaiCompanyName = null
                                 kaiMsg = "Desemparejado"
                                 kaiBusy = false
                             }
@@ -233,7 +245,9 @@ fun ServiceSettingsScreen(
                                         kaiPaired = true
                                         kaiPairToken = ""
                                         agentDisplayName = it.displayName
-                                        kaiMsg = "Emparejado: ${it.displayName}"
+                                        kaiCompanyName = it.companyName
+                                        kaiMsg = it.companyName?.let { n -> "Emparejado: ${it.displayName} · $n" }
+                                            ?: "Emparejado: ${it.displayName}"
                                     },
                                     onFailure = {
                                         kaiMsg = it.message ?: "Error al emparejar"

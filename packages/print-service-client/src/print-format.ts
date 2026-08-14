@@ -32,6 +32,16 @@ export function printFormatToPurpose(format: PrintFormat): PrintAgentPurpose {
   return isTicketPrintFormat(format) ? "tickets" : "documents";
 }
 
+/** Jobs de cocina usan purpose `comandas` con formatos ticket 58/80 mm. */
+export function formatCompatibleWithPurpose(
+  format: PrintFormat,
+  purpose: string,
+): boolean {
+  const p = purpose.trim();
+  if (p === "comandas") return isTicketPrintFormat(format);
+  return printFormatToPurpose(format) === p;
+}
+
 export function printFormatToPaperProfile(format: PrintFormat): PrinterPaperProfile {
   switch (format) {
     case "ticket_58mm":

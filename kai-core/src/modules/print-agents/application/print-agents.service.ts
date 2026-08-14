@@ -4,9 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { IsNull, In, Repository } from 'typeorm';
 import { TenantContext } from '@common/tenant/tenant.context';
 import { Branch } from '@modules/branches/domain/branch.entity';
+import { Company } from '@modules/companies/domain/company.entity';
 import {
   PrintAgent,
   type PrintAgentPlatform,
@@ -23,6 +24,7 @@ export const PRINT_AGENT_ONLINE_MS = 90_000;
 export type PrintAgentPublicRow = {
   id: string;
   companyId: string;
+  companyName: string | null;
   branchId: string | null;
   displayName: string;
   lanHost: string | null;
@@ -44,6 +46,8 @@ export class PrintAgentsService {
     private readonly agentRepo: Repository<PrintAgent>,
     @InjectRepository(Branch)
     private readonly branchRepo: Repository<Branch>,
+    @InjectRepository(Company)
+    private readonly companyRepo: Repository<Company>,
   ) {}
 
   private requireCompanyId(): string {
@@ -59,10 +63,19 @@ export class PrintAgentsService {
     return Date.now() - lastSeenAt.getTime() < PRINT_AGENT_ONLINE_MS;
   }
 
-  private toPublicRow(a: PrintAgent): PrintAgentPublicRow {
+  private companyDisplayName(c: Pick<Company, 'nombreFantasia' | 'razonSocial'> | null): string | null {
+    if (!c) return null;
+    const fantasy = c.nombreFantasia?.trim();
+    if (fantasy) return fantasy;
+    const rs = c.razonSocial?.trim();
+    return rs || null;
+  }
+
+  private toPublicRow(a: PrintAgent, companyName: string | null = null): PrintAgentPublicRow {
     return {
       id: a.id,
       companyId: a.companyId,
+      companyName,
       branchId: a.branchId ?? null,
       displayName: a.displayName,
       lanHost: a.lanHost ?? null,
@@ -104,18 +117,26 @@ export class PrintAgentsService {
       });
     }
     const rows = await qb.getMany();
-    return rows.map((a) => this.toPublicRow(a));
+    const companyIds = [...new Set(rows.map((r) => r.companyId))];
+    const companies = companyIds.length
+      ? await this.companyRepo.find({
+          where: { id: In(companyIds) },
+          select: { id: true, razonSocial: true, nombreFantasia: true },
+        })
+      : [];
+    const nameById = new Map(
+      companies.map((c) => [c.id, this.companyDisplayName(c)]),
+    );
+    return rows.map((a) => this.toPublicRow(a, nameById.get(a.companyId) ?? null));
   }
 
   async create(input: {
-    displayName: string;
+    displayName?: string;
     branchId?: string | null;
   }): Promise<PrintAgentPublicRow & { pairingToken: string }> {
     const companyId = this.requireCompanyId();
-    const displayName = String(input.displayName ?? '').trim();
-    if (displayName.length < 2) {
-      throw new BadRequestException('Indique un nombre para el agente');
-    }
+    const trimmed = String(input.displayName ?? '').trim();
+    const displayName = trimmed.length >= 2 ? trimmed : 'Kai Printers';
 
     let branchId: string | null = input.branchId?.trim() || null;
     if (branchId) {
@@ -150,7 +171,14 @@ export class PrintAgentsService {
       isActive: true,
     });
     const saved = await this.agentRepo.save(agent);
-    return { ...this.toPublicRow(saved), pairingToken };
+    const company = await this.companyRepo.findOne({
+      where: { id: saved.companyId },
+      select: { id: true, razonSocial: true, nombreFantasia: true },
+    });
+    return {
+      ...this.toPublicRow(saved, this.companyDisplayName(company)),
+      pairingToken,
+    };
   }
 
   async update(
@@ -196,13 +224,18 @@ export class PrintAgentsService {
     }
 
     const saved = await this.agentRepo.save(agent);
-    return this.toPublicRow(saved);
+    const company = await this.companyRepo.findOne({
+      where: { id: saved.companyId },
+      select: { id: true, razonSocial: true, nombreFantasia: true },
+    });
+    return this.toPublicRow(saved, this.companyDisplayName(company));
   }
 
   async pair(rawToken: string): Promise<{
     id: string;
     displayName: string;
     companyId: string;
+    companyName: string | null;
     pairingToken: string;
   }> {
     const token = normalizePrintAgentToken(rawToken);
@@ -216,10 +249,15 @@ export class PrintAgentsService {
     agent.pairedAt = new Date();
     agent.lastSeenAt = new Date();
     await this.agentRepo.save(agent);
+    const company = await this.companyRepo.findOne({
+      where: { id: agent.companyId },
+      select: { id: true, razonSocial: true, nombreFantasia: true },
+    });
     return {
       id: agent.id,
       displayName: agent.displayName,
       companyId: agent.companyId,
+      companyName: this.companyDisplayName(company),
       pairingToken: token,
     };
   }
@@ -257,6 +295,10 @@ export class PrintAgentsService {
       agent.pairedAt = new Date();
     }
     const saved = await this.agentRepo.save(agent);
-    return this.toPublicRow(saved);
+    const company = await this.companyRepo.findOne({
+      where: { id: saved.companyId },
+      select: { id: true, razonSocial: true, nombreFantasia: true },
+    });
+    return this.toPublicRow(saved, this.companyDisplayName(company));
   }
 }

@@ -21,6 +21,7 @@ object KaiCoreCatalog {
                 val base = repository.getSetting(AgentSettingsKeys.KAI_CORE_BASE_URL)
                     ?.trim()
                     ?.trimEnd('/')
+                    ?.takeIf { it.isNotEmpty() }
                     ?: error("Configurá la URL de Kai Core")
                 val tok = pairingToken.trim().lowercase()
                 require(tok.length >= 32) { "Token inválido" }
@@ -47,7 +48,9 @@ object KaiCoreCatalog {
                 if (name.isNotBlank()) {
                     repository.setSetting(AgentSettingsKeys.AGENT_DISPLAY_NAME, name.trim())
                 }
-                PairResult(id, name.ifBlank { id })
+                val companyName = json.optString("companyName", "").trim()
+                repository.setSetting(AgentSettingsKeys.KAI_CORE_COMPANY_NAME, companyName)
+                PairResult(id, name.ifBlank { id }, companyName.takeIf { it.isNotEmpty() })
             }
         }
 
@@ -90,6 +93,7 @@ object KaiCoreCatalog {
     suspend fun clearPair(repository: AgentRepository) {
         repository.setSetting(AgentSettingsKeys.KAI_CORE_AGENT_TOKEN, "")
         repository.setSetting(AgentSettingsKeys.KAI_CORE_AGENT_ID, "")
+        repository.setSetting(AgentSettingsKeys.KAI_CORE_COMPANY_NAME, "")
     }
 
     private fun readBody(conn: HttpURLConnection): String {
@@ -97,5 +101,5 @@ object KaiCoreCatalog {
         return stream?.use { BufferedReader(InputStreamReader(it)).readText() }.orEmpty()
     }
 
-    data class PairResult(val agentId: String, val displayName: String)
+    data class PairResult(val agentId: String, val displayName: String, val companyName: String?)
 }

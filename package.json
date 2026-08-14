@@ -1,6 +1,6 @@
 {
   "name": "kai-suite",
-  "version": "1.13.1",
+  "version": "1.13.6",
   "private": true,
   "description": "Kai Suite monorepo",
   "packageManager": "npm@10.9.2",

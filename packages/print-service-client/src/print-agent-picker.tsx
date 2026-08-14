@@ -50,10 +50,10 @@ export function PrintAgentPicker({
     <div className={`space-y-3 ${className}`} data-test-id={testId}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-foreground">Agentes en la red (vía Kai Core)</p>
+          <p className="text-sm font-semibold text-foreground">Agentes de esta empresa</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Elegí por nombre; la IP y puertos se configuran solos. El navegador puede pedir acceso a la
-            red local (LNA).
+            Solo ves equipos registrados para esta empresa. Al elegir uno, POS/mesero se conectan a
+            su IP local. El navegador puede pedir acceso a la red local (LNA).
           </p>
         </div>
         {onRefresh ? (
@@ -84,6 +84,7 @@ export function PrintAgentPicker({
                   <p className="truncate text-sm font-medium text-foreground">{label}</p>
                   <p className="text-[11px] text-muted-foreground">
                     {a.online ? "En línea" : "Sin heartbeat reciente"}
+                    {a.companyName ? ` · ${a.companyName}` : ""}
                     {a.platform && a.platform !== "unknown" ? ` · ${a.platform}` : ""}
                   </p>
                 </div>

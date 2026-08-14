@@ -121,6 +121,7 @@ export function WaiterCuentaPanel({
             useTls: a.useTls,
             online: a.online,
             platform: a.platform,
+            companyName: a.companyName ?? null,
           })),
         );
         setBranchName(catalog.branchName?.trim() || null);

@@ -23,6 +23,23 @@ async function authHeaders(): Promise<HeadersInit> {
   return h;
 }
 
+function formatPrintAgentApiError(raw: string, fallback: string): string {
+  const t = raw.trim();
+  if (!t) return fallback;
+  try {
+    const body = JSON.parse(t) as { message?: string | string[] };
+    if (Array.isArray(body.message)) {
+      return body.message.filter(Boolean).join("; ") || fallback;
+    }
+    if (typeof body.message === "string" && body.message.trim()) {
+      return body.message.trim();
+    }
+  } catch {
+    /* texto plano */
+  }
+  return t;
+}
+
 export class PrintAgentsRequest {
   static async list(branchId?: string): Promise<PrintAgentDto[]> {
     const q = branchId ? `?branchId=${encodeURIComponent(branchId)}` : "";
@@ -36,18 +53,18 @@ export class PrintAgentsRequest {
     return (await res.json()) as PrintAgentDto[];
   }
 
-  static async create(input: {
-    displayName: string;
+  static async create(input?: {
+    displayName?: string;
     branchId?: string;
   }): Promise<CreatePrintAgentResult> {
     const res = await fetch(apiUrl("/print-agents"), {
       method: "POST",
       headers: await authHeaders(),
-      body: JSON.stringify(input),
+      body: JSON.stringify(input ?? {}),
     });
     if (!res.ok) {
       const t = await res.text().catch(() => "");
-      throw new Error(t || `No se pudo crear agente (${res.status})`);
+      throw new Error(formatPrintAgentApiError(t, `No se pudo crear agente (${res.status})`));
     }
     return (await res.json()) as CreatePrintAgentResult;
   }

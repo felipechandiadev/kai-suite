@@ -246,7 +246,7 @@ class ProtocolDispatcher(
             ?: PrintFormats.printFormatToPurpose(PrintFormats.resolve(null, "tickets"))
         var format = PrintFormats.resolve(env["format"]?.jsonPrimitive?.content, purpose)
 
-        if (PrintFormats.printFormatToPurpose(format) != purpose) {
+        if (!PrintFormats.formatCompatibleWithPurpose(format, purpose)) {
             return encodeErr(requestId, "format_purpose_mismatch")
         }
 

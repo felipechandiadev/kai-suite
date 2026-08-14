@@ -27,6 +27,7 @@ object AgentSettingsKeys {
     const val KAI_CORE_BASE_URL = "kai_core_base_url"
     const val KAI_CORE_AGENT_TOKEN = "kai_core_agent_token"
     const val KAI_CORE_AGENT_ID = "kai_core_agent_id"
+    const val KAI_CORE_COMPANY_NAME = "kai_core_company_name"
     const val TICKET_SHOW_COMPANY_RUT = "ticket_show_company_rut"
     const val TICKET_SHOW_RAZON_SOCIAL = "ticket_show_razon_social"
 }
@@ -50,9 +51,10 @@ class AgentRepository(private val db: AgentDatabase) {
             AgentSettingsKeys.ALLOW_ALL_ORIGINS to "true",
             AgentSettingsKeys.ALLOWED_ORIGINS to "",
             AgentSettingsKeys.AGENT_DISPLAY_NAME to "Kai Printers",
-            AgentSettingsKeys.KAI_CORE_BASE_URL to "http://localhost:5160",
+            AgentSettingsKeys.KAI_CORE_BASE_URL to "",
             AgentSettingsKeys.KAI_CORE_AGENT_TOKEN to "",
             AgentSettingsKeys.KAI_CORE_AGENT_ID to "",
+            AgentSettingsKeys.KAI_CORE_COMPANY_NAME to "",
             AgentSettingsKeys.TICKET_SHOW_COMPANY_RUT to "true",
             AgentSettingsKeys.TICKET_SHOW_RAZON_SOCIAL to "true",
         )

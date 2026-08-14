@@ -8,11 +8,11 @@ export async function listPrintAgentsAction(): Promise<PrintAgentDto[]> {
   return PrintAgentsRequest.list();
 }
 
-export async function createPrintAgentAction(input: {
-  displayName: string;
+export async function createPrintAgentAction(input?: {
+  displayName?: string;
   branchId?: string;
 }): Promise<CreatePrintAgentResult> {
-  const row = await PrintAgentsRequest.create(input);
+  const row = await PrintAgentsRequest.create(input ?? {});
   revalidatePath("/settings/local-printing", "page");
   return row;
 }

@@ -1,6 +1,6 @@
 [package]
 name = "print-service"
-version = "1.5.0"
+version = "1.6.3"
 description = "Kai Printers — agente local de impresión (Tauri)"
 authors = ["Felipe Chandía Castillo"]
 edition = "2021"

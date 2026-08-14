@@ -630,7 +630,7 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
             let purpose = env.extra.get("purpose").and_then(|v| v.as_str()).unwrap_or("documents");
             let format_raw = env.extra.get("format").and_then(|v| v.as_str());
             let print_format = crate::print_formats::PrintFormat::resolve(format_raw, purpose);
-            if print_format.purpose() != purpose {
+            if !print_format.format_compatible_with_purpose(purpose) {
                 return OutResponse::err(rid, "format_purpose_mismatch".to_string());
             }
             let printer_display_label_early = env

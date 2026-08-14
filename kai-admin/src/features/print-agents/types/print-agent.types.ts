@@ -1,6 +1,7 @@
 export type PrintAgentDto = {
   id: string;
   companyId: string;
+  companyName?: string | null;
   branchId: string | null;
   displayName: string;
   lanHost: string | null;

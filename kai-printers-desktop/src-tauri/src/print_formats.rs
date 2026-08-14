@@ -1,5 +1,7 @@
 //! Print format types aligned with packages/print-service-client (IF-09).
 
+use crate::purpose_util::is_ticket_like_purpose;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PrintFormat {
     Ticket58mm,
@@ -93,6 +95,13 @@ impl PrintFormat {
         }
     }
 
+    pub fn format_compatible_with_purpose(self, purpose: &str) -> bool {
+        if is_ticket_like_purpose(purpose) {
+            return self.is_ticket();
+        }
+        self.purpose() == purpose
+    }
+
     pub fn is_ticket(self) -> bool {
         matches!(self, Self::Ticket58mm | Self::Ticket80mm)
     }
@@ -128,7 +137,7 @@ impl PrintFormat {
         paper_profile: PaperProfile,
         purpose: &str,
     ) -> Self {
-        if requested.purpose() != purpose {
+        if !requested.format_compatible_with_purpose(purpose) {
             return requested;
         }
         if requested.matches_profile(paper_profile) {
@@ -187,6 +196,25 @@ mod tests {
             ),
             PrintFormat::DocumentLetter
         );
+    }
+
+    #[test]
+    fn overrides_ticket_80_to_58mm_comandas() {
+        assert_eq!(
+            PrintFormat::resolve_for_mapping(
+                PrintFormat::Ticket80mm,
+                PaperProfile::Mm58,
+                "comandas"
+            ),
+            PrintFormat::Ticket58mm
+        );
+    }
+
+    #[test]
+    fn ticket_formats_compatible_with_comandas() {
+        assert!(PrintFormat::Ticket80mm.format_compatible_with_purpose("comandas"));
+        assert!(PrintFormat::Ticket58mm.format_compatible_with_purpose("tickets"));
+        assert!(!PrintFormat::DocumentA4.format_compatible_with_purpose("comandas"));
     }
 
     #[test]

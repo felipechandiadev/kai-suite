@@ -45,6 +45,12 @@ object PrintFormats {
     fun printFormatToPurpose(format: PrintFormat): String =
         if (isTicketFormat(format)) "tickets" else "documents"
 
+    fun formatCompatibleWithPurpose(format: PrintFormat, purpose: String): Boolean {
+        val p = purpose.trim()
+        if (p == "comandas") return isTicketFormat(format)
+        return printFormatToPurpose(format) == p
+    }
+
     fun formatToPaperProfile(format: PrintFormat): PaperProfile = when (format) {
         PrintFormat.TICKET_58MM -> PaperProfile.MM58
         PrintFormat.TICKET_80MM -> PaperProfile.MM80
@@ -67,8 +73,7 @@ object PrintFormats {
      * Solo aplica dentro del mismo propósito (ticket o document).
      */
     fun resolveFormatForMapping(requested: PrintFormat, paperProfile: PaperProfile, purpose: String): PrintFormat {
-        val purposeFromFormat = printFormatToPurpose(requested)
-        if (purposeFromFormat != purpose) return requested
+        if (!formatCompatibleWithPurpose(requested, purpose)) return requested
         if (formatsMatchProfile(requested, paperProfile)) return requested
         if (isTicketFormat(requested) && (paperProfile == PaperProfile.MM58 || paperProfile == PaperProfile.MM80)) {
             return paperProfileToDefaultFormat(paperProfile)

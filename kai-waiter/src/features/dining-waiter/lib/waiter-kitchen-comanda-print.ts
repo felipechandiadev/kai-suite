@@ -214,6 +214,11 @@ export async function printWaiterKitchenComandasAfterFire(
       } else {
         const agentId = binding?.printAgentId?.trim() || null;
         const agent = agentId ? agentById.get(agentId) ?? null : null;
+        if (agentId && !agent) {
+          console.warn(
+            `[Kai Waiter print] UP ${unit.name}: el agente ${agentId} no está en el catálogo de esta empresa`,
+          );
+        } else {
         const label = binding?.printerDisplayLabel?.trim() || null;
         try {
           await withAgentConnection(agent, "comandas", async (conn, hello) => {
@@ -224,6 +229,7 @@ export async function printWaiterKitchenComandasAfterFire(
           });
         } catch (e) {
           console.warn("[Kai Waiter print] comanda cocina UP:", e);
+        }
         }
       }
     }

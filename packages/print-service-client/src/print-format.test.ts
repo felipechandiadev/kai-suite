@@ -5,6 +5,7 @@ import {
   migrateLegacyPrintMode,
   parsePrintFormat,
   printFormatToPurpose,
+  formatCompatibleWithPurpose,
   printFormatToPaperProfile,
   resolvePrintFormat,
 } from "./print-format";
@@ -26,6 +27,14 @@ describe("print-format", () => {
   it("maps format to purpose", () => {
     expect(printFormatToPurpose("ticket_58mm")).toBe("tickets");
     expect(printFormatToPurpose("document_a4")).toBe("documents");
+  });
+
+  it("allows ticket formats with purpose comandas", () => {
+    expect(formatCompatibleWithPurpose("ticket_80mm", "comandas")).toBe(true);
+    expect(formatCompatibleWithPurpose("ticket_58mm", "comandas")).toBe(true);
+    expect(formatCompatibleWithPurpose("document_a4", "comandas")).toBe(false);
+    expect(formatCompatibleWithPurpose("ticket_80mm", "tickets")).toBe(true);
+    expect(formatCompatibleWithPurpose("ticket_80mm", "documents")).toBe(false);
   });
 
   it("maps format to paper profile", () => {

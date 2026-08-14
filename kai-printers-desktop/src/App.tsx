@@ -32,24 +32,11 @@ function normalizeAgentDisplayName(raw: string | undefined): string {
   return t || DEFAULT_AGENT_DISPLAY_NAME;
 }
 
-type KaiLoginCompany = {
-  id: string;
-  razonSocial: string;
-  nombreFantasia: string | null;
-};
-
-type PendingKaiLogin = {
-  userId: string;
-  companies: KaiLoginCompany[];
-  selectedCompanyId: string;
-};
-
-function companyLabel(c: KaiLoginCompany): string {
-  const fantasy = (c.nombreFantasia ?? "").trim();
-  return fantasy || c.razonSocial || c.id;
-}
-
-const DEFAULT_KAI_CORE_URL = "http://localhost:5180";
+const KAI_CORE_URL_PLACEHOLDER = "https://core.{tenant}.kaisuite.pro";
+const LEGACY_PLACEHOLDER_CORE_URLS = new Set([
+  "http://localhost:5160",
+  "http://localhost:5180",
+]);
 
 async function readHttpErrorMessage(res: Response, fallback: string): Promise<string> {
   try {
@@ -79,7 +66,7 @@ function formatKaiCoreNetworkError(err: unknown, baseUrl: string): string {
     lower.includes("networkerror") ||
     lower.includes("network request failed")
   ) {
-    const base = baseUrl.trim().replace(/\/+$/, "") || DEFAULT_KAI_CORE_URL;
+    const base = baseUrl.trim().replace(/\/+$/, "") || "la URL indicada";
     return `No se pudo conectar a Kai Core (${base}). Revisá la URL (ej. http://localhost:5360 para demo, :5560 para mias) y que el backend esté levantado.`;
   }
   return raw;
@@ -90,46 +77,6 @@ async function pingKaiCore(base: string): Promise<void> {
   if (!res.ok) {
     throw new Error(
       `Kai Core no respondió correctamente (HTTP ${res.status}). Revisá la URL del tenant.`,
-    );
-  }
-}
-
-type KaiLoginPayload = {
-  success?: boolean;
-  message?: string;
-  user?: { id?: string; rol?: string };
-  activeCompanyId?: string | null;
-  companies?: KaiLoginCompany[] | null;
-  memberships?: Array<{
-    companyId: string;
-    roles?: string[];
-    isOwner?: boolean;
-  }>;
-};
-
-const KAI_ADMIN_ROLES = new Set(["ADMIN", "SUB_ADMIN", "SUPER_ADMIN"]);
-
-function userCanCreatePrintAgent(
-  login: KaiLoginPayload,
-  companyId: string,
-): boolean {
-  const legacyRol = (login.user?.rol ?? "").trim().toUpperCase();
-  if (legacyRol === "SUPER_ADMIN" || legacyRol === "ADMIN") return true;
-  const mem = login.memberships?.find((m) => m.companyId === companyId);
-  if (!mem) return false;
-  if (mem.isOwner) return true;
-  return (mem.roles ?? []).some((r) =>
-    KAI_ADMIN_ROLES.has(String(r).trim().toUpperCase()),
-  );
-}
-
-function assertKaiAdminForPrintAgent(
-  login: KaiLoginPayload,
-  companyId: string,
-): void {
-  if (!userCanCreatePrintAgent(login, companyId)) {
-    throw new Error(
-      "Se necesita un usuario administrador de la empresa para crear el agente de impresión.",
     );
   }
 }
@@ -360,15 +307,12 @@ export default function App() {
   const [configDetailsOpen, setConfigDetailsOpen] = useState(false);
   const [printersDetailsOpen, setPrintersDetailsOpen] = useState(false);
   const [globalLogoBusy, setGlobalLogoBusy] = useState(false);
-  const [kaiCoreUrl, setKaiCoreUrl] = useState(DEFAULT_KAI_CORE_URL);
-  const [kaiLoginUser, setKaiLoginUser] = useState("");
-  const [kaiLoginPass, setKaiLoginPass] = useState("");
-  const [kaiPendingLogin, setKaiPendingLogin] = useState<PendingKaiLogin | null>(null);
-  const [kaiPairAdvancedOpen, setKaiPairAdvancedOpen] = useState(false);
+  const [kaiCoreUrl, setKaiCoreUrl] = useState("");
   const [kaiPairToken, setKaiPairToken] = useState("");
   const [kaiCoreBusy, setKaiCoreBusy] = useState(false);
   const [kaiCoreMsg, setKaiCoreMsg] = useState<string | null>(null);
   const [kaiCorePaired, setKaiCorePaired] = useState(false);
+  const [kaiCompanyName, setKaiCompanyName] = useState<string | null>(null);
 
   const applyDashboardFull = useCallback((d: DashboardPayload) => {
     setDashboard(d);
@@ -385,16 +329,19 @@ export default function App() {
       ticketHeaderTitleMode: parseTicketHeaderTitleMode(d.ticketHeaderTitleMode),
     });
     const storedCoreUrl = (d.kaiCore?.baseUrl ?? "").trim().replace(/\/+$/, "");
-    const legacyCoreDefault = "http://localhost:5160";
-    if (storedCoreUrl && !(storedCoreUrl === legacyCoreDefault && !d.kaiCore?.paired)) {
+    const isLegacyPlaceholder = LEGACY_PLACEHOLDER_CORE_URLS.has(storedCoreUrl);
+    if (storedCoreUrl && !(isLegacyPlaceholder && !d.kaiCore?.paired)) {
       setKaiCoreUrl(storedCoreUrl);
     } else if (!d.kaiCore?.paired) {
-      setKaiCoreUrl(DEFAULT_KAI_CORE_URL);
-      if (storedCoreUrl === legacyCoreDefault) {
-        void invoke("set_kai_core_base_url", { baseUrl: DEFAULT_KAI_CORE_URL });
+      setKaiCoreUrl("");
+      if (isLegacyPlaceholder) {
+        void invoke("set_kai_core_base_url", { baseUrl: "" });
       }
     }
     setKaiCorePaired(!!d.kaiCore?.paired);
+    if (!d.kaiCore?.paired) {
+      setKaiCompanyName(null);
+    }
     setConfigEdit(false);
   }, []);
 
@@ -481,6 +428,13 @@ export default function App() {
           );
           return;
         }
+        try {
+          const body = (await res.json()) as { companyName?: string | null };
+          const name = body.companyName?.trim();
+          if (name) setKaiCompanyName(name);
+        } catch {
+          /* heartbeat body opcional */
+        }
         setKaiCoreMsg((prev) =>
           prev?.startsWith("Heartbeat") || prev?.startsWith("No se pudo conectar")
             ? null
@@ -518,6 +472,7 @@ export default function App() {
       id: string;
       pairingToken: string;
       displayName?: string;
+      companyName?: string | null;
     };
     await invoke("save_kai_core_pair", {
       agentId: data.id,
@@ -526,133 +481,29 @@ export default function App() {
     if (data.displayName?.trim()) {
       setSettings((s) => ({ ...s, agentDisplayName: data.displayName!.trim() }));
     }
+    setKaiCompanyName(data.companyName?.trim() || null);
     setKaiCorePaired(true);
     setKaiPairToken("");
-    setKaiLoginPass("");
-    setKaiPendingLogin(null);
-    setKaiCoreMsg(`Emparejado con Core (${data.displayName ?? data.id})`);
+    setKaiCoreMsg(
+      data.companyName?.trim()
+        ? `Emparejado con ${data.companyName.trim()} (${data.displayName ?? data.id})`
+        : `Emparejado con Core (${data.displayName ?? data.id})`,
+    );
     await fetchDashboard("full");
-  };
-
-  const createAgentAndPair = async (userId: string, companyId: string) => {
-    const base = kaiCoreUrl.trim().replace(/\/+$/, "");
-    const displayName = normalizeAgentDisplayName(settings.agentDisplayName);
-    const createRes = await fetch(`${base}/api/print-agents`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${userId}`,
-        "X-Active-Company-Id": companyId,
-      },
-      body: JSON.stringify({ displayName }),
-    });
-    if (!createRes.ok) {
-      const fallback =
-        createRes.status === 403
-          ? "Se necesita un usuario administrador para crear el agente"
-          : `No se pudo crear el agente (HTTP ${createRes.status})`;
-      throw new Error(await readHttpErrorMessage(createRes, fallback));
-    }
-    const created = (await createRes.json()) as {
-      id: string;
-      pairingToken?: string;
-      displayName?: string;
-    };
-    if (!created.pairingToken?.trim()) {
-      throw new Error("Core no devolvió token de emparejamiento");
-    }
-    await completeKaiCorePair(created.pairingToken);
-  };
-
-  const handleKaiCoreLoginPair = async () => {
-    setKaiCoreBusy(true);
-    setKaiCoreMsg(null);
-    try {
-      const userName = kaiLoginUser.trim();
-      const password = kaiLoginPass;
-      if (!userName || !password) {
-        throw new Error("Ingresá usuario y contraseña de un administrador");
-      }
-      if (!normalizeAgentDisplayName(settings.agentDisplayName)) {
-        throw new Error("Definí el nombre del agente de impresión");
-      }
-      await invoke("set_kai_core_base_url", { baseUrl: kaiCoreUrl.trim() });
-      const base = kaiCoreUrl.trim().replace(/\/+$/, "");
-      await pingKaiCore(base);
-      const loginRes = await fetch(`${base}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userName, password }),
-      });
-      if (!loginRes.ok) {
-        throw new Error(
-          await readHttpErrorMessage(
-            loginRes,
-            loginRes.status === 401
-              ? "Usuario o contraseña incorrectos"
-              : `Login falló (HTTP ${loginRes.status})`,
-          ),
-        );
-      }
-      const login = (await loginRes.json()) as KaiLoginPayload;
-      if (!login.success || !login.user?.id) {
-        throw new Error(login.message?.trim() || "Usuario o contraseña incorrectos");
-      }
-      const companies = (login.companies ?? []).filter((c) => c?.id);
-      const activeId = (login.activeCompanyId ?? "").trim();
-      if (companies.length === 0 && !activeId) {
-        throw new Error("El usuario no tiene empresa activa para crear el agente");
-      }
-      if (companies.length > 1) {
-        const selected =
-          (activeId && companies.some((c) => c.id === activeId) && activeId) ||
-          companies[0]!.id;
-        assertKaiAdminForPrintAgent(login, selected);
-        setKaiPendingLogin({
-          userId: login.user.id,
-          companies,
-          selectedCompanyId: selected,
-        });
-        setKaiLoginPass("");
-        setKaiCoreMsg("Elegí la empresa y continuá el emparejamiento");
-        return;
-      }
-      const companyId = activeId || companies[0]?.id;
-      if (!companyId) {
-        throw new Error("No se pudo determinar la empresa activa");
-      }
-      assertKaiAdminForPrintAgent(login, companyId);
-      await createAgentAndPair(login.user.id, companyId);
-      setKaiLoginPass("");
-    } catch (e) {
-      setKaiCoreMsg(formatKaiCoreNetworkError(e, kaiCoreUrl));
-    } finally {
-      setKaiCoreBusy(false);
-    }
-  };
-
-  const handleKaiCoreContinueCompany = async () => {
-    if (!kaiPendingLogin) return;
-    setKaiCoreBusy(true);
-    setKaiCoreMsg(null);
-    try {
-      await invoke("set_kai_core_base_url", { baseUrl: kaiCoreUrl.trim() });
-      await createAgentAndPair(
-        kaiPendingLogin.userId,
-        kaiPendingLogin.selectedCompanyId,
-      );
-    } catch (e) {
-      setKaiCoreMsg(formatKaiCoreNetworkError(e, kaiCoreUrl));
-    } finally {
-      setKaiCoreBusy(false);
-    }
   };
 
   const handleKaiCorePair = async () => {
     setKaiCoreBusy(true);
     setKaiCoreMsg(null);
     try {
-      await invoke("set_kai_core_base_url", { baseUrl: kaiCoreUrl.trim() });
+      const base = kaiCoreUrl.trim().replace(/\/+$/, "");
+      if (!base) {
+        throw new Error(
+          "Indicá la URL de Kai Core (https://core.{tenant}.kaisuite.pro o p. ej. http://localhost:5360)",
+        );
+      }
+      await invoke("set_kai_core_base_url", { baseUrl: base });
+      await pingKaiCore(base);
       await completeKaiCorePair(kaiPairToken.trim());
     } catch (e) {
       setKaiCoreMsg(formatKaiCoreNetworkError(e, kaiCoreUrl));
@@ -666,7 +517,7 @@ export default function App() {
     try {
       await invoke("clear_kai_core_pair");
       setKaiCorePaired(false);
-      setKaiPendingLogin(null);
+      setKaiCompanyName(null);
       setKaiCoreMsg("Desemparejado de Kai Core");
     } catch (e) {
       setKaiCoreMsg(e instanceof Error ? e.message : String(e));
@@ -1306,13 +1157,7 @@ export default function App() {
             onChange={(e) => setSettings((s) => ({ ...s, agentDisplayName: e.target.value }))}
           />
           <div className="space-y-2 rounded-md border border-border bg-neutral/20 p-3">
-            <p className="text-xs font-semibold text-foreground">Kai Core (catálogo)</p>
-            <p className="text-[11px] text-muted-foreground">
-              Iniciá sesión con un administrador para registrar este agente. La impresión sigue por
-              red local; solo se guarda el token del agente (no tu contraseña). URL típica del
-              backend: <code className="text-foreground">http://localhost:PUERTO</code> (ej. 5360
-              demo, 5560 mias).
-            </p>
+            <p className="text-xs font-semibold text-foreground">Kai Core</p>
             <SharedTextField
               label="URL Kai Core"
               name="kai-core-url"
@@ -1323,11 +1168,14 @@ export default function App() {
               disabled={kaiCoreBusy}
               value={kaiCoreUrl}
               onChange={(e) => setKaiCoreUrl(e.target.value)}
-              placeholder={DEFAULT_KAI_CORE_URL}
+              placeholder={KAI_CORE_URL_PLACEHOLDER}
             />
             {kaiCorePaired ? (
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-foreground">Emparejado</span>
+                <span className="text-xs text-foreground">
+                  Emparejado
+                  {kaiCompanyName ? ` · ${kaiCompanyName}` : ""}
+                </span>
                 <button
                   type="button"
                   className="text-xs underline"
@@ -1337,120 +1185,27 @@ export default function App() {
                   Desemparejar
                 </button>
               </div>
-            ) : kaiPendingLogin ? (
-              <>
-                <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
-                  Empresa
-                  <select
-                    className="rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground"
-                    disabled={kaiCoreBusy}
-                    value={kaiPendingLogin.selectedCompanyId}
-                    onChange={(e) =>
-                      setKaiPendingLogin((prev) =>
-                        prev
-                          ? { ...prev, selectedCompanyId: e.target.value }
-                          : prev,
-                      )
-                    }
-                  >
-                    {kaiPendingLogin.companies.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {companyLabel(c)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="rounded-md border border-border px-3 py-1.5 text-xs font-medium"
-                    disabled={kaiCoreBusy || !kaiPendingLogin.selectedCompanyId}
-                    onClick={() => void handleKaiCoreContinueCompany()}
-                  >
-                    Continuar emparejamiento
-                  </button>
-                  <button
-                    type="button"
-                    className="text-xs underline"
-                    disabled={kaiCoreBusy}
-                    onClick={() => {
-                      setKaiPendingLogin(null);
-                      setKaiCoreMsg(null);
-                    }}
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </>
             ) : (
               <>
                 <SharedTextField
-                  label="Usuario"
-                  name="kai-login-user"
+                  label="Token de emparejamiento"
+                  name="kai-pair-token"
                   type="text"
                   density="compact"
                   labelLayout="inline"
                   disabled={kaiCoreBusy}
-                  value={kaiLoginUser}
-                  onChange={(e) => setKaiLoginUser(e.target.value)}
-                  autoComplete="username"
-                />
-                <SharedTextField
-                  label="Contraseña"
-                  name="kai-login-pass"
-                  type="password"
-                  density="compact"
-                  labelLayout="inline"
-                  disabled={kaiCoreBusy}
-                  value={kaiLoginPass}
-                  onChange={(e) => setKaiLoginPass(e.target.value)}
-                  autoComplete="current-password"
+                  value={kaiPairToken}
+                  onChange={(e) => setKaiPairToken(e.target.value)}
+                  placeholder="Pegá el token de Admin"
                 />
                 <button
                   type="button"
                   className="rounded-md border border-border px-3 py-1.5 text-xs font-medium"
-                  disabled={
-                    kaiCoreBusy ||
-                    !kaiLoginUser.trim() ||
-                    !kaiLoginPass ||
-                    !kaiCoreUrl.trim()
-                  }
-                  onClick={() => void handleKaiCoreLoginPair()}
+                  disabled={kaiCoreBusy || kaiPairToken.trim().length < 32 || !kaiCoreUrl.trim()}
+                  onClick={() => void handleKaiCorePair()}
                 >
-                  Iniciar sesión y emparejar
+                  Emparejar
                 </button>
-                <details
-                  className="rounded-md border border-border/60 bg-background/40 p-2"
-                  open={kaiPairAdvancedOpen}
-                  onToggle={(e) =>
-                    setKaiPairAdvancedOpen((e.target as HTMLDetailsElement).open)
-                  }
-                >
-                  <summary className="cursor-pointer text-[11px] font-medium text-muted-foreground">
-                    Avanzado: pegar token de Admin
-                  </summary>
-                  <div className="mt-2 space-y-2">
-                    <SharedTextField
-                      label="Token de emparejamiento"
-                      name="kai-pair-token"
-                      type="text"
-                      density="compact"
-                      labelLayout="inline"
-                      disabled={kaiCoreBusy}
-                      value={kaiPairToken}
-                      onChange={(e) => setKaiPairToken(e.target.value)}
-                      placeholder="Pegá el token de Admin"
-                    />
-                    <button
-                      type="button"
-                      className="rounded-md border border-border px-3 py-1.5 text-xs font-medium"
-                      disabled={kaiCoreBusy || kaiPairToken.trim().length < 32}
-                      onClick={() => void handleKaiCorePair()}
-                    >
-                      Emparejar con token
-                    </button>
-                  </div>
-                </details>
               </>
             )}
             {kaiCoreMsg ? (

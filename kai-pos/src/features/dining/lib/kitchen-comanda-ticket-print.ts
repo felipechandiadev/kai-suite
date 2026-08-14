@@ -203,6 +203,7 @@ export async function printKitchenComandasAfterFire(
         useTls: a.useTls,
         online: a.online,
         platform: a.platform,
+        companyName: a.companyName ?? null,
       }));
     } catch {
       agents = [];
@@ -255,6 +256,11 @@ export async function printKitchenComandasAfterFire(
       } else {
         const agentId = binding?.printAgentId?.trim() || null;
         const agent = agentId ? agentById.get(agentId) ?? null : null;
+        if (agentId && !agent) {
+          console.warn(
+            `[KaiFood print] UP ${unit.name}: el agente ${agentId} no está en el catálogo de esta empresa`,
+          );
+        } else {
         const label = binding?.printerDisplayLabel?.trim() || null;
         try {
           await withAgentConnection(agent, "comandas", async (conn, hello) => {
@@ -265,6 +271,7 @@ export async function printKitchenComandasAfterFire(
           });
         } catch (e) {
           console.warn("[KaiFood print] comanda cocina UP:", e);
+        }
         }
       }
     }

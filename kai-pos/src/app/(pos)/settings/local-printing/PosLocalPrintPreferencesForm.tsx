@@ -2,10 +2,8 @@
 
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
-  PrintServiceConnection,
   printModesForPosDocumentKind,
   PrintServiceAgentConnectionHints,
-  resolvePrintAgentConnectionUrls,
   readPrintServiceConfigFromStorage,
   readPosDocumentPrintModesFromStorage,
   readPosPurposePrinterAliasesFromStorage,
@@ -25,6 +23,7 @@ import {
   writePosDocumentPrintModesToStorage,
   writePosPurposePrinterAliasesToStorage,
   writePrintServiceConfigToStorage,
+  fetchAliasesByPurposeFromConnection,
   KaiPrintersDownloadSection,
   PrintAgentPicker,
   type PrintAgentCatalogItem,
@@ -48,11 +47,6 @@ type Props = {
   className?: string;
   initialManifests?: KaiPrintersDownloadsManifests;
 };
-
-function stringList(v: unknown): string[] {
-  if (!Array.isArray(v)) return [];
-  return v.filter((x): x is string => typeof x === "string" && x.trim().length > 0).map((s) => s.trim());
-}
 
 const INITIAL_DOC_PRINT_MODES: Record<PosDocumentPrintKind, PosDocumentPrintMode> = {
   sale: "ticket",
@@ -94,6 +88,8 @@ export function PosLocalPrintPreferencesForm({
   const [ticketAliases, setTicketAliases] = useState<string[]>([]);
   const [documentAliases, setDocumentAliases] = useState<string[]>([]);
   const [aliasesLoading, setAliasesLoading] = useState(false);
+  const [aliasesError, setAliasesError] = useState<string | null>(null);
+  const [aliasesRefreshNonce, setAliasesRefreshNonce] = useState(0);
   const [docPrintModes, setDocPrintModes] =
     useState<Record<PosDocumentPrintKind, PosDocumentPrintMode>>(INITIAL_DOC_PRINT_MODES);
   const [storageHydrated, setStorageHydrated] = useState(false);
@@ -143,6 +139,7 @@ export function PosLocalPrintPreferencesForm({
           useTls: a.useTls,
           online: a.online,
           platform: a.platform,
+          companyName: a.companyName ?? null,
         })),
       );
     } catch {
@@ -217,52 +214,31 @@ export function PosLocalPrintPreferencesForm({
     setStorageHydrated(true);
   }, []);
 
-  const { wsUrl: url } = useMemo(
-    () =>
-      resolvePrintAgentConnectionUrls({
+  const refreshAliasesFromAgent = useCallback(async () => {
+    setAliasesLoading(true);
+    setAliasesError(null);
+    try {
+      const aliases = await fetchAliasesByPurposeFromConnection({
         host,
         port,
         wssPort,
         useTls,
-      }),
-    [host, port, wssPort, useTls],
-  );
-
-  const connOpts = useMemo(
-    () => ({
-      url,
-      clientId: "kai-pos-print-prefs",
-      appLabel: "KaiStore POS",
-      userDisplayName: "Impresión",
-    }),
-    [url],
-  );
-
-  const refreshAliasesFromAgent = useCallback(async () => {
-    setAliasesLoading(true);
-    const c = new PrintServiceConnection({ ...connOpts });
-    let reachedOpen = false;
-    c.connect();
-    try {
-      await c.waitForOpen(20_000);
-      reachedOpen = true;
-      await new Promise((r) => globalThis.setTimeout(r, 400));
-      const raw = (await c.getConfig()) as {
-        aliasesByPurpose?: Record<string, unknown>;
-      };
-      const abp = raw?.aliasesByPurpose ?? {};
-      setTicketAliases(stringList(abp.tickets));
-      setDocumentAliases(stringList(abp.documents));
-      setComandasAliases(stringList(abp.comandas));
-    } catch {
+        clientId: "kai-pos-print-prefs",
+        appLabel: "KaiStore POS",
+      });
+      setTicketAliases(aliases.tickets);
+      setDocumentAliases(aliases.documents);
+      setComandasAliases(aliases.comandas);
+      setAliasesRefreshNonce((n) => n + 1);
+    } catch (e) {
       setTicketAliases([]);
       setDocumentAliases([]);
       setComandasAliases([]);
+      setAliasesError(e instanceof Error ? e.message : String(e));
     } finally {
-      c.disconnect({ ifConnecting: reachedOpen ? "default" : "abandon" });
       setAliasesLoading(false);
     }
-  }, [connOpts]);
+  }, [host, port, wssPort, useTls]);
 
   useEffect(() => {
     void refreshAliasesFromAgent();
@@ -507,14 +483,17 @@ export function PosLocalPrintPreferencesForm({
         <section className="rounded-xl border border-border bg-background p-4 shadow-sm">
           <h2 className="text-sm font-semibold text-foreground">Conexión al agente</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Elegí un agente por nombre (registrado en Kai Core) o configurá host/puerto a mano. La
-            impresión siempre va por red local al WebSocket del agente.
+            Elegí un agente de esta empresa (registrado en Kai Core). La impresión siempre va por
+            red local al WebSocket del agente; POS de otra empresa no ve este catálogo.
           </p>
           <div className="mt-4">
             <PrintAgentPicker
               agents={catalogAgents}
               loading={catalogLoading}
-              onRefresh={() => void refreshCatalog()}
+              onRefresh={() => {
+                void refreshCatalog();
+                void refreshAliasesFromAgent();
+              }}
               onApplied={(agent) => {
                 setHost(agent.lanHost ?? host);
                 setPort(String(agent.wsPort ?? 14567));
@@ -595,6 +574,11 @@ export function PosLocalPrintPreferencesForm({
               Actualizar desde el agente
             </Button>
           </div>
+          {aliasesError ? (
+            <p className="mt-2 text-xs text-destructive" data-test-id="pos-print-prefs-aliases-error">
+              No se pudieron leer las impresoras del agente: {aliasesError}
+            </p>
+          ) : null}
           <p className="mt-1 text-sm text-muted-foreground">
             Elegí qué impresora usa el POS para tickets y para documentos. El ancho del rollo o el
             tamaño de hoja se define en cada línea de Kai Printers, no aquí.
@@ -628,9 +612,13 @@ export function PosLocalPrintPreferencesForm({
               bindings={kitchenBindings}
               onBindingsChange={setKitchenBindings}
               agents={catalogAgents}
-              catalogLoading={catalogLoading}
-              onRefreshCatalog={() => void refreshCatalog()}
+              catalogLoading={catalogLoading || aliasesLoading}
+              onRefreshCatalog={() => {
+                void refreshCatalog();
+                void refreshAliasesFromAgent();
+              }}
               comandasAliases={comandasAliases}
+              aliasesRefreshNonce={aliasesRefreshNonce}
               replicaEnabled={kitchenReplicaEnabled}
               onReplicaEnabledChange={setKitchenReplicaEnabled}
               replicaUnitIds={kitchenReplicaUnitIds}

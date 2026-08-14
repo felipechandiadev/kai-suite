@@ -1,6 +1,10 @@
 "use client";
 
-import type { PrintAgentCatalogItem } from "./core";
+import { useEffect, useMemo, useState } from "react";
+import {
+  fetchAliasesByPurposeFromAgent,
+  type PrintAgentCatalogItem,
+} from "./core";
 import {
   fulfillmentModeLabel,
   kitchenUnitRequiresPrintBinding,
@@ -21,7 +25,10 @@ type Props = {
   agents: PrintAgentCatalogItem[];
   catalogLoading?: boolean;
   onRefreshCatalog?: () => void;
+  /** Alias de comandas del agente de conexión local (Predeterminado). */
   comandasAliases: string[];
+  /** Incrementar para volver a pedir alias a los agentes de las UP. */
+  aliasesRefreshNonce?: number;
   replicaEnabled: boolean;
   onReplicaEnabledChange: (enabled: boolean) => void;
   replicaUnitIds: string[];
@@ -55,6 +62,7 @@ export function KitchenUnitPrintBindingsSection({
   catalogLoading = false,
   onRefreshCatalog,
   comandasAliases,
+  aliasesRefreshNonce = 0,
   replicaEnabled,
   onReplicaEnabledChange,
   replicaUnitIds,
@@ -65,6 +73,71 @@ export function KitchenUnitPrintBindingsSection({
   const printableUnits = units.filter((u) =>
     kitchenUnitRequiresPrintBinding(u.kitchenFulfillmentMode),
   );
+
+  const boundAgentIdsKey = useMemo(() => {
+    const ids = new Set<string>();
+    for (const u of units) {
+      if (!kitchenUnitRequiresPrintBinding(u.kitchenFulfillmentMode)) continue;
+      const id = bindings[u.id]?.printAgentId?.trim();
+      if (id) ids.add(id);
+    }
+    return [...ids].sort().join("\0");
+  }, [units, bindings]);
+
+  const [aliasesByAgentId, setAliasesByAgentId] = useState<Record<string, string[]>>(
+    {},
+  );
+  const [loadingByAgentId, setLoadingByAgentId] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [errorByAgentId, setErrorByAgentId] = useState<Record<string, string>>(
+    {},
+  );
+
+  useEffect(() => {
+    const boundAgentIds = boundAgentIdsKey ? boundAgentIdsKey.split("\0") : [];
+    if (boundAgentIds.length === 0) return;
+    let cancelled = false;
+    for (const agentId of boundAgentIds) {
+      const agent = agents.find((a) => a.id === agentId);
+      if (!agent?.lanHost?.trim()) {
+        setLoadingByAgentId((p) => ({ ...p, [agentId]: false }));
+        setErrorByAgentId((p) => ({
+          ...p,
+          [agentId]: "El agente aún no reportó IP LAN (esperá un heartbeat)",
+        }));
+        setAliasesByAgentId((p) => ({ ...p, [agentId]: [] }));
+        continue;
+      }
+      setLoadingByAgentId((p) => ({ ...p, [agentId]: true }));
+      setErrorByAgentId((p) => {
+        const next = { ...p };
+        delete next[agentId];
+        return next;
+      });
+      void fetchAliasesByPurposeFromAgent(agent, {
+        clientId: "kai-kitchen-aliases",
+        appLabel: "Impresión comandas",
+      })
+        .then((aliases) => {
+          if (cancelled) return;
+          setAliasesByAgentId((p) => ({ ...p, [agentId]: aliases.comandas }));
+          setLoadingByAgentId((p) => ({ ...p, [agentId]: false }));
+        })
+        .catch((e) => {
+          if (cancelled) return;
+          setAliasesByAgentId((p) => ({ ...p, [agentId]: [] }));
+          setLoadingByAgentId((p) => ({ ...p, [agentId]: false }));
+          setErrorByAgentId((p) => ({
+            ...p,
+            [agentId]: e instanceof Error ? e.message : String(e),
+          }));
+        });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [boundAgentIdsKey, agents, aliasesRefreshNonce]);
 
   const patchBinding = (
     unitId: string,
@@ -127,6 +200,17 @@ export function KitchenUnitPrintBindingsSection({
             );
             const binding = bindings[unit.id] ?? {};
             const modeLabel = fulfillmentModeLabel(unit.kitchenFulfillmentMode);
+            const agentId = binding.printAgentId?.trim() || "";
+            const boundAgent = agentId
+              ? agents.find((a) => a.id === agentId) ?? null
+              : null;
+            const usingLocal = !agentId;
+            const aliases = usingLocal
+              ? comandasAliases
+              : (aliasesByAgentId[agentId] ?? []);
+            const aliasLoading = Boolean(agentId && loadingByAgentId[agentId]);
+            const aliasError = agentId ? errorByAgentId[agentId] : null;
+            const noLan = Boolean(agentId && !boundAgent?.lanHost?.trim());
             return (
               <div
                 key={unit.id}
@@ -170,8 +254,9 @@ export function KitchenUnitPrintBindingsSection({
                         Impresora comandas (alias)
                       </span>
                       <select
-                        className="rounded-md border border-border bg-background px-2 py-1.5"
+                        className="rounded-md border border-border bg-background px-2 py-1.5 disabled:opacity-50"
                         value={binding.printerDisplayLabel ?? ""}
+                        disabled={aliasLoading || noLan}
                         onChange={(e) =>
                           patchBinding(unit.id, {
                             printerDisplayLabel: e.target.value,
@@ -179,15 +264,29 @@ export function KitchenUnitPrintBindingsSection({
                         }
                         data-test-id={`${idPrefix}-alias-${unit.id}`}
                       >
-                        {aliasOptions(
-                          comandasAliases,
-                          binding.printerDisplayLabel ?? "",
-                        ).map((o) => (
-                          <option key={o.value || "__none"} value={o.value}>
-                            {o.label}
+                        {aliasLoading ? (
+                          <option value={binding.printerDisplayLabel ?? ""}>
+                            Cargando impresoras…
                           </option>
-                        ))}
+                        ) : (
+                          aliasOptions(
+                            aliases,
+                            binding.printerDisplayLabel ?? "",
+                          ).map((o) => (
+                            <option key={o.value || "__none"} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))
+                        )}
                       </select>
+                      {aliasError ? (
+                        <span
+                          className="text-xs text-destructive"
+                          data-test-id={`${idPrefix}-alias-error-${unit.id}`}
+                        >
+                          {aliasError}
+                        </span>
+                      ) : null}
                     </label>
                   </div>
                 ) : (

@@ -11,6 +11,7 @@ export type WaiterPrintAgentDto = {
   useTls: boolean;
   online: boolean;
   platform: string;
+  companyName?: string | null;
 };
 
 export async function listPrintAgentsForWaiterAction(body: {
@@ -34,5 +35,6 @@ export async function listPrintAgentsForWaiterAction(body: {
     useTls: Boolean(a.useTls),
     online: Boolean(a.online),
     platform: String(a.platform ?? "unknown"),
+    companyName: a.companyName != null ? String(a.companyName) : null,
   }));
 }

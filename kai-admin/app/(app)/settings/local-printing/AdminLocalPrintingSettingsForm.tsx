@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import {
   PrintServiceConnection,
   resolvePrintAgentConnectionUrls,
@@ -62,11 +63,34 @@ const INITIAL_DOC_PRINT_FORMATS: Record<AdminDocumentPrintKind, PrintFormat> = {
   backorder: "ticket_80mm",
 };
 
+function sessionCompanyLabel(session: {
+  user?: {
+    activeCompanyId?: string | null;
+    companies?: Array<{
+      id: string;
+      razonSocial?: string;
+      nombreFantasia?: string | null;
+    }> | null;
+  };
+} | null): string | null {
+  const activeId = session?.user?.activeCompanyId?.trim();
+  const companies = session?.user?.companies;
+  if (!activeId || !Array.isArray(companies)) return null;
+  const c = companies.find((x) => x.id === activeId);
+  if (!c) return null;
+  const fantasy = c.nombreFantasia?.trim();
+  if (fantasy) return fantasy;
+  const rs = c.razonSocial?.trim();
+  return rs || null;
+}
+
 export function AdminLocalPrintingSettingsForm({
   className = "",
   initialManifests,
 }: Props) {
   const formId = useId();
+  const { data: session } = useSession();
+  const activeCompanyLabel = sessionCompanyLabel(session);
   const [host, setHost] = useState("127.0.0.1");
   const [port, setPort] = useState("14567");
   const [wssPort, setWssPort] = useState("14568");
@@ -81,8 +105,8 @@ export function AdminLocalPrintingSettingsForm({
   const [storageHydrated, setStorageHydrated] = useState(false);
   const [catalogAgents, setCatalogAgents] = useState<PrintAgentCatalogItem[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
-  const [newAgentName, setNewAgentName] = useState("");
   const [lastPairingToken, setLastPairingToken] = useState<string | null>(null);
+  const [tokenCopied, setTokenCopied] = useState(false);
   const [catalogMsg, setCatalogMsg] = useState<string | null>(null);
 
   const refreshCatalog = useCallback(async () => {
@@ -100,6 +124,7 @@ export function AdminLocalPrintingSettingsForm({
           useTls: a.useTls,
           online: a.online,
           platform: a.platform,
+          companyName: a.companyName ?? null,
         })),
       );
     } catch (e) {
@@ -212,7 +237,15 @@ export function AdminLocalPrintingSettingsForm({
         <section className="rounded-xl border border-border bg-background p-4 shadow-sm">
           <h2 className="text-sm font-semibold text-foreground">Conexión al agente</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Elegí un agente emparejado con Kai Core (recomendado) o configurá host/puerto a mano.
+            El agente pertenece a esta empresa
+            {activeCompanyLabel ? (
+              <>
+                {" "}
+                (<span className="font-medium text-foreground">{activeCompanyLabel}</span>)
+              </>
+            ) : null}
+            . POS y mesero de otra empresa no lo ven. Los tickets y comandas se imprimen por la red
+            local del equipo, no a través de Core.
           </p>
           <div className="mt-4 space-y-4">
             <PrintAgentPicker
@@ -228,34 +261,25 @@ export function AdminLocalPrintingSettingsForm({
               data-test-id="admin-print-agent-picker"
             />
             <div className="rounded-md border border-dashed border-border p-3">
-              <p className="text-xs font-semibold text-foreground">Registrar agente</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <TextField
-                  label="Nombre"
-                  name="new-print-agent-name"
-                  value={newAgentName}
-                  onChange={(e) => setNewAgentName(e.target.value)}
-                  alwaysShowLabel
-                  className="min-w-[12rem] flex-1"
-                />
+              <p className="text-xs font-semibold text-foreground">Registrar agente de esta empresa</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Generá un token y emparejá Kai Printers (desktop o Android) con la URL de Core de este
+                tenant.
+              </p>
+              <div className="mt-2">
                 <Button
                   type="button"
                   variant="outlined"
                   size="sm"
-                  className="self-end"
                   onClick={() => {
                     void (async () => {
                       setCatalogMsg(null);
                       setLastPairingToken(null);
+                      setTokenCopied(false);
                       try {
-                        const created = await createPrintAgentAction({
-                          displayName: newAgentName.trim(),
-                        });
+                        const created = await createPrintAgentAction();
                         setLastPairingToken(created.pairingToken);
-                        setNewAgentName("");
-                        setCatalogMsg(
-                          "Copiá el token en Kai Printers (desktop/Android) para emparejar.",
-                        );
+                        setTokenCopied(false);
                         await refreshCatalog();
                       } catch (e) {
                         setCatalogMsg(e instanceof Error ? e.message : String(e));
@@ -263,19 +287,59 @@ export function AdminLocalPrintingSettingsForm({
                     })();
                   }}
                 >
-                  Crear y generar token
+                  Generar token
                 </Button>
               </div>
               {lastPairingToken ? (
-                <p className="mt-2 break-all rounded bg-muted/40 p-2 font-mono text-[11px] text-foreground">
-                  {lastPairingToken}
-                </p>
+                <div className="mt-2 space-y-2 rounded bg-muted/40 p-2 text-[11px] text-foreground">
+                  <div className="flex flex-wrap items-start gap-2">
+                    <p className="min-w-0 flex-1 break-all font-mono">{lastPairingToken}</p>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      size="sm"
+                      className="shrink-0"
+                      data-test-id="admin-print-agent-copy-token"
+                      onClick={() => {
+                        void (async () => {
+                          try {
+                            await navigator.clipboard.writeText(lastPairingToken);
+                            setTokenCopied(true);
+                            window.setTimeout(() => setTokenCopied(false), 2000);
+                          } catch {
+                            setTokenCopied(false);
+                            setCatalogMsg("No se pudo copiar el token");
+                          }
+                        })();
+                      }}
+                    >
+                      {tokenCopied ? "Copiado" : "Copiar token"}
+                    </Button>
+                  </div>
+                  <ol className="list-decimal space-y-1 pl-4 text-muted-foreground">
+                    <li>
+                      En Kai Printers pegá la URL de Core de este tenant
+                      {typeof process.env.NEXT_PUBLIC_BACKEND_API_URL === "string" &&
+                      process.env.NEXT_PUBLIC_BACKEND_API_URL.trim()
+                        ? ` (${process.env.NEXT_PUBLIC_BACKEND_API_URL.trim().replace(/\/+$/, "")})`
+                        : " (https://core.{tenant}.kaisuite.pro, o p. ej. http://localhost:5360 en demo)"}
+                      .
+                    </li>
+                    <li>Pegá este token y emparejá.</li>
+                    <li>Esperá a que el agente figure en línea con su IP de red local.</li>
+                  </ol>
+                </div>
               ) : null}
               {catalogAgents.length > 0 ? (
                 <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
                   {catalogAgents.map((a) => (
                     <li key={a.id} className="flex justify-between gap-2">
-                      <span>{a.displayName}</span>
+                      <span>
+                        {a.displayName}
+                        {" · "}
+                        {a.online ? "En línea" : "Sin heartbeat reciente"}
+                        {a.lanHost ? ` · ${a.lanHost}` : " · sin IP aún"}
+                      </span>
                       <button
                         type="button"
                         className="underline"

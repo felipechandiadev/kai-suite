@@ -1,16 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   KitchenUnitPrintBindingsSection,
   migrateKitchenBindingsFromServer,
   PrintAgentPicker,
-  PrintServiceConnection,
+  fetchAliasesByPurposeFromConnection,
   readPrintServiceConfigFromStorage,
   readWaiterKitchenComandaReplicaPrefs,
   readWaiterKitchenUnitPrintBindings,
-  resolvePrintAgentConnectionUrls,
   writePrintServiceConfigToStorage,
   writeWaiterKitchenComandaReplicaPrefs,
   writeWaiterKitchenUnitPrintBindings,
@@ -22,13 +21,6 @@ import { Button, TextField, Switch } from "@kai/ui";
 import { loadWaiterSession } from "@/lib/app-session";
 import { listPrintAgentsForWaiterAction } from "@/features/print-agents/actions/print-agents.action";
 import { listKitchenProductionUnitsAction } from "@/features/dining-waiter/actions/waiter.action";
-
-function stringList(v: unknown): string[] {
-  if (!Array.isArray(v)) return [];
-  return v
-    .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
-    .map((s) => s.trim());
-}
 
 export default function WaiterLocalPrintingPage() {
   const router = useRouter();
@@ -42,6 +34,8 @@ export default function WaiterLocalPrintingPage() {
   const [agents, setAgents] = useState<PrintAgentCatalogItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [aliasesLoading, setAliasesLoading] = useState(false);
+  const [aliasesError, setAliasesError] = useState<string | null>(null);
+  const [aliasesRefreshNonce, setAliasesRefreshNonce] = useState(0);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [kitchenReplicaEnabled, setKitchenReplicaEnabled] = useState(false);
   const [kitchenReplicaUnitIds, setKitchenReplicaUnitIds] = useState<string[]>(
@@ -80,43 +74,27 @@ export default function WaiterLocalPrintingPage() {
     setKitchenReplicaUnitIds(prefs.productionUnitIds);
   }, [router]);
 
-  const { wsUrl: url } = useMemo(
-    () =>
-      resolvePrintAgentConnectionUrls({
+  const refreshAliasesFromAgent = useCallback(async () => {
+    setAliasesLoading(true);
+    setAliasesError(null);
+    try {
+      const aliases = await fetchAliasesByPurposeFromConnection({
         host,
         port,
         wssPort,
         useTls,
-      }),
-    [host, port, wssPort, useTls],
-  );
-
-  const refreshAliasesFromAgent = useCallback(async () => {
-    setAliasesLoading(true);
-    const c = new PrintServiceConnection({
-      url,
-      clientId: "kai-waiter-print-prefs",
-      appLabel: "Kai Waiter",
-      userDisplayName: "Impresión",
-    });
-    let reachedOpen = false;
-    c.connect();
-    try {
-      await c.waitForOpen(20_000);
-      reachedOpen = true;
-      await new Promise((r) => globalThis.setTimeout(r, 400));
-      const raw = (await c.getConfig()) as {
-        aliasesByPurpose?: Record<string, unknown>;
-      };
-      const abp = raw?.aliasesByPurpose ?? {};
-      setComandasAliases(stringList(abp.comandas));
-    } catch {
+        clientId: "kai-waiter-print-prefs",
+        appLabel: "Kai Waiter",
+      });
+      setComandasAliases(aliases.comandas);
+      setAliasesRefreshNonce((n) => n + 1);
+    } catch (e) {
       setComandasAliases([]);
+      setAliasesError(e instanceof Error ? e.message : String(e));
     } finally {
-      c.disconnect({ ifConnecting: reachedOpen ? "default" : "abandon" });
       setAliasesLoading(false);
     }
-  }, [url]);
+  }, [host, port, wssPort, useTls]);
 
   const refresh = useCallback(async () => {
     const s = loadWaiterSession();
@@ -143,6 +121,7 @@ export default function WaiterLocalPrintingPage() {
           useTls: a.useTls,
           online: a.online,
           platform: a.platform,
+          companyName: a.companyName ?? null,
         })),
       );
       const mapped = units.map((u) => ({
@@ -199,20 +178,22 @@ export default function WaiterLocalPrintingPage() {
         </Button>
       </div>
       <p className="text-sm text-muted-foreground">
-        Elegí el agente Kai Printers por nombre. La impresión (cuando esté disponible) usa la red
-        local. Puede pedirse permiso de acceso a la red local en el navegador.
+        Elegí el agente Kai Printers de esta empresa. La impresión usa la IP de red local del
+        equipo. Puede pedirse permiso de acceso a la red local en el navegador.
       </p>
       <PrintAgentPicker
         agents={agents}
         loading={loading}
-        onRefresh={() => void refresh()}
+        onRefresh={() => {
+          void refresh();
+          void refreshAliasesFromAgent();
+        }}
         onApplied={(agent) => {
           setHost(agent.lanHost ?? host);
           setPort(String(agent.wsPort ?? 14567));
           setWssPort(String(agent.wssPort ?? 14568));
           setUseTls(Boolean(agent.useTls));
           setSavedMsg(`Conectado a ${agent.displayName}`);
-          void refreshAliasesFromAgent();
         }}
       />
       <details className="rounded-xl border border-border p-3">
@@ -277,6 +258,7 @@ export default function WaiterLocalPrintingPage() {
             void refreshAliasesFromAgent();
           }}
           comandasAliases={comandasAliases}
+          aliasesRefreshNonce={aliasesRefreshNonce}
           replicaEnabled={kitchenReplicaEnabled}
           onReplicaEnabledChange={setKitchenReplicaEnabled}
           replicaUnitIds={kitchenReplicaUnitIds}
@@ -294,6 +276,9 @@ export default function WaiterLocalPrintingPage() {
         </Button>
       </section>
 
+      {aliasesError ? (
+        <p className="text-xs text-destructive">{aliasesError}</p>
+      ) : null}
       {savedMsg ? <p className="text-xs text-muted-foreground">{savedMsg}</p> : null}
     </div>
   );

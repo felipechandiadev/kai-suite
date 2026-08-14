@@ -64,6 +64,7 @@ import {
   parsePrintFormat,
   printFormatToLegacyMode,
   printFormatToPurpose,
+  formatCompatibleWithPurpose,
   resolvePrintFormat,
   DOCUMENT_PRINT_FORMATS,
   TICKET_PRINT_FORMATS,
@@ -76,6 +77,7 @@ export {
   migrateLegacyPrintMode,
   parsePrintFormat,
   printFormatToPurpose,
+  formatCompatibleWithPurpose,
   isTicketPrintFormat,
   isDocumentPrintFormat,
   formatsMatchProfile,
@@ -653,7 +655,7 @@ export class PrintServiceConnection {
     const purpose = typeof withFormat.purpose === "string" ? withFormat.purpose : "documents";
     const type = typeof withFormat.type === "string" ? withFormat.type : "pdf-base64";
     const format = withFormat.format as PrintFormat;
-    if (printFormatToPurpose(format) !== purpose) {
+    if (!formatCompatibleWithPurpose(format, purpose)) {
       return Promise.reject(new Error("format_purpose_mismatch"));
     }
     if (purpose === "tickets" && type === "pdf-base64") {
@@ -1057,6 +1059,7 @@ export type PrintAgentCatalogItem = {
   useTls: boolean;
   online: boolean;
   platform?: string;
+  companyName?: string | null;
 };
 
 export function readPrintServiceConfigFromStorage(): PrintServiceStoredConfig {
@@ -1123,6 +1126,86 @@ export function applyPrintAgentCatalogItemToStorage(
   };
   writePrintServiceConfigToStorage(cfg);
   return { ...cfg };
+}
+
+export type PrintAliasesByPurpose = {
+  tickets: string[];
+  documents: string[];
+  comandas: string[];
+};
+
+function stringListFromUnknown(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+    .map((s) => s.trim());
+}
+
+function parseAliasesByPurpose(raw: unknown): PrintAliasesByPurpose {
+  const abp =
+    raw && typeof raw === "object"
+      ? ((raw as { aliasesByPurpose?: Record<string, unknown> }).aliasesByPurpose ?? {})
+      : {};
+  return {
+    tickets: stringListFromUnknown(abp.tickets),
+    documents: stringListFromUnknown(abp.documents),
+    comandas: stringListFromUnknown(abp.comandas),
+  };
+}
+
+/** Abre WS, pide `get_config` y cierra. No inventa host. */
+export async function fetchAliasesByPurposeFromConnection(args: {
+  host: string;
+  port: number | string;
+  wssPort: number | string;
+  useTls: boolean;
+  clientId?: string;
+  appLabel?: string;
+}): Promise<PrintAliasesByPurpose> {
+  const host = args.host.trim();
+  if (!host) {
+    throw new Error("Falta host del agente de impresión");
+  }
+  const { wsUrl } = resolvePrintAgentConnectionUrls({
+    host,
+    port: args.port,
+    wssPort: args.wssPort,
+    useTls: args.useTls,
+  });
+  const c = new PrintServiceConnection({
+    url: wsUrl,
+    clientId: args.clientId ?? "kai-print-aliases",
+    appLabel: args.appLabel ?? "Impresión",
+  });
+  let reachedOpen = false;
+  c.connect();
+  try {
+    await c.waitForOpen(20_000);
+    reachedOpen = true;
+    await new Promise((r) => globalThis.setTimeout(r, 400));
+    return parseAliasesByPurpose(await c.getConfig());
+  } finally {
+    c.disconnect({ ifConnecting: reachedOpen ? "default" : "abandon" });
+  }
+}
+
+export async function fetchAliasesByPurposeFromAgent(
+  agent: PrintAgentCatalogItem,
+  opts?: { clientId?: string; appLabel?: string },
+): Promise<PrintAliasesByPurpose> {
+  const lanHost = agent.lanHost?.trim() ?? "";
+  if (!lanHost) {
+    throw new Error("El agente aún no reportó IP LAN (esperá un heartbeat)");
+  }
+  const useTls = printServicePageRequiresTls() ? Boolean(agent.useTls) : false;
+  return fetchAliasesByPurposeFromConnection({
+    host: lanHost,
+    port: agent.wsPort ?? 14567,
+    wssPort: agent.wssPort ?? 14568,
+    useTls,
+    clientId: opts?.clientId,
+    appLabel: opts?.appLabel,
+  });
 }
 
 /** Elección del POS: impresora por alias (definida en el agente) para tickets / documentos. Solo localStorage. */

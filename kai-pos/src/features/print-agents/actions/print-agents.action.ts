@@ -12,6 +12,7 @@ export type PosPrintAgentDto = {
   useTls: boolean;
   online: boolean;
   platform: string;
+  companyName?: string | null;
 };
 
 function apiUrl(path: string): string {
@@ -45,5 +46,6 @@ export async function listPrintAgentsForPosAction(): Promise<PosPrintAgentDto[]>
     useTls: Boolean(a.useTls),
     online: Boolean(a.online),
     platform: String(a.platform ?? "unknown"),
+    companyName: a.companyName != null ? String(a.companyName) : null,
   }));
 }
