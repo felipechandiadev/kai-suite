@@ -23,6 +23,7 @@ import { VariantDetailStockValueSection } from "./VariantDetailStockValueSection
 import { VariantDetailLogisticsSection } from "./VariantDetailLogisticsSection";
 import { VariantDetailMultimediaSection } from "./VariantDetailMultimediaSection";
 import { VariantDetailRecipeSection } from "./VariantDetailRecipeSection";
+import { VariantDetailBranchAvailabilitySection } from "./VariantDetailBranchAvailabilitySection";
 import { VariantDetailProductionSection } from "./VariantDetailProductionSection";
 import { VariantDetailEShopSection } from "./VariantDetailEShopSection";
 import { VariantDetailPurchasesSection } from "./VariantDetailPurchasesSection";
@@ -78,6 +79,7 @@ export default function ProductVariantDetailPage({ product, variant: initialVari
       VARIANT_DETAIL_TABS.filter((t) => {
         if (t.id === "receta") return showRecipe;
         if (t.id === "produccion") return showProduction;
+        if (t.id === "sucursales") return isSellable;
         if (t.id === "precios" || t.id === "despacho" || t.id === "eshop") return isSellable;
         return true;
       }),
@@ -185,6 +187,9 @@ export default function ProductVariantDetailPage({ product, variant: initialVari
         data-active-section={activeSection}
       >
         {activeSection === "identidad" ? <VariantDetailIdentitySection {...sectionProps} /> : null}
+        {activeSection === "sucursales" && isSellable ? (
+          <VariantDetailBranchAvailabilitySection variantId={variant.id} />
+        ) : null}
         {activeSection === "precios" ? <VariantDetailPricingSection {...sectionProps} /> : null}
         {activeSection === "sii" ? <VariantDetailSiiSection variant={variant} /> : null}
         {activeSection === "compras" ? (

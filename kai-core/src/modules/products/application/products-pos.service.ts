@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException, Inject, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, IsNull, In, SelectQueryBuilder } from 'typeorm';
+import { Repository, DataSource, IsNull, SelectQueryBuilder } from 'typeorm';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
+import { ProductVariantBranchAvailability } from '@modules/product-variants/domain/product-variant-branch-availability.entity';
 import { Product, ProductType } from '@modules/products/domain/product.entity';
 import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
 import { Storage } from '@modules/storages/domain/storage.entity';
@@ -59,6 +60,8 @@ export class ProductsPosService {
   constructor(
     @InjectRepository(ProductVariant)
     private readonly variantRepository: Repository<ProductVariant>,
+    @InjectRepository(ProductVariantBranchAvailability)
+    private readonly variantBranchAvailabilityRepository: Repository<ProductVariantBranchAvailability>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
     @Inject(PRICE_LIST_ITEMS_REPOSITORY)
@@ -151,17 +154,7 @@ export class ProductsPosService {
     }
 
     const effectiveBranchId = scope.resolvedBranchId?.trim() || '';
-    if (effectiveBranchId) {
-      qb.andWhere(
-        `NOT EXISTS (
-          SELECT 1 FROM product_variant_branch_availability pva
-          WHERE pva.product_variant_id = v.id
-            AND pva.branch_id = :availBranchId
-            AND pva.is_active = false
-        )`,
-        { availBranchId: effectiveBranchId },
-      );
-    }
+    this.applyVariantBranchAvailabilityFilter(qb, effectiveBranchId);
 
     // Paginación
     const skip = (page - 1) * pageSize;
@@ -221,6 +214,10 @@ export class ProductsPosService {
 
     const baseQb = this.variantRepository.createQueryBuilder('v');
     this.applyPosPriceListVariantJoins(baseQb, priceListId);
+    this.applyVariantBranchAvailabilityFilter(
+      baseQb,
+      scope.resolvedBranchId?.trim() || '',
+    );
 
     const totalCount = await baseQb.getCount();
 
@@ -270,6 +267,10 @@ export class ProductsPosService {
 
     const activeQb = this.variantRepository.createQueryBuilder('v');
     this.applyPosPriceListVariantJoins(activeQb, priceListId);
+    this.applyVariantBranchAvailabilityFilter(
+      activeQb,
+      scope.resolvedBranchId?.trim() || '',
+    );
     activeQb.andWhere(
       '(product.updatedAt >= :since OR v.updatedAt >= :since OR priceListItem.updatedAt >= :since)',
       { since: sinceDate },
@@ -298,9 +299,21 @@ export class ProductsPosService {
       .take(500)
       .getMany();
 
+    const branchTombstoneIds = await this.listBranchDeactivatedVariantIdsSince(
+      scope.resolvedBranchId?.trim() || '',
+      sinceDate,
+    );
+
+    const tombstones = [
+      ...new Set([
+        ...tombstoneRows.map((v) => v.id),
+        ...branchTombstoneIds,
+      ]),
+    ];
+
     return {
       items,
-      tombstones: tombstoneRows.map((v) => v.id),
+      tombstones,
       snapshotAt: new Date().toISOString(),
     };
   }
@@ -333,25 +346,68 @@ export class ProductsPosService {
     if (priceListId) {
       const qb = this.variantRepository.createQueryBuilder('v');
       this.applyPosPriceListVariantJoins(qb, priceListId);
+      this.applyVariantBranchAvailabilityFilter(
+        qb,
+        scope.resolvedBranchId?.trim() || '',
+      );
       activeVariants = await qb.andWhere('v.id IN (:...ids)', { ids }).getMany();
     } else {
-      const variants = await this.variantRepository.find({
-        where: {
-          id: In(ids),
-          deletedAt: IsNull(),
-          isActive: true,
-        },
-        relations: ['product', 'saleUnit', 'stockBaseUnit'],
-      });
-      activeVariants = variants.filter(
-        (v) =>
-          v.product &&
-          v.product.deletedAt == null &&
-          v.product.isActive === true,
+      const qb = this.variantRepository
+        .createQueryBuilder('v')
+        .innerJoinAndSelect('v.product', 'product')
+        .leftJoinAndSelect('v.saleUnit', 'saleUnit')
+        .leftJoinAndSelect('v.stockBaseUnit', 'stockBaseUnit')
+        .where('v.id IN (:...ids)', { ids })
+        .andWhere('v.deletedAt IS NULL')
+        .andWhere('v.isActive = :isActive', { isActive: true })
+        .andWhere('product.deletedAt IS NULL')
+        .andWhere('product.isActive = :isActive', { isActive: true });
+      this.applyVariantBranchAvailabilityFilter(
+        qb,
+        scope.resolvedBranchId?.trim() || '',
       );
+      activeVariants = await qb.getMany();
     }
 
     return this.mapVariantsToPosSearchResults(activeVariants, scope);
+  }
+
+  private applyVariantBranchAvailabilityFilter(
+    qb: SelectQueryBuilder<ProductVariant>,
+    branchId: string,
+  ): void {
+    const effectiveBranchId = branchId?.trim() || '';
+    if (!effectiveBranchId) {
+      return;
+    }
+    qb.andWhere(
+      `NOT EXISTS (
+        SELECT 1 FROM product_variant_branch_availability pva
+        WHERE pva.product_variant_id = v.id
+          AND pva.branch_id = :availBranchId
+          AND pva.is_active = false
+      )`,
+      { availBranchId: effectiveBranchId },
+    );
+  }
+
+  private async listBranchDeactivatedVariantIdsSince(
+    branchId: string,
+    since: Date,
+  ): Promise<string[]> {
+    const effectiveBranchId = branchId?.trim() || '';
+    if (!effectiveBranchId) {
+      return [];
+    }
+    const rows = await this.variantBranchAvailabilityRepository
+      .createQueryBuilder('pva')
+      .where('pva.branch_id = :branchId', { branchId: effectiveBranchId })
+      .andWhere('pva.is_active = false')
+      .andWhere('pva.updated_at >= :since', { since })
+      .select('pva.product_variant_id', 'variantId')
+      .take(500)
+      .getRawMany<{ variantId: string }>();
+    return rows.map((r) => r.variantId).filter(Boolean);
   }
 
   private async resolvePosStockScope(args: {

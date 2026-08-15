@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { Alert, IconButton, Switch } from "@kai/ui";
+import { Alert, IconButton } from "@kai/ui";
 import {
-  getVariantBranchAvailabilityAction,
   getVariantProductionRoutingAction,
-  saveVariantBranchAvailabilityAction,
   saveVariantProductionRoutingAction,
 } from "@/features/inventory-products/actions/variant-production.action";
 import { listProductionUnitsForPage } from "@/features/inventory-production-units/actions/production-unit.action";
@@ -22,7 +20,6 @@ import { VariantDetailProductionAttributesBlock } from "./VariantDetailProductio
 type BranchRoutingState = {
   unitIds: Set<string>;
   defaultUnitId: string | null;
-  isActiveInBranch: boolean;
   expanded: boolean;
 };
 
@@ -89,16 +86,12 @@ export function VariantDetailProductionSection({
         purpose ? { purpose } : undefined,
       ),
       getVariantProductionRoutingAction(variantId),
-      getVariantBranchAvailabilityAction(variantId),
     ])
-      .then(([branchList, unitList, routing, availability]) => {
+      .then(([branchList, unitList, routing]) => {
         if (cancelled) return;
         setBranches(branchList);
         setUnits(unitList);
         const allowedUnitIds = new Set(unitList.map((u) => u.id));
-        const availMap = new Map(
-          availability.map((a) => [a.branchId, a.isActive !== false]),
-        );
         const next: Record<string, BranchRoutingState> = {};
         for (const b of branchList) {
           const rows = routing.filter(
@@ -113,9 +106,6 @@ export function VariantDetailProductionSection({
               defaultRow && unitIds.has(defaultRow.productionUnitId)
                 ? defaultRow.productionUnitId
                 : (unitIds.values().next().value as string | undefined) ?? null,
-            isActiveInBranch: availMap.has(b.id)
-              ? availMap.get(b.id) === true
-              : true,
             expanded: false,
           };
         }
@@ -169,14 +159,6 @@ export function VariantDetailProductionSection({
     });
   };
 
-  const setActiveInBranch = (branchId: string, isActive: boolean) => {
-    setByBranch((prev) => {
-      const cur = prev[branchId];
-      if (!cur) return prev;
-      return { ...prev, [branchId]: { ...cur, isActiveInBranch: isActive } };
-    });
-  };
-
   const handleSave = () => {
     setSaveError(null);
     const routingItems: Array<{
@@ -184,16 +166,10 @@ export function VariantDetailProductionSection({
       productionUnitId: string;
       isDefault: boolean;
     }> = [];
-    const availabilityItems: Array<{ branchId: string; isActive: boolean }> =
-      [];
 
     for (const branch of branches) {
       const state = byBranch[branch.id];
       if (!state) continue;
-      availabilityItems.push({
-        branchId: branch.id,
-        isActive: state.isActiveInBranch,
-      });
       if (state.unitIds.size === 0) continue;
       if (!state.defaultUnitId || !state.unitIds.has(state.defaultUnitId)) {
         setSaveError(
@@ -211,19 +187,13 @@ export function VariantDetailProductionSection({
     }
 
     startTransition(() => {
-      void Promise.all([
-        saveVariantProductionRoutingAction(variantId, routingItems),
-        saveVariantBranchAvailabilityAction(variantId, availabilityItems),
-      ]).then(([routingRes, availRes]) => {
-        if (!routingRes.success) {
-          setSaveError(routingRes.message);
-          return;
-        }
-        if (!availRes.success) {
-          setSaveError(availRes.message);
-          return;
-        }
-      });
+      void saveVariantProductionRoutingAction(variantId, routingItems).then(
+        (routingRes) => {
+          if (!routingRes.success) {
+            setSaveError(routingRes.message);
+          }
+        },
+      );
     });
   };
 
@@ -355,28 +325,17 @@ export function VariantDetailProductionSection({
               className="rounded-lg border border-border bg-muted/10"
               data-test-id={`pv-prod-branch-${branch.id}`}
             >
-              <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-                <button
-                  type="button"
-                  className="text-left text-sm font-medium text-foreground"
-                  onClick={() => toggleExpand(branch.id)}
-                  aria-expanded={state.expanded}
-                >
-                  {state.expanded ? "▾" : "▸"} {branch.name}
-                  <span className="ml-2 text-xs font-normal text-muted-foreground">
-                    {localAssigned} unidad(es) de sucursal
-                  </span>
-                </button>
-                <Switch
-                  label="Activo en sucursal"
-                  labelPosition="left"
-                  checked={state.isActiveInBranch}
-                  onChange={(v) => setActiveInBranch(branch.id, v)}
-                  disabled={pending}
-                  density="compact"
-                  data-test-id={`pv-prod-active-${branch.id}`}
-                />
-              </div>
+              <button
+                type="button"
+                className="flex w-full items-center px-3 py-2 text-left text-sm font-medium text-foreground"
+                onClick={() => toggleExpand(branch.id)}
+                aria-expanded={state.expanded}
+              >
+                {state.expanded ? "▾" : "▸"} {branch.name}
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  {localAssigned} unidad(es) de sucursal
+                </span>
+              </button>
               {state.expanded ? (
                 <div className="flex flex-col gap-1.5 border-t border-border px-3 py-3">
                   {localUnits.length === 0 ? (

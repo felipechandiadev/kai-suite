@@ -1958,6 +1958,13 @@ export class ProductVariantsService {
       await em.save(rows);
     });
 
+    this.catalogRealtime?.emitInvalidated({
+      companyId,
+      kinds: ['VARIANT'],
+      variantIds: [variantId],
+      at: new Date().toISOString(),
+    });
+
     return this.listBranchAvailability(variantId);
   }
 

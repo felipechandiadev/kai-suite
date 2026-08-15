@@ -31,18 +31,92 @@ function hydratedVariant(id: string): ProductVariant {
   } as unknown as ProductVariant;
 }
 
-describe('ProductsPosService.buildCatalogSnapshotForPos', () => {
-  function createStockQb() {
-    return {
+function createBranchAvailabilityQb(rawRows: Array<{ variantId: string }> = []) {
+  return {
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
+    getRawMany: jest.fn().mockResolvedValue(rawRows),
+  };
+}
+
+function createProductsPosService(overrides?: {
+  variantRepository?: Record<string, unknown>;
+  variantBranchAvailabilityRepository?: Record<string, unknown>;
+}) {
+  const stockQb = {
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    groupBy: jest.fn().mockReturnThis(),
+    getRawMany: jest.fn().mockResolvedValue([]),
+  };
+
+  return new ProductsPosService(
+    (overrides?.variantRepository ?? {}) as any,
+    (overrides?.variantBranchAvailabilityRepository ??
+      ({
+        createQueryBuilder: jest.fn().mockReturnValue(createBranchAvailabilityQb()),
+      } as any)),
+    {} as any,
+    {} as any,
+    { createQueryBuilder: jest.fn().mockReturnValue(stockQb) } as any,
+    { find: jest.fn().mockResolvedValue([]) } as any,
+    { listByEntity: jest.fn() } as any,
+    { getRepository: jest.fn() } as any,
+  );
+}
+
+describe('ProductsPosService branch availability filter', () => {
+  it('applyVariantBranchAvailabilityFilter adds NOT EXISTS when branchId is set', () => {
+    const qb = { andWhere: jest.fn() };
+    const service = createProductsPosService();
+    (service as any).applyVariantBranchAvailabilityFilter(qb, 'branch-1');
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('product_variant_branch_availability'),
+      { availBranchId: 'branch-1' },
+    );
+  });
+
+  it('applyVariantBranchAvailabilityFilter skips when branchId is empty', () => {
+    const qb = { andWhere: jest.fn() };
+    const service = createProductsPosService();
+    (service as any).applyVariantBranchAvailabilityFilter(qb, '');
+    expect(qb.andWhere).not.toHaveBeenCalled();
+  });
+
+  it('lookupVariantsForPos applies branch filter on query builder', async () => {
+    const qb = {
+      innerJoinAndSelect: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      select: jest.fn().mockReturnThis(),
-      addSelect: jest.fn().mockReturnThis(),
-      groupBy: jest.fn().mockReturnThis(),
-      getRawMany: jest.fn().mockResolvedValue([]),
+      getMany: jest.fn().mockResolvedValue([]),
     };
-  }
+    const variantRepository = {
+      createQueryBuilder: jest.fn().mockReturnValue(qb),
+    };
+    const service = createProductsPosService({ variantRepository });
+    const filterSpy = jest.spyOn(service as any, 'applyVariantBranchAvailabilityFilter');
+    jest.spyOn(service as any, 'resolvePosStockScope').mockResolvedValue({
+      resolvedBranchId: 'branch-1',
+      storageIdsForStock: null,
+    });
+    jest.spyOn(service as any, 'mapVariantsToPosSearchResults').mockResolvedValue([]);
 
+    await service.lookupVariantsForPos({
+      variantIds: ['v1'],
+      branchId: 'branch-1',
+      priceListId: 'pl-1',
+    });
+
+    expect(filterSpy).toHaveBeenCalledWith(qb, 'branch-1');
+  });
+});
+
+describe('ProductsPosService.buildCatalogSnapshotForPos', () => {
   it('pagina por cursor y omite multimedia', async () => {
     const variantsPage1 = [hydratedVariant('v1'), hydratedVariant('v2')];
     const variantsPage2 = [hydratedVariant('v3')];
@@ -67,17 +141,10 @@ describe('ProductsPosService.buildCatalogSnapshotForPos', () => {
       createQueryBuilder: jest.fn().mockReturnValue(qb),
     };
 
-    const service = new ProductsPosService(
-      variantRepository as any,
-      {} as any,
-      {} as any,
-      { createQueryBuilder: jest.fn().mockReturnValue(createStockQb()) } as any,
-      { find: jest.fn().mockResolvedValue([]) } as any,
-      { listByEntity: jest.fn() } as any,
-      { getRepository: jest.fn() } as any,
-    );
+    const service = createProductsPosService({ variantRepository });
 
     jest.spyOn(service as any, 'resolvePosStockScope').mockResolvedValue({
+      resolvedBranchId: 'branch-1',
       storageIdsForStock: ['st-1'],
     });
 
@@ -91,6 +158,10 @@ describe('ProductsPosService.buildCatalogSnapshotForPos', () => {
     expect(page1.items[0].unitPriceWithTax).toBe(5950);
     expect(page1.nextCursor).toBe('v2');
     expect(page1.totalCount).toBe(3);
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('product_variant_branch_availability'),
+      { availBranchId: 'branch-1' },
+    );
 
     const page2 = await service.buildCatalogSnapshotForPos({
       pointOfSaleId: 'pos-1',
@@ -111,15 +182,7 @@ describe('ProductsPosService.buildCatalogSnapshotForPos', () => {
       andWhere: jest.fn().mockReturnThis(),
     };
 
-    const service = new ProductsPosService(
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-    );
+    const service = createProductsPosService();
 
     (service as any).applyPosPriceListVariantJoins(qb, 'pl-99');
 
@@ -136,17 +199,6 @@ describe('ProductsPosService.buildCatalogSnapshotForPos', () => {
 });
 
 describe('ProductsPosService.buildCatalogDeltaForPos', () => {
-  function createStockQb() {
-    return {
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      select: jest.fn().mockReturnThis(),
-      addSelect: jest.fn().mockReturnThis(),
-      groupBy: jest.fn().mockReturnThis(),
-      getRawMany: jest.fn().mockResolvedValue([]),
-    };
-  }
-
   it('incluye variantes con v.updatedAt o priceListItem.updatedAt además de product.updatedAt', async () => {
     const activeQb = {
       innerJoinAndSelect: jest.fn().mockReturnThis(),
@@ -173,17 +225,10 @@ describe('ProductsPosService.buildCatalogDeltaForPos', () => {
         .mockReturnValueOnce(tombstoneQb),
     };
 
-    const service = new ProductsPosService(
-      variantRepository as any,
-      {} as any,
-      {} as any,
-      { createQueryBuilder: jest.fn().mockReturnValue(createStockQb()) } as any,
-      { find: jest.fn().mockResolvedValue([]) } as any,
-      { listByEntity: jest.fn() } as any,
-      { getRepository: jest.fn() } as any,
-    );
+    const service = createProductsPosService({ variantRepository });
 
     jest.spyOn(service as any, 'resolvePosStockScope').mockResolvedValue({
+      resolvedBranchId: 'branch-1',
       storageIdsForStock: ['st-1'],
     });
 
@@ -234,17 +279,10 @@ describe('ProductsPosService.buildCatalogDeltaForPos', () => {
         .mockReturnValueOnce(tombstoneQb),
     };
 
-    const service = new ProductsPosService(
-      variantRepository as any,
-      {} as any,
-      {} as any,
-      { createQueryBuilder: jest.fn().mockReturnValue(createStockQb()) } as any,
-      { find: jest.fn().mockResolvedValue([]) } as any,
-      { listByEntity: jest.fn() } as any,
-      { getRepository: jest.fn() } as any,
-    );
+    const service = createProductsPosService({ variantRepository });
 
     jest.spyOn(service as any, 'resolvePosStockScope').mockResolvedValue({
+      resolvedBranchId: 'branch-1',
       storageIdsForStock: ['st-1'],
     });
 
@@ -256,5 +294,58 @@ describe('ProductsPosService.buildCatalogDeltaForPos', () => {
 
     expect(delta.items).toHaveLength(1);
     expect(delta.items[0].requiresDte).toBe(false);
+  });
+
+  it('agrega tombstones por desactivación en sucursal', async () => {
+    const activeQb = {
+      innerJoinAndSelect: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
+    };
+
+    const tombstoneQb = {
+      innerJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
+    };
+
+    const variantRepository = {
+      createQueryBuilder: jest
+        .fn()
+        .mockReturnValueOnce(activeQb)
+        .mockReturnValueOnce(tombstoneQb),
+    };
+
+    const variantBranchAvailabilityRepository = {
+      createQueryBuilder: jest
+        .fn()
+        .mockReturnValue(
+          createBranchAvailabilityQb([{ variantId: 'v-branch-off' }]),
+        ),
+    };
+
+    const service = createProductsPosService({
+      variantRepository,
+      variantBranchAvailabilityRepository,
+    });
+
+    jest.spyOn(service as any, 'resolvePosStockScope').mockResolvedValue({
+      resolvedBranchId: 'branch-1',
+      storageIdsForStock: ['st-1'],
+    });
+
+    const delta = await service.buildCatalogDeltaForPos({
+      pointOfSaleId: 'pos-1',
+      priceListId: 'pl-1',
+      since: new Date(Date.now() - 60_000).toISOString(),
+    });
+
+    expect(delta.tombstones).toContain('v-branch-off');
   });
 });
