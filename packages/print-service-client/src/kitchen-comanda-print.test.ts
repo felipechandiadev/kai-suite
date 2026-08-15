@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildKitchenComandaTestPayload,
   collectKitchenComandaPrintJobs,
   kitchenUnitPrintBindingConfigured,
   kitchenUnitRequiresPrintBinding,
@@ -7,6 +8,8 @@ import {
   migrateKitchenBindingsFromServer,
   replicaIncludesUnit,
   resolveKitchenUnitPrintBinding,
+  readWaiterTicketsPrinterAlias,
+  writeWaiterTicketsPrinterAlias,
   type KitchenFireLineForPrint,
 } from "./kitchen-comanda-print";
 
@@ -25,27 +28,38 @@ function line(
 }
 
 describe("kitchen-comanda-print helpers", () => {
+  it("buildKitchenComandaTestPayload marca cuenta PRUEBA", () => {
+    const ticket = buildKitchenComandaTestPayload({
+      productionUnitName: "Cocina caliente",
+      companyName: "Kai Food",
+    });
+    expect(ticket.accountLabel).toBe("PRUEBA");
+    expect(ticket.productionUnitName).toBe("Cocina caliente");
+    expect(ticket.company.nombreFantasia).toBe("Kai Food");
+    expect(ticket.lines.length).toBeGreaterThan(0);
+  });
+
   it("kitchenUnitShouldPrint only for PRINTED and BOTH", () => {
     expect(kitchenUnitShouldPrint("KDS")).toBe(false);
     expect(kitchenUnitShouldPrint("PRINTED")).toBe(true);
     expect(kitchenUnitShouldPrint("BOTH")).toBe(true);
   });
 
-  it("replicaIncludesUnit treats empty selection as all", () => {
+  it("replicaIncludesUnit only matches explicit unit ids", () => {
     expect(
       replicaIncludesUnit({ enabled: true, productionUnitIds: [] }, "up-a", "PRINTED"),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       replicaIncludesUnit({ enabled: true, productionUnitIds: ["up-b"] }, "up-a", "PRINTED"),
     ).toBe(false);
     expect(
-      replicaIncludesUnit({ enabled: false, productionUnitIds: [] }, "up-a", "PRINTED"),
-    ).toBe(false);
+      replicaIncludesUnit({ enabled: false, productionUnitIds: ["up-a"] }, "up-a", "PRINTED"),
+    ).toBe(true);
   });
 
   it("replicaIncludesUnit skips KDS-only units", () => {
     expect(
-      replicaIncludesUnit({ enabled: true, productionUnitIds: [] }, "up-a", "KDS"),
+      replicaIncludesUnit({ enabled: true, productionUnitIds: ["up-a"] }, "up-a", "KDS"),
     ).toBe(false);
   });
 
@@ -152,5 +166,30 @@ describe("kitchen-comanda-print helpers", () => {
       { name: "Completo", quantity: 2, notes: null },
       { name: "Completo", quantity: 1, notes: "sin mayo" },
     ]);
+  });
+
+  it("persists waiter tickets printer alias", () => {
+    const storage = new Map<string, string>();
+    const ls = {
+      getItem: (k: string) => storage.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        storage.set(k, v);
+      },
+      removeItem: (k: string) => {
+        storage.delete(k);
+      },
+    };
+    Object.defineProperty(globalThis, "localStorage", {
+      value: ls,
+      configurable: true,
+    });
+    Object.defineProperty(globalThis, "window", {
+      value: globalThis,
+      configurable: true,
+    });
+    writeWaiterTicketsPrinterAlias("Caja 1");
+    expect(readWaiterTicketsPrinterAlias()).toBe("Caja 1");
+    writeWaiterTicketsPrinterAlias("  ");
+    expect(readWaiterTicketsPrinterAlias()).toBe("");
   });
 });

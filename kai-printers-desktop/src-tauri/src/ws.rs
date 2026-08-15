@@ -705,15 +705,13 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
                 ));
                 let logo_merge_started = std::time::Instant::now();
                 let mut ticket_value = ticket.clone();
-                if crate::purpose_util::is_sale_ticket_purpose(purpose) {
-                    crate::ticket_logos::merge_mapping_logo_into_ticket(
-                        &state.data_dir,
-                        &state.db,
-                        purpose,
-                        printer_display_label_early,
-                        &mut ticket_value,
-                    );
-                }
+                crate::ticket_logos::merge_mapping_logo_into_ticket(
+                    &state.data_dir,
+                    &state.db,
+                    purpose,
+                    printer_display_label_early,
+                    &mut ticket_value,
+                );
                 crate::print_diag::info_elapsed_stage(
                     Some(&state.broadcast),
                     None,
@@ -791,7 +789,7 @@ async fn dispatch(state: &Arc<AppState>, env: &Envelope, action: &str) -> OutRes
                         Err(e) => return OutResponse::err(rid, format!("{e:#}")),
                     }
                 } else {
-                    match state.db.default_print_target_for_purpose(purpose) {
+                    match state.db.resolve_print_target_for_enqueue(purpose, None) {
                         Ok(Some(t)) if t.is_configured() => (t.system_printer, t.network_host),
                         Ok(_) => (None, None),
                         Err(e) => return OutResponse::err(rid, format!("{e:#}")),

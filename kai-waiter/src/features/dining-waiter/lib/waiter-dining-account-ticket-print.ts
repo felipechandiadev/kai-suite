@@ -2,16 +2,19 @@
 
 import {
   agentSupportsPosDiningAccountTicket,
+  buildWebSocketUrl,
   humanizePrintAgentError,
   POS_DINING_ACCOUNT_TICKET_FOOTER_NOTE,
   POS_DINING_ACCOUNT_TICKET_PAYLOAD_VERSION,
   printServicePageRequiresTls,
-  readConfiguredPurposePrinterAliasMap,
+  PrintServiceConnection,
   readPrintServiceConfigFromStorage,
+  readWaiterTicketsPrinterAlias,
   resetSharedPrintServiceConnections,
-  withSharedPrintServiceConnection,
   writePrintServiceConfigToStorage,
+  type HelloResponseData,
   type PosDiningAccountTicketPayload,
+  type PrintAgentCatalogItem,
 } from "@kai/print-service-client";
 
 export type WaiterDiningAccountTicketLine = {
@@ -32,6 +35,7 @@ export type WaiterDiningAccountTicketInput = {
   branchName?: string | null;
   tipSuggestPercent?: number | null;
   tipSuggestedAmount?: number | null;
+  printAgents?: PrintAgentCatalogItem[];
 };
 
 function extractJobId(res: unknown): string | null {
@@ -106,10 +110,68 @@ function toPrintError(e: unknown, hostHint: string): Error {
       `${human} Revisá Impresión: host ${hostHint || "?"} y que Kai Printers esté en línea.`,
     );
   }
+  if (raw.includes("agent_no_pos_dining_account_ticket")) {
+    return new Error(
+      "El agente no soporta tickets de cuenta. Actualizá Kai Printers.",
+    );
+  }
   return new Error(human !== raw ? human : raw);
 }
 
-async function enqueueOnAgent(
+function resolveWaiterAccountAgent(
+  agents: PrintAgentCatalogItem[] | undefined,
+): PrintAgentCatalogItem | null {
+  const cfg = readPrintServiceConfigFromStorage();
+  const agentId = cfg.agentId?.trim();
+  if (agentId && agents?.length) {
+    const found = agents.find((a) => a.id === agentId);
+    if (found) return found;
+  }
+  return null;
+}
+
+async function withWaiterTicketsConnection(
+  agent: PrintAgentCatalogItem | null,
+  fn: (
+    conn: PrintServiceConnection,
+    hello: HelloResponseData | null,
+  ) => Promise<void>,
+): Promise<{ host: string }> {
+  const cfg = readPrintServiceConfigFromStorage();
+  const host = agent?.lanHost?.trim() || cfg.host.trim();
+  if (!host) {
+    throw new Error(
+      "Configurá el agente de impresión en Impresión (menú superior)",
+    );
+  }
+  const tls = printServicePageRequiresTls();
+  const port = tls
+    ? (agent?.wssPort ?? cfg.wssPort ?? 14568)
+    : (agent?.wsPort ?? cfg.port ?? 14567);
+  const conn = new PrintServiceConnection({
+    url: buildWebSocketUrl(host, port, tls),
+    clientId: "kai-waiter-account-print",
+    appLabel: "Kai Waiter",
+    requiredPurposes: ["tickets"],
+  });
+  conn.connect();
+  try {
+    await conn.waitForOpen(15_000);
+    try {
+      await conn.waitForHello(10_000);
+    } catch {
+      /* hello opcional */
+    }
+    await fn(conn, conn.getHelloPayload());
+  } finally {
+    conn.disconnect({ ifConnecting: "abandon" });
+  }
+  return { host };
+}
+
+async function enqueueOnConn(
+  conn: PrintServiceConnection,
+  hello: HelloResponseData | null,
   ticket: PosDiningAccountTicketPayload,
   meta: {
     filename: string;
@@ -118,61 +180,50 @@ async function enqueueOnAgent(
     format: "ticket_80mm";
     purpose: "tickets";
     sourceApp: string;
+    printerDisplayLabel?: string | null;
   },
 ): Promise<void> {
-  const aliases = readConfiguredPurposePrinterAliasMap();
-  const hasAlias = Boolean(aliases.tickets?.trim());
-
-  await withSharedPrintServiceConnection(
-    "tickets",
-    {
-      clientId: "kai-waiter-print",
-      appLabel: "Kai Waiter",
-      requiredPurposes: ["tickets"],
-    },
-    async (conn, hello) => {
-      if (hello != null && !agentSupportsPosDiningAccountTicket(hello)) {
-        throw new Error("agent_no_pos_dining_account_ticket");
+  if (hello != null && !agentSupportsPosDiningAccountTicket(hello)) {
+    throw new Error("agent_no_pos_dining_account_ticket");
+  }
+  const hasAlias = Boolean(meta.printerDisplayLabel?.trim());
+  const attempts = hasAlias ? [false, true] : [true, false];
+  let lastError: unknown = null;
+  for (const omitLabel of attempts) {
+    try {
+      const res = (await conn.enqueuePosDiningAccountTicket(
+        ticket,
+        meta,
+        omitLabel,
+      )) as { jobId?: string; queued?: boolean };
+      if (res && res.queued === false && !res.jobId) {
+        throw new Error("enqueue_rejected");
       }
-
-      const attempts = hasAlias ? [false, true] : [true, false];
-      let lastError: unknown = null;
-      for (const omitLabel of attempts) {
-        try {
-          const res = (await conn.enqueuePosDiningAccountTicket(
-            ticket,
-            meta,
-            omitLabel,
-          )) as { jobId?: string; queued?: boolean };
-          if (res && res.queued === false && !res.jobId) {
-            throw new Error("enqueue_rejected");
-          }
-          const jobId = extractJobId(res);
-          if (jobId) {
-            const delivery = await conn.waitForPrintJob(jobId, {
-              timeoutMs: 60_000,
-              awaitUntil: "spooled",
-            });
-            if (delivery.status === "failed") {
-              throw new Error(delivery.error || "print_failed");
-            }
-          }
-          return;
-        } catch (e) {
-          lastError = e;
-          if (String(e).includes("unknown_printer_display_label")) continue;
-          throw e;
+      const jobId = extractJobId(res);
+      if (jobId) {
+        const delivery = await conn.waitForPrintJob(jobId, {
+          timeoutMs: 60_000,
+          awaitUntil: "spooled",
+        });
+        if (delivery.status === "failed") {
+          throw new Error(delivery.error || "print_failed");
         }
       }
-      throw lastError instanceof Error
-        ? lastError
-        : new Error("No se pudo imprimir la cuenta en el agente");
-    },
-  );
+      return;
+    } catch (e) {
+      lastError = e;
+      if (String(e).includes("unknown_printer_display_label")) continue;
+      throw e;
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("No se pudo imprimir la cuenta en el agente");
 }
 
 /**
- * Imprime la pre-cuenta dining en el agente Kai Printers configurado en /impresion.
+ * Imprime la pre-cuenta dining en el agente Kai Printers elegido en /impresion
+ * (conexión dedicada + alias de tickets).
  */
 export async function printWaiterDiningAccountTicket(
   input: WaiterDiningAccountTicketInput,
@@ -185,17 +236,17 @@ export async function printWaiterDiningAccountTicket(
   }
 
   const cfg = readPrintServiceConfigFromStorage();
-  const host = (cfg.host ?? "").trim();
-  if (!host) {
-    throw new Error(
-      "Configurá el agente de impresión en Impresión (menú superior)",
-    );
-  }
-
-  // Config vieja: catálogo dejó useTls=true en página HTTP → WSS autofirmado falla.
   if (!printServicePageRequiresTls() && cfg.useTls) {
     writePrintServiceConfigToStorage({ ...cfg, useTls: false });
     resetSharedPrintServiceConnections();
+  }
+
+  const agent = resolveWaiterAccountAgent(input.printAgents);
+  const hostHint = agent?.lanHost?.trim() || cfg.host.trim();
+  if (!hostHint) {
+    throw new Error(
+      "Configurá el agente de impresión en Impresión (menú superior)",
+    );
   }
 
   const ticket = buildPayload(input);
@@ -208,25 +259,14 @@ export async function printWaiterDiningAccountTicket(
     format: "ticket_80mm" as const,
     purpose: "tickets" as const,
     sourceApp: "kai-waiter",
+    printerDisplayLabel: readWaiterTicketsPrinterAlias() || null,
   };
 
   try {
-    await enqueueOnAgent(ticket, meta);
+    await withWaiterTicketsConnection(agent, async (conn, hello) => {
+      await enqueueOnConn(conn, hello, ticket, meta);
+    });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    const reconnectable =
-      msg.toLowerCase().includes("closed_before_open") ||
-      msg.toLowerCase().includes("not_connected") ||
-      msg.toLowerCase().includes("open_timeout");
-    if (reconnectable) {
-      resetSharedPrintServiceConnections();
-      try {
-        await enqueueOnAgent(ticket, meta);
-        return;
-      } catch (retryErr) {
-        throw toPrintError(retryErr, host);
-      }
-    }
-    throw toPrintError(e, host);
+    throw toPrintError(e, hostHint);
   }
 }

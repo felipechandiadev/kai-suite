@@ -49,4 +49,5 @@ export type PosDiningAccountTicketPrintExtras = {
   internalFolio?: string;
   sourceApp?: string;
   purpose?: string;
+  printerDisplayLabel?: string | null;
 };

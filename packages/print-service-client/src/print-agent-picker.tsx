@@ -6,6 +6,7 @@ import {
   type PrintAgentCatalogItem,
   readPrintServiceConfigFromStorage,
 } from "./core";
+import { resetSharedPrintServiceConnections } from "./connection-manager";
 
 type Props = {
   agents: PrintAgentCatalogItem[];
@@ -40,6 +41,7 @@ export function PrintAgentPicker({
     setError(null);
     try {
       applyPrintAgentCatalogItemToStorage(agent);
+      resetSharedPrintServiceConnections();
       onApplied?.(agent);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

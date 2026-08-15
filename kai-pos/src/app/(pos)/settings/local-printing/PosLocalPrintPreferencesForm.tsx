@@ -108,7 +108,6 @@ export function PosLocalPrintPreferencesForm({
   const [catalogAgents, setCatalogAgents] = useState<PrintAgentCatalogItem[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [kaiFoodUi, setKaiFoodUi] = useState(false);
-  const [kitchenReplicaEnabled, setKitchenReplicaEnabled] = useState(false);
   const [kitchenReplicaUnitIds, setKitchenReplicaUnitIds] = useState<string[]>([]);
   const [kitchenUnits, setKitchenUnits] = useState<
     Array<{
@@ -168,7 +167,6 @@ export function PosLocalPrintPreferencesForm({
         setKaiFoodUi(enabled);
         if (!enabled) return;
         const prefs = readPosKitchenComandaReplicaPrefs();
-        setKitchenReplicaEnabled(prefs.enabled);
         setKitchenReplicaUnitIds(prefs.productionUnitIds);
         const branchId = readPosContextClient()?.branchId ?? null;
         const units = await listPosKitchenProductionUnitsAction({ branchId });
@@ -258,7 +256,7 @@ export function PosLocalPrintPreferencesForm({
     writePosDocumentPrintModesToStorage(docPrintModes);
     if (kaiFoodUi) {
       writePosKitchenComandaReplicaPrefs({
-        enabled: kitchenReplicaEnabled,
+        enabled: kitchenReplicaUnitIds.length > 0,
         productionUnitIds: kitchenReplicaUnitIds,
       });
       writePosKitchenUnitPrintBindings(kitchenBindings);
@@ -272,7 +270,6 @@ export function PosLocalPrintPreferencesForm({
     documentsAlias,
     docPrintModes,
     kaiFoodUi,
-    kitchenReplicaEnabled,
     kitchenReplicaUnitIds,
     kitchenBindings,
   ]);
@@ -619,11 +616,12 @@ export function PosLocalPrintPreferencesForm({
               }}
               comandasAliases={comandasAliases}
               aliasesRefreshNonce={aliasesRefreshNonce}
-              replicaEnabled={kitchenReplicaEnabled}
-              onReplicaEnabledChange={setKitchenReplicaEnabled}
+              showReplica
               replicaUnitIds={kitchenReplicaUnitIds}
               onReplicaUnitIdsChange={setKitchenReplicaUnitIds}
               idPrefix="pos-kitchen"
+              testPrintSourceApp="kai-pos"
+              testPrintCompanyName={catalogAgents.find((a) => a.companyName)?.companyName}
             />
           </section>
         ) : null}

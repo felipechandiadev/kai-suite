@@ -236,6 +236,16 @@ fn printers_for_purpose_with_fallback(db: &Db, purpose: &str) -> Result<Vec<Stri
         }
     }
     if printers.is_empty() && purpose == "tickets" {
+        let comandas = db.printers_for_purpose_ordered("comandas")?;
+        if !comandas.is_empty() {
+            tracing::warn!(
+                "no printer mapped for tickets; using comandas mapping as fallback ({})",
+                comandas.join(", ")
+            );
+            printers = comandas;
+        }
+    }
+    if printers.is_empty() && purpose == "tickets" {
         let docs = db.printers_for_purpose_ordered("documents")?;
         if !docs.is_empty() {
             tracing::warn!(

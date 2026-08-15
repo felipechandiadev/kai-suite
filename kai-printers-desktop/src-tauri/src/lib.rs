@@ -291,6 +291,7 @@ struct ServiceSettingsPatch {
     ticket_show_company_rut: Option<bool>,
     ticket_show_razon_social: Option<bool>,
     ticket_header_title_mode: Option<String>,
+    ticket_logo_print_enabled: Option<bool>,
 }
 
 #[tauri::command]
@@ -328,6 +329,10 @@ fn get_dashboard(state: tauri::State<'_, Arc<AppState>>) -> Result<serde_json::V
         "agentDisplayName": agent_display_name,
         "kaiCore": kai_core::kai_core_status_json(&state.db),
         "globalTicketLogoPath": state.db.global_ticket_logo_path().map_err(|e| e.to_string())?,
+        "globalTicketLogoPrintEnabled": state
+            .db
+            .global_ticket_logo_print_enabled()
+            .map_err(|e| e.to_string())?,
         "globalTicketLogoDisplayName": state
             .db
             .global_ticket_logo_path()
@@ -570,6 +575,13 @@ fn set_service_settings(
             .db
             .set_setting(ticket_header_prefs::TITLE_MODE_KEY, mode.as_str())
             .map_err(|e| e.to_string())?;
+    }
+    if let Some(v) = patch.ticket_logo_print_enabled {
+        state
+            .db
+            .set_global_ticket_logo_print_enabled(v)
+            .map_err(|e| e.to_string())?;
+        crate::escpos_logo_cache::invalidate_all();
     }
     notify_printer_health_and_config(&state);
     Ok(())
@@ -826,7 +838,11 @@ fn queue_escpos_qa_print(
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .unwrap_or("tickets");
-    let include_logo = include_logo.unwrap_or(false);
+    let include_logo = include_logo.unwrap_or(false)
+        && state
+            .db
+            .global_ticket_logo_print_enabled()
+            .map_err(|e| e.to_string())?;
     let logo_base64 = if include_logo {
         ticket_logos::global_logo_base64_or_none(&state.data_dir, &state.db)
     } else {

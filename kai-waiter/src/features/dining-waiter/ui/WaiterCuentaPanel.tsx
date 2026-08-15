@@ -303,10 +303,12 @@ export function WaiterCuentaPanel({
       kind: ord.kind,
       status: ord.status,
       lines,
-      companyName: null,
+      companyName:
+        printAgents.find((a) => a.companyName?.trim())?.companyName ?? null,
       branchName,
       tipSuggestPercent,
       tipSuggestedAmount,
+      printAgents,
     });
   };
 

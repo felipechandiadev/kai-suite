@@ -1,6 +1,6 @@
 {
   "name": "@kai/print-service-client",
-  "version": "1.6.3",
+  "version": "1.8.0",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -14,10 +14,12 @@
     "test:live": "LIVE_PRINT_AGENT=1 vitest run src/print-service-probe.test.ts"
   },
   "peerDependencies": {
+    "@kai/ui": "*",
     "react": ">=18",
     "react-dom": ">=18"
   },
   "devDependencies": {
+    "@kai/ui": "*",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/ws": "^8.18.1",

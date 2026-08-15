@@ -669,6 +669,24 @@ impl Db {
         Ok(())
     }
 
+    /// Si no hay setting, el logo se imprime (comportamiento histórico).
+    pub fn global_ticket_logo_print_enabled(&self) -> Result<bool> {
+        Ok(self
+            .get_setting(crate::ticket_logos::GLOBAL_LOGO_PRINT_ENABLED_KEY)?
+            .map(|s| {
+                let t = s.trim().to_ascii_lowercase();
+                t != "false" && t != "0"
+            })
+            .unwrap_or(true))
+    }
+
+    pub fn set_global_ticket_logo_print_enabled(&self, enabled: bool) -> Result<()> {
+        self.set_setting(
+            crate::ticket_logos::GLOBAL_LOGO_PRINT_ENABLED_KEY,
+            if enabled { "true" } else { "false" },
+        )
+    }
+
     pub fn get_setting(&self, key: &str) -> Result<Option<String>> {
         let c = self.inner.lock();
         let mut stmt = c
@@ -784,6 +802,9 @@ impl Db {
         }
         if purpose == "comandas" {
             return self.default_print_target_for_purpose("tickets");
+        }
+        if purpose == "tickets" {
+            return self.default_print_target_for_purpose("comandas");
         }
         Ok(None)
     }
@@ -912,6 +933,9 @@ impl Db {
         purpose: &str,
         display_label: Option<&str>,
     ) -> Result<crate::ticket_logos::MappingLogoAction> {
+        if !self.global_ticket_logo_print_enabled()? {
+            return Ok(crate::ticket_logos::MappingLogoAction::Suppress);
+        }
         if !crate::purpose_util::is_sale_ticket_purpose(purpose) {
             return Ok(crate::ticket_logos::MappingLogoAction::LeaveTicketAsIs);
         }

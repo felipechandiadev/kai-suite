@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 pub const LOGOS_SUBDIR: &str = "ticket_logos";
 pub const GLOBAL_LOGO_BASENAME: &str = "global";
 pub const GLOBAL_LOGO_SETTING_KEY: &str = "ticket_logo_path";
+pub const GLOBAL_LOGO_PRINT_ENABLED_KEY: &str = "ticket_logo_print_enabled";
 
 const KAI_DEFAULT_TICKET_LOGO_PNG: &[u8] = include_bytes!("../assets/kai-default-ticket-logo.png");
 

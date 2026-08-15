@@ -232,6 +232,31 @@ export function buildPosKitchenTicketPayload(
   };
 }
 
+export function buildKitchenComandaTestPayload(input: {
+  productionUnitName: string;
+  companyName?: string | null;
+}): PosKitchenTicketPayload {
+  const displayName = input.companyName?.trim() || "Kai";
+  return buildPosKitchenTicketPayload({
+    company: {
+      razonSocial: displayName,
+      nombreFantasia: displayName,
+      rut: null,
+      businessActivity: null,
+      logoBase64: null,
+    },
+    productionUnitName: input.productionUnitName,
+    fireNumber: 0,
+    accountLabel: "PRUEBA",
+    tableCode: "TEST",
+    branchName: null,
+    lines: [
+      { name: "Producto de prueba", quantity: 1, notes: "Comanda de prueba" },
+      { name: "Acompañamiento de prueba", quantity: 2, notes: null },
+    ],
+  });
+}
+
 const POS_REPLICA_ENABLED_KEY = "printPosKitchenComandaReplicaEnabled";
 const POS_REPLICA_UNITS_KEY = "printPosKitchenComandaReplicaUnitIds";
 const WAITER_REPLICA_ENABLED_KEY = "printWaiterKitchenComandaReplicaEnabled";
@@ -305,10 +330,22 @@ export function replicaIncludesUnit(
   productionUnitId: string,
   mode?: KitchenFulfillmentModeClient | string | null,
 ): boolean {
-  if (!prefs.enabled) return false;
   if (mode != null && !kitchenUnitRequiresPrintBinding(mode)) return false;
-  if (prefs.productionUnitIds.length === 0) return true;
   return prefs.productionUnitIds.includes(productionUnitId);
+}
+
+const WAITER_TICKETS_ALIAS_KEY = "printWaiterPurposeTicketsAlias";
+
+export function readWaiterTicketsPrinterAlias(): string {
+  if (typeof window === "undefined") return "";
+  return (localStorage.getItem(WAITER_TICKETS_ALIAS_KEY) || "").trim();
+}
+
+export function writeWaiterTicketsPrinterAlias(alias: string): void {
+  if (typeof window === "undefined") return;
+  const t = alias.trim();
+  if (t) localStorage.setItem(WAITER_TICKETS_ALIAS_KEY, t);
+  else localStorage.removeItem(WAITER_TICKETS_ALIAS_KEY);
 }
 
 export type KitchenFireLineForPrint = {

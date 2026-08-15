@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { IconButton } from "@kai/ui";
 import {
   fetchAliasesByPurposeFromAgent,
   type PrintAgentCatalogItem,
@@ -11,6 +12,7 @@ import {
   type KitchenFulfillmentModeClient,
   type KitchenUnitPrintBindingsMap,
 } from "./kitchen-comanda-print";
+import { printKitchenComandaTest } from "./kitchen-comanda-test-print";
 
 export type KitchenUnitPrintBindingsRow = {
   id: string;
@@ -29,12 +31,14 @@ type Props = {
   comandasAliases: string[];
   /** Incrementar para volver a pedir alias a los agentes de las UP. */
   aliasesRefreshNonce?: number;
-  replicaEnabled: boolean;
-  onReplicaEnabledChange: (enabled: boolean) => void;
-  replicaUnitIds: string[];
-  onReplicaUnitIdsChange: (ids: string[]) => void;
+  /** Solo POS: checkbox de réplica en cada UP imprimible. */
+  showReplica?: boolean;
+  replicaUnitIds?: string[];
+  onReplicaUnitIdsChange?: (ids: string[]) => void;
   idPrefix?: string;
   className?: string;
+  testPrintCompanyName?: string | null;
+  testPrintSourceApp?: string;
 };
 
 function aliasOptions(aliases: string[], current: string) {
@@ -63,17 +67,14 @@ export function KitchenUnitPrintBindingsSection({
   onRefreshCatalog,
   comandasAliases,
   aliasesRefreshNonce = 0,
-  replicaEnabled,
-  onReplicaEnabledChange,
-  replicaUnitIds,
+  showReplica = false,
+  replicaUnitIds = [],
   onReplicaUnitIdsChange,
   idPrefix = "kitchen-up",
   className = "",
+  testPrintCompanyName,
+  testPrintSourceApp = "kai",
 }: Props) {
-  const printableUnits = units.filter((u) =>
-    kitchenUnitRequiresPrintBinding(u.kitchenFulfillmentMode),
-  );
-
   const boundAgentIdsKey = useMemo(() => {
     const ids = new Set<string>();
     for (const u of units) {
@@ -91,6 +92,10 @@ export function KitchenUnitPrintBindingsSection({
     {},
   );
   const [errorByAgentId, setErrorByAgentId] = useState<Record<string, string>>(
+    {},
+  );
+  const [testBusyUnitId, setTestBusyUnitId] = useState<string | null>(null);
+  const [testErrorByUnitId, setTestErrorByUnitId] = useState<Record<string, string>>(
     {},
   );
 
@@ -163,6 +168,41 @@ export function KitchenUnitPrintBindingsSection({
     onBindingsChange(next);
   };
 
+  const runTestPrint = async (unitId: string, unitName: string) => {
+    const binding = bindings[unitId] ?? {};
+    const agentId = binding.printAgentId?.trim() || "";
+    const agent = agentId ? agents.find((a) => a.id === agentId) ?? null : null;
+    if (agentId && !agent?.lanHost?.trim()) {
+      setTestErrorByUnitId((p) => ({
+        ...p,
+        [unitId]: "El agente aún no reportó IP LAN (esperá un heartbeat)",
+      }));
+      return;
+    }
+    setTestBusyUnitId(unitId);
+    setTestErrorByUnitId((p) => {
+      const next = { ...p };
+      delete next[unitId];
+      return next;
+    });
+    try {
+      await printKitchenComandaTest({
+        productionUnitName: unitName,
+        agent,
+        printerDisplayLabel: binding.printerDisplayLabel,
+        companyName: testPrintCompanyName ?? agent?.companyName,
+        sourceApp: testPrintSourceApp,
+      });
+    } catch (e) {
+      setTestErrorByUnitId((p) => ({
+        ...p,
+        [unitId]: e instanceof Error ? e.message : String(e),
+      }));
+    } finally {
+      setTestBusyUnitId(null);
+    }
+  };
+
   return (
     <div className={`space-y-4 ${className}`.trim()}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -227,6 +267,21 @@ export function KitchenUnitPrintBindingsSection({
                   >
                     {modeLabel}
                   </span>
+                  {requiresPrint ? (
+                    <IconButton
+                      type="button"
+                      icon="Printer"
+                      variant="action"
+                      size="sm"
+                      className="ml-auto"
+                      disabled={aliasLoading || noLan || testBusyUnitId === unit.id}
+                      isLoading={testBusyUnitId === unit.id}
+                      ariaLabel={`Imprimir comanda de prueba en ${unit.name}`}
+                      title="Imprimir comanda de prueba"
+                      data-test-id={`${idPrefix}-test-print-${unit.id}`}
+                      onClick={() => void runTestPrint(unit.id, unit.name)}
+                    />
+                  ) : null}
                 </div>
                 {requiresPrint ? (
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -288,6 +343,38 @@ export function KitchenUnitPrintBindingsSection({
                         </span>
                       ) : null}
                     </label>
+                    {testErrorByUnitId[unit.id] ? (
+                      <p
+                        className="text-xs text-destructive sm:col-span-2"
+                        data-test-id={`${idPrefix}-test-error-${unit.id}`}
+                      >
+                        {testErrorByUnitId[unit.id]}
+                      </p>
+                    ) : null}
+                    {showReplica && onReplicaUnitIdsChange ? (
+                      <label
+                        className="flex items-center gap-2 text-sm sm:col-span-2"
+                        data-test-id={`${idPrefix}-replica-${unit.id}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={replicaUnitIds.includes(unit.id)}
+                          onChange={(e) => {
+                            const on = e.target.checked;
+                            if (on) {
+                              onReplicaUnitIdsChange([
+                                ...new Set([...replicaUnitIds, unit.id]),
+                              ]);
+                            } else {
+                              onReplicaUnitIdsChange(
+                                replicaUnitIds.filter((id) => id !== unit.id),
+                              );
+                            }
+                          }}
+                        />
+                        Réplica en esta caja
+                      </label>
+                    ) : null}
                   </div>
                 ) : (
                   <p className="mt-2 text-xs text-muted-foreground">
@@ -300,77 +387,6 @@ export function KitchenUnitPrintBindingsSection({
           })}
         </div>
       )}
-
-      {printableUnits.length > 0 ? (
-        <div className="rounded-lg border border-border/70 p-3">
-          <h3 className="text-sm font-semibold text-foreground">
-            Réplica en esta caja
-          </h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Copia opcional en la impresora de tickets del POS/mesero al enviar a
-            cocina.
-          </p>
-          <label className="mt-3 flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={replicaEnabled}
-              onChange={(e) => onReplicaEnabledChange(e.target.checked)}
-              data-test-id={`${idPrefix}-replica-enabled`}
-            />
-            Réplica local de comanda
-          </label>
-          {replicaEnabled ? (
-            <div className="mt-3 space-y-2">
-              <p className="text-xs text-muted-foreground">
-                Unidades (vacío = todas las que imprimen comanda)
-              </p>
-              {printableUnits.map((u) => {
-                const explicitlySelected = replicaUnitIds.includes(u.id);
-                const checked =
-                  replicaUnitIds.length === 0 ? true : explicitlySelected;
-                return (
-                  <label
-                    key={u.id}
-                    className="flex items-center gap-2 text-sm"
-                    data-test-id={`${idPrefix}-replica-unit-${u.id}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={(e) => {
-                        const on = e.target.checked;
-                        onReplicaUnitIdsChange(
-                          (() => {
-                            if (replicaUnitIds.length === 0) {
-                              if (!on) {
-                                return printableUnits
-                                  .map((x) => x.id)
-                                  .filter((id) => id !== u.id);
-                              }
-                              return replicaUnitIds;
-                            }
-                            if (on) {
-                              const next = [
-                                ...new Set([...replicaUnitIds, u.id]),
-                              ];
-                              if (next.length === printableUnits.length) {
-                                return [];
-                              }
-                              return next;
-                            }
-                            return replicaUnitIds.filter((id) => id !== u.id);
-                          })(),
-                        );
-                      }}
-                    />
-                    {u.name}
-                  </label>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -8,16 +8,17 @@ import {
   PrintAgentPicker,
   fetchAliasesByPurposeFromConnection,
   readPrintServiceConfigFromStorage,
-  readWaiterKitchenComandaReplicaPrefs,
   readWaiterKitchenUnitPrintBindings,
+  readWaiterTicketsPrinterAlias,
+  resetSharedPrintServiceConnections,
   writePrintServiceConfigToStorage,
-  writeWaiterKitchenComandaReplicaPrefs,
   writeWaiterKitchenUnitPrintBindings,
+  writeWaiterTicketsPrinterAlias,
   type KitchenFulfillmentModeClient,
   type KitchenUnitPrintBindingsMap,
   type PrintAgentCatalogItem,
 } from "@kai/print-service-client";
-import { Button, TextField, Switch } from "@kai/ui";
+import { Button, IconButton, TextField, Switch } from "@kai/ui";
 import { loadWaiterSession } from "@/lib/app-session";
 import { listPrintAgentsForWaiterAction } from "@/features/print-agents/actions/print-agents.action";
 import { listKitchenProductionUnitsAction } from "@/features/dining-waiter/actions/waiter.action";
@@ -37,10 +38,6 @@ export default function WaiterLocalPrintingPage() {
   const [aliasesError, setAliasesError] = useState<string | null>(null);
   const [aliasesRefreshNonce, setAliasesRefreshNonce] = useState(0);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
-  const [kitchenReplicaEnabled, setKitchenReplicaEnabled] = useState(false);
-  const [kitchenReplicaUnitIds, setKitchenReplicaUnitIds] = useState<string[]>(
-    [],
-  );
   const [kitchenUnits, setKitchenUnits] = useState<
     Array<{
       id: string;
@@ -56,6 +53,10 @@ export default function WaiterLocalPrintingPage() {
     () => readWaiterKitchenUnitPrintBindings(),
   );
   const [comandasAliases, setComandasAliases] = useState<string[]>([]);
+  const [ticketsAliases, setTicketsAliases] = useState<string[]>([]);
+  const [ticketsAlias, setTicketsAlias] = useState(
+    () => (typeof window !== "undefined" ? readWaiterTicketsPrinterAlias() : ""),
+  );
 
   useEffect(() => {
     const s = loadWaiterSession();
@@ -69,9 +70,6 @@ export default function WaiterLocalPrintingPage() {
     setPort(String(c.port));
     setWssPort(String(c.wssPort));
     setUseTls(c.useTls);
-    const prefs = readWaiterKitchenComandaReplicaPrefs();
-    setKitchenReplicaEnabled(prefs.enabled);
-    setKitchenReplicaUnitIds(prefs.productionUnitIds);
   }, [router]);
 
   const refreshAliasesFromAgent = useCallback(async () => {
@@ -87,9 +85,11 @@ export default function WaiterLocalPrintingPage() {
         appLabel: "Kai Waiter",
       });
       setComandasAliases(aliases.comandas);
+      setTicketsAliases(aliases.tickets);
       setAliasesRefreshNonce((n) => n + 1);
     } catch (e) {
       setComandasAliases([]);
+      setTicketsAliases([]);
       setAliasesError(e instanceof Error ? e.message : String(e));
     } finally {
       setAliasesLoading(false);
@@ -159,28 +159,25 @@ export default function WaiterLocalPrintingPage() {
   }, [session, refreshAliasesFromAgent]);
 
   const saveKitchenConfig = useCallback(() => {
-    writeWaiterKitchenComandaReplicaPrefs({
-      enabled: kitchenReplicaEnabled,
-      productionUnitIds: kitchenReplicaUnitIds,
-    });
     writeWaiterKitchenUnitPrintBindings(kitchenBindings);
     setSavedMsg("Configuración de comandas guardada");
-  }, [kitchenBindings, kitchenReplicaEnabled, kitchenReplicaUnitIds]);
+  }, [kitchenBindings]);
 
   if (!session) return null;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2">
+        <IconButton
+          type="button"
+          icon="ArrowLeft"
+          variant="action"
+          size="sm"
+          onClick={() => router.push("/salon")}
+          ariaLabel="Volver al salón"
+        />
         <h1 className="text-lg font-semibold text-foreground">Impresión local</h1>
-        <Button type="button" variant="outlined" size="sm" onClick={() => router.push("/salon")}>
-          Volver
-        </Button>
       </div>
-      <p className="text-sm text-muted-foreground">
-        Elegí el agente Kai Printers de esta empresa. La impresión usa la IP de red local del
-        equipo. Puede pedirse permiso de acceso a la red local en el navegador.
-      </p>
       <PrintAgentPicker
         agents={agents}
         loading={loading}
@@ -237,6 +234,7 @@ export default function WaiterLocalPrintingPage() {
                 agentId: null,
                 agentName: null,
               });
+              resetSharedPrintServiceConnections();
               setSavedMsg("Configuración manual guardada");
               void refreshAliasesFromAgent();
             }}
@@ -245,6 +243,39 @@ export default function WaiterLocalPrintingPage() {
           </Button>
         </div>
       </details>
+
+      <section className="rounded-xl border border-border p-3">
+        <h2 className="text-sm font-semibold text-foreground">Cuenta (ticket)</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Pedir cuenta e imprimir usa el agente elegido arriba y esta impresora de
+          tickets.
+        </p>
+        <label className="mt-3 flex flex-col gap-1 text-sm">
+          <span className="text-muted-foreground">Impresora de cuenta (alias)</span>
+          <select
+            className="rounded-md border border-border bg-background px-2 py-1.5"
+            value={ticketsAlias}
+            disabled={aliasesLoading}
+            onChange={(e) => {
+              const next = e.target.value;
+              setTicketsAlias(next);
+              writeWaiterTicketsPrinterAlias(next);
+              setSavedMsg("Impresora de cuenta guardada");
+            }}
+            data-test-id="waiter-tickets-alias"
+          >
+            <option value="">Predeterminada del agente</option>
+            {ticketsAlias && !ticketsAliases.includes(ticketsAlias) ? (
+              <option value={ticketsAlias}>{ticketsAlias}</option>
+            ) : null}
+            {ticketsAliases.map((a) => (
+              <option key={a} value={a}>
+                {a}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
 
       <section className="rounded-xl border border-border p-3">
         <KitchenUnitPrintBindingsSection
@@ -259,11 +290,9 @@ export default function WaiterLocalPrintingPage() {
           }}
           comandasAliases={comandasAliases}
           aliasesRefreshNonce={aliasesRefreshNonce}
-          replicaEnabled={kitchenReplicaEnabled}
-          onReplicaEnabledChange={setKitchenReplicaEnabled}
-          replicaUnitIds={kitchenReplicaUnitIds}
-          onReplicaUnitIdsChange={setKitchenReplicaUnitIds}
           idPrefix="waiter-kitchen"
+          testPrintSourceApp="kai-waiter"
+          testPrintCompanyName={agents.find((a) => a.companyName)?.companyName}
         />
         <Button
           type="button"

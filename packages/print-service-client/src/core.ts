@@ -803,8 +803,24 @@ export class PrintServiceConnection {
     omitPrinterDisplayLabel = false,
   ): Promise<unknown> {
     const body = buildPosTicketEnqueueBody("pos-dining-account-ticket", ticket, extras);
-    if (omitPrinterDisplayLabel) return this.enqueuePrint(body);
-    return this.enqueuePosPrint(body);
+    const purpose =
+      typeof extras.purpose === "string" && extras.purpose.trim()
+        ? extras.purpose.trim()
+        : "tickets";
+    const label =
+      typeof extras.printerDisplayLabel === "string"
+        ? extras.printerDisplayLabel.trim()
+        : "";
+    if (label && !omitPrinterDisplayLabel) {
+      return this.enqueuePrint({
+        ...body,
+        purpose,
+        printerDisplayLabel: label,
+        printerAlias: label,
+      });
+    }
+    if (omitPrinterDisplayLabel) return this.enqueuePrint({ ...body, purpose });
+    return this.enqueuePosPrint({ ...body, purpose });
   }
 
   /** Comanda de cocina: ESC/POS (`type: "pos-kitchen-ticket"`). */

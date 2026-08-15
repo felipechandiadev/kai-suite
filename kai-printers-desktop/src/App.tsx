@@ -12,6 +12,7 @@ import { Button } from "./components/Button";
 import { PrinterMappingLineCard } from "./features/printer-mapping/PrinterMappingLineCard";
 import {
   isLineDirty,
+  isTicketLikePurpose,
   isTicketNetworkLine,
   lineToSavePayload,
 } from "./features/printer-mapping/mapping-line-utils";
@@ -159,6 +160,7 @@ type DashboardPayload = {
   metrics?: { jobsCompletedTotal?: number };
   globalTicketLogoPath?: string;
   globalTicketLogoDisplayName?: string;
+  globalTicketLogoPrintEnabled?: boolean;
   ticketShowCompanyRut?: boolean;
   ticketShowRazonSocial?: boolean;
   ticketHeaderTitleMode?: "fantasy" | "branch" | "none";
@@ -278,6 +280,7 @@ export default function App() {
     ticketShowCompanyRut: true,
     ticketShowRazonSocial: true,
     ticketHeaderTitleMode: "fantasy" as TicketHeaderTitleMode,
+    ticketLogoPrintEnabled: true,
   });
 
   const [configEdit, setConfigEdit] = useState(false);
@@ -327,6 +330,7 @@ export default function App() {
       ticketShowCompanyRut: d.ticketShowCompanyRut !== false,
       ticketShowRazonSocial: d.ticketShowRazonSocial !== false,
       ticketHeaderTitleMode: parseTicketHeaderTitleMode(d.ticketHeaderTitleMode),
+      ticketLogoPrintEnabled: d.globalTicketLogoPrintEnabled !== false,
     });
     const storedCoreUrl = (d.kaiCore?.baseUrl ?? "").trim().replace(/\/+$/, "");
     const isLegacyPlaceholder = LEGACY_PLACEHOLDER_CORE_URLS.has(storedCoreUrl);
@@ -624,6 +628,7 @@ export default function App() {
       ticketShowCompanyRut: settings.ticketShowCompanyRut,
       ticketShowRazonSocial: settings.ticketShowRazonSocial,
       ticketHeaderTitleMode: settings.ticketHeaderTitleMode,
+      ticketLogoPrintEnabled: settings.ticketLogoPrintEnabled,
     };
     setSettingsSaveBusy(true);
     try {
@@ -838,7 +843,7 @@ export default function App() {
   }
 
   async function handleLinePrintTest(line: MappingLineRow) {
-    if (line.purpose === "tickets") {
+    if (isTicketLikePurpose(line.purpose)) {
       await handleLineEscposQa(line);
       return;
     }
@@ -848,6 +853,9 @@ export default function App() {
   }
 
   async function handleLineEscposQa(line: MappingLineRow) {
+    if (!isTicketLikePurpose(line.purpose)) {
+      return;
+    }
     const network = isTicketNetworkLine(line);
     const printer = line.systemPrinterName.trim();
     const networkHost = line.ticketNetworkHost?.trim() ?? "";
@@ -864,12 +872,10 @@ export default function App() {
       window.alert("Seleccioná una impresora del sistema para la prueba ESC/POS.");
       return;
     }
-    if (line.purpose !== "tickets") {
-      return;
-    }
     setEscposQaBusyId(line.id);
     try {
-      const includeLogo = line.ticketLogoEnabled === true;
+      const includeLogo =
+        settings.ticketLogoPrintEnabled && line.ticketLogoEnabled === true;
       await invoke("queue_escpos_qa_print", {
         systemPrinterName: network ? null : printer,
         ticketNetworkHost: network ? networkHost : null,
@@ -1351,7 +1357,7 @@ export default function App() {
                   sortOrder={idx}
                   saveBusy={lineSaveBusyId === line.id}
                   printBusy={
-                    line.purpose === "tickets"
+                    isTicketLikePurpose(line.purpose)
                       ? escposQaBusyId === line.id
                       : documentPrintTestBusyId === line.id
                   }
@@ -1381,6 +1387,19 @@ export default function App() {
           <span className="min-w-0 text-sm">Logo de tickets</span>
         </summary>
         <div className="min-w-0 space-y-2 py-2">
+          <InlineSwitchField
+            label="Imprimir logo"
+            checked={settings.ticketLogoPrintEnabled}
+            onChange={(ticketLogoPrintEnabled) => {
+              setSettings((s) => ({ ...s, ticketLogoPrintEnabled }));
+              void invoke("set_service_settings", {
+                patch: { ticketLogoPrintEnabled },
+              }).catch(() => {
+                window.alert("No se pudo guardar el switch de logo.");
+              });
+            }}
+            data-test-id="global-ticket-logo-enabled"
+          />
           <SharedTextField
             label="Imagen"
             name="global-ticket-logo"
@@ -1420,13 +1439,19 @@ export default function App() {
               </>
             }
           />
-          {anyTicketLogoEnabled && !globalTicketLogoPath?.trim() ? (
-            <p className="text-xs text-muted-foreground">
-              Hay líneas con «Imprimir logo» activado sin imagen global: se usará el logo Kai por defecto.
-            </p>
+          {settings.ticketLogoPrintEnabled ? (
+            anyTicketLogoEnabled && !globalTicketLogoPath?.trim() ? (
+              <p className="text-xs text-muted-foreground">
+                Hay líneas con «Imprimir logo» activado sin imagen global: se usará el logo Kai por defecto.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Un solo logo para todas las líneas de tickets. Cada línea activa o desactiva la impresión del logo.
+              </p>
+            )
           ) : (
             <p className="text-xs text-muted-foreground">
-              Un solo logo para todas las líneas de tickets. Cada línea activa o desactiva la impresión del logo.
+              El logo está apagado: no se imprime en tickets, comandas ni pruebas.
             </p>
           )}
           <div className="space-y-2 border-t border-border pt-3">

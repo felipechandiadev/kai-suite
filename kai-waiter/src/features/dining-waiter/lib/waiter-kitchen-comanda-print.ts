@@ -9,9 +9,7 @@ import {
   kitchenUnitShouldPrint,
   printServicePageRequiresTls,
   PrintServiceConnection,
-  readWaiterKitchenComandaReplicaPrefs,
   readWaiterKitchenUnitPrintBindings,
-  replicaIncludesUnit,
   resolveKitchenUnitPrintBinding,
   withSharedPrintServiceConnection,
   type HelloResponseData,
@@ -163,7 +161,6 @@ export async function printWaiterKitchenComandasAfterFire(
     (input.printAgents ?? []).map((a) => [a.id, a] as const),
   );
   const bindings = readWaiterKitchenUnitPrintBindings();
-  const replicaPrefs = readWaiterKitchenComandaReplicaPrefs();
   const branchName = input.branchName?.trim() || null;
   const displayName = input.companyName?.trim() || "Empresa";
   const company = {
@@ -179,12 +176,7 @@ export async function printWaiterKitchenComandasAfterFire(
     if (!unit) continue;
 
     const shouldPrintKitchen = kitchenUnitShouldPrint(unit.kitchenFulfillmentMode);
-    const shouldReplica = replicaIncludesUnit(
-      replicaPrefs,
-      job.productionUnitId,
-      unit.kitchenFulfillmentMode,
-    );
-    if (!shouldPrintKitchen && !shouldReplica) continue;
+    if (!shouldPrintKitchen) continue;
 
     const baseTicket = buildPosKitchenTicketPayload({
       company,
@@ -205,20 +197,19 @@ export async function printWaiterKitchenComandasAfterFire(
       format: "ticket_80mm" as const,
     };
 
-    if (shouldPrintKitchen) {
-      const binding = resolveKitchenUnitPrintBinding(bindings, job.productionUnitId);
-      if (!kitchenUnitPrintBindingConfigured(binding)) {
+    const binding = resolveKitchenUnitPrintBinding(bindings, job.productionUnitId);
+    if (!kitchenUnitPrintBindingConfigured(binding)) {
+      console.warn(
+        `[Kai Waiter print] UP ${unit.name}: falta agente/impresora de comandas`,
+      );
+    } else {
+      const agentId = binding?.printAgentId?.trim() || null;
+      const agent = agentId ? agentById.get(agentId) ?? null : null;
+      if (agentId && !agent) {
         console.warn(
-          `[Kai Waiter print] UP ${unit.name}: falta agente/impresora de comandas`,
+          `[Kai Waiter print] UP ${unit.name}: el agente ${agentId} no está en el catálogo de esta empresa`,
         );
       } else {
-        const agentId = binding?.printAgentId?.trim() || null;
-        const agent = agentId ? agentById.get(agentId) ?? null : null;
-        if (agentId && !agent) {
-          console.warn(
-            `[Kai Waiter print] UP ${unit.name}: el agente ${agentId} no está en el catálogo de esta empresa`,
-          );
-        } else {
         const label = binding?.printerDisplayLabel?.trim() || null;
         try {
           await withAgentConnection(agent, "comandas", async (conn, hello) => {
@@ -230,23 +221,6 @@ export async function printWaiterKitchenComandasAfterFire(
         } catch (e) {
           console.warn("[Kai Waiter print] comanda cocina UP:", e);
         }
-        }
-      }
-    }
-
-    if (shouldReplica) {
-      const replicaTicket = { ...baseTicket, isReplica: true };
-      const metaReplica = {
-        ...metaComandas,
-        filename: `comanda-replica-${folio}.escpos`,
-        purpose: "tickets" as const,
-      };
-      try {
-        await withAgentConnection(null, "tickets", async (conn, hello) => {
-          await enqueueTicketOnConn(conn, hello, replicaTicket, metaReplica);
-        });
-      } catch (e) {
-        console.warn("[Kai Waiter print] réplica comanda:", e);
       }
     }
   }
