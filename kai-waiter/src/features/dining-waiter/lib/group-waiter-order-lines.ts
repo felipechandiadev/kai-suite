@@ -85,8 +85,14 @@ export function waiterOrderStatusLabel(status: string): string {
     READY: "Listo",
     BILLING: "Por cobrar",
     CLOSED: "Cerrada",
+    VOID: "Anulada",
   };
   return map[status] ?? status;
+}
+
+export function isWaiterDiningOrderInactive(status: string): boolean {
+  const s = String(status).toUpperCase();
+  return s === "CLOSED" || s === "VOID";
 }
 
 export function waiterLineGroupStatusLabel(group: WaiterLineGroup): string {

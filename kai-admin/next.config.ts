@@ -116,6 +116,18 @@ const nextConfig: NextConfig = {
         destination: '/hcm/settings/:path*',
         permanent: true,
       },
+      { source: '/sales/reports', destination: '/analytics/reports/sales', permanent: true },
+      {
+        source: '/purchasing/reports',
+        destination: '/analytics/reports/purchasing',
+        permanent: true,
+      },
+      {
+        source: '/inventory/reports',
+        destination: '/analytics/reports/inventory',
+        permanent: true,
+      },
+      { source: '/senales', destination: '/analytics/signals', permanent: true },
     ];
   },
 };

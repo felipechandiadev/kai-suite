@@ -8,6 +8,7 @@ const ORDER_STATUS_LABELS: Record<DiningOrderStatus, string> = {
   READY: "Listo",
   BILLING: "Por cobrar",
   CLOSED: "Cerrada",
+  VOID: "Anulada",
 };
 
 const KITCHEN_STATUS_LABELS: Record<KitchenItemStatus, string> = {

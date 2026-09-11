@@ -7,6 +7,8 @@ import {
   addOrderItemsAction,
   batchWaiterCtpAction,
   getDiningNumberingSettingsAction,
+  getDiningOrderAction,
+  listWaiterHostAddonsAction,
   resolveWaiterBranchCatalogContextAction,
   searchWaiterMenuAction,
 } from "../actions/waiter.action";
@@ -15,6 +17,7 @@ import type {
   WaiterMenuCategoryDto,
   WaiterMenuVariantDto,
 } from "../infrastructure/dining.request";
+import { WaiterAddAddonDialog } from "./WaiterAddAddonDialog";
 import { WaiterProductNameWithAttributes } from "./WaiterProductNameWithAttributes";
 import type { WaiterSession } from "@/lib/app-session";
 import {
@@ -87,6 +90,15 @@ export function WaiterMenuPanel({
   const [ctpByVariantId, setCtpByVariantId] = useState<
     Record<string, number | null>
   >({});
+  const [addonDialog, setAddonDialog] = useState<{
+    lineId: string;
+    hostProductId: string;
+    variantId: string;
+  } | null>(null);
+  const [hostHasAddons, setHostHasAddons] = useState<Record<string, boolean>>(
+    {},
+  );
+  const hostAddonKnownRef = useRef<Record<string, boolean>>({});
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const auth = useMemo(
     () => ({ userId: session.userId, companyId: session.companyId }),
@@ -206,6 +218,37 @@ export function WaiterMenuPanel({
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const ids = [
+      ...new Set(
+        items
+          .map((item) => item.productId?.trim())
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const unknown = ids.filter((id) => hostAddonKnownRef.current[id] === undefined);
+    if (unknown.length === 0) return;
+    let cancelled = false;
+    void Promise.all(
+      unknown.map((id) =>
+        listWaiterHostAddonsAction({ ...auth, hostProductId: id })
+          .then((options) => ({ id, has: options.length > 0 }))
+          .catch(() => ({ id, has: false })),
+      ),
+    ).then((rows) => {
+      if (cancelled) return;
+      const next = { ...hostAddonKnownRef.current };
+      for (const row of rows) {
+        next[row.id] = row.has;
+      }
+      hostAddonKnownRef.current = next;
+      setHostHasAddons({ ...next });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [auth, items]);
+
   const toggleCategory = (id: string) => {
     setActiveCategoryIds((prev) => {
       const next = prev.includes(id)
@@ -231,6 +274,24 @@ export function WaiterMenuPanel({
         quantity: 1,
       });
       onOrderUpdated(updated);
+      if (String(item.productType ?? "").toUpperCase() === "PACK") return;
+      const hostProductId = item.productId?.trim() ?? "";
+      const listed = await listWaiterHostAddonsAction({
+        ...auth,
+        hostProductId,
+      });
+      if (listed.length === 0) return;
+      const drafts = (updated.lines ?? []).filter(
+        (l) =>
+          l.productVariantId === item.variantId && l.kitchenStatus === "DRAFT",
+      );
+      const line = drafts[drafts.length - 1];
+      if (!line) return;
+      setAddonDialog({
+        lineId: line.id,
+        hostProductId,
+        variantId: item.variantId,
+      });
     } catch (e) {
       const msg = messageFromUnknownError(e, "No se pudo agregar");
       if (isWaiterAccountUnavailableError(msg)) {
@@ -357,6 +418,15 @@ export function WaiterMenuPanel({
                           Cap. {cap}
                         </span>
                       ) : null}
+                      {hostHasAddons[item.productId] ? (
+                        <Badge
+                          variant="secondary-outlined"
+                          className="text-[10px]"
+                          data-test-id={`waiter-menu-extras-badge-${item.variantId}`}
+                        >
+                          Extras
+                        </Badge>
+                      ) : null}
                     </div>
                   </div>
                   <IconButton
@@ -402,6 +472,25 @@ export function WaiterMenuPanel({
             ariaLabel="Página siguiente"
           />
         </div>
+      ) : null}
+
+      {addonDialog ? (
+        <WaiterAddAddonDialog
+          open
+          userId={session.userId}
+          companyId={session.companyId}
+          branchId={branchId}
+          orderId={orderId}
+          lineId={addonDialog.lineId}
+          hostProductId={addonDialog.hostProductId}
+          variantId={addonDialog.variantId}
+          onClose={() => setAddonDialog(null)}
+          onAdded={() => {
+            void getDiningOrderAction({ ...auth, orderId }).then((order) => {
+              onOrderUpdated(order);
+            });
+          }}
+        />
       ) : null}
     </div>
   );

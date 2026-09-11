@@ -33,6 +33,9 @@ import {
 import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
 import { CompaniesService } from '@modules/companies/application/companies.service';
 import { resolveKaiFoodEnabled } from '@modules/points-of-sale/domain/pos-settings.types';
+import { PackService } from '@modules/recipes/application/pack.service';
+import { expandPackComponentNeeds } from '@modules/recipes/application/pack-ctp.util';
+import { isPackProductType } from '@modules/products/application/helpers/product-type-policy.util';
 
 @Injectable()
 export class UpdateStockActionHandler {
@@ -44,6 +47,7 @@ export class UpdateStockActionHandler {
     private readonly stockNotificationEvaluator: StockNotificationEvaluator,
     private readonly notificationPublisher: NotificationPublisherService,
     private readonly companiesService: CompaniesService,
+    private readonly packService: PackService,
   ) {}
 
   async execute(ctx: { companyId: string; eventType: AutomationEventType; payload: any }, rule: any) {
@@ -180,7 +184,65 @@ export class UpdateStockActionHandler {
       type PmpAcc = { inQty: number; inCost: number; outQty: number };
       const pmpAccByVariant = new Map<string, PmpAcc>();
 
+      const linesToProcess: typeof lines = [];
       for (const line of lines) {
+        const variantId = line.productVariantId;
+        const qtyLine = Number(line.quantity ?? line.receivedQuantity ?? 0) || 0;
+        const qtyBaseRaw =
+          line.quantityInBase != null && line.quantityInBase !== ''
+            ? Number(line.quantityInBase)
+            : qtyLine;
+        const qtyBase = Number.isFinite(qtyBaseRaw) ? qtyBaseRaw : qtyLine;
+
+        if (!variantId || qtyBase === 0) {
+          linesToProcess.push(line);
+          continue;
+        }
+
+        const variantRow = await manager.getRepository(ProductVariant).findOne({
+          where: { id: variantId },
+          relations: ['product'],
+        });
+        const productType = variantRow?.product?.productType;
+        const skipFinished = shouldSkipFinishedGoodsStockForSale({
+          diningOrderId,
+          posKaiFoodEnabled,
+          productType,
+        });
+
+        if (
+          skipFinished &&
+          isPackProductType(productType) &&
+          outgoingTypes.includes(type)
+        ) {
+          const companyIdForPack = variantRow?.companyId ?? ctx.companyId;
+          const recipe = await this.packService.getActivePackRecipe(
+            companyIdForPack,
+            variantId,
+          );
+          if (recipe?.lines?.length) {
+            const needs = expandPackComponentNeeds(
+              variantId,
+              qtyBase,
+              recipe.lines,
+            );
+            for (const [componentVariantId, componentQty] of needs) {
+              if (componentQty <= 0) continue;
+              linesToProcess.push({
+                ...line,
+                productVariantId: componentVariantId,
+                quantity: componentQty,
+                quantityInBase: componentQty,
+              });
+            }
+            continue;
+          }
+        }
+
+        linesToProcess.push(line);
+      }
+
+      for (const line of linesToProcess) {
         const variantId = line.productVariantId;
         const qtyLine = Number(line.quantity ?? line.receivedQuantity ?? 0) || 0;
         const qtyBaseRaw =

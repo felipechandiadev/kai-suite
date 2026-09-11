@@ -1,4 +1,4 @@
-KaiPrinters 1.6.1 — Windows x64 (portable)
+KaiPrinters 1.6.7 — Windows x64 (portable)
 
 1. Extraé o copiá esta carpeta completa (KaiPrinters.exe y SumatraPDF.exe deben quedar juntos).
 2. Impresión de PDF: incluida vía SumatraPDF (sin instalar Ghostscript ni abrir diálogo).

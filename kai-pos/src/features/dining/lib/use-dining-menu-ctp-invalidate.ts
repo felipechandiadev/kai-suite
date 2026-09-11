@@ -41,6 +41,7 @@ export function useDiningMenuCtpInvalidateOnSession(
     const status = String(payload.status ?? "");
     const orderAffects =
       status === "CLOSED" ||
+      status === "VOID" ||
       status === "CANCELLED" ||
       status === "BILLING" ||
       affectsMaterials ||

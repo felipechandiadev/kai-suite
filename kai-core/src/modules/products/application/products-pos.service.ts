@@ -134,8 +134,8 @@ export class ProductsPosService {
         productTypes: allowedTypes,
       });
     } else {
-      qb.andWhere('product.productType != :insumoType', {
-        insumoType: ProductType.INSUMO,
+      qb.andWhere('product.productType NOT IN (:...nonSellableTypes)', {
+        nonSellableTypes: [ProductType.INSUMO, ProductType.AGREGADO],
       });
     }
 

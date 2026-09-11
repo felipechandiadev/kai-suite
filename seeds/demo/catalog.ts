@@ -1291,6 +1291,42 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
       },
     ],
   },
+  {
+    name: 'Combo snack',
+    brand: 'VitalPack',
+    description: 'Pack retail: galletas + té (kit fantasma).',
+    productType: ProductType.PACK,
+    categoryName: 'Alimentos y bebidas',
+    variants: [
+      {
+        sku: 'SEEDDEVPACKSNACK',
+        basePrice: 3990,
+        baseCost: 2000,
+        trackInventory: true,
+        retailNet: 3990,
+        wholesaleNet: 3400,
+        inBothPriceLists: true,
+      },
+    ],
+  },
+  {
+    name: 'Doble queso',
+    brand: 'Rápido Norte',
+    description: 'Agregado salón — extra de queso.',
+    productType: ProductType.AGREGADO,
+    categoryName: 'Comida rápida',
+    variants: [
+      {
+        sku: 'SEEDDEVAGREGDQ',
+        basePrice: 990,
+        baseCost: 250,
+        trackInventory: false,
+        retailNet: 990,
+        wholesaleNet: 800,
+        inBothPriceLists: true,
+      },
+    ],
+  },
   // ——— PREPARADO: comida rápida (KaiFood / comanda) ———
   {
     name: 'Hamburguesa clásica',

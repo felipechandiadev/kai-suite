@@ -22,6 +22,12 @@ export function mergeDiningSessionLines(
         kitchenStatus: item.kitchenStatus,
         kitchenFireId: item.kitchenFireId ?? null,
         kitchenFireNumber: item.kitchenFireNumber ?? null,
+        addons: item.addons?.map((a) => ({
+          id: a.id,
+          addonVariantId: a.addonVariantId,
+          name: a.name,
+          quantity: a.quantity,
+        })),
       };
     }
     return {
@@ -38,6 +44,15 @@ export function mergeDiningSessionLines(
         item.kitchenFireNumber !== undefined
           ? item.kitchenFireNumber
           : (prev.kitchenFireNumber ?? null),
+      addons:
+        item.addons !== undefined
+          ? item.addons.map((a) => ({
+              id: a.id,
+              addonVariantId: a.addonVariantId,
+              name: a.name,
+              quantity: a.quantity,
+            }))
+          : prev.addons,
     };
   });
 }

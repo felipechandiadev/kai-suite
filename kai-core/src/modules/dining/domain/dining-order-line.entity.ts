@@ -6,6 +6,7 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -14,6 +15,7 @@ import { ProductionUnit } from '@modules/production-units/domain/production-unit
 import { DiningOrder } from './dining-order.entity';
 import { DiningStationOrder } from './dining-station-order.entity';
 import { KitchenItemStatus, LineSource } from './dining.enums';
+import { DiningOrderLineAddon } from './dining-order-line-addon.entity';
 
 @Entity('dining_order_lines')
 @Index('idx_dining_order_lines_order_id', ['diningOrderId'])
@@ -107,4 +109,7 @@ export class DiningOrderLine {
   @ManyToOne(() => ProductionUnit, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'production_unit_id' })
   productionUnit?: ProductionUnit | null;
+
+  @OneToMany(() => DiningOrderLineAddon, (addon) => addon.diningOrderLine)
+  addons?: DiningOrderLineAddon[];
 }

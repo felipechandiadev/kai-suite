@@ -55,6 +55,29 @@ export class DiningSchemaBootstrap implements OnModuleInit {
         ALTER TABLE dining_branch_settings
         ADD COLUMN IF NOT EXISTS pos_accounts_menu_category_ids jsonb NOT NULL DEFAULT '[]'::jsonb
       `);
+      await this.dataSource.query(`
+        DO $$ BEGIN
+          ALTER TYPE "dining_order_status_enum" ADD VALUE IF NOT EXISTS 'VOID';
+        EXCEPTION
+          WHEN duplicate_object THEN NULL;
+        END $$;
+      `);
+      await this.dataSource.query(`
+        CREATE TABLE IF NOT EXISTS dining_order_line_addons (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          dining_order_line_id uuid NOT NULL REFERENCES dining_order_lines(id) ON DELETE CASCADE,
+          addon_variant_id uuid NOT NULL,
+          quantity numeric(12,3) NOT NULL DEFAULT 1,
+          display_name varchar(255) NOT NULL,
+          unit_price_snapshot numeric(15,2) NOT NULL DEFAULT 0,
+          created_at timestamptz NOT NULL DEFAULT now(),
+          updated_at timestamptz NOT NULL DEFAULT now()
+        )
+      `);
+      await this.dataSource.query(`
+        CREATE INDEX IF NOT EXISTS idx_dining_order_line_addons_line_id
+        ON dining_order_line_addons (dining_order_line_id)
+      `);
       this.logger.log('dining_order_lines CTP + kitchen_fire columns OK');
     } catch (err) {
       this.logger.error(

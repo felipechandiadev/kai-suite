@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
+import { resolveFrozenSaleUnitCost } from '@modules/product-variants/application/helpers/sale-unit-cost.util';
 import { Product, ProductType } from '@modules/products/domain/product.entity';
 import { Attribute } from '@modules/attributes/domain/attribute.entity';
 import {
@@ -780,7 +781,7 @@ export class EShopService {
         unitId: variant.saleUnitId,
         quantity: qty,
         unitPrice,
-        unitCost: Number(variant.baseCost) || 0,
+        unitCost: resolveFrozenSaleUnitCost(variant),
         discountPercentage: 0,
         discountAmount: 0,
         taxRate: 0,

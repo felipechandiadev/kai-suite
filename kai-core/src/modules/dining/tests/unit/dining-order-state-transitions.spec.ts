@@ -17,6 +17,7 @@ import {
   lineNeedsKitchenComanda,
   reopenFromBilling,
   recomputeOrderStatusFromLines,
+  isDiningOrderInactive,
   selectLinesForKitchenFireReady,
   countPendingKitchenLines,
   selectReadyLinesForKitchenFire,
@@ -84,6 +85,14 @@ describe('Dining order state transitions', () => {
         ]),
       ).toBe(DiningOrderStatus.CLOSED);
     });
+
+    it('preserves VOID status', () => {
+      expect(
+        recomputeOrderStatusFromLines(DiningOrderStatus.VOID, [
+          { kitchenStatus: KitchenItemStatus.SENT },
+        ]),
+      ).toBe(DiningOrderStatus.VOID);
+    });
   });
 
   describe('assertOrderStatusTransition', () => {
@@ -119,6 +128,42 @@ describe('Dining order state transitions', () => {
         assertOrderStatusTransition(
           DiningOrderStatus.CLOSED,
           DiningOrderStatus.OPEN,
+        ),
+      ).toThrow('Transición de estado no permitida');
+    });
+
+    it('allows OPEN / SENT / BILLING → VOID', () => {
+      expect(() =>
+        assertOrderStatusTransition(
+          DiningOrderStatus.OPEN,
+          DiningOrderStatus.VOID,
+        ),
+      ).not.toThrow();
+      expect(() =>
+        assertOrderStatusTransition(
+          DiningOrderStatus.SENT,
+          DiningOrderStatus.VOID,
+        ),
+      ).not.toThrow();
+      expect(() =>
+        assertOrderStatusTransition(
+          DiningOrderStatus.BILLING,
+          DiningOrderStatus.VOID,
+        ),
+      ).not.toThrow();
+    });
+
+    it('rejects VOID → OPEN and CLOSED → VOID', () => {
+      expect(() =>
+        assertOrderStatusTransition(
+          DiningOrderStatus.VOID,
+          DiningOrderStatus.OPEN,
+        ),
+      ).toThrow('Transición de estado no permitida');
+      expect(() =>
+        assertOrderStatusTransition(
+          DiningOrderStatus.CLOSED,
+          DiningOrderStatus.VOID,
         ),
       ).toThrow('Transición de estado no permitida');
     });
@@ -173,6 +218,10 @@ describe('Dining order state transitions', () => {
       expect(canAddItems(DiningOrderStatus.BILLING)).toBe(false);
       expect(canAddItems(DiningOrderStatus.READY)).toBe(true);
       expect(canAddItems(DiningOrderStatus.CLOSED)).toBe(false);
+      expect(canAddItems(DiningOrderStatus.VOID)).toBe(false);
+      expect(isDiningOrderInactive(DiningOrderStatus.VOID)).toBe(true);
+      expect(isDiningOrderInactive(DiningOrderStatus.CLOSED)).toBe(true);
+      expect(isDiningOrderInactive(DiningOrderStatus.OPEN)).toBe(false);
     });
 
     it('reopenFromBilling recomputes operational status', () => {
@@ -189,6 +238,7 @@ describe('Dining order state transitions', () => {
       expect(lineNeedsKitchenComanda('ELABORADO')).toBe(false);
       expect(lineNeedsKitchenComanda('MANUFACTURADO')).toBe(false);
       expect(lineNeedsKitchenComanda('PHYSICAL')).toBe(false);
+      expect(lineNeedsKitchenComanda('PACK')).toBe(false);
     });
 
     it('canIssueBillOrCharge skips gate when no PREPARADO', () => {

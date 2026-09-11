@@ -13,6 +13,13 @@ import type {
   PosDiningRoomsListResponse,
 } from "../types/dining-pos.types";
 
+export type PosDiningHostAddonOption = {
+  addonProductId: string;
+  name: string;
+  variantId: string;
+  sku: string | null;
+};
+
 const BACKEND_CONNECTION_MESSAGE =
   "No se pudo conectar con el servidor. Comprueba que el backend esté en ejecución.";
 
@@ -56,6 +63,7 @@ function mapLine(raw: Record<string, unknown>): PosDiningOrderLine {
       : fireNumberRaw != null && String(fireNumberRaw).trim() !== ""
         ? Number(fireNumberRaw)
         : null;
+  const addonsRaw = Array.isArray(raw.addons) ? raw.addons : [];
   return {
     id: String(raw.id ?? ""),
     productVariantId: String(raw.productVariantId ?? ""),
@@ -74,6 +82,15 @@ function mapLine(raw: Record<string, unknown>): PosDiningOrderLine {
       kitchenFireNumber != null && Number.isFinite(kitchenFireNumber)
         ? kitchenFireNumber
         : null,
+    addons: addonsRaw.map((addon) => {
+      const a = addon as Record<string, unknown>;
+      return {
+        id: String(a.id ?? ""),
+        addonVariantId: String(a.addonVariantId ?? ""),
+        name: String(a.displayName ?? a.name ?? "Extra"),
+        quantity: Number(a.quantity) || 0,
+      };
+    }),
   };
 }
 
@@ -109,6 +126,10 @@ function mapOrder(raw: Record<string, unknown>): PosDiningOrderSummary {
       raw.profile && typeof raw.profile === "object"
         ? (raw.profile as PosDiningOrderSummary["profile"])
         : null,
+    linkedTransactionId:
+      raw.linkedTransactionId === null || raw.linkedTransactionId === undefined
+        ? null
+        : String(raw.linkedTransactionId),
     lines: linesRaw.map((line) => mapLine(line as Record<string, unknown>)),
   };
 }
@@ -666,6 +687,135 @@ export class DiningPosRequest {
     return { success: true, order: mapOrder(data as Record<string, unknown>) };
   }
 
+  static async voidOrder(
+    orderId: string,
+    reason?: string,
+  ): Promise<PosDiningMutationResponse> {
+    const base = process.env.BACKEND_API_URL;
+    if (!base) return { success: false, message: "BACKEND_API_URL no está configurada" };
+    const auth = await authHeaders();
+    if (!auth.ok) return { success: false, message: auth.message };
+
+    const trimmed = reason?.trim();
+    const res = await backendFetch(
+      `${base}/api/dining/orders/${encodeURIComponent(orderId.trim())}/void`,
+      {
+        method: "POST",
+        headers: { ...auth.headers, "Content-Type": "application/json" },
+        body: JSON.stringify(trimmed ? { reason: trimmed } : {}),
+      },
+    );
+    if (!res) return { success: false, message: BACKEND_CONNECTION_MESSAGE };
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { success: false, message: parseMessage(data, `HTTP ${res.status}`) };
+    }
+    if (!data || typeof data !== "object") {
+      return { success: false, message: "Respuesta inválida del servidor" };
+    }
+    return { success: true, order: mapOrder(data as Record<string, unknown>) };
+  }
+
+  static async addLineAddon(
+    orderId: string,
+    lineId: string,
+    input: { addonVariantId: string; quantity: number },
+  ): Promise<PosDiningMutationResponse> {
+    const base = process.env.BACKEND_API_URL;
+    if (!base) return { success: false, message: "BACKEND_API_URL no está configurada" };
+    const auth = await authHeaders();
+    if (!auth.ok) return { success: false, message: auth.message };
+
+    const res = await backendFetch(
+      `${base}/api/dining/orders/${encodeURIComponent(orderId.trim())}/lines/${encodeURIComponent(lineId.trim())}/addons`,
+      {
+        method: "POST",
+        headers: { ...auth.headers, "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      },
+    );
+    if (!res) return { success: false, message: BACKEND_CONNECTION_MESSAGE };
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { success: false, message: parseMessage(data, `HTTP ${res.status}`) };
+    }
+    return { success: true, order: mapOrder(data as Record<string, unknown>) };
+  }
+
+  static async listHostAddons(hostProductId: string): Promise<
+    | { success: true; options: PosDiningHostAddonOption[] }
+    | { success: false; message: string }
+  > {
+    const base = process.env.BACKEND_API_URL;
+    if (!base) return { success: false, message: "BACKEND_API_URL no está configurada" };
+    const auth = await authHeaders();
+    if (!auth.ok) return { success: false, message: auth.message };
+    const id = hostProductId.trim();
+    if (!id) return { success: true, options: [] };
+
+    const res = await backendFetch(
+      `${base}/api/products/${encodeURIComponent(id)}/addons`,
+      { method: "GET", headers: auth.headers },
+    );
+    if (!res) return { success: false, message: BACKEND_CONNECTION_MESSAGE };
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { success: false, message: parseMessage(data, `HTTP ${res.status}`) };
+    }
+    const rows = Array.isArray(data) ? data : [];
+    const options: PosDiningHostAddonOption[] = [];
+    for (const row of rows) {
+      if (!row || typeof row !== "object") continue;
+      const raw = row as Record<string, unknown>;
+      const addonProduct =
+        raw.addonProduct && typeof raw.addonProduct === "object"
+          ? (raw.addonProduct as Record<string, unknown>)
+          : null;
+      const name =
+        String(raw.name ?? addonProduct?.name ?? "Extra").trim() || "Extra";
+      const variantsRaw = Array.isArray(raw.addonVariants)
+        ? raw.addonVariants
+        : Array.isArray(raw.addon_variants)
+          ? raw.addon_variants
+          : [];
+      for (const v of variantsRaw) {
+        if (!v || typeof v !== "object") continue;
+        const variant = v as Record<string, unknown>;
+        const variantId = String(variant.id ?? "").trim();
+        if (!variantId) continue;
+        options.push({
+          addonProductId: String(raw.addonProductId ?? addonProduct?.id ?? ""),
+          name,
+          variantId,
+          sku: variant.sku != null ? String(variant.sku) : null,
+        });
+      }
+    }
+    return { success: true, options };
+  }
+
+  static async removeLineAddon(
+    orderId: string,
+    lineId: string,
+    addonId: string,
+  ): Promise<PosDiningMutationResponse> {
+    const base = process.env.BACKEND_API_URL;
+    if (!base) return { success: false, message: "BACKEND_API_URL no está configurada" };
+    const auth = await authHeaders();
+    if (!auth.ok) return { success: false, message: auth.message };
+
+    const res = await backendFetch(
+      `${base}/api/dining/orders/${encodeURIComponent(orderId.trim())}/lines/${encodeURIComponent(lineId.trim())}/addons/${encodeURIComponent(addonId.trim())}`,
+      { method: "DELETE", headers: auth.headers },
+    );
+    if (!res) return { success: false, message: BACKEND_CONNECTION_MESSAGE };
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { success: false, message: parseMessage(data, `HTTP ${res.status}`) };
+    }
+    return { success: true, order: mapOrder(data as Record<string, unknown>) };
+  }
+
   static async closeOrder(
     orderId: string,
     linkedTransactionId?: string,
@@ -729,7 +879,7 @@ export class DiningPosRequest {
     const allow =
       input.group === "preparados"
         ? new Set(["PREPARADO"])
-        : new Set(["PHYSICAL", "ELABORADO", "MANUFACTURADO"]);
+        : new Set(["PHYSICAL", "ELABORADO", "MANUFACTURADO", "PACK"]);
 
     const items: PosDiningMenuVariant[] = [];
     for (const row of data) {

@@ -76,6 +76,7 @@ import { AutomationActionType } from '@modules/automation/domain/automation-acti
 import { assertValidChileCompanyRut } from '@shared/utils/chile-company-rut.util';
 import { seedExpenseCategoriesForCompany } from '../shared/seed-expense-categories';
 import { Product, ProductType } from '@modules/products/domain/product.entity';
+import { ProductAddon } from '@modules/products/domain/product-addon.entity';
 import { Brand } from '@modules/brands/domain/brand.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { PriceListItem } from '@modules/price-list-items/domain/price-list-item.entity';
@@ -173,6 +174,7 @@ import { buildSeedDemoFoodPurchasePlan } from './seed-demo-purchase-plan';
 import {
   getSeedDevProductionRecipes,
   getSeedDevProductionUnits,
+  SEED_DEV_PACK_RECIPES,
 } from './food-recipes';
 import { seedDemoDeliveryCalendar } from './seed-delivery-calendar';
 import { DiningRoom } from '@modules/dining/domain/dining-room.entity';
@@ -3139,7 +3141,16 @@ async function bootstrap() {
         .update(Product)
         .set({ onMenu: true })
         .where('companyId = :companyId', { companyId: company.id })
-        .andWhere('productType != :insumo', { insumo: ProductType.INSUMO })
+        .andWhere('productType NOT IN (:...skip)', {
+          skip: [ProductType.INSUMO, ProductType.AGREGADO],
+        })
+        .execute();
+      await productRepo
+        .createQueryBuilder()
+        .update(Product)
+        .set({ onMenu: false })
+        .where('companyId = :companyId', { companyId: company.id })
+        .andWhere('productType = :agregado', { agregado: ProductType.AGREGADO })
         .execute();
       console.log('✅ KaiFood: productos vendibles marcados on_menu=true');
     }
@@ -3531,6 +3542,91 @@ async function bootstrap() {
     console.log(
       `✅ Recetas PRODUCTION: ${recipesCreated} creada(s), ${recipesUpdated} actualizada(s) (total defs=${seedDevProductionRecipes.length})`,
     );
+
+    let packRecipesCreated = 0;
+    for (const recipeDef of SEED_DEV_PACK_RECIPES) {
+      const outputVariantId = skuToVariantId.get(recipeDef.outputSku);
+      if (!outputVariantId) continue;
+      const linesPayload: Array<{
+        inputVariantId: string;
+        qtyPerOutputUnit: number;
+        wasteFactor: number;
+        sortOrder: number;
+      }> = [];
+      let lineOk = true;
+      for (let i = 0; i < recipeDef.lines.length; i++) {
+        const line = recipeDef.lines[i];
+        const inputVariantId = skuToVariantId.get(line.inputSku);
+        if (!inputVariantId) {
+          lineOk = false;
+          break;
+        }
+        linesPayload.push({
+          inputVariantId,
+          qtyPerOutputUnit: line.qtyPerOutputUnit,
+          wasteFactor: line.wasteFactor ?? 0,
+          sortOrder: i + 1,
+        });
+      }
+      if (!lineOk || linesPayload.length === 0) continue;
+
+      const existingPack = await recipeRepo.find({
+        where: { companyId: company.id, outputVariantId, type: RecipeType.PACK },
+      });
+      for (const old of existingPack) {
+        await recipeLineRepo.delete({ recipeId: old.id });
+        await recipeRepo.delete({ id: old.id });
+      }
+      const recipe = await recipeRepo.save(
+        recipeRepo.create({
+          companyId: company.id,
+          outputVariantId,
+          type: RecipeType.PACK,
+          version: 1,
+          isActive: true,
+          metadata: { seed: 'demo', outputSku: recipeDef.outputSku },
+        }),
+      );
+      await recipeLineRepo.save(
+        linesPayload.map((l) =>
+          recipeLineRepo.create({
+            companyId: company.id,
+            recipeId: recipe.id,
+            inputVariantId: l.inputVariantId,
+            qtyPerOutputUnit: l.qtyPerOutputUnit,
+            wasteFactor: l.wasteFactor,
+            limitsProjectedStock: true,
+            sortOrder: l.sortOrder,
+          }),
+        ),
+      );
+      packRecipesCreated += 1;
+    }
+    console.log(`✅ Recetas PACK: ${packRecipesCreated} kit(s) demo`);
+
+    const addonRepo = dataSource.getRepository(ProductAddon);
+    const hostProduct = await productRepo.findOne({
+      where: { companyId: company.id, name: 'Hamburguesa clásica', deletedAt: IsNull() },
+    });
+    const addonProduct = await productRepo.findOne({
+      where: { companyId: company.id, name: 'Doble queso', deletedAt: IsNull() },
+    });
+    if (hostProduct && addonProduct) {
+      const existingLink = await addonRepo.findOne({
+        where: { hostProductId: hostProduct.id, addonProductId: addonProduct.id },
+      });
+      if (!existingLink) {
+        await addonRepo.save(
+          addonRepo.create({
+            companyId: company.id,
+            hostProductId: hostProduct.id,
+            addonProductId: addonProduct.id,
+            sortOrder: 1,
+          }),
+        );
+        console.log('✅ Agregado demo: Doble queso → Hamburguesa clásica');
+      }
+    }
 
     // CTP: routing variante → UP + stock insumos en bodega pastelería
     const pvPuRepo = dataSource.getRepository(ProductVariantProductionUnit);

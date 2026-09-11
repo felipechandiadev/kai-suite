@@ -182,6 +182,8 @@ import { ProductionUnitsModule } from './modules/production-units/production-uni
     require('./modules/dining-reports/dining-reports.module').DiningReportsModule,
     require('./modules/purchasing-reports/purchasing-reports.module').PurchasingReportsModule,
     require('./modules/inventory-reports/inventory-reports.module').InventoryReportsModule,
+    require('./modules/pricing/pricing.module').PricingModule,
+    require('./modules/assistant/assistant.module').AssistantModule,
     require('./modules/hcm-reports/hcm-reports.module').HcmReportsModule,
     require('./modules/e-shop/e-shop.module').EShopModule,
     require('./modules/menu/menu.module').MenuModule,

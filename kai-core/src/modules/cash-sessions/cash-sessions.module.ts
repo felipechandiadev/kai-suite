@@ -34,6 +34,7 @@ import { FiscalModule } from '@modules/fiscal/fiscal.module';
 import { DeliveryModule } from '@modules/delivery/delivery.module';
 import { AppConfigModule } from '../../config/config.module';
 import { TipsModule } from '@modules/tips/tips.module';
+import { RecipesModule } from '@modules/recipes/recipes.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { TipsModule } from '@modules/tips/tips.module';
     FiscalModule,
     DeliveryModule,
     TipsModule,
+    RecipesModule,
     AppConfigModule,
     CqrsModule,
   ],

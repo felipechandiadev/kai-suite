@@ -1,25 +1,5 @@
-import { listStoragesForPage } from "@/features/inventory-storages/actions/storage.action";
-import { listUnitsForPage } from "@/features/inventory-units/actions/unit.action";
-import { listCategoriesForPage } from "@/features/inventory-categories/actions/category.action";
-import { InventoryReportsWorkspace } from "@/features/inventory-reports/ui/InventoryReportsWorkspace";
+import { redirect } from "next/navigation";
 
-export default async function InventoryReportsPage() {
-  const [storages, units, categories] = await Promise.all([
-    listStoragesForPage(),
-    listUnitsForPage(),
-    listCategoriesForPage(),
-  ]);
-
-  return (
-    <div
-      className="flex min-h-0 w-full min-w-0 flex-1 flex-col"
-      data-test-id="inventory-reports-page-root"
-    >
-      <InventoryReportsWorkspace
-        storages={storages}
-        units={units}
-        categories={categories}
-      />
-    </div>
-  );
+export default function InventoryReportsRedirectPage() {
+  redirect("/analytics/reports/inventory");
 }

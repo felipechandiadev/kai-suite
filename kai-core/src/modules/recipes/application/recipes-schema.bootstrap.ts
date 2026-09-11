@@ -15,11 +15,18 @@ export class RecipesSchemaBootstrap implements OnModuleInit {
       await this.dataSource.query(`
 DO $$
 BEGIN
-  CREATE TYPE recipes_type_enum AS ENUM ('SERVICE', 'PRODUCTION');
+  CREATE TYPE recipes_type_enum AS ENUM ('SERVICE', 'PRODUCTION', 'PACK');
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
 `);
+      await this.dataSource.query(`
+        DO $$ BEGIN
+          ALTER TYPE recipes_type_enum ADD VALUE IF NOT EXISTS 'PACK';
+        EXCEPTION
+          WHEN duplicate_object THEN NULL;
+        END $$;
+      `);
 
       await this.dataSource.query(`
 CREATE TABLE IF NOT EXISTS recipes (

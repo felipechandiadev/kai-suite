@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Badge, IconButton, TextField } from "@kai/ui";
+import { getPosDiningOrderAction } from "@/features/dining/actions/dining-pos.action";
+import { PosDiningAddAddonDialog } from "@/features/dining/ui/PosDiningAddAddonDialog";
 import {
   canCancelDiningLine,
   canSendDiningLineToKitchen,
@@ -37,29 +39,58 @@ export type DiningLineProductMeta = {
   attributes?: PosProductAttribute[];
   unitPrice: number;
   productType?: string | null;
+  productId?: string | null;
 };
 
 type Props = {
   lines: PosDiningOrderLine[];
   productByVariantId: Record<string, DiningLineProductMeta>;
+  orderId?: string;
   disabled?: boolean;
   busy?: boolean;
+  hostProductIdsWithAddons?: Set<string>;
   onSendLines: (lineIds: string[]) => void;
   onCancelLines: (lineIds: string[]) => void;
   onUpdateNotes: (lineIds: string[], notes: string | null) => void;
+  onRequestAddAddon?: (input: {
+    lineId: string;
+    hostProductId: string;
+    variantId: string;
+  }) => void;
+  onAddonAdded?: () => void;
 };
 
 export function PosDiningOrderLineGroups({
   lines,
   productByVariantId,
+  orderId,
   disabled = false,
   busy = false,
   onSendLines,
   onCancelLines,
   onUpdateNotes,
+  onRequestAddAddon,
+  onAddonAdded,
 }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const [addonDialog, setAddonDialog] = useState<{
+    lineId: string;
+    hostProductId: string;
+    variantId: string;
+  } | null>(null);
   const groups = useMemo(() => groupDiningOrderLines(lines), [lines]);
+
+  const openAddon = (input: {
+    lineId: string;
+    hostProductId: string;
+    variantId: string;
+  }) => {
+    if (onRequestAddAddon) {
+      onRequestAddAddon(input);
+      return;
+    }
+    setAddonDialog(input);
+  };
 
   const toggle = (key: string) => {
     setExpanded((prev) => {
@@ -75,23 +106,47 @@ export function PosDiningOrderLineGroups({
   }
 
   return (
+    <>
     <ul className="space-y-2" data-test-id="pos-dining-detail-lines">
-      {groups.map((group) => (
-        <GroupCard
-          key={group.key}
-          group={group}
-          product={productByVariantId[group.productVariantId]}
-          isExpanded={expanded.has(group.key)}
-          canExpand={group.lines.length > 1}
-          disabled={disabled}
-          busy={busy}
-          onToggle={() => toggle(group.key)}
-          onSendLines={onSendLines}
-          onCancelLines={onCancelLines}
-          onUpdateNotes={onUpdateNotes}
-        />
-      ))}
+      {groups.map((group) => {
+        const product = productByVariantId[group.productVariantId];
+        return (
+          <GroupCard
+            key={group.key}
+            group={group}
+            product={product}
+            isExpanded={expanded.has(group.key)}
+            canExpand={group.lines.length > 1}
+            disabled={disabled}
+            busy={busy}
+            onToggle={() => toggle(group.key)}
+            onSendLines={onSendLines}
+            onCancelLines={onCancelLines}
+            onUpdateNotes={onUpdateNotes}
+            onRequestAddAddon={openAddon}
+          />
+        );
+      })}
     </ul>
+    {addonDialog && orderId ? (
+      <PosDiningAddAddonDialog
+        open
+        orderId={orderId}
+        lineId={addonDialog.lineId}
+        hostProductId={addonDialog.hostProductId}
+        variantId={addonDialog.variantId}
+        onClose={() => setAddonDialog(null)}
+        onAdded={() => {
+          setAddonDialog(null);
+          if (onAddonAdded) {
+            onAddonAdded();
+            return;
+          }
+          void getPosDiningOrderAction(orderId);
+        }}
+      />
+    ) : null}
+    </>
   );
 }
 
@@ -106,6 +161,7 @@ function GroupCard({
   onSendLines,
   onCancelLines,
   onUpdateNotes,
+  onRequestAddAddon,
 }: {
   group: DiningLineGroup;
   product?: DiningLineProductMeta;
@@ -117,6 +173,11 @@ function GroupCard({
   onSendLines: (lineIds: string[]) => void;
   onCancelLines: (lineIds: string[]) => void;
   onUpdateNotes: (lineIds: string[], notes: string | null) => void;
+  onRequestAddAddon?: (input: {
+    lineId: string;
+    hostProductId: string;
+    variantId: string;
+  }) => void;
 }) {
   const unitPrice = product?.unitPrice ?? 0;
   const totalPrice = unitPrice * group.quantityTotal;
@@ -130,6 +191,19 @@ function GroupCard({
   const cancelIds = group.lines
     .filter((l) => canCancelDiningLine(l.kitchenStatus))
     .map((l) => l.id);
+  const draftAddonLineIds = group.lines
+    .filter((l) => l.kitchenStatus === "DRAFT")
+    .map((l) => l.id);
+  const hostProductId = product?.productId?.trim() ?? "";
+  const isPack = String(productType ?? "").toUpperCase() === "PACK";
+  const canAddExtra = !isPack;
+  const requestAddon = (lineId: string) =>
+    onRequestAddAddon?.({
+      lineId,
+      hostProductId,
+      variantId: group.productVariantId,
+    });
+  const groupAddonLineId = draftAddonLineIds[0] ?? group.lines[0]?.id;
   const canSend = draftIds.length > 0;
   const canCancel = cancelIds.length > 0;
   const allReady = needsKitchen && diningLineGroupAllReady(group);
@@ -184,6 +258,18 @@ function GroupCard({
 
         {showHeaderActions ? (
           <div className="mt-0.5 flex shrink-0 items-center gap-0.5">
+            {canAddExtra && groupAddonLineId ? (
+              <IconButton
+                icon="Plus"
+                variant="outlined"
+                size="sm"
+                ariaLabel="Agregar extra"
+                title="Agregar extra"
+                disabled={disabled || busy}
+                onClick={() => requestAddon(groupAddonLineId)}
+                data-test-id={`pos-dining-line-group-addon-${group.key}`}
+              />
+            ) : null}
             {canSend ? (
               <IconButton
                 icon="ChefHat"
@@ -222,6 +308,17 @@ function GroupCard({
             {statusLabel}
             {group.notes ? ` · ${group.notes}` : ""}
           </p>
+          {group.lines.some((l) => (l.addons ?? []).length > 0) ? (
+            <ul className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
+              {group.lines.flatMap((line) =>
+                (line.addons ?? []).map((addon) => (
+                  <li key={`${line.id}-${addon.id}`}>
+                    + {addon.name} ×{formatQty(Number(addon.quantity) || 0)}
+                  </li>
+                )),
+              )}
+            </ul>
+          ) : null}
           {fireNumbers.length > 0 ? (
             <div className="mt-1 flex flex-wrap gap-1">
               {fireNumbers.map((n) => (
@@ -315,6 +412,18 @@ function GroupCard({
                 data-ready={lineReady ? "true" : "false"}
               >
                 <div className="flex shrink-0 items-center gap-0.5">
+                  {canAddExtra && line.kitchenStatus !== "CANCELLED" ? (
+                    <IconButton
+                      icon="Plus"
+                      variant="outlined"
+                      size="sm"
+                      ariaLabel="Agregar extra"
+                      title="Agregar extra"
+                      disabled={disabled || busy}
+                      onClick={() => requestAddon(line.id)}
+                      data-test-id={`pos-dining-line-addon-${line.id}`}
+                    />
+                  ) : null}
                   {lineSend ? (
                     <IconButton
                       icon="ChefHat"
@@ -354,6 +463,15 @@ function GroupCard({
                     >
                       {`Pedido #${fireN}`}
                     </Badge>
+                  ) : null}
+                  {(line.addons ?? []).length > 0 ? (
+                    <ul className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
+                      {(line.addons ?? []).map((addon) => (
+                        <li key={addon.id}>
+                          + {addon.name} ×{formatQty(Number(addon.quantity) || 0)}
+                        </li>
+                      ))}
+                    </ul>
                   ) : null}
                 </div>
                 <div className="shrink-0 text-right text-xs tabular-nums text-muted-foreground">

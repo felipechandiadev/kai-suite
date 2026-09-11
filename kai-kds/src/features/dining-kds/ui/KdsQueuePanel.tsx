@@ -392,6 +392,15 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
                                 {item.notes}
                               </p>
                             ) : null}
+                            {(first.addons ?? []).length > 0 ? (
+                              <ul className="mt-0.5 space-y-0.5 text-xs text-muted-foreground">
+                                {(first.addons ?? []).map((addon, idx) => (
+                                  <li key={`${testKey}-addon-${idx}`}>
+                                    + {addon.name} ×{Number(addon.quantity) || 0}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : null}
                           </div>
                           <IconButton
                             icon="Check"

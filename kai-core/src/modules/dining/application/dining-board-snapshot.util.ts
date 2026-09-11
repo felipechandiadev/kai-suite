@@ -84,7 +84,8 @@ export function buildDiningBoardSnapshot(params: {
 
   for (const order of params.orders) {
     if (!BOARD_KINDS.has(order.kind)) continue;
-    if (String(order.status).toUpperCase() === 'CLOSED') continue;
+    const orderStatus = String(order.status).toUpperCase();
+    if (orderStatus === 'CLOSED' || orderStatus === 'VOID') continue;
 
     const lines = (order.lines ?? []).filter(
       (l) =>

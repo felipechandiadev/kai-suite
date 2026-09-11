@@ -15,6 +15,7 @@ kai/
 ├── kai-admin/                  # Admin web
 ├── kai-pos/                    # POS
 ├── kai-stock/                  # Inventario móvil
+├── kai-sami/                   # SaMI (asistente analítico)
 ├── kai-eshop/                  # Tienda pública
 ├── kai-printers-android/       # Agente Kai Printers (Android)
 ├── kai-screen-android/         # Agente Kai Screen (Android)
@@ -36,7 +37,7 @@ npm run dev          # liviano: infra + backend + admin (recomendado)
 npm run dev:all      # stack completo (+ pos, stock, eshop, mail)
 ```
 
-`npm install` en la raíz instala **todas las PWAs** (`kai-admin`, `kai-pos`, `kai-eshop`, `kai-stock`, `kai-waiter`, `kai-kds`, `kai-delivery`) y los paquetes `@kai/*`. Backend, landing, seeds y servicios quedan **fuera** del workspace: `cd … && npm install` por carpeta.
+`npm install` en la raíz instala **todas las PWAs** (`kai-admin`, `kai-pos`, `kai-eshop`, `kai-stock`, `kai-waiter`, `kai-kds`, `kai-delivery`, `kai-sami`) y los paquetes `@kai/*`. Backend, landing, seeds y servicios quedan **fuera** del workspace: `cd … && npm install` por carpeta.
 
 `npm run dev` usa el perfil **liviano** (backend + admin). Para todo el ecosistema: `npm run dev:all`.
 
@@ -46,6 +47,7 @@ npm run dev:all      # stack completo (+ pos, stock, eshop, mail)
 | Admin | http://localhost:5071 |
 | POS | http://localhost:5062 |
 | Stock | http://localhost:5063 |
+| SaMI | http://localhost:5070 |
 | eShop | http://localhost:5064 |
 | Delivery | http://localhost:5065 |
 | Landing | http://localhost:5066 |

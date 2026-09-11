@@ -12,6 +12,7 @@ const KNOWN_APPS: KaiAppId[] = [
   'kai-delivery',
   'kai-waiter',
   'kai-stock',
+  'kai-sami',
   'kds',
 ];
 

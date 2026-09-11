@@ -21,6 +21,7 @@ import { Transaction } from '@modules/transactions/domain/transaction.entity';
 import { DocumentSequence } from '@modules/transactions/domain/document-sequence.entity';
 import { TransactionLine } from '@modules/transaction-lines/domain/transaction-line.entity';
 import { Product } from '@modules/products/domain/product.entity';
+import { ProductAddon } from '@modules/products/domain/product-addon.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { ProductVariantProductionUnit } from '@modules/product-variants/domain/product-variant-production-unit.entity';
 import { ProductVariantBranchAvailability } from '@modules/product-variants/domain/product-variant-branch-availability.entity';
@@ -110,6 +111,14 @@ import { LaundryCareTemplate } from '@modules/laundry/domain/laundry-care-templa
 import { LaundryReception } from '@modules/laundry/domain/laundry-reception.entity';
 import { LaundryReceptionGarment } from '@modules/laundry/domain/laundry-reception-garment.entity';
 import { LaundryReceptionServiceLine } from '@modules/laundry/domain/laundry-reception-service-line.entity';
+import { AssistantConversation } from '@modules/assistant/domain/assistant-conversation.entity';
+import { AssistantMessage } from '@modules/assistant/domain/assistant-message.entity';
+import { AssistantAuditLog } from '@modules/assistant/domain/assistant-audit-log.entity';
+import { AssistantReport } from '@modules/assistant/domain/assistant-report.entity';
+import { PricingWeeklySnapshot } from '@modules/pricing/domain/pricing-weekly-snapshot.entity';
+import { PricingWeeklySnapshotLine } from '@modules/pricing/domain/pricing-weekly-snapshot-line.entity';
+import { AssistantFavorite } from '@modules/assistant/domain/assistant-favorite.entity';
+import { AssistantScheduledReport } from '@modules/assistant/domain/assistant-scheduled-report.entity';
 import { FiscalProfile } from '@modules/fiscal/domain/fiscal-profile.entity';
 import { FiscalCertificate } from '@modules/fiscal/domain/fiscal-certificate.entity';
 import { FiscalCaf } from '@modules/fiscal/domain/fiscal-caf.entity';
@@ -123,6 +132,7 @@ import { DiningRoom } from '@modules/dining/domain/dining-room.entity';
 import { DiningTable } from '@modules/dining/domain/dining-table.entity';
 import { DiningOrder } from '@modules/dining/domain/dining-order.entity';
 import { DiningOrderLine } from '@modules/dining/domain/dining-order-line.entity';
+import { DiningOrderLineAddon } from '@modules/dining/domain/dining-order-line-addon.entity';
 import { DiningStationOrder } from '@modules/dining/domain/dining-station-order.entity';
 import { DiningBranchSettings } from '@modules/dining/domain/dining-branch-settings.entity';
 import { DiningOrderSequence } from '@modules/dining/domain/dining-order-sequence.entity';
@@ -190,6 +200,7 @@ export const typeOrmConfig = (
       DocumentSequence,
       TransactionLine,
       Product,
+      ProductAddon,
       ProductVariant,
       ProductVariantProductionUnit,
       ProductVariantBranchAvailability,
@@ -285,6 +296,7 @@ export const typeOrmConfig = (
       DiningTable,
       DiningOrder,
       DiningOrderLine,
+      DiningOrderLineAddon,
       DiningStationOrder,
       DiningBranchSettings,
       DiningOrderSequence,
@@ -326,6 +338,14 @@ export const typeOrmConfig = (
       LaundryReception,
       LaundryReceptionGarment,
       LaundryReceptionServiceLine,
+      AssistantConversation,
+      AssistantMessage,
+      AssistantAuditLog,
+      AssistantReport,
+      PricingWeeklySnapshot,
+      PricingWeeklySnapshotLine,
+      AssistantFavorite,
+      AssistantScheduledReport,
     ],
 
     // Register subscribers (TypeORM EventSubscribers)

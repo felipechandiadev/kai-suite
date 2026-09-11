@@ -36,6 +36,7 @@ export type KaiAppId =
   | 'kai-delivery'
   | 'kai-waiter'
   | 'kai-stock'
+  | 'kai-sami'
   | 'kds';
 
 export const APP_ROLE_MATRIX: Record<KaiAppId, PlatformRoleCode[]> = {
@@ -67,6 +68,11 @@ export const APP_ROLE_MATRIX: Record<KaiAppId, PlatformRoleCode[]> = {
     PlatformRoleCode.ADMIN,
     PlatformRoleCode.SUB_ADMIN,
     PlatformRoleCode.STOCK_OPERATOR,
+  ],
+  'kai-sami': [
+    PlatformRoleCode.SUPER_ADMIN,
+    PlatformRoleCode.ADMIN,
+    PlatformRoleCode.SUB_ADMIN,
   ],
   kds: [
     PlatformRoleCode.SUPER_ADMIN,

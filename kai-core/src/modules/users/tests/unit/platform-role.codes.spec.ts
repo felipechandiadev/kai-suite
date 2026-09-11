@@ -35,5 +35,9 @@ describe('platform-role.codes', () => {
     expect(canAccessApp('kai-admin', [PlatformRoleCode.ADMIN], false)).toBe(
       true,
     );
+    expect(canAccessApp('kai-sami', [PlatformRoleCode.ADMIN], false)).toBe(true);
+    expect(
+      canAccessApp('kai-sami', [PlatformRoleCode.POS_OPERATOR], false),
+    ).toBe(false);
   });
 });

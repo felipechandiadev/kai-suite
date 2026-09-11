@@ -9,6 +9,8 @@ import { DiningRoom } from './domain/dining-room.entity';
 import { DiningTable } from './domain/dining-table.entity';
 import { DiningOrder } from './domain/dining-order.entity';
 import { DiningOrderLine } from './domain/dining-order-line.entity';
+import { DiningOrderLineAddon } from './domain/dining-order-line-addon.entity';
+import { ProductsModule } from '@modules/products/products.module';
 import { DiningBranchSettings } from './domain/dining-branch-settings.entity';
 import { DiningOrderSequence } from './domain/dining-order-sequence.entity';
 import { DiningKitchenFireSequence } from './domain/dining-kitchen-fire-sequence.entity';
@@ -36,6 +38,7 @@ import { DiningReadyNotificationService } from './application/dining-ready-notif
   imports: [
     forwardRef(() => DiningRealtimeModule),
     RecipesModule,
+    ProductsModule,
     TransactionsModule,
     StockLevelsModule,
     ProductVariantsModule,
@@ -45,6 +48,7 @@ import { DiningReadyNotificationService } from './application/dining-ready-notif
       DiningTable,
       DiningOrder,
       DiningOrderLine,
+      DiningOrderLineAddon,
       DiningBranchSettings,
       DiningOrderSequence,
       DiningKitchenFireSequence,

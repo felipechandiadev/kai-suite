@@ -33,6 +33,7 @@ import {
   markPosDiningFireReadyForPickupAction,
   markPosDiningFireDeliveredAction,
   updatePosDiningOrderLineNotesAction,
+  listPosDiningHostAddonsAction,
 } from "@/features/dining/actions/dining-pos.action";
 import { diningAccountTitle } from "@/features/dining/lib/dining-account-title";
 import { groupDiningFiresForBoard } from "@/features/dining/lib/group-dining-fires-for-board";
@@ -72,12 +73,14 @@ import type {
   PosDiningRoomSummary,
 } from "@/features/dining/types/dining-pos.types";
 import { PosDiningAddItemDialog } from "@/features/dining/ui/PosDiningAddItemDialog";
+import { PosDiningAddAddonDialog } from "@/features/dining/ui/PosDiningAddAddonDialog";
 import { PosDiningMenuColumn } from "@/features/dining/ui/PosDiningMenuColumn";
 import {
   PosDiningOrderLineGroups,
   type DiningLineProductMeta,
 } from "@/features/dining/ui/PosDiningOrderLineGroups";
 import { PosDiningRenameAccountDialog } from "@/features/dining/ui/PosDiningRenameAccountDialog";
+import { PosDiningVoidAccountDialog } from "@/features/dining/ui/PosDiningVoidAccountDialog";
 import { readPosContextClient } from "@/features/session/lib/pos-context-storage";
 import { redirectToLoginIfUnauthorized } from "@/lib/auth/pos-api-failure";
 import { diningKindToTab, useDiningPayment } from "@/features/dining-payment";
@@ -112,7 +115,11 @@ function formatMoney(n: number) {
 }
 
 function isActiveOrder(order: PosDiningOrderSummary) {
-  return order.status !== "CLOSED" && order.status !== "FREE";
+  return (
+    order.status !== "CLOSED" &&
+    order.status !== "VOID" &&
+    order.status !== "FREE"
+  );
 }
 
 function sessionItemsToLines(
@@ -126,6 +133,12 @@ function sessionItemsToLines(
     kitchenStatus: item.kitchenStatus,
     kitchenFireId: item.kitchenFireId ?? null,
     kitchenFireNumber: item.kitchenFireNumber ?? null,
+    addons: item.addons?.map((a) => ({
+      id: a.id,
+      addonVariantId: a.addonVariantId,
+      name: a.name,
+      quantity: a.quantity,
+    })),
   }));
 }
 
@@ -203,7 +216,19 @@ export default function PosDiningAccountsPanel({
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [addItemOpen, setAddItemOpen] = useState(false);
+  const [addonDialog, setAddonDialog] = useState<{
+    orderId: string;
+    lineId: string;
+    hostProductId: string;
+    variantId: string;
+  } | null>(null);
+  const [hostProductIdsWithAddons, setHostProductIdsWithAddons] = useState<
+    Set<string>
+  >(() => new Set());
+  const hostAddonKnownRef = useRef<Map<string, boolean>>(new Map());
+  const latestHostProductIdsRef = useRef<string[]>([]);
   const [renameTarget, setRenameTarget] = useState<PosDiningOrderSummary | null>(null);
+  const [voidDialogOpen, setVoidDialogOpen] = useState(false);
   const [allowPosOpenTable, setAllowPosOpenTable] = useState(false);
   const [menuColumnCollapsed, setMenuColumnCollapsed] = useState(false);
   const [tablesView, setTablesView] = useState<PosDiningTablesView>("list");
@@ -324,7 +349,9 @@ export default function PosDiningAccountsPanel({
       if (payload.kind !== TAB_TO_KIND[tab]) return;
 
       const closed =
-        payload.status === "CLOSED" || payload.status === "FREE";
+        payload.status === "CLOSED" ||
+        payload.status === "VOID" ||
+        payload.status === "FREE";
       const items = Array.isArray(payload.items) ? payload.items : [];
 
       let missingFromList = false;
@@ -511,11 +538,58 @@ export default function PosDiningAccountsPanel({
           attributes: p.attributes,
           unitPrice: Number(p.unitPriceWithTax) || 0,
           productType: p.productType ?? null,
+          productId: p.productId ?? null,
         };
       }
       setProductByVariantId(next);
     });
   }, [branchId, detail, orders]);
+
+  const detailHostProductIdsKey = useMemo(() => {
+    const ids = [
+      ...new Set(
+        (detail?.lines ?? [])
+          .map((l) => productByVariantId[l.productVariantId]?.productId?.trim())
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ].sort();
+    return ids.join(",");
+  }, [detail?.lines, productByVariantId]);
+
+  useEffect(() => {
+    const productIds = detailHostProductIdsKey
+      ? detailHostProductIdsKey.split(",")
+      : [];
+    latestHostProductIdsRef.current = productIds;
+    const applyKnown = () => {
+      const ids = latestHostProductIdsRef.current;
+      const next = new Set(
+        ids.filter((id) => hostAddonKnownRef.current.get(id) === true),
+      );
+      setHostProductIdsWithAddons((prev) => {
+        if (prev.size === next.size && [...next].every((id) => prev.has(id))) {
+          return prev;
+        }
+        return next;
+      });
+    };
+    applyKnown();
+    const unknown = productIds.filter((id) => !hostAddonKnownRef.current.has(id));
+    if (unknown.length === 0) return;
+    void Promise.all(
+      unknown.map((id) =>
+        listPosDiningHostAddonsAction(id).then((res) => ({
+          id,
+          has: res.success && res.options.length > 0,
+        })),
+      ),
+    ).then((rows) => {
+      for (const row of rows) {
+        hostAddonKnownRef.current.set(row.id, row.has);
+      }
+      applyKnown();
+    });
+  }, [detailHostProductIdsKey]);
 
   const filteredOrders = useMemo(() => {
     let rows = orders.filter(isActiveOrder);
@@ -620,6 +694,13 @@ export default function PosDiningAccountsPanel({
     detail != null &&
     (detail.status === "OPEN" || detail.status === "SENT") &&
     !isBilling;
+
+  const canVoidAccount =
+    detail != null &&
+    detail.status !== "CLOSED" &&
+    detail.status !== "VOID" &&
+    detail.status !== "FREE" &&
+    !detail.linkedTransactionId;
 
   const applyOpenedOrder = (order: PosDiningOrderSummary, tab: TabKey) => {
     setDetailError(null);
@@ -986,6 +1067,7 @@ export default function PosDiningAccountsPanel({
             attributes: p.attributes,
             unitPrice: Number(p.unitPriceWithTax) || 0,
             productType: p.productType ?? null,
+            productId: p.productId ?? null,
           };
         }
         products = next;
@@ -1091,7 +1173,20 @@ export default function PosDiningAccountsPanel({
     });
   };
 
-  const handleMenuOrderUpdated = (order: PosDiningOrderSummary) => {
+  const handleVoidAccountSuccess = () => {
+    const orderId = detail?.id;
+    if (!orderId) return;
+    setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    setDetail(null);
+    setDetailError(null);
+    setSelectedOrderId(null);
+    refreshList({ silent: true });
+  };
+
+  const handleMenuOrderUpdated = (
+    order: PosDiningOrderSummary,
+    _added?: { variantId: string; productId: string; productType: string | null },
+  ) => {
     setDetail(order);
     upsertOrderInList(order);
     refreshList({ silent: true });
@@ -1554,13 +1649,32 @@ export default function PosDiningAccountsPanel({
             ) : null}
 
             <PosDiningOrderLineGroups
+              orderId={detail.id}
               lines={detail.lines}
               productByVariantId={productByVariantId}
               disabled={disabled || isBilling}
               busy={actionBusy}
+              hostProductIdsWithAddons={hostProductIdsWithAddons}
               onSendLines={(lineIds) => handleSendToKitchen(lineIds)}
               onCancelLines={handleCancelLines}
               onUpdateNotes={handleUpdateNotes}
+              onRequestAddAddon={({ lineId, hostProductId, variantId }) =>
+                setAddonDialog({
+                  orderId: detail.id,
+                  lineId,
+                  hostProductId,
+                  variantId,
+                })
+              }
+              onAddonAdded={() => {
+                void getPosDiningOrderAction(detail.id).then((res) => {
+                  if (res.success) {
+                    setDetail(res.order);
+                    upsertOrderInList(res.order);
+                  }
+                  refreshList({ silent: true });
+                });
+              }}
             />
           </div>
         ) : null}
@@ -1657,6 +1771,18 @@ export default function PosDiningAccountsPanel({
               <div className="min-w-0 flex-1" />
             )}
             <div className="flex shrink-0 items-center gap-3">
+              {canVoidAccount ? (
+                <Button
+                  variant="outlined"
+                  size="sm"
+                  className="shrink-0"
+                  disabled={disabled || actionBusy}
+                  onClick={() => setVoidDialogOpen(true)}
+                  data-test-id="pos-dining-void-account-btn"
+                >
+                  Anular cuenta
+                </Button>
+              ) : null}
               {canAbandonEmpty ? (
                 <Button
                   variant="outlined"
@@ -1766,6 +1892,27 @@ export default function PosDiningAccountsPanel({
           }}
         />
       ) : null}
+
+      {addonDialog ? (
+        <PosDiningAddAddonDialog
+          open
+          orderId={addonDialog.orderId}
+          lineId={addonDialog.lineId}
+          hostProductId={addonDialog.hostProductId}
+          variantId={addonDialog.variantId}
+          onClose={() => setAddonDialog(null)}
+          onAdded={() => {
+            const orderId = addonDialog.orderId;
+            void getPosDiningOrderAction(orderId).then((res) => {
+              if (res.success) {
+                setDetail(res.order);
+                upsertOrderInList(res.order);
+              }
+              refreshList({ silent: true });
+            });
+          }}
+        />
+      ) : null}
     </>
   );
 
@@ -1787,6 +1934,16 @@ export default function PosDiningAccountsPanel({
             });
           }
         }}
+      />
+    ) : null;
+
+  const voidDialog =
+    voidDialogOpen && detail != null ? (
+      <PosDiningVoidAccountDialog
+        open
+        onClose={() => setVoidDialogOpen(false)}
+        orderId={detail.id}
+        onSuccess={handleVoidAccountSuccess}
       />
     ) : null;
 
@@ -1910,6 +2067,7 @@ export default function PosDiningAccountsPanel({
           {detailContent}
         </aside>
         {renameDialog}
+        {voidDialog}
       </div>
     );
   }
@@ -1956,6 +2114,7 @@ export default function PosDiningAccountsPanel({
         </div>
         {detailContent}
         {renameDialog}
+        {voidDialog}
       </aside>
     );
   }
@@ -1974,6 +2133,7 @@ export default function PosDiningAccountsPanel({
       {tabSelector}
       {accountsListBody}
       {renameDialog}
+        {voidDialog}
     </aside>
   );
 }

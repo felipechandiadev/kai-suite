@@ -138,6 +138,13 @@ export class CloseDiningOrderDto {
   linkedTransactionId?: string;
 }
 
+export class VoidDiningOrderDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
+}
+
 export class SendToKitchenDto {
   /** Si se envía, solo esas líneas DRAFT pasan a SENT. Si se omite, envía todos los borradores. */
   @IsOptional()
@@ -162,4 +169,15 @@ export class MarkKitchenLinesReadyDto {
   @IsNotEmpty()
   @IsUUID()
   productionUnitId!: string;
+}
+
+export class AddDiningLineAddonDto {
+  @IsNotEmpty()
+  @IsUUID()
+  addonVariantId!: string;
+
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0.001)
+  quantity!: number;
 }

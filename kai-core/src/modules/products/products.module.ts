@@ -4,6 +4,7 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { ProductVariantBranchAvailability } from '@modules/product-variants/domain/product-variant-branch-availability.entity';
 import { Product } from '@modules/products/domain/product.entity';
+import { ProductAddon } from '@modules/products/domain/product-addon.entity';
 import { Tax } from '@modules/taxes/domain/tax.entity';
 import { Attribute } from '@modules/attributes/domain/attribute.entity';
 import { PriceListItem } from '@modules/price-list-items/domain/price-list-item.entity';
@@ -11,6 +12,7 @@ import { StockLevel } from '@modules/stock-levels/domain/stock-level.entity';
 import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
 import { Unit } from '@modules/units/domain/unit.entity';
 import { ProductsController } from './presentation/products.controller';
+import { ProductAddonsController } from './presentation/product-addons.controller';
 import { ProductsService } from './application/products.service';
 import { ProductsPosService } from './application/products-pos.service';
 import { ProductsServiceAdapter } from './application/products.service.adapter';
@@ -32,11 +34,14 @@ import { GetAllProductsQueryHandler } from './application/handlers/queries/get-a
 import { SearchProductsQueryHandler } from './application/handlers/queries/search-products.handler';
 import { ProductCatalogSearchBootstrap } from './application/product-catalog-search.bootstrap';
 import { ProductEshopVisibilitySyncService } from './application/services/product-eshop-visibility-sync.service';
+import { ProductsSchemaBootstrap } from './application/products-schema.bootstrap';
+import { ProductAddonsService } from './application/product-addons.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       Product,
+      ProductAddon,
       ProductVariant,
       ProductVariantBranchAvailability,
       Tax,
@@ -52,7 +57,7 @@ import { ProductEshopVisibilitySyncService } from './application/services/produc
     ProductModeModule,
     forwardRef(() => CatalogRealtimeModule),
   ],
-  controllers: [ProductsController],
+  controllers: [ProductsController, ProductAddonsController],
   providers: [
     ProductCatalogSearchBootstrap,
     ProductsService,
@@ -73,12 +78,15 @@ import { ProductEshopVisibilitySyncService } from './application/services/produc
     GetAllProductsQueryHandler,
     SearchProductsQueryHandler,
     ProductEshopVisibilitySyncService,
+    ProductsSchemaBootstrap,
+    ProductAddonsService,
   ],
   exports: [
     ProductsServiceAdapter,
     ProductsService,
     ProductsPosService,
     ProductEshopVisibilitySyncService,
+    ProductAddonsService,
   ],
 })
 export class ProductsModule {}

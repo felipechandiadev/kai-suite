@@ -42,6 +42,7 @@ export class LiraVoiceService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, voice }),
+        signal: AbortSignal.timeout(10_000),
       });
       if (!res.ok) {
         this.logger.warn(`Kai Voice speak HTTP ${res.status}`);

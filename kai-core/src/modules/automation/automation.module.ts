@@ -13,6 +13,7 @@ import { TransactionsModule } from '@modules/transactions/transactions.module';
 import { StockRealtimeModule } from '@modules/stock-realtime/stock-realtime.module';
 import { NotificationsModule } from '@modules/notifications/notifications.module';
 import { CompaniesModule } from '@modules/companies/companies.module';
+import { RecipesModule } from '@modules/recipes/recipes.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { CompaniesModule } from '@modules/companies/companies.module';
     StockRealtimeModule,
     NotificationsModule,
     CompaniesModule,
+    RecipesModule,
   ],
   controllers: [AutomationRulesController],
   providers: [

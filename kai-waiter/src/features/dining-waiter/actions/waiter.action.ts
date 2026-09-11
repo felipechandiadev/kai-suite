@@ -144,6 +144,28 @@ export async function addOrderItemsAction(body: {
   ]);
 }
 
+export async function listWaiterHostAddonsAction(body: {
+  userId: string;
+  companyId: string;
+  hostProductId: string;
+}) {
+  return DiningRequest.listHostAddons(ctx(body), body.hostProductId);
+}
+
+export async function addOrderLineAddonAction(body: {
+  userId: string;
+  companyId: string;
+  orderId: string;
+  lineId: string;
+  addonVariantId: string;
+  quantity?: number;
+}) {
+  return DiningRequest.addLineAddon(ctx(body), body.orderId, body.lineId, {
+    addonVariantId: body.addonVariantId,
+    quantity: body.quantity ?? 1,
+  });
+}
+
 export async function sendOrderToKitchenAction(body: {
   userId: string;
   companyId: string;

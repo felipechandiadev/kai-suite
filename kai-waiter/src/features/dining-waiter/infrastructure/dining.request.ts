@@ -1,5 +1,6 @@
 import {
   type DiningAuthContext,
+  diningDelete,
   diningGet,
   diningPatch,
   diningPost,
@@ -39,6 +40,13 @@ export type DiningOrderLineDto = {
   kitchenStatus: string;
   kitchenFireId?: string | null;
   kitchenFireNumber?: number | null;
+  addons?: Array<{
+    id?: string;
+    addonVariantId?: string;
+    displayName?: string;
+    name?: string;
+    quantity: number | string;
+  }>;
   productVariant?: { name?: string; sku?: string };
 };
 
@@ -129,6 +137,7 @@ export type WaiterLineProductMeta = {
   attributes?: WaiterProductAttributeDto[];
   unitPrice: number;
   productType?: string | null;
+  productId?: string | null;
 };
 
 type PosListRow = {
@@ -152,6 +161,13 @@ type PosSearchApiResponse = {
 type PosLookupApiResponse = {
   success?: boolean;
   products?: Array<Record<string, unknown>>;
+};
+
+export type WaiterHostAddonOption = {
+  addonProductId: string;
+  name: string;
+  variantId: string;
+  sku: string | null;
 };
 
 function mapPosProduct(raw: Record<string, unknown>): WaiterMenuVariantDto {
@@ -282,7 +298,7 @@ export class DiningRequest {
       query: input.query?.trim() || undefined,
       page: String(page),
       pageSize: String(pageSize),
-      productTypes: "PREPARADO,PHYSICAL",
+      productTypes: "PREPARADO,PHYSICAL,ELABORADO,MANUFACTURADO,PACK",
       onMenuOnly: "true",
     };
     if (input.categoryIds?.length) {
@@ -334,6 +350,7 @@ export class DiningRequest {
         attributes: mapped.attributes,
         unitPrice: mapped.unitPriceWithTax || mapped.unitPrice,
         productType: mapped.productType || null,
+        productId: mapped.productId || null,
       };
     }
     return map;
@@ -380,6 +397,48 @@ export class DiningRequest {
     });
   }
 
+  static async listHostAddons(
+    ctx: DiningAuthContext,
+    hostProductId: string,
+  ): Promise<WaiterHostAddonOption[]> {
+    const id = hostProductId.trim();
+    if (!id) return [];
+    const rows = await diningGet<unknown>(
+      `/products/${encodeURIComponent(id)}/addons`,
+      ctx,
+    );
+    const list = Array.isArray(rows) ? rows : [];
+    const options: WaiterHostAddonOption[] = [];
+    for (const row of list) {
+      if (!row || typeof row !== "object") continue;
+      const raw = row as Record<string, unknown>;
+      const addonProduct =
+        raw.addonProduct && typeof raw.addonProduct === "object"
+          ? (raw.addonProduct as Record<string, unknown>)
+          : null;
+      const name =
+        String(raw.name ?? addonProduct?.name ?? "Extra").trim() || "Extra";
+      const variantsRaw = Array.isArray(raw.addonVariants)
+        ? raw.addonVariants
+        : Array.isArray(raw.addon_variants)
+          ? raw.addon_variants
+          : [];
+      for (const v of variantsRaw) {
+        if (!v || typeof v !== "object") continue;
+        const variant = v as Record<string, unknown>;
+        const variantId = String(variant.id ?? "").trim();
+        if (!variantId) continue;
+        options.push({
+          addonProductId: String(raw.addonProductId ?? addonProduct?.id ?? ""),
+          name,
+          variantId,
+          sku: variant.sku != null ? String(variant.sku) : null,
+        });
+      }
+    }
+    return options;
+  }
+
   static sendToKitchen(
     ctx: DiningAuthContext,
     orderId: string,
@@ -413,6 +472,31 @@ export class DiningRequest {
       `/dining/orders/${orderId}/lines/${lineId}`,
       ctx,
       { notes },
+    );
+  }
+
+  static addLineAddon(
+    ctx: DiningAuthContext,
+    orderId: string,
+    lineId: string,
+    input: { addonVariantId: string; quantity: number },
+  ) {
+    return diningPost<DiningOrderDto>(
+      `/dining/orders/${orderId}/lines/${lineId}/addons`,
+      ctx,
+      input,
+    );
+  }
+
+  static removeLineAddon(
+    ctx: DiningAuthContext,
+    orderId: string,
+    lineId: string,
+    addonId: string,
+  ) {
+    return diningDelete<DiningOrderDto>(
+      `/dining/orders/${orderId}/lines/${lineId}/addons/${addonId}`,
+      ctx,
     );
   }
 

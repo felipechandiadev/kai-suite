@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button, IconButton, TextField } from "@kai/ui";
 import type {
   DiningOrderDto,
@@ -10,6 +10,7 @@ import {
   cancelOrderItemAction,
   getCompanyTipSettingsAction,
   listKitchenProductionUnitsAction,
+  listWaiterHostAddonsAction,
   lookupWaiterVariantsAction,
   markFireDeliveredAction,
   reopenOrderAction,
@@ -18,6 +19,7 @@ import {
   sendOrderToKitchenAction,
   updateOrderLineNotesAction,
 } from "../actions/waiter.action";
+import { WaiterAddAddonDialog } from "./WaiterAddAddonDialog";
 import { listPrintAgentsForWaiterAction } from "@/features/print-agents/actions/print-agents.action";
 import { printWaiterDiningAccountTicket } from "../lib/waiter-dining-account-ticket-print";
 import { printWaiterKitchenComandasAfterFire } from "../lib/waiter-kitchen-comanda-print";
@@ -81,6 +83,16 @@ export function WaiterCuentaPanel({
   const [productByVariantId, setProductByVariantId] = useState<
     Record<string, WaiterLineProductMeta>
   >({});
+  const [hostProductIdsWithAddons, setHostProductIdsWithAddons] = useState<
+    Set<string>
+  >(() => new Set());
+  const hostAddonKnownRef = useRef<Map<string, boolean>>(new Map());
+  const latestHostProductIdsRef = useRef<string[]>([]);
+  const [addonDialog, setAddonDialog] = useState<{
+    lineId: string;
+    hostProductId: string;
+    variantId: string;
+  } | null>(null);
   const [kitchenUnits, setKitchenUnits] = useState<KitchenUnitPrintInfo[]>([]);
   const [printAgents, setPrintAgents] = useState<PrintAgentCatalogItem[]>([]);
   const [branchName, setBranchName] = useState<string | null>(null);
@@ -231,6 +243,49 @@ export function WaiterCuentaPanel({
     };
   }, [auth, branchId, order.lines, variantIdsKey]);
 
+  const hostProductIdsKey = useMemo(() => {
+    const ids = [
+      ...new Set(
+        (order.lines ?? [])
+          .map((l) => productByVariantId[l.productVariantId]?.productId?.trim())
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ].sort();
+    return ids.join(",");
+  }, [order.lines, productByVariantId]);
+
+  useEffect(() => {
+    const productIds = hostProductIdsKey ? hostProductIdsKey.split(",") : [];
+    latestHostProductIdsRef.current = productIds;
+    const applyKnown = () => {
+      const ids = latestHostProductIdsRef.current;
+      const next = new Set(
+        ids.filter((id) => hostAddonKnownRef.current.get(id) === true),
+      );
+      setHostProductIdsWithAddons((prev) => {
+        if (prev.size === next.size && [...next].every((id) => prev.has(id))) {
+          return prev;
+        }
+        return next;
+      });
+    };
+    applyKnown();
+    const unknown = productIds.filter((id) => !hostAddonKnownRef.current.has(id));
+    if (unknown.length === 0) return;
+    void Promise.all(
+      unknown.map((id) =>
+        listWaiterHostAddonsAction({ ...auth, hostProductId: id })
+          .then((options) => ({ id, has: options.length > 0 }))
+          .catch(() => ({ id, has: false })),
+      ),
+    ).then((rows) => {
+      for (const row of rows) {
+        hostAddonKnownRef.current.set(row.id, row.has);
+      }
+      applyKnown();
+    });
+  }, [auth, hostProductIdsKey]);
+
   const run = async (key: string, fn: () => Promise<DiningOrderDto>) => {
     setBusy(key);
     setError(null);
@@ -368,15 +423,21 @@ export function WaiterCuentaPanel({
             Sin ítems. Ve a Menú para cargar productos.
           </li>
         ) : (
-          groups.map((group) => (
+          groups.map((group) => {
+            const product = productByVariantId[group.productVariantId];
+            const hostProductId = product?.productId?.trim() ?? "";
+            const canAddonHost =
+              String(product?.productType ?? "").toUpperCase() !== "PACK";
+            return (
             <GroupCard
               key={group.key}
               group={group}
-              product={productByVariantId[group.productVariantId]}
+              product={product}
               isExpanded={expanded.has(group.key)}
               canExpand={group.lines.length > 1}
               disabled={isBilling}
               busy={busy !== null}
+              hostHasAddons={canAddonHost}
               onToggle={() => toggle(group.key)}
               onSendLines={(lineIds) =>
                 void run(`fire-${group.key}`, () => fireAndMaybePrint(lineIds))
@@ -408,8 +469,12 @@ export function WaiterCuentaPanel({
                   return latest;
                 })
               }
+              onRequestAddAddon={({ lineId, hostProductId: hostId, variantId }) =>
+                setAddonDialog({ lineId, hostProductId: hostId, variantId })
+              }
             />
-          ))
+            );
+          })
         )}
       </ul>
 
@@ -539,6 +604,21 @@ export function WaiterCuentaPanel({
           {error}
         </p>
       ) : null}
+
+      {addonDialog ? (
+        <WaiterAddAddonDialog
+          open
+          userId={session.userId}
+          companyId={session.companyId}
+          branchId={branchId}
+          orderId={order.id}
+          lineId={addonDialog.lineId}
+          hostProductId={addonDialog.hostProductId}
+          variantId={addonDialog.variantId}
+          onClose={() => setAddonDialog(null)}
+          onAdded={onOrderUpdated}
+        />
+      ) : null}
     </div>
   );
 }
@@ -554,6 +634,8 @@ function GroupCard({
   onSendLines,
   onCancelLines,
   onUpdateNotes,
+  hostHasAddons,
+  onRequestAddAddon,
 }: {
   group: WaiterLineGroup;
   product?: WaiterLineProductMeta;
@@ -565,6 +647,12 @@ function GroupCard({
   onSendLines: (lineIds: string[]) => void;
   onCancelLines: (lineIds: string[]) => void;
   onUpdateNotes: (lineIds: string[], notes: string | null) => void;
+  hostHasAddons: boolean;
+  onRequestAddAddon?: (input: {
+    lineId: string;
+    hostProductId: string;
+    variantId: string;
+  }) => void;
 }) {
   const unitPrice = product?.unitPrice ?? 0;
   const totalPrice = unitPrice * group.quantityTotal;
@@ -577,6 +665,17 @@ function GroupCard({
   const cancelIds = group.lines
     .filter((l) => canCancelWaiterLine(l.kitchenStatus))
     .map((l) => l.id);
+  const draftAddonLineIds = group.lines
+    .filter((l) => l.kitchenStatus === "DRAFT")
+    .map((l) => l.id);
+  const hostProductId = product?.productId?.trim() ?? "";
+  const canAddExtra = hostHasAddons && Boolean(onRequestAddAddon);
+  const requestAddon = (lineId: string) =>
+    onRequestAddAddon?.({
+      lineId,
+      hostProductId,
+      variantId: group.productVariantId,
+    });
   const canSend = draftIds.length > 0;
   const canCancel = cancelIds.length > 0;
   const allReady = needsKitchen && waiterLineGroupAllReady(group);
@@ -639,6 +738,18 @@ function GroupCard({
                 data-test-id={`waiter-cancel-group-${group.key}`}
               />
             ) : null}
+            {canAddExtra && draftAddonLineIds.length > 0 ? (
+              <IconButton
+                icon="Plus"
+                variant="action"
+                size="sm"
+                ariaLabel="Agregar extra"
+                title="Agregar extra"
+                disabled={disabled || busy}
+                onClick={() => requestAddon(draftAddonLineIds[0])}
+                data-test-id={`waiter-addon-group-${group.key}`}
+              />
+            ) : null}
           </div>
         ) : null}
 
@@ -652,6 +763,34 @@ function GroupCard({
             {statusLabel}
             {group.notes ? ` · ${group.notes}` : ""}
           </p>
+          {canAddExtra && showHeaderActions && draftAddonLineIds.length > 0 ? (
+            <button
+              type="button"
+              className="mt-1 text-left text-[11px] font-medium text-primary underline-offset-2 hover:underline disabled:opacity-50"
+              disabled={disabled || busy}
+              onClick={() => requestAddon(draftAddonLineIds[0])}
+              data-test-id={`waiter-addon-label-${group.key}`}
+            >
+              Agregar extra
+            </button>
+          ) : null}
+          {group.lines.some((l) => (l.addons ?? []).length > 0) ? (
+            <ul className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
+              {group.lines.flatMap((line) =>
+                (line.addons ?? []).map((addon) => {
+                  const label =
+                    addon.displayName?.trim() ||
+                    addon.name?.trim() ||
+                    "Extra";
+                  return (
+                    <li key={`${line.id}-${addon.id ?? label}`}>
+                      + {label} ×{formatQty(Number(addon.quantity) || 0)}
+                    </li>
+                  );
+                }),
+              )}
+            </ul>
+          ) : null}
           {fireNumbers.length > 0 ? (
             <div className="mt-1 flex flex-wrap gap-1">
               {fireNumbers.map((n) => (
@@ -767,6 +906,18 @@ function GroupCard({
                       onClick={() => onCancelLines([line.id])}
                     />
                   ) : null}
+                  {canAddExtra && line.kitchenStatus === "DRAFT" ? (
+                    <IconButton
+                      icon="Plus"
+                      variant="action"
+                      size="sm"
+                      ariaLabel="Agregar extra"
+                      title="Agregar extra"
+                      disabled={disabled || busy}
+                      onClick={() => requestAddon(line.id)}
+                      data-test-id={`waiter-line-addon-${line.id}`}
+                    />
+                  ) : null}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-muted-foreground">
@@ -777,6 +928,21 @@ function GroupCard({
                     <Badge variant="secondary-outlined" className="mt-0.5 text-[10px]">
                       {`Pedido #${fireN}`}
                     </Badge>
+                  ) : null}
+                  {(line.addons ?? []).length > 0 ? (
+                    <ul className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">
+                      {(line.addons ?? []).map((addon) => {
+                        const label =
+                          addon.displayName?.trim() ||
+                          addon.name?.trim() ||
+                          "Extra";
+                        return (
+                          <li key={addon.id ?? `${line.id}-${label}`}>
+                            + {label} ×{formatQty(Number(addon.quantity) || 0)}
+                          </li>
+                        );
+                      })}
+                    </ul>
                   ) : null}
                 </div>
                 <div className="shrink-0 text-right text-xs tabular-nums text-muted-foreground">

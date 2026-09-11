@@ -152,6 +152,22 @@ export async function diningPatch<T>(
   return res.json() as Promise<T>;
 }
 
+export async function diningDelete<T>(
+  path: string,
+  ctx: DiningAuthContext,
+): Promise<T> {
+  const res = await fetch(apiUrl(path), {
+    method: "DELETE",
+    headers: authHeaders(ctx),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(parseApiError(text, res.status));
+  }
+  return res.json() as Promise<T>;
+}
+
 export async function diningLogin(body: {
   userName: string;
   password: string;

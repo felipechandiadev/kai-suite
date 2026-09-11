@@ -13,9 +13,14 @@ export type KdsItemGroup = {
 export function kdsItemGroupKey(line: {
   productVariantId: string;
   notes?: string | null;
+  addons?: Array<{ name: string; quantity: number }>;
 }): string {
   const notes = (line.notes ?? "").trim();
-  return `${line.productVariantId}|${notes}`;
+  const addonKey = (line.addons ?? [])
+    .map((a) => `${a.name.trim()}×${Number(a.quantity) || 0}`)
+    .sort()
+    .join("|");
+  return `${line.productVariantId}|${notes}|${addonKey}`;
 }
 
 /** Sanitize group key for use in data-test-id attributes. */

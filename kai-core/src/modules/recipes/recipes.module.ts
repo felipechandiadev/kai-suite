@@ -12,6 +12,8 @@ import { RecipesService } from './application/recipes.service';
 import { RecipeCtpService } from './application/recipe-ctp.service';
 import { RecipesSchemaBootstrap } from './application/recipes-schema.bootstrap';
 import { RecipesController } from './presentation/recipes.controller';
+import { PacksController } from './presentation/packs.controller';
+import { PackService } from './application/pack.service';
 
 @Module({
   imports: [
@@ -26,8 +28,8 @@ import { RecipesController } from './presentation/recipes.controller';
       Storage,
     ]),
   ],
-  providers: [RecipesService, RecipeCtpService, RecipesSchemaBootstrap],
-  controllers: [RecipesController],
-  exports: [RecipesService, RecipeCtpService],
+  providers: [RecipesService, RecipeCtpService, RecipesSchemaBootstrap, PackService],
+  controllers: [RecipesController, PacksController],
+  exports: [RecipesService, RecipeCtpService, PackService],
 })
 export class RecipesModule {}

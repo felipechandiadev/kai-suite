@@ -16,6 +16,11 @@ import { ProductVariantsService } from '@modules/product-variants/application/pr
 import { ProductionUnit } from '@modules/production-units/domain/production-unit.entity';
 import { ProductionUnitPurpose } from '@modules/production-units/domain/production-unit.enums';
 import { ProductModeService } from '@shared/product-mode/product-mode.service';
+import { ProductAddonsService } from '@modules/products/application/product-addons.service';
+import {
+  isAgregadoProductType,
+  isAllowedDiningRootProductType,
+} from '@modules/products/application/helpers/product-type-policy.util';
 import { DiningRealtimePublisher } from '@modules/dining-realtime/dining-realtime.publisher';
 import type {
   DiningKitchenItemUpdatedPayload,
@@ -26,6 +31,7 @@ import { DiningRoom } from '../domain/dining-room.entity';
 import { DiningTable } from '../domain/dining-table.entity';
 import { DiningOrder, DiningOrderProfile } from '../domain/dining-order.entity';
 import { DiningOrderLine } from '../domain/dining-order-line.entity';
+import { DiningOrderLineAddon } from '../domain/dining-order-line-addon.entity';
 import { DiningStationOrder } from '../domain/dining-station-order.entity';
 import {
   DiningOrderKind,
@@ -36,6 +42,7 @@ import {
   TableShape,
 } from '../domain/dining.enums';
 import {
+  assertOrderStatusTransition,
   canAddItems,
   canCancelLine,
   canIssueBillOrCharge,
@@ -128,6 +135,8 @@ export class DiningService {
     private readonly diningOrderRepository: Repository<DiningOrder>,
     @InjectRepository(DiningOrderLine)
     private readonly diningOrderLineRepository: Repository<DiningOrderLine>,
+    @InjectRepository(DiningOrderLineAddon)
+    private readonly diningOrderLineAddonRepository: Repository<DiningOrderLineAddon>,
     @InjectRepository(DiningStationOrder)
     private readonly diningStationOrderRepository: Repository<DiningStationOrder>,
     @InjectRepository(Branch)
@@ -148,6 +157,7 @@ export class DiningService {
     private readonly diningReadyNotification: DiningReadyNotificationService,
     private readonly webPushSender: WebPushSenderService,
     private readonly diningBoardService: DiningBoardService,
+    private readonly productAddonsService: ProductAddonsService,
   ) {}
 
   private requireCompanyId(): string {
@@ -202,7 +212,14 @@ export class DiningService {
   ): Promise<DiningOrder> {
     const order = await this.diningOrderRepository.findOne({
       where: { id: orderId, companyId },
-      relations: ['lines', 'diningTable', 'diningRoom'],
+      relations: [
+        'lines',
+        'lines.addons',
+        'lines.addons.addonVariant',
+        'lines.addons.addonVariant.product',
+        'diningTable',
+        'diningRoom',
+      ],
     });
     if (!order) {
       throw new NotFoundException('Cuenta no encontrada.');
@@ -249,14 +266,14 @@ export class DiningService {
     if (!this.productModeService.isKaiFood()) {
       return;
     }
-    const allowed =
-      productType === ProductType.PREPARADO ||
-      productType === ProductType.PHYSICAL ||
-      productType === ProductType.ELABORADO ||
-      productType === ProductType.MANUFACTURADO;
-    if (!allowed) {
+    if (productType === ProductType.AGREGADO) {
       throw new BadRequestException(
-        'Solo productos PREPARADO, PHYSICAL, ELABORADO o MANUFACTURADO pueden agregarse a una cuenta de salón.',
+        'Los agregados se piden como extra de un plato, no como ítem de la cuenta.',
+      );
+    }
+    if (!isAllowedDiningRootProductType(productType)) {
+      throw new BadRequestException(
+        'Solo productos PREPARADO, PHYSICAL, ELABORADO, MANUFACTURADO o PACK pueden agregarse a una cuenta de salón.',
       );
     }
   }
@@ -340,6 +357,12 @@ export class DiningService {
         productionUnitId: line.productionUnitId ?? null,
         kitchenFireId: line.kitchenFireId ?? null,
         kitchenFireNumber: line.kitchenFireNumber ?? null,
+        addons: (line.addons ?? []).map((addon) => ({
+          id: addon.id,
+          addonVariantId: addon.addonVariantId,
+          name: addon.displayName,
+          quantity: Number(addon.quantity),
+        })),
       })),
     };
   }
@@ -381,6 +404,10 @@ export class DiningService {
       displayLabel: line.diningOrder?.displayLabel,
       diningTableId: line.diningOrder?.diningTableId ?? null,
       diningTableCode: line.diningOrder?.diningTable?.code ?? null,
+      addons: (line.addons ?? []).map((addon) => ({
+        name: addon.displayName,
+        quantity: Number(addon.quantity),
+      })),
       productVariant: variantLabel
         ? {
             id: line.productVariant?.id ?? line.productVariantId,
@@ -461,6 +488,15 @@ export class DiningService {
         line.productVariantId,
         (qtyByVariant.get(line.productVariantId) ?? 0) + qty,
       );
+      for (const addon of line.addons ?? []) {
+        const addonQty = Number(addon.quantity) || 0;
+        if (addonQty <= 0) continue;
+        const need = qty * addonQty;
+        qtyByVariant.set(
+          addon.addonVariantId,
+          (qtyByVariant.get(addon.addonVariantId) ?? 0) + need,
+        );
+      }
     }
     if (qtyByVariant.size === 0) return;
 
@@ -918,9 +954,12 @@ export class DiningService {
     const companyId = this.requireCompanyId();
     const order = await this.getOrderOrThrow(orderId, companyId);
 
-    if (order.status === DiningOrderStatus.CLOSED) {
+    if (
+      order.status === DiningOrderStatus.CLOSED ||
+      order.status === DiningOrderStatus.VOID
+    ) {
       throw new BadRequestException(
-        'No se puede renombrar una cuenta cerrada.',
+        'No se puede renombrar una cuenta cerrada o anulada.',
       );
     }
 
@@ -1587,8 +1626,11 @@ export class DiningService {
     const companyId = this.requireCompanyId();
     const order = await this.getOrderOrThrow(orderId, companyId);
 
-    if (order.status === DiningOrderStatus.CLOSED) {
-      throw new BadRequestException('La cuenta ya está cerrada.');
+    if (
+      order.status === DiningOrderStatus.CLOSED ||
+      order.status === DiningOrderStatus.VOID
+    ) {
+      throw new BadRequestException('La cuenta ya está cerrada o anulada.');
     }
     if (
       order.status !== DiningOrderStatus.OPEN &&
@@ -1608,11 +1650,78 @@ export class DiningService {
       );
     }
 
-    order.status = DiningOrderStatus.CLOSED;
+    return this.voidDiningOrder(orderId);
+  }
+
+  /**
+   * Anula una cuenta operativa (VOID): no es cobro. Cancela líneas activas,
+   * libera reservas CTP y saca la cuenta de listas / KDS / Board.
+   */
+  async voidDiningOrder(
+    orderId: string,
+    reason?: string,
+  ): Promise<DiningOrder> {
+    const companyId = this.requireCompanyId();
+    const order = await this.getOrderOrThrow(orderId, companyId);
+
+    if (order.status === DiningOrderStatus.CLOSED) {
+      throw new BadRequestException(
+        'No se puede anular una cuenta cobrada.',
+      );
+    }
+    if (order.status === DiningOrderStatus.VOID) {
+      throw new BadRequestException('La cuenta ya está anulada.');
+    }
+    if (order.linkedTransactionId) {
+      throw new BadRequestException(
+        'No se puede anular una cuenta cobrada.',
+      );
+    }
+
+    assertOrderStatusTransition(order.status, DiningOrderStatus.VOID);
+
+    const linesToCancel = (order.lines ?? []).filter(
+      (line) => line.kitchenStatus !== KitchenItemStatus.CANCELLED,
+    );
+    const stationIds = new Set<string>();
+    const unitIds: Array<string | null | undefined> = [];
+
+    for (const line of linesToCancel) {
+      try {
+        await this.diningMaterialReservation.releaseForLine(line);
+      } catch {
+        // Continuar con anulación operativa.
+      }
+      line.kitchenStatus = KitchenItemStatus.CANCELLED;
+      await this.diningOrderLineRepository.save(line);
+      const stationId = line.stationOrderId ?? line.kitchenFireId ?? null;
+      if (stationId) stationIds.add(stationId);
+      unitIds.push(line.productionUnitId);
+    }
+
+    for (const stationId of stationIds) {
+      await this.syncStationOrderStatusFromLines(stationId);
+    }
+
+    const voidReason = reason?.trim();
+    order.profile = {
+      ...(order.profile ?? {}),
+      ...(voidReason ? { voidReason } : {}),
+    };
+    order.status = DiningOrderStatus.VOID;
     order.closedAt = new Date();
     await this.diningOrderRepository.save(order);
+
     const updated = await this.getOrderOrThrow(orderId, companyId);
     this.publishSessionUpdated(updated);
+    for (const line of linesToCancel) {
+      const updatedLine = (updated.lines ?? []).find((l) => l.id === line.id);
+      if (updatedLine) {
+        this.publishKitchenItemUpdated(updated, updatedLine);
+      }
+    }
+    await this.publishKitchenSnapshotsForUnitIds(companyId, unitIds);
+    await this.publishBoardForOrder(updated);
     return updated;
   }
 
@@ -1624,8 +1733,11 @@ export class DiningService {
     const companyId = this.requireCompanyId();
     const order = await this.getOrderOrThrow(orderId, companyId);
 
-    if (order.status === DiningOrderStatus.CLOSED) {
-      throw new BadRequestException('La cuenta está cerrada.');
+    if (
+      order.status === DiningOrderStatus.CLOSED ||
+      order.status === DiningOrderStatus.VOID
+    ) {
+      throw new BadRequestException('La cuenta está cerrada o anulada.');
     }
     if (!canAddItems(order.status)) {
       throw new BadRequestException(
@@ -1773,6 +1885,9 @@ export class DiningService {
     const companyId = this.requireCompanyId();
     const order = await this.getOrderOrThrow(orderId, companyId);
 
+    if (order.status === DiningOrderStatus.VOID) {
+      throw new BadRequestException('No se puede cobrar una cuenta anulada.');
+    }
     if (order.status === DiningOrderStatus.CLOSED) {
       throw new BadRequestException('La cuenta ya está cerrada.');
     }
@@ -1806,6 +1921,7 @@ export class DiningService {
     const qb = this.diningOrderRepository
       .createQueryBuilder('order')
       .leftJoinAndSelect('order.lines', 'lines')
+      .leftJoinAndSelect('lines.addons', 'lineAddons')
       .leftJoinAndSelect('order.diningTable', 'diningTable')
       .leftJoinAndSelect('order.diningRoom', 'diningRoom')
       .where('order.companyId = :companyId', { companyId })
@@ -1822,8 +1938,8 @@ export class DiningService {
     if (options?.status) {
       qb.andWhere('order.status = :status', { status: options.status });
     } else {
-      qb.andWhere('order.status != :closed', {
-        closed: DiningOrderStatus.CLOSED,
+      qb.andWhere('order.status NOT IN (:...inactive)', {
+        inactive: [DiningOrderStatus.CLOSED, DiningOrderStatus.VOID],
       });
     }
 
@@ -1859,13 +1975,14 @@ export class DiningService {
       .leftJoinAndSelect('order.diningTable', 'diningTable')
       .leftJoinAndSelect('line.productVariant', 'productVariant')
       .leftJoinAndSelect('productVariant.product', 'product')
+      .leftJoinAndSelect('line.addons', 'addons')
       .where('line.productionUnitId = :productionUnitId', { productionUnitId })
       .andWhere('line.kitchenStatus IN (:...statuses)', {
         statuses: PRODUCTION_UNIT_QUEUE_STATUSES,
       })
       .andWhere('order.companyId = :companyId', { companyId })
-      .andWhere('order.status != :closed', {
-        closed: DiningOrderStatus.CLOSED,
+      .andWhere('order.status NOT IN (:...inactive)', {
+        inactive: [DiningOrderStatus.CLOSED, DiningOrderStatus.VOID],
       })
       .orderBy('line.sentToKitchenAt', 'ASC', 'NULLS LAST')
       .getMany();
@@ -2011,6 +2128,140 @@ export class DiningService {
   /**
    * Actualiza status/completedAt del pedido de estación según todas sus líneas.
    */
+  async addLineAddon(
+    orderId: string,
+    lineId: string,
+    data: { addonVariantId: string; quantity: number },
+  ): Promise<DiningOrder> {
+    const companyId = this.requireCompanyId();
+    const order = await this.getOrderOrThrow(orderId, companyId);
+
+    if (
+      order.status === DiningOrderStatus.CLOSED ||
+      order.status === DiningOrderStatus.VOID
+    ) {
+      throw new BadRequestException('La cuenta está cerrada o anulada.');
+    }
+    if (!canAddItems(order.status)) {
+      throw new BadRequestException(
+        `No se pueden agregar extras en estado ${order.status}.`,
+      );
+    }
+
+    const line = (order.lines ?? []).find((l) => l.id === lineId);
+    if (!line) {
+      throw new NotFoundException('Línea de comanda no encontrada.');
+    }
+    if (line.kitchenStatus !== KitchenItemStatus.DRAFT) {
+      throw new BadRequestException(
+        'Solo se pueden agregar extras a ítems en borrador.',
+      );
+    }
+
+    const addonQty = Number(data.quantity);
+    if (!Number.isFinite(addonQty) || addonQty <= 0) {
+      throw new BadRequestException('Cantidad de extra inválida.');
+    }
+
+    const [hostVariant, addonVariant] = await Promise.all([
+      this.productVariantRepository.findOne({
+        where: { id: line.productVariantId, companyId },
+        relations: ['product'],
+      }),
+      this.productVariantRepository.findOne({
+        where: { id: data.addonVariantId.trim(), companyId },
+        relations: ['product'],
+      }),
+    ]);
+    if (!hostVariant?.product) {
+      throw new BadRequestException('Variante host no encontrada.');
+    }
+    if (!addonVariant?.product) {
+      throw new BadRequestException('Variante agregado no encontrada.');
+    }
+    if (!isAgregadoProductType(addonVariant.product.productType)) {
+      throw new BadRequestException(
+        'Solo variantes de productos tipo AGREGADO pueden añadirse como extra.',
+      );
+    }
+
+    const hostProductId =
+      hostVariant.productId ?? hostVariant.product?.id ?? '';
+    if (!hostProductId) {
+      throw new BadRequestException('Producto host inválido.');
+    }
+    const addonProductId =
+      addonVariant.productId ?? addonVariant.product?.id ?? '';
+
+    const allowed = await this.productAddonsService.isAddonAllowedForHostVariant(
+      companyId,
+      hostProductId,
+      addonVariant.id,
+      addonProductId,
+    );
+    if (!allowed) {
+      throw new BadRequestException(
+        'Este agregado no está habilitado para el producto.',
+      );
+    }
+
+    const displayName =
+      addonVariant.product?.name?.trim() ||
+      addonVariant.sku ||
+      'Extra';
+
+    await this.diningOrderLineAddonRepository.save(
+      this.diningOrderLineAddonRepository.create({
+        diningOrderLineId: line.id,
+        addonVariantId: addonVariant.id,
+        quantity: addonQty,
+        displayName,
+        unitPriceSnapshot: Number(addonVariant.basePrice ?? 0),
+      }),
+    );
+
+    const updated = await this.getOrderOrThrow(orderId, companyId);
+    this.publishSessionUpdated(updated);
+    return updated;
+  }
+
+  async removeLineAddon(
+    orderId: string,
+    lineId: string,
+    addonId: string,
+  ): Promise<DiningOrder> {
+    const companyId = this.requireCompanyId();
+    const order = await this.getOrderOrThrow(orderId, companyId);
+
+    if (
+      order.status === DiningOrderStatus.CLOSED ||
+      order.status === DiningOrderStatus.VOID
+    ) {
+      throw new BadRequestException('La cuenta está cerrada o anulada.');
+    }
+
+    const line = (order.lines ?? []).find((l) => l.id === lineId);
+    if (!line) {
+      throw new NotFoundException('Línea de comanda no encontrada.');
+    }
+    if (line.kitchenStatus !== KitchenItemStatus.DRAFT) {
+      throw new BadRequestException(
+        'Solo se pueden quitar extras de ítems en borrador.',
+      );
+    }
+
+    const addon = (line.addons ?? []).find((a) => a.id === addonId);
+    if (!addon) {
+      throw new NotFoundException('Extra no encontrado en la línea.');
+    }
+
+    await this.diningOrderLineAddonRepository.remove(addon);
+
+    const updated = await this.getOrderOrThrow(orderId, companyId);
+    this.publishSessionUpdated(updated);
+    return updated;
+  }
+
   private async syncStationOrderStatusFromLines(
     stationOrderId: string | null | undefined,
   ): Promise<void> {

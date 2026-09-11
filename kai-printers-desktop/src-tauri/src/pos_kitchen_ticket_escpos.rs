@@ -30,6 +30,17 @@ fn append_line_notes(buf: &mut Vec<u8>, line: &PosKitchenTicketLine) {
             append_line(buf, &wrapped);
         }
     }
+    if let Some(addons) = &line.addons {
+        for addon in addons {
+            let name = addon.name.trim();
+            if name.is_empty() {
+                continue;
+            }
+            for wrapped in wrap_lines(&format!("  + {name}"), layout_width()) {
+                append_line(buf, &wrapped);
+            }
+        }
+    }
 }
 
 fn append_kitchen_bottom_feed(buf: &mut Vec<u8>) {

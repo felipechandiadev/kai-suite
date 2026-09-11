@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   IconButton,
   NumberStepper,
@@ -57,6 +57,7 @@ type Props = {
 };
 
 export function DiningRoomFloorPlanEditor({ room }: Props) {
+  const router = useRouter();
   const initialTables = room.tables ?? [];
   const [tables, setTables] = useState<DiningTableItem[]>(initialTables);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
@@ -176,13 +177,16 @@ export function DiningRoomFloorPlanEditor({ room }: Props) {
       data-test-id="dining-room-floor-plan-editor"
     >
       <header className="flex shrink-0 flex-wrap items-center gap-3">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <Link
-            href="/kaifood/rooms"
-            className="shrink-0 text-sm text-muted-foreground hover:underline"
-          >
-            ← Salones
-          </Link>
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+          <IconButton
+            icon="ArrowLeft"
+            variant="action"
+            size="sm"
+            onClick={() => router.push("/kaifood/rooms")}
+            ariaLabel="Volver a salones"
+            title="Volver a salones"
+            data-test-id="dining-room-floor-plan-back"
+          />
           <h1 className="min-w-0 truncate text-xl font-semibold text-foreground">
             {room.name}
           </h1>

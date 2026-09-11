@@ -168,8 +168,8 @@ export class DiningBoardService {
       .leftJoinAndSelect('order.lines', 'lines')
       .where('order.companyId = :companyId', { companyId })
       .andWhere('order.branchId = :branchId', { branchId })
-      .andWhere('order.status != :closed', {
-        closed: DiningOrderStatus.CLOSED,
+      .andWhere('order.status NOT IN (:...inactive)', {
+        inactive: [DiningOrderStatus.CLOSED, DiningOrderStatus.VOID],
       })
       .andWhere('order.kind IN (:...kinds)', {
         kinds: [

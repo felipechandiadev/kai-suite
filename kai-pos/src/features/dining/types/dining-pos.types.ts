@@ -7,7 +7,8 @@ export type DiningOrderStatus =
   | "PARTIAL_READY"
   | "READY"
   | "BILLING"
-  | "CLOSED";
+  | "CLOSED"
+  | "VOID";
 
 export type KitchenItemStatus =
   | "DRAFT"
@@ -24,6 +25,14 @@ export type PosDiningOrderProfile = {
   notes?: string;
   /** Nombre para llamar al cliente; por defecto igual a displayLabel. */
   customerName?: string;
+  voidReason?: string;
+};
+
+export type PosDiningOrderLineAddon = {
+  id: string;
+  addonVariantId: string;
+  name: string;
+  quantity: number;
 };
 
 export type PosDiningOrderLine = {
@@ -35,6 +44,7 @@ export type PosDiningOrderLine = {
   kitchenStatus: KitchenItemStatus;
   kitchenFireId?: string | null;
   kitchenFireNumber?: number | null;
+  addons?: PosDiningOrderLineAddon[];
 };
 
 export type PosDiningOrderSummary = {
@@ -49,6 +59,7 @@ export type PosDiningOrderSummary = {
   tableCode?: string | null;
   openedAt: string;
   profile?: PosDiningOrderProfile | null;
+  linkedTransactionId?: string | null;
   lines: PosDiningOrderLine[];
 };
 

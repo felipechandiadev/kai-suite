@@ -112,6 +112,34 @@ export async function abandonEmptyPosDiningOrderAction(orderId: string) {
   return DiningPosRequest.abandonEmptyOrder(orderId);
 }
 
+export async function voidPosDiningOrderAction(orderId: string, reason?: string) {
+  return DiningPosRequest.voidOrder(orderId, reason);
+}
+
+export async function addPosDiningLineAddonAction(input: {
+  orderId: string;
+  lineId: string;
+  addonVariantId: string;
+  quantity: number;
+}) {
+  return DiningPosRequest.addLineAddon(input.orderId, input.lineId, {
+    addonVariantId: input.addonVariantId,
+    quantity: input.quantity,
+  });
+}
+
+export async function listPosDiningHostAddonsAction(hostProductId: string) {
+  return DiningPosRequest.listHostAddons(hostProductId);
+}
+
+export async function removePosDiningLineAddonAction(input: {
+  orderId: string;
+  lineId: string;
+  addonId: string;
+}) {
+  return DiningPosRequest.removeLineAddon(input.orderId, input.lineId, input.addonId);
+}
+
 export async function closePosDiningOrderAction(input: {
   orderId: string;
   linkedTransactionId?: string;

@@ -65,7 +65,7 @@ export function PageLayoutHeader({
         )}
         {showActions ? (
           <div
-            className="ml-auto flex shrink-0 items-center justify-end gap-2 overflow-x-auto pb-px"
+            className="ml-auto flex min-w-0 max-w-full flex-1 flex-wrap items-center justify-end gap-2 pb-px"
             data-test-id={headerActionsTestId}
           >
             {headerActions}
@@ -101,7 +101,7 @@ export function PageLayoutHeader({
         </div>
       ) : (
         <div
-          className="flex min-w-0 w-full justify-end overflow-x-auto pb-px"
+          className="flex min-w-0 w-full flex-wrap justify-start pb-px"
           data-test-id={headerActionsTestId}
         >
           {headerActions}
