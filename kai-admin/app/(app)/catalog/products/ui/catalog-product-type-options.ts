@@ -9,6 +9,8 @@ const CATALOG_PRODUCT_TYPE_IDS = new Set<CatalogProductType>([
   "PREPARADO",
   "SERVICE",
   "DIGITAL",
+  "PACK",
+  "AGREGADO",
 ]);
 
 /** Acepta valores API; si no coincide con el catálogo conocido, físico. */
@@ -22,12 +24,20 @@ const RECIPE_BOM_ALLOWED_TYPES = new Set<CatalogProductType>([
   "MANUFACTURADO",
   "PREPARADO",
   "ELABORADO",
+  "AGREGADO",
 ]);
 
 /** Solo estos tipos pueden tener receta / BOM en catálogo admin. */
 export function catalogProductTypeAllowsRecipeBom(raw: string | null | undefined): boolean {
   const u = normalizeCatalogProductType(raw);
   return RECIPE_BOM_ALLOWED_TYPES.has(u);
+}
+
+/** Composición kit fantasma (variante PACK). */
+export function catalogProductTypeAllowsPackComposition(
+  raw: string | null | undefined,
+): boolean {
+  return normalizeCatalogProductType(raw) === "PACK";
 }
 
 const FINISHED_GOOD_TYPES = new Set<CatalogProductType>([
@@ -43,7 +53,8 @@ export function catalogProductTypeIsFinishedGood(raw: string | null | undefined)
 
 /** Tipos con precio de venta, eShop y despacho. */
 export function catalogProductTypeIsSellable(raw: string | null | undefined): boolean {
-  return normalizeCatalogProductType(raw) !== "INSUMO";
+  const t = normalizeCatalogProductType(raw);
+  return t !== "INSUMO" && t !== "AGREGADO";
 }
 
 const ALL_CATALOG_PRODUCT_TYPE_SELECT_OPTIONS: { id: CatalogProductType; label: string }[] = [
@@ -52,6 +63,8 @@ const ALL_CATALOG_PRODUCT_TYPE_SELECT_OPTIONS: { id: CatalogProductType; label: 
   { id: "MANUFACTURADO", label: "Manufacturado" },
   { id: "ELABORADO", label: "Elaborado" },
   { id: "PREPARADO", label: "Preparado" },
+  { id: "PACK", label: "Pack (kit)" },
+  { id: "AGREGADO", label: "Agregado" },
   { id: "SERVICE", label: "Servicio" },
   { id: "DIGITAL", label: "Digital" },
 ];
@@ -66,10 +79,11 @@ export function catalogProductTypeLabel(raw: string | null | undefined): string 
 export function getCatalogProductTypeSelectOptions(
   companyKaiProduct?: string | null,
 ): { id: CatalogProductType; label: string }[] {
-  if (isKaiFoodEnabledForCompany(companyKaiProduct)) {
-    return ALL_CATALOG_PRODUCT_TYPE_SELECT_OPTIONS;
-  }
-  return ALL_CATALOG_PRODUCT_TYPE_SELECT_OPTIONS.filter((o) => o.id !== "PREPARADO");
+  const food = isKaiFoodEnabledForCompany(companyKaiProduct);
+  return ALL_CATALOG_PRODUCT_TYPE_SELECT_OPTIONS.filter((o) => {
+    if (o.id === "PREPARADO" || o.id === "AGREGADO") return food;
+    return true;
+  });
 }
 
 /** @deprecated Prefer `getCatalogProductTypeSelectOptions()` for KaiFood gate. */

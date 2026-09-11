@@ -119,4 +119,9 @@ export const configSchema = Joi.object({
   FISCAL_EMISSION_MAX_SUBMIT_ATTEMPTS: Joi.number().default(12),
   FISCAL_EMISSION_STALE_SENDING_MS: Joi.number().default(120000),
   FISCAL_EMISSION_SUBMIT_BACKOFF_BASE_MS: Joi.number().default(5000),
+
+  // SaMI / OpenAI (optional in test/dev; required in production)
+  OPENAI_API_KEY: Joi.string().allow('').optional(),
+  OPENAI_MODEL: Joi.string().default('gpt-4.1'),
+  SAMI_MAX_TOOL_CALLS: Joi.number().default(5),
 });

@@ -206,7 +206,12 @@ export type BuildKitchenTicketInput = {
   tableCode?: string | null;
   branchName?: string | null;
   issuedAt?: string;
-  lines: Array<{ name: string; quantity: number; notes?: string | null }>;
+  lines: Array<{
+    name: string;
+    quantity: number;
+    notes?: string | null;
+    addons?: Array<{ name: string; quantity: number }>;
+  }>;
   isReplica?: boolean;
 };
 
@@ -226,6 +231,12 @@ export function buildPosKitchenTicketPayload(
       name: l.name.trim() || "Ítem",
       quantity: Number(l.quantity) || 0,
       notes: l.notes?.trim() || null,
+      addons: l.addons?.length
+        ? l.addons.map((a) => ({
+            name: a.name.trim() || "Extra",
+            quantity: Number(a.quantity) || 0,
+          }))
+        : undefined,
     })),
     footerNote: POS_KITCHEN_TICKET_FOOTER_NOTE,
     isReplica: input.isReplica === true,
@@ -251,7 +262,12 @@ export function buildKitchenComandaTestPayload(input: {
     tableCode: "TEST",
     branchName: null,
     lines: [
-      { name: "Producto de prueba", quantity: 1, notes: "Comanda de prueba" },
+      {
+        name: "Producto de prueba",
+        quantity: 1,
+        notes: "Comanda de prueba",
+        addons: [{ name: "Extra de prueba", quantity: 1 }],
+      },
       { name: "Acompañamiento de prueba", quantity: 2, notes: null },
     ],
   });
@@ -357,14 +373,35 @@ export type KitchenFireLineForPrint = {
   kitchenStatus: string;
   kitchenFireId?: string | null;
   kitchenFireNumber?: number | null;
+  addons?: Array<{ name: string; quantity: number }>;
 };
 
 export type KitchenComandaPrintJob = {
   productionUnitId: string;
   fireNumber: number;
   fireId: string | null;
-  lines: Array<{ name: string; quantity: number; notes?: string | null }>;
+  lines: Array<{
+    name: string;
+    quantity: number;
+    notes?: string | null;
+    addons?: Array<{ name: string; quantity: number }>;
+  }>;
 };
+
+function kitchenLineAddonsFingerprint(
+  addons: KitchenFireLineForPrint["addons"],
+): string {
+  if (!addons?.length) return "";
+  return [...addons]
+    .map((a) => `${String(a.name).trim()}×${Number(a.quantity) || 0}`)
+    .sort()
+    .join("|");
+}
+
+function kitchenLineMergeKey(line: KitchenFireLineForPrint): string {
+  const notes = (line.notes ?? "").trim();
+  return `${line.productVariantId}|${notes}|${kitchenLineAddonsFingerprint(line.addons)}`;
+}
 
 const ACTIVE_KITCHEN_STATUSES = new Set(["SENT", "PREPARING"]);
 
@@ -402,6 +439,7 @@ export function collectKitchenComandaPrintJobs(
   }
 
   const byKey = new Map<string, KitchenComandaPrintJob>();
+  const lineMerge = new Map<string, number>();
   for (const line of candidates) {
     const productionUnitId = String(line.productionUnitId).trim();
     const fireNumber =
@@ -409,8 +447,8 @@ export function collectKitchenComandaPrintJobs(
         ? Number(line.kitchenFireNumber)
         : 0;
     const fireId = line.kitchenFireId?.trim() || null;
-    const key = `${productionUnitId}::${fireNumber}::${fireId ?? ""}`;
-    let job = byKey.get(key);
+    const jobKey = `${productionUnitId}::${fireNumber}::${fireId ?? ""}`;
+    let job = byKey.get(jobKey);
     if (!job) {
       job = {
         productionUnitId,
@@ -418,13 +456,30 @@ export function collectKitchenComandaPrintJobs(
         fireId,
         lines: [],
       };
-      byKey.set(key, job);
+      byKey.set(jobKey, job);
     }
+
+    const mergeKey = `${jobKey}::${kitchenLineMergeKey(line)}`;
+    const existingIdx = lineMerge.get(mergeKey);
+    const lineQty = Number(line.quantity) || 0;
+    const addons =
+      line.addons?.map((a) => ({
+        name: String(a.name).trim() || "Extra",
+        quantity: Number(a.quantity) || 0,
+      })) ?? [];
+
+    if (existingIdx != null) {
+      job.lines[existingIdx].quantity += lineQty;
+      continue;
+    }
+
     job.lines.push({
       name: resolveName(line),
-      quantity: Number(line.quantity) || 0,
+      quantity: lineQty,
       notes: line.notes?.trim() || null,
+      addons: addons.length > 0 ? addons : undefined,
     });
+    lineMerge.set(mergeKey, job.lines.length - 1);
   }
   return [...byKey.values()].filter((j) => j.lines.length > 0);
 }

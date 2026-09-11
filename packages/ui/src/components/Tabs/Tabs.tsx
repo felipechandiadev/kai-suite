@@ -25,14 +25,14 @@ const Tabs: React.FC<TabsProps> = ({ items, activeTab }) => {
   };
 
   return (
-    <nav className="flex" data-test-id="tabs-root">
+    <nav className="flex flex-wrap" data-test-id="tabs-root">
       {items.map((tab) => {
         const isActive = getIsActive(tab.url);
         return (
           <Link
             key={tab.url}
             href={tab.url}
-            className={`fs-tabs__link ${
+            className={`fs-tabs__link whitespace-nowrap ${
               isActive ? "fs-tabs__link--active" : "fs-tabs__link--inactive"
             }`}
             aria-current={isActive ? "page" : undefined}

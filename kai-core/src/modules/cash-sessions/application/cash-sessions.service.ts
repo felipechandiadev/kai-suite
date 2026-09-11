@@ -30,6 +30,7 @@ import { Storage } from '@modules/storages/domain/storage.entity';
 import { Branch } from '@modules/branches/domain/branch.entity';
 import { Unit } from '@modules/units/domain/unit.entity';
 import { VariantQuantityConversionService } from '@modules/product-variants/application/variant-quantity-conversion.service';
+import { resolveSaleLineUnitCost } from '@modules/product-variants/application/helpers/sale-unit-cost.util';
 import { GetCashSessionsDto } from './dto/get-cash-sessions.dto';
 import { OpenCashSessionDto } from './dto/open-cash-session.dto';
 import { CreateSaleDto } from './dto/create-sale.dto';
@@ -580,7 +581,7 @@ export class CashSessionsService {
           unitConversionFactor: converted.unitConversionFactor,
           unitOfMeasure: converted.unitOfMeasure,
           unitPrice: line.unitPrice,
-          unitCost: line.unitCost || variant.baseCost || 0,
+          unitCost: resolveSaleLineUnitCost(line.unitCost, variant),
           discountAmount: lineDiscount,
           taxId: line.taxId || undefined,
           taxRate: safeTaxRate,

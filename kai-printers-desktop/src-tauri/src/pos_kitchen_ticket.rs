@@ -7,10 +7,19 @@ use std::path::PathBuf;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct PosKitchenTicketLineAddon {
+    pub name: String,
+    pub quantity: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PosKitchenTicketLine {
     pub name: String,
     pub quantity: f64,
     pub notes: Option<String>,
+    #[serde(default)]
+    pub addons: Option<Vec<PosKitchenTicketLineAddon>>,
 }
 
 #[derive(Debug, Deserialize)]

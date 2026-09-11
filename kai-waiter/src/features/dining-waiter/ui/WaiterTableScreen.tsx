@@ -19,6 +19,7 @@ const ORDER_STATUS_LABEL: Record<string, string> = {
   READY: "Lista",
   BILLING: "Cuenta pedida",
   CLOSED: "Cerrada",
+  VOID: "Anulada",
 };
 
 type WaiterTableScreenProps = {

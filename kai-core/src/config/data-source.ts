@@ -27,6 +27,7 @@ import { Transaction } from '@modules/transactions/domain/transaction.entity';
 import { DocumentSequence } from '@modules/transactions/domain/document-sequence.entity';
 import { TransactionLine } from '@modules/transaction-lines/domain/transaction-line.entity';
 import { Product } from '@modules/products/domain/product.entity';
+import { ProductAddon } from '@modules/products/domain/product-addon.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { ProductVariantProductionUnit } from '@modules/product-variants/domain/product-variant-production-unit.entity';
 import { ProductVariantBranchAvailability } from '@modules/product-variants/domain/product-variant-branch-availability.entity';
@@ -43,6 +44,7 @@ import { DiningRoom } from '@modules/dining/domain/dining-room.entity';
 import { DiningTable } from '@modules/dining/domain/dining-table.entity';
 import { DiningOrder } from '@modules/dining/domain/dining-order.entity';
 import { DiningOrderLine } from '@modules/dining/domain/dining-order-line.entity';
+import { DiningOrderLineAddon } from '@modules/dining/domain/dining-order-line-addon.entity';
 import { DiningStationOrder } from '@modules/dining/domain/dining-station-order.entity';
 import { DiningBranchSettings } from '@modules/dining/domain/dining-branch-settings.entity';
 import { DiningOrderSequence } from '@modules/dining/domain/dining-order-sequence.entity';
@@ -210,6 +212,11 @@ import { MenuHeroSlides1757640000000 } from '../migrations/1757640000000-MenuHer
 import { ExpenseCategoryOperationalGroupCreditos1757650000000 } from '../migrations/1757650000000-ExpenseCategoryOperationalGroupCreditos';
 import { ProductionUnitKitchenFulfillment1757660000000 } from '../migrations/1757660000000-ProductionUnitKitchenFulfillment';
 import { DiningTableIsActive1757670000000 } from '../migrations/1757670000000-DiningTableIsActive';
+import { DiningOrderStatusVoid1757680000000 } from '../migrations/1757680000000-DiningOrderStatusVoid';
+import { ProductTypePackAgregado1757690000000 } from '../migrations/1757690000000-ProductTypePackAgregado';
+import { AssistantSami1757700000000 } from '../migrations/1757700000000-AssistantSami';
+import { SamiSalesCatalogExpand1757710000000 } from '../migrations/1757710000000-SamiSalesCatalogExpand';
+import { PricingWeeklySnapshots1757720000000 } from '../migrations/1757720000000-PricingWeeklySnapshots';
 import { LaundryReceptionModule1757430000000 } from '../migrations/1757430000000-LaundryReceptionModule';
 import { DiningKitchenFireId1757140000000 } from '../migrations/1757140000000-DiningKitchenFireId';
 import { DiningKitchenFireNumber1757150000000 } from '../migrations/1757150000000-DiningKitchenFireNumber';
@@ -291,6 +298,14 @@ import { HrLaborUnitStorage } from '@modules/hr-labor-units/domain/hr-labor-unit
 import { HrLaborUnitBranch } from '@modules/hr-labor-units/domain/hr-labor-unit-branch.entity';
 import { HrLaborUnitOrganizationalUnit } from '@modules/hr-labor-units/domain/hr-labor-unit-organizational-unit.entity';
 import { HrLaborUnitProductionUnit } from '@modules/hr-labor-units/domain/hr-labor-unit-production-unit.entity';
+import { AssistantConversation } from '@modules/assistant/domain/assistant-conversation.entity';
+import { AssistantMessage } from '@modules/assistant/domain/assistant-message.entity';
+import { AssistantAuditLog } from '@modules/assistant/domain/assistant-audit-log.entity';
+import { AssistantReport } from '@modules/assistant/domain/assistant-report.entity';
+import { PricingWeeklySnapshot } from '@modules/pricing/domain/pricing-weekly-snapshot.entity';
+import { PricingWeeklySnapshotLine } from '@modules/pricing/domain/pricing-weekly-snapshot-line.entity';
+import { AssistantFavorite } from '@modules/assistant/domain/assistant-favorite.entity';
+import { AssistantScheduledReport } from '@modules/assistant/domain/assistant-scheduled-report.entity';
 
 /**
  * DataSource usado por `typeorm` CLI (`migration:run`, `schema:log`, …).
@@ -325,6 +340,7 @@ export const AppDataSource = new DataSource({
     DocumentSequence,
     TransactionLine,
     Product,
+    ProductAddon,
     ProductVariant,
     ProductVariantProductionUnit,
     ProductVariantBranchAvailability,
@@ -341,6 +357,7 @@ export const AppDataSource = new DataSource({
     DiningTable,
     DiningOrder,
     DiningOrderLine,
+    DiningOrderLineAddon,
     DiningStationOrder,
     DiningBranchSettings,
     DiningOrderSequence,
@@ -462,6 +479,14 @@ export const AppDataSource = new DataSource({
     LaundryReception,
     LaundryReceptionGarment,
     LaundryReceptionServiceLine,
+    AssistantConversation,
+    AssistantMessage,
+    AssistantAuditLog,
+    AssistantReport,
+    PricingWeeklySnapshot,
+    PricingWeeklySnapshotLine,
+    AssistantFavorite,
+    AssistantScheduledReport,
   ],
   subscribers: [AuditSubscriber, TenantSubscriber],
   migrations: [
@@ -591,6 +616,11 @@ export const AppDataSource = new DataSource({
     ExpenseCategoryOperationalGroupCreditos1757650000000,
     ProductionUnitKitchenFulfillment1757660000000,
     DiningTableIsActive1757670000000,
+    DiningOrderStatusVoid1757680000000,
+    ProductTypePackAgregado1757690000000,
+    AssistantSami1757700000000,
+    SamiSalesCatalogExpand1757710000000,
+    PricingWeeklySnapshots1757720000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

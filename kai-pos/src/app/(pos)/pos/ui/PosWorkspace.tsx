@@ -46,6 +46,7 @@ import { POS_CUSTOMER_SEARCH_DEFAULT_PAGE_SIZE } from "@/features/customers/lib/
 import type { PosCustomerSearchInitial } from "@/features/customers/ui/PosCustomerSearchPanel";
 import { isKaiFoodEnabledForPos } from "@/config/kaifood-module.config";
 import { getCompanyDetailsAction } from "@/features/company/actions/company.action";
+import { getPackProducibleQtyAction } from "@/features/pos-products/actions/pack-pos.action";
 
 const emptyCustomerSearch: PosCustomerSearchInitial = {
   query: "",
@@ -321,7 +322,28 @@ export default function PosWorkspace() {
   const [stockWarning, setStockWarning] = useState<string | null>(null);
 
   const addProduct = useCallback(
-    (item: PosProductSearchItem) => {
+    async (item: PosProductSearchItem) => {
+      if (String(item.productType ?? "").toUpperCase() === "PACK" && ctx?.storageId?.trim()) {
+        const packCap = await getPackProducibleQtyAction({
+          variantId: item.variantId,
+          storageId: ctx.storageId.trim(),
+        });
+        const cap = packCap.producibleQty;
+        if (cap != null && cap <= 0) {
+          setStockWarning(
+            `Pack sin stock disponible (${item.productName}). Revise componentes en bodega.`,
+          );
+          return;
+        }
+        const existing = cart.lines.find((l) => l.variantId === item.variantId);
+        const nextQty = (existing?.quantity ?? 0) + 1;
+        if (cap != null && nextQty > cap) {
+          setStockWarning(
+            `Stock pack insuficiente para ${item.productName} (máx. ${cap} unidades).`,
+          );
+          return;
+        }
+      }
       if (!shouldUseBackendApi() && item.trackInventory && item.availableStock != null) {
         const existing = cart.lines.find((l) => l.variantId === item.variantId);
         const nextQty = (existing?.quantity ?? 0) + 1;
@@ -336,7 +358,7 @@ export default function PosWorkspace() {
         setMobilePanel("cart");
       }
     },
-    [cart, compactLayout],
+    [cart, compactLayout, ctx?.storageId],
   );
 
   const saleTotals = useMemo(
@@ -575,7 +597,7 @@ export default function PosWorkspace() {
             ) : null}
           </div>
           <div className="flex min-w-0 items-center gap-2">
-            <PosCartSlotSwitcher className="w-72 max-w-full shrink-0" />
+            <PosCartSlotSwitcher className="min-w-0 max-w-full shrink" />
             <p className="text-xs text-zinc-500" data-test-id="pos-cart-items-count">
               {cart.itemsCount} ítems
             </p>

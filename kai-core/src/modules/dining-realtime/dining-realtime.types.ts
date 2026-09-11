@@ -43,6 +43,13 @@ export function boardBranchRoom(params: {
   return `company:${params.companyId}:branch:${params.branchId}:board`;
 }
 
+export type DiningSessionLineAddonPayload = {
+  id: string;
+  addonVariantId: string;
+  name: string;
+  quantity: number;
+};
+
 export type DiningSessionLinePayload = {
   id: string;
   productVariantId: string;
@@ -52,6 +59,7 @@ export type DiningSessionLinePayload = {
   productionUnitId?: string | null;
   kitchenFireId?: string | null;
   kitchenFireNumber?: number | null;
+  addons?: DiningSessionLineAddonPayload[];
 };
 
 export type DiningSessionUpdatedPayload = {
@@ -78,6 +86,11 @@ export type DiningKitchenItemUpdatedPayload = {
   diningTableId?: string | null;
 };
 
+export type DiningKitchenLineAddonPayload = {
+  name: string;
+  quantity: number;
+};
+
 export type DiningKitchenSnapshotLinePayload = {
   id: string;
   diningOrderId: string;
@@ -92,6 +105,7 @@ export type DiningKitchenSnapshotLinePayload = {
   displayLabel?: string;
   diningTableId?: string | null;
   diningTableCode?: string | null;
+  addons?: DiningKitchenLineAddonPayload[];
   productVariant?: {
     id: string;
     name: string;

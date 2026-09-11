@@ -7,7 +7,9 @@ vi.mock("@kai-shared/storage-key-migrate", () => ({
 
 import {
   CART_SLOT_COUNT,
+  emptyCartSlots,
   emptySlotSnapshot,
+  findFirstEmptySlotIndex,
   isSlotEmpty,
   normalizeActiveSlot,
   parseCartEnvelopeRaw,
@@ -184,5 +186,56 @@ describe("cart-storage multi-slot envelope", () => {
     const raw = JSON.stringify({ v: 99, lines: [] });
     const snap = parseLegacySingleCartRaw(raw, stamp);
     expect(isSlotEmpty(snap)).toBe(true);
+  });
+});
+
+describe("findFirstEmptySlotIndex", () => {
+  it("returns first empty excluding active when others are free", () => {
+    const slots = emptyCartSlots();
+    expect(findFirstEmptySlotIndex(slots, { excludeIndex: 0 })).toBe(1);
+    expect(findFirstEmptySlotIndex(slots, { excludeIndex: 2 })).toBe(0);
+  });
+
+  it("skips occupied slots and finds next empty", () => {
+    const slots = emptyCartSlots();
+    slots[0] = {
+      ...emptySlotSnapshot(),
+      lines: [
+        {
+          ...lineItem("v1"),
+          quantity: 1,
+          discount: null,
+        },
+      ],
+    };
+    slots[1] = {
+      ...emptySlotSnapshot(),
+      customer: {
+        customerId: "c1",
+        name: "Ana",
+        document: "",
+        phone: "",
+        email: null,
+      },
+    };
+    expect(findFirstEmptySlotIndex(slots, { excludeIndex: 0 })).toBe(2);
+  });
+
+  it("returns null when no empty slot remains (exclude active)", () => {
+    const slots = emptyCartSlots();
+    for (let i = 0; i < CART_SLOT_COUNT; i++) {
+      slots[i] = {
+        ...emptySlotSnapshot(),
+        lines: [
+          {
+            ...lineItem(`v${i}`),
+            quantity: 1,
+            discount: null,
+          },
+        ],
+      };
+    }
+    expect(findFirstEmptySlotIndex(slots, { excludeIndex: 0 })).toBe(null);
+    expect(findFirstEmptySlotIndex(slots)).toBe(null);
   });
 });

@@ -7,7 +7,7 @@ import type { SignalProvider } from './signal-provider';
 
 const CTA = {
   label: 'Ver reportes de venta',
-  href: '/sales/reports',
+  href: '/analytics/reports/sales',
 };
 
 function startOfDay(d: Date): Date {

@@ -1,7 +1,17 @@
 import { ProductType } from '@modules/products/domain/product.entity';
 
 /** Tipos que pueden venderse (POS, eShop, precio de venta). */
-const NON_SELLABLE_PRODUCT_TYPES = new Set<ProductType>([ProductType.INSUMO]);
+const NON_SELLABLE_PRODUCT_TYPES = new Set<ProductType>([
+  ProductType.INSUMO,
+  ProductType.AGREGADO,
+]);
+
+/** Componentes válidos de un pack (kit fantasma). */
+const PACK_COMPONENT_TYPES = new Set<ProductType>([
+  ProductType.PHYSICAL,
+  ProductType.ELABORADO,
+  ProductType.MANUFACTURADO,
+]);
 
 export function isSellableProductType(
   productType: ProductType | string | null | undefined,
@@ -21,4 +31,51 @@ export function isInsumoProductType(
       .trim()
       .toUpperCase() === ProductType.INSUMO
   );
+}
+
+export function isPackProductType(
+  productType: ProductType | string | null | undefined,
+): boolean {
+  return (
+    String(productType ?? '')
+      .trim()
+      .toUpperCase() === ProductType.PACK
+  );
+}
+
+export function isAgregadoProductType(
+  productType: ProductType | string | null | undefined,
+): boolean {
+  return (
+    String(productType ?? '')
+      .trim()
+      .toUpperCase() === ProductType.AGREGADO
+  );
+}
+
+export function isValidPackComponentType(
+  productType: ProductType | string | null | undefined,
+): boolean {
+  const t = String(productType ?? '')
+    .trim()
+    .toUpperCase() as ProductType;
+  return PACK_COMPONENT_TYPES.has(t);
+}
+
+/** Ítem raíz de cuenta salón (PACK sí; AGREGADO solo como extra del host). */
+const DINING_ROOT_PRODUCT_TYPES = new Set<ProductType>([
+  ProductType.PREPARADO,
+  ProductType.PHYSICAL,
+  ProductType.ELABORADO,
+  ProductType.MANUFACTURADO,
+  ProductType.PACK,
+]);
+
+export function isAllowedDiningRootProductType(
+  productType: ProductType | string | null | undefined,
+): boolean {
+  const t = String(productType ?? '')
+    .trim()
+    .toUpperCase() as ProductType;
+  return DINING_ROOT_PRODUCT_TYPES.has(t);
 }

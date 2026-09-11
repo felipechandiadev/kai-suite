@@ -40,11 +40,29 @@ export function shouldSkipFinishedGoodsStockForPreparadoRetail(params: {
   );
 }
 
+/** Kit fantasma: sin stock del SKU pack; se descuentan componentes al cobrar. */
+export function shouldSkipFinishedGoodsStockForPack(params: {
+  productType?: string | null;
+}): boolean {
+  return (
+    String(params.productType ?? '')
+      .trim()
+      .toUpperCase() === ProductType.PACK
+  );
+}
+
 export function shouldSkipFinishedGoodsStockForSale(params: {
   diningOrderId?: string | null;
   posKaiFoodEnabled?: boolean | null;
   productType?: string | null;
 }): boolean {
+  if (
+    shouldSkipFinishedGoodsStockForPack({
+      productType: params.productType,
+    })
+  ) {
+    return true;
+  }
   if (
     shouldSkipFinishedGoodsStockForDiningSale({
       diningOrderId: params.diningOrderId,

@@ -82,7 +82,7 @@ function AccountsPageInner() {
   }
 
   return (
-    <div className={`w-full ${ACCOUNTS_VIEWPORT_CLASS}`} data-test-id="pos-accounts-page">
+    <div className={`w-full ${ACCOUNTS_VIEWPORT_CLASS}`} data-test-id="pos-accounts-page" data-dining-extras="1">
       <PosDiningAccountsPanel branchId={branchId} layout="page" fillViewport />
     </div>
   );

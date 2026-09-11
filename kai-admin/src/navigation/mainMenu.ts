@@ -43,13 +43,22 @@ export const uiComponentItems: SideBarMenuItem[] = [
  */
 export const mainMenuItems: SideBarMenuItem[] = [
   { id: 'nav-dashboard', label: 'Panel', url: '/dashboard' },
-  { id: 'nav-signals', label: 'Señales', url: '/senales' },
+  {
+    id: 'nav-analytics',
+    label: 'Analítica',
+    children: [
+      { id: 'analytics-overview', label: 'Resumen', url: '/analytics' },
+      { id: 'analytics-reports', label: 'Reportes', url: '/analytics/reports' },
+      { id: 'analytics-signals', label: 'Señales', url: '/analytics/signals' },
+      { id: 'analytics-pricing', label: 'Precios', url: '/analytics/pricing' },
+    ],
+  },
   {
     id: 'nav-sales',
     label: 'Ventas',
     children: [
       { id: 'sales-transactions', label: 'Transacciones', url: '/sales/transactions/sales' },
-      { id: 'sales-reports', label: 'Reportes', url: '/sales/reports' },
+      { id: 'sales-reports', label: 'Reportes', url: '/sales/reports', hidden: true },
       { id: 'sales-promotions', label: 'Promociones', url: '/sales/promotions' },
       { id: 'sales-customers', label: 'Clientes', url: '/sales/customers' },
       { id: 'sales-pos', label: 'Puntos de venta', url: '/sales/points-of-sale' },
@@ -68,7 +77,7 @@ export const mainMenuItems: SideBarMenuItem[] = [
       },
       { id: 'purchasing-suppliers', label: 'Proveedores', url: '/purchasing/suppliers' },
       { id: 'purchasing-dte', label: "DTE's proveedor", url: '/purchasing/dte' },
-      { id: 'purchasing-reports', label: 'Reportes', url: '/purchasing/reports' },
+      { id: 'purchasing-reports', label: 'Reportes', url: '/purchasing/reports', hidden: true },
       // { id: 'purchasing-flow', label: 'Flujo del proceso', url: '/purchasing/flow' },
     ],
   },
@@ -78,7 +87,7 @@ export const mainMenuItems: SideBarMenuItem[] = [
     children: [
       { id: 'inventory-catalog', label: 'Catálogo', url: '/catalog' },
       { id: 'inventory-stock', label: 'Existencias (Stock)', url: '/inventory/stock' },
-      { id: 'inventory-reports', label: 'Reportes', url: '/inventory/reports' },
+      { id: 'inventory-reports', label: 'Reportes', url: '/inventory/reports', hidden: true },
       { id: 'inventory-units', label: 'Unidades de medida', url: '/inventory/units' },
       { id: 'inventory-storages', label: 'Almacenes', url: '/inventory/storages' },
     ],

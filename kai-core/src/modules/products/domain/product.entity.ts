@@ -55,6 +55,10 @@ export enum ProductType {
   PREPARADO = 'PREPARADO',
   /** Materia prima / suministro: compra + inventario; no venta ni eShop. */
   INSUMO = 'INSUMO',
+  /** Kit fantasma: vendible retail; descuenta stock de componentes al cobrar. */
+  PACK = 'PACK',
+  /** Modificador KaiFood: solo como extra anidado en línea dining; no venta standalone. */
+  AGREGADO = 'AGREGADO',
 }
 
 /**

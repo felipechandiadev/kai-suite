@@ -67,6 +67,13 @@ object PosKitchenTicketEscPos {
             obj.jsonStr("notes").present()?.let { notes ->
                 w.wrapLines("  * $notes", widthChars).forEach { w.line(it) }
             }
+            obj.jsonArr("addons").orEmpty().forEach { addonRow ->
+                val addon = addonRow.jsonObj() ?: return@forEach
+                val addonName = addon.jsonStr("name").orEmpty().trim()
+                if (addonName.isNotEmpty()) {
+                    w.wrapLines("  + $addonName", widthChars).forEach { w.line(it) }
+                }
+            }
             if (idx + 1 < lines.size) w.sectionGap()
         }
 

@@ -44,6 +44,8 @@ export enum ProductType {
   ELABORADO = 'ELABORADO',
   PREPARADO = 'PREPARADO',
   INSUMO = 'INSUMO',
+  PACK = 'PACK',
+  AGREGADO = 'AGREGADO',
 }
 
 @Entity('products')

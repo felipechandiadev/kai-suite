@@ -3,8 +3,8 @@ import type { PosProductSearchItem } from "@/features/pos-products/types/pos-pro
 import type { PosDiningOrderLine } from "../types/dining-pos.types";
 
 /**
- * Convierte líneas activas de una cuenta salón a líneas de carrito POS para cobro.
- * Agrega cantidades por variante (excluye ítems cancelados).
+ * Convierte líneas activas de cuenta salón a líneas de carrito POS para cobro.
+ * Host + cada agregado = línea DTE independiente (sin colapsar por variante).
  */
 export function diningOrderLinesToCart(
   orderLines: PosDiningOrderLine[],
@@ -15,26 +15,43 @@ export function diningOrderLinesToCart(
     byVariant.set(item.variantId, item);
   }
 
-  const qtyByVariant = new Map<string, number>();
+  const cartLines: PosCartLine[] = [];
   for (const line of orderLines) {
     if (line.kitchenStatus === "CANCELLED") continue;
-    const qty = Number(line.quantity) || 0;
-    if (qty <= 0) continue;
-    qtyByVariant.set(line.productVariantId, (qtyByVariant.get(line.productVariantId) ?? 0) + qty);
+    const lineQty = Number(line.quantity) || 0;
+    if (lineQty <= 0) continue;
+
+    const hostItem = byVariant.get(line.productVariantId);
+    if (hostItem) {
+      cartLines.push({
+        ...hostItem,
+        quantity: lineQty,
+        metadata: {
+          ...(hostItem.metadata ?? {}),
+          sourceDiningOrder: true,
+          sourceDiningLineId: line.id,
+        },
+      });
+    }
+
+    for (const addon of line.addons ?? []) {
+      const addonQty = Number(addon.quantity) || 0;
+      if (addonQty <= 0) continue;
+      const totalQty = lineQty * addonQty;
+      const addonItem = byVariant.get(addon.addonVariantId);
+      if (!addonItem) continue;
+      cartLines.push({
+        ...addonItem,
+        quantity: totalQty,
+        metadata: {
+          ...(addonItem.metadata ?? {}),
+          sourceDiningOrder: true,
+          sourceDiningLineId: line.id,
+          sourceDiningAddonId: addon.id,
+        },
+      });
+    }
   }
 
-  const cartLines: PosCartLine[] = [];
-  for (const [variantId, quantity] of qtyByVariant) {
-    const item = byVariant.get(variantId);
-    if (!item) continue;
-    cartLines.push({
-      ...item,
-      quantity,
-      metadata: {
-        ...(item.metadata ?? {}),
-        sourceDiningOrder: true,
-      },
-    });
-  }
   return cartLines;
 }

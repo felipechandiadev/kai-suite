@@ -17,6 +17,7 @@ export function recomputeOrderStatusFromLines(
 ): DiningOrderStatus {
   if (
     currentStatus === DiningOrderStatus.CLOSED ||
+    currentStatus === DiningOrderStatus.VOID ||
     currentStatus === DiningOrderStatus.BILLING
   ) {
     return currentStatus;
@@ -74,17 +75,20 @@ export function assertOrderStatusTransition(
       DiningOrderStatus.READY,
       DiningOrderStatus.BILLING,
       DiningOrderStatus.CLOSED,
+      DiningOrderStatus.VOID,
     ],
     [DiningOrderStatus.SENT]: [
       DiningOrderStatus.PARTIAL_READY,
       DiningOrderStatus.READY,
       DiningOrderStatus.BILLING,
       DiningOrderStatus.CLOSED,
+      DiningOrderStatus.VOID,
     ],
     [DiningOrderStatus.PARTIAL_READY]: [
       DiningOrderStatus.READY,
       DiningOrderStatus.BILLING,
       DiningOrderStatus.CLOSED,
+      DiningOrderStatus.VOID,
     ],
     [DiningOrderStatus.READY]: [
       DiningOrderStatus.BILLING,
@@ -92,6 +96,7 @@ export function assertOrderStatusTransition(
       DiningOrderStatus.OPEN,
       DiningOrderStatus.SENT,
       DiningOrderStatus.PARTIAL_READY,
+      DiningOrderStatus.VOID,
     ],
     [DiningOrderStatus.BILLING]: [
       DiningOrderStatus.CLOSED,
@@ -99,8 +104,10 @@ export function assertOrderStatusTransition(
       DiningOrderStatus.SENT,
       DiningOrderStatus.PARTIAL_READY,
       DiningOrderStatus.READY,
+      DiningOrderStatus.VOID,
     ],
     [DiningOrderStatus.CLOSED]: [],
+    [DiningOrderStatus.VOID]: [],
   };
 
   if (!allowed[from]?.includes(to)) {
@@ -108,6 +115,12 @@ export function assertOrderStatusTransition(
       `Transición de estado no permitida: ${from} → ${to}`,
     );
   }
+}
+
+export function isDiningOrderInactive(status: DiningOrderStatus): boolean {
+  return (
+    status === DiningOrderStatus.CLOSED || status === DiningOrderStatus.VOID
+  );
 }
 
 export function canRequestBill(status: DiningOrderStatus): boolean {

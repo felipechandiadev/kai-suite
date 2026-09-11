@@ -9,6 +9,7 @@ import { Category } from '@modules/categories/domain/category.entity';
 import { Attribute } from '@modules/attributes/domain/attribute.entity';
 import { Brand } from '@modules/brands/domain/brand.entity';
 import { Product, ProductType } from '@modules/products/domain/product.entity';
+import { ProductAddon } from '@modules/products/domain/product-addon.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { PriceListItem } from '@modules/price-list-items/domain/price-list-item.entity';
 import { Tax, TaxType } from '@modules/taxes/domain/tax.entity';
@@ -45,6 +46,7 @@ import {
   syncSeedBrands,
   syncSeedCategories,
 } from '../shared/seed-catalog.util';
+import { seedDemoFoodKitchenForCompany } from './seed-demo-food-kitchen';
 
 export type SeedSuiteFoodCompanyInput = {
   dataSource: DataSource;
@@ -336,8 +338,62 @@ export async function seedDemoSuiteFoodCompany(
         .update(Product)
         .set({ onMenu: true })
         .where('companyId = :companyId', { companyId: companyFood.id })
-        .andWhere('productType != :insumo', { insumo: ProductType.INSUMO })
+        .andWhere('productType NOT IN (:...skip)', {
+          skip: [ProductType.INSUMO, ProductType.AGREGADO],
+        })
         .execute();
+      await productRepo
+        .createQueryBuilder()
+        .update(Product)
+        .set({ onMenu: false })
+        .where('companyId = :companyId', { companyId: companyFood.id })
+        .andWhere('productType = :agregado', { agregado: ProductType.AGREGADO })
+        .execute();
+
+      await seedDemoFoodKitchenForCompany({
+        dataSource,
+        companyId: companyFood.id,
+        branch,
+        sharedStorage: storage,
+        logPrefix: 'Suite food',
+      });
+
+      const addonRepo = dataSource.getRepository(ProductAddon);
+      const hostProduct = await productRepo.findOne({
+        where: {
+          companyId: companyFood.id,
+          name: 'Hamburguesa clásica',
+          deletedAt: IsNull(),
+        },
+      });
+      const addonProduct = await productRepo.findOne({
+        where: {
+          companyId: companyFood.id,
+          name: 'Doble queso',
+          deletedAt: IsNull(),
+        },
+      });
+      if (hostProduct && addonProduct) {
+        const existingLink = await addonRepo.findOne({
+          where: {
+            hostProductId: hostProduct.id,
+            addonProductId: addonProduct.id,
+          },
+        });
+        if (!existingLink) {
+          await addonRepo.save(
+            addonRepo.create({
+              companyId: companyFood.id,
+              hostProductId: hostProduct.id,
+              addonProductId: addonProduct.id,
+              sortOrder: 1,
+            }),
+          );
+          console.log(
+            '✅ Suite food: agregado Doble queso → Hamburguesa clásica',
+          );
+        }
+      }
 
       const diningRoomRepo = dataSource.getRepository(DiningRoom);
       const diningTableRepo = dataSource.getRepository(DiningTable);

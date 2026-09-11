@@ -399,6 +399,22 @@ export function summarizeCartSlot(
   };
 }
 
+/**
+ * Primer slot vacío (0..CART_SLOT_COUNT-1).
+ * Si `excludeIndex` está definido, no lo considera (p. ej. el carro activo al añadir otro).
+ */
+export function findFirstEmptySlotIndex(
+  slots: Array<CartSlotSnapshot | undefined>,
+  options?: { excludeIndex?: CartSlotIndex },
+): CartSlotIndex | null {
+  for (let i = 0; i < CART_SLOT_COUNT; i++) {
+    if (options?.excludeIndex === i) continue;
+    const slot = slots[i] ?? emptySlotSnapshot();
+    if (isSlotEmpty(slot)) return i as CartSlotIndex;
+  }
+  return null;
+}
+
 function parseSlotFields(
   parsed: StoredCartSlot,
   stamp: PriceListStamp | null,

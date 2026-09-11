@@ -22,6 +22,8 @@ export interface DiningOrderProfile {
   notes?: string;
   /** Nombre para llamar al cliente; por defecto igual a displayLabel. */
   customerName?: string;
+  /** Motivo opcional al anular (VOID). */
+  voidReason?: string;
 }
 
 @Entity('dining_orders')

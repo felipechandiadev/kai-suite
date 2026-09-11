@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -25,6 +26,8 @@ import {
   TransferCartLineDto,
   UpdateDiningOrderLineDto,
   UpdateDiningOrderProfileDto,
+  VoidDiningOrderDto,
+  AddDiningLineAddonDto,
 } from '../application/dto/dining-order-commands.dto';
 import { UpdateDiningNumberingSettingsDto } from '../application/dto/update-dining-numbering-settings.dto';
 import { DiningOrderKind, DiningOrderStatus } from '../domain/dining.enums';
@@ -236,6 +239,27 @@ export class DiningController {
     });
   }
 
+  @Post('orders/:orderId/lines/:lineId/addons')
+  async addLineAddon(
+    @Param('orderId') orderId: string,
+    @Param('lineId') lineId: string,
+    @Body() dto: AddDiningLineAddonDto,
+  ) {
+    return this.diningService.addLineAddon(orderId, lineId, {
+      addonVariantId: dto.addonVariantId,
+      quantity: dto.quantity,
+    });
+  }
+
+  @Delete('orders/:orderId/lines/:lineId/addons/:addonId')
+  async removeLineAddon(
+    @Param('orderId') orderId: string,
+    @Param('lineId') lineId: string,
+    @Param('addonId') addonId: string,
+  ) {
+    return this.diningService.removeLineAddon(orderId, lineId, addonId);
+  }
+
   @Post('orders/:id/send-to-kitchen')
   async sendToKitchen(
     @Param('id') id: string,
@@ -257,6 +281,14 @@ export class DiningController {
   @Post('orders/:id/abandon-empty')
   async abandonEmptyOrder(@Param('id') id: string) {
     return this.diningService.abandonEmptyOrder(id);
+  }
+
+  @Post('orders/:id/void')
+  async voidOrder(
+    @Param('id') id: string,
+    @Body() dto?: VoidDiningOrderDto,
+  ) {
+    return this.diningService.voidDiningOrder(id, dto?.reason);
   }
 
   @Post('orders/:id/close')

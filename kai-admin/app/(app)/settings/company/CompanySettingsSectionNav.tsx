@@ -12,11 +12,10 @@ type Props = {
 export function CompanySettingsSectionNav({ tabs, activeId, onSelect }: Props) {
   return (
     <nav
-      className="flex w-full min-w-0 overflow-x-auto border-b border-border"
+      className="flex w-full min-w-0 flex-wrap border-b border-border"
       aria-label="Secciones de configuración de empresa"
       data-test-id="settings-company-section-nav"
     >
-      <div className="flex flex-nowrap">
       {tabs.map((tab) => {
         const isActive = tab.id === activeId;
         return (
@@ -37,7 +36,6 @@ export function CompanySettingsSectionNav({ tabs, activeId, onSelect }: Props) {
           </button>
         );
       })}
-      </div>
     </nav>
   );
 }

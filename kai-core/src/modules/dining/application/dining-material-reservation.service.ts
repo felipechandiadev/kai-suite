@@ -294,6 +294,33 @@ export class DiningMaterialReservationService {
     recipeVersion: number;
     outputQty: number;
   } | null> {
+    const hostNeeds = await this.computeHostMaterialNeeds(companyId, line);
+    if (!hostNeeds) {
+      return null;
+    }
+
+    const addonMaterials = await this.computeAddonMaterialNeeds(companyId, line);
+    if (addonMaterials.length > 0) {
+      hostNeeds.materials.push(...addonMaterials);
+    }
+
+    if (hostNeeds.materials.length === 0) {
+      return null;
+    }
+
+    return hostNeeds;
+  }
+
+  private async computeHostMaterialNeeds(
+    companyId: string,
+    line: DiningOrderLine,
+  ): Promise<{
+    storageId: string;
+    materials: MaterialNeed[];
+    recipeId: string;
+    recipeVersion: number;
+    outputQty: number;
+  } | null> {
     if (!line.productionUnitId) {
       return null;
     }
@@ -376,5 +403,73 @@ export class DiningMaterialReservationService {
       recipeVersion: recipe.version,
       outputQty,
     };
+  }
+
+  private async computeAddonMaterialNeeds(
+    companyId: string,
+    line: DiningOrderLine,
+  ): Promise<MaterialNeed[]> {
+    if (!line.addons?.length) {
+      return [];
+    }
+    const lineQty = Number(line.quantity) || 0;
+    if (lineQty <= 0) {
+      return [];
+    }
+
+    const addonVariantIds = [...new Set(line.addons.map((a) => a.addonVariantId))];
+    const variants = await this.variantRepo.find({
+      where: addonVariantIds.map((id) => ({ id, companyId })),
+      relations: ['product'],
+    });
+    const variantById = new Map(variants.map((v) => [v.id, v]));
+    const materials: MaterialNeed[] = [];
+
+    for (const addon of line.addons) {
+      const addonQty = Number(addon.quantity) || 0;
+      if (addonQty <= 0) continue;
+      const outputQty = lineQty * addonQty;
+      const variant = variantById.get(addon.addonVariantId);
+      if (!variant?.product) continue;
+
+      const recipes = await this.recipesService.list(companyId, variant.id);
+      const recipe = recipes.find(
+        (r) => r.isActive && r.type === RecipeType.PRODUCTION,
+      );
+      if (!recipe?.lines?.length) continue;
+
+      const limitingLines = recipe.lines.filter(
+        (rl) => rl.limitsProjectedStock !== false,
+      );
+      const inputIds = [...new Set(limitingLines.map((rl) => rl.inputVariantId))];
+      const inputs = await this.variantRepo.find({
+        where: inputIds.map((id) => ({ id, companyId })),
+        relations: ['product'],
+      });
+      const inputById = new Map(inputs.map((v) => [v.id, v]));
+
+      for (const rl of limitingLines) {
+        const input = inputById.get(rl.inputVariantId);
+        const productId = input?.productId ?? input?.product?.id;
+        if (!input || !productId || input.trackInventory === false) {
+          continue;
+        }
+        const qty = recipeInputQuantityForOutput(
+          Number(rl.qtyPerOutputUnit ?? 0),
+          Number(rl.wasteFactor ?? 0),
+          outputQty,
+        );
+        if (qty <= 0) continue;
+        materials.push({
+          inputVariantId: input.id,
+          productId,
+          productName: input.product?.name ?? `Input ${input.id}`,
+          sku: input.sku ?? null,
+          qty,
+        });
+      }
+    }
+
+    return materials;
   }
 }

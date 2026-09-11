@@ -12,6 +12,8 @@ export enum DiningOrderStatus {
   READY = 'READY',
   BILLING = 'BILLING',
   CLOSED = 'CLOSED',
+  /** Anulación operativa (no cobro). Terminal; no entra a reportes de ventas. */
+  VOID = 'VOID',
 }
 
 export enum KitchenItemStatus {

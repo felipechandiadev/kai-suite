@@ -15,6 +15,7 @@ import {
   listDiningRoomsAction,
   openTableOrderAction,
 } from "@/features/dining-waiter/actions/waiter.action";
+import { isWaiterDiningOrderInactive } from "@/features/dining-waiter/lib/group-waiter-order-lines";
 import { WaiterMesasCards } from "@/features/dining-waiter/ui/WaiterMesasCards";
 import { WaiterTableScreen } from "@/features/dining-waiter/ui/WaiterTableScreen";
 import { useDiningRealtime } from "@/features/dining-waiter/realtime/useDiningRealtime";
@@ -166,7 +167,7 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
         ...authRef.current,
         orderId,
       });
-      if (order.status === "CLOSED") {
+      if (isWaiterDiningOrderInactive(order.status)) {
         exitToMesas(WAITER_ACCOUNT_UNAVAILABLE_MSG);
         return;
       }
@@ -213,7 +214,7 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
   };
 
   const handleOrderUpdated = async (order: DiningOrderDto) => {
-    if (order.status === "CLOSED") {
+    if (isWaiterDiningOrderInactive(order.status)) {
       exitToMesas(WAITER_ACCOUNT_UNAVAILABLE_MSG);
       return;
     }
@@ -241,7 +242,7 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
         if (orderId) {
           const order = await getDiningOrderAction({ ...auth, orderId });
           if (cancelled) return;
-          if (order.status === "CLOSED") {
+          if (isWaiterDiningOrderInactive(order.status)) {
             exitToMesas(WAITER_ACCOUNT_UNAVAILABLE_MSG);
             clearSalonDeepLinkQuery(pathname, router);
             return;
@@ -308,7 +309,7 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
           const active = (list ?? orders).find(
             (o) =>
               o.diningTableId === tableId &&
-              o.status !== "CLOSED" &&
+              !isWaiterDiningOrderInactive(o.status) &&
               o.kind === "TABLE",
           );
           if (!active) {
@@ -364,7 +365,7 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
             ...authRef.current,
             orderId: fresh.id,
           });
-          if (detail.status === "CLOSED") {
+          if (isWaiterDiningOrderInactive(detail.status)) {
             exitToMesas(WAITER_ACCOUNT_UNAVAILABLE_MSG);
             return;
           }

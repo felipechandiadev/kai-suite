@@ -23,6 +23,7 @@ export type DiningKitchenQueueLineDto = {
   displayLabel?: string;
   diningTableId?: string | null;
   diningTableCode?: string | null;
+  addons?: Array<{ name: string; quantity: number }>;
   productVariant?: {
     id?: string;
     name?: string;
@@ -53,6 +54,7 @@ export type DiningOrderLineDto = {
     status: string;
     diningTable?: { code?: string; label?: string };
   };
+  addons?: Array<{ name: string; quantity: number }>;
 };
 
 export type ProductionUnitHistoryItemDto = {
@@ -113,6 +115,10 @@ export function normalizeKitchenQueueLine(
         ? { code: line.diningTableCode }
         : undefined,
     },
+    addons: (line.addons ?? []).map((a) => ({
+      name: String(a.name),
+      quantity: Number(a.quantity) || 0,
+    })),
   };
 }
 

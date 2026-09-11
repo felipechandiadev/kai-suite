@@ -16,6 +16,7 @@ import {
   CART_SLOT_COUNT,
   emptyCartSlots,
   emptySlotSnapshot,
+  findFirstEmptySlotIndex,
   normalizeActiveSlot,
   padCartSlots,
   readCartEnvelopeClient,
@@ -171,6 +172,10 @@ type PosCartContextValue = {
   cartSlotsSummary: CartSlotSummary[];
   /** Alterna el workspace al slot indicado (persiste el activo). */
   switchCartSlot: (index: CartSlotIndex) => void;
+  /** True si hay al menos un slot vacío distinto del activo (cabe un carro más). */
+  canAddCartSlot: boolean;
+  /** Abre el primer slot vacío (≠ activo). Retorna false si no hay cupo. */
+  addCartSlot: () => boolean;
 };
 
 const PosCartContext = createContext<PosCartContextValue | null>(null);
@@ -559,6 +564,26 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     }
     return summary;
   }, [activeCartSlot, captureWorkspaceSnapshot, inactiveSlotVersion]);
+
+  const canAddCartSlot = useMemo(() => {
+    void inactiveSlotVersion;
+    const activeSnap = captureWorkspaceSnapshot();
+    const merged: CartSlotSnapshot[] = [];
+    for (let i = 0; i < CART_SLOT_COUNT; i++) {
+      const idx = i as CartSlotIndex;
+      merged[i] = activeCartSlot === idx ? activeSnap : slotsRef.current[idx];
+    }
+    return findFirstEmptySlotIndex(merged, { excludeIndex: activeCartSlot }) != null;
+  }, [activeCartSlot, captureWorkspaceSnapshot, inactiveSlotVersion]);
+
+  const addCartSlot = useCallback((): boolean => {
+    const activeSnap = captureWorkspaceSnapshot();
+    const merged = mergeActiveIntoSlots(activeCartSlot, activeSnap);
+    const target = findFirstEmptySlotIndex(merged, { excludeIndex: activeCartSlot });
+    if (target == null) return false;
+    switchCartSlot(target);
+    return true;
+  }, [activeCartSlot, captureWorkspaceSnapshot, mergeActiveIntoSlots, switchCartSlot]);
 
   const itemsCount = useMemo(() => lines.reduce((a, l) => a + (Number(l.quantity) || 0), 0), [lines]);
 
@@ -1233,6 +1258,8 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       activeCartSlot,
       cartSlotsSummary,
       switchCartSlot,
+      canAddCartSlot,
+      addCartSlot,
     }),
     [
       ready,
@@ -1284,6 +1311,8 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       activeCartSlot,
       cartSlotsSummary,
       switchCartSlot,
+      canAddCartSlot,
+      addCartSlot,
     ],
   );
 

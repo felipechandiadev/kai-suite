@@ -10,6 +10,13 @@ import type {
   KitchenItemStatus,
 } from "@/features/dining/types/dining-pos.types";
 
+export type DiningSessionLineAddonPayload = {
+  id: string;
+  addonVariantId: string;
+  name: string;
+  quantity: number;
+};
+
 export type DiningSessionLinePayload = {
   id: string;
   productVariantId: string;
@@ -19,6 +26,7 @@ export type DiningSessionLinePayload = {
   productionUnitId?: string | null;
   kitchenFireId?: string | null;
   kitchenFireNumber?: number | null;
+  addons?: DiningSessionLineAddonPayload[];
 };
 
 export type DiningSessionUpdatedPayload = {

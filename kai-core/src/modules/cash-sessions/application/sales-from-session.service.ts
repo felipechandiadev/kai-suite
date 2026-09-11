@@ -26,6 +26,7 @@ import { User } from '@modules/users/domain/user.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { Unit } from '@modules/units/domain/unit.entity';
 import { VariantQuantityConversionService } from '@modules/product-variants/application/variant-quantity-conversion.service';
+import { resolveSaleLineUnitCost } from '@modules/product-variants/application/helpers/sale-unit-cost.util';
 import {
   forcesNetEqualsGross,
   normalizeVariantTaxCategory,
@@ -132,6 +133,7 @@ import {
   type PosDeliveryMetadata,
 } from './pos-delivery.metadata';
 import { buildPosDeliveryShippingLine } from './pos-delivery-shipping-line';
+import { PackService } from '@modules/recipes/application/pack.service';
 
 type PosCommercialRegisterConfig = {
   transactionType:
@@ -214,6 +216,7 @@ export class SalesFromSessionService {
     private readonly deliveryOccurrences: DeliveryOccurrenceService,
     private readonly deliveryOrders: DeliveryOrderService,
     private readonly tipsService: TipsService,
+    private readonly packService: PackService,
   ) {}
 
   /**
@@ -1872,7 +1875,7 @@ export class SalesFromSessionService {
           unitConversionFactor: converted.unitConversionFactor,
           unitOfMeasure: converted.unitOfMeasure,
           unitPrice: line.unitPrice,
-          unitCost: line.unitCost || variant.baseCost || 0,
+          unitCost: resolveSaleLineUnitCost(line.unitCost, variant),
           discountAmount: lineDiscount,
           taxId: line.taxId || undefined,
           taxRate: safeTaxRate,
@@ -2241,24 +2244,44 @@ export class SalesFromSessionService {
         const variantIdsToCheck = [...qtyNeedByVariant.keys()];
         const diningOrderId = extractDiningOrderIdFromMetadata(metadata);
         let posKaiFoodEnabled = false;
+        let companyIdForPack: string | undefined =
+          pointOfSale.companyId?.trim() || undefined;
         if (pointOfSale.companyId) {
           const company = await this.companiesService.getCompanyById(
             pointOfSale.companyId,
           );
+          companyIdForPack = company.id?.trim() || companyIdForPack;
           posKaiFoodEnabled = resolveKaiFoodEnabled(
             company.kaiProduct,
             pointOfSale.settings,
           );
         }
-        if (effectiveStorageId && variantIdsToCheck.length > 0) {
+        let qtyToCheck = qtyNeedByVariant;
+        if (companyIdForPack && variantIdsToCheck.length > 0) {
+          const variantsForPack = await manager.getRepository(ProductVariant).find({
+            where: { id: In(variantIdsToCheck) },
+            relations: ['product'],
+          });
+          const productTypeById = new Map<string, string | undefined>();
+          for (const v of variantsForPack) {
+            productTypeById.set(v.id, v.product?.productType);
+          }
+          qtyToCheck = await this.packService.expandPackLinesForStockCheck(
+            companyIdForPack,
+            qtyNeedByVariant,
+            productTypeById,
+          );
+        }
+        const expandedVariantIds = [...qtyToCheck.keys()];
+        if (effectiveStorageId && expandedVariantIds.length > 0) {
           const needsProductType = Boolean(diningOrderId) || !posKaiFoodEnabled;
           const variantsToCheck = needsProductType
             ? await manager.getRepository(ProductVariant).find({
-                where: { id: In(variantIdsToCheck) },
+                where: { id: In(expandedVariantIds) },
                 relations: ['product'],
               })
             : await manager.getRepository(ProductVariant).find({
-                where: { id: In(variantIdsToCheck) },
+                where: { id: In(expandedVariantIds) },
                 select: ['id', 'sku', 'trackInventory', 'allowNegativeStock'],
               });
           for (const v of variantsToCheck) {
@@ -2272,7 +2295,7 @@ export class SalesFromSessionService {
             ) {
               continue;
             }
-            const need = qtyNeedByVariant.get(v.id) ?? 0;
+            const need = qtyToCheck.get(v.id) ?? 0;
             const sl = await manager.getRepository(StockLevel).findOne({
               where: {
                 productVariantId: v.id,

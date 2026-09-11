@@ -7,12 +7,15 @@ import type { ProductVariantGridRow } from "@/features/inventory-products/types/
 import type { RecipeDto } from "@/features/recipes/types/recipe.types";
 import { CreateRecipeDialog } from "../../../ui/CreateRecipeDialog";
 import {
+  catalogProductTypeAllowsPackComposition,
   catalogProductTypeAllowsRecipeBom,
   catalogProductTypeIsFinishedGood,
   catalogProductTypeIsSellable,
   catalogProductTypeLabel,
   normalizeCatalogProductType,
 } from "../../../ui/catalog-product-type-options";
+import { ProductHostAddonsSection } from "../../../ui/ProductHostAddonsSection";
+import { VariantDetailPackSection } from "./VariantDetailPackSection";
 import {
   VariantDetailIdentitySection,
   VariantDetailInventorySection,
@@ -71,19 +74,30 @@ export default function ProductVariantDetailPage({ product, variant: initialVari
   }, [initialVariant]);
 
   const showRecipe = catalogProductTypeAllowsRecipeBom(product.productType);
-  const showProduction = catalogProductTypeIsFinishedGood(product.productType);
+  const showPack = catalogProductTypeAllowsPackComposition(product.productType);
+  const normalizedType = normalizeCatalogProductType(product.productType);
+  const showProduction =
+    catalogProductTypeIsFinishedGood(product.productType) && normalizedType !== "AGREGADO";
+  const showHostAddons =
+    normalizedType !== "AGREGADO" &&
+    normalizedType !== "PACK" &&
+    normalizedType !== "INSUMO" &&
+    normalizedType !== "SERVICE" &&
+    normalizedType !== "DIGITAL";
   const isSellable = catalogProductTypeIsSellable(product.productType);
 
   const visibleTabs = useMemo(
     () =>
       VARIANT_DETAIL_TABS.filter((t) => {
         if (t.id === "receta") return showRecipe;
+        if (t.id === "pack") return showPack;
         if (t.id === "produccion") return showProduction;
+        if (t.id === "agregados") return showHostAddons;
         if (t.id === "sucursales") return isSellable;
         if (t.id === "precios" || t.id === "despacho" || t.id === "eshop") return isSellable;
         return true;
       }),
-    [showRecipe, showProduction, isSellable],
+    [showRecipe, showPack, showProduction, showHostAddons, isSellable],
   );
 
   useEffect(() => {
@@ -221,6 +235,12 @@ export default function ProductVariantDetailPage({ product, variant: initialVari
               setBomOpen(true);
             }}
           />
+        ) : null}
+        {activeSection === "pack" && showPack ? (
+          <VariantDetailPackSection outputVariantId={variant.id} refreshKey={recipeRefreshKey} />
+        ) : null}
+        {activeSection === "agregados" && showHostAddons ? (
+          <ProductHostAddonsSection hostProductId={product.id} />
         ) : null}
         {activeSection === "produccion" && showProduction ? (
           <VariantDetailProductionSection

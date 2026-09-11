@@ -7,6 +7,7 @@ export type CompanyKaiProduct = 'kaistore' | 'kaifood' | 'kaiservices';
 
 export const FOOD_ONLY_PRODUCT_TYPES: readonly ProductType[] = [
   ProductType.PREPARADO,
+  ProductType.AGREGADO,
 ];
 
 @Injectable()

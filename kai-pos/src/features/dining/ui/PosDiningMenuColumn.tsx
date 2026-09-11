@@ -7,7 +7,10 @@ import {
   addPosDiningOrderItemsAction,
   batchPosDiningCtpAction,
   getPosDiningBranchSettingsAction,
+  getPosDiningOrderAction,
+  listPosDiningHostAddonsAction,
 } from "@/features/dining/actions/dining-pos.action";
+import { PosDiningAddAddonDialog } from "@/features/dining/ui/PosDiningAddAddonDialog";
 import type { PosDiningOrderSummary } from "@/features/dining/types/dining-pos.types";
 import { useDiningCtpStockSubscription } from "@/features/dining/lib/use-dining-ctp-stock-subscription";
 import { useDiningMenuCtpInvalidateOnSession } from "@/features/dining/lib/use-dining-menu-ctp-invalidate";
@@ -17,6 +20,7 @@ import {
 } from "@/features/dining/lib/dining-menu-column-collapsed-storage";
 import { useCatalogRealtime } from "@/features/pos-catalog/realtime/catalog-realtime-context";
 import { PosDiningMenuVariantInfoDialog } from "@/features/dining/ui/PosDiningMenuVariantInfoDialog";
+import { getPackProducibleQtyAction } from "@/features/pos-products/actions/pack-pos.action";
 import {
   lookupPosVariantsAction,
   searchPosProductsAction,
@@ -45,7 +49,10 @@ type Props = {
   disabled?: boolean;
   heightVh?: number;
   fillViewport?: boolean;
-  onOrderUpdated: (order: PosDiningOrderSummary) => void;
+  onOrderUpdated: (
+    order: PosDiningOrderSummary,
+    added?: { variantId: string; productId: string; productType: string | null },
+  ) => void;
   /** Desktop accounts: colapsa la columna en horizontal. */
   onCollapse?: () => void;
 };
@@ -69,6 +76,16 @@ export function PosDiningMenuColumn({
   const [addingId, setAddingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [infoItem, setInfoItem] = useState<PosProductSearchItem | null>(null);
+  const [addonDialog, setAddonDialog] = useState<{
+    orderId: string;
+    lineId: string;
+    hostProductId: string;
+    variantId: string;
+  } | null>(null);
+  const [hostHasAddons, setHostHasAddons] = useState<Record<string, boolean>>(
+    {},
+  );
+  const hostAddonKnownRef = useRef<Record<string, boolean>>({});
   const [ctpByVariantId, setCtpByVariantId] = useState<
     Record<string, number | null>
   >({});
@@ -103,6 +120,24 @@ export function PosDiningMenuColumn({
     for (const row of res.results) {
       next[row.variantId] = row.producibleQty;
       if (row.inputStorageId) storages.add(row.inputStorageId);
+    }
+    const storageId = ctx?.storageId?.trim() ?? "";
+    const packItems = products.filter(
+      (p) => String(p.productType ?? "").toUpperCase() === "PACK",
+    );
+    if (storageId && packItems.length > 0) {
+      const packCaps = await Promise.all(
+        packItems.map((item) =>
+          getPackProducibleQtyAction({
+            variantId: item.variantId,
+            storageId,
+          }),
+        ),
+      );
+      packItems.forEach((item, idx) => {
+        const cap = packCaps[idx]?.producibleQty;
+        if (cap != null) next[item.variantId] = cap;
+      });
     }
     setCtpByVariantId(next);
     setCtpStorageIds([...storages]);
@@ -264,6 +299,38 @@ export function PosDiningMenuColumn({
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const ids = [
+      ...new Set(
+        items
+          .map((item) => item.productId?.trim())
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const unknown = ids.filter((id) => hostAddonKnownRef.current[id] === undefined);
+    if (unknown.length === 0) return;
+    let cancelled = false;
+    void Promise.all(
+      unknown.map((id) =>
+        listPosDiningHostAddonsAction(id).then((res) => ({
+          id,
+          has: res.success && res.options.length > 0,
+        })),
+      ),
+    ).then((rows) => {
+      if (cancelled) return;
+      const next = { ...hostAddonKnownRef.current };
+      for (const row of rows) {
+        next[row.id] = row.has;
+      }
+      hostAddonKnownRef.current = next;
+      setHostHasAddons({ ...next });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [items]);
+
   const toggleCategory = (id: string) => {
     setActiveCategoryIds((prev) => {
       const next = prev.includes(id)
@@ -315,15 +382,43 @@ export function PosDiningMenuColumn({
     setError(null);
     void addPosDiningOrderItemsAction(orderId, [
       { productVariantId: item.variantId, quantity: 1 },
-    ]).then((res) => {
-      setAddingId(null);
+    ]).then(async (res) => {
       if (!res.success) {
+        setAddingId(null);
         if (redirectToLoginIfUnauthorized(res)) return;
         setError(res.message);
         return;
       }
-      onOrderUpdated(res.order);
-      // Stock/CTP pueden cambiar al agregar (reserva aún no; Cap sigue igual hasta fire).
+      onOrderUpdated(res.order, {
+        variantId: item.variantId,
+        productId: item.productId ?? "",
+        productType: item.productType ?? null,
+      });
+      const isPack = String(item.productType ?? "").toUpperCase() === "PACK";
+      if (isPack) {
+        setAddingId(null);
+        return;
+      }
+      const hostProductId = item.productId?.trim() ?? "";
+      const listed = await listPosDiningHostAddonsAction(hostProductId);
+      setAddingId(null);
+      if (!listed.success) {
+        setError(listed.message);
+        return;
+      }
+      if (listed.options.length === 0) return;
+      const drafts = (res.order.lines ?? []).filter(
+        (l) =>
+          l.productVariantId === item.variantId && l.kitchenStatus === "DRAFT",
+      );
+      const line = drafts[drafts.length - 1];
+      if (!line) return;
+      setAddonDialog({
+        orderId: res.order.id,
+        lineId: line.id,
+        hostProductId,
+        variantId: item.variantId,
+      });
     });
   };
 
@@ -339,6 +434,7 @@ export function PosDiningMenuColumn({
       }
       aria-label="Menú"
       data-test-id="pos-dining-menu-column"
+      data-dining-menu-extras="1"
     >
       <div className="flex shrink-0 items-start gap-1">
         <div className="min-w-0 flex-1">
@@ -412,8 +508,10 @@ export function PosDiningMenuColumn({
               const saleUnit = posDisplaySaleUnitSymbol(item);
               const isPreparado =
                 String(item.productType ?? "").toUpperCase() === "PREPARADO";
+              const isPack =
+                String(item.productType ?? "").toUpperCase() === "PACK";
               const cap = ctpByVariantId[item.variantId];
-              const showCap = cap != null;
+              const showCap = cap != null && (isPreparado || isPack);
               const ctpBlocked = cap === 0;
               const stockLabel =
                 !isPreparado && item.trackInventory
@@ -473,6 +571,15 @@ export function PosDiningMenuColumn({
                         >
                           Cap. {cap}
                         </span>
+                      ) : null}
+                      {hostHasAddons[item.productId] ? (
+                        <Badge
+                          variant="secondary-outlined"
+                          className="text-[10px]"
+                          data-test-id={`pos-dining-menu-extras-badge-${item.variantId}`}
+                        >
+                          Extras
+                        </Badge>
                       ) : null}
                       {stockLabel != null ? (
                         <span
@@ -588,6 +695,25 @@ export function PosDiningMenuColumn({
           infoItem != null ? (ctpByVariantId[infoItem.variantId] ?? null) : null
         }
       />
+
+      {addonDialog ? (
+        <PosDiningAddAddonDialog
+          open
+          orderId={addonDialog.orderId}
+          lineId={addonDialog.lineId}
+          hostProductId={addonDialog.hostProductId}
+          variantId={addonDialog.variantId}
+          onClose={() => setAddonDialog(null)}
+          onAdded={() => {
+            const orderId = addonDialog.orderId;
+            setAddonDialog(null);
+            void getPosDiningOrderAction(orderId).then((res) => {
+              if (!res.success) return;
+              onOrderUpdated(res.order);
+            });
+          }}
+        />
+      ) : null}
     </aside>
   );
 }

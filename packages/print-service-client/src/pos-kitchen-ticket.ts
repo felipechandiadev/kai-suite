@@ -5,14 +5,20 @@
 
 import type { PosSaleTicketCompany } from "./pos-sale-ticket";
 
-export const POS_KITCHEN_TICKET_PAYLOAD_VERSION = 1;
+export const POS_KITCHEN_TICKET_PAYLOAD_VERSION = 2;
 
 export const POS_KITCHEN_TICKET_FOOTER_NOTE = "Comanda de cocina";
+
+export type PosKitchenTicketLineAddon = {
+  name: string;
+  quantity: number;
+};
 
 export type PosKitchenTicketLine = {
   name: string;
   quantity: number;
   notes?: string | null;
+  addons?: PosKitchenTicketLineAddon[];
 };
 
 export type PosKitchenTicketPayload = {

@@ -18,7 +18,6 @@ import {
   readDeferredPaymentEnabledFromOfflineCache,
 } from "@/features/pos-offline/lib/read-deferred-payment-enabled";
 import { usePosCart } from "@/features/pos-cart/PosCartProvider";
-import { PosCartSlotSwitcher } from "@/features/pos-cart/ui/PosCartSlotSwitcher";
 import {
   diningAccountsListHref,
   diningKindToTab,
@@ -93,6 +92,10 @@ import type { PosCustomerSearchRow } from "@/features/customers/types/pos-custom
 import PosCustomerSearchPanel, {
   type PosCustomerSearchInitial,
 } from "@/features/customers/ui/PosCustomerSearchPanel";
+import {
+  readPosPaymentCustomerPanelOpen,
+  writePosPaymentCustomerPanelOpen,
+} from "@/features/customers/lib/pos-payment-customer-panel-storage";
 import { closePosDiningOrderAction, getPosDiningOrderAction } from "@/features/dining/actions/dining-pos.action";
 import { diningOrderLinesToCart } from "@/features/dining/lib/dining-order-lines-to-cart";
 import { lookupPosVariantsAction } from "@/features/pos-products/actions/pos-products.action";
@@ -995,7 +998,9 @@ export default function PosPaymentWorkspace({
   const saleTitleId = useId();
   const [saleSummaryOpen, setSaleSummaryOpen] = useState(false);
   const [discountDetailOpen, setDiscountDetailOpen] = useState(false);
-  const [customerPanelOpen, setCustomerPanelOpen] = useState(false);
+  const [customerPanelOpen, setCustomerPanelOpen] = useState(() =>
+    readPosPaymentCustomerPanelOpen(),
+  );
   const [addOpen, setAddOpen] = useState(false);
   const [internalCreditDialogOpen, setInternalCreditDialogOpen] = useState(false);
   const [editingInternalCreditLineId, setEditingInternalCreditLineId] = useState<
@@ -4031,7 +4036,6 @@ export default function PosPaymentWorkspace({
               <h1 id={saleTitleId} className="truncate text-base font-semibold text-foreground">
                 {flowTitle}
               </h1>
-              <PosCartSlotSwitcher className="ml-auto w-72 max-w-[min(100%,18rem)] shrink-0" />
             </div>
             <p className="truncate text-sm text-muted-foreground">
               {loadedReturnSale ? (
@@ -4155,7 +4159,13 @@ export default function PosPaymentWorkspace({
         className={`grid items-stretch ${
           compactLayout
             ? "grid-cols-1 gap-2"
-            : `gap-4 ${showLaundryPaymentMethods ? "grid-cols-3" : "grid-cols-2"}`
+            : showLaundryPaymentMethods
+              ? customerPanelOpen
+                ? "grid-cols-3 gap-4"
+                : "grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-4"
+              : customerPanelOpen
+                ? "grid-cols-2 gap-4"
+                : "grid-cols-[minmax(0,1fr)_auto] gap-4"
         }`}
       >
         {/* Columna 1 — Carrito */}
@@ -4542,24 +4552,43 @@ export default function PosPaymentWorkspace({
           ) : null}
         </section>
 
-        {/* Columna 2 — Cliente (panel independiente, URL-driven). */}
-        {compactLayout ? (
-          <div className="flex flex-col gap-2" data-test-id="pos-payment-customer-collapsible">
-            <div className="flex items-center gap-1 rounded-xl border border-border bg-background px-3 py-2">
-              <IconButton
-                icon={customerPanelOpen ? "ChevronDown" : "ChevronRight"}
-                variant="action"
-                size="sm"
-                ariaLabel={
-                  customerPanelOpen ? "Contraer panel de cliente" : "Expandir panel de cliente"
-                }
-                title={customerPanelOpen ? "Contraer" : "Expandir"}
-                onClick={() => setCustomerPanelOpen((open) => !open)}
-                data-test-id="pos-payment-customer-toggle"
-              />
-              <h2 className="min-w-0 text-sm font-semibold text-foreground">Cliente</h2>
-            </div>
-            {customerPanelOpen ? (
+        {/* Columna 2 — Cliente (barra vertical colapsable entre resumen y medios de pago). */}
+        <div
+          className={
+            customerPanelOpen
+              ? "flex min-h-0 w-full min-w-0 flex-col gap-2"
+              : compactLayout
+                ? "flex w-11 justify-self-center self-stretch"
+                : "flex w-11 shrink-0 self-stretch"
+          }
+          style={
+            !customerPanelOpen
+              ? { height: `${paymentPanelVh}vh`, minHeight: `${paymentPanelVh}vh` }
+              : undefined
+          }
+          data-test-id="pos-payment-customer-collapsible"
+          data-customer-collapsed={customerPanelOpen ? "0" : "1"}
+        >
+          {customerPanelOpen ? (
+            <>
+              <div className="flex w-full items-center gap-2 rounded-xl border border-border bg-background px-3 py-2">
+                <IconButton
+                  icon="ChevronLeft"
+                  variant="action"
+                  size="sm"
+                  ariaLabel="Contraer panel de cliente"
+                  title="Contraer"
+                  onClick={() => {
+                    writePosPaymentCustomerPanelOpen(false);
+                    setCustomerPanelOpen(false);
+                  }}
+                  data-test-id="pos-payment-customer-toggle"
+                  className="shrink-0"
+                />
+                <h2 className="min-w-0 flex-1 text-sm font-semibold text-foreground">
+                  Cliente
+                </h2>
+              </div>
               <PosCustomerSearchPanel
                 initial={initialCustomerSearch}
                 selectedCustomer={customer}
@@ -4594,45 +4623,52 @@ export default function PosPaymentWorkspace({
                   ) : null
                 }
               />
-            ) : null}
-          </div>
-        ) : (
-        <PosCustomerSearchPanel
-          initial={initialCustomerSearch}
-          selectedCustomer={customer}
-          onPick={pickSearchCustomer}
-          onClearSelected={clearSaleCustomer}
-          heightVh={paymentPanelVh}
-          disabled={customerLocked}
-          showAddCustomer={!customerLocked}
-          onAddCustomerClick={() => setCreateCustomerOpen(true)}
-          offlineMode={isOffline}
-          clientFetchMode={!isOffline}
-          activeOnly
-          paymentSourcesSlot={
-            customer?.customerId?.trim() ? (
-              <PosCustomerPaymentSourcesPanel
-                sources={paymentSources}
-                loading={paymentSourcesLoading}
-                error={paymentSourcesError}
-                showOrderAdvances={false}
-                onApplyCreditNote={
-                  showReturnRefundUi &&
-                    !isReturnMode &&
-                    !isDebtCollectMode &&
-                    !isNcPayoutMode &&
-                    !isEncargoMode
-                    ? applyCreditNoteFromPanel
-                    : undefined
-                }
-                usedCreditNoteIds={usedCreditNoteIds}
-                disabled={remaining <= 0.01 || stockBlocksSalePayment}
+            </>
+          ) : (
+            <aside
+              className="flex h-full w-11 shrink-0 flex-col items-center gap-2 rounded-xl border border-border bg-background py-3"
+              aria-label="Cliente colapsado"
+              data-test-id="pos-payment-customer-collapsed-rail"
+            >
+              <IconButton
+                icon="ChevronRight"
+                variant="action"
+                size="sm"
+                ariaLabel="Expandir panel de cliente"
+                title="Expandir cliente"
+                onClick={() => {
+                  writePosPaymentCustomerPanelOpen(true);
+                  setCustomerPanelOpen(true);
+                }}
+                data-test-id="pos-payment-customer-toggle"
               />
-            ) : null
-          }
-        />
-        )}
-
+              <button
+                type="button"
+                className="flex min-h-0 flex-1 flex-col items-center justify-start gap-2 px-0.5"
+                aria-expanded={false}
+                onClick={() => {
+                  writePosPaymentCustomerPanelOpen(true);
+                  setCustomerPanelOpen(true);
+                }}
+                data-test-id="pos-payment-customer-toggle-label"
+              >
+                <span
+                  className="text-xs font-semibold tracking-wide text-foreground"
+                  style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+                >
+                  Cliente
+                </span>
+                <span
+                  className="max-h-[40%] truncate text-[10px] text-muted-foreground"
+                  style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+                  title={customerLabel}
+                >
+                  {customerLabel}
+                </span>
+              </button>
+            </aside>
+          )}
+        </div>
         {showLaundryPaymentMethods ? (
         /* Columna 3 — Métodos de pago */
         <section

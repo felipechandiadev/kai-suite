@@ -85,7 +85,12 @@ export function PosDiningTransferLineDialog({
   }, [tab, open, loadOrders]);
 
   const visibleOrders = useMemo(() => {
-    return orders.filter((o) => o.status !== "CLOSED" && o.status !== "FREE");
+    return orders.filter(
+      (o) =>
+        o.status !== "CLOSED" &&
+        o.status !== "VOID" &&
+        o.status !== "FREE",
+    );
   }, [orders]);
 
   const handleTransfer = () => {

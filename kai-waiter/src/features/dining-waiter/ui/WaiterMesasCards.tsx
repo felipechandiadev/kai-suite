@@ -11,6 +11,7 @@ import {
   kitchenProgressFromLines,
   waiterOrderAllKitchenReady,
   waiterOrderStatusLabel,
+  isWaiterDiningOrderInactive,
 } from "../lib/group-waiter-order-lines";
 
 export type WaiterTablesView = "list" | "grid";
@@ -84,7 +85,7 @@ export function WaiterMesasCards({
     const orderByTableId = new Map<string, DiningOrderDto>();
     for (const order of orders) {
       if (
-        order.status !== "CLOSED" &&
+        !isWaiterDiningOrderInactive(order.status) &&
         order.kind === "TABLE" &&
         order.diningTableId
       ) {

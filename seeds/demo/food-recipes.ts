@@ -284,6 +284,17 @@ export const SEED_DEV_PRODUCTION_UNITS: readonly SeedProductionUnitDef[] = [
   },
 ];
 
+/** Pack retail (kit fantasma). */
+export const SEED_DEV_PACK_RECIPES: readonly SeedRecipeDef[] = [
+  {
+    outputSku: 'SEEDDEVPACKSNACK',
+    lines: [
+      { inputSku: 'SEEDDEVGAL400', qtyPerOutputUnit: 1 },
+      { inputSku: 'SEEDDEVTE20', qtyPerOutputUnit: 1 },
+    ],
+  },
+];
+
 /** Recetas efectivas según modo seed (food omite MANUFACTURADO textil). */
 export function getSeedDevProductionRecipes(): readonly SeedRecipeDef[] {
   if (!isKaiFoodSeedMode()) return SEED_DEV_PRODUCTION_RECIPES;
