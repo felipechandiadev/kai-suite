@@ -39,12 +39,20 @@ npm run seed:import-san-sebastian --prefix seeds
 
 | Comando | Empresa | Login | eShop slug | Notas |
 |---------|---------|-------|------------|-------|
-| `seed:demo` | Kai Suite | `admin` / `098098` | `demo` | Desarrollo genérico, multimedia, calendario reparto/retiro jul–ago 2026 |
+| `seed:demo` | Kai Suite | `admin` / `098098` | `demo` | Store (Parral) + Food en modo suite. eShop: vitrina retail. Taller/lavandería en backoffice. Calendario de despacho relativo a hoy. **Sin SII.** |
 | `seed:demo:no-images` | Kai Suite | idem | `demo` | Igual que `seed:demo` sin logo/catálogo/hero/testimonials (`SEED_SKIP_IMAGES=true`) |
 | `seed:joyarte` | Joyarte SpA | `admin` / `098098` | `joyarte` | Tema jewelry, catálogo joyería |
 | `seed:san-sebastian` | Supermercado San Sebastián | `admin` / `098098` | — | eShop OFF, catálogo supermercado, **SII producción** |
 
 Credenciales configurables: `SEED_ADMIN_USERNAME`, `SEED_ADMIN_PASSWORD`, `SEED_ADMIN_EMAIL`.
+
+### Kai Suite (`KAI_SEED_MODE=suite`)
+
+El tenant `kai-suite-demo` no trae fixtures propios: corre `seed:demo` en modo suite.
+
+- **Kai Store (Parral):** eShop = vitrina retail (abarrotes, hogar, textil). Taller textil y lavandería viven en admin/POS, no en la tienda pública. Despacho/retiro zona Parral; franjas del mes actual y los siguientes; pedidos seed hoy y mañana.
+- **Kai Food (Providencia):** carta, salón, KDS, propinas. Historial operativo propio (gastos Providencia, jornada, compras).
+- **SII:** este perfil no siembra certificado ni CAF. Fiscal de producción es `seed:san-sebastian`.
 
 ### Multimedia / storage
 

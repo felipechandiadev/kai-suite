@@ -43,6 +43,8 @@ function mapPaymentMethod(method: SeedSalePaymentMethod): PaymentMethod {
       return PaymentMethod.TRANSFER;
     case 'CHECK':
       return PaymentMethod.CHECK;
+    case 'INTERNAL_CREDIT':
+      return PaymentMethod.INTERNAL_CREDIT;
     default:
       return PaymentMethod.CASH;
   }
@@ -232,8 +234,9 @@ export async function seedDemoSalesHistory(ctx: {
     dto.discountAmount = 0;
     dto.total = total;
     dto.paymentMethod = paymentMethod;
-    dto.paymentStatus = PaymentStatus.PAID;
-    dto.amountPaid = total;
+    const isInternalCredit = paymentMethod === PaymentMethod.INTERNAL_CREDIT;
+    dto.paymentStatus = isInternalCredit ? PaymentStatus.PENDING : PaymentStatus.PAID;
+    dto.amountPaid = isInternalCredit ? 0 : total;
     dto.changeAmount = 0;
     dto.bankAccountKey = treasuryBankAccountKey;
     dto.lines = lines;
@@ -252,47 +255,52 @@ export async function seedDemoSalesHistory(ctx: {
       occurredOn,
     });
 
-    // Cobro explícito (como POS): «Pagos recibidos» lista PAYMENT_IN, no la SALE.
-    const paymentInDto = new CreateTransactionDto();
-    paymentInDto.transactionType = TransactionType.PAYMENT_IN;
-    paymentInDto.branchId = branchId;
-    paymentInDto.userId = operatorUserId;
-    paymentInDto.pointOfSaleId = posId;
-    paymentInDto.customerId = customerId;
-    paymentInDto.relatedTransactionId = created.id;
-    paymentInDto.subtotal = total;
-    paymentInDto.taxAmount = 0;
-    paymentInDto.discountAmount = 0;
-    paymentInDto.total = total;
-    paymentInDto.paymentMethod = paymentMethod;
-    paymentInDto.paymentStatus = PaymentStatus.PAID;
-    paymentInDto.amountPaid = total;
-    paymentInDto.changeAmount = 0;
-    paymentInDto.bankAccountKey = treasuryBankAccountKey;
-    paymentInDto.lines = [];
-    paymentInDto.notes = `Cobro seed de ${created.documentNumber}`;
-    paymentInDto.metadata = {
-      origin: 'SEED_DEMO_PAYMENT_IN',
-      saleTransactionId: created.id,
-      source: 'seed_sale',
-      occurredOn,
-      ...paymentsMeta,
-    };
+    if (!isInternalCredit) {
+      const paymentInDto = new CreateTransactionDto();
+      paymentInDto.transactionType = TransactionType.PAYMENT_IN;
+      paymentInDto.branchId = branchId;
+      paymentInDto.userId = operatorUserId;
+      paymentInDto.pointOfSaleId = posId;
+      paymentInDto.customerId = customerId;
+      paymentInDto.relatedTransactionId = created.id;
+      paymentInDto.subtotal = total;
+      paymentInDto.taxAmount = 0;
+      paymentInDto.discountAmount = 0;
+      paymentInDto.total = total;
+      paymentInDto.paymentMethod = paymentMethod;
+      paymentInDto.paymentStatus = PaymentStatus.PAID;
+      paymentInDto.amountPaid = total;
+      paymentInDto.changeAmount = 0;
+      paymentInDto.bankAccountKey = treasuryBankAccountKey;
+      paymentInDto.lines = [];
+      paymentInDto.notes = `Cobro seed de ${created.documentNumber}`;
+      paymentInDto.metadata = {
+        origin: 'SEED_DEMO_PAYMENT_IN',
+        saleTransactionId: created.id,
+        source: 'seed_sale',
+        occurredOn,
+        ...paymentsMeta,
+      };
 
-    const paymentIn = await transactionsService.createTransaction(paymentInDto);
-    await patchTransactionHistoricalDate(app, dataSource, {
-      companyId,
-      transactionId: paymentIn.id,
-      occurredOn,
-    });
+      const paymentIn = await transactionsService.createTransaction(paymentInDto);
+      await patchTransactionHistoricalDate(app, dataSource, {
+        companyId,
+        transactionId: paymentIn.id,
+        occurredOn,
+      });
+      console.log(
+        `✅ Venta seed ${created.documentNumber} + cobro ${paymentIn.documentNumber} (${occurredOn}) — $${total.toLocaleString('es-CL')} · ${doc.posName} · ${doc.operatorUserName} · ${doc.paymentMethod}${customerId ? ' · con cliente' : ' · mostrador'}`,
+      );
+    } else {
+      console.log(
+        `✅ Venta seed ${created.documentNumber} a crédito (${occurredOn}) — $${total.toLocaleString('es-CL')} · ${doc.posName} · ${doc.operatorUserName}`,
+      );
+    }
 
     saleCount += 1;
     operatorCounts[doc.operatorUserName] =
       (operatorCounts[doc.operatorUserName] ?? 0) + 1;
     posCounts[doc.posName] = (posCounts[doc.posName] ?? 0) + 1;
-    console.log(
-      `✅ Venta seed ${created.documentNumber} + cobro ${paymentIn.documentNumber} (${occurredOn}) — $${total.toLocaleString('es-CL')} · ${doc.posName} · ${doc.operatorUserName} · ${doc.paymentMethod}${customerId ? ' · con cliente' : ' · mostrador'}`,
-    );
   }
 
   console.log(

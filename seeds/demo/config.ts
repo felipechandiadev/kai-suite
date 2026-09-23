@@ -49,15 +49,15 @@ export function buildSeedMercadoPagoSettings(): CompanyMercadoPagoSettings {
   };
 }
 
-/** Empresa genérica de desarrollo — vertical KaiStore. */
+/** Empresa genérica de desarrollo — vertical KaiStore (minimarket Parral). */
 export const SEED_DEV_COMPANY = {
-  razonSocial: 'Kai Store',
+  razonSocial: 'Kai Store SpA',
   nombreFantasia: 'Kai Store',
-  rut: '11.111.111-1',
-  mail: 'san.sebastian@kai.local',
-  phone: '+56984488195',
-  address: 'Anibal Pinto 405',
-  businessActivity: 'Retail',
+  rut: '76.543.210-3',
+  mail: 'contacto@kai-store.cl',
+  phone: '+56 73 246 1805',
+  address: 'Aníbal Pinto 405, Parral',
+  businessActivity: 'Minimarket y tienda de barrio',
   defaultCurrency: 'CLP',
   commune: 'Parral',
   city: 'Parral',
@@ -71,10 +71,10 @@ export const SEED_DEV_COMPANY_SECOND = {
   razonSocial: 'Kai Food SpA',
   nombreFantasia: 'Kai Food',
   rut: '76.999.999-K',
-  mail: 'contacto@kai-food.local',
-  phone: '+56 2 2000 0001',
+  mail: 'contacto@kai-food.cl',
+  phone: '+56 2 2210 4488',
   address: 'Av. Providencia 2000, Providencia, Santiago',
-  businessActivity: 'Restaurantes',
+  businessActivity: 'Café, pastelería y comida rápida',
   defaultCurrency: 'CLP',
   kaiProduct: 'kaifood' as const,
 } as const;
@@ -95,11 +95,11 @@ export const SEED_DEV_ESHOP_PUBLIC_CONTACT = {
 } as const;
 
 export const SEED_DEV_ESHOP_PUBLIC_CONTACT_SECOND = {
-  email: 'tienda@segunda-empresa.cl',
+  email: SEED_DEV_COMPANY_SECOND.mail,
   phone: SEED_DEV_COMPANY_SECOND.phone,
-  instagram: 'https://www.instagram.com/segunda.empresa.demo/',
-  tiktok: 'https://www.tiktok.com/@segunda.empresa.demo',
-  facebook: 'https://www.facebook.com/segunda.empresa.demo',
+  instagram: 'https://www.instagram.com/kaifood.cl/',
+  tiktok: 'https://www.tiktok.com/@kaifood.cl',
+  facebook: 'https://www.facebook.com/kaifood.cl',
 } as const;
 
 function normalizeInstagramProfileUrl(value: string): string {
@@ -199,7 +199,7 @@ export const SEED_CASH_HUBS = [
   { code: 'CEV00002', name: 'Secundario' },
 ] as const;
 
-/** Zona / cobertura demo (Parral) + calendario Jul–Ago 2026. */
+/** Zona / cobertura demo (Parral); el calendario de franjas es relativo a hoy. */
 export const SEED_DELIVERY_ZONE_NAME = 'Parral';
 export const SEED_DELIVERY_COMMUNE_CODE = 'parral';
 export const SEED_DELIVERY_SHIPPING_FEE = 2500;
@@ -227,8 +227,27 @@ export const SEED_DELIVERY_PICKUP = {
   maxOrders: null as number | null,
 } as const;
 
-/** Meses (1–12) a sembrar en el calendario de franjas. */
+/** Meses (1–12) legacy; el calendario vivo usa `seedDeliveryCalendarMonthSpans()`. */
 export const SEED_DELIVERY_CALENDAR_MONTHS_2026 = [7, 8] as const;
+
+/** Mes actual + `extraMonths` siguientes (cruza año si hace falta). */
+export function seedDeliveryCalendarMonthSpans(
+  from = new Date(),
+  extraMonths = 2,
+): Array<{ year: number; months: number[] }> {
+  const spans = new Map<number, number[]>();
+  const start = new Date(from.getFullYear(), from.getMonth(), 1);
+  const total = Math.max(1, extraMonths + 1);
+  for (let i = 0; i < total; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
+    const year = d.getFullYear();
+    const month = d.getMonth() + 1;
+    const list = spans.get(year) ?? [];
+    list.push(month);
+    spans.set(year, list);
+  }
+  return [...spans.entries()].map(([year, months]) => ({ year, months }));
+}
 
 const SEED_PM_NAMESPACE = 'flowstore-seed-pm-dev-v1';
 
@@ -413,7 +432,7 @@ export function buildSeedCompanySettings(
     eShopFeaturedProductVariantIds: [],
     eShopFeaturedProductIds: [],
     eShopFreeShippingThreshold: 50_000,
-    eShopShippingMode: 'disabled',
+    eShopShippingMode: 'flat',
     eShopDefaultBranchId: null,
     eShopDefaultPriceListId: null,
     eShopDefaultStorageId: null,
@@ -422,9 +441,9 @@ export function buildSeedCompanySettings(
     eShopTopBar: buildDefaultCompanyEShopTopBarSettings(),
     eShopFooter: buildDefaultCompanyEShopFooterSettings(),
     companyIdentity: {
-      tagline: 'Tu tienda en línea',
+      tagline: 'Tu minimarket en Parral',
       brandManifest:
-        'Productos seleccionados, atención cercana y compra con confianza. Retiro en sucursal o despacho según tu zona.',
+        'Abarrotes, hogar y vestuario de todos los días. Retiro en sucursal o despacho en Parral.',
     },
     publicContact: buildSeedEshopPublicContact(
       typeof base.eShopPublicSlug === 'string' ? base.eShopPublicSlug : 'demo',

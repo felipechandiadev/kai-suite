@@ -4,7 +4,7 @@ import Pagination, { type DataGridPaginationChange } from './Pagination';
 import { useScreenSize } from '../utils/columnStyles';
 import dataGridChrome from '../dataGridChrome.module.css';
 import { Select, type Option as SelectOption } from '../../Select';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams, useRouter } from '../../../navigation';
 
 interface FooterProps {
   total?: number;

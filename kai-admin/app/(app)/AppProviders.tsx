@@ -2,6 +2,7 @@
 
 import { SessionProvider } from "next-auth/react";
 import type { Session } from "next-auth";
+import { NextNavProvider } from "@kai/ui";
 
 /**
  * Sesión explícita desde el layout servidor → hidrata `useSession` en el árbol (app).
@@ -14,5 +15,9 @@ export default function AppProviders({
   session: Session | null;
   children: React.ReactNode;
 }) {
-  return <SessionProvider session={session}>{children}</SessionProvider>;
+  return (
+    <SessionProvider session={session}>
+      <NextNavProvider>{children}</NextNavProvider>
+    </SessionProvider>
+  );
 }

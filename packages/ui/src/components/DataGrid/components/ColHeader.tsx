@@ -4,7 +4,7 @@ import type { DataGridColumn } from '../DataGrid';
 import IconButton from '../../IconButton';
 import { DataGridCellMetrics, DataGridZIndex, getColumnAlignClassNames, resolveColumnAlign } from '../utils/columnStyles';
 import dataGridChrome from '../dataGridChrome.module.css';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams, useRouter } from '../../../navigation';
 
 interface ColHeaderProps {
   column: DataGridColumn;

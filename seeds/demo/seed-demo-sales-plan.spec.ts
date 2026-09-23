@@ -30,6 +30,7 @@ describe('buildSeedDemoSalesPlan', () => {
     ).toBeGreaterThanOrEqual(TARGET_OLDER);
     expect(Math.max(...plan.map((d) => d.daysAgo))).toBeGreaterThan(90);
     expect(Math.min(...plan.map((d) => d.daysAgo))).toBeLessThanOrEqual(5);
+    expect(plan.filter((d) => d.daysAgo <= 14).length).toBeGreaterThanOrEqual(40);
     expect(plan.filter((d) => d.daysAgo <= 45).length).toBeGreaterThanOrEqual(20);
   });
 
@@ -82,7 +83,7 @@ describe('buildSeedDemoSalesPlan', () => {
     expect(plan.some((d) => d.operatorUserName === 'operador')).toBe(true);
     expect(plan.some((d) => d.operatorUserName === 'operador3')).toBe(true);
     expect(plan.some((d) => d.paymentMethod === 'CASH')).toBe(true);
-    expect(plan.some((d) => d.paymentMethod === 'CHECK')).toBe(true);
+    expect(plan.some((d) => d.paymentMethod === 'INTERNAL_CREDIT')).toBe(true);
     expect(plan.some((d) => d.customerDoc == null)).toBe(true);
     expect(plan.some((d) => d.customerDoc != null)).toBe(true);
   });

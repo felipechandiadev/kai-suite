@@ -47,7 +47,7 @@ export const mainMenuItems: SideBarMenuItem[] = [
     id: 'nav-analytics',
     label: 'Analítica',
     children: [
-      { id: 'analytics-overview', label: 'Resumen', url: '/analytics' },
+      { id: 'analytics-overview', label: 'Resumen', url: '/analytics', hidden: true },
       { id: 'analytics-reports', label: 'Reportes', url: '/analytics/reports' },
       { id: 'analytics-signals', label: 'Señales', url: '/analytics/signals' },
       { id: 'analytics-pricing', label: 'Precios', url: '/analytics/pricing' },

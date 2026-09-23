@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
 import { CachePort } from './cache.port';
 import { RedisCacheAdapter } from './redis-cache.adapter';
+import { MemoryCacheAdapter } from './memory-cache.adapter';
 import { CacheService } from './cache.service';
 import { CacheInvalidationInterceptor } from './cache-invalidation.interceptor';
 import { AppConfigModule } from '../../config/config.module';
+import { AppConfigService } from '../../config/config.service';
 
 /**
  * Cache Module - Infrastructure Layer
@@ -14,10 +16,13 @@ import { AppConfigModule } from '../../config/config.module';
 @Module({
   imports: [AppConfigModule],
   providers: [
-    // Implementación concreta de CachePort
+    MemoryCacheAdapter,
+    RedisCacheAdapter,
     {
       provide: 'CachePort',
-      useClass: RedisCacheAdapter,
+      useFactory: (config: AppConfigService, redis: RedisCacheAdapter, memory: MemoryCacheAdapter) =>
+        config.isLiteEdition() ? memory : redis,
+      inject: [AppConfigService, RedisCacheAdapter, MemoryCacheAdapter],
     },
     // Servicio de aplicación que usa la abstracción
     CacheService,
@@ -30,7 +35,9 @@ import { AppConfigModule } from '../../config/config.module';
     // Exportar el token para que otros módulos puedan inyectar CachePort
     {
       provide: 'CachePort',
-      useClass: RedisCacheAdapter,
+      useFactory: (config: AppConfigService, redis: RedisCacheAdapter, memory: MemoryCacheAdapter) =>
+        config.isLiteEdition() ? memory : redis,
+      inject: [AppConfigService, RedisCacheAdapter, MemoryCacheAdapter],
     },
   ],
 })

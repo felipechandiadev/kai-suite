@@ -2,6 +2,8 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/auth-options";
 import type {
   CreateLaborUnitInput,
+  LaborUnitAssociationsInput,
+  LaborUnitNamedLink,
   LaborUnitView,
 } from "../types/labor-unit.types";
 
@@ -22,14 +24,70 @@ async function authHeaders(): Promise<HeadersInit> {
   return h;
 }
 
+function apiErrorMessage(data: Record<string, unknown>, status: number): string {
+  const m = data.message;
+  if (typeof m === "string" && m.trim()) return m;
+  if (Array.isArray(m) && m.length) return m.map(String).join(" ");
+  return `Error HTTP ${status}`;
+}
+
 async function parseJson(res: Response): Promise<Record<string, unknown>> {
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
-    const msg =
-      typeof data.message === "string" ? data.message : `Error HTTP ${res.status}`;
-    throw new Error(msg);
+    throw new Error(apiErrorMessage(data, res.status));
   }
   return data;
+}
+
+function namedLinks(raw: unknown): LaborUnitNamedLink[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((row): LaborUnitNamedLink | null => {
+      if (!row || typeof row !== "object") return null;
+      const o = row as Record<string, unknown>;
+      const id = o.id != null ? String(o.id) : "";
+      if (!id) return null;
+      return { id, name: o.name != null ? String(o.name) : id };
+    })
+    .filter((x): x is LaborUnitNamedLink => x != null);
+}
+
+function idList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((x) => String(x)).filter(Boolean);
+}
+
+function mapLaborUnit(raw: unknown): LaborUnitView | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const id = o.id != null ? String(o.id) : "";
+  if (!id) return null;
+  const branches = namedLinks(o.branches);
+  const storages = namedLinks(o.storages);
+  const organizationalUnits = namedLinks(o.organizationalUnits);
+  const productionUnits = namedLinks(o.productionUnits);
+  return {
+    id,
+    companyId: o.companyId != null ? String(o.companyId) : "",
+    code: o.code != null ? String(o.code) : "",
+    name: o.name != null ? String(o.name) : "",
+    description: o.description != null ? String(o.description) : null,
+    isActive: o.isActive !== false,
+    branchIds: idList(o.branchIds).length ? idList(o.branchIds) : branches.map((b) => b.id),
+    branches,
+    storageIds: idList(o.storageIds).length ? idList(o.storageIds) : storages.map((s) => s.id),
+    storages,
+    organizationalUnitIds: idList(o.organizationalUnitIds).length
+      ? idList(o.organizationalUnitIds)
+      : organizationalUnits.map((u) => u.id),
+    organizationalUnits,
+    productionUnitIds: idList(o.productionUnitIds).length
+      ? idList(o.productionUnitIds)
+      : productionUnits.map((p) => p.id),
+    productionUnits,
+    createdAt: o.createdAt != null ? String(o.createdAt) : "",
+    updatedAt: o.updatedAt != null ? String(o.updatedAt) : "",
+  };
 }
 
 export class LaborUnitRequest {
@@ -46,7 +104,8 @@ export class LaborUnitRequest {
       cache: "no-store",
     });
     const data = await parseJson(res);
-    return (data.data as LaborUnitView[]) ?? [];
+    const rows = Array.isArray(data.data) ? data.data : [];
+    return rows.map(mapLaborUnit).filter((x): x is LaborUnitView => x != null);
   }
 
   static async create(body: CreateLaborUnitInput): Promise<LaborUnitView> {
@@ -56,7 +115,9 @@ export class LaborUnitRequest {
       body: JSON.stringify(body),
     });
     const data = await parseJson(res);
-    return data.data as LaborUnitView;
+    const mapped = mapLaborUnit(data.data);
+    if (!mapped) throw new Error("Respuesta inválida al crear unidad laboral");
+    return mapped;
   }
 
   static async update(
@@ -69,19 +130,23 @@ export class LaborUnitRequest {
       body: JSON.stringify(body),
     });
     const data = await parseJson(res);
-    return data.data as LaborUnitView;
+    const mapped = mapLaborUnit(data.data);
+    if (!mapped) throw new Error("Respuesta inválida al actualizar unidad laboral");
+    return mapped;
   }
 
-  static async setStorages(
+  static async setAssociations(
     id: string,
-    storageIds: string[],
+    body: LaborUnitAssociationsInput,
   ): Promise<LaborUnitView> {
-    const res = await fetch(apiUrl(`/hr/labor-units/${id}/storages`), {
+    const res = await fetch(apiUrl(`/hr/labor-units/${id}/associations`), {
       method: "PUT",
       headers: await authHeaders(),
-      body: JSON.stringify({ storageIds }),
+      body: JSON.stringify(body),
     });
     const data = await parseJson(res);
-    return data.data as LaborUnitView;
+    const mapped = mapLaborUnit(data.data);
+    if (!mapped) throw new Error("Respuesta inválida al guardar asociaciones");
+    return mapped;
   }
 }

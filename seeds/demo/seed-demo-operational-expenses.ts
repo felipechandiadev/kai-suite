@@ -219,6 +219,143 @@ export const SEED_DEMO_OE_SUPPLIERS: readonly SeedOeSupplierDef[] = [
   },
 ];
 
+/** Proveedores de servicio OE — Kai Food (Providencia). */
+export const SEED_DEMO_OE_SUPPLIERS_FOOD: readonly SeedOeSupplierDef[] = [
+  {
+    person: {
+      type: PersonType.COMPANY,
+      firstName: 'Inmobiliaria Nueva Providencia Ltda',
+      businessName: 'Inmobiliaria Nueva Providencia Ltda',
+      documentType: DocumentType.RUT,
+      documentNumber: '76.821.110-4',
+      email: 'arriendos@inmoprovidencia.cl',
+      phone: '+56 2 2340 1100',
+      address: 'Av. Providencia 2010, Providencia',
+    },
+    supplier: {
+      supplierType: SupplierType.SERVICE_PROVIDER,
+      alias: 'ArriendoProvidencia',
+      defaultPaymentTermDays: 5,
+      isActive: true,
+      notes: 'Arrendador local café seed Kai Food.',
+    },
+  },
+  {
+    person: {
+      type: PersonType.COMPANY,
+      firstName: 'Enel Distribución Chile S.A.',
+      businessName: 'Enel Distribución Chile S.A.',
+      documentType: DocumentType.RUT,
+      documentNumber: '76.822.221-K',
+      email: 'empresas@enel.cl',
+      phone: '+56 600 696 0000',
+      address: 'Santa Rosa 76, Santiago',
+    },
+    supplier: {
+      supplierType: SupplierType.SERVICE_PROVIDER,
+      alias: 'EnelStgo',
+      defaultPaymentTermDays: 15,
+      isActive: true,
+      notes: 'Suministro eléctrico seed Kai Food.',
+    },
+  },
+  {
+    person: {
+      type: PersonType.COMPANY,
+      firstName: 'Aguas Andinas S.A.',
+      businessName: 'Aguas Andinas S.A.',
+      documentType: DocumentType.RUT,
+      documentNumber: '76.823.332-5',
+      email: 'empresas@aguasandinas.cl',
+      phone: '+56 600 200 4000',
+      address: 'Av. Presidente Balmaceda 1398, Santiago',
+    },
+    supplier: {
+      supplierType: SupplierType.SERVICE_PROVIDER,
+      alias: 'AguasAndinas',
+      defaultPaymentTermDays: 15,
+      isActive: true,
+      notes: 'Agua potable seed Kai Food.',
+    },
+  },
+  {
+    person: {
+      type: PersonType.COMPANY,
+      firstName: 'Telefónica Móviles Chile S.A.',
+      businessName: 'Telefónica Móviles Chile S.A.',
+      documentType: DocumentType.RUT,
+      documentNumber: '76.804.444-5',
+      email: 'empresas@movistar.cl',
+      phone: '+56 600 600 3000',
+      address: 'Av. Providencia 111, Santiago',
+    },
+    supplier: {
+      supplierType: SupplierType.SERVICE_PROVIDER,
+      alias: 'MovistarEmpresas',
+      defaultPaymentTermDays: 10,
+      isActive: true,
+      notes: 'Internet y telefonía seed demo.',
+    },
+  },
+  {
+    person: {
+      type: PersonType.COMPANY,
+      firstName: 'Estudio Contable Kai Sur SpA',
+      businessName: 'Estudio Contable Kai Sur SpA',
+      documentType: DocumentType.RUT,
+      documentNumber: '76.805.555-6',
+      email: 'contacto@estudiokaisur.cl',
+      phone: '+56 71 211 4455',
+      address: 'Calle Dieciocho 50, Parral',
+    },
+    supplier: {
+      supplierType: SupplierType.SERVICE_PROVIDER,
+      alias: 'EstudioContableKS',
+      defaultPaymentTermDays: 10,
+      isActive: true,
+      notes: 'Contabilidad y apoyo tributario seed demo.',
+    },
+  },
+  {
+    person: {
+      type: PersonType.COMPANY,
+      firstName: 'Carta Cloud SpA',
+      businessName: 'Carta Cloud SpA',
+      documentType: DocumentType.RUT,
+      documentNumber: '76.824.443-6',
+      email: 'hola@cartacloud.cl',
+      phone: '+56 2 2210 7700',
+      address: 'Av. Los Leones 120, Providencia',
+    },
+    supplier: {
+      supplierType: SupplierType.SERVICE_PROVIDER,
+      alias: 'CartaCloud',
+      defaultPaymentTermDays: 10,
+      isActive: true,
+      notes: 'Software carta / menú público seed Kai Food.',
+    },
+  },
+  {
+    person: {
+      type: PersonType.COMPANY,
+      firstName: 'Servicios Providencia EIRL',
+      businessName: 'Servicios Providencia EIRL',
+      documentType: DocumentType.RUT,
+      documentNumber: '76.825.554-7',
+      email: 'ops@serviciosprovidencia.cl',
+      phone: '+56 9 7000 8822',
+      address: 'Manuel Montt 380, Providencia',
+    },
+    supplier: {
+      supplierType: SupplierType.SERVICE_PROVIDER,
+      alias: 'ServiciosProvidencia',
+      defaultPaymentTermDays: 0,
+      isActive: true,
+      notes: 'Limpieza y mantención seed Kai Food.',
+    },
+  },
+];
+
 /** Aliases del catálogo mercadería que también pagan OE (se les asegura cuenta banco). */
 const REUSED_OE_SUPPLIER_ALIASES = [
   'RetailHub',
@@ -556,11 +693,170 @@ function buildDemoOperationalExpenseDefs(): ExpenseSeedDef[] {
   return defs;
 }
 
-async function syncOeSuppliers(dataSource: DataSource): Promise<void> {
+function buildFoodOperationalExpenseDefs(): ExpenseSeedDef[] {
+  const defs: ExpenseSeedDef[] = [];
+  const monthlyTransfer: {
+    categoryName: string;
+    supplierAlias: string;
+    refPrefix: string;
+    nameBase: string;
+    subtotal: number;
+    day: number;
+  }[] = [
+    {
+      categoryName: 'Arriendo',
+      supplierAlias: 'ArriendoProvidencia',
+      refPrefix: 'ARR',
+      nameBase: 'Arriendo local Providencia',
+      subtotal: 1_150_000,
+      day: 5,
+    },
+    {
+      categoryName: 'Gastos comunes',
+      supplierAlias: 'ArriendoProvidencia',
+      refPrefix: 'GCO',
+      nameBase: 'Gastos comunes café',
+      subtotal: 180_000,
+      day: 10,
+    },
+    {
+      categoryName: 'Electricidad',
+      supplierAlias: 'EnelStgo',
+      refPrefix: 'LUZ',
+      nameBase: 'Consumo eléctrico',
+      subtotal: 85_000,
+      day: 8,
+    },
+    {
+      categoryName: 'Agua',
+      supplierAlias: 'AguasAndinas',
+      refPrefix: 'AGU',
+      nameBase: 'Consumo agua potable',
+      subtotal: 28_000,
+      day: 8,
+    },
+    {
+      categoryName: 'Internet y telecomunicaciones',
+      supplierAlias: 'MovistarEmpresas',
+      refPrefix: 'INT',
+      nameBase: 'Plan internet y telefonía',
+      subtotal: 39_900,
+      day: 6,
+    },
+    {
+      categoryName: 'Software recurrente',
+      supplierAlias: 'CartaCloud',
+      refPrefix: 'SAAS',
+      nameBase: 'Suscripción carta pública',
+      subtotal: 32_000,
+      day: 6,
+    },
+    {
+      categoryName: 'Hosting',
+      supplierAlias: 'CartaCloud',
+      refPrefix: 'HST',
+      nameBase: 'Hosting carta / menú',
+      subtotal: 14_000,
+      day: 6,
+    },
+    {
+      categoryName: 'Contabilidad/tributario recurrente',
+      supplierAlias: 'EstudioContableKS',
+      refPrefix: 'CON',
+      nameBase: 'Honorarios contabilidad',
+      subtotal: 150_000,
+      day: 7,
+    },
+    {
+      categoryName: 'POS (Puntos de Venta)',
+      supplierAlias: 'CartaCloud',
+      refPrefix: 'POS',
+      nameBase: 'Arriendo/soporte terminal POS',
+      subtotal: 28_000,
+      day: 12,
+    },
+    {
+      categoryName: 'Comisiones bancarias',
+      supplierAlias: 'EstudioContableKS',
+      refPrefix: 'BAN',
+      nameBase: 'Comisiones medios de pago',
+      subtotal: 72_000,
+      day: 28,
+    },
+  ];
+
+  for (let monthIndex = 0; monthIndex < 6; monthIndex += 1) {
+    const { label } = monthKey(monthIndex);
+    const variance = 1 + (monthIndex % 3) * 0.03 - (monthIndex % 2) * 0.01;
+    for (const item of monthlyTransfer) {
+      defs.push({
+        categoryName: item.categoryName,
+        supplierAlias: item.supplierAlias,
+        refPrefix: item.refPrefix,
+        nameTemplate: `${item.nameBase} — ${label} 2026`,
+        subtotal: Math.round(item.subtotal * variance),
+        monthIndex,
+        day: item.day,
+        payment: 'TRANSFER',
+      });
+    }
+  }
+
+  const cashMonthly: {
+    categoryName: string;
+    supplierAlias: string;
+    refPrefix: string;
+    nameBase: string;
+    subtotal: number;
+    day: number;
+  }[] = [
+    {
+      categoryName: 'Limpieza',
+      supplierAlias: 'ServiciosProvidencia',
+      refPrefix: 'LIM',
+      nameBase: 'Servicio de limpieza',
+      subtotal: 90_000,
+      day: 15,
+    },
+    {
+      categoryName: 'Mantención',
+      supplierAlias: 'ServiciosProvidencia',
+      refPrefix: 'MAN',
+      nameBase: 'Mantención cocina / horno',
+      subtotal: 85_000,
+      day: 18,
+    },
+  ];
+
+  for (let monthIndex = 0; monthIndex < 6; monthIndex += 1) {
+    const { label } = monthKey(monthIndex);
+    const variance = 1 + (monthIndex % 2) * 0.04;
+    for (const item of cashMonthly) {
+      defs.push({
+        categoryName: item.categoryName,
+        supplierAlias: item.supplierAlias,
+        refPrefix: item.refPrefix,
+        nameTemplate: `${item.nameBase} — ${label} 2026`,
+        subtotal: Math.round(item.subtotal * variance),
+        monthIndex,
+        day: item.day,
+        payment: 'CASH',
+      });
+    }
+  }
+
+  return defs;
+}
+
+async function syncOeSuppliers(
+  dataSource: DataSource,
+  companyId: string,
+  items: readonly SeedOeSupplierDef[],
+): Promise<void> {
   const personRepo = dataSource.getRepository(Person);
   const supplierRepo = dataSource.getRepository(Supplier);
 
-  for (const item of SEED_DEMO_OE_SUPPLIERS) {
+  for (const item of items) {
     let person = await personRepo.findOne({
       where: {
         documentNumber: item.person.documentNumber,
@@ -599,11 +895,12 @@ async function syncOeSuppliers(dataSource: DataSource): Promise<void> {
     person = await personRepo.save(person);
 
     let supplier = await supplierRepo.findOne({
-      where: { personId: person.id },
+      where: { personId: person.id, companyId },
       withDeleted: true,
     });
     if (!supplier) {
       supplier = supplierRepo.create({
+        companyId,
         personId: person.id,
         supplierType: item.supplier.supplierType,
         alias: item.supplier.alias,
@@ -615,6 +912,7 @@ async function syncOeSuppliers(dataSource: DataSource): Promise<void> {
       if (supplier.deletedAt) {
         supplier = await supplierRepo.recover(supplier);
       }
+      supplier.companyId = companyId;
       supplier.personId = person.id;
       supplier.supplierType = item.supplier.supplierType;
       supplier.alias = item.supplier.alias;
@@ -630,7 +928,7 @@ async function syncOeSuppliers(dataSource: DataSource): Promise<void> {
 
   for (const alias of REUSED_OE_SUPPLIER_ALIASES) {
     const supplier = await supplierRepo.findOne({
-      where: { alias },
+      where: { alias, companyId },
       relations: ['person'],
     });
     if (!supplier?.person) {
@@ -725,11 +1023,15 @@ export async function seedDemoOperationalExpenses(opts: {
   companyId: string;
   branchId: string;
   userId: string;
+  profile?: 'store' | 'food';
 }): Promise<void> {
   const { app, dataSource, companyId, branchId, userId } = opts;
+  const profile = opts.profile ?? 'store';
   const operationalExpensesService = app.get(OperationalExpensesService);
+  const supplierDefs =
+    profile === 'food' ? SEED_DEMO_OE_SUPPLIERS_FOOD : SEED_DEMO_OE_SUPPLIERS;
 
-  await syncOeSuppliers(dataSource);
+  await syncOeSuppliers(dataSource, companyId, supplierDefs);
   await clearDemoOperationalExpenses(dataSource, companyId);
 
   const cashHub = await dataSource.getRepository(CashHub).findOne({
@@ -747,6 +1049,7 @@ export async function seedDemoOperationalExpenses(opts: {
   const categoryByName = new Map(categories.map((c) => [c.name, c.id]));
 
   const suppliers = await dataSource.getRepository(Supplier).find({
+    where: { companyId },
     relations: ['person'],
   });
   const supplierByAlias = new Map(
@@ -761,7 +1064,10 @@ export async function seedDemoOperationalExpenses(opts: {
       }),
   );
 
-  const defs = buildDemoOperationalExpenseDefs();
+  const defs =
+    profile === 'food'
+      ? buildFoodOperationalExpenseDefs()
+      : buildDemoOperationalExpenseDefs();
   const refCounter = new Map<string, number>();
   let created = 0;
   let transferCount = 0;
@@ -835,6 +1141,6 @@ export async function seedDemoOperationalExpenses(opts: {
   }
 
   console.log(
-    `✅ Gastos operativos demo: ${created} creados (TRANSFER=${transferCount}, CASH=${cashCount}; objetivo ~${defs.length})`,
+    `✅ Gastos operativos demo (${profile}): ${created} creados (TRANSFER=${transferCount}, CASH=${cashCount}; objetivo ~${defs.length})`,
   );
 }

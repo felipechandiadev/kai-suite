@@ -1,5 +1,6 @@
 import { ProductType } from '@modules/products/domain/product.entity';
 import {
+  PACK_COMPONENT_TYPES,
   isAgregadoProductType,
   isAllowedDiningRootProductType,
   isInsumoProductType,
@@ -29,9 +30,18 @@ describe('product-type-policy.util', () => {
 
   it('identifies PACK and valid pack components', () => {
     expect(isPackProductType(ProductType.PACK)).toBe(true);
+    expect([...PACK_COMPONENT_TYPES]).toEqual([
+      ProductType.PHYSICAL,
+      ProductType.ELABORADO,
+      ProductType.MANUFACTURADO,
+    ]);
     expect(isValidPackComponentType(ProductType.PHYSICAL)).toBe(true);
+    expect(isValidPackComponentType(ProductType.ELABORADO)).toBe(true);
+    expect(isValidPackComponentType(ProductType.MANUFACTURADO)).toBe(true);
     expect(isValidPackComponentType(ProductType.AGREGADO)).toBe(false);
+    expect(isValidPackComponentType(ProductType.INSUMO)).toBe(false);
     expect(isValidPackComponentType(ProductType.PACK)).toBe(false);
+    expect(isValidPackComponentType(ProductType.PREPARADO)).toBe(false);
   });
 
   it('allows PACK as dining root line and rejects AGREGADO', () => {

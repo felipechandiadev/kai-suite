@@ -6,8 +6,7 @@ import { ButtonPill } from '../../Button';
 import type { DataGridAddButtonVariant } from '../DataGrid';
 import Toolbar from './Toolbar';
 import TextField from '../../TextField';
-import { useSearchParams } from 'next/navigation';
-import { useRouter } from 'next/navigation';
+import { useSearchParams, useRouter } from '../../../navigation';
 import type { DataGridColumn } from '../DataGrid';
 import Dialog from '../../Dialog';
 import styles from './Header.module.css';
@@ -58,7 +57,6 @@ function HeaderSearchField({
       name={name}
       value={value}
       onChange={onChange}
-      placeholder="Buscar..."
       density="compact"
       startAdornment={<Search className="h-4 w-4 shrink-0 text-secondary" aria-hidden />}
       className={className}

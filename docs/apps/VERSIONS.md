@@ -67,14 +67,14 @@ Baseline; actualizar en bumps notables o PRs de release.
 
 | Archivo | Versión | Notas |
 |---------|---------|--------|
-| `/package.json` (monorepo) | **1.22.0** | Reloj del suite; bump en **cada** commit |
+| `/package.json` (monorepo) | **1.23.0** | Reloj del suite; bump en **cada** commit |
 
 ### 3.1 Clientes web (PWA)
 
 | Carpeta | Versión | Fuente |
 |---------|---------|--------|
-| `kai-admin` | **1.7.0** | `package.json` |
-| `kai-pos` | **1.3.0** | `package.json` |
+| `kai-admin` | **1.13.0** | `package.json` |
+| `kai-pos` | **1.10.1** | `package.json` |
 | `kai-stock` | **1.0.1** | `package.json` |
 | `kai-eshop` | **1.1.0** | `package.json` |
 | `kai-delivery` | **1.1.0** | `package.json` |
@@ -87,7 +87,7 @@ Baseline; actualizar en bumps notables o PRs de release.
 
 | Carpeta | Versión | Notas |
 |---------|---------|--------|
-| `kai-core` (Kai Core) | **1.14.0** | `name`: `kai-core` legado |
+| `kai-core` (Kai Core) | **1.15.0** | `name`: `kai-core` legado |
 | `landing` | **1.1.0** | |
 | `services/kai-mail` | **1.1.0** | Workspace npm |
 | `services/kai-voice` | **1.1.0** | Python; `package.json` como marca |
@@ -98,13 +98,14 @@ Baseline; actualizar en bumps notables o PRs de release.
 |---------|---------|--------|
 | `kai-printers-android` | **1.2.1** (code **27**) | `version.properties` |
 | `kai-printers-desktop` | **1.2.1** | `package.json` + `tauri.conf.json` |
+| `kai-store-lite` | **0.2.0** | `package.json` + `tauri.conf.json` — POS+Admin+Printers desktop (Apple Silicon DMG / Win x64 MSI) |
 | `kai-screen-android` (Kai CFD) | **1.2.0** (code **5**) | `version.properties` |
 
 ### 3.4 Paquetes internos (muestra)
 
 | Paquete | Versión |
 |---------|---------|
-| `@kai/ui` | **1.1.0** |
+| `@kai/ui` | **1.2.0** |
 | `@kai/print-service-client` | **1.2.0** |
 | `@kai/customer-display-client` | **1.0.1** |
 | `@kai/fiscal-ted` | **1.0.1** |
@@ -134,6 +135,7 @@ Baseline; actualizar en bumps notables o PRs de release.
 | `services/kai-voice/` | `services/kai-voice/package.json` |
 | `kai-printers-android/` | `version.properties` (+ code) |
 | `kai-printers-desktop/` | `package.json` + `tauri.conf.json` |
+| `kai-store-lite/` | `package.json` + `tauri.conf.json` |
 | `kai-screen-android/` | `version.properties` |
 | `packages/<name>/` | `packages/<name>/package.json` |
 | `docs/`, `envs/`, `deploy/` (solo docs/config) | **Ninguna app** — solo root PATCH |

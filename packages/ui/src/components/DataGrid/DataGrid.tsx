@@ -20,7 +20,7 @@ import {
   useDataGridFillViewportHeight,
 } from './utils/useDataGridFillViewportHeight';
 import { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams, useRouter } from '../../navigation';
 import type { DataGridPaginationChange } from './components/Pagination';
 
 export type DataGridColumnType =

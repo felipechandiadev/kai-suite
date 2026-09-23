@@ -12,19 +12,36 @@ export const configSchema = Joi.object({
   KAI_PRODUCT: Joi.string()
     .valid('kaistore', 'kaifood', 'kaiservices', 'kaisuite')
     .default('kaistore'),
+  KAI_EDITION: Joi.string().valid('standard', 'lite').default('standard'),
   PORT: Joi.number().default(5060),
   API_PREFIX: Joi.string().default('api'),
 
   // Database
   DB_TYPE: Joi.string()
-    .valid('postgres', 'mysql', 'sqlite')
+    .valid('postgres', 'mysql', 'sqlite', 'better-sqlite3')
     .default('postgres'),
   DB_HOST: Joi.string().default('localhost'),
   DB_PORT: Joi.number().default(5432),
-  DB_USERNAME: Joi.string().required(),
-  DB_PASSWORD: Joi.string().required(),
-  DB_DATABASE: Joi.string().required(),
-  DB_SYNCHRONIZE: Joi.boolean().default(false),
+  DB_USERNAME: Joi.when('KAI_EDITION', {
+    is: 'lite',
+    then: Joi.string().allow('').default('lite'),
+    otherwise: Joi.string().required(),
+  }),
+  DB_PASSWORD: Joi.when('KAI_EDITION', {
+    is: 'lite',
+    then: Joi.string().allow('').default('lite'),
+    otherwise: Joi.string().required(),
+  }),
+  DB_DATABASE: Joi.when('KAI_EDITION', {
+    is: 'lite',
+    then: Joi.string().default('./data/kai-store-lite.sqlite'),
+    otherwise: Joi.string().required(),
+  }),
+  DB_SYNCHRONIZE: Joi.when('KAI_EDITION', {
+    is: 'lite',
+    then: Joi.boolean().default(true),
+    otherwise: Joi.boolean().default(false),
+  }),
   DB_LOGGING: Joi.boolean().default(false),
   DB_SSL: Joi.boolean().default(false),
   DB_MAX_CONNECTIONS: Joi.number().default(10),

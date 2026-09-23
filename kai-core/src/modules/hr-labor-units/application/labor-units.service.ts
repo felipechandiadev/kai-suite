@@ -39,9 +39,18 @@ export type LaborUnitRow = {
   storageIds: string[];
   storages: Array<{ id: string; name: string }>;
   organizationalUnitIds: string[];
+  organizationalUnits: Array<{ id: string; name: string }>;
   productionUnitIds: string[];
+  productionUnits: Array<{ id: string; name: string }>;
   createdAt: Date;
   updatedAt: Date;
+};
+
+export type LaborUnitAssociationsPatch = {
+  branchIds?: string[];
+  storageIds?: string[];
+  organizationalUnitIds?: string[];
+  productionUnitIds?: string[];
 };
 
 @Injectable()
@@ -152,28 +161,107 @@ export class LaborUnitsService {
     return this.get(id);
   }
 
-  /** @deprecated Prefer sync from storage owner; kept for API compatibility. */
   async setStorages(id: string, storageIds: string[]): Promise<LaborUnitRow> {
+    return this.setAssociations(id, { storageIds });
+  }
+
+  async setAssociations(
+    id: string,
+    patch: LaborUnitAssociationsPatch,
+  ): Promise<LaborUnitRow> {
     const companyId = requireCompanyId();
     await this.get(id);
-    await this.replaceBridgeFromOwnerSide(
-      this.storageBridgeRepo,
-      companyId,
-      'laborUnitId',
-      id,
-      'storageId',
-      storageIds,
-      async (ids) => {
-        const storages = await this.storageRepo.find({
-          where: { id: In(ids), companyId },
-        });
-        if (storages.length !== ids.length) {
-          throw new BadRequestException(
-            'Uno o más almacenes no existen en la empresa',
-          );
-        }
-      },
-    );
+
+    if (patch.branchIds !== undefined) {
+      await this.replaceBridgeFromOwnerSide(
+        this.branchBridgeRepo,
+        companyId,
+        'laborUnitId',
+        id,
+        'branchId',
+        patch.branchIds,
+        async (ids) => {
+          const rows = await this.branchRepo.find({
+            where: { id: In(ids), companyId },
+          });
+          if (rows.length !== ids.length) {
+            throw new BadRequestException(
+              'Una o más sucursales no existen en la empresa',
+            );
+          }
+        },
+      );
+    }
+
+    if (patch.storageIds !== undefined) {
+      await this.replaceBridgeFromOwnerSide(
+        this.storageBridgeRepo,
+        companyId,
+        'laborUnitId',
+        id,
+        'storageId',
+        patch.storageIds,
+        async (ids) => {
+          const rows = await this.storageRepo.find({
+            where: { id: In(ids), companyId },
+          });
+          if (rows.length !== ids.length) {
+            throw new BadRequestException(
+              'Uno o más almacenes no existen en la empresa',
+            );
+          }
+        },
+      );
+    }
+
+    if (patch.organizationalUnitIds !== undefined) {
+      await this.replaceBridgeFromOwnerSide(
+        this.ouBridgeRepo,
+        companyId,
+        'laborUnitId',
+        id,
+        'organizationalUnitId',
+        patch.organizationalUnitIds,
+        async (ids) => {
+          const rows = await this.ouRepo.find({
+            where: { id: In(ids), companyId },
+          });
+          if (rows.length !== ids.length) {
+            throw new BadRequestException(
+              'Una o más unidades organizativas no existen en la empresa',
+            );
+          }
+        },
+      );
+    }
+
+    if (patch.productionUnitIds !== undefined) {
+      const uniquePuIds = [...new Set(patch.productionUnitIds.filter(Boolean))];
+      if (uniquePuIds.length > 1) {
+        throw new BadRequestException(
+          'Una unidad laboral puede asociarse a lo sumo a una unidad de producción.',
+        );
+      }
+      await this.replaceBridgeFromOwnerSide(
+        this.puBridgeRepo,
+        companyId,
+        'laborUnitId',
+        id,
+        'productionUnitId',
+        uniquePuIds,
+        async (ids) => {
+          const rows = await this.puRepo.find({
+            where: { id: In(ids), companyId },
+          });
+          if (rows.length !== ids.length) {
+            throw new BadRequestException(
+              'Una o más unidades de producción no existen en la empresa',
+            );
+          }
+        },
+      );
+    }
+
     return this.get(id);
   }
 
@@ -243,38 +331,10 @@ export class LaborUnitsService {
 
     const uniqueIds = [...new Set(laborUnitIds.filter(Boolean))];
     if (uniqueIds.length > 0) {
-      const conflicts = await this.puBridgeRepo.find({
-        where: {
-          companyId,
-          laborUnitId: In(uniqueIds),
-        },
-      });
-      const foreign = conflicts.filter(
-        (c) => c.productionUnitId !== productionUnitId,
+      await this.assertLaborUnitsExclusiveToProductionUnit(
+        productionUnitId,
+        uniqueIds,
       );
-      if (foreign.length > 0) {
-        const conflictLuIds = [...new Set(foreign.map((c) => c.laborUnitId))];
-        const units = await this.repo.find({
-          where: { companyId, id: In(conflictLuIds), deletedAt: IsNull() },
-        });
-        const byId = new Map(units.map((u) => [u.id, u]));
-        const otherPuIds = [...new Set(foreign.map((c) => c.productionUnitId))];
-        const otherPus = await this.puRepo.find({
-          where: { companyId, id: In(otherPuIds) },
-        });
-        const puName = new Map(otherPus.map((p) => [p.id, p.name]));
-        const detail = foreign
-          .map((c) => {
-            const lu = byId.get(c.laborUnitId);
-            const luLabel = lu ? `${lu.code} · ${lu.name}` : c.laborUnitId;
-            const upLabel = puName.get(c.productionUnitId) ?? c.productionUnitId;
-            return `«${luLabel}» → «${upLabel}»`;
-          })
-          .join('; ');
-        throw new ConflictException(
-          `Una o más unidades laborales ya están asociadas a otra unidad de producción: ${detail}`,
-        );
-      }
     }
 
     await this.replaceOwnerLaborUnits(
@@ -359,6 +419,46 @@ export class LaborUnitsService {
       this.puBridgeRepo,
       'productionUnitId',
       productionUnitIds,
+    );
+  }
+
+  private async assertLaborUnitsExclusiveToProductionUnit(
+    productionUnitId: string,
+    laborUnitIds: string[],
+  ): Promise<void> {
+    const companyId = requireCompanyId();
+    const uniqueIds = [...new Set(laborUnitIds.filter(Boolean))];
+    if (uniqueIds.length === 0) return;
+    const conflicts = await this.puBridgeRepo.find({
+      where: {
+        companyId,
+        laborUnitId: In(uniqueIds),
+      },
+    });
+    const foreign = conflicts.filter(
+      (c) => c.productionUnitId !== productionUnitId,
+    );
+    if (foreign.length === 0) return;
+    const conflictLuIds = [...new Set(foreign.map((c) => c.laborUnitId))];
+    const units = await this.repo.find({
+      where: { companyId, id: In(conflictLuIds), deletedAt: IsNull() },
+    });
+    const byId = new Map(units.map((u) => [u.id, u]));
+    const otherPuIds = [...new Set(foreign.map((c) => c.productionUnitId))];
+    const otherPus = await this.puRepo.find({
+      where: { companyId, id: In(otherPuIds) },
+    });
+    const puName = new Map(otherPus.map((p) => [p.id, p.name]));
+    const detail = foreign
+      .map((c) => {
+        const lu = byId.get(c.laborUnitId);
+        const luLabel = lu ? `${lu.code} · ${lu.name}` : c.laborUnitId;
+        const upLabel = puName.get(c.productionUnitId) ?? c.productionUnitId;
+        return `«${luLabel}» → «${upLabel}»`;
+      })
+      .join('; ');
+    throw new ConflictException(
+      `Una o más unidades laborales ya están asociadas a otra unidad de producción: ${detail}`,
     );
   }
 
@@ -495,8 +595,10 @@ export class LaborUnitsService {
 
     const storageIds = [...new Set(storageBridges.map((b) => b.storageId))];
     const branchIds = [...new Set(branchBridges.map((b) => b.branchId))];
+    const ouIds = [...new Set(ouBridges.map((b) => b.organizationalUnitId))];
+    const puIds = [...new Set(puBridges.map((b) => b.productionUnitId))];
 
-    const [storages, branches] = await Promise.all([
+    const [storages, branches, orgUnits, productionUnits] = await Promise.all([
       storageIds.length
         ? this.storageRepo.find({
             where: { id: In(storageIds), companyId },
@@ -509,10 +611,24 @@ export class LaborUnitsService {
             select: ['id', 'name'],
           })
         : Promise.resolve([] as Branch[]),
+      ouIds.length
+        ? this.ouRepo.find({
+            where: { id: In(ouIds), companyId },
+            select: ['id', 'name'],
+          })
+        : Promise.resolve([] as OrganizationalUnit[]),
+      puIds.length
+        ? this.puRepo.find({
+            where: { id: In(puIds), companyId },
+            select: ['id', 'name'],
+          })
+        : Promise.resolve([] as ProductionUnit[]),
     ]);
 
     const storageById = new Map(storages.map((s) => [s.id, s]));
     const branchById = new Map(branches.map((b) => [b.id, b]));
+    const ouById = new Map(orgUnits.map((o) => [o.id, o]));
+    const puById = new Map(productionUnits.map((p) => [p.id, p]));
 
     const storagesByLu = new Map<string, string[]>();
     for (const b of storageBridges) {
@@ -542,6 +658,8 @@ export class LaborUnitsService {
     return rows.map((r) => {
       const sIds = storagesByLu.get(r.id) ?? [];
       const bIds = branchesByLu.get(r.id) ?? [];
+      const oIds = ouByLu.get(r.id) ?? [];
+      const pIds = puByLu.get(r.id) ?? [];
       return {
         id: r.id,
         companyId: r.companyId,
@@ -559,8 +677,16 @@ export class LaborUnitsService {
           .map((sid) => storageById.get(sid))
           .filter(Boolean)
           .map((s) => ({ id: s!.id, name: s!.name })),
-        organizationalUnitIds: ouByLu.get(r.id) ?? [],
-        productionUnitIds: puByLu.get(r.id) ?? [],
+        organizationalUnitIds: oIds,
+        organizationalUnits: oIds
+          .map((oid) => ouById.get(oid))
+          .filter(Boolean)
+          .map((o) => ({ id: o!.id, name: o!.name })),
+        productionUnitIds: pIds,
+        productionUnits: pIds
+          .map((pid) => puById.get(pid))
+          .filter(Boolean)
+          .map((p) => ({ id: p!.id, name: p!.name })),
         createdAt: r.createdAt,
         updatedAt: r.updatedAt,
       };

@@ -1,6 +1,6 @@
 {
   "name": "kai-suite",
-  "version": "1.22.0",
+  "version": "1.23.0",
   "private": true,
   "description": "Kai Suite monorepo",
   "packageManager": "npm@10.9.2",
@@ -19,6 +19,7 @@
     "kai-board",
     "kai-delivery",
     "kai-sami",
+    "kai-store-lite",
     "services/kai-mail"
   ],
   "scripts": {

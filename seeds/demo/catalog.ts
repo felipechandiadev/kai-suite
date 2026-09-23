@@ -22,7 +22,6 @@ export const SEED_DEV_BRANDS = [
   'VitalPack',
   'TechLine',
   'HogarPlus',
-  'DemoBrand',
   'Dulce Horno',
   'Rápido Norte',
   'Taller Norte',
@@ -135,7 +134,7 @@ export type SeedDevProductSeed = {
   productType: ProductType;
   categoryName: SeedDevCategoryName;
   productBaseUnit?: SeedDevUnitKey;
-  /** En seed desarrollo todos los productos quedan visibles en eShop. */
+  /** Si false, no aparece en eShop Store (sigue en admin/POS). Default: vitrina retail. */
   visibleInEShop?: boolean;
   variants: SeedDevVariantSeed[];
 };
@@ -1507,7 +1506,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   },
   {
     name: 'Lavado prenda',
-    brand: 'DemoBrand',
+    brand: 'Casa Norte',
     description: 'Lavado estándar por prenda (lavandería).',
     productType: ProductType.SERVICE,
     categoryName: 'Lavandería',
@@ -1525,7 +1524,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   },
   {
     name: 'Planchado',
-    brand: 'DemoBrand',
+    brand: 'Casa Norte',
     description: 'Planchado por prenda (lavandería).',
     productType: ProductType.SERVICE,
     categoryName: 'Lavandería',
@@ -1543,7 +1542,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   },
   {
     name: 'Lavado + planchado',
-    brand: 'DemoBrand',
+    brand: 'Casa Norte',
     description: 'Lavado y planchado por prenda.',
     productType: ProductType.SERVICE,
     categoryName: 'Lavandería',
@@ -1561,7 +1560,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   },
   {
     name: 'Lavado express',
-    brand: 'DemoBrand',
+    brand: 'Casa Norte',
     description: 'Lavado prioritario / mismo día.',
     productType: ProductType.SERVICE,
     categoryName: 'Lavandería',
@@ -1579,7 +1578,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   },
   {
     name: 'Lavado sábana / ropa de cama',
-    brand: 'DemoBrand',
+    brand: 'Casa Norte',
     description: 'Lavado de sábanas, fundas o similares.',
     productType: ProductType.SERVICE,
     categoryName: 'Lavandería',
@@ -1597,7 +1596,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   },
   {
     name: 'Tintorería delicados',
-    brand: 'DemoBrand',
+    brand: 'Casa Norte',
     description: 'Tratamiento delicado / tintorería.',
     productType: ProductType.SERVICE,
     categoryName: 'Lavandería',
@@ -1615,7 +1614,7 @@ export const SEED_DEV_PRODUCTS: SeedDevProductSeed[] = [
   },
   {
     name: 'Pack plantillas hoja de cálculo',
-    brand: 'DemoBrand',
+    brand: 'Casa Norte',
     productType: ProductType.DIGITAL,
     categoryName: 'Servicios y digitales',
     variants: [
@@ -1649,7 +1648,6 @@ const SEED_KAIFOOD_CATEGORY_SET = new Set<string>(SEED_KAIFOOD_CATEGORIES);
 export const SEED_KAIFOOD_BRANDS = [
   'Casa Norte',
   'VitalPack',
-  'DemoBrand',
   'Dulce Horno',
   'Rápido Norte',
 ] as const satisfies readonly (typeof SEED_DEV_BRANDS)[number][];
@@ -1661,8 +1659,7 @@ export const SEED_DEV_ESHOP_FEATURED_PRODUCT_NAMES = [
   'Camiseta básica manufacturada',
   'Toalla baño algodón',
   'Café molido premium',
-  'Torta cumpleaños',
-  'Medialuna',
+  'Detergente líquido 3 L',
 ] as const;
 
 /** Destacados eShop en modo food (eShop suele estar off en kai-food-demo). */
@@ -1694,6 +1691,35 @@ export function isKaiSuiteSeedMode(): boolean {
   return profile === 'suite';
 }
 
+const STORE_ESHOP_HIDDEN_TYPES = new Set<ProductType>([
+  ProductType.INSUMO,
+  ProductType.SERVICE,
+  ProductType.DIGITAL,
+  ProductType.PREPARADO,
+  ProductType.ELABORADO,
+  ProductType.AGREGADO,
+  ProductType.PACK,
+]);
+
+const STORE_ESHOP_HIDDEN_CATEGORIES = new Set<SeedDevCategoryName>([
+  'Lavandería',
+  'Pastelería',
+  'Comida rápida',
+  'Insumos cocina',
+  'Insumos textil',
+  'Servicios y digitales',
+]);
+
+function applyStoreEshopVisibility(product: SeedDevProductSeed): SeedDevProductSeed {
+  if (
+    STORE_ESHOP_HIDDEN_TYPES.has(product.productType) ||
+    STORE_ESHOP_HIDDEN_CATEGORIES.has(product.categoryName)
+  ) {
+    return { ...product, visibleInEShop: false };
+  }
+  return { ...product, visibleInEShop: product.visibleInEShop ?? true };
+}
+
 export function getSeedFoodOnlyProducts(): SeedDevProductSeed[] {
   return SEED_DEV_PRODUCTS.filter((p) =>
     SEED_KAIFOOD_CATEGORY_SET.has(p.categoryName),
@@ -1709,7 +1735,9 @@ export function getSeedDevBrands(): readonly string[] {
 }
 
 export function getSeedDevProducts(): SeedDevProductSeed[] {
-  if (!isKaiFoodSeedMode()) return [...SEED_DEV_PRODUCTS];
+  if (!isKaiFoodSeedMode()) {
+    return SEED_DEV_PRODUCTS.map(applyStoreEshopVisibility);
+  }
   return SEED_DEV_PRODUCTS.filter((p) =>
     SEED_KAIFOOD_CATEGORY_SET.has(p.categoryName),
   );

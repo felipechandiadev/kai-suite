@@ -152,8 +152,8 @@ const INSUMO_COCINA_PREPARADO_DOCS: SeedPurchaseDoc[] = [
   },
 ];
 
-const TARGET_RECENT = 36;
-const TARGET_OLDER = 12;
+const TARGET_RECENT = 48;
+const TARGET_OLDER = 16;
 const HORIZON_DAYS = 180;
 const RECENT_WINDOW = 90;
 
@@ -172,17 +172,17 @@ function costWithDrift(baseCost: number, docIndex: number, lineIndex: number): n
 }
 
 function qtyForSku(sku: string, docIndex: number): number {
-  const base = 5 + (docIndex % 12);
+  const base = 18 + (docIndex % 12);
   if (sku.includes('CAFE') || sku.includes('TE') || sku.includes('GAL')) {
-    return base * 4;
+    return base * 8;
   }
   if (sku.includes('CALS') || sku.includes('CUA')) {
-    return base * 3;
+    return base * 6;
   }
   if (sku.includes('MOC') || sku.includes('TOA')) {
-    return Math.max(4, Math.floor(base / 2));
+    return Math.max(12, Math.floor(base * 2));
   }
-  return base * 2;
+  return base * 4;
 }
 
 function uniqueReference(daysAgo: number, seq: number): string {
@@ -206,7 +206,7 @@ function daysAgoForFill(slot: number, recent: boolean): number {
 
 /**
  * Plan determinista: cobertura 100% PHYSICAL + densidad ×3 en 90d + insumos pastelería.
- * ~36 docs recientes + ~12 antiguos (+ 3 insumos).
+ * ~48 docs recientes + ~16 antiguos (+ insumos).
  */
 export function buildSeedDemoPurchasePlan(
   physicalVariants?: SeedPhysicalVariantInput[],

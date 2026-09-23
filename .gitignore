@@ -50,6 +50,8 @@ kai-pos/public/downloads/kai-printers-macos-*.dmg
 kai-printers-desktop/src-tauri/target/
 kai-printers-desktop/src-tauri/src-tauri/target/
 kai-printers-desktop/assets/.icons-mac-tmp/
+kai-store-lite/src-tauri/target/
+kai-store-lite/.data/
 
 # Cursor IDE
 .cursor/*.log

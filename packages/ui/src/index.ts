@@ -205,6 +205,31 @@ export type {
 // Hooks
 export { useCoarsePointer } from "./hooks/useCoarsePointer";
 
+// Navigation (framework-agnostic; Next via NextNavProvider)
+export {
+  NavProvider,
+  NextNavProvider,
+  MemoryNavProvider,
+  createMemoryNavAdapter,
+  Link as NavLink,
+  useRouter,
+  usePathname,
+  useSearchParams,
+  useSetSearchParams,
+} from "./navigation";
+export type {
+  NavRouter,
+  NavRouterOptions,
+  NavSearchParams,
+  NavSearchParamsInput,
+  SetNavSearchParams,
+  NavContextValue,
+  NavProviderProps,
+  MemoryNavAdapter,
+  MemoryNavProviderProps,
+  LinkProps,
+} from "./navigation";
+
 // Shared types
 export type {
   ButtonVariant,

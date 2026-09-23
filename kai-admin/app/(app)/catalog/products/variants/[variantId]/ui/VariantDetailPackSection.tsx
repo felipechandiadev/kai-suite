@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { IconButton } from "@kai/ui";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { IconButton, NumberStepper } from "@kai/ui";
 import {
   getPackCompositionAction,
   getPackPmpSummaryAction,
+  searchPackComponentsAction,
   upsertPackCompositionAction,
 } from "@/features/packs/actions/pack.action";
-import { searchRecipeVariantCatalogAction } from "@/features/recipes/actions/recipe.action";
 import type { PackLineDto } from "@/features/packs/infrastructure/pack.request";
 
 type VariantDetailPackSectionProps = {
@@ -15,9 +15,13 @@ type VariantDetailPackSectionProps = {
   refreshKey?: number;
 };
 
-function formatQty(value: number): string {
-  const rounded = Math.round(value * 1000) / 1000;
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(3).replace(/\.?0+$/, "");
+const QTY_MIN = 0.001;
+const QTY_PERSIST_DEBOUNCE_MS = 400;
+
+function normalizeQty(value: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return QTY_MIN;
+  return Math.max(QTY_MIN, Math.round(n * 1000) / 1000);
 }
 
 function formatMoney(value: number): string {
@@ -26,6 +30,14 @@ function formatMoney(value: number): string {
     currency: "CLP",
     maximumFractionDigits: 0,
   }).format(Math.round(value));
+}
+
+function toPersistLines(nextLines: PackLineDto[]) {
+  return nextLines.map((l, idx) => ({
+    inputVariantId: l.inputVariantId,
+    qtyPerOutputUnit: normalizeQty(Number(l.qtyPerOutputUnit)),
+    sortOrder: idx + 1,
+  }));
 }
 
 export function VariantDetailPackSection({
@@ -41,6 +53,16 @@ export function VariantDetailPackSection({
   const [searchResults, setSearchResults] = useState<
     Array<{ variantId: string; productName: string; sku: string }>
   >([]);
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingLinesRef = useRef<PackLineDto[] | null>(null);
+
+  const cancelPendingPersist = useCallback(() => {
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current);
+      persistTimerRef.current = null;
+    }
+    pendingLinesRef.current = null;
+  }, []);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -69,18 +91,26 @@ export function VariantDetailPackSection({
   }, [reload, refreshKey]);
 
   useEffect(() => {
+    return () => {
+      if (persistTimerRef.current) {
+        clearTimeout(persistTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const q = searchQ.trim();
     if (q.length < 2) {
       setSearchResults([]);
       return;
     }
     let cancelled = false;
-    void searchRecipeVariantCatalogAction(q, 1).then((res) => {
+    void searchPackComponentsAction(q, 1, outputVariantId).then((res) => {
       if (cancelled) return;
       setSearchResults(
         (res.items ?? []).map((item) => ({
-          variantId: item.id,
-          productName: item.productName?.trim() || item.sku || item.id,
+          variantId: item.variantId,
+          productName: item.productName?.trim() || item.sku || item.variantId,
           sku: item.sku?.trim() || "",
         })),
       );
@@ -88,46 +118,86 @@ export function VariantDetailPackSection({
     return () => {
       cancelled = true;
     };
-  }, [searchQ]);
+  }, [searchQ, outputVariantId]);
 
-  const saveLines = async (nextLines: PackLineDto[]) => {
-    setSaving(true);
+  const saveLines = async (nextLines: PackLineDto[], mode: "reload" | "pmp") => {
     setLoadError(null);
+    if (mode === "reload") {
+      setSaving(true);
+    }
     try {
       await upsertPackCompositionAction({
         variantId: outputVariantId,
-        lines: nextLines.map((l, idx) => ({
-          inputVariantId: l.inputVariantId,
-          qtyPerOutputUnit: Number(l.qtyPerOutputUnit) || 1,
-          sortOrder: idx + 1,
-        })),
+        lines: toPersistLines(nextLines),
       });
-      await reload();
+      if (mode === "reload") {
+        await reload();
+      } else {
+        const pmp = await getPackPmpSummaryAction(outputVariantId);
+        setPackPmp(Number(pmp.packPmp) || 0);
+      }
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : "No se pudo guardar");
     } finally {
-      setSaving(false);
+      if (mode === "reload") {
+        setSaving(false);
+      }
     }
   };
 
   const addComponent = (variantId: string, productName: string, sku: string) => {
+    if (variantId === outputVariantId) return;
     if (lines.some((l) => l.inputVariantId === variantId)) return;
-    void saveLines([
-      ...lines,
-      {
-        inputVariantId: variantId,
-        qtyPerOutputUnit: 1,
-        inputProductName: productName,
-        inputSku: sku || null,
-      },
-    ]);
+    cancelPendingPersist();
+    void saveLines(
+      [
+        ...lines,
+        {
+          inputVariantId: variantId,
+          qtyPerOutputUnit: 1,
+          inputProductName: productName,
+          inputSku: sku || null,
+        },
+      ],
+      "reload",
+    );
     setSearchQ("");
     setSearchResults([]);
   };
 
   const removeLine = (inputVariantId: string) => {
-    void saveLines(lines.filter((l) => l.inputVariantId !== inputVariantId));
+    cancelPendingPersist();
+    void saveLines(
+      lines.filter((l) => l.inputVariantId !== inputVariantId),
+      "reload",
+    );
   };
+
+  const updateQty = (inputVariantId: string, qty: number) => {
+    const nextQty = normalizeQty(qty);
+    const nextLines = lines.map((l) =>
+      l.inputVariantId === inputVariantId ? { ...l, qtyPerOutputUnit: nextQty } : l,
+    );
+    setLines(nextLines);
+    pendingLinesRef.current = nextLines;
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current);
+    }
+    persistTimerRef.current = setTimeout(() => {
+      persistTimerRef.current = null;
+      const toSave = pendingLinesRef.current;
+      pendingLinesRef.current = null;
+      if (toSave) {
+        void saveLines(toSave, "pmp");
+      }
+    }, QTY_PERSIST_DEBOUNCE_MS);
+  };
+
+  const visibleSearchResults = searchResults.filter(
+    (r) =>
+      r.variantId !== outputVariantId &&
+      !lines.some((l) => l.inputVariantId === r.variantId),
+  );
 
   return (
     <section className="space-y-4 rounded-lg border border-border bg-background p-4" data-test-id="pv-section-pack">
@@ -151,7 +221,7 @@ export function VariantDetailPackSection({
               <tr className="border-b border-border text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <th className="px-3 py-2">Producto</th>
                 <th className="w-40 px-3 py-2">SKU</th>
-                <th className="w-24 px-3 py-2">Cant.</th>
+                <th className="w-36 px-3 py-2">Cant.</th>
                 <th className="w-12 px-3 py-2" />
               </tr>
             </thead>
@@ -164,8 +234,16 @@ export function VariantDetailPackSection({
                   <tr key={line.inputVariantId} className="border-b border-border/70">
                     <td className="px-3 py-2 font-medium text-foreground">{name}</td>
                     <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{sku}</td>
-                    <td className="px-3 py-2 tabular-nums">
-                      {formatQty(Number(line.qtyPerOutputUnit) || 0)}
+                    <td className="px-3 py-2">
+                      <NumberStepper
+                        value={normalizeQty(Number(line.qtyPerOutputUnit))}
+                        onChange={(v) => updateQty(line.inputVariantId, v)}
+                        min={QTY_MIN}
+                        step={0.01}
+                        allowFloat
+                        allowNegative={false}
+                        data-test-id={`pack-qty-${line.inputVariantId}`}
+                      />
                     </td>
                     <td className="px-3 py-2">
                       <IconButton
@@ -186,7 +264,9 @@ export function VariantDetailPackSection({
       ) : null}
 
       <div className="space-y-2">
-        <label className="text-xs font-medium text-muted-foreground">Agregar componente vendible</label>
+        <label className="text-xs font-medium text-muted-foreground">
+          Agregar componente (físico, elaborado o manufacturado)
+        </label>
         <input
           type="search"
           value={searchQ}
@@ -195,9 +275,9 @@ export function VariantDetailPackSection({
           className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
           disabled={saving}
         />
-        {searchResults.length > 0 ? (
+        {visibleSearchResults.length > 0 ? (
           <ul className="max-h-40 overflow-y-auto rounded-md border border-border">
-            {searchResults.map((r) => (
+            {visibleSearchResults.map((r) => (
               <li key={r.variantId}>
                 <button
                   type="button"

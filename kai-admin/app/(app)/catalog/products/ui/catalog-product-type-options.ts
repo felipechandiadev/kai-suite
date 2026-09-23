@@ -40,6 +40,19 @@ export function catalogProductTypeAllowsPackComposition(
   return normalizeCatalogProductType(raw) === "PACK";
 }
 
+const PACK_COMPONENT_TYPES = new Set<CatalogProductType>([
+  "PHYSICAL",
+  "ELABORADO",
+  "MANUFACTURADO",
+]);
+
+/** Componentes válidos de un pack (espejo de `isValidPackComponentType` en kai-core). */
+export function catalogProductTypeIsValidPackComponent(
+  raw: string | null | undefined,
+): boolean {
+  return PACK_COMPONENT_TYPES.has(normalizeCatalogProductType(raw));
+}
+
 const FINISHED_GOOD_TYPES = new Set<CatalogProductType>([
   "MANUFACTURADO",
   "ELABORADO",

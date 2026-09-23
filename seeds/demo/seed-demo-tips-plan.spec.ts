@@ -60,16 +60,15 @@ describe('buildSeedDemoTipsPlan', () => {
     expect(overdue).toBeGreaterThanOrEqual(4);
   });
 
-  it('only uses PHYSICAL food SKUs (café / bebida / té / galletas)', () => {
+  it('uses carta SKUs (hamburguesa, completo, papas, medialuna, bebida)', () => {
     const allowed = new Set([
-      'SEEDDEVCAFE250',
-      'SEEDDEVCAFE500',
+      'SEEDDEVPREPHAMBSI',
+      'SEEDDEVPREPHAMBDO',
+      'SEEDDEVPREPCOMITA',
+      'SEEDDEVPREPPAPMED',
+      'SEEDDEVELABMEDMAN',
       'SEEDDEVPHYSBEBCOLMED',
-      'SEEDDEVPHYSBEBCOLGRA',
       'SEEDDEVPHYSBEBLIMMED',
-      'SEEDDEVPHYSBEBNARMED',
-      'SEEDDEVTE20',
-      'SEEDDEVGAL400',
     ]);
     for (const doc of plan) {
       for (const line of doc.lines) {
@@ -77,5 +76,8 @@ describe('buildSeedDemoTipsPlan', () => {
         expect(line.qty).toBe(1);
       }
     }
+    expect(plan.some((d) => d.lines.some((l) => l.sku.startsWith('SEEDDEVPREPHAMB')))).toBe(
+      true,
+    );
   });
 });

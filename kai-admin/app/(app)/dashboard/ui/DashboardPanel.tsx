@@ -19,7 +19,7 @@ function fmtChange(key: string, compare?: AnalyticsDashboardResponse["compare"])
   const pct = compare?.changePct[key];
   if (pct == null) return undefined;
   const sign = pct > 0 ? "+" : "";
-  return `vs período anterior ${sign}${pct}%`;
+  return `respecto al período anterior ${sign}${pct}%`;
 }
 
 function MiniBars({ values }: { values: number[] }) {
@@ -63,7 +63,7 @@ export function DashboardPanel({ data }: Props) {
             data-test-id="dashboard-kpi-sales-today"
           />
           <StatisticsCard
-            label="Ventas netas (MTD)"
+            label="Ventas netas del mes"
             value={fmtMoney(data.sales.mtd)}
             hint={fmtChange("salesMtd", data.compare)}
             tone="primary"
@@ -72,7 +72,7 @@ export function DashboardPanel({ data }: Props) {
           <StatisticsCard
             label="Ticket promedio"
             value={fmtMoney(data.sales.mtdAverageTicket)}
-            hint={`${fmtCount(data.sales.mtdCount)} transacciones`}
+            hint={`${fmtCount(data.sales.mtdCount)} transacciones del mes`}
             tone="info"
             data-test-id="dashboard-kpi-ticket"
           />
@@ -90,7 +90,7 @@ export function DashboardPanel({ data }: Props) {
         <h2 className="text-sm font-semibold tracking-tight text-foreground">Compras e inventario</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatisticsCard
-            label="Compras registradas (MTD)"
+            label="Compras registradas del mes"
             value={fmtMoney(data.purchases.mtd)}
             hint={fmtChange("purchasesMtd", data.compare)}
             tone="primary"
@@ -130,7 +130,7 @@ export function DashboardPanel({ data }: Props) {
             tone="warning"
           />
           <StatisticsCard
-            label="Gastos operativos (MTD)"
+            label="Gastos operativos del mes"
             value={fmtMoney(data.expenses.totalMtd)}
             hint={fmtChange("expensesTotalMtd", data.compare) ?? `${fmtCount(data.expenses.countMtd)} registros`}
             tone="info"
@@ -152,7 +152,7 @@ export function DashboardPanel({ data }: Props) {
             tone="info"
           />
           <StatisticsCard
-            label="Nómina liquidada (MTD)"
+            label="Nómina liquidada del mes"
             value={fmtMoney(data.hr.payrollNetMtd)}
             hint={fmtChange("payrollNetMtd", data.compare)}
             tone="primary"
@@ -193,11 +193,11 @@ export function DashboardPanel({ data }: Props) {
               <dl className="grid gap-3">
                 {(
                   [
-                    ["salesMtd", "Ventas MTD"],
+                    ["salesMtd", "Ventas del mes"],
                     ["salesToday", "Ventas hoy"],
-                    ["purchasesMtd", "Compras MTD"],
-                    ["payrollNetMtd", "Nómina MTD"],
-                    ["expensesTotalMtd", "Gastos MTD"],
+                    ["purchasesMtd", "Compras del mes"],
+                    ["payrollNetMtd", "Nómina del mes"],
+                    ["expensesTotalMtd", "Gastos del mes"],
                     ["newCustomersMtd", "Clientes nuevos"],
                   ] as const
                 ).map(([key, label]) => {

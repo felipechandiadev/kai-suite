@@ -25,12 +25,18 @@ export class RedisCacheAdapter
   constructor(private readonly configService: AppConfigService) {}
 
   async onModuleInit() {
+    if (this.configService.isLiteEdition()) {
+      return;
+    }
     if (this.configService.app.features.enableCache) {
       await this.connect();
     }
   }
 
   async onModuleDestroy() {
+    if (this.configService.isLiteEdition()) {
+      return;
+    }
     if (this.configService.app.features.enableCache) {
       await this.disconnect();
     }

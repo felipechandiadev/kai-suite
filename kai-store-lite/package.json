@@ -1,0 +1,46 @@
+{
+  "name": "kai-store-lite",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "description": "KaiStore Lite — desktop POS + Admin + Printers (Tauri)",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "ensure:core": "node scripts/ensure-core-built.mjs",
+    "generate-icons": "node scripts/generate-app-icons.mjs",
+    "pretauri:dev": "node scripts/ensure-core-built.mjs",
+    "pretauri:build": "node scripts/generate-app-icons.mjs && node scripts/ensure-core-built.mjs",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:build:mac": "tauri build --target aarch64-apple-darwin",
+    "tauri:build:windows": "tauri build --target x86_64-pc-windows-msvc",
+    "issue-license": "node scripts/issue-license.mjs",
+    "gen:activation-hashes": "node scripts/gen-activation-hashes.mjs",
+    "package:release": "node scripts/package-release.mjs"
+  },
+  "dependencies": {
+    "@kai/ui": "*",
+    "@tauri-apps/api": "^2",
+    "lucide-react": "^1.8.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-router-dom": "^7.1.0",
+    "recharts": "^3.10.1",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@tauri-apps/cli": "^2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.3.4",
+    "postcss": "^8",
+    "sharp": "^0.34.5",
+    "tailwindcss": "^4",
+    "typescript": "^5.9.3",
+    "vite": "^6.0.0"
+  }
+}

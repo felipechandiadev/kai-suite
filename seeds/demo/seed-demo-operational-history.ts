@@ -47,8 +47,11 @@ export async function seedDemoOperationalHistory(ctx: {
   /**
    * `full` (default): capital + gastos + compras + ventas retail + jornada.
    * `purchases`: capital + compras/recepciones (sin ventas retail ni jornada).
+   * `ops`: capital + gastos + compras + jornada (sin ventas mostrador; p. ej. Food + tips).
    */
-  mode?: 'full' | 'purchases';
+  mode?: 'full' | 'purchases' | 'ops';
+  /** Gastos operativos Store (Parral) o Food (Providencia). */
+  expenseProfile?: 'store' | 'food';
   /** Plan de compras explícito (p. ej. Food). Si omitido, se construye el plan Store. */
   purchasePlan?: SeedPurchaseDoc[];
 }): Promise<void> {
@@ -60,9 +63,12 @@ export async function seedDemoOperationalHistory(ctx: {
     adminUserId,
     operatorUserIds,
     mode = 'full',
+    expenseProfile = 'store',
     purchasePlan: purchasePlanOverride,
   } = ctx;
   const purchasesOnly = mode === 'purchases';
+  const includeRetailSales = mode !== 'purchases' && mode !== 'ops';
+  const includeOpsExtras = mode !== 'purchases';
 
   const capitalService = app.get(CapitalContributionsService);
   const bankTransferService = app.get(BankTransfersService);
@@ -77,7 +83,7 @@ export async function seedDemoOperationalHistory(ctx: {
 
   const treasuryDate = seedHistoricalDateFromDaysAgo(180);
   console.log(
-    `📅 Seed operativo (${purchasesOnly ? 'purchases' : 'full'}): ancla tesorería ${treasuryDate}`,
+    `📅 Seed operativo (${mode}): ancla tesorería ${treasuryDate}`,
   );
 
   const capitalRes = await capitalService.create({
@@ -127,6 +133,7 @@ export async function seedDemoOperationalHistory(ctx: {
       companyId,
       branchId,
       userId: adminUserId,
+      profile: expenseProfile,
     });
   }
 
@@ -267,7 +274,7 @@ export async function seedDemoOperationalHistory(ctx: {
     `📄 Documentos proveedor: ${fiscalDocCount} facturas · transfer=${transferCount} check=${checkCount} · cuotas completed=${installmentCompleted} partial=${installmentPartial} pending=${installmentPending} · líneas pago=${supplierPaymentCount}`,
   );
 
-  if (!purchasesOnly) {
+  if (includeRetailSales) {
     await seedDemoSalesHistory({
       app,
       dataSource,
@@ -276,7 +283,9 @@ export async function seedDemoOperationalHistory(ctx: {
       operatorUserIds,
       purchasePlan,
     });
+  }
 
+  if (includeOpsExtras) {
     await seedDemoJornadaHistory({ dataSource, companyId });
   }
 

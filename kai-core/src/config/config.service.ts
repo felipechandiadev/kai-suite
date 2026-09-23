@@ -6,6 +6,7 @@ import {
   RedisConfig,
   JwtConfig,
   Config,
+  KaiEdition,
   StorageConfig,
   FiscalEmissionConfig,
 } from './config.interface';
@@ -199,6 +200,15 @@ export class AppConfigService {
       storage: this.storage,
       fiscalEmission: this.fiscalEmission,
     };
+  }
+
+  get edition(): KaiEdition {
+    const raw = this.configService.get<string>('KAI_EDITION') ?? 'standard';
+    return raw === 'lite' ? 'lite' : 'standard';
+  }
+
+  isLiteEdition(): boolean {
+    return this.edition === 'lite';
   }
 
   // Utility methods
