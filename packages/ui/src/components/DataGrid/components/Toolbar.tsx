@@ -1,7 +1,7 @@
 'use client'
 import React from 'react';
 import IconButton from '../../IconButton';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from '../../../navigation';
 import type { DataGridColumn } from '../DataGrid';
 import './toolbar.css';
 // TODO: Create shared/hooks/useAlert hook

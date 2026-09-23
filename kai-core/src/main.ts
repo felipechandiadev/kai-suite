@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { AppLiteModule } from './app-lite.module';
 import { AppConfigService } from './config/config.service';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './shared/logging/logging.interceptor';
@@ -15,7 +16,9 @@ import {
 } from './config/cors.util';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const rootModule =
+    process.env.KAI_EDITION === 'lite' ? AppLiteModule : AppModule;
+  const app = await NestFactory.create(rootModule);
 
   // Get configuration service
   const configService = app.get(AppConfigService);

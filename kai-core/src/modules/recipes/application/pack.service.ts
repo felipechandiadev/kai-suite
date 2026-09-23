@@ -9,9 +9,17 @@ import { ProductVariant } from '@modules/product-variants/domain/product-variant
 import { StockLevel } from '@modules/stock-levels/domain/stock-level.entity';
 import { ProductType } from '@modules/products/domain/product.entity';
 import {
+  PACK_COMPONENT_TYPES,
   isPackProductType,
   isValidPackComponentType,
 } from '@modules/products/application/helpers/product-type-policy.util';
+import {
+  foldPurchasingSearchText,
+  mysqlFoldLowerColumnExpr,
+  PG_PURCHASING_SEARCH_TRANSLATE_FROM,
+  PG_PURCHASING_SEARCH_TRANSLATE_TO,
+  purchasingSearchLikePattern,
+} from '@modules/product-variants/application/helpers/purchasing-search-text-fold';
 import { Recipe } from '../domain/recipe.entity';
 import { RecipeLine } from '../domain/recipe-line.entity';
 import { RecipeType } from '../domain/recipe-type.enum';
@@ -21,6 +29,19 @@ import {
   expandPackComponentNeeds,
   mergeVariantQtyMaps,
 } from './pack-ctp.util';
+
+export type PackComponentSearchItem = {
+  variantId: string;
+  productName: string;
+  sku: string;
+};
+
+export type PackComponentSearchResult = {
+  items: PackComponentSearchItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+};
 
 export type UpsertPackLineDto = {
   inputVariantId: string;
@@ -67,6 +88,75 @@ export class PackService {
     return recipe;
   }
 
+  async searchComponents(
+    companyId: string,
+    params: {
+      q?: string;
+      page?: number;
+      pageSize?: number;
+      excludeVariantId?: string;
+    },
+  ): Promise<PackComponentSearchResult> {
+    const page = Math.max(1, params.page ?? 1);
+    const pageSize = Math.min(50, Math.max(1, params.pageSize ?? 10));
+    const q = params.q?.trim();
+    const excludeVariantId = params.excludeVariantId?.trim();
+
+    const qb = this.variantRepo
+      .createQueryBuilder('v')
+      .leftJoinAndSelect('v.product', 'product')
+      .where('v.companyId = :companyId', { companyId })
+      .andWhere('v.deletedAt IS NULL')
+      .andWhere('product.deletedAt IS NULL')
+      .andWhere('product.productType IN (:...packComponentTypes)', {
+        packComponentTypes: [...PACK_COMPONENT_TYPES],
+      });
+
+    if (excludeVariantId) {
+      qb.andWhere('v.id != :excludeVariantId', { excludeVariantId });
+    }
+
+    if (q) {
+      const likeParam = purchasingSearchLikePattern(foldPurchasingSearchText(q));
+      const dbType = this.variantRepo.manager.connection.options.type as string;
+      if (dbType === 'postgres') {
+        const ff = PG_PURCHASING_SEARCH_TRANSLATE_FROM;
+        const ft = PG_PURCHASING_SEARCH_TRANSLATE_TO;
+        qb.andWhere(
+          `(lower(translate(product.name, :ff, :ft)) LIKE :q
+            OR lower(translate(v.sku, :ff, :ft)) LIKE :q
+            OR (v.barcode IS NOT NULL AND lower(translate(v.barcode, :ff, :ft)) LIKE :q))`,
+          { q: likeParam, ff, ft },
+        );
+      } else {
+        const pName = mysqlFoldLowerColumnExpr('product.name');
+        const pSku = mysqlFoldLowerColumnExpr('v.sku');
+        const pBarcode = mysqlFoldLowerColumnExpr('v.barcode');
+        qb.andWhere(
+          `(${pName} LIKE :q
+            OR ${pSku} LIKE :q
+            OR (v.barcode IS NOT NULL AND ${pBarcode} LIKE :q))`,
+          { q: likeParam },
+        );
+      }
+    }
+
+    qb.orderBy('product.name', 'ASC').addOrderBy('v.sku', 'ASC');
+    qb.skip((page - 1) * pageSize).take(pageSize);
+    const [variants, total] = await qb.getManyAndCount();
+
+    return {
+      items: variants.map((v) => ({
+        variantId: v.id,
+        productName: v.product?.name?.trim() || v.sku || v.id,
+        sku: v.sku?.trim() || '',
+      })),
+      page,
+      pageSize,
+      total,
+    };
+  }
+
   /** Composición enriquecida para UI (nombre de producto + SKU de variante). */
   async getPackCompositionView(
     companyId: string,
@@ -110,6 +200,12 @@ export class PackService {
     });
     const inputById = new Map(inputs.map((v) => [v.id, v]));
     for (const line of lines) {
+      const qty = Number(line.qtyPerOutputUnit);
+      if (!Number.isFinite(qty) || qty <= 0) {
+        throw new BadRequestException(
+          'La cantidad por unidad de pack debe ser mayor a 0.',
+        );
+      }
       const input = inputById.get(line.inputVariantId.trim());
       if (!input?.product) {
         throw new BadRequestException(
@@ -154,7 +250,7 @@ export class PackService {
           companyId,
           recipeId: recipe!.id,
           inputVariantId: l.inputVariantId.trim(),
-          qtyPerOutputUnit: l.qtyPerOutputUnit,
+          qtyPerOutputUnit: Number(l.qtyPerOutputUnit),
           wasteFactor: 0,
           limitsProjectedStock: true,
           sortOrder: l.sortOrder ?? idx + 1,

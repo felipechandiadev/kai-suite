@@ -7,6 +7,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { CurrentCompany } from '@common/tenant';
+import { SearchPackComponentsQueryDto } from '../application/dto/search-pack-components.dto';
 import { PackService, UpsertPackLineDto } from '../application/pack.service';
 
 class UpsertPackCompositionDto {
@@ -16,6 +17,19 @@ class UpsertPackCompositionDto {
 @Controller('packs')
 export class PacksController {
   constructor(private readonly packService: PackService) {}
+
+  @Get('component-search')
+  async searchComponents(
+    @CurrentCompany() companyId: string,
+    @Query() query: SearchPackComponentsQueryDto,
+  ) {
+    return this.packService.searchComponents(companyId, {
+      q: query.q,
+      page: query.page,
+      pageSize: query.pageSize,
+      excludeVariantId: query.excludeVariantId,
+    });
+  }
 
   @Get('variants/:variantId/composition')
   async getComposition(

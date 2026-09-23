@@ -21,7 +21,6 @@ import { DiningBranchSettings } from '@modules/dining/domain/dining-branch-setti
 import { TableShape } from '@modules/dining/domain/dining.enums';
 import { sanitizeCompanyTipSettings } from '@modules/companies/domain/company-tips.types';
 import { buildDefaultCompanyMenuTopBarSettings } from '@modules/companies/domain/company-menu-topbar.types';
-import { buildDefaultCompanyMenuAboutSettings } from '@modules/companies/domain/company-menu-about.types';
 import { buildDefaultCompanyMenuFindUsSettings } from '@modules/companies/domain/company-menu-find-us.types';
 import { buildDefaultCompanyMenuThemeSettings } from '@modules/companies/domain/company-menu-theme.types';
 import {
@@ -458,13 +457,29 @@ export async function seedDemoSuiteFoodCompany(
           menuDefaultBranchId: branch.id,
           menuDefaultPriceListId: listaMinorista.id,
           menuTopBar: buildDefaultCompanyMenuTopBarSettings(),
-          menuAbout: buildDefaultCompanyMenuAboutSettings(),
+          menuAbout: {
+            title: 'Kai Food',
+            body:
+              'Café de especialidad, pastelería de horno propio y sándwiches en Providencia. Carta corta, ingredientes frescos y mesas para quedarse o llevar.',
+          },
           menuFindUs: {
             ...buildDefaultCompanyMenuFindUsSettings(),
             address: SEED_DEV_COMPANY_SECOND.address,
             phone: SEED_DEV_COMPANY_SECOND.phone,
           },
           menuTheme: buildDefaultCompanyMenuThemeSettings(),
+          companyIdentity: {
+            tagline: 'Café, horno y sándwich en Providencia',
+            brandManifest:
+              'Carta de café, pastelería y comida rápida. Propina sugerida 10%.',
+          },
+          publicContact: {
+            email: SEED_DEV_COMPANY_SECOND.mail,
+            phone: SEED_DEV_COMPANY_SECOND.phone,
+            instagram: 'https://www.instagram.com/kaifood.cl/',
+            tiktok: 'https://www.tiktok.com/@kaifood.cl',
+            facebook: 'https://www.facebook.com/kaifood.cl',
+          },
         };
         company.settings = settings;
         await companyRepo.save(company);

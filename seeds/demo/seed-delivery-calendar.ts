@@ -14,13 +14,13 @@ import {
   isPostgisInstalled,
 } from '@modules/delivery/infrastructure/postgis.support';
 import {
-  SEED_DELIVERY_CALENDAR_MONTHS_2026,
   SEED_DELIVERY_COMMUNE_CODE,
   SEED_DELIVERY_DEPOT,
   SEED_DELIVERY_PICKUP,
   SEED_DELIVERY_REPARTO,
   SEED_DELIVERY_SHIPPING_FEE,
   SEED_DELIVERY_ZONE_NAME,
+  seedDeliveryCalendarMonthSpans,
 } from './config';
 
 function daysInMonth(year: number, month1to12: number): number {
@@ -103,7 +103,7 @@ export type SeedDeliveryCalendarParams = {
 
 /**
  * Settings + comuna Parral + zona + franjas LOCAL_DELIVERY y PICKUP
- * para todos los días de julio y agosto 2026.
+ * para el mes actual y los dos siguientes.
  */
 export async function seedDemoDeliveryCalendar(
   params: SeedDeliveryCalendarParams,
@@ -199,7 +199,9 @@ export async function seedDemoDeliveryCalendar(
     console.log(`✅ Geometría zona «${zone.name}» guardada (PostGIS)`);
   }
 
-  const dates = eachCalendarDate(2026, SEED_DELIVERY_CALENDAR_MONTHS_2026);
+  const dates = seedDeliveryCalendarMonthSpans().flatMap((span) =>
+    eachCalendarDate(span.year, span.months),
+  );
   const from = dates[0]!;
   const to = dates[dates.length - 1]!;
 

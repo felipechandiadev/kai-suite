@@ -26,5 +26,16 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false
   },
-  "exclude": ["node_modules", "dist", "coverage", "logs", "legacy-backup", "test"]
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "coverage",
+    "logs",
+    "legacy-backup",
+    "test",
+    "scripts",
+    "**/*spec.ts",
+    "**/tests/**"
+  ]
 }

@@ -11,7 +11,7 @@ export default async function DashboardPage() {
   return (
     <BasicPageLayout
       title="Panel"
-      subtitle="Resumen consolidado del negocio según la empresa activa y el período actual."
+      subtitle="Resumen consolidado del negocio. Los totales del mes van del 1 del mes actual hasta hoy."
       data-test-id="dashboard-page"
     >
       <DashboardPanel data={dashboard} />

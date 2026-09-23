@@ -56,18 +56,21 @@ export type SeedDeliveryOrdersForDateParams = {
   courierUserName?: string;
 };
 
-/** Mañana en America/Santiago como YYYY-MM-DD. */
-export function tomorrowIsoSantiago(from = new Date()): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
+/** Hoy en America/Santiago como YYYY-MM-DD. */
+export function todayIsoSantiago(from = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Santiago',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).formatToParts(from);
-  const y = Number(parts.find((p) => p.type === 'year')?.value ?? '2026');
-  const m = Number(parts.find((p) => p.type === 'month')?.value ?? '1');
-  const d = Number(parts.find((p) => p.type === 'day')?.value ?? '1');
-  const local = new Date(Date.UTC(y, m - 1, d + 1));
+  }).format(from);
+}
+
+/** Mañana en America/Santiago como YYYY-MM-DD. */
+export function tomorrowIsoSantiago(from = new Date()): string {
+  const today = todayIsoSantiago(from);
+  const [y, m, d] = today.split('-').map(Number);
+  const local = new Date(Date.UTC(y, (m ?? 1) - 1, (d ?? 1) + 1));
   return local.toISOString().slice(0, 10);
 }
 

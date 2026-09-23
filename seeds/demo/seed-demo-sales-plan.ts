@@ -7,7 +7,8 @@ export type SeedSalePaymentMethod =
   | 'DEBIT_CARD'
   | 'CREDIT_CARD'
   | 'TRANSFER'
-  | 'CHECK';
+  | 'CHECK'
+  | 'INTERNAL_CREDIT';
 
 export type SeedSaleLine = {
   sku: string;
@@ -36,8 +37,9 @@ export type SeedSellableVariantInput = {
 
 const HORIZON_DAYS = 180;
 const RECENT_WINDOW = 90;
-const TARGET_RECENT = 36;
+const TARGET_RECENT = 80;
 const TARGET_OLDER = 12;
+const LAST_BUSY_DAYS = 14;
 
 const CUSTOMER_DOCS = [
   '16.345.789-2',
@@ -155,15 +157,16 @@ function tryBuildSale(opts: {
   if (!candidates.length) return null;
 
   candidates.sort((a, b) => b.available - a.available || a.sku.localeCompare(b.sku));
-  const primary = candidates[docIndex % candidates.length]!;
-  const secondary =
-    candidates.length > 1
-      ? candidates[(docIndex + 7) % candidates.length]!
-      : null;
 
-  const lineCount =
-    secondary && secondary.sku !== primary.sku && docIndex % 3 !== 0 ? 2 : 1;
-  const picked = lineCount === 2 ? [primary, secondary!] : [primary];
+  const lineCount = Math.min(candidates.length, 1 + (docIndex % 4));
+  const picked: Array<{ sku: string; available: number }> = [];
+  const used = new Set<string>();
+  for (let offset = 0; picked.length < lineCount && offset < candidates.length * 2; offset++) {
+    const row = candidates[(docIndex + offset * 5) % candidates.length]!;
+    if (used.has(row.sku)) continue;
+    used.add(row.sku);
+    picked.push(row);
+  }
   const lines: SeedSaleLine[] = [];
   const usedInDoc = new Map<string, number>();
 
@@ -183,12 +186,17 @@ function tryBuildSale(opts: {
   if (!lines.length) return null;
 
   const { posName, operatorUserName } = posAndOperatorForIndex(docIndex);
+  const customerDoc = customerDocForIndex(docIndex);
+  let paymentMethod = paymentMethodForIndex(docIndex);
+  if (customerDoc && docIndex % 19 === 3) {
+    paymentMethod = 'INTERNAL_CREDIT';
+  }
   return {
     daysAgo,
-    customerDoc: customerDocForIndex(docIndex),
+    customerDoc,
     posName,
     operatorUserName,
-    paymentMethod: paymentMethodForIndex(docIndex),
+    paymentMethod,
     lines,
   };
 }
@@ -202,50 +210,32 @@ function applySaleToSoldLedger(
   }
 }
 
-/**
- * Días objetivo: 12 en 91–180 + 36 en 1–90 (más densos cerca de hoy).
- */
-function buildTargetSaleDays(): { older: number[]; recent: number[] } {
-  const older: number[] = [];
-  for (let i = 0; i < TARGET_OLDER; i++) {
-    const t = i / Math.max(1, TARGET_OLDER - 1);
-    older.push(
-      Math.round(RECENT_WINDOW + 1 + t * (HORIZON_DAYS - RECENT_WINDOW - 1)),
-    );
-  }
-
-  const recent: number[] = [];
-  const nearCount = 24;
-  const midCount = TARGET_RECENT - nearCount;
-  for (let i = 0; i < nearCount; i++) {
-    const t = i / Math.max(1, nearCount - 1);
-    recent.push(Math.max(1, Math.round(1 + t * 44)));
-  }
-  for (let i = 0; i < midCount; i++) {
-    const t = i / Math.max(1, midCount - 1);
-    recent.push(Math.round(46 + t * 44));
-  }
-
-  return {
-    older: [...new Set(older)],
-    recent: [...new Set(recent)],
-  };
+function weekdaySunday0(daysAgo: number): number {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() - daysAgo);
+  return d.getDay();
 }
 
-function reserveDays(exclude: Set<number>, from: number, to: number): number[] {
-  const out: number[] = [];
-  for (let d = from; d <= to; d++) {
-    if (!exclude.has(d)) out.push(d);
+/** Tickets por día: más movimiento los últimos 14 días; domingo más bajo. */
+function salesCountForDay(daysAgo: number): number {
+  if (daysAgo < 1 || daysAgo > HORIZON_DAYS) return 0;
+  const dow = weekdaySunday0(daysAgo);
+  if (daysAgo <= LAST_BUSY_DAYS) {
+    if (dow === 0) return 4;
+    if (dow === 6) return 8;
+    return 11;
   }
-  return out;
+  if (daysAgo <= 45) return dow === 0 ? 1 : 2;
+  if (daysAgo <= RECENT_WINDOW) return daysAgo % 2 === 0 ? 1 : 0;
+  return daysAgo % 7 === 0 ? 1 : 0;
 }
 
 /**
  * Plan determinista de ventas en el mismo horizonte que compras (180d).
  * Solo SKUs PHYSICAL vendibles con recepción en bodega principal;
  * `daysAgo` de venta siempre estrictamente menor que la recepción que abastece.
- * Densidad: ~36 recientes (≤90, sesgo a últimos 45d) + ~12 antiguas (91–180).
- * Generación cronológica (antiguo → reciente) para no sobrevender stock.
+ * Densidad: ~8–11 tickets/día los últimos 14 días (menos domingo).
  */
 export function buildSeedDemoSalesPlan(
   purchasePlan: SeedPurchaseDoc[],
@@ -265,25 +255,12 @@ export function buildSeedDemoSalesPlan(
   const sellableSkus = variants.map((v) => v.sku);
   const receiptsBySku = buildReceiptsBySku(purchasePlan);
 
-  const targets = buildTargetSaleDays();
-  let olderDays = [...targets.older];
-  let recentDays = [...targets.recent];
-
-  const generate = (older: number[], recent: number[]): SeedSaleDoc[] => {
-    const soldQtyBySku = new Map<string, number>();
-    const docs: SeedSaleDoc[] = [];
-    let docIndex = 0;
-    // Exactamente N días por ventana (recientes sesgados a hoy), luego cronológico.
-    const olderPick = [...new Set(older)]
-      .filter((d) => d > RECENT_WINDOW && d <= HORIZON_DAYS)
-      .sort((a, b) => b - a)
-      .slice(0, TARGET_OLDER);
-    const recentPick = [...new Set(recent)]
-      .filter((d) => d >= 1 && d <= RECENT_WINDOW)
-      .sort((a, b) => a - b) // preferir cercanos a hoy al recortar
-      .slice(0, TARGET_RECENT);
-
-    for (const daysAgo of [...olderPick, ...recentPick].sort((a, b) => b - a)) {
+  const soldQtyBySku = new Map<string, number>();
+  const docs: SeedSaleDoc[] = [];
+  let docIndex = 0;
+  for (let daysAgo = HORIZON_DAYS; daysAgo >= 1; daysAgo--) {
+    const n = salesCountForDay(daysAgo);
+    for (let k = 0; k < n; k++) {
       const sale = tryBuildSale({
         daysAgo,
         docIndex,
@@ -297,40 +274,6 @@ export function buildSeedDemoSalesPlan(
       docs.push(sale);
       docIndex += 1;
     }
-    return docs;
-  };
-
-  let docs = generate(olderDays, recentDays);
-  let guard = 0;
-  while (guard < 8) {
-    guard += 1;
-    const recentOk = docs
-      .filter((d) => d.daysAgo <= RECENT_WINDOW)
-      .map((d) => d.daysAgo);
-    const olderOk = docs
-      .filter((d) => d.daysAgo > RECENT_WINDOW && d.daysAgo <= HORIZON_DAYS)
-      .map((d) => d.daysAgo);
-    if (recentOk.length >= TARGET_RECENT && olderOk.length >= TARGET_OLDER) break;
-
-    const used = new Set([...olderOk, ...recentOk]);
-    if (olderOk.length < TARGET_OLDER) {
-      const reserve = reserveDays(used, RECENT_WINDOW + 1, HORIZON_DAYS);
-      olderDays = [
-        ...olderOk,
-        ...reserve.slice(0, TARGET_OLDER - olderOk.length + 8),
-      ];
-    } else {
-      olderDays = olderOk;
-    }
-    if (recentOk.length < TARGET_RECENT) {
-      const near = reserveDays(used, 1, 45);
-      const mid = reserveDays(used, 46, RECENT_WINDOW);
-      const need = TARGET_RECENT - recentOk.length + 8;
-      recentDays = [...recentOk, ...near.slice(0, need), ...mid.slice(0, need)];
-    } else {
-      recentDays = recentOk;
-    }
-    docs = generate(olderDays, recentDays);
   }
 
   return docs.sort((a, b) => b.daysAgo - a.daysAgo);

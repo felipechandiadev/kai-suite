@@ -56,11 +56,17 @@ export class DocumentNumberService {
   ): Promise<number> {
     const r = m.getRepository(DocumentSequence);
     const typeKey = String(transactionType);
+    // better-sqlite3 / sqlite no soportan SELECT … FOR UPDATE; la TX serializa.
+    const driver = m.connection.options.type;
+    const supportsPessimisticLock =
+      driver !== 'sqlite' && driver !== 'better-sqlite3';
 
     for (let attempt = 0; attempt < 12; attempt++) {
       const existing = await r.findOne({
         where: { branchId, transactionType: typeKey, year },
-        lock: { mode: 'pessimistic_write' },
+        ...(supportsPessimisticLock
+          ? { lock: { mode: 'pessimistic_write' as const } }
+          : {}),
       });
       if (existing) {
         existing.lastNumber += 1;
@@ -79,7 +85,15 @@ export class DocumentNumberService {
         await r.insert(row);
         return 1;
       } catch (e: any) {
-        if (e?.code === '23505') {
+        if (e?.code === '23505' || e?.code === 'SQLITE_CONSTRAINT') {
+          this.logger.debug(
+            `document_sequences insert race (attempt ${attempt + 1}), retrying`,
+          );
+          continue;
+        }
+        // better-sqlite3 may surface unique via errno/message
+        const msg = String(e?.message ?? e?.driverError?.message ?? '');
+        if (/UNIQUE constraint failed/i.test(msg)) {
           this.logger.debug(
             `document_sequences insert race (attempt ${attempt + 1}), retrying`,
           );

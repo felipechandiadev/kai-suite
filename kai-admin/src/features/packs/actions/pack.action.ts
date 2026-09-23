@@ -2,9 +2,22 @@
 
 import { revalidatePath } from "next/cache";
 import { PackRequest } from "../infrastructure/pack.request";
-import type { PackLineDto } from "../infrastructure/pack.request";
+import type { PackComponentSearchResult, PackLineDto } from "../infrastructure/pack.request";
 
 const PRODUCTS_PATH = "/catalog/products";
+
+export async function searchPackComponentsAction(
+  q: string,
+  page = 1,
+  excludeVariantId?: string,
+): Promise<PackComponentSearchResult> {
+  return PackRequest.searchComponents({
+    q,
+    page: Math.max(1, page),
+    pageSize: 10,
+    excludeVariantId,
+  });
+}
 
 export async function getPackCompositionAction(
   variantId: string,

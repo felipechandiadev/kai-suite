@@ -52,15 +52,14 @@ const PAYMENTS: SeedTipPaymentMethod[] = [
 const TABLE_CODES = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6'] as const;
 
 /** SKUs PHYSICAL food con precio neto típico del catálogo demo. */
-const FOOD_PHYSICAL_SKUS: Array<{ sku: string; unitPriceNet: number }> = [
-  { sku: 'SEEDDEVCAFE250', unitPriceNet: 2790 },
-  { sku: 'SEEDDEVCAFE500', unitPriceNet: 4990 },
+const FOOD_MENU_SKUS: Array<{ sku: string; unitPriceNet: number }> = [
+  { sku: 'SEEDDEVPREPHAMBSI', unitPriceNet: 4990 },
+  { sku: 'SEEDDEVPREPHAMBDO', unitPriceNet: 6990 },
+  { sku: 'SEEDDEVPREPCOMITA', unitPriceNet: 2790 },
+  { sku: 'SEEDDEVPREPPAPMED', unitPriceNet: 1990 },
+  { sku: 'SEEDDEVELABMEDMAN', unitPriceNet: 990 },
   { sku: 'SEEDDEVPHYSBEBCOLMED', unitPriceNet: 1290 },
-  { sku: 'SEEDDEVPHYSBEBCOLGRA', unitPriceNet: 1590 },
   { sku: 'SEEDDEVPHYSBEBLIMMED', unitPriceNet: 1290 },
-  { sku: 'SEEDDEVPHYSBEBNARMED', unitPriceNet: 1290 },
-  { sku: 'SEEDDEVTE20', unitPriceNet: 2490 },
-  { sku: 'SEEDDEVGAL400', unitPriceNet: 1990 },
 ];
 
 function roundClp(n: number): number {
@@ -100,10 +99,11 @@ export function buildSeedDemoTipsPlan(
 
   const canTake = (sku: string, qty: number): boolean => {
     if (!purchasedQtyBySku) return true;
+    if (!purchasedQtyBySku.has(sku)) return true;
     return (remaining.get(sku) ?? 0) >= qty;
   };
   const consume = (sku: string, qty: number) => {
-    if (!purchasedQtyBySku) return;
+    if (!purchasedQtyBySku?.has(sku)) return;
     remaining.set(sku, (remaining.get(sku) ?? 0) - qty);
   };
 
@@ -124,9 +124,9 @@ export function buildSeedDemoTipsPlan(
       ),
     );
 
-    const product = FOOD_PHYSICAL_SKUS[i % FOOD_PHYSICAL_SKUS.length]!;
+    const product = FOOD_MENU_SKUS[i % FOOD_MENU_SKUS.length]!;
     const second =
-      FOOD_PHYSICAL_SKUS[(i + 3) % FOOD_PHYSICAL_SKUS.length]!;
+      FOOD_MENU_SKUS[(i + 3) % FOOD_MENU_SKUS.length]!;
     i += 1;
 
     let lines: Array<{ sku: string; qty: number; unitPriceNet: number }>;

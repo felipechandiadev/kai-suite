@@ -11,6 +11,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { LaborUnitsService } from '../application/labor-units.service';
+import { SetLaborUnitAssociationsDto } from '../application/dto/set-labor-unit-associations.dto';
 
 @Controller('hr/labor-units')
 export class LaborUnitsController {
@@ -40,6 +41,30 @@ export class LaborUnitsController {
           includeInactive: include,
           branchId: branchId || null,
         }),
+      ),
+    };
+  }
+
+  @Put(':id/associations')
+  async setAssociations(
+    @Param('id') id: string,
+    @Body() body: SetLaborUnitAssociationsDto,
+  ) {
+    return {
+      success: true,
+      data: await this.wrap(() => this.service.setAssociations(id, body)),
+    };
+  }
+
+  @Put(':id/storages')
+  async setStorages(
+    @Param('id') id: string,
+    @Body() body: { storageIds: string[] },
+  ) {
+    return {
+      success: true,
+      data: await this.wrap(() =>
+        this.service.setStorages(id, body.storageIds ?? []),
       ),
     };
   }
@@ -80,19 +105,6 @@ export class LaborUnitsController {
     return {
       success: true,
       data: await this.wrap(() => this.service.update(id, body)),
-    };
-  }
-
-  @Put(':id/storages')
-  async setStorages(
-    @Param('id') id: string,
-    @Body() body: { storageIds: string[] },
-  ) {
-    return {
-      success: true,
-      data: await this.wrap(() =>
-        this.service.setStorages(id, body.storageIds ?? []),
-      ),
     };
   }
 }

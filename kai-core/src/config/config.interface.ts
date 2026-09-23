@@ -3,8 +3,10 @@
  * Provides type safety for all configuration values
  */
 
+export type KaiEdition = 'standard' | 'lite';
+
 export interface DatabaseConfig {
-  type: 'postgres' | 'mysql' | 'sqlite';
+  type: 'postgres' | 'mysql' | 'sqlite' | 'better-sqlite3';
   host: string;
   port: number;
   username: string;

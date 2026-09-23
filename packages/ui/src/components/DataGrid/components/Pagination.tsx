@@ -1,6 +1,6 @@
 "use client"
 import React from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams, useRouter } from '../../../navigation'
 import IconButton from '../../IconButton';
 import { Select, type Option as SelectOption } from '../../Select';
 

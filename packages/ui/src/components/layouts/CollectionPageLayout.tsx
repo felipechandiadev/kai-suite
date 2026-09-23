@@ -1,7 +1,7 @@
 "use client";
 
 import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "../../navigation";
 import { Search } from "lucide-react";
 import TextField from "../TextField";
 import IconButton from "../IconButton";
@@ -189,7 +189,7 @@ function CollectionPageLayoutView({
   showSearch = true,
   searchParamName = "search",
   searchLabel = "Buscar",
-  searchPlaceholder = "Buscar...",
+  searchPlaceholder = "",
   children,
   contentItems,
   contentGridColumns,

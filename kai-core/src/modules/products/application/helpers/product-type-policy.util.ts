@@ -7,11 +7,13 @@ const NON_SELLABLE_PRODUCT_TYPES = new Set<ProductType>([
 ]);
 
 /** Componentes válidos de un pack (kit fantasma). */
-const PACK_COMPONENT_TYPES = new Set<ProductType>([
+export const PACK_COMPONENT_TYPES: readonly ProductType[] = [
   ProductType.PHYSICAL,
   ProductType.ELABORADO,
   ProductType.MANUFACTURADO,
-]);
+];
+
+const PACK_COMPONENT_TYPE_SET = new Set<ProductType>(PACK_COMPONENT_TYPES);
 
 export function isSellableProductType(
   productType: ProductType | string | null | undefined,
@@ -59,7 +61,7 @@ export function isValidPackComponentType(
   const t = String(productType ?? '')
     .trim()
     .toUpperCase() as ProductType;
-  return PACK_COMPONENT_TYPES.has(t);
+  return PACK_COMPONENT_TYPE_SET.has(t);
 }
 
 /** Ítem raíz de cuenta salón (PACK sí; AGREGADO solo como extra del host). */

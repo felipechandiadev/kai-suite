@@ -114,7 +114,7 @@ async function bootstrap() {
       const brandIdByName = await syncSeedBrands(
         dataSource.getRepository(Brand),
         company.id,
-        ['DemoBrand'],
+        ['Casa Norte'],
         'Seed laundry',
       );
 

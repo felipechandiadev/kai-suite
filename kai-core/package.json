@@ -1,6 +1,6 @@
 {
   "name": "kai-core",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "description": "",
   "author": "",
   "private": true,
@@ -46,6 +46,7 @@
     "@types/winston": "^2.4.4",
     "@xmldom/xmldom": "^0.9.10",
     "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^11.10.0",
     "cache-manager": "^7.2.8",
     "cache-manager-redis-store": "^3.0.1",
     "class-transformer": "^0.5.1",

@@ -41,6 +41,46 @@ export class SalesReportsQueryService {
     private readonly redemptionRepo: Repository<PromotionRedemption>,
   ) {}
 
+  /** SQLite (Lite) no tiene date_trunc/to_char de Postgres. */
+  private isSqlite(): boolean {
+    const type = this.txRepo.manager.connection.options.type;
+    return type === 'sqlite' || type === 'better-sqlite3';
+  }
+
+  /** Expresión de bucket para SELECT (etiqueta legible). */
+  private bucketSelect(
+    column: string,
+    granularity: 'day' | 'week' | 'month',
+  ): string {
+    if (this.isSqlite()) {
+      if (granularity === 'month') return `strftime('%Y-%m', ${column})`;
+      if (granularity === 'week') return `strftime('%Y-W%W', ${column})`;
+      return `strftime('%Y-%m-%d', ${column})`;
+    }
+    const trunc =
+      granularity === 'month' ? 'month' : granularity === 'week' ? 'week' : 'day';
+    const fmt =
+      granularity === 'month'
+        ? 'YYYY-MM'
+        : granularity === 'week'
+          ? 'IYYY-"W"IW'
+          : 'YYYY-MM-DD';
+    return `to_char(date_trunc('${trunc}', ${column}), '${fmt}')`;
+  }
+
+  /** Expresión de bucket para GROUP BY / ORDER BY. */
+  private bucketGroup(
+    column: string,
+    granularity: 'day' | 'week' | 'month',
+  ): string {
+    if (this.isSqlite()) {
+      return this.bucketSelect(column, granularity);
+    }
+    const trunc =
+      granularity === 'month' ? 'month' : granularity === 'week' ? 'week' : 'day';
+    return `date_trunc('${trunc}', ${column})`;
+  }
+
   parseDateRange(params: Record<string, unknown>): DateRange {
     const fromRaw = params.dateFrom ?? params.from;
     const toRaw = params.dateTo ?? params.to;
@@ -150,20 +190,14 @@ export class SalesReportsQueryService {
     opts: Parameters<SalesReportsQueryService['baseSalesQb']>[2] | undefined,
     granularity: 'day' | 'week' | 'month',
   ): Promise<Array<{ day: string; total: number; count: number; avgTicket: number }>> {
-    const trunc =
-      granularity === 'month' ? 'month' : granularity === 'week' ? 'week' : 'day';
-    const fmt =
-      granularity === 'month'
-        ? 'YYYY-MM'
-        : granularity === 'week'
-          ? 'IYYY-"W"IW'
-          : 'YYYY-MM-DD';
+    const selectExpr = this.bucketSelect('t.createdAt', granularity);
+    const groupExpr = this.bucketGroup('t.createdAt', granularity);
     const qb = this.baseSalesQb(companyId, range, opts)
-      .select(`to_char(date_trunc('${trunc}', t.createdAt), '${fmt}')`, 'day')
+      .select(selectExpr, 'day')
       .addSelect('COALESCE(SUM(t.total), 0)', 'total')
       .addSelect('COUNT(*)', 'count')
-      .groupBy(`date_trunc('${trunc}', t.createdAt)`)
-      .orderBy(`date_trunc('${trunc}', t.createdAt)`, 'ASC');
+      .groupBy(groupExpr)
+      .orderBy(groupExpr, 'ASC');
     const rows = await qb.getRawMany<{ day: string; total: string; count: string }>();
     return rows.map((r) => {
       const total = Number(r.total) || 0;
@@ -308,11 +342,11 @@ export class SalesReportsQueryService {
     opts?: { pointOfSaleIds?: string[]; branchId?: string },
   ): Promise<Array<{ day: string; qty: number; amount: number }>> {
     const qb = this.linesWithTxQb(companyId, range, { productId, ...opts })
-      .select(`to_char(date_trunc('day', t.createdAt), 'YYYY-MM-DD')`, 'day')
+      .select(this.bucketSelect('t.createdAt', 'day'), 'day')
       .addSelect('COALESCE(SUM(l.quantity), 0)', 'qty')
       .addSelect('COALESCE(SUM(l.subtotal), 0)', 'amount')
-      .groupBy(`date_trunc('day', t.createdAt)`)
-      .orderBy(`date_trunc('day', t.createdAt)`, 'ASC');
+      .groupBy(this.bucketGroup('t.createdAt', 'day'))
+      .orderBy(this.bucketGroup('t.createdAt', 'day'), 'ASC');
     const rows = await qb.getRawMany<{ day: string; qty: string; amount: string }>();
     return rows.map((r) => ({
       day: r.day,
@@ -376,11 +410,11 @@ export class SalesReportsQueryService {
       ...opts,
       types: [TransactionType.SALE_RETURN],
     })
-      .select(`to_char(date_trunc('day', t.createdAt), 'YYYY-MM-DD')`, 'day')
+      .select(this.bucketSelect('t.createdAt', 'day'), 'day')
       .addSelect('COALESCE(SUM(t.total), 0)', 'total')
       .addSelect('COUNT(*)', 'count')
-      .groupBy(`date_trunc('day', t.createdAt)`)
-      .orderBy(`date_trunc('day', t.createdAt)`, 'ASC');
+      .groupBy(this.bucketGroup('t.createdAt', 'day'))
+      .orderBy(this.bucketGroup('t.createdAt', 'day'), 'ASC');
     return (await qb.getRawMany<{ day: string; total: string; count: string }>()).map(
       (r) => ({
         day: r.day,
@@ -443,11 +477,11 @@ export class SalesReportsQueryService {
 
   async customerPurchasesByMonth(companyId: string, range: DateRange, customerId: string) {
     const qb = this.baseSalesQb(companyId, range, { customerId })
-      .select(`to_char(date_trunc('month', t.createdAt), 'YYYY-MM')`, 'month')
+      .select(this.bucketSelect('t.createdAt', 'month'), 'month')
       .addSelect('COALESCE(SUM(t.total), 0)', 'total')
       .addSelect('COUNT(*)', 'count')
-      .groupBy(`date_trunc('month', t.createdAt)`)
-      .orderBy(`date_trunc('month', t.createdAt)`, 'ASC');
+      .groupBy(this.bucketGroup('t.createdAt', 'month'))
+      .orderBy(this.bucketGroup('t.createdAt', 'month'), 'ASC');
     return (await qb.getRawMany<{ month: string; total: string; count: string }>()).map(
       (r) => ({
         month: r.month,
@@ -627,10 +661,10 @@ export class SalesReportsQueryService {
     }
     const byDayQb = qb
       .clone()
-      .select(`to_char(date_trunc('day', r.appliedAt), 'YYYY-MM-DD')`, 'day')
+      .select(this.bucketSelect('r.appliedAt', 'day'), 'day')
       .addSelect('COUNT(*)', 'count')
-      .groupBy(`date_trunc('day', r.appliedAt)`)
-      .orderBy(`date_trunc('day', r.appliedAt)`, 'ASC');
+      .groupBy(this.bucketGroup('r.appliedAt', 'day'))
+      .orderBy(this.bucketGroup('r.appliedAt', 'day'), 'ASC');
     const byPromoQb = qb
       .clone()
       .select('r.promotionId', 'promotionId')
@@ -671,10 +705,10 @@ export class SalesReportsQueryService {
 
     const byDay = await qb
       .clone()
-      .select(`to_char(date_trunc('day', t.createdAt), 'YYYY-MM-DD')`, 'day')
+      .select(this.bucketSelect('t.createdAt', 'day'), 'day')
       .addSelect('COUNT(*)', 'count')
-      .groupBy(`date_trunc('day', t.createdAt)`)
-      .orderBy(`date_trunc('day', t.createdAt)`, 'ASC')
+      .groupBy(this.bucketGroup('t.createdAt', 'day'))
+      .orderBy(this.bucketGroup('t.createdAt', 'day'), 'ASC')
       .getRawMany<{ day: string; count: string }>();
 
     return {
@@ -705,10 +739,10 @@ export class SalesReportsQueryService {
 
     const byDay = await qb
       .clone()
-      .select(`to_char(date_trunc('day', t.createdAt), 'YYYY-MM-DD')`, 'day')
+      .select(this.bucketSelect('t.createdAt', 'day'), 'day')
       .addSelect('COUNT(*)', 'count')
-      .groupBy(`date_trunc('day', t.createdAt)`)
-      .orderBy(`date_trunc('day', t.createdAt)`, 'ASC')
+      .groupBy(this.bucketGroup('t.createdAt', 'day'))
+      .orderBy(this.bucketGroup('t.createdAt', 'day'), 'ASC')
       .getRawMany<{ day: string; count: string }>();
 
     return {

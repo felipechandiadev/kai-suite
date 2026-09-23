@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="es" class="boot-splash-active">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/kai-store-lite.png" />
+    <title>KaiStore Lite</title>
+    <style>
+      /* Splash nativo antes de React: evita flash blanco en Tauri */
+      html.boot-splash-active,
+      html.boot-splash-active body {
+        margin: 0;
+        height: 100%;
+        background: #ffffff;
+      }
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #ffffff;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        color: #131615;
+      }
+      #boot-splash .boot-splash__inner {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2.5rem;
+        padding: 1.5rem;
+      }
+      #boot-splash img {
+        width: 9rem;
+        height: 9rem;
+        object-fit: contain;
+      }
+      #boot-splash .boot-splash__title {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+      #boot-splash .boot-splash__dots {
+        display: flex;
+        gap: 10px;
+      }
+      #boot-splash .boot-splash__dots span {
+        width: 14px;
+        height: 14px;
+        border-radius: 9999px;
+        background: #1e73ae;
+        opacity: 0.35;
+        animation: boot-dot 1.1s ease-in-out infinite;
+      }
+      #boot-splash .boot-splash__dots span:nth-child(2) {
+        animation-delay: 0.15s;
+      }
+      #boot-splash .boot-splash__dots span:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+      @keyframes boot-dot {
+        0%,
+        80%,
+        100% {
+          opacity: 0.3;
+          transform: translateY(0);
+        }
+        40% {
+          opacity: 1;
+          transform: translateY(-4px);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="boot-splash" aria-hidden="true">
+      <div class="boot-splash__inner">
+        <img src="/kai-store-lite.png" alt="" width="144" height="144" />
+        <p class="boot-splash__title">KaiStore Lite</p>
+        <div class="boot-splash__dots" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/main.tsx"></script>
+  </body>
+</html>

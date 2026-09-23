@@ -168,20 +168,14 @@ import { HrLaborUnitOrganizationalUnit } from '@modules/hr-labor-units/domain/hr
 import { HrLaborUnitProductionUnit } from '@modules/hr-labor-units/domain/hr-labor-unit-production-unit.entity';
 import { AuditSubscriber } from '../subscribers/AuditSubscriber';
 import { TenantSubscriber } from '../common/tenant/tenant.subscriber';
+import { patchEntityColumnsForSqlite } from './sqlite-column.compat';
+import { LITE_ENTITIES } from './lite-entities';
 
-export const typeOrmConfig = (
-  configService: AppConfigService,
-): TypeOrmModuleOptions =>
-  ({
-    type: configService.database.type,
-    host: configService.database.host,
-    port: configService.database.port,
-    username: configService.database.username,
-    password: configService.database.password,
-    database: configService.database.database,
-
-    // Usar array de entidades importadas explícitamente
-    entities: [
+if (process.env.KAI_EDITION === 'lite') {
+  patchEntityColumnsForSqlite();
+}
+/** Full entity graph (standard deploy). Lite SQLite uses the same list until subset is fully curated (`lite-entities.ts`). */
+const ALL_ENTITIES = [
       PointOfSale,
       Branch,
       Company,
@@ -346,7 +340,37 @@ export const typeOrmConfig = (
       PricingWeeklySnapshotLine,
       AssistantFavorite,
       AssistantScheduledReport,
-    ],
+];
+
+export const typeOrmConfig = (
+  configService: AppConfigService,
+): TypeOrmModuleOptions => {
+  if (configService.isLiteEdition()) {
+    const dbType = configService.database.type;
+    const driver =
+      dbType === 'sqlite' || dbType === 'better-sqlite3'
+        ? 'better-sqlite3'
+        : dbType;
+
+    return {
+      type: driver,
+      database: configService.database.database,
+      entities: LITE_ENTITIES,
+      subscribers: [AuditSubscriber, TenantSubscriber],
+      synchronize: configService.database.synchronize,
+      logging: configService.database.logging,
+    } as TypeOrmModuleOptions;
+  }
+
+  return {
+    type: configService.database.type,
+    host: configService.database.host,
+    port: configService.database.port,
+    username: configService.database.username,
+    password: configService.database.password,
+    database: configService.database.database,
+
+    entities: ALL_ENTITIES,
 
     // Register subscribers (TypeORM EventSubscribers)
     subscribers: [AuditSubscriber, TenantSubscriber],
@@ -366,4 +390,5 @@ export const typeOrmConfig = (
       acquireTimeout: configService.database.connectionTimeout,
       timeout: configService.database.connectionTimeout,
     } as any,
-  }) as TypeOrmModuleOptions;
+  } as TypeOrmModuleOptions;
+};

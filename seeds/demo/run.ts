@@ -112,8 +112,11 @@ import {
   seedDevEshopTestimonials,
   seedMultimediaFileLink,
   resolveSeedMultimediaStorage,
+  seedMenuHeroSlidesFromDefs,
 } from '../shared/seed-multimedia.util';
 import { EShopHeroSlide } from '@modules/e-shop/domain/e-shop-hero-slide.entity';
+import { MenuHeroSlide } from '@modules/menu/domain/menu-hero-slide.entity';
+import { SEED_DEV_MENU_HERO_SLIDES } from './menu-hero-slides';
 import { SEED_KAIFOOD_PRODUCT_IMAGES } from './catalog-images';
 import { EShopTestimonial } from '@modules/e-shop/domain/e-shop-testimonial.entity';
 import type { CompanyPaymentMethodConfig } from '@modules/payment-methods-config/domain/payment-method-config.types';
@@ -177,6 +180,16 @@ import {
   SEED_DEV_PACK_RECIPES,
 } from './food-recipes';
 import { seedDemoDeliveryCalendar } from './seed-delivery-calendar';
+import {
+  seedDeliveryOrdersForDate,
+  todayIsoSantiago,
+  tomorrowIsoSantiago,
+} from './seed-delivery-orders-for-date';
+import {
+  seedDemoBackofficeLive,
+  seedDemoFinishedGoodsStock,
+  seedDemoProductionBatches,
+} from './seed-demo-backoffice-live';
 import { DiningRoom } from '@modules/dining/domain/dining-room.entity';
 import { DiningTable } from '@modules/dining/domain/dining-table.entity';
 import { DiningBranchSettings } from '@modules/dining/domain/dining-branch-settings.entity';
@@ -194,9 +207,9 @@ const SEED_IVA_DESCRIPTION =
 
 /** Meseros seed (JP00009) — únicos tipsEligible en modo KaiFood. */
 const SEED_WAITER_DOCUMENT_NUMBERS = new Set([
-  '17.100.009-2',
-  '17.100.010-6',
-  '17.100.011-4',
+  '18.772.103-2',
+  '19.334.817-3',
+  '19.660.124-4',
 ]);
 
 const SEED_HONORARIUM_RETENTION_NAME = 'Retención pago Honorarios';
@@ -881,10 +894,10 @@ const SEED_EMPLOYEES: readonly {
     person: {
       firstName: 'Juan',
       lastName: 'Pérez González',
-      documentNumber: '17.100.001-7',
-      email: 'juan.perez@empleado.local',
+      documentNumber: '13.884.721-7',
+      email: 'juan.perez@kai-store.cl',
       phone: '+56 9 7000 0001',
-      address: 'Av. Libertador 100, Santiago',
+      address: 'Aníbal Pinto 210, Parral',
     },
     employee: {
       employmentType: EmploymentType.FULL_TIME,
@@ -897,10 +910,10 @@ const SEED_EMPLOYEES: readonly {
     person: {
       firstName: 'María',
       lastName: 'González Soto',
-      documentNumber: '17.100.002-5',
-      email: 'maria.gonzalez@empleado.local',
+      documentNumber: '15.402.963-K',
+      email: 'maria.gonzalez@kai-store.cl',
       phone: '+56 9 7000 0002',
-      address: 'Calle Los Alerces 45, Providencia',
+      address: 'Calle Los Olivos 45, Parral',
     },
     employee: {
       employmentType: EmploymentType.FULL_TIME,
@@ -913,9 +926,10 @@ const SEED_EMPLOYEES: readonly {
     person: {
       firstName: 'Carlos',
       lastName: 'Ramírez Vega',
-      documentNumber: '17.100.003-3',
-      email: 'carlos.ramirez@empleado.local',
+      documentNumber: '16.781.205-8',
+      email: 'carlos.ramirez@kai-store.cl',
       phone: '+56 9 7000 0003',
+      address: 'Av. Bernardo OHiggins 880, Parral',
     },
     employee: {
       employmentType: EmploymentType.FULL_TIME,
@@ -928,10 +942,10 @@ const SEED_EMPLOYEES: readonly {
     person: {
       firstName: 'Ana',
       lastName: 'Torres Muñoz',
-      documentNumber: '17.100.004-1',
-      email: 'ana.torres@empleado.local',
+      documentNumber: '16.233.490-5',
+      email: 'ana.torres@kai-store.cl',
       phone: '+56 9 7000 0004',
-      address: 'Pasaje El Roble 12, Ñuñoa',
+      address: 'Pasaje El Roble 12, Parral',
     },
     employee: {
       employmentType: EmploymentType.PART_TIME,
@@ -944,9 +958,10 @@ const SEED_EMPLOYEES: readonly {
     person: {
       firstName: 'Luis',
       lastName: 'Silva Contreras',
-      documentNumber: '17.100.005-K',
-      email: 'luis.silva@empleado.local',
+      documentNumber: '14.112.208-8',
+      email: 'luis.silva@kai-store.cl',
       phone: '+56 9 7000 0005',
+      address: 'Los Aromos 330, Parral',
     },
     employee: {
       employmentType: EmploymentType.FULL_TIME,
@@ -959,10 +974,10 @@ const SEED_EMPLOYEES: readonly {
     person: {
       firstName: 'Andrea',
       lastName: 'Morales Rojas',
-      documentNumber: '17.100.006-8',
-      email: 'andrea.morales@empleado.local',
+      documentNumber: '18.120.345-5',
+      email: 'andrea.morales@kai-store.cl',
       phone: '+56 9 7000 0006',
-      address: 'Av. Irarrázaval 3200, Macul',
+      address: 'Diego Portales 150, Linares',
     },
     employee: {
       employmentType: EmploymentType.INTERN,
@@ -975,9 +990,10 @@ const SEED_EMPLOYEES: readonly {
     person: {
       firstName: 'Pedro',
       lastName: 'Contreras López',
-      documentNumber: '17.100.007-6',
-      email: 'pedro.contreras@empleado.local',
+      documentNumber: '18.567.209-3',
+      email: 'pedro.contreras@kai-store.cl',
       phone: '+56 9 7000 0007',
+      address: 'Baquedano 90, Parral',
     },
     employee: {
       employmentType: EmploymentType.CONTRACTOR,
@@ -990,9 +1006,10 @@ const SEED_EMPLOYEES: readonly {
     person: {
       firstName: 'Francisca',
       lastName: 'Herrera Díaz',
-      documentNumber: '17.100.008-4',
-      email: 'francisca.herrera@empleado.local',
+      documentNumber: '19.001.482-7',
+      email: 'francisca.herrera@kai-store.cl',
       phone: '+56 9 7000 0008',
+      address: 'Manuel Rodríguez 55, Parral',
     },
     employee: {
       employmentType: EmploymentType.FULL_TIME,
@@ -1005,8 +1022,8 @@ const SEED_EMPLOYEES: readonly {
     person: {
       firstName: 'Camila',
       lastName: 'Rojas Paredes',
-      documentNumber: '17.100.009-2',
-      email: 'camila.rojas@empleado.local',
+      documentNumber: '18.772.103-2',
+      email: 'camila.rojas@kai-food.cl',
       phone: '+56 9 7000 0009',
       address: 'Av. Providencia 2100, Providencia',
     },
@@ -1022,9 +1039,10 @@ const SEED_EMPLOYEES: readonly {
     person: {
       firstName: 'Diego',
       lastName: 'Muñoz Castillo',
-      documentNumber: '17.100.010-6',
-      email: 'diego.munoz@empleado.local',
+      documentNumber: '19.334.817-3',
+      email: 'diego.munoz@kai-food.cl',
       phone: '+56 9 7000 0010',
+      address: 'Manuel Montt 450, Providencia',
     },
     employee: {
       employmentType: EmploymentType.FULL_TIME,
@@ -1038,10 +1056,10 @@ const SEED_EMPLOYEES: readonly {
     person: {
       firstName: 'Javiera',
       lastName: 'Soto Ibáñez',
-      documentNumber: '17.100.011-4',
-      email: 'javiera.soto@empleado.local',
+      documentNumber: '19.660.124-4',
+      email: 'javiera.soto@kai-food.cl',
       phone: '+56 9 7000 0011',
-      address: 'Calle Merced 88, Santiago Centro',
+      address: 'Av. Los Leones 88, Providencia',
     },
     employee: {
       employmentType: EmploymentType.PART_TIME,
@@ -1055,10 +1073,10 @@ const SEED_EMPLOYEES: readonly {
     person: {
       firstName: 'Sofía',
       lastName: 'Vargas Núñez',
-      documentNumber: '17.205.884-3',
-      email: 'sofia.vargas@empleado.local',
+      documentNumber: '17.205.884-1',
+      email: 'sofia.vargas@kai-store.cl',
       phone: '+56 9 7654 3210',
-      address: 'Av. Providencia 1200, Providencia',
+      address: 'Av. Libertad 320, Parral',
     },
     employee: {
       employmentType: EmploymentType.FULL_TIME,
@@ -1072,10 +1090,10 @@ const SEED_EMPLOYEES: readonly {
     person: {
       firstName: 'Nicolás',
       lastName: 'Bravo Soto',
-      documentNumber: '17.100.012-2',
-      email: 'nicolas.bravo@empleado.local',
+      documentNumber: '17.440.918-8',
+      email: 'nicolas.bravo@kai-store.cl',
       phone: '+56 9 7000 0012',
-      address: 'Calle Estado 450, Santiago Centro',
+      address: 'Calle Prat 140, Parral',
     },
     employee: {
       employmentType: EmploymentType.FULL_TIME,
@@ -1089,10 +1107,10 @@ const SEED_EMPLOYEES: readonly {
     person: {
       firstName: 'Fernanda',
       lastName: 'Lagos Ruiz',
-      documentNumber: '17.100.013-0',
-      email: 'fernanda.lagos@empleado.local',
+      documentNumber: '19.910.273-7',
+      email: 'fernanda.lagos@kai-store.cl',
       phone: '+56 9 7000 0013',
-      address: 'Av. Vicuña Mackenna 890, Ñuñoa',
+      address: 'Los Canelos 18, Parral',
     },
     employee: {
       employmentType: EmploymentType.FULL_TIME,
@@ -1107,10 +1125,10 @@ const SEED_EMPLOYEES: readonly {
     person: {
       firstName: 'Patricia',
       lastName: 'Navarro Fuentes',
-      documentNumber: '17.100.014-9',
-      email: 'taller1@textilessur.cl',
+      documentNumber: '12.890.341-0',
+      email: 'taller1@kai-store.cl',
       phone: '+56 9 7100 0001',
-      address: 'Calle Industria 120, Quilicura',
+      address: 'Calle Industria 40, Parral',
     },
     employee: {
       employmentType: EmploymentType.FULL_TIME,
@@ -1124,10 +1142,10 @@ const SEED_EMPLOYEES: readonly {
     person: {
       firstName: 'Rodrigo',
       lastName: 'Pizarro Campos',
-      documentNumber: '17.100.015-7',
-      email: 'taller2@textilessur.cl',
+      documentNumber: '16.445.102-K',
+      email: 'taller2@kai-store.cl',
       phone: '+56 9 7100 0002',
-      address: 'Av. Américo Vespucio 4500, Quilicura',
+      address: 'Pasaje Taller 8, Parral',
     },
     employee: {
       employmentType: EmploymentType.FULL_TIME,
@@ -1141,10 +1159,10 @@ const SEED_EMPLOYEES: readonly {
     person: {
       firstName: 'Valentina',
       lastName: 'Cáceres Molina',
-      documentNumber: '17.100.016-5',
-      email: 'taller3@textilessur.cl',
+      documentNumber: '15.778.901-5',
+      email: 'taller3@kai-store.cl',
       phone: '+56 9 7100 0003',
-      address: 'Pasaje Taller 8, Renca',
+      address: 'Ruta L-11 km 2, Parral',
     },
     employee: {
       employmentType: EmploymentType.FULL_TIME,
@@ -1446,10 +1464,10 @@ const SEED_LABOR_UNIT_SHIFTS: readonly {
     scheduleJson: seedWeekdaySchedule('09:00', '14:00'),
     effectiveFrom: '2025-01-01',
     memberDocumentNumbers: [
-      '17.100.001-7',
-      '17.100.002-5',
-      '17.100.004-1',
-      '17.100.006-8',
+      '13.884.721-7',
+      '15.402.963-K',
+      '16.233.490-5',
+      '18.120.345-5',
     ],
   },
   {
@@ -1457,7 +1475,7 @@ const SEED_LABOR_UNIT_SHIFTS: readonly {
     name: 'Sala tarde',
     scheduleJson: seedWeekdaySchedule('14:00', '22:00', [0, 1, 2, 3, 4, 5]),
     effectiveFrom: '2025-01-01',
-    memberDocumentNumbers: ['17.100.003-3', '17.100.005-K'],
+    memberDocumentNumbers: ['16.781.205-8', '14.112.208-8'],
   },
   {
     code: 'ULS00003',
@@ -1465,7 +1483,7 @@ const SEED_LABOR_UNIT_SHIFTS: readonly {
     laborUnitCode: 'UL00002',
     scheduleJson: seedWeekdaySchedule('11:00', '15:00'),
     effectiveFrom: '2025-01-01',
-    memberDocumentNumbers: ['17.100.009-2', '17.100.010-6'],
+    memberDocumentNumbers: ['18.772.103-2', '19.334.817-3'],
   },
   {
     code: 'ULS00004',
@@ -1473,7 +1491,7 @@ const SEED_LABOR_UNIT_SHIFTS: readonly {
     laborUnitCode: 'UL00002',
     scheduleJson: seedWeekdaySchedule('18:00', '23:00', [0, 1, 2, 3, 4, 5]),
     effectiveFrom: '2025-01-01',
-    memberDocumentNumbers: ['17.100.010-6', '17.100.011-4'],
+    memberDocumentNumbers: ['19.334.817-3', '19.660.124-4'],
   },
 ] as const;
 
@@ -1518,7 +1536,7 @@ type SeedEmployeeContractDef =
 
 /** Contratos ACTIVE por RUT (M1 + M3). Idempotente: actualiza el ACTIVE existente. */
 const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
-  '17.100.001-7': {
+  '13.884.721-7': {
     kind: EmploymentContractKind.LABOR,
     laborType: EmploymentLaborType.INDEFINITE,
     workRegime: WorkRegime.ORDINARY,
@@ -1531,7 +1549,7 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
     mutualName: 'ACHS',
     tipsEligible: true,
   },
-  '17.100.002-5': {
+  '15.402.963-K': {
     kind: EmploymentContractKind.LABOR,
     laborType: EmploymentLaborType.INDEFINITE,
     workRegime: WorkRegime.ORDINARY,
@@ -1548,7 +1566,7 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
     tipsEligible: true,
     fixedScheduleJson: seedWeekdaySchedule('09:00', '18:00'),
   },
-  '17.100.003-3': {
+  '16.781.205-8': {
     kind: EmploymentContractKind.LABOR,
     laborType: EmploymentLaborType.INDEFINITE,
     workRegime: WorkRegime.ORDINARY,
@@ -1564,7 +1582,7 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
     mutualName: 'Mutual de Seguridad',
     tipsEligible: true,
   },
-  '17.100.004-1': {
+  '16.233.490-5': {
     kind: EmploymentContractKind.LABOR,
     laborType: EmploymentLaborType.PART_TIME,
     workRegime: WorkRegime.PARTIAL,
@@ -1577,7 +1595,7 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
     mutualName: 'ACHS',
     tipsEligible: true,
   },
-  '17.100.005-K': {
+  '14.112.208-8': {
     kind: EmploymentContractKind.LABOR,
     laborType: EmploymentLaborType.INDEFINITE,
     workRegime: WorkRegime.ORDINARY,
@@ -1606,7 +1624,7 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
       return json;
     })(),
   },
-  '17.100.006-8': {
+  '18.120.345-5': {
     kind: EmploymentContractKind.LABOR,
     laborType: EmploymentLaborType.FIXED_TERM,
     workRegime: WorkRegime.PARTIAL,
@@ -1619,12 +1637,12 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
     mutualName: 'ISL',
     endDate: '2026-12-31',
   },
-  '17.100.007-6': {
+  '18.567.209-3': {
     kind: EmploymentContractKind.FEE,
     jobPositionCode: 'JP00006',
     notes: 'Honorarios demo (sin AFP / Isapre / jornada laboral).',
   },
-  '17.100.008-4': {
+  '19.001.482-7': {
     kind: EmploymentContractKind.LABOR,
     laborType: EmploymentLaborType.INDEFINITE,
     workRegime: WorkRegime.ORDINARY,
@@ -1636,7 +1654,7 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
     healthSystem: 'FONASA',
     mutualName: 'ACHS',
   },
-  '17.100.009-2': {
+  '18.772.103-2': {
     kind: EmploymentContractKind.LABOR,
     laborType: EmploymentLaborType.INDEFINITE,
     workRegime: WorkRegime.ORDINARY,
@@ -1649,7 +1667,7 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
     mutualName: 'ACHS',
     tipsEligible: true,
   },
-  '17.100.010-6': {
+  '19.334.817-3': {
     kind: EmploymentContractKind.LABOR,
     laborType: EmploymentLaborType.INDEFINITE,
     workRegime: WorkRegime.ORDINARY,
@@ -1662,7 +1680,7 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
     mutualName: 'ACHS',
     tipsEligible: true,
   },
-  '17.100.011-4': {
+  '19.660.124-4': {
     kind: EmploymentContractKind.LABOR,
     laborType: EmploymentLaborType.PART_TIME,
     workRegime: WorkRegime.PARTIAL,
@@ -1676,7 +1694,7 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
     tipsEligible: true,
   },
   /** Sofía / operador — comisión % ventas POS (demo HCM Comisiones). */
-  '17.205.884-3': {
+  '17.205.884-1': {
     kind: EmploymentContractKind.LABOR,
     laborType: EmploymentLaborType.INDEFINITE,
     workRegime: WorkRegime.ORDINARY,
@@ -1691,7 +1709,7 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
     salesCommissionPercent: '3',
   },
   /** Nicolás / operador2 — comisión % (distinta para QA). */
-  '17.100.012-2': {
+  '17.440.918-8': {
     kind: EmploymentContractKind.LABOR,
     laborType: EmploymentLaborType.INDEFINITE,
     workRegime: WorkRegime.ORDINARY,
@@ -1706,7 +1724,7 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
     salesCommissionPercent: '2.5',
   },
   /** Fernanda / operador3 — sin comisión (contraste en cards/ficha). */
-  '17.100.013-0': {
+  '19.910.273-7': {
     kind: EmploymentContractKind.LABOR,
     laborType: EmploymentLaborType.INDEFINITE,
     workRegime: WorkRegime.ORDINARY,
@@ -1720,7 +1738,7 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
     tipsEligible: true,
   },
   /** Patricia / costurera — taller textil. */
-  '17.100.014-9': {
+  '12.890.341-0': {
     kind: EmploymentContractKind.LABOR,
     laborType: EmploymentLaborType.INDEFINITE,
     workRegime: WorkRegime.ORDINARY,
@@ -1733,7 +1751,7 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
     mutualName: 'ACHS',
   },
   /** Rodrigo / operario de corte — taller textil. */
-  '17.100.015-7': {
+  '16.445.102-K': {
     kind: EmploymentContractKind.LABOR,
     laborType: EmploymentLaborType.INDEFINITE,
     workRegime: WorkRegime.ORDINARY,
@@ -1746,7 +1764,7 @@ const SEED_EMPLOYEE_CONTRACTS: Record<string, SeedEmployeeContractDef> = {
     mutualName: 'ACHS',
   },
   /** Valentina / supervisora de taller — taller textil. */
-  '17.100.016-5': {
+  '15.778.901-5': {
     kind: EmploymentContractKind.LABOR,
     laborType: EmploymentLaborType.INDEFINITE,
     workRegime: WorkRegime.ORDINARY,
@@ -3109,31 +3127,33 @@ async function bootstrap() {
       console.log('⏭️  Lavandería catálogo omitido (modo KaiFood)');
     }
 
-    await productRepo
-      .createQueryBuilder()
-      .update(Product)
-      .set({ visibleInEShop: true })
-      .where('companyId = :companyId', { companyId: company.id })
-      .andWhere('productType != :insumo', { insumo: ProductType.INSUMO })
-      .execute();
-    const sellableProductIds = (
-      await productRepo.find({
-        where: { companyId: company.id },
-        select: ['id', 'productType'],
-      })
-    )
-      .filter((p) => p.productType !== ProductType.INSUMO)
-      .map((p) => p.id);
-    if (sellableProductIds.length > 0) {
+    const storeProducts = await productRepo.find({
+      where: { companyId: company.id },
+      select: ['id', 'visibleInEShop'],
+    });
+    const eshopOnIds = storeProducts.filter((p) => p.visibleInEShop).map((p) => p.id);
+    const eshopOffIds = storeProducts.filter((p) => !p.visibleInEShop).map((p) => p.id);
+    if (eshopOnIds.length > 0) {
       await variantRepo
         .createQueryBuilder()
         .update()
         .set({ visibleInEShop: true })
         .where('companyId = :companyId', { companyId: company.id })
-        .andWhere('productId IN (:...ids)', { ids: sellableProductIds })
+        .andWhere('productId IN (:...ids)', { ids: eshopOnIds })
         .execute();
     }
-    console.log('✅ eShop: productos/variantes vendibles marcados visibleInEShop=true (INSUMO excluido)');
+    if (eshopOffIds.length > 0) {
+      await variantRepo
+        .createQueryBuilder()
+        .update()
+        .set({ visibleInEShop: false })
+        .where('companyId = :companyId', { companyId: company.id })
+        .andWhere('productId IN (:...ids)', { ids: eshopOffIds })
+        .execute();
+    }
+    console.log(
+      `✅ eShop vitrina: ${eshopOnIds.length} producto(s) visibles, ${eshopOffIds.length} ocultos (backoffice)`,
+    );
 
     if (foodMode) {
       await productRepo
@@ -4624,7 +4644,7 @@ async function bootstrap() {
     }
     if (foodMode) {
       console.log(
-        '✅ KaiFood: tipsEligible solo meseros (17.100.009-2 / 010-6 / 011-4)',
+        '✅ KaiFood: tipsEligible solo meseros (18.772.103-2 / 19.334.817-3 / 19.660.124-4)',
       );
     }
 
@@ -5006,7 +5026,7 @@ async function bootstrap() {
       firstName: 'Administrador',
       lastName: 'de Empresa',
       email,
-      documentNumber: '10.987.654-3',
+      documentNumber: '10.987.654-2',
       phone: '+56 9 8765 4321',
       preferOwner: true,
     });
@@ -5059,8 +5079,8 @@ async function bootstrap() {
       nonDeletable: false,
       firstName: 'Sofía',
       lastName: 'Vargas Núñez',
-      email: 'sofia.vargas@empleado.local',
-      documentNumber: '17.205.884-3',
+      email: 'sofia.vargas@kai-store.cl',
+      documentNumber: '17.205.884-1',
       phone: '+56 9 7654 3210',
     });
 
@@ -5072,8 +5092,8 @@ async function bootstrap() {
       nonDeletable: false,
       firstName: 'Nicolás',
       lastName: 'Bravo Soto',
-      email: 'nicolas.bravo@empleado.local',
-      documentNumber: '17.100.012-2',
+      email: 'nicolas.bravo@kai-store.cl',
+      documentNumber: '17.440.918-8',
       phone: '+56 9 7000 0012',
     });
 
@@ -5085,8 +5105,8 @@ async function bootstrap() {
       nonDeletable: false,
       firstName: 'Fernanda',
       lastName: 'Lagos Ruiz',
-      email: 'fernanda.lagos@empleado.local',
-      documentNumber: '17.100.013-0',
+      email: 'fernanda.lagos@kai-store.cl',
+      documentNumber: '19.910.273-7',
       phone: '+56 9 7000 0013',
     });
 
@@ -5112,8 +5132,8 @@ async function bootstrap() {
       nonDeletable: false,
       firstName: 'Camila',
       lastName: 'Rojas Paredes',
-      email: 'camila.rojas@empleado.local',
-      documentNumber: '17.100.009-2',
+      email: 'camila.rojas@kai-food.cl',
+      documentNumber: '18.772.103-2',
       phone: '+56 9 7000 0009',
     });
 
@@ -5125,8 +5145,8 @@ async function bootstrap() {
       nonDeletable: false,
       firstName: 'Diego',
       lastName: 'Muñoz Castillo',
-      email: 'diego.munoz@empleado.local',
-      documentNumber: '17.100.010-6',
+      email: 'diego.munoz@kai-food.cl',
+      documentNumber: '19.334.817-3',
       phone: '+56 9 7000 0010',
     });
 
@@ -5138,8 +5158,8 @@ async function bootstrap() {
       nonDeletable: false,
       firstName: 'Javiera',
       lastName: 'Soto Ibáñez',
-      email: 'javiera.soto@empleado.local',
-      documentNumber: '17.100.011-4',
+      email: 'javiera.soto@kai-food.cl',
+      documentNumber: '19.660.124-4',
       phone: '+56 9 7000 0011',
     });
 
@@ -5166,6 +5186,21 @@ async function bootstrap() {
       operatorUserIds,
     });
 
+    if (!foodMode) {
+      await seedDemoFinishedGoodsStock({
+        dataSource,
+        companyId: company.id,
+      });
+      await seedDemoBackofficeLive({
+        app,
+        dataSource,
+        companyId: company.id,
+        branchId: seedBranch.id,
+        adminUserId: adminUser.id,
+        operatorUserId: operatorUserIds.operador ?? adminUser.id,
+      });
+    }
+
     if (foodMode) {
       await seedDemoTipsHistory({
         app,
@@ -5186,7 +5221,7 @@ async function bootstrap() {
       firstName: 'Pedro',
       lastName: 'Soto Núñez',
       email: 'admin2@kai.local',
-      documentNumber: '15.333.222-1',
+      documentNumber: '15.333.222-3',
       phone: '+56 9 1111 2222',
       preferOwner: false,
     });
@@ -5213,7 +5248,7 @@ async function bootstrap() {
       firstName: 'Valentina',
       lastName: 'Pizarro Núñez',
       email: 'delivery2@kai.local',
-      documentNumber: '19.884.201-7',
+      documentNumber: '19.884.201-K',
       phone: '+56 9 5432 1098',
     });
 
@@ -5221,6 +5256,19 @@ async function bootstrap() {
       dataSource,
       companyId: company.id,
     });
+
+    if (!foodMode) {
+      await seedDeliveryOrdersForDate({
+        dataSource,
+        targetDate: todayIsoSantiago(),
+        courierUserName: 'delivery1',
+      });
+      await seedDeliveryOrdersForDate({
+        dataSource,
+        targetDate: tomorrowIsoSantiago(),
+        courierUserName: 'delivery1',
+      });
+    }
 
     if (suiteMode) {
       await seedDemoSuiteFoodCompany({
@@ -5247,6 +5295,45 @@ async function bootstrap() {
         branchId: foodBranch.id,
       });
 
+      await seedExpenseCategoriesForCompany({
+        expenseCategoryRepo,
+        companyId: companyFood.id,
+        logLabel: companyFood.nombreFantasia ?? 'Kai Food',
+      });
+
+      for (const opName of operatorUserNames) {
+        const userId = operatorUserIds[opName];
+        if (!userId) continue;
+        let foodMem = await membershipRepo.findOne({
+          where: { userId, companyId: companyFood.id },
+        });
+        if (!foodMem) {
+          foodMem = await membershipRepo.save(
+            membershipRepo.create({
+              userId,
+              companyId: companyFood.id,
+              isOwner: false,
+              isActive: true,
+            }),
+          );
+        } else {
+          foodMem.isActive = true;
+          await membershipRepo.save(foodMem);
+        }
+        const foodRoles = await membershipRoleRepo.find({
+          where: { membershipId: foodMem.id },
+        });
+        if (!foodRoles.some((r) => r.role === PlatformRoleCode.POS_OPERATOR)) {
+          await membershipRoleRepo.save(
+            membershipRoleRepo.create({
+              membershipId: foodMem.id,
+              role: PlatformRoleCode.POS_OPERATOR,
+            }),
+          );
+        }
+      }
+      console.log('✅ Kai Food: cajeros Store también miembros POS de la empresa food');
+
       const foodPhysical = collectSeedDevPhysicalVariants(
         getSeedFoodOnlyProducts(),
       );
@@ -5262,8 +5349,23 @@ async function bootstrap() {
             branchId: foodBranch.id,
             adminUserId: adminUser.id,
             operatorUserIds,
-            mode: 'purchases',
+            mode: 'ops',
+            expenseProfile: 'food',
             purchasePlan: foodPurchasePlan,
+          });
+
+          await seedDemoFinishedGoodsStock({
+            dataSource,
+            companyId: companyFood.id,
+          });
+
+          await seedDemoProductionBatches({
+            app,
+            dataSource,
+            companyId: companyFood.id,
+            branchId: foodBranch.id,
+            userId: adminUser.id,
+            includePastry: true,
           });
 
           await seedDemoTipsHistory({
@@ -5319,40 +5421,45 @@ async function bootstrap() {
         ...foodMultimediaParams,
       });
 
-      // Hero carta deshabilitado por ahora — no sembrar slides.
+      await seedMenuHeroSlidesFromDefs({
+        heroSlideRepo: dataSource.getRepository(MenuHeroSlide),
+        slides: SEED_DEV_MENU_HERO_SLIDES,
+        logLabel: 'Kai Menú',
+        ...foodMultimediaParams,
+      });
     }
 
     console.log('✅ Seed mínimo OK. Usuarios listos:');
     console.log(`   • superadmin / ${seedPassword}   (SUPER_ADMIN, sin persona, protegido)`);
     console.log(
-      `   • ${userName} / ${seedPassword}        (ADMIN owner · Kai Store · 10.987.654-3)`,
+      `   • ${userName} / ${seedPassword}        (ADMIN owner · Kai Store · 10.987.654-2)`,
     );
     console.log(
-      `   • admin2 / ${seedPassword}         (ADMIN no-owner · Pedro Soto Núñez · 15.333.222-1)`,
+      `   • admin2 / ${seedPassword}         (ADMIN no-owner · Pedro Soto Núñez · 15.333.222-3)`,
     );
     console.log(
-      `   • operador / ${seedPassword}    (POS_OPERATOR · Sofía Vargas · 17.205.884-3 · cajero · comisión 3%)`,
+      `   • operador / ${seedPassword}    (POS_OPERATOR · Sofía Vargas · 17.205.884-1 · cajero · comisión 3%)`,
     );
     console.log(
-      `   • operador2 / ${seedPassword}   (POS_OPERATOR · Nicolás Bravo · 17.100.012-2 · cajero · comisión 2.5%)`,
+      `   • operador2 / ${seedPassword}   (POS_OPERATOR · Nicolás Bravo · 17.440.918-8 · cajero · comisión 2.5%)`,
     );
     console.log(
-      `   • operador3 / ${seedPassword}   (POS_OPERATOR · Fernanda Lagos · 17.100.013-0 · cajero · sin comisión)`,
+      `   • operador3 / ${seedPassword}   (POS_OPERATOR · Fernanda Lagos · 19.910.273-7 · cajero · sin comisión)`,
     );
     console.log(
       `   • delivery1 / ${seedPassword}   (COURIER · Matías Fuentes Lagos · 18.103.772-5)`,
     );
     console.log(
-      `   • delivery2 / ${seedPassword}   (COURIER · Valentina Pizarro Núñez · 19.884.201-7)`,
+      `   • delivery2 / ${seedPassword}   (COURIER · Valentina Pizarro Núñez · 19.884.201-K)`,
     );
     console.log(
-      `   • mesero1 / ${seedPassword}    (WAITER · Camila Rojas · 17.100.009-2 · propinas)`,
+      `   • mesero1 / ${seedPassword}    (WAITER · Camila Rojas · 18.772.103-2 · propinas)`,
     );
     console.log(
-      `   • mesero2 / ${seedPassword}    (WAITER · Diego Muñoz · 17.100.010-6 · propinas)`,
+      `   • mesero2 / ${seedPassword}    (WAITER · Diego Muñoz · 19.334.817-3 · propinas)`,
     );
     console.log(
-      `   • mesero3 / ${seedPassword}    (WAITER · Javiera Soto · 17.100.011-4 · propinas)`,
+      `   • mesero3 / ${seedPassword}    (WAITER · Javiera Soto · 19.660.124-4 · propinas)`,
     );
     console.log(
       `   • Empresas: «${SEED_DEV_COMPANY.nombreFantasia}» (${SEED_DEV_COMPANY.kaiProduct}) + «${SEED_DEV_COMPANY_SECOND.nombreFantasia}» (${SEED_DEV_COMPANY_SECOND.kaiProduct}) — admin en ambas`,
@@ -5361,7 +5468,7 @@ async function bootstrap() {
       `   • Preventa: ON | POS preventa «${SEED_PRESALE_POS_NAME}» | Cajas aceptan tickets de preventa`,
     );
     console.log(
-      `   • Delivery: repartos + retiros en local (jul–ago 2026) | zona «Parral»`,
+      `   • Delivery: repartos + retiros (mes actual y siguientes) | zona «Parral» | pedidos hoy y mañana`,
     );
       },
     );

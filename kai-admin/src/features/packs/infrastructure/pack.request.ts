@@ -15,6 +15,19 @@ export type PackCompositionDto = {
   lines: PackLineDto[];
 };
 
+export type PackComponentSearchItem = {
+  variantId: string;
+  productName: string;
+  sku: string;
+};
+
+export type PackComponentSearchResult = {
+  items: PackComponentSearchItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+};
+
 function apiUrl(path: string): string {
   const base = process.env.BACKEND_API_URL;
   if (!base) throw new Error("BACKEND_API_URL no está definida");
@@ -63,7 +76,68 @@ function compositionFromUnknown(raw: unknown): PackCompositionDto {
   };
 }
 
+function componentSearchFromUnknown(raw: unknown): PackComponentSearchResult {
+  if (!raw || typeof raw !== "object") {
+    return { items: [], page: 1, pageSize: 10, total: 0 };
+  }
+  const body = raw as Record<string, unknown>;
+  const itemsRaw = Array.isArray(body.items) ? body.items : [];
+  const items: PackComponentSearchItem[] = itemsRaw
+    .map((row): PackComponentSearchItem | null => {
+      if (!row || typeof row !== "object") return null;
+      const o = row as Record<string, unknown>;
+      const variantId = o.variantId != null ? String(o.variantId) : "";
+      if (!variantId) return null;
+      return {
+        variantId,
+        productName: o.productName != null ? String(o.productName) : "",
+        sku: o.sku != null ? String(o.sku) : "",
+      };
+    })
+    .filter((item): item is PackComponentSearchItem => item != null);
+  const page =
+    typeof body.page === "number" && Number.isFinite(body.page) ? body.page : 1;
+  const pageSize =
+    typeof body.pageSize === "number" && Number.isFinite(body.pageSize)
+      ? body.pageSize
+      : 10;
+  const total =
+    typeof body.total === "number" && Number.isFinite(body.total)
+      ? Math.max(0, body.total)
+      : items.length;
+  return { items, page, pageSize, total };
+}
+
 export class PackRequest {
+  static async searchComponents(params: {
+    q: string;
+    page?: number;
+    pageSize?: number;
+    excludeVariantId?: string;
+  }): Promise<PackComponentSearchResult> {
+    const page = Math.max(1, params.page ?? 1);
+    const pageSize = Math.min(50, Math.max(1, params.pageSize ?? 10));
+    const q = new URLSearchParams();
+    const trimmed = params.q.trim();
+    if (trimmed) q.set("q", trimmed);
+    q.set("page", String(page));
+    q.set("pageSize", String(pageSize));
+    const exclude = params.excludeVariantId?.trim();
+    if (exclude) q.set("excludeVariantId", exclude);
+    try {
+      const res = await fetch(apiUrl(`/packs/component-search?${q.toString()}`), {
+        headers: await authHeaders(),
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        return { items: [], page: 1, pageSize, total: 0 };
+      }
+      return componentSearchFromUnknown(await res.json());
+    } catch {
+      return { items: [], page: 1, pageSize, total: 0 };
+    }
+  }
+
   static async getComposition(variantId: string): Promise<PackCompositionDto> {
     const res = await fetch(apiUrl(`/packs/variants/${encodeURIComponent(variantId)}/composition`), {
       headers: await authHeaders(),
