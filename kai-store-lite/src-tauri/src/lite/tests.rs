@@ -658,8 +658,9 @@ async fn lite_pos_sale_and_cash() {
         &uid,
         &sess.id,
         ops::CloseCash {
-            counted: 140.0,
-            closing_amount: None,
+            counted: None,
+            closing_amount: Some(140.0),
+            counts_by_method: None,
         },
     )
     .await
