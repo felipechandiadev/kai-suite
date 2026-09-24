@@ -1,17 +1,38 @@
 use crate::lite::db::LitePool;
 use crate::lite::error::{LiteError, LiteResult};
+use chrono::{Datelike, NaiveDate};
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use uuid::Uuid;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct DashboardMonthPoint {
+    pub period: String,
+    pub label: String,
+    pub total: f64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DashboardDto {
+    /// Ticket count today (alias Nest / UI).
+    pub sales_today: i64,
+    pub sales_count: i64,
+    pub sales_today_count: i64,
+    pub sales_today_amount: f64,
+    pub sales_mtd_amount: f64,
+    pub sales_mtd_count: i64,
+    pub average_ticket_mtd: f64,
+    pub stock_low_count: i64,
+    pub stock_sku_count: i64,
+    pub open_sessions: i64,
+    /// Kept for older callers.
     pub products: i64,
     pub variants: i64,
     pub open_cash_sessions: i64,
-    pub sales_today: i64,
     pub sales_total_today: f64,
+    pub sales_by_month: Vec<DashboardMonthPoint>,
 }
 
 #[derive(Debug, Serialize)]
@@ -110,6 +131,19 @@ pub struct UserCreate {
     pub roles: Option<Vec<String>>,
 }
 
+const LOW_STOCK_THRESHOLD: f64 = 5.0;
+
+const MONTHS_ES_SHORT: [&str; 12] = [
+    "ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sept", "oct", "nov", "dic",
+];
+
+fn month_label_es(year: i32, month: u32) -> String {
+    let idx = month.saturating_sub(1) as usize;
+    let name = MONTHS_ES_SHORT.get(idx).copied().unwrap_or("?");
+    let yy = year.rem_euclid(100);
+    format!("{name} {yy:02}")
+}
+
 pub async fn dashboard(pool: &LitePool, company_id: &str) -> LiteResult<DashboardDto> {
     let products: i64 =
         sqlx::query_scalar("SELECT COUNT(*) FROM products WHERE company_id = ?1")
@@ -129,24 +163,110 @@ pub async fn dashboard(pool: &LitePool, company_id: &str) -> LiteResult<Dashboar
     .bind(company_id)
     .fetch_one(pool)
     .await?;
-    let sales_today: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM transactions WHERE company_id = ?1 AND status = 'COMPLETED' AND date(created_at) = date('now')",
+
+    let today_row = sqlx::query(
+        r#"SELECT CAST(COALESCE(SUM(total),0) AS REAL) AS total, COUNT(*) AS cnt
+           FROM transactions
+           WHERE company_id = ?1 AND status = 'COMPLETED' AND date(created_at) = date('now')"#,
     )
     .bind(company_id)
     .fetch_one(pool)
     .await?;
-    let sales_total: f64 = sqlx::query_scalar(
-        "SELECT CAST(COALESCE(SUM(total),0) AS REAL) FROM transactions WHERE company_id = ?1 AND status = 'COMPLETED' AND date(created_at) = date('now')",
+    let sales_today_amount: f64 = today_row.get("total");
+    let sales_today_count: i64 = today_row.get("cnt");
+
+    let mtd_row = sqlx::query(
+        r#"SELECT CAST(COALESCE(SUM(total),0) AS REAL) AS total, COUNT(*) AS cnt
+           FROM transactions
+           WHERE company_id = ?1 AND status = 'COMPLETED'
+             AND date(created_at) >= date('now', 'start of month')
+             AND date(created_at) <= date('now')"#,
     )
     .bind(company_id)
     .fetch_one(pool)
     .await?;
+    let sales_mtd_amount: f64 = mtd_row.get("total");
+    let sales_mtd_count: i64 = mtd_row.get("cnt");
+    let average_ticket_mtd = if sales_mtd_count > 0 {
+        (sales_mtd_amount / sales_mtd_count as f64).round()
+    } else {
+        0.0
+    };
+
+    let month_rows = sqlx::query(
+        r#"SELECT strftime('%Y-%m', created_at) AS period,
+                  CAST(COALESCE(SUM(total),0) AS REAL) AS total
+           FROM transactions
+           WHERE company_id = ?1 AND status = 'COMPLETED'
+             AND date(created_at) >= date('now', 'start of month', '-11 months')
+           GROUP BY strftime('%Y-%m', created_at)"#,
+    )
+    .bind(company_id)
+    .fetch_all(pool)
+    .await?;
+    let mut by_period = std::collections::HashMap::<String, f64>::new();
+    for r in month_rows {
+        let period: String = r.get("period");
+        let total: f64 = r.get("total");
+        by_period.insert(period, total);
+    }
+
+    let now = chrono::Local::now().date_naive();
+    let mut cursor = NaiveDate::from_ymd_opt(now.year(), now.month(), 1)
+        .unwrap_or(now)
+        .checked_sub_months(chrono::Months::new(11))
+        .unwrap_or(now);
+    let mut sales_by_month = Vec::with_capacity(12);
+    for _ in 0..12 {
+        let period = format!("{:04}-{:02}", cursor.year(), cursor.month());
+        sales_by_month.push(DashboardMonthPoint {
+            period: period.clone(),
+            label: month_label_es(cursor.year(), cursor.month()),
+            total: *by_period.get(&period).unwrap_or(&0.0),
+        });
+        cursor = cursor
+            .checked_add_months(chrono::Months::new(1))
+            .unwrap_or(cursor);
+    }
+
+    let stock_sku_count: i64 = sqlx::query_scalar(
+        r#"SELECT COUNT(*) FROM stock_levels sl
+           JOIN product_variants v ON v.id = sl.variant_id
+           JOIN products p ON p.id = v.product_id
+           WHERE p.company_id = ?1"#,
+    )
+    .bind(company_id)
+    .fetch_one(pool)
+    .await?;
+
+    // Lite schema has no minimum_stock; mirror Nest default threshold (=5).
+    let stock_low_count: i64 = sqlx::query_scalar(
+        r#"SELECT COUNT(*) FROM stock_levels sl
+           JOIN product_variants v ON v.id = sl.variant_id
+           JOIN products p ON p.id = v.product_id
+           WHERE p.company_id = ?1 AND sl.quantity <= ?2"#,
+    )
+    .bind(company_id)
+    .bind(LOW_STOCK_THRESHOLD)
+    .fetch_one(pool)
+    .await?;
+
     Ok(DashboardDto {
+        sales_today: sales_today_count,
+        sales_count: sales_today_count,
+        sales_today_count,
+        sales_today_amount,
+        sales_mtd_amount,
+        sales_mtd_count,
+        average_ticket_mtd,
+        stock_low_count,
+        stock_sku_count,
+        open_sessions: open_cash,
         products,
         variants,
         open_cash_sessions: open_cash,
-        sales_today,
-        sales_total_today: sales_total,
+        sales_total_today: sales_today_amount,
+        sales_by_month,
     })
 }
 

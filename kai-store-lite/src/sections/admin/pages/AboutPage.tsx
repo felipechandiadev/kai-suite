@@ -2,13 +2,15 @@ import { useState } from "react";
 import { BasicPageLayout, IconButton } from "@kai/ui";
 import { APP_CONFIG } from "@/config/app.config";
 import { useLicense } from "@/providers/LicenseProvider";
+import { useCoreHealth } from "@/shared/hooks/useCoreHealth";
 import { ActivateLicenseDialog } from "@/sections/license/ActivateLicenseDialog";
 
 const VERSION_BLURB =
-  "Edición de escritorio para punto de venta y administración: ventas, catálogo e inventario local, impresión de tickets y licencia vinculada a este equipo. Una empresa, datos en SQLite, sin módulos de facturación electrónica ni e-commerce.";
+  "Edición de escritorio para punto de venta y administración: ventas, catálogo e inventario local, impresión de tickets y licencia vinculada a este equipo. Backend in-process (Rust + sqlx + SQLite), una empresa, sin sidecar Node ni módulos de facturación electrónica ni e-commerce.";
 
 export function AboutPage() {
   const { status } = useLicense();
+  const health = useCoreHealth(15_000);
   const [activateOpen, setActivateOpen] = useState(false);
   const showActivateEntry = status.kind === "trial" || status.kind === "none";
 
@@ -29,6 +31,12 @@ export function AboutPage() {
         <p className="mt-1 text-sm font-medium text-muted-foreground">
           Versión {APP_CONFIG.version}
         </p>
+        {health.ok ? (
+          <p className="mt-1 text-xs text-muted-foreground" data-test-id="about-backend-edition">
+            Backend {health.edition ?? "lite-rust"}
+            {health.version ? ` · ${health.version}` : ""}
+          </p>
+        ) : null}
         <p className="mt-6 max-w-md text-sm leading-relaxed text-muted-foreground">
           {VERSION_BLURB}
         </p>

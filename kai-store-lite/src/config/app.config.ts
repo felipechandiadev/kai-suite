@@ -1,6 +1,7 @@
 export const APP_CONFIG = {
   productName: "KaiStore Lite",
-  version: "0.1.0",
+  /** Synced from package.json via Vite `define` — do not hardcode. */
+  version: __APP_VERSION__,
   edition: "lite" as const,
   bundleId: "com.kaistore.lite",
   trialDays: 10,
