@@ -38,8 +38,21 @@ pub struct OpenCash {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CloseCash {
-    pub counted: f64,
+    /// Contado físico. La UI Nest/Lite suele mandar solo `closingAmount`.
+    pub counted: Option<f64>,
     pub closing_amount: Option<f64>,
+    /// Ignorado por ahora (compat con PosClosingPage).
+    #[serde(default)]
+    pub counts_by_method: Option<serde_json::Value>,
+}
+
+impl CloseCash {
+    /// Prefer `counted`, else `closingAmount` (contrato HTTP Lite).
+    pub fn resolved_counted(&self) -> LiteResult<f64> {
+        self.counted
+            .or(self.closing_amount)
+            .ok_or_else(|| LiteError::BadRequest("counted o closingAmount es requerido".into()))
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -139,12 +152,14 @@ pub async fn cash_close(
     if sess.status != "OPEN" {
         return Err(LiteError::BadRequest("session not open".into()));
     }
+    let counted = dto.resolved_counted()?;
+    let closing = dto.closing_amount.unwrap_or(counted);
     sqlx::query(
         "UPDATE cash_sessions SET status = 'CLOSED', closed_by = ?1, counted = ?2, closing_amount = ?3, closed_at = datetime('now') WHERE id = ?4",
     )
     .bind(user_id)
-    .bind(dto.counted)
-    .bind(dto.closing_amount.unwrap_or(dto.counted))
+    .bind(counted)
+    .bind(closing)
     .bind(session_id)
     .execute(pool)
     .await?;
