@@ -4,7 +4,38 @@ use crate::print::{
     print_sale_preview as do_print_sale_preview, print_test_page, save_config, CompanyHeader,
     PrintConfig, PrintPreviewDto, PrinterMapping, SaleTicketArgs, SystemPrinterInfo,
 };
+use serde::Serialize;
 use serde_json::Value;
+use std::path::Path;
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrintHostInfo {
+    pub os: String,
+    pub is_crostini: bool,
+    pub printers_available: usize,
+}
+
+fn detect_crostini() -> bool {
+    if Path::new("/.crostini").exists() {
+        return true;
+    }
+    if Path::new("/mnt/chromeos").exists() {
+        return true;
+    }
+    std::env::var_os("CROSTINI").is_some()
+        || std::env::var_os("SOMMELIER_XDG_RUNTIME_DIR").is_some()
+}
+
+#[tauri::command]
+pub fn print_host_info() -> Result<PrintHostInfo, String> {
+    let printers_available = list_system_printers().map(|p| p.len()).unwrap_or(0);
+    Ok(PrintHostInfo {
+        os: std::env::consts::OS.to_string(),
+        is_crostini: cfg!(target_os = "linux") && detect_crostini(),
+        printers_available,
+    })
+}
 
 #[tauri::command]
 pub fn print_list_mappings() -> Result<Vec<PrinterMapping>, String> {

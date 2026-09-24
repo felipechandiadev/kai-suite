@@ -42,6 +42,9 @@ pub struct PrintConfig {
     /// `cp850` | `cp437` | `utf8`
     #[serde(default = "default_encoding")]
     pub text_encoding: String,
+    /// Prefijo de montos en tickets (ej. `$`).
+    #[serde(default = "default_currency_symbol")]
+    pub currency_symbol: String,
 }
 
 fn default_true() -> bool {
@@ -58,6 +61,10 @@ fn default_footer() -> String {
 
 fn default_encoding() -> String {
     "cp850".into()
+}
+
+fn default_currency_symbol() -> String {
+    "$".into()
 }
 
 impl Default for PrintConfig {
@@ -78,6 +85,7 @@ impl Default for PrintConfig {
             show_company_phone: true,
             open_cash_drawer: false,
             text_encoding: "cp850".into(),
+            currency_symbol: "$".into(),
         }
     }
 }
@@ -138,6 +146,7 @@ fn migrate_columns(conn: &Connection) -> Result<(), String> {
         "ALTER TABLE print_config ADD COLUMN show_company_phone INTEGER NOT NULL DEFAULT 1",
         "ALTER TABLE print_config ADD COLUMN open_cash_drawer INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE print_config ADD COLUMN text_encoding TEXT NOT NULL DEFAULT 'cp850'",
+        "ALTER TABLE print_config ADD COLUMN currency_symbol TEXT NOT NULL DEFAULT '$'",
     ];
     for sql in alters {
         let _ = conn.execute_batch(sql);
@@ -152,8 +161,8 @@ fn insert_config(conn: &Connection, cfg: &PrintConfig) -> Result<(), String> {
             auto_print_sale, auto_print_cash_opening, auto_print_cash_closing,
             sale_ticket_copies, ticket_footer,
             show_company_rut, show_company_address, show_company_phone,
-            open_cash_drawer, text_encoding
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+            open_cash_drawer, text_encoding, currency_symbol
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
         rusqlite::params![
             CONFIG_ID,
             cfg.display_name,
@@ -171,6 +180,7 @@ fn insert_config(conn: &Connection, cfg: &PrintConfig) -> Result<(), String> {
             if cfg.show_company_phone { 1 } else { 0 },
             if cfg.open_cash_drawer { 1 } else { 0 },
             cfg.text_encoding,
+            cfg.currency_symbol,
         ],
     )
     .map_err(|e| e.to_string())?;
@@ -200,6 +210,15 @@ fn normalize_encoding(raw: &str) -> String {
     }
 }
 
+fn normalize_currency_symbol(raw: &str) -> String {
+    let t: String = raw.trim().chars().take(4).collect();
+    if t.is_empty() {
+        "$".into()
+    } else {
+        t
+    }
+}
+
 fn col_bool(r: &rusqlite::Row<'_>, idx: usize, default: bool) -> bool {
     r.get::<_, i64>(idx)
         .map(|v| v != 0)
@@ -213,7 +232,7 @@ pub fn get_config() -> Result<PrintConfig, String> {
                 auto_print_sale, auto_print_cash_opening, auto_print_cash_closing,
                 sale_ticket_copies, ticket_footer,
                 show_company_rut, show_company_address, show_company_phone,
-                open_cash_drawer, text_encoding
+                open_cash_drawer, text_encoding, currency_symbol
          FROM print_config WHERE id = ?1",
         [CONFIG_ID],
         |r| {
@@ -224,6 +243,9 @@ pub fn get_config() -> Result<PrintConfig, String> {
             let encoding: String = r
                 .get::<_, String>(14)
                 .unwrap_or_else(|_| "cp850".into());
+            let currency: String = r
+                .get::<_, String>(15)
+                .unwrap_or_else(|_| "$".into());
             Ok(PrintConfig {
                 display_name: r.get(0)?,
                 system_printer_name: r.get(1)?,
@@ -240,6 +262,7 @@ pub fn get_config() -> Result<PrintConfig, String> {
                 show_company_phone: col_bool(r, 12, true),
                 open_cash_drawer: col_bool(r, 13, false),
                 text_encoding: normalize_encoding(&encoding),
+                currency_symbol: normalize_currency_symbol(&currency),
             })
         },
     )
@@ -256,6 +279,7 @@ pub fn save_config(mut cfg: PrintConfig) -> Result<PrintConfig, String> {
     cfg.sale_ticket_copies = normalize_copies(cfg.sale_ticket_copies);
     cfg.ticket_footer = cfg.ticket_footer.trim().to_string();
     cfg.text_encoding = normalize_encoding(&cfg.text_encoding);
+    cfg.currency_symbol = normalize_currency_symbol(&cfg.currency_symbol);
     let conn = open()?;
     insert_config(&conn, &cfg)?;
     Ok(cfg)

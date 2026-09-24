@@ -228,8 +228,8 @@ fn render_sale_text(
             let line_total = qty * unit;
             text.push_str(&format!(
                 "{name}\n  {qty} x {} = {}\n",
-                fmt_money(unit),
-                fmt_money(line_total)
+                fmt_money(unit, &cfg.currency_symbol),
+                fmt_money(line_total, &cfg.currency_symbol)
             ));
         }
     } else {
@@ -237,7 +237,7 @@ fn render_sale_text(
     }
 
     text.push_str("----------------\n");
-    text.push_str(&format!("TOTAL: {}\n", fmt_money(args.total)));
+    text.push_str(&format!("TOTAL: {}\n", fmt_money(args.total, &cfg.currency_symbol)));
     text.push_str(&format!("Pago: {}\n", args.method));
     let footer = cfg.ticket_footer.trim();
     if !footer.is_empty() {
@@ -252,7 +252,7 @@ fn render_cash_opening_text(cfg: &PrintConfig, company: Option<&CompanyHeader>, 
     let mut text = String::new();
     append_company_header(&mut text, company, cfg);
     text.push_str("APERTURA CAJA\n");
-    text.push_str(&format!("Fondo: {}\n", fmt_money(amount)));
+    text.push_str(&format!("Fondo: {}\n", fmt_money(amount, &cfg.currency_symbol)));
     text
 }
 
@@ -265,9 +265,12 @@ fn render_cash_closing_text(
     let mut text = String::new();
     append_company_header(&mut text, company, cfg);
     text.push_str("CIERRE CAJA\n");
-    text.push_str(&format!("Apertura: {}\n", fmt_money(opening_float)));
-    text.push_str(&format!("Contado: {}\n", fmt_money(counted)));
-    text.push_str(&format!("Diff: {}\n", fmt_money(counted - opening_float)));
+    text.push_str(&format!("Apertura: {}\n", fmt_money(opening_float, &cfg.currency_symbol)));
+    text.push_str(&format!("Contado: {}\n", fmt_money(counted, &cfg.currency_symbol)));
+    text.push_str(&format!(
+        "Diff: {}\n",
+        fmt_money(counted - opening_float, &cfg.currency_symbol)
+    ));
     text
 }
 
@@ -348,7 +351,7 @@ fn short_id(id: &str) -> &str {
     }
 }
 
-fn fmt_money(n: f64) -> String {
+fn fmt_money(n: f64, symbol: &str) -> String {
     let rounded = n.round() as i64;
     let neg = rounded < 0;
     let digits = rounded.abs().to_string();
@@ -359,10 +362,11 @@ fn fmt_money(n: f64) -> String {
         .map(|c| std::str::from_utf8(c).unwrap_or(""))
         .collect::<Vec<_>>()
         .join(".");
+    let with_symbol = format!("{symbol}{grouped}");
     if neg {
-        format!("-{grouped}")
+        format!("-{with_symbol}")
     } else {
-        grouped
+        with_symbol
     }
 }
 
