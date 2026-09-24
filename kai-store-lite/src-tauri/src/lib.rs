@@ -112,6 +112,7 @@ pub fn run() {
             commands::print_get_config,
             commands::print_save_config,
             commands::print_list_system_printers,
+            commands::print_host_info,
             commands::print_test,
             commands::print_preview,
             commands::print_sale_preview,

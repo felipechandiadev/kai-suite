@@ -17,6 +17,7 @@ export type LitePrintConfig = {
   showCompanyPhone: boolean;
   openCashDrawer: boolean;
   textEncoding: "cp850" | "cp437" | "utf8" | string;
+  currencySymbol: string;
 };
 
 export type LitePrintPreview = {
@@ -35,6 +36,12 @@ export type LiteSystemPrinter = {
   name: string;
   default?: boolean;
   online?: boolean;
+};
+
+export type LitePrintHostInfo = {
+  os: string;
+  isCrostini: boolean;
+  printersAvailable: number;
 };
 
 const STORAGE_KEY = "kai-lite.print-config.v1";
@@ -56,6 +63,7 @@ export function defaultPrintConfig(): LitePrintConfig {
     showCompanyPhone: true,
     openCashDrawer: false,
     textEncoding: "cp850",
+    currencySymbol: "$",
   };
 }
 
@@ -64,6 +72,11 @@ function normalizeEncoding(raw: unknown): string {
   if (v === "cp437" || v === "ibm437") return "cp437";
   if (v === "utf8" || v === "utf-8") return "utf8";
   return "cp850";
+}
+
+function normalizeCurrencySymbol(raw: unknown): string {
+  const t = String(raw ?? "$").trim().slice(0, 4);
+  return t || "$";
 }
 
 function normalizeConfig(parsed: Partial<LitePrintConfig>): LitePrintConfig {
@@ -86,6 +99,7 @@ function normalizeConfig(parsed: Partial<LitePrintConfig>): LitePrintConfig {
     autoCutEnabled: parsed.autoCutEnabled !== false,
     enabled: parsed.enabled !== false,
     textEncoding: normalizeEncoding(parsed.textEncoding),
+    currencySymbol: normalizeCurrencySymbol(parsed.currencySymbol),
   };
 }
 
@@ -215,6 +229,14 @@ export async function fetchSystemPrinters(): Promise<LiteSystemPrinter[]> {
     return await invoke<LiteSystemPrinter[]>("print_list_system_printers");
   } catch {
     return [];
+  }
+}
+
+export async function fetchPrintHostInfo(): Promise<LitePrintHostInfo> {
+  try {
+    return await invoke<LitePrintHostInfo>("print_host_info");
+  } catch {
+    return { os: "unknown", isCrostini: false, printersAvailable: 0 };
   }
 }
 

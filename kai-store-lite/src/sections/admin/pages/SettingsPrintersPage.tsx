@@ -6,11 +6,13 @@ import { fetchPrintCompanyHeader } from "@/sections/pos/lib/print-company-header
 import {
   defaultPrintConfig,
   fetchPrintConfig,
+  fetchPrintHostInfo,
   fetchPrintPreview,
   fetchSystemPrinters,
   savePrintConfig,
   testPrint,
   type LitePrintConfig,
+  type LitePrintHostInfo,
   type LitePrintPreview,
   type LiteSystemPrinter,
 } from "../api/lite-print.api";
@@ -59,6 +61,10 @@ export function SettingsPrintersPage() {
   const [showCompanyPhone, setShowCompanyPhone] = useState(true);
   const [openCashDrawer, setOpenCashDrawer] = useState(false);
   const [textEncoding, setTextEncoding] = useState("cp850");
+  const [currencySymbol, setCurrencySymbol] = useState("$");
+  const [hostInfo, setHostInfo] = useState<LitePrintHostInfo | null>(null);
+  const [usbGuideOpen, setUsbGuideOpen] = useState(false);
+  const [refreshBusy, setRefreshBusy] = useState(false);
   const [previewKind, setPreviewKind] = useState<PreviewKind>("sale");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [preview, setPreview] = useState<LitePrintPreview | null>(null);
@@ -81,6 +87,7 @@ export function SettingsPrintersPage() {
     setShowCompanyPhone(cfg.showCompanyPhone !== false);
     setOpenCashDrawer(cfg.openCashDrawer === true);
     setTextEncoding(cfg.textEncoding || "cp850");
+    setCurrencySymbol(cfg.currencySymbol?.trim() || "$");
   }, []);
 
   const formConfig = useCallback((): LitePrintConfig => {
@@ -100,6 +107,7 @@ export function SettingsPrintersPage() {
       showCompanyPhone,
       openCashDrawer,
       textEncoding,
+      currencySymbol: currencySymbol.trim() || "$",
     };
   }, [
     displayName,
@@ -117,15 +125,17 @@ export function SettingsPrintersPage() {
     showCompanyPhone,
     openCashDrawer,
     textEncoding,
+    currencySymbol,
   ]);
 
   const reload = useCallback(() => {
     setLoading(true);
     setError(null);
-    void Promise.all([fetchPrintConfig(), fetchSystemPrinters()])
-      .then(([cfg, list]) => {
+    void Promise.all([fetchPrintConfig(), fetchSystemPrinters(), fetchPrintHostInfo()])
+      .then(([cfg, list, host]) => {
         syncFromSaved(cfg);
         setPrinters(list);
+        setHostInfo(host);
       })
       .catch((e) => setError(toUserMessage(e)))
       .finally(() => setLoading(false));
@@ -219,6 +229,25 @@ export function SettingsPrintersPage() {
     }
   }
 
+  async function handleRefreshPrinters() {
+    setRefreshBusy(true);
+    setFormError(null);
+    try {
+      const [list, host] = await Promise.all([fetchSystemPrinters(), fetchPrintHostInfo()]);
+      setPrinters(list);
+      setHostInfo(host);
+      setMsg(
+        list.length > 0
+          ? `Se encontraron ${list.length} impresora(s)`
+          : "No hay impresoras en Linux. Revisa si compartiste el USB con el contenedor.",
+      );
+    } catch (e) {
+      setFormError(toUserMessage(e));
+    } finally {
+      setRefreshBusy(false);
+    }
+  }
+
   async function handlePreview() {
     if (previewDocOptions.length === 0) return;
     setPreviewBusy(true);
@@ -241,6 +270,10 @@ export function SettingsPrintersPage() {
 
   const readOnly = !editing;
   const previewCols = preview?.cols ?? (paperProfile === "58mm" ? 32 : 42);
+  const isLinux = hostInfo?.os === "linux";
+  const linuxSectionTitle = hostInfo?.isCrostini
+    ? "Chromebook / Crostini (USB)"
+    : "Linux (impresora USB)";
 
   return (
     <div
@@ -323,7 +356,54 @@ export function SettingsPrintersPage() {
                 disabled={readOnly || busy}
                 data-test-id="print-sale-copies"
               />
+              <TextField
+                label="Símbolo de moneda"
+                placeholder="$"
+                value={currencySymbol}
+                onChange={(e) => setCurrencySymbol(e.target.value.slice(0, 4))}
+                readOnly={readOnly}
+                disabled={busy}
+                data-test-id="print-currency-symbol"
+              />
             </div>
+
+            {isLinux ? (
+              <div
+                className="space-y-3 rounded-md border border-dashed border-border p-3"
+                data-test-id="print-linux-usb-section"
+              >
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {linuxSectionTitle}
+                </h3>
+                {printers.length === 0 ? (
+                  <Alert variant="warning">
+                    No hay impresoras visibles en Linux. En Chromebook debes compartir el
+                    dispositivo USB con el entorno Linux antes de elegirlo aquí.
+                  </Alert>
+                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setUsbGuideOpen(true)}
+                    disabled={busy}
+                    data-test-id="print-usb-guide"
+                  >
+                    Guía: compartir impresora USB
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => void handleRefreshPrinters()}
+                    disabled={busy || refreshBusy}
+                    loading={refreshBusy}
+                    data-test-id="print-refresh-printers"
+                  >
+                    Actualizar lista de impresoras
+                  </Button>
+                </div>
+              </div>
+            ) : null}
 
             <div className="space-y-3">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -507,6 +587,56 @@ export function SettingsPrintersPage() {
             </div>
           </div>
         ) : null}
+      </Dialog>
+
+      <Dialog
+        open={usbGuideOpen}
+        onClose={() => setUsbGuideOpen(false)}
+        title={
+          hostInfo?.isCrostini
+            ? "Compartir impresora USB (Chromebook)"
+            : "Compartir impresora USB (Linux)"
+        }
+        data-test-id="print-usb-guide-dialog"
+      >
+        <div className="space-y-4 text-sm text-foreground">
+          <ol className="list-decimal space-y-3 pl-5">
+            <li>
+              Conectá la impresora de tickets por USB. En ChromeOS:{" "}
+              <strong>Configuración → Avanzada → Impresión y escaneo → Impresoras</strong>{" "}
+              (si no aparece como impresora del sistema, seguí al paso 2).
+            </li>
+            <li>
+              En ChromeOS:{" "}
+              <strong>
+                Configuración → Avanzada → Desarrolladores → Entorno de desarrollo de Linux →
+                Dispositivos USB
+              </strong>
+              . Activá el interruptor de la impresora para compartirla con Linux.
+            </li>
+            <li>
+              Volvé a Lite, pulsá <strong>Actualizar lista de impresoras</strong> y elegí la cola
+              en <strong>Impresora del SO</strong>. Lite imprime vía CUPS (`lp`).
+            </li>
+          </ol>
+          <p className="text-xs text-muted-foreground">
+            ChromeOS no permite a la app abrir ese panel automáticamente: el permiso USB se
+            otorga solo desde Configuración del Chromebook.
+          </p>
+          <div className="flex justify-end">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                setUsbGuideOpen(false);
+                void handleRefreshPrinters();
+              }}
+              data-test-id="print-usb-guide-refresh"
+            >
+              Actualizar impresoras
+            </Button>
+          </div>
+        </div>
       </Dialog>
     </div>
   );
