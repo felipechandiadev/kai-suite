@@ -673,6 +673,9 @@ async fn lite_admin_users_company_dashboard() {
     let uid = admin_id(&pool).await;
     let dash = admin::dashboard(&pool, &c).await.unwrap();
     assert!(dash.products >= 1);
+    assert_eq!(dash.sales_by_month.len(), 12);
+    assert_eq!(dash.sales_today_count, dash.sales_today);
+    assert!(dash.sales_mtd_amount >= 0.0);
     let co = admin::company_get(&pool, &c).await.unwrap();
     assert_eq!(co.company.id, c);
     admin::company_patch(
