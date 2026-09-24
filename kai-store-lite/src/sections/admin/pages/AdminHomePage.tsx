@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { BasicPageLayout, StatisticsCard } from "@kai/ui";
-import { coreFetch } from "@/lib/http";
+import { liteFetch } from "@/lib/lite-client";
 import { toUserMessage } from "@/lib/errors";
 import { formatClp } from "@/lib/format";
 import type { LiteDashboard } from "@/lib/lite-api";
@@ -18,7 +18,7 @@ export function AdminHomePage() {
 
   useEffect(() => {
     let cancelled = false;
-    void coreFetch<LiteDashboard>("/lite/dashboard")
+    void liteFetch<LiteDashboard>("/lite/dashboard")
       .then((r) => {
         if (!cancelled) {
           setDash(r);

@@ -1,4 +1,4 @@
-import { coreFetch } from "@/lib/http";
+import { liteFetch } from "@/lib/lite-client";
 import type { LiteCompanyPayload } from "@/lib/lite-api";
 
 export type LitePrintCompanyHeader = {
@@ -12,7 +12,7 @@ export type LitePrintCompanyHeader = {
 
 export async function fetchPrintCompanyHeader(): Promise<LitePrintCompanyHeader | undefined> {
   try {
-    const data = await coreFetch<LiteCompanyPayload>("/lite/company");
+    const data = await liteFetch<LiteCompanyPayload>("/lite/company");
     const c = data.company;
     if (!c) return undefined;
     const name =

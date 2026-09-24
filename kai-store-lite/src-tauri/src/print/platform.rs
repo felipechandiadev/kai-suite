@@ -11,17 +11,21 @@ pub struct SystemPrinterInfo {
     pub online: bool,
 }
 
-/// Enumera impresoras del SO (macOS `lpstat`, Windows PowerShell; stub en otros).
+/// Enumera impresoras del SO (macOS/Linux `lpstat`, Windows PowerShell).
 pub fn list_system_printers() -> Result<Vec<SystemPrinterInfo>, String> {
     #[cfg(target_os = "macos")]
     {
-        return list_mac();
+        return list_cups();
+    }
+    #[cfg(target_os = "linux")]
+    {
+        return list_cups();
     }
     #[cfg(target_os = "windows")]
     {
         return list_windows();
     }
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
         Ok(vec![SystemPrinterInfo {
             name: "stub-printer".into(),
@@ -31,8 +35,8 @@ pub fn list_system_printers() -> Result<Vec<SystemPrinterInfo>, String> {
     }
 }
 
-#[cfg(target_os = "macos")]
-fn list_mac() -> Result<Vec<SystemPrinterInfo>, String> {
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+fn list_cups() -> Result<Vec<SystemPrinterInfo>, String> {
     use std::process::Command;
 
     let default_q = Command::new("lpstat")
@@ -51,7 +55,7 @@ fn list_mac() -> Result<Vec<SystemPrinterInfo>, String> {
     let out = Command::new("lpstat")
         .args(["-a"])
         .output()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("lpstat: {e} (¿cups-client instalado?)"))?;
     let mut printers = Vec::new();
     if out.status.success() {
         let s = String::from_utf8_lossy(&out.stdout);
@@ -191,23 +195,23 @@ fn write_outbox(bytes: &[u8], human_label: &str) -> Result<(), String> {
 }
 
 fn print_raw_bytes_to_printer(printer: &str, data: &[u8]) -> Result<(), String> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     {
-        return print_raw_mac(printer, data);
+        return print_raw_cups(printer, data);
     }
     #[cfg(target_os = "windows")]
     {
         return print_raw_windows(printer, data);
     }
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     {
         info!(printer, len = data.len(), "stub raw print (unsupported OS)");
         Ok(())
     }
 }
 
-#[cfg(target_os = "macos")]
-fn print_raw_mac(printer: &str, data: &[u8]) -> Result<(), String> {
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+fn print_raw_cups(printer: &str, data: &[u8]) -> Result<(), String> {
     use std::process::Command;
 
     let id = uuid::Uuid::new_v4().to_string();

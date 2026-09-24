@@ -10,7 +10,7 @@ import {
   toIsoDate,
 } from "@/features/sales-reports/lib/report-dates";
 import { type ReportFormState } from "@/features/sales-reports/lib/report-form";
-import { coreFetch } from "@/lib/http";
+import { liteFetch } from "@/lib/lite-client";
 import { liteAdminApi } from "@/sections/admin/api/lite-admin.api";
 
 export type { ReportFormState } from "@/features/sales-reports/lib/report-form";
@@ -115,7 +115,7 @@ export function ReportParamsForm({
     const t = setTimeout(() => {
       startTransition(async () => {
         try {
-          const res = await coreFetch<{
+          const res = await liteFetch<{
             items: Array<{
               id: string;
               name?: string;

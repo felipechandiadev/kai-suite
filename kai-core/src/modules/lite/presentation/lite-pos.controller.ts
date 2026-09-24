@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, HttpStatus, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SkipTenant } from '@common/tenant';
 import { LiteCommerceService } from '../application/lite-commerce.service';
@@ -16,10 +16,19 @@ export class LitePosController {
   ) {}
 
   @Get('catalog')
-  @ApiOperation({ summary: 'Lite POS sellable catalog' })
-  async posCatalog(@Headers('authorization') auth?: string) {
+  @ApiOperation({ summary: 'Lite POS sellable catalog (paginated)' })
+  async posCatalog(
+    @Headers('authorization') auth: string | undefined,
+    @Query('q') q?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
     const companyId = await this.companies.fromBearer(auth);
-    return this.commerce.listPosCatalog(companyId);
+    return this.commerce.listPosCatalog(companyId, {
+      q,
+      page: page != null && page !== '' ? Number(page) : undefined,
+      pageSize: pageSize != null && pageSize !== '' ? Number(pageSize) : undefined,
+    });
   }
 
   @Post('sale')

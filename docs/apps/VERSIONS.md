@@ -67,7 +67,7 @@ Baseline; actualizar en bumps notables o PRs de release.
 
 | Archivo | Versión | Notas |
 |---------|---------|--------|
-| `/package.json` (monorepo) | **1.23.0** | Reloj del suite; bump en **cada** commit |
+| `/package.json` (monorepo) | **1.24.0** | Reloj del suite; bump en **cada** commit |
 
 ### 3.1 Clientes web (PWA)
 
@@ -87,7 +87,7 @@ Baseline; actualizar en bumps notables o PRs de release.
 
 | Carpeta | Versión | Notas |
 |---------|---------|--------|
-| `kai-core` (Kai Core) | **1.15.0** | `name`: `kai-core` legado |
+| `kai-core` (Kai Core) | **1.16.0** | `name`: `kai-core` legado |
 | `landing` | **1.1.0** | |
 | `services/kai-mail` | **1.1.0** | Workspace npm |
 | `services/kai-voice` | **1.1.0** | Python; `package.json` como marca |
@@ -98,7 +98,7 @@ Baseline; actualizar en bumps notables o PRs de release.
 |---------|---------|--------|
 | `kai-printers-android` | **1.2.1** (code **27**) | `version.properties` |
 | `kai-printers-desktop` | **1.2.1** | `package.json` + `tauri.conf.json` |
-| `kai-store-lite` | **0.2.0** | `package.json` + `tauri.conf.json` — POS+Admin+Printers desktop (Apple Silicon DMG / Win x64 MSI) |
+| `kai-store-lite` | **0.4.0** | `package.json` + `tauri.conf.json` — POS+Admin+Printers desktop (Apple Silicon DMG / Win x64 MSI) |
 | `kai-screen-android` (Kai CFD) | **1.2.0** (code **5**) | `version.properties` |
 
 ### 3.4 Paquetes internos (muestra)

@@ -14,9 +14,10 @@ import { useCollectionSearchQuery } from "@/shared/hooks/useCollectionSearchQuer
 import { CoreError } from "@/shared/components/AdminTable";
 import { LiteDataGrid, slicePage, type DataGridColumn } from "@/shared/components/LiteDataGrid";
 import { formatClp } from "@/lib/format";
-import { coreFetch } from "@/lib/http";
+import { liteFetch } from "@/lib/lite-client";
 import { toUserMessage } from "@/lib/errors";
 import { usePosCartStore } from "@/sections/pos/store/pos-cart.store";
+import { litePaymentLabel } from "@/sections/pos/lib/lite-payment-labels";
 
 const STATUS_LABEL: Record<string, string> = {
   OPEN: "Abierta",
@@ -73,7 +74,7 @@ export function CashSessionsPage() {
     setMovementsError(null);
     setMovementsLoading(true);
     try {
-      const res = await coreFetch<{ items: MovementRow[] }>(
+      const res = await liteFetch<{ items: MovementRow[] }>(
         `/lite/cash-sessions/${session.id}/movements`,
       );
       setMovements(res.items ?? []);
@@ -101,7 +102,7 @@ export function CashSessionsPage() {
     setCloseBusy(true);
     setCloseError(null);
     try {
-      await coreFetch(`/lite/cash-sessions/${closeFor.id}/close`, {
+      await liteFetch(`/lite/cash-sessions/${closeFor.id}/close`, {
         method: "POST",
         body: JSON.stringify({ closingAmount: amount }),
       });
@@ -274,7 +275,7 @@ export function CashSessionsPage() {
           <div className="space-y-3 text-sm">
             <p className="text-muted-foreground">
               {movementsFor.pointOfSaleName ?? "POS"} ·{" "}
-              {STATUS_LABEL[movementsFor.status ?? ""] ?? movementsFor.status} · Fondo{" "}
+              {STATUS_LABEL[movementsFor.status ?? ""] ?? movementsFor.status} · Fondo de apertura{" "}
               {formatClp(movementsFor.openingAmount ?? movementsFor.openingFloat ?? 0)}
             </p>
             {movementsError ? <Alert variant="error">{movementsError}</Alert> : null}
@@ -291,19 +292,13 @@ export function CashSessionsPage() {
                         <th className="px-3 py-2 font-medium">Fecha</th>
                         <th className="px-3 py-2 font-medium">Tipo</th>
                         <th className="px-3 py-2 font-medium">Documento</th>
-                        <th className="px-3 py-2 font-medium">Detalle</th>
+                        <th className="px-3 py-2 font-medium">Medio de pago</th>
                         <th className="px-3 py-2 text-right font-medium">Monto</th>
                       </tr>
                     </thead>
                     <tbody>
                       {movements.map((m) => {
                         const kind = m.kind ?? "sale";
-                        const detail =
-                          kind === "sale"
-                            ? m.method
-                            : m.reason?.trim()
-                              ? m.reason
-                              : "—";
                         return (
                           <tr key={m.id} className="border-t border-border/70">
                             <td className="px-3 py-2 whitespace-nowrap">
@@ -311,7 +306,9 @@ export function CashSessionsPage() {
                             </td>
                             <td className="px-3 py-2">{KIND_LABEL[kind] ?? kind}</td>
                             <td className="px-3 py-2 font-mono text-xs">{m.documentNumber}</td>
-                            <td className="px-3 py-2">{detail}</td>
+                            <td className="px-3 py-2">
+                              {litePaymentLabel(m.method || "CASH")}
+                            </td>
                             <td className="px-3 py-2 text-right">
                               {kind === "withdrawal" ? "−" : ""}
                               {formatClp(m.total)}

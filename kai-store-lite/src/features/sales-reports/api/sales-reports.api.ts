@@ -1,4 +1,4 @@
-import { coreFetch } from "@/lib/http";
+import { liteFetch } from "@/lib/lite-client";
 import { stripMarginFromSalesReport } from "@/features/sales-reports/lib/strip-margin";
 import type { SalesReportRunResult } from "@/features/sales-reports/types/sales-report.types";
 
@@ -7,7 +7,7 @@ export async function runSalesReport(
   params: Record<string, unknown>,
 ): Promise<{ success: true; data: SalesReportRunResult } | { success: false; error: string }> {
   try {
-    const data = await coreFetch<SalesReportRunResult>(
+    const data = await liteFetch<SalesReportRunResult>(
       `/sales-reports/${encodeURIComponent(reportId)}/run`,
       {
         method: "POST",

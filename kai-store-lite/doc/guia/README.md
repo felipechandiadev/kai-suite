@@ -25,8 +25,18 @@ Solo lo firmado en [`../07-decisiones-firmadas.md`](../07-decisiones-firmadas.md
 
 - **Admin:** misma IA que `kai-admin`, menús/rutas **recortados** a Lite.
 - **POS:** paridad de flujos con `kai-pos` (sin laundry/Food).
-- **Implementación:** Vite + React + `@kai/ui` + HTTP Core + `invoke` print/license — **no** Next.js.
+- **Implementación:** Vite + React + `@kai/ui` + `invoke` Lite/print/license — **no** Next.js.
 
 ## Estado
 
-Especificación v1.0 (2026-09-21). Al implementar, marcar checkboxes en `fases/` y no inventar paths fuera de `00-arbol-proyecto.md` sin actualizar esta guía.
+Especificación v1.0 (2026-09-21). Runtime **S4**: backend sqlx in-process (sin sidecar Node).
+
+## Track backend Rust (sqlx)
+
+Cutover completado (pasos 01–10):
+
+- Índice: [`../rust-lite/README.md`](../rust-lite/README.md)
+- Pasos 01–10: [`../rust-lite/pasos/README.md`](../rust-lite/pasos/README.md)
+- Matriz de tests: [`../rust-lite/pruebas/matriz-metodos.md`](../rust-lite/pruebas/matriz-metodos.md)
+
+La guía HTTP Nest (`04-api-core-lite.md`) queda como referencia histórica de contratos.

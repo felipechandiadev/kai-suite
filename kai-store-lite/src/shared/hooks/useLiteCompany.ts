@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { coreFetch } from "@/lib/http";
+import { liteFetch } from "@/lib/lite-client";
 import { toUserMessage } from "@/lib/errors";
 import type { LiteCompanyPayload } from "@/lib/lite-api";
 
@@ -11,7 +11,7 @@ export function useLiteCompany() {
   const reload = useCallback(() => {
     setLoading(true);
     setError(null);
-    void coreFetch<LiteCompanyPayload>("/lite/company")
+    void liteFetch<LiteCompanyPayload>("/lite/company")
       .then((r) => {
         setData(r);
         setLoading(false);

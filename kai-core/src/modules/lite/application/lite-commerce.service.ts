@@ -27,6 +27,7 @@ import {
 } from '@modules/transactions/domain/transaction.entity';
 import { TransactionLine } from '@modules/transaction-lines/domain/transaction-line.entity';
 import { DocumentNumberService } from '@modules/transactions/application/document-number.service';
+import { Attribute } from '@modules/attributes/domain/attribute.entity';
 import { User } from '@modules/users/domain/user.entity';
 import { LiteStockService } from './lite-stock.service';
 import { LitePosSaleDto } from './dto/lite-pos-sale.dto';
@@ -55,6 +56,16 @@ export type LiteSalePayment = {
   reference?: string;
 };
 
+export type LiteSaleLine = {
+  variantId: string;
+  qty: number;
+  unitPrice: number;
+  name?: string;
+  sku?: string | null;
+  attributesLabel?: string | null;
+  subtotal: number;
+};
+
 export type LiteSaleRecord = {
   id: string;
   companyId: string;
@@ -67,12 +78,7 @@ export type LiteSaleRecord = {
   customerId?: string;
   total: number;
   payments: LiteSalePayment[];
-  lines: Array<{
-    variantId: string;
-    qty: number;
-    unitPrice: number;
-    name?: string;
-  }>;
+  lines: LiteSaleLine[];
 };
 
 export type LiteReceptionRecord = {
@@ -111,6 +117,8 @@ export class LiteCommerceService {
     private readonly cashSessionRepo: Repository<CashSession>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(Attribute)
+    private readonly attributeRepo: Repository<Attribute>,
     private readonly stock: LiteStockService,
     private readonly documentNumbers: DocumentNumberService,
   ) {}
@@ -138,19 +146,33 @@ export class LiteCommerceService {
 
   async listPosCatalog(
     companyId: string,
-  ): Promise<{ items: LitePosCatalogItem[] }> {
+    opts?: { q?: string; page?: number; pageSize?: number },
+  ): Promise<{
+    items: LitePosCatalogItem[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const page = Math.max(1, Math.floor(opts?.page ?? 1) || 1);
+    const pageSize = Math.min(
+      50,
+      Math.max(1, Math.floor(opts?.pageSize ?? 20) || 20),
+    );
+    const q = (opts?.q ?? '').trim().toLowerCase();
+
     const variants = await this.variantRepo.find({
       where: { companyId },
       relations: ['product'],
       order: { sku: 'ASC' },
     });
 
-    const items: LitePosCatalogItem[] = [];
+    const all: LitePosCatalogItem[] = [];
     for (const v of variants) {
       const product = v.product;
       if (!product || product.deletedAt) continue;
       if (product.productType === ProductType.INSUMO) continue;
-      items.push({
+      if (!v.isActive || product.isActive === false) continue;
+      all.push({
         variantId: v.id,
         name: product.name,
         sku: v.sku,
@@ -159,7 +181,20 @@ export class LiteCommerceService {
         productType: product.productType,
       });
     }
-    return { items };
+
+    const filtered = !q
+      ? all
+      : all.filter((item) => {
+          const hay =
+            `${item.name} ${item.sku ?? ''} ${item.barcode ?? ''}`.toLowerCase();
+          return hay.includes(q);
+        });
+
+    const total = filtered.length;
+    const start = (page - 1) * pageSize;
+    const items = filtered.slice(start, start + pageSize);
+
+    return { items, total, page, pageSize };
   }
 
   async createPosSale(
@@ -297,12 +332,17 @@ export class LiteCommerceService {
     );
 
     let lineNumber = 1;
+    const attrById = await this.loadAttributeMap(companyId);
     for (const line of dto.lines) {
       const variant = byId.get(line.variantId)!;
       const product = variant.product!;
       const qty = Number(line.qty);
       const unitPrice = Number(line.unitPrice);
       const lineTotal = qty * unitPrice;
+      const attributesLabel = this.formatAttributesLabel(
+        this.parseAttributeValues(variant.attributeValues),
+        attrById,
+      );
       await this.transactionLineRepo.save(
         this.transactionLineRepo.create({
           companyId,
@@ -313,6 +353,7 @@ export class LiteCommerceService {
           lineNumber: lineNumber++,
           productName: product.name,
           productSku: variant.sku,
+          ...(attributesLabel ? { variantName: attributesLabel } : {}),
           quantity: qty,
           unitPrice,
           discountPercentage: 0,
@@ -426,7 +467,12 @@ export class LiteCommerceService {
         order: { lineNumber: 'ASC' },
       });
       items.push(
-        mapSaleRecord(tx, lines, userById.get(tx.userId) ?? null),
+        await this.toSaleRecord(
+          companyId,
+          tx,
+          lines,
+          userById.get(tx.userId) ?? null,
+        ),
       );
     }
     return { items };
@@ -450,7 +496,12 @@ export class LiteCommerceService {
     const user = tx.userId
       ? await this.userRepo.findOne({ where: { id: tx.userId } })
       : null;
-    return mapSaleRecord(tx, lines, user?.userName ?? null);
+    return this.toSaleRecord(
+      companyId,
+      tx,
+      lines,
+      user?.userName ?? null,
+    );
   }
 
   async voidSale(
@@ -523,7 +574,7 @@ export class LiteCommerceService {
     const user = tx.userId
       ? await this.userRepo.findOne({ where: { id: tx.userId } })
       : null;
-    return mapSaleRecord(tx, lines, user?.userName ?? null);
+    return this.toSaleRecord(companyId, tx, lines, user?.userName ?? null);
   }
 
   async listReceptions(companyId: string) {
@@ -747,48 +798,130 @@ export class LiteCommerceService {
     });
     return match?.id ?? null;
   }
-}
 
-function mapSaleRecord(
-  tx: Transaction,
-  lines: TransactionLine[],
-  userName: string | null,
-): LiteSaleRecord {
-  const method =
-    (tx.metadata?.method as string | undefined) ??
-    String(tx.paymentMethod ?? PaymentMethod.CASH);
-  const total = Number(tx.total ?? 0);
-  const metaPayments = tx.metadata?.litePayments as
-    | Array<{ method?: string; amount?: number; reference?: string }>
-    | undefined;
-  const payments: LiteSalePayment[] =
-    Array.isArray(metaPayments) && metaPayments.length > 0
-      ? metaPayments.map((p) => ({
-          method: String(p.method ?? method).toUpperCase(),
-          amount: Number(p.amount ?? 0),
-          ...(p.reference?.trim() ? { reference: p.reference.trim() } : {}),
-        }))
-      : [{ method: String(method).toUpperCase(), amount: total }];
+  private async toSaleRecord(
+    companyId: string,
+    tx: Transaction,
+    lines: TransactionLine[],
+    userName: string | null,
+  ): Promise<LiteSaleRecord> {
+    const method =
+      (tx.metadata?.method as string | undefined) ??
+      String(tx.paymentMethod ?? PaymentMethod.CASH);
+    const total = Number(tx.total ?? 0);
+    const metaPayments = tx.metadata?.litePayments as
+      | Array<{ method?: string; amount?: number; reference?: string }>
+      | undefined;
+    const payments: LiteSalePayment[] =
+      Array.isArray(metaPayments) && metaPayments.length > 0
+        ? metaPayments.map((p) => ({
+            method: String(p.method ?? method).toUpperCase(),
+            amount: Number(p.amount ?? 0),
+            ...(p.reference?.trim() ? { reference: p.reference.trim() } : {}),
+          }))
+        : [{ method: String(method).toUpperCase(), amount: total }];
 
-  return {
-    id: tx.id,
-    companyId: tx.companyId,
-    createdAt: tx.createdAt.toISOString(),
-    documentNumber: tx.documentNumber ?? tx.id,
-    status: String(tx.status ?? TransactionStatus.COMPLETED),
-    method: String(method).toUpperCase(),
-    userId: tx.userId ?? null,
-    userName: userName?.trim() || null,
-    customerId: tx.customerId,
-    total,
-    payments,
-    lines: lines.map((l) => ({
-      variantId: l.productVariantId ?? '',
-      qty: Number(l.quantity),
-      unitPrice: Number(l.unitPrice),
-      name: l.productName,
-    })),
-  };
+    return {
+      id: tx.id,
+      companyId: tx.companyId,
+      createdAt: tx.createdAt.toISOString(),
+      documentNumber: tx.documentNumber ?? tx.id,
+      status: String(tx.status ?? TransactionStatus.COMPLETED),
+      method: String(method).toUpperCase(),
+      userId: tx.userId ?? null,
+      userName: userName?.trim() || null,
+      customerId: tx.customerId,
+      total,
+      payments,
+      lines: await this.enrichSaleLines(companyId, lines),
+    };
+  }
+
+  private async enrichSaleLines(
+    companyId: string,
+    lines: TransactionLine[],
+  ): Promise<LiteSaleLine[]> {
+    const variantIds = [
+      ...new Set(
+        lines
+          .map((l) => l.productVariantId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const variants =
+      variantIds.length > 0
+        ? await this.variantRepo.find({
+            where: { id: In(variantIds), companyId },
+          })
+        : [];
+    const byVariant = new Map(variants.map((v) => [v.id, v]));
+    const attrById = await this.loadAttributeMap(companyId);
+
+    return lines.map((l) => {
+      const qty = Number(l.quantity);
+      const unitPrice = Number(l.unitPrice);
+      const variant = l.productVariantId
+        ? byVariant.get(l.productVariantId)
+        : undefined;
+      const snapshotLabel = l.variantName?.trim() || null;
+      const attributesLabel =
+        snapshotLabel ??
+        this.formatAttributesLabel(
+          this.parseAttributeValues(variant?.attributeValues),
+          attrById,
+        );
+      return {
+        variantId: l.productVariantId ?? '',
+        qty,
+        unitPrice,
+        name: l.productName,
+        sku: l.productSku ?? variant?.sku ?? null,
+        attributesLabel,
+        subtotal: Number(l.subtotal ?? qty * unitPrice),
+      };
+    });
+  }
+
+  private async loadAttributeMap(
+    companyId: string,
+  ): Promise<Map<string, Attribute>> {
+    const rows = await this.attributeRepo.find({ where: { companyId } });
+    return new Map(rows.map((a) => [a.id, a]));
+  }
+
+  private parseAttributeValues(
+    raw: unknown,
+  ): Record<string, string> | null {
+    if (raw == null) return null;
+    if (typeof raw === 'string') {
+      try {
+        const p = JSON.parse(raw) as unknown;
+        if (typeof p === 'object' && p != null && !Array.isArray(p)) {
+          return p as Record<string, string>;
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    }
+    if (typeof raw === 'object' && !Array.isArray(raw)) {
+      return raw as Record<string, string>;
+    }
+    return null;
+  }
+
+  private formatAttributesLabel(
+    values: Record<string, string> | null,
+    attrById: Map<string, Attribute>,
+  ): string | null {
+    if (!values || Object.keys(values).length === 0) return null;
+    const parts: string[] = [];
+    for (const [id, val] of Object.entries(values)) {
+      const name = attrById.get(id)?.name ?? id.slice(0, 8);
+      parts.push(`${name}: ${val}`);
+    }
+    return parts.length ? parts.join(' · ') : null;
+  }
 }
 
 function mapPaymentMethod(raw: string): PaymentMethod {

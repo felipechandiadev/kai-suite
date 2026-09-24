@@ -676,6 +676,52 @@ export class LiteOpsService {
       roles: [String(platformRole)],
     };
   }
+
+  async deleteUser(
+    companyId: string,
+    userId: string,
+    actorUserId: string,
+  ): Promise<{ ok: true }> {
+    if (userId === actorUserId) {
+      throw new BadRequestException('No puedes eliminar tu propio usuario');
+    }
+
+    const membership = await this.membershipRepo.findOne({
+      where: { companyId, userId },
+    });
+    if (!membership) {
+      throw new NotFoundException(`Usuario no encontrado: ${userId}`);
+    }
+    if (membership.isOwner) {
+      throw new BadRequestException(
+        'No se puede eliminar al propietario de la tienda',
+      );
+    }
+
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException(`Usuario no encontrado: ${userId}`);
+    }
+    if (user.nonDeletable) {
+      throw new BadRequestException('Este usuario no se puede eliminar');
+    }
+    if (user.companyId && user.companyId !== companyId) {
+      throw new BadRequestException('El usuario no pertenece a esta tienda');
+    }
+
+    const roles = await this.roleRepo.find({
+      where: { membershipId: membership.id },
+    });
+    if (roles.length > 0) {
+      await this.roleRepo.remove(roles);
+    }
+
+    membership.isActive = false;
+    await this.membershipRepo.save(membership);
+    await this.userRepo.softRemove(user);
+
+    return { ok: true };
+  }
 }
 
 function tenderBreakdownFromCounts(

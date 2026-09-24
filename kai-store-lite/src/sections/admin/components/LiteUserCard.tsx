@@ -1,6 +1,10 @@
+import { useState } from "react";
 import { Mail, Shield, UserRound } from "lucide-react";
-import { Badge, Card } from "@kai/ui";
+import { Badge, Card, DeleteDialog } from "@kai/ui";
 import type { LiteUser } from "@/lib/lite-api";
+import { liteFetch } from "@/lib/lite-client";
+import { toUserMessage } from "@/lib/errors";
+import { useAuth } from "@/providers/AuthProvider";
 
 const ROLE_LABEL: Record<string, string> = {
   OWNER: "Propietario",
@@ -19,13 +23,40 @@ function roleLabel(code: string): string {
 
 type LiteUserCardProps = {
   user: LiteUser;
+  onDeleted?: () => void;
   "data-test-id"?: string;
 };
 
-export function LiteUserCard({ user, "data-test-id": dataTestId }: LiteUserCardProps) {
+export function LiteUserCard({
+  user,
+  onDeleted,
+  "data-test-id": dataTestId,
+}: LiteUserCardProps) {
+  const { user: me } = useAuth();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteErrors, setDeleteErrors] = useState<string[]>([]);
+
   const displayName = user.name?.trim() || user.userName || "Usuario";
   const email = user.email ?? user.mail ?? null;
   const roles = user.roles ?? [];
+  const isOwner = roles.some((r) => r.trim().toUpperCase() === "OWNER");
+  const isSelf = Boolean(me?.id && me.id === user.id);
+  const canDelete = !isOwner && !isSelf;
+
+  async function remove() {
+    setDeleting(true);
+    setDeleteErrors([]);
+    try {
+      await liteFetch(`/lite/users/${user.id}`, { method: "DELETE" });
+      setDeleteOpen(false);
+      onDeleted?.();
+    } catch (e) {
+      setDeleteErrors([toUserMessage(e)]);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const media = (
     <div className="relative flex min-h-[7.5rem] w-full items-center justify-center overflow-hidden bg-gradient-to-br from-primary/[0.12] via-secondary/25 to-accent/15">
@@ -77,14 +108,51 @@ export function LiteUserCard({ user, "data-test-id": dataTestId }: LiteUserCardP
   );
 
   return (
-    <Card
-      fillHeight
-      className="h-full overflow-hidden border-border/90 shadow-sm transition-shadow duration-200 hover:shadow-md"
-      data-test-id={dataTestId}
-      media={media}
-      title={displayName}
-      subtitle={email ?? undefined}
-      content={content}
-    />
+    <>
+      <Card
+        fillHeight
+        className="h-full overflow-hidden border-border/90 shadow-sm transition-shadow duration-200 hover:shadow-md"
+        data-test-id={dataTestId}
+        media={media}
+        title={displayName}
+        subtitle={email ?? undefined}
+        content={content}
+        actions={
+          canDelete
+            ? [
+                {
+                  id: "delete",
+                  icon: "Trash2",
+                  ariaLabel: "Eliminar usuario",
+                  disabled: deleting,
+                  onClick: () => {
+                    setDeleteErrors([]);
+                    setDeleteOpen(true);
+                  },
+                },
+              ]
+            : undefined
+        }
+      />
+      <DeleteDialog
+        open={deleteOpen}
+        onClose={() => {
+          if (!deleting) {
+            setDeleteOpen(false);
+            setDeleteErrors([]);
+          }
+        }}
+        title="Eliminar usuario"
+        message={
+          <>
+            ¿Eliminar al usuario{" "}
+            <strong className="font-semibold">«{displayName}»</strong>?
+          </>
+        }
+        errors={deleteErrors}
+        isSubmitting={deleting}
+        onConfirm={() => void remove()}
+      />
+    </>
   );
 }

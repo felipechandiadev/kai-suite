@@ -1,4 +1,4 @@
-import { coreFetch } from "@/lib/http";
+import { liteFetch } from "@/lib/lite-client";
 import type { LiteCashSession } from "@/lib/lite-api";
 import type { LitePointOfSale } from "@/lib/lite-api";
 import { usePosCartStore } from "../store/pos-cart.store";
@@ -16,8 +16,8 @@ function sleep(ms: number) {
 /** Sesión OPEN del negocio Lite (mono-POS); cualquier OPEN cuenta. */
 export async function findOpenCashSession(): Promise<ResolvedOpenSession | null> {
   const [posRes, sessionsRes] = await Promise.all([
-    coreFetch<{ items: LitePointOfSale[] }>("/lite/points-of-sale"),
-    coreFetch<{ items: LiteCashSession[] }>("/lite/cash-sessions"),
+    liteFetch<{ items: LitePointOfSale[] }>("/lite/points-of-sale"),
+    liteFetch<{ items: LiteCashSession[] }>("/lite/cash-sessions"),
   ]);
 
   const posList = posRes.items ?? [];

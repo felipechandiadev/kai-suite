@@ -3,31 +3,31 @@ import { invoke } from "@tauri-apps/api/core";
 import { useLicense } from "@/providers/LicenseProvider";
 
 const MIN_MS = 1100;
-const SIDECAR_TIMEOUT_MS = 8000;
-const SIDECAR_POLL_MS = 400;
+const HEALTH_TIMEOUT_MS = 8000;
+const HEALTH_POLL_MS = 200;
 
 function removeBootSplash() {
   document.getElementById("boot-splash")?.remove();
   document.documentElement.classList.remove("boot-splash-active");
 }
 
-async function waitForSidecarReady(): Promise<void> {
+/** Wait until in-process Lite sqlx backend answers (no Node sidecar). */
+async function waitForLiteReady(): Promise<void> {
   const started = Date.now();
-  while (Date.now() - started < SIDECAR_TIMEOUT_MS) {
+  while (Date.now() - started < HEALTH_TIMEOUT_MS) {
     try {
-      const res = await invoke<{ ok: boolean }>("sidecar_health");
+      const res = await invoke<{ ok: boolean }>("lite_health");
       if (res.ok) return;
     } catch {
-      // Vite / sin Tauri: no bloquear
+      // Vite browser / sin Tauri: no bloquear
       return;
     }
-    await new Promise((r) => setTimeout(r, SIDECAR_POLL_MS));
+    await new Promise((r) => setTimeout(r, HEALTH_POLL_MS));
   }
 }
 
 /**
- * Mantiene el splash HTML (`#boot-splash`) hasta licencia + sidecar + tiempo mínimo.
- * No pinta un segundo splash React.
+ * Mantiene el splash HTML (`#boot-splash`) hasta licencia + lite backend + tiempo mínimo.
  */
 export function SplashGate({ children }: { children: ReactNode }) {
   const { loading: licenseLoading } = useLicense();
@@ -38,7 +38,7 @@ export function SplashGate({ children }: { children: ReactNode }) {
     const started = Date.now();
 
     void (async () => {
-      await waitForSidecarReady();
+      await waitForLiteReady();
       const elapsed = Date.now() - started;
       const remaining = Math.max(0, MIN_MS - elapsed);
       if (remaining > 0) {
