@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Alert, Button, Dialog, Select, TextField } from "@kai/ui";
-import { coreFetch } from "@/lib/http";
+import { liteFetch } from "@/lib/lite-client";
 import { toUserMessage } from "@/lib/errors";
 import type { LiteUser } from "@/lib/lite-api";
 
@@ -40,7 +40,7 @@ export function CreateLiteUserDialog({ open, onClose, onCreated }: Props) {
     setBusy(true);
     setError(null);
     try {
-      const user = await coreFetch<LiteUser>("/lite/users", {
+      const user = await liteFetch<LiteUser>("/lite/users", {
         method: "POST",
         body: JSON.stringify({
           userName: userName.trim(),

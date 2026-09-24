@@ -26,4 +26,17 @@ await sharp(src).resize(44, 44).png().toFile(path.join(icons, "tray-icon.png"));
 await sharp(src).resize(44, 44).png().toFile(path.join(icons, "tray-icon-mac.png"));
 
 console.log("Icons written to", icons);
-console.log("Run `npx tauri icon src-tauri/icons/icon.png` for .icns/.ico when shipping.");
+
+// Proper .ico/.icns (PNG renamed as .ico breaks llvm-rc on Windows cross-builds).
+const { spawnSync } = await import("node:child_process");
+const iconPng = path.join(icons, "icon.png");
+const r = spawnSync("npx", ["tauri", "icon", iconPng], {
+  cwd: root,
+  stdio: "inherit",
+  shell: process.platform === "win32",
+});
+if (r.status !== 0) {
+  console.warn(
+    "[generate-app-icons] tauri icon failed; ensure icon.ico is a real ICO before Windows builds",
+  );
+}

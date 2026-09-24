@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { coreFetch } from "@/lib/http";
+import { liteFetch } from "@/lib/lite-client";
 import { toUserMessage } from "@/lib/errors";
 
 export type LiteListState<T> = {
@@ -22,7 +22,7 @@ export function useLiteList<T>(path: string): LiteListState<T> {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    void coreFetch<{ items?: T[] }>(path)
+    void liteFetch<{ items?: T[] }>(path)
       .then((r) => {
         if (!cancelled) {
           setItems(r.items ?? []);

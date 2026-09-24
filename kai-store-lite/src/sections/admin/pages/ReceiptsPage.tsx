@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Alert, Button, Select, TextField } from "@kai/ui";
-import { coreFetch } from "@/lib/http";
+import { liteFetch } from "@/lib/lite-client";
 import { toUserMessage } from "@/lib/errors";
 import type { LiteCatalogItem } from "@/lib/lite-api";
 import { LitePage } from "@/shared/components/LitePage";
@@ -16,7 +16,7 @@ export function ReceiptsPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    void coreFetch<{ items: LiteCatalogItem[] }>("/lite/catalog")
+    void liteFetch<{ items: LiteCatalogItem[] }>("/lite/catalog")
       .then((r) => {
         const items = r.items ?? [];
         setCatalog(items);
@@ -42,7 +42,7 @@ export function ReceiptsPage() {
     }
     setBusy(true);
     try {
-      const res = await coreFetch<{ id: string }>("/lite/purchasing/receptions", {
+      const res = await liteFetch<{ id: string }>("/lite/purchasing/receptions", {
         method: "POST",
         body: JSON.stringify({
           supplierName: supplier.trim(),

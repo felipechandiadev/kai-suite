@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Alert, Button, Dialog, IconButton, TextField } from "@kai/ui";
-import { coreFetch } from "@/lib/http";
+import { liteFetch } from "@/lib/lite-client";
 import { toUserMessage } from "@/lib/errors";
 import { usePosCartStore } from "@/sections/pos/store/pos-cart.store";
 import { useSectionStore } from "./section-state.store";
@@ -50,7 +50,7 @@ export function CashSessionTitleBarActions() {
         dialog === "deposit"
           ? `/lite/cash-sessions/${cashSessionId}/deposit`
           : `/lite/cash-sessions/${cashSessionId}/withdrawal`;
-      await coreFetch(path, {
+      await liteFetch(path, {
         method: "POST",
         body: JSON.stringify({
           amount: value,

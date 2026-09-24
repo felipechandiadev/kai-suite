@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Alert } from "@kai/ui";
-import { coreFetch } from "@/lib/http";
+import { liteFetch } from "@/lib/lite-client";
 import { toUserMessage } from "@/lib/errors";
 import { SalesReportsWorkspace } from "@/features/sales-reports/ui/SalesReportsWorkspace";
 import { CoreError, LoadingLine } from "@/shared/components/AdminTable";
@@ -30,7 +30,7 @@ export function ReportsSalesPage() {
       setLoading(true);
       setError(null);
       try {
-        const cashRes = await coreFetch<{ items: CashItem[] }>("/lite/cash-sessions");
+        const cashRes = await liteFetch<{ items: CashItem[] }>("/lite/cash-sessions");
         if (cancelled) return;
         setCashSessions(
           (cashRes.items ?? []).map((s) => ({

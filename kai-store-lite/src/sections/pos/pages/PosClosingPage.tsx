@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Alert, Button, TextField } from "@kai/ui";
-import { coreFetch } from "@/lib/http";
+import { liteFetch } from "@/lib/lite-client";
 import { formatClp } from "@/lib/format";
 import { toUserMessage } from "@/lib/errors";
 import { useAuth } from "@/providers/AuthProvider";
@@ -55,7 +55,7 @@ export function PosClosingPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const pos = await coreFetch<PosCurrent>("/lite/points-of-sale/current");
+        const pos = await liteFetch<PosCurrent>("/lite/points-of-sale/current");
         if (cancelled) return;
         const enabled = normalizeEnabledMethods(pos.enabledPaymentMethods);
         const list = enabled.length > 0 ? enabled : [...LITE_FALLBACK_METHODS];
@@ -63,17 +63,16 @@ export function PosClosingPage() {
         setCounts((prev) => {
           const next: Record<string, number> = {};
           for (const m of list) {
-            next[m] =
-              m === "CASH"
-                ? (prev.CASH ?? openingFloat ?? 0)
-                : (prev[m] ?? 0);
+            next[m] = prev[m] ?? 0;
           }
           return next;
         });
       } catch {
         if (cancelled) return;
         setMethods([...LITE_FALLBACK_METHODS]);
-        setCounts({ CASH: openingFloat ?? 0 });
+        setCounts(
+          Object.fromEntries(LITE_FALLBACK_METHODS.map((m) => [m, 0])),
+        );
       } finally {
         if (!cancelled) setMethodsReady(true);
       }
@@ -81,7 +80,7 @@ export function PosClosingPage() {
     return () => {
       cancelled = true;
     };
-  }, [openingFloat]);
+  }, []);
 
   const totalCounted = useMemo(
     () => Object.values(counts).reduce((s, n) => s + (Number(n) || 0), 0),
@@ -98,7 +97,7 @@ export function PosClosingPage() {
         throw new Error("No hay sesión de caja abierta.");
       }
 
-      await coreFetch(`/lite/cash-sessions/${cashSessionId}/close`, {
+      await liteFetch(`/lite/cash-sessions/${cashSessionId}/close`, {
         method: "POST",
         body: JSON.stringify({
           closingAmount: cashCounted,

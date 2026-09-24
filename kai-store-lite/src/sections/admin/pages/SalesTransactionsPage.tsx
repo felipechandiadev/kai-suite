@@ -208,7 +208,6 @@ export function SalesTransactionsPage() {
   return (
     <CollectionPageLayout
       title="Transacciones"
-      subtitle="Ventas registradas en esta tienda Lite."
       showSearch
       data-test-id="sales-transactions-page"
     >
@@ -288,12 +287,31 @@ export function SalesTransactionsPage() {
               <span className="text-muted-foreground">Total:</span> {formatClp(detail.total)}
             </p>
             <AdminTable
-              columns={["Producto", "Cant.", "P. unit."]}
-              rows={(detail.lines ?? []).map((l) => [
-                l.name ?? l.variantId,
-                String(l.qty),
-                formatClp(l.unitPrice),
-              ])}
+              columns={["Producto", "Cant.", "P. unit.", "Subtotal"]}
+              rows={(detail.lines ?? []).map((l) => {
+                const subtotal =
+                  l.subtotal != null
+                    ? Number(l.subtotal)
+                    : Number(l.qty) * Number(l.unitPrice);
+                return [
+                  <div key="product" className="min-w-0">
+                    <div className="font-medium text-foreground">
+                      {l.name ?? l.variantId}
+                    </div>
+                    {l.sku ? (
+                      <div className="text-xs text-muted-foreground">{l.sku}</div>
+                    ) : null}
+                    {l.attributesLabel ? (
+                      <div className="text-xs text-muted-foreground">
+                        {l.attributesLabel}
+                      </div>
+                    ) : null}
+                  </div>,
+                  String(l.qty),
+                  formatClp(l.unitPrice),
+                  formatClp(subtotal),
+                ];
+              })}
               empty="Sin líneas"
             />
           </div>

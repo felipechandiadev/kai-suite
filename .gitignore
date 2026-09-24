@@ -52,6 +52,10 @@ kai-printers-desktop/src-tauri/src-tauri/target/
 kai-printers-desktop/assets/.icons-mac-tmp/
 kai-store-lite/src-tauri/target/
 kai-store-lite/.data/
+kai-store-lite/.cache/
+kai-store-lite/dist-release/
+kai-store-lite/src-tauri/resources/sidecar/
+.cache/cargo-linux-deb/
 
 # Cursor IDE
 .cursor/*.log

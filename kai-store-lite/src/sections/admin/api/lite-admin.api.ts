@@ -1,4 +1,4 @@
-import { coreFetch } from "@/lib/http";
+import { liteFetch } from "@/lib/lite-client";
 
 /** Variante anidada en fila de producto (catálogo expandible, estilo Suite). */
 export type LiteProductVariantRow = {
@@ -134,7 +134,15 @@ export type LiteSaleRow = {
   userName?: string | null;
   total: number;
   payments?: LiteSalePayment[];
-  lines?: Array<{ variantId: string; qty: number; unitPrice: number; name?: string }>;
+  lines?: Array<{
+    variantId: string;
+    qty: number;
+    unitPrice: number;
+    name?: string;
+    sku?: string | null;
+    attributesLabel?: string | null;
+    subtotal?: number;
+  }>;
 };
 
 export type LitePosCurrent = {
@@ -170,7 +178,7 @@ export type LitePackLine = {
 };
 
 export const liteAdminApi = {
-  products: () => coreFetch<{ items: LiteProductRow[] }>("/lite/products"),
+  products: () => liteFetch<{ items: LiteProductRow[] }>("/lite/products"),
   createProduct: (body: {
     name: string;
     productType: string;
@@ -181,7 +189,7 @@ export const liteAdminApi = {
     categoryId?: string;
     isActive?: boolean;
   }) =>
-    coreFetch<{ productId: string; variantId: string }>("/lite/products", {
+    liteFetch<{ productId: string; variantId: string }>("/lite/products", {
       method: "POST",
       body: JSON.stringify(body),
     }),
@@ -196,7 +204,7 @@ export const liteAdminApi = {
       isActive?: boolean;
     }>,
   ) =>
-    coreFetch<{
+    liteFetch<{
       items: Array<{
         sku: string;
         name: string;
@@ -210,12 +218,12 @@ export const liteAdminApi = {
       body: JSON.stringify({ lines }),
     }),
   patchProduct: (productId: string, body: Record<string, unknown>) =>
-    coreFetch(`/lite/products/${productId}`, {
+    liteFetch(`/lite/products/${productId}`, {
       method: "PATCH",
       body: JSON.stringify(body),
     }),
   productVariants: (productId: string) =>
-    coreFetch<{
+    liteFetch<{
       productId: string;
       productName: string;
       productType: string;
@@ -231,21 +239,21 @@ export const liteAdminApi = {
       isActive?: boolean;
     },
   ) =>
-    coreFetch<LiteVariantDetail>(`/lite/products/${productId}/variants`, {
+    liteFetch<LiteVariantDetail>(`/lite/products/${productId}/variants`, {
       method: "POST",
       body: JSON.stringify(body),
     }),
   patchVariant: (variantId: string, body: Record<string, unknown>) =>
-    coreFetch<LiteVariantDetail>(`/lite/variants/${variantId}`, {
+    liteFetch<LiteVariantDetail>(`/lite/variants/${variantId}`, {
       method: "PATCH",
       body: JSON.stringify(body),
     }),
   variantDetail: (variantId: string) =>
-    coreFetch<LiteVariantDetail>(`/lite/variants/${variantId}`),
+    liteFetch<LiteVariantDetail>(`/lite/variants/${variantId}`),
   getPack: (variantId: string) =>
-    coreFetch<{ lines: LitePackLine[] }>(`/lite/variants/${variantId}/pack`),
+    liteFetch<{ lines: LitePackLine[] }>(`/lite/variants/${variantId}/pack`),
   putPack: (variantId: string, lines: LitePackLine[]) =>
-    coreFetch(`/lite/variants/${variantId}/pack`, {
+    liteFetch(`/lite/variants/${variantId}/pack`, {
       method: "PUT",
       body: JSON.stringify({
         lines: lines.map((l) => ({
@@ -254,14 +262,14 @@ export const liteAdminApi = {
         })),
       }),
     }),
-  stock: () => coreFetch<{ items: LiteStockRow[] }>("/lite/stock"),
+  stock: () => liteFetch<{ items: LiteStockRow[] }>("/lite/stock"),
   adjustStock: (body: {
     variantId: string;
     storageId?: string;
     targetQty: number;
     note?: string;
   }) =>
-    coreFetch("/lite/stock/adjust", {
+    liteFetch("/lite/stock/adjust", {
       method: "POST",
       body: JSON.stringify(body),
     }),
@@ -271,7 +279,7 @@ export const liteAdminApi = {
     delta: number;
     note?: string;
   }) =>
-    coreFetch("/lite/stock/delta", {
+    liteFetch("/lite/stock/delta", {
       method: "POST",
       body: JSON.stringify(body),
     }),
@@ -282,44 +290,44 @@ export const liteAdminApi = {
     quantity: number;
     note?: string;
   }) =>
-    coreFetch("/lite/stock/transfer", {
+    liteFetch("/lite/stock/transfer", {
       method: "POST",
       body: JSON.stringify(body),
     }),
-  units: () => coreFetch<{ items: LiteUnitRow[] }>("/lite/units"),
+  units: () => liteFetch<{ items: LiteUnitRow[] }>("/lite/units"),
   createUnit: (body: Partial<LiteUnitRow> & { name: string; symbol: string }) =>
-    coreFetch("/lite/units", { method: "POST", body: JSON.stringify(body) }),
+    liteFetch("/lite/units", { method: "POST", body: JSON.stringify(body) }),
   patchUnit: (id: string, body: Partial<LiteUnitRow>) =>
-    coreFetch(`/lite/units/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
-  storages: () => coreFetch<{ items: LiteStorageRow[] }>("/lite/storages"),
+    liteFetch(`/lite/units/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  storages: () => liteFetch<{ items: LiteStorageRow[] }>("/lite/storages"),
   createStorage: (body: { name: string; isDefault?: boolean }) =>
-    coreFetch("/lite/storages", { method: "POST", body: JSON.stringify(body) }),
+    liteFetch("/lite/storages", { method: "POST", body: JSON.stringify(body) }),
   patchStorage: (id: string, body: Partial<LiteStorageRow>) =>
-    coreFetch(`/lite/storages/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
-  categories: () => coreFetch<{ items: LiteCategoryRow[] }>("/lite/categories"),
+    liteFetch(`/lite/storages/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  categories: () => liteFetch<{ items: LiteCategoryRow[] }>("/lite/categories"),
   createCategory: (body: { name: string; description?: string; parentId?: string }) =>
-    coreFetch("/lite/categories", { method: "POST", body: JSON.stringify(body) }),
+    liteFetch("/lite/categories", { method: "POST", body: JSON.stringify(body) }),
   patchCategory: (id: string, body: Partial<LiteCategoryRow>) =>
-    coreFetch(`/lite/categories/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    liteFetch(`/lite/categories/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteCategory: (id: string) =>
-    coreFetch(`/lite/categories/${id}`, { method: "DELETE" }),
-  attributes: () => coreFetch<{ items: LiteAttributeRow[] }>("/lite/attributes"),
+    liteFetch(`/lite/categories/${id}`, { method: "DELETE" }),
+  attributes: () => liteFetch<{ items: LiteAttributeRow[] }>("/lite/attributes"),
   createAttribute: (body: { name: string; description?: string; options?: string[] }) =>
-    coreFetch("/lite/attributes", { method: "POST", body: JSON.stringify(body) }),
+    liteFetch("/lite/attributes", { method: "POST", body: JSON.stringify(body) }),
   patchAttribute: (id: string, body: Partial<LiteAttributeRow>) =>
-    coreFetch(`/lite/attributes/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    liteFetch(`/lite/attributes/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteAttribute: (id: string) =>
-    coreFetch(`/lite/attributes/${id}`, { method: "DELETE" }),
-  sales: () => coreFetch<{ items: LiteSaleRow[] }>("/lite/sales"),
-  sale: (id: string) => coreFetch<LiteSaleRow>(`/lite/sales/${id}`),
+    liteFetch(`/lite/attributes/${id}`, { method: "DELETE" }),
+  sales: () => liteFetch<{ items: LiteSaleRow[] }>("/lite/sales"),
+  sale: (id: string) => liteFetch<LiteSaleRow>(`/lite/sales/${id}`),
   voidSale: (id: string, body?: { reason?: string }) =>
-    coreFetch<LiteSaleRow>(`/lite/sales/${id}/void`, {
+    liteFetch<LiteSaleRow>(`/lite/sales/${id}/void`, {
       method: "POST",
       body: JSON.stringify(body ?? {}),
     }),
-  posCurrent: () => coreFetch<LitePosCurrent>("/lite/points-of-sale/current"),
+  posCurrent: () => liteFetch<LitePosCurrent>("/lite/points-of-sale/current"),
   patchPosCurrent: (body: Partial<LitePosCurrent>) =>
-    coreFetch("/lite/points-of-sale/current", {
+    liteFetch("/lite/points-of-sale/current", {
       method: "PATCH",
       body: JSON.stringify(body),
     }),
@@ -334,5 +342,5 @@ export const liteAdminApi = {
     phone?: string | null;
     mail?: string | null;
   }) =>
-    coreFetch("/lite/company", { method: "PATCH", body: JSON.stringify(body) }),
+    liteFetch("/lite/company", { method: "PATCH", body: JSON.stringify(body) }),
 };

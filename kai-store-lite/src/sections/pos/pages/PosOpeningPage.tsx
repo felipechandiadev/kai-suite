@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Alert, Button, TextField } from "@kai/ui";
-import { coreFetch } from "@/lib/http";
+import { liteFetch } from "@/lib/lite-client";
 import { toUserMessage } from "@/lib/errors";
 import type { LitePointOfSale } from "@/lib/lite-api";
 import {
@@ -44,14 +44,14 @@ export function PosOpeningPage({ bootstrapError = null }: Props) {
     setBusy(true);
     setErr(null);
     try {
-      const posRes = await coreFetch<{ items: LitePointOfSale[] }>("/lite/points-of-sale");
+      const posRes = await liteFetch<{ items: LitePointOfSale[] }>("/lite/points-of-sale");
       const pos = posRes.items?.[0];
       if (!pos?.id) {
         throw new Error("No hay punto de venta. Ejecutá seed en Admin → Acerca de.");
       }
 
       try {
-        const session = await coreFetch<{ id: string }>("/lite/cash-sessions", {
+        const session = await liteFetch<{ id: string }>("/lite/cash-sessions", {
           method: "POST",
           body: JSON.stringify({
             pointOfSaleId: pos.id,

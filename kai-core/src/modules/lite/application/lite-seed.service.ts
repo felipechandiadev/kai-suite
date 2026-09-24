@@ -269,6 +269,270 @@ export class LiteSeedService {
     return { categoriesCreated, attributesCreated };
   }
 
+  /**
+   * Catálogo demo POS (~30 productos). Idempotente por SKU: re-ejecutar seed
+   * con admin existente completa los faltantes sin duplicar.
+   */
+  async ensureDemoProducts(companyId: string): Promise<{
+    createdProducts: number;
+    skippedSkus: number;
+    sampleVariantIds: NonNullable<LiteSeedResult['sampleVariantIds']>;
+  }> {
+    const unit =
+      (await this.unitRepo.findOne({
+        where: { companyId, symbol: 'UN' },
+      })) ??
+      (await this.unitRepo.findOne({ where: { companyId }, order: { createdAt: 'ASC' } }));
+    if (!unit) {
+      throw new Error('Lite seed: falta unidad base (UN) antes de productos demo');
+    }
+
+    let tax = await this.taxRepo.findOne({
+      where: { companyId, isDefault: true },
+    });
+    if (!tax) {
+      tax = await this.taxRepo.findOne({ where: { companyId } });
+    }
+    if (!tax) {
+      throw new Error('Lite seed: falta impuesto antes de productos demo');
+    }
+
+    const storage =
+      (await this.storageRepo.findOne({
+        where: { companyId, isDefault: true },
+      })) ??
+      (await this.storageRepo.findOne({
+        where: { companyId },
+        order: { createdAt: 'ASC' },
+      }));
+    if (!storage) {
+      throw new Error('Lite seed: falta bodega antes de productos demo');
+    }
+
+    const tallaAttr = await this.attributeRepo.findOne({
+      where: { companyId, name: 'Talla' },
+    });
+
+    type DemoSample = {
+      name: string;
+      type: ProductType;
+      sku: string;
+      basePrice: number;
+      stock?: number;
+      key?: 'physical' | 'service' | 'pack';
+      barcode?: string;
+      extraVariants?: Array<{
+        sku: string;
+        basePrice: number;
+        stock?: number;
+        attributeValues?: Record<string, string>;
+        barcode?: string;
+      }>;
+      attributeValues?: Record<string, string>;
+    };
+
+    const retailExtras: Array<{
+      name: string;
+      sku: string;
+      basePrice: number;
+      stock: number;
+      barcode: string;
+    }> = [
+      { name: 'Café molido 500g', sku: 'P-010', basePrice: 4590, stock: 40, barcode: '7801001000101' },
+      { name: 'Azúcar 1kg', sku: 'P-011', basePrice: 1290, stock: 80, barcode: '7801001000118' },
+      { name: 'Aceite vegetal 900ml', sku: 'P-012', basePrice: 2490, stock: 55, barcode: '7801001000125' },
+      { name: 'Galletas surtidas', sku: 'P-013', basePrice: 990, stock: 100, barcode: '7801001000132' },
+      { name: 'Bebida cola 1.5L', sku: 'P-014', basePrice: 1590, stock: 120, barcode: '7801001000149' },
+      { name: 'Agua mineral 1.5L', sku: 'P-015', basePrice: 890, stock: 150, barcode: '7801001000156' },
+      { name: 'Pan de molde', sku: 'P-016', basePrice: 1790, stock: 35, barcode: '7801001000163' },
+      { name: 'Leche entera 1L', sku: 'P-017', basePrice: 1190, stock: 60, barcode: '7801001000170' },
+      { name: 'Yogurt natural', sku: 'P-018', basePrice: 690, stock: 70, barcode: '7801001000187' },
+      { name: 'Arroz grado 1 1kg', sku: 'P-019', basePrice: 1490, stock: 90, barcode: '7801001000194' },
+      { name: 'Fideos spaghetti', sku: 'P-020', basePrice: 890, stock: 85, barcode: '7801001000200' },
+      { name: 'Jabón líquido 500ml', sku: 'P-021', basePrice: 2290, stock: 45, barcode: '7801001000217' },
+      { name: 'Shampoo 400ml', sku: 'P-022', basePrice: 3490, stock: 40, barcode: '7801001000224' },
+      { name: 'Papel higiénico 4u', sku: 'P-023', basePrice: 2990, stock: 50, barcode: '7801001000231' },
+      { name: 'Detergente 3L', sku: 'P-024', basePrice: 4990, stock: 30, barcode: '7801001000248' },
+      { name: 'Cerveza lata 350ml', sku: 'P-025', basePrice: 890, stock: 200, barcode: '7801001000255' },
+      { name: 'Vino tinto 750ml', sku: 'P-026', basePrice: 4990, stock: 25, barcode: '7801001000262' },
+      { name: 'Chocolate barra', sku: 'P-027', basePrice: 1290, stock: 75, barcode: '7801001000279' },
+      { name: 'Papas fritas 150g', sku: 'P-028', basePrice: 1590, stock: 65, barcode: '7801001000286' },
+      { name: 'Jugo naranja 1L', sku: 'P-029', basePrice: 1890, stock: 40, barcode: '7801001000293' },
+      { name: 'Mantequilla 250g', sku: 'P-030', basePrice: 2490, stock: 35, barcode: '7801001000309' },
+      { name: 'Huevos docena', sku: 'P-031', basePrice: 2990, stock: 40, barcode: '7801001000316' },
+      { name: 'Queso gauda 200g', sku: 'P-032', basePrice: 3290, stock: 30, barcode: '7801001000323' },
+      { name: 'Tomate kg', sku: 'P-033', basePrice: 1590, stock: 50, barcode: '7801001000330' },
+      { name: 'Cebolla kg', sku: 'P-034', basePrice: 990, stock: 50, barcode: '7801001000347' },
+      { name: 'Plátano kg', sku: 'P-035', basePrice: 1290, stock: 45, barcode: '7801001000354' },
+      { name: 'Manzana kg', sku: 'P-036', basePrice: 1490, stock: 45, barcode: '7801001000361' },
+    ];
+
+    const sampleProducts: DemoSample[] = [
+      {
+        name: 'Producto físico',
+        type: ProductType.PHYSICAL,
+        sku: 'P-001-S',
+        basePrice: 1990,
+        stock: 20,
+        key: 'physical',
+        barcode: '7801001000019',
+        attributeValues:
+          tallaAttr != null ? { [tallaAttr.id]: 'S' } : undefined,
+        extraVariants: [
+          {
+            sku: 'P-001-M',
+            basePrice: 1990,
+            stock: 15,
+            barcode: '7801001000026',
+            attributeValues:
+              tallaAttr != null ? { [tallaAttr.id]: 'M' } : undefined,
+          },
+        ],
+      },
+      {
+        name: 'Servicio',
+        type: ProductType.SERVICE,
+        sku: 'S-001',
+        basePrice: 5000,
+        key: 'service',
+      },
+      {
+        name: 'Pack',
+        type: ProductType.PACK,
+        sku: 'K-001',
+        basePrice: 9990,
+        key: 'pack',
+      },
+      ...retailExtras.map((r) => ({
+        name: r.name,
+        type: ProductType.PHYSICAL,
+        sku: r.sku,
+        basePrice: r.basePrice,
+        stock: r.stock,
+        barcode: r.barcode,
+      })),
+    ];
+
+    const sampleVariantIds: NonNullable<LiteSeedResult['sampleVariantIds']> =
+      {};
+    let createdProducts = 0;
+    let skippedSkus = 0;
+
+    for (const sample of sampleProducts) {
+      const existingPrimary = await this.variantRepo.findOne({
+        where: { companyId, sku: sample.sku },
+      });
+      if (existingPrimary) {
+        skippedSkus += 1;
+        if (sample.key) {
+          sampleVariantIds[sample.key] = existingPrimary.id;
+        }
+        for (const ev of sample.extraVariants ?? []) {
+          const existingExtra = await this.variantRepo.findOne({
+            where: { companyId, sku: ev.sku },
+          });
+          if (existingExtra) skippedSkus += 1;
+        }
+        continue;
+      }
+
+      const product = await this.productRepo.save(
+        this.productRepo.create({
+          companyId,
+          name: sample.name,
+          productType: sample.type,
+          taxIds: [tax.id],
+          baseUnitId: unit.id,
+          isActive: true,
+          visibleInEShop: false,
+          onMenu: false,
+        }),
+      );
+      createdProducts += 1;
+
+      const trackInventory = sample.type === ProductType.PHYSICAL;
+      const variantDefs: Array<{
+        sku: string;
+        basePrice: number;
+        stock?: number;
+        attributeValues?: Record<string, string>;
+        barcode?: string;
+        isPrimary?: boolean;
+      }> = [
+        {
+          sku: sample.sku,
+          basePrice: sample.basePrice,
+          stock: sample.stock,
+          attributeValues: sample.attributeValues,
+          barcode: sample.barcode,
+          isPrimary: true,
+        },
+        ...(sample.extraVariants ?? []).map((ev) => ({
+          ...ev,
+          isPrimary: false as const,
+        })),
+      ];
+
+      for (const def of variantDefs) {
+        const existingSku = await this.variantRepo.findOne({
+          where: { companyId, sku: def.sku },
+        });
+        if (existingSku) {
+          skippedSkus += 1;
+          if (def.isPrimary && sample.key) {
+            sampleVariantIds[sample.key] = existingSku.id;
+          }
+          continue;
+        }
+
+        const variant = await this.variantRepo.save(
+          this.variantRepo.create({
+            companyId,
+            productId: product.id,
+            sku: def.sku,
+            barcode: def.barcode,
+            basePrice: def.basePrice,
+            baseCost: 0,
+            unitId: unit.id,
+            stockBaseUnitId: unit.id,
+            saleUnitId: unit.id,
+            purchaseUnitId: unit.id,
+            taxIds: [tax.id],
+            trackInventory,
+            allowNegativeStock: false,
+            isActive: true,
+            visibleInEShop: false,
+            attributeValues: def.attributeValues,
+          }),
+        );
+
+        if (def.isPrimary && sample.key) {
+          sampleVariantIds[sample.key] = variant.id;
+        }
+
+        if (def.stock != null && trackInventory) {
+          await this.stockLevelRepo.save(
+            this.stockLevelRepo.create({
+              companyId,
+              productVariantId: variant.id,
+              storageId: storage.id,
+              physicalStock: def.stock,
+              committedStock: 0,
+              availableStock: def.stock,
+              incomingStock: 0,
+            }),
+          );
+        }
+      }
+    }
+
+    this.logger.log(
+      `Lite demo products company=${companyId} created=${createdProducts} skippedSkus=${skippedSkus}`,
+    );
+
+    return { createdProducts, skippedSkus, sampleVariantIds };
+  }
+
   async runMinimalSeed(): Promise<LiteSeedResult> {
     const adminUserName = process.env.LITE_SEED_ADMIN_USERNAME?.trim() || 'admin';
     const adminPassword =
@@ -284,12 +548,14 @@ export class LiteSeedService {
       if (companyId) {
         const units = await this.ensureUnitsCatalog(companyId);
         const tax = await this.ensureTaxonomyCatalog(companyId);
+        const demo = await this.ensureDemoProducts(companyId);
         return {
           seeded: false,
           adminUserName,
           adminUserId: existing.id,
           companyId,
-          message: `Admin ya existe; unidades (creadas: ${units.created.join(',') || '—'}; sync: ${units.synced.join(',') || '—'}); categorías: ${tax.categoriesCreated.join(',') || '—'}; atributos: ${tax.attributesCreated.join(',') || '—'}`,
+          sampleVariantIds: demo.sampleVariantIds,
+          message: `Admin ya existe; unidades (creadas: ${units.created.join(',') || '—'}; sync: ${units.synced.join(',') || '—'}); categorías: ${tax.categoriesCreated.join(',') || '—'}; atributos: ${tax.attributesCreated.join(',') || '—'}; productos demo (+${demo.createdProducts}, skip ${demo.skippedSkus})`,
         };
       }
       return {
@@ -321,13 +587,10 @@ export class LiteSeedService {
       }),
     );
 
-    const { baseUnit: unit } = await this.ensureUnitsCatalog(company.id);
+    await this.ensureUnitsCatalog(company.id);
     await this.ensureTaxonomyCatalog(company.id);
-    const tallaAttr = await this.attributeRepo.findOne({
-      where: { companyId: company.id, name: 'Talla' },
-    });
 
-    const tax = await this.taxRepo.save(
+    await this.taxRepo.save(
       this.taxRepo.create({
         companyId: company.id,
         name: 'IVA 19%',
@@ -447,134 +710,8 @@ export class LiteSeedService {
       }),
     );
 
-    const sampleProducts: Array<{
-      name: string;
-      type: ProductType;
-      sku: string;
-      basePrice: number;
-      stock?: number;
-      key: 'physical' | 'service' | 'pack';
-      /** Extra sibling variants (same product) for multi-variant smoke. */
-      extraVariants?: Array<{
-        sku: string;
-        basePrice: number;
-        stock?: number;
-        attributeValues?: Record<string, string>;
-      }>;
-      attributeValues?: Record<string, string>;
-    }> = [
-      {
-        name: 'Producto físico',
-        type: ProductType.PHYSICAL,
-        sku: 'P-001-S',
-        basePrice: 1990,
-        stock: 20,
-        key: 'physical',
-        attributeValues:
-          tallaAttr != null ? { [tallaAttr.id]: 'S' } : undefined,
-        extraVariants: [
-          {
-            sku: 'P-001-M',
-            basePrice: 1990,
-            stock: 15,
-            attributeValues:
-              tallaAttr != null ? { [tallaAttr.id]: 'M' } : undefined,
-          },
-        ],
-      },
-      {
-        name: 'Servicio',
-        type: ProductType.SERVICE,
-        sku: 'S-001',
-        basePrice: 5000,
-        key: 'service',
-      },
-      {
-        name: 'Pack',
-        type: ProductType.PACK,
-        sku: 'K-001',
-        basePrice: 9990,
-        key: 'pack',
-      },
-    ];
-
-    const sampleVariantIds: LiteSeedResult['sampleVariantIds'] = {};
-
-    for (const sample of sampleProducts) {
-      const product = await this.productRepo.save(
-        this.productRepo.create({
-          companyId: company.id,
-          name: sample.name,
-          productType: sample.type,
-          taxIds: [tax.id],
-          baseUnitId: unit.id,
-          isActive: true,
-          visibleInEShop: false,
-          onMenu: false,
-        }),
-      );
-
-      const trackInventory = sample.type === ProductType.PHYSICAL;
-      const variantDefs: Array<{
-        sku: string;
-        basePrice: number;
-        stock?: number;
-        attributeValues?: Record<string, string>;
-        isPrimary?: boolean;
-      }> = [
-        {
-          sku: sample.sku,
-          basePrice: sample.basePrice,
-          stock: sample.stock,
-          attributeValues: sample.attributeValues,
-          isPrimary: true,
-        },
-        ...(sample.extraVariants ?? []).map((ev) => ({
-          ...ev,
-          isPrimary: false as const,
-        })),
-      ];
-
-      for (const def of variantDefs) {
-        const variant = await this.variantRepo.save(
-          this.variantRepo.create({
-            companyId: company.id,
-            productId: product.id,
-            sku: def.sku,
-            basePrice: def.basePrice,
-            baseCost: 0,
-            unitId: unit.id,
-            stockBaseUnitId: unit.id,
-            saleUnitId: unit.id,
-            purchaseUnitId: unit.id,
-            taxIds: [tax.id],
-            trackInventory,
-            allowNegativeStock: false,
-            isActive: true,
-            visibleInEShop: false,
-            attributeValues: def.attributeValues,
-          }),
-        );
-
-        if (def.isPrimary) {
-          sampleVariantIds[sample.key] = variant.id;
-        }
-
-        if (def.stock != null && trackInventory) {
-          await this.stockLevelRepo.save(
-            this.stockLevelRepo.create({
-              companyId: company.id,
-              productVariantId: variant.id,
-              storageId: storage.id,
-              physicalStock: def.stock,
-              committedStock: 0,
-              availableStock: def.stock,
-              incomingStock: 0,
-            }),
-          );
-        }
-      }
-    }
+    const demo = await this.ensureDemoProducts(company.id);
+    const sampleVariantIds = demo.sampleVariantIds;
 
     const customerPerson = await this.personRepo.save(
       this.personRepo.create({
@@ -630,7 +767,7 @@ export class LiteSeedService {
       storageId: storage.id,
       posId: pos.id,
       sampleVariantIds,
-      message: 'Minimal Lite seed completed',
+      message: `Minimal Lite seed completed (+${demo.createdProducts} productos demo)`,
     };
   }
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Alert, Button, IconButton, TextField } from "@kai/ui";
-import { coreFetch } from "@/lib/http";
+import { liteFetch } from "@/lib/lite-client";
 import { formatClp } from "@/lib/format";
 import { toUserMessage } from "@/lib/errors";
 import {
@@ -111,7 +111,7 @@ export function PosPaymentPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const pos = await coreFetch<PosCurrent>("/lite/points-of-sale/current");
+        const pos = await liteFetch<PosCurrent>("/lite/points-of-sale/current");
         if (cancelled) return;
         const enabled = normalizeEnabledMethods(pos.enabledPaymentMethods);
         setMethods(enabled.length > 0 ? enabled : [...LITE_FALLBACK_METHODS]);
@@ -160,7 +160,7 @@ export function PosPaymentPage() {
         qty: l.qty,
         unitPrice: l.unitPrice,
       }));
-      const sale = await coreFetch<{ id: string }>("/lite/pos/sale", {
+      const sale = await liteFetch<{ id: string }>("/lite/pos/sale", {
         method: "POST",
         body: JSON.stringify({
           lines: lines.map((l) => ({

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Alert, Button } from "@kai/ui";
-import { coreFetch } from "@/lib/http";
+import { liteFetch } from "@/lib/lite-client";
 import { toUserMessage } from "@/lib/errors";
 
 /** Runs POST /lite/seed and shows status (About / Users / settings). */
@@ -14,7 +14,7 @@ export function SeedActionButton({ label = "Ejecutar seed mínimo" }: { label?: 
     setMsg(null);
     setError(null);
     try {
-      const res = await coreFetch<{ message: string; adminUserName?: string }>("/lite/seed", {
+      const res = await liteFetch<{ message: string; adminUserName?: string }>("/lite/seed", {
         method: "POST",
         skipAuth: true,
       });

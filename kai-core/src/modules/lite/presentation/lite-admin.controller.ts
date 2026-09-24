@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   HttpCode,
@@ -333,5 +334,16 @@ export class LiteAdminController {
   ) {
     const companyId = await this.companies.fromBearer(auth);
     return this.ops.createUser(companyId, dto);
+  }
+
+  @Delete('users/:userId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete Lite company user' })
+  async deleteUser(
+    @Headers('authorization') auth: string | undefined,
+    @Param('userId') userId: string,
+  ) {
+    const ctx = await this.companies.resolve(auth);
+    return this.ops.deleteUser(ctx.companyId, userId, ctx.userId);
   }
 }

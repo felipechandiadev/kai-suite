@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Alert, Button, Dialog, TextField } from "@kai/ui";
-import { coreFetch } from "@/lib/http";
+import { liteFetch } from "@/lib/lite-client";
 import { toUserMessage } from "@/lib/errors";
 import type { AuthUser, LiteRole } from "@/providers/AuthProvider";
 
@@ -57,7 +57,7 @@ export function UserAccountDialog({
     }
     setBusy(true);
     try {
-      await coreFetch("/lite/auth/change-password", {
+      await liteFetch("/lite/auth/change-password", {
         method: "POST",
         body: JSON.stringify({
           currentPassword,

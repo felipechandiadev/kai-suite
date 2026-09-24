@@ -13,7 +13,7 @@ import {
   readPersistedAuthUser,
   setToken,
 } from "@/lib/auth-token";
-import { coreFetch } from "@/lib/http";
+import { liteFetch } from "@/lib/lite-client";
 
 export type LiteRole = "OWNER" | "ADMIN" | "CASHIER" | "STOCK";
 
@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setTok] = useState<string | null>(() => getToken());
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await coreFetch<{
+    const res = await liteFetch<{
       accessToken: string;
       user: { id: string; name: string; email: string; roles: string[] };
     }>("/lite/auth/login", {

@@ -38,6 +38,7 @@ export function UsersPage() {
                   <LiteUserCard
                     key={u.id}
                     user={u}
+                    onDeleted={() => reload()}
                     data-test-id={`user-card-${u.id}`}
                   />
                 ))

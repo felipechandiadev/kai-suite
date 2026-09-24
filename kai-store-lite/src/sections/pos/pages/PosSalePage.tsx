@@ -1,14 +1,30 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, IconButton, TextField } from "@kai/ui";
-import { coreFetch } from "@/lib/http";
+import { Alert, Button, Dialog, IconButton, NumberStepper, TextField } from "@kai/ui";
+import { liteFetch } from "@/lib/lite-client";
 import { formatClp } from "@/lib/format";
 import { toUserMessage } from "@/lib/errors";
 import type { LitePosCatalogItem } from "@/lib/lite-api";
 import { LoadingLine } from "@/shared/components/AdminTable";
 import { cartTotal, usePosCartStore, type CartLine } from "../store/pos-cart.store";
 import { useLitePosCompactLayout } from "../hooks/useLitePosCompactLayout";
+import {
+  clampLitePosProductSearchPageSize,
+  LITE_POS_PRODUCT_SEARCH_DEBOUNCE_MS,
+  LITE_POS_PRODUCT_SEARCH_DEFAULT_PAGE_SIZE,
+  LITE_POS_PRODUCT_SEARCH_MAX,
+  LITE_POS_PRODUCT_SEARCH_MIN,
+  readLitePosProductSearchPageSize,
+  writeLitePosProductSearchPageSize,
+} from "../lib/pos-product-search-storage";
 
 type MobilePanel = "products" | "cart";
+
+type CatalogPageResponse = {
+  items: LitePosCatalogItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
 
 export function PosSalePage() {
   const {
@@ -23,43 +39,65 @@ export function PosSalePage() {
   } = usePosCartStore();
   const compactLayout = useLitePosCompactLayout();
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("products");
-  const [catalog, setCatalog] = useState<LitePosCatalogItem[]>([]);
+  const [items, setItems] = useState<LitePosCatalogItem[]>([]);
+  const [totalCatalog, setTotalCatalog] = useState(0);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(LITE_POS_PRODUCT_SEARCH_DEFAULT_PAGE_SIZE);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [editLine, setEditLine] = useState<CartLine | null>(null);
+  const [qtyDraft, setQtyDraft] = useState("");
+  const [qtyError, setQtyError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPageSize(readLitePosProductSearchPageSize());
+  }, []);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      setDebouncedQuery(query.trim());
+      setPage(1);
+    }, LITE_POS_PRODUCT_SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(t);
+  }, [query]);
 
   useEffect(() => {
     let cancelled = false;
-    void coreFetch<{ items: LitePosCatalogItem[] }>("/lite/pos/catalog")
+    setLoading(true);
+    const qs = new URLSearchParams();
+    if (debouncedQuery) qs.set("q", debouncedQuery);
+    qs.set("page", String(page));
+    qs.set("pageSize", String(pageSize));
+    void liteFetch<CatalogPageResponse>(`/lite/pos/catalog?${qs.toString()}`)
       .then((r) => {
         if (!cancelled) {
-          setCatalog(r.items ?? []);
+          setItems(r.items ?? []);
+          setTotalCatalog(Number(r.total) || 0);
+          setError(null);
           setLoading(false);
         }
       })
       .catch((e) => {
         if (!cancelled) {
           setError(toUserMessage(e));
-          setCatalog([]);
+          setItems([]);
+          setTotalCatalog(0);
           setLoading(false);
         }
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [debouncedQuery, page, pageSize]);
 
-  const total = cartTotal(lines);
+  const cartTotalAmount = cartTotal(lines);
   const itemsCount = lines.reduce((n, l) => n + l.qty, 0);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return catalog;
-    return catalog.filter((item) => {
-      const hay = `${item.name} ${item.sku ?? ""} ${item.barcode ?? ""}`.toLowerCase();
-      return hay.includes(q);
-    });
-  }, [catalog, query]);
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(totalCatalog / Math.max(1, pageSize)) || 1),
+    [totalCatalog, pageSize],
+  );
 
   function onAdd(item: LitePosCatalogItem) {
     const productType = (["PHYSICAL", "SERVICE", "PACK"].includes(item.productType)
@@ -73,6 +111,51 @@ export function PosSalePage() {
     });
     if (compactLayout) setMobilePanel("cart");
   }
+
+  function onPageSizeChange(next: number) {
+    const clamped = clampLitePosProductSearchPageSize(next);
+    writeLitePosProductSearchPageSize(clamped);
+    setPageSize(clamped);
+    setPage(1);
+  }
+
+  function openEditQty(line: CartLine) {
+    setEditLine(line);
+    setQtyDraft(String(line.qty));
+    setQtyError(null);
+  }
+
+  function closeEditQty() {
+    setEditLine(null);
+    setQtyDraft("");
+    setQtyError(null);
+  }
+
+  function saveEditQty() {
+    if (!editLine) return;
+    setQtyError(null);
+    const raw = qtyDraft.trim().replace(",", ".");
+    const n = Number(raw);
+    if (!raw || !Number.isFinite(n) || !Number.isInteger(n) || n <= 0) {
+      setQtyError("Ingresa una cantidad entera válida.");
+      return;
+    }
+    setQty(editLine.variantId, n);
+    closeEditQty();
+  }
+
+  useEffect(() => {
+    if (!editLine) return;
+    const timer = window.setTimeout(() => {
+      const el = document.querySelector<HTMLInputElement>(
+        '[data-test-id="pos-cart-line-edit-qty-input"]',
+      );
+      if (!el) return;
+      el.focus({ preventScroll: true });
+      el.select();
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [editLine]);
 
   const searchPanel = (
     <section
@@ -101,15 +184,17 @@ export function PosSalePage() {
           </button>
         </Alert>
       ) : null}
-      {!loading && !error && catalog.length === 0 ? (
+      {!loading && !error && totalCatalog === 0 && !debouncedQuery ? (
         <p className="text-sm text-muted-foreground">Catálogo vacío. Ejecuta seed.</p>
       ) : null}
-      {!loading && !error && catalog.length > 0 && filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Sin resultados para “{query.trim()}”.</p>
+      {!loading && !error && totalCatalog === 0 && debouncedQuery ? (
+        <p className="text-sm text-muted-foreground">
+          Sin resultados para “{debouncedQuery}”.
+        </p>
       ) : null}
       <div className="min-h-0 flex-1 overflow-auto">
         <ul className="flex flex-col gap-2" data-test-id="pos-product-search-results">
-          {filtered.map((item) => (
+          {items.map((item) => (
             <li key={item.variantId}>
               <button
                 type="button"
@@ -132,6 +217,50 @@ export function PosSalePage() {
             </li>
           ))}
         </ul>
+      </div>
+      <div
+        className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border pt-2"
+        data-test-id="pos-product-search-pagination"
+      >
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="w-40 shrink-0">
+            <NumberStepper
+              label="Por página"
+              value={pageSize}
+              onChange={onPageSizeChange}
+              min={LITE_POS_PRODUCT_SEARCH_MIN}
+              max={LITE_POS_PRODUCT_SEARCH_MAX}
+              step={5}
+              allowNegative={false}
+              data-test-id="pos-product-search-page-size"
+            />
+          </div>
+          <span className="truncate text-xs text-muted-foreground">
+            Pág. {page} / {totalPages} ({totalCatalog} productos)
+          </span>
+        </div>
+        <div className="flex shrink-0 gap-1">
+          <IconButton
+            icon="ChevronLeft"
+            variant="action"
+            size="sm"
+            disabled={page <= 1 || loading}
+            title="Anterior"
+            ariaLabel="Página anterior"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            data-test-id="pos-product-search-prev"
+          />
+          <IconButton
+            icon="ChevronRight"
+            variant="action"
+            size="sm"
+            disabled={page >= totalPages || loading}
+            title="Siguiente"
+            ariaLabel="Página siguiente"
+            onClick={() => setPage((p) => p + 1)}
+            data-test-id="pos-product-search-next"
+          />
+        </div>
       </div>
     </section>
   );
@@ -186,6 +315,15 @@ export function PosSalePage() {
                     ariaLabel="Agregar uno"
                     onClick={() => setQty(l.variantId, l.qty + 1)}
                   />
+                  <IconButton
+                    icon="Pencil"
+                    variant="outlined"
+                    size="sm"
+                    ariaLabel="Editar cantidad"
+                    title="Editar cantidad"
+                    onClick={() => openEditQty(l)}
+                    data-test-id={`pos-cart-line-edit-qty-${l.variantId}`}
+                  />
                   <span className="ml-auto font-mono text-sm tabular-nums text-foreground">
                     {formatClp(l.qty * l.unitPrice)}
                   </span>
@@ -202,7 +340,7 @@ export function PosSalePage() {
             className="text-2xl font-bold tabular-nums text-foreground"
             data-test-id="pos-cart-summary-total"
           >
-            {formatClp(total)}
+            {formatClp(cartTotalAmount)}
           </div>
         </div>
         <IconButton
@@ -285,6 +423,52 @@ export function PosSalePage() {
           {cartPanel}
         </>
       )}
+
+      <Dialog
+        open={editLine != null}
+        onClose={closeEditQty}
+        title="Editar cantidad"
+        size="sm"
+        alertArea={qtyError ? <Alert variant="error">{qtyError}</Alert> : undefined}
+        actions={
+          <>
+            <Button type="button" variant="outlined" onClick={closeEditQty}>
+              Cancelar
+            </Button>
+            <Button type="button" variant="primary" onClick={saveEditQty}>
+              Guardar
+            </Button>
+          </>
+        }
+        actionsJustify="between"
+        data-test-id="pos-cart-line-edit-qty-dialog"
+      >
+        <div className="grid gap-3">
+          {editLine ? (
+            <p className="truncate text-sm text-muted-foreground">{editLine.name}</p>
+          ) : null}
+          <TextField
+            label="Cantidad"
+            name="pos-cart-edit-qty"
+            type="number"
+            value={qtyDraft}
+            onChange={(e) => setQtyDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                saveEditQty();
+              }
+            }}
+            placeholder="Cantidad"
+            alwaysShowLabel
+            selectOnFocus
+            min={1}
+            step={1}
+            inputMode="numeric"
+            data-test-id="pos-cart-line-edit-qty-input"
+          />
+        </div>
+      </Dialog>
     </div>
   );
 }
