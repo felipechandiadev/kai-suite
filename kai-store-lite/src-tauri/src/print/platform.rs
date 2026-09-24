@@ -237,6 +237,99 @@ fn print_raw_cups(printer: &str, data: &[u8]) -> Result<(), String> {
 
 #[cfg(target_os = "windows")]
 fn print_raw_windows(printer: &str, data: &[u8]) -> Result<(), String> {
+    match print_raw_windows_spooler(printer, data) {
+        Ok(written) => {
+            info!(
+                printer,
+                written,
+                expected = data.len(),
+                "ESC/POS enviado vía Win32 spooler"
+            );
+            Ok(())
+        }
+        Err(spool_err) => {
+            tracing::warn!(
+                printer,
+                err = %spool_err,
+                "Win32 spooler falló; intentando copy /B"
+            );
+            print_raw_windows_copy(printer, data).map_err(|copy_err| {
+                format!(
+                    "Impresión Windows falló. Spooler: {spool_err}. copy /B: {copy_err}"
+                )
+            })
+        }
+    }
+}
+
+/// OpenPrinter → StartDoc(RAW) → WritePrinter (mismo flujo que kai-printers-desktop).
+#[cfg(target_os = "windows")]
+fn print_raw_windows_spooler(printer: &str, data: &[u8]) -> Result<u32, String> {
+    use std::ffi::c_void;
+    use std::os::windows::ffi::OsStrExt;
+    use windows::core::PWSTR;
+    use windows::Win32::Foundation::{BOOL, HANDLE};
+    use windows::Win32::Graphics::Printing::*;
+
+    let wide: Vec<u16> = std::ffi::OsStr::new(printer)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+    let mut open_datatype: Vec<u16> = "RAW\0".encode_utf16().collect();
+    let defaults = PRINTER_DEFAULTSW {
+        pDatatype: PWSTR(open_datatype.as_mut_ptr()),
+        pDevMode: std::ptr::null_mut(),
+        DesiredAccess: PRINTER_ACCESS_USE,
+    };
+    let mut h_printer = HANDLE::default();
+    let mut written: u32 = 0;
+    unsafe {
+        OpenPrinterW(
+            windows::core::PCWSTR(wide.as_ptr()),
+            &mut h_printer,
+            Some(&defaults),
+        )
+        .map_err(|e| format!("OpenPrinterW({printer}): {e}"))?;
+
+        let mut doc_name: Vec<u16> = "KaiStore Lite\0".encode_utf16().collect();
+        let mut doc_datatype: Vec<u16> = "RAW\0".encode_utf16().collect();
+        let doc_info = DOC_INFO_1W {
+            pDocName: PWSTR(doc_name.as_mut_ptr()),
+            pOutputFile: PWSTR::null(),
+            pDatatype: PWSTR(doc_datatype.as_mut_ptr()),
+        };
+        let job_id = StartDocPrinterW(h_printer, 1, &doc_info);
+        if job_id == 0 {
+            let _ = ClosePrinter(h_printer);
+            return Err("StartDocPrinterW devolvió 0".into());
+        }
+        if StartPagePrinter(h_printer) == BOOL(0) {
+            let _ = EndDocPrinter(h_printer);
+            let _ = ClosePrinter(h_printer);
+            return Err("StartPagePrinter falló".into());
+        }
+        let ok = WritePrinter(
+            h_printer,
+            data.as_ptr() as *const c_void,
+            data.len() as u32,
+            &mut written,
+        );
+        if ok == BOOL(0) {
+            let _ = EndPagePrinter(h_printer);
+            let _ = EndDocPrinter(h_printer);
+            let _ = ClosePrinter(h_printer);
+            return Err("WritePrinter falló".into());
+        }
+        let _ = EndPagePrinter(h_printer);
+        let _ = EndDocPrinter(h_printer);
+        let _ = ClosePrinter(h_printer);
+    }
+    Ok(written)
+}
+
+/// Respaldo: `copy /B` a `\\localhost\<cola>` con rutas entrecomilladas.
+#[cfg(target_os = "windows")]
+fn print_raw_windows_copy(printer: &str, data: &[u8]) -> Result<(), String> {
     use std::os::windows::process::CommandExt;
     use std::process::Command;
 
@@ -246,19 +339,30 @@ fn print_raw_windows(printer: &str, data: &[u8]) -> Result<(), String> {
     let path = std::env::temp_dir().join(format!("kai_lite_escpos_{id}.bin"));
     std::fs::write(&path, data).map_err(|e| format!("temp escpos: {e}"))?;
     let dest = format!(r"\\localhost\{printer}");
-    let path_s = path.to_string_lossy().to_string();
-    let status = Command::new("cmd")
+    let path_s = path.to_string_lossy().replace('"', "");
+    let dest_q = dest.replace('"', "");
+    // Un solo string tras /C para que cmd respete comillas (espacios en Temp / nombre de cola).
+    let cmdline = format!(r#"copy /B "{path_s}" "{dest_q}""#);
+    let out = Command::new("cmd")
         .creation_flags(CREATE_NO_WINDOW)
-        .args(["/C", "copy", "/B", &path_s, &dest])
-        .status()
+        .args(["/C", &cmdline])
+        .output()
         .map_err(|e| format!("copy /B: {e}"))?;
     let _ = std::fs::remove_file(&path);
-    if !status.success() {
+    if !out.status.success() {
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        let detail = [stderr.trim(), stdout.trim()]
+            .into_iter()
+            .find(|s| !s.is_empty())
+            .unwrap_or("(sin detalle)")
+            .to_string();
         return Err(format!(
-            "copy /B a «{dest}» falló (código {:?})",
-            status.code()
+            "copy /B a «{dest}» falló (código {:?}): {detail}",
+            out.status.code()
         ));
     }
+    info!(printer, dest = %dest, bytes = data.len(), "ESC/POS enviado vía copy /B");
     Ok(())
 }
 
