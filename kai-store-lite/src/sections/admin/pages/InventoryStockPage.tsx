@@ -278,10 +278,6 @@ export function InventoryStockPage() {
       setFormError("Cantidad inválida");
       return;
     }
-    if (delta.direction < 0 && qty > delta.currentQty) {
-      setFormError("No hay stock suficiente");
-      return;
-    }
     setBusy(true);
     setFormError(null);
     try {
@@ -309,10 +305,6 @@ export function InventoryStockPage() {
     const qty = Number(String(transfer.quantity).replace(",", "."));
     if (!Number.isFinite(qty) || qty <= 0) {
       setFormError("Cantidad inválida");
-      return;
-    }
-    if (qty > transfer.currentQty) {
-      setFormError("No hay stock suficiente en el origen");
       return;
     }
     setBusy(true);

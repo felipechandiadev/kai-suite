@@ -147,7 +147,8 @@ pub async fn pos_sale(
 
     tx.commit().await?;
 
-    // Stock outside nested tx using pool (apply_delta uses pool)
+    // Stock outside nested tx using pool (apply_delta uses pool).
+    // Lite: always allow negative stock on sale.
     for (variant_id, _, qty, _) in &resolved {
         apply_delta(
             pool,
@@ -156,7 +157,7 @@ pub async fn pos_sale(
             -qty,
             "sale",
             Some(&tx_id),
-            true,
+            false,
         )
         .await?;
     }

@@ -86,7 +86,7 @@ pub async fn stock_list(pool: &LitePool, company_id: &str) -> LiteResult<Vec<Sto
     .bind(company_id)
     .fetch_all(pool)
     .await?;
-    Ok(rows
+    let mut items: Vec<StockItem> = rows
         .into_iter()
         .map(|r| StockItem {
             variant_id: r.get("variant_id"),
@@ -96,7 +96,72 @@ pub async fn stock_list(pool: &LitePool, company_id: &str) -> LiteResult<Vec<Sto
             physical_stock: r.get("quantity"),
             storage_name: r.get("storage_name"),
         })
-        .collect())
+        .collect();
+
+    // Synthesize qty 0 for PHYSICAL/INSUMO variants without a stock_levels row (legacy).
+    let default_storage: Option<(String, Option<String>)> = sqlx::query_as(
+        "SELECT id, name FROM storages WHERE company_id = ?1 ORDER BY name LIMIT 1",
+    )
+    .bind(company_id)
+    .fetch_optional(pool)
+    .await?;
+    if let Some((storage_id, storage_name)) = default_storage {
+        let seen: std::collections::HashSet<String> =
+            items.iter().map(|i| i.variant_id.clone()).collect();
+        let missing = sqlx::query(
+            r#"SELECT v.id, v.sku, v.name
+               FROM product_variants v
+               JOIN products p ON p.id = v.product_id
+               WHERE p.company_id = ?1
+                 AND p.product_type IN ('PHYSICAL', 'INSUMO')
+                 AND v.active = 1"#,
+        )
+        .bind(company_id)
+        .fetch_all(pool)
+        .await?;
+        for r in missing {
+            let vid: String = r.get("id");
+            if seen.contains(&vid) {
+                continue;
+            }
+            items.push(StockItem {
+                variant_id: vid,
+                storage_id: storage_id.clone(),
+                sku: r.get("sku"),
+                name: r.get("name"),
+                physical_stock: 0.0,
+                storage_name: storage_name.clone(),
+            });
+        }
+        items.sort_by(|a, b| a.name.cmp(&b.name));
+    }
+
+    Ok(items)
+}
+
+/// Ensure a stock_levels row exists at the company default storage (qty 0).
+pub async fn ensure_stock_level(
+    pool: &LitePool,
+    company_id: &str,
+    variant_id: &str,
+) -> LiteResult<()> {
+    let storage_id: Option<String> =
+        sqlx::query_scalar("SELECT id FROM storages WHERE company_id = ?1 ORDER BY name LIMIT 1")
+            .bind(company_id)
+            .fetch_optional(pool)
+            .await?;
+    let Some(storage_id) = storage_id else {
+        return Ok(());
+    };
+    sqlx::query(
+        "INSERT INTO stock_levels (variant_id, storage_id, quantity) VALUES (?1,?2,0)
+         ON CONFLICT(variant_id, storage_id) DO NOTHING",
+    )
+    .bind(variant_id)
+    .bind(&storage_id)
+    .execute(pool)
+    .await?;
+    Ok(())
 }
 
 pub async fn stock_adjust(pool: &LitePool, dto: StockAdjust) -> LiteResult<()> {
@@ -143,7 +208,7 @@ pub async fn stock_transfer(pool: &LitePool, dto: StockTransfer) -> LiteResult<(
         -dto.quantity,
         "transfer_out",
         None,
-        true,
+        false,
     )
     .await?;
     apply_delta(

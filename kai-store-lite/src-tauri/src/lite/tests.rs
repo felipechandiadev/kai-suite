@@ -215,6 +215,36 @@ async fn lite_admin_products_create_ok() {
     .await
     .unwrap();
     assert!(!r.product_id.is_empty());
+    let qty: Option<f64> = sqlx::query_scalar(
+        "SELECT quantity FROM stock_levels WHERE variant_id = ?1",
+    )
+    .bind(&r.variant_id)
+    .fetch_optional(&pool)
+    .await
+    .unwrap();
+    assert_eq!(qty, Some(0.0));
+    let got = catalog::variant_get(&pool, &r.variant_id).await.unwrap();
+    assert_eq!(got.base_price, 500.0);
+    assert_eq!(got.variant_id, r.variant_id);
+    assert!(got.is_active);
+    catalog::variant_patch(
+        &pool,
+        &r.variant_id,
+        catalog::PatchVariant {
+            name: None,
+            sku: None,
+            barcode: None,
+            unit_price: Some(750.0),
+            cost: None,
+            active: None,
+            attribute_values: None,
+        },
+    )
+    .await
+    .unwrap();
+    let patched = catalog::variant_get(&pool, &r.variant_id).await.unwrap();
+    assert_eq!(patched.unit_price, 750.0);
+    assert_eq!(patched.base_price, 750.0);
 }
 
 #[tokio::test]
@@ -310,12 +340,14 @@ async fn lite_admin_variants_flow() {
         &pool,
         &p[0].id,
         catalog::CreateVariant {
-            name: "V2".into(),
+            name: Some("V2".into()),
             sku: Some("V2".into()),
             barcode: None,
             unit_price: Some(10.0),
             cost: None,
             unit_id: None,
+            active: None,
+            attribute_values: None,
         },
     )
     .await
@@ -332,6 +364,7 @@ async fn lite_admin_variants_flow() {
             unit_price: None,
             cost: None,
             active: None,
+            attribute_values: None,
         },
     )
     .await
@@ -592,7 +625,8 @@ async fn lite_pos_sale_and_cash() {
     .unwrap();
     assert_eq!(sale2.lines[0].quantity, 1.0);
 
-    let err = commerce::pos_sale(
+    // Oversell is allowed (negative stock).
+    let oversell = commerce::pos_sale(
         &pool,
         &c,
         &uid,
@@ -613,8 +647,8 @@ async fn lite_pos_sale_and_cash() {
         },
     )
     .await
-    .unwrap_err();
-    assert!(matches!(err, LiteError::BadRequest(_)));
+    .unwrap();
+    assert_eq!(oversell.status, "COMPLETED");
 
     let got = commerce::sales_get(&pool, &c, &sale.id).await.unwrap();
     assert_eq!(got.id, sale.id);
@@ -814,4 +848,115 @@ async fn lite_sales_report_run_ok() {
         .await
         .unwrap_err();
     assert!(matches!(err, LiteError::NotFound(_)));
+}
+
+#[tokio::test]
+async fn lite_catalog_nest_payload_and_negative_stock() {
+    let pool = lite_test_pool().await;
+    let c = company(&pool).await;
+    let uid = admin_id(&pool).await;
+    let products = catalog::products_list(&pool, &c).await.unwrap();
+    let product_id = products[0].id.clone();
+
+    // Nest UI createVariant: no name, basePrice, isActive, attributeValues.
+    let dto: catalog::CreateVariant = serde_json::from_value(serde_json::json!({
+        "sku": "NEST-V",
+        "basePrice": 99.0,
+        "isActive": true,
+        "attributeValues": { "color": "rojo" }
+    }))
+    .unwrap();
+    let created = catalog::variants_create(&pool, &product_id, dto)
+        .await
+        .unwrap();
+    assert_eq!(created.base_price, 99.0);
+    assert_eq!(created.variant_id, created.id);
+    assert!(created.is_active);
+
+    // Nest UI patchVariant basePrice.
+    let patch: catalog::PatchVariant = serde_json::from_value(serde_json::json!({
+        "basePrice": 120.0,
+        "isActive": false,
+        "attributeValues": null
+    }))
+    .unwrap();
+    let patched = catalog::variant_patch(&pool, &created.id, patch)
+        .await
+        .unwrap();
+    assert_eq!(patched.unit_price, 120.0);
+    assert!(!patched.is_active);
+
+    // Sale with zero/insufficient stock must succeed (negative allowed).
+    ops::cash_open(
+        &pool,
+        &c,
+        &uid,
+        ops::OpenCash {
+            point_of_sale_id: None,
+            opening_amount: Some(0.0),
+        },
+    )
+    .await
+    .unwrap();
+    let (vid, sid) = variant_storage(&pool).await;
+    sqlx::query("UPDATE stock_levels SET quantity = 0 WHERE variant_id = ?1 AND storage_id = ?2")
+        .bind(&vid)
+        .bind(&sid)
+        .execute(&pool)
+        .await
+        .unwrap();
+    commerce::pos_sale(
+        &pool,
+        &c,
+        &uid,
+        commerce::SaleRequest {
+            lines: vec![commerce::SaleLineIn {
+                variant_id: vid.clone(),
+                quantity: 3.0,
+                unit_price: Some(100.0),
+            }],
+            payments: vec![commerce::PaymentIn {
+                method: "CASH".into(),
+                amount: 300.0,
+            }],
+            customer_id: None,
+            storage_id: Some(sid.clone()),
+            method: None,
+            total: None,
+        },
+    )
+    .await
+    .unwrap();
+    let qty: f64 = sqlx::query_scalar(
+        "SELECT quantity FROM stock_levels WHERE variant_id = ?1 AND storage_id = ?2",
+    )
+    .bind(&vid)
+    .bind(&sid)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(qty, -3.0);
+
+    // Transfer that drives source negative is allowed.
+    let s2 = catalog::storages_create(
+        &pool,
+        &c,
+        catalog::NamedCreate {
+            name: "DestinoNeg".into(),
+            symbol: None,
+        },
+    )
+    .await
+    .unwrap();
+    stock::stock_transfer(
+        &pool,
+        stock::StockTransfer {
+            variant_id: vid,
+            from_storage_id: sid,
+            to_storage_id: s2.id,
+            quantity: 5.0,
+        },
+    )
+    .await
+    .unwrap();
 }

@@ -92,32 +92,51 @@ pub struct CreateProductResult {
 #[serde(rename_all = "camelCase")]
 pub struct PatchProduct {
     pub name: Option<String>,
+    #[serde(alias = "isActive")]
     pub active: Option<bool>,
     pub category_id: Option<String>,
 }
 
+/// Nest/UI shape: variantId + basePrice + isActive (+ id/unitPrice aliases for compat).
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VariantDetail {
     pub id: String,
+    #[serde(rename = "variantId")]
+    pub variant_id: String,
     pub product_id: String,
     pub name: String,
+    pub product_type: String,
     pub sku: Option<String>,
     pub barcode: Option<String>,
     pub unit_price: f64,
+    #[serde(rename = "basePrice")]
+    pub base_price: f64,
     pub cost: f64,
+    #[serde(rename = "baseCost")]
+    pub base_cost: f64,
     pub active: bool,
+    #[serde(rename = "isActive")]
+    pub is_active: bool,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateVariant {
-    pub name: String,
+    /// Optional; defaults to product name when omitted (Nest UI).
+    pub name: Option<String>,
     pub sku: Option<String>,
     pub barcode: Option<String>,
+    #[serde(alias = "basePrice")]
     pub unit_price: Option<f64>,
+    #[serde(alias = "baseCost")]
     pub cost: Option<f64>,
     pub unit_id: Option<String>,
+    #[serde(alias = "isActive")]
+    pub active: Option<bool>,
+    /// Ignored (no attribute schema in Lite sqlx yet).
+    #[serde(default)]
+    pub attribute_values: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -126,9 +145,15 @@ pub struct PatchVariant {
     pub name: Option<String>,
     pub sku: Option<String>,
     pub barcode: Option<String>,
+    #[serde(alias = "basePrice")]
     pub unit_price: Option<f64>,
+    #[serde(alias = "baseCost")]
     pub cost: Option<f64>,
+    #[serde(alias = "isActive")]
     pub active: Option<bool>,
+    /// Ignored (no attribute schema in Lite sqlx yet).
+    #[serde(default)]
+    pub attribute_values: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -309,6 +334,9 @@ pub async fn products_create(
     .bind(price)
     .execute(pool)
     .await?;
+    if tracks_inventory(&ptype) {
+        crate::lite::application::stock::ensure_stock_level(pool, company_id, &variant_id).await?;
+    }
     Ok(CreateProductResult {
         product_id,
         variant_id,
@@ -385,7 +413,11 @@ pub async fn products_patch(
 
 pub async fn variants_list(pool: &LitePool, product_id: &str) -> LiteResult<Vec<VariantDetail>> {
     let rows = sqlx::query(
-        "SELECT id, product_id, name, sku, barcode, unit_price, cost, active FROM product_variants WHERE product_id = ?1",
+        r#"SELECT v.id, v.product_id, v.name, v.sku, v.barcode, v.unit_price, v.cost, v.active,
+                  p.product_type
+           FROM product_variants v
+           JOIN products p ON p.id = v.product_id
+           WHERE v.product_id = ?1"#,
     )
     .bind(product_id)
     .fetch_all(pool)
@@ -398,26 +430,50 @@ pub async fn variants_create(
     product_id: &str,
     dto: CreateVariant,
 ) -> LiteResult<VariantDetail> {
+    let product = sqlx::query("SELECT name, product_type, company_id FROM products WHERE id = ?1")
+        .bind(product_id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| LiteError::NotFound("product not found".into()))?;
+    let product_name: String = product.get("name");
+    let product_type: String = product.get("product_type");
+    let company_id: String = product.get("company_id");
+    let name = dto
+        .name
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(product_name.as_str())
+        .to_string();
     let id = Uuid::new_v4().to_string();
+    let active = if dto.active.unwrap_or(true) { 1 } else { 0 };
     sqlx::query(
-        "INSERT INTO product_variants (id, product_id, sku, barcode, name, unit_id, unit_price, cost) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+        "INSERT INTO product_variants (id, product_id, sku, barcode, name, unit_id, unit_price, cost, active) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
     )
     .bind(&id)
     .bind(product_id)
     .bind(&dto.sku)
     .bind(&dto.barcode)
-    .bind(&dto.name)
+    .bind(&name)
     .bind(&dto.unit_id)
     .bind(dto.unit_price.unwrap_or(0.0))
     .bind(dto.cost.unwrap_or(0.0))
+    .bind(active)
     .execute(pool)
     .await?;
+    if tracks_inventory(&product_type) {
+        crate::lite::application::stock::ensure_stock_level(pool, &company_id, &id).await?;
+    }
     variant_get(pool, &id).await
 }
 
 pub async fn variant_get(pool: &LitePool, variant_id: &str) -> LiteResult<VariantDetail> {
     let row = sqlx::query(
-        "SELECT id, product_id, name, sku, barcode, unit_price, cost, active FROM product_variants WHERE id = ?1",
+        r#"SELECT v.id, v.product_id, v.name, v.sku, v.barcode, v.unit_price, v.cost, v.active,
+                  p.product_type
+           FROM product_variants v
+           JOIN products p ON p.id = v.product_id
+           WHERE v.id = ?1"#,
     )
     .bind(variant_id)
     .fetch_optional(pool)
@@ -477,16 +533,32 @@ pub async fn variant_patch(
     variant_get(pool, variant_id).await
 }
 
+fn tracks_inventory(product_type: &str) -> bool {
+    matches!(product_type, "PHYSICAL" | "INSUMO")
+}
+
 fn map_variant(r: sqlx::sqlite::SqliteRow) -> VariantDetail {
+    let id: String = r.get("id");
+    let unit_price: f64 = r.get("unit_price");
+    let cost: f64 = r.get("cost");
+    let active = r.get::<i64, _>("active") != 0;
+    let product_type: String = r
+        .try_get("product_type")
+        .unwrap_or_else(|_| "PHYSICAL".into());
     VariantDetail {
-        id: r.get("id"),
+        id: id.clone(),
+        variant_id: id,
         product_id: r.get("product_id"),
         name: r.get("name"),
+        product_type,
         sku: r.get("sku"),
         barcode: r.get("barcode"),
-        unit_price: r.get("unit_price"),
-        cost: r.get("cost"),
-        active: r.get::<i64, _>("active") != 0,
+        unit_price,
+        base_price: unit_price,
+        cost,
+        base_cost: cost,
+        active,
+        is_active: active,
     }
 }
 
