@@ -1,7 +1,7 @@
 {
   "name": "kai-store-lite",
   "private": true,
-  "version": "0.4.3",
+  "version": "0.4.4",
   "type": "module",
   "description": "KaiStore Lite — desktop POS + Admin + Printers (Tauri)",
   "scripts": {
