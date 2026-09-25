@@ -177,7 +177,7 @@ async fn lite_pos_catalog_filter_page() {
         &pool,
         &c,
         catalog::PosCatalogQuery {
-            q: Some("demo".into()),
+            q: Some("200-Pesos".into()),
             page: Some(1),
             page_size: Some(10),
         },
@@ -552,6 +552,7 @@ async fn lite_pos_sale_and_cash() {
                 variant_id: vid.clone(),
                 quantity: 1.0,
                 unit_price: None,
+                name: None,
             }],
             payments: vec![commerce::PaymentIn {
                 method: "CASH".into(),
@@ -600,6 +601,7 @@ async fn lite_pos_sale_and_cash() {
                 variant_id: vid.clone(),
                 quantity: 1.0,
                 unit_price: None,
+                name: None,
             }],
             payments: vec![commerce::PaymentIn {
                 method: "CASH".into(),
@@ -635,6 +637,7 @@ async fn lite_pos_sale_and_cash() {
                 variant_id: vid.clone(),
                 quantity: 99999.0,
                 unit_price: None,
+                name: None,
             }],
             payments: vec![commerce::PaymentIn {
                 method: "CASH".into(),
@@ -806,6 +809,7 @@ async fn lite_sales_report_run_ok() {
                 variant_id: vid,
                 quantity: 2.0,
                 unit_price: Some(1500.0),
+                name: None,
             }],
             payments: vec![commerce::PaymentIn {
                 method: "CASH".into(),
@@ -914,6 +918,7 @@ async fn lite_catalog_nest_payload_and_negative_stock() {
                 variant_id: vid.clone(),
                 quantity: 3.0,
                 unit_price: Some(100.0),
+                name: None,
             }],
             payments: vec![commerce::PaymentIn {
                 method: "CASH".into(),
@@ -959,4 +964,87 @@ async fn lite_catalog_nest_payload_and_negative_stock() {
     )
     .await
     .unwrap();
+}
+
+#[tokio::test]
+async fn lite_pos_sale_open_item_skips_stock() {
+    let pool = lite_test_pool().await;
+    let c = company(&pool).await;
+    let uid = admin_id(&pool).await;
+    let (vid, sid) = variant_storage(&pool).await;
+    let before: f64 = sqlx::query_scalar(
+        "SELECT quantity FROM stock_levels WHERE variant_id = ?1 AND storage_id = ?2",
+    )
+    .bind(&vid)
+    .bind(&sid)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    ops::cash_open(
+        &pool,
+        &c,
+        &uid,
+        ops::OpenCash {
+            point_of_sale_id: None,
+            opening_amount: Some(0.0),
+        },
+    )
+    .await
+    .unwrap();
+
+    let sale = commerce::pos_sale(
+        &pool,
+        &c,
+        &uid,
+        commerce::SaleRequest {
+            lines: vec![commerce::SaleLineIn {
+                variant_id: "open:test-item".into(),
+                quantity: 2.0,
+                unit_price: Some(500.0),
+                name: Some("Producto especial".into()),
+            }],
+            payments: vec![commerce::PaymentIn {
+                method: "CASH".into(),
+                amount: 1000.0,
+            }],
+            customer_id: None,
+            storage_id: None,
+            method: None,
+            total: None,
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(sale.total, 1000.0);
+
+    let line_name: String = sqlx::query_scalar(
+        "SELECT name FROM transaction_lines WHERE transaction_id = ?1",
+    )
+    .bind(&sale.id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(line_name, "Producto especial");
+
+    let after: f64 = sqlx::query_scalar(
+        "SELECT quantity FROM stock_levels WHERE variant_id = ?1 AND storage_id = ?2",
+    )
+    .bind(&vid)
+    .bind(&sid)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(after, before);
+
+    commerce::sales_void(&pool, &c, &sale.id).await.unwrap();
+    let after_void: f64 = sqlx::query_scalar(
+        "SELECT quantity FROM stock_levels WHERE variant_id = ?1 AND storage_id = ?2",
+    )
+    .bind(&vid)
+    .bind(&sid)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(after_void, before);
 }

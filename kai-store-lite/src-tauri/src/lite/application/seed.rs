@@ -41,8 +41,6 @@ pub async fn run_seed(pool: &LitePool) -> LiteResult<SeedResult> {
     let cat_id = Uuid::new_v4().to_string();
     let admin_id = Uuid::new_v4().to_string();
     let cajero_id = Uuid::new_v4().to_string();
-    let product_id = Uuid::new_v4().to_string();
-    let variant_id = Uuid::new_v4().to_string();
     let customer_id = Uuid::new_v4().to_string();
     let supplier_id = Uuid::new_v4().to_string();
 
@@ -124,29 +122,40 @@ pub async fn run_seed(pool: &LitePool) -> LiteResult<SeedResult> {
         .execute(&mut *tx)
         .await?;
 
-    sqlx::query(
-        "INSERT INTO products (id, company_id, name, product_type, category_id) VALUES (?1,?2,'Producto demo','PHYSICAL',?3)",
-    )
-    .bind(&product_id)
-    .bind(&company_id)
-    .bind(&cat_id)
-    .execute(&mut *tx)
-    .await?;
-
-    sqlx::query(
-        "INSERT INTO product_variants (id, product_id, sku, name, unit_id, unit_price, cost) VALUES (?1,?2,'SKU-001','Producto demo',?3,1000,500)",
-    )
-    .bind(&variant_id)
-    .bind(&product_id)
-    .bind(&unit_id)
-    .execute(&mut *tx)
-    .await?;
-
-    sqlx::query("INSERT INTO stock_levels (variant_id, storage_id, quantity) VALUES (?1,?2,10)")
-        .bind(&variant_id)
-        .bind(&storage_id)
+    // 200, 300, … 1200
+    for pesos in (200..=1200).step_by(100) {
+        let product_id = Uuid::new_v4().to_string();
+        let variant_id = Uuid::new_v4().to_string();
+        let name = format!("{pesos}-Pesos");
+        let sku = format!("PESO-{pesos}");
+        sqlx::query(
+            "INSERT INTO products (id, company_id, name, product_type, category_id) VALUES (?1,?2,?3,'PHYSICAL',?4)",
+        )
+        .bind(&product_id)
+        .bind(&company_id)
+        .bind(&name)
+        .bind(&cat_id)
         .execute(&mut *tx)
         .await?;
+
+        sqlx::query(
+            "INSERT INTO product_variants (id, product_id, sku, name, unit_id, unit_price, cost) VALUES (?1,?2,?3,?4,?5,?6,0)",
+        )
+        .bind(&variant_id)
+        .bind(&product_id)
+        .bind(&sku)
+        .bind(&name)
+        .bind(&unit_id)
+        .bind(pesos as f64)
+        .execute(&mut *tx)
+        .await?;
+
+        sqlx::query("INSERT INTO stock_levels (variant_id, storage_id, quantity) VALUES (?1,?2,10)")
+            .bind(&variant_id)
+            .bind(&storage_id)
+            .execute(&mut *tx)
+            .await?;
+    }
 
     sqlx::query(
         "INSERT INTO customers (id, company_id, name, document_number) VALUES (?1,?2,'Cliente demo','1-9')",

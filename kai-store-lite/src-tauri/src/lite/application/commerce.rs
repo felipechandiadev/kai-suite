@@ -26,6 +26,9 @@ pub struct SaleLineIn {
     #[serde(alias = "qty")]
     pub quantity: f64,
     pub unit_price: Option<f64>,
+    /// Nombre libre cuando la línea no está en el catálogo (`open:…`).
+    #[serde(default)]
+    pub name: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -84,7 +87,8 @@ pub async fn pos_sale(
     };
 
     let mut total = 0.0;
-    let mut resolved: Vec<(String, String, f64, f64)> = Vec::new();
+    // (variant_id, name, qty, price, open_item — sin stock)
+    let mut resolved: Vec<(String, String, f64, f64, bool)> = Vec::new();
     for line in &dto.lines {
         if line.quantity <= 0.0 {
             return Err(LiteError::BadRequest("invalid quantity".into()));
@@ -92,13 +96,31 @@ pub async fn pos_sale(
         let row = sqlx::query("SELECT name, unit_price FROM product_variants WHERE id = ?1")
             .bind(&line.variant_id)
             .fetch_optional(pool)
-            .await?
-            .ok_or_else(|| LiteError::NotFound("variant not found".into()))?;
-        let name: String = row.get("name");
-        let price = line.unit_price.unwrap_or_else(|| row.get("unit_price"));
-        let line_total = price * line.quantity;
-        total += line_total;
-        resolved.push((line.variant_id.clone(), name, line.quantity, price));
+            .await?;
+        let (name, price, open_item) = if let Some(row) = row {
+            let catalog_name: String = row.get("name");
+            let catalog_price = line.unit_price.unwrap_or_else(|| row.get("unit_price"));
+            (catalog_name, catalog_price, false)
+        } else {
+            let custom = line
+                .name
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string);
+            let Some(custom) = custom else {
+                return Err(LiteError::NotFound("variant not found".into()));
+            };
+            let Some(price) = line.unit_price else {
+                return Err(LiteError::BadRequest("unit price required".into()));
+            };
+            if !price.is_finite() || price < 0.0 {
+                return Err(LiteError::BadRequest("invalid unit price".into()));
+            }
+            (custom, price, true)
+        };
+        total += price * line.quantity;
+        resolved.push((line.variant_id.clone(), name, line.quantity, price, open_item));
     }
 
     let tx_id = Uuid::new_v4().to_string();
@@ -116,7 +138,7 @@ pub async fn pos_sale(
     .execute(&mut *tx)
     .await?;
 
-    for (variant_id, name, qty, price) in &resolved {
+    for (variant_id, name, qty, price, _) in &resolved {
         let line_id = Uuid::new_v4().to_string();
         sqlx::query(
             "INSERT INTO transaction_lines (id, transaction_id, variant_id, name, quantity, unit_price, line_total) VALUES (?1,?2,?3,?4,?5,?6,?7)",
@@ -149,7 +171,10 @@ pub async fn pos_sale(
 
     // Stock outside nested tx using pool (apply_delta uses pool).
     // Lite: always allow negative stock on sale.
-    for (variant_id, _, qty, _) in &resolved {
+    for (variant_id, _, qty, _, open_item) in &resolved {
+        if *open_item {
+            continue;
+        }
         apply_delta(
             pool,
             variant_id,
@@ -210,6 +235,9 @@ pub async fn sales_void(pool: &LitePool, company_id: &str, id: &str) -> LiteResu
     .await?;
     for line in lines {
         let vid: String = line.get("variant_id");
+        if vid.starts_with("open:") {
+            continue;
+        }
         let qty: f64 = line.get("quantity");
         apply_delta(pool, &vid, &storage_id, qty, "void", Some(id), false).await?;
     }
