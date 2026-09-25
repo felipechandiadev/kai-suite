@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, Button, IconButton, TextField } from "@kai/ui";
 import { liteFetch } from "@/lib/lite-client";
 import { formatClp } from "@/lib/format";
@@ -134,6 +134,19 @@ export function PosPaymentPage() {
     setPayments(buildPreloadedPayments(methods, total));
   }, [methods, methodsReady, payments, setPayments, total]);
 
+  useEffect(() => {
+    if (!methodsReady || payments.length === 0) return;
+    const timer = window.setTimeout(() => {
+      const el = document.querySelector<HTMLInputElement>(
+        '[data-test-id="pos-payment-default-cash-amount"]',
+      );
+      if (!el) return;
+      el.focus({ preventScroll: true });
+      el.select();
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [methodsReady, payments.length]);
+
   function fillRemaining(id: string) {
     if (remaining <= 0) return;
     const line = payments.find((p) => p.id === id);
@@ -165,6 +178,7 @@ export function PosPaymentPage() {
         body: JSON.stringify({
           lines: lines.map((l) => ({
             variantId: l.variantId,
+            name: l.name,
             qty: l.qty,
             unitPrice: l.unitPrice,
           })),
@@ -234,6 +248,22 @@ export function PosPaymentPage() {
       setBusy(false);
     }
   }
+
+  const confirmRef = useRef(confirm);
+  confirmRef.current = confirm;
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Enter" || e.repeat) return;
+      if (busy || receipt || !canConfirm) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("button, a, [role='button']")) return;
+      e.preventDefault();
+      void confirmRef.current();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [busy, receipt, canConfirm]);
 
   if (lines.length === 0 && !receipt) {
     return (

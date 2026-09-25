@@ -44,6 +44,29 @@ export function LiteSaleReceiptDialog({ open, data, onClose }: Props) {
     setReprintError(null);
   }, [data?.saleId, open]);
 
+  useEffect(() => {
+    if (!open || !data) return;
+    const timer = window.setTimeout(() => {
+      document
+        .querySelector<HTMLButtonElement>('[data-test-id="lite-sale-receipt-close"]')
+        ?.focus();
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [open, data]);
+
+  useEffect(() => {
+    if (!open || !data || reprintBusy) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Enter" || e.repeat) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("[data-test-id='lite-sale-receipt-reprint']")) return;
+      e.preventDefault();
+      onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, data, reprintBusy, onClose]);
+
   const activePreview = preview ?? data?.preview ?? null;
   const cols = activePreview?.cols ?? 42;
 

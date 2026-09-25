@@ -50,6 +50,11 @@ export function PosSalePage() {
   const [editLine, setEditLine] = useState<CartLine | null>(null);
   const [qtyDraft, setQtyDraft] = useState("");
   const [qtyError, setQtyError] = useState<string | null>(null);
+  const [openItemOpen, setOpenItemOpen] = useState(false);
+  const [openName, setOpenName] = useState("");
+  const [openQty, setOpenQty] = useState(1);
+  const [openPrice, setOpenPrice] = useState("0");
+  const [openError, setOpenError] = useState<string | null>(null);
 
   useEffect(() => {
     setPageSize(readLitePosProductSearchPageSize());
@@ -144,6 +149,48 @@ export function PosSalePage() {
     closeEditQty();
   }
 
+  function closeOpenItem() {
+    setOpenItemOpen(false);
+    setOpenName("");
+    setOpenQty(1);
+    setOpenPrice("0");
+    setOpenError(null);
+  }
+
+  function saveOpenItem() {
+    setOpenError(null);
+    const name = openName.trim();
+    if (!name) {
+      setOpenError("Ingresá un nombre.");
+      return;
+    }
+    if (!Number.isFinite(openQty) || openQty <= 0) {
+      setOpenError("Ingresá una cantidad mayor a 0.");
+      return;
+    }
+    const priceDigits = openPrice.replace(/\D/g, "");
+    const price = priceDigits === "" ? 0 : Number.parseInt(priceDigits, 10);
+    if (!Number.isFinite(price) || price < 0) {
+      setOpenError("Ingresá un precio válido.");
+      return;
+    }
+    addLine({
+      variantId: `open:${crypto.randomUUID()}`,
+      name,
+      unitPrice: price,
+      productType: "SERVICE",
+      qty: openQty,
+    });
+    closeOpenItem();
+    if (compactLayout) setMobilePanel("cart");
+  }
+
+  function goToPayment() {
+    if (lines.length === 0) return;
+    clearPayments();
+    setPhase("payment");
+  }
+
   useEffect(() => {
     if (!editLine) return;
     const timer = window.setTimeout(() => {
@@ -156,6 +203,42 @@ export function PosSalePage() {
     }, 50);
     return () => window.clearTimeout(timer);
   }, [editLine]);
+
+  useEffect(() => {
+    if (!openItemOpen) return;
+    const timer = window.setTimeout(() => {
+      const el = document.querySelector<HTMLInputElement>(
+        '[data-test-id="pos-cart-open-item-name"]',
+      );
+      if (!el) return;
+      el.focus({ preventScroll: true });
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [openItemOpen]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.repeat) return;
+      const target = e.target as HTMLElement | null;
+      const inField = !!target?.closest("input, textarea, select, [contenteditable='true']");
+      if (e.key === "+" || e.code === "NumpadAdd") {
+        if (openItemOpen || editLine || inField) return;
+        e.preventDefault();
+        setOpenError(null);
+        setOpenItemOpen(true);
+        return;
+      }
+      if (e.key !== "Enter") return;
+      if (openItemOpen || editLine) return;
+      if (lines.length === 0) return;
+      if (inField) return;
+      e.preventDefault();
+      clearPayments();
+      setPhase("payment");
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openItemOpen, editLine, lines.length, clearPayments, setPhase]);
 
   const searchPanel = (
     <section
@@ -275,11 +358,11 @@ export function PosSalePage() {
       <div className="flex shrink-0 items-center justify-between gap-2">
         <h2 className="text-base font-semibold text-foreground">Carrito</h2>
         <IconButton
-          icon="Trash2"
+          icon="Eraser"
           variant="outlined"
           size="sm"
           ariaLabel="Vaciar carrito"
-          title="Vaciar"
+          title="Vaciar carrito"
           disabled={lines.length === 0}
           onClick={() => clear()}
           data-test-id="pos-cart-clear"
@@ -327,6 +410,15 @@ export function PosSalePage() {
                   <span className="ml-auto font-mono text-sm tabular-nums text-foreground">
                     {formatClp(l.qty * l.unitPrice)}
                   </span>
+                  <IconButton
+                    icon="Trash2"
+                    variant="outlined"
+                    size="sm"
+                    ariaLabel={`Eliminar ${l.name}`}
+                    title="Eliminar línea"
+                    onClick={() => setQty(l.variantId, 0)}
+                    data-test-id={`pos-cart-line-remove-${l.variantId}`}
+                  />
                 </div>
               </li>
             ))}
@@ -334,13 +426,28 @@ export function PosSalePage() {
         )}
       </div>
       <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-border pt-3">
-        <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-2">
+          <IconButton
+            icon="Plus"
+            variant="outlined"
+            size="lg"
+            className="shrink-0"
+            ariaLabel="Agregar producto especial"
+            title="Producto especial"
+            onClick={() => {
+              setOpenError(null);
+              setOpenItemOpen(true);
+            }}
+            data-test-id="pos-cart-open-item"
+          />
+          <div className="min-w-0">
           <div className="text-xs text-muted-foreground">Total</div>
           <div
             className="text-2xl font-bold tabular-nums text-foreground"
             data-test-id="pos-cart-summary-total"
           >
             {formatClp(cartTotalAmount)}
+          </div>
           </div>
         </div>
         <IconButton
@@ -351,10 +458,7 @@ export function PosSalePage() {
           ariaLabel="Cobrar"
           title="Cobrar"
           disabled={lines.length === 0}
-          onClick={() => {
-            clearPayments();
-            setPhase("payment");
-          }}
+          onClick={goToPayment}
           data-test-id="pos-cart-checkout-icon"
         />
       </footer>
@@ -466,6 +570,61 @@ export function PosSalePage() {
             step={1}
             inputMode="numeric"
             data-test-id="pos-cart-line-edit-qty-input"
+          />
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={openItemOpen}
+        onClose={closeOpenItem}
+        title="Producto especial"
+        size="sm"
+        alertArea={openError ? <Alert variant="error">{openError}</Alert> : undefined}
+        actions={
+          <>
+            <Button type="button" variant="outlined" onClick={closeOpenItem}>
+              Cerrar
+            </Button>
+            <Button type="button" variant="primary" onClick={saveOpenItem} data-test-id="pos-cart-open-item-add">
+              Agregar
+            </Button>
+          </>
+        }
+        actionsJustify="between"
+        data-test-id="pos-cart-open-item-dialog"
+      >
+        <div
+          className="grid gap-3"
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            e.preventDefault();
+            e.stopPropagation();
+            saveOpenItem();
+          }}
+        >
+          <TextField
+            label="Nombre"
+            value={openName}
+            onChange={(e) => setOpenName(e.target.value)}
+            alwaysShowLabel
+            data-test-id="pos-cart-open-item-name"
+          />
+          <NumberStepper
+            label="Cantidad"
+            value={openQty}
+            onChange={setOpenQty}
+            min={1}
+            step={1}
+            allowNegative={false}
+            data-test-id="pos-cart-open-item-qty"
+          />
+          <TextField
+            label="Precio"
+            type="currency"
+            currencySymbol="$"
+            value={openPrice}
+            onChange={(e) => setOpenPrice(e.target.value.replace(/\D/g, "") || "0")}
+            data-test-id="pos-cart-open-item-price"
           />
         </div>
       </Dialog>
