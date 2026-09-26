@@ -67,7 +67,7 @@ Baseline; actualizar en bumps notables o PRs de release.
 
 | Archivo | Versión | Notas |
 |---------|---------|--------|
-| `/package.json` (monorepo) | **1.24.0** | Reloj del suite; bump en **cada** commit |
+| `/package.json` (monorepo) | **1.26.1** | Reloj del suite; bump en **cada** commit |
 
 ### 3.1 Clientes web (PWA)
 
@@ -98,7 +98,7 @@ Baseline; actualizar en bumps notables o PRs de release.
 |---------|---------|--------|
 | `kai-printers-android` | **1.2.1** (code **27**) | `version.properties` |
 | `kai-printers-desktop` | **1.2.1** | `package.json` + `tauri.conf.json` |
-| `kai-store-lite` | **0.4.0** | `package.json` + `tauri.conf.json` — POS+Admin+Printers desktop (Apple Silicon DMG / Win x64 MSI) |
+| `kai-store-lite` | **0.6.1** | `package.json` + `tauri.conf.json` — POS+Admin+Printers desktop (Win x64 zip / Linux bookworm deb). Acerca de lee esta versión. |
 | `kai-screen-android` (Kai CFD) | **1.2.0** (code **5**) | `version.properties` |
 
 ### 3.4 Paquetes internos (muestra)

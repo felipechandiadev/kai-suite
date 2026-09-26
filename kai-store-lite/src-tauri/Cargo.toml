@@ -1,6 +1,6 @@
 [package]
 name = "kai-store-lite"
-version = "0.6.0"
+version = "0.6.1"
 description = "KaiStore Lite — POS + Admin + Printers (Tauri)"
 authors = ["Kai"]
 edition = "2021"
