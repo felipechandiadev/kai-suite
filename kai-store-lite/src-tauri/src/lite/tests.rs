@@ -742,11 +742,19 @@ async fn lite_admin_users_company_dashboard() {
         &pool,
         &c,
         admin::PosCurrentPatch {
-            point_of_sale_id: cur.id.clone(),
+            point_of_sale_id: Some(cur.id.clone()),
+            show_product_search: Some(false),
+            enabled_payment_methods: Some(vec!["CASH".into(), "TRANSFER".into()]),
         },
     )
     .await
     .unwrap();
+    let after = admin::pos_current(&pool, &c).await.unwrap();
+    assert!(!after.show_product_search);
+    assert_eq!(
+        after.enabled_payment_methods,
+        vec!["CASH".to_string(), "TRANSFER".to_string()]
+    );
     assert!(!admin::users_list(&pool, &c).await.unwrap().is_empty());
     let u = admin::users_create(
         &pool,
@@ -806,7 +814,7 @@ async fn lite_sales_report_run_ok() {
         &uid,
         commerce::SaleRequest {
             lines: vec![commerce::SaleLineIn {
-                variant_id: vid,
+                variant_id: vid.clone(),
                 quantity: 2.0,
                 unit_price: Some(1500.0),
                 name: None,
@@ -824,16 +832,76 @@ async fn lite_sales_report_run_ok() {
     .await
     .unwrap();
 
-    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let to = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let from = format!("{}-01", &to[..7]);
+    let product_id: String = sqlx::query_scalar(
+        "SELECT product_id FROM product_variants WHERE id = ?1",
+    )
+    .bind(&vid)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    let cases = [
+        (
+            "sales-by-period",
+            serde_json::json!({
+                "dateFrom": from, "dateTo": to, "granularity": "day",
+                "compareWith": "previousPeriod"
+            }),
+        ),
+        (
+            "sales-detail",
+            serde_json::json!({ "dateFrom": from, "dateTo": to, "granularity": "day" }),
+        ),
+        (
+            "sales-period-compare",
+            serde_json::json!({
+                "dateFrom": from, "dateTo": to,
+                "compareWith": "samePeriodLastYear"
+            }),
+        ),
+        (
+            "sales-by-product",
+            serde_json::json!({ "dateFrom": from, "dateTo": to, "productId": product_id }),
+        ),
+        (
+            "top-products",
+            serde_json::json!({ "dateFrom": from, "dateTo": to, "topN": 5 }),
+        ),
+        (
+            "sales-by-category",
+            serde_json::json!({ "dateFrom": from, "dateTo": to }),
+        ),
+        (
+            "cash-session-close",
+            serde_json::json!({ "dateFrom": from, "dateTo": to }),
+        ),
+        (
+            "sales-by-payment-method",
+            serde_json::json!({
+                "dateFrom": from, "dateTo": to,
+                "compareWith": "previousPeriod"
+            }),
+        ),
+    ];
+    for (id, params) in cases {
+        let res = reports::run_report(&pool, &c, id, params).await.unwrap();
+        assert_eq!(res["reportId"], id, "{id}");
+        assert!(res["series"].as_array().is_some(), "{id} series");
+    }
+
     let res = reports::run_report(
         &pool,
         &c,
         "sales-by-period",
-        serde_json::json!({ "dateFrom": today, "dateTo": today, "granularity": "day" }),
+        serde_json::json!({
+            "dateFrom": from, "dateTo": to, "granularity": "day",
+            "compareWith": "previousPeriod"
+        }),
     )
     .await
     .unwrap();
-    assert_eq!(res["reportId"], "sales-by-period");
     assert!(res["summary"]["ticketCount"].as_f64().unwrap_or(0.0) >= 1.0);
     assert!(res["summary"]["totalSales"].as_f64().unwrap_or(0.0) >= 3000.0);
 
@@ -841,11 +909,13 @@ async fn lite_sales_report_run_ok() {
         &pool,
         &c,
         "sales-by-payment-method",
-        serde_json::json!({ "dateFrom": today, "dateTo": today }),
+        serde_json::json!({
+            "dateFrom": from, "dateTo": to,
+            "compareWith": "previousPeriod"
+        }),
     )
     .await
     .unwrap();
-    assert_eq!(mix["reportId"], "sales-by-payment-method");
     assert!(!mix["rows"].as_array().unwrap().is_empty());
 
     let err = reports::run_report(&pool, &c, "no-such-report", serde_json::json!({}))
@@ -1047,4 +1117,129 @@ async fn lite_pos_sale_open_item_skips_stock() {
     .await
     .unwrap();
     assert_eq!(after_void, before);
+}
+
+#[tokio::test]
+async fn lite_cash_close_summary_expected() {
+    let pool = lite_test_pool().await;
+    let c = company(&pool).await;
+    let uid = admin_id(&pool).await;
+    let sess = ops::cash_open(
+        &pool,
+        &c,
+        &uid,
+        ops::OpenCash {
+            point_of_sale_id: None,
+            opening_amount: Some(20_000.0),
+        },
+    )
+    .await
+    .unwrap();
+
+    commerce::pos_sale(
+        &pool,
+        &c,
+        &uid,
+        commerce::SaleRequest {
+            lines: vec![commerce::SaleLineIn {
+                variant_id: "open:cash-1".into(),
+                quantity: 1.0,
+                unit_price: Some(9_000.0),
+                name: Some("Venta efectivo".into()),
+            }],
+            payments: vec![commerce::PaymentIn {
+                method: "CASH".into(),
+                amount: 10_000.0,
+            }],
+            customer_id: None,
+            storage_id: None,
+            method: None,
+            total: None,
+        },
+    )
+    .await
+    .unwrap();
+
+    commerce::pos_sale(
+        &pool,
+        &c,
+        &uid,
+        commerce::SaleRequest {
+            lines: vec![commerce::SaleLineIn {
+                variant_id: "open:tr-1".into(),
+                quantity: 1.0,
+                unit_price: Some(5_000.0),
+                name: Some("Venta transferencia".into()),
+            }],
+            payments: vec![commerce::PaymentIn {
+                method: "TRANSFER".into(),
+                amount: 5_000.0,
+            }],
+            customer_id: None,
+            storage_id: None,
+            method: None,
+            total: None,
+        },
+    )
+    .await
+    .unwrap();
+
+    let voided = commerce::pos_sale(
+        &pool,
+        &c,
+        &uid,
+        commerce::SaleRequest {
+            lines: vec![commerce::SaleLineIn {
+                variant_id: "open:void-1".into(),
+                quantity: 1.0,
+                unit_price: Some(3_000.0),
+                name: Some("Anulada".into()),
+            }],
+            payments: vec![commerce::PaymentIn {
+                method: "CASH".into(),
+                amount: 3_000.0,
+            }],
+            customer_id: None,
+            storage_id: None,
+            method: None,
+            total: None,
+        },
+    )
+    .await
+    .unwrap();
+    commerce::sales_void(&pool, &c, &voided.id).await.unwrap();
+
+    ops::cash_withdrawal(
+        &pool,
+        &c,
+        &sess.id,
+        ops::CashAmount {
+            amount: 2_000.0,
+            note: Some("retiro".into()),
+        },
+    )
+    .await
+    .unwrap();
+
+    let summary = ops::cash_close_summary(&pool, &c, &sess.id).await.unwrap();
+    assert_eq!(summary.cash_received, 10_000.0);
+    assert_eq!(summary.change_given, 1_000.0);
+    assert_eq!(summary.cash_net, 9_000.0);
+    assert_eq!(summary.withdrawals, 2_000.0);
+    assert_eq!(summary.expected_cash, 27_000.0);
+    assert_eq!(summary.ticket_count, 2);
+    assert_eq!(summary.void_count, 1);
+    assert_eq!(summary.sales_total, 14_000.0);
+    assert_eq!(
+        summary.methods.iter().map(|m| m.method.as_str()).collect::<Vec<_>>(),
+        vec!["CASH", "TRANSFER"]
+    );
+    assert_eq!(summary.ledger.first().map(|l| l.balance), Some(27_000.0));
+    assert_eq!(summary.ledger.last().map(|l| l.label.as_str()), Some("Apertura"));
+    assert_eq!(summary.ledger.last().map(|l| l.kind.as_str()), Some("OPENING"));
+    assert_eq!(summary.ledger.last().map(|l| l.code.as_str()), Some(""));
+    let sale_lines: Vec<_> = summary.ledger.iter().filter(|l| l.kind == "SALE").collect();
+    assert_eq!(sale_lines.len(), 2);
+    assert!(!sale_lines[0].code.is_empty());
+    assert_eq!(sale_lines[0].code, sale_lines[1].code);
 }

@@ -134,6 +134,10 @@ function matchRoute(method: string, path: string): RouteMatch | null {
   if (method === "GET" && m) {
     return { command: "lite_ops_cash_movements", params: { sessionId: m[1] } };
   }
+  m = clean.match(/^\/lite\/cash-sessions\/([^/]+)\/close-summary$/);
+  if (method === "GET" && m) {
+    return { command: "lite_ops_cash_close_summary", params: { sessionId: m[1] } };
+  }
   m = clean.match(/^\/lite\/cash-sessions\/([^/]+)\/close$/);
   if (method === "POST" && m) {
     return { command: "lite_ops_cash_close", params: { sessionId: m[1] } };

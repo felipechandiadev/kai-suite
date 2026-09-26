@@ -36,6 +36,7 @@ export function SalesPosPage() {
   const [section, setSection] = useState<SectionId>("general");
   const [storageId, setStorageId] = useState("");
   const [editingStorage, setEditingStorage] = useState(false);
+  const [showProductSearch, setShowProductSearch] = useState(true);
   const [enabledMethods, setEnabledMethods] = useState<string[]>(DEFAULT_ENABLED);
   const [availableMethods, setAvailableMethods] = useState<string[]>(DEFAULT_AVAILABLE);
   const [loading, setLoading] = useState(true);
@@ -55,6 +56,7 @@ export function SalesPosPage() {
         setPos(p);
         setStorageId(p.storageId ?? "");
         setStorages(s.items ?? []);
+        setShowProductSearch(p.showProductSearch !== false);
         setEnabledMethods(withoutCheque(p.enabledPaymentMethods, DEFAULT_ENABLED));
         setAvailableMethods(
           withoutCheque(p.availablePaymentMethods, DEFAULT_AVAILABLE),
@@ -106,6 +108,23 @@ export function SalesPosPage() {
     }
     setStorageId(pos?.storageId ?? "");
     setEditingStorage(true);
+  }
+
+  async function saveShowProductSearch(next: boolean) {
+    setShowProductSearch(next);
+    setBusy(true);
+    setMsg(null);
+    setError(null);
+    try {
+      await liteAdminApi.patchPosCurrent({ showProductSearch: next });
+      setMsg(next ? "Buscador de productos visible en caja" : "Caja solo con carrito");
+      reload();
+    } catch (e) {
+      setShowProductSearch(!next);
+      setError(toUserMessage(e));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function savePaymentMethods() {
@@ -179,7 +198,7 @@ export function SalesPosPage() {
         ))}
       </nav>
 
-      <div className="min-h-[16rem] space-y-4" data-test-id="sales-pos-section">
+      <div className="min-h-64 space-y-4" data-test-id="sales-pos-section">
         <LoadingLine loading={loading} />
         <CoreError message={error} />
         {msg ? <Alert variant="success">{msg}</Alert> : null}
@@ -228,6 +247,18 @@ export function SalesPosPage() {
                     )}
                   </div>
                 </div>
+                <Switch
+                  checked={showProductSearch}
+                  disabled={busy}
+                  onChange={(on) => void saveShowProductSearch(on)}
+                  label="Mostrar buscador de productos"
+                  labelPosition="right"
+                  data-test-id="pos-show-product-search"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Si está apagado, la venta muestra solo el carrito. Los productos se cargan con
+                  producto especial.
+                </p>
                 <div className="absolute bottom-2 right-2">
                   <IconButton
                     icon={editingStorage ? "Save" : "Pencil"}

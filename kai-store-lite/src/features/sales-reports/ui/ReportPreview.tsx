@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { Component, type ReactNode, useId, useState } from "react";
 import { IconButton } from "@kai/ui";
 import { ReportCharts } from "./ReportCharts";
 import { KpiBulletChart, shouldUseKpiBullet } from "./KpiBulletChart";
@@ -36,7 +37,7 @@ function KpiInfoButton({ help }: { help: string }) {
           setOpen((v) => !v);
         }}
         onBlur={() => setOpen(false)}
-        className="!h-5 !w-5 text-muted-foreground hover:text-foreground"
+        className="h-5! w-5! text-muted-foreground hover:text-foreground"
         data-test-id="sales-report-kpi-info"
       />
       {open ? (
@@ -77,23 +78,97 @@ type Props = {
   result: SalesReportRunResult | null;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
+function previewResetKey(result: SalesReportRunResult | null): string {
+  if (!result) return "empty";
+  const params = isRecord(result.params) ? result.params : {};
+  return [
+    result.reportId ?? "",
+    String(params.dateFrom ?? ""),
+    String(params.dateTo ?? ""),
+    String(params.cashSessionId ?? ""),
+    result.generatedAt ?? "",
+  ].join("|");
+}
+
+class ReportPreviewBoundary extends Component<
+  { resetKey: string; children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  componentDidUpdate(prev: { resetKey: string }) {
+    if (prev.resetKey !== this.props.resetKey && this.state.failed) {
+      this.setState({ failed: false });
+    }
+  }
+
+  render() {
+    if (this.state.failed) {
+      return (
+        <div
+          className="min-h-80 rounded-xl border border-destructive/30 bg-destructive/10 p-5 text-sm text-destructive"
+          data-test-id="sales-report-preview-error"
+        >
+          No se pudo mostrar el reporte
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export function ReportPreview({ result }: Props) {
+  return (
+    <ReportPreviewBoundary resetKey={previewResetKey(result)}>
+      <ReportPreviewBody result={result} />
+    </ReportPreviewBoundary>
+  );
+}
+
+function ReportPreviewBody({ result }: Props) {
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  async function exportPdf() {
+    setExportError(null);
+    try {
+      await invoke("report_export_pdf");
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : "No se pudo abrir la exportación a PDF");
+    }
+  }
+
   if (!result) {
     return (
       <div
-        className="min-h-[320px] rounded-xl border border-dashed border-border bg-muted/20"
+        className="min-h-80 rounded-xl border border-dashed border-border bg-muted/20"
         data-test-id="sales-report-empty"
         aria-hidden
       />
     );
   }
 
-  const summaryEntries = Object.entries(result.summary);
+  const summary = isRecord(result.summary) ? result.summary : {};
+  const params = isRecord(result.params) ? result.params : {};
+  const summaryDelta = isRecord(result.summaryDelta) ? result.summaryDelta : undefined;
+  const columns = Array.isArray(result.columns) ? result.columns : [];
+  const rows = Array.isArray(result.rows) ? result.rows : [];
+  const series = Array.isArray(result.series) ? result.series : [];
+  const footnotes = Array.isArray(result.footnotes) ? result.footnotes : [];
+  const summaryEntries = Object.entries(summary);
   const bulletEntries = summaryEntries.filter(([key, value]) =>
-    shouldUseKpiBullet(key, value, result.summaryDelta?.[key]),
+    shouldUseKpiBullet(key, value, summaryDelta?.[key] as SalesReportSummaryDelta | undefined),
   );
   const cardEntries = summaryEntries.filter(
-    ([key, value]) => !shouldUseKpiBullet(key, value, result.summaryDelta?.[key]),
+    ([key, value]) =>
+      !shouldUseKpiBullet(key, value, summaryDelta?.[key] as SalesReportSummaryDelta | undefined),
   );
 
   return (
@@ -104,15 +179,18 @@ export function ReportPreview({ result }: Props) {
       <header className="relative mb-5 border-b border-border pb-4 print:border-neutral-300">
         <div className="absolute right-0 top-0 print:hidden">
           <IconButton
-            icon="Download"
+            icon="Printer"
             variant="outlined"
             size="sm"
-            ariaLabel="Exportar a PDF"
-            title="Exportar a PDF"
-            onClick={() => window.print()}
+            ariaLabel="Imprimir reporte"
+            title="Imprimir"
+            onClick={() => void exportPdf()}
             data-test-id="sales-report-export-pdf"
           />
         </div>
+        {exportError ? (
+          <p className="mb-2 pr-12 text-xs text-destructive">{exportError}</p>
+        ) : null}
         <p className="pr-12 text-xs uppercase tracking-wide text-muted-foreground">
           KaiStore - Lite · Reportes de ventas
         </p>
@@ -122,7 +200,7 @@ export function ReportPreview({ result }: Props) {
           {result.truncated ? " · Resultado truncado" : ""}
         </p>
         <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-          {Object.entries(result.params).map(([k, v]) =>
+          {Object.entries(params).map(([k, v]) =>
             v == null || v === "" ? null : (
               <span key={k} className="rounded bg-muted px-1.5 py-0.5">
                 {formatReportParamLabel(k)}: {formatReportParamValue(k, v)}
@@ -139,7 +217,8 @@ export function ReportPreview({ result }: Props) {
         >
           {bulletEntries.map(([key, value]) => {
             const help = salesReportKpiHelp(key);
-            const delta = result.summaryDelta![key]!;
+            const delta = summaryDelta?.[key] as SalesReportSummaryDelta | undefined;
+            if (!delta) return null;
             return (
               <KpiBulletChart
                 key={key}
@@ -159,7 +238,7 @@ export function ReportPreview({ result }: Props) {
         <section className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 print:grid-cols-4">
           {cardEntries.map(([key, value]) => {
             const help = salesReportKpiHelp(key);
-            const delta = result.summaryDelta?.[key];
+            const delta = summaryDelta?.[key] as SalesReportSummaryDelta | undefined;
             return (
               <div
                 key={key}
@@ -187,15 +266,15 @@ export function ReportPreview({ result }: Props) {
       ) : null}
 
       <section className="mb-6">
-        <ReportCharts series={result.series} />
+        <ReportCharts series={series} />
       </section>
 
-      {result.columns.length > 0 ? (
+      {columns.length > 0 ? (
         <section className="overflow-x-auto">
-          <table className="w-full min-w-[480px] border-collapse text-left text-xs">
+          <table className="w-full min-w-120 border-collapse text-left text-xs">
             <thead>
               <tr className="border-b border-border print:border-neutral-400">
-                {result.columns.map((c) => (
+                {columns.map((c) => (
                   <th
                     key={c.key}
                     className={`px-2 py-2 font-semibold text-foreground ${
@@ -208,42 +287,45 @@ export function ReportPreview({ result }: Props) {
               </tr>
             </thead>
             <tbody>
-              {result.rows.length === 0 ? (
+              {rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={result.columns.length}
+                    colSpan={columns.length}
                     className="px-2 py-6 text-center text-muted-foreground"
                   >
                     Sin filas para el período / filtros seleccionados.
                   </td>
                 </tr>
               ) : (
-                result.rows.map((row, idx) => (
+                rows.map((row, idx) => {
+                  const record = isRecord(row) ? row : {};
+                  return (
                   <tr
                     key={idx}
                     className="border-b border-border/70 print:border-neutral-200"
                   >
-                    {result.columns.map((c) => (
+                    {columns.map((c) => (
                       <td
                         key={c.key}
                         className={`px-2 py-1.5 tabular-nums ${
                           c.align === "right" ? "text-right" : "text-left"
                         }`}
                       >
-                        {formatReportCell(c.key, row[c.key], {
+                        {formatReportCell(c.key, record[c.key], {
                           metricKey:
-                            typeof row.metric === "string" ? row.metric : undefined,
+                            typeof record.metric === "string" ? record.metric : undefined,
                         })}
                       </td>
                     ))}
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
             {result.totals ? (
               <tfoot>
                 <tr className="border-t-2 border-border font-semibold print:border-neutral-400">
-                  {result.columns.map((c, i) => (
+                  {columns.map((c, i) => (
                     <td
                       key={c.key}
                       className={`px-2 py-2 ${c.align === "right" ? "text-right" : "text-left"}`}
@@ -262,10 +344,10 @@ export function ReportPreview({ result }: Props) {
         </section>
       ) : null}
 
-      {result.footnotes?.length ? (
+      {footnotes.length ? (
         <footer className="mt-5 space-y-1 border-t border-border pt-3 text-[11px] text-muted-foreground print:border-neutral-300">
-          {result.footnotes.map((f, i) => (
-            <p key={i}>{f}</p>
+          {footnotes.map((f, i) => (
+            <p key={i}>{typeof f === "string" ? f : ""}</p>
           ))}
         </footer>
       ) : null}

@@ -36,6 +36,9 @@ pub struct PrintConfig {
     pub show_company_address: bool,
     #[serde(default = "default_true")]
     pub show_company_phone: bool,
+    /// Fecha y hora de la venta, antes del pie del ticket.
+    #[serde(default = "default_true")]
+    pub show_sale_datetime: bool,
     /// Pulso ESC/POS abrir cajón al imprimir venta.
     #[serde(default)]
     pub open_cash_drawer: bool,
@@ -83,6 +86,7 @@ impl Default for PrintConfig {
             show_company_rut: true,
             show_company_address: true,
             show_company_phone: true,
+            show_sale_datetime: true,
             open_cash_drawer: false,
             text_encoding: "cp850".into(),
             currency_symbol: "$".into(),
@@ -144,6 +148,7 @@ fn migrate_columns(conn: &Connection) -> Result<(), String> {
         "ALTER TABLE print_config ADD COLUMN show_company_rut INTEGER NOT NULL DEFAULT 1",
         "ALTER TABLE print_config ADD COLUMN show_company_address INTEGER NOT NULL DEFAULT 1",
         "ALTER TABLE print_config ADD COLUMN show_company_phone INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE print_config ADD COLUMN show_sale_datetime INTEGER NOT NULL DEFAULT 1",
         "ALTER TABLE print_config ADD COLUMN open_cash_drawer INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE print_config ADD COLUMN text_encoding TEXT NOT NULL DEFAULT 'cp850'",
         "ALTER TABLE print_config ADD COLUMN currency_symbol TEXT NOT NULL DEFAULT '$'",
@@ -160,9 +165,9 @@ fn insert_config(conn: &Connection, cfg: &PrintConfig) -> Result<(), String> {
             id, display_name, system_printer_name, paper_profile, auto_cut_enabled, enabled,
             auto_print_sale, auto_print_cash_opening, auto_print_cash_closing,
             sale_ticket_copies, ticket_footer,
-            show_company_rut, show_company_address, show_company_phone,
+            show_company_rut, show_company_address, show_company_phone, show_sale_datetime,
             open_cash_drawer, text_encoding, currency_symbol
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
         rusqlite::params![
             CONFIG_ID,
             cfg.display_name,
@@ -178,6 +183,7 @@ fn insert_config(conn: &Connection, cfg: &PrintConfig) -> Result<(), String> {
             if cfg.show_company_rut { 1 } else { 0 },
             if cfg.show_company_address { 1 } else { 0 },
             if cfg.show_company_phone { 1 } else { 0 },
+            if cfg.show_sale_datetime { 1 } else { 0 },
             if cfg.open_cash_drawer { 1 } else { 0 },
             cfg.text_encoding,
             cfg.currency_symbol,
@@ -231,7 +237,7 @@ pub fn get_config() -> Result<PrintConfig, String> {
         "SELECT display_name, system_printer_name, paper_profile, auto_cut_enabled, enabled,
                 auto_print_sale, auto_print_cash_opening, auto_print_cash_closing,
                 sale_ticket_copies, ticket_footer,
-                show_company_rut, show_company_address, show_company_phone,
+                show_company_rut, show_company_address, show_company_phone, show_sale_datetime,
                 open_cash_drawer, text_encoding, currency_symbol
          FROM print_config WHERE id = ?1",
         [CONFIG_ID],
@@ -241,10 +247,10 @@ pub fn get_config() -> Result<PrintConfig, String> {
                 .get::<_, String>(9)
                 .unwrap_or_else(|_| "Gracias".into());
             let encoding: String = r
-                .get::<_, String>(14)
+                .get::<_, String>(15)
                 .unwrap_or_else(|_| "cp850".into());
             let currency: String = r
-                .get::<_, String>(15)
+                .get::<_, String>(16)
                 .unwrap_or_else(|_| "$".into());
             Ok(PrintConfig {
                 display_name: r.get(0)?,
@@ -260,7 +266,8 @@ pub fn get_config() -> Result<PrintConfig, String> {
                 show_company_rut: col_bool(r, 10, true),
                 show_company_address: col_bool(r, 11, true),
                 show_company_phone: col_bool(r, 12, true),
-                open_cash_drawer: col_bool(r, 13, false),
+                show_sale_datetime: col_bool(r, 13, true),
+                open_cash_drawer: col_bool(r, 14, false),
                 text_encoding: normalize_encoding(&encoding),
                 currency_symbol: normalize_currency_symbol(&currency),
             })

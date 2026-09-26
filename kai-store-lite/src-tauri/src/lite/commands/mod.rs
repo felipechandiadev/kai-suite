@@ -569,6 +569,18 @@ pub async fn lite_ops_cash_open(
 }
 
 #[tauri::command]
+pub async fn lite_ops_cash_close_summary(
+    pool: State<'_, LitePool>,
+    bearer: Option<String>,
+    session_id: String,
+) -> CmdResult<ops::CashCloseSummary> {
+    let (_, company_id) = ctx(&pool, bearer).await?;
+    ops::cash_close_summary(&pool, &company_id, &session_id)
+        .await
+        .map_err(map_err)
+}
+
+#[tauri::command]
 pub async fn lite_ops_cash_close(
     pool: State<'_, LitePool>,
     bearer: Option<String>,

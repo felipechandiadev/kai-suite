@@ -24,6 +24,7 @@ export type LiteSaleReceiptPayload = {
   payments: LiteSaleReceiptPayment[];
   lines: unknown;
   company?: LitePrintCompanyHeader;
+  soldAt?: string | null;
   printError: string | null;
   preview: LitePrintPreview | null;
 };
@@ -81,6 +82,7 @@ export function LiteSaleReceiptDialog({ open, data, onClose }: Props) {
         method: data.methodLabel,
         lines: data.lines,
         company: data.company,
+        soldAt: data.soldAt,
       });
       const next = await fetchPrintSalePreview({
         saleId: data.saleId,
@@ -88,6 +90,7 @@ export function LiteSaleReceiptDialog({ open, data, onClose }: Props) {
         method: data.methodLabel,
         lines: data.lines,
         company: data.company,
+        soldAt: data.soldAt,
       });
       setPreview(next);
     } catch (e) {
@@ -172,7 +175,7 @@ export function LiteSaleReceiptDialog({ open, data, onClose }: Props) {
               </p>
               <div className="flex justify-center overflow-x-auto rounded-md bg-neutral-900 p-4">
                 <pre
-                  className="whitespace-pre-wrap break-words font-mono text-[11px] leading-snug text-neutral-100"
+                  className="whitespace-pre-wrap wrap-break-word font-mono text-[11px] leading-snug text-neutral-100"
                   style={{ width: `${cols}ch`, maxWidth: "100%" }}
                   data-test-id="lite-sale-receipt-preview"
                 >

@@ -103,12 +103,57 @@ pub struct PosRow {
     pub branch_id: Option<String>,
     pub active: bool,
     pub is_current: bool,
+    /// Si es false, la venta no muestra el buscador y solo admite producto especial.
+    pub show_product_search: bool,
+    pub enabled_payment_methods: Vec<String>,
+    pub available_payment_methods: Vec<String>,
+}
+
+const POS_PAYMENT_METHODS: &[&str] = &["CASH", "CREDIT_CARD", "DEBIT_CARD", "TRANSFER"];
+
+fn default_payment_methods() -> Vec<String> {
+    POS_PAYMENT_METHODS.iter().map(|m| (*m).to_string()).collect()
+}
+
+fn normalize_payment_methods(raw: &[String]) -> Vec<String> {
+    let wanted: std::collections::HashSet<String> = raw
+        .iter()
+        .map(|m| m.trim().to_ascii_uppercase())
+        .filter(|m| POS_PAYMENT_METHODS.contains(&m.as_str()))
+        .collect();
+    POS_PAYMENT_METHODS
+        .iter()
+        .filter(|m| wanted.contains(**m))
+        .map(|m| (*m).to_string())
+        .collect()
+}
+
+fn enabled_payment_methods_from_db(raw: Option<String>) -> Vec<String> {
+    let Some(raw) = raw.filter(|s| !s.trim().is_empty()) else {
+        return default_payment_methods();
+    };
+    match serde_json::from_str::<Vec<String>>(&raw) {
+        Ok(v) => {
+            let normalized = normalize_payment_methods(&v);
+            if normalized.is_empty() {
+                default_payment_methods()
+            } else {
+                normalized
+            }
+        }
+        Err(_) => default_payment_methods(),
+    }
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PosCurrentPatch {
-    pub point_of_sale_id: String,
+    #[serde(default)]
+    pub point_of_sale_id: Option<String>,
+    #[serde(default)]
+    pub show_product_search: Option<bool>,
+    #[serde(default)]
+    pub enabled_payment_methods: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -415,7 +460,9 @@ pub async fn company_patch(
 
 pub async fn pos_list(pool: &LitePool, company_id: &str) -> LiteResult<Vec<PosRow>> {
     let rows = sqlx::query(
-        "SELECT id, name, code, branch_id, active, is_current FROM points_of_sale WHERE company_id = ?1",
+        "SELECT id, name, code, branch_id, active, is_current, show_product_search,
+                enabled_payment_methods
+         FROM points_of_sale WHERE company_id = ?1",
     )
     .bind(company_id)
     .fetch_all(pool)
@@ -429,6 +476,9 @@ pub async fn pos_list(pool: &LitePool, company_id: &str) -> LiteResult<Vec<PosRo
             branch_id: r.get("branch_id"),
             active: r.get::<i64, _>("active") != 0,
             is_current: r.get::<i64, _>("is_current") != 0,
+            show_product_search: r.get::<i64, _>("show_product_search") != 0,
+            enabled_payment_methods: enabled_payment_methods_from_db(r.get("enabled_payment_methods")),
+            available_payment_methods: default_payment_methods(),
         })
         .collect())
 }
@@ -447,19 +497,50 @@ pub async fn pos_current_patch(
     company_id: &str,
     dto: PosCurrentPatch,
 ) -> LiteResult<PosRow> {
-    sqlx::query("UPDATE points_of_sale SET is_current = 0 WHERE company_id = ?1")
+    if let Some(id) = dto.point_of_sale_id.as_deref().filter(|s| !s.is_empty()) {
+        sqlx::query("UPDATE points_of_sale SET is_current = 0 WHERE company_id = ?1")
+            .bind(company_id)
+            .execute(pool)
+            .await?;
+        let res = sqlx::query(
+            "UPDATE points_of_sale SET is_current = 1 WHERE id = ?1 AND company_id = ?2",
+        )
+        .bind(id)
         .bind(company_id)
         .execute(pool)
         .await?;
-    let res = sqlx::query(
-        "UPDATE points_of_sale SET is_current = 1 WHERE id = ?1 AND company_id = ?2",
-    )
-    .bind(&dto.point_of_sale_id)
-    .bind(company_id)
-    .execute(pool)
-    .await?;
-    if res.rows_affected() == 0 {
-        return Err(LiteError::NotFound("POS not found".into()));
+        if res.rows_affected() == 0 {
+            return Err(LiteError::NotFound("POS not found".into()));
+        }
+    }
+    if let Some(show) = dto.show_product_search {
+        let cur = pos_current(pool, company_id).await?;
+        sqlx::query(
+            "UPDATE points_of_sale SET show_product_search = ?1 WHERE id = ?2 AND company_id = ?3",
+        )
+        .bind(if show { 1 } else { 0 })
+        .bind(&cur.id)
+        .bind(company_id)
+        .execute(pool)
+        .await?;
+    }
+    if let Some(methods) = dto.enabled_payment_methods {
+        let normalized = normalize_payment_methods(&methods);
+        if normalized.is_empty() {
+            return Err(LiteError::BadRequest(
+                "Debés habilitar al menos un medio de pago".into(),
+            ));
+        }
+        let cur = pos_current(pool, company_id).await?;
+        let json = serde_json::to_string(&normalized).map_err(|e| LiteError::Other(e.into()))?;
+        sqlx::query(
+            "UPDATE points_of_sale SET enabled_payment_methods = ?1 WHERE id = ?2 AND company_id = ?3",
+        )
+        .bind(json)
+        .bind(&cur.id)
+        .bind(company_id)
+        .execute(pool)
+        .await?;
     }
     pos_current(pool, company_id).await
 }

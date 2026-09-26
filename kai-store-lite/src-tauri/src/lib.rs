@@ -102,6 +102,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::app_hide_main_window,
             commands::app_show_main_window,
+            commands::report_export_pdf,
             commands::app_quit,
             commands::license_status,
             commands::license_fingerprint,
@@ -119,6 +120,7 @@ pub fn run() {
             commands::print_sale_ticket,
             commands::print_cash_opening,
             commands::print_cash_closing,
+            commands::print_cash_session_detail,
             commands::backup_export,
             commands::backup_restore,
             lite::commands::lite_health,
@@ -165,6 +167,7 @@ pub fn run() {
             lite::commands::lite_ops_cash_list,
             lite::commands::lite_ops_cash_movements,
             lite::commands::lite_ops_cash_open,
+            lite::commands::lite_ops_cash_close_summary,
             lite::commands::lite_ops_cash_close,
             lite::commands::lite_ops_cash_deposit,
             lite::commands::lite_ops_cash_withdrawal,

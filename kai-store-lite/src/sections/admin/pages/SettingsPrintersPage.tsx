@@ -33,7 +33,7 @@ const ENCODING_OPTIONS = [
   { id: "utf8", label: "UTF-8" },
 ];
 
-type PreviewKind = "sale" | "cashOpening" | "cashClosing";
+type PreviewKind = "sale" | "cashOpening" | "cashClosing" | "cashSessionDetail";
 
 export function SettingsPrintersPage() {
   const [loading, setLoading] = useState(true);
@@ -59,6 +59,7 @@ export function SettingsPrintersPage() {
   const [showCompanyRut, setShowCompanyRut] = useState(true);
   const [showCompanyAddress, setShowCompanyAddress] = useState(true);
   const [showCompanyPhone, setShowCompanyPhone] = useState(true);
+  const [showSaleDatetime, setShowSaleDatetime] = useState(true);
   const [openCashDrawer, setOpenCashDrawer] = useState(false);
   const [textEncoding, setTextEncoding] = useState("cp850");
   const [currencySymbol, setCurrencySymbol] = useState("$");
@@ -85,6 +86,7 @@ export function SettingsPrintersPage() {
     setShowCompanyRut(cfg.showCompanyRut !== false);
     setShowCompanyAddress(cfg.showCompanyAddress !== false);
     setShowCompanyPhone(cfg.showCompanyPhone !== false);
+    setShowSaleDatetime(cfg.showSaleDatetime !== false);
     setOpenCashDrawer(cfg.openCashDrawer === true);
     setTextEncoding(cfg.textEncoding || "cp850");
     setCurrencySymbol(cfg.currencySymbol?.trim() || "$");
@@ -105,6 +107,7 @@ export function SettingsPrintersPage() {
       showCompanyRut,
       showCompanyAddress,
       showCompanyPhone,
+      showSaleDatetime,
       openCashDrawer,
       textEncoding,
       currencySymbol: currencySymbol.trim() || "$",
@@ -123,6 +126,7 @@ export function SettingsPrintersPage() {
     showCompanyRut,
     showCompanyAddress,
     showCompanyPhone,
+    showSaleDatetime,
     openCashDrawer,
     textEncoding,
     currencySymbol,
@@ -177,6 +181,9 @@ export function SettingsPrintersPage() {
     }
     if (enabled && autoPrintCashClosing) {
       opts.push({ id: "cashClosing", label: "Cierre de caja" });
+    }
+    if (enabled) {
+      opts.push({ id: "cashSessionDetail", label: "Detalle de sesión" });
     }
     return opts;
   }, [enabled, autoPrintSale, autoPrintCashOpening, autoPrintCashClosing]);
@@ -453,7 +460,7 @@ export function SettingsPrintersPage() {
                 <Switch
                   checked={openCashDrawer}
                   onChange={setOpenCashDrawer}
-                  label="Abrir cajón al vender"
+                  label="Abrir gaveta"
                   labelPosition="right"
                   disabled={readOnly || busy || !enabled}
                   data-test-id="print-open-drawer"
@@ -492,6 +499,15 @@ export function SettingsPrintersPage() {
                 />
               </div>
             </div>
+
+            <Switch
+              checked={showSaleDatetime}
+              onChange={setShowSaleDatetime}
+              label="Fecha y hora en la venta"
+              labelPosition="right"
+              disabled={readOnly || busy}
+              data-test-id="print-show-sale-datetime"
+            />
 
             <TextField
               label="Pie de ticket"
@@ -534,7 +550,7 @@ export function SettingsPrintersPage() {
               </p>
             ) : (
               <div className="flex flex-wrap items-end gap-3">
-                <div className="min-w-[200px] flex-1">
+                <div className="min-w-50 flex-1">
                   <Select
                     label="Documento"
                     options={previewDocOptions}
@@ -575,7 +591,7 @@ export function SettingsPrintersPage() {
             </p>
             <div className="flex justify-center overflow-x-auto rounded-md bg-neutral-900 p-4">
               <pre
-                className="whitespace-pre-wrap break-words font-mono text-[11px] leading-snug text-neutral-100"
+                className="whitespace-pre-wrap wrap-break-word font-mono text-[11px] leading-snug text-neutral-100"
                 style={{
                   width: `${previewCols}ch`,
                   maxWidth: "100%",
