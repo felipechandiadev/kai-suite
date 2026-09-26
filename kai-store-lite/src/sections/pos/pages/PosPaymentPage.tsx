@@ -173,7 +173,7 @@ export function PosPaymentPage() {
         qty: l.qty,
         unitPrice: l.unitPrice,
       }));
-      const sale = await liteFetch<{ id: string }>("/lite/pos/sale", {
+      const sale = await liteFetch<{ id: string; createdAt?: string }>("/lite/pos/sale", {
         method: "POST",
         body: JSON.stringify({
           lines: lines.map((l) => ({
@@ -208,6 +208,7 @@ export function PosPaymentPage() {
           lines: printLines,
           method: methodLabel,
           company,
+          soldAt: sale.createdAt,
         });
       } catch (printErr) {
         printError = toUserMessage(printErr);
@@ -222,6 +223,7 @@ export function PosPaymentPage() {
           lines: printLines,
           method: methodLabel,
           company,
+          soldAt: sale.createdAt,
         });
       } catch {
         preview = null;
@@ -241,6 +243,7 @@ export function PosPaymentPage() {
         company,
         printError,
         preview,
+        soldAt: sale.createdAt,
       });
     } catch (e) {
       setError(toUserMessage(e));

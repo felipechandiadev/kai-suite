@@ -55,9 +55,24 @@ export function PosSalePage() {
   const [openQty, setOpenQty] = useState(1);
   const [openPrice, setOpenPrice] = useState("0");
   const [openError, setOpenError] = useState<string | null>(null);
+  const [showProductSearch, setShowProductSearch] = useState(true);
 
   useEffect(() => {
     setPageSize(readLitePosProductSearchPageSize());
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void liteFetch<{ showProductSearch?: boolean }>("/lite/points-of-sale/current")
+      .then((pos) => {
+        if (!cancelled) setShowProductSearch(pos.showProductSearch !== false);
+      })
+      .catch(() => {
+        if (!cancelled) setShowProductSearch(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -69,6 +84,12 @@ export function PosSalePage() {
   }, [query]);
 
   useEffect(() => {
+    if (!showProductSearch) {
+      setLoading(false);
+      setItems([]);
+      setTotalCatalog(0);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     const qs = new URLSearchParams();
@@ -95,7 +116,7 @@ export function PosSalePage() {
     return () => {
       cancelled = true;
     };
-  }, [debouncedQuery, page, pageSize]);
+  }, [debouncedQuery, page, pageSize, showProductSearch]);
 
   const cartTotalAmount = cartTotal(lines);
   const itemsCount = lines.reduce((n, l) => n + l.qty, 0);
@@ -351,7 +372,7 @@ export function PosSalePage() {
   const cartPanel = (
     <aside
       className={`flex min-h-0 w-full min-w-0 flex-col gap-3 rounded-xl border border-border bg-background p-3 sm:p-4 ${
-        compactLayout ? "h-full" : ""
+        compactLayout || !showProductSearch ? "h-full" : ""
       }`}
       data-test-id="pos-cart-panel"
     >
@@ -468,13 +489,13 @@ export function PosSalePage() {
   return (
     <div
       className={
-        compactLayout
+        !showProductSearch || compactLayout
           ? "flex h-full min-h-0 flex-1 flex-col gap-3 p-3"
           : "grid h-full min-h-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-stretch gap-4 p-4"
       }
       data-test-id="pos-sale"
     >
-      {compactLayout ? (
+      {showProductSearch && compactLayout ? (
         <div
           className="flex shrink-0 rounded-lg border border-border bg-muted/30 p-1"
           role="tablist"
@@ -517,7 +538,9 @@ export function PosSalePage() {
         </div>
       ) : null}
 
-      {compactLayout ? (
+      {!showProductSearch ? (
+        <div className="min-h-0 flex-1">{cartPanel}</div>
+      ) : compactLayout ? (
         <div className="min-h-0 flex-1">
           {mobilePanel === "products" ? searchPanel : cartPanel}
         </div>

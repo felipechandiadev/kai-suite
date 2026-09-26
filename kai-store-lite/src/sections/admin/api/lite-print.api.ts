@@ -15,6 +15,7 @@ export type LitePrintConfig = {
   showCompanyRut: boolean;
   showCompanyAddress: boolean;
   showCompanyPhone: boolean;
+  showSaleDatetime: boolean;
   openCashDrawer: boolean;
   textEncoding: "cp850" | "cp437" | "utf8" | string;
   currencySymbol: string;
@@ -61,6 +62,7 @@ export function defaultPrintConfig(): LitePrintConfig {
     showCompanyRut: true,
     showCompanyAddress: true,
     showCompanyPhone: true,
+    showSaleDatetime: true,
     openCashDrawer: false,
     textEncoding: "cp850",
     currencySymbol: "$",
@@ -95,6 +97,7 @@ function normalizeConfig(parsed: Partial<LitePrintConfig>): LitePrintConfig {
     showCompanyRut: parsed.showCompanyRut !== false,
     showCompanyAddress: parsed.showCompanyAddress !== false,
     showCompanyPhone: parsed.showCompanyPhone !== false,
+    showSaleDatetime: parsed.showSaleDatetime !== false,
     openCashDrawer: parsed.openCashDrawer === true,
     autoCutEnabled: parsed.autoCutEnabled !== false,
     enabled: parsed.enabled !== false,
@@ -143,7 +146,7 @@ export async function savePrintConfig(config: LitePrintConfig): Promise<LitePrin
 }
 
 export async function fetchPrintPreview(opts: {
-  kind: "sale" | "cashOpening" | "cashClosing";
+  kind: "sale" | "cashOpening" | "cashClosing" | "cashSessionDetail";
   company?: LitePrintCompanyHeader;
   config?: LitePrintConfig;
 }): Promise<LitePrintPreview> {
@@ -164,7 +167,9 @@ export async function fetchPrintPreview(opts: {
           ? "Ticket de venta"
           : opts.kind === "cashOpening"
             ? "Apertura de caja"
-            : "Cierre de caja",
+            : opts.kind === "cashSessionDetail"
+              ? "Detalle de sesión"
+              : "Cierre de caja",
       text: `(Vista previa no disponible fuera de Tauri)\nPapel ${cfg.paperProfile} · ${cols} cols\n`,
       cols,
       paperProfile: cfg.paperProfile,
@@ -182,6 +187,7 @@ export async function fetchPrintSalePreview(opts: {
   method: string;
   lines: unknown;
   company?: LitePrintCompanyHeader;
+  soldAt?: string | null;
 }): Promise<LitePrintPreview> {
   try {
     return await invoke<LitePrintPreview>("print_sale_preview", {
@@ -190,6 +196,7 @@ export async function fetchPrintSalePreview(opts: {
       method: opts.method,
       lines: opts.lines,
       company: opts.company ?? null,
+      soldAt: opts.soldAt ?? null,
     });
   } catch {
     const cfg = readLocalConfig();
@@ -214,6 +221,7 @@ export async function printSaleTicket(opts: {
   method: string;
   lines: unknown;
   company?: LitePrintCompanyHeader;
+  soldAt?: string | null;
 }): Promise<void> {
   await invoke("print_sale_ticket", {
     saleId: opts.saleId,
@@ -221,6 +229,7 @@ export async function printSaleTicket(opts: {
     method: opts.method,
     lines: opts.lines,
     company: opts.company ?? null,
+    soldAt: opts.soldAt ?? null,
   });
 }
 

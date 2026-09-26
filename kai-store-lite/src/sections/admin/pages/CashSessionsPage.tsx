@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Badge,
@@ -17,28 +17,12 @@ import { formatClp } from "@/lib/format";
 import { liteFetch } from "@/lib/lite-client";
 import { toUserMessage } from "@/lib/errors";
 import { usePosCartStore } from "@/sections/pos/store/pos-cart.store";
-import { litePaymentLabel } from "@/sections/pos/lib/lite-payment-labels";
+import { CashSessionDetailDialog } from "@/sections/pos/components/CashSessionDetailDialog";
 
 const STATUS_LABEL: Record<string, string> = {
   OPEN: "Abierta",
   CLOSED: "Cerrada",
   RECONCILED: "Conciliada",
-};
-
-type MovementRow = {
-  id: string;
-  kind?: "sale" | "deposit" | "withdrawal";
-  documentNumber: string;
-  createdAt: string;
-  total: number;
-  method: string;
-  reason?: string | null;
-};
-
-const KIND_LABEL: Record<string, string> = {
-  sale: "Venta",
-  deposit: "Ingreso",
-  withdrawal: "Egreso",
 };
 
 export function CashSessionsPage() {
@@ -50,10 +34,8 @@ export function CashSessionsPage() {
   const cashSessionId = usePosCartStore((s) => s.cashSessionId);
   const resetSession = usePosCartStore((s) => s.resetSession);
 
-  const [movementsFor, setMovementsFor] = useState<LiteCashSession | null>(null);
-  const [movements, setMovements] = useState<MovementRow[]>([]);
-  const [movementsLoading, setMovementsLoading] = useState(false);
-  const [movementsError, setMovementsError] = useState<string | null>(null);
+  const [detailSessionId, setDetailSessionId] = useState<string | null>(null);
+  const [detailCaption, setDetailCaption] = useState<string | undefined>();
 
   const [closeFor, setCloseFor] = useState<LiteCashSession | null>(null);
   const [closingAmount, setClosingAmount] = useState("");
@@ -68,22 +50,14 @@ export function CashSessionsPage() {
     });
   }, [items, q]);
 
-  const loadMovements = useCallback(async (session: LiteCashSession) => {
-    setMovementsFor(session);
-    setMovements([]);
-    setMovementsError(null);
-    setMovementsLoading(true);
-    try {
-      const res = await liteFetch<{ items: MovementRow[] }>(
-        `/lite/cash-sessions/${session.id}/movements`,
-      );
-      setMovements(res.items ?? []);
-    } catch (e) {
-      setMovementsError(toUserMessage(e));
-    } finally {
-      setMovementsLoading(false);
-    }
-  }, []);
+  function openDetail(session: LiteCashSession) {
+    const status = STATUS_LABEL[session.status ?? ""] ?? session.status ?? "";
+    const opening = session.openingAmount ?? session.openingFloat ?? 0;
+    setDetailCaption(
+      `${session.pointOfSaleName ?? "POS"} · ${status} · Fondo de apertura ${formatClp(opening)}`,
+    );
+    setDetailSessionId(session.id);
+  }
 
   useEffect(() => {
     if (!closeFor) return;
@@ -129,7 +103,7 @@ export function CashSessionsPage() {
             size="sm"
             ariaLabel="Ver movimientos de la sesión"
             title="Movimientos"
-            onClick={() => void loadMovements(row)}
+            onClick={() => openDetail(row)}
             data-test-id={`cash-session-movements-${row.id}`}
           />
           {isOpen ? (
@@ -149,19 +123,9 @@ export function CashSessionsPage() {
 
     return [
       {
-        field: "pointOfSaleName",
-        headerName: "POS",
-        flex: 1,
-        minWidth: 160,
-        sortable: false,
-        valueGetter: ({ row }) => {
-          const r = row as LiteCashSession;
-          return r.pointOfSaleName ?? r.pointOfSaleId ?? "—";
-        },
-      },
-      {
         field: "status",
         headerName: "Estado",
+        flex: 1,
         width: 130,
         minWidth: 120,
         sortable: false,
@@ -183,6 +147,7 @@ export function CashSessionsPage() {
       {
         field: "openedAt",
         headerName: "Apertura",
+        flex: 1,
         width: 180,
         minWidth: 160,
         sortable: false,
@@ -194,6 +159,7 @@ export function CashSessionsPage() {
       {
         field: "closedAt",
         headerName: "Cierre",
+        flex: 1,
         width: 180,
         minWidth: 160,
         sortable: false,
@@ -204,9 +170,10 @@ export function CashSessionsPage() {
       },
       {
         field: "openingAmount",
-        headerName: "Fondo",
-        width: 140,
-        minWidth: 120,
+        headerName: "Fondo de apertura",
+        flex: 1,
+        width: 180,
+        minWidth: 160,
         align: "right",
         sortable: false,
         valueGetter: ({ row }) => {
@@ -227,15 +194,7 @@ export function CashSessionsPage() {
         actionComponent: SessionActionsCell,
       },
     ];
-  }, [loadMovements]);
-
-  const salesTotal = useMemo(
-    () =>
-      movements
-        .filter((m) => !m.kind || m.kind === "sale")
-        .reduce((acc, m) => acc + Number(m.total ?? 0), 0),
-    [movements],
-  );
+  }, []);
 
   return (
     <CollectionPageLayout
@@ -260,73 +219,12 @@ export function CashSessionsPage() {
         data-test-id="cash-sessions-data-grid"
       />
 
-      <Dialog
-        open={!!movementsFor}
-        onClose={() => setMovementsFor(null)}
-        title="Movimientos de sesión"
-        size="lg"
-        actions={
-          <Button type="button" variant="outlined" onClick={() => setMovementsFor(null)}>
-            Cerrar
-          </Button>
-        }
-      >
-        {movementsFor ? (
-          <div className="space-y-3 text-sm">
-            <p className="text-muted-foreground">
-              {movementsFor.pointOfSaleName ?? "POS"} ·{" "}
-              {STATUS_LABEL[movementsFor.status ?? ""] ?? movementsFor.status} · Fondo de apertura{" "}
-              {formatClp(movementsFor.openingAmount ?? movementsFor.openingFloat ?? 0)}
-            </p>
-            {movementsError ? <Alert variant="error">{movementsError}</Alert> : null}
-            {movementsLoading ? (
-              <p className="text-muted-foreground">Cargando…</p>
-            ) : movementsError ? null : movements.length === 0 ? (
-              <p className="text-muted-foreground">Sin movimientos en esta sesión.</p>
-            ) : (
-              <>
-                <div className="max-h-[50vh] overflow-auto rounded-lg border border-border">
-                  <table className="w-full min-w-0 text-left text-sm">
-                    <thead className="sticky top-0 bg-muted/40 text-xs text-muted-foreground">
-                      <tr>
-                        <th className="px-3 py-2 font-medium">Fecha</th>
-                        <th className="px-3 py-2 font-medium">Tipo</th>
-                        <th className="px-3 py-2 font-medium">Documento</th>
-                        <th className="px-3 py-2 font-medium">Medio de pago</th>
-                        <th className="px-3 py-2 text-right font-medium">Monto</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {movements.map((m) => {
-                        const kind = m.kind ?? "sale";
-                        return (
-                          <tr key={m.id} className="border-t border-border/70">
-                            <td className="px-3 py-2 whitespace-nowrap">
-                              {new Date(m.createdAt).toLocaleString("es-CL")}
-                            </td>
-                            <td className="px-3 py-2">{KIND_LABEL[kind] ?? kind}</td>
-                            <td className="px-3 py-2 font-mono text-xs">{m.documentNumber}</td>
-                            <td className="px-3 py-2">
-                              {litePaymentLabel(m.method || "CASH")}
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                              {kind === "withdrawal" ? "−" : ""}
-                              {formatClp(m.total)}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <p className="text-right text-sm font-medium text-foreground">
-                  Total ventas: {formatClp(salesTotal)}
-                </p>
-              </>
-            )}
-          </div>
-        ) : null}
-      </Dialog>
+      <CashSessionDetailDialog
+        open={detailSessionId != null}
+        sessionId={detailSessionId}
+        caption={detailCaption}
+        onClose={() => setDetailSessionId(null)}
+      />
 
       <Dialog
         open={!!closeFor}

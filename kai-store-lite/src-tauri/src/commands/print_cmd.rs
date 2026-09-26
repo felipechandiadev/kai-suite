@@ -1,8 +1,10 @@
 use crate::print::{
-    get_config, list_mappings, list_system_printers, print_cash_closing as do_print_cash_closing,
-    print_cash_opening as do_print_cash_opening, print_preview as do_print_preview, print_sale,
-    print_sale_preview as do_print_sale_preview, print_test_page, save_config, CompanyHeader,
-    PrintConfig, PrintPreviewDto, PrinterMapping, SaleTicketArgs, SystemPrinterInfo,
+    get_config, list_mappings, list_system_printers,     print_cash_closing as do_print_cash_closing,
+    print_cash_opening as do_print_cash_opening,
+    print_cash_session_detail as do_print_cash_session_detail,
+    print_preview as do_print_preview, print_sale,
+    print_sale_preview as do_print_sale_preview, print_test_page, save_config,     CompanyHeader, PrintConfig, PrintPreviewDto, PrinterMapping, SaleTicketArgs,
+    CashCloseTicketArgs, CashSessionDetailArgs, SystemPrinterInfo,
 };
 use serde::Serialize;
 use serde_json::Value;
@@ -78,6 +80,7 @@ pub fn print_sale_preview(
     method: String,
     lines: Value,
     company: Option<CompanyHeader>,
+    sold_at: Option<String>,
 ) -> Result<PrintPreviewDto, String> {
     do_print_sale_preview(SaleTicketArgs {
         sale_id,
@@ -85,6 +88,7 @@ pub fn print_sale_preview(
         method,
         lines,
         company,
+        sold_at,
     })
 }
 
@@ -95,6 +99,7 @@ pub fn print_sale_ticket(
     method: String,
     lines: Value,
     company: Option<CompanyHeader>,
+    sold_at: Option<String>,
 ) -> Result<(), String> {
     print_sale(SaleTicketArgs {
         sale_id,
@@ -102,6 +107,7 @@ pub fn print_sale_ticket(
         method,
         lines,
         company,
+        sold_at,
     })
 }
 
@@ -114,10 +120,11 @@ pub fn print_cash_opening(
 }
 
 #[tauri::command]
-pub fn print_cash_closing(
-    counted: f64,
-    opening_float: f64,
-    company: Option<CompanyHeader>,
-) -> Result<(), String> {
-    do_print_cash_closing(counted, opening_float, company)
+pub fn print_cash_closing(args: CashCloseTicketArgs) -> Result<(), String> {
+    do_print_cash_closing(args)
+}
+
+#[tauri::command]
+pub fn print_cash_session_detail(args: CashSessionDetailArgs) -> Result<(), String> {
+    do_print_cash_session_detail(args)
 }

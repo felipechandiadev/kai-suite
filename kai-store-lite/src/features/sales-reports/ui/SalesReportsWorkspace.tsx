@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { IconButton, SelectDefault as Select } from "@kai/ui";
 import {
   SALES_REPORT_REGISTRY,
@@ -42,6 +42,7 @@ export function SalesReportsWorkspace({ cashSessions }: Props) {
   const [result, setResult] = useState<SalesReportRunResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const runSeq = useRef(0);
 
   const categoryOptions = useMemo(
     () =>
@@ -65,6 +66,7 @@ export function SalesReportsWorkspace({ cashSessions }: Props) {
 
   const runReport = useCallback(
     (activeEntry: NonNullable<typeof entry>, activeForm: ReportFormState) => {
+      const seq = ++runSeq.current;
       const validationError = validateFormForEntry(activeEntry, activeForm);
       if (validationError) {
         setError(validationError);
@@ -75,6 +77,7 @@ export function SalesReportsWorkspace({ cashSessions }: Props) {
       const params = formStateToParams(activeEntry, activeForm);
       startTransition(async () => {
         const res = await runSalesReport(activeEntry.id, params);
+        if (seq !== runSeq.current) return;
         if (!res.success) {
           setResult(null);
           setError(res.error ?? "No se pudo generar el reporte");

@@ -3,6 +3,7 @@ import { Alert, Button, Dialog, IconButton, TextField } from "@kai/ui";
 import { liteFetch } from "@/lib/lite-client";
 import { toUserMessage } from "@/lib/errors";
 import { usePosCartStore } from "@/sections/pos/store/pos-cart.store";
+import { CashSessionDetailDialog } from "@/sections/pos/components/CashSessionDetailDialog";
 import { useSectionStore } from "./section-state.store";
 
 type MovementKind = "deposit" | "withdrawal";
@@ -17,6 +18,7 @@ export function CashSessionTitleBarActions() {
   const setPhase = usePosCartStore((s) => s.setPhase);
 
   const [dialog, setDialog] = useState<MovementKind | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -80,6 +82,15 @@ export function CashSessionTitleBarActions() {
     <>
       <div className="titlebar__cash-actions" role="group" aria-label="Caja">
         <IconButton
+          icon="ArrowLeftRight"
+          variant="neutral"
+          size="sm"
+          ariaLabel="Movimientos de la sesión"
+          title="Movimientos de la sesión"
+          onClick={() => setDetailOpen(true)}
+          data-test-id="titlebar-cash-session-detail"
+        />
+        <IconButton
           icon="BanknoteArrowDown"
           variant="neutral"
           size="sm"
@@ -107,6 +118,12 @@ export function CashSessionTitleBarActions() {
           data-test-id="titlebar-cash-close"
         />
       </div>
+
+      <CashSessionDetailDialog
+        open={detailOpen}
+        sessionId={cashSessionId}
+        onClose={() => setDetailOpen(false)}
+      />
 
       <Dialog
         open={dialog != null}

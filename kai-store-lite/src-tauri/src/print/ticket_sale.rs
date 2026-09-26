@@ -25,6 +25,8 @@ pub struct SaleTicketArgs {
     pub method: String,
     pub lines: Value,
     #[serde(default)]
+    pub sold_at: Option<String>,
+    #[serde(default)]
     pub company: Option<CompanyHeader>,
 }
 
@@ -87,6 +89,48 @@ pub fn normalize_encoding(raw: &str) -> String {
     }
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CashCloseTicketMethod {
+    pub method: String,
+    pub amount: f64,
+    pub count: i64,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CashCloseTicketMovement {
+    pub kind: String,
+    pub amount: f64,
+    pub note: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CashCloseTicketArgs {
+    pub session_id: String,
+    pub opened_at: String,
+    pub closed_at: Option<String>,
+    pub cashier_name: Option<String>,
+    pub ticket_count: i64,
+    pub void_count: i64,
+    pub sales_total: f64,
+    pub average_ticket: f64,
+    pub methods: Vec<CashCloseTicketMethod>,
+    pub cash_received: f64,
+    pub change_given: f64,
+    pub cash_net: f64,
+    pub opening_amount: f64,
+    pub deposits: f64,
+    pub withdrawals: f64,
+    pub expected_cash: f64,
+    pub counted: f64,
+    pub movements: Vec<CashCloseTicketMovement>,
+    #[serde(default)]
+    pub company: Option<CompanyHeader>,
+}
+
 pub fn print_sale(args: SaleTicketArgs) -> Result<(), String> {
     let cfg = get_config()?;
     if !cfg.enabled || !cfg.auto_print_sale {
@@ -107,20 +151,61 @@ pub fn print_cash_opening(amount: f64, company: Option<CompanyHeader>) -> Result
         return Ok(());
     }
     let text = render_cash_opening_text(&cfg, company.as_ref(), amount);
-    let bytes = build_escpos_for_body(&text, false, &cfg)?;
+    let bytes = build_escpos_for_body(&text, cfg.open_cash_drawer, &cfg)?;
     dispatch_escpos(&bytes, &text)
 }
 
-pub fn print_cash_closing(
-    counted: f64,
-    opening_float: f64,
-    company: Option<CompanyHeader>,
-) -> Result<(), String> {
+pub fn print_cash_closing(args: CashCloseTicketArgs) -> Result<(), String> {
     let cfg = get_config()?;
     if !cfg.enabled || !cfg.auto_print_cash_closing {
         return Ok(());
     }
-    let text = render_cash_closing_text(&cfg, company.as_ref(), counted, opening_float);
+    let text = render_cash_closing_text(&cfg, &args);
+    let bytes = build_escpos_for_body(&text, cfg.open_cash_drawer, &cfg)?;
+    dispatch_escpos(&bytes, &text)
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CashSessionDetailMethod {
+    pub method: String,
+    pub amount: f64,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CashSessionDetailLine {
+    pub label: String,
+    pub created_at: String,
+    #[serde(default)]
+    pub kind: String,
+    #[serde(default)]
+    pub code: String,
+    pub direction: String,
+    pub amount: f64,
+    pub balance: f64,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CashSessionDetailArgs {
+    pub session_id: String,
+    pub opening_amount: f64,
+    pub sales_total: f64,
+    pub expected_cash: f64,
+    pub methods: Vec<CashSessionDetailMethod>,
+    /// Libro tal como lo ve el diálogo: el más nuevo primero. El ticket lo invierte.
+    pub ledger: Vec<CashSessionDetailLine>,
+    #[serde(default)]
+    pub company: Option<CompanyHeader>,
+}
+
+pub fn print_cash_session_detail(args: CashSessionDetailArgs) -> Result<(), String> {
+    let cfg = get_config()?;
+    if !cfg.enabled {
+        return Err("La impresión está deshabilitada".into());
+    }
+    let text = render_cash_session_detail_text(&cfg, &args);
     let bytes = build_escpos_for_body(&text, false, &cfg)?;
     dispatch_escpos(&bytes, &text)
 }
@@ -146,6 +231,7 @@ pub fn print_preview(
                     { "name": "Medialuna", "qty": 1, "unitPrice": 1490 },
                     { "name": "Jugo natural", "qty": 1, "unitPrice": 3500 },
                 ]),
+                sold_at: None,
                 company: co.clone(),
             };
             (
@@ -159,11 +245,17 @@ pub fn print_preview(
             "Apertura de caja".to_string(),
             render_cash_opening_text(&cfg, co.as_ref(), 50_000.0),
             1,
-            false,
+            cfg.open_cash_drawer,
         ),
         "cashclosing" | "closing" | "cierre" => (
             "Cierre de caja".to_string(),
-            render_cash_closing_text(&cfg, co.as_ref(), 128_450.0, 50_000.0),
+            render_cash_closing_text(&cfg, &demo_cash_close(co.clone())),
+            1,
+            cfg.open_cash_drawer,
+        ),
+        "cashsession" | "cashsessiondetail" | "session" | "detalle" => (
+            "Detalle de sesión".to_string(),
+            render_cash_session_detail_text(&cfg, &demo_cash_session_detail(co.clone())),
             1,
             false,
         ),
@@ -210,7 +302,7 @@ fn render_sale_text(
     args: &SaleTicketArgs,
 ) -> Result<String, String> {
     let mut text = String::new();
-    append_company_header(&mut text, company, cfg);
+    append_company_header(&mut text, company, cfg, true);
     text.push_str(&format!("VENTA {}\n", short_id(&args.sale_id)));
     text.push_str("----------------\n");
 
@@ -239,6 +331,12 @@ fn render_sale_text(
     text.push_str("----------------\n");
     text.push_str(&format!("TOTAL: {}\n", fmt_money(args.total, &cfg.currency_symbol)));
     text.push_str(&format!("Pago: {}\n", args.method));
+    if cfg.show_sale_datetime {
+        let cols = paper_cols(&cfg.paper_profile) as usize;
+        text.push('\n');
+        text.push_str(&center_line(&format_sale_stamp(args.sold_at.as_deref()), cols));
+        text.push('\n');
+    }
     let footer = cfg.ticket_footer.trim();
     if !footer.is_empty() {
         text.push('\n');
@@ -250,49 +348,311 @@ fn render_sale_text(
 
 fn render_cash_opening_text(cfg: &PrintConfig, company: Option<&CompanyHeader>, amount: f64) -> String {
     let mut text = String::new();
-    append_company_header(&mut text, company, cfg);
+    append_company_header(&mut text, company, cfg, false);
     text.push_str("APERTURA CAJA\n");
     text.push_str(&format!("Fondo: {}\n", fmt_money(amount, &cfg.currency_symbol)));
     text
 }
 
-fn render_cash_closing_text(
-    cfg: &PrintConfig,
-    company: Option<&CompanyHeader>,
-    counted: f64,
-    opening_float: f64,
-) -> String {
+fn demo_cash_close(company: Option<CompanyHeader>) -> CashCloseTicketArgs {
+    CashCloseTicketArgs {
+        session_id: "preview-ABCDEF12".into(),
+        opened_at: "2026-09-26 09:00:00".into(),
+        closed_at: Some("2026-09-26 18:30:00".into()),
+        cashier_name: Some("Cajero".into()),
+        ticket_count: 12,
+        void_count: 1,
+        sales_total: 186_000.0,
+        average_ticket: 15_500.0,
+        methods: vec![
+            CashCloseTicketMethod {
+                method: "CASH".into(),
+                amount: 90_000.0,
+                count: 6,
+            },
+            CashCloseTicketMethod {
+                method: "TRANSFER".into(),
+                amount: 96_000.0,
+                count: 6,
+            },
+        ],
+        cash_received: 95_000.0,
+        change_given: 5_000.0,
+        cash_net: 90_000.0,
+        opening_amount: 20_000.0,
+        deposits: 10_000.0,
+        withdrawals: 8_000.0,
+        expected_cash: 112_000.0,
+        counted: 111_000.0,
+        movements: vec![
+            CashCloseTicketMovement {
+                kind: "DEPOSIT".into(),
+                amount: 10_000.0,
+                note: Some("Fondo extra".into()),
+                created_at: "2026-09-26 11:00:00".into(),
+            },
+            CashCloseTicketMovement {
+                kind: "WITHDRAWAL".into(),
+                amount: 8_000.0,
+                note: Some("Pago proveedor".into()),
+                created_at: "2026-09-26 16:10:00".into(),
+            },
+        ],
+        company,
+    }
+}
+
+fn render_cash_closing_text(cfg: &PrintConfig, args: &CashCloseTicketArgs) -> String {
+    let sym = cfg.currency_symbol.as_str();
     let mut text = String::new();
-    append_company_header(&mut text, company, cfg);
-    text.push_str("CIERRE CAJA\n");
-    text.push_str(&format!("Apertura: {}\n", fmt_money(opening_float, &cfg.currency_symbol)));
-    text.push_str(&format!("Contado: {}\n", fmt_money(counted, &cfg.currency_symbol)));
+    append_company_header(&mut text, args.company.as_ref(), cfg, false);
+    text.push_str("CIERRE DE CAJA\n");
+    text.push_str(&format!("Sesión: {}\n", short_id(&args.session_id)));
+    text.push_str(&format!("Apertura: {}\n", fmt_when(&args.opened_at)));
     text.push_str(&format!(
-        "Diff: {}\n",
-        fmt_money(counted - opening_float, &cfg.currency_symbol)
+        "Cierre: {}\n",
+        args.closed_at
+            .as_deref()
+            .map(fmt_when)
+            .unwrap_or_else(|| "—".into())
     ));
+    if let Some(name) = args.cashier_name.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        text.push_str(&format!("Cajero: {name}\n"));
+    }
+
+    text.push_str("----------------\n");
+    text.push_str("VENTAS\n");
+    text.push_str(&format!("Tickets: {}\n", args.ticket_count));
+    text.push_str(&format!("Anuladas: {}\n", args.void_count));
+    text.push_str(&format!("Total: {}\n", fmt_money(args.sales_total, sym)));
+    text.push_str(&format!(
+        "Promedio: {}\n",
+        fmt_money(args.average_ticket, sym)
+    ));
+
+    text.push_str("----------------\n");
+    text.push_str("MEDIOS\n");
+    let cash_used = args.cash_received > 0.0 || args.change_given > 0.0;
+    if cash_used {
+        text.push_str("Efectivo\n");
+        text.push_str(&format!("  Recibido: {}\n", fmt_money(args.cash_received, sym)));
+        text.push_str(&format!("  Vuelto: {}\n", fmt_money(args.change_given, sym)));
+        text.push_str(&format!("  Neto: {}\n", fmt_money(args.cash_net, sym)));
+    }
+    let mut other = false;
+    for method in &args.methods {
+        if method.method == "CASH" {
+            continue;
+        }
+        other = true;
+        text.push_str(&format!("{}\n", payment_label(&method.method)));
+        text.push_str(&format!(
+            "  {} ({})\n",
+            fmt_money(method.amount, sym),
+            method.count
+        ));
+    }
+    if !cash_used && !other {
+        text.push_str("Sin cobros\n");
+    }
+
+    text.push_str("----------------\n");
+    text.push_str("CAJÓN\n");
+    text.push_str(&format!("Fondo: {}\n", fmt_money(args.opening_amount, sym)));
+    text.push_str(&format!("Neto ventas: {}\n", fmt_money(args.cash_net, sym)));
+    text.push_str(&format!("Ingresos: {}\n", fmt_money(args.deposits, sym)));
+    text.push_str(&format!("Retiros: {}\n", fmt_money(args.withdrawals, sym)));
+    text.push_str(&format!(
+        "Efectivo esperado: {}\n",
+        fmt_money(args.expected_cash, sym)
+    ));
+    text.push_str(&format!("Contado: {}\n", fmt_money(args.counted, sym)));
+    let diff = args.counted - args.expected_cash;
+    if diff.abs() < 0.5 {
+        text.push_str("Cuadra\n");
+    } else if diff > 0.0 {
+        text.push_str(&format!("Sobrante: {}\n", fmt_money(diff, sym)));
+    } else {
+        text.push_str(&format!("Faltante: {}\n", fmt_money(diff.abs(), sym)));
+    }
     text
 }
 
-fn append_company_header(text: &mut String, company: Option<&CompanyHeader>, cfg: &PrintConfig) {
+fn demo_cash_session_detail(company: Option<CompanyHeader>) -> CashSessionDetailArgs {
+    CashSessionDetailArgs {
+        session_id: "preview-ABCDEF12".into(),
+        opening_amount: 3_000.0,
+        sales_total: 101_500.0,
+        expected_cash: 99_500.0,
+        methods: vec![
+            CashSessionDetailMethod {
+                method: "CASH".into(),
+                amount: 96_500.0,
+            },
+            CashSessionDetailMethod {
+                method: "DEBIT_CARD".into(),
+                amount: 4_000.0,
+            },
+            CashSessionDetailMethod {
+                method: "TRANSFER".into(),
+                amount: 1_000.0,
+            },
+        ],
+        ledger: vec![
+            CashSessionDetailLine {
+                label: "Vuelto".into(),
+                created_at: "2026-09-26 10:16:00".into(),
+                kind: "SALE".into(),
+                code: "preview-ABCDEF12".into(),
+                direction: "out".into(),
+                amount: 3_500.0,
+                balance: 99_500.0,
+            },
+            CashSessionDetailLine {
+                label: "Efectivo recibido".into(),
+                created_at: "2026-09-26 10:15:00".into(),
+                kind: "SALE".into(),
+                code: "preview-ABCDEF12".into(),
+                direction: "in".into(),
+                amount: 100_000.0,
+                balance: 103_000.0,
+            },
+            CashSessionDetailLine {
+                label: "Apertura".into(),
+                created_at: "2026-09-26 09:00:00".into(),
+                kind: "OPENING".into(),
+                code: String::new(),
+                direction: "in".into(),
+                amount: 3_000.0,
+                balance: 3_000.0,
+            },
+        ],
+        company,
+    }
+}
+
+fn render_cash_session_detail_text(cfg: &PrintConfig, args: &CashSessionDetailArgs) -> String {
+    let sym = cfg.currency_symbol.as_str();
+    let mut text = String::new();
+    append_company_header(&mut text, args.company.as_ref(), cfg, false);
+    text.push_str("DETALLE DE SESIÓN\n");
+    text.push_str(&format!("Sesión: {}\n", short_id(&args.session_id)));
+    text.push_str("----------------\n");
+    text.push_str(&format!(
+        "Efectivo en caja: {}\n",
+        fmt_money(args.expected_cash, sym)
+    ));
+    text.push_str(&format!(
+        "Fondo de apertura: {}\n",
+        fmt_money(args.opening_amount, sym)
+    ));
+    text.push_str(&format!(
+        "Ventas totales: {}\n",
+        fmt_money(args.sales_total, sym)
+    ));
+    if !args.methods.is_empty() {
+        text.push_str("Detalles de ventas\n");
+        for method in &args.methods {
+            text.push_str(&format!(
+                "  {}: {}\n",
+                payment_label(&method.method),
+                fmt_money(method.amount, sym)
+            ));
+        }
+    }
+    text.push_str("----------------\n");
+    text.push_str("MOVIMIENTOS\n");
+    if args.ledger.is_empty() {
+        text.push_str("Sin movimientos\n");
+    } else {
+        for line in args.ledger.iter().rev() {
+            let sign = if line.direction == "out" { "-" } else { "+" };
+            if line.kind == "SALE" && !line.code.trim().is_empty() {
+                text.push_str(&format!(
+                    "{}  Venta {}\n",
+                    fmt_clock(&line.created_at),
+                    short_id(&line.code)
+                ));
+                text.push_str(&format!("  {}\n", line.label));
+            } else {
+                text.push_str(&format!(
+                    "{}  {}\n",
+                    fmt_clock(&line.created_at),
+                    line.label
+                ));
+            }
+            text.push_str(&format!(
+                "  {sign}{}   Saldo {}\n",
+                fmt_money(line.amount, sym),
+                fmt_money(line.balance, sym)
+            ));
+        }
+    }
+    text
+}
+
+fn fmt_clock(raw: &str) -> String {
+    let t = raw.trim().replace('T', " ");
+    if t.len() >= 16 {
+        t[11..16].to_string()
+    } else if t.len() >= 5 {
+        t[t.len() - 5..].to_string()
+    } else {
+        t
+    }
+}
+
+fn payment_label(method: &str) -> String {
+    match method {
+        "CASH" => "Efectivo".into(),
+        "CREDIT_CARD" => "Tarjeta crédito".into(),
+        "DEBIT_CARD" => "Tarjeta débito".into(),
+        "TRANSFER" => "Transferencia".into(),
+        other => other.to_string(),
+    }
+}
+
+fn fmt_when(raw: &str) -> String {
+    let t = raw.trim().replace('T', " ");
+    if t.len() >= 16 {
+        t[..16].to_string()
+    } else {
+        t
+    }
+}
+
+fn append_company_header(
+    text: &mut String,
+    company: Option<&CompanyHeader>,
+    cfg: &PrintConfig,
+    center: bool,
+) {
+    let cols = paper_cols(&cfg.paper_profile) as usize;
+    let push = |text: &mut String, line: &str| {
+        if center {
+            text.push_str(&center_line(line, cols));
+        } else {
+            text.push_str(line);
+        }
+        text.push('\n');
+    };
+
     let name = company
         .and_then(|c| c.name.as_deref())
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .unwrap_or("KaiStore Lite");
-    text.push_str(name);
-    text.push('\n');
+    push(text, name);
 
     if let Some(c) = company {
         if cfg.show_company_rut {
             if let Some(rut) = c.rut.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-                text.push_str(&format!("RUT: {rut}\n"));
+                push(text, &format!("RUT: {rut}"));
             }
         }
         if cfg.show_company_address {
             if let Some(addr) = c.address.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-                text.push_str(addr);
-                text.push('\n');
+                push(text, addr);
             }
             let loc = [c.commune.as_deref(), c.city.as_deref()]
                 .into_iter()
@@ -302,17 +662,48 @@ fn append_company_header(text: &mut String, company: Option<&CompanyHeader>, cfg
                 .collect::<Vec<_>>()
                 .join(", ");
             if !loc.is_empty() {
-                text.push_str(&loc);
-                text.push('\n');
+                push(text, &loc);
             }
         }
         if cfg.show_company_phone {
             if let Some(phone) = c.phone.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-                text.push_str(&format!("Tel: {phone}\n"));
+                push(text, &format!("Tel: {phone}"));
             }
         }
     }
     text.push_str("----------------\n");
+}
+
+fn center_line(line: &str, cols: usize) -> String {
+    let width = line.chars().count();
+    if cols == 0 || width >= cols {
+        return line.to_string();
+    }
+    let pad = (cols - width) / 2;
+    format!("{}{line}", " ".repeat(pad))
+}
+
+fn format_sale_stamp(raw: Option<&str>) -> String {
+    let local = raw
+        .and_then(parse_sale_stamp)
+        .unwrap_or_else(chrono::Local::now);
+    local.format("%d/%m/%Y - %H:%M").to_string()
+}
+
+fn parse_sale_stamp(raw: &str) -> Option<chrono::DateTime<chrono::Local>> {
+    let t = raw.trim();
+    if t.is_empty() {
+        return None;
+    }
+    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(t) {
+        return Some(dt.with_timezone(&chrono::Local));
+    }
+    let naive = t.replace('T', " ");
+    let naive = naive.split('.').next().unwrap_or(&naive);
+    let parsed = chrono::NaiveDateTime::parse_from_str(naive, "%Y-%m-%d %H:%M:%S")
+        .ok()
+        .or_else(|| chrono::NaiveDateTime::parse_from_str(naive, "%Y-%m-%d %H:%M").ok())?;
+    Some(parsed.and_utc().with_timezone(&chrono::Local))
 }
 
 /// Ajusta líneas largas al ancho del papel (preview / wrap suave).

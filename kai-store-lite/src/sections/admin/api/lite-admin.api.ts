@@ -153,6 +153,7 @@ export type LitePosCurrent = {
   isActive?: boolean;
   enabledPaymentMethods?: string[];
   availablePaymentMethods?: string[];
+  showProductSearch?: boolean;
 };
 
 export type LiteVariantDetail = {

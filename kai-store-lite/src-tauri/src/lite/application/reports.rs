@@ -8,7 +8,40 @@ use sqlx::Row;
 const MAX_ROWS: i64 = 1000;
 
 fn money(n: f64) -> f64 {
-    (n * 100.0).round() / 100.0
+    if !n.is_finite() {
+        return 0.0;
+    }
+    let rounded = (n * 100.0).round() / 100.0;
+    if rounded.is_finite() { rounded } else { 0.0 }
+}
+
+fn opt_text(row: &sqlx::sqlite::SqliteRow, key: &str) -> Option<String> {
+    row.try_get::<Option<String>, _>(key)
+        .ok()
+        .flatten()
+        .filter(|s| !s.trim().is_empty())
+}
+
+fn opt_f64(row: &sqlx::sqlite::SqliteRow, key: &str) -> Option<f64> {
+    if let Ok(value) = row.try_get::<Option<f64>, _>(key) {
+        return value.filter(|n| n.is_finite());
+    }
+    row.try_get::<Option<i64>, _>(key)
+        .ok()
+        .flatten()
+        .map(|n| n as f64)
+        .filter(|n| n.is_finite())
+}
+
+fn opt_i64(row: &sqlx::sqlite::SqliteRow, key: &str) -> Option<i64> {
+    if let Ok(value) = row.try_get::<Option<i64>, _>(key) {
+        return value;
+    }
+    row.try_get::<Option<f64>, _>(key)
+        .ok()
+        .flatten()
+        .filter(|n| n.is_finite())
+        .map(|n| n.round() as i64)
 }
 
 fn now_iso() -> String {
@@ -232,8 +265,8 @@ async fn sales_summary(
     let row = bind_sale_filters(sqlx::query(&sql), company_id, from, to, filter)
         .fetch_one(pool)
         .await?;
-    let total: f64 = row.get("total");
-    let count: i64 = row.get("cnt");
+    let total = opt_f64(&row, "total").unwrap_or(0.0);
+    let count = opt_i64(&row, "cnt").unwrap_or(0);
     let avg = if count > 0 {
         total / count as f64
     } else {
@@ -261,15 +294,16 @@ async fn sales_by_bucket(
         .await?;
     Ok(rows
         .into_iter()
-        .map(|r| {
-            let total: f64 = r.get("total");
-            let count: i64 = r.get("cnt");
+        .filter_map(|r| {
+            let day = opt_text(&r, "day")?;
+            let total = opt_f64(&r, "total")?;
+            let count = opt_i64(&r, "cnt")?;
             let avg = if count > 0 {
                 total / count as f64
             } else {
                 0.0
             };
-            (r.get::<String, _>("day"), total, count, avg)
+            Some((day, total, count, avg))
         })
         .collect())
 }
@@ -299,10 +333,10 @@ async fn margin_for_lines(
     let row = bind_sale_filters(sqlx::query(&sql), company_id, from, to, filter)
         .fetch_one(pool)
         .await?;
-    let revenue: f64 = row.get("revenue");
-    let cogs: f64 = row.get("cogs");
-    let with_cost: i64 = row.get("with_cost");
-    let missing: i64 = row.get("missing_cost");
+    let revenue = opt_f64(&row, "revenue").unwrap_or(0.0);
+    let cogs = opt_f64(&row, "cogs").unwrap_or(0.0);
+    let with_cost = opt_i64(&row, "with_cost").unwrap_or(0);
+    let missing = opt_i64(&row, "missing_cost").unwrap_or(0);
     Ok((revenue, cogs, revenue - cogs, with_cost, missing))
 }
 
@@ -462,15 +496,19 @@ async fn run_sales_detail(
     let detail: Vec<Value> = rows
         .into_iter()
         .take(MAX_ROWS as usize)
-        .map(|r| {
-            json!({
-                "id": r.get::<String, _>("id"),
-                "createdAt": r.get::<String, _>("created_at"),
+        .filter_map(|r| {
+            let id = opt_text(&r, "id")?;
+            let created_at = opt_text(&r, "created_at")?;
+            let status = opt_text(&r, "status")?;
+            let total = opt_f64(&r, "total")?;
+            Some(json!({
+                "id": id,
+                "createdAt": created_at,
                 "paymentMethod": r.try_get::<Option<String>, _>("payment_method").ok().flatten(),
-                "status": r.get::<String, _>("status"),
-                "total": money(r.get::<f64, _>("total")),
+                "status": status,
+                "total": money(total),
                 "customerId": r.try_get::<Option<String>, _>("customer_id").ok().flatten(),
-            })
+            }))
         })
         .collect();
 
@@ -639,12 +677,12 @@ async fn run_sales_by_product(
             .await?;
     let by_day: Vec<(String, f64, f64)> = by_day_rows
         .into_iter()
-        .map(|r| {
-            (
-                r.get("day"),
-                r.get::<f64, _>("qty"),
-                r.get::<f64, _>("amount"),
-            )
+        .filter_map(|r| {
+            Some((
+                opt_text(&r, "day")?,
+                opt_f64(&r, "qty")?,
+                opt_f64(&r, "amount")?,
+            ))
         })
         .collect();
     let qty: f64 = by_day.iter().map(|d| d.1).sum();
@@ -672,16 +710,20 @@ async fn run_sales_by_product(
     let rows: Vec<Value> = line_rows
         .into_iter()
         .take(MAX_ROWS as usize)
-        .map(|r| {
-            let margin_opt: Option<f64> = r.try_get("margin").ok().flatten();
-            json!({
-                "createdAt": r.get::<String, _>("created_at"),
+        .filter_map(|r| {
+            let created_at = opt_text(&r, "created_at")?;
+            let quantity = opt_f64(&r, "quantity")?;
+            let unit_price = opt_f64(&r, "unit_price")?;
+            let line_total = opt_f64(&r, "line_total")?;
+            let margin_opt = opt_f64(&r, "margin");
+            Some(json!({
+                "createdAt": created_at,
                 "productSku": r.try_get::<Option<String>, _>("sku").ok().flatten(),
-                "quantity": money(r.get::<f64, _>("quantity")),
-                "unitPrice": money(r.get::<f64, _>("unit_price")),
-                "subtotal": money(r.get::<f64, _>("line_total")),
+                "quantity": money(quantity),
+                "unitPrice": money(unit_price),
+                "subtotal": money(line_total),
                 "margin": margin_opt.map(money),
-            })
+            }))
         })
         .collect();
 
@@ -765,15 +807,15 @@ async fn run_top_products(
         .await?;
     let rows: Vec<(String, String, Option<String>, f64, f64, f64)> = rows_db
         .into_iter()
-        .map(|r| {
-            (
-                r.get("product_id"),
-                r.get("product_name"),
+        .filter_map(|r| {
+            Some((
+                opt_text(&r, "product_id")?,
+                opt_text(&r, "product_name")?,
                 r.try_get("product_sku").ok().flatten(),
-                r.get("qty"),
-                r.get("amount"),
-                r.get("margin"),
-            )
+                opt_f64(&r, "qty")?,
+                opt_f64(&r, "amount")?,
+                opt_f64(&r, "margin").unwrap_or(0.0),
+            ))
         })
         .collect();
     let total_amount: f64 = rows.iter().map(|r| r.4).sum();
@@ -805,9 +847,13 @@ async fn run_top_products(
         let mut prev_amount = 0.0;
         let mut prev_margin = 0.0;
         for r in &prev_rows {
-            let id: String = r.get("product_id");
-            let amt: f64 = r.get("amount");
-            let m: f64 = r.get("margin");
+            let Some(id) = opt_text(r, "product_id") else {
+                continue;
+            };
+            let Some(amt) = opt_f64(r, "amount") else {
+                continue;
+            };
+            let m = opt_f64(r, "margin").unwrap_or(0.0);
             prev_by_product.insert(id, amt);
             prev_amount += amt;
             prev_margin += m;
@@ -892,13 +938,13 @@ async fn run_sales_by_category(
         .await?;
     let rows: Vec<(String, String, f64, f64)> = rows_db
         .into_iter()
-        .map(|r| {
-            (
-                r.get("category_id"),
-                r.get("category_name"),
-                r.get("qty"),
-                r.get("amount"),
-            )
+        .filter_map(|r| {
+            Some((
+                opt_text(&r, "category_id").unwrap_or_default(),
+                opt_text(&r, "category_name")?,
+                opt_f64(&r, "qty")?,
+                opt_f64(&r, "amount")?,
+            ))
         })
         .collect();
     let total: f64 = rows.iter().map(|r| r.3).sum();
@@ -916,8 +962,10 @@ async fn run_sales_by_category(
                 .await?;
         let mut prev_total = 0.0;
         for r in &prev_rows {
-            let id: String = r.get("category_id");
-            let amt: f64 = r.get("amount");
+            let id = opt_text(r, "category_id").unwrap_or_default();
+            let Some(amt) = opt_f64(r, "amount") else {
+                continue;
+            };
             prev_map.insert(id, amt);
             prev_total += amt;
         }
@@ -975,12 +1023,12 @@ async fn payment_mix(
         .await?;
     Ok(rows
         .into_iter()
-        .map(|r| {
-            (
-                r.get("payment_method"),
-                r.get("total"),
-                r.get("cnt"),
-            )
+        .filter_map(|r| {
+            Some((
+                opt_text(&r, "payment_method")?,
+                opt_f64(&r, "total")?,
+                opt_i64(&r, "cnt").unwrap_or(0),
+            ))
         })
         .collect())
 }
@@ -1010,7 +1058,7 @@ async fn run_cash_session_close(
         let count: i64 = mix.iter().map(|m| m.2).sum();
         let status = session
             .as_ref()
-            .map(|r| r.get::<String, _>("status"))
+            .and_then(|r| opt_text(r, "status"))
             .unwrap_or_else(|| "—".into());
         return Ok(json!({
             "reportId": "cash-session-close",
@@ -1018,7 +1066,7 @@ async fn run_cash_session_close(
             "generatedAt": now_iso(),
             "params": {
                 "cashSessionId": session_id,
-                "sessionStatus": session.as_ref().map(|r| r.get::<String, _>("status")),
+                "sessionStatus": session.as_ref().and_then(|r| opt_text(r, "status")),
                 "openedAt": session.as_ref().and_then(|r| r.try_get::<Option<String>, _>("opened_at").ok().flatten()),
                 "closedAt": session.as_ref().and_then(|r| r.try_get::<Option<String>, _>("closed_at").ok().flatten()),
             },

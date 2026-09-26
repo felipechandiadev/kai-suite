@@ -7,6 +7,7 @@ import {
   translateEnumValue,
 } from "@/shared/reports/report-dates";
 import type { ReportChartSeries } from "@/shared/reports/types";
+import { useEffect, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -19,7 +20,6 @@ import {
   LineChart,
   Pie,
   PieChart,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -54,22 +54,84 @@ function formatChartValue(value: unknown, asMoney: boolean): string {
   return asMoney ? formatReportMoney(value) : formatReportCount(value, "qty");
 }
 
+const PRINT_CHART_MAX_WIDTH = 680;
+
+function useStableChartSize(active: boolean) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ width: 480, height: 200 });
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!active || !el) return;
+
+    const apply = (width: number, height: number) => {
+      if (window.matchMedia("print").matches) return;
+      if (width <= 0 || height <= 0) return;
+      setSize({ width: Math.floor(width), height: Math.floor(height) });
+    };
+
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      apply(rect.width, rect.height);
+    };
+
+    measure();
+    const observer = new ResizeObserver((entries) => {
+      const box = entries[0]?.contentRect;
+      if (!box) return;
+      apply(box.width, box.height);
+    });
+    observer.observe(el);
+
+    const onBeforePrint = () => {
+      setSize((current) => ({
+        width: Math.min(current.width, PRINT_CHART_MAX_WIDTH),
+        height: current.height,
+      }));
+    };
+    const onAfterPrint = () => measure();
+    window.addEventListener("beforeprint", onBeforePrint);
+    window.addEventListener("afterprint", onAfterPrint);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("beforeprint", onBeforePrint);
+      window.removeEventListener("afterprint", onAfterPrint);
+    };
+  }, [active]);
+
+  return { ref, size };
+}
+
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="fs-chart-surface break-inside-avoid rounded-lg border border-border bg-background p-3 print:border-neutral-300">
       <h3 className="mb-2 text-sm font-semibold text-foreground">{title}</h3>
-      <div className="h-[220px] w-full min-w-0 print:h-[200px]">{children}</div>
+      <div className="h-55 w-full min-w-0 print:h-50">{children}</div>
     </div>
   );
 }
 
+function finitePoint(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
 function SingleChart({ series }: { series: ReportChartSeries }) {
   const asMoney = !isCountSeries(series);
-  const data = series.points.map((p) => ({
-    label: formatReportAxisLabel(p.x),
-    value: p.y,
-    value2: p.y2,
-  }));
+  const points = Array.isArray(series.points) ? series.points : [];
+  const data = points.flatMap((p) => {
+    if (!p || typeof p.x !== "string" || !p.x.trim()) return [];
+    const value = finitePoint(p.y);
+    if (value == null) return [];
+    return [
+      {
+        label: formatReportAxisLabel(p.x),
+        value,
+        value2: finitePoint(p.y2),
+      },
+    ];
+  });
+  const { ref, size } = useStableChartSize(data.length > 0);
   const tickFormatter = (v: number) => formatChartValue(v, asMoney);
   const tooltipFormatter = (value: number | string | undefined) => [
     formatChartValue(value, asMoney),
@@ -130,8 +192,8 @@ function SingleChart({ series }: { series: ReportChartSeries }) {
           };
 
     return (
-      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
-        <PieChart>
+      <div ref={ref} className="h-full w-full min-w-0">
+        <PieChart width={size.width} height={size.height}>
           <Pie
             data={data}
             dataKey="value"
@@ -141,6 +203,7 @@ function SingleChart({ series }: { series: ReportChartSeries }) {
             outerRadius={outerRadius}
             label={pieLabel}
             labelLine={sliceCount < 9}
+            isAnimationActive={false}
           >
             {data.map((_, i) => (
               <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
@@ -171,14 +234,19 @@ function SingleChart({ series }: { series: ReportChartSeries }) {
             formatter={(value) => translateEnumValue(String(value))}
           />
         </PieChart>
-      </ResponsiveContainer>
+      </div>
     );
   }
 
   if (series.chart === "line") {
     return (
-      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
-        <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+      <div ref={ref} className="h-full w-full min-w-0">
+        <LineChart
+          width={size.width}
+          height={size.height}
+          data={data}
+          margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+        >
           <CartesianGrid stroke={border} strokeDasharray="4 8" vertical={false} opacity={0.65} />
           <XAxis dataKey="label" tick={{ fill: muted, fontSize: 10 }} tickLine={false} />
           <YAxis
@@ -193,7 +261,15 @@ function SingleChart({ series }: { series: ReportChartSeries }) {
             wrapperStyle={rechartsTooltipWrapperStyle}
             formatter={(value) => tooltipFormatter(value as number)}
           />
-          <Line type="monotone" dataKey="value" name="Actual" stroke={primary} strokeWidth={2} dot={false} />
+          <Line
+            type="monotone"
+            dataKey="value"
+            name="Actual"
+            stroke={primary}
+            strokeWidth={2}
+            dot={false}
+            isAnimationActive={false}
+          />
           {data.some((d) => d.value2 != null) ? (
             <>
               <Legend />
@@ -204,19 +280,25 @@ function SingleChart({ series }: { series: ReportChartSeries }) {
                 stroke={secondary}
                 strokeWidth={2}
                 dot={false}
+                isAnimationActive={false}
               />
             </>
           ) : null}
         </LineChart>
-      </ResponsiveContainer>
+      </div>
     );
   }
 
   if (series.chart === "area") {
     const hasCompare = data.some((d) => d.value2 != null);
     return (
-      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
-        <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+      <div ref={ref} className="h-full w-full min-w-0">
+        <AreaChart
+          width={size.width}
+          height={size.height}
+          data={data}
+          margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+        >
           <defs>
             <linearGradient id={`fill-${series.id}`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={primary} stopOpacity={0.35} />
@@ -251,6 +333,7 @@ function SingleChart({ series }: { series: ReportChartSeries }) {
             stroke={primary}
             fill={`url(#fill-${series.id})`}
             strokeWidth={2}
+            isAnimationActive={false}
           />
           {hasCompare ? (
             <Area
@@ -260,17 +343,23 @@ function SingleChart({ series }: { series: ReportChartSeries }) {
               stroke={secondary}
               fill={`url(#fill2-${series.id})`}
               strokeWidth={2}
+              isAnimationActive={false}
             />
           ) : null}
         </AreaChart>
-      </ResponsiveContainer>
+      </div>
     );
   }
 
   const hasCompareBar = data.some((d) => d.value2 != null);
   return (
-    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
-      <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+    <div ref={ref} className="h-full w-full min-w-0">
+      <BarChart
+        width={size.width}
+        height={size.height}
+        data={data}
+        margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+      >
         <CartesianGrid stroke={border} strokeDasharray="4 8" vertical={false} opacity={0.65} />
         <XAxis dataKey="label" tick={{ fill: muted, fontSize: 10 }} tickLine={false} />
         <YAxis
@@ -286,17 +375,32 @@ function SingleChart({ series }: { series: ReportChartSeries }) {
           formatter={(value) => tooltipFormatter(value as number)}
         />
         {hasCompareBar ? <Legend /> : null}
-        <Bar dataKey="value" name="Actual" fill={primary} radius={[4, 4, 0, 0]} />
+        <Bar
+          dataKey="value"
+          name="Actual"
+          fill={primary}
+          radius={[4, 4, 0, 0]}
+          isAnimationActive={false}
+        />
         {hasCompareBar ? (
-          <Bar dataKey="value2" name="Comparación" fill={secondary} radius={[4, 4, 0, 0]} />
+          <Bar
+            dataKey="value2"
+            name="Comparación"
+            fill={secondary}
+            radius={[4, 4, 0, 0]}
+            isAnimationActive={false}
+          />
         ) : null}
       </BarChart>
-    </ResponsiveContainer>
+    </div>
   );
 }
 
 export function ReportCharts({ series }: Props) {
-  if (!series.length) {
+  const list = (Array.isArray(series) ? series : []).filter(
+    (item) => item && typeof item.id === "string",
+  );
+  if (!list.length) {
     return (
       <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
         Este reporte no devolvió series para graficar.
@@ -306,7 +410,7 @@ export function ReportCharts({ series }: Props) {
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 print:grid-cols-1">
-      {series.map((s) => (
+      {list.map((s) => (
         <ChartCard key={s.id} title={s.label}>
           <SingleChart series={s} />
         </ChartCard>
