@@ -304,7 +304,7 @@ fn render_sale_text(
     let mut text = String::new();
     append_company_header(&mut text, company, cfg, true);
     text.push_str(&format!("VENTA {}\n", short_id(&args.sale_id)));
-    text.push_str("----------------\n");
+    text.push_str(&rule_line(cfg));
 
     if let Some(arr) = args.lines.as_array() {
         for line in arr {
@@ -328,7 +328,7 @@ fn render_sale_text(
         text.push_str(&format!("Lines: {}\n", args.lines));
     }
 
-    text.push_str("----------------\n");
+    text.push_str(&rule_line(cfg));
     text.push_str(&format!("TOTAL: {}\n", fmt_money(args.total, &cfg.currency_symbol)));
     text.push_str(&format!("Pago: {}\n", args.method));
     if cfg.show_sale_datetime {
@@ -420,7 +420,7 @@ fn render_cash_closing_text(cfg: &PrintConfig, args: &CashCloseTicketArgs) -> St
         text.push_str(&format!("Cajero: {name}\n"));
     }
 
-    text.push_str("----------------\n");
+    text.push_str(&rule_line(cfg));
     text.push_str("VENTAS\n");
     text.push_str(&format!("Tickets: {}\n", args.ticket_count));
     text.push_str(&format!("Anuladas: {}\n", args.void_count));
@@ -430,7 +430,7 @@ fn render_cash_closing_text(cfg: &PrintConfig, args: &CashCloseTicketArgs) -> St
         fmt_money(args.average_ticket, sym)
     ));
 
-    text.push_str("----------------\n");
+    text.push_str(&rule_line(cfg));
     text.push_str("MEDIOS\n");
     let cash_used = args.cash_received > 0.0 || args.change_given > 0.0;
     if cash_used {
@@ -456,7 +456,7 @@ fn render_cash_closing_text(cfg: &PrintConfig, args: &CashCloseTicketArgs) -> St
         text.push_str("Sin cobros\n");
     }
 
-    text.push_str("----------------\n");
+    text.push_str(&rule_line(cfg));
     text.push_str("CAJÓN\n");
     text.push_str(&format!("Fondo: {}\n", fmt_money(args.opening_amount, sym)));
     text.push_str(&format!("Neto ventas: {}\n", fmt_money(args.cash_net, sym)));
@@ -537,7 +537,7 @@ fn render_cash_session_detail_text(cfg: &PrintConfig, args: &CashSessionDetailAr
     append_company_header(&mut text, args.company.as_ref(), cfg, false);
     text.push_str("DETALLE DE SESIÓN\n");
     text.push_str(&format!("Sesión: {}\n", short_id(&args.session_id)));
-    text.push_str("----------------\n");
+    text.push_str(&rule_line(cfg));
     text.push_str(&format!(
         "Efectivo en caja: {}\n",
         fmt_money(args.expected_cash, sym)
@@ -560,7 +560,7 @@ fn render_cash_session_detail_text(cfg: &PrintConfig, args: &CashSessionDetailAr
             ));
         }
     }
-    text.push_str("----------------\n");
+    text.push_str(&rule_line(cfg));
     text.push_str("MOVIMIENTOS\n");
     if args.ledger.is_empty() {
         text.push_str("Sin movimientos\n");
@@ -671,7 +671,12 @@ fn append_company_header(
             }
         }
     }
-    text.push_str("----------------\n");
+    text.push_str(&rule_line(cfg));
+}
+
+fn rule_line(cfg: &PrintConfig) -> String {
+    let cols = paper_cols(&cfg.paper_profile).max(1) as usize;
+    format!("{}\n", "-".repeat(cols))
 }
 
 fn center_line(line: &str, cols: usize) -> String {
