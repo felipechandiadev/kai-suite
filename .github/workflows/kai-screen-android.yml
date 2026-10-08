@@ -1,23 +1,23 @@
 name: kai-screen-android
 
+# CI only on main when this app (or its client package) changes — not on suite tags / root bumps.
 on:
   push:
+    branches:
+      - main
     paths:
       - "kai-screen-android/**"
       - "packages/customer-display-client/**"
-      - "package.json"
-      - "package-lock.json"
       - ".github/workflows/kai-screen-android.yml"
   pull_request:
     paths:
       - "kai-screen-android/**"
       - "packages/customer-display-client/**"
-      - "package.json"
-      - "package-lock.json"
       - ".github/workflows/kai-screen-android.yml"
 
 jobs:
   build:
+    if: github.ref_type == 'branch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

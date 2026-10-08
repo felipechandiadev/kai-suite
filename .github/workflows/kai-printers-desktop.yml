@@ -1,7 +1,10 @@
 name: kai-printers-desktop
 
+# CI only on branch pushes that touch this app — not on tags (Lite / other apps).
 on:
   push:
+    branches:
+      - main
     paths:
       - "kai-printers-desktop/**"
       - ".github/workflows/kai-printers-desktop.yml"
@@ -12,6 +15,7 @@ on:
 
 jobs:
   rust:
+    if: github.ref_type == 'branch'
     strategy:
       fail-fast: false
       matrix:

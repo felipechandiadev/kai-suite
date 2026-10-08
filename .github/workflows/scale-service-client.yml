@@ -1,21 +1,21 @@
 name: scale-service-client
 
+# CI only on main when this package changes — not on suite tags / root bumps.
 on:
   push:
+    branches:
+      - main
     paths:
       - "packages/scale-service-client/**"
-      - "package.json"
-      - "package-lock.json"
       - ".github/workflows/scale-service-client.yml"
   pull_request:
     paths:
       - "packages/scale-service-client/**"
-      - "package.json"
-      - "package-lock.json"
       - ".github/workflows/scale-service-client.yml"
 
 jobs:
   test:
+    if: github.ref_type == 'branch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
