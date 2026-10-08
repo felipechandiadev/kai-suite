@@ -61,7 +61,7 @@ git commit -m "chore(printers): publicar Kai Printers vX.Y.Z"
 git push
 ```
 
-No commitees `.apk` / `.zip` / `.dmg`.
+No commitees `.apk` / `.zip` / `.dmg`. Tampoco `kai-printers-desktop/release/windows/` (output local del packaging; está en `.gitignore`).
 
 ## 3. Deploy al VPS
 

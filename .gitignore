@@ -46,6 +46,9 @@ kai-pos/public/downloads/kai-printers-android-*.apk
 kai-pos/public/downloads/kai-printers-windows-*.zip
 kai-pos/public/downloads/kai-printers-macos-*.dmg
 
+# Kai Printers Desktop — output local de package:windows-release (no versionar)
+kai-printers-desktop/release/windows/
+
 # Rust/Tauri build artifacts
 kai-printers-desktop/src-tauri/target/
 kai-printers-desktop/src-tauri/src-tauri/target/
