@@ -8,81 +8,92 @@ export type KaiScreenAndroidManifest = {
 export type KaiScreenDownloadOffer = {
   title: string;
   description: string;
-  filename: string;
+  filename: string | null;
   installHint: string;
   version?: string;
+  href: string;
 };
 
-/** Debe coincidir con kai-pos/public/downloads/kai-screen-android.manifest.json */
-export const KAI_SCREEN_ANDROID_MANIFEST_DEFAULT: KaiScreenAndroidManifest = {
-  version: "1.0.1",
-  versionCode: 3,
-  filename: "kai-screen-android-1.0.1.apk",
-  builtAt: "2026-06-24T13:15:34Z",
-};
-
-const OFFER: KaiScreenDownloadOffer = {
+const OFFER_META: Pick<KaiScreenDownloadOffer, "title" | "description" | "installHint"> = {
   title: "Kai CFD para Android",
   description:
     "Pantalla cliente en la segunda pantalla de la tablet. Instalá el agente en el mismo dispositivo donde corre el POS.",
-  filename: KAI_SCREEN_ANDROID_MANIFEST_DEFAULT.filename,
-  version: KAI_SCREEN_ANDROID_MANIFEST_DEFAULT.version,
   installHint:
     "Tras descargar, abrí el APK, permití «instalar apps desconocidas» si el sistema lo pide y activá el servicio en Kai CFD.",
 };
 
-const ENV_KEY = "NEXT_PUBLIC_KAI_SCREEN_ANDROID_URL";
-const MANIFEST_PATH = "/downloads/kai-screen-android.manifest.json";
+export const KAI_SCREEN_ANDROID_MANIFEST_FILENAME = "kai-screen-android.manifest.json";
+
+/** Override: URL directa al APK (sin manifest). */
+const URL_OVERRIDE_ENV = "NEXT_PUBLIC_KAI_SCREEN_ANDROID_URL";
+
+/** `KAI_DOWNLOADS_URL` (runtime) tiene prioridad sobre el nombre legacy. */
+const DOWNLOADS_BASE_ENV_KEYS = [
+  "KAI_DOWNLOADS_URL",
+  "NEXT_PUBLIC_KAI_PRINTERS_DOWNLOADS_BASE",
+] as const;
+
+const MANIFEST_REVALIDATE_SECONDS = 300;
 
 function readEnv(key: string): string | undefined {
-  if (typeof process !== "undefined" && process.env?.[key]?.trim()) {
-    return process.env[key]!.trim();
-  }
-  return undefined;
+  const value = typeof process !== "undefined" ? process.env?.[key]?.trim() : undefined;
+  return value || undefined;
 }
 
-export function androidManifestFilename(
-  manifest: KaiScreenAndroidManifest = KAI_SCREEN_ANDROID_MANIFEST_DEFAULT,
-): string {
-  return manifest.filename;
+/** Carpeta pública con manifests + binarios (sin `/` final). Solo servidor. */
+export function resolveKaiScreenDownloadsBaseUrl(): string | null {
+  for (const key of DOWNLOADS_BASE_ENV_KEYS) {
+    const value = readEnv(key);
+    if (value) return value.replace(/\/+$/, "");
+  }
+  return null;
 }
 
-/** Carga el manifest publicado por el script de release (cliente / SSR fetch). */
-export async function fetchKaiScreenAndroidManifest(
-  baseUrl = "",
-): Promise<KaiScreenAndroidManifest> {
-  if (typeof fetch === "undefined") {
-    return KAI_SCREEN_ANDROID_MANIFEST_DEFAULT;
-  }
+/** Lee el manifest desde `KAI_DOWNLOADS_URL`. Solo servidor. */
+export async function loadKaiScreenAndroidManifest(
+  baseUrl: string | null = resolveKaiScreenDownloadsBaseUrl(),
+): Promise<KaiScreenAndroidManifest | undefined> {
+  if (!baseUrl || typeof fetch === "undefined") return undefined;
   try {
-    const res = await fetch(`${baseUrl}${MANIFEST_PATH}`, { cache: "no-store" });
-    if (!res.ok) return KAI_SCREEN_ANDROID_MANIFEST_DEFAULT;
+    const res = await fetch(`${baseUrl}/${KAI_SCREEN_ANDROID_MANIFEST_FILENAME}`, {
+      next: { revalidate: MANIFEST_REVALIDATE_SECONDS },
+    } as RequestInit);
+    if (!res.ok) return undefined;
     const data = (await res.json()) as KaiScreenAndroidManifest;
-    if (!data?.filename || !data?.version) return KAI_SCREEN_ANDROID_MANIFEST_DEFAULT;
+    if (!data?.filename || !data?.version) return undefined;
     return data;
   } catch {
-    return KAI_SCREEN_ANDROID_MANIFEST_DEFAULT;
+    return undefined;
   }
 }
 
-/** URL absoluta o ruta bajo el origen de la PWA (p. ej. `/downloads/kai-screen-android-1.0.0.apk`). */
 export function resolveKaiScreenDownloadUrl(
-  manifest: KaiScreenAndroidManifest = KAI_SCREEN_ANDROID_MANIFEST_DEFAULT,
+  manifest: KaiScreenAndroidManifest | undefined,
+  baseUrl: string | null = resolveKaiScreenDownloadsBaseUrl(),
 ): string | null {
-  const fromEnv = readEnv(ENV_KEY);
-  if (fromEnv) return fromEnv;
-  return `/downloads/${manifest.filename}`;
+  const override = readEnv(URL_OVERRIDE_ENV);
+  if (override) return override;
+  if (!baseUrl || !manifest?.filename) return null;
+  return `${baseUrl}/${encodeURIComponent(manifest.filename)}`;
 }
 
-export function listKaiScreenDownloadOffers(
-  manifest: KaiScreenAndroidManifest = KAI_SCREEN_ANDROID_MANIFEST_DEFAULT,
-): Array<KaiScreenDownloadOffer & { href: string | null }> {
-  return [
-    {
-      ...OFFER,
-      filename: manifest.filename,
-      version: manifest.version,
-      href: resolveKaiScreenDownloadUrl(manifest),
-    },
-  ];
+export function buildKaiScreenDownloadOffer(
+  manifest: KaiScreenAndroidManifest | undefined,
+  baseUrl: string | null = resolveKaiScreenDownloadsBaseUrl(),
+): KaiScreenDownloadOffer | null {
+  const href = resolveKaiScreenDownloadUrl(manifest, baseUrl);
+  if (!href) return null;
+  return {
+    ...OFFER_META,
+    filename: manifest?.filename ?? null,
+    version: manifest?.version,
+    href,
+  };
+}
+
+/** Manifest remoto + oferta lista para el componente. Solo servidor. */
+export async function loadKaiScreenDownloadOffer(): Promise<KaiScreenDownloadOffer | null> {
+  const baseUrl = resolveKaiScreenDownloadsBaseUrl();
+  const manifest = await loadKaiScreenAndroidManifest(baseUrl);
+  return buildKaiScreenDownloadOffer(manifest, baseUrl);
 }

@@ -47,7 +47,7 @@ Revisá el **Estado operativo** (checklist) y usá **Probar pantalla** para vali
 | «Sin pantalla secundaria» | Cable HDMI / hardware dual-screen; modelo Sunmi/iMin |
 | POS desconectado | Servicio Kai CFD activo; WSS y certificado confiado en Chrome |
 | Total no actualiza | Activar Kai CFD en ajustes POS; misma tablet |
-| Descarga 404 | Ejecutar `npm run kai-screen:publish` en el servidor de deploy |
+| Descarga 404 / sin botón | Revisar `KAI_DOWNLOADS_URL` del POS y que el APK y su manifest estén subidos ahí |
 
 ## Puertos
 

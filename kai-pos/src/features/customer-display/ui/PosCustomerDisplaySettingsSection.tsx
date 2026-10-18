@@ -9,7 +9,7 @@ import {
   readCustomerDisplayFromStorage,
   writeCustomerDisplayToStorage,
   type DisplayStatusPayload,
-  type KaiScreenAndroidManifest,
+  type KaiScreenDownloadOffer,
 } from "@kai/customer-display-client";
 import {
   disconnectCustomerDisplay,
@@ -21,7 +21,7 @@ import { Button, Switch, TextField } from "@kai/ui";
 
 type Props = {
   className?: string;
-  kaiScreenAndroidManifest?: KaiScreenAndroidManifest;
+  kaiScreenDownloadOffer?: KaiScreenDownloadOffer | null;
 };
 
 function StatusCheckItem({ ok, label }: { ok: boolean; label: string }) {
@@ -42,7 +42,7 @@ function StatusCheckItem({ ok, label }: { ok: boolean; label: string }) {
 
 export function PosCustomerDisplaySettingsSection({
   className = "",
-  kaiScreenAndroidManifest,
+  kaiScreenDownloadOffer,
 }: Props) {
   const [enabled, setEnabled] = useState(false);
   const [host, setHost] = useState("127.0.0.1");
@@ -142,7 +142,7 @@ export function PosCustomerDisplaySettingsSection({
         el mismo equipo.
       </p>
 
-      <KaiScreenDownloadSection className="mt-4" initialManifest={kaiScreenAndroidManifest} />
+      <KaiScreenDownloadSection className="mt-4" offer={kaiScreenDownloadOffer} />
 
       <div className="mt-4 flex flex-col gap-4">
         <div className="flex items-center justify-between gap-3">

@@ -59,5 +59,5 @@ Guardá y verificá que el icono de impresión en la barra superior del POS qued
 
 ## Soporte técnico (Joyarte / KaiStore)
 
-- APK en servidor: `/downloads/kai-printers-android-{versión}.apk` (ver manifest en `/downloads/kai-printers-android.manifest.json`).
+- APK: `kai-printers-android-{versión}.apk` en la carpeta pública de `KAI_DOWNLOADS_URL` (manifest `kai-printers-android.manifest.json` en la misma carpeta).
 - Puertos agente: WS `14567`, WSS `14568`.

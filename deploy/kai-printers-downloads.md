@@ -1,31 +1,25 @@
-# Deploy — descargas Kai Printers en el VPS
+# Deploy — descargas Kai Printers / Kai CFD
 
-Los instalables pueden servirse desde **`/downloads/`** del POS (legacy) o desde **R2/CDN** vía Kai Ops (`publish-printers-r2` + `NEXT_PUBLIC_KAI_PRINTERS_*` en el `.env` del tenant).
-
-**Recomendado (R2):** en kai-deployments, configurar Almacenamiento (URL pública CDN + bucket) y en el tenant **Publicar Kai Printers**; luego `render-tenant-env.sh` y redeploy POS.
-
-**Legacy:** `.apk` / `.zip` en `.gitignore`. Un `git pull` solo actualiza manifests; sin **rsync** las descargas dan 404.
+Los instalables se sirven desde una **carpeta pública** (CDN, bucket, etc.), no desde el VPS del POS.
+POS y Admin leen los manifests en runtime desde `KAI_DOWNLOADS_URL`.
 
 **Documentación completa:** [kai-pos/public/downloads/README.md](../kai-pos/public/downloads/README.md)
 
 ## Resumen
 
 ```bash
-# 1. Local — publicar todas las plataformas
-npm run kai-printers:publish
+# 1. Local — compilar y preparar (deja todo en dist/kai-downloads/)
+npm run kai-printers:release
+npm run kai-screen:release
 
-# 2. Commit manifests (no binarios)
-git add kai-pos/public/downloads/kai-printers-*.manifest.json
-git commit -m "chore(printers): actualizar manifests Kai Printers"
-git push
+# 2. Subir dist/kai-downloads/* (binarios primero, manifests después) a la carpeta pública
 
-# 3. VPS — pull
-ssh usuario@vps 'cd /ruta/kai && git pull'
+# 3. Env del tenant (kai-pos y kai-admin) — una sola vez
+KAI_DOWNLOADS_URL=https://cdn.tu-dominio.cl/kai-downloads
 
-# 4. Local → VPS — binarios (apk, zip, dmg)
-rsync -avz kai-pos/public/downloads/ \
-  usuario@vps:/ruta/kai/kai-pos/public/downloads/
-
-# 5. Verificar
-curl -I https://pos.tu-dominio.cl/downloads/kai-printers-android.manifest.json
+# 4. Verificar
+curl -I https://cdn.tu-dominio.cl/kai-downloads/kai-printers-windows.manifest.json
 ```
+
+Cambiar `KAI_DOWNLOADS_URL` solo requiere reiniciar POS/Admin (no rebuild). Publicar una versión nueva
+no requiere ni reinicio: los manifests se releen cada 5 minutos.

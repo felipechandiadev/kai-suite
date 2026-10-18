@@ -16,7 +16,7 @@ import {
   type KitchenFulfillmentModeClient,
   type KitchenUnitPrintBindingsMap,
   sanitizePosDocumentPrintMode,
-  type KaiPrintersDownloadsManifests,
+  type KaiPrintersDownloadOffer,
   type PosDocumentPrintKind,
   type PosDocumentPrintMode,
   PosDocumentPrintModeSelector,
@@ -45,7 +45,7 @@ import { readPosContextClient } from "@/features/session/lib/pos-context-storage
 
 type Props = {
   className?: string;
-  initialManifests?: KaiPrintersDownloadsManifests;
+  downloadOffers?: KaiPrintersDownloadOffer[];
 };
 
 const INITIAL_DOC_PRINT_MODES: Record<PosDocumentPrintKind, PosDocumentPrintMode> = {
@@ -76,7 +76,7 @@ function aliasSelectOptions(aliases: string[], current: string) {
 
 export function PosLocalPrintPreferencesForm({
   className = "",
-  initialManifests,
+  downloadOffers,
 }: Props) {
   const formId = useId();
   const [host, setHost] = useState("127.0.0.1");
@@ -467,7 +467,7 @@ export function PosLocalPrintPreferencesForm({
 
   return (
     <>
-      <KaiPrintersDownloadSection initialManifests={initialManifests} />
+      <KaiPrintersDownloadSection offers={downloadOffers} />
 
       <form
         id={formId}

@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 /**
- * Publica Kai Printers (Android + Windows + macOS) en kai-pos/public/downloads/.
+ * Prepara Kai Printers (Android + Windows + macOS) en dist/kai-downloads/:
+ * binarios + manifests listos para subir a la carpeta pública de KAI_DOWNLOADS_URL.
  *
  * Uso (desde la raíz del monorepo):
- *   npm run kai-printers:publish
- *   npm run kai-printers:publish -- --build
- *   npm run kai-printers:publish -- --android-only
- *   npm run kai-printers:publish -- --desktop-only
- *   npm run kai-printers:publish -- --bump patch
- *   npm run kai-printers:publish -- --windows-only --build
+ *   npm run kai-printers:release
+ *   npm run kai-printers:release -- --build
+ *   npm run kai-printers:release -- --android-only
+ *   npm run kai-printers:release -- --desktop-only
+ *   npm run kai-printers:release -- --bump patch
+ *   npm run kai-printers:release -- --windows-only --build
  */
 import { existsSync } from "node:fs";
 import { execSync } from "node:child_process";
@@ -37,9 +38,9 @@ function runStep(label, cmd) {
 function androidCmd() {
   const bumpIdx = argv.indexOf("--bump");
   if (bumpIdx >= 0 && argv[bumpIdx + 1]) {
-    return `bash kai-printers-android/scripts/publish-to-pos-downloads.sh --bump ${argv[bumpIdx + 1]}`;
+    return `bash kai-printers-android/scripts/stage-downloads.sh --bump ${argv[bumpIdx + 1]}`;
   }
-  return "bash kai-printers-android/scripts/publish-to-pos-downloads.sh";
+  return "bash kai-printers-android/scripts/stage-downloads.sh";
 }
 
 function desktopCmd() {
@@ -54,10 +55,10 @@ function desktopCmd() {
     passthrough.push(a);
   }
   const flags = passthrough.join(" ");
-  return `node packages/kai-printers-release/scripts/publish-to-pos-downloads.mjs${flags ? ` ${flags}` : ""}`;
+  return `node packages/kai-printers-release/scripts/stage-desktop-downloads.mjs${flags ? ` ${flags}` : ""}`;
 }
 
-console.log("Kai Printers — publicación unificada → kai-pos/public/downloads/\n");
+console.log("Kai Printers — release unificado → dist/kai-downloads/\n");
 
 let ran = 0;
 
@@ -83,16 +84,12 @@ if (runDesktop) {
 
 if (ran === 0) {
   console.error(
-    "Nada que publicar. Verificá que existan kai-printers-android/ y/o kai-printers-desktop/.",
+    "Nada que preparar. Verificá que existan kai-printers-android/ y/o kai-printers-desktop/.",
   );
   process.exit(1);
 }
 
 console.log(`\n${"═".repeat(60)}`);
-console.log("✅ Publicación local lista.");
-console.log("\nSiguiente paso — deploy al VPS (ver kai-pos/public/downloads/README.md):");
-console.log("  1. git add kai-pos/public/downloads/*.manifest.json (+ version.properties si Android bump)");
-console.log("  2. git commit && git push");
-console.log("  3. En el VPS: git pull");
-console.log("  4. rsync kai-pos/public/downloads/ al VPS (binarios .apk/.zip/.dmg no van en git)");
-console.log("  5. Probar: https://tu-pos.cl/downloads/kai-printers-android.manifest.json");
+console.log("✅ Release local listo en dist/kai-downloads/ (o KAI_DOWNLOADS_OUT_DIR).");
+console.log("\nSiguiente paso: subir binarios + *.manifest.json a la carpeta pública de KAI_DOWNLOADS_URL.");
+console.log("POS y Admin leen los manifests desde ahí (sin redeploy).");

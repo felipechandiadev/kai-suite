@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Build release APK, publish versioned binary to kai-pos/public/downloads, update manifest JSON.
+# Build release APK y deja APK + manifest en dist/kai-downloads/ (listos para subir a KAI_DOWNLOADS_URL).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REPO_ROOT="$(cd "$ROOT/.." && pwd)"
 VERSION_FILE="$ROOT/version.properties"
-DOWNLOADS_DIR="$REPO_ROOT/kai-pos/public/downloads"
-MANIFEST_FILE="$DOWNLOADS_DIR/kai-screen-android.manifest.json"
+DOWNLOADS_DIR="${KAI_DOWNLOADS_OUT_DIR:-$REPO_ROOT/dist/kai-downloads}"
+MANIFEST_FILE="$DOWNLOADS_DIR/kai-printers-android.manifest.json"
 
 BUMP=""
 
@@ -94,7 +94,7 @@ EOF
 }
 
 bump_version
-echo "Building Kai Screen Android v${VERSION_NAME} (${VERSION_CODE})..."
+echo "Building Kai Printers Android v${VERSION_NAME} (${VERSION_CODE})..."
 
 cd "$ROOT"
 
@@ -106,7 +106,7 @@ fi
 ./gradlew :app:assembleRelease :app:testDebugUnitTest
 
 OUT="$ROOT/app/build/outputs/apk/release/app-release.apk"
-APK_NAME="kai-screen-android-${VERSION_NAME}.apk"
+APK_NAME="kai-printers-android-${VERSION_NAME}.apk"
 DEST="$DOWNLOADS_DIR/$APK_NAME"
 
 if [[ ! -f "$OUT" ]]; then
@@ -115,7 +115,7 @@ if [[ ! -f "$OUT" ]]; then
 fi
 
 mkdir -p "$DOWNLOADS_DIR"
-rm -f "$DOWNLOADS_DIR"/kai-screen-android-*.apk
+rm -f "$DOWNLOADS_DIR"/kai-printers-android-*.apk
 cp "$OUT" "$DEST"
 
 BUILT_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
@@ -131,7 +131,10 @@ EOF
 ls -lh "$DEST"
 echo ""
 echo "Manifest: $MANIFEST_FILE"
-echo "URL local: http://localhost:5032/downloads/${APK_NAME}"
 echo ""
-echo "Commitear solo el manifest (el APK queda fuera de git):"
-echo "  git add kai-pos/public/downloads/kai-screen-android.manifest.json kai-screen-android/version.properties"
+echo "Subí ambos archivos a la carpeta pública configurada en KAI_DOWNLOADS_URL:"
+echo "  $DEST"
+echo "  $MANIFEST_FILE"
+echo ""
+echo "Commitear el bump de versión:"
+echo "  git add kai-printers-android/version.properties"

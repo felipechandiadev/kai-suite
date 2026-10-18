@@ -1,36 +1,64 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  KAI_SCREEN_ANDROID_MANIFEST_DEFAULT,
-  androidManifestFilename,
-  listKaiScreenDownloadOffers,
+  buildKaiScreenDownloadOffer,
+  loadKaiScreenDownloadOffer,
   resolveKaiScreenDownloadUrl,
+  resolveKaiScreenDownloadsBaseUrl,
+  type KaiScreenAndroidManifest,
 } from "./kai-screen-downloads";
 
-describe("resolveKaiScreenDownloadUrl", () => {
-  afterEach(() => {
-    delete process.env.NEXT_PUBLIC_KAI_SCREEN_ANDROID_URL;
+const BASE = "https://cdn.example.cl/kai-downloads";
+
+const MANIFEST: KaiScreenAndroidManifest = {
+  version: "1.2.0",
+  versionCode: 5,
+  filename: "kai-screen-android-1.2.0.apk",
+  builtAt: "2026-08-04T00:00:00Z",
+};
+
+afterEach(() => {
+  delete process.env.KAI_DOWNLOADS_URL;
+  delete process.env.NEXT_PUBLIC_KAI_PRINTERS_DOWNLOADS_BASE;
+  delete process.env.NEXT_PUBLIC_KAI_SCREEN_ANDROID_URL;
+  vi.unstubAllGlobals();
+});
+
+describe("Kai Screen downloads", () => {
+  it("base URL comes from KAI_DOWNLOADS_URL without trailing slash", () => {
+    expect(resolveKaiScreenDownloadsBaseUrl()).toBeNull();
+    process.env.KAI_DOWNLOADS_URL = `${BASE}/`;
+    expect(resolveKaiScreenDownloadsBaseUrl()).toBe(BASE);
   });
 
-  it("defaults to versioned APK from manifest", () => {
-    expect(resolveKaiScreenDownloadUrl()).toBe("/downloads/kai-screen-android-1.0.1.apk");
+  it("builds absolute APK URL from base + manifest", () => {
+    expect(resolveKaiScreenDownloadUrl(MANIFEST, BASE)).toBe(
+      `${BASE}/kai-screen-android-1.2.0.apk`,
+    );
+    expect(resolveKaiScreenDownloadUrl(MANIFEST, null)).toBeNull();
+    expect(resolveKaiScreenDownloadUrl(undefined, BASE)).toBeNull();
   });
 
-  it("uses env override when set", () => {
-    process.env.NEXT_PUBLIC_KAI_SCREEN_ANDROID_URL =
-      "https://pos.example.cl/downloads/kai-screen-android-1.0.0.apk";
-    expect(resolveKaiScreenDownloadUrl()).toBe(
-      "https://pos.example.cl/downloads/kai-screen-android-1.0.0.apk",
+  it("env override wins", () => {
+    process.env.NEXT_PUBLIC_KAI_SCREEN_ANDROID_URL = "https://other.example.cl/screen.apk";
+    expect(resolveKaiScreenDownloadUrl(undefined, null)).toBe(
+      "https://other.example.cl/screen.apk",
     );
   });
 
-  it("listKaiScreenDownloadOffers includes href and version", () => {
-    const offers = listKaiScreenDownloadOffers();
-    expect(offers).toHaveLength(1);
-    expect(offers[0]?.href).toBe("/downloads/kai-screen-android-1.0.1.apk");
-    expect(offers[0]?.version).toBe("1.0.1");
+  it("offer is null when no URL resolves", () => {
+    expect(buildKaiScreenDownloadOffer(MANIFEST, null)).toBeNull();
+    expect(buildKaiScreenDownloadOffer(MANIFEST, BASE)?.version).toBe("1.2.0");
   });
 
-  it("androidManifestFilename returns manifest filename", () => {
-    expect(androidManifestFilename()).toBe(KAI_SCREEN_ANDROID_MANIFEST_DEFAULT.filename);
+  it("loads the manifest from KAI_DOWNLOADS_URL", async () => {
+    process.env.KAI_DOWNLOADS_URL = BASE;
+    const fetchMock = vi.fn(async (url: string) => ({
+      ok: url === `${BASE}/kai-screen-android.manifest.json`,
+      json: async () => MANIFEST,
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const offer = await loadKaiScreenDownloadOffer();
+    expect(offer?.href).toBe(`${BASE}/kai-screen-android-1.2.0.apk`);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

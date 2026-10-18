@@ -37,10 +37,11 @@ export { DisplayConnection, type DisplayConnectionOptions } from "./display-clie
 
 export type { KaiScreenAndroidManifest, KaiScreenDownloadOffer } from "./kai-screen-downloads";
 export {
-  KAI_SCREEN_ANDROID_MANIFEST_DEFAULT,
-  androidManifestFilename,
-  fetchKaiScreenAndroidManifest,
-  listKaiScreenDownloadOffers,
+  KAI_SCREEN_ANDROID_MANIFEST_FILENAME,
+  buildKaiScreenDownloadOffer,
+  loadKaiScreenAndroidManifest,
+  loadKaiScreenDownloadOffer,
   resolveKaiScreenDownloadUrl,
+  resolveKaiScreenDownloadsBaseUrl,
 } from "./kai-screen-downloads";
 export { KaiScreenDownloadSection } from "./kai-screen-download-section";

@@ -1,6 +1,6 @@
 # Kai Printers — tareas de compilar y publicar
 
-Checklist operativo para sacar una nueva versión de los agentes (Android + Desktop) hacia el POS (`kai-pos/public/downloads/`).
+Checklist operativo para sacar una nueva versión de los agentes (Android + Desktop) y publicarla en la carpeta pública de `KAI_DOWNLOADS_URL`.
 
 Conceptos (identidad vs JSON de versión): [`docs/apps/RELEASE-MANIFESTS.md`](../../docs/apps/RELEASE-MANIFESTS.md) · labels nativos: [`docs/apps/MANIFESTOS-NATIVOS.md`](../../docs/apps/MANIFESTOS-NATIVOS.md).
 
@@ -13,61 +13,55 @@ Conceptos (identidad vs JSON de versión): [`docs/apps/RELEASE-MANIFESTS.md`](..
 - [ ] Tests unitarios verdes (Android: `./gradlew :app:testDebugUnitTest`; Desktop: `cargo test` en `src-tauri` si aplica)
 - [ ] Android: existe `kai-printers-android/keystore.properties` (+ keystore). Si no: `./scripts/generate-release-keystore.sh` y respaldá fuera del repo
 
-## 1. Compilar y publicar localmente (downloads del POS)
+## 1. Compilar y preparar archivos
 
 Desde la **raíz del monorepo**:
 
 ```bash
 # Todo (Android + Windows + macOS disponibles en esta máquina)
-npm run kai-printers:publish -- --bump patch
+npm run kai-printers:release -- --bump patch
 
 # Solo Android (APK + manifest + bump)
-npm run kai-printers:publish -- --android-only --bump patch
+npm run kai-printers:release -- --android-only --bump patch
 
 # Solo desktop (usa artefactos ya built, o --build para recompilar Tauri)
-npm run kai-printers:publish -- --desktop-only --build
+npm run kai-printers:release -- --desktop-only --build
 ```
 
 Equivalente directo:
 
 | Plataforma | Comando |
 |------------|---------|
-| Android | `npm run kai-printers:publish:android` o `bash kai-printers-android/scripts/publish-to-pos-downloads.sh --bump patch` |
-| Desktop | `npm run kai-printers:publish:desktop` (`--build` / `--windows-only` / `--macos-only`) |
+| Android | `npm run kai-printers:release:android` o `bash kai-printers-android/scripts/stage-downloads.sh --bump patch` |
+| Desktop | `npm run kai-printers:release:desktop` (`--build` / `--windows-only` / `--macos-only`) |
 
-Salida en `kai-pos/public/downloads/`:
+Salida en `dist/kai-downloads/` (fuera de git):
 
-| Artefacto | Git |
-|-----------|-----|
-| `kai-printers-android-{version}.apk` | **No** |
-| `kai-printers-windows-*-portable.zip` | **No** |
-| `kai-printers-macos-*.dmg` | **No** |
-| `kai-printers-*.manifest.json` | **Sí** |
-| `kai-printers-android/version.properties` | **Sí** (si hubo bump) |
+| Artefacto |
+|-----------|
+| `kai-printers-android-{version}.apk` |
+| `kai-printers-windows-*-portable.zip` |
+| `kai-printers-macos-*.dmg` |
+| `kai-printers-*.manifest.json` |
 
-Verificar en POS local (puerto típico `5062`):
+## 2. Subir a la carpeta pública
 
-- `/settings/local-printing`
-- `/downloads/kai-printers-android.manifest.json`
-- descarga del APK/DMG anunciado en el manifest
+- [ ] Subir binarios y luego manifests a la carpeta de `KAI_DOWNLOADS_URL` (mismo nombre de archivo que en el manifest)
+- [ ] Verificar `${KAI_DOWNLOADS_URL}/kai-printers-*.manifest.json` en el navegador
 
-## 2. Commit (solo metadatos)
+POS y Admin toman la versión nueva en ≤ 5 minutos, sin redeploy.
+
+## 3. Commit (solo versiones de código)
 
 ```bash
-git add kai-pos/public/downloads/kai-printers-*.manifest.json \
-        kai-printers-android/version.properties
+git add kai-printers-android/version.properties \
+        kai-printers-desktop/src-tauri/tauri.conf.json kai-printers-desktop/src-tauri/Cargo.toml
 # + código fuente si hubo cambios de tickets
-git commit -m "chore(printers): publicar Kai Printers vX.Y.Z"
+git commit -m "chore(printers): Kai Printers vX.Y.Z"
 git push
 ```
 
-No commitees `.apk` / `.zip` / `.dmg`. Tampoco `kai-printers-desktop/release/windows/` (output local del packaging; está en `.gitignore`).
-
-## 3. Deploy al VPS
-
-1. En el VPS: `git pull` (trae manifests).
-2. Desde la máquina de build, **rsync/scp** los binarios a `…/kai-pos/public/downloads/` (mismo nombre que en el manifest).
-3. Reiniciar / redeploy PWA POS si hace falta para servir estáticos.
+No commitees `.apk` / `.zip` / `.dmg` ni `kai-printers-desktop/release/windows/`.
 
 Detalle: [`kai-pos/public/downloads/README.md`](../../kai-pos/public/downloads/README.md).
 
@@ -80,6 +74,6 @@ Detalle: [`kai-pos/public/downloads/README.md`](../../kai-pos/public/downloads/R
 
 ## Notas
 
-- Orquestador: `packages/kai-printers-release/scripts/publish-all.mjs`
+- Orquestador: `packages/kai-printers-release/scripts/stage-all.mjs`
 - CI desktop (opcional): `.github/workflows/kai-printers-desktop-release.yml`
 - Guía operadores Android: `docs/KAI_PRINTERS_INSTALACION_ANDROID.md`

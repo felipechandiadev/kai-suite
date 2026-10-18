@@ -15,7 +15,7 @@ import {
   writeAdminPurposePrinterAliasToStorage,
   writePrintServiceConfigToStorage,
   KaiPrintersDownloadSection,
-  type KaiPrintersDownloadsManifests,
+  type KaiPrintersDownloadOffer,
   PrintServiceAgentConnectionHints,
   PrintAgentPicker,
   type PrintAgentCatalogItem,
@@ -33,7 +33,7 @@ import type { PrintAgentDto } from "@/features/print-agents/types/print-agent.ty
 
 type Props = {
   className?: string;
-  initialManifests?: KaiPrintersDownloadsManifests;
+  downloadOffers?: KaiPrintersDownloadOffer[];
 };
 
 function stringList(v: unknown): string[] {
@@ -86,7 +86,7 @@ function sessionCompanyLabel(session: {
 
 export function AdminLocalPrintingSettingsForm({
   className = "",
-  initialManifests,
+  downloadOffers,
 }: Props) {
   const formId = useId();
   const { data: session } = useSession();
@@ -224,7 +224,7 @@ export function AdminLocalPrintingSettingsForm({
 
   return (
     <>
-      <KaiPrintersDownloadSection initialManifests={initialManifests} />
+      <KaiPrintersDownloadSection offers={downloadOffers} />
 
       <form
         id={formId}

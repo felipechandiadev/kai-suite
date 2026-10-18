@@ -1,6 +1,7 @@
-# Kai Printers — publicación en el POS
+# Kai Printers — release
 
-Copia instaladores a `kai-pos/public/downloads/` para **Configuración → Impresión local** del POS.
+Compila los agentes y deja binarios + manifests en `dist/kai-downloads/`, listos para subir a la
+carpeta pública de `KAI_DOWNLOADS_URL` (la leen POS y Admin en runtime).
 
 **Checklist paso a paso:** [PUBLISH-CHECKLIST.md](./PUBLISH-CHECKLIST.md)
 
@@ -9,10 +10,10 @@ Copia instaladores a `kai-pos/public/downloads/` para **Configuración → Impre
 Desde la raíz del monorepo:
 
 ```bash
-npm run kai-printers:publish
+npm run kai-printers:release
 ```
 
-Orquestador: `scripts/publish-all.mjs`
+Orquestador: `scripts/stage-all.mjs`
 
 | Flag | Efecto |
 |------|--------|
@@ -25,12 +26,15 @@ Orquestador: `scripts/publish-all.mjs`
 ## Por plataforma
 
 ```bash
-npm run kai-printers:publish:android
-npm run kai-printers:publish:desktop
+npm run kai-printers:release:android
+npm run kai-printers:release:desktop
 ```
 
-Desktop: `scripts/publish-to-pos-downloads.mjs` (requiere `kai-printers-desktop/`).
+Desktop: `scripts/stage-desktop-downloads.mjs` (requiere `kai-printers-desktop/`).
 
-## Deploy al VPS
+Carpeta de salida: `KAI_DOWNLOADS_OUT_DIR` (default `dist/kai-downloads/`).
 
-Ver **`kai-pos/public/downloads/README.md`** (commit manifests → push → pull → rsync binarios).
+## Publicar
+
+Subir el contenido de `dist/kai-downloads/` a `KAI_DOWNLOADS_URL`. Detalle:
+[`kai-pos/public/downloads/README.md`](../../kai-pos/public/downloads/README.md).

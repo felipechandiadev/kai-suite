@@ -1,11 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  fetchKaiPrintersDownloadsManifests,
-  listKaiPrintersDownloadOffers,
-  type KaiPrintersDownloadsManifests,
-  type KaiPrintersPlatform,
+import type {
+  KaiPrintersDownloadOffer,
+  KaiPrintersPlatform,
 } from "./kai-printers-downloads";
 import { PRINT_OUTLINED_ACTION_LINK_CLASS } from "./print-outlined-button-styles";
 
@@ -71,36 +68,12 @@ function PlatformIcon({
 }
 
 type KaiPrintersDownloadSectionProps = {
-  /** Manifests leídos en SSR desde public/downloads. */
-  initialManifests?: KaiPrintersDownloadsManifests;
-  /** @deprecated Usar initialManifests.android */
-  initialManifest?: KaiPrintersDownloadsManifests["android"];
+  /** Resueltas en el servidor con `loadKaiPrintersDownloadOffers()`. */
+  offers?: KaiPrintersDownloadOffer[];
 };
 
-export function KaiPrintersDownloadSection({
-  initialManifests,
-  initialManifest,
-}: KaiPrintersDownloadSectionProps = {}) {
-  const seedManifests: KaiPrintersDownloadsManifests = {
-    ...initialManifests,
-    android: initialManifests?.android ?? initialManifest,
-  };
-
-  const [manifests, setManifests] = useState<KaiPrintersDownloadsManifests | null>(
-    Object.keys(seedManifests).length > 0 ? seedManifests : null,
-  );
-
-  useEffect(() => {
-    void fetchKaiPrintersDownloadsManifests().then((fetched) => {
-      setManifests(fetched);
-    });
-  }, []);
-
-  const resolved = manifests ?? seedManifests;
-  const offers = listKaiPrintersDownloadOffers(resolved);
-  const available = offers.filter((o) => o.href);
-
-  if (available.length === 0) return null;
+export function KaiPrintersDownloadSection({ offers = [] }: KaiPrintersDownloadSectionProps) {
+  if (offers.length === 0) return null;
 
   return (
     <section
@@ -122,7 +95,7 @@ export function KaiPrintersDownloadSection({
       </p>
 
       <ul className="mt-4 space-y-3">
-        {available.map((offer) => (
+        {offers.map((offer) => (
           <li
             key={offer.platform}
             className="flex flex-col gap-3 rounded-lg border border-border p-4 sm:flex-row sm:items-center sm:justify-between"
@@ -142,8 +115,8 @@ export function KaiPrintersDownloadSection({
             </div>
             <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
               <a
-                href={offer.href!}
-                download={offer.platform === "android" ? undefined : offer.filename}
+                href={offer.href}
+                download={offer.platform === "android" ? undefined : (offer.filename ?? true)}
                 className={PRINT_OUTLINED_ACTION_LINK_CLASS}
                 data-test-id={`kai-printers-download-${offer.platform}`}
               >
@@ -154,7 +127,7 @@ export function KaiPrintersDownloadSection({
                 <p className="max-w-xs text-center text-xs text-muted-foreground sm:text-right">
                   Si Chrome no descarga, abrí{" "}
                   <a
-                    href={offer.href!}
+                    href={offer.href}
                     className="break-all text-primary underline underline-offset-2"
                     target="_blank"
                     rel="noopener noreferrer"
@@ -163,11 +136,11 @@ export function KaiPrintersDownloadSection({
                   </a>{" "}
                   en una pestaña nueva.
                 </p>
-              ) : (
+              ) : offer.filename ? (
                 <p className="max-w-xs text-center text-xs text-muted-foreground sm:text-right">
                   {offer.filename}
                 </p>
-              )}
+              ) : null}
             </div>
           </li>
         ))}

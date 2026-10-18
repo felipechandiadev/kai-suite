@@ -11,16 +11,17 @@ cd kai-screen-android
 
 APK debug: `app/build/outputs/apk/debug/app-debug.apk`
 
-## Publicar al POS (release versionado)
+## Release versionado
 
 Desde la raíz del monorepo:
 
 ```bash
-npm run kai-screen:publish
-# Opcional: npm run kai-screen:publish -- --bump patch
+npm run kai-screen:release
+# Opcional: npm run kai-screen:release -- --bump patch
 ```
 
-Deja el APK en `kai-pos/public/downloads/kai-screen-android-{version}.apk` y actualiza `kai-screen-android.manifest.json`.
+Deja `kai-screen-android-{version}.apk` y `kai-screen-android.manifest.json` en `dist/kai-downloads/`.
+Subir ambos a la carpeta de `KAI_DOWNLOADS_URL` ([guía](../kai-pos/public/downloads/README.md)).
 
 ## Protocolo
 

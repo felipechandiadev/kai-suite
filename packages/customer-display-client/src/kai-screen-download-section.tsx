@@ -1,11 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  fetchKaiScreenAndroidManifest,
-  listKaiScreenDownloadOffers,
-  type KaiScreenAndroidManifest,
-} from "./kai-screen-downloads";
+import type { KaiScreenDownloadOffer } from "./kai-screen-downloads";
 
 function DownloadIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
@@ -27,29 +22,16 @@ function DownloadIcon({ className = "h-4 w-4" }: { className?: string }) {
 }
 
 type KaiScreenDownloadSectionProps = {
-  /** Manifest leído en SSR desde public/downloads (evita enlace a APK viejo antes del fetch). */
-  initialManifest?: KaiScreenAndroidManifest;
+  /** Resuelta en el servidor con `loadKaiScreenDownloadOffer()`. */
+  offer?: KaiScreenDownloadOffer | null;
   className?: string;
 };
 
 export function KaiScreenDownloadSection({
-  initialManifest,
+  offer,
   className = "",
-}: KaiScreenDownloadSectionProps = {}) {
-  const [manifest, setManifest] = useState<KaiScreenAndroidManifest | null>(
-    initialManifest ?? null,
-  );
-
-  useEffect(() => {
-    void fetchKaiScreenAndroidManifest().then((fetched) => {
-      setManifest(fetched);
-    });
-  }, []);
-
-  const resolvedManifest = manifest ?? initialManifest;
-  const offers = listKaiScreenDownloadOffers(resolvedManifest);
-  const offer = offers[0];
-  if (!offer?.href) return null;
+}: KaiScreenDownloadSectionProps) {
+  if (!offer) return null;
 
   return (
     <div

@@ -88,20 +88,16 @@ Login admin (seed): `admin` / `098098`
 
 ## Kai Printers — publicar y deploy (Windows / Android / macOS)
 
-Instaladores servidos en **`/downloads/`** del POS (`Configuración → Impresión local`).
+Instaladores servidos desde una carpeta pública (`KAI_DOWNLOADS_URL` en el env de POS y Admin), no desde el POS.
 
-Guía completa: [`kai-pos/public/downloads/README.md`](kai-pos/public/downloads/README.md) · deploy VPS: [`deploy/kai-printers-downloads.md`](deploy/kai-printers-downloads.md)
+Guía completa: [`kai-pos/public/downloads/README.md`](kai-pos/public/downloads/README.md) · deploy: [`deploy/kai-printers-downloads.md`](deploy/kai-printers-downloads.md)
 
 ```bash
-# Publicar (requiere kai-printers-desktop/ y/o kai-printers-android/)
-npm run kai-printers:publish -- --windows-only --build
+# Compilar y preparar (requiere kai-printers-desktop/ y/o kai-printers-android/) → dist/kai-downloads/
+npm run kai-printers:release -- --windows-only --build
 
-# Solo manifests en git; luego rsync binarios al VPS
-git add kai-pos/public/downloads/kai-printers-*.manifest.json
-git commit -m "chore(printers): actualizar manifests Kai Printers"
+# Subir dist/kai-downloads/* (binarios + manifests) a la carpeta de KAI_DOWNLOADS_URL
 ```
-
-Versión desktop publicada: **1.0.6** (`kai-printers-windows-1.0.6-x64-portable.zip`).
 
 ## Documentación
 

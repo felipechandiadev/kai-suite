@@ -58,22 +58,22 @@ chmod +x scripts/*.sh
 # Respalda release/ y keystore.properties en lugar seguro.
 ```
 
-Compilar y publicar (desde la raíz del monorepo, Android + desktop si aplica):
+Compilar y preparar release (desde la raíz del monorepo, Android + desktop si aplica):
 
 ```bash
-npm run kai-printers:publish
-# Solo Android: npm run kai-printers:publish -- --android-only
-# Bump versión: npm run kai-printers:publish -- --bump patch
+npm run kai-printers:release
+# Solo Android: npm run kai-printers:release -- --android-only
+# Bump versión: npm run kai-printers:release -- --bump patch
 ```
 
 O solo Android:
 
 ```bash
-./scripts/publish-to-pos-downloads.sh
-# Opcional: ./scripts/publish-to-pos-downloads.sh --bump patch
+./scripts/stage-downloads.sh
+# Opcional: ./scripts/stage-downloads.sh --bump patch
 ```
 
-Salida: `../kai-pos/public/downloads/kai-printers-android-{version}.apk` (fuera de git) y `kai-printers-android.manifest.json` (sí en git).
+Salida: `../dist/kai-downloads/kai-printers-android-{version}.apk` y `kai-printers-android.manifest.json` (fuera de git). Subir ambos a la carpeta de `KAI_DOWNLOADS_URL` ([guía](../kai-pos/public/downloads/README.md)).
 
 `build-release-apk.sh` delega en el script anterior.
 

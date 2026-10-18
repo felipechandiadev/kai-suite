@@ -42,9 +42,10 @@ kai-printers-android/release/
 kai-printers-android/dist/
 kai-printers-android/**/*.jks
 kai-printers-android/**/*.keystore
-kai-pos/public/downloads/kai-printers-android-*.apk
-kai-pos/public/downloads/kai-printers-windows-*.zip
-kai-pos/public/downloads/kai-printers-macos-*.dmg
+# Instalables: se suben a KAI_DOWNLOADS_URL (staging en dist/kai-downloads/), nunca al repo
+kai-pos/public/downloads/*.apk
+kai-pos/public/downloads/*.zip
+kai-pos/public/downloads/*.dmg
 
 # Kai Printers Desktop — output local de package:windows-release (no versionar)
 kai-printers-desktop/release/windows/

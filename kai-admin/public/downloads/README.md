@@ -1,27 +1,13 @@
 # Descargas Kai Printers (Admin)
 
-Archivos estáticos servidos en **`/downloads/`** por la PWA de administración.
-
-## Fuente de verdad
-
-El APK versionado y el manifest se publican desde el POS:
-
-```text
-kai-pos/public/downloads/kai-printers-android-{version}.apk
-kai-pos/public/downloads/kai-printers-android.manifest.json
-```
-
-Podés copiar ambos aquí o apuntar el admin al dominio del POS.
-
-## URL personalizada (recomendado)
+Admin no sirve instalables. **Configuración → Impresión local** lee los manifests desde
+`KAI_DOWNLOADS_URL` (la misma carpeta pública que usa el POS):
 
 ```env
-NEXT_PUBLIC_KAI_PRINTERS_ANDROID_URL=https://pos.tu-dominio.cl/downloads/kai-printers-android-1.1.0.apk
+KAI_DOWNLOADS_URL=https://cdn.tu-dominio.cl/kai-downloads
 ```
 
-## Git
-
-No commitees binarios. El manifest vive en `kai-pos/public/downloads/`.
+Flujo de publicación: [`kai-pos/public/downloads/README.md`](../../../kai-pos/public/downloads/README.md).
 
 ## Guía operador
 

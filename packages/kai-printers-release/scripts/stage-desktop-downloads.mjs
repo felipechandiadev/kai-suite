@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 /**
- * Publica Kai Printers desktop (Windows ZIP + macOS DMG) en kai-pos/public/downloads/.
- * Requiere kai-printers-desktop/ en el monorepo (gitignored localmente).
+ * Deja Kai Printers desktop (Windows ZIP + macOS DMG) y sus manifests en dist/kai-downloads/,
+ * listos para subir a la carpeta pública de KAI_DOWNLOADS_URL.
+ * Requiere kai-printers-desktop/ en el monorepo.
  *
  * Uso (desde raíz del monorepo):
- *   npm run kai-printers:publish              # Android + desktop (recomendado)
- *   npm run kai-printers:publish:desktop      # solo desktop
- *   npm run kai-printers:publish:desktop -- --build
- *   npm run kai-printers:publish:desktop -- --windows-only
+ *   npm run kai-printers:release              # Android + desktop
+ *   npm run kai-printers:release:desktop      # solo desktop
+ *   npm run kai-printers:release:desktop -- --build
+ *   npm run kai-printers:release:desktop -- --windows-only
+ *
+ * Carpeta de salida: KAI_DOWNLOADS_OUT_DIR (default dist/kai-downloads).
  */
 import {
   cpSync,
@@ -26,7 +29,8 @@ import { fileURLToPath } from "node:url";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(scriptDir, "..", "..", "..");
 const printServiceRoot = join(repoRoot, "kai-printers-desktop");
-const downloadsDir = join(repoRoot, "kai-pos", "public", "downloads");
+const downloadsDir =
+  process.env.KAI_DOWNLOADS_OUT_DIR?.trim() || join(repoRoot, "dist", "kai-downloads");
 const tauriConfPath = join(printServiceRoot, "src-tauri", "tauri.conf.json");
 
 const args = new Set(process.argv.slice(2));
@@ -104,7 +108,6 @@ function publishWindows(version) {
   });
 
   console.log(`Windows → ${dest}`);
-  console.log(`URL local: http://localhost:5062/downloads/${destName}`);
 }
 
 function findDmgInDir(bundleRoot, version) {
@@ -205,24 +208,20 @@ function publishMacos(version) {
   });
 
   console.log(`macOS → ${dest}`);
-  console.log(`URL local: http://localhost:5062/downloads/${destName}`);
 }
 
 if (!existsSync(printServiceRoot)) {
   console.error(
-    "kai-printers-desktop/ no existe en el monorepo. Cloná o copiá el agente Tauri antes de publicar desktop.",
+    "kai-printers-desktop/ no existe en el monorepo. Cloná o copiá el agente Tauri antes de preparar desktop.",
   );
   process.exit(1);
 }
 
 const version = readVersion();
-console.log(`Kai Printers desktop v${version} → kai-pos/public/downloads/`);
+console.log(`Kai Printers desktop v${version} → ${downloadsDir}`);
 
 if (!macosOnly) publishWindows(version);
 if (!windowsOnly) publishMacos(version);
 
-console.log("\n✅ Publicación desktop lista.");
-console.log("Commitear solo los manifest JSON (binarios quedan en .gitignore):");
-console.log(
-  "  git add kai-pos/public/downloads/kai-printers-windows.manifest.json kai-pos/public/downloads/kai-printers-macos.manifest.json",
-);
+console.log("\n✅ Desktop listo para subir.");
+console.log(`Subí el contenido de ${downloadsDir} a la carpeta pública de KAI_DOWNLOADS_URL.`);
