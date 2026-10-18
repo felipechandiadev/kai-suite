@@ -1,20 +1,16 @@
-// Cache shell admin (L1) — kai-admin-v1 invalida flow-admin-*
-const CACHE_NAME = "kai-admin-v1";
+// Cache shell admin (L1) — kai-admin-v2 invalida kai-admin-v1 y flow-admin-*
+const CACHE_NAME = "kai-admin-v2";
+const OFFLINE_URL = "/offline.html";
+const PRECACHE_URLS = [
+  OFFLINE_URL,
+  "/logo.png",
+  "/android-chrome-192x192.png",
+  "/android-chrome-512x512.png",
+  "/favicon-32x32.png",
+];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) =>
-      cache.addAll([
-        "/",
-        "/dashboard",
-        "/offline.html",
-        "/logo.png",
-        "/android-chrome-192x192.png",
-        "/android-chrome-512x512.png",
-        "/favicon-32x32.png",
-      ]),
-    ),
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS)));
   self.skipWaiting();
 });
 
@@ -27,6 +23,23 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+function isStaticAsset(url) {
+  return url.pathname.startsWith("/_next/static/") || PRECACHE_URLS.includes(url.pathname);
+}
+
+function cacheFirst(request) {
+  return caches.match(request).then((cached) => {
+    if (cached) return cached;
+    return fetch(request).then((response) => {
+      if (response.ok) {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
+      }
+      return response;
+    });
+  });
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
@@ -34,21 +47,18 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (url.pathname === "/manifest.json" || url.pathname === "/manifest.webmanifest") {
-    event.respondWith(fetch(request));
-    return;
-  }
-
-  if (url.pathname.startsWith("/api/")) {
-    event.respondWith(fetch(request));
-    return;
-  }
-
   const isNavigation = request.mode === "navigate" || request.destination === "document";
   if (isNavigation) {
-    event.respondWith(fetch(request).catch(() => caches.match("/offline.html")));
+    event.respondWith(
+      fetch(request).catch(() =>
+        caches.match(OFFLINE_URL).then((offline) => offline || Response.error()),
+      ),
+    );
     return;
   }
 
-  event.respondWith(caches.match(request).then((cached) => cached || fetch(request)));
+  // RSC, API, manifest y demás GET dinámicos van directo a la red sin pasar por el SW.
+  if (!isStaticAsset(url)) return;
+
+  event.respondWith(cacheFirst(request).catch(() => Response.error()));
 });
