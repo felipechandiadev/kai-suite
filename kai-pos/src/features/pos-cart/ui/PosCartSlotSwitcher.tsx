@@ -15,21 +15,23 @@ export function PosCartSlotSwitcher({ className }: Props) {
     switchCartSlot,
     canAddCartSlot,
     addCartSlot,
+    clearCartSlot,
   } = usePosCart();
 
-  const visibleTabs = cartSlotsSummary.filter(
-    (slot) => slot.index === activeCartSlot || !slot.isEmpty,
-  );
+  const visibleTabs = cartSlotsSummary.filter((slot) => slot.isOpen);
+  const onlyOneTab = visibleTabs.length <= 1;
 
   return (
     <div
-      className={["flex min-w-0 items-stretch gap-1", className].filter(Boolean).join(" ")}
+      className={["flex min-w-0 flex-wrap items-center gap-1", className]
+        .filter(Boolean)
+        .join(" ")}
       data-test-id="pos-cart-slot-switcher"
     >
       <div
-        className="flex min-w-0 flex-wrap items-end"
+        className="flex min-w-0 flex-wrap items-end gap-x-0.5"
         role="tablist"
-        aria-label="Carros de compra"
+        aria-label="Carros de compra abiertos"
       >
         {visibleTabs.map((slot) => {
           const selected = activeCartSlot === slot.index;
@@ -40,32 +42,52 @@ export function PosCartSlotSwitcher({ className }: Props) {
               ? `${label}: ${slot.itemsCount} ítems`
               : `${label}: vacío`;
           return (
-            <button
+            <div
               key={slot.index}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              title={tip}
-              onClick={() => switchCartSlot(slot.index as CartSlotIndex)}
               className={[
-                "max-w-36 shrink-0 border-b-2 px-2.5 py-1.5 text-left transition-colors",
+                "flex max-w-44 items-end border-b-2",
                 selected
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
               ].join(" ")}
-              data-test-id={`pos-cart-slot-${slot.index}`}
             >
-              <span className="block truncate text-xs font-semibold leading-tight">
-                {label}
-              </span>
-              <span className="block truncate text-[10px] leading-tight opacity-80">
-                {slot.customerName
-                  ? slot.customerName
-                  : slot.itemsCount > 0
-                    ? `${slot.itemsCount} ítems`
-                    : "Vacío"}
-              </span>
-            </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                title={tip}
+                onClick={() => switchCartSlot(slot.index as CartSlotIndex)}
+                className="min-w-0 shrink px-2 py-1.5 text-left transition-colors"
+                data-test-id={`pos-cart-slot-${slot.index}`}
+              >
+                <span className="block truncate text-xs font-semibold leading-tight">
+                  {label}
+                </span>
+                <span className="block truncate text-[10px] leading-tight opacity-80">
+                  {slot.customerName
+                    ? slot.customerName
+                    : slot.itemsCount > 0
+                      ? `${slot.itemsCount} ítems`
+                      : "Vacío"}
+                </span>
+              </button>
+              {!onlyOneTab || !slot.isEmpty ? (
+                <IconButton
+                  icon="X"
+                  variant="text"
+                  size="xs"
+                  ariaLabel={`Eliminar ${label}`}
+                  title={`Eliminar ${label}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    clearCartSlot(slot.index as CartSlotIndex);
+                  }}
+                  className="mb-0.5 mr-0.5 shrink-0"
+                  data-test-id={`pos-cart-slot-delete-${slot.index}`}
+                />
+              ) : null}
+            </div>
           );
         })}
       </div>
@@ -77,7 +99,7 @@ export function PosCartSlotSwitcher({ className }: Props) {
         title={
           canAddCartSlot
             ? "Añadir carro"
-            : "Máximo 4 carros (vaciá uno para liberar un slot)"
+            : "Máximo 4 carros (eliminá uno para liberar un slot)"
         }
         disabled={!canAddCartSlot}
         onClick={() => {

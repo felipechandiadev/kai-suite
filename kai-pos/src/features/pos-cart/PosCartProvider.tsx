@@ -16,8 +16,10 @@ import {
   CART_SLOT_COUNT,
   emptyCartSlots,
   emptySlotSnapshot,
-  findFirstEmptySlotIndex,
+  closeCartSlotInEnvelope,
+  findFirstClosedSlotIndex,
   normalizeActiveSlot,
+  normalizeOpenSlots,
   padCartSlots,
   readCartEnvelopeClient,
   summarizeCartSlot,
@@ -174,8 +176,10 @@ type PosCartContextValue = {
   switchCartSlot: (index: CartSlotIndex) => void;
   /** True si hay al menos un slot vacío distinto del activo (cabe un carro más). */
   canAddCartSlot: boolean;
-  /** Abre el primer slot vacío (≠ activo). Retorna false si no hay cupo. */
+  /** Abre un carro nuevo (primer slot cerrado). Retorna false si no hay cupo. */
   addCartSlot: () => boolean;
+  /** Cierra un carro (lo vacía). Si era el activo, salta al siguiente abierto. */
+  clearCartSlot: (index: CartSlotIndex) => void;
 };
 
 const PosCartContext = createContext<PosCartContextValue | null>(null);
@@ -284,6 +288,7 @@ async function hydrateSlotSnapshot(
 export default function PosCartProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [activeCartSlot, setActiveCartSlot] = useState<CartSlotIndex>(0);
+  const [openCartSlots, setOpenCartSlots] = useState<CartSlotIndex[]>([0]);
   const slotsRef = useRef<CartSlots>(emptyCartSlots());
   const [inactiveSlotVersion, setInactiveSlotVersion] = useState(0);
   const [lines, setLines] = useState<PosCartLine[]>([]);
@@ -422,6 +427,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       if (!s) {
         slotsRef.current = emptyCartSlots();
         setActiveCartSlot(0);
+        setOpenCartSlots([0]);
         applySlotToWorkspace(emptySlotSnapshot());
         setReady(true);
         return;
@@ -436,6 +442,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       slotsRef.current = hydrated;
       const active = normalizeActiveSlot(envelope.activeSlot);
       setActiveCartSlot(active);
+      setOpenCartSlots(normalizeOpenSlots(envelope.openSlots, hydrated, active));
       applySlotToWorkspace(slotsRef.current[active]);
       setInactiveSlotVersion((v) => v + 1);
       setReady(true);
@@ -467,6 +474,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     writeCartEnvelopeClient(scope, {
       activeSlot: activeCartSlot,
       slots: nextSlots,
+      openSlots: openCartSlots,
     });
   }, [
     lines,
@@ -483,6 +491,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     ready,
     scope,
     activeCartSlot,
+    openCartSlots,
     captureWorkspaceSnapshot,
     mergeActiveIntoSlots,
   ]);
@@ -498,6 +507,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
         if (!s) {
           slotsRef.current = emptyCartSlots();
           setActiveCartSlot(0);
+          setOpenCartSlots([0]);
           applySlotToWorkspace(emptySlotSnapshot());
           return;
         }
@@ -510,6 +520,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
         slotsRef.current = hydrated;
         const active = normalizeActiveSlot(envelope.activeSlot);
         setActiveCartSlot(active);
+        setOpenCartSlots(normalizeOpenSlots(envelope.openSlots, hydrated, active));
         applySlotToWorkspace(slotsRef.current[active]);
         setInactiveSlotVersion((v) => v + 1);
       })();
@@ -533,19 +544,27 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       const target = normalizeActiveSlot(index);
       if (target === activeCartSlot) return;
       const nextSlots = mergeActiveIntoSlots(activeCartSlot, captureWorkspaceSnapshot());
+      const nextOpen = normalizeOpenSlots(
+        [...openCartSlots, activeCartSlot, target],
+        nextSlots,
+        target,
+      );
       slotsRef.current = nextSlots;
       setActiveCartSlot(target);
+      setOpenCartSlots(nextOpen);
       applySlotToWorkspace(nextSlots[target]);
       setInactiveSlotVersion((v) => v + 1);
       if (scope) {
         writeCartEnvelopeClient(scope, {
           activeSlot: target,
           slots: nextSlots,
+          openSlots: nextOpen,
         });
       }
     },
     [
       activeCartSlot,
+      openCartSlots,
       applySlotToWorkspace,
       captureWorkspaceSnapshot,
       mergeActiveIntoSlots,
@@ -560,30 +579,55 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     for (let i = 0; i < CART_SLOT_COUNT; i++) {
       const idx = i as CartSlotIndex;
       const slot = activeCartSlot === idx ? activeSnap : slotsRef.current[idx];
-      summary.push(summarizeCartSlot(idx, slot));
+      const isOpen = idx === activeCartSlot || openCartSlots.includes(idx);
+      summary.push(summarizeCartSlot(idx, slot, isOpen));
     }
     return summary;
-  }, [activeCartSlot, captureWorkspaceSnapshot, inactiveSlotVersion]);
+  }, [activeCartSlot, openCartSlots, captureWorkspaceSnapshot, inactiveSlotVersion]);
 
-  const canAddCartSlot = useMemo(() => {
-    void inactiveSlotVersion;
-    const activeSnap = captureWorkspaceSnapshot();
-    const merged: CartSlotSnapshot[] = [];
-    for (let i = 0; i < CART_SLOT_COUNT; i++) {
-      const idx = i as CartSlotIndex;
-      merged[i] = activeCartSlot === idx ? activeSnap : slotsRef.current[idx];
-    }
-    return findFirstEmptySlotIndex(merged, { excludeIndex: activeCartSlot }) != null;
-  }, [activeCartSlot, captureWorkspaceSnapshot, inactiveSlotVersion]);
+  const canAddCartSlot = useMemo(
+    () => findFirstClosedSlotIndex(openCartSlots) != null,
+    [openCartSlots],
+  );
 
   const addCartSlot = useCallback((): boolean => {
-    const activeSnap = captureWorkspaceSnapshot();
-    const merged = mergeActiveIntoSlots(activeCartSlot, activeSnap);
-    const target = findFirstEmptySlotIndex(merged, { excludeIndex: activeCartSlot });
+    const target = findFirstClosedSlotIndex(openCartSlots);
     if (target == null) return false;
     switchCartSlot(target);
     return true;
-  }, [activeCartSlot, captureWorkspaceSnapshot, mergeActiveIntoSlots, switchCartSlot]);
+  }, [openCartSlots, switchCartSlot]);
+
+  const clearCartSlot = useCallback(
+    (index: CartSlotIndex) => {
+      const target = normalizeActiveSlot(index);
+      const merged = mergeActiveIntoSlots(activeCartSlot, captureWorkspaceSnapshot());
+      const next = closeCartSlotInEnvelope(
+        { activeSlot: activeCartSlot, slots: merged, openSlots: openCartSlots },
+        target,
+      );
+      slotsRef.current = next.slots;
+      setOpenCartSlots(next.openSlots);
+      setInactiveSlotVersion((v) => v + 1);
+      const switched = next.activeSlot !== activeCartSlot;
+      if (switched) {
+        setActiveCartSlot(next.activeSlot);
+      }
+      if (switched || target === activeCartSlot) {
+        applySlotToWorkspace(next.slots[next.activeSlot]);
+      }
+      if (scope) {
+        writeCartEnvelopeClient(scope, next);
+      }
+    },
+    [
+      activeCartSlot,
+      openCartSlots,
+      applySlotToWorkspace,
+      captureWorkspaceSnapshot,
+      mergeActiveIntoSlots,
+      scope,
+    ],
+  );
 
   const itemsCount = useMemo(() => lines.reduce((a, l) => a + (Number(l.quantity) || 0), 0), [lines]);
 
@@ -1260,6 +1304,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       switchCartSlot,
       canAddCartSlot,
       addCartSlot,
+      clearCartSlot,
     }),
     [
       ready,
@@ -1313,6 +1358,7 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
       switchCartSlot,
       canAddCartSlot,
       addCartSlot,
+      clearCartSlot,
     ],
   );
 

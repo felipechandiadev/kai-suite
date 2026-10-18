@@ -597,10 +597,7 @@ export default function PosWorkspace() {
             ) : null}
           </div>
           <div className="flex min-w-0 items-center gap-2">
-            <PosCartSlotSwitcher className="min-w-0 max-w-full shrink" />
-            <p className="text-xs text-zinc-500" data-test-id="pos-cart-items-count">
-              {cart.itemsCount} ítems
-            </p>
+            <PosCartSlotSwitcher className="min-w-0 flex-1" />
             <ShoppingCart
               size={18}
               strokeWidth={2}

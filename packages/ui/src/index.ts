@@ -204,6 +204,17 @@ export type {
 
 // Hooks
 export { useCoarsePointer } from "./hooks/useCoarsePointer";
+export { useBreakpoint } from "./hooks/useBreakpoint";
+export type { UseBreakpointResult } from "./hooks/useBreakpoint";
+export { KaiResponsiveRoot } from "./components/KaiResponsiveRoot";
+export type { KaiResponsiveRootProps } from "./components/KaiResponsiveRoot";
+export {
+  KAI_BREAKPOINTS,
+  KAI_BREAKPOINT_ORDER,
+  resolveKaiBreakpoint,
+  kaiBreakpointAtLeast,
+} from "./theme/breakpoints";
+export type { KaiBreakpoint } from "./theme/breakpoints";
 
 // Navigation (framework-agnostic; Next via NextNavProvider)
 export {

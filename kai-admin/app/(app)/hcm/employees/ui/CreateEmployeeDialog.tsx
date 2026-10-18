@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { Dialog } from "@kai/ui";
 import { Alert } from "@kai/ui";
 import { Button } from "@kai/ui";
+import { IconButton } from "@kai/ui";
 import { TextField } from "@kai/ui";
 import { Select, type Option } from "@kai/ui";
 import { createEmployeeAction } from "@/features/hr-employees/actions/employee.action";
+import { listLaborUnitsAction } from "@/features/hr-labor-units/actions/labor-unit.action";
+import { CreateLaborUnitDialog } from "@/features/hr-labor-units/ui/CreateLaborUnitDialog";
 import type { BranchListItem } from "@/features/settings-branches/types/branch.types";
 import { usePersonDocumentLookup } from "@/features/chile-person/ui/usePersonDocumentLookup";
 import { PersonDocumentStatusAlert } from "@/features/chile-person/ui/PersonDocumentStatusAlert";
@@ -34,6 +37,8 @@ export type CreateEmployeeDialogProps = {
   laborUnits?: Array<{ id: string; name: string; code?: string }>;
 };
 
+const NO_LABOR_UNITS: NonNullable<CreateEmployeeDialogProps["laborUnits"]> = [];
+
 function todayIsoDate(): string {
   const d = new Date();
   const y = d.getFullYear();
@@ -47,7 +52,7 @@ export function CreateEmployeeDialog({
   onClose,
   onSuccess,
   branches,
-  laborUnits = [],
+  laborUnits = NO_LABOR_UNITS,
 }: CreateEmployeeDialogProps) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -67,6 +72,20 @@ export function CreateEmployeeDialog({
   const [userMail, setUserMail] = useState("");
   const [userPassword, setUserPassword] = useState("");
   const [userRol, setUserRol] = useState("POS_OPERATOR");
+  const [laborUnitList, setLaborUnitList] = useState(laborUnits);
+  const [laborUnitDialogOpen, setLaborUnitDialogOpen] = useState(false);
+
+  useEffect(() => {
+    setLaborUnitList(laborUnits);
+  }, [laborUnits]);
+
+  const refreshLaborUnits = useCallback(async () => {
+    const res = await listLaborUnitsAction();
+    if (!res.success) return;
+    setLaborUnitList(
+      res.data.map((u) => ({ id: u.id, name: u.name, code: u.code })),
+    );
+  }, []);
 
   const docLookup = usePersonDocumentLookup({
     documentNumber,
@@ -102,11 +121,11 @@ export function CreateEmployeeDialog({
 
   const laborUnitOptions: Option[] = useMemo(
     () =>
-      laborUnits.map((u) => ({
+      laborUnitList.map((u) => ({
         id: u.id,
         label: u.code ? `${u.name} (${u.code})` : u.name,
       })),
-    [laborUnits],
+    [laborUnitList],
   );
 
   useEffect(() => {
@@ -217,6 +236,7 @@ export function CreateEmployeeDialog({
     documentType === "RUT" ? "RUT" : documentType === "OTHER" ? "Otro" : "Número de documento";
 
   return (
+    <>
     <Dialog
       open={open}
       onClose={handleClose}
@@ -332,18 +352,32 @@ export function CreateEmployeeDialog({
             data-test-id="employee-create-branch"
           />
 
-          <Select
-            label="Unidad laboral"
-            name="employee-labor-unit"
-            placeholder="Seleccionar unidad laboral"
-            options={laborUnitOptions}
-            value={laborUnitId}
-            onChange={(v) =>
-              setLaborUnitId(v != null && String(v) !== "" ? String(v) : null)
-            }
-            required
-            data-test-id="employee-create-labor-unit"
-          />
+          <div className="flex items-end gap-2">
+            <div className="min-w-0 flex-1">
+              <Select
+                label="Unidad laboral"
+                name="employee-labor-unit"
+                placeholder="Seleccionar unidad laboral"
+                options={laborUnitOptions}
+                value={laborUnitId}
+                onChange={(v) =>
+                  setLaborUnitId(v != null && String(v) !== "" ? String(v) : null)
+                }
+                required
+                data-test-id="employee-create-labor-unit"
+              />
+            </div>
+            <IconButton
+              icon="Plus"
+              variant="action"
+              size="md"
+              ariaLabel="Crear unidad laboral"
+              title="Crear unidad laboral"
+              disabled={isPending}
+              onClick={() => setLaborUnitDialogOpen(true)}
+              data-test-id="employee-create-labor-unit-add"
+            />
+          </div>
 
           <Select
             label="Tipo de contrato"
@@ -432,5 +466,14 @@ export function CreateEmployeeDialog({
         </div>
       </div>
     </Dialog>
+    <CreateLaborUnitDialog
+      open={laborUnitDialogOpen}
+      onClose={() => {
+        setLaborUnitDialogOpen(false);
+        void refreshLaborUnits();
+      }}
+      onCreated={(unit) => setLaborUnitId(unit.id)}
+    />
+    </>
   );
 }

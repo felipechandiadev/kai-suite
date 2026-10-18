@@ -74,6 +74,7 @@ type StoredCartEnvelope = {
   updatedAt: string;
   activeSlot: number;
   slots: StoredCartSlot[];
+  openSlots?: number[];
 };
 
 /** Forma legacy v1–v4 (carrito único con `v` en la raíz). */
@@ -106,6 +107,8 @@ export type CartSlotSnapshot = {
 export type CartEnvelope = {
   activeSlot: CartSlotIndex;
   slots: CartSlots;
+  /** Carros abiertos (visibles en el switcher) aunque no tengan productos. */
+  openSlots: CartSlotIndex[];
 };
 
 export type CartSlots = [
@@ -120,6 +123,7 @@ export type CartSlotSummary = {
   itemsCount: number;
   customerName: string | null;
   isEmpty: boolean;
+  isOpen: boolean;
   cartMode: PosCartMode;
 };
 
@@ -347,6 +351,7 @@ export function emptyCartEnvelope(): CartEnvelope {
   return {
     activeSlot: 0,
     slots: emptyCartSlots(),
+    openSlots: [0],
   };
 }
 
@@ -387,15 +392,76 @@ export function isSlotEmpty(slot: CartSlotSnapshot): boolean {
 export function summarizeCartSlot(
   index: CartSlotIndex,
   slot: CartSlotSnapshot,
+  isOpen?: boolean,
 ): CartSlotSummary {
   const itemsCount = slot.lines.reduce((a, l) => a + (Number(l.quantity) || 0), 0);
   const name = slot.customer?.name?.trim() || null;
+  const isEmpty = isSlotEmpty(slot);
   return {
     index,
     itemsCount,
     customerName: name,
-    isEmpty: isSlotEmpty(slot),
+    isEmpty,
+    isOpen: isOpen ?? !isEmpty,
     cartMode: slot.cartMode,
+  };
+}
+
+/**
+ * Carros abiertos: los persistidos + todo slot con contenido + el activo.
+ * Un slot con datos nunca queda cerrado (no se pierde un carro al migrar).
+ */
+export function normalizeOpenSlots(
+  raw: unknown,
+  slots: Array<CartSlotSnapshot | undefined>,
+  activeSlot: CartSlotIndex,
+): CartSlotIndex[] {
+  const open = new Set<number>();
+  if (Array.isArray(raw)) {
+    for (const v of raw) {
+      const n = typeof v === "number" ? v : Number(v);
+      if (Number.isInteger(n) && n >= 0 && n < CART_SLOT_COUNT) open.add(n);
+    }
+  }
+  for (let i = 0; i < CART_SLOT_COUNT; i++) {
+    const slot = slots[i];
+    if (slot && !isSlotEmpty(slot)) open.add(i);
+  }
+  open.add(activeSlot);
+  return [...open].sort((a, b) => a - b) as CartSlotIndex[];
+}
+
+export function findFirstClosedSlotIndex(
+  openSlots: readonly CartSlotIndex[],
+): CartSlotIndex | null {
+  for (let i = 0; i < CART_SLOT_COUNT; i++) {
+    if (!openSlots.includes(i as CartSlotIndex)) return i as CartSlotIndex;
+  }
+  return null;
+}
+
+/**
+ * Cierra un carro (lo vacía y lo oculta). Si era el activo, pasa al siguiente abierto.
+ * Si era el único abierto, queda abierto y vacío.
+ */
+export function closeCartSlotInEnvelope(
+  envelope: CartEnvelope,
+  closeIndex: CartSlotIndex,
+): CartEnvelope {
+  const slots = padCartSlots([...envelope.slots]);
+  slots[closeIndex] = emptySlotSnapshot();
+  let open = envelope.openSlots.filter((i) => i !== closeIndex);
+  let activeSlot = envelope.activeSlot;
+  if (open.length === 0) {
+    open = [closeIndex];
+    activeSlot = closeIndex;
+  } else if (closeIndex === activeSlot) {
+    activeSlot = open.find((i) => i > closeIndex) ?? open[open.length - 1];
+  }
+  return {
+    slots,
+    activeSlot,
+    openSlots: normalizeOpenSlots(open, slots, activeSlot),
   };
 }
 
@@ -521,9 +587,12 @@ export function parseCartEnvelopeRaw(
       const parsedSlots = env.slots.map((s) =>
         parseSlotFields(s ?? { lines: [] }, stamp),
       );
+      const slots = padCartSlots(parsedSlots);
+      const activeSlot = normalizeActiveSlot(env.activeSlot);
       return {
-        activeSlot: normalizeActiveSlot(env.activeSlot),
-        slots: padCartSlots(parsedSlots),
+        activeSlot,
+        slots,
+        openSlots: normalizeOpenSlots(env.openSlots, slots, activeSlot),
       };
     }
 
@@ -536,9 +605,11 @@ export function parseCartEnvelopeRaw(
       const slot0 = parseSlotFields(parsed as StoredCartLegacySingle, stamp, {
         legacyVersion: parsed.v,
       });
+      const slots = padCartSlots([slot0]);
       return {
         activeSlot: 0,
-        slots: padCartSlots([slot0]),
+        slots,
+        openSlots: normalizeOpenSlots(undefined, slots, 0),
       };
     }
 
@@ -633,11 +704,13 @@ export function writeCartEnvelopeClient(
   if (!posId) return;
   try {
     const slots = padCartSlots([...envelope.slots]);
+    const activeSlot = normalizeActiveSlot(envelope.activeSlot);
     const payload: StoredCartEnvelope = {
       v: CART_STORAGE_VERSION,
       updatedAt: new Date().toISOString(),
-      activeSlot: normalizeActiveSlot(envelope.activeSlot),
+      activeSlot,
       slots: slots.map((s) => snapshotToStoredSlot(s)),
+      openSlots: normalizeOpenSlots(envelope.openSlots, slots, activeSlot),
     };
     setMigratedLocalStorageItem(
       keyFor(posId),
@@ -687,5 +760,9 @@ export function writeCartClient(
   };
   const slots = padCartSlots([...current.slots]);
   slots[active] = snap;
-  writeCartEnvelopeClient(input, { activeSlot: active, slots });
+  writeCartEnvelopeClient(input, {
+    activeSlot: active,
+    slots,
+    openSlots: current.openSlots,
+  });
 }

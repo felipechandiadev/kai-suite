@@ -19,6 +19,7 @@ describe("resolveKaiPrintersDownloadUrl", () => {
     delete process.env.NEXT_PUBLIC_KAI_PRINTERS_ANDROID_URL;
     delete process.env.NEXT_PUBLIC_KAI_PRINTERS_WINDOWS_URL;
     delete process.env.NEXT_PUBLIC_KAI_PRINTERS_MACOS_URL;
+    delete process.env.NEXT_PUBLIC_KAI_PRINTERS_DOWNLOADS_BASE;
   });
 
   it("defaults Android to versioned APK from manifest", () => {

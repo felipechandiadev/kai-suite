@@ -1,4 +1,5 @@
 import { GetCompanyUseCase } from "@/features/settings-company/application/get-company.usecase";
+import { resolveKaiMenuPublicUrl } from "@/config/kai-menu-url";
 import { MenuQrPanel } from "./ui/MenuQrPanel";
 
 export const dynamic = "force-dynamic";
@@ -9,5 +10,10 @@ export default async function KaiMenuQrPage() {
   const menuPublicSlug =
     typeof slugRaw === "string" && slugRaw.trim() ? slugRaw.trim() : null;
 
-  return <MenuQrPanel menuPublicSlug={menuPublicSlug} />;
+  return (
+    <MenuQrPanel
+      menuPublicUrl={resolveKaiMenuPublicUrl()}
+      menuPublicSlug={menuPublicSlug}
+    />
+  );
 }

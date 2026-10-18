@@ -87,11 +87,19 @@ const ENV_BY_PLATFORM: Record<KaiPrintersPlatform, string> = {
   macos: "NEXT_PUBLIC_KAI_PRINTERS_MACOS_URL",
 };
 
-const MANIFEST_PATHS = {
-  android: "/downloads/kai-printers-android.manifest.json",
-  windows: "/downloads/kai-printers-windows.manifest.json",
-  macos: "/downloads/kai-printers-macos.manifest.json",
+const MANIFEST_FILENAMES = {
+  android: "kai-printers-android.manifest.json",
+  windows: "kai-printers-windows.manifest.json",
+  macos: "kai-printers-macos.manifest.json",
 } as const;
+
+const MANIFEST_PATHS = {
+  android: `/downloads/${MANIFEST_FILENAMES.android}`,
+  windows: `/downloads/${MANIFEST_FILENAMES.windows}`,
+  macos: `/downloads/${MANIFEST_FILENAMES.macos}`,
+} as const;
+
+const DOWNLOADS_BASE_ENV = "NEXT_PUBLIC_KAI_PRINTERS_DOWNLOADS_BASE";
 
 function readEnv(key: string): string | undefined {
   if (typeof process !== "undefined" && process.env?.[key]?.trim()) {
@@ -104,6 +112,14 @@ export function androidManifestFilename(
   manifest: KaiPrintersAndroidManifest = KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT,
 ): string {
   return manifest.filename;
+}
+
+function resolveManifestPath(platform: KaiPrintersPlatform): string {
+  const base = readEnv(DOWNLOADS_BASE_ENV);
+  if (base) {
+    return `${base.replace(/\/+$/, "")}/${MANIFEST_FILENAMES[platform]}`;
+  }
+  return MANIFEST_PATHS[platform];
 }
 
 async function fetchManifest<T>(path: string, fallback: T): Promise<T> {
@@ -124,28 +140,36 @@ async function fetchManifest<T>(path: string, fallback: T): Promise<T> {
 export async function fetchKaiPrintersAndroidManifest(
   baseUrl = "",
 ): Promise<KaiPrintersAndroidManifest> {
-  return fetchManifest(
-    `${baseUrl}${MANIFEST_PATHS.android}`,
-    KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT,
-  );
+  const path = readEnv(DOWNLOADS_BASE_ENV)
+    ? resolveManifestPath("android")
+    : `${baseUrl}${MANIFEST_PATHS.android}`;
+  return fetchManifest(path, KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT);
 }
 
 export async function fetchKaiPrintersWindowsManifest(
   baseUrl = "",
 ): Promise<KaiPrintersDesktopManifest> {
-  return fetchManifest(
-    `${baseUrl}${MANIFEST_PATHS.windows}`,
-    KAI_PRINTERS_WINDOWS_MANIFEST_DEFAULT,
-  );
+  const path = readEnv(DOWNLOADS_BASE_ENV)
+    ? resolveManifestPath("windows")
+    : `${baseUrl}${MANIFEST_PATHS.windows}`;
+  return fetchManifest(path, KAI_PRINTERS_WINDOWS_MANIFEST_DEFAULT);
 }
 
 export async function fetchKaiPrintersMacosManifest(
   baseUrl = "",
 ): Promise<KaiPrintersDesktopManifest> {
-  return fetchManifest(
-    `${baseUrl}${MANIFEST_PATHS.macos}`,
-    KAI_PRINTERS_MACOS_MANIFEST_DEFAULT,
-  );
+  const path = readEnv(DOWNLOADS_BASE_ENV)
+    ? resolveManifestPath("macos")
+    : `${baseUrl}${MANIFEST_PATHS.macos}`;
+  return fetchManifest(path, KAI_PRINTERS_MACOS_MANIFEST_DEFAULT);
+}
+
+/** Lee manifests desde R2/CDN o public/downloads (server). */
+export async function loadKaiPrintersDownloadsManifestsFromEnv(): Promise<KaiPrintersDownloadsManifests> {
+  if (!readEnv(DOWNLOADS_BASE_ENV) || typeof fetch === "undefined") {
+    return {};
+  }
+  return fetchKaiPrintersDownloadsManifests();
 }
 
 export async function fetchKaiPrintersDownloadsManifests(

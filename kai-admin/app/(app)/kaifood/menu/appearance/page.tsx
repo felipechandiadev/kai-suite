@@ -1,4 +1,5 @@
 import { GetCompanyUseCase } from "@/features/settings-company/application/get-company.usecase";
+import { resolveKaiMenuPublicUrl } from "@/config/kai-menu-url";
 import { MenuAppearanceForm } from "./ui/MenuAppearanceForm";
 import { getMenuThemeAction } from "@/features/kai-menu/actions/kai-menu.action";
 import type { MenuThemeAdminState } from "@/features/kai-menu/types/menu-theme.types";
@@ -18,8 +19,7 @@ export default async function KaiMenuAppearancePage() {
       </p>
     );
   }
-  const menuPublicUrl =
-    (process.env.NEXT_PUBLIC_KAI_MENU_URL || "").trim().replace(/\/$/, "") || null;
+  const menuPublicUrl = resolveKaiMenuPublicUrl();
   return (
     <MenuAppearanceForm
       companyId={company.id}

@@ -285,6 +285,26 @@ apply_pwa_projection() {
   set_kv "$file" "NODE_ENV" "development"
 }
 
+apply_menu_url() {
+  local file="$1"
+  local shared="$2"
+  local host port url
+  host="$(shared_get "$shared" KAI_DEV_HOST)"
+  host="${host:-localhost}"
+  url="$(shared_get "$shared" KAI_MENU_URL)"
+  if [[ -z "$url" ]]; then
+    url="$(shared_get "$shared" NEXT_PUBLIC_KAI_MENU_URL)"
+  fi
+  if [[ -z "$url" ]]; then
+    port="$(shared_get "$shared" KAI_MENU_PORT)"
+    port="${port:-5370}"
+    url="http://${host}:${port}"
+  fi
+  url="${url%/}"
+  set_kv "$file" "KAI_MENU_URL" "$url"
+  set_kv "$file" "NEXT_PUBLIC_KAI_MENU_URL" "$url"
+}
+
 apply_eshop_projection() {
   local file="$1"
   local shared="$2"
@@ -331,6 +351,7 @@ write_env() {
     admin)
       apply_pwa_projection "$dest" "$shared" ADMIN_NEXTAUTH_SECRET ADMIN_NEXTAUTH_URL
       apply_platform_flags "$dest" "$shared" "Admin"
+      apply_menu_url "$dest" "$shared"
       ;;
     pos)
       apply_pwa_projection "$dest" "$shared" POS_NEXTAUTH_SECRET POS_NEXTAUTH_URL \

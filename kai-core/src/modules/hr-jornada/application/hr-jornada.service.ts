@@ -222,16 +222,17 @@ export class HrJornadaService {
 
   async getOrCreateConfig(): Promise<HrJornadaConfig> {
     const companyId = requireCompanyId();
-    let config = await this.configRepo.findOne({ where: { companyId } });
-    if (!config) {
-      config = await this.configRepo.save(
-        this.configRepo.create({
-          companyId,
-          enforcementMode: EnforcementMode.ALERT_ONLY,
-        }),
-      );
-    }
-    return config;
+    const existing = await this.configRepo.findOne({ where: { companyId } });
+    if (existing) return existing;
+    // Requests concurrentes pueden crear la config a la vez (índice único por companyId).
+    await this.configRepo
+      .createQueryBuilder()
+      .insert()
+      .into(HrJornadaConfig)
+      .values({ companyId, enforcementMode: EnforcementMode.ALERT_ONLY })
+      .orIgnore()
+      .execute();
+    return this.configRepo.findOneOrFail({ where: { companyId } });
   }
 
   async updateConfig(

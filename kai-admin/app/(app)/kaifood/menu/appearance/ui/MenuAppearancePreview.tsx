@@ -63,7 +63,7 @@ export function MenuAppearancePreview({ resolved, menuPublicUrl }: Props) {
             disabled
             className="w-full cursor-not-allowed rounded-lg px-4 py-2 text-sm font-semibold text-white opacity-60"
             style={{ backgroundColor: t.primary }}
-            title="Configure NEXT_PUBLIC_KAI_MENU_URL"
+            title="Configure KAI_MENU_URL"
           >
             Ver carta
           </button>

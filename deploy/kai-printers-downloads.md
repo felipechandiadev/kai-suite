@@ -1,8 +1,10 @@
 # Deploy — descargas Kai Printers en el VPS
 
-Los instalables de Kai Printers se sirven como archivos estáticos en **`/downloads/`** del POS.
+Los instalables pueden servirse desde **`/downloads/`** del POS (legacy) o desde **R2/CDN** vía Kai Ops (`publish-printers-r2` + `NEXT_PUBLIC_KAI_PRINTERS_*` en el `.env` del tenant).
 
-**Importante:** `.apk` / `.zip` / `.dmg` están en `.gitignore`. Un `git pull` solo actualiza manifests; sin **rsync** de binarios las descargas dan 404.
+**Recomendado (R2):** en kai-deployments, configurar Almacenamiento (URL pública CDN + bucket) y en el tenant **Publicar Kai Printers**; luego `render-tenant-env.sh` y redeploy POS.
+
+**Legacy:** `.apk` / `.zip` en `.gitignore`. Un `git pull` solo actualiza manifests; sin **rsync** las descargas dan 404.
 
 **Documentación completa:** [kai-pos/public/downloads/README.md](../kai-pos/public/downloads/README.md)
 

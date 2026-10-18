@@ -10,7 +10,10 @@ import type { PriceListListItem } from "@/features/sales-price-lists/types/price
 import { updatePointOfSaleAction } from "@/features/sales-points-of-sale/actions/point-of-sale.action";
 import { getCompanyDeferredPaymentSettingsAction } from "@/features/companies/actions/companies-deferred-payment.action";
 import { getCompanyAction } from "@/features/companies/actions/companies.action";
-import { isKaiFoodCompany } from "@/config/kaifood-module.config";
+import {
+  isKaiFoodEnabled,
+  isKaiFoodEnabledForCompany,
+} from "@/config/kaifood-module.config";
 import { buildPosUpdateInput } from "./build-pos-update-input";
 
 type Props = {
@@ -43,7 +46,7 @@ export function PosDetailGeneralSection({
   const [allowsDeferredPayment, setAllowsDeferredPayment] = useState(Boolean(point.allowsDeferredPayment));
   const [kaiFoodEnabled, setKaiFoodEnabled] = useState(point.kaiFoodEnabled !== false);
   const [companyDeferredPaymentEnabled, setCompanyDeferredPaymentEnabled] = useState(false);
-  const [companyIsKaiFood, setCompanyIsKaiFood] = useState(false);
+  const [showSalonSwitch, setShowSalonSwitch] = useState(() => isKaiFoodEnabled());
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -78,7 +81,7 @@ export function PosDetailGeneralSection({
     const cid = (companyId ?? "").trim();
     if (!cid) {
       setCompanyDeferredPaymentEnabled(false);
-      setCompanyIsKaiFood(false);
+      setShowSalonSwitch(isKaiFoodEnabled());
       return;
     }
     let cancelled = false;
@@ -88,8 +91,11 @@ export function PosDetailGeneralSection({
       }
     });
     void getCompanyAction(cid).then((res) => {
-      if (!cancelled && res.success) {
-        setCompanyIsKaiFood(isKaiFoodCompany(res.company.kaiProduct));
+      if (cancelled) return;
+      if (res.success) {
+        setShowSalonSwitch(isKaiFoodEnabledForCompany(res.company.kaiProduct));
+      } else {
+        setShowSalonSwitch(isKaiFoodEnabled());
       }
     });
     return () => {
@@ -260,18 +266,18 @@ export function PosDetailGeneralSection({
         </>
       ) : null}
 
-      {companyIsKaiFood ? (
+      {posKind === "SALE" && showSalonSwitch ? (
         <>
           <Switch
             checked={kaiFoodEnabled}
             onChange={setKaiFoodEnabled}
-            label="Módulo KaiFood (salón)"
+            label="Cuentas de salón (tenedor)"
             labelPosition="right"
             data-test-id="pos-detail-kai-food-enabled"
           />
           <p className="text-xs text-muted-foreground">
-            Desactivado: este punto de venta opera como retail (sin cuentas, KDS ni Kai Board).
-            Los productos PREPARADO siguen disponibles en venta directa.
+            Apagado: este POS oculta Cuentas (icono tenedor), KDS y Kai Board.
+            Los productos PREPARADO siguen en venta directa.
           </p>
         </>
       ) : null}

@@ -10,6 +10,9 @@ import {
   emptyCartSlots,
   emptySlotSnapshot,
   findFirstEmptySlotIndex,
+  findFirstClosedSlotIndex,
+  closeCartSlotInEnvelope,
+  normalizeOpenSlots,
   isSlotEmpty,
   normalizeActiveSlot,
   parseCartEnvelopeRaw,
@@ -237,5 +240,69 @@ describe("findFirstEmptySlotIndex", () => {
     }
     expect(findFirstEmptySlotIndex(slots, { excludeIndex: 0 })).toBe(null);
     expect(findFirstEmptySlotIndex(slots)).toBe(null);
+  });
+});
+
+describe("open cart slots", () => {
+  it("keeps persisted empty open slots and always includes active + occupied", () => {
+    const slots = emptyCartSlots();
+    slots[3] = {
+      ...emptySlotSnapshot(),
+      lines: [{ ...lineItem("v3"), quantity: 1, discount: null }],
+    };
+    expect(normalizeOpenSlots([2, 9, "x"], slots, 0)).toEqual([0, 2, 3]);
+    expect(normalizeOpenSlots(undefined, slots, 1)).toEqual([1, 3]);
+  });
+
+  it("parses openSlots from v5 envelope, keeping empty carts open", () => {
+    const raw = JSON.stringify({
+      v: 5,
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      activeSlot: 0,
+      openSlots: [0, 1, 2],
+      slots: [{ lines: [], cartMode: "sale" }],
+    });
+    const env = parseCartEnvelopeRaw(raw, stamp);
+    expect(env.openSlots).toEqual([0, 1, 2]);
+    expect(isSlotEmpty(env.slots[1])).toBe(true);
+  });
+
+  it("finds the first closed slot or null when all 4 are open", () => {
+    expect(findFirstClosedSlotIndex([0, 1])).toBe(2);
+    expect(findFirstClosedSlotIndex([1, 2])).toBe(0);
+    expect(findFirstClosedSlotIndex([0, 1, 2, 3])).toBe(null);
+  });
+
+  it("closes an inactive empty cart and keeps the active one", () => {
+    const out = closeCartSlotInEnvelope(
+      { activeSlot: 0, slots: emptyCartSlots(), openSlots: [0, 1, 2] },
+      1,
+    );
+    expect(out.openSlots).toEqual([0, 2]);
+    expect(out.activeSlot).toBe(0);
+  });
+
+  it("closing the active cart jumps to the next open cart (even if empty)", () => {
+    const slots = emptyCartSlots();
+    slots[1] = {
+      ...emptySlotSnapshot(),
+      lines: [{ ...lineItem("v1"), quantity: 1, discount: null }],
+    };
+    const out = closeCartSlotInEnvelope({ activeSlot: 1, slots, openSlots: [0, 1, 3] }, 1);
+    expect(isSlotEmpty(out.slots[1])).toBe(true);
+    expect(out.openSlots).toEqual([0, 3]);
+    expect(out.activeSlot).toBe(3);
+  });
+
+  it("closing the last open cart leaves it open and empty", () => {
+    const slots = emptyCartSlots();
+    slots[2] = {
+      ...emptySlotSnapshot(),
+      lines: [{ ...lineItem("v2"), quantity: 1, discount: null }],
+    };
+    const out = closeCartSlotInEnvelope({ activeSlot: 2, slots, openSlots: [2] }, 2);
+    expect(isSlotEmpty(out.slots[2])).toBe(true);
+    expect(out.openSlots).toEqual([2]);
+    expect(out.activeSlot).toBe(2);
   });
 });

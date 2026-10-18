@@ -19,6 +19,8 @@ export interface CompanyDetail {
   phone: string | null;
   defaultCurrency: string;
   isActive: boolean;
+  /** Vertical comercial (`kaistore` | `kaifood` | `kaiservices`). */
+  kaiProduct?: "kaistore" | "kaifood" | "kaiservices";
   createdAt?: string | null;
   updatedAt?: string | null;
 }

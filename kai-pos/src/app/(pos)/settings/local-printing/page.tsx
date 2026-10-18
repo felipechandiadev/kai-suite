@@ -9,6 +9,7 @@ import {
   KAI_PRINTERS_ANDROID_MANIFEST_DEFAULT,
   KAI_PRINTERS_MACOS_MANIFEST_DEFAULT,
   KAI_PRINTERS_WINDOWS_MANIFEST_DEFAULT,
+  loadKaiPrintersDownloadsManifestsFromEnv,
 } from "@kai/print-service-client";
 import { PosLocalPrintPreferencesForm } from "./PosLocalPrintPreferencesForm";
 
@@ -35,8 +36,14 @@ function readKaiPrintersDownloadsManifests(): KaiPrintersDownloadsManifests {
   };
 }
 
-export default function PosLocalPrintingPage() {
-  const initialManifests = readKaiPrintersDownloadsManifests();
+export default async function PosLocalPrintingPage() {
+  const fromCdn = await loadKaiPrintersDownloadsManifestsFromEnv();
+  const local = readKaiPrintersDownloadsManifests();
+  const initialManifests = {
+    android: fromCdn.android ?? local.android,
+    windows: fromCdn.windows ?? local.windows,
+    macos: fromCdn.macos ?? local.macos,
+  };
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-6 py-6">

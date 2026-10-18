@@ -6,17 +6,15 @@ import { Alert, Button, TextField } from "@kai/ui";
 import { Copy, Download } from "lucide-react";
 
 type Props = {
+  menuPublicUrl: string | null;
   menuPublicSlug: string | null;
 };
 
-function resolveMenuPublicUrl(): string | null {
-  const raw = (process.env.NEXT_PUBLIC_KAI_MENU_URL || "").trim();
-  if (!raw) return null;
-  return raw.replace(/\/$/, "");
-}
-
-export function MenuQrPanel({ menuPublicSlug }: Props) {
-  const menuUrl = useMemo(() => resolveMenuPublicUrl(), []);
+export function MenuQrPanel({ menuPublicUrl, menuPublicSlug }: Props) {
+  const menuUrl = useMemo(
+    () => (menuPublicUrl ?? "").trim().replace(/\/$/, "") || null,
+    [menuPublicUrl],
+  );
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -71,9 +69,10 @@ export function MenuQrPanel({ menuPublicSlug }: Props) {
   if (!menuUrl) {
     return (
       <Alert variant="warning" data-test-id="menu-qr-missing-url">
-        Configure <code className="text-xs">NEXT_PUBLIC_KAI_MENU_URL</code> en el admin
-        (p. ej. <code className="text-xs">http://localhost:5370</code>) para generar el QR
-        de la carta.
+        Configure <code className="text-xs">KAI_MENU_URL</code> (o{" "}
+        <code className="text-xs">NEXT_PUBLIC_KAI_MENU_URL</code>) en el admin
+        (p. ej. <code className="text-xs">https://menu.tudominio.cl</code>) para
+        generar el QR de la carta.
       </Alert>
     );
   }
