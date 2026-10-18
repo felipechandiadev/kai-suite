@@ -52,6 +52,14 @@ export class SearchPosProductsDto {
   @IsBoolean()
   onMenuOnly?: boolean;
 
+  /**
+   * Si true, cada producto incluye `hasAddons` (tiene agregados configurados con variantes).
+   */
+  @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean()
+  includeAddonFlags?: boolean;
+
   @IsInt()
   @Min(1)
   @Transform(({ value }) => (value ? parseInt(value, 10) : 1))

@@ -10,6 +10,13 @@ export type WaiterOrderLineLike = {
   kitchenStatus: string;
   kitchenFireNumber?: number | null;
   productVariant?: { name?: string; sku?: string };
+  addons?: Array<{
+    id?: string;
+    addonVariantId?: string;
+    displayName?: string;
+    name?: string;
+    quantity: number | string;
+  }>;
 };
 
 export type WaiterLineGroup = {

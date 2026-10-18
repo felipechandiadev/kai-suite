@@ -82,7 +82,8 @@ export async function resolveWaiterBranchCatalogContextAction(body: {
   return DiningRequest.resolveBranchCatalogContext(ctx(body), body.branchId);
 }
 
-export async function searchWaiterMenuAction(body: {
+/** Búsqueda + CTP en una sola Server Action (el cliente las ejecuta en serie). */
+export async function loadWaiterMenuPageAction(body: {
   userId: string;
   companyId: string;
   priceListId: string;
@@ -93,7 +94,8 @@ export async function searchWaiterMenuAction(body: {
   page?: number;
   pageSize?: number;
 }) {
-  return DiningRequest.searchPosMenuProducts(ctx(body), {
+  const auth = ctx(body);
+  const res = await DiningRequest.searchPosMenuProducts(auth, {
     priceListId: body.priceListId,
     branchId: body.branchId,
     pointOfSaleId: body.pointOfSaleId,
@@ -102,18 +104,22 @@ export async function searchWaiterMenuAction(body: {
     page: body.page,
     pageSize: body.pageSize,
   });
-}
-
-export async function batchWaiterCtpAction(body: {
-  userId: string;
-  companyId: string;
-  branchId: string;
-  variantIds: string[];
-}) {
-  return DiningRequest.batchCtp(ctx(body), {
-    branchId: body.branchId,
-    variantIds: body.variantIds,
-  });
+  const ctpByVariantId: Record<string, number | null> = {};
+  const branchId = body.branchId?.trim();
+  if (branchId && res.products.length > 0) {
+    try {
+      const rows = await DiningRequest.batchCtp(auth, {
+        branchId,
+        variantIds: res.products.map((p) => p.variantId),
+      });
+      for (const row of rows) {
+        ctpByVariantId[row.variantId] = row.producibleQty;
+      }
+    } catch {
+      // CTP opcional: sin capacidad se muestra el stock normal.
+    }
+  }
+  return { ...res, ctpByVariantId };
 }
 
 export async function lookupWaiterVariantsAction(body: {

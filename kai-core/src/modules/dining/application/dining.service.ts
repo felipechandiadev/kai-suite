@@ -88,6 +88,12 @@ const ACTIVE_ORDER_STATUSES: DiningOrderStatus[] = [
   DiningOrderStatus.BILLING,
 ];
 
+function toIsoOrNull(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 const PRODUCTION_UNIT_QUEUE_STATUSES: KitchenItemStatus[] = [
   KitchenItemStatus.SENT,
   KitchenItemStatus.PREPARING,
@@ -348,6 +354,9 @@ export class DiningService {
       status: order.status,
       displayLabel: order.displayLabel,
       diningTableId: order.diningTableId ?? null,
+      openedByUserId: order.openedByUserId ?? null,
+      openedAt: toIsoOrNull(order.openedAt),
+      updatedAt: toIsoOrNull(order.updatedAt),
       items: (order.lines ?? []).map((line) => ({
         id: line.id,
         productVariantId: line.productVariantId,

@@ -1,4 +1,5 @@
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, IsUUID } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class LookupPosVariantsDto {
   /** IDs de variante separados por coma. */
@@ -17,4 +18,10 @@ export class LookupPosVariantsDto {
   @IsUUID()
   @IsOptional()
   priceListId?: string;
+
+  /** Si true, cada producto incluye `hasAddons`. */
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  includeAddonFlags?: boolean;
 }

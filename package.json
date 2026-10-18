@@ -1,6 +1,6 @@
 {
   "name": "kai-suite",
-  "version": "1.28.2",
+  "version": "1.29.0",
   "private": true,
   "description": "Kai Suite monorepo",
   "packageManager": "npm@10.9.2",
@@ -28,6 +28,7 @@
     "dev:lite": "bash scripts/dev-all.sh lite",
     "dev:admin": "bash scripts/dev-all.sh admin",
     "dev:admin-pos": "bash scripts/dev-all.sh admin-pos",
+    "dev:admin-pos-waiter": "bash scripts/dev-all.sh admin-pos-waiter",
     "dev:eshop": "bash scripts/dev-all.sh eshop",
     "dev:san-sebastian": "bash scripts/dev-san-sebastian.sh",
     "setup:san-sebastian": "bash scripts/setup-san-sebastian-dev.sh",
@@ -37,6 +38,7 @@
     "dev:apps": "bash scripts/dev-apps.sh lite",
     "dev:apps:admin": "bash scripts/dev-apps.sh admin",
     "dev:apps:admin-pos": "bash scripts/dev-apps.sh admin-pos",
+    "dev:apps:admin-pos-waiter": "bash scripts/dev-apps.sh admin-pos-waiter",
     "dev:apps:all": "bash scripts/dev-apps.sh all",
     "dev:apps:eshop": "bash scripts/dev-apps.sh eshop",
     "env:dev": "bash envs/sync-dev-envs.sh --force",

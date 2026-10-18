@@ -44,6 +44,7 @@ function createBranchAvailabilityQb(rawRows: Array<{ variantId: string }> = []) 
 function createProductsPosService(overrides?: {
   variantRepository?: Record<string, unknown>;
   variantBranchAvailabilityRepository?: Record<string, unknown>;
+  dataSource?: Record<string, unknown>;
 }) {
   const stockQb = {
     where: jest.fn().mockReturnThis(),
@@ -65,9 +66,85 @@ function createProductsPosService(overrides?: {
     { createQueryBuilder: jest.fn().mockReturnValue(stockQb) } as any,
     { find: jest.fn().mockResolvedValue([]) } as any,
     { listByEntity: jest.fn() } as any,
-    { getRepository: jest.fn() } as any,
+    (overrides?.dataSource ?? { getRepository: jest.fn() }) as any,
   );
 }
+
+describe('ProductsPosService.searchForPos includeAddonFlags', () => {
+  function searchQb(variants: ProductVariant[]) {
+    return {
+      innerJoinAndSelect: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([variants, variants.length]),
+    };
+  }
+
+  function addonQb(hostIds: string[]) {
+    return {
+      innerJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      distinct: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getRawMany: jest
+        .fn()
+        .mockResolvedValue(hostIds.map((hostProductId) => ({ hostProductId }))),
+    };
+  }
+
+  function setup(hostIds: string[]) {
+    const v1 = hydratedVariant('v1');
+    const v2 = {
+      ...hydratedVariant('v2'),
+      productId: 'p2',
+      product: { id: 'p2', companyId: 'c1', name: 'Otro' },
+    } as unknown as ProductVariant;
+    const aQb = addonQb(hostIds);
+    const dataSource = {
+      getRepository: jest.fn().mockReturnValue({
+        createQueryBuilder: jest.fn().mockReturnValue(aQb),
+      }),
+    };
+    const service = createProductsPosService({
+      variantRepository: { createQueryBuilder: jest.fn().mockReturnValue(searchQb([v1, v2])) },
+      dataSource,
+    });
+    jest.spyOn(service as any, 'resolvePosStockScope').mockResolvedValue({
+      resolvedBranchId: '',
+      storageIdsForStock: null,
+    });
+    jest.spyOn(service as any, 'mapVariantsToPosSearchResults').mockResolvedValue([
+      { productId: 'p1', variantId: 'v1' },
+      { productId: 'p2', variantId: 'v2' },
+    ]);
+    return { service, aQb, dataSource };
+  }
+
+  it('marca hasAddons con una sola consulta por página', async () => {
+    const { service, aQb } = setup(['p1']);
+    const res = await service.searchForPos({
+      priceListId: 'pl-1',
+      includeAddonFlags: true,
+    } as any);
+    expect(res.products.map((p: any) => p.hasAddons)).toEqual([true, false]);
+    expect(aQb.getRawMany).toHaveBeenCalledTimes(1);
+    expect(aQb.where).toHaveBeenCalledWith('pa.companyId = :companyId', { companyId: 'c1' });
+    expect(aQb.andWhere).toHaveBeenCalledWith('pa.hostProductId IN (:...ids)', {
+      ids: ['p1', 'p2'],
+    });
+  });
+
+  it('sin el flag no consulta agregados ni agrega hasAddons', async () => {
+    const { service, dataSource } = setup(['p1']);
+    const res = await service.searchForPos({ priceListId: 'pl-1' } as any);
+    expect(dataSource.getRepository).not.toHaveBeenCalled();
+    expect(res.products.every((p: any) => p.hasAddons === undefined)).toBe(true);
+  });
+});
 
 describe('ProductsPosService branch availability filter', () => {
   it('applyVariantBranchAvailabilityFilter adds NOT EXISTS when branchId is set', () => {

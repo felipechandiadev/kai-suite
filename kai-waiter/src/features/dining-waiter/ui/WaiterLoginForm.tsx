@@ -10,6 +10,7 @@ import {
   type AppCompanyConfig,
 } from "@/features/company/storage/app-company-storage";
 import { loadWaiterSession, saveWaiterSession } from "@/lib/app-session";
+import { PwaInstallButton } from "@/features/pwa-install/ui/PwaInstallButton";
 
 const POST_LOGIN_PATH = "/salon";
 
@@ -93,6 +94,7 @@ export function WaiterLoginForm() {
           >
             Configurar empresa
           </Button>
+          <PwaInstallButton className="mt-3" />
         </div>
         <IconButton
           icon="Settings"
@@ -182,6 +184,7 @@ export function WaiterLoginForm() {
             Iniciar Sesión
           </Button>
         </form>
+        <PwaInstallButton className="mt-3" />
       </div>
       <IconButton
         icon="Settings"

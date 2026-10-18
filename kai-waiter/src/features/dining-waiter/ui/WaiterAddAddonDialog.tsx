@@ -8,7 +8,11 @@ import {
   lookupWaiterVariantsAction,
   resolveWaiterBranchCatalogContextAction,
 } from "../actions/waiter.action";
-import type { WaiterHostAddonOption } from "../infrastructure/dining.request";
+import type {
+  DiningOrderDto,
+  WaiterBranchCatalogContextDto,
+  WaiterHostAddonOption,
+} from "../infrastructure/dining.request";
 import { messageFromUnknownError } from "../lib/waiter-account-unavailable";
 
 function formatMoney(n: number) {
@@ -30,8 +34,10 @@ type Props = {
   lineId: string;
   hostProductId: string;
   variantId?: string;
+  /** Si viene, evita volver a resolver la lista de precios de la sucursal. */
+  catalog?: WaiterBranchCatalogContextDto | null;
   onClose: () => void;
-  onAdded: () => void;
+  onAdded: (order: DiningOrderDto) => void;
 };
 
 export function WaiterAddAddonDialog({
@@ -43,6 +49,7 @@ export function WaiterAddAddonDialog({
   lineId,
   hostProductId,
   variantId,
+  catalog: catalogProp = null,
   onClose,
   onAdded,
 }: Props) {
@@ -64,10 +71,12 @@ export function WaiterAddAddonDialog({
       try {
         const auth = { userId, companyId };
         let productId = hostProductId.trim();
-        const catalog = await resolveWaiterBranchCatalogContextAction({
-          ...auth,
-          branchId,
-        });
+        const catalog =
+          catalogProp ??
+          (await resolveWaiterBranchCatalogContextAction({
+            ...auth,
+            branchId,
+          }));
         if (!productId && variantId?.trim()) {
           const looked = await lookupWaiterVariantsAction({
             ...auth,
@@ -113,7 +122,7 @@ export function WaiterAddAddonDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, hostProductId, variantId, userId, companyId, branchId]);
+  }, [open, hostProductId, variantId, userId, companyId, branchId, catalogProp]);
 
   const handlePick = (addonVariantId: string) => {
     setSubmitting(true);
@@ -126,9 +135,9 @@ export function WaiterAddAddonDialog({
       addonVariantId,
       quantity: 1,
     })
-      .then(() => {
+      .then((order) => {
         setSubmitting(false);
-        onAdded();
+        onAdded(order);
         onClose();
       })
       .catch((e) => {

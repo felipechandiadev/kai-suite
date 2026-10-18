@@ -4,6 +4,7 @@ import { Repository, DataSource, IsNull, SelectQueryBuilder } from 'typeorm';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { ProductVariantBranchAvailability } from '@modules/product-variants/domain/product-variant-branch-availability.entity';
 import { Product, ProductType } from '@modules/products/domain/product.entity';
+import { ProductAddon } from '@modules/products/domain/product-addon.entity';
 import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
 import { Storage } from '@modules/storages/domain/storage.entity';
 import { PriceListItem } from '@modules/price-list-items/domain/price-list-item.entity';
@@ -53,6 +54,8 @@ export type PosProductSearchResult = {
   taxCategory: string;
   requiresDte: boolean;
   taxIds: string[];
+  /** Solo presente si se pidió `includeAddonFlags`. */
+  hasAddons?: boolean;
 };
 
 @Injectable()
@@ -91,6 +94,7 @@ export class ProductsPosService {
       productTypes,
       categoryIds,
       onMenuOnly,
+      includeAddonFlags,
     } = dto;
 
     if (!priceListId) {
@@ -179,6 +183,9 @@ export class ProductsPosService {
     }
 
     const products = await this.mapVariantsToPosSearchResults(variants, scope);
+    if (includeAddonFlags === true) {
+      await this.applyAddonFlags(variants, products);
+    }
 
     return {
       query: query || '',
@@ -192,6 +199,43 @@ export class ProductsPosService {
       },
       products,
     };
+  }
+
+  private async applyAddonFlags(
+    variants: ProductVariant[],
+    products: PosProductSearchResult[],
+  ): Promise<void> {
+    const companyId = variants.find((v) => v.product?.companyId)?.product?.companyId;
+    const hostIds = await this.findHostProductIdsWithAddons(
+      companyId ?? null,
+      products.map((p) => p.productId),
+    );
+    for (const p of products) {
+      p.hasAddons = hostIds.has(p.productId);
+    }
+  }
+
+  /** Mismo criterio que `ProductAddonsService.listByHostProduct`: agregado con al menos una variante viva. */
+  private async findHostProductIdsWithAddons(
+    companyId: string | null,
+    productIds: string[],
+  ): Promise<Set<string>> {
+    const ids = [...new Set(productIds.filter(Boolean))];
+    if (!companyId || ids.length === 0) return new Set();
+    const rows = await this.dataSource
+      .getRepository(ProductAddon)
+      .createQueryBuilder('pa')
+      .innerJoin(
+        ProductVariant,
+        'av',
+        'av.productId = pa.addonProductId AND av.companyId = pa.companyId AND av.deletedAt IS NULL',
+      )
+      .select('pa.hostProductId', 'hostProductId')
+      .distinct(true)
+      .where('pa.companyId = :companyId', { companyId })
+      .andWhere('pa.hostProductId IN (:...ids)', { ids })
+      .getRawMany<{ hostProductId: string }>();
+    return new Set(rows.map((r) => r.hostProductId));
   }
 
   /**
@@ -329,6 +373,7 @@ export class ProductsPosService {
     branchId?: string;
     /** Solo variantes con ítem en esta lista (precio vigente en POS). */
     priceListId?: string;
+    includeAddonFlags?: boolean;
   }): Promise<PosProductSearchResult[]> {
     const ids = [...new Set(args.variantIds.map((id) => id.trim()).filter(Boolean))];
     if (ids.length === 0) {
@@ -369,7 +414,11 @@ export class ProductsPosService {
       activeVariants = await qb.getMany();
     }
 
-    return this.mapVariantsToPosSearchResults(activeVariants, scope);
+    const products = await this.mapVariantsToPosSearchResults(activeVariants, scope);
+    if (args.includeAddonFlags === true) {
+      await this.applyAddonFlags(activeVariants, products);
+    }
+    return products;
   }
 
   private applyVariantBranchAvailabilityFilter(

@@ -70,6 +70,9 @@ describe('DiningRealtimePublisher', () => {
       status: DiningOrderStatus.OPEN,
       displayLabel: 'Mesa M1',
       diningTableId: 'table-1',
+      openedByUserId: 'user-1',
+      openedAt: '2026-10-18T12:00:00.000Z',
+      updatedAt: '2026-10-18T12:05:00.000Z',
       items: [],
     };
 

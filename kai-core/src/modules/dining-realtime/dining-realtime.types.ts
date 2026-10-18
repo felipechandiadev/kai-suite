@@ -71,6 +71,11 @@ export type DiningSessionUpdatedPayload = {
   status: DiningOrderStatus;
   displayLabel: string;
   diningTableId?: string | null;
+  openedByUserId?: string | null;
+  /** ISO 8601. */
+  openedAt?: string | null;
+  /** ISO 8601. */
+  updatedAt?: string | null;
   items: DiningSessionLinePayload[];
 };
 

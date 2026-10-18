@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button, IconButton, TextField } from "@kai/ui";
 import type {
   DiningOrderDto,
+  WaiterBranchCatalogContextDto,
   WaiterLineProductMeta,
 } from "../infrastructure/dining.request";
 import {
@@ -15,7 +16,6 @@ import {
   markFireDeliveredAction,
   reopenOrderAction,
   requestOrderBillAction,
-  resolveWaiterBranchCatalogContextAction,
   sendOrderToKitchenAction,
   updateOrderLineNotesAction,
 } from "../actions/waiter.action";
@@ -62,7 +62,10 @@ function formatQty(n: number) {
 type WaiterCuentaPanelProps = {
   session: WaiterSession;
   branchId: string;
+  catalog: WaiterBranchCatalogContextDto | null;
   order: DiningOrderDto;
+  /** Pestaña visible: las cargas se difieren hasta la primera activación. */
+  active?: boolean;
   onOrderUpdated: (order: DiningOrderDto) => void;
   onAccountUnavailable: (message: string) => void;
   /** Fire a resaltar (deep-link desde campana). */
@@ -72,11 +75,17 @@ type WaiterCuentaPanelProps = {
 export function WaiterCuentaPanel({
   session,
   branchId,
+  catalog,
   order,
+  active = true,
   onOrderUpdated,
   onAccountUnavailable,
   highlightFireId = null,
 }: WaiterCuentaPanelProps) {
+  const [activated, setActivated] = useState(active);
+  useEffect(() => {
+    if (active) setActivated(true);
+  }, [active]);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
@@ -95,7 +104,7 @@ export function WaiterCuentaPanel({
   } | null>(null);
   const [kitchenUnits, setKitchenUnits] = useState<KitchenUnitPrintInfo[]>([]);
   const [printAgents, setPrintAgents] = useState<PrintAgentCatalogItem[]>([]);
-  const [branchName, setBranchName] = useState<string | null>(null);
+  const branchName = catalog?.branchName?.trim() || null;
 
   const auth = useMemo(
     () => ({ userId: session.userId, companyId: session.companyId }),
@@ -103,16 +112,16 @@ export function WaiterCuentaPanel({
   );
 
   useEffect(() => {
+    if (!activated) return;
     let cancelled = false;
     void (async () => {
       try {
-        const [units, agents, catalog] = await Promise.all([
+        const [units, agents] = await Promise.all([
           listKitchenProductionUnitsAction({ ...auth, branchId }),
           listPrintAgentsForWaiterAction({
             userId: session.userId,
             companyId: session.companyId,
           }),
-          resolveWaiterBranchCatalogContextAction({ ...auth, branchId }),
         ]);
         if (cancelled) return;
         setKitchenUnits(
@@ -136,19 +145,17 @@ export function WaiterCuentaPanel({
             companyName: a.companyName ?? null,
           })),
         );
-        setBranchName(catalog.branchName?.trim() || null);
       } catch {
         if (!cancelled) {
           setKitchenUnits([]);
           setPrintAgents([]);
-          setBranchName(null);
         }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [auth, branchId, session.userId, session.companyId]);
+  }, [activated, auth, branchId, session.userId, session.companyId]);
 
   const fireAndMaybePrint = async (lineIds: string[]) => {
     const next = await sendOrderToKitchenAction({
@@ -203,45 +210,44 @@ export function WaiterCuentaPanel({
     [lines],
   );
 
+  const linesRef = useRef(lines);
+  linesRef.current = lines;
+  const productByVariantIdRef = useRef(productByVariantId);
+  productByVariantIdRef.current = productByVariantId;
+
   useEffect(() => {
+    if (!activated) return;
     const ids = variantIdsKey ? variantIdsKey.split(",") : [];
-    if (ids.length === 0) {
-      setProductByVariantId({});
-      return;
-    }
+    const missing = ids.filter((id) => !productByVariantIdRef.current[id]);
+    if (missing.length === 0) return;
     let cancelled = false;
-    void (async () => {
-      try {
-        const ctx = await resolveWaiterBranchCatalogContextAction({
-          ...auth,
-          branchId,
-        });
-        const map = await lookupWaiterVariantsAction({
-          ...auth,
-          variantIds: ids,
-          branchId,
-          priceListId: ctx.priceListId,
-          pointOfSaleId: ctx.pointOfSaleId,
-        });
-        if (!cancelled) setProductByVariantId(map);
-      } catch {
-        if (!cancelled) {
-          const fallback: Record<string, WaiterLineProductMeta> = {};
-          for (const line of order.lines ?? []) {
-            if (fallback[line.productVariantId]) continue;
-            fallback[line.productVariantId] = {
-              name: line.productVariant?.name ?? "Producto",
-              unitPrice: 0,
-            };
-          }
-          setProductByVariantId(fallback);
+    void lookupWaiterVariantsAction({
+      ...auth,
+      variantIds: missing,
+      branchId,
+      priceListId: catalog?.priceListId ?? null,
+      pointOfSaleId: catalog?.pointOfSaleId ?? null,
+    })
+      .then((map) => {
+        if (!cancelled) setProductByVariantId((prev) => ({ ...prev, ...map }));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        const fallback: Record<string, WaiterLineProductMeta> = {};
+        for (const line of linesRef.current) {
+          if (!missing.includes(line.productVariantId)) continue;
+          if (fallback[line.productVariantId]) continue;
+          fallback[line.productVariantId] = {
+            name: line.productVariant?.name ?? "Producto",
+            unitPrice: 0,
+          };
         }
-      }
-    })();
+        setProductByVariantId((prev) => ({ ...fallback, ...prev }));
+      });
     return () => {
       cancelled = true;
     };
-  }, [auth, branchId, order.lines, variantIdsKey]);
+  }, [activated, auth, branchId, catalog, variantIdsKey]);
 
   const hostProductIdsKey = useMemo(() => {
     const ids = [
@@ -269,6 +275,12 @@ export function WaiterCuentaPanel({
         return next;
       });
     };
+    for (const meta of Object.values(productByVariantIdRef.current)) {
+      const pid = meta.productId?.trim();
+      if (pid && typeof meta.hasAddons === "boolean") {
+        hostAddonKnownRef.current.set(pid, meta.hasAddons);
+      }
+    }
     applyKnown();
     const unknown = productIds.filter((id) => !hostAddonKnownRef.current.has(id));
     if (unknown.length === 0) return;
@@ -615,6 +627,7 @@ export function WaiterCuentaPanel({
           lineId={addonDialog.lineId}
           hostProductId={addonDialog.hostProductId}
           variantId={addonDialog.variantId}
+          catalog={catalog}
           onClose={() => setAddonDialog(null)}
           onAdded={onOrderUpdated}
         />

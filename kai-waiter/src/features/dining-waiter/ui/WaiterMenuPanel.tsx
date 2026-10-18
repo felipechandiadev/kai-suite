@@ -1,19 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { Badge, DotProgress, IconButton, TextField } from "@kai/ui";
 import {
   addOrderItemsAction,
-  batchWaiterCtpAction,
-  getDiningNumberingSettingsAction,
-  getDiningOrderAction,
   listWaiterHostAddonsAction,
-  resolveWaiterBranchCatalogContextAction,
-  searchWaiterMenuAction,
+  loadWaiterMenuPageAction,
 } from "../actions/waiter.action";
 import type {
   DiningOrderDto,
+  WaiterBranchCatalogContextDto,
   WaiterMenuCategoryDto,
   WaiterMenuVariantDto,
 } from "../infrastructure/dining.request";
@@ -62,14 +59,21 @@ type WaiterMenuPanelProps = {
   session: WaiterSession;
   branchId: string;
   orderId: string;
+  catalog: WaiterBranchCatalogContextDto | null;
+  menuCategories: WaiterMenuCategoryDto[];
   onOrderUpdated: (order: DiningOrderDto) => void;
   onAccountUnavailable: (message: string) => void;
 };
+
+const NO_PRICE_LIST_MSG =
+  "No hay lista de precios en un POS de esta sucursal. Configurá un POS en admin.";
 
 export function WaiterMenuPanel({
   session,
   branchId,
   orderId,
+  catalog,
+  menuCategories,
   onOrderUpdated,
   onAccountUnavailable,
 }: WaiterMenuPanelProps) {
@@ -79,13 +83,12 @@ export function WaiterMenuPanel({
   const [items, setItems] = useState<WaiterMenuVariantDto[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [addingId, setAddingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [priceListId, setPriceListId] = useState<string | null>(null);
-  const [pointOfSaleId, setPointOfSaleId] = useState<string | null>(null);
-  const [menuCategories, setMenuCategories] = useState<WaiterMenuCategoryDto[]>(
-    [],
+  const [pendingIds, setPendingIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
   );
+  const [error, setError] = useState<string | null>(null);
+  const priceListId = catalog?.priceListId ?? null;
+  const pointOfSaleId = catalog?.pointOfSaleId ?? null;
   const [activeCategoryIds, setActiveCategoryIds] = useState<string[]>([]);
   const [ctpByVariantId, setCtpByVariantId] = useState<
     Record<string, number | null>
@@ -95,10 +98,6 @@ export function WaiterMenuPanel({
     hostProductId: string;
     variantId: string;
   } | null>(null);
-  const [hostHasAddons, setHostHasAddons] = useState<Record<string, boolean>>(
-    {},
-  );
-  const hostAddonKnownRef = useRef<Record<string, boolean>>({});
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const auth = useMemo(
     () => ({ userId: session.userId, companyId: session.companyId }),
@@ -108,36 +107,9 @@ export function WaiterMenuPanel({
   useEffect(() => {
     const bid = branchId.trim();
     if (!bid) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const [ctx, settings] = await Promise.all([
-          resolveWaiterBranchCatalogContextAction({ ...auth, branchId: bid }),
-          getDiningNumberingSettingsAction({ ...auth, branchId: bid }),
-        ]);
-        if (cancelled) return;
-        setPriceListId(ctx.priceListId);
-        setPointOfSaleId(ctx.pointOfSaleId);
-        const cats = settings.posAccountsMenuCategories ?? [];
-        const allowed = new Set(cats.map((c) => c.id));
-        const stored = readActiveCategoryIds(bid).filter((id) => allowed.has(id));
-        setMenuCategories(cats);
-        setActiveCategoryIds(stored);
-        if (!ctx.priceListId) {
-          setError(
-            "No hay lista de precios en un POS de esta sucursal. Configurá un POS en admin.",
-          );
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Error al cargar menú");
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [auth, branchId]);
+    const allowed = new Set(menuCategories.map((c) => c.id));
+    setActiveCategoryIds(readActiveCategoryIds(bid).filter((id) => allowed.has(id)));
+  }, [branchId, menuCategories]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -157,97 +129,57 @@ export function WaiterMenuPanel({
     return undefined;
   }, [activeCategoryIds]);
 
-  const load = useCallback(async () => {
+  useEffect(() => {
     const pl = priceListId?.trim();
     if (!pl) {
       setItems([]);
       setTotal(0);
+      setCtpByVariantId({});
+      if (catalog) setError(NO_PRICE_LIST_MSG);
       return;
     }
+    let cancelled = false;
     setLoading(true);
     setError(null);
-    try {
-      const res = await searchWaiterMenuAction({
-        ...auth,
-        priceListId: pl,
-        branchId: branchId.trim() || undefined,
-        pointOfSaleId,
-        query: searchQuery || undefined,
-        categoryIds: searchCategoryIds,
-        page,
-        pageSize: PAGE_SIZE,
-      });
-      setItems(res.products);
-      setTotal(res.total);
-      if (branchId.trim() && res.products.length > 0) {
-        try {
-          const ctp = await batchWaiterCtpAction({
-            ...auth,
-            branchId: branchId.trim(),
-            variantIds: res.products.map((p) => p.variantId),
-          });
-          const next: Record<string, number | null> = {};
-          for (const row of ctp) {
-            next[row.variantId] = row.producibleQty;
-          }
-          setCtpByVariantId(next);
-        } catch {
-          setCtpByVariantId({});
-        }
-      } else {
+    void loadWaiterMenuPageAction({
+      ...auth,
+      priceListId: pl,
+      branchId: branchId.trim() || undefined,
+      pointOfSaleId,
+      query: searchQuery || undefined,
+      categoryIds: searchCategoryIds,
+      page,
+      pageSize: PAGE_SIZE,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        setItems(res.products);
+        setTotal(res.total);
+        setCtpByVariantId(res.ctpByVariantId);
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        setItems([]);
+        setTotal(0);
         setCtpByVariantId({});
-      }
-    } catch (e) {
-      setItems([]);
-      setTotal(0);
-      setError(e instanceof Error ? e.message : "Error al buscar");
-    } finally {
-      setLoading(false);
-    }
+        setError(e instanceof Error ? e.message : "Error al buscar");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [
     auth,
     branchId,
+    catalog,
     page,
     pointOfSaleId,
     priceListId,
     searchCategoryIds,
     searchQuery,
   ]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  useEffect(() => {
-    const ids = [
-      ...new Set(
-        items
-          .map((item) => item.productId?.trim())
-          .filter((id): id is string => Boolean(id)),
-      ),
-    ];
-    const unknown = ids.filter((id) => hostAddonKnownRef.current[id] === undefined);
-    if (unknown.length === 0) return;
-    let cancelled = false;
-    void Promise.all(
-      unknown.map((id) =>
-        listWaiterHostAddonsAction({ ...auth, hostProductId: id })
-          .then((options) => ({ id, has: options.length > 0 }))
-          .catch(() => ({ id, has: false })),
-      ),
-    ).then((rows) => {
-      if (cancelled) return;
-      const next = { ...hostAddonKnownRef.current };
-      for (const row of rows) {
-        next[row.id] = row.has;
-      }
-      hostAddonKnownRef.current = next;
-      setHostHasAddons({ ...next });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [auth, items]);
 
   const toggleCategory = (id: string) => {
     setActiveCategoryIds((prev) => {
@@ -263,8 +195,17 @@ export function WaiterMenuPanel({
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  const setPending = (variantId: string, pending: boolean) => {
+    setPendingIds((prev) => {
+      const next = new Set(prev);
+      if (pending) next.add(variantId);
+      else next.delete(variantId);
+      return next;
+    });
+  };
+
   const handleAdd = async (item: WaiterMenuVariantDto) => {
-    setAddingId(item.variantId);
+    setPending(item.variantId, true);
     setError(null);
     try {
       const updated = await addOrderItemsAction({
@@ -276,11 +217,11 @@ export function WaiterMenuPanel({
       onOrderUpdated(updated);
       if (String(item.productType ?? "").toUpperCase() === "PACK") return;
       const hostProductId = item.productId?.trim() ?? "";
-      const listed = await listWaiterHostAddonsAction({
-        ...auth,
-        hostProductId,
-      });
-      if (listed.length === 0) return;
+      if (!hostProductId || item.hasAddons === false) return;
+      if (item.hasAddons === undefined) {
+        const listed = await listWaiterHostAddonsAction({ ...auth, hostProductId });
+        if (listed.length === 0) return;
+      }
       const drafts = (updated.lines ?? []).filter(
         (l) =>
           l.productVariantId === item.variantId && l.kitchenStatus === "DRAFT",
@@ -300,7 +241,7 @@ export function WaiterMenuPanel({
       }
       setError(msg);
     } finally {
-      setAddingId(null);
+      setPending(item.variantId, false);
     }
   };
 
@@ -364,7 +305,7 @@ export function WaiterMenuPanel({
         ) : (
           <div className="space-y-2">
             {items.map((item) => {
-              const busy = addingId === item.variantId;
+              const busy = pendingIds.has(item.variantId);
               const isPreparado =
                 String(item.productType ?? "").toUpperCase() === "PREPARADO";
               const cap = ctpByVariantId[item.variantId];
@@ -418,7 +359,7 @@ export function WaiterMenuPanel({
                           Cap. {cap}
                         </span>
                       ) : null}
-                      {hostHasAddons[item.productId] ? (
+                      {item.hasAddons ? (
                         <Badge
                           variant="secondary-outlined"
                           className="text-[10px]"
@@ -438,7 +379,7 @@ export function WaiterMenuPanel({
                         ? `Sin disponibilidad: ${item.productName}`
                         : `Agregar ${item.productName}`
                     }
-                    disabled={blocked || busy || addingId !== null}
+                    disabled={blocked || busy}
                     isLoading={busy}
                     onClick={() => void handleAdd(item)}
                     data-test-id={`waiter-menu-add-${item.variantId}`}
@@ -484,12 +425,9 @@ export function WaiterMenuPanel({
           lineId={addonDialog.lineId}
           hostProductId={addonDialog.hostProductId}
           variantId={addonDialog.variantId}
+          catalog={catalog}
           onClose={() => setAddonDialog(null)}
-          onAdded={() => {
-            void getDiningOrderAction({ ...auth, orderId }).then((order) => {
-              onOrderUpdated(order);
-            });
-          }}
+          onAdded={onOrderUpdated}
         />
       ) : null}
     </div>

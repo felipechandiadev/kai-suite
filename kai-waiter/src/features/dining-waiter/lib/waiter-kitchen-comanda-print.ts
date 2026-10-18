@@ -146,8 +146,16 @@ export async function printWaiterKitchenComandasAfterFire(
       l.productVariant?.name?.trim() || "",
     ]),
   );
+  const printLines = (input.order.lines ?? []).map((l) => ({
+    ...l,
+    quantity: Number(l.quantity) || 0,
+    addons: (l.addons ?? []).map((a) => ({
+      name: a.displayName?.trim() || a.name?.trim() || "Extra",
+      quantity: Number(a.quantity) || 0,
+    })),
+  }));
   const jobs = collectKitchenComandaPrintJobs(
-    input.order.lines ?? [],
+    printLines,
     input.sentLineIds,
     (line) =>
       input.productByVariantId[line.productVariantId]?.name?.trim() ||

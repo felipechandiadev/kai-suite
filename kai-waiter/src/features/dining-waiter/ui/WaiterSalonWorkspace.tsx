@@ -3,9 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type {
+  DiningNumberingSettingsDto,
   DiningOrderDto,
   DiningRoomDto,
   DiningTableDto,
+  WaiterBranchCatalogContextDto,
+  WaiterMenuCategoryDto,
 } from "@/features/dining-waiter/infrastructure/dining.request";
 import {
   getDiningNumberingSettingsAction,
@@ -14,8 +17,16 @@ import {
   listActiveDiningOrdersAction,
   listDiningRoomsAction,
   openTableOrderAction,
+  resolveWaiterBranchCatalogContextAction,
 } from "@/features/dining-waiter/actions/waiter.action";
 import { isWaiterDiningOrderInactive } from "@/features/dining-waiter/lib/group-waiter-order-lines";
+import {
+  applySessionPayloads,
+  mergeOrderFromPayload,
+  parseSessionPayload,
+  upsertOrder,
+  type DiningSessionUpdatedPayload,
+} from "@/features/dining-waiter/lib/apply-session-payload";
 import { WaiterMesasCards } from "@/features/dining-waiter/ui/WaiterMesasCards";
 import { WaiterTableScreen } from "@/features/dining-waiter/ui/WaiterTableScreen";
 import { useDiningRealtime } from "@/features/dining-waiter/realtime/useDiningRealtime";
@@ -33,6 +44,10 @@ import {
 type WaiterSalonWorkspaceProps = {
   session: WaiterSession;
 };
+
+/** Agrupa ráfagas de `dining.session.updated` (varios meseros / POS). */
+const REALTIME_FLUSH_MS = 300;
+const NO_MENU_CATEGORIES: WaiterMenuCategoryDto[] = [];
 
 function clearSalonDeepLinkQuery(pathname: string, router: ReturnType<typeof useRouter>) {
   router.replace(pathname || "/salon");
@@ -52,12 +67,18 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
   const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState(false);
   const [canOpenTable, setCanOpenTable] = useState(true);
+  const [catalog, setCatalog] = useState<WaiterBranchCatalogContextDto | null>(null);
+  const [menuCategories, setMenuCategories] =
+    useState<WaiterMenuCategoryDto[]>(NO_MENU_CATEGORIES);
   const [error, setError] = useState<string | null>(null);
   const authRef = useRef({ userId: session.userId, companyId: session.companyId });
   authRef.current = { userId: session.userId, companyId: session.companyId };
   const deepLinkHandledRef = useRef<string | null>(null);
   const selectedOrderRef = useRef<DiningOrderDto | null>(null);
   selectedOrderRef.current = selectedOrder;
+  const pendingPayloadsRef = useRef<Map<string, DiningSessionUpdatedPayload>>(new Map());
+  const realtimeRefetchRef = useRef(false);
+  const realtimeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const branchId = room?.branchId ?? "";
 
@@ -102,7 +123,7 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
       const detail = await getDiningRoomAction({ ...auth, roomId });
       setRoom(detail);
       saveWaiterRoomId(roomId);
-      const [list, settings] = await Promise.all([
+      const [list, settings, catalogCtx] = await Promise.all([
         listActiveDiningOrdersAction({
           ...auth,
           branchId: detail.branchId,
@@ -110,10 +131,16 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
         getDiningNumberingSettingsAction({
           ...auth,
           branchId: detail.branchId,
-        }).catch(() => ({ allowWaiterOpenTable: true })),
+        }).catch((): DiningNumberingSettingsDto => ({ allowWaiterOpenTable: true })),
+        resolveWaiterBranchCatalogContextAction({
+          ...auth,
+          branchId: detail.branchId,
+        }).catch(() => null),
       ]);
       setOrders(list);
       setCanOpenTable(settings.allowWaiterOpenTable !== false);
+      setMenuCategories(settings.posAccountsMenuCategories ?? NO_MENU_CATEGORIES);
+      setCatalog(catalogCtx);
       return { detail, list };
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al cargar salón");
@@ -205,7 +232,7 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
       });
       setSelectedTable(target);
       setSelectedOrder(order);
-      await refreshOrders();
+      setOrders((prev) => upsertOrder(prev, order));
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo abrir la mesa");
     } finally {
@@ -213,13 +240,13 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
     }
   };
 
-  const handleOrderUpdated = async (order: DiningOrderDto) => {
+  const handleOrderUpdated = (order: DiningOrderDto) => {
     if (isWaiterDiningOrderInactive(order.status)) {
       exitToMesas(WAITER_ACCOUNT_UNAVAILABLE_MSG);
       return;
     }
     setSelectedOrder(order);
-    await refreshOrders();
+    setOrders((prev) => upsertOrder(prev, order));
   };
 
   // Deep-link: /salon?orderId=&fireId=&tableId=
@@ -345,38 +372,88 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deep-link once per query key
   }, [searchParams, loading, rooms, room, pathname, router, loadRoom, refreshOrders]);
 
+  const refreshFromServer = useCallback(() => {
+    void refreshOrders().then(async (list) => {
+      const current = selectedOrderRef.current;
+      if (!current || !list) return;
+      const fresh = list.find((o) => o.id === current.id);
+      if (!fresh) {
+        exitToMesas(WAITER_ACCOUNT_UNAVAILABLE_MSG);
+        return;
+      }
+      try {
+        const detail = await getDiningOrderAction({
+          ...authRef.current,
+          orderId: fresh.id,
+        });
+        if (isWaiterDiningOrderInactive(detail.status)) {
+          exitToMesas(WAITER_ACCOUNT_UNAVAILABLE_MSG);
+          return;
+        }
+        setSelectedOrder(detail);
+      } catch (e) {
+        const msg = messageFromUnknownError(e, "");
+        if (isWaiterAccountUnavailableError(msg)) {
+          exitToMesas(WAITER_ACCOUNT_UNAVAILABLE_MSG);
+        }
+      }
+    });
+  }, [refreshOrders, exitToMesas]);
+
+  const flushRealtime = () => {
+    realtimeTimerRef.current = null;
+    const payloads = [...pendingPayloadsRef.current.values()];
+    pendingPayloadsRef.current.clear();
+    const needsRefetch = realtimeRefetchRef.current;
+    realtimeRefetchRef.current = false;
+
+    if (payloads.length > 0) {
+      setOrders((prev) => applySessionPayloads(prev, payloads, branchId));
+      const current = selectedOrderRef.current;
+      const mine = current
+        ? payloads.find((p) => p.orderId === current.id)
+        : undefined;
+      if (mine) {
+        if (isWaiterDiningOrderInactive(mine.status)) {
+          exitToMesas(WAITER_ACCOUNT_UNAVAILABLE_MSG);
+        } else {
+          setSelectedOrder((prev) =>
+            prev && prev.id === mine.orderId ? mergeOrderFromPayload(prev, mine) : prev,
+          );
+        }
+      }
+    }
+    if (needsRefetch) refreshFromServer();
+  };
+  const flushRealtimeRef = useRef(flushRealtime);
+  flushRealtimeRef.current = flushRealtime;
+
+  useEffect(
+    () => () => {
+      if (realtimeTimerRef.current) clearTimeout(realtimeTimerRef.current);
+    },
+    [],
+  );
+
   useDiningRealtime({
     userId: session.userId,
     activeCompanyId: session.companyId,
     branchId: branchId || null,
     salonId: room?.id ?? null,
     openTableIds,
-    onSessionUpdated: () => {
-      void refreshOrders().then(async (list) => {
-        const current = selectedOrderRef.current;
-        if (!current || !list) return;
-        const fresh = list.find((o) => o.id === current.id);
-        if (!fresh) {
-          exitToMesas(WAITER_ACCOUNT_UNAVAILABLE_MSG);
-          return;
-        }
-        try {
-          const detail = await getDiningOrderAction({
-            ...authRef.current,
-            orderId: fresh.id,
-          });
-          if (isWaiterDiningOrderInactive(detail.status)) {
-            exitToMesas(WAITER_ACCOUNT_UNAVAILABLE_MSG);
-            return;
-          }
-          setSelectedOrder(detail);
-        } catch (e) {
-          const msg = messageFromUnknownError(e, "");
-          if (isWaiterAccountUnavailableError(msg)) {
-            exitToMesas(WAITER_ACCOUNT_UNAVAILABLE_MSG);
-          }
-        }
-      });
+    onSessionUpdated: (raw) => {
+      const payload = parseSessionPayload(raw);
+      if (payload) {
+        pendingPayloadsRef.current.set(payload.orderId, payload);
+      } else {
+        realtimeRefetchRef.current = true;
+      }
+      if (!realtimeTimerRef.current) {
+        realtimeTimerRef.current = setTimeout(
+          () => flushRealtimeRef.current(),
+          REALTIME_FLUSH_MS,
+        );
+      }
     },
   });
 
@@ -404,6 +481,8 @@ export function WaiterSalonWorkspace({ session }: WaiterSalonWorkspaceProps) {
           key={`${selectedOrder?.id ?? selectedTable.id}-${highlightFireId ?? ""}-${openCuentaOnSelect ? "cuenta" : "menu"}`}
           session={session}
           branchId={branchId}
+          catalog={catalog}
+          menuCategories={menuCategories}
           table={selectedTable}
           order={selectedOrder}
           onBack={handleBackToSalon}

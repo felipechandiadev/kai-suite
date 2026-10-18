@@ -5,6 +5,8 @@ import { Button, IconButton } from "@kai/ui";
 import type {
   DiningOrderDto,
   DiningTableDto,
+  WaiterBranchCatalogContextDto,
+  WaiterMenuCategoryDto,
 } from "../infrastructure/dining.request";
 import { WaiterMenuPanel } from "./WaiterMenuPanel";
 import { WaiterCuentaPanel } from "./WaiterCuentaPanel";
@@ -25,6 +27,8 @@ const ORDER_STATUS_LABEL: Record<string, string> = {
 type WaiterTableScreenProps = {
   session: WaiterSession;
   branchId: string;
+  catalog: WaiterBranchCatalogContextDto | null;
+  menuCategories: WaiterMenuCategoryDto[];
   table: DiningTableDto;
   order: DiningOrderDto | null;
   onBack: () => void;
@@ -42,6 +46,8 @@ type WaiterTableScreenProps = {
 export function WaiterTableScreen({
   session,
   branchId,
+  catalog,
+  menuCategories,
   table,
   order,
   onBack,
@@ -213,24 +219,37 @@ export function WaiterTableScreen({
         </div>
       </div>
 
-      {panel === "menu" ? (
+      <div
+        className={panel === "menu" ? "flex min-h-0 flex-1 flex-col" : "hidden"}
+        role="tabpanel"
+        aria-hidden={panel !== "menu"}
+      >
         <WaiterMenuPanel
           session={session}
           branchId={branchId}
           orderId={order.id}
+          catalog={catalog}
+          menuCategories={menuCategories}
           onOrderUpdated={onOrderUpdated}
           onAccountUnavailable={onAccountUnavailable}
         />
-      ) : (
+      </div>
+      <div
+        className={panel === "cuenta" ? "flex min-h-0 flex-1 flex-col" : "hidden"}
+        role="tabpanel"
+        aria-hidden={panel !== "cuenta"}
+      >
         <WaiterCuentaPanel
           session={session}
           branchId={branchId}
+          catalog={catalog}
           order={order}
+          active={panel === "cuenta"}
           onOrderUpdated={onOrderUpdated}
           onAccountUnavailable={onAccountUnavailable}
           highlightFireId={highlightFireId}
         />
-      )}
+      </div>
     </div>
   );
 }

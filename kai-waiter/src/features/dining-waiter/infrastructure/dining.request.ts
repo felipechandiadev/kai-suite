@@ -109,6 +109,7 @@ export type WaiterMenuVariantDto = {
   trackInventory?: boolean;
   availableStock?: number | null;
   saleUnitSymbol?: string | null;
+  hasAddons?: boolean;
 };
 
 export type WaiterMenuSearchResult = {
@@ -138,6 +139,7 @@ export type WaiterLineProductMeta = {
   unitPrice: number;
   productType?: string | null;
   productId?: string | null;
+  hasAddons?: boolean;
 };
 
 type PosListRow = {
@@ -207,6 +209,7 @@ function mapPosProduct(raw: Record<string, unknown>): WaiterMenuVariantDto {
         : raw.unitSymbol != null
           ? String(raw.unitSymbol)
           : null,
+    ...(typeof raw.hasAddons === "boolean" ? { hasAddons: raw.hasAddons } : {}),
   };
 }
 
@@ -300,6 +303,7 @@ export class DiningRequest {
       pageSize: String(pageSize),
       productTypes: "PREPARADO,PHYSICAL,ELABORADO,MANUFACTURADO,PACK",
       onMenuOnly: "true",
+      includeAddonFlags: "true",
     };
     if (input.categoryIds?.length) {
       query.categoryIds = input.categoryIds.join(",");
@@ -339,6 +343,7 @@ export class DiningRequest {
         branchId: input.branchId,
         priceListId: input.priceListId ?? undefined,
         pointOfSaleId: input.pointOfSaleId ?? undefined,
+        includeAddonFlags: "true",
       },
     );
     const map: Record<string, WaiterLineProductMeta> = {};
@@ -351,6 +356,7 @@ export class DiningRequest {
         unitPrice: mapped.unitPriceWithTax || mapped.unitPrice,
         productType: mapped.productType || null,
         productId: mapped.productId || null,
+        ...(mapped.hasAddons !== undefined ? { hasAddons: mapped.hasAddons } : {}),
       };
     }
     return map;

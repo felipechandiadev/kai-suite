@@ -68,6 +68,7 @@ export class ProductsController {
       pointOfSaleId: dto.pointOfSaleId,
       branchId: dto.branchId,
       priceListId: dto.priceListId,
+      includeAddonFlags: dto.includeAddonFlags === true,
     });
     return { success: true, products };
   }

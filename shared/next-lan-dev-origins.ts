@@ -26,7 +26,7 @@ function localLanIpv4Addresses(): string[] {
   const addresses = new Set<string>();
   for (const iface of Object.values(nets)) {
     for (const net of iface ?? []) {
-      const family = net.family === "IPv4" || net.family === 4;
+      const family = String(net.family) === "IPv4" || String(net.family) === "4";
       if (family && !net.internal) {
         addresses.add(net.address);
       }
