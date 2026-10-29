@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Barcode, Check, X } from "lucide-react";
-import { variantSaleNet, variantCost } from "@/features/inventory-products/lib/variant-price-cost";
+import { variantCost, variantSaleGross } from "@/features/inventory-products/lib/variant-price-cost";
 import { Badge, Button, DataGridTable as DataGrid, DeleteDialog, IconButton, Select, Switch, type DataGridColumn, type Option } from "@kai/ui";
 import type { ProductGridRow, ProductVariantGridRow, ProductVariantMediaAsset } from "@/features/inventory-products/types/product-grid.types";
 import {
@@ -856,20 +856,25 @@ export default function ProductsDataGrid({ rows, total, categories = [], brands 
       },
       {
         field: "salePrice",
-        headerName: "Precio venta",
+        headerName: "Precio venta (IVA incl.)",
         sortable: false,
-        width: 150,
+        width: 170,
         align: "right",
         renderCell: ({ row }) => {
           const r = row as ProductGridRow;
+          const sellable = catalogProductTypeIsSellable(normalizeCatalogProductType(r.productType));
+          const singleVariant = r.variants.length === 1;
+          const gross = sellable && singleVariant ? variantSaleGross(r.variants[0]) : null;
           return (
             <span
               className="tabular-nums text-foreground"
-              title="Precio neto de venta"
+              title={
+                singleVariant
+                  ? "Precio de venta con impuestos"
+                  : "Producto con varias variantes: ver el precio de cada una en el detalle"
+              }
             >
-              {catalogProductTypeIsSellable(normalizeCatalogProductType(r.productType))
-                ? formatVariantsAmountRange(r.variants.map(variantSaleNet))
-                : "—"}
+              {gross != null ? formatCatalogMoney(gross) : "—"}
             </span>
           );
         },

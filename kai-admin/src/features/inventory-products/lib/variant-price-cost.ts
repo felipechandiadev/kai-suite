@@ -7,6 +7,12 @@ export function variantSaleNet(v: ProductVariantGridRow): number | null {
   return v.basePrice != null && v.basePrice > 0 ? v.basePrice : null;
 }
 
+/** Precio de venta con impuestos (bruto) de una variante: primera lista con monto; `null` si no hay lista. */
+export function variantSaleGross(v: ProductVariantGridRow): number | null {
+  const item = (v.priceListItems ?? []).find((p) => p.netPrice > 0 && p.grossPrice > 0);
+  return item ? item.grossPrice : null;
+}
+
 /** Costo de una variante: PMP si existe, si no costo base. */
 export function variantCost(v: ProductVariantGridRow): number | null {
   if (v.pmp != null && v.pmp > 0) return v.pmp;
