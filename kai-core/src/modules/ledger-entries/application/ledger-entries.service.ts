@@ -16,6 +16,7 @@ import { Customer } from '@modules/customers/domain/customer.entity';
 import { Supplier } from '@modules/suppliers/domain/supplier.entity';
 import { Shareholder } from '@modules/shareholders/domain/shareholder.entity';
 import { Employee } from '@modules/employees/domain/employee.entity';
+import { RECEPTION_VOID_ORIGIN } from './ledger-reversal.util';
 import { LedgerEntryRepositoryPort } from './ports/ledger-entry.repository.port';
 import { AccountingRuleRepositoryPort } from './ports/accounting-rule.repository.port';
 import { AccountingAccountRepositoryPort } from './ports/accounting-account.repository.port';
@@ -109,6 +110,21 @@ export class LedgerEntriesService {
         transaction.transactionType === TransactionType.PAYMENT_IN &&
         metaSkip.source === 'pos_sale'
       ) {
+        return {
+          status: 'SUCCESS',
+          transactionId: transaction.id,
+          entriesGenerated: 0,
+          entriesIds: [],
+          balanceValidated: true,
+          errors: [],
+          executedAt: new Date(),
+          executionTimeMs: Date.now() - startTime,
+        };
+      }
+
+      // Anulación de recepción: el reverso se postea espejando los asientos originales
+      // (ver ledger-reversal.util.ts); las reglas genéricas (p. ej. merma) no aplican.
+      if (metaSkip.origin === RECEPTION_VOID_ORIGIN) {
         return {
           status: 'SUCCESS',
           transactionId: transaction.id,

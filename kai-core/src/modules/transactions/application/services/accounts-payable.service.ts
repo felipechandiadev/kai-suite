@@ -191,6 +191,17 @@ export class AccountsPayableService {
     today.setHours(0, 0, 0, 0);
 
     const rows = payments
+      .filter((payment) => {
+        // Cuota de un documento anulado (recepción/factura): no es deuda vigente.
+        const parent = payment.relatedTransactionId
+          ? parentById.get(payment.relatedTransactionId)
+          : undefined;
+        return !(
+          parent &&
+          (parent.status === TransactionStatus.VOIDED ||
+            parent.status === TransactionStatus.CANCELLED)
+        );
+      })
       .map((payment) => {
         const total = Number(payment.total || 0);
         const paid = Number(payment.amountPaid || 0);

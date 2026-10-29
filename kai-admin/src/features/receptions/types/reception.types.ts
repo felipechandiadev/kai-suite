@@ -81,6 +81,11 @@ export type ReceptionGridRow = {
   type?: string;
   /** Folio de la orden de compra cuando `type === "from-purchase-order"`. */
   purchaseOrderNumber?: string | null;
+  /** `VOIDED` cuando la recepción fue anulada; si no, `RECEIVED`. */
+  status?: string;
+  isVoided?: boolean;
+  voidReason?: string | null;
+  voidedAt?: string | null;
 };
 
 export type ReceptionListForGridResult = {
@@ -127,8 +132,15 @@ export type ReceptionDetailForReturn = {
   total?: number;
   notes?: string | null;
   type?: string | null;
+  isVoided?: boolean;
+  voidReason?: string | null;
+  voidedAt?: string | null;
   lines: ReceptionLineForReturn[];
 };
+
+export type VoidReceptionResult =
+  | { success: true; warnings: string[] }
+  | { success: false; error: string };
 
 export type ReceptionFetchResult =
   | { success: true; reception: ReceptionDetailForReturn }

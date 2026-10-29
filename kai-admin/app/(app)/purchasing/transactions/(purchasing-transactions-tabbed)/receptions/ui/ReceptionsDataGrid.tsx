@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Button, DataGridTable as DataGrid, IconButton } from "@kai/ui";
+import { Badge, Button, DataGridTable as DataGrid, IconButton } from "@kai/ui";
 import type { DataGridColumn } from "@kai/ui";
 import type { ReceptionGridRow } from "@/features/receptions/types/reception.types";
 import { BulkReceptionImportDialog } from "@/features/receptions/ui/BulkReceptionImportDialog";
+import { voidReceptionAction } from "@/features/receptions/actions/reception.action";
+import VoidReceptionDialog from "@/features/receptions/ui/VoidReceptionDialog";
 import ReceptionDetailDialog from "@/features/purchasing-document/ui/ReceptionDetailDialog";
 
 type ReceptionsDataGridProps = {
@@ -37,6 +39,14 @@ export default function ReceptionsDataGrid({ rows, total }: ReceptionsDataGridPr
   const router = useRouter();
   const [detailReceptionId, setDetailReceptionId] = useState<string | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [voidTarget, setVoidTarget] = useState<ReceptionGridRow | null>(null);
+  const [voidError, setVoidError] = useState<string | null>(null);
+  const [isVoidPending, startVoidTransition] = useTransition();
+
+  const openVoid = useCallback((r: ReceptionGridRow) => {
+    setVoidError(null);
+    setVoidTarget(r);
+  }, []);
 
   const openDetail = useCallback((r: ReceptionGridRow) => {
     setDetailReceptionId(r.id);
@@ -59,11 +69,35 @@ export default function ReceptionsDataGrid({ rows, total }: ReceptionsDataGridPr
               onClick={() => openDetail(r)}
               data-test-id={`receptions-row-detail-${r.id}`}
             />
+            {r.isVoided || r.status === "VOIDED" ? null : (
+              <IconButton
+                icon="Ban"
+                variant="action"
+                size="sm"
+                ariaLabel="Anular recepción"
+                onClick={() => openVoid(r)}
+                data-test-id={`receptions-row-void-${r.id}`}
+              />
+            )}
           </div>
         );
       }
 
       return [
+        {
+          field: "status",
+          headerName: "Estado",
+          sortable: false,
+          width: 110,
+          renderCell: ({ row }: { row: unknown }) => {
+            const r = row as ReceptionGridRow;
+            return r.isVoided || r.status === "VOIDED" ? (
+              <Badge variant="error-outlined">Anulada</Badge>
+            ) : (
+              <Badge variant="success-outlined">Recibida</Badge>
+            );
+          },
+        },
         {
           field: "folio",
           headerName: "Folio recepción",
@@ -181,7 +215,7 @@ export default function ReceptionsDataGrid({ rows, total }: ReceptionsDataGridPr
         },
       ];
     },
-    [openDetail],
+    [openDetail, openVoid],
   );
 
   return (
@@ -216,6 +250,34 @@ export default function ReceptionsDataGrid({ rows, total }: ReceptionsDataGridPr
         receptionId={detailReceptionId}
         open={detailReceptionId != null}
         onClose={() => setDetailReceptionId(null)}
+      />
+      <VoidReceptionDialog
+        open={voidTarget != null}
+        onClose={() => {
+          if (!isVoidPending) {
+            setVoidTarget(null);
+            setVoidError(null);
+          }
+        }}
+        documentLabel={voidTarget ? (voidTarget.folio ?? voidTarget.documentNumber ?? voidTarget.id) : ""}
+        supplierLabel={voidTarget?.supplierName}
+        errors={voidError ? [voidError] : []}
+        isSubmitting={isVoidPending}
+        onConfirm={(reason, acknowledge) => {
+          if (!voidTarget) return;
+          setVoidError(null);
+          startVoidTransition(() => {
+            void (async () => {
+              const r = await voidReceptionAction(voidTarget.id, reason, acknowledge);
+              if (r.success) {
+                setVoidTarget(null);
+                router.refresh();
+              } else {
+                setVoidError(r.error);
+              }
+            })();
+          });
+        }}
       />
       <BulkReceptionImportDialog open={bulkOpen} onClose={() => setBulkOpen(false)} />
     </>

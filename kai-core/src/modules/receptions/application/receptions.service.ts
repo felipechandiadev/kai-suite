@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, Not, In, Brackets } from 'typeorm';
-import { Reception } from '../domain/reception.entity';
+import { Reception, ReceptionStatus } from '../domain/reception.entity';
 import { ReceptionLine } from '../domain/reception-line.entity';
 import { Storage } from '@modules/storages/domain/storage.entity';
 import { Branch } from '@modules/branches/domain/branch.entity';
@@ -619,7 +619,11 @@ export class ReceptionsService {
     return {
       ...reception,
       transactionType: TransactionType.ADJUSTMENT_IN,
-      status: TransactionStatus.RECEIVED,
+      status:
+        reception?.status === ReceptionStatus.VOIDED
+          ? TransactionStatus.VOIDED
+          : TransactionStatus.RECEIVED,
+      isVoided: reception?.status === ReceptionStatus.VOIDED,
       supplierName: this.getSupplierDisplayName(reception),
       supplierDni: this.getSupplierDni(reception),
       storageName: this.getStorageDisplayName(reception),
@@ -640,7 +644,12 @@ export class ReceptionsService {
   }
 
   async search(
-    opts: { limit?: number; offset?: number; search?: string } = {
+    opts: {
+      limit?: number;
+      offset?: number;
+      search?: string;
+      companyId?: string | null;
+    } = {
       limit: 25,
       offset: 0,
     },
@@ -676,6 +685,10 @@ export class ReceptionsService {
             .orWhere('supplierPerson.documentNumber ILIKE :like', { like });
         }),
       );
+    }
+
+    if (opts.companyId) {
+      qb.andWhere('r.companyId = :companyId', { companyId: opts.companyId });
     }
 
     qb.orderBy('r.createdAt', 'DESC').take(limit).skip(offset);
@@ -734,9 +747,9 @@ export class ReceptionsService {
     };
   }
 
-  async getById(id: string) {
+  async getById(id: string, companyId?: string | null) {
     const found = await this.receptionRepo.findOne({
-      where: { id },
+      where: companyId ? { id, companyId } : { id },
       relations: [
         'lines',
         'storage',
@@ -793,7 +806,9 @@ export class ReceptionsService {
     source: 'reception' | 'invoice' | 'receipt';
     folio: string;
     supplierId?: string | null;
+    companyId?: string | null;
   }) {
+    const companyId = opts.companyId ?? null;
     const folio = String(opts.folio ?? '').trim();
     const supplierId =
       typeof opts.supplierId === 'string' && opts.supplierId.trim()
@@ -810,7 +825,11 @@ export class ReceptionsService {
         .leftJoin('r.transaction', 'tx')
         .where('(r.documentNumber = :folio OR tx.documentNumber = :folio)', {
           folio,
-        });
+        })
+        .andWhere('r.status != :voided', { voided: ReceptionStatus.VOIDED });
+      if (companyId) {
+        qb.andWhere('r.companyId = :companyId', { companyId });
+      }
       if (supplierId) {
         qb.andWhere('r.supplierId = :sid', { sid: supplierId });
       }
@@ -820,7 +839,7 @@ export class ReceptionsService {
           'No se encontró recepción con ese folio interno.',
         );
       }
-      return this.getById(String(found.id));
+      return this.getById(String(found.id), companyId);
     }
 
     const fiscalType =
@@ -831,7 +850,11 @@ export class ReceptionsService {
     const fiscalQb = this.transactionRepo
       .createQueryBuilder('tx')
       .where('tx.transactionType = :fiscalType', { fiscalType })
-      .andWhere('tx.documentNumber = :folio', { folio });
+      .andWhere('tx.documentNumber = :folio', { folio })
+      .andWhere('tx.status != :voidedTx', { voidedTx: TransactionStatus.VOIDED });
+    if (companyId) {
+      fiscalQb.andWhere('tx.companyId = :companyId', { companyId });
+    }
     if (supplierId) {
       fiscalQb.andWhere('tx.supplierId = :sid', { sid: supplierId });
     }
@@ -852,10 +875,18 @@ export class ReceptionsService {
         'El documento fiscal no tiene recepción de compra asociada.',
       );
     }
-    return this.getById(receptionId);
+    const resolved = await this.getById(receptionId, companyId);
+    if ((resolved as any).isVoided) {
+      throw new BadRequestException('La recepción asociada está anulada.');
+    }
+    return resolved;
   }
 
-  async getBySupplierDocumentRef(supplierId: string, documentRef: string) {
+  async getBySupplierDocumentRef(
+    supplierId: string,
+    documentRef: string,
+    companyId?: string | null,
+  ) {
     const sid = String(supplierId ?? '').trim();
     const ref = String(documentRef ?? '').trim();
     if (!sid) {
@@ -872,6 +903,8 @@ export class ReceptionsService {
         '(r.reference = :ref OR r.documentNumber = :ref OR r.dteNumber = :ref)',
         { ref },
       )
+      .andWhere('r.status != :voided', { voided: ReceptionStatus.VOIDED })
+      .andWhere(companyId ? 'r.companyId = :companyId' : '1=1', { companyId })
       .orderBy('r.createdAt', 'DESC')
       .getOne();
 
@@ -880,7 +913,7 @@ export class ReceptionsService {
         'No se encontró recepción para ese proveedor y referencia de documento.',
       );
     }
-    return this.getById(String(found.id));
+    return this.getById(String(found.id), companyId);
   }
 
   private async maybeCreateStockInTransaction(
@@ -1158,8 +1191,39 @@ export class ReceptionsService {
     };
   }
 
+  /**
+   * Evita ingresar dos veces el mismo documento del proveedor (mismo proveedor, folio y tipo).
+   * Las recepciones anuladas no cuentan: así "corregir" = anular + reingresar.
+   */
+  private async assertSupplierDocumentNotDuplicated(data: any): Promise<void> {
+    const supplierId =
+      typeof data?.supplierId === 'string' ? data.supplierId.trim() : '';
+    const ref =
+      (typeof data?.reference === 'string' && data.reference.trim()) ||
+      (typeof data?.dteNumber === 'string' && data.dteNumber.trim()) ||
+      '';
+    const docType =
+      (data?.documentType ?? data?.dteType)?.toString().trim().toLowerCase() ||
+      '';
+    if (!supplierId || !ref || !docType) return;
+    const dup = await this.receptionRepo
+      .createQueryBuilder('r')
+      .select('r.id')
+      .where('r.supplierId = :supplierId', { supplierId })
+      .andWhere('(r.reference = :ref OR r.dteNumber = :ref)', { ref })
+      .andWhere('r.dteType = :docType', { docType })
+      .andWhere('r.status != :voided', { voided: ReceptionStatus.VOIDED })
+      .getOne();
+    if (dup) {
+      throw new BadRequestException(
+        `Ya existe una recepción de este proveedor con el documento "${ref}". Si fue mal ingresada, anúlela y vuelva a ingresarla.`,
+      );
+    }
+  }
+
   async createDirect(data: any) {
     await this.assertPosCashSessionForReception(data);
+    await this.assertSupplierDocumentNotDuplicated(data);
 
     const purchaseOrderId =
       typeof data.purchaseOrderId === 'string' && data.purchaseOrderId.trim()
@@ -1313,6 +1377,7 @@ export class ReceptionsService {
   }
 
   async createFromPurchaseOrder(data: any) {
+    await this.assertSupplierDocumentNotDuplicated(data);
     // Create reception entity
     const refFromPayloadPo =
       (typeof data.reference === 'string' && data.reference.trim()) ||

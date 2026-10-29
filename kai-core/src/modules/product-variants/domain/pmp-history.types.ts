@@ -2,6 +2,7 @@ export type PmpHistorySource =
   | 'transaction_cost'
   | 'first_purchase'
   | 'manual_api'
+  | 'void_reception'
   | 'initial';
 
 /**

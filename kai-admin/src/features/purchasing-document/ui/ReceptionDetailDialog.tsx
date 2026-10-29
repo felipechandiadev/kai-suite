@@ -4,7 +4,7 @@ import { LoadingState } from '@kai/ui';
 import { useCallback, useEffect, useState } from "react";
 import { Dialog } from "@kai/ui";
 import { Button } from "@kai/ui";
-import { Alert } from "@kai/ui";
+import { Alert, Badge } from "@kai/ui";
 import { getReceptionDetailForReturnAction } from "@/features/receptions/actions/reception.action";
 import type { ReceptionDetailForReturn } from "@/features/receptions/types/reception.types";
 import PurchasingProductLinesTable, {
@@ -102,6 +102,13 @@ export default function ReceptionDetailDialog({ receptionId, open, onClose }: Pr
       {error ? <Alert variant="error">{error}</Alert> : null}
       {detail && !loading ? (
         <div className="space-y-4">
+          {detail.isVoided ? (
+            <Alert variant="error" data-test-id="reception-detail-voided">
+              <Badge variant="error-outlined">Anulada</Badge>{" "}
+              {detail.voidedAt ? formatDateTime(detail.voidedAt) : ""}
+              {detail.voidReason ? ` — Motivo: ${detail.voidReason}` : ""}
+            </Alert>
+          ) : null}
           <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
             <div>
               <dt className="text-muted-foreground">Folio recepción</dt>

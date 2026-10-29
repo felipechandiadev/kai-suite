@@ -1,6 +1,12 @@
 # Diseño: anulación de recepciones de compra (v2, con análisis de impacto transversal)
 
-Estado: **propuesta para revisión** (no implementada). Origen: observación del cliente "Corregir o eliminar una factura mal ingresada".
+Estado: **Fase 1 implementada** (v1.31.0). Desviaciones y pendientes respecto del diseño:
+- Implementado: `POST /receptions/:id/void`, estado `VOIDED` + migración `1757730000000-ReceptionVoid`, reverso contable espejo (`ledger-reversal.util.ts`), bloqueos (pagos confirmados, devoluciones/NC, stock insuficiente, PMP no restaurable salvo `acknowledgePmpNotRestored`, período cerrado), G1 (folio duplicado), G2 (filtro por compañía en lecturas, vía `OptionalCurrentCompany`), G5 (AP ignora cuotas de documentos anulados). UI en kai-admin: botón "Anular" (icono Ban junto al detalle), diálogo con motivo, estado "Anulada" y motivo en el detalle.
+- Compensación: el ajuste de stock no puede ir dentro de la transacción BD (pasa por `TransactionsService`); si la transacción falla se repone con un `ADJUSTMENT_IN` y se registra en log.
+- **No hecho en Fase 1**: G7 (el read-model de proveedores consulta relaciones `s.receptions`/`s.transactions` que no existen en la entidad `Supplier`; ya estaba roto/legacy, no se tocó), kardex con etiqueta específica, filtros en reportes de inventario por `origin=RECEPTION_VOID`, permiso `RECEPTIONS_VOID` (el enum solo tiene `RECEPTIONS_DELETE` y hoy no se aplica por decorador en ningún controller), pruebas contra BD real (los tests son unitarios y de controlador con mocks).
+- Cuotas de `installments` se cierran como `PAID` con marca `cancelledByReceptionVoid` (G6 pendiente).
+
+Estado original: propuesta. Origen: observación del cliente "Corregir o eliminar una factura mal ingresada".
 Decisión acordada: no borrar físicamente; **anular con motivo obligatorio**. "Corregir" = anular + volver a ingresar.
 
 Verificado leyendo el código (rama `claude/elegant-taussig-dc639a`, v1.30.0). Lo no verificado se marca **[NV]**.

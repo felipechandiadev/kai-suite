@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
 import { ReceptionsController } from '@modules/receptions/presentation/receptions.controller';
 import { ReceptionsService } from '@modules/receptions/application/receptions.service';
+import { ReceptionVoidService } from '@modules/receptions/application/reception-void.service';
 
 describe('ReceptionsController (Integration)', () => {
   let app: INestApplication;
@@ -14,7 +15,14 @@ describe('ReceptionsController (Integration)', () => {
     createFromPurchaseOrder: jest.Mock;
   };
 
+  let voidService: { void: jest.Mock };
+
   beforeEach(async () => {
+    voidService = {
+      void: jest.fn().mockResolvedValue({
+        reception: { id: 'rec-1', status: 'VOIDED' },
+      }),
+    };
     service = {
       search: jest.fn(),
       getById: jest.fn(),
@@ -30,10 +38,20 @@ describe('ReceptionsController (Integration)', () => {
           provide: ReceptionsService,
           useValue: service,
         },
+        {
+          provide: ReceptionVoidService,
+          useValue: voidService,
+        },
       ],
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    // Simula lo que resuelve TenantGuard en producción.
+    app.use((req: any, _res: any, next: () => void) => {
+      req.activeCompanyId = 'co-1';
+      req.currentUser = { id: 'user-1', userName: 'tester', rol: 'ADMIN', companyId: 'co-1' };
+      next();
+    });
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -258,5 +276,58 @@ describe('ReceptionsController (Integration)', () => {
         documentType: 'other',
       }),
     );
+  });
+
+  describe('POST /receptions/:id/void', () => {
+    it('anula con motivo y delega con compañía y usuario del contexto', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/receptions/rec-1/void')
+        .send({ reason: 'Factura mal ingresada' })
+        .expect(201);
+
+      expect(response.body).toMatchObject({
+        success: true,
+        reception: { id: 'rec-1', status: 'VOIDED' },
+      });
+      expect(voidService.void).toHaveBeenCalledWith(
+        'co-1',
+        'user-1',
+        'rec-1',
+        expect.objectContaining({ reason: 'Factura mal ingresada' }),
+      );
+    });
+
+    it('rechaza motivo de menos de 3 caracteres', async () => {
+      await request(app.getHttpServer())
+        .post('/receptions/rec-1/void')
+        .send({ reason: 'ab' })
+        .expect(400);
+      expect(voidService.void).not.toHaveBeenCalled();
+    });
+
+    it('rechaza body sin motivo y campos desconocidos', async () => {
+      await request(app.getHttpServer())
+        .post('/receptions/rec-1/void')
+        .send({})
+        .expect(400);
+      await request(app.getHttpServer())
+        .post('/receptions/rec-1/void')
+        .send({ reason: 'motivo válido', foo: 1 })
+        .expect(400);
+      expect(voidService.void).not.toHaveBeenCalled();
+    });
+
+    it('acepta acknowledgePmpNotRestored', async () => {
+      await request(app.getHttpServer())
+        .post('/receptions/rec-1/void')
+        .send({ reason: 'motivo válido', acknowledgePmpNotRestored: true })
+        .expect(201);
+      expect(voidService.void).toHaveBeenCalledWith(
+        'co-1',
+        'user-1',
+        'rec-1',
+        expect.objectContaining({ acknowledgePmpNotRestored: true }),
+      );
+    });
   });
 });

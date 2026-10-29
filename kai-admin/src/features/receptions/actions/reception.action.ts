@@ -4,11 +4,13 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/auth-options";
 import { ReceptionRequest } from "../infrastructure/reception.request";
+import { voidReceptionUseCase } from "../application/void-reception.usecase";
 import type {
   CreateDirectReceptionInput,
   CreateReceptionResult,
   ReceptionListForGridResult,
   ReceptionFetchResult,
+  VoidReceptionResult,
 } from "../types/reception.types";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -168,4 +170,17 @@ export async function createDirectReceptionAction(input: CreateDirectReceptionIn
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : "Error al crear la recepción." };
   }
+}
+
+export async function voidReceptionAction(
+  receptionId: string,
+  reason: string,
+  acknowledgePmpNotRestored = false,
+): Promise<VoidReceptionResult> {
+  const result = await voidReceptionUseCase({ receptionId, reason, acknowledgePmpNotRestored });
+  if (result.success) {
+    revalidatePath("/purchasing/transactions/receptions", "page");
+    revalidatePath("/purchasing/transactions");
+  }
+  return result;
 }

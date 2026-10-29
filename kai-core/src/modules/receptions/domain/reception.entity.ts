@@ -16,6 +16,11 @@ import { Supplier } from '@modules/suppliers/domain/supplier.entity';
 import { User } from '@modules/users/domain/user.entity';
 import { Transaction } from '@modules/transactions/domain/transaction.entity';
 
+export enum ReceptionStatus {
+  ACTIVE = 'ACTIVE',
+  VOIDED = 'VOIDED',
+}
+
 /**
  * Reception - Recepción de mercancía
  *
@@ -99,6 +104,23 @@ export class Reception {
   // Cada item: { installmentNumber, amount, dueDate }
   @Column({ type: 'json', nullable: true })
   payments?: any;
+
+  /** `ACTIVE` | `VOIDED` — ver {@link ReceptionStatus}. */
+  @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
+  status!: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  voidedAt?: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  voidedBy?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  voidReason?: string | null;
+
+  /** `VOID_ADJUSTMENT` que registra la anulación. */
+  @Column({ type: 'uuid', nullable: true })
+  voidTransactionId?: string | null;
 
   @CreateDateColumn()
   createdAt!: Date;

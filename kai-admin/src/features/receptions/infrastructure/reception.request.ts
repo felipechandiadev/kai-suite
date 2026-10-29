@@ -117,11 +117,47 @@ function normalizeReceptionDetail(raw: unknown): ReceptionDetailForReturn {
     total: Number(o.total) || 0,
     notes: typeof o.notes === "string" && o.notes.trim() ? o.notes.trim() : null,
     type: typeof o.type === "string" && o.type.trim() ? o.type.trim() : null,
+    isVoided: o.isVoided === true,
+    voidReason:
+      typeof o.voidReason === "string" && o.voidReason.trim() ? o.voidReason.trim() : null,
+    voidedAt: typeof o.voidedAt === "string" ? o.voidedAt : null,
     lines,
   };
 }
 
 export class ReceptionRequest {
+  /** `POST /api/receptions/:id/void` — anula la recepción (no borra). */
+  static async voidReception(
+    receptionId: string,
+    reason: string,
+    acknowledgePmpNotRestored = false,
+  ): Promise<{ warnings: string[] }> {
+    const headers = await authHeaders();
+    const res = await fetch(apiUrl(`receptions/${encodeURIComponent(receptionId.trim())}/void`), {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        reason: reason.trim(),
+        ...(acknowledgePmpNotRestored ? { acknowledgePmpNotRestored: true } : {}),
+      }),
+      cache: "no-store",
+    });
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok || data.success === false) {
+      const raw = data.message;
+      const msg =
+        typeof raw === "string"
+          ? raw
+          : Array.isArray(raw)
+            ? raw.map(String).join(" ")
+            : res.statusText || "No se pudo anular la recepción";
+      throw new Error(msg);
+    }
+    return {
+      warnings: Array.isArray(data.warnings) ? data.warnings.map(String) : [],
+    };
+  }
+
   static async listForGrid(
     opts: { limit?: number; offset?: number; search?: string } = {},
   ): Promise<ReceptionListForGridResult> {

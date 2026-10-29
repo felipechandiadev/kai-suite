@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CqrsModule } from '@nestjs/cqrs';
 import { ReceptionsController } from './presentation/receptions.controller';
 import { ReceptionsService } from './application/receptions.service';
+import { ReceptionVoidService } from './application/reception-void.service';
 import { Reception } from './domain/reception.entity';
 import { ReceptionLine } from './domain/reception-line.entity';
 import { Storage } from '@modules/storages/domain/storage.entity';
@@ -35,7 +36,7 @@ import { Supplier } from '@modules/suppliers/domain/supplier.entity';
     CqrsModule,
   ],
   controllers: [ReceptionsController],
-  providers: [ReceptionsService],
-  exports: [ReceptionsService],
+  providers: [ReceptionsService, ReceptionVoidService],
+  exports: [ReceptionsService, ReceptionVoidService],
 })
 export class ReceptionsModule {}
