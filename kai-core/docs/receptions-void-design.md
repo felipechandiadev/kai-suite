@@ -1,144 +1,166 @@
-# Diseño: anulación de recepciones de compra
+# Diseño: anulación de recepciones de compra (v2, con análisis de impacto transversal)
 
 Estado: **propuesta para revisión** (no implementada). Origen: observación del cliente "Corregir o eliminar una factura mal ingresada".
 Decisión acordada: no borrar físicamente; **anular con motivo obligatorio**. "Corregir" = anular + volver a ingresar.
 
-Todo lo de abajo se verificó leyendo el código en `kai-core` (rama `claude/elegant-taussig-dc639a`, v1.30.0). Donde algo no se pudo verificar se indica.
+Verificado leyendo el código (rama `claude/elegant-taussig-dc639a`, v1.30.0). Lo no verificado se marca **[NV]**.
+
+Objetivo de esta versión: que la anulación no sea un parche aislado, sino que deje **inventario, costo (PMP), cuentas por pagar, caja, contabilidad, reportes y UI consistentes**, y que corrija las brechas que la anulación vuelve visibles.
 
 ---
 
 ## 1. Qué crea hoy una recepción (`ReceptionsService.createDirect`)
 
-Archivo: `src/modules/receptions/application/receptions.service.ts`.
+Archivo: `src/modules/receptions/application/receptions.service.ts`. Secuencia **sin transacción de base de datos envolvente**:
 
-Secuencia (todo **secuencial y sin transacción de base de datos envolvente**):
+1. `Reception` + `ReceptionLine[]`.
+2. `PURCHASE` (`metadata.origin='RECEPTION'`, `metadata.receptionId`), valorado al **costo neto** sin IVA. Se guarda `reception.transactionId`.
+3. Si es factura/boleta: `SUPPLIER_INVOICE`/`SUPPLIER_RECEIPT` (`metadata.links.{receptionId, stockInTransactionId}`) + hijos `SUPPLIER_PAYMENT` (`relatedTransactionId` = documento fiscal): pagados (`CONFIRMED`, `PAID`; efectivo con `cashSessionId`/`cashHubId`; transferencia/cheque con `bankAccountKey`/`checkData`) o programados (`DRAFT`, `PENDING` = cuotas).
+4. `recalculateParentPaymentStatus` y refresco de `expected_amount` de la sesión de caja POS.
 
-1. Guarda `Reception` + `ReceptionLine[]` (`receptions`, `reception_lines`).
-2. `maybeCreateStockInTransaction` → `TransactionsService.createTransaction` con `PURCHASE`, `metadata.origin='RECEPTION'`, `metadata.receptionId`. Líneas valoradas al **costo neto** (`unitCost` o `unitPrice`), sin IVA. Guarda `reception.transactionId`.
-3. Si `documentType` es `invoice`/`receipt`: `tryCreateReceptionSupplierFiscalDocuments` crea:
-   - `SUPPLIER_INVOICE` / `SUPPLIER_RECEIPT` (monto fiscal neto + IVA), `metadata.links.{receptionId, stockInTransactionId}`.
-   - Según `supplierDocumentPayment.mode`: hijos `SUPPLIER_PAYMENT` con `relatedTransactionId = documento fiscal`: pagados (`CONFIRMED`, `PAID`; CASH puede llevar `cashSessionId`/`cashHubId`; TRANSFER/CHECK llevan `bankAccountKey`, cheque con `checkData`) o programados (`DRAFT`, `PENDING`, las "cuotas").
-   - `recalculateParentPaymentStatus` y refresco de `expected_amount` de la sesión de caja POS.
-
-Efectos secundarios por automatización al crearse el `PURCHASE` (`src/modules/automation/application/handlers/actions/`):
+Automatizaciones disparadas por el `PURCHASE` (`modules/automation/application/handlers/actions/`):
 
 | Acción | Efecto |
 |---|---|
-| `update-stock.action.ts` | `StockLevel.physicalStock += qtyBase` por variante/bodega; guarda `storagePhysicalBefore/After` en `reception_lines`; **recalcula `ProductVariant.pmp`** (promedio ponderado con `resolvePmpAfterValuedInbound`) y agrega entrada a `pmpHistory` |
-| `generate-ledger-entries.action.ts` | Asientos (ver §4) |
-| `create-installments.action.ts` | Solo si el PURCHASE trae plan en metadata; la recepción **no** lo envía (el plan vive en `SUPPLIER_PAYMENT` DRAFT) |
+| `update-stock.action.ts` | `StockLevel.physicalStock += qty`; guarda `storagePhysicalBefore/After` en `reception_lines`; recalcula `ProductVariant.pmp` (promedio ponderado) y agrega a `pmpHistory` |
+| `generate-ledger-entries.action.ts` | Asientos (§4) |
+| `create-installments.action.ts` | Solo si el PURCHASE trae plan en metadata; la recepción no lo envía |
 
-Hallazgos importantes del flujo actual:
+Consecuencias de diseño:
+- Creación **no atómica**: pueden existir recepciones con PURCHASE pero sin documento fiscal (o al revés, `supplierDocumentError`), o sin PURCHASE (`transactionError`). La anulación debe tolerar esos estados.
+- La recepción **no guarda** el id del documento fiscal ni de los pagos; se hallan por `metadata.links.receptionId` y `relatedTransactionId`.
+- La CxP contable nace del `PURCHASE` (2.1.01); no hay reglas seed para `SUPPLIER_INVOICE`.
 
-- **No es atómico**: puede quedar PURCHASE creado y documento fiscal fallido (`supplierDocumentError`) o viceversa. La anulación debe tolerar recepciones "a medias" (sin `transactionId`, sin documento fiscal).
-- La recepción **no guarda** el id del documento fiscal ni de los pagos; se encuentran por `metadata.links.receptionId` (documento fiscal) y `relatedTransactionId` (pagos).
-- El PURCHASE usa el **neto**; la CxP contable sale del PURCHASE (`2.1.01`), no del `SUPPLIER_INVOICE` (no existen reglas contables seed para `SUPPLIER_INVOICE`; sí para `SUPPLIER_PAYMENT`).
+## 2. Referentes existentes
 
-## 2. Cómo se revierte hoy una venta y qué hay para compras
+**Anulación de venta** (`void-sale.service.ts`, `POST transactions/sales/:id/void`, `VoidSaleDto{reason ≥3}`): bloquea fiscales y con devoluciones; reingresa stock con `ADJUSTMENT_IN`; crea `VOID_ADJUSTMENT` negativo; marca hijos `VOIDED`; cierra cuotas (las deja `PAID` con marca); ajusta `expected_amount` de caja. Limitaciones que **no** debemos copiar: stock y VOID_ADJUSTMENT se crean **fuera** de la transacción BD; no revierte asientos (el `ADJUSTMENT_IN` genera Dr Inventario / Cr 4.2.01 "Recuperos de mermas", que no es el reverso de la venta); cerrar cuotas como `PAID` ensucia reportes de cobrado.
 
-`src/modules/transactions/application/void-sale.service.ts`, endpoint `POST transactions/sales/:id/void` (`VoidSaleDto { reason, min 3 }`):
+**Devolución a proveedor** (`purchase-returns.controller.ts`): crea `PURCHASE_RETURN` (Dr 2.1.01 / Cr 1.2.01 + reverso IVA). Brecha: ver G3.
 
-1. Valida: motivo ≥3, no ya anulada, no borrador, **bloquea ventas con documento fiscal** (BOLETA/FACTURA) y **con devoluciones asociadas**.
-2. Reingresa stock con una `ADJUSTMENT_IN` (`metadata.origin='SALE_VOID'`) → pasa por `update-stock`.
-3. Crea `VOID_ADJUSTMENT` con montos negativos (guardado directo).
-4. En una `dataSource.transaction`: marca pagos hijos `VOIDED`, cierra cuotas abiertas (como `PAID`, con `metadata.cancelledBySaleVoid`), marca la venta `VOIDED` con `metadata.void`, ajusta `cash_sessions.expected_amount`.
-5. Revierte promociones, invalida caché.
+`VoidTransactionCommandHandler` (genérico) solo cambia estado; no toca stock/ledger.
 
-Notas: los pasos 2–3 quedan **fuera** de la transacción del paso 4 (no atómico). `void-sale` **no revierte asientos contables** explícitamente: el `VOID_ADJUSTMENT` no tiene regla seed, y el `ADJUSTMENT_IN` genera un asiento propio (Dr Inventario / Cr 4.2.01 Recuperos de mermas), que **no es** el reverso del asiento de la venta. Es una limitación del void de ventas que no debemos copiar para compras.
+## 3. PMP
 
-Existe además `VoidTransactionCommandHandler` (genérico, solo cambia estado a `VOIDED` + evento; no toca stock ni contabilidad) y `use-cases/void-transaction.usecase.ts` (crea `VOID_ADJUSTMENT`). Ninguno sirve por sí solo para recepciones.
+- `ProductVariant.pmp` es global por variante. `pmpHistory` (JSON, máx. 500) guarda `{previousPmp,newPmp,transactionId,unitCost,quantity,…}` **solo si el PMP cambió**. Solo `PURCHASE` y `ADJUSTMENT_IN` de producción lo mueven; las salidas no.
+- Ventas guardan `unitCost` (snapshot): anular una compra **no** reescribe márgenes pasados.
 
-**Devoluciones a proveedor** (`purchasing-supplier-documents/presentation/purchase-returns.controller.ts`): `POST purchase-returns` crea una transacción `PURCHASE_RETURN` (`metadata.links.receptionId`, `relatedTransactionId`). Regla contable seed: Dr 2.1.01 Proveedores / Cr 1.2.01 Inventario (+ reverso de IVA). **Hallazgo a verificar con el equipo:** `update-stock.action.ts` no incluye `PURCHASE_RETURN` en `incomingTypes` ni `outgoingTypes`, y no encontré otro manejador en `inventory/` ni `transactions/` que descuente stock para ese tipo (`products.service.ts` lo mapea como `'OUT'` solo para listados). Es decir, **es probable que las devoluciones a proveedor hoy no descuenten stock**. No es parte de esta tarea, pero impide usar `PURCHASE_RETURN` como mecanismo de reverso.
-
-## 3. PMP: ¿se puede revertir?
-
-- `ProductVariant.pmp` es un único valor global por variante (no por bodega). `pmpHistory` (JSON, máx. 500 entradas, `helpers/pmp-history.ts`) guarda `{at, previousPmp, newPmp, source, transactionId, storageId, unitCost, quantity}` — **solo cuando el PMP cambió** (si `prev == next` a 2 decimales no se agrega entrada).
-- Solo `PURCHASE` y `ADJUSTMENT_IN` con `origin='PRODUCTION_OUTPUT'` mueven el PMP. Las salidas (ventas, `ADJUSTMENT_OUT`) **no** lo mueven, solo la cantidad.
-- Las ventas guardan `unitCost` (snapshot del PMP al vender) → anular la compra **no** reescribe márgenes históricos.
-
-Reversión posible, con condiciones:
-
-1. **Caso seguro**: la entrada de `pmpHistory` con `transactionId = PURCHASE de la recepción` existe y es la **última** del historial de esa variante → restaurar `pmp = entry.previousPmp` (y registrar entrada nueva `source: 'void_reception'`). Nadie más movió el PMP desde entonces.
-2. **Caso con compras posteriores**: restaurar `previousPmp` sería incorrecto (borra el efecto de compras posteriores). Alternativa: recalcular PMP desde la secuencia de entradas posteriores (reproducir `resolvePmpAfterValuedInbound` omitiendo la anulada). Requiere stock global previo a cada compra, que **no** está en `pmpHistory` (solo `quantity` entrante), y las salidas intermedias alteran la base. **No se puede reconstruir de forma exacta con la información guardada.**
-3. **Sin entrada en el historial** (PMP no cambió, o historial truncado a 500, o recepciones anteriores a la introducción del historial): no hay dato; dejar PMP sin cambios y avisar.
-
-Conclusión PMP: **se puede revertir exacto solo en el caso 1**. En los otros se debe o bloquear la anulación o aceptar "PMP no recalculado" con aviso explícito. Se propone bloquear en caso 2 (compra posterior que movió el PMP de alguna variante de la recepción) salvo que el usuario confirme explícitamente (`acknowledgePmpNotRestored`).
+Reversión:
+1. **Seguro**: la entrada de `pmpHistory` del PURCHASE existe y es la **última** del historial de la variante → `pmp = previousPmp` + nueva entrada `source:'void_reception'`.
+2. **Hay compras/producción posteriores que movieron el PMP**: no reconstruible exacto (no se guarda stock global previo por entrada). → **bloquear** (o confirmación explícita `acknowledgePmpNotRestored`).
+3. **Sin entrada** (PMP no cambió, historial truncado, recepción antigua): PMP sin cambios, con aviso.
+- Mejora asociada (G9): guardar `globalStockBefore` en `pmpHistory` para poder recalcular por reproducción en el futuro.
 
 ## 4. Contabilidad
-
-Asientos por tipo (seed `accounting-rules.seed.ts`; el motor `ledger-entries.service.ts`/`AccountingEngine.ts`):
 
 | Transacción | Debe | Haber |
 |---|---|---|
 | `PURCHASE` (por línea) | 1.2.01 Inventario | 2.1.01 Proveedores |
-| IVA en PURCHASE (si hay regla con tax) | 1.2.04 IVA crédito | 2.1.01 |
-| `SUPPLIER_PAYMENT` confirmado | 2.1.01 Proveedores | 1.1.01 Caja / 1.1.02 Banco |
-| `PURCHASE_RETURN` | 2.1.01 | 1.2.01 (+ reverso IVA) |
-| `ADJUSTMENT_OUT` | 5.2.01 Pérdidas y mermas | 1.2.01 Inventario |
+| IVA en PURCHASE (si hay regla) | 1.2.04 | 2.1.01 |
+| `SUPPLIER_PAYMENT` confirmado | 2.1.01 | 1.1.01 Caja / 1.1.02 Banco |
+| `ADJUSTMENT_OUT` | 5.2.01 Pérdidas | 1.2.01 Inventario |
 
-Las entradas (`LedgerEntry`) no tienen estado ni referencia de reverso; el motor solo sabe **borrar y regenerar** por `transactionId` (`postTransactionToLedger`: `ledgerRepo.delete({ transactionId })`, solo si `CONFIRMED`).
+`LedgerEntry` no tiene estado ni vínculo de reverso; el motor solo hace borrar+regenerar por `transactionId`.
 
-Opciones para el reverso:
+**Decisión recomendada (cambia respecto de v1)**: no crear tipo/enum nuevo ni depender de reglas por compañía. Agregar al motor `postReversalOfTransaction(manager, originalTxId, reversalTxId)`: copia los `LedgerEntry` ya contabilizados del PURCHASE original **invirtiendo debe/haber**, ligados a una transacción de reverso (`VOID_ADJUSTMENT`, que ya existe, con `metadata.origin='RECEPTION_VOID'`), con `metadata.reversalOf`. Ventajas: reverso **exacto** de lo realmente contabilizado (incluido IVA y reglas personalizadas), auditable (el original permanece), sin migración de enum ni reseed. El stock sale con `ADJUSTMENT_OUT` marcado `origin='RECEPTION_VOID'` y el generador de asientos debe **omitirlo** (igual que ya omite `PAYMENT_IN` `pos_sale`) para no registrar una pérdida por merma.
+- Descartado: usar `ADJUSTMENT_OUT` sin omitir ledger (registra merma, deja CxP), y borrar asientos (destruye auditoría).
+- **[NV]** Si un período contable cerrado bloquea escrituras: `create-transaction.usecase.ts` solo llama `ensurePeriod`. Regla: si el período de la recepción está cerrado → bloquear.
 
-- **A. `ADJUSTMENT_OUT` por el stock**: baja el stock correctamente, pero contablemente genera Dr 5.2.01 Pérdidas / Cr Inventario — **incorrecto** para una anulación (reconocería una pérdida y dejaría la CxP intacta). No usar sin regla propia.
-- **B. Nueva transacción tipo reverso con reglas propias** (p. ej. `PURCHASE_VOID` o `VOID_ADJUSTMENT` con `metadata.voidOfType='PURCHASE'` + regla Dr 2.1.01 / Cr 1.2.01 y reverso de IVA): contablemente limpio y auditable (el asiento original queda y se compensa). Requiere: nuevo enum de tipo (migración de enum Postgres, como `supplier-invoice-enum.bootstrap.ts`), reglas seed + **reglas por compañía ya sembradas en BD** (hay que migrarlas/insertarlas para compañías existentes), y prueba con el motor. Es el camino recomendado, pero es trabajo contable nuevo.
-- **C. Borrar los asientos del PURCHASE** (`ledgerRepo.delete`): fácil pero **destruye auditoría** y falla si el período contable está cerrado. No recomendado.
-- Período cerrado: `create-transaction.usecase.ts` usa `ensurePeriod`; no verifiqué si bloquea escritura en períodos cerrados. Debe comprobarse: si el período de la recepción está cerrado, **bloquear** la anulación.
+## 5. Mapa de impacto (qué toca la anulación)
 
-## 5. Reglas propuestas
+| Área | Hoy | Impacto / acción requerida |
+|---|---|---|
+| **Stock** (`StockLevel`, kardex en `stock-levels.repository.ts`, `inventory.service.ts`) | La dirección IN/OUT se infiere del tipo; los movimientos recientes **no filtran VOIDED** | Salida vía `ADJUSTMENT_OUT` (origin `RECEPTION_VOID`); kardex debe mostrar PURCHASE (IN) y su anulación (OUT) para que el saldo cuadre; etiquetar la fila "Anulación de recepción". Evitar doble conteo |
+| **PMP / costos** | §3 | Restaurar según §3; `product-variants.service` (últimas compras) ya excluye VOIDED/CANCELLED: OK |
+| **Cuentas por pagar** (`accounts-payable.service.ts`) | Lista `SUPPLIER_PAYMENT` en `DRAFT` pendientes **sin mirar el estado del documento padre** | Si no se anulan las cuotas DRAFT, quedarían **deudas fantasma** vigentes. Se anulan en la misma transacción; además añadir filtro defensivo por padre no `VOIDED` (G5) |
+| **Installments** (`installment.service.ts`) | Cuotas PURCHASE solo si hay plan en metadata | Cerrar con estado explícito (no `PAID`) o añadir `CANCELLED` a `InstallmentStatus` (G6) |
+| **Caja** (`cash-sessions`, `expected_amount`) | Pagos en efectivo suman a sesión | Con pagos confirmados se **bloquea**; con cuotas DRAFT no hay efecto en caja. Refrescar de todos modos |
+| **Cheques** (`checks`) | Cheque nace del pago | Pago con cheque emitido → bloqueado (Fase 2: anular cheque) |
+| **Contabilidad** | §4 | Reverso exacto; reportes contables incluyen original + reverso (neto 0) |
+| **Reportes compras** (`purchasing-reports`) | Excluyen CANCELLED/VOIDED | OK una vez marcada `VOIDED` la `PURCHASE` **y** el documento fiscal. Revisar que listados de DTE (facturas/boletas proveedor) muestren estado "Anulada" |
+| **Reportes inventario** (`inventory-reports`) | Excluyen estados indicados (`EXCLUDED_TX_STATUSES`) | PURCHASE VOIDED desaparece pero el `ADJUSTMENT_OUT` de anulación no: **excluir también `origin='RECEPTION_VOID'`** o mostrar ambos de forma consistente (decisión: mostrar ambos solo en kardex, excluir ambos en reportes de compras) |
+| **Analytics / dashboards** (`typeorm-analytics.repository`) | `sumPurchases` excluye VOIDED | OK |
+| **Proveedor (ficha)** (`supplier-read-model.query-handler.ts`) | Une `s.receptions` con `r.status = 'PENDING'` | **`Reception` no tiene columna `status`** hoy → el conteo de pendientes es incorrecto/roto (G7). Al agregar `status` (`ACTIVE|VOIDED`) hay que definir bien esa consulta |
+| **Devoluciones a proveedor** (`resolveForPurchaseReturn`, `PurchaseReturnNewPageContent`) | Busca recepción por folio sin filtrar estado | Rechazar recepciones `VOIDED`; y al anular, bloquear si ya hay devolución |
+| **Reingreso del mismo folio** (`getBySupplierDocumentRef`) | Sin filtro de estado | Excluir `VOIDED` o devolvería la anulada; si no, "corregir" no funciona |
+| **Folio proveedor** (`SupplierDocumentFolioGuardService`) | No se usa en recepciones | Hoy se puede ingresar **dos veces la misma factura** (causa raíz del "mal ingresada"): G1. El guard debe ignorar `VOIDED` |
+| **Órdenes de compra** | `createFromPurchaseOrder` **no actualiza** estado/recibido de la OC | Al anular no hay nada que revertir, pero es una brecha: la OC nunca se marca recibida (G4). Si se corrige, la anulación debe revertirlo |
+| **POS** (`kai-pos` `PosReceptionNewPageClient`, `PosTopBar`) | Crea recepciones con pagos en efectivo de sesión | No se anula desde POS (Fase 1); el POS debe leer estado para no ofrecer acciones sobre anuladas |
+| **kai-admin** | `ReceptionsDataGrid`, `ReceptionDetailDialog`, `PurchasingDteDetailDialog`, DTE invoices/receipts grids, `PurchaseReturnNewPageContent`, bulk import | Acción "Anular", badge "Anulada", detalle solo lectura, ocultar acciones (devolución, imprimir) sobre anuladas; DTE grids muestran estado del documento; bulk import: anular no re-abre el lote |
+| **kai-store-lite** | `lite-commerce.service` mantiene recepciones **en memoria** (`receptions[]`, no BD) | Fuera de alcance; documentar que no usa este flujo |
+| **Señales / SaMI** (`signals`, `buy-now.provider`) | Enlaza a recepciones | Verificar que lecturas de compras excluyan VOIDED **[NV]** |
+| **Permisos** | Existe `RECEPTIONS_DELETE` | Reutilizar/crear `RECEPTIONS_VOID` y exigirlo en el endpoint y la UI **[NV]** que el guard por permiso esté aplicado en el controller de recepciones (hoy el controller no usa `@CurrentUser`/`@CurrentCompany`) |
+| **Multi-tenant** | `TenantSubscriber` solo rellena `companyId` en INSERT; los SELECT no se filtran | El controller de recepciones **no filtra por compañía** (G2). El void debe filtrar explícitamente por `companyId` |
+| **Auditoría** | — | Guardar `voidedBy`, `voidedAt`, `voidReason`; evento/registro en bitácora si existe **[NV]** |
 
-Estado nuevo en `Reception`: `status` (`ACTIVE` default | `VOIDED`) + `voidedAt`, `voidedBy`, `voidReason`, `voidTransactionId` (reverso). Migración: columnas con default `ACTIVE`, índice en `status`.
+## 6. Reglas de negocio
 
-Validaciones de `POST /receptions/:id/void { reason }` (≥3 caracteres, `trim`):
+Estado nuevo en `Reception`: `status` (`ACTIVE` default | `VOIDED`) + `voidedAt`, `voidedBy`, `voidReason`, `voidTransactionId`. Migración con default `ACTIVE`, índice `(company_id, status)`.
 
-1. **Existe, de la compañía** (`companyId` del contexto) y `status != VOIDED` → si no, 404/400.
-2. **Bloquear si hay pagos al proveedor aplicados** (cualquier `SUPPLIER_PAYMENT` `CONFIRMED` hijo del documento fiscal, o del PURCHASE): hoy implica caja/banco/cheque, y revertir dinero ya movido (sesión de caja cerrada, transferencia ejecutada, cheque cobrado) no es seguro. Mensaje: "anule primero los pagos". *Nota:* hoy no existe un endpoint para anular `SUPPLIER_PAYMENT`; habría que verificarlo/crearlo → posible dependencia.
-   - Los `SUPPLIER_PAYMENT` en `DRAFT` (cuotas programadas) **sí se anulan** automáticamente (`status VOIDED`, `paymentStatus VOIDED`).
-3. **Bloquear si hay devolución a proveedor** asociada (`PURCHASE_RETURN` con `metadata.links.receptionId` o `relatedTransactionId` = PURCHASE) o nota de crédito proveedor (`SUPPLIER_CREDIT_NOTE`), igual que `void-sale` con `SALE_RETURN`.
-4. **Stock consumido**: para cada variante, comparar stock actual de la bodega con lo recibido. **Bloquear si `physicalStock(bodega) < cantidad recibida`** (la mercadería ya salió; descontarla dejaría stock negativo o falsearía inventario). Si alcanza, se permite aunque haya habido ventas de otro lote, porque el stock es fungible. Mensaje con detalle por variante. (Alternativa más permisiva —solo avisar— se descarta: dejaría el inventario y el costo de ventas inconsistentes.)
-5. **PMP**: aplicar §3 (restaurar en caso 1; bloquear o exigir confirmación en caso 2).
-6. **Período contable cerrado** → bloquear.
-7. **Recepción sin PURCHASE** (`transactionId` nulo, falló la creación): permitir anular solo el registro (sin stock/asientos/PMP), marcando `VOIDED`.
-8. **Recepciones desde orden de compra** (`type='from-purchase-order'`): la OC probablemente quedó con estado "recibida". **No verifiqué** cómo se actualiza el estado de la OC en `createFromPurchaseOrder`; al anular hay que revertirlo o bloquear. Pendiente de investigar antes de implementar.
+`POST /receptions/:id/void { reason }` (≥3 caracteres tras `trim`), con `@CurrentCompany`/`@CurrentUser`:
 
-Efectos de la anulación (todo en **una** `dataSource.transaction`, a diferencia de la creación):
+1. Existe, misma compañía, `status != VOIDED`.
+2. **Bloquear** si existe `SUPPLIER_PAYMENT` `CONFIRMED` hijo del documento fiscal o del PURCHASE (dinero movido). Mensaje: anule primero los pagos (Fase 2 los hace anulables). Pagos `DRAFT` (cuotas) se anulan solos.
+3. **Bloquear** si hay `PURCHASE_RETURN` (`metadata.links.receptionId` o `relatedTransactionId`) o `SUPPLIER_CREDIT_NOTE` asociados.
+4. **Stock**: por variante y bodega, `physicalStock(actual) ≥ cantidad recibida`; si no, **bloquear** con detalle ("ya se consumió/vendió X unidades"). Se descarta solo avisar: dejaría stock negativo o inventario falso. Con stock suficiente se permite (fungible).
+5. **PMP** según §3 (bloquear en caso 2).
+6. **Período cerrado** → bloquear.
+7. Recepción sin PURCHASE (`transactionId` nulo): anular solo el registro y documentos fiscales huérfanos.
+8. Concurrencia: dentro de la transacción, `SELECT … FOR UPDATE` sobre `Reception` y `StockLevel`; idempotencia (segunda llamada → 400 "ya anulada").
 
-1. Bajar stock por bodega (movimiento de salida trazable con `metadata.origin='RECEPTION_VOID'`, sin pasar por el asiento de mermas — ver §4B).
-2. Restaurar PMP + entrada en `pmpHistory`.
-3. Asiento de reverso (§4B).
-4. `SUPPLIER_INVOICE`/`SUPPLIER_RECEIPT`: `status=VOIDED`, `paymentStatus=VOIDED`, `metadata.void`; pagos programados `DRAFT` → `VOIDED`; cuotas de `installments` ligadas al PURCHASE (si existen) cerradas con marca `cancelledByReceptionVoid` (mismo patrón que ventas; ojo: ese patrón las deja `PAID`, lo que contamina reportes de pagado — preferible un estado explícito si se agrega).
-5. `PURCHASE` original: `status=VOIDED` con `metadata.void`, **sin borrar** líneas.
-6. `Reception.status=VOIDED` + metadatos.
-7. Invalidar caché; refrescar `expected_amount` de sesión de caja si aplicó.
+Efectos, **todos en una única `dataSource.transaction`** (a diferencia de la creación y de `void-sale`):
+1. `ADJUSTMENT_OUT` (origin `RECEPTION_VOID`, sin asiento de merma) → stock.
+2. Restaurar PMP + `pmpHistory`.
+3. `VOID_ADJUSTMENT` + `postReversalOfTransaction` (asiento exacto invertido).
+4. Documento fiscal: `status`/`paymentStatus = VOIDED`; cuotas `DRAFT` → `VOIDED`; cuotas `installments` canceladas con estado explícito.
+5. `PURCHASE` → `VOIDED` con `metadata.void`; líneas intactas.
+6. `Reception.status = VOIDED` + metadatos.
+7. Invalidar cachés, `refreshExpectedAmountForSession` si aplica, emitir evento de stock en tiempo real (el handler ya emite `stockRealtime`; la salida debe notificar a POS/kai-stock).
 
-**Folio reutilizable (clave para "corregir = anular + reingresar")**: `getBySupplierDocumentRef` (`r.reference/documentNumber/dteNumber`) no filtra por estado: al reingresar la misma factura el buscador/validaciones podrían devolver la recepción anulada. Hay que excluir `VOIDED` en `getBySupplierDocumentRef`, `resolveForPurchaseReturn`, listados por defecto y reportes de compras (`purchasing-reports-query.service.ts`, `inventory-reports`: ya filtran algunos `VOIDED`, hay que revisar cada consulta). `SupplierDocumentFolioGuardService.assertUniqueFolio` **no** se usa en la creación desde recepción (solo en gastos operativos); si se usara, debe ignorar `VOIDED`.
+Respuesta: `{ success, reception:{id,status}, voidAdjustmentId, stockAdjustmentId, voidedPaymentIds }` (mismo estilo que venta).
 
-## 6. Riesgos y lo que NO se puede revertir de forma segura
+## 7. Brechas encontradas (se incluyen como mejoras)
 
-1. **Dinero ya pagado**: cualquier pago confirmado (caja cerrada, transferencia, cheque emitido/cobrado) → no revertible desde aquí; se bloquea.
-2. **PMP con compras posteriores**: no hay información suficiente para reconstruir el PMP exacto (§3 caso 2). Bloqueo o aceptación explícita de PMP desactualizado.
-3. **Asientos contables**: no existe infraestructura de reversos; la opción correcta (§4B) requiere tipo de transacción y reglas nuevas, incluyendo reglas ya sembradas en compañías existentes. Sin esto, la anulación dejaría el balance inconsistente.
-4. **Stock multi-bodega/ventas ya realizadas**: costo de ventas ya calculado con el PMP antiguo no se corrige (comportamiento aceptable, pero debe documentarse).
-5. **No atomicidad de la creación**: recepciones en estado intermedio (con PURCHASE pero sin documento fiscal o viceversa) exigen ramas defensivas.
-6. **Concurrencia**: dos anulaciones simultáneas o anulación mientras se vende ese stock → bloqueo de fila (`FOR UPDATE`) sobre `Reception` y `StockLevel` dentro de la transacción.
-7. **Brecha preexistente en `PURCHASE_RETURN`** (§2): no descuenta stock aparentemente; anular una recepción con devolución está bloqueado, pero la devolución en sí podría estar mal. Fuera de alcance, conviene abrir ticket.
-8. **Tests preexistentes**: `src/modules/product-variants` tiene 8 fallos ajenos; el módulo de PMP/stock requiere pruebas propias del void.
+| # | Brecha | Evidencia | Mejora propuesta | Fase |
+|---|---|---|---|---|
+| G1 | Se puede ingresar **la misma factura de proveedor dos veces** | `createDirect` no usa `SupplierDocumentFolioGuardService`; `getBySupplierDocumentRef` existe pero no bloquea | Validar unicidad (proveedor + folio + tipo) al crear, ignorando `VOIDED`; el front ya puede avisar con `resolve` | 1 |
+| G2 | Recepciones sin filtro de compañía en lecturas | `search`, `getById`, `resolve*`, `getBySupplierDocumentRef` y controller sin `@CurrentCompany` | Filtrar por `companyId` en todas las lecturas/escrituras del módulo | 1 |
+| G3 | `PURCHASE_RETURN` aparentemente **no descuenta stock** | `update-stock.action.ts` no lo incluye en entrantes/salientes y no hallé otro handler **[NV]** | Confirmar con prueba; si se confirma, tratarlo como salida (y PMP no cambia) | 1 (verificar) |
+| G4 | Orden de compra no se marca recibida | `createFromPurchaseOrder` no actualiza la OC | Registrar cantidades recibidas/estado en la OC y revertirlas al anular | 2 |
+| G5 | AP lista cuotas DRAFT sin validar padre | `accounts-payable.service.ts` | Excluir cuotas cuyo padre/PURCHASE esté `VOIDED/CANCELLED` | 1 |
+| G6 | Cuotas "canceladas" se marcan `PAID` | `void-sale` y `InstallmentStatus` sin CANCELLED | Agregar estado `CANCELLED` y usarlo en ventas y compras | 2 |
+| G7 | Ficha de proveedor filtra `r.status='PENDING'` en una tabla sin esa columna | `supplier-read-model.query-handler.ts` | Definir semántica real de "recepciones pendientes" (p.ej. con error de documento) o quitar el campo | 1 |
+| G8 | Creación de recepción no atómica | `createDirect` | Envolver PURCHASE + documento fiscal + pagos en una transacción BD, o registrar `status` de integridad (`INCOMPLETE`) y permitir reintento | 2 |
+| G9 | `pmpHistory` no guarda stock global previo | `appendPmpHistory` | Añadir `globalStockBefore` para poder recalcular | 2 |
+| G10 | `void-sale` no atómico y no revierte ledger | `void-sale.service.ts` | Reutilizar `postReversalOfTransaction` y una sola transacción también en ventas | 2 |
+| G11 | No existe anulación de `SUPPLIER_PAYMENT` | — | Endpoint para anular pagos a proveedor (caja, banco, cheque) para poder anular recepciones ya pagadas | 2 |
+| G12 | Edición de recepción inexistente | solo POST | Fuera de alcance: "corregir" = anular + reingresar (acordado). Mejora UX: botón "Anular y reingresar" que precarga el formulario con los datos de la anulada | 2 |
 
-## 7. Recomendación y alcance de implementación
+## 8. Riesgos y lo que no se puede revertir de forma segura
 
-No se implementó código en esta tarea porque quedan dos puntos que **no son seguros de resolver sin una decisión**:
+1. **Pagos ya ejecutados** (efectivo con caja cerrada, transferencia, cheque cobrado): no revertibles desde aquí → bloqueo (hasta G11).
+2. **PMP con compras posteriores**: sin datos para reconstruir exacto → bloqueo o confirmación explícita.
+3. **Costo de ventas ya reconocido** con el PMP anterior: no se corrige (documentado).
+4. **Período cerrado**: bloqueo; sin esto el reverso alteraría un período cerrado.
+5. **Recepciones antiguas sin `pmpHistory`/`storagePhysicalBefore`**: PMP queda sin cambios con aviso.
+6. **Concurrencia** stock/anulación simultánea: bloqueos de fila.
+7. **Listados y reportes no revisados [NV]** (señales, SaMI, kai-stock, kai-eshop): checklist de verificación antes de liberar; test que recorra cada consumidor con una recepción anulada.
 
-1. **Contabilidad (§4B)**: crear tipo/regla de reverso (migración de enum + reglas por compañía). Necesita aprobación contable.
-2. **PMP (§3)**: elegir política cuando hay compras posteriores (bloquear vs. aceptar PMP desactualizado).
+## 9. Plan por fases y pruebas
 
-Plan sugerido si se aprueba:
+**Fase 1 (núcleo seguro, valor inmediato)**
+- Migración `receptions` (status + metadatos de anulación).
+- `ReceptionVoidService` + `POST /receptions/:id/void` + permiso `RECEPTIONS_VOID`.
+- `postReversalOfTransaction` en el motor + omisión de ledger para `origin=RECEPTION_VOID`.
+- Filtros `VOIDED` en: búsqueda por folio, resolve-for-return, kardex (etiqueta), AP (G5), reportes.
+- G1 (folio duplicado), G2 (tenant), G3 (verificar), G7.
+- Tests de integración (junto a `receptions.controller.int.spec.ts`): anula sin pagos; stock vuelve; PMP restaurado; ledger neto 0; cuotas DRAFT anuladas y fuera de AP; folio reutilizable; bloqueos (pago confirmado, devolución, stock insuficiente, PMP no restaurable, ya anulada, otra compañía, motivo corto).
+- kai-admin: acción "Anular" (Dialog + motivo, Server Action → use case → request, `revalidatePath`), badge "Anulada", detalle solo lectura, acciones ocultas sobre anuladas.
 
-- **Fase 1 (MVP seguro)**: `POST /receptions/:id/void` con bloqueos de §5 (pagos confirmados, devoluciones/NC, stock insuficiente, PMP no reversible exacto, período cerrado), reverso contable §4B, estado `VOIDED`. UI: acción "Anular" en el menú `...` de `ReceptionsDataGrid`, Dialog con motivo, badge "Anulada", detalle solo lectura. Pruebas de integración junto a `receptions.controller.int.spec.ts`.
-- **Fase 2**: anulación de pagos a proveedor (para poder anular recepciones ya pagadas), recálculo de PMP por reproducción, estado explícito de cuotas.
+**Fase 2**: G4, G6, G8, G9, G10, G11, G12.
 
-### Decisiones que necesito del usuario
-
-1. ¿Aprueban crear el tipo de transacción de reverso de compra con reglas contables propias (§4B)?
-2. Con compras posteriores que movieron el PMP: ¿**bloquear** (recomendado) o permitir dejando el PMP sin recalcular con aviso?
-3. ¿Recepciones con pagos confirmados quedan **bloqueadas** en esta fase (recomendado)?
-4. ¿Se acepta bloquear cuando el stock actual es menor al recibido?
+### Decisiones que necesito
+1. ¿Aprueban el reverso contable por **espejo de asientos** (§4) en lugar de tipo/reglas nuevas?
+2. PMP con compras posteriores: ¿**bloquear** (recomendado) o permitir con aviso?
+3. ¿Pagos confirmados bloquean la anulación en Fase 1 (recomendado)?
+4. ¿Bloquear si el stock actual es menor al recibido (recomendado)?
+5. ¿Incluyen en Fase 1 las brechas G1, G2, G5, G7 (recomendado) o prefieren un PR aparte?
