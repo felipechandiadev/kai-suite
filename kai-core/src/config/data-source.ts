@@ -217,6 +217,7 @@ import { ProductTypePackAgregado1757690000000 } from '../migrations/175769000000
 import { AssistantSami1757700000000 } from '../migrations/1757700000000-AssistantSami';
 import { SamiSalesCatalogExpand1757710000000 } from '../migrations/1757710000000-SamiSalesCatalogExpand';
 import { PricingWeeklySnapshots1757720000000 } from '../migrations/1757720000000-PricingWeeklySnapshots';
+import { ReceptionVoid1757730000000 } from '../migrations/1757730000000-ReceptionVoid';
 import { LaundryReceptionModule1757430000000 } from '../migrations/1757430000000-LaundryReceptionModule';
 import { DiningKitchenFireId1757140000000 } from '../migrations/1757140000000-DiningKitchenFireId';
 import { DiningKitchenFireNumber1757150000000 } from '../migrations/1757150000000-DiningKitchenFireNumber';
@@ -621,6 +622,7 @@ export const AppDataSource = new DataSource({
     AssistantSami1757700000000,
     SamiSalesCatalogExpand1757710000000,
     PricingWeeklySnapshots1757720000000,
+    ReceptionVoid1757730000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',
