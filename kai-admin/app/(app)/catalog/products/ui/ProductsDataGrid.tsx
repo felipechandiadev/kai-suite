@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Barcode, Check, X } from "lucide-react";
+import { variantSaleNet, variantCost } from "@/features/inventory-products/lib/variant-price-cost";
 import { Badge, Button, DataGridTable as DataGrid, DeleteDialog, IconButton, Select, Switch, type DataGridColumn, type Option } from "@kai/ui";
 import type { ProductGridRow, ProductVariantGridRow, ProductVariantMediaAsset } from "@/features/inventory-products/types/product-grid.types";
 import {
@@ -16,6 +17,9 @@ import { CreateProductVariantDialog } from "./CreateProductVariantDialog";
 import { ProductEShopPreviewDialog } from "./ProductEShopPreviewDialog";
 import { BulkProductImportDialog } from "@/features/inventory-products/ui/BulkProductImportDialog";
 import { MultimediaLightbox } from "@/shared/components/Multimedia";
+import { GridUrlSelectFilter } from "@/shared/components/GridUrlSelectFilter/GridUrlSelectFilter";
+import type { CategoryListItem } from "@/features/inventory-categories/types/category.types";
+import type { BrandListItem } from "@/features/catalog-brands/types/brand.types";
 import type { MultimediaLightboxItem } from "@/shared/components/Multimedia/types";
 import {
   catalogProductTypeIsSellable,
@@ -32,7 +36,22 @@ import type { VariantBarcodeLabelPrintInput } from "@/features/catalog-products/
 type ProductsDataGridProps = {
   rows: ProductGridRow[];
   total: number;
+  categories?: CategoryListItem[];
+  brands?: BrandListItem[];
 };
+
+const PRODUCT_STATUS_OPTIONS: Option[] = [
+  { id: "active", label: "Activos" },
+  { id: "inactive", label: "Inactivos" },
+];
+const WITH_WITHOUT_PRICE_OPTIONS: Option[] = [
+  { id: "with", label: "Con precio" },
+  { id: "without", label: "Sin precio" },
+];
+const WITH_WITHOUT_COST_OPTIONS: Option[] = [
+  { id: "with", label: "Con costo" },
+  { id: "without", label: "Sin costo" },
+];
 
 function ProductGridFlagSwitch({
   productId,
@@ -187,19 +206,6 @@ function formatVariantAttributeEntries(v: ProductVariantGridRow): Array<{ key: s
   return Object.entries(raw)
     .map(([key, val]) => ({ key, value: val != null ? String(val).trim() : "" }))
     .filter((x) => x.value.length > 0);
-}
-
-/** Precio neto de venta de una variante: primera lista con monto; si no, `basePrice`. */
-function variantSaleNet(v: ProductVariantGridRow): number | null {
-  const item = (v.priceListItems ?? []).find((p) => p.netPrice > 0);
-  if (item) return item.netPrice;
-  return v.basePrice != null && v.basePrice > 0 ? v.basePrice : null;
-}
-
-/** Costo de una variante: PMP si existe, si no costo base. */
-function variantCost(v: ProductVariantGridRow): number | null {
-  if (v.pmp != null && v.pmp > 0) return v.pmp;
-  return v.baseCost != null && v.baseCost > 0 ? v.baseCost : null;
 }
 
 /** Valor único o rango mín–máx entre variantes; «—» si ninguna tiene dato. */
@@ -679,11 +685,19 @@ function ProductExpandPanel({
   );
 }
 
-export default function ProductsDataGrid({ rows, total }: ProductsDataGridProps) {
+export default function ProductsDataGrid({ rows, total, categories = [], brands = [] }: ProductsDataGridProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { company } = useCompany();
   const companyKaiProduct = company?.kaiProduct;
+  const categoryOptions: Option[] = useMemo(
+    () => categories.map((c) => ({ id: c.id, label: c.name })),
+    [categories],
+  );
+  const brandOptions: Option[] = useMemo(
+    () => brands.filter((b) => b.isActive !== false).map((b) => ({ id: b.id, label: b.name })),
+    [brands],
+  );
   const expandProductId = searchParams.get("expandProduct")?.trim() || null;
   const [createOpen, setCreateOpen] = useState(false);
   const [editRow, setEditRow] = useState<ProductGridRow | null>(null);
@@ -1008,7 +1022,42 @@ export default function ProductsDataGrid({ rows, total }: ProductsDataGridProps)
         expandable
         expandableRowContent={(row) => expandableRowContent(row as ProductGridRow)}
         defaultExpandedRowIds={expandProductId ? [expandProductId] : []}
-        headerActions={<ProductTypeFilter companyKaiProduct={companyKaiProduct} />}
+        headerActions={
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <ProductTypeFilter companyKaiProduct={companyKaiProduct} />
+            <GridUrlSelectFilter
+              param="categoryId"
+              label="Categoría"
+              options={categoryOptions}
+              data-test-id="products-category-filter"
+            />
+            <GridUrlSelectFilter
+              param="brandId"
+              label="Marca"
+              options={brandOptions}
+              data-test-id="products-brand-filter"
+            />
+            <GridUrlSelectFilter
+              param="status"
+              label="Estado"
+              options={PRODUCT_STATUS_OPTIONS}
+              className="min-w-40 max-w-xs"
+              data-test-id="products-status-filter"
+            />
+            <GridUrlSelectFilter
+              param="price"
+              label="Precio venta"
+              options={WITH_WITHOUT_PRICE_OPTIONS}
+              data-test-id="products-price-filter"
+            />
+            <GridUrlSelectFilter
+              param="cost"
+              label="Costo"
+              options={WITH_WITHOUT_COST_OPTIONS}
+              data-test-id="products-cost-filter"
+            />
+          </div>
+        }
         onAddClick={() => setCreateOpen(true)}
         data-test-id="products-data-grid"
       />

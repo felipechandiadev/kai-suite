@@ -55,6 +55,25 @@ function compactUnitSymbol(u: { symbol?: string | null; name?: string | null } |
   return name.length <= 10 ? name : `${name.slice(0, 8)}…`;
 }
 
+/** Costo unitario: PMP vigente; si no hay, costo base de la variante. */
+function resolveVariantUnitCost(variant: ProductVariant): number | null {
+  const pmp = Number(variant.pmp);
+  if (Number.isFinite(pmp) && pmp > 0) return pmp;
+  const base = Number(variant.baseCost);
+  return Number.isFinite(base) && base > 0 ? base : null;
+}
+
+/** Precio de venta neto: lista predeterminada con monto; si no, cualquier lista; si no, `basePrice`. */
+function resolveVariantSalePrice(variant: ProductVariant): number | null {
+  const items = (variant.priceListItems ?? []).filter(
+    (i) => Number.isFinite(Number(i.netPrice)) && Number(i.netPrice) > 0,
+  );
+  const preferred = items.find((i) => i.priceList?.isDefault === true) ?? items[0];
+  if (preferred) return Number(preferred.netPrice);
+  const base = Number(variant.basePrice);
+  return Number.isFinite(base) && base > 0 ? base : null;
+}
+
 function parsePositiveBridge(raw: unknown): number | null {
   if (raw === null || raw === undefined || raw === '') {
     return null;
@@ -143,6 +162,12 @@ export class InventoryService {
     storageId?: string;
     /** Query `stock-alerts`: solo variantes con alerta de umbrales activa. */
     stockAlerts?: string | boolean;
+    /** Filtra por categoría del producto. */
+    categoryId?: string;
+    /** Filtra por marca del catálogo (`product.brandId`). */
+    brandId?: string;
+    /** `with-stock` | `no-stock` | `no-cost` (sin PMP ni costo base). */
+    stockStatus?: string;
     page?: number;
     limit?: number;
     sortField?: string;
@@ -157,8 +182,24 @@ export class InventoryService {
       .leftJoinAndSelect('variant.unit', 'unit')
       .leftJoinAndSelect('variant.stockBaseUnit', 'stockBaseUnit')
       .leftJoinAndSelect('variant.saleUnit', 'saleUnit')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('variant.priceListItems', 'priceListItems')
+      .leftJoinAndSelect('priceListItems.priceList', 'priceList')
       .where('variant.deletedAt IS NULL')
       .andWhere('(product.deletedAt IS NULL OR product.id IS NULL)');
+
+    const categoryFilter = params?.categoryId?.trim();
+    if (categoryFilter) {
+      variantQb.andWhere('product.categoryId = :stockCategoryId', {
+        stockCategoryId: categoryFilter,
+      });
+    }
+    const brandFilter = params?.brandId?.trim();
+    if (brandFilter) {
+      variantQb.andWhere('product.brandId = :stockBrandId', {
+        stockBrandId: brandFilter,
+      });
+    }
 
     applyInventoryStockTextSearch(variantQb, params?.search);
 
@@ -245,6 +286,9 @@ export class InventoryService {
         productId: product?.id || null,
         variantId: variant.id,
         productName: product?.name || '',
+        categoryName: product?.category?.name || null,
+        unitCost: resolveVariantUnitCost(variant),
+        salePrice: resolveVariantSalePrice(variant),
         sku: variant.sku || '',
         barcode: variant.barcode || '',
         unitOfMeasure: (() => {
@@ -375,6 +419,14 @@ export class InventoryService {
     if (parseStockAlertsQueryParam(params?.stockAlerts)) {
       rows = rows.filter((r) => Boolean(r.hasStockAlert));
     }
+    const stockStatus = params?.stockStatus?.trim();
+    if (stockStatus === 'with-stock') {
+      rows = rows.filter((r) => Number(r.totalStock) > 0);
+    } else if (stockStatus === 'no-stock') {
+      rows = rows.filter((r) => !(Number(r.totalStock) > 0));
+    } else if (stockStatus === 'no-cost') {
+      rows = rows.filter((r) => r.unitCost == null);
+    }
     for (const r of rows) {
       r.pmpValue =
         r.pmp != null && Number.isFinite(Number(r.pmp))
@@ -416,6 +468,14 @@ export class InventoryService {
         case 'pmp':
           va = a.pmp != null ? Number(a.pmp) : -1;
           vb = b.pmp != null ? Number(b.pmp) : -1;
+          break;
+        case 'unitCost':
+          va = a.unitCost != null ? Number(a.unitCost) : -1;
+          vb = b.unitCost != null ? Number(b.unitCost) : -1;
+          break;
+        case 'salePrice':
+          va = a.salePrice != null ? Number(a.salePrice) : -1;
+          vb = b.salePrice != null ? Number(b.salePrice) : -1;
           break;
         case 'pmpValue':
           va = a.pmpValue != null ? Number(a.pmpValue) : -1;

@@ -64,6 +64,11 @@ export type StockGridRow = {
   inventoryValueCost: number;
   pmp: number | null;
   pmpValue: number | null;
+  /** Costo unitario: PMP vigente o, si no hay, costo base de la variante. */
+  unitCost: number | null;
+  /** Precio de venta neto vigente (lista predeterminada o precio base). */
+  salePrice: number | null;
+  categoryName: string | null;
   isBelowMinimum: boolean;
   /** Variante con al menos un umbral activo incumplido (mín / máx / reposición). */
   hasStockAlert?: boolean;
@@ -80,6 +85,10 @@ export type ListStockForGridInput = {
   branchId?: string;
   /** Filtra solo variantes en alerta de stock (`stock-alerts=true` en API). */
   stockAlerts?: boolean;
+  categoryId?: string;
+  brandId?: string;
+  /** `with-stock` | `no-stock` | `no-cost`. */
+  stockStatus?: string;
   page: number;
   limit: number;
   sortField: string;

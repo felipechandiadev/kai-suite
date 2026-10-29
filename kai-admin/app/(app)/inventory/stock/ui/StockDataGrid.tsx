@@ -13,6 +13,9 @@ import {
 } from "@kai/ui";
 import type { StockGridRow, StockStorageBreakdownRow } from "@/features/inventory-stock/types/stock-grid.types";
 import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
+import type { CategoryListItem } from "@/features/inventory-categories/types/category.types";
+import type { BrandListItem } from "@/features/catalog-brands/types/brand.types";
+import { GridUrlSelectFilter } from "@/shared/components/GridUrlSelectFilter/GridUrlSelectFilter";
 import { useNotificationsRealtime } from "@/features/notifications/realtime/notifications-realtime-context";
 import { EditVariantStockConfigDialog } from "./EditVariantStockConfigDialog";
 import { StockMovementsDialog } from "./StockMovementsDialog";
@@ -29,6 +32,8 @@ type StockDataGridProps = {
   rows: StockGridRow[];
   total: number;
   storages: StorageListItem[];
+  categories?: CategoryListItem[];
+  brands?: BrandListItem[];
   /** When set, expand cards only list storages belonging to this branch. */
   branchId?: string;
   /** Almacén del filtro de la página; preselección en el diálogo de movimientos. */
@@ -130,10 +135,18 @@ function StockStorageFilter({ storages }: { storages: StorageListItem[] }) {
 }
 
 
+const STOCK_STATUS_OPTIONS: Option[] = [
+  { id: "with-stock", label: "Con stock" },
+  { id: "no-stock", label: "Sin stock" },
+  { id: "no-cost", label: "Sin costo" },
+];
+
 export default function StockDataGrid({
   rows,
   total,
   storages,
+  categories = [],
+  brands = [],
   branchId,
   filterStorageId,
 }: StockDataGridProps) {
@@ -151,6 +164,15 @@ export default function StockDataGrid({
     }, 400);
     return () => window.clearTimeout(t);
   }, [stockRefreshToken, router]);
+
+  const categoryOptions: Option[] = useMemo(
+    () => categories.map((c) => ({ id: c.id, label: c.name })),
+    [categories],
+  );
+  const brandOptions: Option[] = useMemo(
+    () => brands.filter((b) => b.isActive !== false).map((b) => ({ id: b.id, label: b.name })),
+    [brands],
+  );
 
   const stockOps = useStockStorageOperations({ rows, storages });
 
@@ -201,7 +223,10 @@ export default function StockDataGrid({
           const attrs = formatAttrs(r.attributeValues);
           return (
             <div className="min-w-0 w-full space-y-0.5">
-              <p className="font-medium text-foreground">{r.productName}</p>
+              <p className="font-medium text-foreground">
+                {r.productName.trim() || <span className="text-muted-foreground">Sin nombre · {r.sku}</span>}
+              </p>
+              {r.categoryName ? <p className="text-xs text-muted-foreground">{r.categoryName}</p> : null}
               {attrs ? <p className="text-xs text-muted-foreground">{attrs}</p> : null}
             </div>
           );
@@ -284,6 +309,38 @@ export default function StockDataGrid({
         ),
       },
       {
+        field: "unitCost",
+        headerName: "Costo unit.",
+        sortable: true,
+        width: 120,
+        align: "right",
+        renderCell: ({ row }) => {
+          const r = row as StockGridRow;
+          return r.unitCost != null ? (
+            <span className="tabular-nums text-foreground">{formatMoney(r.unitCost)}</span>
+          ) : (
+            <span className="text-muted-foreground">Sin costo</span>
+          );
+        },
+      },
+      {
+        field: "salePrice",
+        headerName: "Precio venta",
+        sortable: true,
+        width: 120,
+        align: "right",
+        renderCell: ({ row }) => {
+          const r = row as StockGridRow;
+          return r.salePrice != null ? (
+            <span className="tabular-nums text-foreground" title="Precio neto vigente">
+              {formatMoney(r.salePrice)}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">Sin precio</span>
+          );
+        },
+      },
+      {
         field: "pmpValue",
         headerName: "Valor stock (PMP)",
         sortable: true,
@@ -349,6 +406,25 @@ export default function StockDataGrid({
         headerActions={
           <div className="flex flex-wrap items-center justify-center gap-4">
             <StockStorageFilter storages={storages} />
+            <GridUrlSelectFilter
+              param="categoryId"
+              label="Categoría"
+              options={categoryOptions}
+              data-test-id="stock-category-filter"
+            />
+            <GridUrlSelectFilter
+              param="brandId"
+              label="Marca"
+              options={brandOptions}
+              data-test-id="stock-brand-filter"
+            />
+            <GridUrlSelectFilter
+              param="stockStatus"
+              label="Existencia"
+              options={STOCK_STATUS_OPTIONS}
+              className="min-w-44 max-w-xs"
+              data-test-id="stock-status-filter"
+            />
             <StockAlertsFilter />
           </div>
         }

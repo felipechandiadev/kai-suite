@@ -248,6 +248,16 @@ function normalizeRow(row: unknown): StockGridRow | null {
         : o.pmp != null && o.pmp !== "" && Number.isFinite(Number(o.pmp))
           ? Number(o.pmp)
           : null,
+    unitCost:
+      o.unitCost != null && o.unitCost !== "" && Number.isFinite(Number(o.unitCost))
+        ? Number(o.unitCost)
+        : null,
+    salePrice:
+      o.salePrice != null && o.salePrice !== "" && Number.isFinite(Number(o.salePrice))
+        ? Number(o.salePrice)
+        : null,
+    categoryName:
+      typeof o.categoryName === "string" && o.categoryName.trim() ? o.categoryName.trim() : null,
     pmpValue:
       typeof o.pmpValue === "number" && Number.isFinite(o.pmpValue)
         ? o.pmpValue
@@ -285,6 +295,9 @@ export class InventoryRequest {
     storageId?: string;
     branchId?: string;
     stockAlerts?: boolean;
+    categoryId?: string;
+    brandId?: string;
+    stockStatus?: string;
     page?: number;
     limit?: number;
     sortField?: string;
@@ -303,6 +316,15 @@ export class InventoryRequest {
     }
     if (params.stockAlerts) {
       q.set("stock-alerts", "true");
+    }
+    if (params.categoryId?.trim()) {
+      q.set("categoryId", params.categoryId.trim());
+    }
+    if (params.brandId?.trim()) {
+      q.set("brandId", params.brandId.trim());
+    }
+    if (params.stockStatus?.trim()) {
+      q.set("stockStatus", params.stockStatus.trim());
     }
     q.set("page", String(Math.max(1, params.page ?? 1)));
     q.set("limit", String(Math.min(500, Math.max(1, params.limit ?? 25))));

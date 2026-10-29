@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import { listStockForGrid } from "@/features/inventory-stock/actions/stock.action";
 import { listStoragesForPage } from "@/features/inventory-storages/actions/storage.action";
+import { listCategoriesForPage } from "@/features/inventory-categories/actions/category.action";
+import { listBrandsForPage } from "@/features/catalog-brands/actions/brand.action";
 import StockDataGrid from "./ui/StockDataGrid";
 import { LoadingState } from '@kai/ui';
 
@@ -28,22 +30,30 @@ export default async function Page({
   const sort = sortRaw === "desc" ? "desc" : "asc";
   const storageId = parseSp(sp, "storageId");
   const branchId = parseSp(sp, "branchId");
+  const categoryId = parseSp(sp, "categoryId");
+  const brandId = parseSp(sp, "brandId");
+  const stockStatus = parseSp(sp, "stockStatus");
   const stockAlertsRaw = parseSp(sp, "stock-alerts").toLowerCase();
   const stockAlerts =
     stockAlertsRaw === "true" || stockAlertsRaw === "1" || stockAlertsRaw === "yes";
 
-  const [result, storages] = await Promise.all([
+  const [result, storages, categories, brands] = await Promise.all([
     listStockForGrid({
       search,
       storageId: storageId || undefined,
       branchId: branchId || undefined,
       stockAlerts: stockAlerts ? true : undefined,
+      categoryId: categoryId || undefined,
+      brandId: brandId || undefined,
+      stockStatus: stockStatus || undefined,
       page,
       limit,
       sortField,
       sort,
     }),
     listStoragesForPage(),
+    listCategoriesForPage(),
+    listBrandsForPage(),
   ]);
 
   return (
@@ -57,6 +67,8 @@ export default async function Page({
           rows={result.rows}
           total={result.total}
           storages={storages}
+          categories={categories}
+          brands={brands}
           branchId={branchId || undefined}
           filterStorageId={storageId || undefined}
         />

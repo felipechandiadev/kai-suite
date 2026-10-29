@@ -5,6 +5,7 @@ import { ProductRequest } from "../infrastructure/product.request";
 import type { CatalogProductType, ProductGridRow } from "../types/product-grid.types";
 import type { VariantTaxCategory } from "../types/variant-fiscal.types";
 import { latinSearchIncludes } from "@/shared/utils/fold-latin-search-text";
+import { productHasCost, productHasSalePrice } from "../lib/variant-price-cost";
 
 const PRODUCTS_PATH = "/catalog/products";
 const PRODUCT_VARIANT_DETAIL_PATH_PREFIX = "/catalog/products/variants";
@@ -99,6 +100,14 @@ export type ListProductsForGridInput = {
   query: string;
   /** Filtra por tipo de producto (`productType` en API). */
   productType?: string;
+  categoryId?: string;
+  brandId?: string;
+  /** `active` | `inactive`. */
+  status?: string;
+  /** `with` | `without`: producto con/sin precio de venta en alguna variante. */
+  price?: string;
+  /** `with` | `without`: producto con/sin costo (PMP o costo base) en alguna variante. */
+  cost?: string;
   page: number;
   limit: number;
   sortField: string;
@@ -156,7 +165,20 @@ export async function listProductsForGrid(input: ListProductsForGridInput): Prom
     50,
     input.productType?.trim() || undefined,
   );
-  const filtered = searchQuery ? all.filter((row) => productRowMatchesSearch(row, searchQuery)) : all;
+  const bySearch = searchQuery ? all.filter((row) => productRowMatchesSearch(row, searchQuery)) : all;
+  const categoryId = input.categoryId?.trim();
+  const brandId = input.brandId?.trim();
+  const filtered = bySearch.filter((row) => {
+    if (categoryId && row.categoryId !== categoryId) return false;
+    if (brandId && row.brandId !== brandId) return false;
+    if (input.status === "active" && !row.isActive) return false;
+    if (input.status === "inactive" && row.isActive) return false;
+    if (input.price === "with" && !productHasSalePrice(row)) return false;
+    if (input.price === "without" && productHasSalePrice(row)) return false;
+    if (input.cost === "with" && !productHasCost(row)) return false;
+    if (input.cost === "without" && productHasCost(row)) return false;
+    return true;
+  });
   const sorted = [...filtered].sort((r1, r2) => {
     let va: string | number | boolean | null | undefined;
     let vb: string | number | boolean | null | undefined;
