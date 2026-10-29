@@ -1120,6 +1120,8 @@ export class ProductVariantsService {
       .leftJoinAndSelect('v.unit', 'unit')
       .leftJoinAndSelect('v.purchaseUnit', 'purchaseUnit')
       .leftJoinAndSelect('v.stockBaseUnit', 'stockBaseUnit')
+      .leftJoinAndSelect('v.priceListItems', 'priceListItems')
+      .leftJoinAndSelect('priceListItems.priceList', 'priceList')
       .where('v.deletedAt IS NULL')
       .andWhere('product.deletedAt IS NULL')
       .andWhere('product.productType NOT IN (:...excludedProductTypes)', {
@@ -1233,6 +1235,23 @@ export class ProductVariantsService {
           defaultTaxIds: Array.isArray(v.taxIds) ? v.taxIds.map((x) => String(x)) : [],
           storageStocks,
           hasStockAlert,
+          priceListItems: (v.priceListItems ?? []).map((item: any) => ({
+            priceListId: item.priceListId,
+            priceListName: item.priceList?.name || 'Lista sin nombre',
+            isDefault: item.priceList?.isDefault === true,
+            netPrice: Number(item.netPrice),
+            grossPrice: Number(item.grossPrice),
+            taxIds: Array.isArray(item.taxIds) ? item.taxIds : [],
+            maxDiscountPercent:
+              item.maxDiscountPercent != null &&
+              Number.isFinite(Number(item.maxDiscountPercent))
+                ? Number(item.maxDiscountPercent)
+                : null,
+            minPrice:
+              item.minPrice != null && Number.isFinite(Number(item.minPrice))
+                ? Math.round(Number(item.minPrice))
+                : null,
+          })),
         };
       }),
     );

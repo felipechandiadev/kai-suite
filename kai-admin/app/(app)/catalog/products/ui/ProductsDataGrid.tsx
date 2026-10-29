@@ -189,6 +189,30 @@ function formatVariantAttributeEntries(v: ProductVariantGridRow): Array<{ key: s
     .filter((x) => x.value.length > 0);
 }
 
+/** Precio neto de venta de una variante: primera lista con monto; si no, `basePrice`. */
+function variantSaleNet(v: ProductVariantGridRow): number | null {
+  const item = (v.priceListItems ?? []).find((p) => p.netPrice > 0);
+  if (item) return item.netPrice;
+  return v.basePrice != null && v.basePrice > 0 ? v.basePrice : null;
+}
+
+/** Costo de una variante: PMP si existe, si no costo base. */
+function variantCost(v: ProductVariantGridRow): number | null {
+  if (v.pmp != null && v.pmp > 0) return v.pmp;
+  return v.baseCost != null && v.baseCost > 0 ? v.baseCost : null;
+}
+
+/** Valor único o rango mín–máx entre variantes; «—» si ninguna tiene dato. */
+function formatVariantsAmountRange(values: Array<number | null>): string {
+  const nums = values.filter((n): n is number => n != null);
+  if (nums.length === 0) return "—";
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  return min === max
+    ? formatCatalogMoney(min)
+    : `${formatCatalogMoney(min)} – ${formatCatalogMoney(max)}`;
+}
+
 function formatCatalogMoney(amount: number, currency = "CLP"): string {
   try {
     return new Intl.NumberFormat("es-CL", {
@@ -804,6 +828,38 @@ export default function ProductsDataGrid({ rows, total }: ProductsDataGridProps)
         },
       },
       { field: "brand", headerName: "Marca", sortable: true, width: 128 },
+      {
+        field: "cost",
+        headerName: "Costo",
+        sortable: false,
+        width: 150,
+        align: "right",
+        renderCell: ({ row }) => (
+          <span className="tabular-nums text-foreground">
+            {formatVariantsAmountRange((row as ProductGridRow).variants.map(variantCost))}
+          </span>
+        ),
+      },
+      {
+        field: "salePrice",
+        headerName: "Precio venta",
+        sortable: false,
+        width: 150,
+        align: "right",
+        renderCell: ({ row }) => {
+          const r = row as ProductGridRow;
+          return (
+            <span
+              className="tabular-nums text-foreground"
+              title="Precio neto de venta"
+            >
+              {catalogProductTypeIsSellable(normalizeCatalogProductType(r.productType))
+                ? formatVariantsAmountRange(r.variants.map(variantSaleNet))
+                : "—"}
+            </span>
+          );
+        },
+      },
       {
         field: "variantCount",
         headerName: "Variantes",

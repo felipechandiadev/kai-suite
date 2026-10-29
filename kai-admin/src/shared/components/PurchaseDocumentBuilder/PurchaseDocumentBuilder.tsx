@@ -16,7 +16,11 @@ import {
   usePrint,
   type Option,
 } from "@kai/ui";
-import type { PurchasingVariantSearchItem, PurchasingVariantSearchResult } from "@/features/purchasing-document/types/purchasing-document.types";
+import type {
+  PurchasingVariantSalePriceItem,
+  PurchasingVariantSearchItem,
+  PurchasingVariantSearchResult,
+} from "@/features/purchasing-document/types/purchasing-document.types";
 import type { SupplierGridRow } from "@/features/purchasing-suppliers/types/supplier.types";
 import type { StorageListItem } from "@/features/inventory-storages/types/storage.types";
 import type { TaxListItem } from "@/features/accounting-taxes/types/tax.types";
@@ -44,6 +48,11 @@ import {
   formatReceptionPaymentSummary,
   type ReceptionSupplierDocumentPaymentPayload,
 } from "@/features/receptions/types/reception-document-payment.types";
+import { applyReceptionSalePricesAction } from "@/features/inventory-products/actions/product.action";
+import {
+  effectiveGrossFactor,
+  grossToNet,
+} from "@/features/inventory-products/domain/price-tax-math";
 import { getCompanyDetailsAction } from "@/features/settings-company/actions/company.action";
 import type { CompanyDetails, CompanyBankAccountItem } from "@/features/settings-branches/infrastructure/company.request";
 import { formatMoney, InlineSepDot, ProductNameWithAttributes } from "./PurchaseDocumentProductPreview";
@@ -87,7 +96,21 @@ export type PurchaseDocumentLine = {
   taxIds: string[];
   /** Tope de cantidad a devolver (desde línea de recepción). */
   maxReturnQuantity?: number | null;
+  /** Precios de venta vigentes por lista; solo si la línea viene de la búsqueda de variantes. */
+  salePriceItems?: PurchasingVariantSalePriceItem[];
+  /** Impuestos de venta por defecto de la variante (para derivar neto del precio nuevo). */
+  saleTaxIds?: string[];
+  /** Precio de venta nuevo (con impuestos) a aplicar al recibir; 0 = no cambiar. */
+  newSaleGross?: number;
 };
+
+/** Lista de precios cuyo valor se muestra y actualiza: la predeterminada o la primera. */
+function pickSalePriceItem(
+  items: PurchasingVariantSalePriceItem[] | undefined,
+): PurchasingVariantSalePriceItem | null {
+  if (!items || items.length === 0) return null;
+  return items.find((i) => i.isDefault) ?? items[0];
+}
 
 /** Referencias estables cuando `reference` aún no está listo (evita bucles de efectos en hijos). */
 const EMPTY_SUPPLIER_LIST: SupplierGridRow[] = [];
@@ -613,6 +636,9 @@ export function PurchaseDocumentBuilder({
         quantity: 1,
         unitPrice: price,
         taxIds: (item.defaultTaxIds ?? []).filter((id) => activeTaxIdSet.has(id)),
+        salePriceItems: item.priceListItems ?? [],
+        saleTaxIds: item.defaultTaxIds ?? [],
+        newSaleGross: 0,
       };
       return [...prev, row];
     });
@@ -623,7 +649,10 @@ export function PurchaseDocumentBuilder({
   }, []);
 
   const updateLine = useCallback(
-    (key: string, patch: Partial<Pick<PurchaseDocumentLine, "quantity" | "unitPrice" | "taxIds">>) => {
+    (
+      key: string,
+      patch: Partial<Pick<PurchaseDocumentLine, "quantity" | "unitPrice" | "taxIds" | "newSaleGross">>,
+    ) => {
       setLines((prev) =>
         prev.map((l) => {
           if (l.key !== key) {
@@ -983,6 +1012,47 @@ export function PurchaseDocumentBuilder({
           );
           return;
         }
+        const saleUpdates = lines.flatMap((l) => {
+          const gross = Math.round(l.newSaleGross ?? 0);
+          const target = pickSalePriceItem(l.salePriceItems);
+          if (gross <= 0 || !target || !l.salePriceItems) return [];
+          const ratio =
+            target.netPrice > 0 && target.grossPrice > 0
+              ? target.grossPrice / target.netPrice
+              : effectiveGrossFactor(activeTaxes, target.taxIds.length ? target.taxIds : (l.saleTaxIds ?? []));
+          const net = grossToNet(gross, ratio);
+          const items = l.salePriceItems.map((i) =>
+            i.priceListId === target.priceListId ? { ...i, netPrice: net, grossPrice: gross } : i,
+          );
+          return [
+            {
+              variantId: l.variantId,
+              productId: l.productId,
+              productName: l.productName,
+              basePrice: net,
+              priceListItems: [
+                ...items.filter((i) => i.priceListId === target.priceListId),
+                ...items.filter((i) => i.priceListId !== target.priceListId),
+              ].map((i) => ({
+                priceListId: i.priceListId,
+                netPrice: i.netPrice,
+                grossPrice: i.grossPrice,
+                taxIds: i.taxIds.length ? i.taxIds : undefined,
+                maxDiscountPercent: i.maxDiscountPercent,
+                minPrice: i.minPrice,
+              })),
+            },
+          ];
+        });
+        if (saleUpdates.length > 0) {
+          const { failures } = await applyReceptionSalePricesAction(saleUpdates);
+          if (failures.length > 0) {
+            setSaveError(
+              `La recepción se guardó, pero no se pudo actualizar el precio de venta de: ${failures.join("; ")}`,
+            );
+            return;
+          }
+        }
         router.push("/purchasing/transactions/receptions");
       } else {
         setSaveError(result.error);
@@ -1003,6 +1073,7 @@ export function PurchaseDocumentBuilder({
     docKind,
     documentNotes,
     router,
+    activeTaxes,
     receptionPaymentDraft,
     summary.subtotalNeto,
     summary.impuestosTotal,
@@ -1563,6 +1634,41 @@ export function PurchaseDocumentBuilder({
                           </>
                         ) : null}
                       </p>
+                      {mode === "reception" && line.salePriceItems ? (
+                        <div
+                          className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground"
+                          data-test-id={`purchase-doc-sale-price-${line.key}`}
+                        >
+                          <span title="Precio de venta vigente (con impuestos)">
+                            Venta actual:{" "}
+                            <span className="font-medium tabular-nums text-foreground">
+                              {pickSalePriceItem(line.salePriceItems)
+                                ? formatMoney(pickSalePriceItem(line.salePriceItems)!.grossPrice)
+                                : "Sin precio"}
+                            </span>
+                          </span>
+                          <span className="w-24">
+                            <TextField
+                              label=""
+                              name={`sale-price-${line.key}`}
+                              type="currency"
+                              currencySymbol="$"
+                              startSymbol="$"
+                              placeholder="Nuevo precio"
+                              value={line.newSaleGross ? String(line.newSaleGross) : ""}
+                              onChange={(e) =>
+                                updateLine(line.key, {
+                                  newSaleGross: Math.max(0, Math.round(Number(e.target.value) || 0)),
+                                })
+                              }
+                              disabled={!pickSalePriceItem(line.salePriceItems)}
+                              density="compact"
+                              className="w-full min-w-0"
+                              data-test-id={`purchase-doc-new-sale-price-${line.key}`}
+                            />
+                          </span>
+                        </div>
+                      ) : null}
                     </td>
                     <td className="py-1.5 pr-2 align-middle text-muted-foreground">
                       <span className="text-xs font-medium tabular-nums">

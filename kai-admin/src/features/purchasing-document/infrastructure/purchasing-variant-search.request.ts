@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/auth-options";
 import type {
+  PurchasingVariantSalePriceItem,
   PurchasingVariantSearchResult,
   PurchasingVariantStorageStock,
 } from "../types/purchasing-document.types";
@@ -77,6 +78,29 @@ function normalizeItem(row: unknown): PurchasingVariantSearchResult["items"][num
     ? storageRaw.map(normalizeStorageStock).filter((x): x is NonNullable<typeof x> => x != null)
     : [];
   const hasStockAlert = o.hasStockAlert === true;
+  const priceItemsRaw = o.priceListItems;
+  const priceListItems = Array.isArray(priceItemsRaw)
+    ? priceItemsRaw
+        .map((p): PurchasingVariantSalePriceItem | null => {
+          if (!p || typeof p !== "object") return null;
+          const r = p as Record<string, unknown>;
+          const priceListId = r.priceListId != null ? String(r.priceListId) : "";
+          if (!priceListId) return null;
+          const optNum = (v: unknown) =>
+            v != null && v !== "" && Number.isFinite(Number(v)) ? Number(v) : null;
+          return {
+            priceListId,
+            priceListName: r.priceListName != null ? String(r.priceListName) : "",
+            isDefault: r.isDefault === true,
+            netPrice: Number(r.netPrice) || 0,
+            grossPrice: Number(r.grossPrice) || 0,
+            taxIds: Array.isArray(r.taxIds) ? r.taxIds.map((x) => String(x)) : [],
+            maxDiscountPercent: optNum(r.maxDiscountPercent),
+            minPrice: optNum(r.minPrice),
+          };
+        })
+        .filter((x): x is PurchasingVariantSalePriceItem => x != null)
+    : [];
   return {
     id,
     productId: o.productId != null ? String(o.productId) : "",
@@ -122,6 +146,7 @@ function normalizeItem(row: unknown): PurchasingVariantSearchResult["items"][num
     defaultTaxIds,
     storageStocks,
     hasStockAlert,
+    priceListItems,
   };
 }
 

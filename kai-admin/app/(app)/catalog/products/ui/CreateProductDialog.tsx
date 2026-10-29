@@ -15,7 +15,13 @@ import { listUnitsForPage } from "@/features/inventory-units/actions/unit.action
 import { pickDefaultUnit } from "@/features/inventory-units/types/unit.types";
 import { listPriceListsForPage } from "@/features/sales-price-lists/actions/price-list.action";
 import { listTaxesForPage } from "@/features/accounting-taxes/actions/tax.action";
-import { deriveBasePriceFromPriceRows, roundMoneyInt } from "@/features/inventory-products/domain/price-tax-math";
+import {
+  deriveBasePriceFromPriceRows,
+  effectiveGrossFactor,
+  grossToNet,
+  parseIntegerMoneyInput,
+  roundMoneyInt,
+} from "@/features/inventory-products/domain/price-tax-math";
 import { createVariantPriceRow } from "./VariantPriceRowsEditor";
 import { MultimediaField } from "@/shared/components/Multimedia";
 import { revalidateMultimediaCachesAction } from "@/features/multimedia/actions/multimedia.action";
@@ -90,6 +96,8 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
   const [productType, setProductType] = useState<CatalogProductType>("PHYSICAL");
   const [isActive, setIsActive] = useState(true);
   const [visibleInEShop, setVisibleInEShop] = useState(false);
+  /** Precio de venta con impuestos (texto de dígitos); vacío = $0. */
+  const [salePrice, setSalePrice] = useState("");
   const eshopModuleOn = isEShopModuleEnabled();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -107,6 +115,7 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
       productId: string,
       productName: string,
       type: CatalogProductType,
+      grossSalePrice: number,
     ): Promise<string | null> => {
       setVariantPrepError(null);
       try {
@@ -140,6 +149,11 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
           }
           const defaultIva = catalogDefaultIvaTaxIds(taxes);
           const row = createVariantPriceRow(defaultIva, defaultPriceListId);
+          if (grossSalePrice > 0) {
+            row.gross = roundMoneyInt(grossSalePrice);
+            row.net = grossToNet(row.gross, effectiveGrossFactor(taxes, defaultIva));
+            row.lastEdited = "gross";
+          }
           const derived = deriveBasePriceFromPriceRows([row]);
           if (derived === null || !row.priceListId?.trim()) {
             setVariantPrepError("No se pudo preparar precios para la variante inicial.");
@@ -202,6 +216,7 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
     setProductType("PHYSICAL");
     setIsActive(true);
     setVisibleInEShop(false);
+    setSalePrice("");
     setError(null);
   }, [open]);
 
@@ -238,6 +253,7 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
     setProductType("PHYSICAL");
     setIsActive(true);
     setVisibleInEShop(false);
+    setSalePrice("");
     setError(null);
     onClose();
   };
@@ -277,7 +293,12 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
               setPostCreateUploadError(upErr);
             }
           }
-          const variantId = await runEnsureFirstVariant(r.id, name.trim(), productType);
+          const variantId = await runEnsureFirstVariant(
+            r.id,
+            name.trim(),
+            productType,
+            parseIntegerMoneyInput(salePrice) ?? 0,
+          );
           await router.refresh();
           if (variantId) {
             await onSuccess?.();
@@ -388,6 +409,20 @@ export function CreateProductDialog({ open, onClose, onSuccess }: CreateProductD
           allowClear
           data-test-id="product-create-brand"
         />
+        {catalogProductTypeIsSellable(productType) ? (
+          <TextField
+            label="Precio de venta (con IVA)"
+            name="product-create-sale-price"
+            type="currency"
+            currencySymbol="$"
+            startSymbol="$"
+            value={salePrice}
+            onChange={(e) => setSalePrice(e.target.value)}
+            placeholder="Precio de venta (con IVA)"
+            disabled={formDisabled}
+            data-test-id="product-create-sale-price"
+          />
+        ) : null}
         <TextField
           label="Descripción"
           name="product-create-description"

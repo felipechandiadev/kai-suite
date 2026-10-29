@@ -731,6 +731,32 @@ export async function updateProductVariantPricingPartialAction(
   return r;
 }
 
+export type ApplyReceptionSalePriceUpdate = {
+  variantId: string;
+  productId: string;
+  productName: string;
+  basePrice: number;
+  priceListItems: CreateProductVariantPriceListItemInput[];
+};
+
+/** Aplica precios de venta nuevos fijados al ingresar una recepción; devuelve los errores por producto. */
+export async function applyReceptionSalePricesAction(
+  updates: ApplyReceptionSalePriceUpdate[],
+): Promise<{ failures: string[] }> {
+  const failures: string[] = [];
+  for (const u of updates) {
+    const r = await updateProductVariantPricingPartialAction(u.variantId, {
+      productId: u.productId,
+      basePrice: u.basePrice,
+      priceListItems: u.priceListItems,
+    });
+    if (!r.success) {
+      failures.push(`${u.productName}: ${r.error}`);
+    }
+  }
+  return { failures };
+}
+
 export type UpdateProductVariantInventoryPartialInput = {
   trackInventory: boolean;
   allowNegativeStock: boolean;

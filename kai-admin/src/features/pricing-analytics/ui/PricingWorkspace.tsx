@@ -60,6 +60,14 @@ function deltaClass(pct: number | null): string {
   return "text-muted-foreground";
 }
 
+function normalizeSearch(v: string): string {
+  return v
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 function ContextStat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="min-w-0">
@@ -76,6 +84,7 @@ export function PricingWorkspace({ priceLists, branches, categories }: Props) {
   const [categoryId, setCategoryId] = useState("");
   const [weekIso, setWeekIso] = useState("");
   const [targetMarginPercent, setTargetMarginPercent] = useState("35");
+  const [search, setSearch] = useState("");
   const [preview, setPreview] = useState<PricingCalculateResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -108,7 +117,12 @@ export function PricingWorkspace({ priceLists, branches, categories }: Props) {
     });
   }, [input, priceListId]);
 
-  const lines = preview?.lines ?? [];
+  const allLines = preview?.lines ?? [];
+  const lines = useMemo(() => {
+    const q = normalizeSearch(search);
+    if (!q) return allLines;
+    return allLines.filter((l) => normalizeSearch(`${l.productName} ${l.sku ?? ""}`).includes(q));
+  }, [allLines, search]);
 
   const sharePct =
     preview && preview.companyNetSales > 0
@@ -227,6 +241,23 @@ export function PricingWorkspace({ priceLists, branches, categories }: Props) {
         </div>
       ) : null}
 
+      {allLines.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="w-full max-w-sm">
+            <TextField
+              label="Buscar producto o SKU"
+              placeholder="Buscar producto o SKU"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              data-test-id="pricing-search"
+            />
+          </div>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {lines.length} de {allLines.length}
+          </span>
+        </div>
+      ) : null}
+
       <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border">
         <table className="w-full min-w-280 text-sm">
           <thead className="sticky top-0 bg-card text-left text-xs uppercase text-muted-foreground">
@@ -272,7 +303,9 @@ export function PricingWorkspace({ priceLists, branches, categories }: Props) {
             {lines.length === 0 ? (
               <tr>
                 <td colSpan={12} className="px-3 py-8 text-center text-muted-foreground">
-                  Calcula para ver el grid de precios.
+                  {allLines.length > 0
+                    ? "Sin resultados para la búsqueda."
+                    : "Calcula para ver el grid de precios."}
                 </td>
               </tr>
             ) : (

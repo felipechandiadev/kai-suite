@@ -9,6 +9,18 @@ export type PurchasingVariantStorageStock = {
 };
 
 /** Fila devuelta por `GET /product-variants/purchasing-search`. */
+/** Precio de venta vigente de la variante en una lista de precios. */
+export type PurchasingVariantSalePriceItem = {
+  priceListId: string;
+  priceListName: string;
+  isDefault: boolean;
+  netPrice: number;
+  grossPrice: number;
+  taxIds: string[];
+  maxDiscountPercent: number | null;
+  minPrice: number | null;
+};
+
 export type PurchasingVariantSearchItem = {
   id: string;
   productId: string;
@@ -30,6 +42,8 @@ export type PurchasingVariantSearchItem = {
   storageStocks: PurchasingVariantStorageStock[];
   /** True si la variante tiene alerta en al menos un almacén (misma lógica que el grid de stock). */
   hasStockAlert: boolean;
+  /** Precios de venta por lista (para mostrar el vigente y fijar uno nuevo al recibir). */
+  priceListItems?: PurchasingVariantSalePriceItem[];
 };
 
 export type PurchasingVariantSearchResult = {
