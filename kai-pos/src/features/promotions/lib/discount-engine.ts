@@ -112,7 +112,7 @@ export function applyPromotions(args: ApplyPromotionsArgs): EngineResult {
       if (!calc || calc.discountAmount <= 0) continue;
 
       // Cap por maxValue (por aplicación, repartido entre líneas).
-      let appliedAmount = calc.discountAmount;
+      const appliedAmount = calc.discountAmount;
 
       resolved.find((r) => r.lineId === line.lineId)!.discount = {
         promotionId: promo.id,

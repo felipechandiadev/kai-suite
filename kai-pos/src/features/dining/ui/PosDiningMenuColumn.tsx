@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import { Search } from "lucide-react";
 import { DotProgress, Badge, IconButton, TextField } from "@kai/ui";
 import {
@@ -96,7 +96,9 @@ export function PosDiningMenuColumn({
   const [activeCategoryIds, setActiveCategoryIds] = useState<string[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const itemsRef = useRef(items);
-  itemsRef.current = items;
+  useLayoutEffect(() => {
+    itemsRef.current = items;
+  });
 
   const refreshCtp = useCallback(async (products: PosProductSearchItem[]) => {
     const ctx = readPosContextClient();

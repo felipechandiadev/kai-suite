@@ -10,7 +10,7 @@ export async function reserveLocalFolio(
 ): Promise<ReserveLocalFolioResult> {
   const db = getPosOfflineDb();
   return db.transaction("rw", [db.fiscal_pack, db.fiscal_pack_standby], async () => {
-    let pack = await promoteStandbyFiscalPackIfNeeded(db, pointOfSaleId);
+    const pack = await promoteStandbyFiscalPackIfNeeded(db, pointOfSaleId);
     if (!pack) {
       return { ok: false as const, reason: "NO_PACK" as const };
     }

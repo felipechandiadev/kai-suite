@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useLayoutEffect } from "react";
 import { io, type Socket } from "socket.io-client";
 import { useSession } from "next-auth/react";
 import { getClientBackendApiBase } from "@/lib/backend-api-url";
@@ -74,8 +74,12 @@ export function useDiningBranchRealtime(
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onUpdatedRef = useRef(onSessionUpdated);
 
-  onUpdatedRef.current = onSessionUpdated;
-  branchIdRef.current = branchId;
+  useLayoutEffect(() => {
+    onUpdatedRef.current = onSessionUpdated;
+  });
+  useLayoutEffect(() => {
+    branchIdRef.current = branchId;
+  });
 
   const clearRetry = useCallback(() => {
     if (retryTimerRef.current) {
@@ -83,6 +87,8 @@ export function useDiningBranchRealtime(
       retryTimerRef.current = null;
     }
   }, []);
+
+  const refreshSubscribeRef = useRef<() => void>(() => {});
 
   const refreshSubscribe = useCallback(() => {
     const socket = socketRef.current;
@@ -115,11 +121,15 @@ export function useDiningBranchRealtime(
 
         subscribeAttemptRef.current = attempt + 1;
         retryTimerRef.current = setTimeout(() => {
-          refreshSubscribe();
+          refreshSubscribeRef.current();
         }, SUBSCRIBE_RETRY_MS * Math.min(8, attempt + 1));
       },
     );
   }, [clearRetry]);
+
+  useLayoutEffect(() => {
+    refreshSubscribeRef.current = refreshSubscribe;
+  });
 
   useEffect(() => {
     if (!enabled || !userId || !activeCompanyId || !branchId.trim()) {

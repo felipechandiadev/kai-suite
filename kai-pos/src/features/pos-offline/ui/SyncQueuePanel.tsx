@@ -55,7 +55,7 @@ export function SyncQueuePanel({ open, onOpenChange }: SyncQueuePanelProps) {
   const visible = commands.filter((c) => c.status !== "SYNCED");
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title="Cola de sincronización">
+    <Dialog open={open} onClose={() => onOpenChange(false)} title="Cola de sincronización">
       <div className="flex flex-col gap-3 min-w-[320px] max-w-lg">
         {!isBackendReachable ? (
           <p className="text-sm text-muted-foreground">
@@ -100,7 +100,7 @@ export function SyncQueuePanel({ open, onOpenChange }: SyncQueuePanelProps) {
                 {(cmd.status === "FAILED" || cmd.status === "CONFLICT") && userName ? (
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="outlined"
                     size="sm"
                     className="self-start mt-1"
                     onClick={() => void retryOfflineCommand(cmd.id, userName).then(() => refreshQueue())}
@@ -119,7 +119,7 @@ export function SyncQueuePanel({ open, onOpenChange }: SyncQueuePanelProps) {
         </p>
 
         <div className="flex justify-end">
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="text" onClick={() => onOpenChange(false)}>
             Cerrar
           </Button>
         </div>

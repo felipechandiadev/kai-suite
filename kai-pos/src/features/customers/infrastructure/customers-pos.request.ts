@@ -637,9 +637,15 @@ export class CustomersPosRequest {
         return { success: false, message: String(msg) };
       }
 
-      const linesRaw = (json as any)?.lines;
+      const body = (json ?? {}) as Record<string, unknown>;
+      const linesRaw = body.lines;
       const linesArr = Array.isArray(linesRaw) ? linesRaw : [];
-      const lines = linesArr.map((l: any) => ({
+      const lines = linesArr.map((raw: unknown) => {
+        const l = (raw ?? {}) as Record<string, unknown> & {
+          product?: { name?: unknown };
+          productVariant?: { sku?: unknown };
+        };
+        return {
         id: String(l?.id ?? ""),
         productName: String(l?.productName ?? l?.product?.name ?? "Ítem"),
         variantName:
@@ -650,16 +656,17 @@ export class CustomersPosRequest {
               : null,
         quantity: Number(l?.quantity ?? 0),
         unitOfMeasure: l?.unitOfMeasure != null ? String(l.unitOfMeasure) : null,
-      }));
+        };
+      });
 
       return {
         success: true,
         transaction: {
-          id: String((json as any)?.id ?? id),
-          documentNumber: (json as any)?.documentNumber != null ? String((json as any).documentNumber) : null,
-          status: (json as any)?.status != null ? String((json as any).status) : null,
-          total: Number((json as any)?.total ?? 0),
-          createdAt: (json as any)?.createdAt != null ? String((json as any).createdAt) : "",
+          id: String(body.id ?? id),
+          documentNumber: body.documentNumber != null ? String(body.documentNumber) : null,
+          status: body.status != null ? String(body.status) : null,
+          total: Number(body.total ?? 0),
+          createdAt: body.createdAt != null ? String(body.createdAt) : "",
           lines,
         },
       };

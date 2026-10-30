@@ -6,7 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
-  useTransition,
+  useTransition, useLayoutEffect
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -450,7 +450,9 @@ export default function PosDiningAccountsPanel({
       });
   }, [branchId, tab]);
 
-  refreshListRef.current = refreshList;
+  useLayoutEffect(() => {
+    refreshListRef.current = refreshList;
+  });
 
   useEffect(() => {
     if (!branchId.trim()) return;

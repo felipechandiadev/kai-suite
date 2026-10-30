@@ -40,7 +40,7 @@ export class PosInventoryReservationsRequest {
 
     const session = await getServerSession(authOptions);
     const token = session?.user?.accessToken;
-    const activeCompanyId = (session?.user as any)?.activeCompanyId as string | null | undefined;
+    const activeCompanyId = session?.user?.activeCompanyId;
     if (!token) {
       return { success: false, message: "No autenticado" };
     }
@@ -69,7 +69,9 @@ export class PosInventoryReservationsRequest {
         cache: "no-store",
       });
 
-      const data = (await res.json().catch(() => ({}))) as any;
+      const data = (await res.json().catch(() => ({}))) as Record<string, unknown> & {
+        message?: unknown;
+      };
       if (!res.ok) {
         const msg =
           (typeof data?.message === "string" && data.message) ||

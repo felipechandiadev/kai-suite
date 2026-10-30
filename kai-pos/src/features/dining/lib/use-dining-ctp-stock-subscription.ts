@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useLayoutEffect } from "react";
 import { io, type Socket } from "socket.io-client";
 import { useSession } from "next-auth/react";
 import { getClientBackendApiBase } from "@/lib/backend-api-url";
@@ -28,7 +28,9 @@ export function useDiningCtpStockSubscription(
   const activeCompanyId =
     (session?.user as { activeCompanyId?: string | null })?.activeCompanyId ?? null;
   const onUpdatedRef = useRef(onStockUpdated);
-  onUpdatedRef.current = onStockUpdated;
+  useLayoutEffect(() => {
+    onUpdatedRef.current = onStockUpdated;
+  });
   const storageKey = storageIds.filter(Boolean).sort().join(",");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

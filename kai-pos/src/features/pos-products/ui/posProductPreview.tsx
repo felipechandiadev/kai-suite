@@ -59,7 +59,7 @@ export function posResolveAvailableStockInSaleUnits(item: PosStockFields): numbe
   const base = item.availableStockBase;
   const bridgeRaw = item.stockBaseQtyPerCountSaleUnit;
   const bridge =
-    bridgeRaw != null && bridgeRaw !== "" ? Number(bridgeRaw) : Number.NaN;
+    bridgeRaw != null && (bridgeRaw as unknown) !== "" ? Number(bridgeRaw) : Number.NaN;
   const hasBridge = Number.isFinite(bridge) && bridge > 0;
   const sale = item.availableStock;
 

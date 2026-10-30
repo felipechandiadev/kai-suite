@@ -14,10 +14,7 @@ export class PaymentMethodsPosRequest {
 
     const session = await getServerSession(authOptions);
     const token = session?.user?.accessToken;
-    const activeCompanyId = (session?.user as any)?.activeCompanyId as
-      | string
-      | null
-      | undefined;
+    const activeCompanyId = session?.user?.activeCompanyId;
     if (!token) {
       return { success: false, message: "No autenticado" };
     }

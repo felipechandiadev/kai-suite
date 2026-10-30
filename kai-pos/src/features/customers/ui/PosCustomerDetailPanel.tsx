@@ -364,12 +364,12 @@ function BackordersSection({
     setOpen(true);
     try {
       const res = await getBackorderDetailPosAction(txId);
-      if (!res || (res as any).success !== true) {
+      if (!res || !res.success) {
         setDetail(null);
-        setError((res as any)?.message || "No se pudo cargar el encargo");
+        setError((res && "message" in res && res.message) || "No se pudo cargar el encargo");
         return;
       }
-      setDetail((res as any).transaction);
+      setDetail(res.transaction);
     } catch (e) {
       setDetail(null);
       setError(e instanceof Error ? e.message : "No se pudo cargar el encargo");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import type { Option } from "@kai/ui";
 import type { CompanyBankAccountItem } from "@/features/purchasing-reception/types/company.types";
 import type { PayeeBankAccount } from "@/shared/lib/planned-payment-plan";
@@ -116,15 +116,25 @@ export function usePlannedPaymentDefinition(args: UsePlannedPaymentDefinitionArg
   const manualPaidLockRef = useRef(false);
   const manualSchedLockRef = useRef(false);
   const controlledRef = useRef(controlled);
-  controlledRef.current = controlled;
+  useLayoutEffect(() => {
+    controlledRef.current = controlled;
+  });
   const companyBankAccountsRef = useRef(companyBankAccounts);
-  companyBankAccountsRef.current = companyBankAccounts;
+  useLayoutEffect(() => {
+    companyBankAccountsRef.current = companyBankAccounts;
+  });
   const payeeBankAccountsRef = useRef(payeeBankAccounts);
-  payeeBankAccountsRef.current = payeeBankAccounts;
+  useLayoutEffect(() => {
+    payeeBankAccountsRef.current = payeeBankAccounts;
+  });
   const cashHubOptionsRef = useRef(cashHubOptions);
-  cashHubOptionsRef.current = cashHubOptions;
+  useLayoutEffect(() => {
+    cashHubOptionsRef.current = cashHubOptions;
+  });
   const cashSourceModeRef = useRef(cashSourceMode);
-  cashSourceModeRef.current = cashSourceMode;
+  useLayoutEffect(() => {
+    cashSourceModeRef.current = cashSourceMode;
+  });
 
   const setPaymentMode = useCallback((mode: PlannedPaymentMode) => {
     const c = controlledRef.current;

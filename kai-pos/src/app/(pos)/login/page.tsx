@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export const dynamic = "force-dynamic";
 
 export default function Page() {
@@ -8,7 +10,7 @@ export default function Page() {
         Esta ruta se mantiene solo por compatibilidad temporal. El login real está en <code>/</code>.
       </p>
       <p className="mt-2 text-sm">
-        Ve a <a className="underline" href="/">/</a>.
+        Ve a <Link className="underline" href="/">/</Link>.
       </p>
     </div>
   );

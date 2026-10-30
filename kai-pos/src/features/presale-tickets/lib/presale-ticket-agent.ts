@@ -17,7 +17,7 @@ import {
   withPrintAgentConnection,
 } from "@/features/pos-print/lib/pos-agent-print";
 import type { PresaleTicketDetail } from "../types/presale-ticket.types";
-import { buildPresaleTicketHtml } from "./presale-ticket-print";
+import { buildPresaleTicketHtml, printPresaleTicketHtml } from "./presale-ticket-print";
 
 export function presaleTicketToPayload(
   ticket: PresaleTicketDetail,

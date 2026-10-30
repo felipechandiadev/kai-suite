@@ -64,7 +64,7 @@ export function OfflineBootstrapStatusPanel({ status, loading, onRetry }: Props)
         )}
       </ul>
       {hasError && onRetry ? (
-        <Button type="button" variant="outline" size="sm" className="self-start" disabled={busy} onClick={onRetry}>
+        <Button type="button" variant="outlined" size="sm" className="self-start" disabled={busy} onClick={onRetry}>
           Reintentar descarga
         </Button>
       ) : null}

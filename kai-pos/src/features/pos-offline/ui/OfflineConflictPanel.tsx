@@ -54,7 +54,7 @@ export function OfflineConflictPanel() {
               {userName ? (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="outlined"
                   size="sm"
                   onClick={() =>
                     void retryOfflineCommand(cmd.id, userName).then(() => refreshQueue())
@@ -65,7 +65,7 @@ export function OfflineConflictPanel() {
               ) : null}
               <Button
                 type="button"
-                variant="ghost"
+                variant="text"
                 size="sm"
                 onClick={() => void discardOfflineCommand(cmd.id).then(() => refreshQueue())}
               >

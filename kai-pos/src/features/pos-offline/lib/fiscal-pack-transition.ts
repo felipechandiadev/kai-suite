@@ -31,8 +31,8 @@ export async function promoteStandbyFiscalPackIfNeeded(
   }
 
   const promoted: OfflineFiscalPack = {
-    pointOfSaleId,
     ...standby,
+    pointOfSaleId,
     downloadedAt: current.downloadedAt,
   };
   await db.fiscal_pack.put(promoted);

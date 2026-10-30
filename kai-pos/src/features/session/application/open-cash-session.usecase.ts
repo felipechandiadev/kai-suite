@@ -9,7 +9,7 @@ export class OpenCashSessionUseCase {
   static async execute(input: OpenCashSessionInput): Promise<OpenCashSessionResult> {
     const parsed = OpenCashSessionSchema.safeParse(input);
     if (!parsed.success) {
-      return { success: false, error: "Datos inválidos", fieldErrors: parsed.error.flatten().fieldErrors as any };
+      return { success: false, error: "Datos inválidos", fieldErrors: parsed.error.flatten().fieldErrors as Record<string, string[]> };
     }
 
     const res = await CashSessionsRequest.open({

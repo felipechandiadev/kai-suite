@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useLayoutEffect } from "react";
 import { Button, Dialog } from "@kai/ui";
 import type { PosSaleReceiptData } from "@/app/(pos)/pos/payment/ui/PosSaleReceiptDialog";
 import type { CompanyDetails } from "@/features/company/infrastructure/company.request";
@@ -79,7 +79,9 @@ export function LaundryReceptionSuccessDialog({
 }: DialogProps) {
   const autoPrintForCodeRef = useRef<string | null>(null);
   const dataRef = useRef(data);
-  dataRef.current = data;
+  useLayoutEffect(() => {
+    dataRef.current = data;
+  });
   const [autoPrintStatus, setAutoPrintStatus] = useState<string | null>(null);
   const [printBusy, setPrintBusy] = useState(false);
   const [saleReceipt, setSaleReceipt] = useState<PosSaleReceiptData | null>(

@@ -166,7 +166,7 @@ export function EconomicActivitiesEditor({
           </div>
           <div className="flex gap-2 justify-end">
             <Button
-              variant="ghost"
+              variant="text"
               size="sm"
               onClick={() => setPending(null)}
               disabled={editorDisabled}

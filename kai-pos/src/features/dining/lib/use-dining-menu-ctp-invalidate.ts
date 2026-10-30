@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useLayoutEffect } from "react";
 import {
   useDiningBranchRealtime,
   type DiningSessionUpdatedPayload,
@@ -20,7 +20,9 @@ export function useDiningMenuCtpInvalidateOnSession(
   const enabled = options?.enabled !== false;
   const debounceMs = options?.debounceMs ?? DEFAULT_DEBOUNCE_MS;
   const onInvalidateRef = useRef(onInvalidate);
-  onInvalidateRef.current = onInvalidate;
+  useLayoutEffect(() => {
+    onInvalidateRef.current = onInvalidate;
+  });
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSession = (payload: DiningSessionUpdatedPayload) => {

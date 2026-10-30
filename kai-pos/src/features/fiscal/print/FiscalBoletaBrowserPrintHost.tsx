@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useLayoutEffect } from "react";
 import { useReactToPrint } from "react-to-print";
 import type { FiscalBoletaPrintPreview } from "../types/fiscal-emission.types";
 import {
@@ -51,7 +51,9 @@ export function FiscalBoletaBrowserPrintHost() {
   const contentRef = useRef<HTMLDivElement>(null);
   const jobRef = useRef<FiscalBoletaBrowserPrintJob | null>(null);
   const printFnRef = useRef<(() => void | Promise<void>) | null>(null);
-  jobRef.current = job;
+  useLayoutEffect(() => {
+    jobRef.current = job;
+  });
 
   const reactToPrintFn = useReactToPrint({
     contentRef,
@@ -78,7 +80,9 @@ export function FiscalBoletaBrowserPrintHost() {
     },
   });
 
-  printFnRef.current = reactToPrintFn;
+  useLayoutEffect(() => {
+    printFnRef.current = reactToPrintFn;
+  });
 
   const enqueue = useCallback((next: FiscalBoletaBrowserPrintJob) => {
     setRenderReady(false);

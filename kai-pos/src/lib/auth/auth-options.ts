@@ -5,6 +5,15 @@ import { getServerBackendApiBase } from "@/lib/backend-api-url";
 /** En dev cada app usa su propio origen (p. ej. :3032 vs admin :3031): las cookies ya no se mezclan. Nombres explícitos por si más adelante comparten host detrás de un proxy. */
 const isProd = process.env.NODE_ENV === "production";
 
+/** Campos que `authorize` agrega al usuario devuelto por el backend. */
+type AuthorizedUser = {
+  accessToken?: string;
+  userName?: string | null;
+  role?: string | null;
+  companyId?: string | null;
+  activeCompanyId?: string | null;
+};
+
 export const authOptions: NextAuthOptions = {
   /** Permite login/logout desde IP LAN aunque NEXTAUTH_URL sea localhost en .env dev. */
   trustHost: true,
@@ -157,11 +166,12 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     jwt: async ({ token, user }) => {
       if (user) {
-        token.accessToken = (user as any).accessToken;
-        token.userName = (user as any).userName ?? null;
-        token.role = (user as any).role ?? null;
-        token.companyId = (user as any).companyId ?? null;
-        token.activeCompanyId = (user as any).activeCompanyId ?? null;
+        const u = user as AuthorizedUser;
+        token.accessToken = u.accessToken;
+        token.userName = u.userName ?? null;
+        token.role = u.role ?? undefined;
+        token.companyId = u.companyId ?? null;
+        token.activeCompanyId = u.activeCompanyId ?? null;
       }
       return token;
     },
@@ -169,12 +179,11 @@ export const authOptions: NextAuthOptions = {
       const backendUserId = (token.accessToken as string | undefined) || (token.sub as string | undefined);
       if (session.user) {
         if (backendUserId) session.user.id = backendUserId;
-        (session.user as any).accessToken = token.accessToken;
-        (session.user as any).userName =
-          (token.userName as string | null | undefined) ?? undefined;
-        (session.user as any).role = token.role ?? undefined;
-        (session.user as any).companyId = token.companyId ?? null;
-        (session.user as any).activeCompanyId = token.activeCompanyId ?? null;
+        session.user.accessToken = token.accessToken;
+        session.user.userName = token.userName ?? undefined;
+        session.user.role = token.role ?? undefined;
+        session.user.companyId = token.companyId ?? null;
+        session.user.activeCompanyId = token.activeCompanyId ?? null;
       }
       return session;
     },

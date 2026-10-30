@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useLayoutEffect } from "react";
 import { Button, Dialog } from "@kai/ui";
 import type { PosCartLine } from "@/app/(pos)/pos/ui/PosCartLineCard";
 import type { PosPaymentLine, PosPaymentMethodId } from "@/features/pos-cart/pos-payment.types";
@@ -782,7 +782,9 @@ export function PosSaleReceiptDialog({
 }: DialogProps) {
   const autoPrintForFolioRef = useRef<string | null>(null);
   const receiptDataRef = useRef(data);
-  receiptDataRef.current = data;
+  useLayoutEffect(() => {
+    receiptDataRef.current = data;
+  });
   const [printMode, setPrintMode] = useState<PosDocumentPrintMode>("ticket");
   const [autoPrintStatus, setAutoPrintStatus] = useState<string | null>(null);
   const [fiscalPrintBusy, setFiscalPrintBusy] = useState(false);

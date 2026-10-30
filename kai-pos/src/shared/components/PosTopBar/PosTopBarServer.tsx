@@ -8,7 +8,7 @@ import { PosStockRealtimeProvider } from "@/features/inventory-stock/realtime/st
 export default async function PosTopBarServer() {
   const session = await getServerSession(authOptions);
   const personName = session?.user?.name ?? null;
-  const userRole = (session?.user as any)?.role ?? null;
+  const userRole = session?.user?.role ?? null;
   const stockUserId =
     ((session?.user as { accessToken?: string })?.accessToken as string | undefined) ||
     session?.user?.id ||

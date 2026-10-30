@@ -42,12 +42,18 @@ export async function applyCatalogDeltaForPos(
     `/api/points-of-sale/${encodeURIComponent(pointOfSaleId)}/offline-catalog-delta?priceListId=${encodeURIComponent(priceListId)}&since=${encodeURIComponent(since)}`,
     { method: "GET" },
   );
-  if (!res.ok || !res.data.success) {
+  if (!res.ok) {
     return {
       success: false,
       message: res.unreachable
         ? "Sin conexión al servidor"
-        : res.data.message || res.message || "No se pudo aplicar delta de catálogo",
+        : res.message || "No se pudo aplicar delta de catálogo",
+    };
+  }
+  if (!res.data.success) {
+    return {
+      success: false,
+      message: res.data.message || "No se pudo aplicar delta de catálogo",
     };
   }
 
