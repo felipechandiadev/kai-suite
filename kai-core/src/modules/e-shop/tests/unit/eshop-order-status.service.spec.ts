@@ -7,7 +7,7 @@ describe('EShopOrderStatusService.updateStatus', () => {
     findOne: jest.fn(),
     save: jest.fn(),
   };
-  const svc = new EShopOrderStatusService(txRepo as never);
+  const svc = new EShopOrderStatusService(txRepo as never, {} as never);
 
   beforeEach(() => {
     jest.clearAllMocks();

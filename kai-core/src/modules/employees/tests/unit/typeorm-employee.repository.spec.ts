@@ -61,6 +61,7 @@ describe('TypeOrmEmployeeRepository', () => {
       branchId: null,
       resultCenterId: null,
       organizationalUnitId: null,
+      laborUnitId: 'labor-unit-1',
       employmentType: EmploymentType.FULL_TIME,
       status: EmployeeStatus.ACTIVE,
       hireDate: '2026-01-01',
@@ -74,6 +75,7 @@ describe('TypeOrmEmployeeRepository', () => {
 
     const result = await repository.createEmployee({
       personId: 'person-1',
+      laborUnitId: 'labor-unit-1',
       employmentType: '',
       hireDate: '2026-01-01',
     });
@@ -99,6 +101,7 @@ describe('TypeOrmEmployeeRepository', () => {
     await expect(
       repository.createEmployee({
         personId: 'person-1',
+        laborUnitId: 'labor-unit-1',
         employmentType: EmploymentType.FULL_TIME,
         hireDate: '2026-01-01',
       }),
@@ -114,6 +117,7 @@ describe('TypeOrmEmployeeRepository', () => {
       branchId: 'branch-1',
       resultCenterId: null,
       organizationalUnitId: null,
+      laborUnitId: 'labor-unit-1',
       employmentType: EmploymentType.PART_TIME,
       status: EmployeeStatus.SUSPENDED,
       hireDate: '2026-01-01',
@@ -161,6 +165,7 @@ describe('TypeOrmEmployeeRepository', () => {
       branchId: null,
       resultCenterId: null,
       organizationalUnitId: null,
+      laborUnitId: 'labor-unit-1',
       employmentType: EmploymentType.FULL_TIME,
       status: EmployeeStatus.ACTIVE,
       hireDate: '2026-01-01',
@@ -202,6 +207,7 @@ describe('TypeOrmEmployeeRepository', () => {
         branchId: 'branch-1',
         resultCenterId: null,
         organizationalUnitId: null,
+        laborUnitId: 'labor-unit-1',
         employmentType: EmploymentType.CONTRACTOR,
         status: EmployeeStatus.ACTIVE,
         hireDate: '2026-01-01',

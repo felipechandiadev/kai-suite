@@ -2,6 +2,24 @@ import { BadRequestException } from '@nestjs/common';
 import { PosSyncService } from '@modules/pos-sync/application/pos-sync.service';
 import { PosSyncCommandStatus } from '@modules/pos-sync/domain/pos-sync-command.entity';
 
+/** Repo de comandos con el flujo actual: manager.transaction → getRepository → query builder con lock. */
+function buildSyncRepo(existingRow: Record<string, unknown> | null) {
+  const commandRepo = {
+    createQueryBuilder: jest.fn().mockReturnValue({
+      setLock: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(existingRow),
+    }),
+    create: jest.fn((row) => row),
+    save: jest.fn(),
+  };
+  const em = { getRepository: jest.fn().mockReturnValue(commandRepo) };
+  const syncRepo = {
+    manager: { transaction: jest.fn(async (fn: (m: typeof em) => unknown) => fn(em)) },
+  };
+  return { syncRepo, commandRepo };
+}
+
 describe('PosSyncService idempotency', () => {
   it('devuelve response_json guardado si clientOperationId ya existe', async () => {
     const saved = {
@@ -11,15 +29,11 @@ describe('PosSyncService idempotency', () => {
       documentNumber: 'SALE-26-001',
     };
 
-    const syncRepo = {
-      findOne: jest.fn().mockResolvedValue({
-        companyId: 'co-1',
-        clientOperationId: 'op-1',
-        responseJson: saved,
-      }),
-      create: jest.fn(),
-      save: jest.fn(),
-    };
+    const { syncRepo, commandRepo } = buildSyncRepo({
+      companyId: 'co-1',
+      clientOperationId: 'op-1',
+      responseJson: saved,
+    });
 
     const service = new PosSyncService(
       syncRepo as any,
@@ -42,7 +56,7 @@ describe('PosSyncService idempotency', () => {
     });
 
     expect(result).toEqual(saved);
-    expect(syncRepo.save).not.toHaveBeenCalled();
+    expect(commandRepo.save).not.toHaveBeenCalled();
   });
 });
 
@@ -55,11 +69,7 @@ describe('PosSyncCommandStatus', () => {
 
 describe('PosSyncService stock conflict', () => {
   it('mapea stock insuficiente a 409 STOCK_CONFLICT', async () => {
-    const syncRepo = {
-      findOne: jest.fn().mockResolvedValue(null),
-      create: jest.fn((row) => row),
-      save: jest.fn(),
-    };
+    const { syncRepo, commandRepo } = buildSyncRepo(null);
 
     const salesHandler = {
       execute: jest.fn().mockRejectedValue(
@@ -94,7 +104,7 @@ describe('PosSyncService stock conflict', () => {
     expect(result.success).toBe(false);
     expect(result.statusCode).toBe(409);
     expect(result.reason).toBe('STOCK_CONFLICT');
-    expect(syncRepo.save).toHaveBeenCalledWith(
+    expect(commandRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({ status: PosSyncCommandStatus.CONFLICT }),
     );
   });

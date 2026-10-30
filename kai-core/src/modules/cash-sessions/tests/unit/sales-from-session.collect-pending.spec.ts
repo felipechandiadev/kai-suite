@@ -19,13 +19,26 @@ describe('SalesFromSessionService — collectPendingSales', () => {
 
   function buildService() {
     const pointOfSaleRepository = {
-      findOne: jest.fn().mockResolvedValue({ id: 'pos-1', branchId: 'br-1', companyId: 'co-1' }),
+      findOne: jest
+        .fn()
+        .mockResolvedValue({
+          id: 'pos-1',
+          branchId: 'br-1',
+          companyId: 'co-1',
+        }),
     };
     const userRepository = {
       findOne: jest.fn().mockResolvedValue({ id: 'user-1' }),
     };
     const cashSessionRepository = {
-      findOne: jest.fn().mockResolvedValue({ id: 'session-1', status: CashSessionStatus.OPEN }),
+      findOne: jest
+        .fn()
+        .mockResolvedValue({
+          id: 'session-1',
+          pointOfSaleId: 'pos-1',
+          openedById: 'user-1',
+          status: CashSessionStatus.OPEN,
+        }),
     };
     const transactionRepository = {
       find: jest.fn().mockResolvedValue([
@@ -45,7 +58,10 @@ describe('SalesFromSessionService — collectPendingSales', () => {
       validatePaymentsForCustomer: jest.fn().mockResolvedValue(undefined),
       applyPaymentsToSources: jest.fn().mockResolvedValue(undefined),
     };
-    const companiesService = { getPaymentMethods: jest.fn().mockResolvedValue([]) };
+    const companiesService = {
+      getPaymentMethods: jest.fn().mockResolvedValue([]),
+      getVoucherKinds: jest.fn().mockResolvedValue([]),
+    };
     const transactionsService = {
       createTransaction: jest.fn().mockResolvedValue({
         id: 'pay-1',
@@ -63,7 +79,9 @@ describe('SalesFromSessionService — collectPendingSales', () => {
       }),
     };
 
-    const service = Object.create(SalesFromSessionService.prototype) as SalesFromSessionService;
+    const service = Object.create(
+      SalesFromSessionService.prototype,
+    ) as SalesFromSessionService;
     Object.assign(service, {
       pointOfSaleRepository,
       userRepository,

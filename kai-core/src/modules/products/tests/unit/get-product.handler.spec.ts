@@ -61,6 +61,7 @@ describe('GetProductQueryHandler', () => {
 
     expect(repository.findOne).toHaveBeenCalledWith({
       where: { id: 'product-1', deletedAt: null as any },
+      relations: ['category', 'catalogBrand'],
     });
     expect(result).toMatchObject({
       id: 'product-1',

@@ -82,6 +82,7 @@ describe('UsersController', () => {
           companyId: null,
         }),
         'company-1',
+        undefined,
       );
     });
   });

@@ -17,6 +17,7 @@ describe('StockAlertNotificationService', () => {
     id: 'v1',
     companyId: 'c1',
     minimumStock: 10,
+    minimumStockEnabled: true,
     maximumStock: 0,
     reorderPoint: 0,
     attributeValues: {},

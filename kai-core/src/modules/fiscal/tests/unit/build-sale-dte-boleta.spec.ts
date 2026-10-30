@@ -54,7 +54,7 @@ describe('buildSaleDteBoletaXml', () => {
 
   it('requires caf xml', () => {
     expect(() => buildSaleDteBoletaXml(EMISOR, doc, 198581)).toThrow(
-      'CAF XML requerido',
+      'CAF XML o TED requerido',
     );
   });
 

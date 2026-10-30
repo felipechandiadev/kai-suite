@@ -7,9 +7,10 @@ function createService(): ProductsPosService {
     {} as any,
     {} as any,
     { createQueryBuilder: jest.fn() } as any,
-    { find: jest.fn().mockResolvedValue([]) } as any,
-    { listByEntity: jest.fn() } as any,
-    { getRepository: jest.fn() } as any,
+    { find: jest.fn().mockResolvedValue([]) } as any, // stockLevelRepository
+    { find: jest.fn().mockResolvedValue([]) } as any, // unitRepository
+    { listByEntity: jest.fn() } as any, // multimediaService
+    { getRepository: jest.fn() } as any, // dataSource
   );
 }
 

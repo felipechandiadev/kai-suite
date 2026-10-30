@@ -1,4 +1,8 @@
-import { BadRequestException, INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  BadRequestException,
+  INestApplication,
+  ValidationPipe,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
 import { CashSessionsController } from '@modules/cash-sessions/presentation/cash-sessions.controller';
@@ -88,7 +92,9 @@ describe('CashSessionsController (Integration)', () => {
       })
       .expect(400);
 
-    expect(response.body.message).toContain('property imagePath should not exist');
+    expect(response.body.message).toContain(
+      'property imagePath should not exist',
+    );
     expect(cashSessionsService.registerCashDeposit).not.toHaveBeenCalled();
   });
 
@@ -136,6 +142,7 @@ describe('CashSessionsController (Integration)', () => {
     expect(coreService.close).toHaveBeenCalledWith(
       '11111111-1111-4111-8111-111111111111',
       '22222222-2222-4222-8222-222222222222',
+      expect.objectContaining({ adminClose: false }),
     );
   });
 });

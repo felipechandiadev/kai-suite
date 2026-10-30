@@ -84,6 +84,7 @@ describe('CreateTransactionDto', () => {
       dto.total = 100;
       dto.paymentMethod = PaymentMethod.CASH;
       dto.expenseCategoryId = '123e4567-e89b-12d3-a456-426614174000';
+      dto.relatedTransactionId = '123e4567-e89b-12d3-a456-426614174000';
 
       const errors = dto.validate();
 

@@ -11,6 +11,7 @@ describe('EShopCheckoutOrderService.resumeOnlinePayment', () => {
     findById: jest.fn(),
     findLatestByTransactionId: jest.fn(),
     saveMpPreferenceId: jest.fn(),
+    ensureMpCompatibleExternalReference: jest.fn(async (intent: unknown) => intent),
   };
   const mpClient = {
     createCheckoutPreference: jest.fn(),
@@ -110,7 +111,7 @@ describe('EShopCheckoutOrderService.resumeOnlinePayment', () => {
       preferenceId: 'pref-1',
       intentId: 'intent-1',
       publicKey: 'TEST-pk',
-      payerEmail: 'a@t.com',
+      payerEmail: 'test@testuser.com',
       payableTotal: 9000,
     });
     expect(mpClient.createCheckoutPreference).not.toHaveBeenCalled();

@@ -45,6 +45,7 @@ describe('GetAllEmployeesQueryHandler', () => {
       branchId: null,
       resultCenterId: null,
       organizationalUnitId: null,
+      laborUnitId: 'labor-unit-1',
       employmentType: EmploymentType.FULL_TIME,
       workRegime: WorkRegime.ORDINARY,
       status: EmployeeStatus.ACTIVE,

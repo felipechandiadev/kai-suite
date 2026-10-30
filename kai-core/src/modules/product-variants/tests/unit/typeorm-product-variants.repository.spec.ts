@@ -62,7 +62,16 @@ describe('TypeOrmProductVariantsRepository', () => {
 
     expect(ormRepository.findOne).toHaveBeenCalledWith({
       where: { id: 'variant-1' },
-      relations: ['product', 'unit', 'priceListItems'],
+      relations: [
+        'product',
+        'product.category',
+        'unit',
+        'stockBaseUnit',
+        'saleUnit',
+        'purchaseUnit',
+        'priceListItems',
+        'priceListItems.priceList',
+      ],
     });
     expect(result).toMatchObject({ id: 'variant-1' });
   });

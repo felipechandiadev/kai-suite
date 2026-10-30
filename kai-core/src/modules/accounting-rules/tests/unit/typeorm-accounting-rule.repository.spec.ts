@@ -35,7 +35,10 @@ describe('TypeOrmAccountingRuleRepository', () => {
 
     const result = await repository.findById('rule-1');
 
-    expect(ormRepository.findOne).toHaveBeenCalledWith({ where: { id: 'rule-1' } });
+    expect(ormRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'rule-1' },
+      relations: ['debitAccount', 'creditAccount', 'tax', 'expenseCategory', 'lines', 'lines.account'],
+    });
     expect(result).toMatchObject({ id: 'rule-1' });
   });
 
@@ -46,6 +49,7 @@ describe('TypeOrmAccountingRuleRepository', () => {
 
     expect(ormRepository.find).toHaveBeenCalledWith({
       where: { companyId: 'company-1', isActive: true },
+      relations: ['debitAccount', 'creditAccount', 'tax', 'expenseCategory', 'lines', 'lines.account'],
       order: { priority: 'ASC' },
     });
   });
@@ -57,6 +61,7 @@ describe('TypeOrmAccountingRuleRepository', () => {
 
     expect(ormRepository.find).toHaveBeenCalledWith({
       where: { companyId: 'company-1', transactionType: 'SALE', isActive: true },
+      relations: ['debitAccount', 'creditAccount', 'tax', 'expenseCategory', 'lines', 'lines.account'],
       order: { priority: 'ASC' },
     });
   });

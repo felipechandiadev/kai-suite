@@ -77,6 +77,7 @@ describe('CancelBackorderService', () => {
       dataSource as any,
       stockCommitment as any,
       transactionsService as any,
+      { syncOnBackorderCancelled: jest.fn() } as any,
     );
 
     return {

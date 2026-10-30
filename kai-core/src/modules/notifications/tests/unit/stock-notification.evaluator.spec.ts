@@ -27,8 +27,11 @@ describe('StockNotificationEvaluator', () => {
       variant: {
         id: 'v1',
         minimumStock: 10,
+        minimumStockEnabled: true,
         maximumStock: 100,
+        maximumStockEnabled: true,
         reorderPoint: 20,
+        reorderPointEnabled: true,
         product: { name: 'Aceite' },
       },
       stockLevel: {
@@ -37,8 +40,11 @@ describe('StockNotificationEvaluator', () => {
         physicalStock: 50,
         availableStock: 50,
         minimumStock: 10,
+        minimumStockEnabled: true,
         maximumStock: 100,
+        maximumStockEnabled: true,
         reorderPoint: 20,
+        reorderPointEnabled: true,
       },
     });
     expect(cmds).toHaveLength(0);
@@ -50,6 +56,7 @@ describe('StockNotificationEvaluator', () => {
       variant: {
         id: 'v1',
         minimumStock: 10,
+        minimumStockEnabled: true,
         product: { name: 'Filtro' },
       },
       stockLevel: {
@@ -78,6 +85,7 @@ describe('StockNotificationEvaluator', () => {
       variant: {
         id: 'v1',
         minimumStock: 10,
+        minimumStockEnabled: true,
         product: { name: 'Aceite de oliva extra virgen' },
         attributeValues: { color: 'Verde', size: '1 L' },
       },
@@ -87,6 +95,7 @@ describe('StockNotificationEvaluator', () => {
         physicalStock: 2,
         availableStock: 2,
         minimumStock: 10,
+        minimumStockEnabled: true,
       },
       storageName: 'Bodega central',
     });
@@ -102,7 +111,9 @@ describe('StockNotificationEvaluator', () => {
       variant: {
         id: 'v1',
         minimumStock: 10,
+        minimumStockEnabled: true,
         reorderPoint: 5,
+        reorderPointEnabled: true,
         product: { name: 'Filtro' },
       },
       stockLevel: {
@@ -129,6 +140,7 @@ describe('StockNotificationEvaluator', () => {
         physicalStock: 0,
         availableStock: 0,
         minimumStock: 80,
+        minimumStockEnabled: true,
       },
       storageName: 'Depósito principal',
       totalPhysicalStock: 200,

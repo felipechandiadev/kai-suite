@@ -1,9 +1,18 @@
+import { TenantContext } from '@common/tenant/tenant.context';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { GetUnitByIdQueryHandler } from '@modules/units/application/handlers/queries/get-unit-by-id.handler';
 import { GetUnitByIdQuery } from '@modules/units/application/queries/get-unit-by-id.query';
 import { UnitOrmEntity } from '@modules/units/infrastructure/orm-mappers/unit.orm-entity';
 import { UnitDimension } from '@modules/units/domain/unit-dimension.enum';
+
+const COMPANY_ID = 'company-1';
+/** Las unidades son por empresa: el handler exige empresa activa (TenantContext). */
+const asCompany = <T>(fn: () => Promise<T>): Promise<T> =>
+  TenantContext.run(
+    { userId: 'user-1', activeCompanyId: COMPANY_ID, rol: 'ADMIN' },
+    fn,
+  );
 
 describe('GetUnitByIdQueryHandler', () => {
   let handler: GetUnitByIdQueryHandler;
@@ -44,10 +53,12 @@ describe('GetUnitByIdQueryHandler', () => {
       deletedAt: undefined,
     });
 
-    const result = await handler.execute(new GetUnitByIdQuery('unit-1'));
+    const result = await asCompany(() =>
+      handler.execute(new GetUnitByIdQuery('unit-1')),
+    );
 
     expect(repository.findOne).toHaveBeenCalledWith({
-      where: { id: 'unit-1' },
+      where: { id: 'unit-1', companyId: COMPANY_ID },
     });
     expect(result).toMatchObject({
       id: 'unit-1',
@@ -60,7 +71,9 @@ describe('GetUnitByIdQueryHandler', () => {
   it('should return null when unit is missing', async () => {
     repository.findOne.mockResolvedValueOnce(null);
 
-    const result = await handler.execute(new GetUnitByIdQuery('missing'));
+    const result = await asCompany(() =>
+      handler.execute(new GetUnitByIdQuery('missing')),
+    );
 
     expect(result).toBeNull();
   });

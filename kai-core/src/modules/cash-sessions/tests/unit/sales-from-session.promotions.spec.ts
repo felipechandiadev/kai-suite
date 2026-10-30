@@ -117,6 +117,8 @@ describe('SalesFromSessionService — PR5 promotions integration', () => {
           return {
             findOne: jest.fn().mockResolvedValue({
               id: cashSessionId,
+              pointOfSaleId,
+              openedById: 'user-1',
               status: CashSessionStatus.OPEN,
               openingAmount: 0,
               expectedAmount: 0,
@@ -127,6 +129,7 @@ describe('SalesFromSessionService — PR5 promotions integration', () => {
         if (name === 'ProductVariant') {
           return {
             findOne: jest.fn().mockResolvedValue(productVariant),
+            find: jest.fn().mockResolvedValue([productVariant]),
           };
         }
         if (name === 'Unit') {
@@ -162,19 +165,21 @@ describe('SalesFromSessionService — PR5 promotions integration', () => {
             }),
           };
         }
-        return { findOne: jest.fn(), save: jest.fn(), insert: jest.fn() };
+        return {
+          findOne: jest.fn(),
+          find: jest.fn().mockResolvedValue([]),
+          save: jest.fn(),
+          insert: jest.fn(),
+          update: jest.fn(),
+        };
       },
       query: jest.fn().mockImplementation((sql: string, params: any[]) => {
-        if (
-          /UPDATE promotions[\s\S]+uses_count = uses_count \+ 1/i.test(sql)
-        ) {
+        if (/UPDATE promotions[\s\S]+uses_count = uses_count \+ 1/i.test(sql)) {
           updateCalls.push(params[0]);
           const rows = opts.updateRowsByPromotion[params[0]] ?? 1;
           return Promise.resolve(rows > 0 ? [{ id: params[0] }] : []);
         }
-        if (
-          /UPDATE promotions[\s\S]+uses_count = GREATEST/i.test(sql)
-        ) {
+        if (/UPDATE promotions[\s\S]+uses_count = GREATEST/i.test(sql)) {
           decrementCalls.push(params[0]);
           return Promise.resolve(undefined);
         }
@@ -209,6 +214,8 @@ describe('SalesFromSessionService — PR5 promotions integration', () => {
 
     const companiesService = {
       getPaymentMethods: jest.fn().mockResolvedValue([]),
+      getVoucherKinds: jest.fn().mockResolvedValue([]),
+      getCompanyById: jest.fn().mockResolvedValue({ id: 'co-1' }),
     };
 
     const variantQuantityConversion = {
@@ -223,7 +230,11 @@ describe('SalesFromSessionService — PR5 promotions integration', () => {
 
     const service = new SalesFromSessionService(
       {} as any,
-      {} as any,
+      {
+        manager: {
+          getRepository: () => ({ findOne: jest.fn().mockResolvedValue(null) }),
+        },
+      } as any, // transactionLineRepository,
       {} as any,
       {} as any,
       {} as any,
@@ -239,8 +250,12 @@ describe('SalesFromSessionService — PR5 promotions integration', () => {
       {} as any,
       {} as any,
       {} as any,
-      {} as any,
-      {} as any,
+      {
+        createFromTransactionMetadata: jest.fn().mockResolvedValue(undefined),
+      } as any, // installmentService
+      {
+        validateAndConsumePointPayments: jest.fn().mockResolvedValue(undefined),
+      } as any, // mpSalePayment
       {} as any,
       {} as any,
       {} as any,
@@ -250,6 +265,12 @@ describe('SalesFromSessionService — PR5 promotions integration', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any, // tipsService
+      {
+        expandPackLinesForStockCheck: jest
+          .fn()
+          .mockImplementation(async (_c: string, qty: unknown) => qty),
+      } as any, // packService
     );
 
     return {
@@ -307,7 +328,11 @@ describe('SalesFromSessionService — PR5 promotions integration', () => {
   it('throws ConflictException when uses_count UPDATE returns no rows', async () => {
     const { service, transactionsService, decrementCalls } = buildService({
       effective: [
-        buildEffectivePromotion({ id: 'promo-1', maxUsesTotal: 1, usesCount: 0 }),
+        buildEffectivePromotion({
+          id: 'promo-1',
+          maxUsesTotal: 1,
+          usesCount: 0,
+        }),
       ],
       // Simula que en el commit otro cajero ya consumió la última unidad
       // disponible y la UPDATE no devuelve filas.
@@ -358,9 +383,7 @@ describe('SalesFromSessionService — PR5 promotions integration', () => {
       pointOfSaleId,
       cashSessionId,
       paymentMethod: 'CASH',
-      lines: [
-        { productVariantId: 'variant-1', quantity: 1, unitPrice: 1000 },
-      ],
+      lines: [{ productVariantId: 'variant-1', quantity: 1, unitPrice: 1000 }],
       payments: [{ paymentMethod: 'CASH', amount: 900 }],
       amountPaid: 900,
       promotionSnapshot: [
@@ -377,7 +400,11 @@ describe('SalesFromSessionService — PR5 promotions integration', () => {
       ],
     });
 
-    expect(transactionsService.createTransaction).toHaveBeenCalledTimes(1);
+    // La venta se crea una vez; el cobro (PAYMENT_IN) se registra como transacción hija.
+    const saleCalls = transactionsService.createTransaction.mock.calls.filter(
+      ([dto]: any[]) => dto.transactionType === 'SALE',
+    );
+    expect(saleCalls).toHaveLength(1);
     expect(updateCalls).toEqual(['promo-1']);
     expect(insertedRedemptions).toHaveLength(1);
     expect(insertedRedemptions[0]).toEqual(
