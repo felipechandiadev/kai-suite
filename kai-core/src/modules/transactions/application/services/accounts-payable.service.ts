@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository, In } from 'typeorm';
+import { buildAgingReport, type AgingReport } from '@common/aging.util';
 import {
   Transaction,
   TransactionStatus,
@@ -78,6 +79,27 @@ export class AccountsPayableService {
     @InjectRepository(Transaction)
     private readonly txRepo: Repository<Transaction>,
   ) {}
+
+  /** Antigüedad de saldos por proveedor (misma fuente que el listado de cuentas por pagar). */
+  async getSupplierAging(supplierId?: string): Promise<AgingReport> {
+    const rows = await this.list({ payeeType: 'SUPPLIER', supplierId });
+    return buildAgingReport(
+      rows.map((r) => ({
+        id: r.id,
+        partyId: r.payeeId,
+        partyName: r.payeeName,
+        documentNumber: r.parentDocumentNumber ?? r.documentNumber,
+        installmentNumber: r.installmentNumber,
+        totalInstallments: r.totalInstallments,
+        amount: r.amount,
+        amountPaid: r.amountPaid,
+        pendingAmount: r.pendingAmount,
+        dueDate: r.dueDate,
+        daysOverdue: r.daysOverdue,
+      })),
+      new Date(),
+    );
+  }
 
   async list(filters?: AccountsPayableListFilters): Promise<AccountsPayableRowDto[]> {
     const qb = this.txRepo

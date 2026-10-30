@@ -47,6 +47,17 @@ export class AccountsReceivableController {
     return this.installmentService.getAccountsReceivable(filters);
   }
 
+  @Get('aging')
+  async aging(
+    @CurrentCompany() companyId: string,
+    @Query('customerId') customerId?: string,
+  ) {
+    return this.installmentService.getCustomerAging(
+      companyId,
+      customerId || undefined,
+    );
+  }
+
   @Get(':id/payment-context')
   async getPaymentContext(@Param('id') id: string) {
     return this.installmentService.getPaymentContext(id);

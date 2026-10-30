@@ -61,6 +61,11 @@ export class AccountsPayableController {
     return this.accountsPayableService.list(filters);
   }
 
+  @Get('aging')
+  async aging(@Query('supplierId') supplierId?: string) {
+    return this.accountsPayableService.getSupplierAging(supplierId || undefined);
+  }
+
   @Get(':id/payment-context')
   async getPaymentContext(@Param('id') id: string) {
     return this.accountsPayableService.getPaymentContext(id);

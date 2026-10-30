@@ -232,7 +232,17 @@ export class Installment {
    * (considerando fecha actual y saldo)
    */
   isOverdue(today: Date = new Date()): boolean {
-    return today > this.dueDate && this.getPendingAmount() > 0;
+    return today > this.dueDateAsDate() && this.getPendingAmount() > 0;
+  }
+
+  /** `dueDate` llega como 'YYYY-MM-DD' (string) desde Postgres; se normaliza a medianoche local. */
+  private dueDateAsDate(): Date {
+    const raw = this.dueDate as unknown;
+    if (raw instanceof Date) return raw;
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(raw ?? ''));
+    return m
+      ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+      : new Date(NaN);
   }
 
   /**
@@ -240,7 +250,7 @@ export class Installment {
    */
   getDaysOverdue(today: Date = new Date()): number {
     if (!this.isOverdue(today)) return 0;
-    const diffTime = Math.abs(today.getTime() - this.dueDate.getTime());
+    const diffTime = Math.abs(today.getTime() - this.dueDateAsDate().getTime());
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
 }

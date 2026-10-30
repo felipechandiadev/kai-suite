@@ -24,6 +24,7 @@ import {
   AccountsReceivableListFilters,
   AccountsReceivableRowDto,
 } from '../dto/accounts-receivable-row.dto';
+import { buildAgingReport, type AgingReport } from '@common/aging.util';
 import { mapInstallmentToAccountsReceivableRow } from '../helpers/map-accounts-receivable-row';
 
 @Injectable()
@@ -494,6 +495,40 @@ export class InstallmentService {
     queryBuilder.addOrderBy('installment.dueDate', 'DESC');
 
     return queryBuilder.getMany();
+  }
+
+  /** Antigüedad de saldos por cliente (misma fuente que el listado de cuentas por cobrar). */
+  async getCustomerAging(
+    companyId: string,
+    customerId?: string,
+  ): Promise<AgingReport> {
+    const all: AccountsReceivableRowDto[] = [];
+    for (let page = 1; page <= 200; page++) {
+      const res = await this.getAccountsReceivable({
+        companyId,
+        customerId,
+        page,
+        pageSize: 200,
+      });
+      all.push(...res.rows);
+      if (all.length >= res.total || res.rows.length === 0) break;
+    }
+    return buildAgingReport(
+      all.map((r) => ({
+        id: r.id,
+        partyId: r.customerId,
+        partyName: r.customerName,
+        documentNumber: r.documentNumber,
+        installmentNumber: r.installmentNumber,
+        totalInstallments: r.totalInstallments,
+        amount: r.amount,
+        amountPaid: r.amountPaid,
+        pendingAmount: r.pendingAmount,
+        dueDate: r.dueDate,
+        daysOverdue: r.daysOverdue,
+      })),
+      new Date(),
+    );
   }
 
   /**
