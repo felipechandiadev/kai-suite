@@ -127,6 +127,21 @@ export default function PurchaseOrdersDataGrid({ rows, total }: PurchaseOrdersDa
         },
       },
       {
+        field: "reception",
+        headerName: "Recepción",
+        sortable: false,
+        width: 130,
+        align: "right",
+        valueGetter: ({ row }) => {
+          const s = (row as PurchaseOrderGridRow).receptionSummary;
+          if (!s) {
+            return "—";
+          }
+          const fmt = (n: number) => new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 }).format(n);
+          return `${fmt(s.received)} / ${fmt(s.ordered)}`;
+        },
+      },
+      {
         field: "total",
         headerName: "Total",
         sortable: true,

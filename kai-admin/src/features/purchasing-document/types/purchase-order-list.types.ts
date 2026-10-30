@@ -11,4 +11,6 @@ export type PurchaseOrderGridRow = {
   taxAmount: number;
   total: number;
   createdAtIso: string | null;
+  /** Unidades pedidas/recibidas (suma de líneas); null si aún no se recibió nada. */
+  receptionSummary: { ordered: number; received: number } | null;
 };

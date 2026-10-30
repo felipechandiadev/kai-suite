@@ -9,6 +9,7 @@ import { OperatingExpenseTransactionsController } from './presentation/operating
 import { InventoryTransactionsController } from './presentation/controllers/inventory.controller';
 import { TransactionsService } from './application/transactions.service';
 import { PurchaseOrdersService } from './application/purchase-orders.service';
+import { PurchaseOrderReceptionProgressService } from './application/purchase-order-reception-progress.service';
 import { Transaction } from '@modules/transactions/domain/transaction.entity';
 import { DocumentSequence } from '@modules/transactions/domain/document-sequence.entity';
 import { Branch } from '@modules/branches/domain/branch.entity';
@@ -140,6 +141,7 @@ import { Installment } from '@modules/installments/domain/installment.entity';
     SupplierFiscalDocumentCreateService,
     OperatingExpensePaymentPlanService,
     PurchaseOrdersService,
+    PurchaseOrderReceptionProgressService,
     TransactionsService, // Adapter for backward compatibility
     TransactionsServiceAdapter,
     TransactionRepository,
@@ -173,6 +175,7 @@ import { Installment } from '@modules/installments/domain/installment.entity';
   ],
   exports: [
     TransactionsService,
+    PurchaseOrderReceptionProgressService,
     TransactionsServiceAdapter,
     SupplierFiscalDocumentPaymentAggregateService,
     ParentPaymentAggregateService,

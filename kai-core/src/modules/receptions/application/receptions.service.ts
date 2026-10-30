@@ -4,6 +4,7 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
+import { PurchaseOrderReceptionProgressService } from '@modules/transactions/application/purchase-order-reception-progress.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, Not, In, Brackets } from 'typeorm';
 import { Reception, ReceptionStatus } from '../domain/reception.entity';
@@ -64,6 +65,7 @@ export class ReceptionsService {
     private readonly variantsService: ProductVariantsService,
     private readonly cashSessionsService: CashSessionsService,
     private readonly parentPaymentAggregate: ParentPaymentAggregateService,
+    private readonly poProgress: PurchaseOrderReceptionProgressService,
   ) {}
 
   private resolvePosCashSessionId(data: any): string | null {
@@ -1312,6 +1314,10 @@ export class ReceptionsService {
       purchaseOrderId,
     });
     const stockTxId = tx && (tx as any).id ? String((tx as any).id) : null;
+    if (stockTxId && purchaseOrderId) {
+      // Actualiza "Recibida x/y" de la OC de origen (idempotente; no rompe la recepción si falla).
+      await this.poProgress.recalculate(purchaseOrderId);
+    }
     if (stockTxId) {
       receptionWithLines!.transactionId = stockTxId as any;
       const txFolio =

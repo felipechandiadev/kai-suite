@@ -175,6 +175,7 @@ describe('ReceptionVoidService', () => {
       dataSource,
       transactionsService as any,
       documentNumbers as any,
+      { recalculate: jest.fn() } as any,
     );
     return {
       service,

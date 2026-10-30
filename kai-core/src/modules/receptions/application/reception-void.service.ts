@@ -5,6 +5,7 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
+import { PurchaseOrderReceptionProgressService } from '@modules/transactions/application/purchase-order-reception-progress.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import { Reception, ReceptionStatus } from '../domain/reception.entity';
@@ -80,6 +81,7 @@ export class ReceptionVoidService {
     private readonly dataSource: DataSource,
     private readonly transactionsService: TransactionsService,
     private readonly documentNumbers: DocumentNumberService,
+    private readonly poProgress: PurchaseOrderReceptionProgressService,
     @Optional() private readonly cacheService?: CacheService,
   ) {}
 
@@ -279,6 +281,12 @@ export class ReceptionVoidService {
       await this.compensateStock(purchase, stockAdjustmentId, uid, err);
       throw err;
     }
+
+    // La OC de origen (si la hay) vuelve a "pendiente/parcial": se recalcula sin contar el ingreso anulado.
+    await this.poProgress.recalculate(
+      (purchase?.metadata as { links?: { purchaseOrderId?: string } } | undefined)?.links
+        ?.purchaseOrderId,
+    );
 
     try {
       await this.cacheService?.invalidateTransactionDetails(id);

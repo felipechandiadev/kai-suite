@@ -47,6 +47,26 @@ function branchNameFromRow(tx: Record<string, unknown>): string {
   return name || "—";
 }
 
+/** Suma pedido/recibido de `metadata.receptionProgress` (lo deja el core al recibir o anular una recepción). */
+function receptionSummaryFromMetadata(
+  metadata: Record<string, unknown> | null,
+): { ordered: number; received: number } | null {
+  const progress = metadata ? asRecord(metadata.receptionProgress) : null;
+  const lines = progress && Array.isArray(progress.lines) ? progress.lines : null;
+  if (!lines || lines.length === 0) {
+    return null;
+  }
+  let ordered = 0;
+  let received = 0;
+  for (const l of lines) {
+    const r = asRecord(l);
+    if (!r) continue;
+    ordered += Number(r.ordered) || 0;
+    received += Number(r.received) || 0;
+  }
+  return { ordered, received };
+}
+
 function normalizePurchaseOrderRow(raw: unknown): PurchaseOrderGridRow | null {
   const tx = asRecord(raw);
   if (!tx) {
@@ -91,6 +111,7 @@ function normalizePurchaseOrderRow(raw: unknown): PurchaseOrderGridRow | null {
     taxAmount,
     total,
     createdAtIso,
+    receptionSummary: receptionSummaryFromMetadata(metadata),
   };
 }
 
