@@ -323,7 +323,7 @@ const PosProductSearchPanel = forwardRef<PosProductSearchPanelHandle, Props>(fun
         if (offline.products.length === 0 && searchQuery.trim()) {
           setError("Sin conexión. Producto no está en el catálogo local.");
         } else {
-          setError(null);
+          setError("");
         }
         setItems(offline.products);
         setTotal(offline.total);

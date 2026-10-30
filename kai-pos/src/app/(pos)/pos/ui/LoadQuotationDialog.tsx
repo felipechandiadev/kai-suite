@@ -39,6 +39,8 @@ function formatDateTime(iso: string | null | undefined) {
 
 /** Precios desde el snapshot; stock y atributos se enriquecen con lookup POS al cargar. */
 function quotationLinesToCart(detail: QuotationDetail): PosCartLine[] {
+  // taxCategory / requiresDte / taxIds no vienen en la cotización: los completa
+  // `enrichQuotationLinesWithPosSnapshot` y, antes de vender, `hydrateCartLinesFiscalFlags`.
   return detail.lines.map((l) => {
     const displayName = l.variantName?.trim()
       ? `${l.productName} — ${l.variantName}`
@@ -65,7 +67,7 @@ function quotationLinesToCart(detail: QuotationDetail): PosCartLine[] {
       attributes: [],
       metadata: { fromQuotation: true },
       quantity: Number(l.quantity) || 1,
-    };
+    } as unknown as PosCartLine;
   });
 }
 

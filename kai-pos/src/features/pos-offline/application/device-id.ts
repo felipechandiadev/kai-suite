@@ -18,10 +18,14 @@ export async function getOrCreateDeviceId(): Promise<string> {
 
 export async function nextLocalDocumentNumber(): Promise<string> {
   const db = getPosOfflineDb();
-  const deviceId = await getOrCreateDeviceId();
-  const short = deviceId.replace(/-/g, "").slice(0, 6).toUpperCase();
-  const meta = (await db.meta.get("meta")) ?? { id: "meta" as const, localFolioSeq: 0 };
-  const seq = meta.localFolioSeq + 1;
-  await db.meta.put({ id: "meta", localFolioSeq: seq });
-  return `OFF${short}${String(seq).padStart(5, "0")}`;
+  // Lectura + incremento en una sola transacción: dos ventas simultáneas (o dos pestañas)
+  // no pueden obtener el mismo correlativo.
+  return db.transaction("rw", db.meta, db.device, async () => {
+    const deviceId = await getOrCreateDeviceId();
+    const short = deviceId.replace(/-/g, "").slice(0, 6).toUpperCase();
+    const meta = (await db.meta.get("meta")) ?? { id: "meta" as const, localFolioSeq: 0 };
+    const seq = meta.localFolioSeq + 1;
+    await db.meta.put({ id: "meta", localFolioSeq: seq });
+    return `OFF${short}${String(seq).padStart(5, "0")}`;
+  });
 }

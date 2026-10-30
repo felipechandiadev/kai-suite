@@ -3540,6 +3540,19 @@ export default function PosPaymentWorkspace({
         const pack = saleDteKind === "BOLETA" ? await getStoredFiscalPack(pointOfSaleId) : null;
         const offlineCartLines = cartLinesForSale.map((l) => ({ ...l, discount: null }));
         const offlineTotals = computePosSaleTotals(offlineCartLines, 0);
+        // Offline se vende a precio de lista, sin promociones ni descuentos. Si el cajero ya
+        // cobró un total con descuento, el pago no cubriría la venta registrada y la
+        // sincronización fallaría: se avisa antes de guardar.
+        if (Math.round(appliedTotal) < Math.round(offlineTotals.saleTotal)) {
+          setConfirmLoading(false);
+          setPageAlert(
+            `Sin conexión no se aplican promociones ni descuentos. Total a cobrar: ${new Intl.NumberFormat(
+              "es-CL",
+              { style: "currency", currency: "CLP", maximumFractionDigits: 0 },
+            ).format(Math.round(offlineTotals.saleTotal))}. Ajusta los pagos.`,
+          );
+          return;
+        }
 
         const committed = await commitOfflineSale({
           pointOfSaleId,

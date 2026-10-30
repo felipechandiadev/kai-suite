@@ -83,6 +83,8 @@ interface TextFieldProps {
    * No aplica en `variante="autocomplete"`, `readOnly` ni `disabled`.
    */
   selectOnFocus?: boolean;
+  /** Se reenvía al `<input>` (vía props restantes). */
+  autoFocus?: boolean;
   onFocus?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onBlur?: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onMouseDown?: (e: React.MouseEvent<HTMLInputElement | HTMLTextAreaElement>) => void;

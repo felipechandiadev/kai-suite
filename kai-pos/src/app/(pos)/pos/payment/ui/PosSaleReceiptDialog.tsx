@@ -57,6 +57,7 @@ const FALLBACK_METHOD_LABEL: Record<PosPaymentMethodId, string> = {
   DEBIT_CARD: "Tarjeta débito",
   TRANSFER: "Transferencia",
   CHECK: "Cheque",
+  VOUCHER: "Voucher",
   INTERNAL_CREDIT: "Crédito interno",
   CUSTOMER_CREDIT_NOTE: "Nota de crédito cliente",
   ORDER_ADVANCE: "Abono por encargo",
