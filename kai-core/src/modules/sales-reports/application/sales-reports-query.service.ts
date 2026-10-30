@@ -606,6 +606,77 @@ export class SalesReportsQueryService {
     }));
   }
 
+  /** Utilidad bruta (venta − costo registrado al vender) agrupada por una dimensión. */
+  async profitabilityBy(
+    companyId: string,
+    range: DateRange,
+    groupBy: 'product' | 'category' | 'customer' | 'seller',
+    opts?: { pointOfSaleIds?: string[]; branchId?: string },
+  ) {
+    const personName = (a: string) =>
+      `COALESCE(NULLIF(MAX(${a}."businessName"), ''), NULLIF(TRIM(CONCAT(MAX(${a}."firstName"), ' ', COALESCE(MAX(${a}."lastName"), ''))), ''))`;
+    const qb = this.linesWithTxQb(companyId, range, opts);
+    if (groupBy === 'product') {
+      qb.select('l.productId', 'key').addSelect('MAX(l.productName)', 'label').groupBy('l.productId');
+    } else if (groupBy === 'category') {
+      qb.leftJoin('l.product', 'p')
+        .leftJoin('p.category', 'cat')
+        .select('p.categoryId', 'key')
+        .addSelect('MAX(cat.name)', 'label')
+        .groupBy('p.categoryId');
+    } else if (groupBy === 'customer') {
+      qb.leftJoin('t.customer', 'cu')
+        .leftJoin('cu.person', 'cup')
+        .select('t.customerId', 'key')
+        .addSelect(personName('cup'), 'label')
+        .groupBy('t.customerId');
+    } else {
+      qb.leftJoin('t.employee', 'emp')
+        .leftJoin('emp.person', 'empp')
+        .leftJoin('t.user', 'usr')
+        .leftJoin('usr.person', 'usrp')
+        .select('COALESCE(t.employeeId, t.userId)', 'key')
+        .addSelect(
+          `COALESCE(${personName('empp')}, ${personName('usrp')})`,
+          'label',
+        )
+        .groupBy('COALESCE(t.employeeId, t.userId)');
+    }
+    qb.addSelect('COALESCE(SUM(l.quantity), 0)', 'qty')
+      .addSelect('COALESCE(SUM(l.subtotal), 0)', 'revenue')
+      .addSelect(
+        `COALESCE(SUM(CASE WHEN l.unitCost IS NOT NULL AND l.unitCost > 0 THEN l.unitCost * l.quantity ELSE 0 END), 0)`,
+        'cogs',
+      )
+      .addSelect(
+        `COALESCE(SUM(CASE WHEN l.unitCost IS NOT NULL AND l.unitCost > 0 THEN l.subtotal ELSE 0 END), 0)`,
+        'revenueWithCost',
+      )
+      .addSelect(
+        `COALESCE(SUM(CASE WHEN l.unitCost IS NULL OR l.unitCost <= 0 THEN 1 ELSE 0 END), 0)`,
+        'linesMissingCost',
+      )
+      .orderBy('revenue', 'DESC');
+    return (await qb.getRawMany()).map((r) => {
+      const revenue = Number(r.revenue) || 0;
+      const cogs = Number(r.cogs) || 0;
+      const revenueWithCost = Number(r.revenueWithCost) || 0;
+      // La utilidad solo se calcula sobre ventas con costo conocido.
+      const profit = revenueWithCost - cogs;
+      return {
+        key: r.key ? String(r.key) : null,
+        label: r.label ? String(r.label) : null,
+        qty: Number(r.qty) || 0,
+        revenue,
+        cogs,
+        profit,
+        marginPct:
+          revenueWithCost > 0 ? Math.round((profit / revenueWithCost) * 1000) / 10 : null,
+        linesMissingCost: Number(r.linesMissingCost) || 0,
+      };
+    });
+  }
+
   async salesByCategory(
     companyId: string,
     range: DateRange,

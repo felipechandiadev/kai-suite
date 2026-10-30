@@ -655,3 +655,121 @@ export class SalesByCategoryHandler implements SalesReportHandler {
     };
   }
 }
+
+type ProfitabilityGroup = 'product' | 'category' | 'customer' | 'seller';
+
+abstract class ProfitabilityHandlerBase implements SalesReportHandler {
+  abstract readonly id: string;
+  abstract readonly title: string;
+  abstract readonly description: string;
+  protected abstract readonly groupBy: ProfitabilityGroup;
+  protected abstract readonly dimensionLabel: string;
+  readonly wave = 'p1' as const;
+
+  constructor(protected readonly q: SalesReportsQueryService) {}
+
+  validate(params: Record<string, unknown>) {
+    const range = this.q.parseDateRange(params);
+    return {
+      dateFrom: range.dateFrom,
+      dateTo: range.dateTo,
+      branchId: this.q.optionalUuid(params, 'branchId'),
+      pointOfSaleIds: this.q.optionalUuidList(params, 'pointOfSaleIds'),
+    };
+  }
+
+  async run(ctx: SalesReportHandlerContext): Promise<SalesReportRunResult> {
+    const params = this.validate(ctx.params);
+    const range = this.q.parseDateRange(params);
+    const rows = await this.q.profitabilityBy(ctx.companyId, range, this.groupBy, {
+      branchId: params.branchId,
+      pointOfSaleIds: params.pointOfSaleIds,
+    });
+    const revenue = rows.reduce((s, r) => s + r.revenue, 0);
+    const cogs = rows.reduce((s, r) => s + r.cogs, 0);
+    const profit = rows.reduce((s, r) => s + r.profit, 0);
+    const missing = rows.reduce((s, r) => s + r.linesMissingCost, 0);
+    return {
+      reportId: this.id,
+      title: this.title,
+      generatedAt: nowIso(),
+      params,
+      summary: {
+        groups: rows.length,
+        revenue: money(revenue),
+        cogs: money(cogs),
+        profit: money(profit),
+      },
+      series: [
+        {
+          id: 'profit',
+          label: `Utilidad por ${this.dimensionLabel.toLowerCase()}`,
+          chart: 'bar',
+          points: rows.slice(0, 20).map((r) => ({
+            x: (r.label ?? 'Sin asignar').slice(0, 24),
+            y: money(r.profit),
+          })),
+        },
+      ],
+      columns: [
+        { key: 'label', label: this.dimensionLabel },
+        { key: 'qty', label: 'Cant.', align: 'right' },
+        { key: 'revenue', label: 'Venta', align: 'right' },
+        { key: 'cogs', label: 'Costo', align: 'right' },
+        { key: 'profit', label: 'Utilidad', align: 'right' },
+        { key: 'marginPct', label: 'Margen %', align: 'right' },
+      ],
+      rows: rows.map((r) => ({
+        label: r.label ?? 'Sin asignar',
+        qty: money(r.qty),
+        revenue: money(r.revenue),
+        cogs: money(r.cogs),
+        profit: money(r.profit),
+        marginPct: r.marginPct,
+      })),
+      totals: { revenue: money(revenue), cogs: money(cogs), profit: money(profit) },
+      footnotes: [
+        'Utilidad = venta − costo registrado al vender (unitCost), solo sobre líneas con costo.' +
+          (missing > 0
+            ? ` ${missing} líneas sin costo quedan fuera de la utilidad (su venta sí suma en "Venta").`
+            : ''),
+      ],
+    };
+  }
+}
+
+@Injectable()
+export class ProfitabilityByProductHandler extends ProfitabilityHandlerBase {
+  readonly id = 'profitability-by-product';
+  readonly title = 'Rentabilidad por producto';
+  readonly description = 'Venta, costo, utilidad y margen % por producto.';
+  protected readonly groupBy = 'product' as const;
+  protected readonly dimensionLabel = 'Producto';
+}
+
+@Injectable()
+export class ProfitabilityByCategoryHandler extends ProfitabilityHandlerBase {
+  readonly id = 'profitability-by-category';
+  readonly title = 'Rentabilidad por categoría';
+  readonly description = 'Venta, costo, utilidad y margen % por categoría.';
+  protected readonly groupBy = 'category' as const;
+  protected readonly dimensionLabel = 'Categoría';
+}
+
+@Injectable()
+export class ProfitabilityByCustomerHandler extends ProfitabilityHandlerBase {
+  readonly id = 'profitability-by-customer';
+  readonly title = 'Rentabilidad por cliente';
+  readonly description = 'Venta, costo, utilidad y margen % por cliente.';
+  protected readonly groupBy = 'customer' as const;
+  protected readonly dimensionLabel = 'Cliente';
+}
+
+@Injectable()
+export class ProfitabilityBySellerHandler extends ProfitabilityHandlerBase {
+  readonly id = 'profitability-by-seller';
+  readonly title = 'Rentabilidad por vendedor';
+  readonly description = 'Venta, costo, utilidad y margen % por vendedor.';
+  protected readonly groupBy = 'seller' as const;
+  protected readonly dimensionLabel = 'Vendedor';
+}
