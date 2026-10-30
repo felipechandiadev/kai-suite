@@ -656,9 +656,7 @@ export class ReceptionVoidService {
         ...(inst.metadata ?? {}),
         cancelledByReceptionVoid: voidMeta,
       } as any;
-      // No existe estado CANCELLED en installments (ver brecha G6 del diseño).
-      inst.amountPaid = Number(inst.amount) || 0;
-      inst.status = InstallmentStatus.PAID;
+      inst.status = InstallmentStatus.CANCELLED;
       await repo.save(inst);
     }
   }

@@ -16,7 +16,7 @@ export type AccountsPayableSourceType =
   | "OPERATING_EXPENSE"
   | "OTHER";
 
-export type AccountsPayableStatus = "PENDING" | "PARTIAL" | "OVERDUE" | "PAID";
+export type AccountsPayableStatus = "PENDING" | "PARTIAL" | "OVERDUE" | "PAID" | "CANCELLED";
 
 export type AccountsPayablePayeeType = "SUPPLIER" | "EMPLOYEE" | "OTHER";
 

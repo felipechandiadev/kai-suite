@@ -1,6 +1,6 @@
 export type AccountsReceivableOriginCategory = "INSTALLMENT";
 
-export type AccountsReceivableStatus = "PENDING" | "PARTIAL" | "OVERDUE" | "PAID";
+export type AccountsReceivableStatus = "PENDING" | "PARTIAL" | "OVERDUE" | "PAID" | "CANCELLED";
 
 export type AccountsReceivableRow = {
   id: string;

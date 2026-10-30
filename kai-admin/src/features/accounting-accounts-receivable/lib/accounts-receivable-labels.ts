@@ -18,6 +18,7 @@ export const ACCOUNTS_RECEIVABLE_STATUS_LABELS: Record<
   PARTIAL: "Parcial",
   OVERDUE: "Vencida",
   PAID: "Cobrada",
+  CANCELLED: "Anulada",
 };
 
 export function labelAccountsReceivableOriginCategory(

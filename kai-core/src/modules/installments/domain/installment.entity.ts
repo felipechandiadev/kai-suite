@@ -48,6 +48,7 @@ export enum InstallmentStatus {
   PARTIAL = 'PARTIAL', // Pagado parcialmente
   PAID = 'PAID', // Pagado completamente
   OVERDUE = 'OVERDUE', // Vencido sin pagar (morosidad)
+  CANCELLED = 'CANCELLED', // Anulada junto con su venta/compra; no cuenta como cobrada ni pendiente
 }
 
 /**
@@ -222,6 +223,7 @@ export class Installment {
    * Calcula el saldo pendiente de la cuota
    */
   getPendingAmount(): number {
+    if (this.status === InstallmentStatus.CANCELLED) return 0;
     return Math.max(0, this.amount - this.amountPaid);
   }
 

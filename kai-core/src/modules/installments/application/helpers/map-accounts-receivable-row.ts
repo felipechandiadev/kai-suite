@@ -28,7 +28,8 @@ export function mapInstallmentToAccountsReceivableRow(
   const isOverdue = inst.isOverdue(today);
   const daysOverdue = inst.getDaysOverdue(today);
   const status =
-    isOverdue && inst.status !== 'PAID' ? 'OVERDUE' : String(inst.status);
+    isOverdue && inst.status !== 'PAID' && inst.status !== 'CANCELLED'
+      ? 'OVERDUE' : String(inst.status);
 
   const createdAtRaw = transaction?.createdAt ?? inst.createdAt;
   const createdAt =

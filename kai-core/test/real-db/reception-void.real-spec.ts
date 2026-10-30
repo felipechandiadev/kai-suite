@@ -130,6 +130,28 @@ describe('Recepción de compra → anulación (BD real)', () => {
     expect(await physicalStock(ds, variantId, base.storageId)).toBe(0);
   });
 
+  it('al anular, las cuotas abiertas quedan CANCELLED (no pagadas) y sin saldo', async () => {
+    const supplierId = await createSupplier(ds, base);
+    const { variantId } = await createPhysicalVariant(ds, base);
+    const rec: any = await receive(variantId, supplierId, 2, 100, 'F-5001');
+    const [{ id: instId }] = await ds.query(
+      `INSERT INTO installments (company_id, "sourceType", "sourceTransactionId", "installmentNumber", "totalInstallments", amount, "dueDate", status)
+       VALUES ($1,'PURCHASE',$2,1,1,200,now(),'PENDING') RETURNING id`,
+      [base.companyId, rec.transactionId],
+    );
+    await asCompany(base, () =>
+      voider.void(base.companyId, base.userId, rec.id, {
+        reason: 'Cuotas anuladas',
+      } as any),
+    );
+    const [inst] = await ds.query(
+      `SELECT status, "amountPaid"::float AS paid FROM installments WHERE id=$1`,
+      [instId],
+    );
+    expect(inst.status).toBe('CANCELLED');
+    expect(inst.paid).toBe(0);
+  });
+
   it('el listado filtra por estado (VOIDED / RECEIVED)', async () => {
     const supplierId = await createSupplier(ds, base);
     const { variantId } = await createPhysicalVariant(ds, base);

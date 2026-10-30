@@ -14,6 +14,7 @@ export enum InstallmentStatus {
   PARTIAL = 'PARTIAL',
   PAID = 'PAID',
   OVERDUE = 'OVERDUE',
+  CANCELLED = 'CANCELLED',
 }
 
 export enum InstallmentSourceType {

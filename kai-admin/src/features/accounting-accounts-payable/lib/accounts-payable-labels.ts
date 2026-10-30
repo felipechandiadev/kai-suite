@@ -40,6 +40,7 @@ export const ACCOUNTS_PAYABLE_STATUS_LABELS: Record<
   PARTIAL: "Parcial",
   OVERDUE: "Vencida",
   PAID: "Pagada",
+  CANCELLED: "Anulada",
 };
 
 export const ACCOUNTS_PAYABLE_PAYEE_TYPE_LABELS: Record<

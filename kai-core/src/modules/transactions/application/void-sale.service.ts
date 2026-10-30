@@ -300,9 +300,7 @@ export class VoidSaleService {
         voidOfSaleId: saleId,
       };
       inst.metadata = meta;
-      // Cierra la cuota en cartera (no hay estado CANCELLED en installments).
-      inst.amountPaid = Number(inst.amount) || 0;
-      inst.status = InstallmentStatus.PAID;
+      inst.status = InstallmentStatus.CANCELLED;
       await repo.save(inst);
     }
   }
