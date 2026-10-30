@@ -9,6 +9,7 @@ import {
   IsObject,
   IsUUID,
   IsBoolean,
+  IsPositive,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -17,9 +18,11 @@ export class SaleLineDto {
   productVariantId: string;
 
   @IsNumber()
+  @IsPositive({ message: 'La cantidad de cada línea debe ser mayor que cero' })
   quantity: number;
 
   @IsNumber()
+  @Min(0, { message: 'El precio unitario no puede ser negativo' })
   unitPrice: number;
 
   @IsOptional()
@@ -28,6 +31,7 @@ export class SaleLineDto {
 
   @IsOptional()
   @IsNumber()
+  @Min(0, { message: 'El descuento no puede ser negativo' })
   discountAmount?: number;
 
   @IsOptional()
@@ -42,6 +46,7 @@ export class SaleLineDto {
 
   @IsOptional()
   @IsNumber()
+  @Min(0, { message: 'El impuesto no puede ser negativo' })
   taxAmount?: number;
 
   @IsOptional()

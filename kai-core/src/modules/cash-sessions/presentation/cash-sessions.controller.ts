@@ -7,6 +7,8 @@ import {
   Body,
   BadRequestException,
 } from '@nestjs/common';
+import { CurrentUser } from '@common/tenant/current-user.decorator';
+import type { CurrentUserPayload } from '@common/tenant/current-user.decorator';
 import { CashSessionsService } from '../application/cash-sessions.service';
 import { CashSessionIntegrityService } from '../application/cash-session-integrity.service';
 import { CashSessionCoreService } from '../application/cash-session-core.service';
@@ -103,27 +105,48 @@ export class CashSessionsController {
    * Now delegates to TransactionsService for SALE + asientos generation
    */
   @Post('sales')
-  async createSale(@Body() createSaleDto: CreateSaleDto) {
+  async createSale(
+    @Body() createSaleDto: CreateSaleDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    // El cajero es quien está autenticado; no se acepta el nombre que venga en el body.
+    createSaleDto.userName = user.userName;
     return this.salesService.createSale(createSaleDto);
   }
 
   @Post('collect-pending-sales')
-  async collectPendingSales(@Body() body: CollectPendingSalesDto) {
+  async collectPendingSales(
+    @Body() body: CollectPendingSalesDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    body.userName = user.userName;
     return this.salesService.collectPendingSales(body);
   }
 
   @Post('collect-pending-quotas')
-  async collectPendingQuotas(@Body() body: CollectPendingQuotasDto) {
+  async collectPendingQuotas(
+    @Body() body: CollectPendingQuotasDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    body.userName = user.userName;
     return this.salesService.collectPendingQuotas(body);
   }
 
   @Post('payout-customer-credit-notes')
-  async payoutCustomerCreditNotes(@Body() body: PayoutCustomerCreditNotesDto) {
+  async payoutCustomerCreditNotes(
+    @Body() body: PayoutCustomerCreditNotesDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    body.userName = user.userName;
     return this.salesService.payoutCustomerCreditNotes(body);
   }
 
   @Post('backorders')
-  async createBackorder(@Body() createBackorderDto: CreateBackorderDto) {
+  async createBackorder(
+    @Body() createBackorderDto: CreateBackorderDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    createBackorderDto.userName = user.userName;
     return this.salesService.createBackorder(createBackorderDto);
   }
 

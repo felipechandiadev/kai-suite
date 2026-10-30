@@ -136,4 +136,55 @@ describe('Venta POS: idempotencia y sincronización offline (BD real)', () => {
     const ok: any = await asCompany(base, () => sync.syncCommand({ ...cmd, userName }));
     expect(ok.success).toBe(true);
   });
+
+  it('el servidor rechaza líneas con cantidad/precio/descuento inválidos y no acepta el costo del cliente', async () => {
+    const { validate } = await import('class-validator');
+    const { plainToInstance } = await import('class-transformer');
+    const { SaleLineDto } = await import('../../src/modules/cash-sessions/application/dto/create-sale.dto');
+    const errs = async (o: Record<string, unknown>) =>
+      (await validate(plainToInstance(SaleLineDto, { productVariantId: 'v', quantity: 1, unitPrice: 10, ...o }))).length;
+    expect(await errs({})).toBe(0);
+    expect(await errs({ quantity: -3 })).toBeGreaterThan(0);
+    expect(await errs({ quantity: 0 })).toBeGreaterThan(0);
+    expect(await errs({ unitPrice: -1 })).toBeGreaterThan(0);
+    expect(await errs({ discountAmount: -5 })).toBeGreaterThan(0);
+    expect(await errs({ taxAmount: -1 })).toBeGreaterThan(0);
+
+    // Descuento mayor al subtotal: rechazado por el servicio
+    const v = await createPhysicalVariant(ds, base, { basePrice: 500 });
+    const sales = ctx.app.get(SalesFromSessionService);
+    await expect(
+      asCompany(base, () =>
+        sales.createSale(
+          saleBody(v, {
+            lines: [{ productVariantId: v.variantId, quantity: 1, unitPrice: 500, discountAmount: 900 }],
+          }) as any,
+        ),
+      ),
+    ).rejects.toThrow(/descuento/i);
+
+    // Costo enviado por el cliente se ignora: queda el costo del servidor
+    await ds.query(`UPDATE product_variants SET pmp=70 WHERE id=$1`, [v.variantId]);
+    const r: any = await asCompany(base, () =>
+      ctx.app.get(PosSyncService).syncCommand({
+        clientOperationId: randomUUID(),
+        deviceId: 'device-test',
+        commandType: 'SALE',
+        userName,
+        pointOfSaleId: base.pointOfSaleId,
+        cashSessionId,
+        paymentMethod: 'CASH',
+        lines: [{ productVariantId: v.variantId, quantity: 1, unitPrice: 500, unitCost: 1 }],
+        payments: [{ paymentMethod: 'CASH', amount: 500 }],
+        amountPaid: 500,
+        changeAmount: 0,
+      }),
+    );
+    expect(r.success).toBe(true);
+    const [l] = await ds.query(
+      `SELECT "unitCost"::float AS c FROM transaction_lines WHERE "transactionId"=$1`,
+      [r.transactionId],
+    );
+    expect(l.c).toBe(70);
+  });
 });

@@ -26,7 +26,7 @@ import { User } from '@modules/users/domain/user.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { Unit } from '@modules/units/domain/unit.entity';
 import { VariantQuantityConversionService } from '@modules/product-variants/application/variant-quantity-conversion.service';
-import { resolveSaleLineUnitCost } from '@modules/product-variants/application/helpers/sale-unit-cost.util';
+import { resolveFrozenSaleUnitCost } from '@modules/product-variants/application/helpers/sale-unit-cost.util';
 import {
   forcesNetEqualsGross,
   normalizeVariantTaxCategory,
@@ -1872,6 +1872,17 @@ export class SalesFromSessionService {
 
         const lineSubtotal = line.quantity * line.unitPrice;
         const lineDiscount = line.discountAmount || 0;
+        // Defensa en profundidad (el DTO ya valida, pero este método lo usan otros flujos).
+        if (!(Number(line.quantity) > 0) || Number(line.unitPrice) < 0 || lineDiscount < 0) {
+          throw new BadRequestException(
+            'Cada línea requiere cantidad mayor que cero, precio y descuento no negativos.',
+          );
+        }
+        if (lineDiscount > lineSubtotal + 0.5) {
+          throw new BadRequestException(
+            `El descuento de la línea (${lineDiscount}) no puede superar su subtotal (${lineSubtotal}).`,
+          );
+        }
         const variantTaxCategory = normalizeVariantTaxCategory(variant.taxCategory);
         let lineTax = line.taxAmount || 0;
         let safeTaxRate = Math.max(0, Math.min(100, line.taxRate || 0));
@@ -1918,7 +1929,8 @@ export class SalesFromSessionService {
           unitConversionFactor: converted.unitConversionFactor,
           unitOfMeasure: converted.unitOfMeasure,
           unitPrice: line.unitPrice,
-          unitCost: resolveSaleLineUnitCost(line.unitCost, variant),
+          // El costo lo fija el servidor (PMP/costo base): no se acepta el que envía el cliente.
+          unitCost: resolveFrozenSaleUnitCost(variant),
           discountAmount: lineDiscount,
           taxId: line.taxId || undefined,
           taxRate: safeTaxRate,
