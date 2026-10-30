@@ -7,6 +7,7 @@ export type CompanySettingsTabId =
   | "cheques"
   | "cotizaciones"
   | "preventa"
+  | "inventario"
   | "contacto"
   | "eshop"
   | "socios";
@@ -25,6 +26,7 @@ export const COMPANY_SETTINGS_TABS: CompanySettingsTabItem[] = [
   { id: "cheques", label: "Cheques" },
   { id: "cotizaciones", label: "Cotizaciones" },
   { id: "preventa", label: "Preventa" },
+  { id: "inventario", label: "Inventario" },
   { id: "contacto", label: "Contacto" },
   { id: "eshop", label: "eShop" },
   { id: "socios", label: "Socios" },

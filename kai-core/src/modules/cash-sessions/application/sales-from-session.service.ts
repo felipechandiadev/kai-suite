@@ -82,6 +82,11 @@ import {
   CreateTransactionLineDto,
 } from '@modules/transactions/application/dto/create-transaction.dto';
 import { CompaniesService } from '@modules/companies/application/companies.service';
+import {
+  DEFAULT_NEGATIVE_STOCK_POLICY,
+  NegativeStockPolicy,
+  resolveNegativeStockPolicy,
+} from '@modules/companies/domain/company-inventory-settings.types';
 import { PromotionsService } from '@modules/promotions/application/promotions.service';
 import { applyPromotions } from '@modules/promotions/application/discount-engine';
 import type { AppliedSnapshot } from '@modules/promotions/application/discount-engine.types';
@@ -2244,6 +2249,7 @@ export class SalesFromSessionService {
         const variantIdsToCheck = [...qtyNeedByVariant.keys()];
         const diningOrderId = extractDiningOrderIdFromMetadata(metadata);
         let posKaiFoodEnabled = false;
+        let negativeStockPolicy: NegativeStockPolicy = DEFAULT_NEGATIVE_STOCK_POLICY;
         let companyIdForPack: string | undefined =
           pointOfSale.companyId?.trim() || undefined;
         if (pointOfSale.companyId) {
@@ -2251,6 +2257,7 @@ export class SalesFromSessionService {
             pointOfSale.companyId,
           );
           companyIdForPack = company.id?.trim() || companyIdForPack;
+          negativeStockPolicy = resolveNegativeStockPolicy(company.settings);
           posKaiFoodEnabled = resolveKaiFoodEnabled(
             company.kaiProduct,
             pointOfSale.settings,
@@ -2286,6 +2293,7 @@ export class SalesFromSessionService {
               });
           for (const v of variantsToCheck) {
             if (!v.trackInventory || v.allowNegativeStock) continue;
+            if (negativeStockPolicy === 'ALLOW') continue;
             if (
               shouldSkipFinishedGoodsStockForSale({
                 diningOrderId,
@@ -2303,6 +2311,12 @@ export class SalesFromSessionService {
               },
             });
             const avail = Number(sl?.availableStock ?? 0);
+            if (need > avail && negativeStockPolicy === 'WARN') {
+              this.logger.warn(
+                `Venta con stock insuficiente permitida (política WARN): ${v.sku ?? v.id} requiere ${need}, disponible ${avail}.`,
+              );
+              continue;
+            }
             if (need > avail) {
               throw new BadRequestException(
                 `Stock insuficiente en sala de venta para ${v.sku ?? v.id}: se requieren ${need} (unidad base), disponible ${avail}.`,

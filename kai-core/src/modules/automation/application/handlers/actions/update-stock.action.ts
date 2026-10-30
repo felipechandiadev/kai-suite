@@ -286,8 +286,9 @@ export class UpdateStockActionHandler {
           : null;
 
         if (!stockEntry) {
-          const physical =
-            targetPhysical != null ? targetPhysical : Math.max(0, moveQty);
+          // Sin fila de stock previa también se registra el movimiento negativo
+          // (antes se recortaba a 0 y la venta "perdía" su descuento sin dejar rastro).
+          const physical = targetPhysical != null ? targetPhysical : moveQty;
           stockEntry = stockRepo.create({
             companyId: companyIdForStock,
             productVariantId: variantId,
@@ -321,6 +322,12 @@ export class UpdateStockActionHandler {
         }
 
         const storagePhysicalAfter = Number(stockEntry.physicalStock ?? 0);
+
+        if (storagePhysicalAfter < 0 && moveQty < 0) {
+          this.logger.warn(
+            `Stock negativo: variante ${variantId} en almacén ${storageId} quedó en ${storagePhysicalAfter} tras ${type} ${tx.id}.`,
+          );
+        }
 
         await stockRepo.save(stockEntry as StockLevel);
 

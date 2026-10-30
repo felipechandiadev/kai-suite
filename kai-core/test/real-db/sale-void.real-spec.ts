@@ -90,6 +90,12 @@ describe('Venta → anulación (BD real)', () => {
     return tx;
   }
 
+  it('una venta sin fila de stock previa registra el descuento (stock negativo) en vez de perderlo', async () => {
+    const v = await createPhysicalVariant(ds, base, { basePrice: 500 });
+    await sell(v, 2);
+    await waitForStock(ds, v.variantId, base.storageId, -2);
+  });
+
   it('vender descuenta stock y anular lo restituye', async () => {
     const v = await stockedVariant(10);
     const sale = await sell(v, 3);

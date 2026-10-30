@@ -284,6 +284,30 @@ export class CompaniesController {
     return { success: true, checkSettings };
   }
 
+  @Get('companies/:id/inventory-settings')
+  @AdminOnly()
+  @AllowAdminWithoutCompany()
+  async getCompanyInventorySettings(@Param('id') id: string) {
+    const inventorySettings = await this.companiesService.getInventorySettings(id);
+    return { success: true, inventorySettings };
+  }
+
+  @Put('companies/:id/inventory-settings')
+  @AdminOnly()
+  @AllowAdminWithoutCompany()
+  async replaceCompanyInventorySettings(
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    const incoming =
+      body && typeof body === 'object' && 'inventorySettings' in (body as any)
+        ? (body as any).inventorySettings
+        : body;
+    const inventorySettings =
+      await this.companiesService.replaceInventorySettings(id, incoming);
+    return { success: true, inventorySettings };
+  }
+
   @Get('companies/:id/mercado-pago-settings')
   @AdminOnly()
   @AllowAdminWithoutCompany()

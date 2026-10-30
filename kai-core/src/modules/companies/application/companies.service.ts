@@ -25,6 +25,10 @@ import {
   buildDefaultCompanyCheckSettings,
   sanitizeCompanyCheckSettings,
 } from '../domain/company-checks.types';
+import {
+  CompanyInventorySettings,
+  sanitizeCompanyInventorySettings,
+} from '../domain/company-inventory-settings.types';
 import { CompanyVoucherKind } from '../domain/company-voucher-kinds.types';
 import { CompanyPaymentCatalogService } from './company-payment-catalog.service';
 import {
@@ -504,6 +508,28 @@ export class CompaniesService {
       return buildDefaultCompanyCheckSettings();
     }
     return sanitizeCompanyCheckSettings(raw);
+  }
+
+  async getInventorySettings(companyId: string): Promise<CompanyInventorySettings> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+    return sanitizeCompanyInventorySettings(company.settings?.inventory);
+  }
+
+  async replaceInventorySettings(
+    companyId: string,
+    raw: unknown,
+  ): Promise<CompanyInventorySettings> {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Empresa no encontrada');
+    const validated = sanitizeCompanyInventorySettings(raw);
+    company.settings = { ...(company.settings ?? {}), inventory: validated };
+    await this.companyRepository.save(company);
+    return validated;
   }
 
   /**
