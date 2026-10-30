@@ -91,7 +91,30 @@ export class UpdateStockActionHandler {
     const stockEmitMap = new Map<string, StockUpdatedPayload>();
     const pendingNotifications: PublishNotificationCommand[] = [];
 
+    try {
     await this.dataSource.transaction(async (manager) => {
+      // Idempotencia: una fila por transacción, bloqueada mientras se aplica el stock.
+      await manager.query(
+        `INSERT INTO stock_event_logs (company_id, transaction_id, status)
+         VALUES ($1, $2, 'PENDING') ON CONFLICT (transaction_id) DO NOTHING`,
+        [ctx.companyId, tx.id],
+      );
+      const [stockLog] = await manager.query(
+        `SELECT status FROM stock_event_logs WHERE transaction_id = $1 FOR UPDATE`,
+        [tx.id],
+      );
+      if (stockLog && (stockLog.status === 'APPLIED' || stockLog.status === 'SKIPPED')) {
+        this.logger.log(`Transaction ${tx.id} ya tiene el stock aplicado; se omite.`);
+        return;
+      }
+      const markLog = (status: 'APPLIED' | 'SKIPPED') =>
+        manager.query(
+          `UPDATE stock_event_logs
+              SET status = $2, attempts = attempts + 1, last_error = NULL,
+                  applied_at = now(), updated_at = now()
+            WHERE transaction_id = $1`,
+          [tx.id, status],
+        );
       const txRepo = manager.getRepository(Transaction);
       const txFull = await txRepo.findOne({
         where: { id: tx.id },
@@ -105,6 +128,7 @@ export class UpdateStockActionHandler {
         this.logger.warn(
           `Transaction ${tx.id} has no storageId; skipping inventory update. ruleId=${rule?.id}`,
         );
+        await markLog('SKIPPED');
         return;
       }
 
@@ -460,7 +484,13 @@ export class UpdateStockActionHandler {
           await variantRepo.save(variant);
         }
       }
+
+      await markLog('APPLIED');
     });
+    } catch (e) {
+      await this.recordFailure(ctx.companyId, tx.id, e);
+      throw e;
+    }
 
     for (const payload of stockEmitMap.values()) {
       this.stockRealtime.emitStockUpdated(payload);
@@ -476,5 +506,28 @@ export class UpdateStockActionHandler {
       }
     }
   }
-}
 
+  /** Deja constancia del fallo (fuera de la transacción revertida) para verlo y reintentarlo. */
+  private async recordFailure(companyId: string, transactionId: string, err: unknown) {
+    const message = (err instanceof Error ? err.message : String(err)).slice(0, 2000);
+    try {
+      await this.dataSource.query(
+        `INSERT INTO stock_event_logs (company_id, transaction_id, status, attempts, last_error)
+         VALUES ($1, $2, 'FAILED', 1, $3)
+         ON CONFLICT (transaction_id) DO UPDATE
+           SET status = 'FAILED',
+               attempts = stock_event_logs.attempts + 1,
+               last_error = EXCLUDED.last_error,
+               updated_at = now()
+         WHERE stock_event_logs.status <> 'APPLIED'`,
+        [companyId, transactionId, message],
+      );
+    } catch (logErr) {
+      this.logger.error(
+        `No se pudo registrar el fallo de stock de ${transactionId}: ${
+          logErr instanceof Error ? logErr.message : String(logErr)
+        }`,
+      );
+    }
+  }
+}

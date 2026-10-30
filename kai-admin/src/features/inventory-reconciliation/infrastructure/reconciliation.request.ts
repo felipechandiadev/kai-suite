@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth/auth-options";
-import type { ReconciliationReport } from "../types/reconciliation.types";
+import type { ReconciliationReport, StockEventFailure } from "../types/reconciliation.types";
 
 function apiUrl(path: string): string {
   const base = process.env.BACKEND_API_URL;
@@ -34,6 +34,35 @@ export class ReconciliationRequest {
       });
       if (!res.ok) return null;
       return (await res.json()) as ReconciliationReport;
+    } catch {
+      return null;
+    }
+  }
+
+  static async listStockFailures(): Promise<StockEventFailure[]> {
+    try {
+      const res = await fetch(apiUrl("stock-events/failed"), {
+        method: "GET",
+        headers: await authHeaders(),
+        cache: "no-store",
+      });
+      if (!res.ok) return [];
+      const json = (await res.json()) as unknown;
+      return Array.isArray(json) ? (json as StockEventFailure[]) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  static async retryStockFailures(): Promise<{ attempted: number; applied: number; failed: number } | null> {
+    try {
+      const res = await fetch(apiUrl("stock-events/retry"), {
+        method: "POST",
+        headers: await authHeaders(),
+        cache: "no-store",
+      });
+      if (!res.ok) return null;
+      return (await res.json()) as { attempted: number; applied: number; failed: number };
     } catch {
       return null;
     }

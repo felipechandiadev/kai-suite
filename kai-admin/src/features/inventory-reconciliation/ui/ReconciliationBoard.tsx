@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Alert, Button } from "@kai/ui";
-import type { ReconciliationReport } from "../types/reconciliation.types";
+import { retryStockFailuresAction } from "../actions";
+import type { ReconciliationReport, StockEventFailure } from "../types/reconciliation.types";
 
 const money = (n: number) =>
   new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(
@@ -14,7 +17,54 @@ function csvCell(v: string | number | null): string {
   return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-export default function ReconciliationBoard({ report }: { report: ReconciliationReport | null }) {
+function StockFailuresPanel({ failures }: { failures: StockEventFailure[] }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  if (failures.length === 0) return null;
+  const retry = async () => {
+    setBusy(true);
+    setMsg(null);
+    const res = await retryStockFailuresAction();
+    setBusy(false);
+    setMsg(
+      res
+        ? `Reintentadas ${res.attempted}: ${res.applied} aplicadas, ${res.failed} siguen fallando.`
+        : "No se pudo reintentar.",
+    );
+    router.refresh();
+  };
+  return (
+    <Alert variant="warning" data-test-id="stock-failures-panel">
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <strong>
+            {failures.length} actualización(es) de stock fallaron y no se aplicaron
+          </strong>
+          <Button variant="outlined" size="sm" onClick={() => void retry()} disabled={busy} data-test-id="stock-failures-retry">
+            {busy ? "Reintentando…" : "Reintentar ahora"}
+          </Button>
+        </div>
+        <ul className="list-disc pl-5 text-xs">
+          {failures.slice(0, 10).map((f) => (
+            <li key={f.transactionId}>
+              {f.transactionType ?? "Transacción"} {f.documentNumber ?? f.transactionId.slice(0, 8)} · {f.attempts} intento(s) · {f.lastError ?? "sin detalle"}
+            </li>
+          ))}
+        </ul>
+        {msg ? <p className="text-xs">{msg}</p> : null}
+      </div>
+    </Alert>
+  );
+}
+
+export default function ReconciliationBoard({
+  report,
+  failures = [],
+}: {
+  report: ReconciliationReport | null;
+  failures?: StockEventFailure[];
+}) {
   if (!report) {
     return (
       <div className="p-4">
@@ -43,6 +93,7 @@ export default function ReconciliationBoard({ report }: { report: Reconciliation
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3" data-test-id="inventory-reconciliation-board">
+      <StockFailuresPanel failures={failures} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           {report.checked} combinaciones producto/almacén revisadas · valor de inventario {money(report.totals.recordedValue)}

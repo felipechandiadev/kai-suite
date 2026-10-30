@@ -9,6 +9,8 @@ import { AutomationEngine } from './application/automation.engine';
 import { TransactionCreatedAutomationHandler } from './application/handlers/transaction-created.automation-handler';
 import { CreateDerivedTransactionActionHandler } from './application/handlers/actions/create-derived-transaction.action';
 import { UpdateStockActionHandler } from './application/handlers/actions/update-stock.action';
+import { StockEventRetryService } from './application/stock-event-retry.service';
+import { StockEventsController } from './presentation/stock-events.controller';
 import { TransactionsModule } from '@modules/transactions/transactions.module';
 import { StockRealtimeModule } from '@modules/stock-realtime/stock-realtime.module';
 import { NotificationsModule } from '@modules/notifications/notifications.module';
@@ -25,13 +27,14 @@ import { RecipesModule } from '@modules/recipes/recipes.module';
     CompaniesModule,
     RecipesModule,
   ],
-  controllers: [AutomationRulesController],
+  controllers: [AutomationRulesController, StockEventsController],
   providers: [
     AutomationRulesService,
     AutomationEngine,
     TransactionCreatedAutomationHandler,
     CreateDerivedTransactionActionHandler,
     UpdateStockActionHandler,
+    StockEventRetryService,
   ],
   exports: [AutomationRulesService, AutomationEngine],
 })

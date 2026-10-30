@@ -11,6 +11,16 @@ export type ReconciliationRow = {
   differenceValue: number | null;
 };
 
+export type StockEventFailure = {
+  transactionId: string;
+  documentNumber: string | null;
+  transactionType: string | null;
+  status: string;
+  attempts: number;
+  lastError: string | null;
+  updatedAt: string;
+};
+
 export type ReconciliationReport = {
   asOf: string;
   checked: number;

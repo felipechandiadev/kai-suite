@@ -57,7 +57,7 @@ Esfuerzo relativo: **S** ≈ 1–3 días · **M** ≈ 1–2 semanas · **L** ≈
 |---|---|---|---|---|
 | D.1 ✅ | **Política de stock negativo** | Ajuste por compañía: permitir / avisar / bloquear; corrige la venta que "pierde" el descuento sin registro de stock | Comportamiento definido y probado | M |
 | D.2 ✅ | **Conciliación de inventario** | Reporte: stock vs. suma de movimientos y valor (stock × PMP) | Detecta y lista descuadres | M |
-| D.3 | **Eventos de stock confiables** | Reintento y estado de las actualizaciones de stock hoy post-commit y silenciosas | Un fallo queda visible y se reintenta | M |
+| D.3 ✅ | **Eventos de stock confiables** | Reintento y estado de las actualizaciones de stock hoy post-commit y silenciosas | Un fallo queda visible y se reintenta | M |
 
 ## Fase E — Puerta de decisión: contabilidad
 
