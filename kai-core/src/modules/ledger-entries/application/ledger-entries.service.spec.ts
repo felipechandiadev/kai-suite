@@ -1,5 +1,4 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository, EntityManager } from 'typeorm';
 import { LedgerEntriesService } from './ledger-entries.service';
 import { LedgerEntry } from '../domain/ledger-entry.entity';
@@ -179,39 +178,39 @@ describe('LedgerEntriesService - Payroll', () => {
       providers: [
         LedgerEntriesService,
         {
-          provide: getRepositoryToken(LedgerEntry),
+          provide: 'LedgerEntryRepositoryPort',
           useValue: mockLedgerRepository,
         },
         {
-          provide: getRepositoryToken(AccountingRule),
+          provide: 'AccountingRuleRepositoryPort',
           useValue: mockRulesRepository,
         },
         {
-          provide: getRepositoryToken(AccountingAccount),
+          provide: 'AccountingAccountRepositoryPort',
           useValue: mockAccountsRepository,
         },
         {
-          provide: getRepositoryToken(Customer),
+          provide: 'CustomerRepositoryPort',
           useValue: mockCustomerRepository,
         },
         {
-          provide: getRepositoryToken(Supplier),
+          provide: 'SupplierRepositoryPort',
           useValue: mockSupplierRepository,
         },
         {
-          provide: getRepositoryToken(Shareholder),
+          provide: 'ShareholderRepositoryPort',
           useValue: mockShareholderRepository,
         },
         {
-          provide: getRepositoryToken(Employee),
+          provide: 'EmployeeRepositoryPort',
           useValue: mockEmployeeRepository,
         },
       ],
     }).compile();
 
     service = module.get<LedgerEntriesService>(LedgerEntriesService);
-    ledgerRepository = module.get(getRepositoryToken(LedgerEntry));
-    accountsRepository = module.get(getRepositoryToken(AccountingAccount));
+    ledgerRepository = module.get('LedgerEntryRepositoryPort');
+    accountsRepository = module.get('AccountingAccountRepositoryPort');
 
     jest.clearAllMocks();
 
@@ -468,14 +467,7 @@ describe('LedgerEntriesService - Payroll', () => {
       );
 
       // Assert
-      // Note: Current implementation doesn't validate accounts exist before generating entries
-      // This generates entries with undefined accountIds (which would fail at DB level)
-      expect(result.status).toBe('SUCCESS');
-      expect(result.entriesGenerated).toBeGreaterThan(0);
-
-      // In a future iteration, the service should validate accounts exist and reject:
-      // expect(result.status).toBe('REJECTED');
-      // expect(result.errors[0].message).toContain('Account not found');
+      expect(result.status).toBe('REJECTED');
     });
 
     it('should prevent duplicate entries for same transaction', async () => {

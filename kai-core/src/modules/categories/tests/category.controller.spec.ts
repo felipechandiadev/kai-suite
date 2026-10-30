@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CategoryController } from '../presentation/category.controller';
-import { CategoryService } from '../application/category.service';
+import { CategoryServiceAdapter } from '../application/category.service.adapter';
 
 describe('CategoryController', () => {
   let controller: CategoryController;
-  let service: CategoryService;
+  let service: any;
 
   const mockCategoryService = {
     findAll: jest.fn(),
@@ -20,14 +20,14 @@ describe('CategoryController', () => {
       controllers: [CategoryController],
       providers: [
         {
-          provide: CategoryService,
+          provide: CategoryServiceAdapter,
           useValue: mockCategoryService,
         },
       ],
     }).compile();
 
     controller = module.get<CategoryController>(CategoryController);
-    service = module.get<CategoryService>(CategoryService);
+    service = module.get<any>(CategoryServiceAdapter);
   });
 
   afterEach(() => {

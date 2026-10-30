@@ -8,7 +8,6 @@
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository, EntityManager } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
@@ -262,40 +261,40 @@ describe('Accounting Integration Tests - Motor Contable E2E', () => {
       providers: [
         LedgerEntriesService,
         {
-          provide: getRepositoryToken(LedgerEntry),
+          provide: 'LedgerEntryRepositoryPort',
           useValue: mockLedgerRepository,
         },
         {
-          provide: getRepositoryToken(AccountingRule),
+          provide: 'AccountingRuleRepositoryPort',
           useValue: mockRulesRepository,
         },
         {
-          provide: getRepositoryToken(AccountingAccount),
+          provide: 'AccountingAccountRepositoryPort',
           useValue: mockAccountsRepository,
         },
         {
-          provide: getRepositoryToken(Customer),
+          provide: 'CustomerRepositoryPort',
           useValue: mockCustomerRepository,
         },
         {
-          provide: getRepositoryToken(Supplier),
+          provide: 'SupplierRepositoryPort',
           useValue: mockSupplierRepository,
         },
         {
-          provide: getRepositoryToken(Shareholder),
+          provide: 'ShareholderRepositoryPort',
           useValue: mockShareholderRepository,
         },
         {
-          provide: getRepositoryToken(Employee),
+          provide: 'EmployeeRepositoryPort',
           useValue: mockEmployeeRepository,
         },
       ],
     }).compile();
 
     service = module.get<LedgerEntriesService>(LedgerEntriesService);
-    ledgerRepository = module.get(getRepositoryToken(LedgerEntry));
-    accountsRepository = module.get(getRepositoryToken(AccountingAccount));
-    rulesRepository = module.get(getRepositoryToken(AccountingRule));
+    ledgerRepository = module.get('LedgerEntryRepositoryPort');
+    accountsRepository = module.get('AccountingAccountRepositoryPort');
+    rulesRepository = module.get('AccountingRuleRepositoryPort');
 
     jest.clearAllMocks();
 
@@ -1000,6 +999,8 @@ describe('Accounting Integration Tests - Motor Contable E2E', () => {
           id: 'rule-payroll-payment',
           companyId: 'company-1',
           transactionType: TransactionType.PAYROLL_PAYMENT,
+          appliesTo: RuleScope.TRANSACTION,
+          debitAccountId: 'acc-2.2.01', // Remuneraciones por pagar (igual que el seed)
           creditAccountId: 'acc-1.1.02', // Banco
           priority: 10,
           isActive: true,

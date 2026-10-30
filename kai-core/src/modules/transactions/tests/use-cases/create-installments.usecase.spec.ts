@@ -11,6 +11,9 @@ import {
   InstallmentStatus,
 } from '../../domain/installment.entity';
 
+// Siempre futura: el caso de uso rechaza vencimientos pasados.
+const FUTURE_DUE_DATE = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
 describe('CreateInstallmentsUseCase', () => {
   let useCase: CreateInstallmentsUseCase;
   let mockTransactionRepo: jest.Mocked<any>;
@@ -61,7 +64,7 @@ describe('CreateInstallmentsUseCase', () => {
     const command = new CreateInstallmentsCommand(
       transactionId,
       3,
-      new Date('2024-02-01'),
+      FUTURE_DUE_DATE,
     );
 
     const result = await useCase.execute(command);
@@ -79,7 +82,7 @@ describe('CreateInstallmentsUseCase', () => {
     const command = new CreateInstallmentsCommand(
       'invalid-id',
       3,
-      new Date('2024-02-01'),
+      FUTURE_DUE_DATE,
     );
 
     await expect(useCase.execute(command)).rejects.toThrow(
@@ -99,7 +102,7 @@ describe('CreateInstallmentsUseCase', () => {
     const command = new CreateInstallmentsCommand(
       '123',
       3,
-      new Date('2024-02-01'),
+      FUTURE_DUE_DATE,
     );
 
     await expect(useCase.execute(command)).rejects.toThrow(
@@ -122,7 +125,7 @@ describe('CreateInstallmentsUseCase', () => {
     const command = new CreateInstallmentsCommand(
       '123',
       3,
-      new Date('2024-02-01'),
+      FUTURE_DUE_DATE,
     );
 
     await expect(useCase.execute(command)).rejects.toThrow(

@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
 import { ProductVariantsController } from '@modules/product-variants/presentation/product-variants.controller';
 import { ProductVariantsService } from '@modules/product-variants/application/product-variants.service';
+import { VariantProductionAttributesService } from '@modules/product-variants/application/variant-production-attributes.service';
 
 describe('ProductVariantsController (Integration)', () => {
   let app: INestApplication;
@@ -29,6 +30,10 @@ describe('ProductVariantsController (Integration)', () => {
         {
           provide: ProductVariantsService,
           useValue: variantsService,
+        },
+        {
+          provide: VariantProductionAttributesService,
+          useValue: {},
         },
       ],
     }).compile();

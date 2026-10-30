@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Inject } from '@nestjs/common';
 import { TransactionRepositoryPort } from '../ports/transaction.repository.port';
 import { InstallmentRepositoryPort } from '../ports/installment.repository.port';
 import { Transaction, TransactionType } from '../../domain/transaction.entity';
@@ -28,7 +28,9 @@ export class CreateInstallmentsCommand {
 @Injectable()
 export class CreateInstallmentsUseCase {
   constructor(
+    @Inject('TransactionRepositoryPort')
     private readonly transactionRepository: TransactionRepositoryPort,
+    @Inject('InstallmentRepositoryPort')
     private readonly installmentRepository: InstallmentRepositoryPort,
   ) {}
 

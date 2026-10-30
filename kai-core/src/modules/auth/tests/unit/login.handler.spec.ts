@@ -1,3 +1,4 @@
+import { MembershipsService } from '@modules/users/application/memberships.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventBus } from '@nestjs/cqrs';
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
@@ -33,7 +34,14 @@ describe('LoginCommandHandler', () => {
     },
   };
 
+  const membershipsMock = {
+    ensureMembershipFromLegacy: jest.fn(),
+    getMemberships: jest.fn().mockResolvedValue([]),
+  };
+  const memberships = membershipsMock;
+
   beforeEach(async () => {
+    membershipsMock.getMemberships.mockResolvedValue([]);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LoginCommandHandler,
@@ -47,7 +55,11 @@ describe('LoginCommandHandler', () => {
         { provide: EventBus, useValue: { publish: jest.fn() } },
         {
           provide: getRepositoryToken(Company),
-          useValue: { find: jest.fn(), findOne: jest.fn() },
+          useValue: { find: jest.fn().mockResolvedValue([]), findOne: jest.fn() },
+        },
+        {
+          provide: MembershipsService,
+          useValue: membershipsMock,
         },
       ],
     }).compile();
@@ -154,6 +166,10 @@ describe('LoginCommandHandler', () => {
         razonSocial: 'Acme SpA',
         nombreFantasia: 'Acme Tienda',
       });
+      memberships.getMemberships.mockResolvedValue([{ companyId: UUID_A }]);
+      companyRepository.find.mockResolvedValue([
+        { id: UUID_A, razonSocial: 'Acme SpA', nombreFantasia: 'Acme Tienda' },
+      ]);
 
       const result = await handler.execute(
         new LoginCommand('testuser', 'password', UUID_A),
@@ -169,10 +185,6 @@ describe('LoginCommandHandler', () => {
       ]);
       expect(result.user?.companyId).toBe(UUID_A);
       expect(result.activeCompanyId).toBe(UUID_A);
-      expect(companyRepository.find).not.toHaveBeenCalled();
-      expect(companyRepository.findOne).toHaveBeenCalledWith({
-        where: { id: UUID_A },
-      });
     });
 
     it('rejects an ADMIN whose hint points to a different company', async () => {

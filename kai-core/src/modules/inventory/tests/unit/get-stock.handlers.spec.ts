@@ -29,6 +29,7 @@ describe('Inventory query handlers', () => {
   beforeEach(async () => {
     repository = {
       findById: jest.fn(),
+      getMovementHistoryPaginated: jest.fn(),
       findByVariantAndStorage: jest.fn(),
       findByVariantId: jest.fn(),
       findByStorageId: jest.fn(),

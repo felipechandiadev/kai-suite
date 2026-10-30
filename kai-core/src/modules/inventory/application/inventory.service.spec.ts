@@ -1,5 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { InventoryService } from './inventory.service';
+import { ProductVariantsService } from '@modules/product-variants/application/product-variants.service';
+import { VariantQuantityConversionService } from '@modules/product-variants/application/variant-quantity-conversion.service';
+import { NotificationInboxService } from '@modules/notifications/application/notification-inbox.service';
+import { StockAlertNotificationService } from '@modules/notifications/application/stock-alert-notification.service';
+import { STOCK_LEVELS_REPOSITORY } from './ports/stock-levels.repository.port';
 import { StoragesService } from '../../storages/application/storages.service';
 import { DataSource, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -26,6 +31,7 @@ describe('InventoryService', () => {
       if (entity === Branch) {
         return {
           find: jest.fn().mockResolvedValue([{ id: 'branch-fallback' }]),
+          findOne: jest.fn().mockResolvedValue({ companyId: 'company-1' }),
         };
       }
       if (entity === Storage) {
@@ -66,6 +72,14 @@ describe('InventoryService', () => {
         { provide: DataSource, useValue: mockDataSource },
         { provide: TransactionsService, useValue: mockTxService },
         { provide: getRepositoryToken(User), useValue: mockUserRepo },
+        { provide: ProductVariantsService, useValue: {} },
+        { provide: VariantQuantityConversionService, useValue: {} },
+        { provide: NotificationInboxService, useValue: {} },
+        {
+          provide: StockAlertNotificationService,
+          useValue: { publishForVariantStorage: jest.fn() },
+        },
+        { provide: STOCK_LEVELS_REPOSITORY, useValue: {} },
       ],
     }).compile();
 
