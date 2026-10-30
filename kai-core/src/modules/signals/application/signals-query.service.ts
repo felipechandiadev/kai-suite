@@ -252,7 +252,11 @@ export class SignalsQueryService {
       .createQueryBuilder('l')
       .innerJoin('l.transaction', 't')
       .select('l.productVariantId', 'productVariantId')
-      .addSelect('l.unitCost', 'unitCost')
+      // unitCost está por unidad de la línea; el capital se calcula sobre stock en unidad base.
+      .addSelect(
+        'l.unitCost * l.quantity / NULLIF(COALESCE(l.quantityInBase, l.quantity), 0)',
+        'unitCost',
+      )
       .addSelect('t.createdAt', 'createdAt')
       .where('l.companyId = :companyId', { companyId })
       .andWhere('l.productVariantId IN (:...ids)', { ids: deadIds })

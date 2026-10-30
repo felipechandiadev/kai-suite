@@ -26,7 +26,10 @@ import { User } from '@modules/users/domain/user.entity';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { Unit } from '@modules/units/domain/unit.entity';
 import { VariantQuantityConversionService } from '@modules/product-variants/application/variant-quantity-conversion.service';
-import { resolveFrozenSaleUnitCost } from '@modules/product-variants/application/helpers/sale-unit-cost.util';
+import {
+  costPerLineUnit,
+  resolveFrozenSaleUnitCost,
+} from '@modules/product-variants/application/helpers/sale-unit-cost.util';
 import {
   forcesNetEqualsGross,
   normalizeVariantTaxCategory,
@@ -1930,7 +1933,11 @@ export class SalesFromSessionService {
           unitOfMeasure: converted.unitOfMeasure,
           unitPrice: line.unitPrice,
           // El costo lo fija el servidor (PMP/costo base): no se acepta el que envía el cliente.
-          unitCost: resolveFrozenSaleUnitCost(variant),
+          unitCost: costPerLineUnit(
+            resolveFrozenSaleUnitCost(variant),
+            line.quantity,
+            converted.quantityInBase,
+          ),
           discountAmount: lineDiscount,
           taxId: line.taxId || undefined,
           taxRate: safeTaxRate,

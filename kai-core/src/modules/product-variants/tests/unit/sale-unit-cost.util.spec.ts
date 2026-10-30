@@ -1,22 +1,18 @@
-import {
-  resolveFrozenSaleUnitCost,
-  resolveSaleLineUnitCost,
-} from '@modules/product-variants/application/helpers/sale-unit-cost.util';
+import { costPerLineUnit } from '../../application/helpers/sale-unit-cost.util';
 
-describe('sale-unit-cost.util', () => {
-  it('prefers explicit line unitCost', () => {
-    expect(resolveSaleLineUnitCost(500, { pmp: 100, baseCost: 50 })).toBe(500);
+describe('costPerLineUnit', () => {
+  it('sin conversión deja el costo igual', () => {
+    expect(costPerLineUnit(120, 3, 3)).toBe(120);
   });
 
-  it('uses pmp when line cost missing', () => {
-    expect(resolveSaleLineUnitCost(0, { pmp: 853.33, baseCost: 50 })).toBe(853.33);
+  it('stock en g y venta en kg: costo por kg = costo por g × 1000', () => {
+    // PMP $0,4 por g; venta de 2 kg = 2000 g
+    expect(costPerLineUnit(0.4, 2, 2000)).toBe(400);
   });
 
-  it('falls back to baseCost when pmp absent', () => {
-    expect(resolveFrozenSaleUnitCost({ pmp: null, baseCost: 120 })).toBe(120);
-  });
-
-  it('returns 0 when no cost data', () => {
-    expect(resolveFrozenSaleUnitCost({ pmp: null, baseCost: null })).toBe(0);
+  it('sin cantidades válidas devuelve el costo base', () => {
+    expect(costPerLineUnit(50, 0, 10)).toBe(50);
+    expect(costPerLineUnit(50, 2, null)).toBe(50);
+    expect(costPerLineUnit(0, 2, 10)).toBe(0);
   });
 });

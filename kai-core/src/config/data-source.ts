@@ -221,6 +221,7 @@ import { ReceptionVoid1757730000000 } from '../migrations/1757730000000-Receptio
 import { AccountingRuleAmountBasis1757740000000 } from '../migrations/1757740000000-AccountingRuleAmountBasis';
 import { InstallmentCancelledStatus1757750000000 } from '../migrations/1757750000000-InstallmentCancelledStatus';
 import { StockEventLogs1757760000000 } from '../migrations/1757760000000-StockEventLogs';
+import { SaleLineUnitCostPerLineUnit1757770000000 } from '../migrations/1757770000000-SaleLineUnitCostPerLineUnit';
 import { LaundryReceptionModule1757430000000 } from '../migrations/1757430000000-LaundryReceptionModule';
 import { DiningKitchenFireId1757140000000 } from '../migrations/1757140000000-DiningKitchenFireId';
 import { DiningKitchenFireNumber1757150000000 } from '../migrations/1757150000000-DiningKitchenFireNumber';
@@ -629,6 +630,7 @@ export const AppDataSource = new DataSource({
     AccountingRuleAmountBasis1757740000000,
     InstallmentCancelledStatus1757750000000,
     StockEventLogs1757760000000,
+    SaleLineUnitCostPerLineUnit1757770000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   logging: process.env.DB_LOGGING === 'true',

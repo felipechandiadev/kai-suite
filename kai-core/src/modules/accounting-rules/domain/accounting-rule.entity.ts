@@ -22,7 +22,7 @@ import { AccountingRuleLine } from './accounting-rule-line.entity';
 /**
  * Base del monto de una regla por línea:
  * - LINE_TOTAL: total de la línea (comportamiento histórico).
- * - LINE_COST: costo de lo movido = `unitCost × quantityInBase` (costo de ventas).
+ * - LINE_COST: costo de lo movido = `unitCost × quantity` (unitCost va por la unidad de la línea) (costo de ventas).
  */
 export enum RuleAmountBasis {
   LINE_TOTAL = 'LINE_TOTAL',
