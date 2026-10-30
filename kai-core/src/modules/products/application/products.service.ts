@@ -1,8 +1,18 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Inject } from '@nestjs/common';
 import { Repository, DataSource, In } from 'typeorm';
 import { Product } from '@modules/products/domain/product.entity';
+import {
+  loadVariantStockSummary,
+  variantsBlockingDelete,
+} from './helpers/variant-stock-guard.util';
 import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
 import { Tax } from '@modules/taxes/domain/tax.entity';
 import {
@@ -282,10 +292,62 @@ export class ProductsService {
     return { success: true, product: updated };
   }
 
+  /**
+   * Elimina (soft delete) el producto **y sus variantes**. Se bloquea si alguna variante tiene
+   * existencias: primero hay que dejar el stock en 0 (ajuste/traspaso) o desactivar el producto.
+   * El historial (compras, ventas, movimientos) se conserva porque son borrados lógicos.
+   */
   async remove(id: string) {
-    const result = await this.productRepository.softDelete(id as any);
-    if (!result.affected) {
-      return { success: false, message: 'Product not found', statusCode: 404 };
+    const product = await this.productRepository.findOne({ where: { id } });
+    if (!product) {
+      throw new NotFoundException('Producto no encontrado');
+    }
+    const variants = await this.variantRepository.find({
+      where: { productId: id },
+    });
+    const blocking = variantsBlockingDelete(
+      await loadVariantStockSummary(
+        this.dataSource.manager,
+        variants.map((v) => v.id),
+      ),
+    );
+    if (blocking.length > 0) {
+      const detail = blocking
+        .map((b) => {
+          const v = variants.find((x) => x.id === b.variantId);
+          return `${v?.sku ?? b.variantId}: ${b.physical} en existencias`;
+        })
+        .join('; ');
+      throw new BadRequestException(
+        `No se puede eliminar el producto: tiene existencias (${detail}). Deje el stock en 0 o desactive el producto.`,
+      );
+    }
+    await this.dataSource.transaction(async (manager) => {
+      if (variants.length > 0) {
+        await manager
+          .getRepository(ProductVariant)
+          .softDelete({ productId: id } as any);
+      }
+      const result = await manager.getRepository(Product).softDelete(id as any);
+      if (!result.affected) {
+        throw new NotFoundException('Producto no encontrado');
+      }
+    });
+    try {
+      if (product.companyId) {
+        this.catalogRealtime?.emitInvalidated({
+          companyId: product.companyId,
+          kinds: ['PRODUCT'],
+          productIds: [id],
+          at: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Catalog PRODUCT invalidate failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
     }
     return { success: true };
   }

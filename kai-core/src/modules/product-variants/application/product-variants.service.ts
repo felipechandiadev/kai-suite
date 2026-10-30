@@ -1496,6 +1496,17 @@ export class ProductVariantsService {
         : null;
     if (!v) return { success: false, error: 'Not found' };
 
+    const levels = await this.stockLevelOrm.find({
+      where: { productVariantId: id },
+    });
+    const physical = levels.reduce((a, l) => a + (Number(l.physicalStock) || 0), 0);
+    const committed = levels.reduce((a, l) => a + (Number(l.committedStock) || 0), 0);
+    if (physical > 1e-9 || committed > 1e-9) {
+      throw new BadRequestException(
+        `No se puede eliminar la variante ${(v as ProductVariant).sku}: tiene existencias (${physical}). Deje el stock en 0 o desactívela.`,
+      );
+    }
+
     if (typeof (this.variantRepository as any).softRemove === 'function') {
       await (this.variantRepository as any).softRemove(v);
     } else {

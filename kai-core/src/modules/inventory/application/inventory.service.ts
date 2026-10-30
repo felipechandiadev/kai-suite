@@ -186,7 +186,9 @@ export class InventoryService {
       .leftJoinAndSelect('variant.priceListItems', 'priceListItems')
       .leftJoinAndSelect('priceListItems.priceList', 'priceList')
       .where('variant.deletedAt IS NULL')
-      .andWhere('(product.deletedAt IS NULL OR product.id IS NULL)');
+      // Variantes sin producto (productId nulo) siguen visibles; las de un producto eliminado
+      // (el join excluye borrados lógicos) no deben aparecer como filas sin nombre.
+      .andWhere('(variant.productId IS NULL OR product.id IS NOT NULL)');
 
     const categoryFilter = params?.categoryId?.trim();
     if (categoryFilter) {
