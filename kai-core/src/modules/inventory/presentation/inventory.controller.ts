@@ -1,5 +1,6 @@
 import { Controller, Get, Query, Post, Body, Patch } from '@nestjs/common';
 import { InventoryService } from '../application/inventory.service';
+import { InventoryReconciliationService } from '../application/inventory-reconciliation.service';
 import {
   CreateAdjustmentDto,
   CreateTransferDto,
@@ -11,7 +12,16 @@ import { UpdateStockLevelThresholdsDto } from '../application/dto/update-stock-l
 
 @Controller('inventory')
 export class InventoryController {
-  constructor(private readonly inventoryService: InventoryService) {}
+  constructor(
+    private readonly inventoryService: InventoryService,
+    private readonly reconciliation: InventoryReconciliationService,
+  ) {}
+
+  /** Stock registrado vs. suma de movimientos, con el valor del descuadre. */
+  @Get('reconciliation')
+  async reconcile(@CurrentCompany() companyId: string) {
+    return this.reconciliation.reconcile(companyId);
+  }
 
   @Get('filters')
   async getFilters() {

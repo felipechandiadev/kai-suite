@@ -1,6 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
+import { InventoryReconciliationService } from '@modules/inventory/application/inventory-reconciliation.service';
 import { InventoryController } from '@modules/inventory/presentation/inventory.controller';
 import { InventoryService } from '@modules/inventory/application/inventory.service';
 
@@ -24,6 +25,7 @@ describe('InventoryController (Integration)', () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       controllers: [InventoryController],
       providers: [
+        { provide: InventoryReconciliationService, useValue: { reconcile: jest.fn() } },
         {
           provide: InventoryService,
           useValue: service,

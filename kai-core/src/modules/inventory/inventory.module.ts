@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CqrsModule } from '@nestjs/cqrs';
 import { InventoryController } from './presentation/inventory.controller';
 import { InventoryService } from './application/inventory.service';
+import { InventoryReconciliationService } from './application/inventory-reconciliation.service';
 import { InventoryServiceAdapter } from './application/inventory.service.adapter';
 import { StoragesModule } from '../storages/storages.module';
 import { TransactionsModule } from '../transactions/transactions.module';
@@ -36,6 +37,7 @@ import { NotificationsModule } from '@modules/notifications/notifications.module
     StockLevelThresholdSchemaBootstrap,
     InventorySearchBootstrap,
     InventoryService,
+    InventoryReconciliationService,
     InventoryServiceAdapter,
     {
       provide: STOCK_LEVELS_REPOSITORY,

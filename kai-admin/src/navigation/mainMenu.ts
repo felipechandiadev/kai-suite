@@ -88,6 +88,7 @@ export const mainMenuItems: SideBarMenuItem[] = [
       { id: 'inventory-catalog', label: 'Catálogo', url: '/catalog' },
       { id: 'inventory-stock', label: 'Existencias (Stock)', url: '/inventory/stock' },
       { id: 'inventory-reports', label: 'Reportes', url: '/inventory/reports', hidden: true },
+      { id: 'inventory-reconciliation', label: 'Conciliación', url: '/inventory/reconciliation' },
       { id: 'inventory-units', label: 'Unidades de medida', url: '/inventory/units' },
       { id: 'inventory-storages', label: 'Almacenes', url: '/inventory/storages' },
     ],

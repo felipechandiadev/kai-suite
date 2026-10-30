@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { InventoryController } from '../presentation/inventory.controller';
 import { InventoryService } from '../application/inventory.service';
+import { InventoryReconciliationService } from '../application/inventory-reconciliation.service';
 
 describe('InventoryController', () => {
   let controller: InventoryController;
@@ -17,6 +18,7 @@ describe('InventoryController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [InventoryController],
       providers: [
+        { provide: InventoryReconciliationService, useValue: { reconcile: jest.fn() } },
         {
           provide: InventoryService,
           useValue: mockInventoryService,
