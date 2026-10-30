@@ -541,6 +541,43 @@ function ProductVariantExpandCard({
           </div>
         </VariantExpandSection>
 
+        <VariantExpandSection title="Costo y margen" testId={`products-expand-variant-margin-${v.id}`}>
+          {(() => {
+            const m = variantMargin(v);
+            if (m == null) {
+              return (
+                <span className="text-[10px] text-muted-foreground" title="Falta precio de venta o costo">
+                  —
+                </span>
+              );
+            }
+            const negative = m.amount < 0;
+            return (
+              <div
+                className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] tabular-nums"
+                title={`Precio neto ${formatCatalogMoney(m.net)} − costo ${formatCatalogMoney(m.cost)}${
+                  v.saleUnitLabel ? ` por ${v.saleUnitLabel}` : ""
+                }`}
+              >
+                <span className="text-muted-foreground">
+                  Costo <span className="font-medium text-foreground">{formatCatalogMoney(m.cost)}</span>
+                </span>
+                <span className="text-muted-foreground">
+                  Neto <span className="font-medium text-foreground">{formatCatalogMoney(m.net)}</span>
+                </span>
+                <span className={negative ? "font-medium text-red-600" : "font-medium text-foreground"}>
+                  {m.percent.toFixed(1).replace(".", ",")}% ({formatCatalogMoney(m.amount)})
+                </span>
+                {negative ? (
+                  <Badge variant="error-outlined" className="shrink-0 text-[10px] font-normal">
+                    Bajo el costo
+                  </Badge>
+                ) : null}
+              </div>
+            );
+          })()}
+        </VariantExpandSection>
+
         <VariantExpandSection title="Precios de venta" testId={`products-expand-variant-prices-${v.id}`}>
           {priceItems.length > 0 || v.isActive === false ? (
             <div className="flex min-w-0 flex-wrap items-center gap-1">

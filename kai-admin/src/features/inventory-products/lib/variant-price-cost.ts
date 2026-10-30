@@ -39,11 +39,22 @@ export type VariantMargin = {
   percent: number;
 };
 
+/**
+ * Unidades de stock base por 1 unidad de venta (p. ej. 1000 si se vende en kg y el stock va en g).
+ * El costo (PMP / costo base) está en unidad de stock, así que se multiplica por este factor
+ * para compararlo con el precio, que está en unidad de venta.
+ */
+export function variantSaleUnitFactor(v: ProductVariantGridRow): number {
+  const f = v.stockBaseQtyPerCountSaleUnit;
+  return f != null && Number.isFinite(f) && f > 0 ? f : 1;
+}
+
 /** Margen de una variante sobre precio neto; `null` si falta precio o costo. */
 export function variantMargin(v: ProductVariantGridRow): VariantMargin | null {
   const net = variantSaleNet(v);
-  const cost = variantCost(v);
-  if (net == null || cost == null) return null;
+  const stockCost = variantCost(v);
+  if (net == null || stockCost == null) return null;
+  const cost = stockCost * variantSaleUnitFactor(v);
   const amount = net - cost;
   return { net, cost, amount, percent: (amount / net) * 100 };
 }

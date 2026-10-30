@@ -49,7 +49,7 @@ Esfuerzo relativo: **S** ≈ 1–3 días · **M** ≈ 1–2 semanas · **L** ≈
 | C.1 ✅ | **Estado de cuenta + antigüedad de saldos** | Por cliente y proveedor: movimientos, saldo, 0–30 / 31–60 / 61–90 / +90 días | Exportable y consistente con Cuentas por cobrar/pagar | M |
 | C.2 ✅ | **Cuotas con estado "Anulada"** | `CANCELLED` en cuotas; reportes no cuentan las anuladas como pagadas | Anular una recepción/venta no altera "pagado" | S |
 | C.3 ✅ | **Reportes de rentabilidad** | Utilidad por producto, categoría, cliente y vendedor desde `unitCost` | Cuadra con el margen del catálogo | M |
-| C.4 | **Margen por variante en catálogo** | Detalle expandible con precio, costo y margen por variante; corrección cuando la unidad de venta ≠ unidad de stock | Productos con varias variantes muestran su margen | S |
+| C.4 ✅ | **Margen por variante en catálogo** | Detalle expandible con precio, costo y margen por variante; corrección cuando la unidad de venta ≠ unidad de stock | Productos con varias variantes muestran su margen | S |
 
 ## Fase D — Integridad de inventario
 
