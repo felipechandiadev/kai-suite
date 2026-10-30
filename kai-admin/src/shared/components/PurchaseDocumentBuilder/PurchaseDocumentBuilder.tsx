@@ -112,6 +112,32 @@ function pickSalePriceItem(
   return items.find((i) => i.isDefault) ?? items[0];
 }
 
+/** Margen de la línea: precio de venta (nuevo o vigente) vs costo neto por unidad de stock. */
+function lineMargin(
+  line: {
+    unitPrice: number;
+    stockQtyPerPurchaseUnit?: number;
+    newSaleGross?: number;
+    salePriceItems?: PurchasingVariantSalePriceItem[];
+    saleTaxIds?: string[];
+  },
+  gross: (taxIds: string[]) => number,
+): { marginPct: number; netSale: number; cost: number; belowCost: boolean } | null {
+  const target = pickSalePriceItem(line.salePriceItems);
+  if (!target || line.unitPrice <= 0) return null;
+  const saleGross = (line.newSaleGross ?? 0) > 0 ? Math.round(line.newSaleGross!) : target.grossPrice;
+  if (!(saleGross > 0)) return null;
+  const ratio =
+    target.netPrice > 0 && target.grossPrice > 0
+      ? target.grossPrice / target.netPrice
+      : gross(target.taxIds.length ? target.taxIds : (line.saleTaxIds ?? []));
+  const netSale = grossToNet(saleGross, ratio);
+  const perUnit = line.stockQtyPerPurchaseUnit && line.stockQtyPerPurchaseUnit > 0 ? line.stockQtyPerPurchaseUnit : 1;
+  const cost = line.unitPrice / perUnit;
+  if (!(netSale > 0)) return null;
+  return { marginPct: ((netSale - cost) / netSale) * 100, netSale, cost, belowCost: netSale < cost };
+}
+
 /** Referencias estables cuando `reference` aún no está listo (evita bucles de efectos en hijos). */
 const EMPTY_SUPPLIER_LIST: SupplierGridRow[] = [];
 const EMPTY_STORAGE_LIST: StorageListItem[] = [];
@@ -1667,6 +1693,23 @@ export function PurchaseDocumentBuilder({
                               data-test-id={`purchase-doc-new-sale-price-${line.key}`}
                             />
                           </span>
+                          {(() => {
+                            const m = lineMargin(line, (ids) => effectiveGrossFactor(activeTaxes, ids));
+                            if (!m) return null;
+                            return (
+                              <span
+                                className={
+                                  m.belowCost ? "font-medium text-destructive" : "text-muted-foreground"
+                                }
+                                title="Margen = (precio de venta neto − costo neto) / precio de venta neto"
+                                data-test-id={`purchase-doc-margin-${line.key}`}
+                              >
+                                {m.belowCost
+                                  ? `¡Bajo el costo! Margen ${m.marginPct.toFixed(1)}%`
+                                  : `Margen ${m.marginPct.toFixed(1)}%`}
+                              </span>
+                            );
+                          })()}
                         </div>
                       ) : null}
                     </td>
