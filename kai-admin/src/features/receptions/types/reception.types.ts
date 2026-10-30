@@ -81,7 +81,7 @@ export type ReceptionGridRow = {
   type?: string;
   /** Folio de la orden de compra cuando `type === "from-purchase-order"`. */
   purchaseOrderNumber?: string | null;
-  /** `VOIDED` cuando la recepción fue anulada; si no, `RECEIVED`. */
+  /** `VOIDED` anulada, `INCOMPLETE` sin documento del proveedor; si no, `RECEIVED`. */
   status?: string;
   isVoided?: boolean;
   voidReason?: string | null;

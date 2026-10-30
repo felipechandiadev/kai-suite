@@ -1278,37 +1278,38 @@ export class ReceptionsService {
     }
     this.applySupplierFiscalTotalsToReception(reception, data, docTypeNorm);
 
-    // Save reception
-    const savedReception = await this.receptionRepo.save(reception);
-
-    // Create and save lines
-    if (Array.isArray(data.lines)) {
-      for (let i = 0; i < data.lines.length; i++) {
-        const l = data.lines[i];
-        const qty = Number(l.receivedQuantity ?? l.quantity ?? 0) || 0;
-        const unitPrice = Number(l.unitPrice ?? l.price ?? 0) || 0;
-        const lineSubtotal = qty * unitPrice;
-
-        const snapshot = await this.buildLineSnapshot(l);
-
-        const receptionLine = this.receptionLineRepo.create({
-          receptionId: savedReception.id,
-          productId: snapshot.productId,
-          productVariantId: snapshot.productVariantId,
-          productName: snapshot.productName,
-          sku: snapshot.sku,
-          variantName: snapshot.variantName,
-          quantity: qty,
-          receivedQuantity: Number(l.receivedQuantity ?? qty),
-          unitPrice,
-          unitCost: Number(l.unitCost ?? l.unitPrice ?? 0) || 0,
-          subtotal: lineSubtotal,
-          lineNumber: i + 1,
-        });
-
-        await this.receptionLineRepo.save(receptionLine);
-      }
-    }
+    // Cabecera + líneas en una sola transacción de BD: o se guarda todo o nada.
+    const snapshots = Array.isArray(data.lines)
+      ? await Promise.all(data.lines.map((l: any) => this.buildLineSnapshot(l)))
+      : [];
+    const savedReception = await this.receptionRepo.manager.transaction(
+      async (em) => {
+        const saved = await em.save(reception);
+        for (let i = 0; i < snapshots.length; i++) {
+          const l = data.lines[i];
+          const snapshot = snapshots[i];
+          const qty = Number(l.receivedQuantity ?? l.quantity ?? 0) || 0;
+          const unitPrice = Number(l.unitPrice ?? l.price ?? 0) || 0;
+          await em.save(
+            this.receptionLineRepo.create({
+              receptionId: saved.id,
+              productId: snapshot.productId,
+              productVariantId: snapshot.productVariantId,
+              productName: snapshot.productName,
+              sku: snapshot.sku,
+              variantName: snapshot.variantName,
+              quantity: qty,
+              receivedQuantity: Number(l.receivedQuantity ?? qty),
+              unitPrice,
+              unitCost: Number(l.unitCost ?? l.unitPrice ?? 0) || 0,
+              subtotal: qty * unitPrice,
+              lineNumber: i + 1,
+            }),
+          );
+        }
+        return saved;
+      },
+    );
 
     // Reload with relations
     const receptionWithLines = await this.receptionRepo.findOne({
@@ -1321,6 +1322,21 @@ export class ReceptionsService {
       purchaseOrderId,
     });
     const stockTxId = tx && (tx as any).id ? String((tx as any).id) : null;
+    if (!stockTxId && (receptionWithLines?.lines?.length ?? 0) > 0) {
+      // Sin ingreso de stock no queda nada que anular: se deshace la recepción
+      // para no dejar un registro huérfano que bloquee reingresar el folio.
+      const reason =
+        (tx && (tx as any).error ? String((tx as any).error) : '') ||
+        'No se creó la transacción de ingreso de stock; el inventario y el PMP no se actualizaron.';
+      await this.receptionRepo.manager.transaction(async (em) => {
+        await em.delete(ReceptionLine, { receptionId: savedReception.id });
+        await em.delete(Reception, { id: savedReception.id });
+      });
+      this.logger.error(
+        `Recepción ${savedReception.id} deshecha: ${reason}`,
+      );
+      throw new BadRequestException(`No se registró la recepción: ${reason}`);
+    }
     if (stockTxId && purchaseOrderId) {
       // Actualiza "Recibida x/y" de la OC de origen (idempotente; no rompe la recepción si falla).
       await this.poProgress.recalculate(purchaseOrderId);
@@ -1368,6 +1384,16 @@ export class ReceptionsService {
         this.logger.error(`Supplier fiscal from reception failed: ${msg}`);
         supplierDocumentError = msg;
       }
+    }
+
+    if (supplierDocumentError) {
+      // El stock ya entró pero falta el documento del proveedor: queda visible como
+      // incompleta (se puede anular y reingresar con el mismo folio).
+      receptionWithLines!.status = ReceptionStatus.INCOMPLETE;
+      await this.receptionRepo.update(
+        { id: receptionWithLines!.id },
+        { status: ReceptionStatus.INCOMPLETE },
+      );
     }
 
     const lineCount = receptionWithLines?.lines?.length ?? 0;

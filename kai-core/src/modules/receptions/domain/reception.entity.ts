@@ -19,6 +19,8 @@ import { Transaction } from '@modules/transactions/domain/transaction.entity';
 export enum ReceptionStatus {
   ACTIVE = 'ACTIVE',
   VOIDED = 'VOIDED',
+  /** Stock ingresado pero falta el documento del proveedor (factura/boleta/pago). */
+  INCOMPLETE = 'INCOMPLETE',
 }
 
 /**
@@ -105,7 +107,7 @@ export class Reception {
   @Column({ type: 'json', nullable: true })
   payments?: any;
 
-  /** `ACTIVE` | `VOIDED` — ver {@link ReceptionStatus}. */
+  /** `ACTIVE` | `VOIDED` | `INCOMPLETE` — ver {@link ReceptionStatus}. */
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
   status!: string;
 

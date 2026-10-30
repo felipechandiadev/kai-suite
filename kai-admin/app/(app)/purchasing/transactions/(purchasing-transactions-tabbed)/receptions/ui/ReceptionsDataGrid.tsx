@@ -92,6 +92,13 @@ export default function ReceptionsDataGrid({ rows, total }: ReceptionsDataGridPr
           width: 110,
           renderCell: ({ row }: { row: unknown }) => {
             const r = row as ReceptionGridRow;
+            if (r.status === "INCOMPLETE") {
+              return (
+                <span title="Entró el stock pero falta el documento del proveedor. Anule y reingrese.">
+                  <Badge variant="warning-outlined">Incompleta</Badge>
+                </span>
+              );
+            }
             return r.isVoided || r.status === "VOIDED" ? (
               <Badge variant="error-outlined">Anulada</Badge>
             ) : (
