@@ -51,12 +51,21 @@ export class SyncSaleHandler {
 
     let fiscalEmission: unknown;
     if (dto.fiscal && dto.saleDocumentKind === 'BOLETA') {
-      fiscalEmission = await this.fiscalBoletaEmission.adoptOfflineEmission(
-        companyId,
-        saleResult.transaction.id,
-        dto.pointOfSaleId,
-        dto.fiscal,
-      );
+      try {
+        fiscalEmission = await this.fiscalBoletaEmission.adoptOfflineEmission(
+          companyId,
+          saleResult.transaction.id,
+          dto.pointOfSaleId,
+          dto.fiscal,
+        );
+      } catch (e) {
+        // La venta ya existe: no se reporta como fallo de sync (evita reprocesarla);
+        // el error fiscal viaja en la respuesta para que el POS lo muestre.
+        fiscalEmission = {
+          status: 'FAILED',
+          error: e instanceof Error ? e.message : String(e),
+        };
+      }
     }
 
     return {

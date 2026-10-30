@@ -81,6 +81,7 @@ import {
   CreateTransactionDto,
   CreateTransactionLineDto,
 } from '@modules/transactions/application/dto/create-transaction.dto';
+import { TenantContext } from '@common/tenant/tenant.context';
 import { CompaniesService } from '@modules/companies/application/companies.service';
 import {
   DEFAULT_NEGATIVE_STOCK_POLICY,
@@ -310,7 +311,39 @@ export class SalesFromSessionService {
    * 8. Reservar stock (SessionInventoryService)
    * 9. Retornar transacción con asientos
    */
+  /**
+   * Idempotencia de ventas: si ya existe una venta de la empresa creada con el mismo
+   * `metadata.clientOperationId` (reintento tras corte de red o re-sincronización),
+   * se devuelve esa venta en vez de crear otra.
+   */
+  private async findExistingSaleByClientOperationId(createSaleDto: CreateSaleDto) {
+    const opId =
+      typeof createSaleDto.metadata?.clientOperationId === 'string'
+        ? createSaleDto.metadata.clientOperationId.trim()
+        : '';
+    const companyId = TenantContext.getCompanyId();
+    if (!opId || !companyId) return null;
+    const existing = await this.transactionRepository
+      .createQueryBuilder('t')
+      .where('t.companyId = :companyId', { companyId })
+      .andWhere('t.transactionType = :type', { type: TransactionType.SALE })
+      .andWhere("t.metadata::jsonb ->> 'clientOperationId' = :opId", { opId })
+      .orderBy('t.createdAt', 'ASC')
+      .getOne();
+    if (!existing) return null;
+    this.logger.warn(
+      `Venta duplicada evitada: clientOperationId=${opId} ya existe como ${existing.documentNumber}`,
+    );
+    return {
+      success: true as const,
+      transaction: existing,
+      deduplicated: true as const,
+    };
+  }
+
   async createSale(createSaleDto: CreateSaleDto) {
+    const duplicate = await this.findExistingSaleByClientOperationId(createSaleDto);
+    if (duplicate) return duplicate;
     const fulfillBackorderId = createSaleDto.fulfillBackorderId?.trim() || undefined;
     const fulfillPresaleTicketIds = [
       ...new Set(
@@ -364,9 +397,14 @@ export class SalesFromSessionService {
 
   /** Venta sincronizada desde cola offline: sin emisión automática (adoptOfflineEmission aparte). */
   async createSaleFromOfflineSync(createSaleDto: CreateSaleDto) {
+    const duplicate = await this.findExistingSaleByClientOperationId(createSaleDto);
+    if (duplicate) return duplicate;
     const result = await this.registerPosCommercial(createSaleDto, {
       transactionType: TransactionType.SALE,
       skipStockCheck: false,
+      // La venta ya ocurrió en el local: no se puede rechazar por stock. El descuento se
+      // registra igual (puede dejar stock negativo, ver política de stock negativo).
+      skipStockAvailabilityCheck: true,
       deferPayment: false,
     });
     if (result.success && result.transaction?.id) {

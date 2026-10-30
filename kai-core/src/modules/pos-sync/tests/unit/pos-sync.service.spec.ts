@@ -32,6 +32,7 @@ describe('PosSyncService idempotency', () => {
     const { syncRepo, commandRepo } = buildSyncRepo({
       companyId: 'co-1',
       clientOperationId: 'op-1',
+      status: 'SYNCED',
       responseJson: saved,
     });
 

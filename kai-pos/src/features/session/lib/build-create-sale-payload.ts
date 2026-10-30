@@ -199,6 +199,8 @@ export function buildCreateSaleClientPayload(input: {
   tipSuggestedAmount?: number | null;
   tipPercentApplied?: number | null;
   tipStatus?: "NONE" | "SUGGESTED" | "ACCEPTED" | "CUSTOM" | "DECLINED" | null;
+  /** Clave de idempotencia: reintentar con la misma clave no duplica la venta. */
+  clientOperationId?: string | null;
 }): CreateSaleClientPayload {
   const priceListCheck = assertCartSinglePriceList(input.cartLines);
   if (!priceListCheck.ok) {
@@ -229,6 +231,11 @@ export function buildCreateSaleClientPayload(input: {
     metadata.firstDueDate = installmentMetadata.firstDueDate;
     metadata.paymentSchedule = installmentMetadata.paymentSchedule;
     metadata.customerCreditPlan = installmentMetadata.customerCreditPlan;
+  }
+
+  const clientOperationId = input.clientOperationId?.trim();
+  if (clientOperationId) {
+    metadata.clientOperationId = clientOperationId;
   }
 
   const lineRequiresDte = buildLineRequiresDteSnapshot(input.cartLines);

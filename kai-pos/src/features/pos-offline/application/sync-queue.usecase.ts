@@ -10,6 +10,8 @@ const FAILED_PURGE_DAYS = 90;
 const SYNCING_STALE_MS = 2 * 60 * 1000;
 const SYNC_LOCK_NAME = "kai-pos-offline-sync";
 const SYNC_BATCH_SIZE = 10;
+/** Tras estos intentos fallidos el comando espera acción manual (Reintentar) en vez de reintentarse sin fin. */
+const MAX_AUTO_RETRIES = 5;
 
 function backoffMs(retryCount: number): number {
   return Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * 2 ** Math.max(0, retryCount));
@@ -99,6 +101,7 @@ export async function syncOfflineQueueOnce(userName: string): Promise<void> {
       for (const cmd of pending) {
         if (!isBackendReachable()) break;
         if (processed >= SYNC_BATCH_SIZE) break;
+        if (cmd.status === "FAILED" && cmd.retryCount >= MAX_AUTO_RETRIES) continue;
         if (cmd.dependsOn) {
           const dep = await db.commands.get(cmd.dependsOn);
           if (dep && dep.status !== "SYNCED") continue;
@@ -217,6 +220,13 @@ async function syncOneCommand(cmd: PosOfflineCommand, userName: string) {
     serverTransactionId: body.transactionId ?? null,
     serverDocumentNumber: body.documentNumber ?? null,
   });
+  const fiscal = body.fiscalEmission as { status?: string; error?: string } | undefined;
+  if (fiscal?.status === "FAILED") {
+    // La venta quedó registrada, pero la boleta electrónica no: dejar constancia visible.
+    await db.commands.update(cmd.id, {
+      lastError: `Venta sincronizada, pero la boleta electrónica falló: ${fiscal.error ?? "sin detalle"}`,
+    });
+  }
   if (body.documentNumber) {
     emitSyncEvent({
       type: "SYNCED",

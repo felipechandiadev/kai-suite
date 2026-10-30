@@ -1032,6 +1032,8 @@ export default function PosPaymentWorkspace({
   const [mpPointBusy, setMpPointBusy] = useState(false);
   const [mpPointStatus, setMpPointStatus] = useState("");
   const [confirmLoading, setConfirmLoading] = useState(false);
+  /** Clave de idempotencia de la venta en curso: se conserva entre reintentos y se renueva al confirmar. */
+  const saleOperationIdRef = useRef<string | null>(null);
   const [deferLoading, setDeferLoading] = useState(false);
   const [collectSales, setCollectSales] = useState<PosArCollectSaleRow[]>([]);
   const [collectQuotas, setCollectQuotas] = useState<PosQuotaCollectRow[]>([]);
@@ -3659,6 +3661,7 @@ export default function PosPaymentWorkspace({
         })()
       : await createSaleFromPosAction(
           buildCreateSaleClientPayload({
+            clientOperationId: (saleOperationIdRef.current ??= crypto.randomUUID()),
             pointOfSaleId,
             cashSessionId,
             cartLines: cartLinesForSale,
@@ -3706,6 +3709,10 @@ export default function PosPaymentWorkspace({
       }
       setPageAlert(msg);
       return;
+    }
+
+    if (confirmRes.success) {
+      saleOperationIdRef.current = null;
     }
 
     if (activeDiningOrderId && !isEncargoMode && confirmRes.success) {

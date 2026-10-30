@@ -96,7 +96,13 @@ export class PosSyncService {
         })
         .getOne();
 
-      if (row?.responseJson) {
+      // Solo las sincronizaciones exitosas se responden desde caché. Un FAILED/CONFLICT de
+      // venta o cierre se vuelve a procesar (la venta es idempotente por clientOperationId).
+      const retryable =
+        row != null &&
+        row.status !== PosSyncCommandStatus.SYNCED &&
+        (dto.commandType === 'SALE' || dto.commandType === 'CLOSE_SESSION');
+      if (row?.responseJson && !retryable) {
         this.logSyncResult({
           clientOperationId,
           deviceId,
