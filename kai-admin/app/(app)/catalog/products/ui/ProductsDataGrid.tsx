@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Barcode, Check, X } from "lucide-react";
-import { variantCost, variantSaleGross } from "@/features/inventory-products/lib/variant-price-cost";
+import { variantCost, variantMargin, variantSaleGross } from "@/features/inventory-products/lib/variant-price-cost";
 import { Badge, Button, DataGridTable as DataGrid, DeleteDialog, IconButton, Select, Switch, type DataGridColumn, type Option } from "@kai/ui";
 import type { ProductGridRow, ProductVariantGridRow, ProductVariantMediaAsset } from "@/features/inventory-products/types/product-grid.types";
 import {
@@ -48,6 +48,7 @@ const WITH_WITHOUT_PRICE_OPTIONS: Option[] = [
   { id: "with", label: "Con precio" },
   { id: "without", label: "Sin precio" },
 ];
+const MARGIN_OPTIONS: Option[] = [{ id: "negative", label: "Bajo el costo" }];
 const WITH_WITHOUT_COST_OPTIONS: Option[] = [
   { id: "with", label: "Con costo" },
   { id: "without", label: "Sin costo" },
@@ -880,6 +881,48 @@ export default function ProductsDataGrid({ rows, total, categories = [], brands 
         },
       },
       {
+        field: "margin",
+        headerName: "Margen",
+        sortable: false,
+        width: 110,
+        align: "right",
+        renderCell: ({ row }) => {
+          const r = row as ProductGridRow;
+          const sellable = catalogProductTypeIsSellable(normalizeCatalogProductType(r.productType));
+          if (!sellable || r.variants.length !== 1) {
+            return (
+              <span
+                className="text-muted-foreground"
+                title={
+                  r.variants.length > 1
+                    ? "Producto con varias variantes: ver el margen de cada una en el detalle"
+                    : undefined
+                }
+              >
+                —
+              </span>
+            );
+          }
+          const m = variantMargin(r.variants[0]);
+          if (m == null) {
+            return (
+              <span className="text-muted-foreground" title="Falta precio de venta o costo">
+                —
+              </span>
+            );
+          }
+          const negative = m.amount < 0;
+          return (
+            <span
+              className={`tabular-nums font-medium ${negative ? "text-red-600" : "text-foreground"}`}
+              title={`Utilidad por unidad: ${formatCatalogMoney(m.amount)} (precio neto ${formatCatalogMoney(m.net)} − costo ${formatCatalogMoney(m.cost)})`}
+            >
+              {m.percent.toFixed(1).replace(".", ",")}%
+            </span>
+          );
+        },
+      },
+      {
         field: "variantCount",
         headerName: "Variantes",
         sortable: true,
@@ -1054,6 +1097,12 @@ export default function ProductsDataGrid({ rows, total, categories = [], brands 
               label="Precio venta"
               options={WITH_WITHOUT_PRICE_OPTIONS}
               data-test-id="products-price-filter"
+            />
+            <GridUrlSelectFilter
+              param="margin"
+              label="Margen"
+              options={MARGIN_OPTIONS}
+              data-test-id="products-margin-filter"
             />
             <GridUrlSelectFilter
               param="cost"

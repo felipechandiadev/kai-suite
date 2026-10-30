@@ -44,6 +44,7 @@ export default async function Page({
       status: parseSp(sp, "status").trim() || undefined,
       price: parseSp(sp, "price").trim() || undefined,
       cost: parseSp(sp, "cost").trim() || undefined,
+    margin: parseSp(sp, "margin").trim() || undefined,
       page,
       limit,
       sortField,

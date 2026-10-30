@@ -28,3 +28,30 @@ export function productHasSalePrice(row: ProductGridRow): boolean {
 export function productHasCost(row: ProductGridRow): boolean {
   return (row.variants ?? []).some((v) => variantCost(v) != null);
 }
+
+export type VariantMargin = {
+  /** Precio neto de venta (sin impuestos) y costo, ambos por unidad de venta. */
+  net: number;
+  cost: number;
+  /** Utilidad por unidad (neto − costo). */
+  amount: number;
+  /** Margen sobre el precio neto, en % (puede ser negativo). */
+  percent: number;
+};
+
+/** Margen de una variante sobre precio neto; `null` si falta precio o costo. */
+export function variantMargin(v: ProductVariantGridRow): VariantMargin | null {
+  const net = variantSaleNet(v);
+  const cost = variantCost(v);
+  if (net == null || cost == null) return null;
+  const amount = net - cost;
+  return { net, cost, amount, percent: (amount / net) * 100 };
+}
+
+/** El producto se vende bajo su costo si alguna variante tiene margen negativo. */
+export function productSoldBelowCost(row: ProductGridRow): boolean {
+  return (row.variants ?? []).some((v) => {
+    const m = variantMargin(v);
+    return m != null && m.amount < 0;
+  });
+}

@@ -5,7 +5,7 @@ import { ProductRequest } from "../infrastructure/product.request";
 import type { CatalogProductType, ProductGridRow } from "../types/product-grid.types";
 import type { VariantTaxCategory } from "../types/variant-fiscal.types";
 import { latinSearchIncludes } from "@/shared/utils/fold-latin-search-text";
-import { productHasCost, productHasSalePrice } from "../lib/variant-price-cost";
+import { productHasCost, productHasSalePrice, productSoldBelowCost } from "../lib/variant-price-cost";
 
 const PRODUCTS_PATH = "/catalog/products";
 const PRODUCT_VARIANT_DETAIL_PATH_PREFIX = "/catalog/products/variants";
@@ -108,6 +108,8 @@ export type ListProductsForGridInput = {
   price?: string;
   /** `with` | `without`: producto con/sin costo (PMP o costo base) en alguna variante. */
   cost?: string;
+  /** `negative`: productos con alguna variante vendida bajo su costo. */
+  margin?: string;
   page: number;
   limit: number;
   sortField: string;
@@ -177,6 +179,7 @@ export async function listProductsForGrid(input: ListProductsForGridInput): Prom
     if (input.price === "without" && productHasSalePrice(row)) return false;
     if (input.cost === "with" && !productHasCost(row)) return false;
     if (input.cost === "without" && productHasCost(row)) return false;
+    if (input.margin === "negative" && !productSoldBelowCost(row)) return false;
     return true;
   });
   const sorted = [...filtered].sort((r1, r2) => {
