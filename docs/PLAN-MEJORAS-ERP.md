@@ -40,7 +40,7 @@ Esfuerzo relativo: **S** ≈ 1–3 días · **M** ≈ 1–2 semanas · **L** ≈
 | B.2 ✅ | **Pantalla "Qué comprar"** | Variantes bajo mínimo/reposición agrupadas por proveedor, cantidad sugerida, botón "Crear orden de compra" | Se genera una OC desde la sugerencia | M |
 | B.3 ✅ | **Margen en la recepción** | En el ingreso de factura: margen con el costo nuevo y alerta si queda bajo el costo | Se ve el margen antes de guardar | S |
 | B.4 | **Recepción atómica** | Ingreso + factura + pagos en una transacción de BD, o estado "incompleta" con reintento | Un fallo a mitad no deja datos huérfanos | M |
-| B.5 | **Estado visible en compras** | Filtro de estado en Recepciones y estado "Anulada" en Facturas/Boletas proveedor | Se filtra y se ve en las tres grillas | S |
+| B.5 ✅ | **Estado visible en compras** | Filtro de estado en Recepciones y estado "Anulada" en Facturas/Boletas proveedor | Se filtra y se ve en las tres grillas | S |
 
 ## Fase C — Cartera y rentabilidad (lo que miran los dueños)
 

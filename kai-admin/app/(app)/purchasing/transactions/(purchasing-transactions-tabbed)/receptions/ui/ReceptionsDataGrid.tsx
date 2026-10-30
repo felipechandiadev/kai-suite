@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Badge, Button, DataGridTable as DataGrid, IconButton } from "@kai/ui";
 import type { DataGridColumn } from "@kai/ui";
 import type { ReceptionGridRow } from "@/features/receptions/types/reception.types";
+import PurchasingStatusFilter from "@/shared/components/PurchasingStatusFilter/PurchasingStatusFilter";
 import { BulkReceptionImportDialog } from "@/features/receptions/ui/BulkReceptionImportDialog";
 import { voidReceptionAction } from "@/features/receptions/actions/reception.action";
 import VoidReceptionDialog from "@/features/receptions/ui/VoidReceptionDialog";
@@ -220,7 +221,8 @@ export default function ReceptionsDataGrid({ rows, total }: ReceptionsDataGridPr
 
   return (
     <>
-      <div className="mb-2 flex flex-wrap items-center justify-end gap-2 px-1">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
+        <PurchasingStatusFilter />
         <Button
           variant="outlined"
           size="sm"

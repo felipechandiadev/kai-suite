@@ -21,12 +21,13 @@ export async function listReceptionsForGridAction(opts: {
   page?: number;
   limit?: number;
   search?: string;
+  status?: string;
 } = {}): Promise<ReceptionListForGridResult> {
   const page = Math.max(1, Math.round(opts.page ?? 1));
   const limit = Math.min(200, Math.max(1, Math.round(opts.limit ?? 25)));
   const offset = (page - 1) * limit;
   const search = opts.search?.trim() || undefined;
-  return ReceptionRequest.listForGrid({ limit, offset, search });
+  return ReceptionRequest.listForGrid({ limit, offset, search, status: opts.status });
 }
 
 export async function getReceptionDetailForReturnAction(receptionId: string): Promise<ReceptionFetchResult> {

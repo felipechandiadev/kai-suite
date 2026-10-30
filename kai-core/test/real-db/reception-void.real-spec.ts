@@ -129,4 +129,27 @@ describe('Recepción de compra → anulación (BD real)', () => {
     await expect(run()).rejects.toThrow();
     expect(await physicalStock(ds, variantId, base.storageId)).toBe(0);
   });
+
+  it('el listado filtra por estado (VOIDED / RECEIVED)', async () => {
+    const supplierId = await createSupplier(ds, base);
+    const { variantId } = await createPhysicalVariant(ds, base);
+    const { variantId: otherVariantId } = await createPhysicalVariant(ds, base);
+    const anulada: any = await receive(variantId, supplierId, 2, 10, 'F-4001');
+    const vigente: any = await receive(otherVariantId, supplierId, 3, 10, 'F-4002');
+    await asCompany(base, () =>
+      voider.void(base.companyId, base.userId, anulada.id, {
+        reason: 'Filtro de estado',
+      } as any),
+    );
+    const list = (status?: 'VOIDED' | 'RECEIVED') =>
+      asCompany(base, () =>
+        receptions.search({ limit: 200, status, companyId: base.companyId }),
+      ).then((r: any) => (r.data ?? r.rows ?? r.items ?? []).map((x: any) => x.id));
+    const voided = await list('VOIDED');
+    expect(voided).toContain(anulada.id);
+    expect(voided).not.toContain(vigente.id);
+    const received = await list('RECEIVED');
+    expect(received).toContain(vigente.id);
+    expect(received).not.toContain(anulada.id);
+  });
 });

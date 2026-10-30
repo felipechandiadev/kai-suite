@@ -3,7 +3,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { DataGridTable as DataGrid } from "@kai/ui";
 import type { DataGridColumn } from "@kai/ui";
-import { IconButton } from "@kai/ui";
+import PurchasingStatusFilter from "@/shared/components/PurchasingStatusFilter/PurchasingStatusFilter";
+import { Badge, IconButton } from "@kai/ui";
 import type { SupplierInvoiceListItem } from "@/features/purchasing-invoices/types/supplier-invoice.types";
 import { dteFolioDisplay } from "@/features/purchasing-dte/lib/dte-folio-display";
 import { supplierDocumentPaymentStatusDisplay } from "@/features/purchasing-dte/lib/supplier-document-payment-status";
@@ -148,6 +149,18 @@ export default function DteInvoicesDataGrid({ rows, total }: DteInvoicesDataGrid
         },
       },
       {
+        field: "status",
+        headerName: "Estado",
+        sortable: false,
+        width: 110,
+        renderCell: ({ row }: { row: unknown }) =>
+          (row as { status?: string }).status === "VOIDED" ? (
+            <Badge variant="error-outlined">Anulada</Badge>
+          ) : (
+            <Badge variant="success-outlined">Vigente</Badge>
+          ),
+      },
+      {
         field: "actions",
         headerName: "",
         width: 72,
@@ -162,6 +175,9 @@ export default function DteInvoicesDataGrid({ rows, total }: DteInvoicesDataGrid
 
   return (
     <>
+      <div className="mb-2 flex items-center px-1">
+        <PurchasingStatusFilter />
+      </div>
       <DataGrid
         title="Facturas"
         columns={columns}

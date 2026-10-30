@@ -159,7 +159,7 @@ export class ReceptionRequest {
   }
 
   static async listForGrid(
-    opts: { limit?: number; offset?: number; search?: string } = {},
+    opts: { limit?: number; offset?: number; search?: string; status?: string } = {},
   ): Promise<ReceptionListForGridResult> {
     const limit = Math.min(200, Math.max(1, Math.round(opts.limit ?? 25)));
     const offset = Math.max(0, Math.round(opts.offset ?? 0));
@@ -170,6 +170,9 @@ export class ReceptionRequest {
     });
     if (search) {
       qs.set("search", search);
+    }
+    if (opts.status === "VOIDED" || opts.status === "RECEIVED") {
+      qs.set("status", opts.status);
     }
     const headers = await authHeaders();
     const res = await fetch(apiUrl(`receptions?${qs.toString()}`), {

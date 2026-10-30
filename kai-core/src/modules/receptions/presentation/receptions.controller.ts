@@ -30,6 +30,7 @@ export class ReceptionsController {
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
     @Query('search') search?: string,
+    @Query('status') status?: string,
     @OptionalCurrentCompany() companyId?: string | null,
   ) {
     const l = limit ? parseInt(limit, 10) : 25;
@@ -39,6 +40,7 @@ export class ReceptionsController {
       limit: l,
       offset: o,
       search: term || undefined,
+      status: status === 'VOIDED' || status === 'RECEIVED' ? status : undefined,
       companyId,
     });
   }

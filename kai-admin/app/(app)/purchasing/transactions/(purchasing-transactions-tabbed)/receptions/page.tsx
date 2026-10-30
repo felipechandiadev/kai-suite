@@ -27,6 +27,7 @@ export default async function ReceptionListPage({
     page,
     limit,
     search: search || undefined,
+    status: parseSp(sp, "status") === "VOIDED" ? "VOIDED" : undefined,
   });
 
   return (

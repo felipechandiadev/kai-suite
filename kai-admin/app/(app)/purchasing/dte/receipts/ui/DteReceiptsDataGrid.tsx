@@ -3,7 +3,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { DataGridTable as DataGrid } from "@kai/ui";
 import type { DataGridColumn } from "@kai/ui";
-import { IconButton } from "@kai/ui";
+import PurchasingStatusFilter from "@/shared/components/PurchasingStatusFilter/PurchasingStatusFilter";
+import { Badge, IconButton } from "@kai/ui";
 import type { SupplierReceiptListItem } from "@/features/purchasing-supplier-receipts/types/supplier-receipt.types";
 import { dteFolioDisplay } from "@/features/purchasing-dte/lib/dte-folio-display";
 import PurchasingDteDetailDialog from "@/features/purchasing-document/ui/PurchasingDteDetailDialog";
@@ -131,6 +132,18 @@ export default function DteReceiptsDataGrid({ rows, total }: DteReceiptsDataGrid
         valueGetter: ({ row }) => String((row as SupplierReceiptListItem).status || "—"),
       },
       {
+        field: "status",
+        headerName: "Estado",
+        sortable: false,
+        width: 110,
+        renderCell: ({ row }: { row: unknown }) =>
+          (row as { status?: string }).status === "VOIDED" ? (
+            <Badge variant="error-outlined">Anulada</Badge>
+          ) : (
+            <Badge variant="success-outlined">Vigente</Badge>
+          ),
+      },
+      {
         field: "actions",
         headerName: "",
         width: 72,
@@ -145,6 +158,9 @@ export default function DteReceiptsDataGrid({ rows, total }: DteReceiptsDataGrid
 
   return (
     <>
+      <div className="mb-2 flex items-center px-1">
+        <PurchasingStatusFilter />
+      </div>
       <DataGrid
         title="Boletas"
         columns={columns}

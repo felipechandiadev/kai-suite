@@ -650,6 +650,7 @@ export class ReceptionsService {
       limit?: number;
       offset?: number;
       search?: string;
+      status?: 'RECEIVED' | 'VOIDED';
       companyId?: string | null;
     } = {
       limit: 25,
@@ -687,6 +688,12 @@ export class ReceptionsService {
             .orWhere('supplierPerson.documentNumber ILIKE :like', { like });
         }),
       );
+    }
+
+    if (opts.status === 'VOIDED') {
+      qb.andWhere('r.status = :stVoided', { stVoided: ReceptionStatus.VOIDED });
+    } else if (opts.status === 'RECEIVED') {
+      qb.andWhere('r.status != :stVoided', { stVoided: ReceptionStatus.VOIDED });
     }
 
     if (opts.companyId) {

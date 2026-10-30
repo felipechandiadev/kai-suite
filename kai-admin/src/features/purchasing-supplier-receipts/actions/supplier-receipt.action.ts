@@ -8,7 +8,7 @@ import type { CreateSupplierReceiptInput } from "../types/supplier-receipt.types
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export async function listSupplierReceiptsForPage(opts: { page?: number; limit?: number; supplierId?: string; search?: string } = {}) {
+export async function listSupplierReceiptsForPage(opts: { page?: number; limit?: number; supplierId?: string; search?: string; status?: string } = {}) {
   return SupplierReceiptRequest.list(opts);
 }
 

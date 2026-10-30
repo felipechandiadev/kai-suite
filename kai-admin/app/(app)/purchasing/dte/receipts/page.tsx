@@ -22,8 +22,9 @@ export default async function DteReceiptsPage({
   const page = Math.max(1, parseInt(parseSp(sp, "page") || "1", 10) || 1);
   const limit = Math.min(200, Math.max(1, parseInt(parseSp(sp, "limit") || "25", 10) || 25));
   const search = parseSp(sp, "search");
+  const status = parseSp(sp, "status") === "VOIDED" ? "VOIDED" : undefined;
 
-  const res = await listSupplierReceiptsForPage({ page, limit, search: search || undefined });
+  const res = await listSupplierReceiptsForPage({ page, limit, search: search || undefined, status });
 
   return (
     <div className="min-h-0 min-w-0 p-0" data-test-id="dte-receipts-page-root">
