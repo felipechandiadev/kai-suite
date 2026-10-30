@@ -41,12 +41,12 @@ describe('ProductVariantsService', () => {
     };
     priceListItemRepository = {
       save: jest.fn(),
-      findByVariantId: jest.fn(),
+      findByVariantId: jest.fn().mockResolvedValue([]),
       deleteByVariantId: jest.fn(),
     };
     multimediaService = {
       listByEntity: jest.fn(),
-      listByEntityIds: jest.fn(),
+      listByEntityIds: jest.fn().mockResolvedValue({}),
       unlink: jest.fn(),
       link: jest.fn(),
     };
@@ -106,7 +106,7 @@ describe('ProductVariantsService', () => {
       attributesService as any,
       variantOrm as any,
       stockLevelOrm as any,
-      { find: jest.fn(), findOne: jest.fn() } as any, // taxRepo
+      { find: jest.fn().mockResolvedValue([]), findOne: jest.fn() } as any, // taxRepo
       { find: jest.fn(), findOne: jest.fn(), manager: { transaction: jest.fn() } } as any, // variantProductionUnitOrm
       { find: jest.fn(), findOne: jest.fn(), manager: { transaction: jest.fn() } } as any, // variantBranchAvailabilityOrm
       { findOne: jest.fn() } as any, // productionUnitOrm

@@ -26,9 +26,11 @@ Esfuerzo relativo: **S** ≈ 1–3 días · **M** ≈ 1–2 semanas · **L** ≈
 | A.1 ✅ | **Arnés de pruebas con base real** | Script reutilizable: clona una BD demo a una BD temporal, aplica migraciones, levanta el contexto de la app, ejecuta un escenario y limpia | Un comando corre los escenarios de recepción, venta, anulación y eliminación de producto | M |
 | A.2 ✅ | **Escenarios críticos automatizados** | Pruebas de recepción→anulación, venta→anulación, eliminación de producto con/sin stock | Pasan en el arnés y se ejecutan antes de cada subida | M |
 | A.3 ✅ | **Control de migraciones** | Prueba que falla si una migración en `src/migrations` no está registrada en `data-source.ts` | Detecta el error que tuvimos con `ReceptionVoid` | S |
-| A.4 | **Sanear fallos preexistentes** | Los 8 tests de `product-variants` y las 4 suites de transacciones/mayor que ya fallaban | 0 fallos en esos módulos | M |
+| A.4 🟡 | **Sanear fallos preexistentes** | Los 8 tests de `product-variants` y las 4 suites de transacciones/mayor que ya fallaban | 0 fallos en esos módulos | M |
 
 > A.1–A.3 hechos (`npm run test:real-db`, `src/migrations/tests`). Hallazgo de A.3: 6 migraciones antiguas nunca registradas (lista de excepciones en el test; revisar antes de registrar, una elimina columnas). Hallazgo de A.1: el stock se aplica por evento post-commit asíncrono (ver D.3).
+
+> A.4: 39 → 5 suites fallidas. Quedan 5 obsoletas de fondo (2 de recepciones con mocks, `accounts-payable-integration` con import inexistente, 2 integraciones sobre SQLite); pendiente decidir eliminarlas/reemplazarlas por escenarios `test:real-db`.
 
 ## Fase B — Ciclo de compras completo (valor alto para el cliente)
 
