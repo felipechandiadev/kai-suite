@@ -74,6 +74,22 @@ export class CogsRulesProvisionerService {
         return named.find((a) => a.parentId) ?? named[0] ?? null;
       };
 
+      // Método periódico: si las compras ya se cargan a gasto (Costo de mercaderías), agregar costo
+      // al vender duplicaría el gasto. Solo el método perpetuo (compras a Inventario) admite estas reglas.
+      const purchaseRules = await ruleRepo.find({
+        where: { companyId, transactionType: TransactionType.PURCHASE, isActive: true },
+      });
+      const accountById = new Map(accounts.map((a) => [a.id, a]));
+      const periodic = purchaseRules.some(
+        (r) => accountById.get(r.debitAccountId)?.type === AccountType.EXPENSE,
+      );
+      if (periodic) {
+        result.warnings.push(
+          'Las compras se contabilizan directo a gasto (método periódico): no se crean reglas de costo de ventas para evitar duplicar el costo. Cambie la regla de PURCHASE para que cargue a Inventario y vuelva a ejecutar.',
+        );
+        return result;
+      }
+
       const inventory = pick(AccountType.ASSET, INVENTORY_NAME, PREFERRED_INVENTORY_CODES);
       if (!inventory) {
         result.warnings.push(
