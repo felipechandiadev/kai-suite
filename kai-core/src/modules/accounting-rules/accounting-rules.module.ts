@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CqrsModule } from '@nestjs/cqrs';
 import { AccountingRule } from '@modules/accounting-rules/domain/accounting-rule.entity';
 import { AccountingRuleLine } from '@modules/accounting-rules/domain/accounting-rule-line.entity';
+import { CogsRulesProvisionerService } from './application/cogs-rules-provisioner.service';
 import { AccountingRulesService } from '@modules/accounting-rules/application/accounting-rules.service';
 import { AccountingRulesServiceAdapter } from '@modules/accounting-rules/application/accounting-rules.service.adapter';
 import { AccountingRulesController } from '@modules/accounting-rules/presentation/accounting-rules.controller';
@@ -25,6 +26,7 @@ import { GetAccountingRulesByTransactionTypeHandler } from '@modules/accounting-
   providers: [
     // Legacy service for backward compatibility
     AccountingRulesService,
+    CogsRulesProvisionerService,
 
     // CQRS Adapter
     AccountingRulesServiceAdapter,

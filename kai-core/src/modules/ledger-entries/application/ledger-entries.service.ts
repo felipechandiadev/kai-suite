@@ -8,6 +8,7 @@ import {
 } from '@modules/transactions/domain/transaction.entity';
 import {
   AccountingRule,
+  RuleAmountBasis,
   RuleScope,
 } from '@modules/accounting-rules/domain/accounting-rule.entity';
 import { AccountingAccount } from '@modules/accounting-accounts/domain/accounting-account.entity';
@@ -16,7 +17,17 @@ import { Customer } from '@modules/customers/domain/customer.entity';
 import { Supplier } from '@modules/suppliers/domain/supplier.entity';
 import { Shareholder } from '@modules/shareholders/domain/shareholder.entity';
 import { Employee } from '@modules/employees/domain/employee.entity';
-import { RECEPTION_VOID_ORIGIN } from './ledger-reversal.util';
+import { LEDGER_SKIP_ORIGINS } from './ledger-reversal.util';
+import { resolveLineCostAmount } from './ledger-cost.util';
+import { ProductVariant } from '@modules/product-variants/domain/product-variant.entity';
+import { PointOfSale } from '@modules/points-of-sale/domain/point-of-sale.entity';
+import { Company } from '@modules/companies/domain/company.entity';
+import { resolveKaiFoodEnabled } from '@modules/points-of-sale/domain/pos-settings.types';
+import {
+  extractDiningOrderIdFromMetadata,
+  shouldSkipFinishedGoodsStockForDiningSale,
+  shouldSkipFinishedGoodsStockForPreparadoRetail,
+} from '@modules/dining/application/dining-sale-finished-stock.util';
 import { LedgerEntryRepositoryPort } from './ports/ledger-entry.repository.port';
 import { AccountingRuleRepositoryPort } from './ports/accounting-rule.repository.port';
 import { AccountingAccountRepositoryPort } from './ports/accounting-account.repository.port';
@@ -124,7 +135,7 @@ export class LedgerEntriesService {
 
       // Anulación de recepción: el reverso se postea espejando los asientos originales
       // (ver ledger-reversal.util.ts); las reglas genéricas (p. ej. merma) no aplican.
-      if (metaSkip.origin === RECEPTION_VOID_ORIGIN) {
+      if (LEDGER_SKIP_ORIGINS.includes(String(metaSkip.origin ?? ''))) {
         return {
           status: 'SUCCESS',
           transactionId: transaction.id,
@@ -193,12 +204,21 @@ export class LedgerEntriesService {
       }
 
       // FASE 3: Generación de asientos - PASAR personId pre-resuelto
+      const costExcludedLineIds = applicableRules.some(
+        (r) => r.amountBasis === RuleAmountBasis.LINE_COST,
+      )
+        ? await this.resolveCostExcludedLineIds(transaction, manager)
+        : new Set<string>();
+      const generationWarnings: ValidationError[] = [];
       const entries = await this.calculateEntries(
         transaction,
         applicableRules,
         personId,
         companyId,
+        costExcludedLineIds,
+        generationWarnings,
       );
+      errors.push(...generationWarnings);
 
       if (entries.length === 0) {
         return {
@@ -448,6 +468,8 @@ export class LedgerEntriesService {
     rules: AccountingRule[],
     personId: string | null,
     companyId: string,
+    costExcludedLineIds: Set<string> = new Set<string>(),
+    warnings: ValidationError[] = [],
   ): Promise<LedgerEntryDto[]> {
     const meta = (transaction.metadata || {}) as Record<string, unknown>;
     if (
@@ -507,10 +529,29 @@ export class LedgerEntriesService {
       } else if (rule.appliesTo === RuleScope.TRANSACTION_LINE) {
         // Generar asientos POR LÍNEA
         if (transaction.lines && transaction.lines.length > 0) {
+          const costBasis = rule.amountBasis === RuleAmountBasis.LINE_COST;
+          const linesWithoutCost: string[] = [];
           for (const line of transaction.lines) {
             // Aplicar regla solo si taxId coincide (si la regla filtra por tax)
             if (rule.taxId && rule.taxId !== line.taxId) {
               continue;
+            }
+            let lineAmount = 0;
+            if (costBasis) {
+              // Costo de ventas: líneas cuyo stock de terminado no se mueve (PREPARADO en salón,
+              // etc.) reconocen su costo vía consumo de insumos; no se duplican aquí.
+              if (line.id && costExcludedLineIds.has(line.id)) {
+                continue;
+              }
+              lineAmount = resolveLineCostAmount(line);
+              if (lineAmount <= 0) {
+                if (line.productVariantId) {
+                  linesWithoutCost.push(line.id ?? line.productVariantId);
+                }
+                continue;
+              }
+            } else {
+              lineAmount = this.getLineAmount(line, rule);
             }
 
             entries.push(
@@ -525,7 +566,7 @@ export class LedgerEntriesService {
                   'DEBIT',
                   line,
                 ),
-                debit: this.getLineAmount(line, rule),
+                debit: lineAmount,
                 credit: 0,
                 metadata: {
                   ruleId: rule.id,
@@ -545,7 +586,7 @@ export class LedgerEntriesService {
                   line,
                 ),
                 debit: 0,
-                credit: this.getLineAmount(line, rule),
+                credit: lineAmount,
                 metadata: {
                   ruleId: rule.id,
                   scope: RuleScope.TRANSACTION_LINE,
@@ -553,6 +594,14 @@ export class LedgerEntriesService {
                 },
               },
             );
+          }
+          if (linesWithoutCost.length > 0) {
+            warnings.push({
+              code: 'LINES_WITHOUT_COST',
+              message: `Regla de costo "${rule.id}": ${linesWithoutCost.length} línea(s) sin costo no generaron asiento de costo (${linesWithoutCost.join(', ')}).`,
+              severity: 'WARNING',
+              phase: 'GENERATION',
+            });
           }
         }
       }
@@ -579,6 +628,79 @@ export class LedgerEntriesService {
     }
 
     return entries;
+  }
+
+  /**
+   * Líneas de venta que NO mueven stock de terminado (misma regla que `update-stock`): su costo
+   * se reconoce por el consumo de insumos y no por la línea. Requiere `manager` para leer producto/POS.
+   */
+  private async resolveCostExcludedLineIds(
+    transaction: Transaction,
+    manager?: EntityManager,
+  ): Promise<Set<string>> {
+    const excluded = new Set<string>();
+    if (!manager || !transaction.lines?.length) {
+      return excluded;
+    }
+    const variantIds = [
+      ...new Set(
+        transaction.lines
+          .map((l) => l.productVariantId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    if (variantIds.length === 0) {
+      return excluded;
+    }
+    const variants = await manager.getRepository(ProductVariant).find({
+      where: { id: In(variantIds) },
+      relations: ['product'],
+    });
+    const productTypeByVariant = new Map(
+      variants.map((v) => [v.id, v.product?.productType ?? null]),
+    );
+
+    const diningOrderId =
+      transaction.transactionType === TransactionType.SALE
+        ? extractDiningOrderIdFromMetadata(transaction.metadata)
+        : null;
+    let posKaiFoodEnabled = false;
+    if (
+      transaction.transactionType === TransactionType.SALE &&
+      transaction.pointOfSaleId
+    ) {
+      const pos = await manager
+        .getRepository(PointOfSale)
+        .findOne({ where: { id: transaction.pointOfSaleId } });
+      if (pos?.companyId) {
+        const company = await manager
+          .getRepository(Company)
+          .findOne({ where: { id: pos.companyId } });
+        if (company) {
+          posKaiFoodEnabled = resolveKaiFoodEnabled(
+            company.kaiProduct,
+            pos.settings,
+          );
+        }
+      }
+    }
+
+    for (const line of transaction.lines) {
+      if (!line.id || !line.productVariantId) continue;
+      // PACK no se excluye: sus componentes se descuentan sin transacción propia, así que
+      // el costo solo puede reconocerse en la línea vendida.
+      const productType = productTypeByVariant.get(line.productVariantId);
+      if (
+        shouldSkipFinishedGoodsStockForDiningSale({ diningOrderId, productType }) ||
+        shouldSkipFinishedGoodsStockForPreparadoRetail({
+          posKaiFoodEnabled,
+          productType,
+        })
+      ) {
+        excluded.add(line.id);
+      }
+    }
+    return excluded;
   }
 
   /**

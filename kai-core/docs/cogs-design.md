@@ -1,6 +1,13 @@
 # Diseño: costo de ventas (COGS) en la contabilidad
 
-Estado: **propuesta para revisión** (sin código). Origen: falencia crítica #1 del análisis ERP.
+Estado: **Fase 1 implementada** (v1.33.0). Correcciones al diseño original detectadas al implementar:
+- **(c) era un falso positivo**: `unitCost` es costo **por la unidad de la línea** y el total es `unitCost × quantity` (invariante documentada en `inventory-cost-from-line.ts`); el reporte de ventas estaba bien y **no se cambió**. El asiento usa `unitCost × quantity`, no `quantityInBase`.
+- **PACK no se excluye** del costo por línea (sus componentes se descuentan sin transacción propia); solo se excluye PREPARADO cuando el stock de terminado no se mueve (salón / retail sin KaiFood), igual que `update-stock`.
+- Decisiones asumidas (no se recibió respuesta explícita): cuentas detectadas por código o nombre; histórico sin tocar (Fase 3); costo de PREPARADO por consumo de insumos; línea sin costo = permitir con advertencia.
+- Hallazgo adicional corregido: `VoidSaleService.findChildPaymentsWithManager` usaba columnas `company_id`/`transaction_type` inexistentes en `transactions` y fallaba con error 500 al anular cualquier venta (se detectó en la prueba con base real).
+- Implementado: columna `accounting_rules.amountBasis`, motor `LINE_COST`, advertencia `LINES_WITHOUT_COST`, `reverseLedgerEntries` en la anulación de venta (el reingreso `SALE_VOID` no genera asiento propio), provisionador idempotente (`npm run accounting:provision-cogs -- --company <id> [--dry-run]`). Fases 2 y 3 siguen pendientes.
+
+Estado original: propuesta. Origen: falencia crítica #1 del análisis ERP.
 Verificado leyendo el código (rama `main`, v1.32.1). Lo no verificado se marca **[NV]**.
 
 ## 1. Problema
@@ -25,7 +32,7 @@ Una venta registra solo el ingreso (Caja/Clientes contra Ingresos). **Nunca** re
 |---|---|---|
 | a | Consumo de insumos al cerrar una comanda (`ADJUSTMENT_OUT`, `origin=DINING_BACKFLUSH`) y consumo de servicios (`SERVICE_CONSUMPTION`) usan la regla genérica `ADJUSTMENT_OUT` → **Dr Pérdidas y mermas / Cr Inventario** | El costo de la comida se informa como *merma*, no como costo de ventas |
 | b | Producción: consumo (`PRODUCTION_CONSUMPTION`, `ADJUSTMENT_OUT`) = merma; resultado (`PRODUCTION_OUTPUT`, `ADJUSTMENT_IN`) = **Dr Inventario / Cr Recuperos de mermas (ingreso 4.2.01)** | Cada lote producido registra un gasto de merma y un ingreso ficticio |
-| c | Reporte de ventas calcula COGS como `unitCost × quantity` (`sales-reports-query.service.ts:299`) | Si la unidad de venta ≠ unidad de stock el costo sale mal; debe ser `unitCost × quantityInBase` |
+| c | ~~Reporte de ventas calcula COGS como `unitCost × quantity`~~ | **Falso positivo**: es correcto (ver nota de estado) |
 | d | Ventas de productos que no mueven stock de terminado (PREPARADO retail/salón, PACK) | Si se aplicara costo por línea se **duplicaría** con el backflush de insumos |
 
 ## 3. Propuesta
@@ -33,7 +40,7 @@ Una venta registra solo el ingreso (Caja/Clientes contra Ingresos). **Nunca** re
 ### 3.1 Motor: base de monto por costo
 
 - Nueva columna `AccountingRule.amountBasis`: `LINE_TOTAL` (default, comportamiento actual) | `LINE_COST`.
-- Para `appliesTo=TRANSACTION_LINE` + `LINE_COST`: monto = `round(unitCost × quantityInBase)` (fallback `quantity` si no hay conversión). Líneas con costo 0/nulo **se omiten** y se registran en `metadata.linesWithoutCost` del asiento (visible para auditoría).
+- Para `appliesTo=TRANSACTION_LINE` + `LINE_COST`: monto = `round(unitCost × quantity)` (el costo es por la unidad de la línea). Líneas con costo 0/nulo **se omiten** y se registran en `metadata.linesWithoutCost` del asiento (visible para auditoría).
 - Se omiten también líneas cuyo producto no mueve stock de terminado (misma función `shouldSkipFinishedGoodsStockForSale` que usa `update-stock`) → evita el doble conteo (d).
 - Migración aditiva: `ALTER TABLE accounting_rules ADD amountBasis varchar(20) NOT NULL DEFAULT 'LINE_TOTAL'`. Sin impacto en reglas existentes.
 

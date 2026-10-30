@@ -23,6 +23,7 @@ import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { VoidSaleDto } from './dto/void-sale.dto';
 import { DocumentNumberService } from './document-number.service';
 import { CacheService } from '@shared/cache/cache.service';
+import { reverseLedgerEntries } from '@modules/ledger-entries/application/ledger-reversal.util';
 
 const FISCAL_DOCUMENT_TYPES = new Set(['BOLETA', 'FACTURA']);
 
@@ -121,6 +122,14 @@ export class VoidSaleService {
         throw new NotFoundException('Venta no encontrada');
       }
       this.assertCanVoid(locked);
+
+      // Reverso contable exacto (ingreso, IVA y costo de ventas): espeja los asientos de la venta.
+      await reverseLedgerEntries(manager, {
+        originalTransactionId: id,
+        reversalTransactionId: voidAdjustmentId!,
+        reason,
+        entryDate: new Date(voidedAt),
+      });
 
       const payments = await this.findChildPaymentsWithManager(manager, cid, id);
       for (const pay of payments) {
@@ -313,8 +322,8 @@ export class VoidSaleService {
     });
     const byMeta = await repo
       .createQueryBuilder('t')
-      .where('t.company_id = :companyId', { companyId })
-      .andWhere('t.transaction_type = :type', {
+      .where('t.companyId = :companyId', { companyId })
+      .andWhere('t.transactionType = :type', {
         type: TransactionType.PAYMENT_IN,
       })
       .andWhere(`t.metadata->>'saleTransactionId' = :saleId`, { saleId })

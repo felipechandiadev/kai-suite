@@ -25,6 +25,7 @@ export interface CreateAccountingRuleDto {
     sortOrder?: number;
     isActive?: boolean;
   }[];
+  amountBasis?: 'LINE_TOTAL' | 'LINE_COST';
   priority: number;
   isActive?: boolean;
 }
@@ -43,6 +44,7 @@ export interface UpdateAccountingRuleDto {
     sortOrder?: number;
     isActive?: boolean;
   }[];
+  amountBasis?: 'LINE_TOTAL' | 'LINE_COST';
   priority?: number;
   isActive?: boolean;
 }

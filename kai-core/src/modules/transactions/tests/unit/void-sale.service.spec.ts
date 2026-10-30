@@ -88,6 +88,8 @@ describe('VoidSaleService', () => {
           findOne: jest.fn().mockResolvedValue(sale ? { ...sale } : null),
           find: jest.fn().mockResolvedValue([]),
           save: jest.fn().mockResolvedValue(undefined),
+          delete: jest.fn().mockResolvedValue(undefined),
+          create: jest.fn((x: unknown) => x),
           createQueryBuilder: jest.fn(() => ({
             where: jest.fn().mockReturnThis(),
             andWhere: jest.fn().mockReturnThis(),

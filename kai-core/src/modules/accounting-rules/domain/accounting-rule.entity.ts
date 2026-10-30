@@ -19,6 +19,16 @@ import {
 } from '@modules/transactions/domain/transaction.entity';
 import { AccountingRuleLine } from './accounting-rule-line.entity';
 
+/**
+ * Base del monto de una regla por línea:
+ * - LINE_TOTAL: total de la línea (comportamiento histórico).
+ * - LINE_COST: costo de lo movido = `unitCost × quantityInBase` (costo de ventas).
+ */
+export enum RuleAmountBasis {
+  LINE_TOTAL = 'LINE_TOTAL',
+  LINE_COST = 'LINE_COST',
+}
+
 export enum RuleScope {
   TRANSACTION = 'TRANSACTION',
   TRANSACTION_LINE = 'TRANSACTION_LINE',
@@ -52,6 +62,13 @@ export class AccountingRule {
 
   @Column({ type: 'uuid' })
   creditAccountId!: string;
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    default: RuleAmountBasis.LINE_TOTAL,
+  })
+  amountBasis!: RuleAmountBasis;
 
   @Column({ type: 'int', default: 0 })
   priority!: number;

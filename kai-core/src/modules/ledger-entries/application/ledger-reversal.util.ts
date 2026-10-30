@@ -3,6 +3,10 @@ import { LedgerEntry } from '../domain/ledger-entry.entity';
 
 /** Origen de las transacciones generadas al anular una recepción: no generan asientos por regla. */
 export const RECEPTION_VOID_ORIGIN = 'RECEPTION_VOID';
+/** Anulación de venta: los asientos se espejan; el reingreso de stock no genera asiento propio. */
+export const SALE_VOID_ORIGIN = 'SALE_VOID';
+/** Orígenes cuyas transacciones no pasan por las reglas genéricas del motor. */
+export const LEDGER_SKIP_ORIGINS: string[] = [RECEPTION_VOID_ORIGIN, SALE_VOID_ORIGIN];
 
 /**
  * Reverso exacto: copia los asientos ya contabilizados de `originalTransactionId`
