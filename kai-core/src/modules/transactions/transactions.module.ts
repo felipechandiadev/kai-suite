@@ -1,4 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { StockLevel } from '@modules/stock-levels/domain/stock-level.entity';
+import { Supplier } from '@modules/suppliers/domain/supplier.entity';
 import { CqrsModule } from '@nestjs/cqrs';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TransactionsController } from './presentation/transactions.controller';
@@ -10,6 +12,7 @@ import { InventoryTransactionsController } from './presentation/controllers/inve
 import { TransactionsService } from './application/transactions.service';
 import { PurchaseOrdersService } from './application/purchase-orders.service';
 import { PurchaseOrderReceptionProgressService } from './application/purchase-order-reception-progress.service';
+import { PurchaseSuggestionsService } from './application/purchase-suggestions.service';
 import { Transaction } from '@modules/transactions/domain/transaction.entity';
 import { DocumentSequence } from '@modules/transactions/domain/document-sequence.entity';
 import { Branch } from '@modules/branches/domain/branch.entity';
@@ -102,6 +105,8 @@ import { Installment } from '@modules/installments/domain/installment.entity';
       OperationalExpense,
       CashHub,
       Installment,
+      StockLevel,
+      Supplier,
     ]),
     LedgerEntriesModule,
     AccountingPeriodsModule,
@@ -142,6 +147,7 @@ import { Installment } from '@modules/installments/domain/installment.entity';
     OperatingExpensePaymentPlanService,
     PurchaseOrdersService,
     PurchaseOrderReceptionProgressService,
+    PurchaseSuggestionsService,
     TransactionsService, // Adapter for backward compatibility
     TransactionsServiceAdapter,
     TransactionRepository,
