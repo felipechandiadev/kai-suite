@@ -92,6 +92,10 @@ import {
   CreateTransactionLineDto,
 } from '@modules/transactions/application/dto/create-transaction.dto';
 import { TenantContext } from '@common/tenant/tenant.context';
+import { PriceListItem } from '@modules/price-list-items/domain/price-list-item.entity';
+import { Tax } from '@modules/taxes/domain/tax.entity';
+import type { CatalogTaxRateRow } from '@modules/product-variants/application/helpers/variant-fiscal-profile';
+import { isLineTaxPlausible, plausibleTaxRates } from './sale-line-tax.util';
 import { CompaniesService } from '@modules/companies/application/companies.service';
 import {
   DEFAULT_NEGATIVE_STOCK_POLICY,
@@ -709,6 +713,21 @@ export class SalesFromSessionService {
       await runner.rollbackTransaction().catch(() => undefined);
       await runner.release();
     }
+  }
+
+  /** Impuestos de la empresa (el filtro por tipo de venta lo aplica `plausibleTaxRates`). */
+  private async loadCompanySaleTaxes(
+    manager: EntityManager,
+    companyId: string | null,
+  ): Promise<CatalogTaxRateRow[]> {
+    if (!companyId) return [];
+    const rows = await manager.getRepository(Tax).find({ where: { companyId } });
+    return rows.map((t) => ({
+      id: t.id,
+      taxType: String(t.taxType),
+      rate: Number(t.rate),
+      isActive: t.isActive !== false,
+    }));
   }
 
   /**
@@ -2103,6 +2122,33 @@ export class SalesFromSessionService {
         if (forcesNetEqualsGross(variantTaxCategory)) {
           lineTax = 0;
           safeTaxRate = 0;
+        } else {
+          // El impuesto viene calculado por el cliente: se contrasta con las tasas legítimas
+          // de la variante (impuestos de venta y precios de lista) para que no se pueda
+          // vender un producto gravado con menos impuesto.
+          const rates = plausibleTaxRates({
+            variantTaxIds: variant.taxIds,
+            catalogTaxes: await this.loadCompanySaleTaxes(
+              manager,
+              variant.companyId ?? pointOfSale.companyId ?? null,
+            ),
+            priceItems: await manager.getRepository(PriceListItem).find({
+              where: { productVariantId: variant.id },
+              select: ['netPrice', 'grossPrice'],
+            }),
+          });
+          if (
+            !isLineTaxPlausible({
+              unitNet: Number(line.unitPrice) || 0,
+              quantity: Number(line.quantity) || 0,
+              taxAmount: lineTax,
+              rates,
+            })
+          ) {
+            throw new BadRequestException(
+              `El impuesto de la línea ${variant.sku ?? variant.id} (${Math.round(lineTax)}) no corresponde a los impuestos configurados para el producto.`,
+            );
+          }
         }
         const lineTotal = lineSubtotal - lineDiscount + lineTax;
 

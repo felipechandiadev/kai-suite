@@ -125,4 +125,41 @@ describe('Venta POS: pagos vs total (BD real)', () => {
       }),
     ).rejects.toThrow(/promoci/i);
   });
+
+  async function taxedVariant() {
+    const v = await stocked(1000);
+    const taxId = randomUUID();
+    await ds.query(
+      `INSERT INTO taxes (id, "companyId", name, code, "taxType", rate, "isActive") VALUES ($1,$2,'IVA 19 prueba',$3,'IVA',19,true)`,
+      [taxId, base.companyId, `IVA-${taxId.slice(0, 6)}`],
+    );
+    await ds.query(`UPDATE product_variants SET "taxIds"=$2::json WHERE id=$1`, [v.variantId, JSON.stringify([taxId])]);
+    return v;
+  }
+
+  it('acepta una línea gravada con su IVA correcto', async () => {
+    const v = await taxedVariant();
+    const res = await sale(v.variantId, {
+      lines: [{ productVariantId: v.variantId, quantity: 1, unitPrice: 1000, taxRate: 19, taxAmount: 190 }],
+      payments: [{ paymentMethod: 'CASH', amount: 1190 }],
+      amountPaid: 1190,
+      changeAmount: 0,
+    });
+    expect(res.success).toBe(true);
+    expect(Number(res.transaction.total)).toBe(1190);
+  });
+
+  it('rechaza una línea gravada con el impuesto en cero o reducido', async () => {
+    const v = await taxedVariant();
+    for (const taxAmount of [0, 50]) {
+      await expect(
+        sale(v.variantId, {
+          lines: [{ productVariantId: v.variantId, quantity: 1, unitPrice: 1000, taxRate: 19, taxAmount }],
+          payments: [{ paymentMethod: 'CASH', amount: 1000 + taxAmount }],
+          amountPaid: 1000 + taxAmount,
+          changeAmount: 0,
+        }),
+      ).rejects.toThrow(/impuesto de la línea/);
+    }
+  });
 });
