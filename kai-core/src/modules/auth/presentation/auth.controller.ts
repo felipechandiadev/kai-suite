@@ -38,6 +38,7 @@ import {
   AllowAdminWithoutCompany,
   CurrentUser,
   CurrentUserPayload,
+  OptionalCurrentCompany,
   SkipTenant,
 } from '@common/tenant';
 
@@ -135,6 +136,24 @@ export class AuthController {
     });
     if (!user) throw new UnauthorizedException('Sesión inválida');
     return { success: true, ...this.tokens.issue(user.id, claims.cid) };
+  }
+
+  /**
+   * Token de corta vida (typ=ws, JWT_WS_EXPIRES_IN, def. 60s) para el handshake de
+   * WebSocket. Pensado para PWAs que guardan el access token en cookie httpOnly:
+   * su servidor lo pide con la cookie y entrega solo este token al navegador.
+   * No sirve para HTTP (TenantGuard exige typ=access).
+   */
+  @Post('socket-token')
+  @HttpCode(HttpStatus.OK)
+  @AllowAdminWithoutCompany()
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Token de corta vida para el handshake WebSocket' })
+  socketToken(
+    @CurrentUser() user: CurrentUserPayload,
+    @OptionalCurrentCompany() companyId: string | null,
+  ) {
+    return { success: true, ...this.tokens.issueSocket(user.id, companyId ?? null) };
   }
 
   @SkipTenant()

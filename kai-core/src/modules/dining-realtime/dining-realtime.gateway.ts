@@ -1,4 +1,5 @@
 import { HttpException, Inject, Logger, UnauthorizedException, forwardRef } from '@nestjs/common';
+import { readHandshakeCredential } from '@common/auth/ws-handshake-auth';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   ConnectedSocket,
@@ -63,7 +64,7 @@ export class DiningRealtimeGateway implements OnGatewayInit {
     try {
       const { activeCompanyId, currentUser } =
         await this.wsTenant.resolveSocketTenant({
-          userId: auth.userId ?? auth.token,
+          userId: readHandshakeCredential(auth),
           activeCompanyIdHeader:
             auth.activeCompanyId ?? auth['x-active-company-id'],
         });

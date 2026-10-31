@@ -6,7 +6,7 @@ import { parseDurationSeconds, signJwt, verifyJwt } from './jwt-hs256';
 export type AccessTokenClaims = {
   sub: string;
   cid: string | null;
-  typ: 'access' | 'refresh';
+  typ: 'access' | 'refresh' | 'ws';
   iat: number;
   exp: number;
 };
@@ -53,6 +53,30 @@ export class AuthTokenService {
     return parseDurationSeconds(this.read('JWT_REFRESH_EXPIRES_IN'), 7 * 86400);
   }
 
+  /** TTL del token de handshake WebSocket (JWT_WS_EXPIRES_IN, def. 60s). */
+  get socketTtlSeconds(): number {
+    return parseDurationSeconds(this.read('JWT_WS_EXPIRES_IN'), 60);
+  }
+
+  /**
+   * Token de corta vida solo para el handshake de WebSocket (typ=ws).
+   * TenantGuard lo rechaza para HTTP (exige typ=access).
+   */
+  issueSocket(userId: string, companyId: string | null): { token: string; expiresIn: number } {
+    const cid = companyId && isUUID(companyId) ? companyId : null;
+    return {
+      token: signJwt({ sub: userId, cid, typ: 'ws' }, this.secret(), this.socketTtlSeconds),
+      expiresIn: this.socketTtlSeconds,
+    };
+  }
+
+  /** Handshake WS: acepta typ=ws (preferido) o typ=access. */
+  verifySocket(token: string): AccessTokenClaims {
+    const c = verifyJwt<AccessTokenClaims>(token, this.secret());
+    if (c.typ === 'ws') return this.check(c, 'ws');
+    return this.check(c, 'access');
+  }
+
   /** Modo compatibilidad para el bearer UUID antiguo. */
   allowLegacyUuidBearer(): boolean {
     const raw = this.read('AUTH_ALLOW_LEGACY_UUID_BEARER')?.trim().toLowerCase();
@@ -90,7 +114,7 @@ export class AuthTokenService {
     );
   }
 
-  private check(c: AccessTokenClaims, typ: 'access' | 'refresh'): AccessTokenClaims {
+  private check(c: AccessTokenClaims, typ: 'access' | 'refresh' | 'ws'): AccessTokenClaims {
     if (c.typ !== typ || typeof c.sub !== 'string' || !isUUID(c.sub)) {
       throw new Error('Claims de token inválidos');
     }
