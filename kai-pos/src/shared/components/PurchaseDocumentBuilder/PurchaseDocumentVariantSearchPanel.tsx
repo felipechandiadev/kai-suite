@@ -10,6 +10,10 @@ import {
   readPurchaseDocVariantSearchPageSize,
   writePurchaseDocVariantSearchPageSize,
 } from "./purchaseDocVariantSearchStorage";
+import type {
+  PurchasingVariantSearchItem,
+  PurchasingVariantSearchResult,
+} from "@/features/purchasing-reception/types/purchasing-document.types";
 import {
   formatMoney,
   InlineSepDot,

@@ -7,12 +7,12 @@ export type PayoutCustomerCreditNotesClientPayload = {
   cashSessionId: string;
   customerId: string;
   creditNoteTransactionIds: string[];
-  payments: PosPaymentLine[];
+  /** Pagos ya convertidos al formato del API (ver `buildCreateSalePayments`). */
+  payments: NonNullable<CreateSaleApiBody["payments"]>;
 };
 
 export type PayoutCustomerCreditNotesApiBody = PayoutCustomerCreditNotesClientPayload & {
   userName: string;
-  payments: NonNullable<CreateSaleApiBody["payments"]>;
 };
 
 export function buildPayoutCustomerCreditNotesClientPayload(input: {

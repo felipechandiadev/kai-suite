@@ -13,7 +13,7 @@ function item(variantId: string, name: string): PosProductSearchItem {
     unitPrice: 1000,
     unitPriceWithTax: 1190,
     quantity: 1,
-  } as PosProductSearchItem;
+  } as unknown as PosProductSearchItem;
 }
 
 describe("diningOrderLinesToCart", () => {

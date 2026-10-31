@@ -32,7 +32,10 @@ import { readPosRelaxPreparadoStock } from "@/features/session/lib/pos-context-s
  * el descuento aplicado y el cierre de venta lo persiste como
  * `TransactionLine.discountAmount`.
  */
-export type PosCartLine = PosProductSearchItem & {
+export type PosCartLine = Omit<PosProductSearchItem, "taxCategory" | "requiresDte" | "taxIds"> &
+  // Líneas armadas desde cotización, encargo o devolución no traen el perfil fiscal: se completa
+  // con `hydrateCartLinesFiscalFlags` antes de vender (por eso aquí son opcionales).
+  Partial<Pick<PosProductSearchItem, "taxCategory" | "requiresDte" | "taxIds">> & {
   quantity: number;
   discount?: ResolvedLineDiscount | null;
   /** Lista de precios con la que se agregó la línea (invariante: una por carrito). */

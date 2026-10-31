@@ -19,7 +19,7 @@ export async function getCatalogMeta(
   priceListId: string,
 ): Promise<OfflineCatalogMetaRow | null> {
   const db = getPosOfflineDb();
-  return db.catalog_meta.get(catalogMetaId(pointOfSaleId, priceListId));
+  return (await db.catalog_meta.get(catalogMetaId(pointOfSaleId, priceListId))) ?? null;
 }
 
 export async function assertCatalogReady(

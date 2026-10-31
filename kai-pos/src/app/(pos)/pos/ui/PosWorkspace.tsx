@@ -321,12 +321,13 @@ export default function PosWorkspace() {
 
   const [stockWarning, setStockWarning] = useState<string | null>(null);
 
+  const packStorageId = ctx?.storageId?.trim();
   const addProduct = useCallback(
     async (item: PosProductSearchItem) => {
-      if (String(item.productType ?? "").toUpperCase() === "PACK" && ctx?.storageId?.trim()) {
+      if (String(item.productType ?? "").toUpperCase() === "PACK" && packStorageId) {
         const packCap = await getPackProducibleQtyAction({
           variantId: item.variantId,
-          storageId: ctx.storageId.trim(),
+          storageId: packStorageId,
         });
         const cap = packCap.producibleQty;
         if (cap != null && cap <= 0) {
@@ -358,7 +359,7 @@ export default function PosWorkspace() {
         setMobilePanel("cart");
       }
     },
-    [cart, compactLayout, ctx?.storageId],
+    [cart, compactLayout, packStorageId],
   );
 
   const saleTotals = useMemo(

@@ -4,7 +4,7 @@ import { KaiAppAboutPanel } from "@kai-shared/kai-app-about/KaiAppAboutPanel";
 import { usePrintServiceConnection } from "@kai/print-service-client";
 
 export default function PosAboutPage() {
-  const { connected, health } = usePrintServiceConnection({ clientId: "kai-pos" });
+  const { connected } = usePrintServiceConnection({ clientId: "kai-pos" });
 
   return (
     <div className="mx-auto max-w-lg space-y-4 px-6 py-6" data-test-id="pos-about-page">
@@ -13,7 +13,8 @@ export default function PosAboutPage() {
         appName="KaiStore POS"
         productLabel="KaiStore"
         printAgentConnected={connected}
-        printAgentVersion={health?.version ?? null}
+        // El protocolo del agente (hello / printerHealth) no informa su versión todavía.
+        printAgentVersion={null}
       />
     </div>
   );

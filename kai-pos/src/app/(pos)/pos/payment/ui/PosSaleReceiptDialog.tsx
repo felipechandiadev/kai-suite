@@ -164,7 +164,8 @@ export type PosSaleReceiptData = {
     priceListLabel: string | null;
   };
   customer: PosSaleCustomer | null;
-  quotation: LoadedQuotationMeta | null;
+  /** El recibo solo muestra folio y vigencia (el resto de `LoadedQuotationMeta` no se imprime). */
+  quotation: { documentNumber: string | null; validUntil: string | null } | null;
   lines: PosSaleReceiptLine[];
   promotions: PosSaleReceiptPromotion[];
   totals: {

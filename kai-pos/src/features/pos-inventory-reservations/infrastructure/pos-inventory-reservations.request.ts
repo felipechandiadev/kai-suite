@@ -81,7 +81,7 @@ export class PosInventoryReservationsRequest {
       }
       const rows = Array.isArray(data) ? data : [];
       const reservations: PosInventoryReservationSummary[] = rows
-        .map((r) => {
+        .map((r): PosInventoryReservationSummary | null => {
           if (!r || typeof r !== "object") return null;
           const id = r.id != null ? String(r.id) : "";
           const storageId = r.storageId != null ? String(r.storageId) : "";

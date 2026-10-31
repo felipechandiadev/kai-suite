@@ -137,7 +137,7 @@ export class ProductsPosRequest {
 
       const products = Array.isArray(data.products) ? data.products : [];
       const normalized: PosProductSearchItem[] = products
-        .map((row) => {
+        .map((row): PosProductSearchItem | null => {
           if (!row || typeof row !== "object") return null;
           const o = row as Record<string, unknown>;
           const variantId = String(o.variantId ?? "").trim();

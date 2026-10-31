@@ -6,6 +6,7 @@ describe("resolveSyncUserName", () => {
     expect(
       resolveSyncUserName({
         user: {
+          id: "u1",
           name: "Administrador de empresa",
           email: "admin@example.com",
           userName: "admin",
@@ -18,7 +19,7 @@ describe("resolveSyncUserName", () => {
   it("devuelve vacío si no hay userName", () => {
     expect(
       resolveSyncUserName({
-        user: { name: "Solo nombre", email: "x@y.com" },
+        user: { id: "u2", name: "Solo nombre", email: "x@y.com" },
         expires: "",
       }),
     ).toBe("");

@@ -9,6 +9,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Usa el código fuente: el paquete publica `dist/`, que no existe sin compilar.
+      "@kai/fiscal-ted": path.resolve(__dirname, "../packages/fiscal-ted/src/index.ts"),
     },
   },
 });

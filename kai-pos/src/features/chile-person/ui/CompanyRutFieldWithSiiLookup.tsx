@@ -43,7 +43,7 @@ export function CompanyRutFieldWithSiiLookup({
         name={name}
         type="dni"
         value={value}
-        onChange={onChange}
+        onChange={(e) => onChange(e as React.ChangeEvent<HTMLInputElement>)}
         placeholder={placeholder ?? label}
         required={required}
         disabled={disabled}

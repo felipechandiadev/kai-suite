@@ -708,15 +708,10 @@ export function PurchaseDocumentBuilder({
 
   const supplierFiscalTaxInfo = useMemo(() => {
     const taxById = new Map(activeTaxes.map((t) => [t.id, t]));
-    for (const line of lines) {
-      for (const tid of line.taxIds) {
-        if (taxById.has(tid)) {
-          const t = taxById.get(tid)!;
-          return { taxId: tid, taxRatePct: Number(t.rate) || 0 };
-        }
-      }
-    }
-    return { taxId: null as string | null, taxRatePct: 0 };
+    // Primer impuesto (en orden de líneas) que exista entre los activos.
+    const tid = lines.flatMap((line) => line.taxIds).find((id) => taxById.has(id));
+    if (tid == null) return { taxId: null as string | null, taxRatePct: 0 };
+    return { taxId: tid as string | null, taxRatePct: Number(taxById.get(tid)?.rate) || 0 };
   }, [lines, activeTaxes]);
 
   const receptionPaymentForFiscal =

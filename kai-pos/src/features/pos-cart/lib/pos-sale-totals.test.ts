@@ -4,7 +4,6 @@ import { computePosSaleTotals } from "./pos-sale-totals";
 
 function line(partial: Partial<PosCartLine> & { variantId: string }): PosCartLine {
   return {
-    variantId: partial.variantId,
     productId: partial.productId ?? "p1",
     productName: partial.productName ?? "Producto",
     sku: partial.sku ?? "SKU",

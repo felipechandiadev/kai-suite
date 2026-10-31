@@ -60,8 +60,9 @@ export function PosDiningMenuVariantInfoDialog({
   const [loadingCtp, setLoadingCtp] = useState(false);
   const [ctpError, setCtpError] = useState<string | null>(null);
 
+  const ctpVariantId = item?.variantId;
   const loadCtpDetail = useCallback(async () => {
-    if (!item?.variantId) {
+    if (!ctpVariantId) {
       setCtpDetail(null);
       setCtpError(null);
       setLoadingCtp(false);
@@ -79,7 +80,7 @@ export function PosDiningMenuVariantInfoDialog({
     setCtpError(null);
     const res = await getPosDiningCtpDetailAction({
       branchId,
-      variantId: item.variantId,
+      variantId: ctpVariantId,
     });
     setLoadingCtp(false);
     if (!res.success) {
@@ -89,7 +90,7 @@ export function PosDiningMenuVariantInfoDialog({
       return;
     }
     setCtpDetail(res.detail);
-  }, [item?.variantId]);
+  }, [ctpVariantId]);
 
   useEffect(() => {
     if (!open || !item?.variantId) {

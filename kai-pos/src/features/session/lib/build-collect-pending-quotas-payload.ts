@@ -7,12 +7,12 @@ export type CollectPendingQuotasClientPayload = {
   cashSessionId: string;
   customerId: string;
   installmentIds: string[];
-  payments: PosPaymentLine[];
+  /** Pagos ya convertidos al formato del API (ver `buildCreateSalePayments`). */
+  payments: NonNullable<CreateSaleApiBody["payments"]>;
 };
 
 export type CollectPendingQuotasApiBody = Omit<CollectPendingQuotasClientPayload, never> & {
   userName: string;
-  payments: NonNullable<CreateSaleApiBody["payments"]>;
 };
 
 export function buildCollectPendingQuotasClientPayload(input: {

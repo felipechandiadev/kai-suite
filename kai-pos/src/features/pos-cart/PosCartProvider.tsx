@@ -578,8 +578,11 @@ export default function PosCartProvider({ children }: { children: React.ReactNod
     const summary: CartSlotSummary[] = [];
     for (let i = 0; i < CART_SLOT_COUNT; i++) {
       const idx = i as CartSlotIndex;
+      // Lectura deliberada del ref durante el render: los carros inactivos viven en `slotsRef`
+      // (no en estado) y `inactiveSlotVersion` invalida este memo cuando cambian.
       const slot = activeCartSlot === idx ? activeSnap : slotsRef.current[idx];
       const isOpen = idx === activeCartSlot || openCartSlots.includes(idx);
+      // eslint-disable-next-line react-hooks/refs
       summary.push(summarizeCartSlot(idx, slot, isOpen));
     }
     return summary;

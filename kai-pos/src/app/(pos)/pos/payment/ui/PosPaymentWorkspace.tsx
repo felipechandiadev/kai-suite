@@ -1,5 +1,6 @@
 "use client";
 
+import type { FiscalEmissionResponse } from "@/features/fiscal/types/fiscal-emission.types";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -3781,8 +3782,9 @@ export default function PosPaymentWorkspace({
         details = null;
       }
     }
-    const fiscalEmission =
-      confirmRes.success && "fiscalEmission" in confirmRes ? confirmRes.fiscalEmission : undefined;
+    const fiscalEmission = (
+      confirmRes.success && "fiscalEmission" in confirmRes ? confirmRes.fiscalEmission : undefined
+    ) as FiscalEmissionResponse | undefined;
     const snapshot = buildSaleReceiptWithPrintPlan({
       snapshotInput: {
         lines: cartLinesForSale,

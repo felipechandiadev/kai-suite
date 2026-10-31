@@ -67,7 +67,7 @@ function quotationLinesToCart(detail: QuotationDetail): PosCartLine[] {
       attributes: [],
       metadata: { fromQuotation: true },
       quantity: Number(l.quantity) || 1,
-    } as unknown as PosCartLine;
+    };
   });
 }
 

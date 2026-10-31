@@ -21,6 +21,7 @@ export async function fiscalTimbrePdf417Svg(
 
   try {
     const scale = opts?.scale ?? 2;
+    // `eclevel` es opción válida de bwip-js para PDF417 pero falta en sus tipos.
     return toSVG({
       bcid: "pdf417",
       text,
@@ -28,7 +29,7 @@ export async function fiscalTimbrePdf417Svg(
       eclevel: 5,
       paddingwidth: 0,
       paddingheight: 0,
-    });
+    } as Parameters<typeof toSVG>[0]);
   } catch (e) {
     console.warn("[KaiStore fiscal boleta] PDF417:", e);
     return "";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Option } from "@kai/ui";
 import type { CompanyBankAccountItem } from "@/features/purchasing-reception/types/company.types";
 import type { PlannedPaymentPayload } from "@/shared/lib/planned-payment-plan";
@@ -86,8 +86,9 @@ export function PlannedPaymentPlanSection({
   partialAmountTestId = "planned-payment-plan-partial",
   scheduleBalanceHintVariant = "plain",
 }: PlannedPaymentPlanSectionProps) {
-  const hydratedRef = useRef<string | number | boolean | undefined>(undefined);
-  const draftSyncPaused = initialDraft != null && hydratedRef.current !== hydrateKey;
+  // Clave del borrador ya aplicado; mientras no coincida con `hydrateKey` se pausa la sincronización.
+  const [hydratedKey, setHydratedKey] = useState<string | number | boolean | undefined>(undefined);
+  const draftSyncPaused = initialDraft != null && hydratedKey !== hydrateKey;
 
   const definition = usePlannedPaymentDefinition({
     total,
@@ -108,10 +109,10 @@ export function PlannedPaymentPlanSection({
     if (initialDraft == null || controlled == null || hydrateKey === undefined) {
       return;
     }
-    if (hydratedRef.current === hydrateKey) {
+    if (hydratedKey === hydrateKey) {
       return;
     }
-    hydratedRef.current = hydrateKey;
+    setHydratedKey(hydrateKey);
     const h = initialDraft;
     controlled.onPaymentModeChange(h.mode);
     controlled.onPartialAmountStrChange(
@@ -140,7 +141,7 @@ export function PlannedPaymentPlanSection({
         chequeNumber: "",
       })),
     );
-  }, [initialDraft, controlled, hydrateKey]);
+  }, [initialDraft, controlled, hydrateKey, hydratedKey]);
 
   const effectiveMode = useMemo(() => {
     if (allowedModes?.length === 1) {

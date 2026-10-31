@@ -15,8 +15,12 @@ type AuthorizedUser = {
 };
 
 export const authOptions: NextAuthOptions = {
-  /** Permite login/logout desde IP LAN aunque NEXTAUTH_URL sea localhost en .env dev. */
-  trustHost: true,
+  /**
+   * Permite login/logout desde IP LAN aunque NEXTAUTH_URL sea localhost en .env dev.
+   * Ojo: next-auth v4 no declara esta opción en sus tipos (es de Auth.js v5); se conserva
+   * tal cual para no cambiar el comportamiento actual.
+   */
+  ...({ trustHost: true } as Record<string, unknown>),
   cookies: {
     sessionToken: {
       name: isProd ? "__Secure-next-auth.session.kai-pos" : "next-auth.session.kai-pos",

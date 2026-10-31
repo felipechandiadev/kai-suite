@@ -29,14 +29,8 @@ function resolveReceptor(customer: PosSaleCustomer | null): { rut: string; name:
 }
 
 function mapLineName(line: PosCartLine): string {
-  const attrBits = (
-    line.attributes?.map((a) => {
-      if (typeof a === "string") return a.trim();
-      return String(a.attributeValue ?? "").trim();
-    }) ?? []
-  ).filter(Boolean);
   return (
-    formatReceiptLineDisplayName(line.productName ?? "", attrBits) ||
+    formatReceiptLineDisplayName(line.productName ?? "", line.attributes) ||
     line.sku?.trim() ||
     "Item"
   );

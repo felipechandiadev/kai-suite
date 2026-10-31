@@ -8,6 +8,8 @@ interface BadgeProps {
   children: React.ReactNode;
   variant?: BadgeVariant;
   className?: string;
+  /** Tooltip nativo. */
+  title?: string;
 }
 
 const variantClass: Record<BadgeVariant, string> = {
@@ -25,9 +27,9 @@ const variantClass: Record<BadgeVariant, string> = {
   'info-outlined': 'fs-badge--info-outlined',
 };
 
-const Badge: React.FC<BadgeProps> = ({ children, variant = 'primary', className = '' }) => {
+const Badge: React.FC<BadgeProps> = ({ children, variant = 'primary', className = '', title }) => {
   return (
-    <span className={`fs-badge ${variantClass[variant]} ${className}`.trim()}>
+    <span className={`fs-badge ${variantClass[variant]} ${className}`.trim()} title={title}>
       {children}
     </span>
   );

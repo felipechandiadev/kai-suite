@@ -9,7 +9,7 @@ function sameLabel(a: string, b: string): boolean {
  */
 export function formatReceiptLineDisplayName(
   productName: string,
-  attributes: string[] | null | undefined,
+  attributes: Array<string | { attributeValue?: unknown }> | null | undefined,
 ): string {
   const base = productName.trim();
   if (!base) return "";
@@ -17,7 +17,9 @@ export function formatReceiptLineDisplayName(
   const seen = new Set<string>();
   const extras: string[] = [];
   for (const raw of attributes ?? []) {
-    const a = String(raw ?? "").trim();
+    const a = (
+      raw != null && typeof raw === "object" ? String(raw.attributeValue ?? "") : String(raw ?? "")
+    ).trim();
     if (!a || sameLabel(a, base)) continue;
     const key = a.toLocaleLowerCase();
     if (seen.has(key)) continue;

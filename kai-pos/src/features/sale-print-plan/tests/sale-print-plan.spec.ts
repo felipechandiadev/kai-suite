@@ -233,7 +233,7 @@ describe("sale-print-plan", () => {
         lineDiscountsTotal: 0,
       },
       printPlan: "TICKET_ONLY",
-      ticketScope: "all",
+      ticketScope: "full",
     });
     expect(ticket?.totals.tipAmount).toBe(1000);
   });

@@ -7,12 +7,12 @@ export type CollectPendingSalesClientPayload = {
   cashSessionId: string;
   customerId: string;
   saleTransactionIds: string[];
-  payments: PosPaymentLine[];
+  /** Pagos ya convertidos al formato del API (ver `buildCreateSalePayments`). */
+  payments: NonNullable<CreateSaleApiBody["payments"]>;
 };
 
 export type CollectPendingSalesApiBody = Omit<CollectPendingSalesClientPayload, never> & {
   userName: string;
-  payments: NonNullable<CreateSaleApiBody["payments"]>;
 };
 
 function dominantPaymentMethod(lines: PosPaymentLine[]): string {

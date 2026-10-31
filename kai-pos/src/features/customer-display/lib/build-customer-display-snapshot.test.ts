@@ -4,10 +4,8 @@ import type { PosCartLine } from "@/app/(pos)/pos/ui/PosCartLineCard";
 
 function line(partial: Partial<PosCartLine> & { variantId: string }): PosCartLine {
   return {
-    variantId: partial.variantId,
     productId: partial.productId ?? "p1",
-    name: partial.productName ?? partial.name ?? "Producto",
-    productName: partial.productName ?? partial.name ?? "Producto",
+    productName: partial.productName ?? "Producto",
     sku: partial.sku ?? "SKU",
     unitPrice: partial.unitPrice ?? 1000,
     unitPriceWithTax: partial.unitPriceWithTax ?? 1190,

@@ -1,4 +1,5 @@
 import type { PosSaleReceiptData } from "@/app/(pos)/pos/payment/ui/PosSaleReceiptDialog";
+import type { FiscalBoletaPrintPreview } from "@/features/fiscal/types/fiscal-emission.types";
 import { getFiscalBoletaPrintPreviewAction } from "@/features/fiscal/actions/reprint-fiscal-boleta.action";
 import { readPosCompany } from "@/features/company/storage/pos-company-storage";
 import { getPosSaleReceiptPrintAction } from "@/features/pos-print/actions/pos-sale-receipt-print.action";
@@ -63,12 +64,7 @@ export async function loadReprintBundle(
       full: PosSaleReceiptData;
       ticketSubset: PosSaleReceiptData | null;
       printPlan: SalePrintPlan;
-      fiscalPreview: Awaited<ReturnType<typeof getFiscalBoletaPrintPreviewAction>> extends {
-        success: true;
-        preview: infer P;
-      }
-        ? P | null
-        : null;
+      fiscalPreview: FiscalBoletaPrintPreview | null;
     }
   | { success: false; message: string }
 > {
@@ -93,7 +89,7 @@ export async function loadReprintBundle(
     }
   }
 
-  let fiscalPreview = null;
+  let fiscalPreview: FiscalBoletaPrintPreview | null = null;
   if (printPlan === "BOLETA_ONLY" || printPlan === "BOLETA_AND_TICKET") {
     const fiscalRes = await getFiscalBoletaPrintPreviewAction(transactionId);
     if (fiscalRes.success) {

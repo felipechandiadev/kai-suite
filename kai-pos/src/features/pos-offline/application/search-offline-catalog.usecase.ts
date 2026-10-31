@@ -89,8 +89,8 @@ export async function lookupOfflineCatalogByVariantIds(args: {
   );
   const rows = await db.catalog.bulkGet(keys);
   return rows
-    .filter((row): row is OfflineCatalogRowLike => row != null)
-    .map(stripCatalogRow);
+    .filter((row): row is NonNullable<typeof row> => row != null)
+    .map((row) => stripCatalogRow(row));
 }
 
 export async function lookupOfflineCatalogByBarcode(args: {
