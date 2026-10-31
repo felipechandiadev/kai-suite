@@ -7,6 +7,11 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
 import { In, Repository } from 'typeorm';
+import {
+  Transaction,
+  TransactionStatus,
+  TransactionType,
+} from '@modules/transactions/domain/transaction.entity';
 import { TenantContext } from '@common/tenant/tenant.context';
 import { Branch } from '@modules/branches/domain/branch.entity';
 import { Category } from '@modules/categories/domain/category.entity';
@@ -1887,6 +1892,35 @@ export class DiningService {
     return updated;
   }
 
+  /**
+   * La venta con la que se cierra la cuenta debe existir en la empresa, estar vigente y no
+   * pertenecer a otra cuenta: si no, cualquiera podría cerrar cuentas con un id inventado
+   * (y disparar el descuento de insumos).
+   */
+  private async assertLinkedSale(
+    transactionId: string,
+    orderId: string,
+    companyId: string,
+  ): Promise<void> {
+    const tx = await this.diningOrderRepository.manager
+      .getRepository(Transaction)
+      .findOne({ where: { id: transactionId, companyId } });
+    if (!tx || tx.transactionType !== TransactionType.SALE) {
+      throw new BadRequestException('La venta indicada para cerrar la cuenta no existe.');
+    }
+    if (
+      tx.status === TransactionStatus.VOIDED ||
+      tx.status === TransactionStatus.CANCELLED ||
+      tx.status === TransactionStatus.DRAFT
+    ) {
+      throw new BadRequestException('La venta indicada para cerrar la cuenta no está vigente.');
+    }
+    const soldOrderId = (tx.metadata as { diningOrderId?: unknown } | null)?.diningOrderId;
+    if (typeof soldOrderId === 'string' && soldOrderId.trim() && soldOrderId.trim() !== orderId) {
+      throw new BadRequestException('La venta indicada pertenece a otra cuenta del salón.');
+    }
+  }
+
   async closeDiningOrder(
     orderId: string,
     linkedTransactionId?: string,
@@ -1906,6 +1940,7 @@ export class DiningService {
     order.status = DiningOrderStatus.CLOSED;
     order.closedAt = new Date();
     if (linkedTransactionId) {
+      await this.assertLinkedSale(linkedTransactionId, orderId, companyId);
       order.linkedTransactionId = linkedTransactionId;
       const userId = this.requireUserId();
       await this.diningBackflushService.backflushForClosedOrder(

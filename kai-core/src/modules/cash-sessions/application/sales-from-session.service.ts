@@ -356,8 +356,56 @@ export class SalesFromSessionService {
   }
 
   async createSale(createSaleDto: CreateSaleDto) {
+    const diningOrderId =
+      typeof createSaleDto.metadata?.diningOrderId === 'string'
+        ? createSaleDto.metadata.diningOrderId.trim()
+        : '';
+    // Cobrar dos veces la misma cuenta del salón (doble clic, dos cajas): se serializa por cuenta.
+    if (diningOrderId) {
+      return this.withDocumentLocks('dining-charge', [diningOrderId], () =>
+        this.createSaleUnlocked(createSaleDto, diningOrderId),
+      );
+    }
+    return this.createSaleUnlocked(createSaleDto, '');
+  }
+
+  /** Rechaza cobrar una cuenta del salón que ya está cerrada, anulada o con una venta vigente. */
+  private async assertDiningOrderChargeable(diningOrderId: string): Promise<void> {
+    const companyId = TenantContext.getCompanyId();
+    if (!companyId) return;
+    const [order] = await this.dataSource.query(
+      `SELECT status::text AS status FROM dining_orders WHERE id = $1 AND company_id = $2`,
+      [diningOrderId, companyId],
+    );
+    if (!order) {
+      throw new NotFoundException('Cuenta del salón no encontrada');
+    }
+    if (order.status === 'VOID' || order.status === 'CLOSED') {
+      throw new ConflictException(
+        order.status === 'VOID'
+          ? 'La cuenta del salón está anulada.'
+          : 'La cuenta del salón ya fue cobrada.',
+      );
+    }
+    const [sale] = await this.dataSource.query(
+      `SELECT "documentNumber" FROM transactions
+        WHERE company_id = $1 AND "transactionType"::text = 'SALE'
+          AND status::text NOT IN ('VOIDED', 'CANCELLED', 'DRAFT')
+          AND metadata::jsonb ->> 'diningOrderId' = $2
+        LIMIT 1`,
+      [companyId, diningOrderId],
+    );
+    if (sale) {
+      throw new ConflictException(
+        `La cuenta del salón ya tiene una venta vigente (${sale.documentNumber}).`,
+      );
+    }
+  }
+
+  private async createSaleUnlocked(createSaleDto: CreateSaleDto, diningOrderId: string) {
     const duplicate = await this.findExistingSaleByClientOperationId(createSaleDto);
     if (duplicate) return duplicate;
+    if (diningOrderId) await this.assertDiningOrderChargeable(diningOrderId);
     const fulfillBackorderId = createSaleDto.fulfillBackorderId?.trim() || undefined;
     const fulfillPresaleTicketIds = [
       ...new Set(

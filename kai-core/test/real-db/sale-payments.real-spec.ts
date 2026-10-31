@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { CashSessionCoreService } from '../../src/modules/cash-sessions/application/cash-session-core.service';
+import { DiningService } from '../../src/modules/dining/application/dining.service';
 import { SalesFromSessionService } from '../../src/modules/cash-sessions/application/sales-from-session.service';
 import { ReceptionsService } from '../../src/modules/receptions/application/receptions.service';
 import { bootRealDb, RealDbContext } from './support/app-context';
@@ -161,5 +162,39 @@ describe('Venta POS: pagos vs total (BD real)', () => {
         }),
       ).rejects.toThrow(/impuesto de la línea/);
     }
+  });
+
+  async function diningOrder() {
+    const [{ id }] = await ds.query(
+      `INSERT INTO dining_orders (company_id, branch_id, kind, display_label, status)
+       VALUES ($1, $2, 'COUNTER', 'Cuenta prueba', 'OPEN') RETURNING id`,
+      [base.companyId, base.branchId],
+    );
+    return id as string;
+  }
+
+  it('una cuenta del salón no se puede cobrar dos veces y solo se cierra con su propia venta', async () => {
+    const v = await stocked(1000);
+    const orderId = await diningOrder();
+    const charge = () =>
+      sale(v.variantId, {
+        metadata: { clientOperationId: randomUUID(), diningOrderId: orderId },
+        payments: [{ paymentMethod: 'CASH', amount: 1000 }],
+        amountPaid: 1000,
+        changeAmount: 0,
+      });
+    const first = await charge();
+    expect(first.success).toBe(true);
+    await expect(charge()).rejects.toThrow(/ya tiene una venta vigente/);
+
+    const dining = ctx.app.get(DiningService);
+    await expect(
+      asCompany(base, () => dining.closeDiningOrder(orderId, randomUUID())),
+    ).rejects.toThrow(/no existe/);
+    const closed = await asCompany(base, () =>
+      dining.closeDiningOrder(orderId, first.transaction.id),
+    );
+    expect(closed.status).toBe('CLOSED');
+    await expect(charge()).rejects.toThrow(/ya fue cobrada/);
   });
 });
