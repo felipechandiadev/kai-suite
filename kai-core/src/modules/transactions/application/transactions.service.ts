@@ -76,7 +76,8 @@ export class TransactionsService {
     const result = await this.queryBus.execute(
       new GetTotalSalesForSessionQuery(cashSessionId),
     );
-    return result.total;
+    // El handler devuelve el total como número.
+    return Number(result) || 0;
   }
 
   async getMovementsForSession(cashSessionId: string): Promise<any[]> {

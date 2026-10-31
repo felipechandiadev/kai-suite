@@ -221,10 +221,16 @@ export class CashSessionsController {
    * Now delegates to TransactionsService for CASH_SESSION_CLOSING
    */
   @Post('close')
-  async close(@Body() dto: CloseCashSessionDto) {
+  async close(
+    @Body() dto: CloseCashSessionDto,
+    @CurrentUser() currentUser: CurrentUserPayload,
+  ) {
     const sessionId = dto.sessionId || dto.cashSessionId;
-    const userId = dto.userId || dto.closedById || dto.user?.id;
-    const userName = dto.userName;
+    // Un cierre normal lo hace quien está autenticado; solo el cierre administrativo
+    // (validado por rol en el servicio) puede indicar a otro usuario.
+    const asAdmin = dto.adminClose === true;
+    const userId = asAdmin ? dto.userId || dto.closedById || dto.user?.id : currentUser.id;
+    const userName = asAdmin ? dto.userName : undefined;
 
     if (!sessionId) {
       throw new BadRequestException(

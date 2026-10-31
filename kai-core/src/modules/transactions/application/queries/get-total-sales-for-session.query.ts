@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { QueryHandler, IQueryHandler } from '@nestjs/cqrs';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Transaction, TransactionType } from '../../domain/transaction.entity';
+import {
+  Transaction,
+  TransactionStatus,
+  TransactionType,
+} from '../../domain/transaction.entity';
 
 export class GetTotalSalesForSessionQuery {
   constructor(public readonly cashSessionId: string) {}
@@ -17,12 +21,20 @@ export class GetTotalSalesForSessionQueryHandler implements IQueryHandler<GetTot
   ) {}
 
   async execute(query: GetTotalSalesForSessionQuery): Promise<number> {
-    const sales = await this.transactionRepository.find({
-      where: {
-        cashSessionId: query.cashSessionId,
-        transactionType: TransactionType.SALE,
-      },
-    });
-    return sales.reduce((sum, tx) => sum + Number(tx.total || 0), 0);
+    // Las ventas anuladas, canceladas o en borrador no cuentan para el cierre.
+    const raw = await this.transactionRepository
+      .createQueryBuilder('t')
+      .select('COALESCE(SUM(t.total), 0)', 'total')
+      .where('t.cashSessionId = :cashSessionId', { cashSessionId: query.cashSessionId })
+      .andWhere('t.transactionType = :type', { type: TransactionType.SALE })
+      .andWhere('t.status NOT IN (:...excluded)', {
+        excluded: [
+          TransactionStatus.VOIDED,
+          TransactionStatus.CANCELLED,
+          TransactionStatus.DRAFT,
+        ],
+      })
+      .getRawOne<{ total: string }>();
+    return Number(raw?.total) || 0;
   }
 }

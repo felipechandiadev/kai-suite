@@ -66,6 +66,16 @@ describe('CashSessionsController (Integration)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    // Simula al TenantGuard: el usuario autenticado viaja en la solicitud.
+    app.use((req: any, _res: any, next: () => void) => {
+      req.currentUser = {
+        id: '22222222-2222-4222-8222-222222222222',
+        userName: 'cashier',
+        rol: 'USER',
+        companyId: null,
+      };
+      next();
+    });
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -128,14 +138,12 @@ describe('CashSessionsController (Integration)', () => {
       .expect(400);
   });
 
-  it('should accept close requests with a nested user id', async () => {
+  it('cierra con el usuario autenticado e ignora el userId del body', async () => {
     await request(app.getHttpServer())
       .post('/cash-sessions/close')
       .send({
         sessionId: '11111111-1111-4111-8111-111111111111',
-        user: {
-          id: '22222222-2222-4222-8222-222222222222',
-        },
+        userId: '99999999-9999-4999-8999-999999999999',
       })
       .expect(201);
 
@@ -143,6 +151,23 @@ describe('CashSessionsController (Integration)', () => {
       '11111111-1111-4111-8111-111111111111',
       '22222222-2222-4222-8222-222222222222',
       expect.objectContaining({ adminClose: false }),
+    );
+  });
+
+  it('el cierre administrativo sí puede indicar otro usuario', async () => {
+    await request(app.getHttpServer())
+      .post('/cash-sessions/close')
+      .send({
+        sessionId: '11111111-1111-4111-8111-111111111111',
+        userId: '99999999-9999-4999-8999-999999999999',
+        adminClose: true,
+      })
+      .expect(201);
+
+    expect(coreService.close).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+      '99999999-9999-4999-8999-999999999999',
+      expect.objectContaining({ adminClose: true }),
     );
   });
 });

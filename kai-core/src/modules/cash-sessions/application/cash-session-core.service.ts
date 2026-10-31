@@ -541,6 +541,32 @@ export class CashSessionCoreService {
       adminClose?: boolean;
     },
   ) {
+    // Serializa los cierres de una misma sesión: sin esto, dos solicitudes simultáneas (doble
+    // clic, dos equipos) crean dos cierres y mueven el efectivo dos veces al centro de acopio.
+    const lock = this.dataSource.createQueryRunner();
+    await lock.connect();
+    await lock.startTransaction();
+    try {
+      await lock.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        `cash-session-close:${sessionId}`,
+      ]);
+      return await this.closeLocked(sessionId, userId, options);
+    } finally {
+      await lock.rollbackTransaction().catch(() => undefined);
+      await lock.release();
+    }
+  }
+
+  private async closeLocked(
+    sessionId: string,
+    userId: string,
+    options?: {
+      cashHubId?: string;
+      notes?: string | null;
+      counted?: CloseCashSessionCountedDto | null;
+      adminClose?: boolean;
+    },
+  ) {
     // 1. Validar sesión
     const session = await this.cashSessionRepository.findOne({
       where: { id: sessionId },
@@ -603,8 +629,12 @@ export class CashSessionCoreService {
       throw new NotFoundException('Usuario que cierra no encontrado');
     }
 
-    const closingTxTotal = useCounted ? countedGrand : salesTotal;
-    const hubTransferAmount = useCounted ? countedActual.cash : salesTotal;
+    // Sin conteo físico (cierre administrativo/automático) se traslada el efectivo que el
+    // sistema espera en el cajón, no el total de ventas (que incluye tarjeta y transferencia).
+    const closingTxTotal = useCounted ? countedGrand : Math.max(0, systemCashExpected);
+    const hubTransferAmount = useCounted
+      ? countedActual.cash
+      : Math.max(0, systemCashExpected);
 
     // 4. Crear transacción de cierre de caja
     // Validar branchId
@@ -642,7 +672,27 @@ export class CashSessionCoreService {
 
     let closingTxId: string | null = null;
     let hubTransferId: string | null = null;
-    if (Number(closingTxTotal) >= 0.01) {
+    // Reintento tras un cierre a medias (la transacción de cierre se creó pero la sesión no
+    // quedó cerrada): se reutiliza en vez de duplicarla.
+    const priorClosing = await this.transactionRepository.findOne({
+      where: {
+        cashSessionId: session.id,
+        transactionType: TransactionType.CASH_SESSION_CLOSING,
+        status: TransactionStatus.CONFIRMED,
+      },
+    });
+    if (priorClosing) {
+      closingTxId = priorClosing.id;
+      const priorHub = await this.transactionRepository.findOne({
+        where: {
+          relatedTransactionId: priorClosing.id,
+          transactionType: TransactionType.CASH_SESSION_TO_HUB_TRANSFER,
+          status: TransactionStatus.CONFIRMED,
+        },
+      });
+      hubTransferId = priorHub?.id ?? null;
+    }
+    if (!priorClosing && Number(closingTxTotal) >= 0.01) {
       const txDto = new CreateTransactionDto();
       txDto.transactionType = TransactionType.CASH_SESSION_CLOSING;
       txDto.branchId = branchId;
@@ -680,58 +730,58 @@ export class CashSessionCoreService {
 
       const closingTx = await this.transactionsService.createTransaction(txDto);
       closingTxId = closingTx.id;
+    }
 
-      const companyId = session.pointOfSale?.branch?.companyId;
-      const posId = session.pointOfSaleId;
-      if (companyId && posId && Number(hubTransferAmount) >= 0.01) {
-        let hubId: string | null = null;
-        if (options?.cashHubId) {
-          const ok = await this.cashHubsService.validateHubForPos(
-            companyId,
-            posId,
-            options.cashHubId,
-          );
-          hubId = ok ? options.cashHubId : null;
-          if (!ok) {
-            this.logger.warn(
-              `cashHubId override inválido para sesión ${sessionId}; se omite traslado a centro de acopio.`,
-            );
-          }
-        } else {
-          hubId = await this.cashHubsService.resolveDefaultHubForPos(
-            companyId,
-            posId,
+    const companyId = session.pointOfSale?.branch?.companyId;
+    const posId = session.pointOfSaleId;
+    if (closingTxId && !hubTransferId && companyId && posId && Number(hubTransferAmount) >= 0.01) {
+      let hubId: string | null = null;
+      if (options?.cashHubId) {
+        const ok = await this.cashHubsService.validateHubForPos(
+          companyId,
+          posId,
+          options.cashHubId,
+        );
+        hubId = ok ? options.cashHubId : null;
+        if (!ok) {
+          this.logger.warn(
+            `cashHubId override inválido para sesión ${sessionId}; se omite traslado a centro de acopio.`,
           );
         }
-        if (hubId) {
-          const hubTx = new CreateTransactionDto();
-          hubTx.transactionType = TransactionType.CASH_SESSION_TO_HUB_TRANSFER;
-          hubTx.branchId = branchId;
-          hubTx.userId = closedBy.id;
-          hubTx.pointOfSaleId = posId;
-          hubTx.cashSessionId = session.id;
-          hubTx.cashHubId = hubId;
-          hubTx.subtotal = hubTransferAmount;
-          hubTx.taxAmount = 0;
-          hubTx.discountAmount = 0;
-          hubTx.total = hubTransferAmount;
-          hubTx.paymentMethod = PaymentMethod.CASH;
-          hubTx.amountPaid = hubTransferAmount;
-          hubTx.lines = [];
-          hubTx.relatedTransactionId = closingTx.id;
-          hubTx.notes = useCounted
-            ? 'Traslado de efectivo contado (cierre) a centro de acopio'
-            : 'Traslado de efectivo de cierre de sesión a centro de acopio';
-          hubTx.metadata = {
-            cashSessionToHub: true,
-            cashHubId: hubId,
-            closingTransactionId: closingTx.id,
-            blindClose: useCounted,
-          };
-          const hubTxSaved =
-            await this.transactionsService.createTransaction(hubTx);
-          hubTransferId = hubTxSaved.id;
-        }
+      } else {
+        hubId = await this.cashHubsService.resolveDefaultHubForPos(
+          companyId,
+          posId,
+        );
+      }
+      if (hubId) {
+        const hubTx = new CreateTransactionDto();
+        hubTx.transactionType = TransactionType.CASH_SESSION_TO_HUB_TRANSFER;
+        hubTx.branchId = branchId;
+        hubTx.userId = closedBy.id;
+        hubTx.pointOfSaleId = posId;
+        hubTx.cashSessionId = session.id;
+        hubTx.cashHubId = hubId;
+        hubTx.subtotal = hubTransferAmount;
+        hubTx.taxAmount = 0;
+        hubTx.discountAmount = 0;
+        hubTx.total = hubTransferAmount;
+        hubTx.paymentMethod = PaymentMethod.CASH;
+        hubTx.amountPaid = hubTransferAmount;
+        hubTx.lines = [];
+        hubTx.relatedTransactionId = closingTxId;
+        hubTx.notes = useCounted
+          ? 'Traslado de efectivo contado (cierre) a centro de acopio'
+          : 'Traslado de efectivo de cierre de sesión a centro de acopio';
+        hubTx.metadata = {
+          cashSessionToHub: true,
+          cashHubId: hubId,
+          closingTransactionId: closingTxId,
+          blindClose: useCounted,
+        };
+        const hubTxSaved =
+          await this.transactionsService.createTransaction(hubTx);
+        hubTransferId = hubTxSaved.id;
       }
     }
 
@@ -766,7 +816,7 @@ export class CashSessionCoreService {
     session.status = CashSessionStatus.CLOSED;
     session.closedAt = new Date();
     session.closedById = closedBy.id;
-    session.expectedAmount = useCounted ? systemCashExpected : salesTotal;
+    session.expectedAmount = systemCashExpected;
     session.closingAmount = closingTxTotal;
     session.difference = useCounted ? diffCash : 0;
     if (options?.notes?.trim()) {
@@ -783,7 +833,7 @@ export class CashSessionCoreService {
       sessionId,
       closingTransactionId: closingTxId,
       hubTransferTransactionId: hubTransferId,
-      expectedAmount: useCounted ? systemCashExpected : salesTotal,
+      expectedAmount: systemCashExpected,
       salesTotal,
       systemCashExpected,
       usedBlindCount: useCounted,
