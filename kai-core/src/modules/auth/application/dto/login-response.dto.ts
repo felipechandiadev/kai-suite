@@ -97,4 +97,16 @@ export class LoginResponseDto {
     example: 'Invalid credentials',
   })
   message?: string;
+
+  @ApiPropertyOptional({ description: 'JWT HS256 de acceso (caducidad corta)' })
+  accessToken?: string;
+
+  @ApiPropertyOptional({ description: 'JWT de refresco (POST /auth/refresh)' })
+  refreshToken?: string;
+
+  @ApiPropertyOptional({ description: 'Segundos de vida del access token' })
+  expiresIn?: number;
+
+  @ApiPropertyOptional({ description: 'Segundos de vida del refresh token' })
+  refreshExpiresIn?: number;
 }

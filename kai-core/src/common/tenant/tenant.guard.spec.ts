@@ -8,6 +8,23 @@ import {
   SUPER_ADMIN_ONLY_KEY,
 } from './tenant.decorators';
 import { UserRole } from '@modules/users/domain/user.entity';
+import { AuthTokenService } from '@common/auth/auth-token.service';
+import { signJwt } from '@common/auth/jwt-hs256';
+
+const TEST_SECRET = 'test-access-secret';
+const TEST_REFRESH_SECRET = 'test-refresh-secret';
+
+function buildTokens(env: Record<string, string | undefined> = {}) {
+  const values: Record<string, string | undefined> = {
+    JWT_SECRET: TEST_SECRET,
+    JWT_REFRESH_SECRET: TEST_REFRESH_SECRET,
+    NODE_ENV: 'test',
+    ...env,
+  };
+  return new AuthTokenService({
+    get: (k: string) => values[k],
+  } as any);
+}
 
 type FakeRequest = {
   headers: Record<string, string | string[]>;
@@ -36,6 +53,7 @@ function buildGuard(opts: {
   company?: { id: string; isActive: boolean } | null;
   fallback?: { id: string } | null;
   meta?: Record<string, boolean>;
+  env?: Record<string, string | undefined>;
 }) {
   const userRepo = {
     findOne: jest.fn().mockResolvedValue(opts.user),
@@ -87,6 +105,7 @@ function buildGuard(opts: {
     userRepo as any,
     companyRepo as any,
     membershipsService as any,
+    buildTokens(opts.env),
   );
   return { guard, userRepo, companyRepo, membershipsService };
 }
@@ -315,5 +334,129 @@ describe('TenantGuard', () => {
       headers: { authorization: `Bearer ${VALID_UUID}` },
     });
     await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+  });
+
+  describe('signed JWT bearer', () => {
+    const tokens = buildTokens();
+    const operator = {
+      id: VALID_UUID,
+      userName: 'mesero',
+      rol: UserRole.OPERATOR,
+      companyId: OTHER_UUID,
+    };
+
+    it('accepts a valid access token and uses its company claim', async () => {
+      const { guard, userRepo } = buildGuard({ user: operator });
+      const { accessToken } = tokens.issue(VALID_UUID, OTHER_UUID);
+      const req: FakeRequest = {
+        headers: { authorization: `Bearer ${accessToken}` },
+      };
+      await expect(guard.canActivate(buildContext(req))).resolves.toBe(true);
+      expect(userRepo.findOne).toHaveBeenCalledWith({ where: { id: VALID_UUID } });
+      expect(req.activeCompanyId).toBe(OTHER_UUID);
+    });
+
+    it('rejects a token with a bad signature', async () => {
+      const { guard, userRepo } = buildGuard({ user: operator });
+      const forged = signJwt(
+        { sub: VALID_UUID, cid: OTHER_UUID, typ: 'access' },
+        'wrong-secret',
+        900,
+      );
+      const ctx = buildContext({ headers: { authorization: `Bearer ${forged}` } });
+      await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
+      expect(userRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('rejects a tampered payload', async () => {
+      const { guard } = buildGuard({ user: operator });
+      const { accessToken } = tokens.issue(VALID_UUID, OTHER_UUID);
+      const [h, , sig] = accessToken.split('.');
+      const payload = Buffer.from(
+        JSON.stringify({ sub: OTHER_UUID, cid: OTHER_UUID, typ: 'access', exp: 9999999999 }),
+      ).toString('base64url');
+      const ctx = buildContext({
+        headers: { authorization: `Bearer ${h}.${payload}.${sig}` },
+      });
+      await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('rejects an expired token', async () => {
+      const { guard } = buildGuard({ user: operator });
+      const past = Math.floor(Date.now() / 1000) - 3600;
+      const expired = signJwt(
+        { sub: VALID_UUID, cid: OTHER_UUID, typ: 'access' },
+        TEST_SECRET,
+        60,
+        past,
+      );
+      const ctx = buildContext({ headers: { authorization: `Bearer ${expired}` } });
+      await expect(guard.canActivate(ctx)).rejects.toThrow('Sesión expirada');
+    });
+
+    it('rejects a refresh token used as access token', async () => {
+      const { guard } = buildGuard({ user: operator });
+      const { refreshToken } = tokens.issue(VALID_UUID, OTHER_UUID);
+      const ctx = buildContext({ headers: { authorization: `Bearer ${refreshToken}` } });
+      await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('forbids a token whose company claim is not in the user memberships', async () => {
+      const { guard } = buildGuard({ user: operator });
+      const foreign = 'c0ffee00-1111-4222-8333-444455556666';
+      const { accessToken } = tokens.issue(VALID_UUID, foreign);
+      const ctx = buildContext({ headers: { authorization: `Bearer ${accessToken}` } });
+      await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('forbids a valid token pointing to another company via header', async () => {
+      const { guard } = buildGuard({ user: operator });
+      const foreign = 'c0ffee00-1111-4222-8333-444455556666';
+      const { accessToken } = tokens.issue(VALID_UUID, OTHER_UUID);
+      const ctx = buildContext({
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          'x-active-company-id': foreign,
+        },
+      });
+      await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('legacy UUID bearer', () => {
+    const operator = {
+      id: VALID_UUID,
+      userName: 'mesero',
+      rol: UserRole.OPERATOR,
+      companyId: OTHER_UUID,
+    };
+
+    it('is rejected by default in production', async () => {
+      const { guard, userRepo } = buildGuard({
+        user: operator,
+        env: { NODE_ENV: 'production' },
+      });
+      const ctx = buildContext({ headers: { authorization: `Bearer ${VALID_UUID}` } });
+      await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
+      expect(userRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('is accepted in production only with AUTH_ALLOW_LEGACY_UUID_BEARER=true', async () => {
+      const { guard } = buildGuard({
+        user: operator,
+        env: { NODE_ENV: 'production', AUTH_ALLOW_LEGACY_UUID_BEARER: 'true' },
+      });
+      const ctx = buildContext({ headers: { authorization: `Bearer ${VALID_UUID}` } });
+      await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    });
+
+    it('can be disabled explicitly outside production', async () => {
+      const { guard } = buildGuard({
+        user: operator,
+        env: { NODE_ENV: 'development', AUTH_ALLOW_LEGACY_UUID_BEARER: 'false' },
+      });
+      const ctx = buildContext({ headers: { authorization: `Bearer ${VALID_UUID}` } });
+      await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
+    });
   });
 });

@@ -21,6 +21,8 @@ import {
   SUPER_ADMIN_ONLY_KEY,
 } from './tenant.decorators';
 import type { CurrentUserPayload } from './current-user.decorator';
+import { AuthTokenService } from '@common/auth/auth-token.service';
+import { JwtVerifyError, looksLikeJwt } from '@common/auth/jwt-hs256';
 
 const ACTIVE_COMPANY_HEADER = 'x-active-company-id';
 const MULTI_COMPANY_HEADER = 'x-multi-company-mode';
@@ -40,6 +42,7 @@ export class TenantGuard implements CanActivate {
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
     private readonly membershipsService: MembershipsService,
+    private readonly tokens: AuthTokenService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -56,12 +59,41 @@ export class TenantGuard implements CanActivate {
       ? auth.slice('Bearer '.length).trim()
       : null;
 
-    if (!bearer || !isUUID(bearer)) {
+    const reqMethod = req.method ?? '?';
+    const path = req.originalUrl ?? req.url ?? '?';
+
+    let userId: string | null = null;
+    let tokenCompanyId: string | null = null;
+
+    if (bearer && looksLikeJwt(bearer)) {
+      try {
+        const claims = this.tokens.verifyAccess(bearer);
+        userId = claims.sub;
+        tokenCompanyId =
+          typeof claims.cid === 'string' && isUUID(claims.cid)
+            ? claims.cid
+            : null;
+      } catch (e) {
+        const reason = e instanceof JwtVerifyError ? e.reason : 'claims';
+        this.logger.debug(`JWT rechazado (${reason}) en ${reqMethod} ${path}`);
+        throw new UnauthorizedException(
+          reason === 'expired' ? 'Sesión expirada' : 'Token de autenticación inválido',
+        );
+      }
+    } else if (bearer && isUUID(bearer)) {
+      if (!this.tokens.allowLegacyUuidBearer()) {
+        throw new UnauthorizedException(
+          'Token de autenticación inválido o ausente',
+        );
+      }
+      this.logger.warn(
+        `Legacy UUID bearer usado: ${reqMethod} ${path} user=${bearer.slice(0, 8)}…`,
+      );
+      userId = bearer;
+    } else {
       if (process.env.NODE_ENV !== 'production') {
-        const method = req.method ?? '?';
-        const path = req.originalUrl ?? req.url ?? '?';
         this.logger.debug(
-          `Sin Bearer UUID en ${method} ${path} (Authorization: ${auth ? 'presente' : 'ausente'})`,
+          `Sin Bearer válido en ${reqMethod} ${path} (Authorization: ${auth ? 'presente' : 'ausente'})`,
         );
       }
       throw new UnauthorizedException(
@@ -69,7 +101,7 @@ export class TenantGuard implements CanActivate {
       );
     }
 
-    const user = await this.userRepository.findOne({ where: { id: bearer } });
+    const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new UnauthorizedException('Sesión inválida');
     }
@@ -83,11 +115,11 @@ export class TenantGuard implements CanActivate {
 
     const headerVal = req.headers?.[ACTIVE_COMPANY_HEADER];
     const headerCompanyId =
-      typeof headerVal === 'string'
+      (typeof headerVal === 'string'
         ? headerVal
         : Array.isArray(headerVal)
           ? headerVal[0]
-          : null;
+          : null) ?? tokenCompanyId;
     const multiHeader = req.headers?.[MULTI_COMPANY_HEADER];
     const multiHeaderOn =
       multiHeader === '1' ||
