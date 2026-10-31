@@ -1,3 +1,4 @@
+import { withAdvisoryLocks } from '@common/advisory-lock.util';
 import {
   BadRequestException,
   Injectable,
@@ -309,6 +310,10 @@ export class InstallmentService {
 
     if (!installment) {
       throw new Error('Installment not found');
+    }
+    // Idempotente: el mismo pago no se aplica dos veces a la cuota.
+    if (installment.paymentTransactionId === paymentTransactionId) {
+      return installment;
     }
 
     installment.amountPaid =
@@ -731,6 +736,16 @@ export class InstallmentService {
    * Registrar pago directo de una cuota
    */
   async payInstallment(installmentId: string, dto: PayInstallmentDto) {
+    // Misma clave que el cobro de cuotas desde el POS: dos pagos simultáneos de la misma cuota
+    // (doble clic, caja + administración) registraban dos cobros por la misma deuda.
+    return withAdvisoryLocks(
+      this.repo.manager.connection,
+      [`collect-quota:${installmentId}`],
+      () => this.payInstallmentLocked(installmentId, dto),
+    );
+  }
+
+  private async payInstallmentLocked(installmentId: string, dto: PayInstallmentDto) {
     const installment = await this.repo.findOneBy({ id: installmentId });
     if (!installment) {
       throw new NotFoundException('Installment not found');
@@ -854,6 +869,11 @@ export class InstallmentService {
 
     const transaction =
       await this.transactionsService.createTransaction(createDto);
+
+    // El cobro/pago se registra como transacción; nada más actualizaba la cuota (el handler de
+    // automatización que lo hacía no está conectado), así que seguía pendiente y se podía
+    // pagar una y otra vez. Se actualiza aquí, bajo el mismo lock de la cuota.
+    await this.updateInstallmentFromPayment(installment.id, amount, transaction.id);
 
     return {
       success: true,

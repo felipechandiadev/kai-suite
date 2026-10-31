@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import {
   Transaction,
   TransactionStatus,
@@ -114,7 +114,8 @@ export class CompletePaymentUseCase implements ICommandHandler<CompletePaymentCo
         ? {
             checkNumber: String(data.checkData.checkNumber).trim(),
             bankName: String(data.checkData.bankName).trim(),
-            bankAccountKey: data.checkData.bankAccountKey ?? data.bankAccountKey ?? null,
+            bankAccountKey:
+              data.checkData.bankAccountKey ?? data.bankAccountKey ?? null,
             drawerName: data.checkData.drawerName?.trim() || null,
             dueDate: data.checkData.dueDate?.trim() || null,
             payeeName: data.checkData.payeeName?.trim() || null,
@@ -131,22 +132,30 @@ export class CompletePaymentUseCase implements ICommandHandler<CompletePaymentCo
       ...(checkData ? { checkData } : {}),
     };
 
-    await this.transactionsRepository.update(paymentId, {
-      amountPaid: payment.total,
-      status: TransactionStatus.CONFIRMED,
-      paymentStatus: PaymentStatus.PAID,
-      paymentMethod,
-      // Cheque: el banco (cartola) se aplica al compensar, no al emitir.
-      bankAccountKey:
-        paymentMethod === PaymentMethod.CHECK
-          ? (null as unknown as undefined)
-          : data.bankAccountKey || payment.bankAccountKey,
-      cashHubId: data.cashHubId || payment.cashHubId,
-      notes: data.note
-        ? `${payment.notes || ''}\n${data.note}`.trim()
-        : payment.notes,
-      metadata: updatedMetadata as any,
-    });
+    // Compare-and-set: solo pasa de "no confirmado" a CONFIRMED una vez. Dos ejecuciones
+    // simultáneas del mismo pago pasaban la lectura de arriba y registraban dos pagos.
+    const confirmed = await this.transactionsRepository.update(
+      { id: paymentId, status: Not(TransactionStatus.CONFIRMED) },
+      {
+        amountPaid: payment.total,
+        status: TransactionStatus.CONFIRMED,
+        paymentStatus: PaymentStatus.PAID,
+        paymentMethod,
+        // Cheque: el banco (cartola) se aplica al compensar, no al emitir.
+        bankAccountKey:
+          paymentMethod === PaymentMethod.CHECK
+            ? (null as unknown as undefined)
+            : data.bankAccountKey || payment.bankAccountKey,
+        cashHubId: data.cashHubId || payment.cashHubId,
+        notes: data.note
+          ? `${payment.notes || ''}\n${data.note}`.trim()
+          : payment.notes,
+        metadata: updatedMetadata as any,
+      },
+    );
+    if (!confirmed.affected) {
+      throw new ConflictException(`Payment ${paymentId} is already confirmed`);
+    }
 
     this.logger.log(
       `Payment ${paymentId} marked as CONFIRMED. Amount: ${payment.total}`,
@@ -321,5 +330,4 @@ export class CompletePaymentUseCase implements ICommandHandler<CompletePaymentCo
 
     return transaction;
   }
-
 }
