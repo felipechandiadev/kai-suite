@@ -361,20 +361,21 @@ export class SalesFromSessionService {
         ? createSaleDto.metadata.diningOrderId.trim()
         : '';
     const backorderId = createSaleDto.fulfillBackorderId?.trim() ?? '';
-    // Cobrar dos veces la misma cuenta del salón (doble clic, dos cajas): se serializa por cuenta.
-    // Liquidar un encargo comparte lock con su anulación (`backorder:<id>`).
+    const presaleTicketIds = [
+      ...(createSaleDto.fulfillPresaleTicketIds ?? []),
+      ...(createSaleDto.fulfillPresaleTicketId ? [createSaleDto.fulfillPresaleTicketId] : []),
+    ]
+      .map((id) => id?.trim())
+      .filter(Boolean);
+    // Se serializa por cuenta del salón, por ticket de preventa y por encargo (este último
+    // comparte lock con su anulación): doble clic o dos cajas no pueden cobrar lo mismo dos veces.
+    const lockKeys = [
+      ...(diningOrderId ? [`dining-charge:${diningOrderId}`] : []),
+      ...(backorderId ? [`backorder:${backorderId}`] : []),
+      ...presaleTicketIds.map((id) => `presale-ticket:${id}`),
+    ];
     const run = () => this.createSaleUnlocked(createSaleDto, diningOrderId);
-    if (backorderId) {
-      return this.withDocumentLocks('backorder', [backorderId], () =>
-        diningOrderId
-          ? this.withDocumentLocks('dining-charge', [diningOrderId], run)
-          : run(),
-      );
-    }
-    if (diningOrderId) {
-      return this.withDocumentLocks('dining-charge', [diningOrderId], run);
-    }
-    return run();
+    return lockKeys.length > 0 ? this.withKeyLocks(lockKeys, run) : run();
   }
 
   /** Rechaza cobrar una cuenta del salón que ya está cerrada, anulada o con una venta vigente. */
@@ -756,13 +757,20 @@ export class SalesFromSessionService {
     ids: string[],
     fn: () => Promise<T>,
   ): Promise<T> {
-    const keys = [...new Set(ids.map((id) => id?.trim()).filter(Boolean))].sort();
+    return this.withKeyLocks(
+      ids.map((id) => id?.trim()).filter(Boolean).map((id) => `${scope}:${id}`),
+      fn,
+    );
+  }
+
+  private async withKeyLocks<T>(lockKeys: string[], fn: () => Promise<T>): Promise<T> {
+    const keys = [...new Set(lockKeys)].sort();
     const runner = this.dataSource.createQueryRunner();
     await runner.connect();
     await runner.startTransaction();
     try {
       for (const id of keys) {
-        await runner.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${scope}:${id}`]);
+        await runner.query('SELECT pg_advisory_xact_lock(hashtext($1))', [id]);
       }
       return await fn();
     } finally {

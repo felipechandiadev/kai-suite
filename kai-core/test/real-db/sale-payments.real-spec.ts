@@ -197,4 +197,30 @@ describe('Venta POS: pagos vs total (BD real)', () => {
     expect(closed.status).toBe('CLOSED');
     await expect(charge()).rejects.toThrow(/ya fue cobrada/);
   });
+
+  it('un ticket de preventa cobrado en simultáneo en varias cajas se canjea una sola vez', async () => {
+    const v = await stocked(1000);
+    await ds.query(
+      `UPDATE points_of_sale SET settings = (COALESCE(settings::jsonb, '{}'::jsonb) || '{"kind":"SALE","acceptsPresaleTickets":true}'::jsonb)::json WHERE id=$1`,
+      [base.pointOfSaleId],
+    );
+    const [{ pc }] = await ds.query(`SELECT 'PT' || substr(md5(random()::text), 1, 8) AS pc`);
+    const [{ id: ticketId }] = await ds.query(
+      `INSERT INTO presale_tickets (company_id, code, status, presale_point_of_sale_id, branch_id, price_list_id, total)
+       VALUES ($1, $2, 'READY', $3, $4, (SELECT id FROM price_lists WHERE company_id=$1 LIMIT 1), 1000) RETURNING id`,
+      [base.companyId, pc, base.pointOfSaleId, base.branchId],
+    );
+    const charge = () =>
+      sale(v.variantId, {
+        fulfillPresaleTicketIds: [ticketId],
+        metadata: { clientOperationId: randomUUID() },
+        payments: [{ paymentMethod: 'CASH', amount: 1000 }],
+        amountPaid: 1000,
+        changeAmount: 0,
+      });
+    const results = await Promise.allSettled(Array.from({ length: 5 }, () => charge()));
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    const [t] = await ds.query(`SELECT status::text AS status FROM presale_tickets WHERE id=$1`, [ticketId]);
+    expect(t.status).toBe('REDEEMED');
+  });
 });
