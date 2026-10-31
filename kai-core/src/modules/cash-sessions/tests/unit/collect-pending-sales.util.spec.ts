@@ -40,4 +40,13 @@ describe('collect-pending-sales.util', () => {
       }),
     ).toBe(false);
   });
+
+  it('isSaleCollectible rechaza ventas anuladas, canceladas o en borrador', () => {
+    const base = { transactionType: 'SALE', paymentStatus: 'PENDING', total: 5000, amountPaid: 0 };
+    expect(isSaleCollectible({ ...base, status: 'CONFIRMED' })).toBe(true);
+    expect(isSaleCollectible({ ...base, status: 'VOIDED', paymentStatus: 'VOIDED' })).toBe(false);
+    expect(isSaleCollectible({ ...base, status: 'VOIDED' })).toBe(false);
+    expect(isSaleCollectible({ ...base, status: 'CANCELLED' })).toBe(false);
+    expect(isSaleCollectible({ ...base, status: 'DRAFT' })).toBe(false);
+  });
 });

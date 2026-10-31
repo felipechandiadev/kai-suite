@@ -164,12 +164,13 @@ export class CashSessionsController {
   async depositFromHub(
     @Param('id') id: string,
     @Body() body: DepositCashFromHubBodyDto,
+    @CurrentUser() user: CurrentUserPayload,
   ) {
     return this.coreService.depositCashFromHub({
       cashSessionId: id,
       cashHubId: body.cashHubId,
       amount: body.amount,
-      userId: body.userId,
+      userId: user.id,
       reason: body.reason,
     });
   }
@@ -178,12 +179,13 @@ export class CashSessionsController {
   async withdrawToHub(
     @Param('id') id: string,
     @Body() body: WithdrawCashToHubBodyDto,
+    @CurrentUser() user: CurrentUserPayload,
   ) {
     return this.coreService.withdrawCashSessionToHub({
       cashSessionId: id,
       cashHubId: body.cashHubId,
       amount: body.amount,
-      userId: body.userId,
+      userId: user.id,
       reason: body.reason,
     });
   }

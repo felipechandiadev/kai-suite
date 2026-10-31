@@ -543,14 +543,25 @@ export class CashSessionCoreService {
   ) {
     // Serializa los cierres de una misma sesión: sin esto, dos solicitudes simultáneas (doble
     // clic, dos equipos) crean dos cierres y mueven el efectivo dos veces al centro de acopio.
+    return this.withAdvisoryLocks([`cash-session:${sessionId}`], () =>
+      this.closeLocked(sessionId, userId, options),
+    );
+  }
+
+  /**
+   * Ejecuta `fn` reteniendo locks de PostgreSQL (por clave) en una conexión aparte, para
+   * serializar operaciones concurrentes sobre la misma sesión de caja o centro de efectivo.
+   * Las claves se ordenan para evitar interbloqueos.
+   */
+  private async withAdvisoryLocks<T>(keys: string[], fn: () => Promise<T>): Promise<T> {
     const lock = this.dataSource.createQueryRunner();
     await lock.connect();
     await lock.startTransaction();
     try {
-      await lock.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
-        `cash-session-close:${sessionId}`,
-      ]);
-      return await this.closeLocked(sessionId, userId, options);
+      for (const key of [...new Set(keys)].sort()) {
+        await lock.query('SELECT pg_advisory_xact_lock(hashtext($1))', [key]);
+      }
+      return await fn();
     } finally {
       await lock.rollbackTransaction().catch(() => undefined);
       await lock.release();
@@ -989,6 +1000,20 @@ export class CashSessionCoreService {
     userId: string;
     reason?: string;
   }) {
+    // Valida saldo y registra el movimiento sin que otra operación intercale (evita sobregiro).
+    return this.withAdvisoryLocks(
+      [`cash-session:${params.cashSessionId}`, `cash-hub:${params.cashHubId}`],
+      () => this.depositCashFromHubLocked(params),
+    );
+  }
+
+  private async depositCashFromHubLocked(params: {
+    cashSessionId: string;
+    cashHubId: string;
+    amount: number;
+    userId: string;
+    reason?: string;
+  }) {
     const { cashSessionId, cashHubId, amount, userId, reason } = params;
     if (amount < 0.01) {
       throw new BadRequestException('El monto debe ser mayor a cero');
@@ -1095,6 +1120,20 @@ export class CashSessionCoreService {
    * Egreso: traslado de efectivo desde la sesión hacia un centro de acopio (aumenta saldo del hub).
    */
   async withdrawCashSessionToHub(params: {
+    cashSessionId: string;
+    cashHubId: string;
+    amount: number;
+    userId: string;
+    reason?: string;
+  }) {
+    // Valida saldo y registra el movimiento sin que otra operación intercale (evita sobregiro).
+    return this.withAdvisoryLocks(
+      [`cash-session:${params.cashSessionId}`, `cash-hub:${params.cashHubId}`],
+      () => this.withdrawCashSessionToHubLocked(params),
+    );
+  }
+
+  private async withdrawCashSessionToHubLocked(params: {
     cashSessionId: string;
     cashHubId: string;
     amount: number;

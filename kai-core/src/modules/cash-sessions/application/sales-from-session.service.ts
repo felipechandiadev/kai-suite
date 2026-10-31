@@ -785,6 +785,7 @@ export class SalesFromSessionService {
         !isSaleCollectible({
           transactionType: sale.transactionType,
           paymentStatus: sale.paymentStatus,
+          status: sale.status,
           total: Number(sale.total),
           amountPaid: Number(sale.amountPaid),
         })
