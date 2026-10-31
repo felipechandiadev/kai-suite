@@ -1500,6 +1500,9 @@ export class SalesFromSessionService {
       createSaleReturnDto.lines.map((l) => ({
         productVariantId: l.productVariantId,
         quantity: Number(l.quantity) || 0,
+        unitPrice: Number(l.unitPrice) || 0,
+        discountAmount: Number(l.discountAmount) || 0,
+        taxAmount: Number(l.taxAmount) || 0,
       })),
     );
     return this.registerPosCommercial(createSaleReturnDto, {
@@ -1526,6 +1529,19 @@ export class SalesFromSessionService {
   }
 
   private async confirmCustomerReturnWithCreditNoteCore(
+    dto: CreateSaleReturnDto,
+    immediateRefund: boolean,
+  ) {
+    // Serializa las devoluciones de una misma venta: sin esto, dos envíos simultáneos pasan
+    // ambos la validación de cantidades y se devuelve (y se acredita) dos veces.
+    return this.withDocumentLocks(
+      'sale-return',
+      [dto.originalSaleId ?? ''],
+      () => this.confirmCustomerReturnWithCreditNoteLocked(dto, immediateRefund),
+    );
+  }
+
+  private async confirmCustomerReturnWithCreditNoteLocked(
     dto: CreateSaleReturnDto,
     immediateRefund: boolean,
   ) {
@@ -1600,7 +1616,13 @@ export class SalesFromSessionService {
 
   private async assertReturnQuantitiesAllowed(
     originalSaleId: string,
-    lines: Array<{ productVariantId: string; quantity: number }>,
+    lines: Array<{
+      productVariantId: string;
+      quantity: number;
+      unitPrice?: number;
+      discountAmount?: number;
+      taxAmount?: number;
+    }>,
   ): Promise<void> {
     const sale = await this.transactionRepository.findOne({
       where: { id: originalSaleId, transactionType: TransactionType.SALE },
@@ -1609,22 +1631,38 @@ export class SalesFromSessionService {
     if (!sale) {
       throw new NotFoundException('Venta origen no encontrada');
     }
+    if (
+      [TransactionStatus.VOIDED, TransactionStatus.CANCELLED, TransactionStatus.DRAFT].includes(
+        sale.status,
+      )
+    ) {
+      throw new BadRequestException(
+        'La venta origen está anulada, cancelada o en borrador: no admite devoluciones.',
+      );
+    }
 
     const soldByVariant = new Map<string, number>();
+    const paidTotalByVariant = new Map<string, number>();
     for (const sl of sale.lines ?? []) {
       const vid = sl.productVariantId?.trim();
       if (!vid) continue;
       const q = Number(sl.quantity) || 0;
       soldByVariant.set(vid, (soldByVariant.get(vid) ?? 0) + q);
+      paidTotalByVariant.set(vid, (paidTotalByVariant.get(vid) ?? 0) + (Number(sl.total) || 0));
     }
 
-    const priorReturns = await this.transactionRepository.find({
-      where: {
-        relatedTransactionId: originalSaleId,
-        transactionType: TransactionType.SALE_RETURN,
-      },
-      relations: ['lines'],
-    });
+    const priorReturns = (
+      await this.transactionRepository.find({
+        where: {
+          relatedTransactionId: originalSaleId,
+          transactionType: TransactionType.SALE_RETURN,
+        },
+        relations: ['lines'],
+      })
+    ).filter(
+      // Una devolución anulada libera sus cantidades.
+      (pr) => pr.status !== TransactionStatus.VOIDED && pr.status !== TransactionStatus.CANCELLED,
+    );
     const returnedByVariant = new Map<string, number>();
     for (const pr of priorReturns) {
       for (const rl of pr.lines ?? []) {
@@ -1650,6 +1688,20 @@ export class SalesFromSessionService {
         throw new BadRequestException(
           `Cantidad a devolver excede lo vendido para la variante ${vid} (vendido: ${sold}, ya devuelto: ${already}, solicitud: ${qty}).`,
         );
+      }
+      // El monto devuelto no puede superar lo que se pagó por esas unidades en la venta origen
+      // (el precio de la línea lo envía el cliente: sin este tope se podría acreditar de más).
+      if (line.unitPrice != null) {
+        const requested =
+          qty * (Number(line.unitPrice) || 0) -
+          (Number(line.discountAmount) || 0) +
+          (Number(line.taxAmount) || 0);
+        const allowed = (qty * (paidTotalByVariant.get(vid) ?? 0)) / sold;
+        if (requested > allowed + 1) {
+          throw new BadRequestException(
+            `El monto a devolver de la variante ${vid} (${Math.round(requested)}) excede lo pagado en la venta origen (${Math.round(allowed)}).`,
+          );
+        }
       }
     }
   }

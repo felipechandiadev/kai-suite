@@ -24,6 +24,16 @@ describe('SalesFromSessionService — confirmCustomerReturnWithCreditNote', () =
       pointOfSaleRepository,
       userRepository,
       transactionsService,
+      // Lock por venta (pg_advisory_xact_lock): basta un runner de mentira.
+      dataSource: {
+        createQueryRunner: jest.fn(() => ({
+          connect: jest.fn().mockResolvedValue(undefined),
+          startTransaction: jest.fn().mockResolvedValue(undefined),
+          query: jest.fn().mockResolvedValue([]),
+          rollbackTransaction: jest.fn().mockResolvedValue(undefined),
+          release: jest.fn().mockResolvedValue(undefined),
+        })),
+      },
       createSaleReturn: jest.fn(),
     });
 
