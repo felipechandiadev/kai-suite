@@ -1,3 +1,4 @@
+import { withAdvisoryLocks } from '@common/advisory-lock.util';
 import {
   BadRequestException,
   Injectable,
@@ -74,6 +75,20 @@ export class VoidSaleService {
       );
     }
 
+    // Serializa por venta: sin esto, dos anulaciones simultáneas creaban dos ajustes de stock
+    // (el stock se restituía dos veces). Comparte clave con las devoluciones de la misma venta.
+    return withAdvisoryLocks(this.dataSource, [`sale-return:${id}`], () =>
+      this.voidLocked(cid, uid, id, reason, dto),
+    );
+  }
+
+  private async voidLocked(
+    cid: string,
+    uid: string,
+    id: string,
+    reason: string,
+    dto: VoidSaleDto,
+  ): Promise<VoidSaleResult> {
     const sale = await this.txRepo.findOne({
       where: {
         id,

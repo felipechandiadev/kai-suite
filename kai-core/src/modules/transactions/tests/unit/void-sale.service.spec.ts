@@ -101,6 +101,14 @@ describe('VoidSaleService', () => {
     };
 
     const dataSource = {
+      // Lock por venta (pg_advisory_xact_lock): basta un runner de mentira.
+      createQueryRunner: jest.fn(() => ({
+        connect: jest.fn().mockResolvedValue(undefined),
+        startTransaction: jest.fn().mockResolvedValue(undefined),
+        query: jest.fn().mockResolvedValue([]),
+        rollbackTransaction: jest.fn().mockResolvedValue(undefined),
+        release: jest.fn().mockResolvedValue(undefined),
+      })),
       transaction: jest.fn(async (fn: (m: typeof manager) => Promise<void>) => {
         await fn(manager);
       }),
