@@ -17,6 +17,7 @@ import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { CancelBackorderDto } from './dto/cancel-backorder.dto';
 import { EshopBackorderSyncService } from './eshop-backorder-sync.service';
+import { withAdvisoryLocks } from '@common/advisory-lock.util';
 
 export type CancelBackorderResult = {
   backorder: {
@@ -59,6 +60,19 @@ export class CancelBackorderService {
       throw new BadRequestException('Usuario requerido para anular el encargo');
     }
 
+    // Dos anulaciones simultáneas (o una anulación y la liquidación del encargo) emitían dos
+    // notas de crédito por el mismo abono: se serializa por encargo.
+    return withAdvisoryLocks(this.dataSource, [`backorder:${id}`], () =>
+      this.cancelLocked(cid, uid, id, dto),
+    );
+  }
+
+  private async cancelLocked(
+    cid: string,
+    uid: string,
+    id: string,
+    dto: CancelBackorderDto,
+  ): Promise<CancelBackorderResult> {
     const backorder = await this.txRepo.findOne({
       where: {
         id,

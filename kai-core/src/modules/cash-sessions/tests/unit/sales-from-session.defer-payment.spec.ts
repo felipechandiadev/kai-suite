@@ -26,6 +26,16 @@ describe('SalesFromSessionService — deferPayment', () => {
     const service = Object.create(SalesFromSessionService.prototype) as SalesFromSessionService;
     Object.assign(service, {
       registerPosCommercial,
+      // Lock por encargo/cuenta: basta un runner de mentira.
+      dataSource: {
+        createQueryRunner: jest.fn(() => ({
+          connect: jest.fn().mockResolvedValue(undefined),
+          startTransaction: jest.fn().mockResolvedValue(undefined),
+          query: jest.fn().mockResolvedValue([]),
+          rollbackTransaction: jest.fn().mockResolvedValue(undefined),
+          release: jest.fn().mockResolvedValue(undefined),
+        })),
+      },
       pointOfSaleRepository,
       companiesService,
       validateSaleDocumentKindForCreate: jest.fn().mockResolvedValue(undefined),

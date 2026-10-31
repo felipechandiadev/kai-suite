@@ -360,13 +360,21 @@ export class SalesFromSessionService {
       typeof createSaleDto.metadata?.diningOrderId === 'string'
         ? createSaleDto.metadata.diningOrderId.trim()
         : '';
+    const backorderId = createSaleDto.fulfillBackorderId?.trim() ?? '';
     // Cobrar dos veces la misma cuenta del salón (doble clic, dos cajas): se serializa por cuenta.
-    if (diningOrderId) {
-      return this.withDocumentLocks('dining-charge', [diningOrderId], () =>
-        this.createSaleUnlocked(createSaleDto, diningOrderId),
+    // Liquidar un encargo comparte lock con su anulación (`backorder:<id>`).
+    const run = () => this.createSaleUnlocked(createSaleDto, diningOrderId);
+    if (backorderId) {
+      return this.withDocumentLocks('backorder', [backorderId], () =>
+        diningOrderId
+          ? this.withDocumentLocks('dining-charge', [diningOrderId], run)
+          : run(),
       );
     }
-    return this.createSaleUnlocked(createSaleDto, '');
+    if (diningOrderId) {
+      return this.withDocumentLocks('dining-charge', [diningOrderId], run);
+    }
+    return run();
   }
 
   /** Rechaza cobrar una cuenta del salón que ya está cerrada, anulada o con una venta vigente. */
