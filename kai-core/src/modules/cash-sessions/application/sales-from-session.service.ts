@@ -7,7 +7,14 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, IsNull, In, type EntityManager } from 'typeorm';
+import {
+  Brackets,
+  Repository,
+  DataSource,
+  IsNull,
+  In,
+  type EntityManager,
+} from 'typeorm';
 import {
   Transaction,
   TransactionType,
@@ -704,6 +711,53 @@ export class SalesFromSessionService {
     }
   }
 
+  /**
+   * Cobro previo "huérfano": el PAYMENT_IN de un cobro quedó registrado pero la venta/cuota no
+   * se actualizó (falló el segundo paso, que no comparte transacción con el primero). Cobrar de
+   * nuevo duplicaría el cobro: se devuelve ese pago para completar la actualización pendiente.
+   * Si los documentos seleccionados no calzan con un único pago previo, se rechaza.
+   */
+  private async findOrphanCollection(
+    source: 'pos_ar_collection' | 'pos_quota_collection',
+    allocationKey: 'saleId' | 'installmentId',
+    ids: string[],
+  ): Promise<{
+    payment: Transaction;
+    allocations: Array<Record<string, any>>;
+  } | null> {
+    const companyId = TenantContext.getCompanyId();
+    if (!companyId || ids.length === 0) return null;
+    const candidates = await this.transactionRepository
+      .createQueryBuilder('t')
+      .where('t.companyId = :companyId', { companyId })
+      .andWhere('t.transactionType = :type', { type: TransactionType.PAYMENT_IN })
+      .andWhere('t.status = :status', { status: TransactionStatus.CONFIRMED })
+      .andWhere("t.metadata::jsonb ->> 'source' = :source", { source })
+      .andWhere(
+        new Brackets((qb) => {
+          ids.forEach((id, i) =>
+            qb.orWhere(`t.metadata::jsonb -> 'allocations' @> :alloc${i}::jsonb`, {
+              [`alloc${i}`]: JSON.stringify([{ [allocationKey]: id }]),
+            }),
+          );
+        }),
+      )
+      .orderBy('t.createdAt', 'ASC')
+      .getMany();
+    if (candidates.length === 0) return null;
+    const payment = candidates[0];
+    const allocations = ((payment.metadata as any)?.allocations ?? []) as Array<
+      Record<string, any>
+    >;
+    const covered = new Set(allocations.map((a) => String(a[allocationKey])));
+    if (candidates.length > 1 || ids.some((id) => !covered.has(id))) {
+      throw new ConflictException(
+        'Existe un cobro previo incompleto para estos documentos. Contacta a administración antes de volver a cobrar.',
+      );
+    }
+    return { payment, allocations };
+  }
+
   async collectPendingSales(dto: CollectPendingSalesDto) {
     return this.withDocumentLocks('collect-sale', dto.saleTransactionIds ?? [], () =>
       this.collectPendingSalesLocked(dto),
@@ -801,6 +855,31 @@ export class SalesFromSessionService {
         documentNumber: sale.documentNumber ?? '',
         amount: due,
       });
+    }
+
+    const orphanSale = await this.findOrphanCollection('pos_ar_collection', 'saleId', saleIds);
+    if (orphanSale) {
+      this.logger.warn(
+        `Cobro previo incompleto ${orphanSale.payment.documentNumber}: se completa la actualización de las ventas.`,
+      );
+      for (const alloc of allocations) {
+        const sale = sales.find((s) => s.id === alloc.saleId);
+        if (!sale) continue;
+        await this.transactionRepository.update(alloc.saleId, {
+          amountPaid: Math.round(Number(sale.total) || 0),
+          paymentStatus: PaymentStatus.PAID,
+        });
+      }
+      return {
+        success: true,
+        reconciled: true,
+        paymentIn: {
+          id: orphanSale.payment.id,
+          documentNumber: orphanSale.payment.documentNumber,
+          total: Number(orphanSale.payment.total),
+        },
+        allocations: orphanSale.allocations,
+      };
     }
 
     const paidTotal = paymentsForCollect.reduce(
@@ -1030,6 +1109,48 @@ export class SalesFromSessionService {
         documentNumber: installment.saleTransaction?.documentNumber ?? '',
         amount: due,
       });
+    }
+
+    const orphanQuota = await this.findOrphanCollection(
+      'pos_quota_collection',
+      'installmentId',
+      installmentIds,
+    );
+    if (orphanQuota) {
+      this.logger.warn(
+        `Cobro previo incompleto ${orphanQuota.payment.documentNumber}: se completa la actualización de las cuotas.`,
+      );
+      await this.dataSource.transaction(async (manager) => {
+        const installmentRepo = manager.getRepository(Installment);
+        const saleIdsToSync = new Set<string>();
+        for (const alloc of allocations) {
+          const installment = installments.find((i) => i.id === alloc.installmentId);
+          if (!installment) continue;
+          const newAmountPaid =
+            Math.round(Number(installment.amountPaid) || 0) + alloc.amount;
+          const total = Math.round(Number(installment.amount) || 0);
+          await installmentRepo.update(alloc.installmentId, {
+            amountPaid: newAmountPaid,
+            paymentTransactionId: orphanQuota.payment.id,
+            status:
+              newAmountPaid >= total ? InstallmentStatus.PAID : InstallmentStatus.PARTIAL,
+          });
+          if (alloc.saleTransactionId?.trim()) saleIdsToSync.add(alloc.saleTransactionId.trim());
+        }
+        for (const saleId of saleIdsToSync) {
+          await this.syncSalePaymentStatusFromInstallments(manager, saleId);
+        }
+      });
+      return {
+        success: true,
+        reconciled: true,
+        paymentIn: {
+          id: orphanQuota.payment.id,
+          documentNumber: orphanQuota.payment.documentNumber,
+          total: Number(orphanQuota.payment.total),
+        },
+        allocations: orphanQuota.allocations,
+      };
     }
 
     const paidTotal = paymentsForCollect.reduce(
