@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconButton } from "@kai/ui";
 import { clearKdsSession, type KdsSession } from "@/lib/app-session";
+import { kdsLogoutAction } from "@/features/dining-kds/actions/kds.action";
+import {
+  kdsConnectionLabel,
+  type KdsConnectionStatus,
+} from "@/features/dining-kds/realtime/kds-connection-state";
 import ChangePasswordDialog from "@/shared/components/Dialog/ChangePasswordDialog";
 import {
   subscribeKdsAlertAudioState,
@@ -20,12 +25,17 @@ export function KdsTopBar({ session, productionUnitLabel }: KdsTopBarProps) {
   const router = useRouter();
   const [audioRunning, setAudioRunning] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-  const { refreshQueue, queueRefreshing, queueConnected } = useKdsQueueRefresh();
+  const { refreshQueue, queueRefreshing, queueConnectionStatus } = useKdsQueueRefresh();
 
   useEffect(() => subscribeKdsAlertAudioState(setAudioRunning), []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     clearKdsSession();
+    try {
+      await kdsLogoutAction();
+    } catch {
+      // las cookies caducan solas; la UI sale igual
+    }
     router.replace("/login");
   };
 
@@ -33,32 +43,35 @@ export function KdsTopBar({ session, productionUnitLabel }: KdsTopBarProps) {
     void unlockAndTestKdsAlertAudio().then(setAudioRunning);
   };
 
-  const live =
-    queueConnected === true
-      ? true
-      : queueConnected === false
-        ? false
-        : null;
+  const live: KdsConnectionStatus | null = queueConnectionStatus;
 
   const unitLabel = productionUnitLabel ?? "Sin unidad";
+
+  const badgeClass: Record<KdsConnectionStatus, string> = {
+    connected: "bg-emerald-500/15 text-emerald-600",
+    connecting: "bg-amber-500/15 text-amber-600",
+    reconnecting: "bg-amber-500/15 text-amber-600 animate-pulse",
+    offline: "bg-red-500/15 text-red-600",
+  };
+  const badgeTitle: Record<KdsConnectionStatus, string> = {
+    connected: "Conectado al tiempo real de cocina",
+    connecting: "Conectando al tiempo real de cocina…",
+    reconnecting: "Conexión perdida — reintentando automáticamente",
+    offline: "Sin conexión en tiempo real — reintentando automáticamente",
+  };
 
   const renderLiveBadge = (testId: string) => {
     if (live === null) return null;
     return (
       <span
-        className={
-          live
-            ? "shrink-0 rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-600"
-            : "shrink-0 rounded bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground"
-        }
+        className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-semibold uppercase ${badgeClass[live]}`}
         data-test-id={testId}
-        title={
-          live
-            ? "Conectado al tiempo real de cocina"
-            : "Sin conexión en tiempo real"
-        }
+        data-status={live}
+        role="status"
+        aria-live="polite"
+        title={badgeTitle[live]}
       >
-        {live ? "En vivo" : "Sin conexión"}
+        {kdsConnectionLabel(live)}
       </span>
     );
   };

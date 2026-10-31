@@ -178,7 +178,7 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
     [productionUnitId, refresh],
   );
 
-  const { connected } = useDiningRealtime({
+  const { connected, status: connectionStatus } = useDiningRealtime({
     userId: session.userId,
     activeCompanyId: session.companyId,
     productionUnitId,
@@ -195,6 +195,7 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
       refresh: refreshFromToolbar,
       loading,
       connected,
+      connectionStatus,
     });
     return () => setQueueRefreshApi(null);
   }, [
@@ -202,6 +203,7 @@ export function KdsQueuePanel({ session, productionUnitId }: KdsQueuePanelProps)
     refreshFromToolbar,
     loading,
     connected,
+    connectionStatus,
     setQueueRefreshApi,
   ]);
 
