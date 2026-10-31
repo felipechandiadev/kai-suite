@@ -1,10 +1,7 @@
 "use server";
 
-import {
-  authHeaders,
-  getServerBackendApiBase,
-  type DiningAuthContext,
-} from "@/lib/backend-api";
+import { authHeaders, getServerBackendApiBase } from "@/lib/backend-api";
+import { requireWaiterAuth } from "@/lib/waiter-auth.server";
 
 function apiUrl(path: string): string {
   return `${getServerBackendApiBase()}/api${path.startsWith("/") ? path : `/${path}`}`;
@@ -28,8 +25,9 @@ function parseApiError(text: string, status: number): string {
 }
 
 export async function changePasswordAction(input: {
-  userId: string;
-  companyId: string;
+  /** Ignorados: la identidad sale de la cookie firmada. */
+  userId?: string;
+  companyId?: string;
   currentPassword: string;
   newPassword: string;
   confirmPassword: string;
@@ -50,16 +48,8 @@ export async function changePasswordAction(input: {
   if (newPassword !== confirmPassword) {
     return { success: false, error: "La confirmación no coincide." };
   }
-  if (!input.userId.trim() || !input.companyId.trim()) {
-    return { success: false, error: "No autenticado." };
-  }
-
-  const ctx: DiningAuthContext = {
-    userId: input.userId.trim(),
-    companyId: input.companyId.trim(),
-  };
-
   try {
+    const ctx = await requireWaiterAuth();
     const res = await fetch(apiUrl("/auth/change-password"), {
       method: "POST",
       headers: authHeaders(ctx),

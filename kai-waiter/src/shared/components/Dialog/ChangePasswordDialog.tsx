@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Alert, Button, Dialog, TextField } from "@kai/ui";
 import { changePasswordAction } from "@/features/auth/actions/change-password.action";
 import { clearWaiterSession } from "@/lib/app-session";
+import { waiterLogoutAction } from "@/features/dining-waiter/actions/waiter.action";
 
 const CHANGE_PASSWORD_FORM_ID = "waiter-change-password-form";
 
@@ -59,6 +60,7 @@ export default function ChangePasswordDialog({
       }
       handleClose();
       clearWaiterSession();
+      await waiterLogoutAction().catch(() => undefined);
       router.replace("/login");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");

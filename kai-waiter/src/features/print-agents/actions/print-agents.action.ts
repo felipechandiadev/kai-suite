@@ -1,6 +1,7 @@
 "use server";
 
-import { diningGet, type DiningAuthContext } from "@/lib/backend-api";
+import { diningGet } from "@/lib/backend-api";
+import { requireWaiterAuth } from "@/lib/waiter-auth.server";
 
 export type WaiterPrintAgentDto = {
   id: string;
@@ -14,14 +15,12 @@ export type WaiterPrintAgentDto = {
   companyName?: string | null;
 };
 
-export async function listPrintAgentsForWaiterAction(body: {
-  userId: string;
-  companyId: string;
+/** `userId`/`companyId` se ignoran: la identidad sale de la cookie firmada. */
+export async function listPrintAgentsForWaiterAction(_body?: {
+  userId?: string;
+  companyId?: string;
 }): Promise<WaiterPrintAgentDto[]> {
-  const ctx: DiningAuthContext = {
-    userId: body.userId,
-    companyId: body.companyId,
-  };
+  const ctx = await requireWaiterAuth();
   const rows = await diningGet<Array<Record<string, unknown>>>(
     "/print-agents",
     ctx,

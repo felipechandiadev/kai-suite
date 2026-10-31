@@ -6,6 +6,7 @@ import { IconButton } from "@kai/ui";
 import { WaiterNotificationsBell } from "@/features/notifications/ui/WaiterNotificationsBell";
 import { ensureWaiterWebPushSubscription } from "@/features/notifications/lib/web-push-subscribe";
 import { clearWaiterSession, type WaiterSession } from "@/lib/app-session";
+import { waiterLogoutAction } from "@/features/dining-waiter/actions/waiter.action";
 import ChangePasswordDialog from "@/shared/components/Dialog/ChangePasswordDialog";
 
 type WaiterTopBarProps = {
@@ -23,8 +24,13 @@ export function WaiterTopBar({ session }: WaiterTopBarProps) {
     });
   }, [session.userId, session.companyId]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     clearWaiterSession();
+    try {
+      await waiterLogoutAction();
+    } catch {
+      // las cookies caducan solas; la UI sale igual
+    }
     router.replace("/login");
   };
 
