@@ -373,6 +373,9 @@ export class SalesFromSessionService {
       ...(diningOrderId ? [`dining-charge:${diningOrderId}`] : []),
       ...(backorderId ? [`backorder:${backorderId}`] : []),
       ...presaleTicketIds.map((id) => `presale-ticket:${id}`),
+      // Una nota de crédito o un abono de encargo usados como medio de pago se descuentan
+      // leyendo y reescribiendo su saldo: dos ventas simultáneas lo gastaban dos veces.
+      ...this.paymentSourceLockKeys(createSaleDto.payments),
     ];
     const run = () => this.createSaleUnlocked(createSaleDto, diningOrderId);
     return lockKeys.length > 0 ? this.withKeyLocks(lockKeys, run) : run();
@@ -752,6 +755,20 @@ export class SalesFromSessionService {
    * o cuota (doble clic, dos cajas) cobrarían dos veces la misma deuda. El lock lo retiene una
    * conexión aparte hasta que termina `fn`; el segundo cobro espera y vuelve a leer el saldo.
    */
+  /** Claves de lock de las fuentes de pago (nota de crédito, abono de encargo) de una venta o cobro. */
+  private paymentSourceLockKeys(
+    payments: Array<{ creditNoteTransactionId?: string; backorderTransactionId?: string }> | null | undefined,
+  ): string[] {
+    const keys: string[] = [];
+    for (const p of payments ?? []) {
+      const nc = p.creditNoteTransactionId?.trim();
+      const bo = p.backorderTransactionId?.trim();
+      if (nc) keys.push(`credit-note:${nc}`);
+      if (bo) keys.push(`backorder:${bo}`);
+    }
+    return keys;
+  }
+
   private async withDocumentLocks<T>(
     scope: string,
     ids: string[],
@@ -842,8 +859,12 @@ export class SalesFromSessionService {
   }
 
   async collectPendingSales(dto: CollectPendingSalesDto) {
-    return this.withDocumentLocks('collect-sale', dto.saleTransactionIds ?? [], () =>
-      this.collectPendingSalesLocked(dto),
+    return this.withKeyLocks(
+      [
+        ...(dto.saleTransactionIds ?? []).map((id) => `collect-sale:${id?.trim()}`),
+        ...this.paymentSourceLockKeys(dto.payments),
+      ],
+      () => this.collectPendingSalesLocked(dto),
     );
   }
 
@@ -1102,8 +1123,12 @@ export class SalesFromSessionService {
   }
 
   async collectPendingQuotas(dto: CollectPendingQuotasDto) {
-    return this.withDocumentLocks('collect-quota', dto.installmentIds ?? [], () =>
-      this.collectPendingQuotasLocked(dto),
+    return this.withKeyLocks(
+      [
+        ...(dto.installmentIds ?? []).map((id) => `collect-quota:${id?.trim()}`),
+        ...this.paymentSourceLockKeys(dto.payments),
+      ],
+      () => this.collectPendingQuotasLocked(dto),
     );
   }
 
@@ -1439,6 +1464,14 @@ export class SalesFromSessionService {
    * Transacción CUSTOMER_CREDIT_NOTE_PAYOUT; el efectivo sale de caja (ver expected-amount util).
    */
   async payoutCustomerCreditNotes(dto: PayoutCustomerCreditNotesDto) {
+    // Devolver en efectivo una nota de crédito comparte lock con su uso como medio de pago.
+    return this.withKeyLocks(
+      (dto.creditNoteTransactionIds ?? []).map((id) => `credit-note:${id?.trim()}`),
+      () => this.payoutCustomerCreditNotesLocked(dto),
+    );
+  }
+
+  private async payoutCustomerCreditNotesLocked(dto: PayoutCustomerCreditNotesDto) {
     const customerId = dto.customerId.trim();
     const ncIds = [
       ...new Set(

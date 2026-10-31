@@ -1,3 +1,4 @@
+import { withAdvisoryLocks } from '@common/advisory-lock.util';
 import {
   BadRequestException,
   Injectable,
@@ -107,6 +108,20 @@ export class ReceptionVoidService {
       );
     }
 
+    // Serializa por recepción: sin esto, dos anulaciones simultáneas creaban dos ajustes de
+    // salida de stock antes de que la segunda detectara que ya estaba anulada.
+    return withAdvisoryLocks(this.dataSource, [`reception-void:${id}`], () =>
+      this.voidLocked(cid, uid, id, reason, dto),
+    );
+  }
+
+  private async voidLocked(
+    cid: string,
+    uid: string,
+    id: string,
+    reason: string,
+    dto: VoidReceptionDto,
+  ): Promise<VoidReceptionResult> {
     const reception = await this.receptionRepo.findOne({
       where: { id, companyId: cid },
     });

@@ -223,4 +223,40 @@ describe('Venta POS: pagos vs total (BD real)', () => {
     const [t] = await ds.query(`SELECT status::text AS status FROM presale_tickets WHERE id=$1`, [ticketId]);
     expect(t.status).toBe('REDEEMED');
   });
+
+  it('una nota de crédito usada como medio de pago en ventas simultáneas se consume una sola vez', async () => {
+    const [{ id: customerId }] = await ds.query(`SELECT id FROM customers LIMIT 1`);
+    const [{ id: ncId }] = await ds.query(
+      `INSERT INTO transactions ("transactionType", status, company_id, "branchId", "userId", "customerId",
+         subtotal, total, "amountPaid", "documentNumber", metadata)
+       VALUES ('CUSTOMER_CREDIT_NOTE'::transactions_transactiontype_enum, 'CONFIRMED', $1, $2, $3, $4, 1000, 1000, 0, $5, $6::json)
+       RETURNING id`,
+      [
+        base.companyId,
+        base.branchId,
+        base.userId,
+        customerId,
+        `NC-${randomUUID().slice(0, 8)}`,
+        JSON.stringify({ origin: 'CUSTOMER_CREDIT_NOTE' }),
+      ],
+    );
+    const variants: Array<Awaited<ReturnType<typeof stocked>>> = [];
+    for (let i = 0; i < 6; i++) variants.push(await stocked(1000));
+    const results = await Promise.allSettled(
+      variants.map((v) =>
+        sale(v.variantId, {
+          customerId,
+          metadata: { clientOperationId: randomUUID() },
+          payments: [
+            { paymentMethod: 'CUSTOMER_CREDIT_NOTE', amount: 1000, creditNoteTransactionId: ncId },
+          ],
+          amountPaid: 1000,
+          changeAmount: 0,
+        }),
+      ),
+    );
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    const [nc] = await ds.query(`SELECT metadata FROM transactions WHERE id=$1`, [ncId]);
+    expect(nc.metadata.creditNote.consumedAmount).toBe(1000);
+  });
 });

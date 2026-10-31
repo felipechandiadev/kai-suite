@@ -139,6 +139,14 @@ describe('ReceptionVoidService', () => {
       }),
     };
     const dataSource: any = {
+      // Lock por recepción (pg_advisory_xact_lock): basta un runner de mentira.
+      createQueryRunner: jest.fn(() => ({
+        connect: jest.fn().mockResolvedValue(undefined),
+        startTransaction: jest.fn().mockResolvedValue(undefined),
+        query: jest.fn().mockResolvedValue([]),
+        rollbackTransaction: jest.fn().mockResolvedValue(undefined),
+        release: jest.fn().mockResolvedValue(undefined),
+      })),
       getRepository: jest.fn((entity: { name?: string }) => {
         switch (entity?.name) {
           case 'StockLevel':

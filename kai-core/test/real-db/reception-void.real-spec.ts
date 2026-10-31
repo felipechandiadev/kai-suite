@@ -174,4 +174,22 @@ describe('Recepción de compra → anulación (BD real)', () => {
     expect(received).toContain(vigente.id);
     expect(received).not.toContain(anulada.id);
   });
+
+  it('anulaciones simultáneas de la misma recepción descuentan el stock una sola vez', async () => {
+    const supplierId = await createSupplier(ds, base);
+    const { variantId } = await createPhysicalVariant(ds, base);
+    const rec: any = await receive(variantId, supplierId, 10, 100, 'F-6001');
+    // Stock extra de otra recepción para que un descuento doble no sea rechazado por falta de stock
+    await receive(variantId, supplierId, 10, 100, 'F-6002');
+    await waitForStock(ds, variantId, base.storageId, 20);
+    const voidIt = () =>
+      asCompany(base, () =>
+        voider.void(base.companyId, base.userId, rec.id, { reason: 'Concurrente' } as any),
+      );
+    const results = await Promise.allSettled(Array.from({ length: 4 }, () => voidIt()));
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    await waitForStock(ds, variantId, base.storageId, 10);
+    await new Promise((r) => setTimeout(r, 400));
+    expect(await physicalStock(ds, variantId, base.storageId)).toBe(10);
+  });
 });
