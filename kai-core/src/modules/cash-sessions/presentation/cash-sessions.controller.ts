@@ -95,7 +95,13 @@ export class CashSessionsController {
    * Now delegates to TransactionsService for CASH_SESSION_OPENING
    */
   @Post()
-  async open(@Body() openDto: OpenCashSessionDto) {
+  async open(
+    @Body() openDto: OpenCashSessionDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    // La caja se abre a nombre de quien está autenticado.
+    openDto.userId = user.id;
+    openDto.userName = user.userName;
     return this.coreService.open(openDto);
   }
 

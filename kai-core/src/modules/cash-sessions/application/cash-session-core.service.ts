@@ -260,6 +260,15 @@ export class CashSessionCoreService {
    * 4. Delegar a TransactionsService para crear transacción con asientos
    */
   async open(openDto: OpenCashSessionDto) {
+    // Serializa aperturas del mismo punto de venta (doble clic, dos equipos) y las que toman
+    // efectivo del mismo centro: sin esto se abrían sesiones duplicadas y se debitaba dos veces.
+    const hubId = typeof openDto.cashHubId === 'string' ? openDto.cashHubId.trim() : '';
+    const keys = [`cash-session-open:${openDto.pointOfSaleId}`];
+    if (hubId) keys.push(`cash-hub:${hubId}`);
+    return this.withAdvisoryLocks(keys, () => this.openLocked(openDto));
+  }
+
+  private async openLocked(openDto: OpenCashSessionDto) {
     const { userId, userName, pointOfSaleId, openingAmount } = openDto;
     const cashHubId =
       typeof openDto.cashHubId === 'string' ? openDto.cashHubId.trim() : '';
@@ -339,7 +348,7 @@ export class CashSessionCoreService {
     }
 
     // Crear sesión en transacción atómica
-    const result = await this.dataSource.transaction(async (manager) => {
+    const sessionResult = await this.dataSource.transaction(async (manager) => {
       const cashSessionRepo = manager.getRepository(CashSession);
 
       // Verificar que no haya sesión abierta
@@ -358,7 +367,7 @@ export class CashSessionCoreService {
           );
         }
         // Si es el mismo usuario, permitir que continúe retornando la sesión existente
-        return existingOpenSession;
+        return { session: existingOpenSession, created: false };
       }
 
       const openedAt = new Date();
@@ -371,11 +380,13 @@ export class CashSessionCoreService {
         status: CashSessionStatus.OPEN,
       });
 
-      return await cashSessionRepo.save(newSession);
+      return { session: await cashSessionRepo.save(newSession), created: true };
     });
+    const { session: result, created } = sessionResult;
 
-    // create an actual opening transaction so movements list can show it
-    try {
+    // Transacción de apertura (lista de movimientos y débito del centro de efectivo): solo al
+    // crear la sesión. Reabrir una sesión existente no debe volver a debitar el centro.
+    if (created) try {
       const txDto = new CreateTransactionDto();
       txDto.transactionType = TransactionType.CASH_SESSION_OPENING;
       txDto.branchId = pointOfSale.branchId || '';
@@ -409,7 +420,22 @@ export class CashSessionCoreService {
       this.logger.warn(
         `Opening transaction for session ${result.id} failed: ${txErr}`,
       );
-      // don't block session creation; caller can retry or handle missing movement later
+      if (cashHubId && openingNum > 0.0001) {
+        // El efectivo salía del centro con esta transacción: sin ella la caja quedaría con
+        // dinero que el centro no descontó. Se deshace la apertura y se informa el error.
+        await this.cashSessionRepository.update(
+          { id: result.id },
+          {
+            status: CashSessionStatus.CLOSED,
+            closedAt: new Date(),
+            notes: 'Apertura fallida: no se pudo registrar el traslado desde el centro de efectivo',
+          },
+        );
+        throw new BadRequestException(
+          'No se pudo registrar el traslado de apertura desde el centro de efectivo. La caja no se abrió.',
+        );
+      }
+      // Sin monto desde un centro es solo el registro del listado: no bloquea la apertura.
     }
 
     // Cargar validatedUser con su relación person para incluirla en la respuesta
