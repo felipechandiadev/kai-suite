@@ -20,7 +20,9 @@ export class SyncCashMovementHandler {
     const result =
       dto.direction === 'DEPOSIT'
         ? await this.cashSessionsService.registerCashDeposit(input)
-        : await this.cashSessionsService.registerCashWithdrawal(input);
+        : await this.cashSessionsService.registerCashWithdrawal(input, {
+            skipBalanceCheck: true,
+          });
 
     return {
       success: true,

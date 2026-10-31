@@ -1,3 +1,5 @@
+import { withAdvisoryLocks } from '@common/advisory-lock.util';
+import { assertCashSessionOperableByUser } from '../domain/assert-cash-session-operable-by-user';
 import {
   Injectable,
   NotFoundException,
@@ -876,108 +878,147 @@ export class CashSessionsService {
   async registerCashDeposit(input: any) {
     const { userName, pointOfSaleId, cashSessionId, amount, reason } = input;
 
-    return await this.dataSource.transaction(async (manager) => {
-      const session = await manager
-        .getRepository(CashSession)
-        .findOne({ where: { id: cashSessionId } });
-      if (!session) throw new NotFoundException('Sesión de caja no encontrada');
+    // Comparte lock con el cierre y los traslados al centro de efectivo de la misma sesión.
+    return await withAdvisoryLocks(
+      this.dataSource,
+      [`cash-session:${cashSessionId}`],
+      () =>
+        this.dataSource.transaction(async (manager) => {
+          const session = await manager
+            .getRepository(CashSession)
+            .findOne({ where: { id: cashSessionId } });
+          if (!session)
+            throw new NotFoundException('Sesión de caja no encontrada');
 
-      const user = await manager
-        .getRepository(User)
-        .findOne({ where: { userName, deletedAt: IsNull() } });
-      if (!user) throw new NotFoundException('Usuario no encontrado');
+          const user = await manager
+            .getRepository(User)
+            .findOne({ where: { userName, deletedAt: IsNull() } });
+          if (!user) throw new NotFoundException('Usuario no encontrado');
+          assertCashSessionOperableByUser(session, {
+            userId: user.id,
+            pointOfSaleId: session.pointOfSaleId ?? pointOfSaleId,
+          });
 
-      // create transaction
-      const transaction = manager.getRepository(Transaction).create({
-        transactionType: TransactionType.CASH_SESSION_DEPOSIT,
-        status: TransactionStatus.CONFIRMED,
-        pointOfSaleId: session.pointOfSaleId || pointOfSaleId,
-        cashSessionId: session.id,
-        userId: user.id,
-        subtotal: amount,
-        total: amount,
-        paymentMethod: PaymentMethod.CASH,
-        documentNumber: await this.generateDocumentNumber(
-          manager,
-          session.pointOfSaleId || pointOfSaleId,
-          TransactionType.CASH_SESSION_DEPOSIT,
-        ),
-        metadata: { reason },
-      });
+          // create transaction
+          const transaction = manager.getRepository(Transaction).create({
+            transactionType: TransactionType.CASH_SESSION_DEPOSIT,
+            status: TransactionStatus.CONFIRMED,
+            pointOfSaleId: session.pointOfSaleId || pointOfSaleId,
+            cashSessionId: session.id,
+            userId: user.id,
+            subtotal: amount,
+            total: amount,
+            paymentMethod: PaymentMethod.CASH,
+            documentNumber: await this.generateDocumentNumber(
+              manager,
+              session.pointOfSaleId || pointOfSaleId,
+              TransactionType.CASH_SESSION_DEPOSIT,
+            ),
+            metadata: { reason },
+          });
 
-      const saved = await manager.getRepository(Transaction).save(transaction);
+          const saved = await manager
+            .getRepository(Transaction)
+            .save(transaction);
 
-      // Recalculate expected amount
-      session.expectedAmount = await this.recomputeCashSessionExpectedAmount(
-        manager,
-        session,
-      );
-      await manager.getRepository(CashSession).save(session);
+          // Recalculate expected amount
+          session.expectedAmount =
+            await this.recomputeCashSessionExpectedAmount(manager, session);
+          await manager.getRepository(CashSession).save(session);
 
-      return {
-        success: true,
-        transaction: {
-          id: saved.id,
-          documentNumber: saved.documentNumber,
-          createdAt: saved.createdAt,
-          total: saved.total,
-        },
-        expectedAmount: session.expectedAmount,
-      };
-    });
+          return {
+            success: true,
+            transaction: {
+              id: saved.id,
+              documentNumber: saved.documentNumber,
+              createdAt: saved.createdAt,
+              total: saved.total,
+            },
+            expectedAmount: session.expectedAmount,
+          };
+        }),
+    );
   }
 
-  async registerCashWithdrawal(input: any) {
+  /**
+   * `opts.skipBalanceCheck`: la sincronización offline registra un retiro que ya ocurrió en el
+   * local, aunque las ventas que lo respaldan aún no hayan sincronizado; no se puede rechazar.
+   */
+  async registerCashWithdrawal(
+    input: any,
+    opts?: { skipBalanceCheck?: boolean },
+  ) {
     const { userName, pointOfSaleId, cashSessionId, amount, reason } = input;
 
-    return await this.dataSource.transaction(async (manager) => {
-      const session = await manager
-        .getRepository(CashSession)
-        .findOne({ where: { id: cashSessionId } });
-      if (!session) throw new NotFoundException('Sesión de caja no encontrada');
+    return await withAdvisoryLocks(
+      this.dataSource,
+      [`cash-session:${cashSessionId}`],
+      () =>
+        this.dataSource.transaction(async (manager) => {
+          const session = await manager
+            .getRepository(CashSession)
+            .findOne({ where: { id: cashSessionId } });
+          if (!session)
+            throw new NotFoundException('Sesión de caja no encontrada');
 
-      const user = await manager
-        .getRepository(User)
-        .findOne({ where: { userName, deletedAt: IsNull() } });
-      if (!user) throw new NotFoundException('Usuario no encontrado');
+          const user = await manager
+            .getRepository(User)
+            .findOne({ where: { userName, deletedAt: IsNull() } });
+          if (!user) throw new NotFoundException('Usuario no encontrado');
+          assertCashSessionOperableByUser(session, {
+            userId: user.id,
+            pointOfSaleId: session.pointOfSaleId ?? pointOfSaleId,
+          });
+          if (!opts?.skipBalanceCheck) {
+            const available = await this.recomputeCashSessionExpectedAmount(
+              manager,
+              session,
+            );
+            if (Number(amount) > available + 0.0001) {
+              throw new BadRequestException(
+                `Efectivo insuficiente en la sesión (disponible: ${available})`,
+              );
+            }
+          }
 
-      const transaction = manager.getRepository(Transaction).create({
-        transactionType: TransactionType.CASH_SESSION_WITHDRAWAL,
-        status: TransactionStatus.CONFIRMED,
-        pointOfSaleId: session.pointOfSaleId || pointOfSaleId,
-        cashSessionId: session.id,
-        userId: user.id,
-        subtotal: amount,
-        total: amount,
-        paymentMethod: PaymentMethod.CASH,
-        documentNumber: await this.generateDocumentNumber(
-          manager,
-          session.pointOfSaleId || pointOfSaleId,
-          TransactionType.CASH_SESSION_WITHDRAWAL,
-        ),
-        metadata: { reason },
-      });
+          const transaction = manager.getRepository(Transaction).create({
+            transactionType: TransactionType.CASH_SESSION_WITHDRAWAL,
+            status: TransactionStatus.CONFIRMED,
+            pointOfSaleId: session.pointOfSaleId || pointOfSaleId,
+            cashSessionId: session.id,
+            userId: user.id,
+            subtotal: amount,
+            total: amount,
+            paymentMethod: PaymentMethod.CASH,
+            documentNumber: await this.generateDocumentNumber(
+              manager,
+              session.pointOfSaleId || pointOfSaleId,
+              TransactionType.CASH_SESSION_WITHDRAWAL,
+            ),
+            metadata: { reason },
+          });
 
-      const saved = await manager.getRepository(Transaction).save(transaction);
+          const saved = await manager
+            .getRepository(Transaction)
+            .save(transaction);
 
-      // Recalculate expected amount
-      session.expectedAmount = await this.recomputeCashSessionExpectedAmount(
-        manager,
-        session,
-      );
-      await manager.getRepository(CashSession).save(session);
+          // Recalculate expected amount
+          session.expectedAmount =
+            await this.recomputeCashSessionExpectedAmount(manager, session);
+          await manager.getRepository(CashSession).save(session);
 
-      return {
-        success: true,
-        transaction: {
-          id: saved.id,
-          documentNumber: saved.documentNumber,
-          createdAt: saved.createdAt,
-          total: saved.total,
-        },
-        expectedAmount: session.expectedAmount,
-      };
-    });
+          return {
+            success: true,
+            transaction: {
+              id: saved.id,
+              documentNumber: saved.documentNumber,
+              createdAt: saved.createdAt,
+              total: saved.total,
+            },
+            expectedAmount: session.expectedAmount,
+          };
+        }),
+    );
   }
 
   async closeCashSession(input: any) {

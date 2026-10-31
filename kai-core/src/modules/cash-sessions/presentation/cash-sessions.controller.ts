@@ -205,7 +205,11 @@ export class CashSessionsController {
    * Potentially use CapitalContributionsService or CashDepositsService
    */
   @Post('cash-deposits')
-  async registerCashDeposit(@Body() dto: RegisterCashMovementDto) {
+  async registerCashDeposit(
+    @Body() dto: RegisterCashMovementDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    dto.userName = user.userName;
     return this.cashSessionsService.registerCashDeposit(dto);
   }
 
@@ -213,7 +217,11 @@ export class CashSessionsController {
    * TODO: Deprecated - Analyze if needed
    */
   @Post('cash-withdrawals')
-  async registerCashWithdrawal(@Body() dto: RegisterCashMovementDto) {
+  async registerCashWithdrawal(
+    @Body() dto: RegisterCashMovementDto,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    dto.userName = user.userName;
     return this.cashSessionsService.registerCashWithdrawal(dto);
   }
 
