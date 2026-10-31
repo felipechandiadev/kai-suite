@@ -2213,6 +2213,20 @@ export class SalesFromSessionService {
       let serverAppliedPromotions: AppliedSnapshot[] = [];
       let reservedPromotionIds: string[] = [];
 
+      if (clientSnapshot.length === 0 && !isSaleReturn) {
+        // Todo descuento debe venir de una promoción que el servidor pueda recalcular;
+        // un descuento suelto en la línea no se puede verificar (y cualquiera podría
+        // enviar hasta el 100%).
+        const looseDiscount = transactionLines.find(
+          (tl) => (Number(tl.discountAmount) || 0) > 0,
+        );
+        if (looseDiscount) {
+          throw new BadRequestException(
+            'Solo se aceptan descuentos que provengan de una promoción vigente (falta promotionSnapshot).',
+          );
+        }
+      }
+
       if (clientSnapshot.length > 0) {
         const effective = await this.promotionsService.findEffective(
           companyId,
@@ -2671,6 +2685,17 @@ export class SalesFromSessionService {
             ...(customerSnapshot ? { customerSnapshot } : {}),
           }
         : undefined;
+
+      if (isSale && !isBackorder && !deferPayment && paymentsUsed.length > 0) {
+        // Una venta se registra como pagada con lo que realmente se cobró: sin este control,
+        // `amountPaid` del cliente marcaba PAID una venta con pagos menores al total.
+        const receivedSum = paymentsUsed.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+        if (receivedSum + 1 < total) {
+          throw new BadRequestException(
+            `El total pagado (${Math.round(receivedSum)}) es menor al total de la venta (${Math.round(total)}).`,
+          );
+        }
+      }
 
       if (immediateReturnRefund) {
         const paidSum = paymentsUsed.reduce(
