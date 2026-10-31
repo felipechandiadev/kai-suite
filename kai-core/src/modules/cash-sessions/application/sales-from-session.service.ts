@@ -679,7 +679,38 @@ export class SalesFromSessionService {
    * Cobro consolidado de ventas POS con saldo pendiente (cuenta por cobrar).
    * Un PAYMENT_IN con allocations en metadata; no crea ventas nuevas.
    */
+  /**
+   * Serializa operaciones sobre los mismos documentos: dos cobros simultáneos de la misma venta
+   * o cuota (doble clic, dos cajas) cobrarían dos veces la misma deuda. El lock lo retiene una
+   * conexión aparte hasta que termina `fn`; el segundo cobro espera y vuelve a leer el saldo.
+   */
+  private async withDocumentLocks<T>(
+    scope: string,
+    ids: string[],
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const keys = [...new Set(ids.map((id) => id?.trim()).filter(Boolean))].sort();
+    const runner = this.dataSource.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+    try {
+      for (const id of keys) {
+        await runner.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${scope}:${id}`]);
+      }
+      return await fn();
+    } finally {
+      await runner.rollbackTransaction().catch(() => undefined);
+      await runner.release();
+    }
+  }
+
   async collectPendingSales(dto: CollectPendingSalesDto) {
+    return this.withDocumentLocks('collect-sale', dto.saleTransactionIds ?? [], () =>
+      this.collectPendingSalesLocked(dto),
+    );
+  }
+
+  private async collectPendingSalesLocked(dto: CollectPendingSalesDto) {
     const customerId = dto.customerId.trim();
     const saleIds = [
       ...new Set(
@@ -908,6 +939,12 @@ export class SalesFromSessionService {
   }
 
   async collectPendingQuotas(dto: CollectPendingQuotasDto) {
+    return this.withDocumentLocks('collect-quota', dto.installmentIds ?? [], () =>
+      this.collectPendingQuotasLocked(dto),
+    );
+  }
+
+  private async collectPendingQuotasLocked(dto: CollectPendingQuotasDto) {
     const customerId = dto.customerId.trim();
     const installmentIds = [
       ...new Set(
