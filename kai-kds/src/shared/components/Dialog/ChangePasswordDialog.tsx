@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Alert, Button, Dialog, TextField } from "@kai/ui";
 import { changePasswordAction } from "@/features/auth/actions/change-password.action";
 import { clearKdsSession } from "@/lib/app-session";
+import { kdsLogoutAction } from "@/features/dining-kds/actions/kds.action";
 
 const CHANGE_PASSWORD_FORM_ID = "kds-change-password-form";
 
@@ -59,6 +60,7 @@ export default function ChangePasswordDialog({
       }
       handleClose();
       clearKdsSession();
+      await kdsLogoutAction().catch(() => undefined);
       router.replace("/login");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");

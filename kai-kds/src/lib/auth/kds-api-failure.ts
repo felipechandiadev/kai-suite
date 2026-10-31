@@ -1,6 +1,7 @@
 "use client";
 
 import { clearKdsSession } from "@/lib/app-session";
+import { kdsLogoutAction } from "@/features/dining-kds/actions/kds.action";
 
 let redirecting = false;
 
@@ -24,6 +25,7 @@ export function isUnauthorizedKdsFailure(error: unknown): boolean {
     m.includes("sesión inválida") ||
     m.includes("sesion invalida") ||
     m.includes("no autenticado") ||
+    m.includes("sesión expirada") ||
     m.includes("token de autenticación") ||
     m.includes("unauthorized") ||
     m.includes("http 401")
@@ -40,7 +42,10 @@ export function redirectToLoginIfUnauthorized(error: unknown): boolean {
   redirecting = true;
   clearKdsSession();
   if (typeof window !== "undefined") {
-    window.location.replace("/login");
+    // Borra cookies httpOnly (si quedaron) antes de ir a login.
+    void kdsLogoutAction()
+      .catch(() => undefined)
+      .finally(() => window.location.replace("/login"));
   }
   return true;
 }

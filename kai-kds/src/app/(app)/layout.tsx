@@ -8,7 +8,8 @@ import {
   useKdsStation,
 } from "@/features/dining-kds/station/kds-station-context";
 import { KdsQueueRefreshProvider } from "@/features/dining-kds/station/kds-queue-refresh-context";
-import { loadKdsSession, type KdsSession } from "@/lib/app-session";
+import { clearKdsSession, loadKdsSession, type KdsSession } from "@/lib/app-session";
+import { hasKdsAuthAction } from "@/features/dining-kds/actions/kds.action";
 
 function KdsAppChrome({ children }: { children: React.ReactNode }) {
   const { session, productionUnitLabel } = useKdsStation();
@@ -27,13 +28,29 @@ export default function KdsAppLayout({ children }: { children: React.ReactNode }
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     const current = loadKdsSession();
-    setHydrated(true);
     if (!current) {
+      setHydrated(true);
       router.replace("/login");
       return;
     }
-    setSession(current);
+    // localStorage es solo presentación: la sesión real es la cookie httpOnly firmada.
+    void hasKdsAuthAction()
+      .catch(() => false)
+      .then((ok) => {
+        if (cancelled) return;
+        setHydrated(true);
+        if (!ok) {
+          clearKdsSession();
+          router.replace("/login");
+          return;
+        }
+        setSession(current);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   if (!hydrated || !session) {
