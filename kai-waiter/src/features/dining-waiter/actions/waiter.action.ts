@@ -1,6 +1,11 @@
 "use server";
 
-import { diningLogin, type DiningAuthContext } from "@/lib/backend-api";
+import { diningLogin } from "@/lib/backend-api";
+import {
+  clearWaiterAuthCookies,
+  requireWaiterAuth,
+  setWaiterAuthCookies,
+} from "@/lib/waiter-auth.server";
 import { DiningRequest } from "../infrastructure/dining.request";
 
 export type WaiterLoginResult = {
@@ -11,81 +16,82 @@ export type WaiterLoginResult = {
   displayName: string;
 };
 
-function ctx(body: { userId: string; companyId: string }): DiningAuthContext {
-  return { userId: body.userId, companyId: body.companyId };
-}
+/**
+ * `userId`/`companyId` en el cuerpo de las acciones son legado de la UI y se IGNORAN:
+ * la identidad sale siempre de la cookie httpOnly firmada (requireWaiterAuth).
+ */
+type LegacyIdentity = { userId?: string; companyId?: string };
 
 export async function waiterLoginAction(body: {
   userName: string;
   password: string;
   companyId: string;
 }): Promise<WaiterLoginResult> {
-  return diningLogin(body);
+  const { tokens, ...session } = await diningLogin(body);
+  await setWaiterAuthCookies(tokens);
+  return session;
 }
 
-export async function listDiningRoomsAction(body: {
-  userId: string;
-  companyId: string;
-}) {
-  return DiningRequest.listRooms(ctx(body));
+/** true si hay cookie firmada utilizable (refresca si hace falta). */
+export async function hasWaiterAuthAction(): Promise<boolean> {
+  try {
+    await requireWaiterAuth();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-export async function getDiningRoomAction(body: {
-  userId: string;
-  companyId: string;
+export async function waiterLogoutAction(): Promise<void> {
+  await clearWaiterAuthCookies();
+}
+
+export async function listDiningRoomsAction(body: LegacyIdentity = {}) {
+  return DiningRequest.listRooms(await requireWaiterAuth());
+}
+
+export async function getDiningRoomAction(body: LegacyIdentity & {
   roomId: string;
 }) {
-  return DiningRequest.getRoom(ctx(body), body.roomId);
+  return DiningRequest.getRoom(await requireWaiterAuth(), body.roomId);
 }
 
-export async function listActiveDiningOrdersAction(body: {
-  userId: string;
-  companyId: string;
+export async function listActiveDiningOrdersAction(body: LegacyIdentity & {
   branchId?: string;
 }) {
-  return DiningRequest.listActiveOrders(ctx(body), body.branchId);
+  return DiningRequest.listActiveOrders(await requireWaiterAuth(), body.branchId);
 }
 
-export async function getDiningOrderAction(body: {
-  userId: string;
-  companyId: string;
+export async function getDiningOrderAction(body: LegacyIdentity & {
   orderId: string;
 }) {
-  return DiningRequest.getOrder(ctx(body), body.orderId);
+  return DiningRequest.getOrder(await requireWaiterAuth(), body.orderId);
 }
 
-export async function openTableOrderAction(body: {
-  userId: string;
-  companyId: string;
+export async function openTableOrderAction(body: LegacyIdentity & {
   branchId: string;
   diningTableId: string;
 }) {
-  return DiningRequest.openTable(ctx(body), {
+  return DiningRequest.openTable(await requireWaiterAuth(), {
     branchId: body.branchId,
     diningTableId: body.diningTableId,
   });
 }
 
-export async function getDiningNumberingSettingsAction(body: {
-  userId: string;
-  companyId: string;
+export async function getDiningNumberingSettingsAction(body: LegacyIdentity & {
   branchId: string;
 }) {
-  return DiningRequest.getNumberingSettings(ctx(body), body.branchId);
+  return DiningRequest.getNumberingSettings(await requireWaiterAuth(), body.branchId);
 }
 
-export async function resolveWaiterBranchCatalogContextAction(body: {
-  userId: string;
-  companyId: string;
+export async function resolveWaiterBranchCatalogContextAction(body: LegacyIdentity & {
   branchId: string;
 }) {
-  return DiningRequest.resolveBranchCatalogContext(ctx(body), body.branchId);
+  return DiningRequest.resolveBranchCatalogContext(await requireWaiterAuth(), body.branchId);
 }
 
 /** Búsqueda + CTP en una sola Server Action (el cliente las ejecuta en serie). */
-export async function loadWaiterMenuPageAction(body: {
-  userId: string;
-  companyId: string;
+export async function loadWaiterMenuPageAction(body: LegacyIdentity & {
   priceListId: string;
   branchId?: string;
   pointOfSaleId?: string | null;
@@ -94,7 +100,7 @@ export async function loadWaiterMenuPageAction(body: {
   page?: number;
   pageSize?: number;
 }) {
-  const auth = ctx(body);
+  const auth = await requireWaiterAuth();
   const res = await DiningRequest.searchPosMenuProducts(auth, {
     priceListId: body.priceListId,
     branchId: body.branchId,
@@ -122,26 +128,22 @@ export async function loadWaiterMenuPageAction(body: {
   return { ...res, ctpByVariantId };
 }
 
-export async function lookupWaiterVariantsAction(body: {
-  userId: string;
-  companyId: string;
+export async function lookupWaiterVariantsAction(body: LegacyIdentity & {
   variantIds: string[];
   branchId?: string;
   priceListId?: string | null;
   pointOfSaleId?: string | null;
 }) {
-  return DiningRequest.lookupVariants(ctx(body), body);
+  return DiningRequest.lookupVariants(await requireWaiterAuth(), body);
 }
 
-export async function addOrderItemsAction(body: {
-  userId: string;
-  companyId: string;
+export async function addOrderItemsAction(body: LegacyIdentity & {
   orderId: string;
   productVariantId: string;
   quantity?: number;
   notes?: string;
 }) {
-  return DiningRequest.addItems(ctx(body), body.orderId, [
+  return DiningRequest.addItems(await requireWaiterAuth(), body.orderId, [
     {
       productVariantId: body.productVariantId,
       quantity: body.quantity ?? 1,
@@ -150,104 +152,83 @@ export async function addOrderItemsAction(body: {
   ]);
 }
 
-export async function listWaiterHostAddonsAction(body: {
-  userId: string;
-  companyId: string;
+export async function listWaiterHostAddonsAction(body: LegacyIdentity & {
   hostProductId: string;
 }) {
-  return DiningRequest.listHostAddons(ctx(body), body.hostProductId);
+  return DiningRequest.listHostAddons(await requireWaiterAuth(), body.hostProductId);
 }
 
-export async function addOrderLineAddonAction(body: {
-  userId: string;
-  companyId: string;
+export async function addOrderLineAddonAction(body: LegacyIdentity & {
   orderId: string;
   lineId: string;
   addonVariantId: string;
   quantity?: number;
 }) {
-  return DiningRequest.addLineAddon(ctx(body), body.orderId, body.lineId, {
+  return DiningRequest.addLineAddon(await requireWaiterAuth(), body.orderId, body.lineId, {
     addonVariantId: body.addonVariantId,
     quantity: body.quantity ?? 1,
   });
 }
 
-export async function sendOrderToKitchenAction(body: {
-  userId: string;
-  companyId: string;
+export async function sendOrderToKitchenAction(body: LegacyIdentity & {
   orderId: string;
   lineIds?: string[];
 }) {
-  return DiningRequest.sendToKitchen(ctx(body), body.orderId, body.lineIds);
+  return DiningRequest.sendToKitchen(await requireWaiterAuth(), body.orderId, body.lineIds);
 }
 
-export async function requestOrderBillAction(body: {
-  userId: string;
-  companyId: string;
+export async function requestOrderBillAction(body: LegacyIdentity & {
   orderId: string;
 }) {
-  return DiningRequest.requestBill(ctx(body), body.orderId);
+  return DiningRequest.requestBill(await requireWaiterAuth(), body.orderId);
 }
 
-export async function reopenOrderAction(body: {
-  userId: string;
-  companyId: string;
+export async function reopenOrderAction(body: LegacyIdentity & {
   orderId: string;
 }) {
-  return DiningRequest.reopenOrder(ctx(body), body.orderId);
+  return DiningRequest.reopenOrder(await requireWaiterAuth(), body.orderId);
 }
 
-export async function getCompanyTipSettingsAction(body: {
-  userId: string;
-  companyId: string;
-}) {
-  const data = await DiningRequest.getTipSettings(ctx(body));
+export async function getCompanyTipSettingsAction(body: LegacyIdentity = {}) {
+  const data = await DiningRequest.getTipSettings(await requireWaiterAuth());
   return data.tipSettings ?? null;
 }
 
-export async function cancelOrderItemAction(body: {
-  userId: string;
-  companyId: string;
+export async function cancelOrderItemAction(body: LegacyIdentity & {
   orderId: string;
   lineId: string;
 }) {
-  return DiningRequest.cancelOrderItem(ctx(body), body.orderId, body.lineId);
+  return DiningRequest.cancelOrderItem(await requireWaiterAuth(), body.orderId, body.lineId);
 }
 
-export async function updateOrderLineNotesAction(body: {
-  userId: string;
-  companyId: string;
+export async function updateOrderLineNotesAction(body: LegacyIdentity & {
   orderId: string;
   lineId: string;
   notes: string | null;
 }) {
   return DiningRequest.updateOrderLineNotes(
-    ctx(body),
+    await requireWaiterAuth(),
     body.orderId,
     body.lineId,
     body.notes,
   );
 }
 
-export async function markFireDeliveredAction(body: {
-  userId: string;
-  companyId: string;
+export async function markFireDeliveredAction(body: LegacyIdentity & {
   orderId: string;
   fireId: string;
 }) {
   return DiningRequest.markFireDelivered(
-    ctx(body),
+    await requireWaiterAuth(),
     body.orderId,
     body.fireId,
   );
 }
 
-export async function listKitchenProductionUnitsAction(body: {
-  userId: string;
-  companyId: string;
+export async function listKitchenProductionUnitsAction(body: LegacyIdentity & {
   branchId?: string;
 }) {
-  const rows = await DiningRequest.listProductionUnits(ctx(body), {
+  const rows = await DiningRequest.listProductionUnits(await requireWaiterAuth(), {
     branchId: body.branchId,
     purpose: "KITCHEN",
   });

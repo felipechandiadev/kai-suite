@@ -59,10 +59,33 @@ export function getClientBackendApiBase(): string {
   return base;
 }
 
+/** Credencial server-side: JWT firmado (cookie httpOnly) + empresa del token. */
 export type DiningAuthContext = {
-  userId: string;
+  accessToken: string;
   companyId: string;
 };
+
+export type DiningTokens = {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  refreshExpiresIn: number;
+};
+
+function readTokens(data: Record<string, unknown>): DiningTokens {
+  const accessToken = typeof data.accessToken === "string" ? data.accessToken : "";
+  const refreshToken = typeof data.refreshToken === "string" ? data.refreshToken : "";
+  if (!accessToken || !refreshToken) {
+    throw new Error("El servidor no emitió un token de sesión");
+  }
+  return {
+    accessToken,
+    refreshToken,
+    expiresIn: typeof data.expiresIn === "number" ? data.expiresIn : 900,
+    refreshExpiresIn:
+      typeof data.refreshExpiresIn === "number" ? data.refreshExpiresIn : 7 * 86400,
+  };
+}
 
 function apiUrl(path: string): string {
   return `${getServerBackendApiBase()}/api${path.startsWith("/") ? path : `/${path}`}`;
@@ -88,7 +111,7 @@ function parseApiError(text: string, status: number): string {
 export function authHeaders(ctx: DiningAuthContext): Record<string, string> {
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${ctx.userId}`,
+    Authorization: `Bearer ${ctx.accessToken}`,
     "X-Active-Company-Id": ctx.companyId,
   };
 }
@@ -178,6 +201,7 @@ export async function diningLogin(body: {
   userName: string;
   email: string | null;
   displayName: string;
+  tokens: DiningTokens;
 }> {
   const res = await fetch(apiUrl("/auth/login"), {
     method: "POST",
@@ -210,6 +234,7 @@ export async function diningLogin(body: {
   };
   const user = data.user;
   if (!user?.id) throw new Error("Credenciales inválidas");
+  const tokens = readTokens(data as Record<string, unknown>);
 
   const userCompanyId = user.companyId ?? null;
   const role = user.rol ?? null;
@@ -242,5 +267,20 @@ export async function diningLogin(body: {
     displayName:
       [user.person?.firstName, user.person?.lastName].filter(Boolean).join(" ") ||
       user.userName,
+    tokens,
   };
+}
+
+export async function diningRefresh(refreshToken: string): Promise<DiningTokens> {
+  const res = await fetch(apiUrl("/auth/refresh"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Kai-App": "kai-waiter" },
+    body: JSON.stringify({ refreshToken }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(parseApiError(text, res.status));
+  }
+  return readTokens((await res.json()) as Record<string, unknown>);
 }

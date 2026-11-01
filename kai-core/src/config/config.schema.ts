@@ -61,6 +61,10 @@ export const configSchema = Joi.object({
   JWT_EXPIRES_IN: Joi.string().default('24h'),
   JWT_REFRESH_SECRET: Joi.string().required(),
   JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
+  // Caducidad corta del access token firmado (TenantGuard / kai-waiter)
+  JWT_ACCESS_EXPIRES_IN: Joi.string().default('15m'),
+  // Acepta `Bearer <userId>` antiguo (migración). Sin definir: false en production, true en otros.
+  AUTH_ALLOW_LEGACY_UUID_BEARER: Joi.string().valid('true', 'false', '1', '0').optional(),
 
   // Fiscal / SII (AES-256-GCM key, 32 bytes base64)
   FISCAL_ENCRYPTION_KEY: Joi.string().optional(),

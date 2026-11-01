@@ -8,6 +8,7 @@ import {
   HttpStatus,
   BadRequestException,
   ForbiddenException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -29,13 +30,15 @@ import {
   ChangePasswordResponseDto,
 } from '../application/dto/change-password.dto';
 import { Company } from '@modules/companies/domain/company.entity';
-import { UserRole } from '@modules/users/domain/user.entity';
+import { User, UserRole } from '@modules/users/domain/user.entity';
+import { AuthTokenService } from '@common/auth/auth-token.service';
 import { MembershipsService } from '@modules/users/application/memberships.service';
 import {
   AdminOnly,
   AllowAdminWithoutCompany,
   CurrentUser,
   CurrentUserPayload,
+  OptionalCurrentCompany,
   SkipTenant,
 } from '@common/tenant';
 
@@ -47,6 +50,9 @@ export class AuthController {
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
     private readonly membershipsService: MembershipsService,
+    private readonly tokens: AuthTokenService,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   @SkipTenant()
@@ -97,10 +103,57 @@ export class AuthController {
     @Headers('x-active-company-id') companyHint?: string,
     @Headers('x-kai-app') kaiApp?: string,
   ): Promise<LoginResponseDto> {
-    return this.authService.login(loginDto, {
+    const result = await this.authService.login(loginDto, {
       companyHint: companyHint && isUUID(companyHint) ? companyHint : null,
       kaiApp: kaiApp?.trim() || null,
     });
+    if (!result?.success || !result.user?.id) return result;
+    return {
+      ...result,
+      ...this.tokens.issue(result.user.id, result.activeCompanyId ?? null),
+    };
+  }
+
+  /**
+   * Rota el par access/refresh. El refresh token va firmado con JWT_REFRESH_SECRET.
+   */
+  @SkipTenant()
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Renovar access token con refresh token' })
+  async refresh(@Body() body: { refreshToken?: string }) {
+    const raw = typeof body?.refreshToken === 'string' ? body.refreshToken.trim() : '';
+    if (!raw) throw new UnauthorizedException('Refresh token ausente');
+    let claims;
+    try {
+      claims = this.tokens.verifyRefresh(raw);
+    } catch {
+      throw new UnauthorizedException('Refresh token inválido o expirado');
+    }
+    const user = await this.userRepository.findOne({
+      where: { id: claims.sub },
+      select: { id: true },
+    });
+    if (!user) throw new UnauthorizedException('Sesión inválida');
+    return { success: true, ...this.tokens.issue(user.id, claims.cid) };
+  }
+
+  /**
+   * Token de corta vida (typ=ws, JWT_WS_EXPIRES_IN, def. 60s) para el handshake de
+   * WebSocket. Pensado para PWAs que guardan el access token en cookie httpOnly:
+   * su servidor lo pide con la cookie y entrega solo este token al navegador.
+   * No sirve para HTTP (TenantGuard exige typ=access).
+   */
+  @Post('socket-token')
+  @HttpCode(HttpStatus.OK)
+  @AllowAdminWithoutCompany()
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Token de corta vida para el handshake WebSocket' })
+  socketToken(
+    @CurrentUser() user: CurrentUserPayload,
+    @OptionalCurrentCompany() companyId: string | null,
+  ) {
+    return { success: true, ...this.tokens.issueSocket(user.id, companyId ?? null) };
   }
 
   @SkipTenant()

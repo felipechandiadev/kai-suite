@@ -8,12 +8,15 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import type { KdsConnectionStatus } from "../realtime/kds-connection-state";
 
 type QueueRefreshApi = {
   refresh: () => Promise<void>;
   loading: boolean;
   /** Socket cocina suscrito (null = cola no montada). */
   connected: boolean | null;
+  /** Estado visible del socket (conectado / reconectando / sin conexión). */
+  connectionStatus: KdsConnectionStatus;
 };
 
 type KdsQueueRefreshContextValue = {
@@ -21,6 +24,8 @@ type KdsQueueRefreshContextValue = {
   refreshQueue: (() => Promise<void>) | null;
   /** null si no hay panel de cola activo. */
   queueConnected: boolean | null;
+  /** null si no hay panel de cola activo. */
+  queueConnectionStatus: KdsConnectionStatus | null;
   setQueueRefreshApi: (api: QueueRefreshApi | null) => void;
 };
 
@@ -39,6 +44,7 @@ export function KdsQueueRefreshProvider({ children }: { children: ReactNode }) {
       queueRefreshing: api?.loading ?? false,
       refreshQueue: api?.refresh ?? null,
       queueConnected: api?.connected ?? null,
+      queueConnectionStatus: api?.connectionStatus ?? null,
       setQueueRefreshApi,
     }),
     [api, setQueueRefreshApi],

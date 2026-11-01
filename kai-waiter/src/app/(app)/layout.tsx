@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { WaiterTopBar } from "@/shared/components/WaiterTopBar";
-import { loadWaiterSession, type WaiterSession } from "@/lib/app-session";
+import {
+  clearWaiterSession,
+  loadWaiterSession,
+  type WaiterSession,
+} from "@/lib/app-session";
+import { hasWaiterAuthAction } from "@/features/dining-waiter/actions/waiter.action";
 
 export default function WaiterAppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -11,13 +16,29 @@ export default function WaiterAppLayout({ children }: { children: React.ReactNod
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     const current = loadWaiterSession();
-    setHydrated(true);
     if (!current) {
+      setHydrated(true);
       router.replace("/login");
       return;
     }
-    setSession(current);
+    // localStorage es solo presentación: la sesión real es la cookie httpOnly firmada.
+    void hasWaiterAuthAction()
+      .catch(() => false)
+      .then((ok) => {
+        if (cancelled) return;
+        setHydrated(true);
+        if (!ok) {
+          clearWaiterSession();
+          router.replace("/login");
+          return;
+        }
+        setSession(current);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   if (!hydrated || !session) {

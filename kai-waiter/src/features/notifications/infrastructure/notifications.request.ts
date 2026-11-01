@@ -6,66 +6,36 @@ import type {
   WaiterInboxItem,
   WaiterNotificationRow,
 } from "../types/notification.types";
-import { getClientBackendApiBase } from "@/lib/backend-api";
+import {
+  fetchInboxRawAction,
+  fetchUnreadCountAction,
+  markNotificationReadAction,
+} from "../actions/notifications.action";
 
-function clientBackendBase(): string {
-  try {
-    return getClientBackendApiBase();
-  } catch {
-    return "";
-  }
-}
-
-function authHeaders(
-  userId: string,
-  companyId: string,
-): Record<string, string> {
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${userId}`,
-    "X-Active-Company-Id": companyId,
-  };
-}
+/*
+ * `userId`/`companyId` se mantienen en la firma por compatibilidad con la UI,
+ * pero se ignoran: la identidad la pone el servidor desde la cookie httpOnly.
+ */
 
 export async function fetchWaiterUnreadCount(
-  userId: string,
-  companyId: string,
+  _userId?: string,
+  _companyId?: string,
 ): Promise<number> {
-  const base = clientBackendBase();
-  if (!base) return 0;
   try {
-    const res = await fetch(
-      `${base}/api/notifications/unread-count?domain=SALES`,
-      { headers: authHeaders(userId, companyId) },
-    );
-    if (!res.ok) return 0;
-    const json = (await res.json()) as { count?: number };
-    return typeof json.count === "number" ? json.count : 0;
+    return await fetchUnreadCountAction();
   } catch {
     return 0;
   }
 }
 
 export async function fetchWaiterDiningInbox(
-  userId: string,
-  companyId: string,
+  _userId?: string,
+  _companyId?: string,
   limit = 30,
 ): Promise<WaiterNotificationRow[]> {
-  const base = clientBackendBase();
-  if (!base) return [];
-  const search = new URLSearchParams({
-    domain: "SALES",
-    status: "UNREAD",
-    limit: String(limit),
-  });
   try {
-    const res = await fetch(`${base}/api/notifications/inbox?${search}`, {
-      headers: authHeaders(userId, companyId),
-    });
-    if (!res.ok) return [];
-    const json = (await res.json()) as { items?: unknown[] };
-    if (!Array.isArray(json.items)) return [];
-    return json.items
+    const items = await fetchInboxRawAction(limit);
+    return items
       .map((row) => normalizeWaiterInboxItem(row))
       .filter((x): x is WaiterInboxItem => x != null)
       .map((item) => waiterInboxItemToRow(item))
@@ -76,21 +46,13 @@ export async function fetchWaiterDiningInbox(
 }
 
 export async function markWaiterNotificationRead(
-  userId: string,
-  companyId: string,
+  _userId: string | undefined,
+  _companyId: string | undefined,
   deliveryId: string,
 ): Promise<boolean> {
-  const base = clientBackendBase();
-  if (!base || !deliveryId) return false;
+  if (!deliveryId) return false;
   try {
-    const res = await fetch(
-      `${base}/api/notifications/deliveries/${encodeURIComponent(deliveryId)}/read`,
-      {
-        method: "PATCH",
-        headers: authHeaders(userId, companyId),
-      },
-    );
-    return res.ok;
+    return await markNotificationReadAction(deliveryId);
   } catch {
     return false;
   }

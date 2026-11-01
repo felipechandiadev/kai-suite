@@ -8,6 +8,7 @@ import { UserCompanyPerson } from '@modules/users/domain/user-company-person.ent
 import { Company } from '@modules/companies/domain/company.entity';
 import { MembershipsService } from '@modules/users/application/memberships.service';
 import { TenantGuard } from './tenant.guard';
+import { AuthTokenService } from '@common/auth/auth-token.service';
 import { TenantInterceptor } from './tenant.interceptor';
 
 @Global()
@@ -23,6 +24,7 @@ import { TenantInterceptor } from './tenant.interceptor';
   ],
   providers: [
     MembershipsService,
+    AuthTokenService,
     TenantGuard,
     TenantInterceptor,
     {
@@ -34,6 +36,6 @@ import { TenantInterceptor } from './tenant.interceptor';
       useClass: TenantInterceptor,
     },
   ],
-  exports: [TenantGuard, TenantInterceptor, MembershipsService],
+  exports: [AuthTokenService, TenantGuard, TenantInterceptor, MembershipsService],
 })
 export class TenantModule {}
