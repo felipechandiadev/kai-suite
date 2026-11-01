@@ -20,7 +20,9 @@ export function kdsItemGroupKey(line: {
     .map((a) => `${a.name.trim()}×${Number(a.quantity) || 0}`)
     .sort()
     .join("|");
-  return `${line.productVariantId}|${notes}|${addonKey}`;
+  return addonKey
+    ? `${line.productVariantId}|${notes}|${addonKey}`
+    : `${line.productVariantId}|${notes}`;
 }
 
 /** Sanitize group key for use in data-test-id attributes. */
